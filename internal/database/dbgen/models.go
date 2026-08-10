@@ -21,12 +21,53 @@ type AuditEvent struct {
 	OccurredAt pgtype.Timestamptz `json:"occurred_at"`
 }
 
+type AutoRenewSetting struct {
+	UserID        pgtype.UUID        `json:"user_id"`
+	Enabled       bool               `json:"enabled"`
+	PlanVersionID pgtype.UUID        `json:"plan_version_id"`
+	Provider      pgtype.Text        `json:"provider"`
+	Currency      pgtype.Text        `json:"currency"`
+	CancelledAt   pgtype.Timestamptz `json:"cancelled_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type BotCheckoutSession struct {
+	ID             pgtype.UUID        `json:"id"`
+	UserID         pgtype.UUID        `json:"user_id"`
+	PlanVersionID  pgtype.UUID        `json:"plan_version_id"`
+	Operation      string             `json:"operation"`
+	Currency       string             `json:"currency"`
+	Provider       pgtype.Text        `json:"provider"`
+	PromoCode      pgtype.Text        `json:"promo_code"`
+	PromoRejection pgtype.Text        `json:"promo_rejection"`
+	ApplyWallet    bool               `json:"apply_wallet"`
+	OrderID        pgtype.UUID        `json:"order_id"`
+	IdempotencyKey string             `json:"idempotency_key"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
+}
+
+type BotDeliveryState struct {
+	UserID              pgtype.UUID        `json:"user_id"`
+	Status              string             `json:"status"`
+	LastErrorCode       pgtype.Text        `json:"last_error_code"`
+	ConsecutiveFailures int32              `json:"consecutive_failures"`
+	RetryAfter          pgtype.Timestamptz `json:"retry_after"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
 type BotPreference struct {
 	UserID               pgtype.UUID        `json:"user_id"`
 	Locale               string             `json:"locale"`
 	ExpiryNotifications  bool               `json:"expiry_notifications"`
 	TrafficNotifications bool               `json:"traffic_notifications"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	RenewalNotifications bool               `json:"renewal_notifications"`
+	NewsNotifications    bool               `json:"news_notifications"`
+	MarketingEnabled     bool               `json:"marketing_enabled"`
+	QuietHoursStart      pgtype.Int2        `json:"quiet_hours_start"`
+	QuietHoursEnd        pgtype.Int2        `json:"quiet_hours_end"`
 }
 
 type BotSession struct {
@@ -34,6 +75,7 @@ type BotSession struct {
 	State      string             `json:"state"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
 	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
+	Context    []byte             `json:"context"`
 }
 
 type ConsentRecord struct {
@@ -198,15 +240,41 @@ type ManualPaymentApproval struct {
 	OccurredAt      pgtype.Timestamptz `json:"occurred_at"`
 }
 
+type NewsPost struct {
+	ID          pgtype.UUID        `json:"id"`
+	Slug        string             `json:"slug"`
+	Category    string             `json:"category"`
+	Class       string             `json:"class"`
+	PublishedAt pgtype.Timestamptz `json:"published_at"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type NewsPostLocalization struct {
+	PostID pgtype.UUID `json:"post_id"`
+	Locale string      `json:"locale"`
+	Title  string      `json:"title"`
+	Body   string      `json:"body"`
+}
+
+type NewsRead struct {
+	UserID pgtype.UUID        `json:"user_id"`
+	PostID pgtype.UUID        `json:"post_id"`
+	ReadAt pgtype.Timestamptz `json:"read_at"`
+}
+
 type NotificationDelivery struct {
-	ID           pgtype.UUID        `json:"id"`
-	UserID       pgtype.UUID        `json:"user_id"`
-	Kind         string             `json:"kind"`
-	DedupeKey    string             `json:"dedupe_key"`
-	Status       string             `json:"status"`
-	ScheduledAt  pgtype.Timestamptz `json:"scheduled_at"`
-	SentAt       pgtype.Timestamptz `json:"sent_at"`
-	FailureCount int32              `json:"failure_count"`
+	ID            pgtype.UUID        `json:"id"`
+	UserID        pgtype.UUID        `json:"user_id"`
+	Kind          string             `json:"kind"`
+	DedupeKey     string             `json:"dedupe_key"`
+	Status        string             `json:"status"`
+	ScheduledAt   pgtype.Timestamptz `json:"scheduled_at"`
+	SentAt        pgtype.Timestamptz `json:"sent_at"`
+	FailureCount  int32              `json:"failure_count"`
+	Class         string             `json:"class"`
+	ErrorCode     pgtype.Text        `json:"error_code"`
+	DeferredUntil pgtype.Timestamptz `json:"deferred_until"`
 }
 
 type Order struct {
@@ -321,6 +389,8 @@ type PlanVersion struct {
 	RecurringCapable      bool               `json:"recurring_capable"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	RetiredAt             pgtype.Timestamptz `json:"retired_at"`
+	GracePeriodSeconds    int64              `json:"grace_period_seconds"`
+	TrialEligibility      string             `json:"trial_eligibility"`
 }
 
 type PromoCode struct {
@@ -378,16 +448,45 @@ type ProviderWebhookEvent struct {
 }
 
 type ReferralAttribution struct {
-	ReferredUserID pgtype.UUID        `json:"referred_user_id"`
-	ReferrerUserID pgtype.UUID        `json:"referrer_user_id"`
-	Code           string             `json:"code"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	ReferredUserID    pgtype.UUID        `json:"referred_user_id"`
+	ReferrerUserID    pgtype.UUID        `json:"referrer_user_id"`
+	Code              string             `json:"code"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	QualifiedAt       pgtype.Timestamptz `json:"qualified_at"`
+	QualifyingOrderID pgtype.UUID        `json:"qualifying_order_id"`
+	RejectedReason    pgtype.Text        `json:"rejected_reason"`
 }
 
 type ReferralCode struct {
 	UserID    pgtype.UUID        `json:"user_id"`
 	Code      string             `json:"code"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type ReferralProgram struct {
+	Singleton               bool               `json:"singleton"`
+	Enabled                 bool               `json:"enabled"`
+	Currency                string             `json:"currency"`
+	InviterRewardMinor      int64              `json:"inviter_reward_minor"`
+	InviteeRewardMinor      int64              `json:"invitee_reward_minor"`
+	Qualification           string             `json:"qualification"`
+	InviterRewardCap        pgtype.Int4        `json:"inviter_reward_cap"`
+	AttributionValidityDays int32              `json:"attribution_validity_days"`
+	RewardExpiryDays        pgtype.Int4        `json:"reward_expiry_days"`
+	TermsUrl                pgtype.Text        `json:"terms_url"`
+	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ReferralReward struct {
+	ID                  pgtype.UUID        `json:"id"`
+	ReferredUserID      pgtype.UUID        `json:"referred_user_id"`
+	BeneficiaryUserID   pgtype.UUID        `json:"beneficiary_user_id"`
+	Role                string             `json:"role"`
+	OrderID             pgtype.UUID        `json:"order_id"`
+	AmountMinor         int64              `json:"amount_minor"`
+	Currency            string             `json:"currency"`
+	LedgerTransactionID pgtype.UUID        `json:"ledger_transaction_id"`
+	GrantedAt           pgtype.Timestamptz `json:"granted_at"`
 }
 
 type Refund struct {
@@ -413,6 +512,18 @@ type RemnawaveUser struct {
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 }
 
+type SupportAttachment struct {
+	ID             pgtype.UUID        `json:"id"`
+	MessageID      int64              `json:"message_id"`
+	Kind           string             `json:"kind"`
+	TelegramFileID string             `json:"telegram_file_id"`
+	FileName       pgtype.Text        `json:"file_name"`
+	MimeType       pgtype.Text        `json:"mime_type"`
+	SizeBytes      int64              `json:"size_bytes"`
+	RetainUntil    pgtype.Timestamptz `json:"retain_until"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
 type SupportMessage struct {
 	ID                int64              `json:"id"`
 	TicketID          pgtype.UUID        `json:"ticket_id"`
@@ -420,14 +531,22 @@ type SupportMessage struct {
 	Body              string             `json:"body"`
 	TelegramMessageID pgtype.Int8        `json:"telegram_message_id"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	DedupeKey         pgtype.Text        `json:"dedupe_key"`
+	DeliveredAt       pgtype.Timestamptz `json:"delivered_at"`
+	ReadAt            pgtype.Timestamptz `json:"read_at"`
 }
 
 type SupportTicket struct {
-	ID        pgtype.UUID        `json:"id"`
-	UserID    pgtype.UUID        `json:"user_id"`
-	Status    string             `json:"status"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	ID                  pgtype.UUID        `json:"id"`
+	UserID              pgtype.UUID        `json:"user_id"`
+	Status              string             `json:"status"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	Subject             string             `json:"subject"`
+	Priority            string             `json:"priority"`
+	LastMessageAt       pgtype.Timestamptz `json:"last_message_at"`
+	CustomerUnreadCount int32              `json:"customer_unread_count"`
+	ClosedAt            pgtype.Timestamptz `json:"closed_at"`
 }
 
 type TelemetryEvent struct {
@@ -448,6 +567,13 @@ type TelemetryInstallation struct {
 	Singleton      bool               `json:"singleton"`
 	InstallationID pgtype.UUID        `json:"installation_id"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type TrialClaim struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	PlanID    pgtype.UUID        `json:"plan_id"`
+	OrderID   pgtype.UUID        `json:"order_id"`
+	ClaimedAt pgtype.Timestamptz `json:"claimed_at"`
 }
 
 type User struct {
