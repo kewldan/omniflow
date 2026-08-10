@@ -1,0 +1,545 @@
+<!-- markdownlint-disable MD013 -->
+
+# 🗺️ Omniflow roadmap
+
+This document is the delivery contract for Omniflow. Versions are ordered by product dependency, not by estimated date:
+
+```text
+Telegram Bot + backend → Admin web panel → Customer web panel → 1.0 GA
+```
+
+Work may prepare shared foundations early, but a later product surface must not displace unfinished requirements from the current phase. A version is complete only when its listed behavior, migrations, documentation, security controls, and release gates are complete.
+
+## Status legend
+
+- ✅ Released or implemented on `main`
+- 🚧 Current development phase
+- ⏳ Planned and blocked by an earlier phase
+- 🔭 Post-1.0 or optional
+
+## Product boundaries
+
+- Remnawave is authoritative for VPN users, traffic, devices, subscription links, nodes, hosts, squads, and Xray state.
+- Omniflow is authoritative for customer identity, catalog, orders, payments, refunds, wallet, fulfillment intent, support, referrals, loyalty, marketing consent, RBAC, and audit history.
+- Omniflow uses only the supported Remnawave API. It never writes to Remnawave storage or manages Xray directly.
+- PostgreSQL is the only durable application store. Valkey is limited to cache, rate limits, locks, and disposable state.
+- The customer and admin panels remain one Next.js application and one shared shadcn component system.
+
+---
+
+## ✅ v0.1 — Platform foundation
+
+Goal: establish a safe, contributor-friendly modular monolith.
+
+### Backend and data
+
+- [x] Go modular monolith with independent `api`, `bot`, and `worker` processes
+- [x] PostgreSQL 18, pgx, sqlc, Atlas migrations, and migration checksums
+- [x] Valkey 9 boundary for ephemeral data
+- [x] River durable-job foundation and transactional outbox
+- [x] OpenAPI 3.0.3 source contract and generated Go server types
+- [x] Structured `slog`, OpenTelemetry, Prometheus, health endpoints, and request IDs
+- [x] Optional, default-enabled anonymous installation telemetry with complete opt-out
+
+### Frontend and tooling
+
+- [x] Bun workspaces and committed Bun lockfile
+- [x] Next.js 16.3, React 19, and TypeScript 7
+- [x] SWR, Zustand, Tailwind CSS v4, shadcn/ui, React Hook Form, and Zod
+- [x] Orval-generated Fetch/SWR clients and Zod schemas
+- [x] Biome as the only frontend formatter and linter
+- [x] One web application containing customer routes and `/admin`
+
+### Delivery
+
+- [x] Docker Compose development and single-server deployment foundation
+- [x] Optional Caddy example while allowing Caddy, Traefik, or another reverse proxy
+- [x] GitHub Actions, dependency automation, security scans, and Release Please workflow
+- [x] Mintlify documentation under `docs/`
+- [x] Apache License 2.0, contribution guide, security policy, and agent instructions
+
+---
+
+## ✅ v0.2 — Telegram self-service core
+
+Goal: provide a useful customer bot before commerce is introduced.
+
+### Account and subscription
+
+- [x] Exact Telegram-ID lookup through Remnawave
+- [x] Concurrency-safe identity linking without insecure self-linking
+- [x] Private-chat-only operation and protected account messages
+- [x] Subscription status, expiry, remaining days, and traffic progress
+- [x] Protected subscription open/copy actions and connection instructions
+- [x] Subscription-link rotation with explicit confirmation
+
+### Devices and safety
+
+- [x] Privacy-safe device names and last-seen dates
+- [x] Per-device removal and remove-all operations
+- [x] Confirmation and recoverable error states for destructive actions
+- [x] No HWID, IP address, token, or subscription secret in displayed text, callback data, or logs
+
+### Experience
+
+- [x] Russian and English interfaces with automatic locale selection
+- [x] Persisted language override and notification preferences
+- [x] Single-message inline navigation, loading, empty, retry, and back states
+- [x] `/start`, `/menu`, `/settings`, `/support`, and `/cancel`
+- [x] Persisted support request capture
+- [x] Referral deep links, immutable attribution, and invited-user count
+- [x] Idempotent expiry alerts at 7, 3, 1, and 0 days
+- [x] Idempotent traffic alerts at 80% and 100%
+
+---
+
+## 🚧 v0.3 — Commerce and customer-domain backend
+
+Goal: build the complete financial and entitlement model before exposing purchases.
+
+### Customer and identity
+
+- [ ] Canonical customer profile independent of Telegram and Remnawave identifiers
+- [ ] Verified identity methods and safe account-link/unlink lifecycle
+- [ ] Contact-channel preferences, locale, timezone, and consent records
+- [ ] Customer suspension, deletion, anonymization, and retention workflows
+- [ ] Conflict-safe import of existing Remnawave customers
+- [ ] Import preview, validation report, resumability, and rollback-safe failure handling
+
+### Catalog and pricing
+
+- [ ] Plans with stable codes, localized names/descriptions, visibility, and sort order
+- [ ] Plan versions so historical orders never change when catalog pricing changes
+- [ ] Billing periods, duration, traffic allowance, device limit, and assigned Remnawave squads
+- [ ] Integer minor-unit prices and explicit ISO currency
+- [ ] Trials, one-time plans, recurring-capable plans, and free/manual plans
+- [ ] Promotions with validity windows, redemption limits, customer eligibility, and plan scope
+- [ ] Promo codes with normalized lookup, brute-force rate limiting, and atomic redemption
+- [ ] Upgrade, downgrade, extension, and cancellation policies without implicit proration
+
+### Orders, payments, and refunds
+
+- [ ] Draft, pending, paid, fulfilled, cancelled, expired, partially refunded, and refunded order states
+- [ ] Idempotency keys for every order and payment mutation
+- [ ] Provider-neutral payment intent and provider capability contract
+- [ ] Verified, replay-safe webhook intake with raw-event retention and deduplication
+- [ ] Payment status polling/reconciliation when a provider webhook is late or missing
+- [ ] Full and partial refund records without rewriting payment history
+- [ ] Receipt/fiscalization metadata boundary where required by a provider
+- [ ] Currency mismatch, duplicate payment, late payment, overpayment, and underpayment handling
+- [ ] Telegram Stars adapter
+- [ ] CryptoBot adapter
+- [ ] YooKassa adapter
+- [ ] Manual/offline payment workflow with operator approval and audit trail
+
+### Wallet and ledger
+
+- [ ] Append-only double-entry-style customer ledger using integer minor units
+- [ ] Credit, debit, payment, refund, referral reward, correction, and expiration entry types
+- [ ] Deterministic balance calculation and per-currency isolation
+- [ ] Wallet-first payment application with an explicit remaining external amount
+- [ ] Idempotent ledger references and compensating entries instead of updates/deletes
+- [ ] Operator adjustments requiring reason, permission, and audit event
+
+### Entitlements and Remnawave fulfillment
+
+- [ ] Entitlement records separated from payment and Remnawave observed state
+- [ ] Idempotent create, extend, enable, disable, reset-traffic, limit, and squad operations
+- [ ] Paid order commits a durable fulfillment job in the same database transaction
+- [ ] Retry with backoff when Remnawave is unavailable without losing successful payment state
+- [ ] Scheduled drift reconciliation and operator-visible mismatch reasons
+- [ ] Expiry, traffic, device-limit, and status synchronization
+- [ ] Safe handling of externally edited or deleted Remnawave users
+- [ ] Fulfillment history with request correlation and no secret payload storage
+
+### v0.3 release gates
+
+- [ ] Failure-path and idempotency tests for orders, webhooks, wallet, and fulfillment
+- [ ] Atlas migration review and sqlc regeneration
+- [ ] OpenAPI coverage for all domain operations
+- [ ] No checkout UI enabled before at least one real provider passes sandbox integration tests
+- [ ] Financial invariants documented and tested
+
+---
+
+## ⏳ v0.4 — Complete Telegram commerce and lifecycle
+
+Goal: make the bot a complete customer product using the v0.3 backend.
+
+### Discovery and purchase
+
+- [ ] Localized plan catalog with clear period, traffic, device, and price comparison
+- [ ] Plan details, eligibility, promotion, and terms confirmation
+- [ ] New subscription purchase and existing subscription renewal
+- [ ] Upgrade/downgrade choices that reflect the configured plan policy
+- [ ] Promo-code entry, validation, rejection reason, and removal
+- [ ] Wallet balance display and wallet-credit application
+- [ ] Provider selection based only on enabled and compatible adapters
+- [ ] Telegram Stars invoice flow
+- [ ] CryptoBot payment flow
+- [ ] YooKassa hosted checkout flow
+- [ ] Pending-payment screen with refresh and expiry
+- [ ] Success, failure, cancellation, timeout, duplicate, and delayed-webhook states
+- [ ] Order history, payment status, receipt link, and refund status
+
+### Subscription lifecycle
+
+- [ ] Trial activation with abuse controls
+- [ ] Renewal reminders with direct, idempotent checkout actions
+- [ ] Expired-subscription recovery
+- [ ] Grace-period and limited-state explanations
+- [ ] Auto-renew status and cancellation when supported by the selected provider
+- [ ] Clear post-payment provisioning progress and retry-safe status refresh
+- [ ] Connection instructions by platform and supported client
+- [ ] App deep links with manual-copy fallback
+
+### Support, referrals, and communication
+
+- [ ] Support ticket list, status, conversation history, replies, and close/reopen actions
+- [ ] Operator reply delivery with deduplication and unread state
+- [ ] Attachment support with size/type restrictions and retention policy
+- [ ] Referral terms, reward progress, qualified referral count, and ledger history
+- [ ] Configurable inviter/invitee rewards granted exactly once after qualification
+- [ ] News and service-announcement inbox
+- [ ] Transactional versus marketing message classification
+- [ ] Explicit marketing consent, unsubscribe, quiet hours, and frequency caps
+- [ ] Maintenance, incident, payment, fulfillment, renewal, and support notifications
+
+### Abuse and reliability
+
+- [ ] Per-user and per-action Valkey rate limits
+- [ ] Callback replay protection for payment and destructive actions
+- [ ] Telegram API retry, flood-wait handling, and delivery failure classification
+- [ ] Bot-blocked/user-deactivated handling without endless retries
+- [ ] Correlation IDs across Telegram update, order, payment, job, and Remnawave request
+- [ ] Complete Russian and English copy for every success, empty, pending, and failure state
+
+---
+
+## ⏳ v0.5 — Bot and backend production release
+
+Goal: declare the Telegram-first product production-ready before admin UI development becomes the primary focus.
+
+### Runtime and operations
+
+- [ ] Secret-token-validated Telegram webhook mode
+- [ ] Long polling retained as an explicit development/fallback mode
+- [ ] Provider webhook endpoints with signature verification and body-size limits
+- [ ] `/livez`, `/readyz`, dependency health, and graceful shutdown
+- [ ] Prometheus metrics for API, bot, jobs, webhooks, payments, and Remnawave calls
+- [ ] OpenTelemetry traces across HTTP, Telegram, River, PostgreSQL, and providers
+- [ ] Structured redaction tests for tokens, links, payment payloads, and customer content
+- [ ] Job retry/dead-letter visibility through operational APIs
+- [ ] PostgreSQL backup, restore, upgrade, and rollback documentation
+- [ ] Data-retention and cleanup jobs for sessions, provider payloads, attachments, and telemetry
+
+### Quality and compatibility
+
+- [ ] Testcontainers coverage for PostgreSQL, migrations, repositories, outbox, and River jobs
+- [ ] Contract tests against supported Remnawave 3.2.x behavior
+- [ ] Provider sandbox integration suites and replay fixtures
+- [ ] Load tests for update bursts, campaigns, webhook retries, and reconciliation
+- [ ] Upgrade test from every supported Omniflow migration baseline
+- [ ] Docker images pinned by version with SBOM, provenance, and vulnerability scan
+- [ ] Compose deployment tested with Caddy and Traefik examples
+- [ ] Complete operator setup, troubleshooting, and disaster-recovery docs
+
+### Definition of bot/backend complete
+
+- [ ] A new operator can install Omniflow, import users, configure a plan and provider, and accept a real sandbox payment from Telegram
+- [ ] A successful payment is never lost when Remnawave is unavailable
+- [ ] Duplicate Telegram updates, callbacks, webhooks, and jobs cannot duplicate money or entitlement
+- [ ] Customers can purchase, connect, renew, manage devices, get support, and review history without a web panel
+- [ ] CI, security scanning, documentation validation, and release automation are green
+
+---
+
+## ⏳ v0.6 — Admin panel foundation and access control
+
+Goal: build the secure operator shell only after the Telegram/backend product is complete.
+
+### Authentication and sessions
+
+- [ ] Secure first-owner bootstrap with one-time setup token
+- [ ] Password hashing with current recommended parameters
+- [ ] TOTP two-factor authentication and recovery codes
+- [ ] Session rotation, inactivity timeout, absolute expiry, logout-all, and device/session list
+- [ ] Login rate limiting, lockout/backoff, and security notifications
+- [ ] CSRF protection, secure cookies, trusted proxy handling, and restrictive security headers
+- [ ] Password reset flow that does not disclose account existence
+- [ ] Optional OIDC configuration without making an external identity provider mandatory
+
+### RBAC and audit
+
+- [ ] Owner, administrator, support, finance, marketing, and read-only auditor roles
+- [ ] Granular permissions enforced in the Go API and Next.js server boundary
+- [ ] No authorization decisions based only on hidden routes or frontend state
+- [ ] Append-only audit events for authentication, configuration, customer, financial, and support actions
+- [ ] Actor, target, action, reason, timestamp, request ID, and safe before/after metadata
+- [ ] Audit search, filters, pagination, and export without secrets
+
+### Shared admin application shell
+
+- [ ] Responsive `/admin` layout using shared shadcn primitives
+- [ ] Accessible navigation, command search, breadcrumbs, and keyboard operation
+- [ ] Russian and English `next-intl` catalogs
+- [ ] Typed Orval API hooks, SWR cache policy, and standardized mutations
+- [ ] React Hook Form and Zod validation for all settings and mutations
+- [ ] Explicit skeleton, empty, partial, stale, permission-denied, and error states
+- [ ] Global notifications, confirmation dialogs, destructive-action safeguards, and unsaved-change protection
+- [ ] URL-backed filters, cursor pagination, sortable tables, and saved operator preferences
+
+---
+
+## ⏳ v0.7 — Admin operations and commerce
+
+Goal: let operators run day-to-day customer, subscription, and financial operations.
+
+### Overview and system health
+
+- [ ] Dashboard for active/expired customers, traffic, renewals, payment health, open support, and failed jobs
+- [ ] Metrics with explicit definitions, timezone, comparison period, and data freshness
+- [ ] Remnawave, PostgreSQL, Valkey, Telegram, worker, and provider health
+- [ ] Recent incidents, reconciliation drift, webhook failures, and required actions
+
+### Customers and subscriptions
+
+- [ ] Customer search by safe identifiers with status and segment filters
+- [ ] Customer profile with identities, subscription, devices, orders, wallet, referrals, support, consent, and audit timeline
+- [ ] Create/link/import customer with duplicate detection
+- [ ] Suspend, reactivate, anonymize, and delete according to retention rules
+- [ ] Create, extend, enable, disable, reset traffic, change limits, and change squads through Remnawave API
+- [ ] Device review and removal without exposing identifiers unnecessarily
+- [ ] Bulk import/export with preview, validation errors, progress, resumability, and audit history
+- [ ] Bulk actions with permission checks, impact preview, limits, and per-item results
+
+### Catalog and promotions
+
+- [ ] Plan list, create, version, archive, visibility, localization, and ordering
+- [ ] Price, currency, duration, traffic, device, squad, and eligibility configuration
+- [ ] Trial, upgrade, downgrade, grace-period, and renewal policies
+- [ ] Promotion and promo-code management with usage analytics
+- [ ] Preview of customer-facing Telegram and web presentation
+
+### Finance
+
+- [ ] Order and payment search, details, timelines, and provider references
+- [ ] Pending/stuck payment reconciliation and safe retry tools
+- [ ] Refund workflow with provider capability checks, reason, confirmation, and audit
+- [ ] Append-only wallet ledger and permission-gated corrective entries
+- [ ] Provider configuration with encrypted secrets, connection test, and webhook status
+- [ ] Financial CSV export with stable schema and timezone/currency clarity
+- [ ] Revenue views separated from payment volume, wallet credits, and refunds
+
+### Fulfillment and jobs
+
+- [ ] Fulfillment history and Remnawave drift view
+- [ ] Retry/cancel controls constrained by job state and idempotency rules
+- [ ] Dead-letter queue view with safe error details
+- [ ] Webhook event list, verification status, attempts, and replay-safe reprocessing
+- [ ] Outbox lag and unpublished-event diagnostics
+
+---
+
+## ⏳ v0.8 — Complete admin panel
+
+Goal: finish support, communication, configuration, and operational readiness before customer web development.
+
+### Support desk
+
+- [ ] Ticket queues, assignment, priority, tags, status, SLA timestamps, and unread counts
+- [ ] Conversation view with safe attachment handling and operator replies delivered to Telegram/web
+- [ ] Internal notes distinct from customer-visible messages
+- [ ] Canned responses with localization and permission controls
+- [ ] Merge/duplicate handling, close/reopen, and complete audit history
+- [ ] Support workload and response-time reporting with documented definitions
+
+### Referrals and loyalty
+
+- [ ] Referral program enablement, qualification rule, inviter/invitee reward, cap, and validity period
+- [ ] Attribution, qualification, rejected/fraud state, and reward history
+- [ ] Manual review and correction through compensating ledger entries
+- [ ] Loyalty tiers/rules with versioned definitions and deterministic evaluation
+- [ ] Abuse signals and rate limits without opaque automatic account punishment
+
+### News, campaigns, and communication
+
+- [ ] Localized news posts with draft, preview, schedule, publish, unpublish, and archive
+- [ ] Audience segments using explicit, reviewable filters
+- [ ] Campaign preview, estimated audience, test delivery, schedule, pause, cancel, and results
+- [ ] Transactional and marketing templates with variables validated before send
+- [ ] Consent, suppression list, quiet hours, frequency caps, and delivery deduplication
+- [ ] Delivery states for queued, sent, failed, blocked, and clicked where supported
+- [ ] No storage or telemetry of message content outside documented product data
+
+### Settings and operations
+
+- [ ] General branding, service name, support contacts, locale, timezone, and public URLs
+- [ ] Remnawave connection, compatibility check, reconciliation schedule, and safe token rotation
+- [ ] Telegram bot identity, webhook, command, and delivery status
+- [ ] Payment-provider configuration and capability matrix
+- [ ] Notification thresholds, templates, and test delivery
+- [ ] Telemetry status, exact payload preview, and global opt-out
+- [ ] Operator, role, session, and security settings
+- [ ] Backup status, version, migration status, update availability, and diagnostics bundle
+- [ ] Secrets never returned after write and always excluded from diagnostics
+
+### Definition of admin complete
+
+- [ ] An owner can configure and operate every backend capability without SQL or shell access
+- [ ] Support and finance roles can do their jobs without receiving unrelated permissions
+- [ ] Every sensitive mutation is authorized, validated, confirmed where necessary, and audited
+- [ ] Testcontainers cover repositories and critical workflows
+- [ ] Playwright covers admin authentication and highest-risk operator journeys
+- [ ] Accessibility, responsive layout, localization, and browser support gates pass
+
+---
+
+## ⏳ v0.9 — Customer web foundation
+
+Goal: expose the proven customer capabilities through the shared web application.
+
+### Authentication and account security
+
+- [ ] Telegram-based sign-in linked to the same canonical customer identity
+- [ ] Time-limited magic-link fallback where enabled by the operator
+- [ ] Session rotation, logout-all, inactivity/absolute expiry, CSRF protection, and secure cookies
+- [ ] Account-link conflict handling without revealing another customer’s existence
+- [ ] Customer-visible active sessions and security events
+- [ ] Suspended, deleted, and unlinked account states
+
+### Shared customer shell
+
+- [ ] Responsive mobile-first layout sharing the admin component system
+- [ ] Russian and English localization with persisted preference
+- [ ] Accessible navigation, keyboard behavior, focus handling, and reduced motion
+- [ ] Typed SWR data loading and Zustand only for complex local workflows
+- [ ] Explicit loading, empty, stale, offline, partial, and error states
+- [ ] Secure handling of subscription links with no analytics or accidental preview leakage
+
+### Dashboard and subscription
+
+- [ ] Status, expiry, remaining days, traffic, device usage, and active plan
+- [ ] Traffic visualization with accessible textual equivalent
+- [ ] Subscription open/copy, QR/deep-link connection, and platform instructions
+- [ ] Subscription-link rotation with reauthentication/confirmation
+- [ ] Device list, per-device removal, and remove-all confirmation
+- [ ] Renewal, expiry, grace-period, and incident notices
+
+---
+
+## ⏳ v0.10 — Complete customer web panel
+
+Goal: reach feature parity with the customer-facing bot while taking advantage of web interaction patterns.
+
+### Plans and checkout
+
+- [ ] Plan comparison with localized terms and transparent price/currency/period
+- [ ] Trial, purchase, renewal, upgrade, and downgrade flows
+- [ ] Promo-code entry and eligibility explanations
+- [ ] Wallet balance and exact application breakdown
+- [ ] Enabled payment-provider selection and hosted/embedded provider handoff
+- [ ] Pending, successful, failed, cancelled, duplicate, and delayed-payment recovery
+- [ ] Provisioning progress that survives refresh and duplicate submissions
+- [ ] Order, payment, receipt, wallet, and refund history
+
+### Support and communication
+
+- [ ] Support ticket list, create, conversation, attachment, reply, close, and reopen
+- [ ] Read/unread state synchronized with Telegram where possible
+- [ ] News and service-announcement inbox
+- [ ] Notification preferences, marketing consent, and unsubscribe controls
+- [ ] Browser notifications only after explicit customer permission
+
+### Referrals and account
+
+- [ ] Referral link/code, share action, terms, invited/qualified counts, and reward history
+- [ ] Loyalty status and progress when enabled
+- [ ] Profile, locale, timezone, contact channel, and privacy settings
+- [ ] Personal-data export request and account deletion workflow
+- [ ] Clear handoff to support for identity conflicts and irreversible actions
+
+### Customer-web release gates
+
+- [ ] Playwright coverage for sign-in, subscription, checkout, device security, referral, and support journeys
+- [ ] Cross-surface contract tests proving Telegram and web produce the same domain outcomes
+- [ ] WCAG 2.2 AA review of core journeys
+- [ ] Responsive testing for supported mobile, tablet, and desktop widths
+- [ ] No duplicate business rules in React; API remains authoritative
+- [ ] Performance budgets for JavaScript, images, server response, and core web vitals
+
+---
+
+## ⏳ v1.0 — General availability
+
+Goal: publish a stable release suitable for public single-server production use.
+
+### Compatibility and upgrades
+
+- [ ] Published compatibility matrix for Omniflow, Remnawave, PostgreSQL, Valkey, Go, Bun, and browsers
+- [ ] Semantic versioning, changelog, signed release artifacts, container images, SBOM, and provenance
+- [ ] Automated upgrade tests and documented backup/restore/rollback procedure
+- [ ] Migration policy and supported upgrade window
+- [ ] Deprecation policy for API, environment variables, database behavior, and integrations
+
+### Security and privacy
+
+- [ ] Threat model covering identity, Telegram, payments, webhooks, admin RBAC, SSRF, and supply chain
+- [ ] Independent security review of authentication, authorization, payments, and secret handling
+- [ ] Dependency, secret, SAST, container, and license scans enforced in release CI
+- [ ] Rate limits and abuse controls verified under load
+- [ ] Public privacy documentation, retention defaults, telemetry contract, and complete opt-out verification
+- [ ] Security reporting and supported-version policy
+
+### Reliability and operations
+
+- [ ] Defined service-level indicators for API, bot, jobs, payments, fulfillment, and notifications
+- [ ] Dashboards and alerts for actionable failure modes
+- [ ] Backup restoration drill and disaster-recovery runbook
+- [ ] Bounded retries, dead-letter handling, and reconciliation for every external side effect
+- [ ] Graceful degradation when Valkey, Remnawave, Telegram, or a payment provider is unavailable
+- [ ] Capacity guidance for small, medium, and large single-server installations
+
+### Documentation and community
+
+- [ ] End-to-end installation, configuration, migration, upgrade, backup, and troubleshooting guides
+- [ ] Bot customer guide, admin operator guide, and customer web guide
+- [ ] Integration guides for Remnawave, Telegram, and every supported payment provider
+- [ ] Public API reference and extension policy
+- [ ] Contributor setup, architecture decisions, testing strategy, and release process
+- [ ] Issue templates, feature-request process, support boundaries, and code of conduct
+
+### Definition of 1.0
+
+- [ ] A clean installation can be completed from public documentation alone
+- [ ] Telegram bot, admin panel, and customer panel cover their complete required journeys
+- [ ] Real payments and Remnawave fulfillment are idempotent and recoverable
+- [ ] Roles prevent unauthorized operator access and every sensitive operation is audited
+- [ ] Backup restore and supported-version upgrade have been exercised successfully
+- [ ] CI, security, migration, documentation, accessibility, and end-to-end gates are green
+
+---
+
+## 🔭 Post-1.0 candidates
+
+These items require demonstrated demand and must not delay the core roadmap:
+
+- Kubernetes, Helm charts, and Pulumi deployment modules
+- Multi-instance control plane and fleet management
+- NATS JetStream event distribution for scale beyond the modular monolith
+- WASM extension/plugin runtime with explicit capability sandboxing
+- Additional payment providers and regional fiscalization adapters
+- Additional languages beyond Russian and English
+- Native mobile applications
+- Advanced fraud scoring, experimentation, and product analytics
+- Public marketplace for themes, notification templates, and integrations
+
+## Explicit non-goals before 1.0
+
+- Managing Xray processes or writing directly to Remnawave storage
+- Requiring Kubernetes, a message broker, or a plugin runtime
+- Maintaining separate customer and admin frontend projects
+- Bundling or requiring a specific reverse proxy
+- Replacing PostgreSQL durability with Valkey
+- Shipping placeholder payment screens without a working provider
+- Collecting customer or business data in anonymous project telemetry

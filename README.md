@@ -13,7 +13,7 @@ Build Telegram-first self-service, subscriptions, billing, support, marketing, a
 [![Bun](https://img.shields.io/badge/Bun-1.3-fbf0df?logo=bun&logoColor=black)](./package.json)
 [![Remnawave](https://img.shields.io/badge/Remnawave-3.2.2-8b5cf6)](https://docs.rw/api/)
 
-[Quick start](#-quick-start) · [Documentation](./docs/index.mdx) · [Architecture](./docs/architecture/overview.mdx) · [Contributing](./CONTRIBUTING.md)
+[Quick start](#-quick-start) · [Roadmap](./ROADMAP.md) · [Documentation](./docs/index.mdx) · [Architecture](./docs/architecture/overview.mdx) · [Contributing](./CONTRIBUTING.md)
 
 > [!IMPORTANT]
 > Omniflow is under active development. The platform foundation and Telegram self-service suite are implemented; billing, purchasing, operator workflows, and marketing modules are planned incrementally.
@@ -137,6 +137,8 @@ deploy/proxies/       Optional reverse-proxy examples
 ```
 
 ## 🔭 Roadmap
+
+The complete versioned delivery contract is maintained in [ROADMAP.md](./ROADMAP.md). The mandatory order is Telegram bot and backend, then the admin panel, then the customer panel.
 
 - [x] Go, PostgreSQL, Valkey, Atlas, River, and OpenAPI foundation
 - [x] Remnawave 3.2.2 client boundary and exact Telegram account linking
