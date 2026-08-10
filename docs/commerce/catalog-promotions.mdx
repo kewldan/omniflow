@@ -1,0 +1,10 @@
+---
+title: Catalog and promotions
+description: Immutable pricing snapshots and atomic promotion limits.
+---
+
+Plans use stable lowercase codes and Russian/English localizations. Published plan versions are immutable and capture duration, billing period, traffic allowance, device limit, Remnawave squads, recurrence support, and explicit upgrade, downgrade, and cancellation policies.
+
+Prices are integer minor units paired with an uppercase ISO currency. An order references both the stable plan and exact plan version and also stores a snapshot, so changing the visible catalog cannot change historical purchases.
+
+Promotion and promo-code rows are locked in a serializable transaction before redemption counts are checked. Global, per-code, and per-customer limits are therefore atomic. Promo input is trimmed and uppercased before lookup. Operators should also configure Valkey rate limits at the caller boundary before exposing promo entry in v0.4.

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/url"
@@ -17,6 +18,14 @@ type Config struct {
 	TelemetryEnabled          bool
 	TelemetryCollectorEnabled bool
 	TelemetryEndpoint         string
+	OperatorToken             string
+	DataEncryptionKey         []byte
+	RemnawaveURL              string
+	RemnawaveToken            string
+	CryptoBotToken            string
+	CryptoBotTestnet          bool
+	YooKassaShopID            string
+	YooKassaSecret            string
 }
 
 type BotConfig struct {
@@ -27,6 +36,12 @@ type BotConfig struct {
 	SupportURL     string
 }
 
+type WorkerConfig struct {
+	DatabaseURL    string
+	RemnawaveURL   string
+	RemnawaveToken string
+}
+
 func Load() (Config, error) {
 	cfg := Config{
 		HTTPAddr:                  envOr("APP_HTTP_ADDR", ":8080"),
@@ -35,6 +50,20 @@ func Load() (Config, error) {
 		TelemetryEnabled:          boolEnvOr("APP_TELEMETRY_ENABLED", true),
 		TelemetryCollectorEnabled: boolEnvOr("APP_TELEMETRY_COLLECTOR_ENABLED", false),
 		TelemetryEndpoint:         envOr("APP_TELEMETRY_ENDPOINT", defaultTelemetryEndpoint),
+		OperatorToken:             os.Getenv("APP_OPERATOR_TOKEN"),
+		RemnawaveURL:              os.Getenv("APP_REMNAWAVE_URL"),
+		RemnawaveToken:            os.Getenv("APP_REMNAWAVE_TOKEN"),
+		CryptoBotToken:            os.Getenv("APP_CRYPTOBOT_TOKEN"),
+		CryptoBotTestnet:          boolEnvOr("APP_CRYPTOBOT_TESTNET", true),
+		YooKassaShopID:            os.Getenv("APP_YOOKASSA_SHOP_ID"),
+		YooKassaSecret:            os.Getenv("APP_YOOKASSA_SECRET"),
+	}
+	if encodedKey := os.Getenv("APP_DATA_ENCRYPTION_KEY"); encodedKey != "" {
+		key, err := base64.StdEncoding.DecodeString(encodedKey)
+		if err != nil || len(key) != 32 {
+			return Config{}, errors.New("APP_DATA_ENCRYPTION_KEY must be base64-encoded 32 bytes")
+		}
+		cfg.DataEncryptionKey = key
 	}
 
 	if cfg.TelemetryEnabled {
@@ -68,6 +97,14 @@ func LoadBot() (BotConfig, error) {
 		if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") {
 			return BotConfig{}, errors.New("APP_SUPPORT_URL must be an HTTP(S) URL")
 		}
+	}
+	return cfg, nil
+}
+
+func LoadWorker() (WorkerConfig, error) {
+	cfg := WorkerConfig{DatabaseURL: os.Getenv("APP_DATABASE_URL"), RemnawaveURL: os.Getenv("APP_REMNAWAVE_URL"), RemnawaveToken: os.Getenv("APP_REMNAWAVE_TOKEN")}
+	if cfg.DatabaseURL == "" || cfg.RemnawaveURL == "" || cfg.RemnawaveToken == "" {
+		return WorkerConfig{}, errors.New("APP_DATABASE_URL, APP_REMNAWAVE_URL, and APP_REMNAWAVE_TOKEN are required")
 	}
 	return cfg, nil
 }

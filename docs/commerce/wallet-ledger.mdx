@@ -1,0 +1,10 @@
+---
+title: Wallet and ledger
+description: Append-only balanced entries and deterministic balances.
+---
+
+Every ledger transaction has at least two entries that sum to zero per currency. Customer wallet, platform clearing, and provider clearing are distinct accounts. Wallet balances are the deterministic sum of non-expired customer entries and never mix currencies.
+
+Wallet credit is applied before external payment, with the exact split saved on the order. Transactions are never updated or deleted. Refunds and corrections use new compensating entries. Operator adjustments require a reason, operator identity, idempotency key, permission at the API boundary, and an audit event.
+
+The database stores only integer minor units. Floating-point values are rejected at every domain boundary.

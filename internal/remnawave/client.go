@@ -27,15 +27,58 @@ type Service interface {
 	RevokeSubscription(context.Context, int64) error
 }
 
+type Provisioner interface {
+	User(context.Context, int64) (User, error)
+	UserByUsername(context.Context, string) (User, error)
+	CreateUser(context.Context, ProvisionUser) (User, error)
+	UpdateUser(context.Context, int64, ProvisionUser) (User, error)
+	EnableUser(context.Context, int64) error
+	DisableUser(context.Context, int64) error
+	ResetUserTraffic(context.Context, int64) error
+}
+
+type Importer interface {
+	ListUsers(context.Context, int, int) ([]User, int, error)
+}
+
+type ProvisionUser struct {
+	Username          string    `json:"username"`
+	ExpireAt          time.Time `json:"expireAt"`
+	TrafficLimitBytes *int64    `json:"trafficLimitBytes,omitempty"`
+	HWIDDeviceLimit   *int      `json:"hwidDeviceLimit,omitempty"`
+	InternalSquadIDs  []string  `json:"activeInternalSquads,omitempty"`
+}
+
+type InternalSquad struct {
+	UUID string `json:"uuid"`
+	Name string `json:"name"`
+}
+
 type User struct {
-	ID                int64       `json:"id"`
-	Username          string      `json:"username"`
-	Status            string      `json:"status"`
-	TrafficLimitBytes int64       `json:"trafficLimitBytes"`
-	ExpireAt          time.Time   `json:"expireAt"`
-	HWIDDeviceLimit   *int        `json:"hwidDeviceLimit"`
-	SubscriptionURL   string      `json:"subscriptionUrl"`
-	Traffic           UserTraffic `json:"userTraffic"`
+	ID                   int64           `json:"id"`
+	Username             string          `json:"username"`
+	Status               string          `json:"status"`
+	TrafficLimitBytes    int64           `json:"trafficLimitBytes"`
+	ExpireAt             time.Time       `json:"expireAt"`
+	HWIDDeviceLimit      *int            `json:"hwidDeviceLimit"`
+	SubscriptionURL      string          `json:"subscriptionUrl"`
+	TelegramID           *int64          `json:"telegramId"`
+	ActiveInternalSquads []InternalSquad `json:"activeInternalSquads"`
+	Traffic              UserTraffic     `json:"userTraffic"`
+}
+
+func (client *Client) ListUsers(ctx context.Context, start, size int) ([]User, int, error) {
+	endpoint := "/api/users/?start=" + strconv.Itoa(start) + "&size=" + strconv.Itoa(size)
+	var envelope struct {
+		Response struct {
+			Users []User `json:"users"`
+			Total int    `json:"total"`
+		} `json:"response"`
+	}
+	if err := client.get(ctx, endpoint, &envelope); err != nil {
+		return nil, 0, err
+	}
+	return envelope.Response.Users, envelope.Response.Total, nil
 }
 
 type UserTraffic struct {
@@ -136,6 +179,46 @@ func (client *Client) UserByTelegramID(ctx context.Context, telegramID int64) (U
 		return User{}, errors.New("multiple Remnawave users share one Telegram ID")
 	}
 	return envelope.Response.Users[0], nil
+}
+
+func (client *Client) UserByUsername(ctx context.Context, username string) (User, error) {
+	var envelope struct {
+		Response User `json:"response"`
+	}
+	err := client.get(ctx, "/api/users/by-username/"+url.PathEscape(username), &envelope)
+	return envelope.Response, err
+}
+
+func (client *Client) CreateUser(ctx context.Context, desired ProvisionUser) (User, error) {
+	var envelope struct {
+		Response User `json:"response"`
+	}
+	err := client.do(ctx, http.MethodPost, "/api/users/", desired, &envelope)
+	return envelope.Response, err
+}
+
+func (client *Client) UpdateUser(ctx context.Context, userID int64, desired ProvisionUser) (User, error) {
+	body := struct {
+		ID int64 `json:"id"`
+		ProvisionUser
+	}{ID: userID, ProvisionUser: desired}
+	var envelope struct {
+		Response User `json:"response"`
+	}
+	err := client.do(ctx, http.MethodPatch, "/api/users/", body, &envelope)
+	return envelope.Response, err
+}
+
+func (client *Client) EnableUser(ctx context.Context, userID int64) error {
+	return client.post(ctx, "/api/users/"+strconv.FormatInt(userID, 10)+"/actions/enable", nil)
+}
+
+func (client *Client) DisableUser(ctx context.Context, userID int64) error {
+	return client.post(ctx, "/api/users/"+strconv.FormatInt(userID, 10)+"/actions/disable", nil)
+}
+
+func (client *Client) ResetUserTraffic(ctx context.Context, userID int64) error {
+	return client.post(ctx, "/api/users/"+strconv.FormatInt(userID, 10)+"/actions/reset-traffic", nil)
 }
 
 func (client *Client) Subscription(ctx context.Context, userID int64) (Subscription, error) {

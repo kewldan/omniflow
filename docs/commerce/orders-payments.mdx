@@ -1,0 +1,10 @@
+---
+title: Orders, payments, and refunds
+description: State machines, webhook processing, and exceptional payment states.
+---
+
+Orders move through `draft`, `pending`, `paid`, `fulfilled`, `cancelled`, `expired`, `partially_refunded`, and `refunded`. Invalid transitions are rejected. Every order, payment, refund, wallet mutation, provider event, and fulfillment operation has a stable idempotency reference.
+
+Verified successful payments are compared to the order currency and outstanding external amount. Currency mismatch, underpayment, overpayment, duplicate payment, and a wallet reservation that is no longer available are recorded without granting an entitlement. An exact late payment can be fulfilled once when its reserved wallet amount remains available. A matching payment marks the order paid and creates its entitlement and durable fulfillment operation in the same PostgreSQL transaction.
+
+Provider events are append-only. Full and partial refunds create new refund and ledger records; payment history is never rewritten. Provider receipt and fiscalization fields are isolated in `receipt_metadata` so an adapter can satisfy regional requirements without leaking provider fields into the order model.

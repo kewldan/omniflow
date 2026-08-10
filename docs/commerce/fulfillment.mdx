@@ -1,0 +1,12 @@
+---
+title: Entitlements and fulfillment
+description: Durable Remnawave provisioning and drift reconciliation.
+---
+
+An entitlement describes what Omniflow owes a customer; it is independent of payment state and the last observed Remnawave state. Supported idempotent operations are create, extend, enable, disable, reset traffic, set limits, set squads, and reconcile.
+
+River receives the initial fulfillment job inside the transaction that marks an order paid. Remnawave outages therefore cannot lose a successful payment. Workers retry with bounded exponential backoff, reuse a deterministic Remnawave username, and check for an existing remote user before retrying creation.
+
+The worker schedules reconciliation every 15 minutes. Expiry, status, traffic allowance, device-limit, and squad differences are stored as operator-visible drift reasons before corrective work. Missing and externally deleted Remnawave users are recovered through the deterministic username and recorded as explicit drift states. Resolved drift records remain as history.
+
+Purchase and extension can start immediately. Upgrade and downgrade policy may instead schedule the next entitlement at the current entitlement's expiry; the previous entitlement is superseded only after the replacement is provisioned. Fulfillment history stores correlation IDs and safe summaries only—never access links, tokens, squad identifiers, or complete provider payloads.

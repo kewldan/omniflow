@@ -1,12 +1,17 @@
 ---
-title: Payments
-description: Payment providers, wallet application, and webhook guarantees.
+title: Payment providers
+description: Provider capabilities, verification, and configuration.
 ---
 
-Providers will be implemented behind one capability-based contract. The initial candidates are:
+Omniflow exposes one capability-based payment contract and currently includes Telegram Stars, CryptoBot, YooKassa, and audited manual payments. An adapter is available only when its required credentials are configured.
 
-1. Telegram Stars
-2. CryptoBot
-3. YooKassa
+| Provider | Webhook verification | Polling | Refunds | Recurrence |
+| --- | --- | --- | --- | --- |
+| Telegram Stars | Authenticated Bot API update stream | No | Deferred to v0.4 bot integration | No |
+| CryptoBot | HMAC-SHA256 over the exact raw body | Yes | No native invoice refund | No |
+| YooKassa | Authenticated API fetch of every notification object | Yes | Full and partial | Capability declared |
+| Manual | Operator decision and audit event | No | Audited manual workflow | No |
 
-Every provider must verify webhooks, deduplicate event IDs, reconcile remote status, model refunds, and declare recurrence capabilities. Wallet credits are applied first and all monetary values use integer minor units.
+Every provider mutation has an Omniflow idempotency key. YooKassa receives the same value through `Idempotence-Key`. Webhook bodies are retained for 30 days with a digest and deduplication key; authorization and signature headers are never retained.
+
+Checkout remains disabled in the web application until an operator enables a provider and its sandbox suite passes with project-specific credentials.

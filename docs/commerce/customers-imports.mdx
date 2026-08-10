@@ -1,0 +1,15 @@
+---
+title: Customers and imports
+description: Canonical identity, privacy lifecycle, and Remnawave import behavior.
+---
+
+The Omniflow customer UUID is canonical and independent of Telegram and Remnawave IDs. Verified identities can be linked only once globally, and the final verified login method cannot be unlinked. Contact values are encrypted with AES-256-GCM and indexed only by a keyed HMAC-SHA-256 fingerprint.
+
+Locale, IANA timezone, transactional preferences, marketing preferences, and append-only consent decisions are stored independently. Suspension is reversible. Deletion starts a retention window; anonymization is allowed only after it expires and redacts identity subjects, contacts, Telegram mapping, support text, and referral codes while retaining required financial records.
+
+Remnawave import has two phases:
+
+1. **Preview** pages through supported API results and stages privacy-safe fields.
+2. **Apply** commits each valid item atomically.
+
+The preview reports invalid and conflicting Remnawave or Telegram identifiers. A cursor makes preview and apply resumable. A failed item transaction creates no partial customer or mapping.

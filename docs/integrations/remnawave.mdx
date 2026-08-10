@@ -14,10 +14,10 @@ The current adapter targets the official [Remnawave 3.2.2 OpenAPI specification]
 | Subscription status and access URL | `GET /api/subscriptions/by-id/{userId}` |
 | Privacy-safe device summary | `GET /api/hwid/devices/{userId}` |
 
+Commerce fulfillment additionally uses the v3.2.2 create/update and user-action endpoints. Remnawave user IDs are numeric in this contract; Internal Squad identifiers are UUIDs and are stored as PostgreSQL `uuid[]` values.
+
 The stream endpoint performs an exact Telegram-ID equality lookup. Omniflow persists the resulting numeric Remnawave user ID under an advisory lock, so later requests use stable ID endpoints and concurrent first-run requests cannot create duplicate local mappings.
 
 Subscription URLs are treated as secrets. They are never logged or stored in Omniflow; the bot only presents the current value returned by Remnawave in a protected Telegram message.
 
-Future adapter work will add user creation and extension, limit changes, squads, bulk import, and scheduled drift reconciliation.
-
-Every write is idempotent and recorded. Scheduled reconciliation reports drift without fabricating payment history.
+Every write is driven by a durable idempotent fulfillment operation. Creation checks the deterministic username before retrying, and a deleted remote user is recreated safely after a `missing_remote` drift is recorded. Scheduled reconciliation compares status, expiry, traffic allowance, device limit, and Internal Squads without fabricating payment history.

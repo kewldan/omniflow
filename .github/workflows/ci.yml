@@ -47,10 +47,25 @@ jobs:
   migrations:
     name: Atlas migrations
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18.4-alpine
+        env:
+          POSTGRES_DB: omniflow
+          POSTGRES_USER: omniflow
+          POSTGRES_PASSWORD: omniflow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U omniflow -d omniflow"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
     steps:
       - uses: actions/checkout@v5
       - uses: ariga/setup-atlas@v0
       - run: atlas migrate validate --dir file://database/migrations
+      - run: atlas migrate apply --dir file://database/migrations --url "postgres://omniflow:omniflow@localhost:5432/omniflow?sslmode=disable"
 
   docs:
     name: Mintlify docs
@@ -60,7 +75,6 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
-      - run: cp api/openapi.yaml docs/openapi.yaml
       - working-directory: docs
         run: bunx mint@latest validate
         env:

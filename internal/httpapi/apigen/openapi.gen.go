@@ -7,12 +7,441 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for ConsentInputPurpose.
+const (
+	Marketing ConsentInputPurpose = "marketing"
+	Privacy   ConsentInputPurpose = "privacy"
+	Profiling ConsentInputPurpose = "profiling"
+	Terms     ConsentInputPurpose = "terms"
+)
+
+// Valid indicates whether the value is a known member of the ConsentInputPurpose enum.
+func (e ConsentInputPurpose) Valid() bool {
+	switch e {
+	case Marketing:
+		return true
+	case Privacy:
+		return true
+	case Profiling:
+		return true
+	case Terms:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContactInputKind.
+const (
+	Email    ContactInputKind = "email"
+	Phone    ContactInputKind = "phone"
+	Telegram ContactInputKind = "telegram"
+)
+
+// Valid indicates whether the value is a known member of the ContactInputKind enum.
+func (e ContactInputKind) Valid() bool {
+	switch e {
+	case Email:
+		return true
+	case Phone:
+		return true
+	case Telegram:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CustomerStatus.
+const (
+	Active    CustomerStatus = "active"
+	Deleted   CustomerStatus = "deleted"
+	Suspended CustomerStatus = "suspended"
+)
+
+// Valid indicates whether the value is a known member of the CustomerStatus enum.
+func (e CustomerStatus) Valid() bool {
+	switch e {
+	case Active:
+		return true
+	case Deleted:
+		return true
+	case Suspended:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CustomerPreferencesLocale.
+const (
+	CustomerPreferencesLocaleEn CustomerPreferencesLocale = "en"
+	CustomerPreferencesLocaleRu CustomerPreferencesLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the CustomerPreferencesLocale enum.
+func (e CustomerPreferencesLocale) Valid() bool {
+	switch e {
+	case CustomerPreferencesLocaleEn:
+		return true
+	case CustomerPreferencesLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FulfillmentDriftKind.
+const (
+	DeviceLimit   FulfillmentDriftKind = "device_limit"
+	Expiry        FulfillmentDriftKind = "expiry"
+	ExternalEdit  FulfillmentDriftKind = "external_edit"
+	MissingRemote FulfillmentDriftKind = "missing_remote"
+	Squads        FulfillmentDriftKind = "squads"
+	Status        FulfillmentDriftKind = "status"
+	Traffic       FulfillmentDriftKind = "traffic"
+)
+
+// Valid indicates whether the value is a known member of the FulfillmentDriftKind enum.
+func (e FulfillmentDriftKind) Valid() bool {
+	switch e {
+	case DeviceLimit:
+		return true
+	case Expiry:
+		return true
+	case ExternalEdit:
+		return true
+	case MissingRemote:
+		return true
+	case Squads:
+		return true
+	case Status:
+		return true
+	case Traffic:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FulfillmentOperationInputOperation.
+const (
+	FulfillmentOperationInputOperationCreate       FulfillmentOperationInputOperation = "create"
+	FulfillmentOperationInputOperationDisable      FulfillmentOperationInputOperation = "disable"
+	FulfillmentOperationInputOperationEnable       FulfillmentOperationInputOperation = "enable"
+	FulfillmentOperationInputOperationExtend       FulfillmentOperationInputOperation = "extend"
+	FulfillmentOperationInputOperationReconcile    FulfillmentOperationInputOperation = "reconcile"
+	FulfillmentOperationInputOperationResetTraffic FulfillmentOperationInputOperation = "reset_traffic"
+	FulfillmentOperationInputOperationSetLimits    FulfillmentOperationInputOperation = "set_limits"
+	FulfillmentOperationInputOperationSetSquads    FulfillmentOperationInputOperation = "set_squads"
+)
+
+// Valid indicates whether the value is a known member of the FulfillmentOperationInputOperation enum.
+func (e FulfillmentOperationInputOperation) Valid() bool {
+	switch e {
+	case FulfillmentOperationInputOperationCreate:
+		return true
+	case FulfillmentOperationInputOperationDisable:
+		return true
+	case FulfillmentOperationInputOperationEnable:
+		return true
+	case FulfillmentOperationInputOperationExtend:
+		return true
+	case FulfillmentOperationInputOperationReconcile:
+		return true
+	case FulfillmentOperationInputOperationResetTraffic:
+		return true
+	case FulfillmentOperationInputOperationSetLimits:
+		return true
+	case FulfillmentOperationInputOperationSetSquads:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LifecycleInputAction.
+const (
+	Anonymize LifecycleInputAction = "anonymize"
+	Delete    LifecycleInputAction = "delete"
+	Restore   LifecycleInputAction = "restore"
+	Suspend   LifecycleInputAction = "suspend"
+)
+
+// Valid indicates whether the value is a known member of the LifecycleInputAction enum.
+func (e LifecycleInputAction) Valid() bool {
+	switch e {
+	case Anonymize:
+		return true
+	case Delete:
+		return true
+	case Restore:
+		return true
+	case Suspend:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LifecycleInputActorType.
+const (
+	LifecycleInputActorTypeCustomer LifecycleInputActorType = "customer"
+	LifecycleInputActorTypeOperator LifecycleInputActorType = "operator"
+	LifecycleInputActorTypeSystem   LifecycleInputActorType = "system"
+)
+
+// Valid indicates whether the value is a known member of the LifecycleInputActorType enum.
+func (e LifecycleInputActorType) Valid() bool {
+	switch e {
+	case LifecycleInputActorTypeCustomer:
+		return true
+	case LifecycleInputActorTypeOperator:
+		return true
+	case LifecycleInputActorTypeSystem:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OrderState.
+const (
+	Cancelled         OrderState = "cancelled"
+	Draft             OrderState = "draft"
+	Expired           OrderState = "expired"
+	Fulfilled         OrderState = "fulfilled"
+	Paid              OrderState = "paid"
+	PartiallyRefunded OrderState = "partially_refunded"
+	Pending           OrderState = "pending"
+	Refunded          OrderState = "refunded"
+)
+
+// Valid indicates whether the value is a known member of the OrderState enum.
+func (e OrderState) Valid() bool {
+	switch e {
+	case Cancelled:
+		return true
+	case Draft:
+		return true
+	case Expired:
+		return true
+	case Fulfilled:
+		return true
+	case Paid:
+		return true
+	case PartiallyRefunded:
+		return true
+	case Pending:
+		return true
+	case Refunded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OrderInputOperation.
+const (
+	Downgrade OrderInputOperation = "downgrade"
+	Extension OrderInputOperation = "extension"
+	Purchase  OrderInputOperation = "purchase"
+	Upgrade   OrderInputOperation = "upgrade"
+)
+
+// Valid indicates whether the value is a known member of the OrderInputOperation enum.
+func (e OrderInputOperation) Valid() bool {
+	switch e {
+	case Downgrade:
+		return true
+	case Extension:
+		return true
+	case Purchase:
+		return true
+	case Upgrade:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PaymentProvider.
+const (
+	PaymentProviderCryptobot     PaymentProvider = "cryptobot"
+	PaymentProviderManual        PaymentProvider = "manual"
+	PaymentProviderTelegramStars PaymentProvider = "telegram_stars"
+	PaymentProviderYookassa      PaymentProvider = "yookassa"
+)
+
+// Valid indicates whether the value is a known member of the PaymentProvider enum.
+func (e PaymentProvider) Valid() bool {
+	switch e {
+	case PaymentProviderCryptobot:
+		return true
+	case PaymentProviderManual:
+		return true
+	case PaymentProviderTelegramStars:
+		return true
+	case PaymentProviderYookassa:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlanInputKind.
+const (
+	PlanInputKindFree      PlanInputKind = "free"
+	PlanInputKindManual    PlanInputKind = "manual"
+	PlanInputKindOneTime   PlanInputKind = "one_time"
+	PlanInputKindRecurring PlanInputKind = "recurring"
+	PlanInputKindTrial     PlanInputKind = "trial"
+)
+
+// Valid indicates whether the value is a known member of the PlanInputKind enum.
+func (e PlanInputKind) Valid() bool {
+	switch e {
+	case PlanInputKindFree:
+		return true
+	case PlanInputKindManual:
+		return true
+	case PlanInputKindOneTime:
+		return true
+	case PlanInputKindRecurring:
+		return true
+	case PlanInputKindTrial:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlanVersionInputBillingPeriod.
+const (
+	Custom   PlanVersionInputBillingPeriod = "custom"
+	Day      PlanVersionInputBillingPeriod = "day"
+	HalfYear PlanVersionInputBillingPeriod = "half_year"
+	Month    PlanVersionInputBillingPeriod = "month"
+	None     PlanVersionInputBillingPeriod = "none"
+	Quarter  PlanVersionInputBillingPeriod = "quarter"
+	Week     PlanVersionInputBillingPeriod = "week"
+	Year     PlanVersionInputBillingPeriod = "year"
+)
+
+// Valid indicates whether the value is a known member of the PlanVersionInputBillingPeriod enum.
+func (e PlanVersionInputBillingPeriod) Valid() bool {
+	switch e {
+	case Custom:
+		return true
+	case Day:
+		return true
+	case HalfYear:
+		return true
+	case Month:
+		return true
+	case None:
+		return true
+	case Quarter:
+		return true
+	case Week:
+		return true
+	case Year:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlanVersionInputCancellationPolicy.
+const (
+	PlanVersionInputCancellationPolicyAtExpiry  PlanVersionInputCancellationPolicy = "at_expiry"
+	PlanVersionInputCancellationPolicyForbid    PlanVersionInputCancellationPolicy = "forbid"
+	PlanVersionInputCancellationPolicyImmediate PlanVersionInputCancellationPolicy = "immediate"
+)
+
+// Valid indicates whether the value is a known member of the PlanVersionInputCancellationPolicy enum.
+func (e PlanVersionInputCancellationPolicy) Valid() bool {
+	switch e {
+	case PlanVersionInputCancellationPolicyAtExpiry:
+		return true
+	case PlanVersionInputCancellationPolicyForbid:
+		return true
+	case PlanVersionInputCancellationPolicyImmediate:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlanVersionInputDowngradePolicy.
+const (
+	PlanVersionInputDowngradePolicyAtExpiry  PlanVersionInputDowngradePolicy = "at_expiry"
+	PlanVersionInputDowngradePolicyForbid    PlanVersionInputDowngradePolicy = "forbid"
+	PlanVersionInputDowngradePolicyImmediate PlanVersionInputDowngradePolicy = "immediate"
+)
+
+// Valid indicates whether the value is a known member of the PlanVersionInputDowngradePolicy enum.
+func (e PlanVersionInputDowngradePolicy) Valid() bool {
+	switch e {
+	case PlanVersionInputDowngradePolicyAtExpiry:
+		return true
+	case PlanVersionInputDowngradePolicyForbid:
+		return true
+	case PlanVersionInputDowngradePolicyImmediate:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlanVersionInputUpgradePolicy.
+const (
+	PlanVersionInputUpgradePolicyExtend  PlanVersionInputUpgradePolicy = "extend"
+	PlanVersionInputUpgradePolicyForbid  PlanVersionInputUpgradePolicy = "forbid"
+	PlanVersionInputUpgradePolicyReplace PlanVersionInputUpgradePolicy = "replace"
+)
+
+// Valid indicates whether the value is a known member of the PlanVersionInputUpgradePolicy enum.
+func (e PlanVersionInputUpgradePolicy) Valid() bool {
+	switch e {
+	case PlanVersionInputUpgradePolicyExtend:
+		return true
+	case PlanVersionInputUpgradePolicyForbid:
+		return true
+	case PlanVersionInputUpgradePolicyReplace:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PromotionInputKind.
+const (
+	Fixed   PromotionInputKind = "fixed"
+	Percent PromotionInputKind = "percent"
+)
+
+// Valid indicates whether the value is a known member of the PromotionInputKind enum.
+func (e PromotionInputKind) Valid() bool {
+	switch e {
+	case Fixed:
+		return true
+	case Percent:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for TelemetryEventName.
 const (
@@ -68,11 +497,301 @@ func (e TelemetryEventService) Valid() bool {
 	}
 }
 
+// Defines values for WalletAdjustmentType.
+const (
+	Correction     WalletAdjustmentType = "correction"
+	Credit         WalletAdjustmentType = "credit"
+	Debit          WalletAdjustmentType = "debit"
+	Expiration     WalletAdjustmentType = "expiration"
+	ReferralReward WalletAdjustmentType = "referral_reward"
+)
+
+// Valid indicates whether the value is a known member of the WalletAdjustmentType enum.
+func (e WalletAdjustmentType) Valid() bool {
+	switch e {
+	case Correction:
+		return true
+	case Credit:
+		return true
+	case Debit:
+		return true
+	case Expiration:
+		return true
+	case ReferralReward:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListPlansParamsLocale.
+const (
+	ListPlansParamsLocaleEn ListPlansParamsLocale = "en"
+	ListPlansParamsLocaleRu ListPlansParamsLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the ListPlansParamsLocale enum.
+func (e ListPlansParamsLocale) Valid() bool {
+	switch e {
+	case ListPlansParamsLocaleEn:
+		return true
+	case ListPlansParamsLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
+// ConsentInput defines model for ConsentInput.
+type ConsentInput struct {
+	Granted       bool                `json:"granted"`
+	PolicyVersion string              `json:"policyVersion"`
+	Purpose       ConsentInputPurpose `json:"purpose"`
+	Source        string              `json:"source"`
+}
+
+// ConsentInputPurpose defines model for ConsentInput.Purpose.
+type ConsentInputPurpose string
+
+// ContactInput defines model for ContactInput.
+type ContactInput struct {
+	Kind                 ContactInputKind `json:"kind"`
+	MarketingEnabled     bool             `json:"marketingEnabled"`
+	TransactionalEnabled bool             `json:"transactionalEnabled"`
+	Value                string           `json:"value"`
+	VerifiedAt           *time.Time       `json:"verifiedAt,omitempty"`
+}
+
+// ContactInputKind defines model for ContactInput.Kind.
+type ContactInputKind string
+
+// Customer defines model for Customer.
+type Customer struct {
+	AnonymizedAt   *time.Time          `json:"anonymizedAt,omitempty"`
+	DeletedAt      *time.Time          `json:"deletedAt,omitempty"`
+	Id             *openapi_types.UUID `json:"id,omitempty"`
+	Locale         *string             `json:"locale,omitempty"`
+	RetentionUntil *time.Time          `json:"retentionUntil,omitempty"`
+	Status         *CustomerStatus     `json:"status,omitempty"`
+	SuspendedAt    *time.Time          `json:"suspendedAt,omitempty"`
+	Timezone       *string             `json:"timezone,omitempty"`
+}
+
+// CustomerStatus defines model for Customer.Status.
+type CustomerStatus string
+
+// CustomerPreferences defines model for CustomerPreferences.
+type CustomerPreferences struct {
+	Locale   CustomerPreferencesLocale `json:"locale"`
+	Timezone string                    `json:"timezone"`
+}
+
+// CustomerPreferencesLocale defines model for CustomerPreferences.Locale.
+type CustomerPreferencesLocale string
+
+// FulfillmentDrift defines model for FulfillmentDrift.
+type FulfillmentDrift struct {
+	DetectedAt    *time.Time              `json:"detectedAt,omitempty"`
+	EntitlementId *openapi_types.UUID     `json:"entitlementId,omitempty"`
+	Expected      *map[string]interface{} `json:"expected,omitempty"`
+	Id            *openapi_types.UUID     `json:"id,omitempty"`
+	Kind          *FulfillmentDriftKind   `json:"kind,omitempty"`
+	Observed      *map[string]interface{} `json:"observed,omitempty"`
+}
+
+// FulfillmentDriftKind defines model for FulfillmentDrift.Kind.
+type FulfillmentDriftKind string
+
+// FulfillmentOperation defines model for FulfillmentOperation.
+type FulfillmentOperation struct {
+	EntitlementId *openapi_types.UUID `json:"entitlementId,omitempty"`
+	Id            *openapi_types.UUID `json:"id,omitempty"`
+	Operation     *string             `json:"operation,omitempty"`
+	Status        *string             `json:"status,omitempty"`
+}
+
+// FulfillmentOperationInput defines model for FulfillmentOperationInput.
+type FulfillmentOperationInput struct {
+	CorrelationId         *string                            `json:"correlationId,omitempty"`
+	DeviceLimit           *int                               `json:"deviceLimit,omitempty"`
+	EffectiveAt           *time.Time                         `json:"effectiveAt,omitempty"`
+	EndsAt                *time.Time                         `json:"endsAt,omitempty"`
+	Operation             FulfillmentOperationInputOperation `json:"operation"`
+	SquadIDs              *[]openapi_types.UUID              `json:"squadIDs,omitempty"`
+	TrafficAllowanceBytes *int64                             `json:"trafficAllowanceBytes,omitempty"`
+}
+
+// FulfillmentOperationInputOperation defines model for FulfillmentOperationInput.Operation.
+type FulfillmentOperationInputOperation string
+
 // Health defines model for Health.
 type Health struct {
 	Status  string `json:"status"`
 	Version string `json:"version"`
 }
+
+// IdentityInput defines model for IdentityInput.
+type IdentityInput struct {
+	Metadata   *map[string]interface{} `json:"metadata,omitempty"`
+	Provider   string                  `json:"provider"`
+	Subject    string                  `json:"subject"`
+	VerifiedAt time.Time               `json:"verifiedAt"`
+}
+
+// ImportRun defines model for ImportRun.
+type ImportRun struct {
+	CompletedAt   *time.Time          `json:"completedAt,omitempty"`
+	ConflictCount *int                `json:"conflictCount,omitempty"`
+	Cursor        *string             `json:"cursor,omitempty"`
+	Id            *openapi_types.UUID `json:"id,omitempty"`
+	InvalidCount  *int                `json:"invalidCount,omitempty"`
+	StartedAt     *time.Time          `json:"startedAt,omitempty"`
+	Status        *string             `json:"status,omitempty"`
+	TotalCount    *int                `json:"totalCount,omitempty"`
+	UpdatedAt     *time.Time          `json:"updatedAt,omitempty"`
+	ValidCount    *int                `json:"validCount,omitempty"`
+}
+
+// LifecycleInput defines model for LifecycleInput.
+type LifecycleInput struct {
+	Action    LifecycleInputAction    `json:"action"`
+	ActorID   *string                 `json:"actorID,omitempty"`
+	ActorType LifecycleInputActorType `json:"actorType"`
+	Reason    string                  `json:"reason"`
+}
+
+// LifecycleInputAction defines model for LifecycleInput.Action.
+type LifecycleInputAction string
+
+// LifecycleInputActorType defines model for LifecycleInput.ActorType.
+type LifecycleInputActorType string
+
+// Localization defines model for Localization.
+type Localization struct {
+	Description *string `json:"description,omitempty"`
+	Name        string  `json:"name"`
+}
+
+// ManualDecision defines model for ManualDecision.
+type ManualDecision struct {
+	Approved   bool   `json:"approved"`
+	OperatorID string `json:"operatorID"`
+	Reason     string `json:"reason"`
+}
+
+// Money defines model for Money.
+type Money struct {
+	AmountMinor int64  `json:"amountMinor"`
+	Currency    string `json:"currency"`
+}
+
+// Order defines model for Order.
+type Order struct {
+	CreatedAt     *time.Time          `json:"createdAt,omitempty"`
+	Currency      *string             `json:"currency,omitempty"`
+	CustomerId    *openapi_types.UUID `json:"customerId,omitempty"`
+	DiscountMinor *int64              `json:"discountMinor,omitempty"`
+	ExpiresAt     *time.Time          `json:"expiresAt,omitempty"`
+	ExternalMinor *int64              `json:"externalMinor,omitempty"`
+	Id            *openapi_types.UUID `json:"id,omitempty"`
+	Operation     *string             `json:"operation,omitempty"`
+	PaidMinor     *int64              `json:"paidMinor,omitempty"`
+	RefundedMinor *int64              `json:"refundedMinor,omitempty"`
+	State         *OrderState         `json:"state,omitempty"`
+	SubtotalMinor *int64              `json:"subtotalMinor,omitempty"`
+	WalletMinor   *int64              `json:"walletMinor,omitempty"`
+}
+
+// OrderState defines model for Order.State.
+type OrderState string
+
+// OrderInput defines model for OrderInput.
+type OrderInput struct {
+	Currency      string              `json:"currency"`
+	CustomerID    openapi_types.UUID  `json:"customerID"`
+	Operation     OrderInputOperation `json:"operation"`
+	PlanVersionID openapi_types.UUID  `json:"planVersionID"`
+	PromoCode     *string             `json:"promoCode,omitempty"`
+}
+
+// OrderInputOperation defines model for OrderInput.Operation.
+type OrderInputOperation string
+
+// PaymentInput defines model for PaymentInput.
+type PaymentInput struct {
+	Description     string                  `json:"description"`
+	Provider        PaymentProvider         `json:"provider"`
+	ReceiptMetadata *map[string]interface{} `json:"receiptMetadata,omitempty"`
+	ReturnURL       *string                 `json:"returnURL,omitempty"`
+}
+
+// PaymentIntent defines model for PaymentIntent.
+type PaymentIntent struct {
+	AmountMinor       *int64              `json:"amountMinor,omitempty"`
+	CheckoutUrl       *string             `json:"checkoutUrl,omitempty"`
+	Currency          *string             `json:"currency,omitempty"`
+	Id                *openapi_types.UUID `json:"id,omitempty"`
+	OrderId           *openapi_types.UUID `json:"orderId,omitempty"`
+	Provider          *PaymentProvider    `json:"provider,omitempty"`
+	ProviderReference *string             `json:"providerReference,omitempty"`
+	Status            *string             `json:"status,omitempty"`
+}
+
+// PaymentProvider defines model for PaymentProvider.
+type PaymentProvider string
+
+// PlanInput defines model for PlanInput.
+type PlanInput struct {
+	Code          string                  `json:"code"`
+	Kind          PlanInputKind           `json:"kind"`
+	Localizations map[string]Localization `json:"localizations"`
+	SortOrder     *int                    `json:"sortOrder,omitempty"`
+	Version       PlanVersionInput        `json:"version"`
+	Visible       *bool                   `json:"visible,omitempty"`
+}
+
+// PlanInputKind defines model for PlanInput.Kind.
+type PlanInputKind string
+
+// PlanList defines model for PlanList.
+type PlanList struct {
+	Items []map[string]interface{} `json:"items"`
+}
+
+// PlanMutation defines model for PlanMutation.
+type PlanMutation struct {
+	Code      *string             `json:"code,omitempty"`
+	Id        *openapi_types.UUID `json:"id,omitempty"`
+	Kind      *string             `json:"kind,omitempty"`
+	Version   *int                `json:"version,omitempty"`
+	VersionId *openapi_types.UUID `json:"versionId,omitempty"`
+}
+
+// PlanVersionInput defines model for PlanVersionInput.
+type PlanVersionInput struct {
+	BillingPeriod         PlanVersionInputBillingPeriod      `json:"billingPeriod"`
+	CancellationPolicy    PlanVersionInputCancellationPolicy `json:"cancellationPolicy"`
+	DeviceLimit           *int                               `json:"deviceLimit,omitempty"`
+	DowngradePolicy       PlanVersionInputDowngradePolicy    `json:"downgradePolicy"`
+	DurationSeconds       int64                              `json:"durationSeconds"`
+	Prices                []Money                            `json:"prices"`
+	RecurringCapable      *bool                              `json:"recurringCapable,omitempty"`
+	SquadIDs              *[]openapi_types.UUID              `json:"squadIDs,omitempty"`
+	TrafficAllowanceBytes *int64                             `json:"trafficAllowanceBytes,omitempty"`
+	UpgradePolicy         PlanVersionInputUpgradePolicy      `json:"upgradePolicy"`
+}
+
+// PlanVersionInputBillingPeriod defines model for PlanVersionInput.BillingPeriod.
+type PlanVersionInputBillingPeriod string
+
+// PlanVersionInputCancellationPolicy defines model for PlanVersionInput.CancellationPolicy.
+type PlanVersionInputCancellationPolicy string
+
+// PlanVersionInputDowngradePolicy defines model for PlanVersionInput.DowngradePolicy.
+type PlanVersionInputDowngradePolicy string
+
+// PlanVersionInputUpgradePolicy defines model for PlanVersionInput.UpgradePolicy.
+type PlanVersionInputUpgradePolicy string
 
 // Problem defines model for Problem.
 type Problem struct {
@@ -81,6 +800,50 @@ type Problem struct {
 	Status    int     `json:"status"`
 	Title     string  `json:"title"`
 	Type      string  `json:"type"`
+}
+
+// Promotion defines model for Promotion.
+type Promotion struct {
+	Active *bool               `json:"active,omitempty"`
+	Code   *string             `json:"code,omitempty"`
+	Id     *openapi_types.UUID `json:"id,omitempty"`
+	Kind   *string             `json:"kind,omitempty"`
+}
+
+// PromotionInput defines model for PromotionInput.
+type PromotionInput struct {
+	Active           bool                    `json:"active"`
+	Code             string                  `json:"code"`
+	Codes            []string                `json:"codes"`
+	Currency         *string                 `json:"currency,omitempty"`
+	Eligibility      *map[string]interface{} `json:"eligibility,omitempty"`
+	EndsAt           *time.Time              `json:"endsAt,omitempty"`
+	Kind             PromotionInputKind      `json:"kind"`
+	PerCustomerLimit int                     `json:"perCustomerLimit"`
+	PlanIDs          *[]openapi_types.UUID   `json:"planIDs,omitempty"`
+	RedemptionLimit  *int                    `json:"redemptionLimit,omitempty"`
+	StartsAt         *time.Time              `json:"startsAt,omitempty"`
+	Value            int64                   `json:"value"`
+}
+
+// PromotionInputKind defines model for PromotionInput.Kind.
+type PromotionInputKind string
+
+// Refund defines model for Refund.
+type Refund struct {
+	AmountMinor       int64               `json:"amountMinor"`
+	Currency          string              `json:"currency"`
+	Id                *openapi_types.UUID `json:"id,omitempty"`
+	ProviderReference *string             `json:"providerReference,omitempty"`
+	Status            *string             `json:"status,omitempty"`
+}
+
+// RefundInput defines model for RefundInput.
+type RefundInput struct {
+	AmountMinor     int64                   `json:"amountMinor"`
+	Currency        string                  `json:"currency"`
+	Reason          string                  `json:"reason"`
+	ReceiptMetadata *map[string]interface{} `json:"receiptMetadata,omitempty"`
 }
 
 // TelemetryEvent defines model for TelemetryEvent.
@@ -106,6 +869,173 @@ type TelemetryEventSchema int
 // TelemetryEventService defines model for TelemetryEvent.Service.
 type TelemetryEventService string
 
+// WalletAdjustment defines model for WalletAdjustment.
+type WalletAdjustment struct {
+	AmountMinor int64                `json:"amountMinor"`
+	Currency    string               `json:"currency"`
+	OperatorID  string               `json:"operatorID"`
+	Reason      string               `json:"reason"`
+	Reference   string               `json:"reference"`
+	Type        WalletAdjustmentType `json:"type"`
+}
+
+// WalletAdjustmentType defines model for WalletAdjustment.Type.
+type WalletAdjustmentType string
+
+// CustomerID defines model for CustomerID.
+type CustomerID = openapi_types.UUID
+
+// EntitlementID defines model for EntitlementID.
+type EntitlementID = openapi_types.UUID
+
+// IdempotencyKey defines model for IdempotencyKey.
+type IdempotencyKey = string
+
+// ImportID defines model for ImportID.
+type ImportID = openapi_types.UUID
+
+// OrderID defines model for OrderID.
+type OrderID = openapi_types.UUID
+
+// PageSize defines model for PageSize.
+type PageSize = int
+
+// PaymentID defines model for PaymentID.
+type PaymentID = openapi_types.UUID
+
+// PlanID defines model for PlanID.
+type PlanID = openapi_types.UUID
+
+// Plan defines model for Plan.
+type Plan = PlanInput
+
+// PlanVersion defines model for PlanVersion.
+type PlanVersion = PlanVersionInput
+
+// AdjustCustomerWalletParams defines parameters for AdjustCustomerWallet.
+type AdjustCustomerWalletParams struct {
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// EnqueueFulfillmentOperationParams defines parameters for EnqueueFulfillmentOperation.
+type EnqueueFulfillmentOperationParams struct {
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// ListFulfillmentDriftsParams defines parameters for ListFulfillmentDrifts.
+type ListFulfillmentDriftsParams struct {
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// PreviewRemnawaveImportParams defines parameters for PreviewRemnawaveImport.
+type PreviewRemnawaveImportParams struct {
+	PageSize *PageSize `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+}
+
+// ApplyRemnawaveImportParams defines parameters for ApplyRemnawaveImport.
+type ApplyRemnawaveImportParams struct {
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ResumeRemnawaveImportParams defines parameters for ResumeRemnawaveImport.
+type ResumeRemnawaveImportParams struct {
+	PageSize *PageSize `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+}
+
+// CreateOrderParams defines parameters for CreateOrder.
+type CreateOrderParams struct {
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// CancelOrderJSONBody defines parameters for CancelOrder.
+type CancelOrderJSONBody struct {
+	Reason *string `json:"reason,omitempty"`
+}
+
+// CancelOrderParams defines parameters for CancelOrder.
+type CancelOrderParams struct {
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// CreatePaymentIntentParams defines parameters for CreatePaymentIntent.
+type CreatePaymentIntentParams struct {
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// DecideManualPaymentParams defines parameters for DecideManualPayment.
+type DecideManualPaymentParams struct {
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// ReconcilePaymentParams defines parameters for ReconcilePayment.
+type ReconcilePaymentParams struct {
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// CreateRefundParams defines parameters for CreateRefund.
+type CreateRefundParams struct {
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// ListPlansParams defines parameters for ListPlans.
+type ListPlansParams struct {
+	Locale *ListPlansParamsLocale `form:"locale,omitempty" json:"locale,omitempty"`
+}
+
+// ListPlansParamsLocale defines parameters for ListPlans.
+type ListPlansParamsLocale string
+
+// ReceivePaymentWebhookJSONBody defines parameters for ReceivePaymentWebhook.
+type ReceivePaymentWebhookJSONBody map[string]interface{}
+
+// UpdateCustomerJSONRequestBody defines body for UpdateCustomer for application/json ContentType.
+type UpdateCustomerJSONRequestBody = CustomerPreferences
+
+// RecordCustomerConsentJSONRequestBody defines body for RecordCustomerConsent for application/json ContentType.
+type RecordCustomerConsentJSONRequestBody = ConsentInput
+
+// CreateContactChannelJSONRequestBody defines body for CreateContactChannel for application/json ContentType.
+type CreateContactChannelJSONRequestBody = ContactInput
+
+// LinkCustomerIdentityJSONRequestBody defines body for LinkCustomerIdentity for application/json ContentType.
+type LinkCustomerIdentityJSONRequestBody = IdentityInput
+
+// ApplyCustomerLifecycleJSONRequestBody defines body for ApplyCustomerLifecycle for application/json ContentType.
+type ApplyCustomerLifecycleJSONRequestBody = LifecycleInput
+
+// AdjustCustomerWalletJSONRequestBody defines body for AdjustCustomerWallet for application/json ContentType.
+type AdjustCustomerWalletJSONRequestBody = WalletAdjustment
+
+// EnqueueFulfillmentOperationJSONRequestBody defines body for EnqueueFulfillmentOperation for application/json ContentType.
+type EnqueueFulfillmentOperationJSONRequestBody = FulfillmentOperationInput
+
+// CreateOrderJSONRequestBody defines body for CreateOrder for application/json ContentType.
+type CreateOrderJSONRequestBody = OrderInput
+
+// CancelOrderJSONRequestBody defines body for CancelOrder for application/json ContentType.
+type CancelOrderJSONRequestBody CancelOrderJSONBody
+
+// CreatePaymentIntentJSONRequestBody defines body for CreatePaymentIntent for application/json ContentType.
+type CreatePaymentIntentJSONRequestBody = PaymentInput
+
+// DecideManualPaymentJSONRequestBody defines body for DecideManualPayment for application/json ContentType.
+type DecideManualPaymentJSONRequestBody = ManualDecision
+
+// CreateRefundJSONRequestBody defines body for CreateRefund for application/json ContentType.
+type CreateRefundJSONRequestBody = RefundInput
+
+// CreatePlanJSONRequestBody defines body for CreatePlan for application/json ContentType.
+type CreatePlanJSONRequestBody = PlanInput
+
+// CreatePlanVersionJSONRequestBody defines body for CreatePlanVersion for application/json ContentType.
+type CreatePlanVersionJSONRequestBody = PlanVersionInput
+
+// CreatePromotionJSONRequestBody defines body for CreatePromotion for application/json ContentType.
+type CreatePromotionJSONRequestBody = PromotionInput
+
+// ReceivePaymentWebhookJSONRequestBody defines body for ReceivePaymentWebhook for application/json ContentType.
+type ReceivePaymentWebhookJSONRequestBody ReceivePaymentWebhookJSONBody
+
 // CollectTelemetryEventJSONRequestBody defines body for CollectTelemetryEvent for application/json ContentType.
 type CollectTelemetryEventJSONRequestBody = TelemetryEvent
 
@@ -114,6 +1044,78 @@ type ServerInterface interface {
 
 	// (GET /healthz)
 	GetHealth(w http.ResponseWriter, r *http.Request)
+
+	// (PATCH /v1/admin/customers/{customerID})
+	UpdateCustomer(w http.ResponseWriter, r *http.Request, customerID CustomerID)
+
+	// (POST /v1/admin/customers/{customerID}/consents)
+	RecordCustomerConsent(w http.ResponseWriter, r *http.Request, customerID CustomerID)
+
+	// (POST /v1/admin/customers/{customerID}/contacts)
+	CreateContactChannel(w http.ResponseWriter, r *http.Request, customerID CustomerID)
+
+	// (POST /v1/admin/customers/{customerID}/identities)
+	LinkCustomerIdentity(w http.ResponseWriter, r *http.Request, customerID CustomerID)
+
+	// (DELETE /v1/admin/customers/{customerID}/identities/{identityID})
+	UnlinkCustomerIdentity(w http.ResponseWriter, r *http.Request, customerID CustomerID, identityID openapi_types.UUID)
+
+	// (POST /v1/admin/customers/{customerID}/lifecycle)
+	ApplyCustomerLifecycle(w http.ResponseWriter, r *http.Request, customerID CustomerID)
+
+	// (POST /v1/admin/customers/{customerID}/wallet-adjustments)
+	AdjustCustomerWallet(w http.ResponseWriter, r *http.Request, customerID CustomerID, params AdjustCustomerWalletParams)
+
+	// (POST /v1/admin/entitlements/{entitlementID}/operations)
+	EnqueueFulfillmentOperation(w http.ResponseWriter, r *http.Request, entitlementID EntitlementID, params EnqueueFulfillmentOperationParams)
+
+	// (GET /v1/admin/fulfillment/drifts)
+	ListFulfillmentDrifts(w http.ResponseWriter, r *http.Request, params ListFulfillmentDriftsParams)
+
+	// (POST /v1/admin/imports/remnawave/preview)
+	PreviewRemnawaveImport(w http.ResponseWriter, r *http.Request, params PreviewRemnawaveImportParams)
+
+	// (POST /v1/admin/imports/remnawave/{importID}/apply)
+	ApplyRemnawaveImport(w http.ResponseWriter, r *http.Request, importID ImportID, params ApplyRemnawaveImportParams)
+
+	// (POST /v1/admin/imports/remnawave/{importID}/resume)
+	ResumeRemnawaveImport(w http.ResponseWriter, r *http.Request, importID ImportID, params ResumeRemnawaveImportParams)
+
+	// (POST /v1/admin/orders)
+	CreateOrder(w http.ResponseWriter, r *http.Request, params CreateOrderParams)
+
+	// (GET /v1/admin/orders/{orderID})
+	GetOrder(w http.ResponseWriter, r *http.Request, orderID OrderID)
+
+	// (POST /v1/admin/orders/{orderID}/cancel)
+	CancelOrder(w http.ResponseWriter, r *http.Request, orderID OrderID, params CancelOrderParams)
+
+	// (POST /v1/admin/orders/{orderID}/payments)
+	CreatePaymentIntent(w http.ResponseWriter, r *http.Request, orderID OrderID, params CreatePaymentIntentParams)
+
+	// (POST /v1/admin/payments/{paymentID}/manual-decision)
+	DecideManualPayment(w http.ResponseWriter, r *http.Request, paymentID PaymentID, params DecideManualPaymentParams)
+
+	// (POST /v1/admin/payments/{paymentID}/reconcile)
+	ReconcilePayment(w http.ResponseWriter, r *http.Request, paymentID PaymentID, params ReconcilePaymentParams)
+
+	// (POST /v1/admin/payments/{paymentID}/refunds)
+	CreateRefund(w http.ResponseWriter, r *http.Request, paymentID PaymentID, params CreateRefundParams)
+
+	// (POST /v1/admin/plans)
+	CreatePlan(w http.ResponseWriter, r *http.Request)
+
+	// (POST /v1/admin/plans/{planID}/versions)
+	CreatePlanVersion(w http.ResponseWriter, r *http.Request, planID PlanID)
+
+	// (POST /v1/admin/promotions)
+	CreatePromotion(w http.ResponseWriter, r *http.Request)
+
+	// (GET /v1/catalog/plans)
+	ListPlans(w http.ResponseWriter, r *http.Request, params ListPlansParams)
+
+	// (POST /v1/payments/webhooks/{provider})
+	ReceivePaymentWebhook(w http.ResponseWriter, r *http.Request, provider PaymentProvider)
 
 	// (POST /v1/telemetry/events)
 	CollectTelemetryEvent(w http.ResponseWriter, r *http.Request)
@@ -125,6 +1127,126 @@ type Unimplemented struct{}
 
 // (GET /healthz)
 func (_ Unimplemented) GetHealth(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /v1/admin/customers/{customerID})
+func (_ Unimplemented) UpdateCustomer(w http.ResponseWriter, r *http.Request, customerID CustomerID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/admin/customers/{customerID}/consents)
+func (_ Unimplemented) RecordCustomerConsent(w http.ResponseWriter, r *http.Request, customerID CustomerID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/admin/customers/{customerID}/contacts)
+func (_ Unimplemented) CreateContactChannel(w http.ResponseWriter, r *http.Request, customerID CustomerID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/admin/customers/{customerID}/identities)
+func (_ Unimplemented) LinkCustomerIdentity(w http.ResponseWriter, r *http.Request, customerID CustomerID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /v1/admin/customers/{customerID}/identities/{identityID})
+func (_ Unimplemented) UnlinkCustomerIdentity(w http.ResponseWriter, r *http.Request, customerID CustomerID, identityID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/admin/customers/{customerID}/lifecycle)
+func (_ Unimplemented) ApplyCustomerLifecycle(w http.ResponseWriter, r *http.Request, customerID CustomerID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/admin/customers/{customerID}/wallet-adjustments)
+func (_ Unimplemented) AdjustCustomerWallet(w http.ResponseWriter, r *http.Request, customerID CustomerID, params AdjustCustomerWalletParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/admin/entitlements/{entitlementID}/operations)
+func (_ Unimplemented) EnqueueFulfillmentOperation(w http.ResponseWriter, r *http.Request, entitlementID EntitlementID, params EnqueueFulfillmentOperationParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/admin/fulfillment/drifts)
+func (_ Unimplemented) ListFulfillmentDrifts(w http.ResponseWriter, r *http.Request, params ListFulfillmentDriftsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/admin/imports/remnawave/preview)
+func (_ Unimplemented) PreviewRemnawaveImport(w http.ResponseWriter, r *http.Request, params PreviewRemnawaveImportParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/admin/imports/remnawave/{importID}/apply)
+func (_ Unimplemented) ApplyRemnawaveImport(w http.ResponseWriter, r *http.Request, importID ImportID, params ApplyRemnawaveImportParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/admin/imports/remnawave/{importID}/resume)
+func (_ Unimplemented) ResumeRemnawaveImport(w http.ResponseWriter, r *http.Request, importID ImportID, params ResumeRemnawaveImportParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/admin/orders)
+func (_ Unimplemented) CreateOrder(w http.ResponseWriter, r *http.Request, params CreateOrderParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/admin/orders/{orderID})
+func (_ Unimplemented) GetOrder(w http.ResponseWriter, r *http.Request, orderID OrderID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/admin/orders/{orderID}/cancel)
+func (_ Unimplemented) CancelOrder(w http.ResponseWriter, r *http.Request, orderID OrderID, params CancelOrderParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/admin/orders/{orderID}/payments)
+func (_ Unimplemented) CreatePaymentIntent(w http.ResponseWriter, r *http.Request, orderID OrderID, params CreatePaymentIntentParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/admin/payments/{paymentID}/manual-decision)
+func (_ Unimplemented) DecideManualPayment(w http.ResponseWriter, r *http.Request, paymentID PaymentID, params DecideManualPaymentParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/admin/payments/{paymentID}/reconcile)
+func (_ Unimplemented) ReconcilePayment(w http.ResponseWriter, r *http.Request, paymentID PaymentID, params ReconcilePaymentParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/admin/payments/{paymentID}/refunds)
+func (_ Unimplemented) CreateRefund(w http.ResponseWriter, r *http.Request, paymentID PaymentID, params CreateRefundParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/admin/plans)
+func (_ Unimplemented) CreatePlan(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/admin/plans/{planID}/versions)
+func (_ Unimplemented) CreatePlanVersion(w http.ResponseWriter, r *http.Request, planID PlanID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/admin/promotions)
+func (_ Unimplemented) CreatePromotion(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/catalog/plans)
+func (_ Unimplemented) ListPlans(w http.ResponseWriter, r *http.Request, params ListPlansParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/payments/webhooks/{provider})
+func (_ Unimplemented) ReceivePaymentWebhook(w http.ResponseWriter, r *http.Request, provider PaymentProvider) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -147,6 +1269,883 @@ func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetHealth(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateCustomer operation middleware
+func (siw *ServerInterfaceWrapper) UpdateCustomer(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerID" -------------
+	var customerID CustomerID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerID", chi.URLParam(r, "customerID"), &customerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateCustomer(w, r, customerID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RecordCustomerConsent operation middleware
+func (siw *ServerInterfaceWrapper) RecordCustomerConsent(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerID" -------------
+	var customerID CustomerID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerID", chi.URLParam(r, "customerID"), &customerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RecordCustomerConsent(w, r, customerID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateContactChannel operation middleware
+func (siw *ServerInterfaceWrapper) CreateContactChannel(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerID" -------------
+	var customerID CustomerID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerID", chi.URLParam(r, "customerID"), &customerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateContactChannel(w, r, customerID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// LinkCustomerIdentity operation middleware
+func (siw *ServerInterfaceWrapper) LinkCustomerIdentity(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerID" -------------
+	var customerID CustomerID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerID", chi.URLParam(r, "customerID"), &customerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LinkCustomerIdentity(w, r, customerID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UnlinkCustomerIdentity operation middleware
+func (siw *ServerInterfaceWrapper) UnlinkCustomerIdentity(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerID" -------------
+	var customerID CustomerID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerID", chi.URLParam(r, "customerID"), &customerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "identityID" -------------
+	var identityID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "identityID", chi.URLParam(r, "identityID"), &identityID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "identityID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnlinkCustomerIdentity(w, r, customerID, identityID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApplyCustomerLifecycle operation middleware
+func (siw *ServerInterfaceWrapper) ApplyCustomerLifecycle(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerID" -------------
+	var customerID CustomerID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerID", chi.URLParam(r, "customerID"), &customerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApplyCustomerLifecycle(w, r, customerID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdjustCustomerWallet operation middleware
+func (siw *ServerInterfaceWrapper) AdjustCustomerWallet(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerID" -------------
+	var customerID CustomerID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerID", chi.URLParam(r, "customerID"), &customerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AdjustCustomerWalletParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdjustCustomerWallet(w, r, customerID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EnqueueFulfillmentOperation operation middleware
+func (siw *ServerInterfaceWrapper) EnqueueFulfillmentOperation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "entitlementID" -------------
+	var entitlementID EntitlementID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "entitlementID", chi.URLParam(r, "entitlementID"), &entitlementID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "entitlementID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params EnqueueFulfillmentOperationParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EnqueueFulfillmentOperation(w, r, entitlementID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListFulfillmentDrifts operation middleware
+func (siw *ServerInterfaceWrapper) ListFulfillmentDrifts(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListFulfillmentDriftsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListFulfillmentDrifts(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PreviewRemnawaveImport operation middleware
+func (siw *ServerInterfaceWrapper) PreviewRemnawaveImport(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PreviewRemnawaveImportParams
+
+	// ------------- Optional query parameter "pageSize" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "pageSize", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "pageSize"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pageSize", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreviewRemnawaveImport(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApplyRemnawaveImport operation middleware
+func (siw *ServerInterfaceWrapper) ApplyRemnawaveImport(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "importID" -------------
+	var importID ImportID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "importID", chi.URLParam(r, "importID"), &importID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "importID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ApplyRemnawaveImportParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApplyRemnawaveImport(w, r, importID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ResumeRemnawaveImport operation middleware
+func (siw *ServerInterfaceWrapper) ResumeRemnawaveImport(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "importID" -------------
+	var importID ImportID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "importID", chi.URLParam(r, "importID"), &importID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "importID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ResumeRemnawaveImportParams
+
+	// ------------- Optional query parameter "pageSize" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "pageSize", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "pageSize"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pageSize", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ResumeRemnawaveImport(w, r, importID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateOrder operation middleware
+func (siw *ServerInterfaceWrapper) CreateOrder(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateOrderParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateOrder(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOrder operation middleware
+func (siw *ServerInterfaceWrapper) GetOrder(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "orderID" -------------
+	var orderID OrderID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "orderID", chi.URLParam(r, "orderID"), &orderID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orderID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrder(w, r, orderID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CancelOrder operation middleware
+func (siw *ServerInterfaceWrapper) CancelOrder(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "orderID" -------------
+	var orderID OrderID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "orderID", chi.URLParam(r, "orderID"), &orderID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orderID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CancelOrderParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CancelOrder(w, r, orderID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreatePaymentIntent operation middleware
+func (siw *ServerInterfaceWrapper) CreatePaymentIntent(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "orderID" -------------
+	var orderID OrderID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "orderID", chi.URLParam(r, "orderID"), &orderID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orderID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreatePaymentIntentParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePaymentIntent(w, r, orderID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DecideManualPayment operation middleware
+func (siw *ServerInterfaceWrapper) DecideManualPayment(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "paymentID" -------------
+	var paymentID PaymentID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "paymentID", chi.URLParam(r, "paymentID"), &paymentID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "paymentID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DecideManualPaymentParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DecideManualPayment(w, r, paymentID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReconcilePayment operation middleware
+func (siw *ServerInterfaceWrapper) ReconcilePayment(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "paymentID" -------------
+	var paymentID PaymentID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "paymentID", chi.URLParam(r, "paymentID"), &paymentID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "paymentID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ReconcilePaymentParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReconcilePayment(w, r, paymentID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateRefund operation middleware
+func (siw *ServerInterfaceWrapper) CreateRefund(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "paymentID" -------------
+	var paymentID PaymentID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "paymentID", chi.URLParam(r, "paymentID"), &paymentID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "paymentID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateRefundParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateRefund(w, r, paymentID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreatePlan operation middleware
+func (siw *ServerInterfaceWrapper) CreatePlan(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePlan(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreatePlanVersion operation middleware
+func (siw *ServerInterfaceWrapper) CreatePlanVersion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "planID" -------------
+	var planID PlanID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "planID", chi.URLParam(r, "planID"), &planID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "planID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePlanVersion(w, r, planID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreatePromotion operation middleware
+func (siw *ServerInterfaceWrapper) CreatePromotion(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePromotion(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPlans operation middleware
+func (siw *ServerInterfaceWrapper) ListPlans(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPlansParams
+
+	// ------------- Optional query parameter "locale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "locale", r.URL.Query(), &params.Locale, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "locale"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locale", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPlans(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReceivePaymentWebhook operation middleware
+func (siw *ServerInterfaceWrapper) ReceivePaymentWebhook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "provider" -------------
+	var provider PaymentProvider
+
+	err = runtime.BindStyledParameterWithOptions("simple", "provider", chi.URLParam(r, "provider"), &provider, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "provider", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReceivePaymentWebhook(w, r, provider)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -287,6 +2286,78 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/healthz", wrapper.GetHealth)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/catalog/plans", wrapper.ListPlans)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/admin/plans", wrapper.CreatePlan)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/admin/plans/{planID}/versions", wrapper.CreatePlanVersion)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/admin/promotions", wrapper.CreatePromotion)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/v1/admin/customers/{customerID}", wrapper.UpdateCustomer)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/admin/customers/{customerID}/identities", wrapper.LinkCustomerIdentity)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/admin/customers/{customerID}/identities/{identityID}", wrapper.UnlinkCustomerIdentity)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/admin/customers/{customerID}/contacts", wrapper.CreateContactChannel)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/admin/customers/{customerID}/consents", wrapper.RecordCustomerConsent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/admin/customers/{customerID}/lifecycle", wrapper.ApplyCustomerLifecycle)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/admin/imports/remnawave/preview", wrapper.PreviewRemnawaveImport)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/admin/imports/remnawave/{importID}/resume", wrapper.ResumeRemnawaveImport)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/admin/imports/remnawave/{importID}/apply", wrapper.ApplyRemnawaveImport)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/admin/orders", wrapper.CreateOrder)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/admin/orders/{orderID}", wrapper.GetOrder)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/admin/orders/{orderID}/cancel", wrapper.CancelOrder)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/admin/orders/{orderID}/payments", wrapper.CreatePaymentIntent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/payments/webhooks/{provider}", wrapper.ReceivePaymentWebhook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/admin/payments/{paymentID}/reconcile", wrapper.ReconcilePayment)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/admin/payments/{paymentID}/refunds", wrapper.CreateRefund)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/admin/payments/{paymentID}/manual-decision", wrapper.DecideManualPayment)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/admin/customers/{customerID}/wallet-adjustments", wrapper.AdjustCustomerWallet)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/admin/fulfillment/drifts", wrapper.ListFulfillmentDrifts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/admin/entitlements/{entitlementID}/operations", wrapper.EnqueueFulfillmentOperation)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/telemetry/events", wrapper.CollectTelemetryEvent)
 	})
 
@@ -312,6 +2383,916 @@ func (response GetHealth200JSONResponse) VisitGetHealthResponse(w http.ResponseW
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCustomerRequestObject struct {
+	CustomerID CustomerID `json:"customerID"`
+	Body       *UpdateCustomerJSONRequestBody
+}
+
+type UpdateCustomerResponseObject interface {
+	VisitUpdateCustomerResponse(w http.ResponseWriter) error
+}
+
+type UpdateCustomer200JSONResponse Customer
+
+func (response UpdateCustomer200JSONResponse) VisitUpdateCustomerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCustomer422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateCustomer422ApplicationProblemPlusJSONResponse) VisitUpdateCustomerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RecordCustomerConsentRequestObject struct {
+	CustomerID CustomerID `json:"customerID"`
+	Body       *RecordCustomerConsentJSONRequestBody
+}
+
+type RecordCustomerConsentResponseObject interface {
+	VisitRecordCustomerConsentResponse(w http.ResponseWriter) error
+}
+
+type RecordCustomerConsent201Response struct {
+}
+
+func (response RecordCustomerConsent201Response) VisitRecordCustomerConsentResponse(w http.ResponseWriter) error {
+	w.WriteHeader(201)
+	return nil
+}
+
+type RecordCustomerConsent422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RecordCustomerConsent422ApplicationProblemPlusJSONResponse) VisitRecordCustomerConsentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateContactChannelRequestObject struct {
+	CustomerID CustomerID `json:"customerID"`
+	Body       *CreateContactChannelJSONRequestBody
+}
+
+type CreateContactChannelResponseObject interface {
+	VisitCreateContactChannelResponse(w http.ResponseWriter) error
+}
+
+type CreateContactChannel201Response struct {
+}
+
+func (response CreateContactChannel201Response) VisitCreateContactChannelResponse(w http.ResponseWriter) error {
+	w.WriteHeader(201)
+	return nil
+}
+
+type CreateContactChannel422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreateContactChannel422ApplicationProblemPlusJSONResponse) VisitCreateContactChannelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LinkCustomerIdentityRequestObject struct {
+	CustomerID CustomerID `json:"customerID"`
+	Body       *LinkCustomerIdentityJSONRequestBody
+}
+
+type LinkCustomerIdentityResponseObject interface {
+	VisitLinkCustomerIdentityResponse(w http.ResponseWriter) error
+}
+
+type LinkCustomerIdentity201Response struct {
+}
+
+func (response LinkCustomerIdentity201Response) VisitLinkCustomerIdentityResponse(w http.ResponseWriter) error {
+	w.WriteHeader(201)
+	return nil
+}
+
+type LinkCustomerIdentity409ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response LinkCustomerIdentity409ApplicationProblemPlusJSONResponse) VisitLinkCustomerIdentityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnlinkCustomerIdentityRequestObject struct {
+	CustomerID CustomerID         `json:"customerID"`
+	IdentityID openapi_types.UUID `json:"identityID"`
+}
+
+type UnlinkCustomerIdentityResponseObject interface {
+	VisitUnlinkCustomerIdentityResponse(w http.ResponseWriter) error
+}
+
+type UnlinkCustomerIdentity204Response struct {
+}
+
+func (response UnlinkCustomerIdentity204Response) VisitUnlinkCustomerIdentityResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type UnlinkCustomerIdentity409ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response UnlinkCustomerIdentity409ApplicationProblemPlusJSONResponse) VisitUnlinkCustomerIdentityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplyCustomerLifecycleRequestObject struct {
+	CustomerID CustomerID `json:"customerID"`
+	Body       *ApplyCustomerLifecycleJSONRequestBody
+}
+
+type ApplyCustomerLifecycleResponseObject interface {
+	VisitApplyCustomerLifecycleResponse(w http.ResponseWriter) error
+}
+
+type ApplyCustomerLifecycle200JSONResponse Customer
+
+func (response ApplyCustomerLifecycle200JSONResponse) VisitApplyCustomerLifecycleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplyCustomerLifecycle409ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ApplyCustomerLifecycle409ApplicationProblemPlusJSONResponse) VisitApplyCustomerLifecycleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AdjustCustomerWalletRequestObject struct {
+	CustomerID CustomerID `json:"customerID"`
+	Params     AdjustCustomerWalletParams
+	Body       *AdjustCustomerWalletJSONRequestBody
+}
+
+type AdjustCustomerWalletResponseObject interface {
+	VisitAdjustCustomerWalletResponse(w http.ResponseWriter) error
+}
+
+type AdjustCustomerWallet201Response struct {
+}
+
+func (response AdjustCustomerWallet201Response) VisitAdjustCustomerWalletResponse(w http.ResponseWriter) error {
+	w.WriteHeader(201)
+	return nil
+}
+
+type AdjustCustomerWallet422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response AdjustCustomerWallet422ApplicationProblemPlusJSONResponse) VisitAdjustCustomerWalletResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnqueueFulfillmentOperationRequestObject struct {
+	EntitlementID EntitlementID `json:"entitlementID"`
+	Params        EnqueueFulfillmentOperationParams
+	Body          *EnqueueFulfillmentOperationJSONRequestBody
+}
+
+type EnqueueFulfillmentOperationResponseObject interface {
+	VisitEnqueueFulfillmentOperationResponse(w http.ResponseWriter) error
+}
+
+type EnqueueFulfillmentOperation202JSONResponse FulfillmentOperation
+
+func (response EnqueueFulfillmentOperation202JSONResponse) VisitEnqueueFulfillmentOperationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnqueueFulfillmentOperation422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response EnqueueFulfillmentOperation422ApplicationProblemPlusJSONResponse) VisitEnqueueFulfillmentOperationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListFulfillmentDriftsRequestObject struct {
+	Params ListFulfillmentDriftsParams
+}
+
+type ListFulfillmentDriftsResponseObject interface {
+	VisitListFulfillmentDriftsResponse(w http.ResponseWriter) error
+}
+
+type ListFulfillmentDrifts200JSONResponse struct {
+	Items *[]FulfillmentDrift `json:"items,omitempty"`
+}
+
+func (response ListFulfillmentDrifts200JSONResponse) VisitListFulfillmentDriftsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListFulfillmentDrifts500ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListFulfillmentDrifts500ApplicationProblemPlusJSONResponse) VisitListFulfillmentDriftsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewRemnawaveImportRequestObject struct {
+	Params PreviewRemnawaveImportParams
+}
+
+type PreviewRemnawaveImportResponseObject interface {
+	VisitPreviewRemnawaveImportResponse(w http.ResponseWriter) error
+}
+
+type PreviewRemnawaveImport200JSONResponse ImportRun
+
+func (response PreviewRemnawaveImport200JSONResponse) VisitPreviewRemnawaveImportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewRemnawaveImport422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response PreviewRemnawaveImport422ApplicationProblemPlusJSONResponse) VisitPreviewRemnawaveImportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplyRemnawaveImportRequestObject struct {
+	ImportID ImportID `json:"importID"`
+	Params   ApplyRemnawaveImportParams
+}
+
+type ApplyRemnawaveImportResponseObject interface {
+	VisitApplyRemnawaveImportResponse(w http.ResponseWriter) error
+}
+
+type ApplyRemnawaveImport200JSONResponse ImportRun
+
+func (response ApplyRemnawaveImport200JSONResponse) VisitApplyRemnawaveImportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplyRemnawaveImport422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ApplyRemnawaveImport422ApplicationProblemPlusJSONResponse) VisitApplyRemnawaveImportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ResumeRemnawaveImportRequestObject struct {
+	ImportID ImportID `json:"importID"`
+	Params   ResumeRemnawaveImportParams
+}
+
+type ResumeRemnawaveImportResponseObject interface {
+	VisitResumeRemnawaveImportResponse(w http.ResponseWriter) error
+}
+
+type ResumeRemnawaveImport200JSONResponse ImportRun
+
+func (response ResumeRemnawaveImport200JSONResponse) VisitResumeRemnawaveImportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ResumeRemnawaveImport422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ResumeRemnawaveImport422ApplicationProblemPlusJSONResponse) VisitResumeRemnawaveImportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateOrderRequestObject struct {
+	Params CreateOrderParams
+	Body   *CreateOrderJSONRequestBody
+}
+
+type CreateOrderResponseObject interface {
+	VisitCreateOrderResponse(w http.ResponseWriter) error
+}
+
+type CreateOrder201JSONResponse Order
+
+func (response CreateOrder201JSONResponse) VisitCreateOrderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateOrder422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreateOrder422ApplicationProblemPlusJSONResponse) VisitCreateOrderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetOrderRequestObject struct {
+	OrderID OrderID `json:"orderID"`
+}
+
+type GetOrderResponseObject interface {
+	VisitGetOrderResponse(w http.ResponseWriter) error
+}
+
+type GetOrder200JSONResponse Order
+
+func (response GetOrder200JSONResponse) VisitGetOrderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetOrder404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetOrder404ApplicationProblemPlusJSONResponse) VisitGetOrderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CancelOrderRequestObject struct {
+	OrderID OrderID `json:"orderID"`
+	Params  CancelOrderParams
+	Body    *CancelOrderJSONRequestBody
+}
+
+type CancelOrderResponseObject interface {
+	VisitCancelOrderResponse(w http.ResponseWriter) error
+}
+
+type CancelOrder200JSONResponse Order
+
+func (response CancelOrder200JSONResponse) VisitCancelOrderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CancelOrder409ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CancelOrder409ApplicationProblemPlusJSONResponse) VisitCancelOrderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePaymentIntentRequestObject struct {
+	OrderID OrderID `json:"orderID"`
+	Params  CreatePaymentIntentParams
+	Body    *CreatePaymentIntentJSONRequestBody
+}
+
+type CreatePaymentIntentResponseObject interface {
+	VisitCreatePaymentIntentResponse(w http.ResponseWriter) error
+}
+
+type CreatePaymentIntent201JSONResponse PaymentIntent
+
+func (response CreatePaymentIntent201JSONResponse) VisitCreatePaymentIntentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePaymentIntent422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreatePaymentIntent422ApplicationProblemPlusJSONResponse) VisitCreatePaymentIntentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DecideManualPaymentRequestObject struct {
+	PaymentID PaymentID `json:"paymentID"`
+	Params    DecideManualPaymentParams
+	Body      *DecideManualPaymentJSONRequestBody
+}
+
+type DecideManualPaymentResponseObject interface {
+	VisitDecideManualPaymentResponse(w http.ResponseWriter) error
+}
+
+type DecideManualPayment200Response struct {
+}
+
+func (response DecideManualPayment200Response) VisitDecideManualPaymentResponse(w http.ResponseWriter) error {
+	w.WriteHeader(200)
+	return nil
+}
+
+type DecideManualPayment422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DecideManualPayment422ApplicationProblemPlusJSONResponse) VisitDecideManualPaymentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReconcilePaymentRequestObject struct {
+	PaymentID PaymentID `json:"paymentID"`
+	Params    ReconcilePaymentParams
+}
+
+type ReconcilePaymentResponseObject interface {
+	VisitReconcilePaymentResponse(w http.ResponseWriter) error
+}
+
+type ReconcilePayment200JSONResponse PaymentIntent
+
+func (response ReconcilePayment200JSONResponse) VisitReconcilePaymentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReconcilePayment422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ReconcilePayment422ApplicationProblemPlusJSONResponse) VisitReconcilePaymentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRefundRequestObject struct {
+	PaymentID PaymentID `json:"paymentID"`
+	Params    CreateRefundParams
+	Body      *CreateRefundJSONRequestBody
+}
+
+type CreateRefundResponseObject interface {
+	VisitCreateRefundResponse(w http.ResponseWriter) error
+}
+
+type CreateRefund201JSONResponse Refund
+
+func (response CreateRefund201JSONResponse) VisitCreateRefundResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRefund422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreateRefund422ApplicationProblemPlusJSONResponse) VisitCreateRefundResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePlanRequestObject struct {
+	Body *CreatePlanJSONRequestBody
+}
+
+type CreatePlanResponseObject interface {
+	VisitCreatePlanResponse(w http.ResponseWriter) error
+}
+
+type CreatePlan201JSONResponse PlanMutation
+
+func (response CreatePlan201JSONResponse) VisitCreatePlanResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePlan422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreatePlan422ApplicationProblemPlusJSONResponse) VisitCreatePlanResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePlanVersionRequestObject struct {
+	PlanID PlanID `json:"planID"`
+	Body   *CreatePlanVersionJSONRequestBody
+}
+
+type CreatePlanVersionResponseObject interface {
+	VisitCreatePlanVersionResponse(w http.ResponseWriter) error
+}
+
+type CreatePlanVersion201JSONResponse PlanMutation
+
+func (response CreatePlanVersion201JSONResponse) VisitCreatePlanVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePlanVersion422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreatePlanVersion422ApplicationProblemPlusJSONResponse) VisitCreatePlanVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePromotionRequestObject struct {
+	Body *CreatePromotionJSONRequestBody
+}
+
+type CreatePromotionResponseObject interface {
+	VisitCreatePromotionResponse(w http.ResponseWriter) error
+}
+
+type CreatePromotion201JSONResponse Promotion
+
+func (response CreatePromotion201JSONResponse) VisitCreatePromotionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePromotion422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreatePromotion422ApplicationProblemPlusJSONResponse) VisitCreatePromotionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPlansRequestObject struct {
+	Params ListPlansParams
+}
+
+type ListPlansResponseObject interface {
+	VisitListPlansResponse(w http.ResponseWriter) error
+}
+
+type ListPlans200JSONResponse PlanList
+
+func (response ListPlans200JSONResponse) VisitListPlansResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPlans500ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListPlans500ApplicationProblemPlusJSONResponse) VisitListPlansResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReceivePaymentWebhookRequestObject struct {
+	Provider PaymentProvider `json:"provider"`
+	Body     *ReceivePaymentWebhookJSONRequestBody
+}
+
+type ReceivePaymentWebhookResponseObject interface {
+	VisitReceivePaymentWebhookResponse(w http.ResponseWriter) error
+}
+
+type ReceivePaymentWebhook200Response struct {
+}
+
+func (response ReceivePaymentWebhook200Response) VisitReceivePaymentWebhookResponse(w http.ResponseWriter) error {
+	w.WriteHeader(200)
+	return nil
+}
+
+type ReceivePaymentWebhook400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ReceivePaymentWebhook400ApplicationProblemPlusJSONResponse) VisitReceivePaymentWebhookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReceivePaymentWebhook413ApplicationProblemPlusJSONResponse Problem
+
+func (response ReceivePaymentWebhook413ApplicationProblemPlusJSONResponse) VisitReceivePaymentWebhookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(413)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -353,6 +3334,78 @@ type StrictServerInterface interface {
 
 	// (GET /healthz)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
+
+	// (PATCH /v1/admin/customers/{customerID})
+	UpdateCustomer(ctx context.Context, request UpdateCustomerRequestObject) (UpdateCustomerResponseObject, error)
+
+	// (POST /v1/admin/customers/{customerID}/consents)
+	RecordCustomerConsent(ctx context.Context, request RecordCustomerConsentRequestObject) (RecordCustomerConsentResponseObject, error)
+
+	// (POST /v1/admin/customers/{customerID}/contacts)
+	CreateContactChannel(ctx context.Context, request CreateContactChannelRequestObject) (CreateContactChannelResponseObject, error)
+
+	// (POST /v1/admin/customers/{customerID}/identities)
+	LinkCustomerIdentity(ctx context.Context, request LinkCustomerIdentityRequestObject) (LinkCustomerIdentityResponseObject, error)
+
+	// (DELETE /v1/admin/customers/{customerID}/identities/{identityID})
+	UnlinkCustomerIdentity(ctx context.Context, request UnlinkCustomerIdentityRequestObject) (UnlinkCustomerIdentityResponseObject, error)
+
+	// (POST /v1/admin/customers/{customerID}/lifecycle)
+	ApplyCustomerLifecycle(ctx context.Context, request ApplyCustomerLifecycleRequestObject) (ApplyCustomerLifecycleResponseObject, error)
+
+	// (POST /v1/admin/customers/{customerID}/wallet-adjustments)
+	AdjustCustomerWallet(ctx context.Context, request AdjustCustomerWalletRequestObject) (AdjustCustomerWalletResponseObject, error)
+
+	// (POST /v1/admin/entitlements/{entitlementID}/operations)
+	EnqueueFulfillmentOperation(ctx context.Context, request EnqueueFulfillmentOperationRequestObject) (EnqueueFulfillmentOperationResponseObject, error)
+
+	// (GET /v1/admin/fulfillment/drifts)
+	ListFulfillmentDrifts(ctx context.Context, request ListFulfillmentDriftsRequestObject) (ListFulfillmentDriftsResponseObject, error)
+
+	// (POST /v1/admin/imports/remnawave/preview)
+	PreviewRemnawaveImport(ctx context.Context, request PreviewRemnawaveImportRequestObject) (PreviewRemnawaveImportResponseObject, error)
+
+	// (POST /v1/admin/imports/remnawave/{importID}/apply)
+	ApplyRemnawaveImport(ctx context.Context, request ApplyRemnawaveImportRequestObject) (ApplyRemnawaveImportResponseObject, error)
+
+	// (POST /v1/admin/imports/remnawave/{importID}/resume)
+	ResumeRemnawaveImport(ctx context.Context, request ResumeRemnawaveImportRequestObject) (ResumeRemnawaveImportResponseObject, error)
+
+	// (POST /v1/admin/orders)
+	CreateOrder(ctx context.Context, request CreateOrderRequestObject) (CreateOrderResponseObject, error)
+
+	// (GET /v1/admin/orders/{orderID})
+	GetOrder(ctx context.Context, request GetOrderRequestObject) (GetOrderResponseObject, error)
+
+	// (POST /v1/admin/orders/{orderID}/cancel)
+	CancelOrder(ctx context.Context, request CancelOrderRequestObject) (CancelOrderResponseObject, error)
+
+	// (POST /v1/admin/orders/{orderID}/payments)
+	CreatePaymentIntent(ctx context.Context, request CreatePaymentIntentRequestObject) (CreatePaymentIntentResponseObject, error)
+
+	// (POST /v1/admin/payments/{paymentID}/manual-decision)
+	DecideManualPayment(ctx context.Context, request DecideManualPaymentRequestObject) (DecideManualPaymentResponseObject, error)
+
+	// (POST /v1/admin/payments/{paymentID}/reconcile)
+	ReconcilePayment(ctx context.Context, request ReconcilePaymentRequestObject) (ReconcilePaymentResponseObject, error)
+
+	// (POST /v1/admin/payments/{paymentID}/refunds)
+	CreateRefund(ctx context.Context, request CreateRefundRequestObject) (CreateRefundResponseObject, error)
+
+	// (POST /v1/admin/plans)
+	CreatePlan(ctx context.Context, request CreatePlanRequestObject) (CreatePlanResponseObject, error)
+
+	// (POST /v1/admin/plans/{planID}/versions)
+	CreatePlanVersion(ctx context.Context, request CreatePlanVersionRequestObject) (CreatePlanVersionResponseObject, error)
+
+	// (POST /v1/admin/promotions)
+	CreatePromotion(ctx context.Context, request CreatePromotionRequestObject) (CreatePromotionResponseObject, error)
+
+	// (GET /v1/catalog/plans)
+	ListPlans(ctx context.Context, request ListPlansRequestObject) (ListPlansResponseObject, error)
+
+	// (POST /v1/payments/webhooks/{provider})
+	ReceivePaymentWebhook(ctx context.Context, request ReceivePaymentWebhookRequestObject) (ReceivePaymentWebhookResponseObject, error)
 
 	// (POST /v1/telemetry/events)
 	CollectTelemetryEvent(ctx context.Context, request CollectTelemetryEventRequestObject) (CollectTelemetryEventResponseObject, error)
@@ -414,6 +3467,748 @@ func (sh *strictHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetHealthResponseObject); ok {
 		if err := validResponse.VisitGetHealthResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateCustomer operation middleware
+func (sh *strictHandler) UpdateCustomer(w http.ResponseWriter, r *http.Request, customerID CustomerID) {
+	var request UpdateCustomerRequestObject
+
+	request.CustomerID = customerID
+
+	var body UpdateCustomerJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateCustomer(ctx, request.(UpdateCustomerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateCustomer")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateCustomerResponseObject); ok {
+		if err := validResponse.VisitUpdateCustomerResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RecordCustomerConsent operation middleware
+func (sh *strictHandler) RecordCustomerConsent(w http.ResponseWriter, r *http.Request, customerID CustomerID) {
+	var request RecordCustomerConsentRequestObject
+
+	request.CustomerID = customerID
+
+	var body RecordCustomerConsentJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RecordCustomerConsent(ctx, request.(RecordCustomerConsentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RecordCustomerConsent")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RecordCustomerConsentResponseObject); ok {
+		if err := validResponse.VisitRecordCustomerConsentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateContactChannel operation middleware
+func (sh *strictHandler) CreateContactChannel(w http.ResponseWriter, r *http.Request, customerID CustomerID) {
+	var request CreateContactChannelRequestObject
+
+	request.CustomerID = customerID
+
+	var body CreateContactChannelJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateContactChannel(ctx, request.(CreateContactChannelRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateContactChannel")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateContactChannelResponseObject); ok {
+		if err := validResponse.VisitCreateContactChannelResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// LinkCustomerIdentity operation middleware
+func (sh *strictHandler) LinkCustomerIdentity(w http.ResponseWriter, r *http.Request, customerID CustomerID) {
+	var request LinkCustomerIdentityRequestObject
+
+	request.CustomerID = customerID
+
+	var body LinkCustomerIdentityJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.LinkCustomerIdentity(ctx, request.(LinkCustomerIdentityRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LinkCustomerIdentity")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LinkCustomerIdentityResponseObject); ok {
+		if err := validResponse.VisitLinkCustomerIdentityResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UnlinkCustomerIdentity operation middleware
+func (sh *strictHandler) UnlinkCustomerIdentity(w http.ResponseWriter, r *http.Request, customerID CustomerID, identityID openapi_types.UUID) {
+	var request UnlinkCustomerIdentityRequestObject
+
+	request.CustomerID = customerID
+	request.IdentityID = identityID
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UnlinkCustomerIdentity(ctx, request.(UnlinkCustomerIdentityRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UnlinkCustomerIdentity")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UnlinkCustomerIdentityResponseObject); ok {
+		if err := validResponse.VisitUnlinkCustomerIdentityResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ApplyCustomerLifecycle operation middleware
+func (sh *strictHandler) ApplyCustomerLifecycle(w http.ResponseWriter, r *http.Request, customerID CustomerID) {
+	var request ApplyCustomerLifecycleRequestObject
+
+	request.CustomerID = customerID
+
+	var body ApplyCustomerLifecycleJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ApplyCustomerLifecycle(ctx, request.(ApplyCustomerLifecycleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApplyCustomerLifecycle")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ApplyCustomerLifecycleResponseObject); ok {
+		if err := validResponse.VisitApplyCustomerLifecycleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AdjustCustomerWallet operation middleware
+func (sh *strictHandler) AdjustCustomerWallet(w http.ResponseWriter, r *http.Request, customerID CustomerID, params AdjustCustomerWalletParams) {
+	var request AdjustCustomerWalletRequestObject
+
+	request.CustomerID = customerID
+	request.Params = params
+
+	var body AdjustCustomerWalletJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AdjustCustomerWallet(ctx, request.(AdjustCustomerWalletRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AdjustCustomerWallet")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AdjustCustomerWalletResponseObject); ok {
+		if err := validResponse.VisitAdjustCustomerWalletResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// EnqueueFulfillmentOperation operation middleware
+func (sh *strictHandler) EnqueueFulfillmentOperation(w http.ResponseWriter, r *http.Request, entitlementID EntitlementID, params EnqueueFulfillmentOperationParams) {
+	var request EnqueueFulfillmentOperationRequestObject
+
+	request.EntitlementID = entitlementID
+	request.Params = params
+
+	var body EnqueueFulfillmentOperationJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.EnqueueFulfillmentOperation(ctx, request.(EnqueueFulfillmentOperationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "EnqueueFulfillmentOperation")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(EnqueueFulfillmentOperationResponseObject); ok {
+		if err := validResponse.VisitEnqueueFulfillmentOperationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListFulfillmentDrifts operation middleware
+func (sh *strictHandler) ListFulfillmentDrifts(w http.ResponseWriter, r *http.Request, params ListFulfillmentDriftsParams) {
+	var request ListFulfillmentDriftsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListFulfillmentDrifts(ctx, request.(ListFulfillmentDriftsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListFulfillmentDrifts")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListFulfillmentDriftsResponseObject); ok {
+		if err := validResponse.VisitListFulfillmentDriftsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PreviewRemnawaveImport operation middleware
+func (sh *strictHandler) PreviewRemnawaveImport(w http.ResponseWriter, r *http.Request, params PreviewRemnawaveImportParams) {
+	var request PreviewRemnawaveImportRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PreviewRemnawaveImport(ctx, request.(PreviewRemnawaveImportRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PreviewRemnawaveImport")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PreviewRemnawaveImportResponseObject); ok {
+		if err := validResponse.VisitPreviewRemnawaveImportResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ApplyRemnawaveImport operation middleware
+func (sh *strictHandler) ApplyRemnawaveImport(w http.ResponseWriter, r *http.Request, importID ImportID, params ApplyRemnawaveImportParams) {
+	var request ApplyRemnawaveImportRequestObject
+
+	request.ImportID = importID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ApplyRemnawaveImport(ctx, request.(ApplyRemnawaveImportRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApplyRemnawaveImport")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ApplyRemnawaveImportResponseObject); ok {
+		if err := validResponse.VisitApplyRemnawaveImportResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ResumeRemnawaveImport operation middleware
+func (sh *strictHandler) ResumeRemnawaveImport(w http.ResponseWriter, r *http.Request, importID ImportID, params ResumeRemnawaveImportParams) {
+	var request ResumeRemnawaveImportRequestObject
+
+	request.ImportID = importID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ResumeRemnawaveImport(ctx, request.(ResumeRemnawaveImportRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ResumeRemnawaveImport")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ResumeRemnawaveImportResponseObject); ok {
+		if err := validResponse.VisitResumeRemnawaveImportResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateOrder operation middleware
+func (sh *strictHandler) CreateOrder(w http.ResponseWriter, r *http.Request, params CreateOrderParams) {
+	var request CreateOrderRequestObject
+
+	request.Params = params
+
+	var body CreateOrderJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateOrder(ctx, request.(CreateOrderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateOrder")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateOrderResponseObject); ok {
+		if err := validResponse.VisitCreateOrderResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetOrder operation middleware
+func (sh *strictHandler) GetOrder(w http.ResponseWriter, r *http.Request, orderID OrderID) {
+	var request GetOrderRequestObject
+
+	request.OrderID = orderID
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetOrder(ctx, request.(GetOrderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetOrder")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetOrderResponseObject); ok {
+		if err := validResponse.VisitGetOrderResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CancelOrder operation middleware
+func (sh *strictHandler) CancelOrder(w http.ResponseWriter, r *http.Request, orderID OrderID, params CancelOrderParams) {
+	var request CancelOrderRequestObject
+
+	request.OrderID = orderID
+	request.Params = params
+
+	var body CancelOrderJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CancelOrder(ctx, request.(CancelOrderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CancelOrder")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CancelOrderResponseObject); ok {
+		if err := validResponse.VisitCancelOrderResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreatePaymentIntent operation middleware
+func (sh *strictHandler) CreatePaymentIntent(w http.ResponseWriter, r *http.Request, orderID OrderID, params CreatePaymentIntentParams) {
+	var request CreatePaymentIntentRequestObject
+
+	request.OrderID = orderID
+	request.Params = params
+
+	var body CreatePaymentIntentJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreatePaymentIntent(ctx, request.(CreatePaymentIntentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreatePaymentIntent")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreatePaymentIntentResponseObject); ok {
+		if err := validResponse.VisitCreatePaymentIntentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DecideManualPayment operation middleware
+func (sh *strictHandler) DecideManualPayment(w http.ResponseWriter, r *http.Request, paymentID PaymentID, params DecideManualPaymentParams) {
+	var request DecideManualPaymentRequestObject
+
+	request.PaymentID = paymentID
+	request.Params = params
+
+	var body DecideManualPaymentJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DecideManualPayment(ctx, request.(DecideManualPaymentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DecideManualPayment")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DecideManualPaymentResponseObject); ok {
+		if err := validResponse.VisitDecideManualPaymentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ReconcilePayment operation middleware
+func (sh *strictHandler) ReconcilePayment(w http.ResponseWriter, r *http.Request, paymentID PaymentID, params ReconcilePaymentParams) {
+	var request ReconcilePaymentRequestObject
+
+	request.PaymentID = paymentID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ReconcilePayment(ctx, request.(ReconcilePaymentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReconcilePayment")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ReconcilePaymentResponseObject); ok {
+		if err := validResponse.VisitReconcilePaymentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateRefund operation middleware
+func (sh *strictHandler) CreateRefund(w http.ResponseWriter, r *http.Request, paymentID PaymentID, params CreateRefundParams) {
+	var request CreateRefundRequestObject
+
+	request.PaymentID = paymentID
+	request.Params = params
+
+	var body CreateRefundJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateRefund(ctx, request.(CreateRefundRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateRefund")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateRefundResponseObject); ok {
+		if err := validResponse.VisitCreateRefundResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreatePlan operation middleware
+func (sh *strictHandler) CreatePlan(w http.ResponseWriter, r *http.Request) {
+	var request CreatePlanRequestObject
+
+	var body CreatePlanJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreatePlan(ctx, request.(CreatePlanRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreatePlan")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreatePlanResponseObject); ok {
+		if err := validResponse.VisitCreatePlanResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreatePlanVersion operation middleware
+func (sh *strictHandler) CreatePlanVersion(w http.ResponseWriter, r *http.Request, planID PlanID) {
+	var request CreatePlanVersionRequestObject
+
+	request.PlanID = planID
+
+	var body CreatePlanVersionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreatePlanVersion(ctx, request.(CreatePlanVersionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreatePlanVersion")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreatePlanVersionResponseObject); ok {
+		if err := validResponse.VisitCreatePlanVersionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreatePromotion operation middleware
+func (sh *strictHandler) CreatePromotion(w http.ResponseWriter, r *http.Request) {
+	var request CreatePromotionRequestObject
+
+	var body CreatePromotionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreatePromotion(ctx, request.(CreatePromotionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreatePromotion")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreatePromotionResponseObject); ok {
+		if err := validResponse.VisitCreatePromotionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPlans operation middleware
+func (sh *strictHandler) ListPlans(w http.ResponseWriter, r *http.Request, params ListPlansParams) {
+	var request ListPlansRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPlans(ctx, request.(ListPlansRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPlans")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPlansResponseObject); ok {
+		if err := validResponse.VisitListPlansResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ReceivePaymentWebhook operation middleware
+func (sh *strictHandler) ReceivePaymentWebhook(w http.ResponseWriter, r *http.Request, provider PaymentProvider) {
+	var request ReceivePaymentWebhookRequestObject
+
+	request.Provider = provider
+
+	var body ReceivePaymentWebhookJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ReceivePaymentWebhook(ctx, request.(ReceivePaymentWebhookRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReceivePaymentWebhook")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ReceivePaymentWebhookResponseObject); ok {
+		if err := validResponse.VisitReceivePaymentWebhookResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

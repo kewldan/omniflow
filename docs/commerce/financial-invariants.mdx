@@ -1,0 +1,21 @@
+---
+title: Financial invariants
+description: Rules that all commerce code and migrations must preserve.
+---
+
+The following are release-blocking invariants:
+
+1. Money is an integer minor-unit amount plus one uppercase three-letter currency.
+2. An order satisfies `wallet + external = subtotal - discount`.
+3. Discount cannot exceed subtotal; refunded amount cannot exceed paid amount.
+4. A ledger transaction sums to zero independently for every currency.
+5. A wallet balance is derived from append-only entries and cannot become negative.
+6. Pending-order wallet reservations are subtracted from available balance and rechecked before settlement.
+7. A provider event, order mutation, refund, ledger reference, and fulfillment operation is idempotent.
+8. Duplicate, mismatched, overpaid, and underpaid provider events never grant an entitlement; an exact late payment can grant at most one.
+9. Payment success and durable fulfillment intent commit together.
+10. Provider history, consent, audit, ledger, webhook, and fulfillment history is append-only.
+11. Secrets, subscription links, contact plaintext, and raw authorization headers never enter logs or operational history.
+12. Refund mutations are serialized per payment intent, and pending plus successful refunds cannot exceed the provider-paid amount before the provider is called.
+
+Focused domain tests cover wallet-first splitting, payment replay, currency mismatch, promotion scope, ledger balancing, webhook signatures, and customer lifecycle guards. PostgreSQL-backed transaction tests remain a v0.5 Testcontainers gate.

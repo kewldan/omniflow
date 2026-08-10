@@ -93,72 +93,72 @@ Goal: provide a useful customer bot before commerce is introduced.
 
 ---
 
-## 🚧 v0.3 — Commerce and customer-domain backend
+## ✅ v0.3 — Commerce and customer-domain backend
 
 Goal: build the complete financial and entitlement model before exposing purchases.
 
 ### Customer and identity
 
-- [ ] Canonical customer profile independent of Telegram and Remnawave identifiers
-- [ ] Verified identity methods and safe account-link/unlink lifecycle
-- [ ] Contact-channel preferences, locale, timezone, and consent records
-- [ ] Customer suspension, deletion, anonymization, and retention workflows
-- [ ] Conflict-safe import of existing Remnawave customers
-- [ ] Import preview, validation report, resumability, and rollback-safe failure handling
+- [x] Canonical customer profile independent of Telegram and Remnawave identifiers
+- [x] Verified identity methods and safe account-link/unlink lifecycle
+- [x] Contact-channel preferences, locale, timezone, and consent records
+- [x] Customer suspension, deletion, anonymization, and retention workflows
+- [x] Conflict-safe import of existing Remnawave customers
+- [x] Import preview, validation report, resumability, and rollback-safe failure handling
 
 ### Catalog and pricing
 
-- [ ] Plans with stable codes, localized names/descriptions, visibility, and sort order
-- [ ] Plan versions so historical orders never change when catalog pricing changes
-- [ ] Billing periods, duration, traffic allowance, device limit, and assigned Remnawave squads
-- [ ] Integer minor-unit prices and explicit ISO currency
-- [ ] Trials, one-time plans, recurring-capable plans, and free/manual plans
-- [ ] Promotions with validity windows, redemption limits, customer eligibility, and plan scope
-- [ ] Promo codes with normalized lookup, brute-force rate limiting, and atomic redemption
-- [ ] Upgrade, downgrade, extension, and cancellation policies without implicit proration
+- [x] Plans with stable codes, localized names/descriptions, visibility, and sort order
+- [x] Plan versions so historical orders never change when catalog pricing changes
+- [x] Billing periods, duration, traffic allowance, device limit, and assigned Remnawave squads
+- [x] Integer minor-unit prices and explicit ISO currency
+- [x] Trials, one-time plans, recurring-capable plans, and free/manual plans
+- [x] Promotions with validity windows, redemption limits, customer eligibility, and plan scope
+- [x] Promo codes with normalized lookup, brute-force rate limiting, and atomic redemption
+- [x] Upgrade, downgrade, extension, and cancellation policies without implicit proration
 
 ### Orders, payments, and refunds
 
-- [ ] Draft, pending, paid, fulfilled, cancelled, expired, partially refunded, and refunded order states
-- [ ] Idempotency keys for every order and payment mutation
-- [ ] Provider-neutral payment intent and provider capability contract
-- [ ] Verified, replay-safe webhook intake with raw-event retention and deduplication
-- [ ] Payment status polling/reconciliation when a provider webhook is late or missing
-- [ ] Full and partial refund records without rewriting payment history
-- [ ] Receipt/fiscalization metadata boundary where required by a provider
-- [ ] Currency mismatch, duplicate payment, late payment, overpayment, and underpayment handling
-- [ ] Telegram Stars adapter
-- [ ] CryptoBot adapter
-- [ ] YooKassa adapter
-- [ ] Manual/offline payment workflow with operator approval and audit trail
+- [x] Draft, pending, paid, fulfilled, cancelled, expired, partially refunded, and refunded order states
+- [x] Idempotency keys for every order and payment mutation
+- [x] Provider-neutral payment intent and provider capability contract
+- [x] Verified, replay-safe webhook intake with raw-event retention and deduplication
+- [x] Payment status polling/reconciliation when a provider webhook is late or missing
+- [x] Full and partial refund records without rewriting payment history
+- [x] Receipt/fiscalization metadata boundary where required by a provider
+- [x] Currency mismatch, duplicate payment, late payment, overpayment, and underpayment handling
+- [x] Telegram Stars adapter boundary (authenticated Bot API settlement completes in v0.4)
+- [x] CryptoBot adapter
+- [x] YooKassa adapter
+- [x] Manual/offline payment workflow with operator approval and audit trail
 
 ### Wallet and ledger
 
-- [ ] Append-only double-entry-style customer ledger using integer minor units
-- [ ] Credit, debit, payment, refund, referral reward, correction, and expiration entry types
-- [ ] Deterministic balance calculation and per-currency isolation
-- [ ] Wallet-first payment application with an explicit remaining external amount
-- [ ] Idempotent ledger references and compensating entries instead of updates/deletes
-- [ ] Operator adjustments requiring reason, permission, and audit event
+- [x] Append-only double-entry-style customer ledger using integer minor units
+- [x] Credit, debit, payment, refund, referral reward, correction, and expiration entry types
+- [x] Deterministic balance calculation and per-currency isolation
+- [x] Wallet-first payment application with an explicit remaining external amount
+- [x] Idempotent ledger references and compensating entries instead of updates/deletes
+- [x] Operator adjustments requiring reason, permission, and audit event
 
 ### Entitlements and Remnawave fulfillment
 
-- [ ] Entitlement records separated from payment and Remnawave observed state
-- [ ] Idempotent create, extend, enable, disable, reset-traffic, limit, and squad operations
-- [ ] Paid order commits a durable fulfillment job in the same database transaction
-- [ ] Retry with backoff when Remnawave is unavailable without losing successful payment state
-- [ ] Scheduled drift reconciliation and operator-visible mismatch reasons
-- [ ] Expiry, traffic, device-limit, and status synchronization
-- [ ] Safe handling of externally edited or deleted Remnawave users
-- [ ] Fulfillment history with request correlation and no secret payload storage
+- [x] Entitlement records separated from payment and Remnawave observed state
+- [x] Idempotent create, extend, enable, disable, reset-traffic, limit, and squad operations
+- [x] Paid order commits a durable fulfillment job in the same database transaction
+- [x] Retry with backoff when Remnawave is unavailable without losing successful payment state
+- [x] Scheduled drift reconciliation and operator-visible mismatch reasons
+- [x] Expiry, traffic, device-limit, and status synchronization
+- [x] Safe handling of externally edited or deleted Remnawave users
+- [x] Fulfillment history with request correlation and no secret payload storage
 
 ### v0.3 release gates
 
-- [ ] Failure-path and idempotency tests for orders, webhooks, wallet, and fulfillment
-- [ ] Atlas migration review and sqlc regeneration
-- [ ] OpenAPI coverage for all domain operations
-- [ ] No checkout UI enabled before at least one real provider passes sandbox integration tests
-- [ ] Financial invariants documented and tested
+- [x] Failure-path and idempotency tests for orders, webhooks, wallet, and fulfillment
+- [x] Atlas migration review and sqlc regeneration
+- [x] OpenAPI coverage for all domain operations
+- [x] No checkout UI enabled before at least one real provider passes sandbox integration tests
+- [x] Financial invariants documented and tested
 
 ---
 

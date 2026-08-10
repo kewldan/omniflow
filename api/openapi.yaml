@@ -1,103 +1,430 @@
 openapi: 3.0.3
 info:
   title: Omniflow API
-  version: 0.1.0
-  description: Public REST API shared by the Telegram bot and role-aware web application.
+  version: 0.3.0
+  description: Customer, commerce, payment, wallet, and fulfillment API for Omniflow.
 paths:
   /healthz:
     get:
       operationId: getHealth
       tags: [system]
       responses:
-        "200":
-          description: Service is healthy.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Health"
+        "200": {description: Service is healthy, content: {application/json: {schema: {$ref: "#/components/schemas/Health"}}}}
+  /v1/catalog/plans:
+    get:
+      operationId: listPlans
+      tags: [catalog]
+      parameters:
+        - {in: query, name: locale, schema: {type: string, enum: [ru, en], default: ru}}
+      responses:
+        "200": {description: Visible plans, content: {application/json: {schema: {$ref: "#/components/schemas/PlanList"}}}}
+        "500": {$ref: "#/components/responses/Problem"}
+  /v1/admin/plans:
+    post:
+      operationId: createPlan
+      tags: [catalog]
+      security: [{operatorToken: []}]
+      requestBody: {$ref: "#/components/requestBodies/Plan"}
+      responses:
+        "201": {description: Plan created, content: {application/json: {schema: {$ref: "#/components/schemas/PlanMutation"}}}}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/admin/plans/{planID}/versions:
+    post:
+      operationId: createPlanVersion
+      tags: [catalog]
+      security: [{operatorToken: []}]
+      parameters: [{$ref: "#/components/parameters/PlanID"}]
+      requestBody: {$ref: "#/components/requestBodies/PlanVersion"}
+      responses:
+        "201": {description: Immutable plan version created, content: {application/json: {schema: {$ref: "#/components/schemas/PlanMutation"}}}}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/admin/promotions:
+    post:
+      operationId: createPromotion
+      tags: [catalog]
+      security: [{operatorToken: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: "#/components/schemas/PromotionInput"}}}
+      responses:
+        "201": {description: Promotion created, content: {application/json: {schema: {$ref: "#/components/schemas/Promotion"}}}}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/admin/customers/{customerID}:
+    patch:
+      operationId: updateCustomer
+      tags: [customers]
+      security: [{operatorToken: []}]
+      parameters: [{$ref: "#/components/parameters/CustomerID"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/CustomerPreferences"}}}}
+      responses:
+        "200": {description: Updated customer, content: {application/json: {schema: {$ref: "#/components/schemas/Customer"}}}}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/admin/customers/{customerID}/identities:
+    post:
+      operationId: linkCustomerIdentity
+      tags: [customers]
+      security: [{operatorToken: []}]
+      parameters: [{$ref: "#/components/parameters/CustomerID"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/IdentityInput"}}}}
+      responses:
+        "201": {description: Verified identity linked}
+        "409": {$ref: "#/components/responses/Problem"}
+  /v1/admin/customers/{customerID}/identities/{identityID}:
+    delete:
+      operationId: unlinkCustomerIdentity
+      tags: [customers]
+      security: [{operatorToken: []}]
+      parameters:
+        - {$ref: "#/components/parameters/CustomerID"}
+        - {in: path, name: identityID, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "204": {description: Identity unlinked}
+        "409": {$ref: "#/components/responses/Problem"}
+  /v1/admin/customers/{customerID}/contacts:
+    post:
+      operationId: createContactChannel
+      tags: [customers]
+      security: [{operatorToken: []}]
+      parameters: [{$ref: "#/components/parameters/CustomerID"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/ContactInput"}}}}
+      responses:
+        "201": {description: Encrypted contact channel created}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/admin/customers/{customerID}/consents:
+    post:
+      operationId: recordCustomerConsent
+      tags: [customers]
+      security: [{operatorToken: []}]
+      parameters: [{$ref: "#/components/parameters/CustomerID"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/ConsentInput"}}}}
+      responses:
+        "201": {description: Append-only consent record created}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/admin/customers/{customerID}/lifecycle:
+    post:
+      operationId: applyCustomerLifecycle
+      tags: [customers]
+      security: [{operatorToken: []}]
+      parameters: [{$ref: "#/components/parameters/CustomerID"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/LifecycleInput"}}}}
+      responses:
+        "200": {description: Customer lifecycle updated, content: {application/json: {schema: {$ref: "#/components/schemas/Customer"}}}}
+        "409": {$ref: "#/components/responses/Problem"}
+  /v1/admin/imports/remnawave/preview:
+    post:
+      operationId: previewRemnawaveImport
+      tags: [imports]
+      security: [{operatorToken: []}]
+      parameters: [{$ref: "#/components/parameters/PageSize"}]
+      responses:
+        "200": {description: Import preview progress, content: {application/json: {schema: {$ref: "#/components/schemas/ImportRun"}}}}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/admin/imports/remnawave/{importID}/resume:
+    post:
+      operationId: resumeRemnawaveImport
+      tags: [imports]
+      security: [{operatorToken: []}]
+      parameters: [{$ref: "#/components/parameters/ImportID"}, {$ref: "#/components/parameters/PageSize"}]
+      responses:
+        "200": {description: Import preview progress, content: {application/json: {schema: {$ref: "#/components/schemas/ImportRun"}}}}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/admin/imports/remnawave/{importID}/apply:
+    post:
+      operationId: applyRemnawaveImport
+      tags: [imports]
+      security: [{operatorToken: []}]
+      parameters:
+        - {$ref: "#/components/parameters/ImportID"}
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 500, default: 100}}
+      responses:
+        "200": {description: Import application progress, content: {application/json: {schema: {$ref: "#/components/schemas/ImportRun"}}}}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/admin/orders:
+    post:
+      operationId: createOrder
+      tags: [orders]
+      security: [{operatorToken: []}]
+      parameters: [{$ref: "#/components/parameters/IdempotencyKey"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/OrderInput"}}}}
+      responses:
+        "201": {description: Order created, content: {application/json: {schema: {$ref: "#/components/schemas/Order"}}}}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/admin/orders/{orderID}:
+    get:
+      operationId: getOrder
+      tags: [orders]
+      security: [{operatorToken: []}]
+      parameters: [{$ref: "#/components/parameters/OrderID"}]
+      responses:
+        "200": {description: Order, content: {application/json: {schema: {$ref: "#/components/schemas/Order"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/admin/orders/{orderID}/cancel:
+    post:
+      operationId: cancelOrder
+      tags: [orders]
+      security: [{operatorToken: []}]
+      parameters: [{$ref: "#/components/parameters/OrderID"}, {$ref: "#/components/parameters/IdempotencyKey"}]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, properties: {reason: {type: string}}}}}}
+      responses:
+        "200": {description: Idempotently cancelled order, content: {application/json: {schema: {$ref: "#/components/schemas/Order"}}}}
+        "409": {$ref: "#/components/responses/Problem"}
+  /v1/admin/orders/{orderID}/payments:
+    post:
+      operationId: createPaymentIntent
+      tags: [payments]
+      security: [{operatorToken: []}]
+      parameters: [{$ref: "#/components/parameters/OrderID"}, {$ref: "#/components/parameters/IdempotencyKey"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PaymentInput"}}}}
+      responses:
+        "201": {description: Provider-neutral payment intent, content: {application/json: {schema: {$ref: "#/components/schemas/PaymentIntent"}}}}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/payments/webhooks/{provider}:
+    post:
+      operationId: receivePaymentWebhook
+      tags: [payments]
+      parameters:
+        - {in: path, name: provider, required: true, schema: {$ref: "#/components/schemas/PaymentProvider"}}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, additionalProperties: true}}}}
+      responses:
+        "200": {description: Verified event accepted}
+        "400": {$ref: "#/components/responses/Problem"}
+        "413": {$ref: "#/components/responses/Problem"}
+  /v1/admin/payments/{paymentID}/reconcile:
+    post:
+      operationId: reconcilePayment
+      tags: [payments]
+      security: [{operatorToken: []}]
+      parameters: [{$ref: "#/components/parameters/PaymentID"}, {$ref: "#/components/parameters/IdempotencyKey"}]
+      responses:
+        "200": {description: Reconciled payment, content: {application/json: {schema: {$ref: "#/components/schemas/PaymentIntent"}}}}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/admin/payments/{paymentID}/refunds:
+    post:
+      operationId: createRefund
+      tags: [payments]
+      security: [{operatorToken: []}]
+      parameters: [{$ref: "#/components/parameters/PaymentID"}, {$ref: "#/components/parameters/IdempotencyKey"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/RefundInput"}}}}
+      responses:
+        "201": {description: Refund recorded, content: {application/json: {schema: {$ref: "#/components/schemas/Refund"}}}}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/admin/payments/{paymentID}/manual-decision:
+    post:
+      operationId: decideManualPayment
+      tags: [payments]
+      security: [{operatorToken: []}]
+      parameters: [{$ref: "#/components/parameters/PaymentID"}, {$ref: "#/components/parameters/IdempotencyKey"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/ManualDecision"}}}}
+      responses:
+        "200": {description: Audited manual decision recorded}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/admin/customers/{customerID}/wallet-adjustments:
+    post:
+      operationId: adjustCustomerWallet
+      tags: [wallet]
+      security: [{operatorToken: []}]
+      parameters: [{$ref: "#/components/parameters/CustomerID"}, {$ref: "#/components/parameters/IdempotencyKey"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/WalletAdjustment"}}}}
+      responses:
+        "201": {description: Balanced append-only adjustment recorded}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/admin/fulfillment/drifts:
+    get:
+      operationId: listFulfillmentDrifts
+      tags: [fulfillment]
+      security: [{operatorToken: []}]
+      parameters:
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 500, default: 100}}
+      responses:
+        "200": {description: Operator-visible entitlement mismatch reasons, content: {application/json: {schema: {type: object, properties: {items: {type: array, items: {$ref: "#/components/schemas/FulfillmentDrift"}}}}}}}
+        "500": {$ref: "#/components/responses/Problem"}
+  /v1/admin/entitlements/{entitlementID}/operations:
+    post:
+      operationId: enqueueFulfillmentOperation
+      tags: [fulfillment]
+      security: [{operatorToken: []}]
+      parameters:
+        - {$ref: "#/components/parameters/EntitlementID"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/FulfillmentOperationInput"}}}}
+      responses:
+        "202": {description: Durable idempotent fulfillment operation queued, content: {application/json: {schema: {$ref: "#/components/schemas/FulfillmentOperation"}}}}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/telemetry/events:
     post:
       operationId: collectTelemetryEvent
       tags: [telemetry]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/TelemetryEvent"
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/TelemetryEvent"}}}}
       responses:
-        "202":
-          description: Event accepted.
-        "400":
-          $ref: "#/components/responses/Problem"
+        "202": {description: Event accepted}
+        "400": {$ref: "#/components/responses/Problem"}
 components:
+  securitySchemes:
+    operatorToken: {type: http, scheme: bearer}
+  parameters:
+    CustomerID: {in: path, name: customerID, required: true, schema: {type: string, format: uuid}}
+    PlanID: {in: path, name: planID, required: true, schema: {type: string, format: uuid}}
+    OrderID: {in: path, name: orderID, required: true, schema: {type: string, format: uuid}}
+    PaymentID: {in: path, name: paymentID, required: true, schema: {type: string, format: uuid}}
+    ImportID: {in: path, name: importID, required: true, schema: {type: string, format: uuid}}
+    EntitlementID: {in: path, name: entitlementID, required: true, schema: {type: string, format: uuid}}
+    IdempotencyKey: {in: header, name: Idempotency-Key, required: true, schema: {type: string, minLength: 8, maxLength: 128}}
+    PageSize: {in: query, name: pageSize, schema: {type: integer, minimum: 1, maximum: 500, default: 100}}
+  requestBodies:
+    Plan: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PlanInput"}}}}
+    PlanVersion: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PlanVersionInput"}}}}
   schemas:
     Health:
       type: object
       required: [status, version]
+      properties: {status: {type: string}, version: {type: string}}
+    Money:
+      type: object
+      required: [amountMinor, currency]
+      properties: {amountMinor: {type: integer, format: int64, minimum: 0}, currency: {type: string, pattern: "^[A-Z]{3}$"}}
+    PlanInput:
+      type: object
+      required: [code, kind, localizations, version]
       properties:
-        status:
-          type: string
-        version:
-          type: string
+        code: {type: string, pattern: "^[a-z][a-z0-9_-]{1,63}$"}
+        kind: {type: string, enum: [trial, one_time, recurring, free, manual]}
+        visible: {type: boolean, default: false}
+        sortOrder: {type: integer}
+        localizations:
+          type: object
+          additionalProperties: {$ref: "#/components/schemas/Localization"}
+        version: {$ref: "#/components/schemas/PlanVersionInput"}
+    Localization:
+      type: object
+      required: [name]
+      properties: {name: {type: string, maxLength: 120}, description: {type: string, maxLength: 2000}}
+    PlanVersionInput:
+      type: object
+      required: [billingPeriod, durationSeconds, upgradePolicy, downgradePolicy, cancellationPolicy, prices]
+      properties:
+        billingPeriod: {type: string, enum: [none, day, week, month, quarter, half_year, year, custom]}
+        durationSeconds: {type: integer, format: int64, minimum: 1}
+        trafficAllowanceBytes: {type: integer, format: int64, minimum: 0, nullable: true}
+        deviceLimit: {type: integer, minimum: 0, nullable: true}
+        squadIDs: {type: array, items: {type: string, format: uuid}}
+        upgradePolicy: {type: string, enum: [forbid, replace, extend]}
+        downgradePolicy: {type: string, enum: [forbid, immediate, at_expiry]}
+        cancellationPolicy: {type: string, enum: [forbid, immediate, at_expiry]}
+        recurringCapable: {type: boolean}
+        prices: {type: array, minItems: 1, items: {$ref: "#/components/schemas/Money"}}
+    PlanMutation:
+      type: object
+      properties: {id: {type: string, format: uuid}, code: {type: string}, kind: {type: string}, versionId: {type: string, format: uuid}, version: {type: integer}}
+    PlanList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, items: {type: object, additionalProperties: true}}}
+    PromotionInput:
+      type: object
+      required: [code, kind, value, perCustomerLimit, active, codes]
+      properties:
+        code: {type: string}
+        kind: {type: string, enum: [percent, fixed]}
+        value: {type: integer, format: int64, minimum: 1}
+        currency: {type: string, pattern: "^[A-Z]{3}$"}
+        startsAt: {type: string, format: date-time, nullable: true}
+        endsAt: {type: string, format: date-time, nullable: true}
+        redemptionLimit: {type: integer, minimum: 1, nullable: true}
+        perCustomerLimit: {type: integer, minimum: 1}
+        eligibility: {type: object, additionalProperties: true}
+        active: {type: boolean}
+        planIDs: {type: array, items: {type: string, format: uuid}}
+        codes: {type: array, items: {type: string}}
+    Promotion: {type: object, properties: {id: {type: string, format: uuid}, code: {type: string}, kind: {type: string}, active: {type: boolean}}}
+    CustomerPreferences:
+      type: object
+      required: [locale, timezone]
+      properties: {locale: {type: string, enum: [ru, en]}, timezone: {type: string}}
+    Customer:
+      type: object
+      properties: {id: {type: string, format: uuid}, status: {type: string, enum: [active, suspended, deleted]}, locale: {type: string}, timezone: {type: string}, suspendedAt: {type: string, format: date-time, nullable: true}, deletedAt: {type: string, format: date-time, nullable: true}, anonymizedAt: {type: string, format: date-time, nullable: true}, retentionUntil: {type: string, format: date-time, nullable: true}}
+    IdentityInput:
+      type: object
+      required: [provider, subject, verifiedAt]
+      properties: {provider: {type: string}, subject: {type: string}, verifiedAt: {type: string, format: date-time}, metadata: {type: object, additionalProperties: true}}
+    ContactInput:
+      type: object
+      required: [kind, value, transactionalEnabled, marketingEnabled]
+      properties: {kind: {type: string, enum: [email, phone, telegram]}, value: {type: string}, verifiedAt: {type: string, format: date-time, nullable: true}, transactionalEnabled: {type: boolean}, marketingEnabled: {type: boolean}}
+    ConsentInput:
+      type: object
+      required: [purpose, granted, policyVersion, source]
+      properties: {purpose: {type: string, enum: [terms, privacy, marketing, profiling]}, granted: {type: boolean}, policyVersion: {type: string}, source: {type: string}}
+    LifecycleInput:
+      type: object
+      required: [action, reason, actorType]
+      properties: {action: {type: string, enum: [suspend, restore, delete, anonymize]}, reason: {type: string}, actorType: {type: string, enum: [customer, operator, system]}, actorID: {type: string}}
+    ImportRun:
+      type: object
+      properties: {id: {type: string, format: uuid}, status: {type: string}, cursor: {type: string, nullable: true}, totalCount: {type: integer}, validCount: {type: integer}, conflictCount: {type: integer}, invalidCount: {type: integer}, startedAt: {type: string, format: date-time}, updatedAt: {type: string, format: date-time}, completedAt: {type: string, format: date-time, nullable: true}}
+    OrderInput:
+      type: object
+      required: [customerID, planVersionID, currency, operation]
+      properties: {customerID: {type: string, format: uuid}, planVersionID: {type: string, format: uuid}, currency: {type: string, pattern: "^[A-Z]{3}$"}, operation: {type: string, enum: [purchase, upgrade, downgrade, extension]}, promoCode: {type: string}}
+    Order:
+      type: object
+      properties: {id: {type: string, format: uuid}, customerId: {type: string, format: uuid}, state: {type: string, enum: [draft, pending, paid, fulfilled, cancelled, expired, partially_refunded, refunded]}, operation: {type: string}, currency: {type: string}, subtotalMinor: {type: integer, format: int64}, discountMinor: {type: integer, format: int64}, walletMinor: {type: integer, format: int64}, externalMinor: {type: integer, format: int64}, paidMinor: {type: integer, format: int64}, refundedMinor: {type: integer, format: int64}, expiresAt: {type: string, format: date-time}, createdAt: {type: string, format: date-time}}
+    PaymentProvider: {type: string, enum: [telegram_stars, cryptobot, yookassa, manual]}
+    PaymentInput:
+      type: object
+      required: [provider, description]
+      properties: {provider: {$ref: "#/components/schemas/PaymentProvider"}, description: {type: string}, returnURL: {type: string, format: uri}, receiptMetadata: {type: object, additionalProperties: true}}
+    PaymentIntent:
+      type: object
+      properties: {id: {type: string, format: uuid}, orderId: {type: string, format: uuid}, provider: {$ref: "#/components/schemas/PaymentProvider"}, status: {type: string}, amountMinor: {type: integer, format: int64}, currency: {type: string}, providerReference: {type: string, nullable: true}, checkoutUrl: {type: string, format: uri, nullable: true}}
+    RefundInput:
+      allOf:
+        - {$ref: "#/components/schemas/Money"}
+        - {type: object, required: [reason], properties: {reason: {type: string}, receiptMetadata: {type: object, additionalProperties: true}}}
+    Refund:
+      allOf:
+        - {$ref: "#/components/schemas/Money"}
+        - {type: object, properties: {id: {type: string, format: uuid}, status: {type: string}, providerReference: {type: string, nullable: true}}}
+    ManualDecision: {type: object, required: [approved, operatorID, reason], properties: {approved: {type: boolean}, operatorID: {type: string}, reason: {type: string}}}
+    WalletAdjustment:
+      type: object
+      required: [amountMinor, currency, type, reference, reason, operatorID]
+      properties: {amountMinor: {type: integer, format: int64, not: {enum: [0]}}, currency: {type: string, pattern: "^[A-Z]{3}$"}, type: {type: string, enum: [credit, debit, correction, expiration, referral_reward]}, reference: {type: string}, reason: {type: string}, operatorID: {type: string}}
+    FulfillmentDrift:
+      type: object
+      properties: {id: {type: string, format: uuid}, entitlementId: {type: string, format: uuid}, kind: {type: string, enum: [missing_remote, external_edit, status, expiry, traffic, device_limit, squads]}, expected: {type: object, additionalProperties: true}, observed: {type: object, additionalProperties: true}, detectedAt: {type: string, format: date-time}}
+    FulfillmentOperationInput:
+      type: object
+      required: [operation]
+      properties:
+        operation: {type: string, enum: [create, extend, enable, disable, reset_traffic, set_limits, set_squads, reconcile]}
+        correlationId: {type: string}
+        effectiveAt: {type: string, format: date-time, nullable: true}
+        endsAt: {type: string, format: date-time, nullable: true}
+        trafficAllowanceBytes: {type: integer, format: int64, minimum: 0, nullable: true}
+        deviceLimit: {type: integer, minimum: 0, nullable: true}
+        squadIDs: {type: array, items: {type: string, format: uuid}}
+    FulfillmentOperation:
+      type: object
+      properties: {id: {type: string, format: uuid}, entitlementId: {type: string, format: uuid}, operation: {type: string}, status: {type: string}}
     TelemetryEvent:
       type: object
       additionalProperties: false
       required: [schema, installation_id, name, version, service, os, architecture, occurred_at]
       properties:
-        schema:
-          type: integer
-          enum: [1]
-        installation_id:
-          type: string
-          minLength: 16
-          maxLength: 64
-        name:
-          type: string
-          enum: [installation.heartbeat, feature.usage]
-        version:
-          type: string
-          maxLength: 32
-        service:
-          type: string
-          enum: [api, bot, worker]
-        os:
-          type: string
-          maxLength: 32
-        architecture:
-          type: string
-          maxLength: 32
-        features:
-          type: object
-          additionalProperties:
-            type: boolean
-        counters:
-          type: object
-          additionalProperties:
-            type: integer
-            minimum: 0
-        occurred_at:
-          type: string
-          format: date-time
+        schema: {type: integer, enum: [1]}
+        installation_id: {type: string, minLength: 16, maxLength: 64}
+        name: {type: string, enum: [installation.heartbeat, feature.usage]}
+        version: {type: string, maxLength: 32}
+        service: {type: string, enum: [api, bot, worker]}
+        os: {type: string, maxLength: 32}
+        architecture: {type: string, maxLength: 32}
+        features: {type: object, additionalProperties: {type: boolean}}
+        counters: {type: object, additionalProperties: {type: integer, minimum: 0}}
+        occurred_at: {type: string, format: date-time}
     Problem:
       type: object
       required: [type, title, status]
-      properties:
-        type:
-          type: string
-          format: uri
-        title:
-          type: string
-        status:
-          type: integer
-        detail:
-          type: string
-        request_id:
-          type: string
+      properties: {type: {type: string, format: uri}, title: {type: string}, status: {type: integer}, detail: {type: string}, request_id: {type: string}}
   responses:
-    Problem:
-      description: Request failed.
-      content:
-        application/problem+json:
-          schema:
-            $ref: "#/components/schemas/Problem"
+    Problem: {description: Request failed, content: {application/problem+json: {schema: {$ref: "#/components/schemas/Problem"}}}}

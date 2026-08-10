@@ -1,2 +1,2 @@
 export * from "./generated/omniflow";
-export * from "./generated/schemas";
+export * as apiSchemas from "./generated/schemas";

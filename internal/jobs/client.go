@@ -9,6 +9,10 @@ import (
 
 func NewClient(pool *pgxpool.Pool) (*river.Client[pgx.Tx], error) {
 	workers := river.NewWorkers()
+	return NewClientWithWorkers(pool, workers)
+}
+
+func NewClientWithWorkers(pool *pgxpool.Pool, workers *river.Workers) (*river.Client[pgx.Tx], error) {
 	return river.NewClient(riverpgxv5.New(pool), &river.Config{
 		Queues: map[string]river.QueueConfig{
 			"critical": {MaxWorkers: 16},

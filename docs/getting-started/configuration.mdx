@@ -12,10 +12,24 @@ Omniflow uses environment variables and Docker secrets. Never commit `.env` or p
 | `APP_VALKEY_URL` | Yes | — | Valkey connection string |
 | `APP_REMNAWAVE_URL` | Yes | — | Remnawave API base URL |
 | `APP_REMNAWAVE_TOKEN` | Yes | — | Remnawave API credential |
+| `APP_OPERATOR_TOKEN` | For commerce API | — | Bearer token protecting pre-admin operator operations |
+| `APP_DATA_ENCRYPTION_KEY` | For commerce API | — | Base64-encoded 32-byte AES-GCM key for contact values |
 | `APP_TELEGRAM_TOKEN` | For bot | — | Telegram Bot API token |
 | `APP_SUPPORT_URL` | No | — | HTTPS support chat or helpdesk URL shown by the bot |
 | `APP_TELEMETRY_ENABLED` | No | `true` | Enable anonymous project telemetry |
 | `APP_TELEMETRY_ENDPOINT` | No | Project collector | Override the collector for forks or development |
 | `APP_TELEMETRY_COLLECTOR_ENABLED` | No | `false` | Accept telemetry events; intended only for the project-operated collector |
+| `APP_CRYPTOBOT_TOKEN` | No | — | Enable the CryptoBot adapter |
+| `APP_CRYPTOBOT_TESTNET` | No | `true` | Use CryptoBot testnet |
+| `APP_YOOKASSA_SHOP_ID` | No | — | Enable YooKassa with the matching secret |
+| `APP_YOOKASSA_SECRET` | No | — | YooKassa Basic Auth secret |
+
+Generate the data-encryption key once and back it up with the database:
+
+```bash
+openssl rand -base64 32
+```
+
+Changing this key makes existing encrypted contact values unreadable.
 
 Use TLS for external PostgreSQL, Valkey, Remnawave, and payment-provider connections.

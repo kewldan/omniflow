@@ -23,8 +23,19 @@
         "pages": ["integrations/remnawave", "integrations/payments", "integrations/telegram"]
       },
       {
+        "group": "Commerce",
+        "pages": [
+          "commerce/customers-imports",
+          "commerce/catalog-promotions",
+          "commerce/orders-payments",
+          "commerce/wallet-ledger",
+          "commerce/fulfillment",
+          "commerce/financial-invariants"
+        ]
+      },
+      {
         "group": "API reference",
-        "openapi": "openapi.yaml"
+        "openapi": "https://raw.githubusercontent.com/kewldan/omniflow/main/api/openapi.yaml"
       },
       {
         "group": "Operations",
@@ -48,7 +59,7 @@
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/omniflow/omniflow"
+      "github": "https://github.com/kewldan/omniflow"
     }
   }
 }

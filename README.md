@@ -16,7 +16,7 @@ Build Telegram-first self-service, subscriptions, billing, support, marketing, a
 [Quick start](#-quick-start) · [Roadmap](./ROADMAP.md) · [Documentation](./docs/index.mdx) · [Architecture](./docs/architecture/overview.mdx) · [Contributing](./CONTRIBUTING.md)
 
 > [!IMPORTANT]
-> Omniflow is under active development. The platform foundation and Telegram self-service suite are implemented; billing, purchasing, operator workflows, and marketing modules are planned incrementally.
+> Omniflow is under active development. The platform foundation, Telegram self-service suite, and v0.3 commerce backend are implemented. Customer checkout remains intentionally disabled until a real payment provider passes sandbox integration testing; bot commerce UX begins in v0.4.
 
 ## ✨ Highlights
 
@@ -24,6 +24,7 @@ Build Telegram-first self-service, subscriptions, billing, support, marketing, a
 | --- | --- | --- |
 | 🤖 | **Telegram-first experience** | Russian and English self-service with subscription security, device management, notifications, referrals, support tickets, and responsive inline navigation. |
 | 🔗 | **Remnawave-native integration** | Targets the official Remnawave 3.2.2 API and keeps Remnawave authoritative for VPN users, traffic, devices, links, nodes, and squads. |
+| 💳 | **Commerce-ready backend** | Immutable plan versions, promotions, provider-neutral payments, refunds, wallet ledger, entitlements, durable fulfillment, and drift recovery. |
 | 🧭 | **One web application** | Customer routes and the `/admin` workspace share Next.js, localization, API bindings, and the same shadcn component system. |
 | 🛡️ | **Privacy-conscious by design** | Protected Telegram messages, no HWID/IP display, no subscription-link storage, explicit secret boundaries, and optional anonymous telemetry. |
 | 🧱 | **Production-oriented foundation** | PostgreSQL migrations, durable River jobs, transactional outbox, Valkey, generated contracts, structured logs, observability, and security automation. |
@@ -144,7 +145,8 @@ The complete versioned delivery contract is maintained in [ROADMAP.md](./ROADMAP
 - [x] Remnawave 3.2.2 client boundary and exact Telegram account linking
 - [x] Telegram subscription, security, devices, preferences, alerts, referrals, and support UX
 - [x] Unified customer/admin Next.js application and shared components
-- [ ] Plans, purchasing, renewals, payments, and wallet ledger
+- [x] Plans, orders, payments, refunds, wallet ledger, entitlements, and Remnawave fulfillment backend
+- [ ] Telegram plan discovery, checkout, renewals, and post-payment lifecycle UX
 - [ ] Operator support inbox, campaign delivery, and referral reward policies
 - [ ] Authentication, RBAC enforcement, audit views, and operator workflows
 - [ ] Testcontainers and end-to-end browser coverage
