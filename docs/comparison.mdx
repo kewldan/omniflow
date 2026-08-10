@@ -47,8 +47,8 @@ Omniflow's shipped surface today is v0.1–v0.4: the complete backend commerce m
 | Customer subscription configurator with per-plan squad sets | 🚧 v0.5 | ✅ | ✅ |
 | Mid-period add-on purchase of traffic, devices, squads | 🚧 v0.5 | ✅ | ✅ |
 | Smart cart that survives insufficient balance | 🚧 v0.5 | ✅ | — |
-| Auto-renew before expiry | 🚧 v0.5 | ✅ | ✅ |
-| One customer holding several VPN accounts | ❌ | — | ✅ |
+| Auto-renew before expiry | 🚧 v0.7 | ✅ | ✅ |
+| One customer holding several concurrent subscriptions | 🚧 v0.5 | — | ✅ |
 
 ## Payments and money handling
 
@@ -58,8 +58,8 @@ Omniflow's shipped surface today is v0.1–v0.4: the complete backend commerce m
 | Provider-neutral adapter contract | ✅ | ✅ | ✅ (WASM plugins) |
 | Wallet top-up by any enabled provider | 🚧 v0.5 | ✅ | — |
 | Automatic purchase after top-up | 🚧 v0.5 | ✅ | — |
-| Recurring payments with saved cards | 🚧 v0.5 | ✅ | ✅ |
-| Per-merchant recurring capability override | 🚧 v0.5 | — | — |
+| Recurring payments with saved cards | 🚧 v0.7 | ✅ | ✅ |
+| Per-merchant recurring capability override | 🚧 v0.7 | — | — |
 | Payment status polling and reconciliation | ✅ | ✅ | ✅ |
 | Append-only double-entry customer ledger | ✅ | — | ✅ |
 | Idempotency keys on every order and payment mutation | ✅ | — | ✅ |
@@ -78,14 +78,14 @@ Omniflow's counterweight is the financial model. Every order and payment mutatio
 | Capability | Omniflow | Bedolaga | RemnaCore |
 | --- | --- | --- | --- |
 | Promo codes | ✅ | ✅ | ✅ |
-| Promo reward types: amount, percentage, days, trial | 🚧 v0.5 | ✅ | — |
-| Personal targeted offers | 🚧 v0.5 | ✅ | — |
+| Promo reward types: amount, percentage, days, trial | 🚧 v0.7 | ✅ | — |
+| Personal targeted offers | 🚧 v0.7 | ✅ | — |
 | Referral program with immutable attribution | ✅ | ✅ | ✅ |
 | Referral balance withdrawal | 🔭 | ✅ | — |
 | Partner / affiliate program | 🔭 | ✅ | ✅ (reseller) |
 | Multi-level referral network reporting | 🔭 | ✅ | ✅ |
-| Gift subscriptions | 🚧 v0.5 | ✅ | — |
-| Mandatory channel subscription with auto-disable | 🚧 v0.5 | ✅ | — |
+| Gift subscriptions | 🚧 v0.7 | ✅ | — |
+| Mandatory channel subscription with auto-disable | 🚧 v0.8 | ✅ | — |
 | Segment broadcasts and campaign tracking | 🚧 v0.8 | ✅ | — |
 | Consent, quiet hours, frequency caps, suppression | ✅ | — | — |
 | Custom landing pages with analytics | ❌ | ✅ | — |
@@ -101,7 +101,7 @@ Omniflow already enforces marketing consent, quiet hours, frequency caps, and de
 | Operator notifications to Telegram topics, auto-created | 🚧 v0.5 | ✅ | — |
 | Automatic database backups with restore from the bot | 🚧 v0.5 | ✅ | — |
 | Maintenance mode with dependency auto-detection | 🚧 v0.5 | ✅ | — |
-| Traffic and behavior anomaly monitoring | 🚧 v0.5 | ✅ | ✅ |
+| Traffic and behavior anomaly monitoring | 🚧 v0.7 | ✅ | ✅ |
 | Web admin panel | 🚧 v0.6–v0.8 | — | ✅ |
 | RBAC with granular permissions | 🚧 v0.6 | ✅ | ✅ |
 | Append-only audit events with actor, reason, and before/after | 🚧 v0.6 | — | — |
@@ -119,7 +119,7 @@ Omniflow deliberately keeps administration out of Telegram. Telegram carries ope
 | --- | --- | --- | --- |
 | Customer web panel | 🚧 v0.9–v0.10 | ✅ | ✅ |
 | Telegram sign-in | 🚧 v0.9 | ✅ | ✅ |
-| OAuth via Google, Yandex, Discord, VK | ❌ | ✅ | ✅ (email + OAuth) |
+| Sign-in through any OIDC provider (Google, Yandex, Discord, …) | 🚧 v0.9 | ✅ | ✅ (email + OAuth) |
 | Magic-link fallback | 🚧 v0.9 | — | — |
 | Shared component system with the admin panel | 🚧 v0.9 | — | ✅ |
 | Checkout parity with the bot | 🚧 v0.10 | ✅ | ✅ |
@@ -148,7 +148,7 @@ RemnaCore also reaches into node health monitoring, smart routing, and speed tes
 
 **Choose Bedolaga Bot** if you need the widest payment-provider coverage today, want to administer everything from Telegram without deploying a web panel, or need growth mechanics such as contests, custom landing pages, and referral payouts that Omniflow has deferred past 1.0.
 
-**Choose RemnaCore** if you need one customer to hold several VPN accounts, want white-label reseller capability with commission tracking, or are already running Kubernetes and want a plugin runtime and event bus as first-class infrastructure. Note its stated development status before committing production traffic.
+**Choose RemnaCore** if you need white-label reseller capability with commission tracking, or are already running Kubernetes and want a plugin runtime and event bus as first-class infrastructure. Note its stated development status before committing production traffic.
 
 **Choose Omniflow** if financial correctness is your priority — idempotent orders and webhooks, an append-only double-entry ledger, and fulfillment that never loses a successful payment when Remnawave is unavailable — and if you want administration behind RBAC and an audit trail rather than in a chat window. Omniflow is also the option that treats the Remnawave boundary as inviolable and keeps a single-server install free of a broker, plugin runtime, or orchestrator.
 
