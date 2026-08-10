@@ -5,6 +5,9 @@ const withNextIntl = createNextIntlPlugin();
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  poweredByHeader: false,
+  reactCompiler: true,
+  reactStrictMode: true,
   transpilePackages: ["@omniflow/api-client", "@omniflow/ui"],
 };
 
