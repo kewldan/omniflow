@@ -57,6 +57,7 @@ func TestDevicesViewDoesNotExposeIdentifiers(t *testing.T) {
 	view := devicesView(LocaleEnglish, remnawave.Devices{
 		Total: 1,
 		Devices: []remnawave.Device{{
+			HWID:        "private-hwid-that-must-not-leave-the-server",
 			Platform:    &platform,
 			DeviceModel: &model,
 			UpdatedAt:   time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC),
@@ -64,6 +65,27 @@ func TestDevicesViewDoesNotExposeIdentifiers(t *testing.T) {
 	}, nil)
 	if !strings.Contains(view.Text, "Phone &lt;Pro&gt;") || !strings.Contains(view.Text, "never displays HWIDs or IP addresses") {
 		t.Fatalf("unexpected privacy-safe device view: %s", view.Text)
+	}
+	for _, row := range view.Keyboard.InlineKeyboard {
+		for _, button := range row {
+			if strings.Contains(button.CallbackData, "private-hwid") {
+				t.Fatalf("HWID leaked into callback data: %q", button.CallbackData)
+			}
+		}
+	}
+}
+
+func TestReferralViewBuildsDeepLink(t *testing.T) {
+	t.Parallel()
+	view := referralView(LocaleEnglish, "omniflow_bot", "ABCDEFGHIJ", 3)
+	if !strings.Contains(view.Text, "ABCDEFGHIJ") || !strings.Contains(view.Text, "3") {
+		t.Fatalf("referral details are missing: %s", view.Text)
+	}
+	if len(view.Keyboard.InlineKeyboard) < 3 || view.Keyboard.InlineKeyboard[1][0].CopyText == nil {
+		t.Fatalf("referral sharing actions are missing: %#v", view.Keyboard)
+	}
+	if got := view.Keyboard.InlineKeyboard[1][0].CopyText.Text; got != "https://t.me/omniflow_bot?start=ref_ABCDEFGHIJ" {
+		t.Fatalf("unexpected referral link: %s", got)
 	}
 }
 
@@ -99,6 +121,21 @@ func (store *fakeIdentityStore) Link(_ context.Context, telegramID, remnawaveID 
 	return remnawaveID, nil
 }
 
+func (store *fakeIdentityStore) Preferences(context.Context, int64) (Preferences, error) {
+	return Preferences{Locale: "auto", ExpiryNotifications: true, TrafficNotifications: true}, nil
+}
+
+func (store *fakeIdentityStore) SetLocale(context.Context, int64, string) error          { return nil }
+func (store *fakeIdentityStore) ToggleNotification(context.Context, int64, string) error { return nil }
+func (store *fakeIdentityStore) BeginSupport(context.Context, int64) error               { return nil }
+func (store *fakeIdentityStore) CancelSession(context.Context, int64) error              { return nil }
+func (store *fakeIdentityStore) Session(context.Context, int64) (string, error)          { return "", nil }
+func (store *fakeIdentityStore) SubmitSupport(context.Context, int64, int, string) error { return nil }
+func (store *fakeIdentityStore) Referral(context.Context, int64) (string, int64, error) {
+	return "ABCDEFGHIJ", 0, nil
+}
+func (store *fakeIdentityStore) AttributeReferral(context.Context, int64, string) error { return nil }
+
 type fakeRemnawave struct {
 	telegramUser remnawave.User
 }
@@ -121,3 +158,7 @@ func (service *fakeRemnawave) Subscription(context.Context, int64) (remnawave.Su
 func (service *fakeRemnawave) Devices(context.Context, int64) (remnawave.Devices, error) {
 	return remnawave.Devices{}, nil
 }
+
+func (service *fakeRemnawave) DeleteDevice(context.Context, int64, string) error { return nil }
+func (service *fakeRemnawave) DeleteAllDevices(context.Context, int64) error     { return nil }
+func (service *fakeRemnawave) RevokeSubscription(context.Context, int64) error   { return nil }

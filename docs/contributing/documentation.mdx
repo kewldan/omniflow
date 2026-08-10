@@ -9,6 +9,6 @@ Validate changes with:
 
 ```bash
 cd docs
-npx --yes --package node@24 --package mint@latest --call 'mint validate'
-npx --yes --package node@24 --package mint@latest --call 'mint broken-links --check-anchors'
+PUPPETEER_SKIP_DOWNLOAD=true bunx mint@latest validate
+PUPPETEER_SKIP_DOWNLOAD=true bunx mint@latest broken-links --check-anchors
 ```

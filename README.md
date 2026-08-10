@@ -16,13 +16,13 @@ Build Telegram-first self-service, subscriptions, billing, support, marketing, a
 [Quick start](#-quick-start) · [Documentation](./docs/index.mdx) · [Architecture](./docs/architecture/overview.mdx) · [Contributing](./CONTRIBUTING.md)
 
 > [!IMPORTANT]
-> Omniflow is under active development. The platform foundation and Telegram account dashboard are implemented; billing, purchasing, support conversations, and marketing modules are planned incrementally.
+> Omniflow is under active development. The platform foundation and Telegram self-service suite are implemented; billing, purchasing, operator workflows, and marketing modules are planned incrementally.
 
 ## ✨ Highlights
 
 | | Capability | What it provides |
 | --- | --- | --- |
-| 🤖 | **Telegram-first experience** | Russian and English self-service with responsive inline navigation, subscription access, traffic, devices, retry states, and support handoff. |
+| 🤖 | **Telegram-first experience** | Russian and English self-service with subscription security, device management, notifications, referrals, support tickets, and responsive inline navigation. |
 | 🔗 | **Remnawave-native integration** | Targets the official Remnawave 3.2.2 API and keeps Remnawave authoritative for VPN users, traffic, devices, links, nodes, and squads. |
 | 🧭 | **One web application** | Customer routes and the `/admin` workspace share Next.js, localization, API bindings, and the same shadcn component system. |
 | 🛡️ | **Privacy-conscious by design** | Protected Telegram messages, no HWID/IP display, no subscription-link storage, explicit secret boundaries, and optional anonymous telemetry. |
@@ -35,10 +35,13 @@ The current bot gives linked Remnawave customers a clean, single-message dashboa
 
 - 📊 Subscription status, expiry, remaining days, and traffic progress
 - 🚀 Guided connection flow with protected open/copy subscription actions
-- 📱 Friendly device summaries without exposing HWIDs or IP addresses
+- 📱 Privacy-safe device management with per-device and remove-all confirmation
+- 🔐 Subscription-link rotation for compromised credentials
 - 🔄 Fast refresh, back navigation, loading feedback, and recoverable errors
-- 🌍 Automatic Russian or English localization
-- 💬 Configurable support handoff when human help is needed
+- 🌍 Automatic or persisted Russian/English localization
+- 🔔 Idempotent expiry and traffic alerts with customer preferences
+- 🎁 Referral deep links and immutable attribution
+- 💬 Persisted in-bot support tickets plus configurable external handoff
 
 On first use, Omniflow performs an exact Telegram-ID lookup through Remnawave and persists the numeric user mapping under a concurrency-safe database lock. It never guesses account ownership or offers an insecure self-link.
 
@@ -137,10 +140,10 @@ deploy/proxies/       Optional reverse-proxy examples
 
 - [x] Go, PostgreSQL, Valkey, Atlas, River, and OpenAPI foundation
 - [x] Remnawave 3.2.2 client boundary and exact Telegram account linking
-- [x] Telegram subscription, connection, traffic, devices, and support UX
+- [x] Telegram subscription, security, devices, preferences, alerts, referrals, and support UX
 - [x] Unified customer/admin Next.js application and shared components
 - [ ] Plans, purchasing, renewals, payments, and wallet ledger
-- [ ] Support conversations, notifications, campaigns, and referrals
+- [ ] Operator support inbox, campaign delivery, and referral reward policies
 - [ ] Authentication, RBAC enforcement, audit views, and operator workflows
 - [ ] Testcontainers and end-to-end browser coverage
 - [ ] Production Telegram webhook mode

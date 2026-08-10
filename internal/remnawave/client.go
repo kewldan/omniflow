@@ -22,6 +22,9 @@ type Service interface {
 	UserByTelegramID(context.Context, int64) (User, error)
 	Subscription(context.Context, int64) (Subscription, error)
 	Devices(context.Context, int64) (Devices, error)
+	DeleteDevice(context.Context, int64, string) error
+	DeleteAllDevices(context.Context, int64) error
+	RevokeSubscription(context.Context, int64) error
 }
 
 type User struct {
@@ -65,6 +68,7 @@ type Devices struct {
 }
 
 type Device struct {
+	HWID        string    `json:"hwid"`
 	Platform    *string   `json:"platform"`
 	OSVersion   *string   `json:"osVersion"`
 	DeviceModel *string   `json:"deviceModel"`
@@ -153,19 +157,50 @@ func (client *Client) Devices(ctx context.Context, userID int64) (Devices, error
 	return envelope.Response, err
 }
 
+func (client *Client) DeleteDevice(ctx context.Context, userID int64, hwid string) error {
+	return client.post(ctx, "/api/hwid/devices/delete", map[string]any{"userId": userID, "hwid": hwid})
+}
+
+func (client *Client) DeleteAllDevices(ctx context.Context, userID int64) error {
+	return client.post(ctx, "/api/hwid/devices/delete-all", map[string]any{"userId": userID})
+}
+
+func (client *Client) RevokeSubscription(ctx context.Context, userID int64) error {
+	return client.post(ctx, "/api/users/"+strconv.FormatInt(userID, 10)+"/actions/revoke", map[string]any{})
+}
+
 func (client *Client) get(ctx context.Context, path string, target any) error {
+	return client.do(ctx, http.MethodGet, path, nil, target)
+}
+
+func (client *Client) post(ctx context.Context, path string, body any) error {
+	return client.do(ctx, http.MethodPost, path, body, nil)
+}
+
+func (client *Client) do(ctx context.Context, method, path string, body any, target any) error {
 	pathURL, err := url.Parse(path)
 	if err != nil {
 		return fmt.Errorf("parse Remnawave path: %w", err)
 	}
 	endpoint := client.baseURL.JoinPath(pathURL.Path)
 	endpoint.RawQuery = pathURL.RawQuery
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
+	var requestBody io.Reader
+	if body != nil {
+		encoded, encodeErr := json.Marshal(body)
+		if encodeErr != nil {
+			return fmt.Errorf("encode Remnawave request: %w", encodeErr)
+		}
+		requestBody = strings.NewReader(string(encoded))
+	}
+	request, err := http.NewRequestWithContext(ctx, method, endpoint.String(), requestBody)
 	if err != nil {
 		return fmt.Errorf("create Remnawave request: %w", err)
 	}
 	request.Header.Set("Accept", "application/json")
 	request.Header.Set("Authorization", "Bearer "+client.token)
+	if body != nil {
+		request.Header.Set("Content-Type", "application/json")
+	}
 
 	response, err := client.http.Do(request)
 	if err != nil {
@@ -178,6 +213,10 @@ func (client *Client) get(ctx context.Context, path string, target any) error {
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, maxResponseBytes))
 		return &APIError{StatusCode: response.StatusCode}
+	}
+	if target == nil {
+		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, maxResponseBytes))
+		return nil
 	}
 	decoder := json.NewDecoder(io.LimitReader(response.Body, maxResponseBytes))
 	if err := decoder.Decode(target); err != nil {
