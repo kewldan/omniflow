@@ -10,7 +10,7 @@ FROM dependencies AS build
 COPY . .
 RUN bun --filter @omniflow/web build
 
-FROM node:26.5-alpine AS runtime
+FROM node:26.7-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build /src/apps/web/.next/standalone ./

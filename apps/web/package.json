@@ -9,7 +9,7 @@
     "check": "tsc --noEmit && biome check ."
   },
   "dependencies": {
-    "@hookform/resolvers": "5.2.2",
+    "@hookform/resolvers": "5.7.1",
     "@omniflow/api-client": "workspace:*",
     "@omniflow/ui": "workspace:*",
     "next": "16.3.0",
@@ -24,7 +24,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.5.7",
     "@tailwindcss/postcss": "4.3.3",
-    "@types/node": "24.10.0",
+    "@types/node": "26.2.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
     "tailwindcss": "4.3.3",

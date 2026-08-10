@@ -26,6 +26,12 @@
       "automerge": false
     },
     {
+      "description": "Pin go-yit: later revisions drop gopkg.in/yaml.v3 and break oapi-codegen's yaml-jsonpath dependency",
+      "matchManagers": ["gomod"],
+      "matchPackageNames": ["github.com/dprotaso/go-yit"],
+      "enabled": false
+    },
+    {
       "description": "Never automerge major versions",
       "matchUpdateTypes": ["major"],
       "dependencyDashboardApproval": true,
