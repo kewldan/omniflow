@@ -11,8 +11,10 @@ import (
 )
 
 type Querier interface {
+	GetRemnawaveUserIDByTelegramID(ctx context.Context, telegramID pgtype.Int8) (int64, error)
 	GetTelemetryInstallationID(ctx context.Context) (pgtype.UUID, error)
 	InsertOutboxEvent(ctx context.Context, arg InsertOutboxEventParams) (OutboxEvent, error)
+	LinkTelegramRemnawaveUser(ctx context.Context, arg LinkTelegramRemnawaveUserParams) (int64, error)
 }
 
 var _ Querier = (*Queries)(nil)

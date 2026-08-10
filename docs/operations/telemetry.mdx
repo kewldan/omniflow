@@ -8,7 +8,7 @@ Anonymous project telemetry is enabled by default so maintainers can understand 
 Disable all telemetry requests:
 
 ```bash
-OMNIFLOW_TELEMETRY_ENABLED=false
+APP_TELEMETRY_ENABLED=false
 ```
 
 ## Collected
@@ -32,6 +32,6 @@ Telemetry is best effort. Failures never block startup, API requests, background
 
 The project collector stores validated anonymous events for up to 180 days. Maintainers use aggregate installation and feature-usage trends for compatibility decisions and roadmap prioritization. Raw events are not sold or shared for advertising.
 
-Forks can override `OMNIFLOW_TELEMETRY_ENDPOINT` with an HTTPS collector they control.
+Forks can override `APP_TELEMETRY_ENDPOINT` with an HTTPS collector they control.
 
-The event ingestion route is disabled in normal installations. It is enabled only on a collector deployment with `OMNIFLOW_TELEMETRY_COLLECTOR_ENABLED=true`.
+The event ingestion route is disabled in normal installations. It is enabled only on a collector deployment with `APP_TELEMETRY_COLLECTOR_ENABLED=true`.

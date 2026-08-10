@@ -27,7 +27,7 @@ type OutboxEvent struct {
 
 type RemnawaveUser struct {
 	UserID        pgtype.UUID        `json:"user_id"`
-	RemnawaveID   pgtype.UUID        `json:"remnawave_id"`
+	RemnawaveID   int64              `json:"remnawave_id"`
 	TelegramID    pgtype.Int8        `json:"telegram_id"`
 	ObservedState []byte             `json:"observed_state"`
 	ReconciledAt  pgtype.Timestamptz `json:"reconciled_at"`

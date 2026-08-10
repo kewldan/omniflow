@@ -6,7 +6,7 @@ Omniflow keeps Remnawave authoritative for VPN users, traffic, devices, access l
 
 ## Status
 
-Omniflow is under active development. The repository currently contains the production-oriented foundation and contracts; user-facing product modules will land incrementally.
+Omniflow is under active development. The repository contains the production-oriented foundation plus a Telegram-first account dashboard for Remnawave 3.2.2; commercial product modules will land incrementally.
 
 ## Stack
 
@@ -36,7 +36,7 @@ The admin and portal Compose profiles are optional during backend-first developm
 Anonymous installation telemetry is enabled by default to help prioritize features across the open-source community. It never includes customer identities, payment values, VPN traffic, domains, tokens, or message content. Disable all telemetry with:
 
 ```bash
-OMNIFLOW_TELEMETRY_ENABLED=false
+APP_TELEMETRY_ENABLED=false
 ```
 
 See [`docs/operations/telemetry.mdx`](./docs/operations/telemetry.mdx) for the exact payload and policy.

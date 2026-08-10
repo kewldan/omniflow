@@ -3,6 +3,18 @@ title: Telegram bot
 description: Telegram-first customer experience and webhook delivery.
 ---
 
-The first product milestone is full customer self-service through Telegram: onboarding, plan purchase and renewal, wallet usage, VPN status, traffic, devices, access links, support, and notifications.
+The bot currently provides a localized Russian and English self-service foundation:
 
-Production installations should use a secret webhook path through their chosen reverse proxy. Local development may use long polling.
+- Automatic account linking through the exact Telegram ID stored in Remnawave
+- Subscription status, remaining days, expiry, and traffic progress
+- Protected open/copy subscription actions and a short connection guide
+- Device count and friendly device names without displaying HWIDs or IP addresses
+- Inline refresh, back navigation, retry states, and configurable support handoff
+
+Use `/start` or `/menu` in a private chat. Messages containing account data are protected against forwarding and disable link previews. Callback queries are acknowledged before backend work so Telegram controls remain responsive.
+
+If no matching Remnawave user exists, the bot does not guess or permit an insecure self-link. It sends the customer to the configured support contact.
+
+Plan purchase and renewal, wallet usage, support conversations, and notifications remain upcoming backend milestones.
+
+The current bot uses long polling. A secret-token-validated webhook mode will be added before the production deployment milestone.

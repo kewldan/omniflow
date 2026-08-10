@@ -16,6 +16,8 @@ cp .env.example .env
 docker compose up --build postgres valkey migrate api bot worker
 ```
 
+The bot remains disabled when `APP_TELEGRAM_TOKEN` is empty. To exercise the Telegram flow, configure the Telegram token, Remnawave URL/token, and an optional support URL before starting the bot service.
+
 The API listens on `http://localhost:8080` by default. Check it with:
 
 ```bash

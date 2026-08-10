@@ -11,6 +11,19 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getRemnawaveUserIDByTelegramID = `-- name: GetRemnawaveUserIDByTelegramID :one
+SELECT remnawave_id
+FROM remnawave_users
+WHERE telegram_id = $1
+`
+
+func (q *Queries) GetRemnawaveUserIDByTelegramID(ctx context.Context, telegramID pgtype.Int8) (int64, error) {
+	row := q.db.QueryRow(ctx, getRemnawaveUserIDByTelegramID, telegramID)
+	var remnawave_id int64
+	err := row.Scan(&remnawave_id)
+	return remnawave_id, err
+}
+
 const getTelemetryInstallationID = `-- name: GetTelemetryInstallationID :one
 SELECT installation_id FROM telemetry_installation WHERE singleton = true
 `
@@ -42,4 +55,43 @@ func (q *Queries) InsertOutboxEvent(ctx context.Context, arg InsertOutboxEventPa
 		&i.PublishedAt,
 	)
 	return i, err
+}
+
+const linkTelegramRemnawaveUser = `-- name: LinkTelegramRemnawaveUser :one
+WITH locked AS (
+  SELECT pg_advisory_xact_lock($1::bigint)
+), updated AS (
+  UPDATE remnawave_users
+  SET remnawave_id = $2,
+      reconciled_at = now()
+  FROM locked
+  WHERE telegram_id = $1
+  RETURNING remnawave_id
+), new_user AS (
+  INSERT INTO users (status)
+  SELECT 'active'
+  FROM locked
+  WHERE NOT EXISTS (SELECT 1 FROM updated)
+  RETURNING id
+), inserted AS (
+  INSERT INTO remnawave_users (user_id, remnawave_id, telegram_id, reconciled_at)
+  SELECT id, $2, $1, now()
+  FROM new_user
+  RETURNING remnawave_id
+)
+SELECT remnawave_id FROM updated
+UNION ALL
+SELECT remnawave_id FROM inserted
+`
+
+type LinkTelegramRemnawaveUserParams struct {
+	TelegramID  int64 `json:"telegram_id"`
+	RemnawaveID int64 `json:"remnawave_id"`
+}
+
+func (q *Queries) LinkTelegramRemnawaveUser(ctx context.Context, arg LinkTelegramRemnawaveUserParams) (int64, error) {
+	row := q.db.QueryRow(ctx, linkTelegramRemnawaveUser, arg.TelegramID, arg.RemnawaveID)
+	var remnawave_id int64
+	err := row.Scan(&remnawave_id)
+	return remnawave_id, err
 }

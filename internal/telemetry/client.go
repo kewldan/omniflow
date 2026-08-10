@@ -109,7 +109,7 @@ func (client *Client) Start(ctx context.Context) {
 			client.logger.Info("anonymous telemetry disabled")
 			return
 		}
-		client.logger.Info("anonymous telemetry enabled", "disable_with", "OMNIFLOW_TELEMETRY_ENABLED=false")
+		client.logger.Info("anonymous telemetry enabled", "disable_with", "APP_TELEMETRY_ENABLED=false")
 		go client.heartbeat(ctx)
 	})
 }

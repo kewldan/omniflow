@@ -20,7 +20,7 @@ CREATE TABLE identities (
 
 CREATE TABLE remnawave_users (
   user_id uuid PRIMARY KEY REFERENCES users(id),
-  remnawave_id uuid NOT NULL UNIQUE,
+  remnawave_id bigint NOT NULL UNIQUE CHECK (remnawave_id > 0),
   telegram_id bigint UNIQUE,
   observed_state jsonb NOT NULL DEFAULT '{}'::jsonb,
   reconciled_at timestamptz,

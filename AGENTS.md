@@ -40,7 +40,7 @@ These instructions apply to the entire repository.
 ## Telemetry and privacy
 
 - Anonymous project telemetry is enabled by default and must remain fully optional.
-- `OMNIFLOW_TELEMETRY_ENABLED=false` must prevent all telemetry network requests.
+- `APP_TELEMETRY_ENABLED=false` must prevent all telemetry network requests.
 - Never collect customer identifiers, Telegram IDs, IP addresses, hostnames, domains, URLs, payment amounts, currencies, VPN traffic, access links, tokens, message contents, plan names, or free-form text.
 - Any new field or event requires an update to the public telemetry documentation and schema in the same change.
 - Telemetry failure must never block startup, requests, jobs, or shutdown.

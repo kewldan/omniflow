@@ -5,6 +5,19 @@ description: Integration and reconciliation contract for Remnawave v3.2.2.
 
 Omniflow integrates only through the supported Remnawave API. It never connects to Remnawave storage or manages Xray directly.
 
-The adapter must support bulk user import, exact unique Telegram-ID linking, user creation and extension, limit changes, squads, technical status, traffic, devices, and access links.
+The current adapter targets the official [Remnawave 3.2.2 OpenAPI specification](https://docs.rw/api/). It uses bearer authentication and these read endpoints for the Telegram milestone:
+
+| Purpose | Endpoint |
+| --- | --- |
+| Exact first-run Telegram lookup | `GET /api/users/stream?telegramId=…&size=2` |
+| Account status and limits | `GET /api/users/{userId}` |
+| Subscription status and access URL | `GET /api/subscriptions/by-id/{userId}` |
+| Privacy-safe device summary | `GET /api/hwid/devices/{userId}` |
+
+The stream endpoint performs an exact Telegram-ID equality lookup. Omniflow persists the resulting numeric Remnawave user ID under an advisory lock, so later requests use stable ID endpoints and concurrent first-run requests cannot create duplicate local mappings.
+
+Subscription URLs are treated as secrets. They are never logged or stored in Omniflow; the bot only presents the current value returned by Remnawave in a protected Telegram message.
+
+Future adapter work will add user creation and extension, limit changes, squads, bulk import, and scheduled drift reconciliation.
 
 Every write is idempotent and recorded. Scheduled reconciliation reports drift without fabricating payment history.
