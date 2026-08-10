@@ -1,0 +1,10 @@
+---
+title: Reverse proxy
+description: Use Caddy, Traefik, Nginx, or another compatible ingress.
+---
+
+Omniflow does not require or automatically start a reverse proxy. Operators may choose Caddy, Traefik, Nginx, HAProxy, or a managed ingress.
+
+The proxy must provide TLS, preserve request IDs, enforce body limits, and route API, Telegram webhook, provider webhook, admin, and portal hosts correctly. Configure trusted proxy headers explicitly; never trust arbitrary `X-Forwarded-For` input.
+
+A maintained Caddy example is available at `deploy/proxies/Caddyfile`.

@@ -1,0 +1,37 @@
+---
+title: Anonymous telemetry
+description: Exact telemetry behavior, payload, retention, and opt-out controls.
+---
+
+Anonymous project telemetry is enabled by default so maintainers can understand installation health and prioritize features across the open-source community.
+
+Disable all telemetry requests:
+
+```bash
+OMNIFLOW_TELEMETRY_ENABLED=false
+```
+
+## Collected
+
+- Random installation identifier
+- Omniflow version and service name
+- Operating system and CPU architecture
+- Boolean indicators for enabled product modules
+- Daily aggregated, non-financial feature counters
+- Event schema version and UTC timestamp
+
+## Never collected
+
+- Customer identifiers, Telegram IDs, usernames, or email addresses
+- IP addresses, hostnames, domains, or URLs
+- Payment amounts, currencies, wallet balances, revenue, or provider payloads
+- VPN traffic, access links, subscription URLs, nodes, or device identifiers
+- Tokens, secrets, message contents, plan names, ticket text, or other free-form data
+
+Telemetry is best effort. Failures never block startup, API requests, background jobs, or shutdown. Changing the payload requires updating this page and the public OpenAPI schema in the same release.
+
+The project collector stores validated anonymous events for up to 180 days. Maintainers use aggregate installation and feature-usage trends for compatibility decisions and roadmap prioritization. Raw events are not sold or shared for advertising.
+
+Forks can override `OMNIFLOW_TELEMETRY_ENDPOINT` with an HTTPS collector they control.
+
+The event ingestion route is disabled in normal installations. It is enabled only on a collector deployment with `OMNIFLOW_TELEMETRY_COLLECTOR_ENABLED=true`.

@@ -1,0 +1,10 @@
+---
+title: Remnawave
+description: Integration and reconciliation contract for Remnawave v3.2.2.
+---
+
+Omniflow integrates only through the supported Remnawave API. It never connects to Remnawave storage or manages Xray directly.
+
+The adapter must support bulk user import, exact unique Telegram-ID linking, user creation and extension, limit changes, squads, technical status, traffic, devices, and access links.
+
+Every write is idempotent and recorded. Scheduled reconciliation reports drift without fabricating payment history.

@@ -1,0 +1,20 @@
+---
+title: Configuration
+description: Environment variables and secret-handling rules.
+---
+
+Omniflow uses environment variables and Docker secrets. Never commit `.env` or production credentials.
+
+| Variable | Required | Default | Purpose |
+| --- | --- | --- | --- |
+| `OMNIFLOW_HTTP_ADDR` | No | `:8080` | API listen address |
+| `OMNIFLOW_DATABASE_URL` | Yes | — | PostgreSQL connection string |
+| `OMNIFLOW_VALKEY_URL` | Yes | — | Valkey connection string |
+| `OMNIFLOW_REMNAWAVE_URL` | Yes | — | Remnawave API base URL |
+| `OMNIFLOW_REMNAWAVE_TOKEN` | Yes | — | Remnawave API credential |
+| `OMNIFLOW_TELEGRAM_TOKEN` | For bot | — | Telegram Bot API token |
+| `OMNIFLOW_TELEMETRY_ENABLED` | No | `true` | Enable anonymous project telemetry |
+| `OMNIFLOW_TELEMETRY_ENDPOINT` | No | Project collector | Override the collector for forks or development |
+| `OMNIFLOW_TELEMETRY_COLLECTOR_ENABLED` | No | `false` | Accept telemetry events; intended only for the project-operated collector |
+
+Use TLS for external PostgreSQL, Valkey, Remnawave, and payment-provider connections.

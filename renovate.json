@@ -1,0 +1,35 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":dependencyDashboard", ":semanticCommits"],
+  "timezone": "Europe/Moscow",
+  "schedule": ["before 6am on monday"],
+  "minimumReleaseAge": "3 days",
+  "rangeStrategy": "pin",
+  "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "description": "Group safe frontend updates",
+      "matchManagers": ["bun", "npm"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "groupName": "frontend dependencies"
+    },
+    {
+      "description": "Group safe Go updates",
+      "matchManagers": ["gomod"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "groupName": "go dependencies"
+    },
+    {
+      "description": "Require deliberate platform upgrades",
+      "matchPackageNames": ["next", "react", "react-dom", "postgres", "valkey/valkey", "golang"],
+      "dependencyDashboardApproval": true,
+      "automerge": false
+    },
+    {
+      "description": "Never automerge major versions",
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true,
+      "automerge": false
+    }
+  ]
+}

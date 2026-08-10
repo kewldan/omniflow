@@ -1,0 +1,51 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Omniflow",
+  "description": "Open-source VPN service platform for Remnawave",
+  "colors": {
+    "primary": "#0ea5e9",
+    "light": "#38bdf8",
+    "dark": "#0284c7"
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "Start",
+        "pages": ["index", "getting-started/quickstart", "getting-started/configuration"]
+      },
+      {
+        "group": "Architecture",
+        "pages": ["architecture/overview", "architecture/data-ownership", "architecture/technology"]
+      },
+      {
+        "group": "Integrations",
+        "pages": ["integrations/remnawave", "integrations/payments", "integrations/telegram"]
+      },
+      {
+        "group": "Operations",
+        "pages": [
+          "operations/deployment",
+          "operations/reverse-proxy",
+          "operations/telemetry",
+          "operations/security"
+        ]
+      },
+      {
+        "group": "Contributing",
+        "pages": [
+          "contributing/development",
+          "contributing/database",
+          "contributing/testing",
+          "contributing/documentation"
+        ]
+      }
+    ]
+  },
+  "openapi": ["../api/openapi.yaml"],
+  "footer": {
+    "socials": {
+      "github": "https://github.com/omniflow/omniflow"
+    }
+  }
+}

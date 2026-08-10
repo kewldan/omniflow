@@ -1,0 +1,12 @@
+---
+title: Payments
+description: Payment providers, wallet application, and webhook guarantees.
+---
+
+Providers are implemented behind one capability-based contract:
+
+1. Telegram Stars
+2. CryptoBot
+3. YooKassa
+
+Every provider must verify webhooks, deduplicate event IDs, reconcile remote status, model refunds, and declare recurrence capabilities. Wallet credits are applied first and all monetary values use integer minor units.

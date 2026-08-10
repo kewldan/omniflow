@@ -1,0 +1,10 @@
+---
+title: Deployment
+description: Compose-first deployment and upgrade model.
+---
+
+Omniflow targets a single Linux server with Docker Compose initially. Stateful services are private to the Compose network, and operators choose their own ingress.
+
+Production upgrades apply committed Atlas migrations before starting the new application containers. Back up PostgreSQL before upgrading and verify `/readyz` before routing traffic.
+
+Do not use floating image tags in production.

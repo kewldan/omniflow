@@ -1,0 +1,10 @@
+---
+title: Testing strategy
+description: Current checks and phased integration testing.
+---
+
+The foundation requires Go unit/race tests, TypeScript checking, frontend builds, Biome, Atlas validation, Mintlify validation, vulnerability scanning, and container builds.
+
+Full Testcontainers coverage for PostgreSQL and Valkey and Playwright coverage for admin/customer journeys are intentionally delayed until the corresponding business modules stabilize. The architecture and CI keep dedicated extension points for both suites.
+
+Payment, wallet, authentication, RBAC, import, and Remnawave fulfillment changes must still include focused failure-path and idempotency tests from their first implementation.

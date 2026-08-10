@@ -1,0 +1,103 @@
+openapi: 3.0.3
+info:
+  title: Omniflow API
+  version: 0.1.0
+  description: Public REST API shared by the Telegram bot, admin panel, and customer portal.
+paths:
+  /healthz:
+    get:
+      operationId: getHealth
+      tags: [system]
+      responses:
+        "200":
+          description: Service is healthy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /v1/telemetry/events:
+    post:
+      operationId: collectTelemetryEvent
+      tags: [telemetry]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TelemetryEvent"
+      responses:
+        "202":
+          description: Event accepted.
+        "400":
+          $ref: "#/components/responses/Problem"
+components:
+  schemas:
+    Health:
+      type: object
+      required: [status, version]
+      properties:
+        status:
+          type: string
+        version:
+          type: string
+    TelemetryEvent:
+      type: object
+      additionalProperties: false
+      required: [schema, installation_id, name, version, service, os, architecture, occurred_at]
+      properties:
+        schema:
+          type: integer
+          enum: [1]
+        installation_id:
+          type: string
+          minLength: 16
+          maxLength: 64
+        name:
+          type: string
+          enum: [installation.heartbeat, feature.usage]
+        version:
+          type: string
+          maxLength: 32
+        service:
+          type: string
+          enum: [api, bot, worker]
+        os:
+          type: string
+          maxLength: 32
+        architecture:
+          type: string
+          maxLength: 32
+        features:
+          type: object
+          additionalProperties:
+            type: boolean
+        counters:
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 0
+        occurred_at:
+          type: string
+          format: date-time
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        request_id:
+          type: string
+  responses:
+    Problem:
+      description: Request failed.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"

@@ -1,0 +1,28 @@
+{
+  "admin": {
+    "product": "Omniflow",
+    "eyebrow": "Open-source control plane",
+    "title": "Admin foundation",
+    "description": "Operational modules will be delivered after the Telegram-first backend milestone.",
+    "navigation": {
+      "dashboard": "Dashboard",
+      "payments": "Payments",
+      "customers": "Customers",
+      "support": "Support",
+      "plans": "Plans",
+      "marketing": "Marketing",
+      "referrals": "Referrals",
+      "system": "System",
+      "security": "Security"
+    }
+  },
+  "settings": {
+    "title": "System defaults",
+    "description": "RHF, Zod, and Zustand are wired for admin UX.",
+    "locale": "Default locale",
+    "russian": "Russian",
+    "english": "English",
+    "telemetry": "Anonymous telemetry",
+    "save": "Save preview"
+  }
+}

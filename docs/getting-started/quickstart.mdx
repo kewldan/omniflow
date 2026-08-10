@@ -1,0 +1,40 @@
+---
+title: Quickstart
+description: Run the Omniflow foundation with Docker Compose.
+---
+
+## Requirements
+
+- Docker with Compose v2
+- A reachable Remnawave v3.2.2 installation
+- A Telegram bot token for bot flows
+
+## Start the core stack
+
+```bash
+cp .env.example .env
+docker compose up --build postgres valkey migrate api bot worker
+```
+
+The API listens on `http://localhost:8080` by default. Check it with:
+
+```bash
+curl http://localhost:8080/healthz
+```
+
+## Start web applications
+
+Admin and customer applications are behind the optional `web` profile:
+
+```bash
+docker compose --profile web up --build
+```
+
+- Customer portal: `http://localhost:3000`
+- Admin panel: `http://localhost:3001`
+
+## Next steps
+
+- Configure Remnawave and Telegram credentials.
+- Choose a [reverse proxy](/operations/reverse-proxy).
+- Review [anonymous telemetry](/operations/telemetry).

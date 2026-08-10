@@ -1,0 +1,14 @@
+---
+title: Documentation
+description: Maintain and validate the Mintlify source.
+---
+
+Public documentation lives under `docs/`. Keep operational instructions, environment variables, telemetry fields, and API behavior synchronized with code.
+
+Validate changes with:
+
+```bash
+cd docs
+npx --yes --package node@24 --package mint@latest --call 'mint validate'
+npx --yes --package node@24 --package mint@latest --call 'mint broken-links --check-anchors'
+```

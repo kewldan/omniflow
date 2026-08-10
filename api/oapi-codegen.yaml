@@ -1,0 +1,8 @@
+package: apigen
+output: internal/httpapi/apigen/openapi.gen.go
+generate:
+  models: true
+  chi-server: true
+  strict-server: true
+output-options:
+  skip-prune: false

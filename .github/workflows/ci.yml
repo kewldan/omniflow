@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: Go
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: 1.26.5
+          cache: true
+      - run: go mod download
+      - run: go tool oapi-codegen -config api/oapi-codegen.yaml api/openapi.yaml
+      - run: go tool sqlc generate
+      - run: gofmt -w . && git diff --exit-code
+      - run: go vet ./...
+      - run: go test -race -coverprofile=coverage.out ./...
+      - run: go tool govulncheck ./...
+
+  web:
+    name: Web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun ci
+      - run: bun run generate:api
+      - run: git diff --exit-code
+      - run: bun run check
+      - run: bun run build
+
+  migrations:
+    name: Atlas migrations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ariga/setup-atlas@v0
+      - run: atlas migrate validate --dir file://database/migrations
+      - run: atlas schema inspect --url file://database/schema.sql --dev-url docker://postgres/18/dev > /dev/null
+
+  docs:
+    name: Mintlify docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - working-directory: docs
+        run: npx --yes mint@latest validate
+      - working-directory: docs
+        run: npx --yes mint@latest broken-links --check-anchors
+
+  conventional-pr:
+    name: Conventional PR title
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

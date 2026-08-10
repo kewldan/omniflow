@@ -1,0 +1,14 @@
+---
+title: Security
+description: Deployment and application security expectations.
+---
+
+- Store secrets outside the repository and rotate them after suspected exposure.
+- Require passkey or TOTP MFA for privileged operators.
+- Keep PostgreSQL and Valkey off the public network.
+- Verify every payment and Telegram webhook.
+- Restrict upload types and sizes.
+- Keep audit history append-only.
+- Run supported patch versions and review automated dependency updates.
+
+Report vulnerabilities through GitHub private vulnerability reporting.

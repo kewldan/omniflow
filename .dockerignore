@@ -1,0 +1,9 @@
+.git
+.github
+.next
+node_modules
+**/.next
+**/node_modules
+coverage.out
+.env
+*.log

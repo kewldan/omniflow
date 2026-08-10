@@ -1,0 +1,28 @@
+{
+  "name": "omniflow",
+  "private": true,
+  "packageManager": "bun@1.3.14",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=26.0.0"
+  },
+  "scripts": {
+    "build": "bun --filter '@omniflow/*' build",
+    "check": "bun --filter '@omniflow/*' check",
+    "dev:admin": "bun --filter @omniflow/admin dev",
+    "dev:portal": "bun --filter @omniflow/portal dev",
+    "format": "biome format --write .",
+    "lint": "biome lint .",
+    "generate:api": "orval --config orval.config.ts --formatter biome --fail-on-warnings",
+    "ui:add": "shadcn add"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.7",
+    "orval": "8.24.0",
+    "shadcn": "4.16.2",
+    "typescript": "7.0.2"
+  }
+}

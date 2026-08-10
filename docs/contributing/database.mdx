@@ -1,0 +1,13 @@
+---
+title: Database changes
+description: Atlas and sqlc workflow.
+---
+
+1. Update `database/schema.sql`.
+2. Run `make atlas-diff` with a development PostgreSQL container.
+3. Review the generated SQL for destructive operations, locks, and rewrites.
+4. Apply it locally with `make atlas-apply`.
+5. Run `make generate` to update sqlc output.
+6. Commit the schema, migration, generated output, and tests together.
+
+Never edit an already-released migration or generate migrations during production startup.
