@@ -12,7 +12,7 @@
     "groups": [
       {
         "group": "Start",
-        "pages": ["index", "getting-started/quickstart", "getting-started/configuration"]
+        "pages": ["index", "comparison", "getting-started/quickstart", "getting-started/configuration"]
       },
       {
         "group": "Architecture",
