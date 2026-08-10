@@ -30,8 +30,9 @@ atlas-apply: ## Apply committed migrations
 	atlas migrate apply --env local
 
 docs-check: ## Validate Mintlify documentation
-	cd docs && npx --yes --package node@24 --package mint@latest --call 'mint validate'
-	cd docs && npx --yes --package node@24 --package mint@latest --call 'mint broken-links --check-anchors'
+	cp api/openapi.yaml docs/openapi.yaml
+	cd docs && PUPPETEER_SKIP_DOWNLOAD=true bunx mint@latest validate
+	cd docs && PUPPETEER_SKIP_DOWNLOAD=true bunx mint@latest broken-links --check-anchors
 
 security: ## Run local security checks
 	go tool govulncheck ./...

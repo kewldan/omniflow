@@ -23,6 +23,10 @@
         "pages": ["integrations/remnawave", "integrations/payments", "integrations/telegram"]
       },
       {
+        "group": "API reference",
+        "openapi": "openapi.yaml"
+      },
+      {
         "group": "Operations",
         "pages": [
           "operations/deployment",
@@ -42,7 +46,6 @@
       }
     ]
   },
-  "openapi": ["../api/openapi.yaml"],
   "footer": {
     "socials": {
       "github": "https://github.com/omniflow/omniflow"

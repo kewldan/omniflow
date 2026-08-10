@@ -29,3 +29,4 @@ pnpm-debug.log*
 
 # Mintlify
 docs/.mintlify/
+docs/openapi.yaml

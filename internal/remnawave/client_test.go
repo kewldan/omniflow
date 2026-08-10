@@ -2,11 +2,39 @@ package remnawave
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
+
+func TestClientDeleteDeviceUsesOfficialMutation(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.Method != http.MethodPost || request.URL.Path != "/api/hwid/devices/delete" {
+			t.Fatalf("unexpected request: %s %s", request.Method, request.URL.Path)
+		}
+		var body struct {
+			UserID int64  `json:"userId"`
+			HWID   string `json:"hwid"`
+		}
+		if err := json.NewDecoder(request.Body).Decode(&body); err != nil || body.UserID != 42 || body.HWID != "private-hwid" {
+			t.Fatalf("unexpected body: %#v, %v", body, err)
+		}
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write([]byte(`{"response":{}}`))
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := client.DeleteDevice(context.Background(), 42, "private-hwid"); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func TestClientSubscription(t *testing.T) {
 	t.Parallel()

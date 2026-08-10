@@ -8,6 +8,21 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type BotPreference struct {
+	UserID               pgtype.UUID        `json:"user_id"`
+	Locale               string             `json:"locale"`
+	ExpiryNotifications  bool               `json:"expiry_notifications"`
+	TrafficNotifications bool               `json:"traffic_notifications"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+type BotSession struct {
+	TelegramID int64              `json:"telegram_id"`
+	State      string             `json:"state"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
+}
+
 type Identity struct {
 	ID              pgtype.UUID        `json:"id"`
 	UserID          pgtype.UUID        `json:"user_id"`
@@ -15,6 +30,17 @@ type Identity struct {
 	ProviderSubject string             `json:"provider_subject"`
 	VerifiedAt      pgtype.Timestamptz `json:"verified_at"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
+type NotificationDelivery struct {
+	ID           pgtype.UUID        `json:"id"`
+	UserID       pgtype.UUID        `json:"user_id"`
+	Kind         string             `json:"kind"`
+	DedupeKey    string             `json:"dedupe_key"`
+	Status       string             `json:"status"`
+	ScheduledAt  pgtype.Timestamptz `json:"scheduled_at"`
+	SentAt       pgtype.Timestamptz `json:"sent_at"`
+	FailureCount int32              `json:"failure_count"`
 }
 
 type OutboxEvent struct {
@@ -25,6 +51,19 @@ type OutboxEvent struct {
 	PublishedAt pgtype.Timestamptz `json:"published_at"`
 }
 
+type ReferralAttribution struct {
+	ReferredUserID pgtype.UUID        `json:"referred_user_id"`
+	ReferrerUserID pgtype.UUID        `json:"referrer_user_id"`
+	Code           string             `json:"code"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type ReferralCode struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	Code      string             `json:"code"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type RemnawaveUser struct {
 	UserID        pgtype.UUID        `json:"user_id"`
 	RemnawaveID   int64              `json:"remnawave_id"`
@@ -32,6 +71,23 @@ type RemnawaveUser struct {
 	ObservedState []byte             `json:"observed_state"`
 	ReconciledAt  pgtype.Timestamptz `json:"reconciled_at"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+type SupportMessage struct {
+	ID                int64              `json:"id"`
+	TicketID          pgtype.UUID        `json:"ticket_id"`
+	Sender            string             `json:"sender"`
+	Body              string             `json:"body"`
+	TelegramMessageID pgtype.Int8        `json:"telegram_message_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
+type SupportTicket struct {
+	ID        pgtype.UUID        `json:"id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	Status    string             `json:"status"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
 type TelemetryEvent struct {
