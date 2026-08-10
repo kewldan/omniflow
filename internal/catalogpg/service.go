@@ -33,6 +33,13 @@ type VersionInput struct {
 	UpgradePolicy, DowngradePolicy, CancellationPolicy string
 	RecurringCapable                                   bool
 	Prices                                             []Price
+	// GracePeriodSeconds keeps access alive after expiry so the customer can be
+	// told exactly how long they have left to renew. Zero disables the grace
+	// period.
+	GracePeriodSeconds int64
+	// TrialEligibility constrains who may activate a trial plan version:
+	// new_customer, never_trialled, or any.
+	TrialEligibility string
 }
 type PlanInput struct {
 	Code, Kind    string
@@ -61,7 +68,7 @@ func (service *Service) CreatePlan(ctx context.Context, input PlanInput) (dbgen.
 			return dbgen.Plan{}, dbgen.PlanVersion{}, err
 		}
 	}
-	version, err := createVersion(ctx, q, plan.ID, input.Version)
+	version, err := createVersion(ctx, tx, q, plan.ID, input.Version)
 	if err != nil {
 		return dbgen.Plan{}, dbgen.PlanVersion{}, err
 	}
@@ -81,16 +88,27 @@ func (service *Service) CreateVersion(ctx context.Context, planID string, input 
 		return dbgen.PlanVersion{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	version, err := createVersion(ctx, dbgen.New(tx), id, input)
+	version, err := createVersion(ctx, tx, dbgen.New(tx), id, input)
 	if err != nil {
 		return dbgen.PlanVersion{}, err
 	}
 	return version, tx.Commit(ctx)
 }
 
-func createVersion(ctx context.Context, q *dbgen.Queries, planID pgtype.UUID, input VersionInput) (dbgen.PlanVersion, error) {
+func createVersion(ctx context.Context, tx pgx.Tx, q *dbgen.Queries, planID pgtype.UUID, input VersionInput) (dbgen.PlanVersion, error) {
 	if input.DurationSeconds <= 0 || len(input.Prices) == 0 {
 		return dbgen.PlanVersion{}, errors.New("duration and prices are required")
+	}
+	if input.GracePeriodSeconds < 0 {
+		return dbgen.PlanVersion{}, errors.New("grace period cannot be negative")
+	}
+	if input.TrialEligibility == "" {
+		input.TrialEligibility = "new_customer"
+	}
+	switch input.TrialEligibility {
+	case "new_customer", "never_trialled", "any":
+	default:
+		return dbgen.PlanVersion{}, errors.New("unsupported trial eligibility rule")
 	}
 	next, err := q.NextPlanVersion(ctx, planID)
 	if err != nil {
@@ -102,6 +120,13 @@ func createVersion(ctx context.Context, q *dbgen.Queries, planID pgtype.UUID, in
 	}
 	version, err := q.CreatePlanVersion(ctx, dbgen.CreatePlanVersionParams{PlanID: planID, Version: next, BillingPeriod: input.BillingPeriod, DurationSeconds: input.DurationSeconds, TrafficAllowanceBytes: optionalInt8(input.TrafficAllowanceBytes), DeviceLimit: optionalInt4(input.DeviceLimit), RemnawaveSquadIds: squadIDs, UpgradePolicy: input.UpgradePolicy, DowngradePolicy: input.DowngradePolicy, CancellationPolicy: input.CancellationPolicy, RecurringCapable: input.RecurringCapable})
 	if err != nil {
+		return dbgen.PlanVersion{}, err
+	}
+	// The lifecycle fields live outside the generated insert so the v0.3 query
+	// stays untouched; they are set in the same transaction, so a version is
+	// never visible without its grace period and trial rule.
+	if _, err = tx.Exec(ctx, `UPDATE plan_versions SET grace_period_seconds = $2, trial_eligibility = $3
+		WHERE id = $1`, version.ID, input.GracePeriodSeconds, input.TrialEligibility); err != nil {
 		return dbgen.PlanVersion{}, err
 	}
 	for _, price := range input.Prices {

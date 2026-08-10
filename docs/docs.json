@@ -30,6 +30,7 @@
           "commerce/orders-payments",
           "commerce/wallet-ledger",
           "commerce/fulfillment",
+          "commerce/referrals-communication",
           "commerce/financial-invariants"
         ]
       },

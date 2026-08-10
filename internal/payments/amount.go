@@ -6,6 +6,10 @@ import (
 	"strings"
 )
 
+// CurrencyExponent reports how many minor units make up one major unit of a
+// currency, so a customer surface can render an integer amount correctly.
+func CurrencyExponent(currency string) (int, error) { return currencyExponent(currency) }
+
 func currencyExponent(currency string) (int, error) {
 	switch currency {
 	case "JPY", "KRW", "XTR":

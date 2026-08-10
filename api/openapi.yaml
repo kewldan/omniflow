@@ -311,6 +311,8 @@ components:
         downgradePolicy: {type: string, enum: [forbid, immediate, at_expiry]}
         cancellationPolicy: {type: string, enum: [forbid, immediate, at_expiry]}
         recurringCapable: {type: boolean}
+        gracePeriodSeconds: {type: integer, format: int64, minimum: 0, default: 0, description: Access retained after expiry so a customer can still renew}
+        trialEligibility: {type: string, enum: [new_customer, never_trialled, any], default: new_customer, description: Who may activate this version when the plan kind is trial}
         prices: {type: array, minItems: 1, items: {$ref: "#/components/schemas/Money"}}
     PlanMutation:
       type: object

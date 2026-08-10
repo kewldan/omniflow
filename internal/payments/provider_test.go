@@ -40,10 +40,36 @@ func TestCryptoBotWebhookSignatureAndReplayKey(t *testing.T) {
 }
 
 func TestTelegramStarsRejectsNonStars(t *testing.T) {
-	provider := TelegramStars{}
+	provider := &TelegramStars{}
 	_, err := provider.Create(t.Context(), CreateRequest{OrderID: "order", Amount: commerce.Money{Amount: 10, Currency: "RUB"}})
 	if !errors.Is(err, commerce.ErrCurrencyMismatch) {
 		t.Fatalf("expected currency rejection, got %v", err)
+	}
+	if provider.SupportsCurrency("RUB") || !provider.SupportsCurrency("xtr") {
+		t.Fatal("the Stars adapter must accept XTR and nothing else")
+	}
+	if provider.Capabilities().Refunds {
+		t.Fatal("an adapter without a bot token must not advertise refunds")
+	}
+}
+
+func TestSupportsCurrencyFallsBackToTheAdapterDefault(t *testing.T) {
+	cryptobot, err := NewCryptoBot("token", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !SupportsCurrency(cryptobot, "USD") || SupportsCurrency(cryptobot, "XTR") {
+		t.Fatal("CryptoBot must settle fiat currencies and reject Telegram Stars")
+	}
+	yookassa, err := NewYooKassa("shop", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !SupportsCurrency(yookassa, "RUB") || SupportsCurrency(yookassa, "JPY") {
+		t.Fatal("YooKassa must settle RUB and reject unsupported currencies")
+	}
+	if !SupportsCurrency(Manual{}, "RUB") || !SupportsCurrency(Manual{}, "USD") {
+		t.Fatal("the manual adapter must accept any currency an operator records")
 	}
 }
 

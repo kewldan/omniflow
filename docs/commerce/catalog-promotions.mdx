@@ -7,4 +7,6 @@ Plans use stable lowercase codes and Russian/English localizations. Published pl
 
 Prices are integer minor units paired with an uppercase ISO currency. An order references both the stable plan and exact plan version and also stores a snapshot, so changing the visible catalog cannot change historical purchases.
 
-Promotion and promo-code rows are locked in a serializable transaction before redemption counts are checked. Global, per-code, and per-customer limits are therefore atomic. Promo input is trimmed and uppercased before lookup. Operators should also configure Valkey rate limits at the caller boundary before exposing promo entry in v0.4.
+Promotion and promo-code rows are locked in a serializable transaction before redemption counts are checked. Global, per-code, and per-customer limits are therefore atomic. Promo input is trimmed and uppercased before lookup, and every caller that accepts customer input — the operator API and the Telegram bot — applies a Valkey rate limit before validating a code.
+
+A code can be validated without creating an order. The preview runs the same reads and locks as order creation and then rolls back, so a rejected code never consumes a redemption and the price the customer confirms is the price the order is created from. Rejections carry a stable reason (`promo_unknown`, `promo_ineligible`, `promo_exhausted`, `promo_invalid`) so a customer surface can explain the outcome instead of failing silently.

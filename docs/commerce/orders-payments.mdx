@@ -8,3 +8,26 @@ Orders move through `draft`, `pending`, `paid`, `fulfilled`, `cancelled`, `expir
 Verified successful payments are compared to the order currency and outstanding external amount. Currency mismatch, underpayment, overpayment, duplicate payment, and a wallet reservation that is no longer available are recorded without granting an entitlement. An exact late payment can be fulfilled once when its reserved wallet amount remains available. A matching payment marks the order paid and creates its entitlement and durable fulfillment operation in the same PostgreSQL transaction.
 
 Provider events are append-only. Full and partial refunds create new refund and ledger records; payment history is never rewritten. Provider receipt and fiscalization fields are isolated in `receipt_metadata` so an adapter can satisfy regional requirements without leaking provider fields into the order model.
+
+## Customer-visible checkout state
+
+A customer surface never reads the raw order state. The order state, the payment-intent status, and the latest fulfillment-operation status are folded into one phase:
+
+| Phase | Meaning |
+| --- | --- |
+| `awaiting_action` | The provider needs the customer to act |
+| `pending` | The provider has the payment and has not settled it |
+| `succeeded` | Payment settled, entitlement not yet observed |
+| `provisioning` | Paid, and Remnawave provisioning is in progress or retrying |
+| `completed` | Paid and provisioned |
+| `failed` | The payment failed, or provisioning failed permanently |
+| `cancelled` / `expired` | The order closed without a charge |
+| `refunded` | A refund was recorded |
+
+The order is authoritative once it leaves the pending states, so a late or duplicated provider webhook can never move a paid order backwards on a customer's screen.
+
+## Checkout sessions
+
+A customer surface creates orders through a resumable checkout session that generates its idempotency key once and reuses it for every attempt. A duplicate confirmation therefore resolves to the order already created rather than creating a second one. Payment intents are keyed on the order and the chosen adapter, so switching methods creates a distinct intent while re-tapping the same method resumes the existing one.
+
+A trial order claims `trial_claims` in the same transaction that creates the order, which makes "one trial per customer" an invariant rather than a check.

@@ -16,7 +16,7 @@ Build Telegram-first self-service, subscriptions, billing, support, marketing, a
 [Quick start](#-quick-start) · [Roadmap](./ROADMAP.md) · [Documentation](./docs/index.mdx) · [Architecture](./docs/architecture/overview.mdx) · [Contributing](./CONTRIBUTING.md)
 
 > [!IMPORTANT]
-> Omniflow is under active development. The platform foundation, Telegram self-service suite, and v0.3 commerce backend are implemented. Customer checkout remains intentionally disabled until a real payment provider passes sandbox integration testing; bot commerce UX begins in v0.4.
+> Omniflow is under active development. The platform foundation, the v0.3 commerce backend, and the complete v0.4 Telegram customer product — plan discovery, checkout, subscription lifecycle, support desk, and communication controls — are implemented. Web checkout remains intentionally disabled until the customer panel milestone; a payment method is offered in the bot only when the operator has configured that adapter.
 
 ## ✨ Highlights
 
@@ -32,19 +32,25 @@ Build Telegram-first self-service, subscriptions, billing, support, marketing, a
 
 ## 🤖 Telegram experience
 
-The current bot gives linked Remnawave customers a clean, single-message dashboard:
+The bot is a complete customer product in a single-message interface:
 
+- 🛒 Plan catalog with period, traffic, device, and price comparison, plan details, and policy-aware purchase, renewal, upgrade, and downgrade
+- 💳 Telegram Stars invoices, CryptoBot invoices, YooKassa hosted checkout, and audited manual payments — offered only when configured and currency-compatible
+- 🏷 Promo-code entry with a specific rejection reason, and wallet credit applied first by default
+- ⏳ Pending, succeeded, provisioning, completed, failed, cancelled, expired, and refunded screens with retry-safe refresh
+- 🧾 Order history with payment status, receipts, and refund state
+- ♻️ Trials with abuse controls, renewal reminders, grace-period explanations, expired-subscription recovery, and honest auto-renew status
 - 📊 Subscription status, expiry, remaining days, and traffic progress
-- 🚀 Guided connection flow with protected open/copy subscription actions
+- 🚀 Per-platform connection guides with client deep links and a manual-copy fallback
 - 📱 Privacy-safe device management with per-device and remove-all confirmation
 - 🔐 Subscription-link rotation for compromised credentials
-- 🔄 Fast refresh, back navigation, loading feedback, and recoverable errors
-- 🌍 Automatic or persisted Russian/English localization
-- 🔔 Idempotent expiry and traffic alerts with customer preferences
-- 🎁 Referral deep links and immutable attribution
-- 💬 Persisted in-bot support tickets plus configurable external handoff
+- 💬 Support desk with conversation history, replies, attachments, unread state, and close/reopen
+- 📰 News and service-announcement inbox with read state
+- 🔔 Classified notifications with explicit marketing consent, quiet hours, and frequency caps
+- 🎁 Referral terms, qualified-referral progress, and rewards granted exactly once
+- 🌍 Complete Russian and English copy for every success, empty, pending, and failure state
 
-On first use, Omniflow performs an exact Telegram-ID lookup through Remnawave and persists the numeric user mapping under a concurrency-safe database lock. It never guesses account ownership or offers an insecure self-link.
+A first-time visitor can browse and buy before any Remnawave user exists. For an existing customer, Omniflow performs an exact Telegram-ID lookup through Remnawave and persists the numeric user mapping under a concurrency-safe database lock. It never guesses account ownership or offers an insecure self-link.
 
 ## 🧩 Clear ownership boundaries
 
@@ -146,8 +152,9 @@ The complete versioned delivery contract is maintained in [ROADMAP.md](./ROADMAP
 - [x] Telegram subscription, security, devices, preferences, alerts, referrals, and support UX
 - [x] Unified customer/admin Next.js application and shared components
 - [x] Plans, orders, payments, refunds, wallet ledger, entitlements, and Remnawave fulfillment backend
-- [ ] Telegram plan discovery, checkout, renewals, and post-payment lifecycle UX
-- [ ] Operator support inbox, campaign delivery, and referral reward policies
+- [x] Telegram plan discovery, checkout, renewals, and post-payment lifecycle UX
+- [x] Telegram support desk, news inbox, communication consent, and referral reward policies
+- [ ] Operator support inbox and campaign delivery
 - [ ] Authentication, RBAC enforcement, audit views, and operator workflows
 - [ ] Testcontainers and end-to-end browser coverage
 - [ ] Production Telegram webhook mode

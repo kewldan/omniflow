@@ -34,6 +34,16 @@ func (provider *YooKassa) Capabilities() Capabilities {
 	return Capabilities{Refunds: true, PartialRefund: true, Recurring: true, Webhooks: true, Polling: true}
 }
 
+// SupportsCurrency reports the settlement currencies a YooKassa shop can accept.
+func (provider *YooKassa) SupportsCurrency(currency string) bool {
+	switch strings.ToUpper(strings.TrimSpace(currency)) {
+	case "RUB", "USD", "EUR":
+		return true
+	default:
+		return false
+	}
+}
+
 type yooMoney struct {
 	Value    string `json:"value"`
 	Currency string `json:"currency"`

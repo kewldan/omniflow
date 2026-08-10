@@ -32,6 +32,10 @@ export const createPlanBodyVersionTrafficAllowanceBytesMin = 0;
 
 export const createPlanBodyVersionDeviceLimitMin = 0;
 
+export const createPlanBodyVersionGracePeriodSecondsDefault = 0;
+export const createPlanBodyVersionGracePeriodSecondsMin = 0;
+
+export const createPlanBodyVersionTrialEligibilityDefault = `new_customer`;
 export const createPlanBodyVersionPricesItemAmountMinorMin = 0;
 
 export const createPlanBodyVersionPricesItemCurrencyRegExp = /^[A-Z]{3}$/;
@@ -67,6 +71,15 @@ export const CreatePlanBody = zod.object({
     downgradePolicy: zod.enum(["forbid", "immediate", "at_expiry"]),
     cancellationPolicy: zod.enum(["forbid", "immediate", "at_expiry"]),
     recurringCapable: zod.boolean().optional(),
+    gracePeriodSeconds: zod
+      .int()
+      .min(createPlanBodyVersionGracePeriodSecondsMin)
+      .default(createPlanBodyVersionGracePeriodSecondsDefault)
+      .describe("Access retained after expiry so a customer can still renew"),
+    trialEligibility: zod
+      .enum(["new_customer", "never_trialled", "any"])
+      .default(createPlanBodyVersionTrialEligibilityDefault)
+      .describe("Who may activate this version when the plan kind is trial"),
     prices: zod
       .array(
         zod.object({
@@ -94,6 +107,10 @@ export const createPlanVersionBodyTrafficAllowanceBytesMin = 0;
 
 export const createPlanVersionBodyDeviceLimitMin = 0;
 
+export const createPlanVersionBodyGracePeriodSecondsDefault = 0;
+export const createPlanVersionBodyGracePeriodSecondsMin = 0;
+
+export const createPlanVersionBodyTrialEligibilityDefault = `new_customer`;
 export const createPlanVersionBodyPricesItemAmountMinorMin = 0;
 
 export const createPlanVersionBodyPricesItemCurrencyRegExp = /^[A-Z]{3}$/;
@@ -117,6 +134,15 @@ export const CreatePlanVersionBody = zod.object({
   downgradePolicy: zod.enum(["forbid", "immediate", "at_expiry"]),
   cancellationPolicy: zod.enum(["forbid", "immediate", "at_expiry"]),
   recurringCapable: zod.boolean().optional(),
+  gracePeriodSeconds: zod
+    .int()
+    .min(createPlanVersionBodyGracePeriodSecondsMin)
+    .default(createPlanVersionBodyGracePeriodSecondsDefault)
+    .describe("Access retained after expiry so a customer can still renew"),
+  trialEligibility: zod
+    .enum(["new_customer", "never_trialled", "any"])
+    .default(createPlanVersionBodyTrialEligibilityDefault)
+    .describe("Who may activate this version when the plan kind is trial"),
   prices: zod
     .array(
       zod.object({

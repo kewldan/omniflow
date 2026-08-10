@@ -41,16 +41,26 @@ func loadingView(locale Locale) View {
 }
 
 func homeView(locale Locale, user remnawave.User) View {
+	return homeMenuView(locale, user, MenuState{}, "")
+}
+
+// homeMenuView renders the account overview. The menu adapts to whether the
+// commerce surface is enabled, and notice carries any lifecycle explanation the
+// customer needs to read before choosing an action.
+func homeMenuView(locale Locale, user remnawave.User, menu MenuState, notice string) View {
 	status := statusLabel(locale, user.Status)
 	traffic := trafficLine(locale, user.Traffic.UsedBytes, user.TrafficLimitBytes)
 	expires := formatDate(user.ExpireAt)
-	var text string
+	var body string
 	if locale == LocaleRussian {
-		text = fmt.Sprintf("🌊 <b>Omniflow</b>\n\n%s\n\n👤 <b>%s</b>\n%s\n📅 До: <b>%s</b>\n\nВыберите действие:", status, html.EscapeString(user.Username), traffic, expires)
+		body = fmt.Sprintf("🌊 <b>Omniflow</b>\n\n%s\n\n👤 <b>%s</b>\n%s\n📅 До: <b>%s</b>\n\nВыберите действие:", status, html.EscapeString(user.Username), traffic, expires)
 	} else {
-		text = fmt.Sprintf("🌊 <b>Omniflow</b>\n\n%s\n\n👤 <b>%s</b>\n%s\n📅 Until: <b>%s</b>\n\nChoose an action:", status, html.EscapeString(user.Username), traffic, expires)
+		body = fmt.Sprintf("🌊 <b>Omniflow</b>\n\n%s\n\n👤 <b>%s</b>\n%s\n📅 Until: <b>%s</b>\n\nChoose an action:", status, html.EscapeString(user.Username), traffic, expires)
 	}
-	return View{Text: text, Keyboard: mainKeyboard(locale), RetryRoute: routeHome}
+	if notice != "" {
+		body = fmt.Sprintf("🌊 <b>Omniflow</b>\n\n%s\n\n👤 <b>%s</b>\n%s\n📅 %s\n\n%s", status, html.EscapeString(user.Username), traffic, expires, notice)
+	}
+	return View{Text: body, Keyboard: commerceMainKeyboard(locale, menu), RetryRoute: routeHome}
 }
 
 func subscriptionView(locale Locale, subscription remnawave.Subscription) View {

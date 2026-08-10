@@ -5,13 +5,24 @@ description: Provider capabilities, verification, and configuration.
 
 Omniflow exposes one capability-based payment contract and currently includes Telegram Stars, CryptoBot, YooKassa, and audited manual payments. An adapter is available only when its required credentials are configured.
 
-| Provider | Webhook verification | Polling | Refunds | Recurrence |
-| --- | --- | --- | --- | --- |
-| Telegram Stars | Authenticated Bot API update stream | No | Deferred to v0.4 bot integration | No |
-| CryptoBot | HMAC-SHA256 over the exact raw body | Yes | No native invoice refund | No |
-| YooKassa | Authenticated API fetch of every notification object | Yes | Full and partial | Capability declared |
-| Manual | Operator decision and audit event | No | Audited manual workflow | No |
+| Provider | Settlement currencies | Webhook verification | Polling | Refunds | Recurrence |
+| --- | --- | --- | --- | --- | --- |
+| Telegram Stars | `XTR` | Authenticated Bot API update stream | No | Full charge through `refundStarPayment` | No |
+| CryptoBot | CryptoBot fiat set | HMAC-SHA256 over the exact raw body | Yes | No native invoice refund | No |
+| YooKassa | `RUB`, `USD`, `EUR` | Authenticated API fetch of every notification object | Yes | Full and partial | Capability declared |
+| Manual | any | Operator decision and audit event | No | Audited manual workflow | No |
+
+An adapter is offered to a customer only when it is configured **and** the plan carries a price in a currency the adapter settles. Selection never falls back to an incompatible adapter, and an order with nothing left to pay is offered no provider at all.
 
 Every provider mutation has an Omniflow idempotency key. YooKassa receives the same value through `Idempotence-Key`. Webhook bodies are retained for 30 days with a digest and deduplication key; authorization and signature headers are never retained.
+
+## Telegram Stars settlement
+
+Telegram does not sign Bot API updates for a public webhook route, so the Stars adapter declares no webhook capability and the public `/v1/payments/webhooks/telegram_stars` route cannot settle anything. Settlement enters through the bot's own authenticated update stream:
+
+1. The bot answers `pre_checkout_query` only when the referenced order is still pending and its amount and currency match exactly.
+2. `successful_payment` is recorded as a provider event keyed on `telegram_payment_charge_id`, which makes a redelivered update a no-op.
+3. The charge identifier is written to the payment intent before settlement, so a retry can find the intent again and refunds have the reference they need.
+4. `refundStarPayment` requires the paying Telegram account. It is stored as non-secret receipt metadata on the payment intent when the invoice is created, and is resolved from there at refund time. Stars refunds are full-charge only, so a partial request is refused rather than reported as settled.
 
 Checkout remains disabled in the web application until an operator enables a provider and its sandbox suite passes with project-specific credentials.

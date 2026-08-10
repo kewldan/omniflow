@@ -162,61 +162,61 @@ Goal: build the complete financial and entitlement model before exposing purchas
 
 ---
 
-## ⏳ v0.4 — Complete Telegram commerce and lifecycle
+## ✅ v0.4 — Complete Telegram commerce and lifecycle
 
 Goal: make the bot a complete customer product using the v0.3 backend.
 
 ### Discovery and purchase
 
-- [ ] Localized plan catalog with clear period, traffic, device, and price comparison
-- [ ] Plan details, eligibility, promotion, and terms confirmation
-- [ ] New subscription purchase and existing subscription renewal
-- [ ] Upgrade/downgrade choices that reflect the configured plan policy
-- [ ] Promo-code entry, validation, rejection reason, and removal
-- [ ] Wallet balance display and wallet-credit application
-- [ ] Provider selection based only on enabled and compatible adapters
-- [ ] Telegram Stars invoice flow
-- [ ] CryptoBot payment flow
-- [ ] YooKassa hosted checkout flow
-- [ ] Pending-payment screen with refresh and expiry
-- [ ] Success, failure, cancellation, timeout, duplicate, and delayed-webhook states
-- [ ] Order history, payment status, receipt link, and refund status
+- [x] Localized plan catalog with clear period, traffic, device, and price comparison
+- [x] Plan details, eligibility, promotion, and terms confirmation
+- [x] New subscription purchase and existing subscription renewal
+- [x] Upgrade/downgrade choices that reflect the configured plan policy
+- [x] Promo-code entry, validation, rejection reason, and removal
+- [x] Wallet balance display and wallet-credit application
+- [x] Provider selection based only on enabled and compatible adapters
+- [x] Telegram Stars invoice flow
+- [x] CryptoBot payment flow
+- [x] YooKassa hosted checkout flow
+- [x] Pending-payment screen with refresh and expiry
+- [x] Success, failure, cancellation, timeout, duplicate, and delayed-webhook states
+- [x] Order history, payment status, receipt link, and refund status
 
 ### Subscription lifecycle
 
-- [ ] Trial activation with abuse controls
-- [ ] Renewal reminders with direct, idempotent checkout actions
-- [ ] Expired-subscription recovery
-- [ ] Grace-period and limited-state explanations
-- [ ] Auto-renew status and cancellation when supported by the selected provider
-- [ ] Clear post-payment provisioning progress and retry-safe status refresh
-- [ ] Connection instructions by platform and supported client
-- [ ] App deep links with manual-copy fallback
+- [x] Trial activation with abuse controls
+- [x] Renewal reminders with direct, idempotent checkout actions
+- [x] Expired-subscription recovery
+- [x] Grace-period and limited-state explanations
+- [x] Auto-renew status and cancellation when supported by the selected provider
+- [x] Clear post-payment provisioning progress and retry-safe status refresh
+- [x] Connection instructions by platform and supported client
+- [x] App deep links with manual-copy fallback
 
 ### Support, referrals, and communication
 
-- [ ] Support ticket list, status, conversation history, replies, and close/reopen actions
-- [ ] Operator reply delivery with deduplication and unread state
-- [ ] Attachment support with size/type restrictions and retention policy
-- [ ] Referral terms, reward progress, qualified referral count, and ledger history
-- [ ] Configurable inviter/invitee rewards granted exactly once after qualification
-- [ ] News and service-announcement inbox
-- [ ] Transactional versus marketing message classification
-- [ ] Explicit marketing consent, unsubscribe, quiet hours, and frequency caps
-- [ ] Maintenance, incident, payment, fulfillment, renewal, and support notifications
+- [x] Support ticket list, status, conversation history, replies, and close/reopen actions
+- [x] Operator reply delivery with deduplication and unread state
+- [x] Attachment support with size/type restrictions and retention policy
+- [x] Referral terms, reward progress, qualified referral count, and ledger history
+- [x] Configurable inviter/invitee rewards granted exactly once after qualification
+- [x] News and service-announcement inbox
+- [x] Transactional versus marketing message classification
+- [x] Explicit marketing consent, unsubscribe, quiet hours, and frequency caps
+- [x] Maintenance, incident, payment, fulfillment, renewal, and support notifications
 
 ### Abuse and reliability
 
-- [ ] Per-user and per-action Valkey rate limits
-- [ ] Callback replay protection for payment and destructive actions
-- [ ] Telegram API retry, flood-wait handling, and delivery failure classification
-- [ ] Bot-blocked/user-deactivated handling without endless retries
-- [ ] Correlation IDs across Telegram update, order, payment, job, and Remnawave request
-- [ ] Complete Russian and English copy for every success, empty, pending, and failure state
+- [x] Per-user and per-action Valkey rate limits
+- [x] Callback replay protection for payment and destructive actions
+- [x] Telegram API retry, flood-wait handling, and delivery failure classification
+- [x] Bot-blocked/user-deactivated handling without endless retries
+- [x] Correlation IDs across Telegram update, order, payment, job, and Remnawave request
+- [x] Complete Russian and English copy for every success, empty, pending, and failure state
 
 ---
 
-## ⏳ v0.5 — Bot and backend production release
+## 🚧 v0.5 — Bot and backend production release
 
 Goal: declare the Telegram-first product production-ready before admin UI development becomes the primary focus.
 

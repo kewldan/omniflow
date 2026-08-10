@@ -39,6 +39,19 @@ func (provider *CryptoBot) Capabilities() Capabilities {
 	return Capabilities{Webhooks: true, Polling: true}
 }
 
+// cryptoBotFiat is the fiat set CryptoBot prices invoices in. Telegram Stars are
+// deliberately absent: they never settle through CryptoBot.
+var cryptoBotFiat = map[string]bool{
+	"USD": true, "EUR": true, "RUB": true, "BYN": true, "UAH": true, "GBP": true,
+	"CNY": true, "KZT": true, "UZS": true, "GEL": true, "TRY": true, "AMD": true,
+	"INR": true, "AZN": true, "AED": true, "PLN": true,
+}
+
+// SupportsCurrency reports whether CryptoBot can invoice the given fiat currency.
+func (provider *CryptoBot) SupportsCurrency(currency string) bool {
+	return cryptoBotFiat[strings.ToUpper(strings.TrimSpace(currency))]
+}
+
 func (provider *CryptoBot) Create(ctx context.Context, request CreateRequest) (Intent, error) {
 	exponent, err := currencyExponent(request.Amount.Currency)
 	if err != nil {

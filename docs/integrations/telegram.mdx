@@ -1,27 +1,91 @@
 ---
 title: Telegram bot
-description: Telegram-first customer experience and webhook delivery.
+description: Self-service, purchase, subscription lifecycle, support, and communication in the Telegram bot.
 ---
 
-The bot provides a localized Russian and English self-service experience:
+The bot is the primary customer surface. It is localized in Russian and English and works before the customer has any Remnawave user at all: a first-time visitor can browse plans, buy, and be provisioned without an operator touching the account.
+
+## Self-service
 
 - Automatic account linking through the exact Telegram ID stored in Remnawave
 - Subscription status, remaining days, expiry, and traffic progress
-- Protected open/copy subscription actions and a short connection guide
+- Protected open/copy subscription actions and per-platform connection guides
 - Device count, friendly names, per-device removal, and remove-all with confirmation
 - Subscription-link rotation with a warning that existing clients must reconnect
-- Persisted language and expiry/traffic notification preferences
-- Idempotent expiry alerts at 7, 3, 1, and 0 days and traffic alerts at 80% and 100%
-- Referral deep links, immutable attribution, and invited-user counts
-- In-bot support requests persisted for the operator workspace
+- Referral deep links, immutable attribution, invited/qualified counts, and reward history
 - Inline refresh, back navigation, retry states, and configurable support handoff
 
-Use `/start` or `/menu` in a private chat. Messages containing account data are protected against forwarding and disable link previews. Callback queries are acknowledged before backend work so Telegram controls remain responsive.
+## Discovery and purchase
 
-If no matching Remnawave user exists, the bot does not guess or permit an insecure self-link. It sends the customer to the configured support contact.
+- `/plans` lists visible plans with period, traffic allowance, device limit, and price in the settlement currency, so plans can be compared at a glance
+- A plan screen shows eligibility, the configured upgrade, downgrade, cancellation, and grace policies, and links the terms of service
+- Purchase, renewal (extension), upgrade, and downgrade are offered only when the plan policy permits them
+- Payment methods are listed only when the operator configured the adapter **and** the plan carries a price in a currency that adapter settles. Choosing a method fixes the order currency
+- Promo codes are entered as one message, validated against the exact order, and either applied or refused with a specific reason (unknown, ineligible, exhausted, malformed)
+- Wallet credit is applied first by default and can be switched off; the confirmation screen shows subtotal, discount, wallet, and the remaining external amount
+- The confirmation screen is the exact breakdown the order is created from — the quote and the persisted order cannot disagree
 
-`/settings`, `/support`, and `/cancel` are available in addition to `/start` and `/menu`. Support compose state expires after 30 minutes, and every customer has at most one open ticket.
+### Payment providers
 
-Plan purchase, renewal, wallet usage, and rewards remain payment-provider and policy dependent. The bot does not present a fake checkout until an administrator configures those capabilities.
+| Adapter | Currencies | Notes |
+| --- | --- | --- |
+| Telegram Stars | `XTR` | Invoice sent in-chat. Settlement arrives on the authenticated Bot API update stream, never on the public webhook route. Refunds use `refundStarPayment` |
+| CryptoBot | Fiat set supported by CryptoBot | Hosted invoice link, signed webhook, polling reconciliation |
+| YooKassa | `RUB`, `USD`, `EUR` | Hosted checkout redirect. Notifications are treated as untrusted hints and re-fetched over the authenticated API |
+| Manual | any | Operator approval with a full audit trail |
+
+## Payment and provisioning states
+
+Every checkout outcome has its own screen and its own copy in both languages: awaiting action, pending, succeeded, provisioning, completed, failed, cancelled, expired, duplicate, and refunded. A pending screen can always be refreshed, which also re-polls the provider so a customer who returns before the webhook still sees the settled state.
+
+A successful payment is never lost when Remnawave is unavailable. The order is marked paid, the entitlement and the durable fulfillment job are committed in the same transaction, and the bot shows a provisioning screen that retries safely.
+
+`/orders` lists order history with payment status, receipt link where the provider supplies one, and refund status.
+
+## Subscription lifecycle
+
+- Trial activation with abuse controls: one trial per customer, no stacking on an active subscription, no reuse through a shared identity, an optional minimum account age, and a new-customer or never-trialled rule per plan version
+- Renewal reminders at 7, 3, 1, and 0 days with a direct checkout button that resumes the same idempotent checkout rather than creating a second order
+- Grace-period and traffic-limited states are explained rather than shown as a bare status
+- Expired subscriptions get a one-tap recovery offer inside a configurable window
+- Auto-renew reports its real status. It is offered only when a configured adapter advertises recurring support, and can always be cancelled
+- Connection instructions per platform with client deep links offered as copyable text plus the raw link as a manual fallback
+
+## Support, referrals, and communication
+
+- Ticket list, conversation history, replies, and close/reopen, with unread counts
+- Attachments are limited to photos and documents up to 10 MB. Only the Telegram file reference and safe metadata are stored, under a 90-day retention window
+- Operator replies are delivered exactly once: the unread counter is raised only after Telegram accepts the message
+- News and service-announcement inbox with read state
+- Every notification is classified as transactional or marketing. Marketing requires explicit consent, is capped per window, and is recorded as a consent record when the customer changes it
+- Quiet hours defer non-urgent messages. Payment, fulfillment, support, and incident messages are never delayed
+
+## Abuse and reliability
+
+- Per-user and per-action Valkey rate limits for navigation, messages, promo entry, and checkout
+- Consequential callbacks — confirm, cancel, payment-method choice, invoice, device removal, link rotation — are claimed once per callback query, so a redelivered update or a double tap cannot repeat the action
+- Telegram delivery classifies flood waits, blocked bots, and deactivated accounts. A blocked or deleted account stops consuming retries and is excluded from further delivery until it recovers
+- Every update carries a correlation ID that is logged with the order, payment, job, and Remnawave request it causes
+
+## Configuration
+
+| Variable | Purpose |
+| --- | --- |
+| `APP_TELEGRAM_TOKEN` | Bot token. The bot process exits early when it is empty |
+| `APP_VALKEY_URL` | Required. Backs rate limits and callback replay protection |
+| `APP_DEFAULT_CURRENCY` | Settlement currency used to compare plans. Use `XTR` for a Stars-only installation |
+| `APP_PUBLIC_URL` | Base URL for provider return links. Required when YooKassa is configured |
+| `APP_TERMS_URL` | Terms of service linked from plan and checkout screens |
+| `APP_SUPPORT_URL` | Optional operator contact shown alongside in-bot support |
+| `APP_MARKETING_FREQUENCY_CAP` | Marketing messages allowed per window (`0` disables the cap) |
+| `APP_MARKETING_WINDOW_HOURS` | Length of the marketing frequency window |
+| `APP_RECOVERY_WINDOW_HOURS` | How long an expired subscription keeps its recovery offer |
+| `APP_TRIAL_MINIMUM_ACCOUNT_AGE_HOURS` | Abuse control for freshly created accounts |
+
+## Commands and behaviour
+
+`/start`, `/menu`, `/plans`, `/orders`, `/settings`, `/support`, and `/cancel` are available in private chats only. Messages containing account data are protected against forwarding and disable link previews. Callback queries are acknowledged before backend work so Telegram controls stay responsive. Composition states — promo entry and support messages — expire after 30 minutes.
+
+If no matching Remnawave user exists, the bot does not guess or permit an insecure self-link. It creates the canonical Omniflow customer, offers the catalog, and sends account-recovery questions to the configured support contact.
 
 The current bot uses long polling. A secret-token-validated webhook mode will be added before the production deployment milestone.

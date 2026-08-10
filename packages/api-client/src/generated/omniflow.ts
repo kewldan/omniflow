@@ -83,6 +83,18 @@ export const PlanVersionInputCancellationPolicy = {
   at_expiry: "at_expiry",
 } as const;
 
+/**
+ * Who may activate this version when the plan kind is trial
+ */
+export type PlanVersionInputTrialEligibility =
+  (typeof PlanVersionInputTrialEligibility)[keyof typeof PlanVersionInputTrialEligibility];
+
+export const PlanVersionInputTrialEligibility = {
+  new_customer: "new_customer",
+  never_trialled: "never_trialled",
+  any: "any",
+} as const;
+
 export interface PlanVersionInput {
   billingPeriod: PlanVersionInputBillingPeriod;
   /** @minimum 1 */
@@ -102,6 +114,13 @@ export interface PlanVersionInput {
   downgradePolicy: PlanVersionInputDowngradePolicy;
   cancellationPolicy: PlanVersionInputCancellationPolicy;
   recurringCapable?: boolean;
+  /**
+   * Access retained after expiry so a customer can still renew
+   * @minimum 0
+   */
+  gracePeriodSeconds?: number;
+  /** Who may activate this version when the plan kind is trial */
+  trialEligibility?: PlanVersionInputTrialEligibility;
   /** @minItems 1 */
   prices: Money[];
 }

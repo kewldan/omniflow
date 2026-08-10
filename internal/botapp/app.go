@@ -8,9 +8,12 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	telegram "github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
+	"github.com/omniflow/omniflow/internal/commerce"
+	"github.com/omniflow/omniflow/internal/platform"
 	"github.com/omniflow/omniflow/internal/remnawave"
 )
 
@@ -24,6 +27,22 @@ const (
 	routeSupport      = "support"
 	routeSettings     = "settings"
 	routeReferral     = "referral"
+	routePlans        = "plans"
+	routeOrders       = "orders"
+	routeWallet       = "wallet"
+	routeNews         = "news"
+	routeAutoRenew    = "autorenew"
+)
+
+// callbackWindow and callbackBudget bound how many interactions one Telegram
+// account may drive per minute.
+const (
+	callbackWindow  = time.Minute
+	callbackBudget  = 40
+	checkoutBudget  = 6
+	promoBudget     = 5
+	messageBudget   = 20
+	replayRetention = 24 * time.Hour
 )
 
 type App struct {
@@ -31,7 +50,17 @@ type App struct {
 	store       Store
 	remnawave   remnawave.Service
 	supportURL  string
+	termsURL    string
 	botUsername string
+
+	// The commerce surface is optional. Without it the bot keeps its v0.2
+	// self-service behaviour and the commerce routes report that purchases are
+	// not configured.
+	customers *PostgresStore
+	commerce  *Commerce
+	limiter   *platform.RateLimiter
+	sender    *Sender
+	settings  CommerceSettings
 }
 
 func New(logger *slog.Logger, store Store, remnawaveService remnawave.Service, supportURL string) *App {
@@ -43,8 +72,52 @@ func New(logger *slog.Logger, store Store, remnawaveService remnawave.Service, s
 	}
 }
 
+// EnableCommerce turns on the v0.4 purchase, lifecycle, support, and
+// communication surface.
+func (app *App) EnableCommerce(customers *PostgresStore, commerceService *Commerce, limiter *platform.RateLimiter, sender *Sender, settings CommerceSettings) {
+	app.customers, app.commerce, app.limiter, app.sender, app.settings = customers, commerceService, limiter, sender, settings
+	app.termsURL = strings.TrimSpace(settings.TermsURL)
+}
+
 func (app *App) SetBotUsername(username string) {
 	app.botUsername = strings.TrimPrefix(strings.TrimSpace(username), "@")
+}
+
+// allow applies a per-user, per-action Valkey rate limit. A limiter outage fails
+// closed for money-moving actions and open for navigation, so a Valkey incident
+// degrades browsing instead of allowing unbounded checkout attempts.
+func (app *App) allow(ctx context.Context, scope string, telegramID int64, budget int64) bool {
+	if app.limiter == nil {
+		return true
+	}
+	allowed, err := app.limiter.Allow(ctx, scope, strconv.FormatInt(telegramID, 10), budget, callbackWindow)
+	if err != nil {
+		app.logger.Warn("rate limiter unavailable", "scope", scope, "error", err)
+		return scope == "bot:nav"
+	}
+	return allowed
+}
+
+// claimCallback consumes a one-shot token for a consequential callback. A
+// redelivered Telegram update or a second tap on the same button resolves to
+// false instead of creating a second order, payment, or deletion.
+func (app *App) claimCallback(ctx context.Context, queryID string) bool {
+	if app.limiter == nil {
+		return true
+	}
+	claimed, err := app.limiter.Once(ctx, "callback", queryID, replayRetention)
+	if err != nil {
+		app.logger.Error("callback replay protection unavailable", "error", err)
+		return false
+	}
+	return claimed
+}
+
+// consequentialActions must never run twice for one Telegram callback.
+var consequentialActions = map[string]bool{
+	"confirm": true, "order-cancel": true, "pm": true, "wallet-toggle": true,
+	"promo-clear": true, "invoice": true, "device-delete": true, "devices-delete": true,
+	"revoke": true, "ticket-close": true, "ticket-open": true, "autorenew": true,
 }
 
 func (app *App) Register(client *telegram.Bot) {
@@ -52,6 +125,8 @@ func (app *App) Register(client *telegram.Bot) {
 	client.RegisterHandler(telegram.HandlerTypeMessageText, "menu", telegram.MatchTypeCommandStartOnly, app.HandleStart)
 	client.RegisterHandler(telegram.HandlerTypeMessageText, "settings", telegram.MatchTypeCommandStartOnly, app.HandleSettings)
 	client.RegisterHandler(telegram.HandlerTypeMessageText, "support", telegram.MatchTypeCommandStartOnly, app.HandleSupport)
+	client.RegisterHandler(telegram.HandlerTypeMessageText, "plans", telegram.MatchTypeCommandStartOnly, app.HandlePlans)
+	client.RegisterHandler(telegram.HandlerTypeMessageText, "orders", telegram.MatchTypeCommandStartOnly, app.HandleOrders)
 	client.RegisterHandler(telegram.HandlerTypeMessageText, "cancel", telegram.MatchTypeCommandStartOnly, app.HandleCancel)
 	client.RegisterHandler(telegram.HandlerTypeCallbackQueryData, callbackPrefix, telegram.MatchTypePrefix, app.HandleCallback)
 	client.RegisterHandler(telegram.HandlerTypeCallbackQueryData, actionPrefix, telegram.MatchTypePrefix, app.HandleCallback)
@@ -62,16 +137,37 @@ func (app *App) HandleStart(ctx context.Context, client *telegram.Bot, update *m
 	if message == nil || message.From == nil || message.Chat.Type != models.ChatTypePrivate {
 		return
 	}
+	if !app.allow(ctx, "bot:message", message.From.ID, messageBudget) {
+		app.notifyRateLimited(ctx, client, message.Chat.ID, app.locale(ctx, message.From.ID, message.From.LanguageCode))
+		return
+	}
 	locale := app.locale(ctx, message.From.ID, message.From.LanguageCode)
 	_, _ = client.SendChatAction(ctx, &telegram.SendChatActionParams{ChatID: message.Chat.ID, Action: models.ChatActionTyping})
-	view := app.loadView(ctx, message.From.ID, locale, routeHome)
 	if parts := strings.Fields(message.Text); len(parts) == 2 && strings.HasPrefix(parts[1], "ref_") {
-		if err := app.store.AttributeReferral(ctx, message.From.ID, strings.TrimPrefix(parts[1], "ref_")); err != nil {
-			app.logger.Warn("referral attribution failed", "error", err)
-		}
+		app.attributeReferral(ctx, message.From.ID, message.From.LanguageCode, strings.TrimPrefix(parts[1], "ref_"))
 	}
+	view := app.loadView(ctx, message.From.ID, locale, routeHome)
 	if _, err := client.SendMessage(ctx, sendParams(message.Chat.ID, view)); err != nil {
-		app.logger.Error("telegram view send failed", "view", routeHome, "error", err)
+		app.withCorrelation(update).Error("telegram view send failed", "view", routeHome, "error", err)
+	}
+}
+
+// attributeReferral records the immutable inviter/invitee pair. With commerce
+// enabled the canonical customer owns the attribution; otherwise the v0.2
+// Telegram-keyed path still applies.
+func (app *App) attributeReferral(ctx context.Context, telegramID int64, telegramLocale, code string) {
+	if app.commerceEnabled() {
+		session, err := app.commerceContext(ctx, telegramID, telegramLocale)
+		if err == nil {
+			if err = app.customers.AttributeReferralForCustomer(ctx, session.Customer.ID, code); err != nil {
+				app.logger.Warn("referral attribution failed", "error", err)
+			}
+			return
+		}
+		app.logger.Warn("customer resolution failed during referral attribution", "error", err)
+	}
+	if err := app.store.AttributeReferral(ctx, telegramID, code); err != nil {
+		app.logger.Warn("referral attribution failed", "error", err)
 	}
 }
 
@@ -80,15 +176,36 @@ func (app *App) HandleDefault(ctx context.Context, client *telegram.Bot, update 
 		app.HandleCallback(ctx, client, update)
 		return
 	}
+	if update.PreCheckoutQuery != nil {
+		app.HandlePreCheckout(ctx, client, update.PreCheckoutQuery)
+		return
+	}
 	message := update.Message
 	if message == nil || message.From == nil || message.Chat.Type != models.ChatTypePrivate {
 		return
+	}
+	if message.SuccessfulPayment != nil {
+		app.HandleSuccessfulPayment(ctx, client, update)
+		return
+	}
+	if strings.HasPrefix(message.Text, "/") {
+		app.HandleStart(ctx, client, update)
+		return
+	}
+	if !app.allow(ctx, "bot:message", message.From.ID, messageBudget) {
+		app.notifyRateLimited(ctx, client, message.Chat.ID, app.locale(ctx, message.From.ID, message.From.LanguageCode))
+		return
+	}
+	if app.commerceEnabled() {
+		if handled := app.handleFlowMessage(ctx, client, update); handled {
+			return
+		}
 	}
 	state, err := app.store.Session(ctx, message.From.ID)
 	if err != nil {
 		app.logger.Error("telegram session lookup failed", "error", err)
 	}
-	if state == "support_message" && !strings.HasPrefix(message.Text, "/") {
+	if state == "support_message" {
 		locale := app.locale(ctx, message.From.ID, message.From.LanguageCode)
 		if err := app.store.SubmitSupport(ctx, message.From.ID, message.ID, message.Text); err != nil {
 			_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, supportSubmitErrorView(locale)))
@@ -100,12 +217,151 @@ func (app *App) HandleDefault(ctx context.Context, client *telegram.Bot, update 
 	app.HandleStart(ctx, client, update)
 }
 
+// handleFlowMessage completes a multi-step flow — promo entry or a support
+// message with attachments. It reports whether it consumed the update.
+func (app *App) handleFlowMessage(ctx context.Context, client *telegram.Bot, update *models.Update) bool {
+	message := update.Message
+	state, flowContext, err := app.customers.SessionState(ctx, message.From.ID)
+	if err != nil {
+		app.logger.Error("bot session lookup failed", "error", err)
+		return false
+	}
+	if state != "promo_code" && state != "support_reply" {
+		return false
+	}
+	session, err := app.commerceContext(ctx, message.From.ID, message.From.LanguageCode)
+	if err != nil {
+		app.logger.Error("customer resolution failed", "error", err)
+		return false
+	}
+	switch state {
+	case "promo_code":
+		app.completePromoEntry(ctx, client, session, message)
+	case "support_reply":
+		ticketID, _ := flowContext["ticketId"].(string)
+		app.completeSupportMessage(ctx, client, session, message, ticketID)
+	}
+	return true
+}
+
+func (app *App) completePromoEntry(ctx context.Context, client *telegram.Bot, session commerceContext, message *models.Message) {
+	if !app.allow(ctx, "bot:promo", session.TelegramID, promoBudget) {
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{Text: text(session.Locale, "promo.rateLimited")}))
+		return
+	}
+	checkout, found, err := app.customers.Checkout(ctx, session.Customer.ID)
+	if err != nil || !found {
+		_ = app.customers.CancelSession(ctx, session.TelegramID)
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{Text: text(session.Locale, "checkout.expired"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "menu.plans"), routePlans)))}))
+		return
+	}
+	updated, err := app.commerce.ApplyPromo(ctx, checkout, message.Text)
+	if err != nil {
+		app.logger.Error("promo validation failed", "error", err)
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{Text: text(session.Locale, "error.generic")}))
+		return
+	}
+	if err = app.customers.CancelSession(ctx, session.TelegramID); err != nil {
+		app.logger.Warn("session cleanup failed", "error", err)
+	}
+	if updated.PromoRejection != "" {
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{Text: text(session.Locale, "promo.rejected", text(session.Locale, "promo."+updated.PromoRejection))}))
+	} else {
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{Text: text(session.Locale, "promo.applied", updated.PromoCode)}))
+	}
+	_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, app.checkoutScreen(ctx, session)))
+}
+
+func (app *App) completeSupportMessage(ctx context.Context, client *telegram.Bot, session commerceContext, message *models.Message, ticketID string) {
+	body := message.Text
+	if body == "" {
+		body = message.Caption
+	}
+	attachments, err := collectAttachments(message)
+	if err != nil {
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{Text: attachmentErrorText(session.Locale, err)}))
+		return
+	}
+	resolved, err := app.customers.AppendCustomerMessage(ctx, session.Customer.ID, ticketID, firstLine(body), body, message.ID, attachments)
+	switch {
+	case errors.Is(err, ErrTicketClosed):
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{Text: text(session.Locale, "support.closedHint")}))
+		return
+	case errors.Is(err, ErrTicketNotFound):
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{Text: text(session.Locale, "support.notFound")}))
+		return
+	case errors.Is(err, ErrAttachmentTooBig), errors.Is(err, ErrAttachmentKind):
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{Text: attachmentErrorText(session.Locale, err)}))
+		return
+	case err != nil:
+		app.logger.Error("support message could not be stored", "error", err)
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{Text: text(session.Locale, "support.tooLong")}))
+		return
+	}
+	if err = app.customers.CancelSession(ctx, session.TelegramID); err != nil {
+		app.logger.Warn("session cleanup failed", "error", err)
+	}
+	_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{Text: text(session.Locale, "support.sent"), Keyboard: keyboard(row(actionButton(text(session.Locale, "support.open"), "ticket:"+resolved)))}))
+}
+
+func attachmentErrorText(locale Locale, err error) string {
+	switch {
+	case errors.Is(err, ErrAttachmentTooBig):
+		return text(locale, "support.tooBig")
+	case errors.Is(err, ErrAttachmentKind):
+		return text(locale, "support.badKind")
+	default:
+		return text(locale, "support.tooLong")
+	}
+}
+
+// collectAttachments extracts the Telegram file references a customer attached.
+// Only the reference and safe metadata are kept; Omniflow never downloads or
+// stores the file itself.
+func collectAttachments(message *models.Message) ([]Attachment, error) {
+	attachments := make([]Attachment, 0, 2)
+	if len(message.Photo) > 0 {
+		largest := message.Photo[len(message.Photo)-1]
+		attachments = append(attachments, Attachment{Kind: "photo", TelegramFileID: largest.FileID, SizeBytes: int64(largest.FileSize)})
+	}
+	if message.Document != nil {
+		attachments = append(attachments, Attachment{
+			Kind: "document", TelegramFileID: message.Document.FileID,
+			FileName: message.Document.FileName, MimeType: message.Document.MimeType,
+			SizeBytes: message.Document.FileSize,
+		})
+	}
+	if message.Video != nil || message.Audio != nil || message.Voice != nil || message.Animation != nil || message.Sticker != nil {
+		return nil, ErrAttachmentKind
+	}
+	for _, attachment := range attachments {
+		if err := attachment.Validate(); err != nil {
+			return nil, err
+		}
+	}
+	return attachments, nil
+}
+
+func (app *App) notifyRateLimited(ctx context.Context, client *telegram.Bot, chatID int64, locale Locale) {
+	if _, err := client.SendMessage(ctx, sendParams(chatID, View{Text: text(locale, "menu.rateLimit")})); err != nil {
+		app.logger.Debug("rate-limit notice delivery failed", "error", err)
+	}
+}
+
 func (app *App) HandleSettings(ctx context.Context, client *telegram.Bot, update *models.Update) {
 	app.handleCommandRoute(ctx, client, update, routeSettings)
 }
 
 func (app *App) HandleSupport(ctx context.Context, client *telegram.Bot, update *models.Update) {
 	app.handleCommandRoute(ctx, client, update, routeSupport)
+}
+
+func (app *App) HandlePlans(ctx context.Context, client *telegram.Bot, update *models.Update) {
+	app.handleCommandRoute(ctx, client, update, routePlans)
+}
+
+func (app *App) HandleOrders(ctx context.Context, client *telegram.Bot, update *models.Update) {
+	app.handleCommandRoute(ctx, client, update, routeOrders)
 }
 
 func (app *App) HandleCancel(ctx context.Context, client *telegram.Bot, update *models.Update) {
@@ -131,15 +387,32 @@ func (app *App) HandleCallback(ctx context.Context, client *telegram.Bot, update
 		return
 	}
 	locale := app.locale(ctx, query.From.ID, query.From.LanguageCode)
-	_, _ = client.AnswerCallbackQuery(ctx, &telegram.AnswerCallbackQueryParams{CallbackQueryID: query.ID})
+	if !app.allow(ctx, "bot:nav", query.From.ID, callbackBudget) {
+		_, _ = client.AnswerCallbackQuery(ctx, &telegram.AnswerCallbackQueryParams{CallbackQueryID: query.ID, Text: text(locale, "menu.rateLimit"), ShowAlert: true})
+		return
+	}
 	if query.Message.Message == nil || query.Message.Message.Chat.Type != models.ChatTypePrivate {
+		_, _ = client.AnswerCallbackQuery(ctx, &telegram.AnswerCallbackQueryParams{CallbackQueryID: query.ID})
 		return
 	}
 	message := query.Message.Message
 	if strings.HasPrefix(query.Data, actionPrefix) {
-		app.handleAction(ctx, client, query, message.Chat.ID, message.ID, locale)
+		action := strings.SplitN(strings.TrimPrefix(query.Data, actionPrefix), ":", 2)[0]
+		// A consequential action is claimed once per callback, so a redelivered
+		// update or a double tap cannot repeat a payment or a deletion.
+		if consequentialActions[action] && !app.claimCallback(ctx, query.ID) {
+			_, _ = client.AnswerCallbackQuery(ctx, &telegram.AnswerCallbackQueryParams{CallbackQueryID: query.ID, Text: text(locale, "menu.replay")})
+			return
+		}
+		if action == "confirm" && !app.allow(ctx, "bot:checkout", query.From.ID, checkoutBudget) {
+			_, _ = client.AnswerCallbackQuery(ctx, &telegram.AnswerCallbackQueryParams{CallbackQueryID: query.ID, Text: text(locale, "menu.rateLimit"), ShowAlert: true})
+			return
+		}
+		_, _ = client.AnswerCallbackQuery(ctx, &telegram.AnswerCallbackQueryParams{CallbackQueryID: query.ID})
+		app.handleAction(ctx, client, query, message.Chat.ID, message.ID, locale, update)
 		return
 	}
+	_, _ = client.AnswerCallbackQuery(ctx, &telegram.AnswerCallbackQueryParams{CallbackQueryID: query.ID})
 	route := strings.TrimPrefix(query.Data, callbackPrefix)
 	if !knownRoute(route) {
 		route = routeHome
@@ -149,12 +422,15 @@ func (app *App) HandleCallback(ctx context.Context, client *telegram.Bot, update
 	}
 	view := app.loadView(ctx, query.From.ID, locale, route)
 	if _, err := client.EditMessageText(ctx, editParams(message.Chat.ID, message.ID, view)); err != nil {
-		app.logger.Error("telegram view edit failed", "view", route, "error", err)
+		app.withCorrelation(update).Error("telegram view edit failed", "view", route, "error", err)
 	}
 }
 
-func (app *App) handleAction(ctx context.Context, client *telegram.Bot, query *models.CallbackQuery, chatID int64, messageID int, locale Locale) {
+func (app *App) handleAction(ctx context.Context, client *telegram.Bot, query *models.CallbackQuery, chatID int64, messageID int, locale Locale, update *models.Update) {
 	parts := strings.Split(strings.TrimPrefix(query.Data, actionPrefix), ":")
+	if handled := app.dispatchCommerceAction(ctx, client, query, chatID, messageID, parts, update); handled {
+		return
+	}
 	var view View
 	var err error
 	switch parts[0] {
@@ -166,7 +442,7 @@ func (app *App) handleAction(ctx context.Context, client *telegram.Bot, query *m
 			err = errors.New("missing locale")
 			break
 		}
-		err = app.store.SetLocale(ctx, query.From.ID, parts[1])
+		err = app.setLocalePreference(ctx, query.From.ID, query.From.LanguageCode, parts[1])
 		locale = app.locale(ctx, query.From.ID, query.From.LanguageCode)
 		view = app.loadView(ctx, query.From.ID, locale, routeSettings)
 	case "notify":
@@ -174,7 +450,7 @@ func (app *App) handleAction(ctx context.Context, client *telegram.Bot, query *m
 			err = errors.New("missing notification kind")
 			break
 		}
-		err = app.store.ToggleNotification(ctx, query.From.ID, parts[1])
+		err = app.toggleNotification(ctx, query.From.ID, query.From.LanguageCode, parts[1])
 		view = app.loadView(ctx, query.From.ID, locale, routeSettings)
 	case "device-confirm":
 		view = deviceDeleteConfirmView(locale, actionIndex(parts), false)
@@ -211,6 +487,32 @@ func (app *App) handleAction(ctx context.Context, client *telegram.Bot, query *m
 	}
 }
 
+// setLocalePreference stores the interface language against the canonical
+// customer when commerce is enabled, and against the Telegram-linked account
+// otherwise.
+func (app *App) setLocalePreference(ctx context.Context, telegramID int64, telegramLocale, locale string) error {
+	if !app.commerceEnabled() {
+		return app.store.SetLocale(ctx, telegramID, locale)
+	}
+	session, err := app.commerceContext(ctx, telegramID, telegramLocale)
+	if err != nil {
+		return err
+	}
+	return app.customers.SetCustomerLocale(ctx, session.Customer.ID, locale)
+}
+
+func (app *App) toggleNotification(ctx context.Context, telegramID int64, telegramLocale, kind string) error {
+	if !app.commerceEnabled() {
+		return app.store.ToggleNotification(ctx, telegramID, kind)
+	}
+	session, err := app.commerceContext(ctx, telegramID, telegramLocale)
+	if err != nil {
+		return err
+	}
+	_, err = app.customers.ToggleCustomerNotification(ctx, session.Customer.ID, kind)
+	return err
+}
+
 func (app *App) deleteDevice(ctx context.Context, telegramID int64, index int) error {
 	userID, err := app.store.RemnawaveUserID(ctx, telegramID)
 	if err != nil {
@@ -238,9 +540,71 @@ func actionIndex(parts []string) int {
 }
 
 func (app *App) loadView(ctx context.Context, telegramID int64, locale Locale, route string) View {
+	if app.commerceEnabled() {
+		return app.loadCustomerView(ctx, telegramID, locale, route)
+	}
+	if commerceOnlyRoute(route) {
+		return View{Text: text(locale, "menu.unavail"), Keyboard: keyboard(row(callbackButton(text(locale, "action.back"), routeHome)))}
+	}
 	if route == routeSupport {
 		return supportView(locale, app.supportURL)
 	}
+	return app.loadRemnawaveView(ctx, telegramID, locale, route, MenuState{})
+}
+
+// loadCustomerView renders a screen for an installation with commerce enabled.
+// The canonical customer is resolved first, so purchase, order, wallet, support,
+// and news screens work before Remnawave has ever provisioned a VPN user.
+func (app *App) loadCustomerView(ctx context.Context, telegramID int64, locale Locale, route string) View {
+	session, err := app.commerceContext(ctx, telegramID, string(locale))
+	if err != nil {
+		app.logger.Error("customer resolution failed", "error", err)
+		return app.errorView(locale, route)
+	}
+	if route == routeSettings {
+		return app.settingsScreen(ctx, session)
+	}
+	if view, handled := app.loadCommerceView(ctx, session, route); handled {
+		return view
+	}
+	if route == routeConnect {
+		subscription, subscriptionErr := app.subscriptionFor(ctx, session)
+		if subscriptionErr != nil {
+			app.logger.Error("Remnawave subscription lookup failed", "error", subscriptionErr)
+			return app.errorView(session.Locale, routeConnect)
+		}
+		return connectPlatformsView(session.Locale, subscription)
+	}
+	menu := app.menuState(ctx, session.Customer.ID, session.Locale)
+	if session.Customer.RemnawaveID <= 0 {
+		return app.noSubscriptionView(ctx, session, route, menu)
+	}
+	return app.loadRemnawaveView(ctx, telegramID, session.Locale, route, menu)
+}
+
+// noSubscriptionView is what a customer sees before their first purchase: the
+// full purchase surface, not a dead end.
+func (app *App) noSubscriptionView(ctx context.Context, session commerceContext, route string, menu MenuState) View {
+	entitlement, err := app.customers.Entitlement(ctx, session.Customer.ID, session.Locale, app.settings.Currency)
+	if err != nil {
+		app.logger.Error("entitlement lookup failed", "error", err)
+		return app.errorView(session.Locale, route)
+	}
+	notice := text(session.Locale, "life.none")
+	if entitlement.Found {
+		phase := commerce.EvaluatePhase(time.Now().UTC(), commerce.Subscription{Status: entitlement.Status, EndsAt: entitlement.EndsAt, GracePeriod: entitlement.GracePeriod})
+		if explanation := lifecycleNotice(session.Locale, phase, entitlement); explanation != "" {
+			notice = explanation
+		}
+	}
+	return View{
+		Text:       "🌊 <b>Omniflow</b>\n\n" + notice,
+		Keyboard:   commerceMainKeyboard(session.Locale, menu),
+		RetryRoute: routeHome,
+	}
+}
+
+func (app *App) loadRemnawaveView(ctx context.Context, telegramID int64, locale Locale, route string, menu MenuState) View {
 	userID, err := app.store.RemnawaveUserID(ctx, telegramID)
 	if errors.Is(err, ErrNotLinked) {
 		user, lookupErr := app.remnawave.UserByTelegramID(ctx, telegramID)
@@ -303,13 +667,47 @@ func (app *App) loadView(ctx context.Context, telegramID int64, locale Locale, r
 			app.logger.Error("Remnawave user lookup failed", "error", err)
 			return errorView(locale, routeHome)
 		}
-		return homeView(locale, user)
+		return homeMenuView(locale, user, menu, app.lifecycleNoticeFor(ctx, telegramID, locale, user))
+	}
+}
+
+// lifecycleNoticeFor explains a grace period, a limited state, or a stalled
+// provisioning run on the account screen. It is empty when the subscription is
+// simply healthy.
+func (app *App) lifecycleNoticeFor(ctx context.Context, telegramID int64, locale Locale, user remnawave.User) string {
+	if !app.commerceEnabled() {
+		return ""
+	}
+	session, err := app.commerceContext(ctx, telegramID, string(locale))
+	if err != nil {
+		return ""
+	}
+	entitlement, err := app.customers.Entitlement(ctx, session.Customer.ID, locale, app.settings.Currency)
+	if err != nil || !entitlement.Found {
+		return ""
+	}
+	phase := commerce.EvaluatePhase(time.Now().UTC(), commerce.Subscription{
+		Status: entitlement.Status, EndsAt: entitlement.EndsAt, GracePeriod: entitlement.GracePeriod,
+		TrafficUsedBytes: user.Traffic.UsedBytes, TrafficLimitBytes: user.TrafficLimitBytes,
+	})
+	return lifecycleNotice(locale, phase, entitlement)
+}
+
+// commerceOnlyRoute reports whether a route needs the commerce surface. Without
+// it the bot explains that purchases are not configured rather than failing.
+func commerceOnlyRoute(route string) bool {
+	switch route {
+	case routePlans, routeOrders, routeWallet, routeNews, routeAutoRenew:
+		return true
+	default:
+		return false
 	}
 }
 
 func knownRoute(route string) bool {
 	switch route {
-	case routeHome, routeSubscription, routeConnect, routeDevices, routeSupport, routeSettings, routeReferral:
+	case routeHome, routeSubscription, routeConnect, routeDevices, routeSupport, routeSettings, routeReferral,
+		routePlans, routeOrders, routeWallet, routeNews, routeAutoRenew:
 		return true
 	default:
 		return false
@@ -317,6 +715,11 @@ func knownRoute(route string) bool {
 }
 
 func (app *App) locale(ctx context.Context, telegramID int64, telegramLocale string) Locale {
+	if app.commerceEnabled() {
+		if session, err := app.commerceContext(ctx, telegramID, telegramLocale); err == nil {
+			return session.Locale
+		}
+	}
 	preferences, err := app.store.Preferences(ctx, telegramID)
 	if err == nil {
 		switch preferences.Locale {

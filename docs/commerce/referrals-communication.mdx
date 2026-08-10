@@ -1,0 +1,75 @@
+---
+title: Referrals and communication
+description: Referral qualification, reward grants, notification classification, consent, quiet hours, and frequency caps.
+---
+
+## Referral programme
+
+`referral_programs` is a single operator-configured row. When it is missing or disabled, attribution still happens but no reward is ever granted.
+
+| Field | Meaning |
+| --- | --- |
+| `enabled` | Master switch for reward granting |
+| `currency` | Currency both rewards are denominated in |
+| `inviter_reward_minor` / `invitee_reward_minor` | Reward amounts in integer minor units; `0` disables that side |
+| `qualification` | Currently `first_paid_order` |
+| `inviter_reward_cap` | Maximum rewarded invitations per inviter |
+| `attribution_validity_days` | How long an attribution can still qualify |
+| `reward_expiry_days` | Optional wallet-credit expiry |
+| `terms_url` | Programme terms shown to customers |
+
+### Attribution
+
+Attribution is immutable and first-write-wins: `referral_attributions` is keyed on the invited customer, and a self-referral is impossible because the row requires two different customers.
+
+### Qualification and granting
+
+Rewards are granted inside the same database transaction that settles the qualifying order. That is what makes them exactly-once: a retried webhook, a replayed Stars update, or a manual re-approval cannot credit a wallet twice.
+
+A referral qualifies when all of the following hold:
+
+- the programme is enabled and uses `first_paid_order`
+- the order reached `paid` or `fulfilled`
+- the order actually settled money (`paid_minor > 0`), so a wallet-funded order cannot mint new referral value
+- the order is the customer's first settled order
+- the attribution is still inside `attribution_validity_days`
+- the inviter is under `inviter_reward_cap`
+
+Each reward writes a balanced double-entry ledger transaction (`customer_wallet` credit against `platform_clearing`), a `referral_rewards` row keyed on `(referred_user_id, role)`, and an audit event. The ledger transaction's idempotency key is `referral:<referred customer>:<role>`.
+
+Rewards are never revoked by deleting rows. An operator correction is a compensating ledger entry, exactly as with any other wallet adjustment.
+
+## Notification classification
+
+Every customer notification is classified before it is sent. An unclassified kind is refused rather than delivered, so adding a notification without deciding its class is impossible.
+
+| Class | Kinds |
+| --- | --- |
+| Transactional | `expiry`, `traffic`, `renewal`, `grace`, `recovery`, `payment`, `fulfillment`, `support`, `announcement`, `incident`, `maintenance`, `referral`, `trial` |
+| Marketing | `news`, `marketing` |
+
+Marketing requires explicit consent. Toggling it in the bot writes a `consent_records` row with the policy version and the source, in both directions.
+
+## Delivery policy
+
+`notification_deliveries` is the durable record of every decision, keyed on `(user_id, kind, dedupe_key)`:
+
+| Status | Meaning |
+| --- | --- |
+| `pending` | Claimed and being evaluated |
+| `sent` | Accepted by Telegram |
+| `deferred` | Held until quiet hours end or a flood wait expires |
+| `suppressed` | Refused by policy, with the reason in `error_code` |
+| `failed` | Telegram rejected it, with the classified error code and a bounded retry count |
+
+The policy is applied in this order: recipient reachability, per-kind preference, marketing consent, marketing frequency cap, then quiet hours.
+
+- **Reachability** — a customer who blocked the bot or deleted their account is a permanent stop, not a retry.
+- **Quiet hours** — a local-time window that may wrap past midnight. Non-urgent messages are deferred to the end of the window; `payment`, `fulfillment`, `support`, and `incident` are never delayed.
+- **Frequency caps** — marketing is counted per configured window and refused above the cap.
+
+Deferred messages become claimable again once their window passes, so a deferral delays a message rather than dropping it.
+
+## Attachment retention
+
+Support attachments store only the Telegram file reference plus safe metadata (kind, name, MIME type, size). Omniflow never downloads or stores the file. References are removed after their retention window by the bot's periodic cleanup.

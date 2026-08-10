@@ -16,6 +16,13 @@ Omniflow uses environment variables and Docker secrets. Never commit `.env` or p
 | `APP_DATA_ENCRYPTION_KEY` | For commerce API | — | Base64-encoded 32-byte AES-GCM key for contact values |
 | `APP_TELEGRAM_TOKEN` | For bot | — | Telegram Bot API token |
 | `APP_SUPPORT_URL` | No | — | HTTPS support chat or helpdesk URL shown by the bot |
+| `APP_TERMS_URL` | No | — | Terms of service linked from plan and checkout screens |
+| `APP_PUBLIC_URL` | For YooKassa | — | Base URL used for payment-provider return links |
+| `APP_DEFAULT_CURRENCY` | No | `RUB` | Settlement currency the bot compares plans in; use `XTR` for a Stars-only installation |
+| `APP_MARKETING_FREQUENCY_CAP` | No | `3` | Marketing messages allowed per window; `0` disables the cap |
+| `APP_MARKETING_WINDOW_HOURS` | No | `168` | Length of the marketing frequency window |
+| `APP_RECOVERY_WINDOW_HOURS` | No | `336` | How long an expired subscription keeps its recovery offer |
+| `APP_TRIAL_MINIMUM_ACCOUNT_AGE_HOURS` | No | `0` | Refuse trials from accounts newer than this |
 | `APP_TELEMETRY_ENABLED` | No | `true` | Enable anonymous project telemetry |
 | `APP_TELEMETRY_ENDPOINT` | No | Project collector | Override the collector for forks or development |
 | `APP_TELEMETRY_COLLECTOR_ENABLED` | No | `false` | Accept telemetry events; intended only for the project-operated collector |
@@ -33,3 +40,9 @@ openssl rand -base64 32
 Changing this key makes existing encrypted contact values unreadable.
 
 Use TLS for external PostgreSQL, Valkey, Remnawave, and payment-provider connections.
+
+## Bot requirements
+
+The bot process requires `APP_VALKEY_URL`. Valkey backs per-user rate limits and callback replay protection, both of which guard money-moving actions; the bot refuses to start without it rather than running unprotected.
+
+A plan is only purchasable through a payment method that settles one of the currencies the plan is priced in. Price a plan in `XTR` to sell it through Telegram Stars, and in a fiat currency to sell it through CryptoBot or YooKassa. `APP_DEFAULT_CURRENCY` decides which price the catalog compares.

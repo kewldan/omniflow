@@ -10,4 +10,10 @@ description: Atlas and sqlc workflow.
 5. Run `make generate` to update sqlc output.
 6. Commit the schema, migration, generated output, and tests together.
 
+A migration may also be hand-authored when the desired change is clearer written directly than diffed — for example when a `CHECK` constraint is replaced rather than added. Add the file to `database/migrations/`, import it from `database/schema.sql` so the desired state stays complete, and run `make atlas-hash` to update `atlas.sum`. Review it exactly as you would a generated migration.
+
 Never edit an already-released migration or generate migrations during production startup.
+
+## sqlc and direct queries
+
+`database/queries/` holds the sqlc-generated data access used by the domain services. Customer-surface code that reads only its own projections — the bot's catalog, checkout, support, and news screens — uses direct pgx queries in the same package as the surface, which is the pattern established by the bot store. Add a query to `database/queries/` and regenerate whenever the result belongs to a shared domain service rather than to one surface.

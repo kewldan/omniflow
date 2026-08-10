@@ -1,4 +1,4 @@
-.PHONY: help dev up down go-test web-check generate atlas-diff atlas-apply docs-check security
+.PHONY: help dev up down go-test web-check generate atlas-diff atlas-hash atlas-apply docs-check security
 
 help:
 	@awk 'BEGIN {FS = ":.*##"; print "Usage: make <target>\n"} /^[a-zA-Z_-]+:.*?##/ {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -25,6 +25,9 @@ generate: ## Generate Go, SQL, and TypeScript API bindings
 
 atlas-diff: ## Create a reviewed migration from the desired schema
 	atlas migrate diff --env local
+
+atlas-hash: ## Recompute migration checksums after a hand-authored migration
+	atlas migrate hash --dir file://database/migrations
 
 atlas-apply: ## Apply committed migrations
 	atlas migrate apply --env local

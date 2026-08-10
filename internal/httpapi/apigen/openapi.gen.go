@@ -404,6 +404,27 @@ func (e PlanVersionInputDowngradePolicy) Valid() bool {
 	}
 }
 
+// Defines values for PlanVersionInputTrialEligibility.
+const (
+	Any           PlanVersionInputTrialEligibility = "any"
+	NeverTrialled PlanVersionInputTrialEligibility = "never_trialled"
+	NewCustomer   PlanVersionInputTrialEligibility = "new_customer"
+)
+
+// Valid indicates whether the value is a known member of the PlanVersionInputTrialEligibility enum.
+func (e PlanVersionInputTrialEligibility) Valid() bool {
+	switch e {
+	case Any:
+		return true
+	case NeverTrialled:
+		return true
+	case NewCustomer:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PlanVersionInputUpgradePolicy.
 const (
 	PlanVersionInputUpgradePolicyExtend  PlanVersionInputUpgradePolicy = "extend"
@@ -769,16 +790,22 @@ type PlanMutation struct {
 
 // PlanVersionInput defines model for PlanVersionInput.
 type PlanVersionInput struct {
-	BillingPeriod         PlanVersionInputBillingPeriod      `json:"billingPeriod"`
-	CancellationPolicy    PlanVersionInputCancellationPolicy `json:"cancellationPolicy"`
-	DeviceLimit           *int                               `json:"deviceLimit,omitempty"`
-	DowngradePolicy       PlanVersionInputDowngradePolicy    `json:"downgradePolicy"`
-	DurationSeconds       int64                              `json:"durationSeconds"`
-	Prices                []Money                            `json:"prices"`
-	RecurringCapable      *bool                              `json:"recurringCapable,omitempty"`
-	SquadIDs              *[]openapi_types.UUID              `json:"squadIDs,omitempty"`
-	TrafficAllowanceBytes *int64                             `json:"trafficAllowanceBytes,omitempty"`
-	UpgradePolicy         PlanVersionInputUpgradePolicy      `json:"upgradePolicy"`
+	BillingPeriod      PlanVersionInputBillingPeriod      `json:"billingPeriod"`
+	CancellationPolicy PlanVersionInputCancellationPolicy `json:"cancellationPolicy"`
+	DeviceLimit        *int                               `json:"deviceLimit,omitempty"`
+	DowngradePolicy    PlanVersionInputDowngradePolicy    `json:"downgradePolicy"`
+	DurationSeconds    int64                              `json:"durationSeconds"`
+
+	// GracePeriodSeconds Access retained after expiry so a customer can still renew
+	GracePeriodSeconds    *int64                `json:"gracePeriodSeconds,omitempty"`
+	Prices                []Money               `json:"prices"`
+	RecurringCapable      *bool                 `json:"recurringCapable,omitempty"`
+	SquadIDs              *[]openapi_types.UUID `json:"squadIDs,omitempty"`
+	TrafficAllowanceBytes *int64                `json:"trafficAllowanceBytes,omitempty"`
+
+	// TrialEligibility Who may activate this version when the plan kind is trial
+	TrialEligibility *PlanVersionInputTrialEligibility `json:"trialEligibility,omitempty"`
+	UpgradePolicy    PlanVersionInputUpgradePolicy     `json:"upgradePolicy"`
 }
 
 // PlanVersionInputBillingPeriod defines model for PlanVersionInput.BillingPeriod.
@@ -789,6 +816,9 @@ type PlanVersionInputCancellationPolicy string
 
 // PlanVersionInputDowngradePolicy defines model for PlanVersionInput.DowngradePolicy.
 type PlanVersionInputDowngradePolicy string
+
+// PlanVersionInputTrialEligibility Who may activate this version when the plan kind is trial
+type PlanVersionInputTrialEligibility string
 
 // PlanVersionInputUpgradePolicy defines model for PlanVersionInput.UpgradePolicy.
 type PlanVersionInputUpgradePolicy string

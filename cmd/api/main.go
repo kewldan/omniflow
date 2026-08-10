@@ -113,7 +113,20 @@ func buildCommerce(ctx context.Context, cfg config.Config) (*apihttp.CommerceHan
 	}
 	commerceStore := commercepg.New(pool, enqueue)
 	go commerceStore.RunMaintenance(ctx)
-	providers := []payments.Provider{payments.Manual{}, payments.TelegramStars{}}
+	// The API process settles Stars only through the bot's authenticated update
+	// stream, so it registers the adapter with a refund-capable configuration
+	// only when a bot token is present.
+	starsAdapter := payments.Provider(&payments.TelegramStars{})
+	if cfg.TelegramToken != "" {
+		configured, providerErr := payments.NewTelegramStars(cfg.TelegramToken, paymentservice.NewStarsPayerResolver(pool))
+		if providerErr != nil {
+			valkeyClient.Close()
+			pool.Close()
+			return nil, nil, providerErr
+		}
+		starsAdapter = configured
+	}
+	providers := []payments.Provider{payments.Manual{}, starsAdapter}
 	if cfg.CryptoBotToken != "" {
 		provider, providerErr := payments.NewCryptoBot(cfg.CryptoBotToken, cfg.CryptoBotTestnet)
 		if providerErr != nil {
