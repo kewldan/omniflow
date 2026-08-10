@@ -24,6 +24,7 @@ Work may prepare shared foundations early, but a later product surface must not 
 - Omniflow uses only the supported Remnawave API. It never writes to Remnawave storage or manages Xray directly.
 - PostgreSQL is the only durable application store. Valkey is limited to cache, rate limits, locks, and disposable state.
 - The customer and admin panels remain one Next.js application and one shared shadcn component system.
+- Telegram carries operator notifications and backup/restore actions only. Every other administrative control lives in the web panel.
 
 ---
 
@@ -216,9 +217,72 @@ Goal: make the bot a complete customer product using the v0.3 backend.
 
 ---
 
-## 🚧 v0.5 — Bot and backend production release
+## 🚧 v0.5 — Purchase expansion and production release
 
-Goal: declare the Telegram-first product production-ready before admin UI development becomes the primary focus.
+Goal: complete the customer purchase model, then declare the Telegram-first product production-ready before admin UI development becomes the primary focus.
+
+Every capability in this version is configured through environment and configuration files until the admin panel exposes it in v0.7 and v0.8. No feature below may depend on an admin UI that does not exist yet.
+
+### Wallet and balance top-up
+
+- [ ] Customer-initiated top-up with operator-configured preset amounts and free entry
+- [ ] Top-up through any enabled provider reusing the existing order, webhook, and reconciliation pipeline
+- [ ] Top-up credited as an idempotent ledger entry with per-currency isolation
+- [ ] Minimum, maximum, and rolling-window top-up limits with explicit rejection reasons
+- [ ] Top-up history with pending, failed, expired, and duplicate-payment recovery
+- [ ] Overpayment and underpayment resolved into the ledger rather than the order
+
+### Cart and deferred purchase
+
+- [ ] Persistent cart surviving insufficient balance, session loss, and navigation
+- [ ] Cart holds plan, period, selected squads, add-ons, and applied promo code
+- [ ] Price and eligibility re-validated against the current plan version before any charge
+- [ ] Automatic purchase of the saved cart once a top-up covers the outstanding amount
+- [ ] Idempotent auto-purchase that cannot double-charge on duplicate or replayed credits
+- [ ] Cart expiry, manual clearing, and explicit cancellation of pending auto-purchase
+
+### Recurring payments
+
+- [ ] Per-provider recurring capability declared through the provider contract
+- [ ] Per-merchant override for providers that do not grant card binding to every merchant
+- [ ] Saved payment method referenced only by provider token, with no card data stored by Omniflow
+- [ ] Customer-visible saved methods, default selection, and removal
+- [ ] Auto-renew from a saved method or wallet balance with a configurable lead time
+- [ ] Failed-charge retry schedule, dunning notification, and automatic fallback to manual renewal
+- [ ] Auto-renew disabled by default and enabled only after explicit customer consent
+
+### Subscription configurator and add-ons
+
+- [ ] Plan-scoped squad sets so different plans expose different Remnawave squads
+- [ ] Automatic squad assignment or customer selection according to the plan policy
+- [ ] Mid-period add-on purchase of traffic, device slots, and additional squads
+- [ ] Add-on prices versioned with the plan so historical orders never change
+- [ ] Add-on entitlement applied idempotently through the existing fulfillment pipeline
+- [ ] Explicit, documented proration rules for every add-on instead of implicit behavior
+
+### Gifts
+
+- [ ] Purchase a subscription, add-on, or wallet credit for another person
+- [ ] Gift codes claimable by an unlinked recipient with claim, expiry, and revocation states
+- [ ] Telegram gift delivery with an optional sender message and privacy-safe recipient handling
+- [ ] Gift orders kept separate from the recipient's own order and payment history
+- [ ] Refund, abuse, and reclaim rules for unclaimed, expired, and disputed gifts
+
+### Promotions and personal offers
+
+- [ ] Promo-code reward types for fixed amount, percentage, subscription days, and trial grant
+- [ ] Wallet-credit promo codes recorded as ordinary ledger entries
+- [ ] Stacking rules, precedence order, and explicit rejection reasons
+- [ ] Personal offers targeted at a single customer with validity window and single-use redemption
+- [ ] Offer presentation in the bot with expiry countdown, terms, and dismissal
+
+### Mandatory channel subscription
+
+- [ ] Operator-configured required Telegram channels with per-channel enablement
+- [ ] Membership verification before purchase and before subscription activation
+- [ ] Periodic re-verification with automatic entitlement disable on unsubscribe
+- [ ] Grace period, warning notification, and automatic restore on rejoin
+- [ ] Exemption list, per-customer bypass, and a complete audit trail for every state change
 
 ### Runtime and operations
 
@@ -232,6 +296,24 @@ Goal: declare the Telegram-first product production-ready before admin UI develo
 - [ ] Job retry/dead-letter visibility through operational APIs
 - [ ] PostgreSQL backup, restore, upgrade, and rollback documentation
 - [ ] Data-retention and cleanup jobs for sessions, provider payloads, attachments, and telemetry
+
+### Operator notifications and backups in Telegram
+
+- [ ] Operator supplies a group ID and the bot creates and binds every required forum topic itself
+- [ ] Purchase, renewal, top-up, refund, fulfillment-failure, and incident events routed to their own topic
+- [ ] Topic rebinding, recreation after deletion, and clear failure states when permissions are missing
+- [ ] Notification volume controls so a burst cannot flood an operator group
+- [ ] Scheduled PostgreSQL backups with retention, encryption, and integrity verification
+- [ ] Backup status and restore initiated from the bot with confirmation, permission check, and audit event
+- [ ] No customer content, secret, or payment payload in any operator notification
+
+### Maintenance mode and anomaly monitoring
+
+- [ ] Maintenance mode with manual activation and automatic detection of Remnawave or panel unavailability
+- [ ] Maintenance mode blocks purchases and fulfillment while preserving already-paid state
+- [ ] Localized customer notice, expected-return messaging, and automatic exit on recovery
+- [ ] Traffic, purchase, refund, and referral anomaly detection with configurable thresholds
+- [ ] Anomaly alerts delivered to the operator topic with evidence and no automatic customer punishment
 
 ### Quality and compatibility
 
@@ -250,6 +332,9 @@ Goal: declare the Telegram-first product production-ready before admin UI develo
 - [ ] A successful payment is never lost when Remnawave is unavailable
 - [ ] Duplicate Telegram updates, callbacks, webhooks, and jobs cannot duplicate money or entitlement
 - [ ] Customers can purchase, connect, renew, manage devices, get support, and review history without a web panel
+- [ ] A customer can fund a wallet, keep a cart, and have it purchased automatically once the balance covers it
+- [ ] Recurring payment activates only where the provider and the specific merchant genuinely support card binding
+- [ ] An operator receives purchase, renewal, top-up, and failure notifications and can restore a backup without a web panel
 - [ ] CI, security scanning, documentation validation, and release automation are green
 
 ---
@@ -301,6 +386,8 @@ Goal: let operators run day-to-day customer, subscription, and financial operati
 - [ ] Metrics with explicit definitions, timezone, comparison period, and data freshness
 - [ ] Remnawave, PostgreSQL, Valkey, Telegram, worker, and provider health
 - [ ] Recent incidents, reconciliation drift, webhook failures, and required actions
+- [ ] Anomaly review with threshold configuration, supporting evidence, acknowledgement, and dismissal
+- [ ] Maintenance-mode state, activation reason, and manual override
 
 ### Customers and subscriptions
 
@@ -312,6 +399,9 @@ Goal: let operators run day-to-day customer, subscription, and financial operati
 - [ ] Device review and removal without exposing identifiers unnecessarily
 - [ ] Bulk import/export with preview, validation errors, progress, resumability, and audit history
 - [ ] Bulk actions with permission checks, impact preview, limits, and per-item results
+- [ ] External blocklist source configuration, refresh schedule, and connection health
+- [ ] Blocklist match review with evidence, manual allowlist override, and appeal handling
+- [ ] Block reason, actor, and source recorded as an audit event for every decision
 
 ### Catalog and promotions
 
@@ -319,6 +409,9 @@ Goal: let operators run day-to-day customer, subscription, and financial operati
 - [ ] Price, currency, duration, traffic, device, squad, and eligibility configuration
 - [ ] Trial, upgrade, downgrade, grace-period, and renewal policies
 - [ ] Promotion and promo-code management with usage analytics
+- [ ] Plan-scoped squad sets, selection policy, and subscription-configurator visibility
+- [ ] Add-on catalog for traffic, device slots, and squads with versioned pricing and proration rules
+- [ ] Promo-code reward types, stacking rules, and personal-offer targeting with audience preview
 - [ ] Preview of customer-facing Telegram and web presentation
 
 ### Finance
@@ -328,6 +421,10 @@ Goal: let operators run day-to-day customer, subscription, and financial operati
 - [ ] Refund workflow with provider capability checks, reason, confirmation, and audit
 - [ ] Append-only wallet ledger and permission-gated corrective entries
 - [ ] Provider configuration with encrypted secrets, connection test, and webhook status
+- [ ] Wallet top-up configuration, limits, preset amounts, and enabled providers
+- [ ] Recurring-payment enablement per provider and per merchant with an explicit capability test
+- [ ] Saved-payment-method visibility, dunning schedule, and auto-renew failure review
+- [ ] Gift order, claim, expiry, revocation, and refund management
 - [ ] Financial CSV export with stable schema and timezone/currency clarity
 - [ ] Revenue views separated from payment volume, wallet credits, and refunds
 
@@ -464,12 +561,16 @@ Goal: finish support, communication, configuration, and operational readiness be
 - [ ] General branding, service name, support contacts, locale, timezone, and public URLs
 - [ ] Remnawave connection, compatibility check, reconciliation schedule, and safe token rotation
 - [ ] Telegram bot identity, webhook, command, and delivery status
+- [ ] Operator group and topic binding with automatic topic creation and permission diagnostics
+- [ ] Mandatory channel list, verification schedule, grace period, and exemption management
+- [ ] Maintenance-mode policy, dependency detection thresholds, and customer notice text
 - [ ] Payment-provider configuration and capability matrix
 - [ ] Notification thresholds, templates, and test delivery
 - [ ] AI providers, model routing, budgets, privacy controls, evaluation status, and connection tests
 - [ ] MCP server registry, authorization, capability allowlists, health, and audit history
 - [ ] Telemetry status, exact payload preview, and global opt-out
 - [ ] Operator, role, session, and security settings
+- [ ] Backup schedule, retention, encryption, restore history, and verified test restore
 - [ ] Backup status, version, migration status, update availability, and diagnostics bundle
 - [ ] Secrets never returned after write and always excluded from diagnostics
 
@@ -621,7 +722,12 @@ These items require demonstrated demand and must not delay the core roadmap:
 - Multi-instance control plane and fleet management
 - NATS JetStream event distribution for scale beyond the modular monolith
 - WASM extension/plugin runtime with explicit capability sandboxing
-- Additional payment providers and regional fiscalization adapters
+- Additional payment providers added when operator demand appears rather than for provider-count parity
+- Regional fiscalization adapters, including self-employed receipt reporting for the Russian market
+- Guest checkout and configurable sales landing pages that sell without authorization
+- Referral balance withdrawal and payout processing
+- Contests, daily games, and prize mechanics
+- Multi-level partner/affiliate program with network reporting, scheduled after every other post-1.0 candidate
 - Additional languages beyond Russian and English
 - Native mobile applications
 - Advanced fraud scoring, experimentation, and product analytics
@@ -633,6 +739,8 @@ These items require demonstrated demand and must not delay the core roadmap:
 - Managing Xray processes or writing directly to Remnawave storage
 - Requiring Kubernetes, a message broker, or a plugin runtime
 - Maintaining separate customer and admin frontend projects
+- Custom marketing landing pages with built-in analytics
+- Administering the bot from Telegram beyond operator notifications and backup/restore actions
 - Bundling or requiring a specific reverse proxy
 - Replacing PostgreSQL durability with Valkey
 - Shipping placeholder payment screens without a working provider
