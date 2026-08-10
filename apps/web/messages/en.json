@@ -1,9 +1,17 @@
 {
+  "home": {
+    "eyebrow": "Omniflow customer account",
+    "title": "Your connection, in one place.",
+    "description": "View subscriptions, traffic, devices, access links, payments, referrals, and support.",
+    "action": "Continue in Telegram"
+  },
   "admin": {
     "product": "Omniflow",
     "eyebrow": "Open-source control plane",
-    "title": "Admin foundation",
-    "description": "Operational modules will be delivered after the Telegram-first backend milestone.",
+    "title": "Admin workspace",
+    "description": "Operations and customer self-service now share one application and one component system.",
+    "settingsTitle": "System defaults",
+    "settingsDescription": "RHF, Zod, and Zustand are wired for admin workflows.",
     "navigation": {
       "dashboard": "Dashboard",
       "payments": "Payments",
@@ -17,8 +25,6 @@
     }
   },
   "settings": {
-    "title": "System defaults",
-    "description": "RHF, Zod, and Zustand are wired for admin UX.",
     "locale": "Default locale",
     "russian": "Russian",
     "english": "English",

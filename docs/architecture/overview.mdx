@@ -8,9 +8,10 @@ Omniflow is a modular Go monolith with independently runnable processes:
 - **API:** REST endpoints and incoming webhooks.
 - **Bot:** Telegram updates and customer conversations.
 - **Worker:** River jobs, reconciliation, fulfillment, campaigns, and notifications.
-- **Admin:** Next.js operator application.
-- **Portal:** Next.js customer application.
+- **Web:** One Next.js application with customer routes and an `/admin` operator workspace, backed by one shared shadcn component system.
 
 All durable state is stored in PostgreSQL. Valkey is limited to ephemeral state. River provides durable transactional work, while an outbox records domain events for future fan-out.
+
+The web route boundary is organizational, not a security boundary. Before operational modules are enabled, `/admin` server components and mutations must enforce authenticated Omniflow RBAC; a separate hostname or hidden navigation is never sufficient authorization.
 
 This architecture supports hundreds of open-source installations without imposing a broker, Kubernetes, or a plugin runtime on every operator.

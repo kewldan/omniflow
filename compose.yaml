@@ -82,27 +82,11 @@ services:
         condition: service_healthy
     networks: [internal]
 
-  admin:
+  web:
     profiles: [web]
     build:
       context: .
       dockerfile: build/web.Dockerfile
-      args:
-        APP: admin
-    environment:
-      NEXT_PUBLIC_API_URL: http://api:8080
-    ports:
-      - "3001:3000"
-    depends_on: [api]
-    networks: [internal]
-
-  portal:
-    profiles: [web]
-    build:
-      context: .
-      dockerfile: build/web.Dockerfile
-      args:
-        APP: portal
     environment:
       NEXT_PUBLIC_API_URL: http://api:8080
     ports:

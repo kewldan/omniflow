@@ -12,8 +12,7 @@
   "scripts": {
     "build": "bun --filter '@omniflow/*' build",
     "check": "bun --filter '@omniflow/*' check",
-    "dev:admin": "bun --filter @omniflow/admin dev",
-    "dev:portal": "bun --filter @omniflow/portal dev",
+    "dev:web": "bun --filter @omniflow/web dev",
     "format": "biome format --write .",
     "lint": "biome lint .",
     "generate:api": "orval --config orval.config.ts --formatter biome --fail-on-warnings",

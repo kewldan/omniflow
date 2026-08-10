@@ -29,7 +29,7 @@ Omniflow is under active development. The repository contains the production-ori
 
 3. Open the API health endpoint at `http://localhost:8080/healthz`.
 
-The admin and portal Compose profiles are optional during backend-first development.
+The unified role-aware web application is available through the optional `web` Compose profile.
 
 ## Telemetry
 

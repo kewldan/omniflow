@@ -5,8 +5,8 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Omniflow Admin",
-  description: "Operations, billing, support, marketing, and security for Omniflow.",
+  title: { default: "Omniflow", template: "%s · Omniflow" },
+  description: "VPN subscriptions, customer self-service, and service operations.",
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

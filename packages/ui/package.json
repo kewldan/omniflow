@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./button": "./src/button.tsx",
+    "./card": "./src/card.tsx",
     "./lib/utils": "./src/lib/utils.ts"
   },
   "scripts": {

@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Omniflow API
   version: 0.1.0
-  description: Public REST API shared by the Telegram bot, admin panel, and customer portal.
+  description: Public REST API shared by the Telegram bot and role-aware web application.
 paths:
   /healthz:
     get:

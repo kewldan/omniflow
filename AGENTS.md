@@ -33,7 +33,7 @@ These instructions apply to the entire repository.
 - Use Bun for dependency installation and workspace scripts. Commit `bun.lock`; do not add npm, pnpm, or Yarn lockfiles.
 - Keep the frontend on TypeScript 7-compatible tooling; generated API clients must not require TypeScript's removed programmatic APIs.
 - Biome is the only TypeScript/JavaScript formatter and linter.
-- Use shared shadcn-style primitives from `packages/ui`; avoid separate admin and portal design systems.
+- Keep customer and admin routes in `apps/web`; both surfaces must use shared shadcn primitives from `packages/ui`.
 - All user-facing copy must use `next-intl` message catalogs in Russian and English.
 - Preserve accessibility, keyboard navigation, responsive layouts, and explicit loading/empty/error states.
 

@@ -17,16 +17,10 @@
 	}
 }
 
-{$PORTAL_DOMAIN} {
+{$WEB_DOMAIN} {
 	import security_headers
 	encode zstd gzip
-	reverse_proxy portal:3000
-}
-
-{$ADMIN_DOMAIN} {
-	import security_headers
-	encode zstd gzip
-	reverse_proxy admin:3000
+	reverse_proxy web:3000
 }
 
 {$API_DOMAIN} {

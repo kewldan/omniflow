@@ -11,34 +11,8 @@
         "typescript": "7.0.2",
       },
     },
-    "apps/admin": {
-      "name": "@omniflow/admin",
-      "version": "0.0.0",
-      "dependencies": {
-        "@hookform/resolvers": "5.2.2",
-        "@omniflow/api-client": "workspace:*",
-        "@omniflow/ui": "workspace:*",
-        "next": "16.3.0",
-        "next-intl": "4.13.5",
-        "react": "19.2.8",
-        "react-dom": "19.2.8",
-        "react-hook-form": "7.85.0",
-        "swr": "2.5.0",
-        "zod": "4.4.3",
-        "zustand": "5.0.14",
-      },
-      "devDependencies": {
-        "@biomejs/biome": "2.5.7",
-        "@tailwindcss/postcss": "4.3.3",
-        "@types/node": "24.10.0",
-        "@types/react": "19.2.18",
-        "@types/react-dom": "19.2.4",
-        "tailwindcss": "4.3.3",
-        "typescript": "7.0.2",
-      },
-    },
-    "apps/portal": {
-      "name": "@omniflow/portal",
+    "apps/web": {
+      "name": "@omniflow/web",
       "version": "0.0.0",
       "dependencies": {
         "@hookform/resolvers": "5.2.2",
@@ -340,13 +314,11 @@
 
     "@nodelib/fs.walk": ["@nodelib/fs.walk@1.2.8", "", { "dependencies": { "@nodelib/fs.scandir": "2.1.5", "fastq": "^1.6.0" } }, "sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg=="],
 
-    "@omniflow/admin": ["@omniflow/admin@workspace:apps/admin"],
-
     "@omniflow/api-client": ["@omniflow/api-client@workspace:packages/api-client"],
 
-    "@omniflow/portal": ["@omniflow/portal@workspace:apps/portal"],
-
     "@omniflow/ui": ["@omniflow/ui@workspace:packages/ui"],
+
+    "@omniflow/web": ["@omniflow/web@workspace:apps/web"],
 
     "@orval/angular": ["@orval/angular@8.24.0", "", { "dependencies": { "@orval/core": "8.24.0" } }, "sha512-tmDca47QJdB7+suSUdjki3oURBP/EHhHkvgbOmm4KPy2G0YBKHSEm/oMphE5fab4TBzMNEVoiBi5PnK7m6Hu3g=="],
 

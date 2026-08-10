@@ -26,10 +26,6 @@ export function SettingsForm() {
 
   return (
     <form className="grid gap-5" onSubmit={handleSubmit((values) => setPreview(values))}>
-      <div>
-        <h2 className="text-lg font-semibold">{translate("title")}</h2>
-        <p className="mt-1 text-sm text-slate-400">{translate("description")}</p>
-      </div>
       <label className="grid gap-2 text-sm">
         {translate("locale")}
         <select

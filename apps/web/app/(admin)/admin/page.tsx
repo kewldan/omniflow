@@ -1,3 +1,4 @@
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
 import { getTranslations } from "next-intl/server";
 import { SettingsForm } from "./settings-form";
 
@@ -31,9 +32,15 @@ export default async function AdminHome() {
         <p className="text-sm font-medium text-sky-400">{translate("eyebrow")}</p>
         <h1 className="mt-2 text-4xl font-semibold tracking-tight">{translate("title")}</h1>
         <p className="mt-3 max-w-2xl text-slate-400">{translate("description")}</p>
-        <div className="mt-8 max-w-xl rounded-2xl border border-slate-800 bg-slate-950 p-6">
-          <SettingsForm />
-        </div>
+        <Card className="mt-8 max-w-xl border-slate-800 bg-slate-950">
+          <CardHeader>
+            <CardTitle>{translate("settingsTitle")}</CardTitle>
+            <CardDescription>{translate("settingsDescription")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <SettingsForm />
+          </CardContent>
+        </Card>
       </section>
     </main>
   );

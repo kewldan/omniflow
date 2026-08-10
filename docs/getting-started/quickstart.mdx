@@ -26,14 +26,14 @@ curl http://localhost:8080/healthz
 
 ## Start web applications
 
-Admin and customer applications are behind the optional `web` profile:
+The customer and admin surfaces share one application behind the optional `web` profile:
 
 ```bash
 docker compose --profile web up --build
 ```
 
-- Customer portal: `http://localhost:3000`
-- Admin panel: `http://localhost:3001`
+- Customer account: `http://localhost:3000`
+- Admin workspace: `http://localhost:3000/admin`
 
 ## Next steps
 
