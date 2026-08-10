@@ -372,6 +372,93 @@ Goal: finish support, communication, configuration, and operational readiness be
 - [ ] Delivery states for queued, sent, failed, blocked, and clicked where supported
 - [ ] No storage or telemetry of message content outside documented product data
 
+### AI-assisted support
+
+- [ ] Provider-neutral AI gateway with OpenAI-compatible, Anthropic, and Gemini adapters
+- [ ] OpenAI-compatible adapter supports operator-selected hosted or local models
+- [ ] Separate model, temperature, token limit, timeout, and budget configuration per task
+- [ ] Ticket-thread summary with customer intent, actions already attempted, and unresolved questions
+- [ ] Suggested ticket reply grounded in the visible conversation and approved knowledge sources
+- [ ] Rewrite controls for shorter, clearer, friendlier, more formal, or more technical replies
+- [ ] Russian/English translation that preserves product names, links, and template variables
+- [ ] Suggested category, priority, tags, sentiment, and escalation reason
+- [ ] Similar-ticket and relevant documentation suggestions with source citations
+- [ ] Secret, token, subscription-link, payment-data, and unnecessary-PII redaction before model requests
+- [ ] Generated replies remain editable drafts; an authorized operator must explicitly send them
+- [ ] Clear AI-generated label, provider/model disclosure, retry, cancellation, and fallback states
+
+### Scam, abuse, and social-engineering analysis
+
+- [ ] Explainable risk analysis for scam, phishing, impersonation, social engineering, payment fraud, and referral abuse
+- [ ] Evidence list, confidence, uncertainty, and matched policy signals instead of an unexplained score
+- [ ] Cross-ticket pattern detection using minimized, permission-safe structured signals
+- [ ] Suspicious-link and attachment metadata checks through explicitly configured tools
+- [ ] Operator feedback for false positive, confirmed abuse, and insufficient evidence
+- [ ] Human review required before suspension, refund denial, wallet correction, or other adverse action
+- [ ] AI output can recommend an action but cannot silently punish a customer or mutate financial state
+- [ ] Risk models, prompts, thresholds, and policy versions recorded with each assessment
+
+### AI writing and marketing tools
+
+- [ ] Draft news posts, service announcements, campaign messages, subjects, and calls to action
+- [ ] Rewrite, shorten, expand, simplify, change tone, and produce operator-requested variants
+- [ ] Translate and localize between Russian and English rather than performing literal translation only
+- [ ] Preserve and validate template variables, Markdown/HTML rules, Telegram limits, and channel constraints
+- [ ] Brand-voice, forbidden-claims, consent, quiet-hours, and communication-policy checks
+- [ ] Readability, ambiguity, spam-likelihood, and potentially misleading language review
+- [ ] Audience-aware suggestions using aggregate segment definitions without exposing raw customer lists
+- [ ] Side-by-side diff, undo, version history, and explicit operator acceptance of generated edits
+- [ ] AI may prepare a campaign draft but cannot select recipients, schedule, or send without confirmation
+
+### Admin copilot
+
+- [ ] Permission-aware assistant for explaining dashboards, failed jobs, webhook errors, and reconciliation drift
+- [ ] Natural-language search over customers, orders, tickets, and audit history using authorized structured tools
+- [ ] Answers cite the records, metrics, documentation, or tool results used to produce them
+- [ ] Suggested next actions deep-link to the normal admin workflow rather than bypassing it
+- [ ] Read-only by default; every mutation requires a preview, permission check, reason, and confirmation
+- [ ] No autonomous payment, refund, wallet, entitlement, suspension, campaign, or role mutation
+
+### MCP integration
+
+- [ ] MCP client with remote Streamable HTTP transport and standards-based authorization
+- [ ] Discover MCP tools, resources, and prompts with cached capability metadata and health status
+- [ ] Owner-managed MCP server registry with explicit enablement, allowlists, timeouts, and egress restrictions
+- [ ] Encrypted MCP credentials that are write-only in the admin interface
+- [ ] Per-server and per-tool mapping to Omniflow RBAC permissions
+- [ ] JSON Schema validation for every tool input and output before it reaches AI or application code
+- [ ] Tool-call preview showing server, tool, arguments, affected records, and expected side effects
+- [ ] Human confirmation for external writes and every consequential Omniflow mutation
+- [ ] First-party Omniflow MCP server for permission-scoped admin tools, resources, and operational documentation
+- [ ] First-party MCP server is read-only by default; mutation capabilities are separately enabled and audited
+- [ ] Prompt-injection defenses that treat tickets, webpages, attachments, MCP resources, and tool output as untrusted data
+- [ ] Tool recursion, call-count, duration, response-size, and monetary-cost limits
+- [ ] Circuit breakers and graceful degradation when an MCP server is unavailable or returns invalid data
+- [ ] Full audit trail for connection changes, model requests, tool calls, confirmations, results, and failures
+
+### AI privacy, governance, and cost controls
+
+- [ ] AI and MCP are globally optional and disabled until an owner configures them
+- [ ] Per-feature enablement for support, marketing, scam analysis, copilot, and MCP tools
+- [ ] Data-use preview shows operators exactly which fields will leave the installation
+- [ ] Provider-specific retention/training warnings and documented zero-retention options where available
+- [ ] Configurable prompt/output retention with deletion and legal-hold behavior
+- [ ] AI prompts, outputs, ticket content, customer data, and tool arguments never enter anonymous telemetry
+- [ ] Per-role, per-operator, per-feature, and installation-wide usage limits
+- [ ] Token, request, latency, error, and estimated-cost reporting without exposing prompt content in metrics
+- [ ] Provider/model fallback is explicit and cannot route data to an unapproved provider
+- [ ] Audit exports identify generated content and consequential decisions influenced by AI
+
+### AI and MCP quality gates
+
+- [ ] Sanitized evaluation sets for support replies, translations, marketing edits, and scam analysis
+- [ ] Regression thresholds for correctness, groundedness, citation validity, tone, and unsafe advice
+- [ ] Prompt-injection, tool-confusion, data-exfiltration, privilege-escalation, and indirect-injection tests
+- [ ] Tests proving operators cannot invoke tools beyond their own RBAC permissions through AI or MCP
+- [ ] Tests proving duplicate or retried tool calls cannot duplicate financial or provisioning effects
+- [ ] Model/provider outage, timeout, malformed output, budget exhaustion, and partial-tool-failure tests
+- [ ] AI features degrade to normal manual admin workflows without blocking support or operations
+
 ### Settings and operations
 
 - [ ] General branding, service name, support contacts, locale, timezone, and public URLs
@@ -379,6 +466,8 @@ Goal: finish support, communication, configuration, and operational readiness be
 - [ ] Telegram bot identity, webhook, command, and delivery status
 - [ ] Payment-provider configuration and capability matrix
 - [ ] Notification thresholds, templates, and test delivery
+- [ ] AI providers, model routing, budgets, privacy controls, evaluation status, and connection tests
+- [ ] MCP server registry, authorization, capability allowlists, health, and audit history
 - [ ] Telemetry status, exact payload preview, and global opt-out
 - [ ] Operator, role, session, and security settings
 - [ ] Backup status, version, migration status, update availability, and diagnostics bundle
@@ -389,6 +478,8 @@ Goal: finish support, communication, configuration, and operational readiness be
 - [ ] An owner can configure and operate every backend capability without SQL or shell access
 - [ ] Support and finance roles can do their jobs without receiving unrelated permissions
 - [ ] Every sensitive mutation is authorized, validated, confirmed where necessary, and audited
+- [ ] AI-assisted work is grounded, editable, attributable, and never required for a manual workflow
+- [ ] MCP tools cannot bypass RBAC, mutation confirmation, idempotency, or audit requirements
 - [ ] Testcontainers cover repositories and critical workflows
 - [ ] Playwright covers admin authentication and highest-risk operator journeys
 - [ ] Accessibility, responsive layout, localization, and browser support gates pass
@@ -484,11 +575,12 @@ Goal: publish a stable release suitable for public single-server production use.
 
 ### Security and privacy
 
-- [ ] Threat model covering identity, Telegram, payments, webhooks, admin RBAC, SSRF, and supply chain
+- [ ] Threat model covering identity, Telegram, payments, webhooks, admin RBAC, SSRF, AI, MCP, prompt injection, and supply chain
 - [ ] Independent security review of authentication, authorization, payments, and secret handling
 - [ ] Dependency, secret, SAST, container, and license scans enforced in release CI
 - [ ] Rate limits and abuse controls verified under load
 - [ ] Public privacy documentation, retention defaults, telemetry contract, and complete opt-out verification
+- [ ] AI/MCP data-flow inventory, provider disclosures, retention controls, and permission review
 - [ ] Security reporting and supported-version policy
 
 ### Reliability and operations
@@ -505,6 +597,7 @@ Goal: publish a stable release suitable for public single-server production use.
 - [ ] End-to-end installation, configuration, migration, upgrade, backup, and troubleshooting guides
 - [ ] Bot customer guide, admin operator guide, and customer web guide
 - [ ] Integration guides for Remnawave, Telegram, and every supported payment provider
+- [ ] AI-provider, local-model, MCP client/server, privacy, cost-control, and troubleshooting guides
 - [ ] Public API reference and extension policy
 - [ ] Contributor setup, architecture decisions, testing strategy, and release process
 - [ ] Issue templates, feature-request process, support boundaries, and code of conduct
@@ -533,6 +626,7 @@ These items require demonstrated demand and must not delay the core roadmap:
 - Native mobile applications
 - Advanced fraud scoring, experimentation, and product analytics
 - Public marketplace for themes, notification templates, and integrations
+- Autonomous multi-step operations only after a separate safety and authorization design review
 
 ## Explicit non-goals before 1.0
 
@@ -543,3 +637,4 @@ These items require demonstrated demand and must not delay the core roadmap:
 - Replacing PostgreSQL durability with Valkey
 - Shipping placeholder payment screens without a working provider
 - Collecting customer or business data in anonymous project telemetry
+- Allowing AI or MCP to bypass RBAC, confirmations, idempotency, audit history, or human accountability
