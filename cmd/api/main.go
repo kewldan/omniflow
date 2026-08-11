@@ -23,6 +23,7 @@ import (
 	"github.com/omniflow/omniflow/internal/importservice"
 	"github.com/omniflow/omniflow/internal/jobs"
 	"github.com/omniflow/omniflow/internal/maintenance"
+	"github.com/omniflow/omniflow/internal/panelpg"
 	"github.com/omniflow/omniflow/internal/payments"
 	"github.com/omniflow/omniflow/internal/paymentservice"
 	"github.com/omniflow/omniflow/internal/platform"
@@ -205,7 +206,9 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 
 	services := runtimeServices{handlers: handlers}
 	if cfg.AdminPanel.Enabled {
-		adminHandlers, adminErr := buildAdminPanel(logger, cfg, pool, platform.NewRateLimiter(valkeyClient))
+		adminHandlers, adminErr := buildAdminPanel(
+			ctx, logger, cfg, pool, platform.NewRateLimiter(valkeyClient), providers,
+		)
 		if adminErr != nil {
 			valkeyClient.Close()
 			pool.Close()
@@ -221,12 +224,18 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 // It reuses APP_DATA_ENCRYPTION_KEY, already validated as 32 bytes by the
 // commerce precondition above, to seal TOTP secrets.
 func buildAdminPanel(
-	logger *slog.Logger, cfg config.Config, pool *pgxpool.Pool, limiter *platform.RateLimiter,
+	ctx context.Context, logger *slog.Logger, cfg config.Config, pool *pgxpool.Pool,
+	limiter *platform.RateLimiter, providers []payments.Provider,
 ) (*apihttp.AdminHandlers, error) {
 	service, err := adminauthpg.New(pool, cfg.DataEncryptionKey, adminauthpg.Options{})
 	if err != nil {
 		return nil, err
 	}
+	operations, err := panelpg.New(pool, cfg.DataEncryptionKey, panelpg.Options{})
+	if err != nil {
+		return nil, err
+	}
+	seedCommerceSettings(ctx, logger, operations, cfg)
 	proxies, err := apihttp.NewTrustedProxies(cfg.AdminPanel.TrustedProxies)
 	if err != nil {
 		return nil, err
@@ -239,8 +248,54 @@ func buildAdminPanel(
 	issueSetupTokenIfNeeded(logger, service)
 	return apihttp.NewAdminHandlers(apihttp.AdminOptions{
 		Service: service, Limiter: limiter, Logger: logger, Proxies: proxies,
+		Operations: operations, Providers: providerIndex(providers),
 		CookieSecure: cfg.AdminPanel.CookieSecure, Issuer: cfg.AdminPanel.Issuer,
 	}), nil
+}
+
+// providerIndex keys the configured adapters by name so the panel can publish
+// what each one declares about storing a payment method.
+func providerIndex(providers []payments.Provider) map[string]payments.Provider {
+	index := make(map[string]payments.Provider, len(providers))
+	for _, provider := range providers {
+		index[provider.Name()] = provider
+	}
+	return index
+}
+
+// seedCommerceSettings writes the wallet and subscription policy into the
+// database the first time the panel starts.
+//
+// Both were environment variables until v0.7. Seeding from the environment
+// rather than from the schema defaults means an installation upgrading from
+// v0.5 keeps the limits its operator configured; afterwards the row is
+// authoritative and only the panel changes it.
+//
+// A failure here never blocks startup: the panel simply shows no settings yet,
+// and the next start tries again.
+func seedCommerceSettings(
+	ctx context.Context, logger *slog.Logger, operations *panelpg.Service, cfg config.Config,
+) {
+	seedCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	if _, err := operations.EnsureCommerceSettings(seedCtx, panelpg.CommerceSettings{
+		TopUp: panelpg.TopUpSettings{
+			Enabled:          cfg.TopUp.Enabled,
+			Currency:         cfg.DefaultCurrency,
+			PresetsMinor:     cfg.TopUp.Presets,
+			MinimumMinor:     cfg.TopUp.MinimumMinor,
+			MaximumMinor:     cfg.TopUp.MaximumMinor,
+			WindowSeconds:    int64(cfg.TopUp.Window.Seconds()),
+			WindowLimitMinor: cfg.TopUp.WindowLimitMinor,
+		},
+		Subscriptions: panelpg.SubscriptionSettings{
+			MultiEnabled:   cfg.Subscriptions.MultiEnabled,
+			MaxPerCustomer: int32(cfg.Subscriptions.MaxPerCustomer),
+		},
+	}); err != nil {
+		logger.Warn("commerce settings could not be seeded; the panel will show none yet", "error", err)
+	}
 }
 
 // issueSetupTokenIfNeeded prints a one-time bootstrap token when an

@@ -63,6 +63,28 @@ const (
 	// Health, jobs, maintenance mode, and backups.
 	PermissionSystemRead  Permission = "system.read"
 	PermissionSystemWrite Permission = "system.write"
+
+	// Blocklist adjudication and anomaly review.
+	//
+	// Risk is its own capability rather than part of customer administration
+	// because the two answer different questions. Reading a customer record is
+	// routine support work; deciding that an external list's opinion of them is
+	// correct is a judgement with consequences, and an installation should be
+	// able to grant one without the other.
+	PermissionRiskRead  Permission = "risk.read"
+	PermissionRiskWrite Permission = "risk.write"
+
+	// The gift register: revocation and refund of unredeemed gifts.
+	PermissionGiftsRead  Permission = "gifts.read"
+	PermissionGiftsWrite Permission = "gifts.write"
+
+	// The digital-goods shop: catalogue, provider credentials, and orders.
+	//
+	// Separate from `catalog` because a goods provider holds the operator's own
+	// money. Someone who may price a VPN plan should not automatically be able
+	// to rotate the credential that spends from a funded balance.
+	PermissionGoodsRead  Permission = "goods.read"
+	PermissionGoodsWrite Permission = "goods.write"
 )
 
 // AllPermissions is the complete catalogue, ordered for stable rendering and
@@ -78,6 +100,9 @@ var AllPermissions = []Permission{
 	PermissionMarketingRead, PermissionMarketingWrite,
 	PermissionSettingsRead, PermissionSettingsWrite,
 	PermissionSystemRead, PermissionSystemWrite,
+	PermissionRiskRead, PermissionRiskWrite,
+	PermissionGiftsRead, PermissionGiftsWrite,
+	PermissionGoodsRead, PermissionGoodsWrite,
 }
 
 // Role is a built-in operator role. The set is fixed in v0.6; operator-defined
@@ -111,6 +136,7 @@ var readOnlyPermissions = []Permission{
 	PermissionFinanceRead, PermissionCatalogRead,
 	PermissionSupportRead, PermissionMarketingRead,
 	PermissionSettingsRead, PermissionSystemRead,
+	PermissionRiskRead, PermissionGiftsRead, PermissionGoodsRead,
 }
 
 // rolePermissions maps each built-in role to the permissions it grants.
@@ -133,21 +159,35 @@ var rolePermissions = map[Role][]Permission{
 		PermissionMarketingRead, PermissionMarketingWrite,
 		PermissionSettingsRead, PermissionSettingsWrite,
 		PermissionSystemRead, PermissionSystemWrite,
+		PermissionRiskRead, PermissionRiskWrite,
+		PermissionGiftsRead, PermissionGiftsWrite,
+		PermissionGoodsRead, PermissionGoodsWrite,
 	},
 
+	// Support reads the risk, gift, and shop surfaces because those are the
+	// questions customers actually ask — "why was I refused", "where is the
+	// gift I sent", "my Stars have not arrived" — and answering them needs the
+	// record, not the ability to change it.
 	RoleSupport: {
 		PermissionAuditRead,
 		PermissionCustomersRead, PermissionCustomersWrite,
 		PermissionSubscriptionsRead, PermissionSubscriptionsWrite,
 		PermissionSupportRead, PermissionSupportWrite,
 		PermissionCatalogRead,
+		PermissionRiskRead, PermissionGiftsRead, PermissionGoodsRead,
 	},
 
+	// Finance may revoke and refund an unredeemed gift, because that is a
+	// refund decision. It may read the shop, because a shop order is money, and
+	// it may not rotate a provider credential, because that is configuration.
 	RoleFinance: {
 		PermissionAuditRead, PermissionAuditExport,
 		PermissionCustomersRead, PermissionSubscriptionsRead,
 		PermissionFinanceRead, PermissionFinanceWrite,
 		PermissionCatalogRead,
+		PermissionRiskRead,
+		PermissionGiftsRead, PermissionGiftsWrite,
+		PermissionGoodsRead,
 	},
 
 	RoleMarketing: {

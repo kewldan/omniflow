@@ -11,6 +11,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/omniflow/omniflow/internal/adminauth"
 	"github.com/omniflow/omniflow/internal/adminauthpg"
+	"github.com/omniflow/omniflow/internal/panelpg"
+	"github.com/omniflow/omniflow/internal/payments"
 	"github.com/omniflow/omniflow/internal/platform"
 	"github.com/omniflow/omniflow/internal/rbac"
 )
@@ -28,6 +30,14 @@ type AdminHandlers struct {
 	logger  *slog.Logger
 	proxies *TrustedProxies
 
+	// operations serves the v0.7 surfaces. A nil value leaves them unmounted,
+	// which is what a panel running only the v0.6 foundation gets.
+	operations *panelpg.Service
+	// adapterRecurring is what each compiled-in payment adapter declares about
+	// storing a payment method. It is computed at construction so the panel and
+	// the enforcement path read the same fact.
+	adapterRecurring map[string]bool
+
 	cookieName   string
 	cookieSecure bool
 	cookiePath   string
@@ -40,6 +50,11 @@ type AdminOptions struct {
 	Limiter *platform.RateLimiter
 	Logger  *slog.Logger
 	Proxies *TrustedProxies
+	// Operations serves the day-to-day operator surfaces.
+	Operations *panelpg.Service
+	// Providers are the configured payment adapters, used only to publish their
+	// declared capabilities.
+	Providers map[string]payments.Provider
 	// CookieSecure must be true in production. It is separately configurable
 	// only so a plain-HTTP local development stack can sign in at all.
 	CookieSecure bool
@@ -58,10 +73,12 @@ func NewAdminHandlers(options AdminOptions) *AdminHandlers {
 		proxies = &TrustedProxies{}
 	}
 	return &AdminHandlers{
-		service: options.Service,
-		limiter: options.Limiter,
-		logger:  options.Logger,
-		proxies: proxies,
+		service:          options.Service,
+		limiter:          options.Limiter,
+		logger:           options.Logger,
+		proxies:          proxies,
+		operations:       options.Operations,
+		adapterRecurring: adapterCapabilities(options.Providers),
 		// The __Host- prefix binds the cookie to this exact origin: a browser
 		// refuses to accept it with a Domain attribute or over plain HTTP, so
 		// a sibling subdomain cannot set or overwrite the operator's session.
@@ -126,6 +143,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 
 			secure.Get("/rbac/catalog", handlers.permissionCatalog)
 			handlers.mountOIDCSecure(secure)
+			handlers.mountOperations(secure)
 		})
 	})
 }

@@ -76,6 +76,43 @@ func TestRolePermissionsAreDrawnFromTheCatalogue(t *testing.T) {
 	}
 }
 
+// The risk surfaces produce evidence an operator acts on elsewhere, so reading
+// them must never imply the ability to decide. A role that could decide without
+// being able to see a customer record would be deciding blind.
+func TestRiskDecisionsRequireCustomerVisibility(t *testing.T) {
+	for _, role := range AllRoles {
+		grant := NewGrant(role)
+		if grant.Allows(PermissionRiskWrite) && !grant.Allows(PermissionCustomersRead) {
+			t.Fatalf("role %q may decide a risk match without being able to read the customer", role)
+		}
+		if grant.Allows(PermissionRiskWrite) && !grant.Allows(PermissionRiskRead) {
+			t.Fatalf("role %q may write risk decisions it cannot read", role)
+		}
+	}
+}
+
+// Every write permission implies its read counterpart. Without this a role could
+// change something it cannot see afterwards, which makes its own work
+// unreviewable.
+func TestWritePermissionsImplyTheirReads(t *testing.T) {
+	for _, role := range AllRoles {
+		grant := NewGrant(role)
+		for _, permission := range grant.Permissions() {
+			name := string(permission)
+			if !strings.HasSuffix(name, ".write") {
+				continue
+			}
+			read := Permission(strings.TrimSuffix(name, ".write") + ".read")
+			if !slices.Contains(AllPermissions, read) {
+				continue
+			}
+			if !grant.Allows(read) {
+				t.Fatalf("role %q holds %q without %q", role, permission, read)
+			}
+		}
+	}
+}
+
 func TestGrantUnionsRoles(t *testing.T) {
 	grant := NewGrant(RoleSupport, RoleFinance)
 	if !grant.Allows(PermissionSupportWrite) {
