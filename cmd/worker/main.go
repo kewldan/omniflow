@@ -18,9 +18,11 @@ import (
 	"github.com/omniflow/omniflow/internal/goodsdelivery"
 	apihttp "github.com/omniflow/omniflow/internal/httpapi"
 	"github.com/omniflow/omniflow/internal/jobs"
+	"github.com/omniflow/omniflow/internal/panelpg"
 	"github.com/omniflow/omniflow/internal/platform"
 	"github.com/omniflow/omniflow/internal/remnawave"
 	"github.com/omniflow/omniflow/internal/retention"
+	"github.com/omniflow/omniflow/internal/sweeper"
 	"github.com/riverqueue/river"
 )
 
@@ -87,6 +89,19 @@ func main() {
 		os.Exit(1)
 	}
 	go fulfillment.NewScheduler(pool, client).Run(ctx)
+	// Lifecycle sweeps: gift and offer expiry always, plus blocklist refresh and
+	// anomaly evaluation when the encryption key makes a source credential
+	// readable.
+	var operations *panelpg.Service
+	if len(cfg.DataEncryptionKey) == 32 {
+		operations, err = panelpg.New(pool, cfg.DataEncryptionKey, panelpg.Options{})
+		if err != nil {
+			logger.Error("initialize operations service", "error", err)
+			os.Exit(1)
+		}
+	}
+	go sweeper.New(pool, operations, logger, sweeper.Config{}).Run(ctx)
+
 	go retention.New(pool, logger, retention.Config{
 		Outbox: cfg.Retention.Outbox, Telemetry: cfg.Retention.Telemetry,
 		Drift: cfg.Retention.Drift, Interval: cfg.Retention.Interval,
