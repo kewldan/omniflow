@@ -1,0 +1,211 @@
+---
+title: "Customer web panel"
+description: "Sign-in, sessions, and the subscription screens customers reach from a browser."
+---
+
+The customer web panel is the browser half of the product the Telegram bot has
+carried since v0.2. It is not a second product: it reads the same customer
+records, the same entitlements, and the same Remnawave state, and a customer who
+signs in with Telegram on the web lands on exactly the account the bot has been
+using.
+
+It is served by the same Next.js application as the operator panel, under
+`/account`, and backed by a third API prefix, `/v1/account`.
+
+## What it covers
+
+<CardGroup cols={2}>
+  <Card title="Sign-in" icon="key">
+    Telegram, an optional bot-delivered link, and any number of OIDC providers.
+  </Card>
+  <Card title="Dashboard" icon="layers">
+    Status, expiry, remaining days, traffic, devices, and the active plan.
+  </Card>
+  <Card title="Connection" icon="qrcode">
+    Per-platform instructions, app deep links, a QR code, and the raw link.
+  </Card>
+  <Card title="Account security" icon="shield">
+    Active sessions, the account's own history, and linked sign-in methods.
+  </Card>
+</CardGroup>
+
+Buying, renewing, topping up, orders, support, and referrals stay in the bot for
+now; they arrive on the web in v0.10.
+
+## Enabling it
+
+The panel is on by default and needs `APP_DATA_ENCRYPTION_KEY`, which seals OIDC
+client secrets and the short-lived sign-in flow cookie.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `APP_CUSTOMER_PANEL_ENABLED` | `true` | Mounts `/v1/account`. A Telegram-only installation can turn it off. |
+| `APP_CUSTOMER_COOKIE_SECURE` | `true` | Marks the session cookie `Secure`. Turn it off only for a plain-HTTP local stack. |
+| `APP_CUSTOMER_MAGIC_LINK_ENABLED` | `false` | Offers the bot-delivered sign-in link. Requires `APP_PUBLIC_URL`. |
+
+<Warning>
+  Leaving `APP_CUSTOMER_COOKIE_SECURE` off in production means the session cookie
+  can be captured from any plain-HTTP request to the same host.
+</Warning>
+
+## Sign-in
+
+### Telegram
+
+The primary route. Telegram's login widget signs its fields with HMAC-SHA256
+under the bot token, so a payload that verifies is proof Telegram produced it for
+this bot. Omniflow additionally bounds `auth_date` to one minute: the hash never
+expires on its own, and without the bound a payload captured from a URL or a
+screenshot would authenticate indefinitely.
+
+The widget is loaded by the bot's username, which Omniflow resolves from the bot
+API on first use. Telegram only renders the widget on a domain bound to the bot,
+so set that domain with `/setdomain` in BotFather before enabling it.
+
+Opened as a Telegram Mini App the panel signs in with no button at all: the
+surrounding client hands the page a signed `initData`, which is verified the same
+way under a different key derivation.
+
+### The sign-in link
+
+An operator-enabled fallback for installations where the widget is not usable.
+The customer sends `/login` to the bot and receives a one-time link, valid for
+ten minutes and single-use.
+
+It is requested from the bot rather than from a web form on purpose. A form would
+have to take some identifier and answer whether Omniflow knows it, and every
+version of that answer tells a stranger whether somebody is a customer here.
+Starting inside a chat the customer has already authenticated to removes the
+question, and guarantees the link can only reach somebody who already controls
+the account.
+
+<Note>
+  The link is a bearer credential for ten minutes. The bot says so in the message
+  and sends it with forwarding disabled.
+</Note>
+
+### OIDC
+
+Any number of providers may be enabled at once, each an ordinary discovery
+document with an operator-chosen label, icon, and ordering. The flow is
+Authorization Code with PKCE, an anti-forgery `state`, and a `nonce` verified
+against the returned ID token.
+
+Presets for Google, Yandex, and Discord prefill the form and produce ordinary
+rows; nothing downstream branches on which provider a row came from.
+
+<Warning>
+  Yandex does not consistently return `email_verified`. Its preset therefore
+  leaves the verified-email requirement off — turning it on for that provider
+  refuses every sign-in through it.
+</Warning>
+
+Two rules govern how an external identity maps to a customer:
+
+- **A subject nobody has linked never adopts an existing account by email.**
+  Matching on an address would let anyone who can make a provider assert somebody
+  else's address take over their account. An unlinked subject either provisions a
+  fresh customer, when the provider allows it, or is refused.
+- **Linking happens from inside a session.** An existing customer adds a provider
+  from their own security screen. If the subject already belongs to another
+  customer the attempt is refused as a conflict, never merged: joining two
+  customers would move one person's orders, wallet, and subscription into another
+  person's account with no way back.
+
+Because the subject is the key and the address is only a claim, a customer
+changing their email upstream is a non-event and needs no recovery path.
+
+## Sessions
+
+Sessions are cookie-backed, `__Host-` prefixed, `HttpOnly`, and `SameSite=Lax`.
+Only the SHA-256 of the token is stored, so a database read never yields a usable
+cookie.
+
+| Property | Customer panel | Operator panel |
+| --- | --- | --- |
+| Inactivity timeout | 14 days | 30 minutes |
+| Absolute lifetime | 60 days | 12 hours |
+| Token rotation | every 24 hours | every 15 minutes |
+| Re-authentication window | 15 minutes | — |
+
+The customer figures are deliberately more generous. An operator signing in again
+costs seconds of a working day; a customer checking how many days are left does
+not warrant the same friction, and a panel that logs them out over lunch simply
+pushes them back to the bot. The absolute horizon and rotation do the security
+work instead, together with re-authentication on the few actions that warrant it.
+
+**Re-authentication** applies to the actions a stolen but still-live cookie could
+otherwise use to lock the real owner out: rotating the subscription link,
+disconnecting every device at once, and removing a sign-in method. Each is
+destructive, none is reversible from the panel, and all are rare and deliberate.
+A session older than fifteen minutes is refused with
+`reauthentication_required`, and the panel says so before the button is pressed
+rather than after.
+
+Every unsafe request carries a double-submit CSRF token derived from a
+per-session secret, so a token minted for one session cannot be replayed in
+another — and the customer and operator panels derive theirs under different
+labels, so neither can mint a credential for the other.
+
+## The subscription screens
+
+The dashboard answers the question customers open it with: is my subscription
+working, and how long is left. The subscription switcher appears only when the
+installation allows concurrent subscriptions; a single-subscription installation
+keeps the one-screen experience with no selection step.
+
+Traffic is shown as a bar and, above it, as a sentence — the textual equivalent
+is visible to everyone rather than hidden for assistive technology, and the bar
+carries that same sentence as its accessible name. The percentage is computed on
+the server so the two can never disagree.
+
+When Remnawave cannot be reached the page still renders what Omniflow itself
+knows — the plan, the period, the expiry — and says which figures are not
+current, rather than presenting a traffic number that has stopped moving as
+though it were live.
+
+### Connecting a device
+
+The connect screen exists to move one string onto another device. It offers a
+deep link per documented client, a QR code rendered in the browser, and the raw
+link with a copy button. The client list comes from the same table the bot
+renders, so a customer who reads one recommendation in the chat and a different
+one in the browser is impossible by construction.
+
+### Rotating the access link
+
+Rotation invalidates the old link on every device, and every device must import
+the new one before it connects again. Traffic and expiry are unaffected. It is
+the remedy when a link has been shared or leaked, and it sits behind a typed
+confirmation as well as a recent sign-in.
+
+## Devices and privacy
+
+The panel never returns a hardware identifier or an IP address for a connected
+device. A device is named by an opaque handle — a truncated digest the server
+resolves back by hashing its own current list — so removing one never requires
+the caller to hold the identifier being acted on. Last-seen is a date rather than
+a precise instant: enough to recognise your own laptop, not enough to build a
+movement log from.
+
+Subscription links are credentials, so every `/v1/account` response is sent with
+`Cache-Control: no-store` and `Referrer-Policy: no-referrer`. The QR code is
+generated in the browser rather than fetched as an image, which would otherwise
+put the link into a request line, a proxy log, and the browser cache.
+
+## Account history
+
+The security screen lists live sessions, the linked sign-in methods, and an
+account history the customer can read: sign-ins, sign-outs, link rotations,
+device removals, and changes to sign-in methods.
+
+That history is a separate record from the operator audit trail. The audit trail
+is an operator artefact searched under operator permissions, and deciding per row
+which of its fields a customer may see would put a disclosure decision in the
+read path. The customer-facing log is written to be shown: its vocabulary is
+closed, and it has no column for an amount, a link, or another party's
+identifier.
+
+Removing a sign-in method is refused when it is the last one. A customer who
+removes their only way in has locked themselves out of an account holding a paid
+subscription, and nothing in the panel can let them back in.

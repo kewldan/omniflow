@@ -37,7 +37,7 @@ These instructions apply to the entire repository.
 - Keep the frontend on TypeScript 7-compatible tooling; generated API clients must not require TypeScript's removed programmatic APIs.
 - Biome is the only TypeScript/JavaScript formatter and linter.
 - Keep customer and admin routes in `apps/web`; both surfaces must use shared shadcn primitives from `packages/ui`.
-- The operator panel API is `/v1/panel` (session cookie, CSRF, RBAC). `/v1/admin` is the separate bearer-token surface for Telegram operator tooling. Do not merge the prefixes: each would inherit the other's middleware.
+- The API has three prefixes and they stay separate: `/v1/panel` is the operator panel (operator session cookie, CSRF, RBAC), `/v1/admin` is the bearer-token surface for Telegram operator tooling, and `/v1/account` is the customer panel (customer session cookie, CSRF, no RBAC). Do not merge them: each would inherit another's middleware, and a customer credential must never be able to reach an operator route.
 - All user-facing copy must use `next-intl` message catalogs in Russian and English.
 - Preserve accessibility, keyboard navigation, responsive layouts, and explicit loading/empty/error states.
 

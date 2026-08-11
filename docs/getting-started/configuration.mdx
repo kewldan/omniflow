@@ -140,6 +140,32 @@ behind a proxy shares one address; trust too much and an attacker picks their ow
   request to the same host.
 </Warning>
 
+## Customer web panel
+
+The customer panel is served under `/account` and backed by `/v1/account`. It
+needs `APP_DATA_ENCRYPTION_KEY`, which seals OIDC client secrets and the
+short-lived sign-in flow cookie.
+
+| Variable | Required | Default | Purpose |
+| --- | --- | --- | --- |
+| `APP_CUSTOMER_PANEL_ENABLED` | No | `true` | Mount `/v1/account`. Turn off for a Telegram-only installation |
+| `APP_CUSTOMER_COOKIE_SECURE` | No | `true` | Mark the customer session cookie `Secure` |
+| `APP_CUSTOMER_MAGIC_LINK_ENABLED` | No | `false` | Offer the bot-delivered sign-in link. Requires `APP_PUBLIC_URL` |
+
+Telegram sign-in needs no variable of its own: it uses `APP_TELEGRAM_TOKEN` to
+verify the login widget, and resolves the bot's username from the bot API. The
+widget only renders on a domain bound to the bot, so set that domain with
+`/setdomain` in BotFather first.
+
+The sign-in link is off by default because it is a second bearer credential
+travelling through a chat. Turn it on when the widget is not usable — typically
+where the domain cannot be bound — and the bot's `/login` command starts working.
+`APP_PUBLIC_URL` has to be set for it, because the bot has to put an absolute URL
+in the message.
+
+See [Customer web panel](/customer/web-panel) for how sign-in, sessions, and the
+subscription screens behave.
+
 Full behaviour is documented in [Admin panel](/operations/admin-panel).
 
 ## Maintenance and retention

@@ -10,12 +10,14 @@ Telegram Bot + backend → Admin web panel → Customer web panel → 1.0 GA
 
 Work may prepare shared foundations early, but a later product surface must not displace unfinished requirements from the current phase. A version is complete only when its listed behavior, migrations, documentation, security controls, and release gates are complete.
 
-**Where the boundary is today.** v0.1 through v0.8 are complete on `main`: the
-backend, the Telegram customer product, the production runtime, and the whole
-operator panel. v0.9 is the current phase and starts the customer web panel. Two
-v0.8 items shipped with a caveat stated in their own line and detailed in the
-verification debt section at the end of v0.8; nothing else is outstanding behind
-a checked box.
+**Where the boundary is today.** v0.1 through v0.9 are complete on `main`: the
+backend, the Telegram customer product, the production runtime, the whole
+operator panel, and the customer web foundation — sign-in, the shared shell, and
+the subscription screens. v0.10 is the current phase and completes the customer
+panel with checkout, the shop, support, and referrals. Two v0.8 items shipped
+with a caveat stated in their own line, and each phase records its remaining
+verification debt in its own section; nothing else is outstanding behind a
+checked box.
 
 ## Status legend
 
@@ -764,50 +766,147 @@ Carried into v0.9 and tracked here rather than left implied.
 
 ---
 
-## 🚧 v0.9 — Customer web foundation
+## ✅ v0.9 — Customer web foundation
 
 Goal: expose the proven customer capabilities through the shared web application.
 
 ### Authentication and account security
 
-- [ ] Telegram-based sign-in linked to the same canonical customer identity
-- [ ] Time-limited magic-link fallback where enabled by the operator
-- [ ] Generic OIDC sign-in configured from a discovery document, with no provider-specific code paths
-- [ ] Several OIDC providers enabled at once with operator-controlled label, icon, and ordering
-- [ ] Tested configuration presets for Google, Yandex, and Discord that remain ordinary OIDC entries
-- [ ] Authorization Code flow with PKCE, state, and nonce validation
-- [ ] Claim-to-identity mapping with an explicit verified-email requirement and configurable trust
-- [ ] Linking an OIDC identity to an existing customer without implicitly merging two customers
-- [ ] Unlink protection that refuses to remove the last usable sign-in method
-- [ ] OIDC stays optional; Telegram sign-in never requires an external identity provider
-- [ ] Provider outage, revoked consent, changed subject identifier, and email-change handling
-- [ ] Session rotation, logout-all, inactivity/absolute expiry, CSRF protection, and secure cookies
-- [ ] Account-link conflict handling without revealing another customer’s existence
-- [ ] Customer-visible active sessions and security events
-- [ ] Suspended, deleted, and unlinked account states
+- [x] Telegram-based sign-in linked to the same canonical customer identity —
+      the login widget in a browser, and the Mini App's signed `initData` when
+      the panel is opened inside Telegram
+- [x] Time-limited magic-link fallback where enabled by the operator, delivered
+      by the bot rather than requested from a web form
+- [x] Generic OIDC sign-in configured from a discovery document, with no provider-specific code paths
+- [x] Several OIDC providers enabled at once with operator-controlled label, icon, and ordering
+- [x] Tested configuration presets for Google, Yandex, and Discord that remain ordinary OIDC entries
+- [x] Authorization Code flow with PKCE, state, and nonce validation
+- [x] Claim-to-identity mapping with an explicit verified-email requirement and configurable trust
+- [x] Linking an OIDC identity to an existing customer without implicitly merging two customers
+- [x] Unlink protection that refuses to remove the last usable sign-in method
+- [x] OIDC stays optional; Telegram sign-in never requires an external identity provider
+- [x] Provider outage, revoked consent, changed subject identifier, and email-change handling
+- [x] Session rotation, logout-all, inactivity/absolute expiry, CSRF protection, and secure cookies
+- [x] Account-link conflict handling without revealing another customer’s existence
+- [x] Customer-visible active sessions and security events
+- [x] Suspended, deleted, and unlinked account states
 
 ### Shared customer shell
 
-- [ ] Responsive mobile-first layout sharing the admin component system
-- [ ] Russian and English localization with persisted preference
-- [ ] Accessible navigation, keyboard behavior, focus handling, and reduced motion
-- [ ] Typed SWR data loading and Zustand only for complex local workflows
-- [ ] Explicit loading, empty, stale, offline, partial, and error states
-- [ ] Secure handling of subscription links with no analytics or accidental preview leakage
+- [x] Responsive mobile-first layout sharing the admin component system
+- [x] Russian and English localization with persisted preference
+- [x] Accessible navigation, keyboard behavior, focus handling, and reduced motion
+- [x] Typed SWR data loading and Zustand only for complex local workflows — no
+      screen has yet needed Zustand, which is the intended outcome rather than
+      an omission
+- [x] Explicit loading, empty, stale, offline, partial, and error states
+- [x] Secure handling of subscription links with no analytics or accidental preview leakage
 
 ### Dashboard and subscription
 
-- [ ] Status, expiry, remaining days, traffic, device usage, and active plan
-- [ ] Subscription switcher when multiple concurrent subscriptions are enabled, hidden when they are not
-- [ ] Traffic visualization with accessible textual equivalent
-- [ ] Subscription open/copy, QR/deep-link connection, and platform instructions
-- [ ] Subscription-link rotation with reauthentication/confirmation
-- [ ] Device list, per-device removal, and remove-all confirmation
-- [ ] Renewal, expiry, grace-period, and incident notices
+- [x] Status, expiry, remaining days, traffic, device usage, and active plan
+- [x] Subscription switcher when multiple concurrent subscriptions are enabled, hidden when they are not
+- [x] Traffic visualization with accessible textual equivalent
+- [x] Subscription open/copy, QR/deep-link connection, and platform instructions
+- [x] Subscription-link rotation with reauthentication/confirmation
+- [x] Device list, per-device removal, and remove-all confirmation
+- [x] Renewal, expiry, grace-period, and incident notices
+
+### What v0.9 delivered
+
+A customer can now open `/account` in a browser, sign in as the person the bot
+has been talking to, and see the subscription they already have — the same
+records, the same entitlements, the same Remnawave state. It is one product with
+two surfaces, not two products.
+
+**Sign-in is three routes onto one identity.** Telegram's login widget is
+verified against the bot token with a one-minute freshness bound, because the
+hash itself never expires and a payload captured from a URL would otherwise
+authenticate forever. Inside Telegram the Mini App's `initData` does the same job
+under a different key derivation, so the panel signs in with no button at all.
+OIDC is Authorization Code with PKCE, state, and a nonce checked against the
+returned ID token; several providers run at once, and the shipped Google, Yandex,
+and Discord presets are values that prefill a form rather than code paths.
+
+The link fallback is requested from the bot, not from a web form. A form would
+have to take an identifier and answer whether Omniflow knows it, and every
+version of that answer tells a stranger whether somebody is a customer here.
+Starting inside a chat the customer has already authenticated to removes the
+question, and guarantees the link can only reach somebody who already controls
+the account.
+
+**Two rules keep accounts from merging by accident.** A subject nobody has linked
+never adopts an existing customer by email address — matching on an address would
+let anyone who can make a provider assert somebody else's address take over their
+account. And linking happens from inside a session the customer already holds; a
+subject that belongs to somebody else is refused as a conflict rather than
+merged. Because the subject is the key and the address is only a claim, an
+upstream email change is a non-event with no recovery path to write.
+
+**Customer sessions are not operator sessions.** Fourteen days idle and sixty
+absolute, against thirty minutes and twelve hours for the panel. An operator
+signing in again costs seconds of a working day; a customer checking their
+remaining days does not warrant the same friction, and a panel that logs them out
+over lunch just pushes them back to the bot. The absolute horizon, 24-hour token
+rotation, and a fifteen-minute re-authentication window on the three destructive
+actions — rotating the access link, disconnecting every device, removing a
+sign-in method — do the security work instead.
+
+**Privacy is enforced at the transport, not per screen.** A device is named by an
+opaque digest the server resolves against its own current list, so no hardware
+identifier or IP address ever reaches the browser and removing a device never
+requires the caller to hold the identifier being acted on. Every `/v1/account`
+response carries `no-store` and `no-referrer`, because a subscription link is a
+credential; the QR code is generated in the browser rather than fetched, which
+would otherwise put that credential in a request line, a proxy log, and the
+cache.
+
+The customer's account history is a separate record from the operator audit
+trail. The audit trail is searched under operator permissions, and deciding per
+row which of its fields a customer may see would put a disclosure decision in the
+read path. The customer-facing log is written to be shown: a closed vocabulary,
+and no column for an amount, a link, or another party's identifier.
+
+Two changes fell outside the customer surface and are worth naming. The session
+token construction moved to `internal/websession` so both panels share one
+implementation and one storage discipline rather than two copies. And the shared
+`--subtle-foreground`, `--success`, and `--warning` tokens were darkened: the
+source design's values reach 2.5:1 on white, which failed the accessibility gate
+on the pre-existing pages as well as the new ones.
+
+### Verification debt
+
+- **Playwright coverage behind the session gate.** The browser suite proves every
+  account route refuses an anonymous visitor, that a failed sign-in explains
+  itself, and that the accessibility, layout, and localisation gates hold on the
+  pages reachable without signing in. The authenticated journeys need a seeded
+  customer with a Remnawave user behind it, and that fixture belongs with the
+  integration harness. It is the same debt v0.8 carried for the operator panel.
+- **The OIDC round trip is not exercised end to end.** Claim mapping, the unlink
+  guard, provider-scoped revocation, and the conflict rule are covered against a
+  real database, but the authorization round trip itself needs a live provider or
+  a stub issuer serving a discovery document and a JWKS. That stub belongs with
+  the integration harness rather than in a unit test.
+- **`go test -race` could not be run on the development machine.** The race
+  detector fails to link against the local MinGW toolchain, which is an
+  environment limitation rather than a code one. CI runs it.
+- **The panel has no screen for customer OIDC providers yet.** The API is
+  complete, gated by `settings.write`, and audited, but an operator configures a
+  provider through the API rather than through a form. The form is small and
+  belongs with the v0.10 settings work.
+
+### Known defect found during v0.9
+
+Two operator browser checks fail against a build with no API behind it:
+`admin-access.spec.ts` expects an `h1` on the operator sign-in page, which renders
+an `h2`, and expects the failed-sign-in message not to contain "not found", which
+the transport's fallback text supplies when the API is absent. Both reproduce
+with the v0.9 changes reverted, so they predate this phase and belong to the
+operator panel rather than to the customer one.
 
 ---
 
-## ⏳ v0.10 — Complete customer web panel
+## 🚧 v0.10 — Complete customer web panel
 
 Goal: reach feature parity with the customer-facing bot while taking advantage of web interaction patterns.
 

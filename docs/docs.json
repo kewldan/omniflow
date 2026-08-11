@@ -55,6 +55,12 @@
         ]
       },
       {
+        "group": "Customer",
+        "pages": [
+          "customer/web-panel"
+        ]
+      },
+      {
         "group": "API reference",
         "openapi": "https://raw.githubusercontent.com/kewldan/omniflow/main/api/openapi.yaml"
       },

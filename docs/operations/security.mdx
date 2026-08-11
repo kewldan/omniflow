@@ -5,6 +5,7 @@ description: Deployment and application security expectations.
 
 - Store secrets outside the repository and rotate them after suspected exposure.
 - Require TOTP two-factor for every operator account. Set it up under **Security** in the panel; see [Admin panel](/operations/admin-panel) for sessions, roles, and the audit trail.
+- Customer sessions are separate from operator ones in every respect — a different cookie, a different CSRF derivation, and a different prefix — so a customer credential can never satisfy an operator route. They are also deliberately longer-lived; see [Customer web panel](/customer/web-panel) for the lifetimes and for the actions that demand a fresh sign-in.
 - Keep PostgreSQL and Valkey off the public network.
 - Verify every payment and Telegram webhook.
 - Restrict upload types and sizes.

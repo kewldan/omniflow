@@ -58,6 +58,16 @@ New payment, wallet, authentication, RBAC, import, and Remnawave fulfillment beh
 
 `internal/payments/testdata` holds recorded webhook shapes with every real identifier replaced. Replaying them keeps parsing and signature verification honest without a sandbox account. Never commit a real payment payload, token, or signature — synthesise one instead.
 
-## Still to come
+## Browser coverage
 
-Playwright coverage of admin and customer journeys arrives with the panels in v0.6 and v0.9. The architecture and CI keep the extension points for it.
+`apps/web/e2e` holds the Playwright suites, run with `bun run e2e` from `apps/web`. They run against a production build rather than the dev server: Next.js behaves differently in development, and a gate that passes against a build nobody ships is not a gate.
+
+The suites cover what a component test cannot see, because it is a property of a rendered page rather than of a component — the accessibility, layout, and localisation gates — plus the access boundary of both panels: every operator and customer route refuses an anonymous visitor, and nothing behind a session gate paints before the session is known.
+
+<Note>
+  The journeys behind a session gate are not covered yet. They need a seeded
+  operator and a seeded customer with a Remnawave user behind them, and that
+  fixture belongs with the Testcontainers harness rather than with the browser
+  suite. It is tracked in the roadmap's verification debt for v0.8 and v0.9, and
+  it is the first of v0.10's release gates.
+</Note>
