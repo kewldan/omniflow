@@ -36,6 +36,7 @@ type Querier interface {
 	// action rather than an error state: an operator who cannot finish something
 	// should be able to put it down.
 	AssignSupportTicket(ctx context.Context, arg AssignSupportTicketParams) (SupportTicket, error)
+	AttachReferralSignal(ctx context.Context, arg AttachReferralSignalParams) error
 	// Claims the next attempt and pushes the retry deadline out before any provider
 	// call is made, so a worker that dies mid-request does not have the row picked
 	// up again immediately.
@@ -152,6 +153,8 @@ type Querier interface {
 	CreateGoodsOrder(ctx context.Context, arg CreateGoodsOrderParams) (GoodsOrder, error)
 	CreateGoodsProduct(ctx context.Context, arg CreateGoodsProductParams) (GoodsProduct, error)
 	CreateLedgerTransaction(ctx context.Context, arg CreateLedgerTransactionParams) (LedgerTransaction, error)
+	CreateLoyaltyProgram(ctx context.Context, arg CreateLoyaltyProgramParams) (LoyaltyProgram, error)
+	CreateLoyaltyTier(ctx context.Context, arg CreateLoyaltyTierParams) (LoyaltyTier, error)
 	CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error)
 	CreatePaymentIntent(ctx context.Context, arg CreatePaymentIntentParams) (PaymentIntent, error)
 	// ---------------------------------------------------------------------------
@@ -179,6 +182,9 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	CreateWalletTopup(ctx context.Context, arg CreateWalletTopupParams) (WalletTopup, error)
 	CreditWalletTopup(ctx context.Context, arg CreditWalletTopupParams) (WalletTopup, error)
+	// The metric a standing is evaluated on, computed from facts Omniflow already
+	// records. Nothing new is tracked to support loyalty.
+	CustomerLoyaltyMetric(ctx context.Context, arg CustomerLoyaltyMetricParams) (CustomerLoyaltyMetricRow, error)
 	// ---------------------------------------------------------------------------
 	// Dashboard
 	// ---------------------------------------------------------------------------
@@ -329,6 +335,7 @@ type Querier interface {
 	GetCycleOrder(ctx context.Context, arg GetCycleOrderParams) (Order, error)
 	GetDefaultSupportQueue(ctx context.Context) (SupportQueue, error)
 	GetDunningAttempt(ctx context.Context, arg GetDunningAttemptParams) (DunningAttempt, error)
+	GetEnabledLoyaltyProgram(ctx context.Context) (LoyaltyProgram, error)
 	GetEntitlement(ctx context.Context, id pgtype.UUID) (Entitlement, error)
 	GetFulfillmentOperation(ctx context.Context, id pgtype.UUID) (FulfillmentOperation, error)
 	GetGift(ctx context.Context, id pgtype.UUID) (Gift, error)
@@ -345,6 +352,7 @@ type Querier interface {
 	GetLatestConsents(ctx context.Context, userID pgtype.UUID) ([]ConsentRecord, error)
 	GetLatestEntitlementForChange(ctx context.Context, arg GetLatestEntitlementForChangeParams) (Entitlement, error)
 	GetLedgerTransactionByIdempotency(ctx context.Context, idempotencyKey string) (LedgerTransaction, error)
+	GetLoyaltyStanding(ctx context.Context, userID pgtype.UUID) (GetLoyaltyStandingRow, error)
 	GetMaintenanceState(ctx context.Context) (MaintenanceState, error)
 	GetOpenCart(ctx context.Context, userID pgtype.UUID) (Cart, error)
 	GetOperatorTopic(ctx context.Context, kind string) (OperatorTopic, error)
@@ -512,6 +520,12 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	ListGoodsProviders(ctx context.Context) ([]GoodsProvider, error)
 	ListLedgerEntriesByTransaction(ctx context.Context, transactionID pgtype.UUID) ([]LedgerEntry, error)
+	ListLoyaltyHistory(ctx context.Context, arg ListLoyaltyHistoryParams) ([]ListLoyaltyHistoryRow, error)
+	// ---------------------------------------------------------------------------
+	// Loyalty
+	// ---------------------------------------------------------------------------
+	ListLoyaltyPrograms(ctx context.Context, pageSize int32) ([]LoyaltyProgram, error)
+	ListLoyaltyTiers(ctx context.Context, programID pgtype.UUID) ([]LoyaltyTier, error)
 	ListOpenDriftsDetailed(ctx context.Context, pageSize int32) ([]ListOpenDriftsDetailedRow, error)
 	ListOpenEntitlementDrifts(ctx context.Context, limit int32) ([]EntitlementDrift, error)
 	// Payment attempts on an order that have neither settled nor failed.
@@ -566,6 +580,7 @@ type Querier interface {
 	// the customer attached so the list is usable without a second lookup per row.
 	ListRecentDunningFailures(ctx context.Context, arg ListRecentDunningFailuresParams) ([]ListRecentDunningFailuresRow, error)
 	ListRecentMaintenanceEvents(ctx context.Context, pageSize int32) ([]MaintenanceEvent, error)
+	ListReferralRewardsForPair(ctx context.Context, referredUserID pgtype.UUID) ([]ReferralReward, error)
 	ListRefundsForOrder(ctx context.Context, orderID pgtype.UUID) ([]Refund, error)
 	ListRemnawaveMappings(ctx context.Context) ([]ListRemnawaveMappingsRow, error)
 	// Intents that have been in flight longer than a provider should take. The
@@ -643,6 +658,7 @@ type Querier interface {
 	MoveSupportMessages(ctx context.Context, arg MoveSupportMessagesParams) error
 	MoveSupportTicket(ctx context.Context, arg MoveSupportTicketParams) (SupportTicket, error)
 	NextAddonVersion(ctx context.Context, addonID pgtype.UUID) (int32, error)
+	NextLoyaltyVersion(ctx context.Context) (int32, error)
 	NextPlanVersion(ctx context.Context, planID pgtype.UUID) (int32, error)
 	// ---------------------------------------------------------------------------
 	// Observations the rules are evaluated against
@@ -674,6 +690,9 @@ type Querier interface {
 	// retrying could deliver twice and refunding could give money back for goods
 	// the recipient received.
 	ParkGoodsDelivery(ctx context.Context, arg ParkGoodsDeliveryParams) (GoodsDelivery, error)
+	// Enabling one programme disables the rest, because the partial unique index
+	// allows exactly one and a customer can only stand in one definition at a time.
+	PublishLoyaltyProgram(ctx context.Context, programID pgtype.UUID) (LoyaltyProgram, error)
 	PurgeExpiredAdminSessions(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
 	// A condition that persists across several evaluation runs is one signal, not
 	// one per run: the dedupe key collides and the existing row is refreshed with
@@ -699,8 +718,12 @@ type Querier interface {
 	RecordGiftClaimAttempt(ctx context.Context, giftID pgtype.UUID) (Gift, error)
 	RecordGoodsDeliveryRefund(ctx context.Context, arg RecordGoodsDeliveryRefundParams) (GoodsDelivery, error)
 	RecordGoodsProviderHealth(ctx context.Context, arg RecordGoodsProviderHealthParams) (GoodsProvider, error)
+	RecordLoyaltyChange(ctx context.Context, arg RecordLoyaltyChangeParams) (LoyaltyStandingHistory, error)
 	RecordProviderConnectionCheck(ctx context.Context, arg RecordProviderConnectionCheckParams) (PaymentProviderSetting, error)
 	RecordProviderWebhookHealth(ctx context.Context, arg RecordProviderWebhookHealthParams) (PaymentProviderSetting, error)
+	// Signals are advisory and deduplicated per pair, so a sweep that runs twice
+	// records one signal rather than two.
+	RecordReferralSignal(ctx context.Context, arg RecordReferralSignalParams) (ReferralSignal, error)
 	// Only the first operator reply sets it, so the measure survives a
 	// conversation that goes back and forth for a week.
 	RecordSupportFirstResponse(ctx context.Context, ticketID pgtype.UUID) (SupportTicket, error)
@@ -729,6 +752,10 @@ type Querier interface {
 	ResolveGoodsDeliveryReview(ctx context.Context, arg ResolveGoodsDeliveryReviewParams) (GoodsDelivery, error)
 	RetireAddonVersion(ctx context.Context, addonVersionID pgtype.UUID) (AddonVersion, error)
 	RetirePlanVersion(ctx context.Context, planVersionID pgtype.UUID) (PlanVersion, error)
+	// Records the reversal on the reward. The compensating ledger entries are
+	// written by the caller in the same transaction, so a reward can never read as
+	// reversed without the money having moved back.
+	ReverseReferralReward(ctx context.Context, arg ReverseReferralRewardParams) (ReferralReward, error)
 	ReviewAnomalySignal(ctx context.Context, arg ReviewAnomalySignalParams) (AnomalySignal, error)
 	RevokeAdminRole(ctx context.Context, arg RevokeAdminRoleParams) error
 	RevokeAdminSession(ctx context.Context, arg RevokeAdminSessionParams) (AdminSession, error)
@@ -797,6 +824,11 @@ type Querier interface {
 	SearchPersonalOffers(ctx context.Context, arg SearchPersonalOffersParams) ([]PersonalOffer, error)
 	SearchPromotions(ctx context.Context, arg SearchPromotionsParams) ([]SearchPromotionsRow, error)
 	// ---------------------------------------------------------------------------
+	// Referral review
+	// ---------------------------------------------------------------------------
+	// The review queue: pairs a person may need to look at, newest first.
+	SearchReferralAttributions(ctx context.Context, arg SearchReferralAttributionsParams) ([]SearchReferralAttributionsRow, error)
+	// ---------------------------------------------------------------------------
 	// Ticket queue view
 	// ---------------------------------------------------------------------------
 	// The queue. Oldest activity first, because a desk works the top of the list.
@@ -837,6 +869,7 @@ type Querier interface {
 	// true alongside a passing test, and the table constraint refuses any pair that
 	// violates it.
 	SetProviderRecurring(ctx context.Context, arg SetProviderRecurringParams) (PaymentProviderSetting, error)
+	SetReferralReviewState(ctx context.Context, arg SetReferralReviewStateParams) (ReferralAttribution, error)
 	SetSupportTicketPriority(ctx context.Context, arg SetSupportTicketPriorityParams) (SupportTicket, error)
 	// Resolution and reopening are recorded rather than inferred.
 	//
@@ -922,6 +955,7 @@ type Querier interface {
 	// A null ciphertext on update means "leave the stored credential alone", so the
 	// panel can render and re-save the form without ever echoing a secret back.
 	UpsertGoodsProvider(ctx context.Context, arg UpsertGoodsProviderParams) (GoodsProvider, error)
+	UpsertLoyaltyStanding(ctx context.Context, arg UpsertLoyaltyStandingParams) (LoyaltyStanding, error)
 	// ---------------------------------------------------------------------------
 	// Operator notifications
 	// ---------------------------------------------------------------------------

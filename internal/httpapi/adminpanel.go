@@ -172,6 +172,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 			handlers.mountOIDCSecure(secure)
 			handlers.mountOperations(secure)
 			handlers.mountSupport(secure)
+			handlers.mountLoyalty(secure)
 		})
 	})
 }

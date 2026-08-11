@@ -707,6 +707,51 @@ type LedgerTransaction struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type LoyaltyProgram struct {
+	ID          pgtype.UUID        `json:"id"`
+	Version     int32              `json:"version"`
+	Enabled     bool               `json:"enabled"`
+	Metric      string             `json:"metric"`
+	Currency    string             `json:"currency"`
+	WindowDays  int32              `json:"window_days"`
+	GraceDays   int32              `json:"grace_days"`
+	PublishedAt pgtype.Timestamptz `json:"published_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	CreatedBy   pgtype.UUID        `json:"created_by"`
+}
+
+type LoyaltyStanding struct {
+	UserID          pgtype.UUID        `json:"user_id"`
+	ProgramID       pgtype.UUID        `json:"program_id"`
+	TierID          pgtype.UUID        `json:"tier_id"`
+	EvaluatedMetric int64              `json:"evaluated_metric"`
+	EvaluatedAt     pgtype.Timestamptz `json:"evaluated_at"`
+	GraceUntil      pgtype.Timestamptz `json:"grace_until"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type LoyaltyStandingHistory struct {
+	ID              int64              `json:"id"`
+	UserID          pgtype.UUID        `json:"user_id"`
+	FromTierID      pgtype.UUID        `json:"from_tier_id"`
+	ToTierID        pgtype.UUID        `json:"to_tier_id"`
+	EvaluatedMetric int64              `json:"evaluated_metric"`
+	Reason          string             `json:"reason"`
+	ActorID         pgtype.UUID        `json:"actor_id"`
+	OccurredAt      pgtype.Timestamptz `json:"occurred_at"`
+}
+
+type LoyaltyTier struct {
+	ID          pgtype.UUID `json:"id"`
+	ProgramID   pgtype.UUID `json:"program_id"`
+	Code        string      `json:"code"`
+	NameEn      string      `json:"name_en"`
+	NameRu      string      `json:"name_ru"`
+	Threshold   int64       `json:"threshold"`
+	DiscountBps int32       `json:"discount_bps"`
+	SortOrder   int32       `json:"sort_order"`
+}
+
 type MaintenanceEvent struct {
 	ID         pgtype.UUID        `json:"id"`
 	Action     string             `json:"action"`
@@ -1066,6 +1111,11 @@ type ReferralAttribution struct {
 	QualifiedAt       pgtype.Timestamptz `json:"qualified_at"`
 	QualifyingOrderID pgtype.UUID        `json:"qualifying_order_id"`
 	RejectedReason    pgtype.Text        `json:"rejected_reason"`
+	ReviewState       string             `json:"review_state"`
+	ReviewedBy        pgtype.UUID        `json:"reviewed_by"`
+	ReviewedAt        pgtype.Timestamptz `json:"reviewed_at"`
+	ReviewNote        pgtype.Text        `json:"review_note"`
+	SignalCodes       []string           `json:"signal_codes"`
 }
 
 type ReferralCode struct {
@@ -1089,15 +1139,27 @@ type ReferralProgram struct {
 }
 
 type ReferralReward struct {
-	ID                  pgtype.UUID        `json:"id"`
-	ReferredUserID      pgtype.UUID        `json:"referred_user_id"`
-	BeneficiaryUserID   pgtype.UUID        `json:"beneficiary_user_id"`
-	Role                string             `json:"role"`
-	OrderID             pgtype.UUID        `json:"order_id"`
-	AmountMinor         int64              `json:"amount_minor"`
-	Currency            string             `json:"currency"`
-	LedgerTransactionID pgtype.UUID        `json:"ledger_transaction_id"`
-	GrantedAt           pgtype.Timestamptz `json:"granted_at"`
+	ID                          pgtype.UUID        `json:"id"`
+	ReferredUserID              pgtype.UUID        `json:"referred_user_id"`
+	BeneficiaryUserID           pgtype.UUID        `json:"beneficiary_user_id"`
+	Role                        string             `json:"role"`
+	OrderID                     pgtype.UUID        `json:"order_id"`
+	AmountMinor                 int64              `json:"amount_minor"`
+	Currency                    string             `json:"currency"`
+	LedgerTransactionID         pgtype.UUID        `json:"ledger_transaction_id"`
+	GrantedAt                   pgtype.Timestamptz `json:"granted_at"`
+	ReversedAt                  pgtype.Timestamptz `json:"reversed_at"`
+	ReversedBy                  pgtype.UUID        `json:"reversed_by"`
+	ReversalReason              pgtype.Text        `json:"reversal_reason"`
+	ReversalLedgerTransactionID pgtype.UUID        `json:"reversal_ledger_transaction_id"`
+}
+
+type ReferralSignal struct {
+	ID             pgtype.UUID        `json:"id"`
+	ReferredUserID pgtype.UUID        `json:"referred_user_id"`
+	Code           string             `json:"code"`
+	Evidence       []byte             `json:"evidence"`
+	DetectedAt     pgtype.Timestamptz `json:"detected_at"`
 }
 
 type Refund struct {

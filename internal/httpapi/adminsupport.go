@@ -315,3 +315,110 @@ func principalAllows(request *http.Request, permission string) bool {
 	}
 	return principal.Grant.AllowsAll(rbac.Permission(permission))
 }
+
+// mountLoyalty registers referral review and loyalty.
+//
+// Referral review sits behind the risk permission rather than a marketing one:
+// deciding that somebody gamed a referral programme and taking their reward
+// back is an adverse decision about a customer, which is what `risk.write`
+// governs everywhere else in the product.
+func (handlers *AdminHandlers) mountLoyalty(secure chi.Router) {
+	if handlers.operations == nil {
+		return
+	}
+
+	secure.With(handlers.requirePermission(rbac.PermissionRiskRead)).
+		Get("/referrals/review", handlers.referralReviews)
+	secure.With(handlers.requirePermission(rbac.PermissionRiskWrite)).
+		Post("/referrals/review/{customerID}", handlers.reviewReferral)
+
+	secure.With(handlers.requirePermission(rbac.PermissionMarketingRead)).Group(func(read chi.Router) {
+		read.Get("/loyalty/programs", handlers.loyaltyPrograms)
+		read.Get("/customers/{customerID}/loyalty", handlers.customerLoyalty)
+	})
+	secure.With(handlers.requirePermission(rbac.PermissionMarketingWrite)).Group(func(write chi.Router) {
+		write.Post("/loyalty/programs", handlers.publishLoyaltyProgram)
+		write.Post("/customers/{customerID}/loyalty/evaluate", handlers.evaluateLoyalty)
+	})
+}
+
+func (handlers *AdminHandlers) referralReviews(writer http.ResponseWriter, request *http.Request) {
+	reviews, err := handlers.operations.SearchReferralReviews(
+		request.Context(), query(request, "state"),
+		query(request, "signalled") == "true", int32(queryInt(request, "pageSize")),
+	)
+	handlers.respond(writer, request, map[string]any{"items": reviews}, err)
+}
+
+// reviewReferral records a person's decision.
+//
+// Rejecting reverses every live reward through a compensating ledger
+// transaction, which is why it demands a reason: it takes money back from a
+// customer, and the reason is what an operator quotes to them.
+func (handlers *AdminHandlers) reviewReferral(writer http.ResponseWriter, request *http.Request) {
+	var body struct {
+		State string `json:"state"`
+		Note  string `json:"note"`
+	}
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	review, err := handlers.operations.ReviewReferral(
+		request.Context(), chi.URLParam(request, "customerID"),
+		body.State, body.Note, actorFrom(request),
+	)
+	handlers.respond(writer, request, review, err)
+}
+
+func (handlers *AdminHandlers) loyaltyPrograms(writer http.ResponseWriter, request *http.Request) {
+	programs, err := handlers.operations.LoyaltyPrograms(
+		request.Context(), int32(queryInt(request, "pageSize")),
+	)
+	handlers.respond(writer, request, map[string]any{"items": programs}, err)
+}
+
+// publishLoyaltyProgram writes a new version.
+//
+// There is no update route, and that is the design: a customer who reached a
+// tier under one set of thresholds should not fall out of it because somebody
+// edited the numbers.
+func (handlers *AdminHandlers) publishLoyaltyProgram(
+	writer http.ResponseWriter, request *http.Request,
+) {
+	var body struct {
+		Metric     string                `json:"metric"`
+		Currency   string                `json:"currency"`
+		WindowDays int32                 `json:"windowDays"`
+		GraceDays  int32                 `json:"graceDays"`
+		Enable     bool                  `json:"enable"`
+		Tiers      []panelpg.LoyaltyTier `json:"tiers"`
+	}
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	program, err := handlers.operations.PublishLoyaltyProgram(request.Context(), panelpg.LoyaltyProgram{
+		Metric: body.Metric, Currency: body.Currency,
+		WindowDays: body.WindowDays, GraceDays: body.GraceDays, Tiers: body.Tiers,
+	}, body.Enable, actorFrom(request))
+	handlers.respond(writer, request, program, err)
+}
+
+func (handlers *AdminHandlers) customerLoyalty(writer http.ResponseWriter, request *http.Request) {
+	standing, history, err := handlers.operations.CustomerLoyalty(
+		request.Context(), chi.URLParam(request, "customerID"), 50,
+	)
+	handlers.respond(writer, request, map[string]any{
+		"standing": standing, "history": history,
+	}, err)
+}
+
+// evaluateLoyalty re-places one customer under the definition in force.
+//
+// It is idempotent and writes history only when the standing actually changed,
+// so an operator clicking it twice produces one entry rather than two.
+func (handlers *AdminHandlers) evaluateLoyalty(writer http.ResponseWriter, request *http.Request) {
+	standing, err := handlers.operations.EvaluateLoyalty(
+		request.Context(), chi.URLParam(request, "customerID"), time.Now().UTC(), actorFrom(request),
+	)
+	handlers.respond(writer, request, standing, err)
+}

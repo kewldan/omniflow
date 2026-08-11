@@ -186,6 +186,23 @@ func (q *Queries) AssignSupportTicket(ctx context.Context, arg AssignSupportTick
 	return i, err
 }
 
+const attachReferralSignal = `-- name: AttachReferralSignal :exec
+UPDATE referral_attributions
+SET signal_codes = ARRAY(SELECT DISTINCT unnest(signal_codes || $1::text)),
+    review_state = CASE WHEN review_state = 'clear' THEN 'held' ELSE review_state END
+WHERE referred_user_id = $2
+`
+
+type AttachReferralSignalParams struct {
+	Code           string      `json:"code"`
+	ReferredUserID pgtype.UUID `json:"referred_user_id"`
+}
+
+func (q *Queries) AttachReferralSignal(ctx context.Context, arg AttachReferralSignalParams) error {
+	_, err := q.db.Exec(ctx, attachReferralSignal, arg.Code, arg.ReferredUserID)
+	return err
+}
+
 const countCannedResponseUse = `-- name: CountCannedResponseUse :exec
 UPDATE support_canned_responses SET usage_count = usage_count + 1
 WHERE id = $1
@@ -194,6 +211,133 @@ WHERE id = $1
 func (q *Queries) CountCannedResponseUse(ctx context.Context, responseID pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, countCannedResponseUse, responseID)
 	return err
+}
+
+const createLoyaltyProgram = `-- name: CreateLoyaltyProgram :one
+INSERT INTO loyalty_programs (
+  version, metric, currency, window_days, grace_days, created_by
+) VALUES (
+  $1, $2, $3,
+  $4, $5, $6
+)
+RETURNING id, version, enabled, metric, currency, window_days, grace_days, published_at, created_at, created_by
+`
+
+type CreateLoyaltyProgramParams struct {
+	Version    int32       `json:"version"`
+	Metric     string      `json:"metric"`
+	Currency   string      `json:"currency"`
+	WindowDays int32       `json:"window_days"`
+	GraceDays  int32       `json:"grace_days"`
+	CreatedBy  pgtype.UUID `json:"created_by"`
+}
+
+func (q *Queries) CreateLoyaltyProgram(ctx context.Context, arg CreateLoyaltyProgramParams) (LoyaltyProgram, error) {
+	row := q.db.QueryRow(ctx, createLoyaltyProgram,
+		arg.Version,
+		arg.Metric,
+		arg.Currency,
+		arg.WindowDays,
+		arg.GraceDays,
+		arg.CreatedBy,
+	)
+	var i LoyaltyProgram
+	err := row.Scan(
+		&i.ID,
+		&i.Version,
+		&i.Enabled,
+		&i.Metric,
+		&i.Currency,
+		&i.WindowDays,
+		&i.GraceDays,
+		&i.PublishedAt,
+		&i.CreatedAt,
+		&i.CreatedBy,
+	)
+	return i, err
+}
+
+const createLoyaltyTier = `-- name: CreateLoyaltyTier :one
+INSERT INTO loyalty_tiers (
+  program_id, code, name_en, name_ru, threshold, discount_bps, sort_order
+) VALUES (
+  $1, $2, $3, $4,
+  $5, $6, $7
+)
+RETURNING id, program_id, code, name_en, name_ru, threshold, discount_bps, sort_order
+`
+
+type CreateLoyaltyTierParams struct {
+	ProgramID   pgtype.UUID `json:"program_id"`
+	Code        string      `json:"code"`
+	NameEn      string      `json:"name_en"`
+	NameRu      string      `json:"name_ru"`
+	Threshold   int64       `json:"threshold"`
+	DiscountBps int32       `json:"discount_bps"`
+	SortOrder   int32       `json:"sort_order"`
+}
+
+func (q *Queries) CreateLoyaltyTier(ctx context.Context, arg CreateLoyaltyTierParams) (LoyaltyTier, error) {
+	row := q.db.QueryRow(ctx, createLoyaltyTier,
+		arg.ProgramID,
+		arg.Code,
+		arg.NameEn,
+		arg.NameRu,
+		arg.Threshold,
+		arg.DiscountBps,
+		arg.SortOrder,
+	)
+	var i LoyaltyTier
+	err := row.Scan(
+		&i.ID,
+		&i.ProgramID,
+		&i.Code,
+		&i.NameEn,
+		&i.NameRu,
+		&i.Threshold,
+		&i.DiscountBps,
+		&i.SortOrder,
+	)
+	return i, err
+}
+
+const customerLoyaltyMetric = `-- name: CustomerLoyaltyMetric :one
+SELECT
+  COALESCE((SELECT sum(o.paid_minor) FROM orders o
+    WHERE o.user_id = $1
+      AND o.state IN ('paid', 'fulfilled')
+      AND o.currency = $2
+      AND o.created_at >= now() - make_interval(days => $3::int)
+  ), 0)::bigint AS spend_minor,
+  (SELECT count(*)::bigint FROM orders o
+    WHERE o.user_id = $1
+      AND o.state IN ('paid', 'fulfilled')
+      AND o.created_at >= now() - make_interval(days => $3::int)
+  ) AS order_count,
+  COALESCE((SELECT extract(days FROM now() - min(e.starts_at))::bigint
+    FROM entitlements e WHERE e.user_id = $1
+  ), 0)::bigint AS tenure_days
+`
+
+type CustomerLoyaltyMetricParams struct {
+	UserID     pgtype.UUID `json:"user_id"`
+	Currency   string      `json:"currency"`
+	WindowDays int32       `json:"window_days"`
+}
+
+type CustomerLoyaltyMetricRow struct {
+	SpendMinor int64 `json:"spend_minor"`
+	OrderCount int64 `json:"order_count"`
+	TenureDays int64 `json:"tenure_days"`
+}
+
+// The metric a standing is evaluated on, computed from facts Omniflow already
+// records. Nothing new is tracked to support loyalty.
+func (q *Queries) CustomerLoyaltyMetric(ctx context.Context, arg CustomerLoyaltyMetricParams) (CustomerLoyaltyMetricRow, error) {
+	row := q.db.QueryRow(ctx, customerLoyaltyMetric, arg.UserID, arg.Currency, arg.WindowDays)
+	var i CustomerLoyaltyMetricRow
+	err := row.Scan(&i.SpendMinor, &i.OrderCount, &i.TenureDays)
+	return i, err
 }
 
 const getCannedResponse = `-- name: GetCannedResponse :one
@@ -239,6 +383,62 @@ func (q *Queries) GetDefaultSupportQueue(ctx context.Context) (SupportQueue, err
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getEnabledLoyaltyProgram = `-- name: GetEnabledLoyaltyProgram :one
+SELECT id, version, enabled, metric, currency, window_days, grace_days, published_at, created_at, created_by FROM loyalty_programs WHERE enabled
+`
+
+func (q *Queries) GetEnabledLoyaltyProgram(ctx context.Context) (LoyaltyProgram, error) {
+	row := q.db.QueryRow(ctx, getEnabledLoyaltyProgram)
+	var i LoyaltyProgram
+	err := row.Scan(
+		&i.ID,
+		&i.Version,
+		&i.Enabled,
+		&i.Metric,
+		&i.Currency,
+		&i.WindowDays,
+		&i.GraceDays,
+		&i.PublishedAt,
+		&i.CreatedAt,
+		&i.CreatedBy,
+	)
+	return i, err
+}
+
+const getLoyaltyStanding = `-- name: GetLoyaltyStanding :one
+SELECT s.user_id, s.program_id, s.tier_id, s.evaluated_metric, s.evaluated_at, s.grace_until, s.updated_at, t.code AS tier_code, t.name_en, t.name_ru, t.discount_bps
+FROM loyalty_standings s
+JOIN loyalty_tiers t ON t.id = s.tier_id
+WHERE s.user_id = $1
+`
+
+type GetLoyaltyStandingRow struct {
+	LoyaltyStanding LoyaltyStanding `json:"loyalty_standing"`
+	TierCode        string          `json:"tier_code"`
+	NameEn          string          `json:"name_en"`
+	NameRu          string          `json:"name_ru"`
+	DiscountBps     int32           `json:"discount_bps"`
+}
+
+func (q *Queries) GetLoyaltyStanding(ctx context.Context, userID pgtype.UUID) (GetLoyaltyStandingRow, error) {
+	row := q.db.QueryRow(ctx, getLoyaltyStanding, userID)
+	var i GetLoyaltyStandingRow
+	err := row.Scan(
+		&i.LoyaltyStanding.UserID,
+		&i.LoyaltyStanding.ProgramID,
+		&i.LoyaltyStanding.TierID,
+		&i.LoyaltyStanding.EvaluatedMetric,
+		&i.LoyaltyStanding.EvaluatedAt,
+		&i.LoyaltyStanding.GraceUntil,
+		&i.LoyaltyStanding.UpdatedAt,
+		&i.TierCode,
+		&i.NameEn,
+		&i.NameRu,
+		&i.DiscountBps,
 	)
 	return i, err
 }
@@ -378,6 +578,177 @@ func (q *Queries) ListCannedResponses(ctx context.Context) ([]SupportCannedRespo
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.UpdatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLoyaltyHistory = `-- name: ListLoyaltyHistory :many
+SELECT h.id, h.user_id, h.from_tier_id, h.to_tier_id, h.evaluated_metric, h.reason, h.actor_id, h.occurred_at, COALESCE(f.code, '') AS from_code, t.code AS to_code
+FROM loyalty_standing_history h
+LEFT JOIN loyalty_tiers f ON f.id = h.from_tier_id
+JOIN loyalty_tiers t ON t.id = h.to_tier_id
+WHERE h.user_id = $1
+ORDER BY h.occurred_at DESC
+LIMIT $2
+`
+
+type ListLoyaltyHistoryParams struct {
+	UserID   pgtype.UUID `json:"user_id"`
+	PageSize int32       `json:"page_size"`
+}
+
+type ListLoyaltyHistoryRow struct {
+	ID              int64              `json:"id"`
+	UserID          pgtype.UUID        `json:"user_id"`
+	FromTierID      pgtype.UUID        `json:"from_tier_id"`
+	ToTierID        pgtype.UUID        `json:"to_tier_id"`
+	EvaluatedMetric int64              `json:"evaluated_metric"`
+	Reason          string             `json:"reason"`
+	ActorID         pgtype.UUID        `json:"actor_id"`
+	OccurredAt      pgtype.Timestamptz `json:"occurred_at"`
+	FromCode        string             `json:"from_code"`
+	ToCode          string             `json:"to_code"`
+}
+
+func (q *Queries) ListLoyaltyHistory(ctx context.Context, arg ListLoyaltyHistoryParams) ([]ListLoyaltyHistoryRow, error) {
+	rows, err := q.db.Query(ctx, listLoyaltyHistory, arg.UserID, arg.PageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLoyaltyHistoryRow{}
+	for rows.Next() {
+		var i ListLoyaltyHistoryRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.FromTierID,
+			&i.ToTierID,
+			&i.EvaluatedMetric,
+			&i.Reason,
+			&i.ActorID,
+			&i.OccurredAt,
+			&i.FromCode,
+			&i.ToCode,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLoyaltyPrograms = `-- name: ListLoyaltyPrograms :many
+
+SELECT id, version, enabled, metric, currency, window_days, grace_days, published_at, created_at, created_by FROM loyalty_programs ORDER BY version DESC LIMIT $1
+`
+
+// ---------------------------------------------------------------------------
+// Loyalty
+// ---------------------------------------------------------------------------
+func (q *Queries) ListLoyaltyPrograms(ctx context.Context, pageSize int32) ([]LoyaltyProgram, error) {
+	rows, err := q.db.Query(ctx, listLoyaltyPrograms, pageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []LoyaltyProgram{}
+	for rows.Next() {
+		var i LoyaltyProgram
+		if err := rows.Scan(
+			&i.ID,
+			&i.Version,
+			&i.Enabled,
+			&i.Metric,
+			&i.Currency,
+			&i.WindowDays,
+			&i.GraceDays,
+			&i.PublishedAt,
+			&i.CreatedAt,
+			&i.CreatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLoyaltyTiers = `-- name: ListLoyaltyTiers :many
+SELECT id, program_id, code, name_en, name_ru, threshold, discount_bps, sort_order FROM loyalty_tiers WHERE program_id = $1 ORDER BY threshold
+`
+
+func (q *Queries) ListLoyaltyTiers(ctx context.Context, programID pgtype.UUID) ([]LoyaltyTier, error) {
+	rows, err := q.db.Query(ctx, listLoyaltyTiers, programID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []LoyaltyTier{}
+	for rows.Next() {
+		var i LoyaltyTier
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProgramID,
+			&i.Code,
+			&i.NameEn,
+			&i.NameRu,
+			&i.Threshold,
+			&i.DiscountBps,
+			&i.SortOrder,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listReferralRewardsForPair = `-- name: ListReferralRewardsForPair :many
+SELECT id, referred_user_id, beneficiary_user_id, role, order_id, amount_minor, currency, ledger_transaction_id, granted_at, reversed_at, reversed_by, reversal_reason, reversal_ledger_transaction_id FROM referral_rewards
+WHERE referred_user_id = $1
+ORDER BY granted_at
+`
+
+func (q *Queries) ListReferralRewardsForPair(ctx context.Context, referredUserID pgtype.UUID) ([]ReferralReward, error) {
+	rows, err := q.db.Query(ctx, listReferralRewardsForPair, referredUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ReferralReward{}
+	for rows.Next() {
+		var i ReferralReward
+		if err := rows.Scan(
+			&i.ID,
+			&i.ReferredUserID,
+			&i.BeneficiaryUserID,
+			&i.Role,
+			&i.OrderID,
+			&i.AmountMinor,
+			&i.Currency,
+			&i.LedgerTransactionID,
+			&i.GrantedAt,
+			&i.ReversedAt,
+			&i.ReversedBy,
+			&i.ReversalReason,
+			&i.ReversalLedgerTransactionID,
 		); err != nil {
 			return nil, err
 		}
@@ -757,6 +1128,116 @@ func (q *Queries) MoveSupportTicket(ctx context.Context, arg MoveSupportTicketPa
 	return i, err
 }
 
+const nextLoyaltyVersion = `-- name: NextLoyaltyVersion :one
+SELECT COALESCE(max(version), 0)::integer + 1 FROM loyalty_programs
+`
+
+func (q *Queries) NextLoyaltyVersion(ctx context.Context) (int32, error) {
+	row := q.db.QueryRow(ctx, nextLoyaltyVersion)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const publishLoyaltyProgram = `-- name: PublishLoyaltyProgram :one
+UPDATE loyalty_programs p
+SET enabled = (p.id = $1::uuid),
+    published_at = CASE WHEN p.id = $1::uuid
+      THEN COALESCE(p.published_at, now()) ELSE p.published_at END
+WHERE p.enabled OR p.id = $1::uuid
+RETURNING id, version, enabled, metric, currency, window_days, grace_days, published_at, created_at, created_by
+`
+
+// Enabling one programme disables the rest, because the partial unique index
+// allows exactly one and a customer can only stand in one definition at a time.
+func (q *Queries) PublishLoyaltyProgram(ctx context.Context, programID pgtype.UUID) (LoyaltyProgram, error) {
+	row := q.db.QueryRow(ctx, publishLoyaltyProgram, programID)
+	var i LoyaltyProgram
+	err := row.Scan(
+		&i.ID,
+		&i.Version,
+		&i.Enabled,
+		&i.Metric,
+		&i.Currency,
+		&i.WindowDays,
+		&i.GraceDays,
+		&i.PublishedAt,
+		&i.CreatedAt,
+		&i.CreatedBy,
+	)
+	return i, err
+}
+
+const recordLoyaltyChange = `-- name: RecordLoyaltyChange :one
+INSERT INTO loyalty_standing_history (
+  user_id, from_tier_id, to_tier_id, evaluated_metric, reason, actor_id
+) VALUES (
+  $1, $2, $3,
+  $4, $5, $6
+)
+RETURNING id, user_id, from_tier_id, to_tier_id, evaluated_metric, reason, actor_id, occurred_at
+`
+
+type RecordLoyaltyChangeParams struct {
+	UserID          pgtype.UUID `json:"user_id"`
+	FromTierID      pgtype.UUID `json:"from_tier_id"`
+	ToTierID        pgtype.UUID `json:"to_tier_id"`
+	EvaluatedMetric int64       `json:"evaluated_metric"`
+	Reason          string      `json:"reason"`
+	ActorID         pgtype.UUID `json:"actor_id"`
+}
+
+func (q *Queries) RecordLoyaltyChange(ctx context.Context, arg RecordLoyaltyChangeParams) (LoyaltyStandingHistory, error) {
+	row := q.db.QueryRow(ctx, recordLoyaltyChange,
+		arg.UserID,
+		arg.FromTierID,
+		arg.ToTierID,
+		arg.EvaluatedMetric,
+		arg.Reason,
+		arg.ActorID,
+	)
+	var i LoyaltyStandingHistory
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.FromTierID,
+		&i.ToTierID,
+		&i.EvaluatedMetric,
+		&i.Reason,
+		&i.ActorID,
+		&i.OccurredAt,
+	)
+	return i, err
+}
+
+const recordReferralSignal = `-- name: RecordReferralSignal :one
+INSERT INTO referral_signals (referred_user_id, code, evidence)
+VALUES ($1, $2, $3)
+ON CONFLICT (referred_user_id, code) DO UPDATE SET evidence = EXCLUDED.evidence
+RETURNING id, referred_user_id, code, evidence, detected_at
+`
+
+type RecordReferralSignalParams struct {
+	ReferredUserID pgtype.UUID `json:"referred_user_id"`
+	Code           string      `json:"code"`
+	Evidence       []byte      `json:"evidence"`
+}
+
+// Signals are advisory and deduplicated per pair, so a sweep that runs twice
+// records one signal rather than two.
+func (q *Queries) RecordReferralSignal(ctx context.Context, arg RecordReferralSignalParams) (ReferralSignal, error) {
+	row := q.db.QueryRow(ctx, recordReferralSignal, arg.ReferredUserID, arg.Code, arg.Evidence)
+	var i ReferralSignal
+	err := row.Scan(
+		&i.ID,
+		&i.ReferredUserID,
+		&i.Code,
+		&i.Evidence,
+		&i.DetectedAt,
+	)
+	return i, err
+}
+
 const recordSupportFirstResponse = `-- name: RecordSupportFirstResponse :one
 UPDATE support_tickets
 SET first_response_at = now(), updated_at = now()
@@ -790,6 +1271,133 @@ func (q *Queries) RecordSupportFirstResponse(ctx context.Context, ticketID pgtyp
 		&i.MergedIntoTicketID,
 	)
 	return i, err
+}
+
+const reverseReferralReward = `-- name: ReverseReferralReward :one
+UPDATE referral_rewards
+SET reversed_at = now(),
+    reversed_by = $1,
+    reversal_reason = $2,
+    reversal_ledger_transaction_id = $3
+WHERE id = $4 AND reversed_at IS NULL
+RETURNING id, referred_user_id, beneficiary_user_id, role, order_id, amount_minor, currency, ledger_transaction_id, granted_at, reversed_at, reversed_by, reversal_reason, reversal_ledger_transaction_id
+`
+
+type ReverseReferralRewardParams struct {
+	ReversedBy          pgtype.UUID `json:"reversed_by"`
+	ReversalReason      pgtype.Text `json:"reversal_reason"`
+	LedgerTransactionID pgtype.UUID `json:"ledger_transaction_id"`
+	RewardID            pgtype.UUID `json:"reward_id"`
+}
+
+// Records the reversal on the reward. The compensating ledger entries are
+// written by the caller in the same transaction, so a reward can never read as
+// reversed without the money having moved back.
+func (q *Queries) ReverseReferralReward(ctx context.Context, arg ReverseReferralRewardParams) (ReferralReward, error) {
+	row := q.db.QueryRow(ctx, reverseReferralReward,
+		arg.ReversedBy,
+		arg.ReversalReason,
+		arg.LedgerTransactionID,
+		arg.RewardID,
+	)
+	var i ReferralReward
+	err := row.Scan(
+		&i.ID,
+		&i.ReferredUserID,
+		&i.BeneficiaryUserID,
+		&i.Role,
+		&i.OrderID,
+		&i.AmountMinor,
+		&i.Currency,
+		&i.LedgerTransactionID,
+		&i.GrantedAt,
+		&i.ReversedAt,
+		&i.ReversedBy,
+		&i.ReversalReason,
+		&i.ReversalLedgerTransactionID,
+	)
+	return i, err
+}
+
+const searchReferralAttributions = `-- name: SearchReferralAttributions :many
+
+SELECT
+  a.referred_user_id,
+  a.referrer_user_id,
+  a.code,
+  a.created_at,
+  a.qualified_at,
+  a.review_state,
+  a.review_note,
+  a.signal_codes,
+  COALESCE(r.display_name, '') AS reviewer_name,
+  (SELECT count(*)::bigint FROM referral_rewards w
+    WHERE w.referred_user_id = a.referred_user_id AND w.reversed_at IS NULL) AS live_rewards,
+  COALESCE((SELECT sum(w.amount_minor) FROM referral_rewards w
+    WHERE w.referred_user_id = a.referred_user_id AND w.reversed_at IS NULL), 0)::bigint
+    AS rewarded_minor
+FROM referral_attributions a
+LEFT JOIN admin_users r ON r.id = a.reviewed_by
+WHERE ($1::text IS NULL OR a.review_state = $1::text)
+  AND (NOT $2::boolean OR cardinality(a.signal_codes) > 0)
+ORDER BY a.created_at DESC
+LIMIT $3
+`
+
+type SearchReferralAttributionsParams struct {
+	ReviewState   pgtype.Text `json:"review_state"`
+	SignalledOnly bool        `json:"signalled_only"`
+	PageSize      int32       `json:"page_size"`
+}
+
+type SearchReferralAttributionsRow struct {
+	ReferredUserID pgtype.UUID        `json:"referred_user_id"`
+	ReferrerUserID pgtype.UUID        `json:"referrer_user_id"`
+	Code           string             `json:"code"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	QualifiedAt    pgtype.Timestamptz `json:"qualified_at"`
+	ReviewState    string             `json:"review_state"`
+	ReviewNote     pgtype.Text        `json:"review_note"`
+	SignalCodes    []string           `json:"signal_codes"`
+	ReviewerName   string             `json:"reviewer_name"`
+	LiveRewards    int64              `json:"live_rewards"`
+	RewardedMinor  int64              `json:"rewarded_minor"`
+}
+
+// ---------------------------------------------------------------------------
+// Referral review
+// ---------------------------------------------------------------------------
+// The review queue: pairs a person may need to look at, newest first.
+func (q *Queries) SearchReferralAttributions(ctx context.Context, arg SearchReferralAttributionsParams) ([]SearchReferralAttributionsRow, error) {
+	rows, err := q.db.Query(ctx, searchReferralAttributions, arg.ReviewState, arg.SignalledOnly, arg.PageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SearchReferralAttributionsRow{}
+	for rows.Next() {
+		var i SearchReferralAttributionsRow
+		if err := rows.Scan(
+			&i.ReferredUserID,
+			&i.ReferrerUserID,
+			&i.Code,
+			&i.CreatedAt,
+			&i.QualifiedAt,
+			&i.ReviewState,
+			&i.ReviewNote,
+			&i.SignalCodes,
+			&i.ReviewerName,
+			&i.LiveRewards,
+			&i.RewardedMinor,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const searchSupportTickets = `-- name: SearchSupportTickets :many
@@ -938,6 +1546,48 @@ WHERE archived_at IS NULL
 func (q *Queries) SetDefaultSupportQueue(ctx context.Context, queueID pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, setDefaultSupportQueue, queueID)
 	return err
+}
+
+const setReferralReviewState = `-- name: SetReferralReviewState :one
+UPDATE referral_attributions
+SET review_state = $1,
+    reviewed_by = $2,
+    reviewed_at = now(),
+    review_note = $3
+WHERE referred_user_id = $4
+RETURNING referred_user_id, referrer_user_id, code, created_at, qualified_at, qualifying_order_id, rejected_reason, review_state, reviewed_by, reviewed_at, review_note, signal_codes
+`
+
+type SetReferralReviewStateParams struct {
+	ReviewState    string      `json:"review_state"`
+	ReviewedBy     pgtype.UUID `json:"reviewed_by"`
+	ReviewNote     pgtype.Text `json:"review_note"`
+	ReferredUserID pgtype.UUID `json:"referred_user_id"`
+}
+
+func (q *Queries) SetReferralReviewState(ctx context.Context, arg SetReferralReviewStateParams) (ReferralAttribution, error) {
+	row := q.db.QueryRow(ctx, setReferralReviewState,
+		arg.ReviewState,
+		arg.ReviewedBy,
+		arg.ReviewNote,
+		arg.ReferredUserID,
+	)
+	var i ReferralAttribution
+	err := row.Scan(
+		&i.ReferredUserID,
+		&i.ReferrerUserID,
+		&i.Code,
+		&i.CreatedAt,
+		&i.QualifiedAt,
+		&i.QualifyingOrderID,
+		&i.RejectedReason,
+		&i.ReviewState,
+		&i.ReviewedBy,
+		&i.ReviewedAt,
+		&i.ReviewNote,
+		&i.SignalCodes,
+	)
+	return i, err
 }
 
 const setSupportTicketPriority = `-- name: SetSupportTicketPriority :one
@@ -1230,6 +1880,49 @@ func (q *Queries) UpsertCannedResponse(ctx context.Context, arg UpsertCannedResp
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.UpdatedBy,
+	)
+	return i, err
+}
+
+const upsertLoyaltyStanding = `-- name: UpsertLoyaltyStanding :one
+INSERT INTO loyalty_standings (
+  user_id, program_id, tier_id, evaluated_metric, grace_until
+) VALUES (
+  $1, $2, $3,
+  $4, $5
+)
+ON CONFLICT (user_id) DO UPDATE SET
+  program_id = EXCLUDED.program_id, tier_id = EXCLUDED.tier_id,
+  evaluated_metric = EXCLUDED.evaluated_metric, grace_until = EXCLUDED.grace_until,
+  evaluated_at = now(), updated_at = now()
+RETURNING user_id, program_id, tier_id, evaluated_metric, evaluated_at, grace_until, updated_at
+`
+
+type UpsertLoyaltyStandingParams struct {
+	UserID          pgtype.UUID        `json:"user_id"`
+	ProgramID       pgtype.UUID        `json:"program_id"`
+	TierID          pgtype.UUID        `json:"tier_id"`
+	EvaluatedMetric int64              `json:"evaluated_metric"`
+	GraceUntil      pgtype.Timestamptz `json:"grace_until"`
+}
+
+func (q *Queries) UpsertLoyaltyStanding(ctx context.Context, arg UpsertLoyaltyStandingParams) (LoyaltyStanding, error) {
+	row := q.db.QueryRow(ctx, upsertLoyaltyStanding,
+		arg.UserID,
+		arg.ProgramID,
+		arg.TierID,
+		arg.EvaluatedMetric,
+		arg.GraceUntil,
+	)
+	var i LoyaltyStanding
+	err := row.Scan(
+		&i.UserID,
+		&i.ProgramID,
+		&i.TierID,
+		&i.EvaluatedMetric,
+		&i.EvaluatedAt,
+		&i.GraceUntil,
+		&i.UpdatedAt,
 	)
 	return i, err
 }

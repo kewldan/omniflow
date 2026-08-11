@@ -579,10 +579,10 @@ Goal: finish support, communication, configuration, and operational readiness be
 ### Referrals and loyalty
 
 - [ ] Referral program enablement, qualification rule, inviter/invitee reward, cap, and validity period
-- [ ] Attribution, qualification, rejected/fraud state, and reward history
-- [ ] Manual review and correction through compensating ledger entries
-- [ ] Loyalty tiers/rules with versioned definitions and deterministic evaluation
-- [ ] Abuse signals and rate limits without opaque automatic account punishment
+- [x] Attribution, qualification, rejected/fraud state, and reward history
+- [x] Manual review and correction through compensating ledger entries
+- [x] Loyalty tiers/rules with versioned definitions and deterministic evaluation
+- [x] Abuse signals and rate limits without opaque automatic account punishment
 
 ### News, campaigns, and communication
 

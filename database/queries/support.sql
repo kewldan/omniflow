@@ -372,3 +372,171 @@ SELECT
     FROM support_tickets t
     WHERE t.first_response_at IS NOT NULL AND t.first_response_at >= sqlc.arg(since)
   ), 0)::bigint AS median_first_response_seconds;
+
+-- ---------------------------------------------------------------------------
+-- Referral review
+-- ---------------------------------------------------------------------------
+
+-- name: SearchReferralAttributions :many
+-- The review queue: pairs a person may need to look at, newest first.
+SELECT
+  a.referred_user_id,
+  a.referrer_user_id,
+  a.code,
+  a.created_at,
+  a.qualified_at,
+  a.review_state,
+  a.review_note,
+  a.signal_codes,
+  COALESCE(r.display_name, '') AS reviewer_name,
+  (SELECT count(*)::bigint FROM referral_rewards w
+    WHERE w.referred_user_id = a.referred_user_id AND w.reversed_at IS NULL) AS live_rewards,
+  COALESCE((SELECT sum(w.amount_minor) FROM referral_rewards w
+    WHERE w.referred_user_id = a.referred_user_id AND w.reversed_at IS NULL), 0)::bigint
+    AS rewarded_minor
+FROM referral_attributions a
+LEFT JOIN admin_users r ON r.id = a.reviewed_by
+WHERE (sqlc.narg(review_state)::text IS NULL OR a.review_state = sqlc.narg(review_state)::text)
+  AND (NOT sqlc.arg(signalled_only)::boolean OR cardinality(a.signal_codes) > 0)
+ORDER BY a.created_at DESC
+LIMIT sqlc.arg(page_size);
+
+-- name: SetReferralReviewState :one
+UPDATE referral_attributions
+SET review_state = sqlc.arg(review_state),
+    reviewed_by = sqlc.narg(reviewed_by),
+    reviewed_at = now(),
+    review_note = sqlc.narg(review_note)
+WHERE referred_user_id = sqlc.arg(referred_user_id)
+RETURNING *;
+
+-- name: RecordReferralSignal :one
+-- Signals are advisory and deduplicated per pair, so a sweep that runs twice
+-- records one signal rather than two.
+INSERT INTO referral_signals (referred_user_id, code, evidence)
+VALUES (sqlc.arg(referred_user_id), sqlc.arg(code), sqlc.arg(evidence))
+ON CONFLICT (referred_user_id, code) DO UPDATE SET evidence = EXCLUDED.evidence
+RETURNING *;
+
+-- name: AttachReferralSignal :exec
+UPDATE referral_attributions
+SET signal_codes = ARRAY(SELECT DISTINCT unnest(signal_codes || sqlc.arg(code)::text)),
+    review_state = CASE WHEN review_state = 'clear' THEN 'held' ELSE review_state END
+WHERE referred_user_id = sqlc.arg(referred_user_id);
+
+-- name: ListReferralRewardsForPair :many
+SELECT * FROM referral_rewards
+WHERE referred_user_id = $1
+ORDER BY granted_at;
+
+-- name: ReverseReferralReward :one
+-- Records the reversal on the reward. The compensating ledger entries are
+-- written by the caller in the same transaction, so a reward can never read as
+-- reversed without the money having moved back.
+UPDATE referral_rewards
+SET reversed_at = now(),
+    reversed_by = sqlc.narg(reversed_by),
+    reversal_reason = sqlc.arg(reversal_reason),
+    reversal_ledger_transaction_id = sqlc.arg(ledger_transaction_id)
+WHERE id = sqlc.arg(reward_id) AND reversed_at IS NULL
+RETURNING *;
+
+-- ---------------------------------------------------------------------------
+-- Loyalty
+-- ---------------------------------------------------------------------------
+
+-- name: ListLoyaltyPrograms :many
+SELECT * FROM loyalty_programs ORDER BY version DESC LIMIT sqlc.arg(page_size);
+
+-- name: GetEnabledLoyaltyProgram :one
+SELECT * FROM loyalty_programs WHERE enabled;
+
+-- name: NextLoyaltyVersion :one
+SELECT COALESCE(max(version), 0)::integer + 1 FROM loyalty_programs;
+
+-- name: CreateLoyaltyProgram :one
+INSERT INTO loyalty_programs (
+  version, metric, currency, window_days, grace_days, created_by
+) VALUES (
+  sqlc.arg(version), sqlc.arg(metric), sqlc.arg(currency),
+  sqlc.arg(window_days), sqlc.arg(grace_days), sqlc.narg(created_by)
+)
+RETURNING *;
+
+-- name: CreateLoyaltyTier :one
+INSERT INTO loyalty_tiers (
+  program_id, code, name_en, name_ru, threshold, discount_bps, sort_order
+) VALUES (
+  sqlc.arg(program_id), sqlc.arg(code), sqlc.arg(name_en), sqlc.arg(name_ru),
+  sqlc.arg(threshold), sqlc.arg(discount_bps), sqlc.arg(sort_order)
+)
+RETURNING *;
+
+-- name: ListLoyaltyTiers :many
+SELECT * FROM loyalty_tiers WHERE program_id = $1 ORDER BY threshold;
+
+-- name: PublishLoyaltyProgram :one
+-- Enabling one programme disables the rest, because the partial unique index
+-- allows exactly one and a customer can only stand in one definition at a time.
+UPDATE loyalty_programs p
+SET enabled = (p.id = sqlc.arg(program_id)::uuid),
+    published_at = CASE WHEN p.id = sqlc.arg(program_id)::uuid
+      THEN COALESCE(p.published_at, now()) ELSE p.published_at END
+WHERE p.enabled OR p.id = sqlc.arg(program_id)::uuid
+RETURNING *;
+
+-- name: GetLoyaltyStanding :one
+SELECT sqlc.embed(s), t.code AS tier_code, t.name_en, t.name_ru, t.discount_bps
+FROM loyalty_standings s
+JOIN loyalty_tiers t ON t.id = s.tier_id
+WHERE s.user_id = $1;
+
+-- name: UpsertLoyaltyStanding :one
+INSERT INTO loyalty_standings (
+  user_id, program_id, tier_id, evaluated_metric, grace_until
+) VALUES (
+  sqlc.arg(user_id), sqlc.arg(program_id), sqlc.arg(tier_id),
+  sqlc.arg(evaluated_metric), sqlc.narg(grace_until)
+)
+ON CONFLICT (user_id) DO UPDATE SET
+  program_id = EXCLUDED.program_id, tier_id = EXCLUDED.tier_id,
+  evaluated_metric = EXCLUDED.evaluated_metric, grace_until = EXCLUDED.grace_until,
+  evaluated_at = now(), updated_at = now()
+RETURNING *;
+
+-- name: RecordLoyaltyChange :one
+INSERT INTO loyalty_standing_history (
+  user_id, from_tier_id, to_tier_id, evaluated_metric, reason, actor_id
+) VALUES (
+  sqlc.arg(user_id), sqlc.narg(from_tier_id), sqlc.arg(to_tier_id),
+  sqlc.arg(evaluated_metric), sqlc.arg(reason), sqlc.narg(actor_id)
+)
+RETURNING *;
+
+-- name: ListLoyaltyHistory :many
+SELECT h.*, COALESCE(f.code, '') AS from_code, t.code AS to_code
+FROM loyalty_standing_history h
+LEFT JOIN loyalty_tiers f ON f.id = h.from_tier_id
+JOIN loyalty_tiers t ON t.id = h.to_tier_id
+WHERE h.user_id = $1
+ORDER BY h.occurred_at DESC
+LIMIT sqlc.arg(page_size);
+
+-- name: CustomerLoyaltyMetric :one
+-- The metric a standing is evaluated on, computed from facts Omniflow already
+-- records. Nothing new is tracked to support loyalty.
+SELECT
+  COALESCE((SELECT sum(o.paid_minor) FROM orders o
+    WHERE o.user_id = sqlc.arg(user_id)
+      AND o.state IN ('paid', 'fulfilled')
+      AND o.currency = sqlc.arg(currency)
+      AND o.created_at >= now() - make_interval(days => sqlc.arg(window_days)::int)
+  ), 0)::bigint AS spend_minor,
+  (SELECT count(*)::bigint FROM orders o
+    WHERE o.user_id = sqlc.arg(user_id)
+      AND o.state IN ('paid', 'fulfilled')
+      AND o.created_at >= now() - make_interval(days => sqlc.arg(window_days)::int)
+  ) AS order_count,
+  COALESCE((SELECT extract(days FROM now() - min(e.starts_at))::bigint
+    FROM entitlements e WHERE e.user_id = sqlc.arg(user_id)
+  ), 0)::bigint AS tenure_days;

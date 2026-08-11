@@ -139,6 +139,11 @@ func TestOperationsRoutesRequireASession(t *testing.T) {
 		{http.MethodPost, "/v1/panel/support/tickets/00000000-0000-0000-0000-000000000000/notes"},
 		{http.MethodPost, "/v1/panel/support/tickets/00000000-0000-0000-0000-000000000000/merge"},
 		{http.MethodPut, "/v1/panel/support/canned"},
+		{http.MethodGet, "/v1/panel/referrals/review"},
+		{http.MethodPost, "/v1/panel/referrals/review/00000000-0000-0000-0000-000000000000"},
+		{http.MethodGet, "/v1/panel/loyalty/programs"},
+		{http.MethodPost, "/v1/panel/loyalty/programs"},
+		{http.MethodGet, "/v1/panel/customers/00000000-0000-0000-0000-000000000000/loyalty"},
 		{http.MethodGet, "/v1/panel/goods/products"},
 		{http.MethodPost, "/v1/panel/bulk"},
 	}
