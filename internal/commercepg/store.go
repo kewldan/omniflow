@@ -651,6 +651,10 @@ func (store *Store) settlePaidOrder(ctx context.Context, tx pgx.Tx, queries *dbg
 			return err
 		}
 		return store.applyOrderAddons(ctx, tx, queries, order, idempotencyKey)
+	case "goods":
+		// A shop purchase is not a subscription: it creates a delivery, not an
+		// entitlement, and nothing is pushed to Remnawave.
+		return store.settleGoodsOrder(ctx, queries, order, idempotencyKey)
 	}
 	if err := store.recordOrderRevenue(ctx, queries, order, idempotencyKey); err != nil {
 		return err

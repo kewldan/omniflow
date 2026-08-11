@@ -69,7 +69,7 @@ func (worker *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 		return nil
 	}
 
-	submission, err := claim.provider.Deliver(ctx, claim.request)
+	submission, err := worker.submit(ctx, claim)
 	if err != nil {
 		// An adapter that returns an error rather than a classified outcome has
 		// told us nothing about whether the purchase happened. That is the same
@@ -84,6 +84,37 @@ func (worker *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 	return worker.record(ctx, claim, submission)
 }
 
+// submit either asks the provider what happened or asks it to deliver.
+//
+// A row that already carries a provider reference has been submitted: the
+// provider took the request and has not finished. Asking again would be asking
+// for a second purchase, so this polls instead — which is what "delayed
+// delivery" means in practice.
+//
+// An adapter that cannot be polled leaves the outcome genuinely unknown, and
+// unknown is not a failure to retry or a success to record. It becomes an
+// ambiguous outcome, which parks the delivery for an operator rather than
+// guessing on the customer's money.
+func (worker *Worker) submit(ctx context.Context, claim claimed) (goods.Delivery, error) {
+	if claim.reference == "" {
+		return claim.provider.Deliver(ctx, claim.request)
+	}
+	polled, err := claim.provider.Poll(ctx, claim.reference)
+	if errors.Is(err, goods.ErrUnsupported) {
+		return goods.Delivery{
+			Status: "failed", FailureClass: goods.FailureAmbiguous, ErrorCode: "poll_unsupported",
+			Reference: claim.reference,
+		}, nil
+	}
+	if err != nil {
+		return goods.Delivery{}, err
+	}
+	if polled.Reference == "" {
+		polled.Reference = claim.reference
+	}
+	return polled, nil
+}
+
 // claimed carries what the first transaction resolved.
 type claimed struct {
 	done         bool
@@ -95,6 +126,10 @@ type claimed struct {
 	priceMinor   int64
 	customerID   pgtype.UUID
 	orderID      pgtype.UUID
+	// reference is what the provider returned on an earlier attempt. Its
+	// presence is what distinguishes "submit this" from "ask what happened to
+	// the one already submitted".
+	reference string
 }
 
 // claim locks the delivery, decides whether it may be submitted, and takes the
@@ -169,6 +204,10 @@ func (worker *Worker) claim(ctx context.Context, orderID string) (claimed, error
 		return claimed{}, err
 	}
 
+	reference := ""
+	if delivery.ProviderReference.Valid {
+		reference = delivery.ProviderReference.String
+	}
 	request := goods.DeliveryRequest{
 		Request: goods.Request{
 			Kind:           product.Kind,
@@ -187,7 +226,7 @@ func (worker *Worker) claim(ctx context.Context, orderID string) (claimed, error
 	return claimed{
 		attempt: attempt, providerSlug: product.ProviderSlug, provider: provider,
 		request: request, currency: order.Currency, priceMinor: order.QuotedPriceMinor,
-		customerID: order.UserID, orderID: id,
+		customerID: order.UserID, orderID: id, reference: reference,
 	}, nil
 }
 

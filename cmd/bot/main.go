@@ -16,6 +16,7 @@ import (
 	"github.com/omniflow/omniflow/internal/botapp"
 	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/config"
+	"github.com/omniflow/omniflow/internal/goodsdelivery"
 	apihttp "github.com/omniflow/omniflow/internal/httpapi"
 	"github.com/omniflow/omniflow/internal/operator"
 	"github.com/omniflow/omniflow/internal/payments"
@@ -280,7 +281,22 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.BotConfi
 		providers = append(providers, provider)
 	}
 	paymentService := paymentservice.New(pool, orders, providers...)
-	return botapp.NewCommerce(logger, store, orders, paymentService, commerceSettings(cfg)), pool, pool.Close, nil
+	commerceService := botapp.NewCommerce(logger, store, orders, paymentService, commerceSettings(cfg))
+	// The shop needs the encryption key to unseal a gateway credential before it
+	// can quote a price. Without one the catalog stays empty rather than the bot
+	// refusing to start: an installation that sells no digital goods never needs
+	// the key.
+	if len(cfg.DataEncryptionKey) == 32 {
+		registry, registryErr := goodsdelivery.NewRegistry(pool, cfg.DataEncryptionKey, cfg.DefaultCurrency)
+		if registryErr != nil {
+			pool.Close()
+			return nil, nil, func() {}, registryErr
+		}
+		commerceService.EnableShop(registry)
+	} else {
+		logger.Info("digital goods shop disabled", "reason", "APP_DATA_ENCRYPTION_KEY is not set")
+	}
+	return commerceService, pool, pool.Close, nil
 }
 
 func configureCommands(ctx context.Context, logger *slog.Logger, client *telegram.Bot) {

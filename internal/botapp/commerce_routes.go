@@ -18,8 +18,11 @@ import (
 // MenuState carries the badges the main menu shows without a second round trip.
 type MenuState struct {
 	CommerceEnabled bool
-	UnreadSupport   int
-	UnreadNews      int
+	// ShopEnabled is true when the operator has published at least one visible
+	// digital-goods product.
+	ShopEnabled   bool
+	UnreadSupport int
+	UnreadNews    int
 	// MultiSubscription swaps the single subscription entry for the switcher.
 	MultiSubscription bool
 	// TopUpEnabled and HasCart keep the menu honest: a button appears only when
@@ -34,12 +37,18 @@ type commerceContext struct {
 	Customer   Customer
 	Locale     Locale
 	TelegramID int64
+	// Username is the customer's Telegram handle as it arrived on this update.
+	// Omniflow does not store it: a handle can be changed or dropped at any
+	// time, so keeping a copy would mean holding a stale identifier for people
+	// who have moved on. It is used only to pre-fill a recipient the customer
+	// then confirms.
+	Username string
 }
 
 // commerceEnabled reports whether the operator configured the commerce surface.
 func (app *App) commerceEnabled() bool { return app.commerce != nil && app.customers != nil }
 
-func (app *App) commerceContext(ctx context.Context, telegramID int64, telegramLocale string) (commerceContext, error) {
+func (app *App) commerceContext(ctx context.Context, telegramID int64, telegramLocale string, username ...string) (commerceContext, error) {
 	customer, err := app.customers.EnsureCustomer(ctx, telegramID, telegramLocale)
 	if err != nil {
 		return commerceContext{}, err
@@ -50,7 +59,13 @@ func (app *App) commerceContext(ctx context.Context, telegramID int64, telegramL
 	} else if prefErr == nil && telegramLocale != "" {
 		locale = localeFrom(telegramLocale)
 	}
-	return commerceContext{Customer: customer, Locale: locale, TelegramID: telegramID}, nil
+	handle := ""
+	if len(username) > 0 {
+		handle = username[0]
+	}
+	return commerceContext{
+		Customer: customer, Locale: locale, TelegramID: telegramID, Username: handle,
+	}, nil
 }
 
 // menuState collects the unread badges for the main menu.
@@ -68,6 +83,9 @@ func (app *App) menuState(ctx context.Context, customerID string, locale Locale)
 	}
 	if _, _, found, err := app.commerce.Cart(ctx, customerID); err == nil {
 		state.HasCart = found
+	}
+	if products, err := app.customers.ShopProducts(ctx, locale); err == nil {
+		state.ShopEnabled = len(products) > 0
 	}
 	return state
 }
@@ -92,6 +110,11 @@ func (app *App) loadCommerceView(ctx context.Context, session commerceContext, r
 		return app.newsScreen(ctx, session), true
 	case routeSupport:
 		return app.supportScreen(ctx, session), true
+	case routeShop, routeShopOrders:
+		if view, handled := app.handleShopRoute(ctx, session, route); handled {
+			return view, true
+		}
+		return View{}, false
 	case routeAutoRenew:
 		return app.autoRenewScreen(ctx, session), true
 	case routeMethods:
@@ -494,6 +517,9 @@ func (app *App) handleCommerceAction(ctx context.Context, session commerceContex
 	if view, handled := app.handleExpansionAction(ctx, session, parts); handled {
 		return view, true
 	}
+	if view, handled := app.handleShopAction(ctx, session, parts); handled {
+		return view, true
+	}
 	switch parts[0] {
 	case "plan":
 		return app.planScreen(ctx, session, argument), true
@@ -765,7 +791,7 @@ func (app *App) HandlePreCheckout(ctx context.Context, client *telegram.Bot, que
 	}
 	locale := localeFrom(query.From.LanguageCode)
 	approve := false
-	session, err := app.commerceContext(ctx, query.From.ID, query.From.LanguageCode)
+	session, err := app.commerceContext(ctx, query.From.ID, query.From.LanguageCode, query.From.Username)
 	if err == nil {
 		locale = session.Locale
 		order, orderErr := app.customers.Order(ctx, session.Customer.ID, query.InvoicePayload, locale)
@@ -791,7 +817,7 @@ func (app *App) HandleSuccessfulPayment(ctx context.Context, client *telegram.Bo
 	}
 	payment := message.SuccessfulPayment
 	logger := app.logger.With("correlation_id", correlationID(update), "provider", "telegram_stars")
-	session, err := app.commerceContext(ctx, message.From.ID, message.From.LanguageCode)
+	session, err := app.commerceContext(ctx, message.From.ID, message.From.LanguageCode, message.From.Username)
 	if err != nil {
 		logger.Error("customer resolution failed during settlement", "error", err)
 		return
@@ -829,7 +855,7 @@ func (app *App) dispatchCommerceAction(ctx context.Context, client *telegram.Bot
 		return false
 	}
 	logger := app.withCorrelation(update).With("action", parts[0])
-	session, err := app.commerceContext(ctx, query.From.ID, query.From.LanguageCode)
+	session, err := app.commerceContext(ctx, query.From.ID, query.From.LanguageCode, query.From.Username)
 	if err != nil {
 		logger.Error("customer resolution failed", "error", err)
 		return false

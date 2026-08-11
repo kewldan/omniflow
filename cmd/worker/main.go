@@ -65,6 +65,9 @@ func main() {
 	if cfg.MetricsEnabled {
 		metrics = platform.NewMetrics("worker")
 	}
+	// The delivery registry is kept so the scheduler can be started once River
+	// exists. A nil value means the shop is not configured in this deployment.
+	var deliveryRegistry *goodsdelivery.Registry
 	workers := river.NewWorkers()
 	river.AddWorker(workers, fulfillment.NewWorker(pool, remnawaveClient, metrics))
 
@@ -79,6 +82,7 @@ func main() {
 			os.Exit(1)
 		}
 		river.AddWorker(workers, goodsdelivery.NewWorker(pool, registry, logger))
+		deliveryRegistry = registry
 	} else {
 		logger.Info("digital goods delivery disabled", "reason", "APP_DATA_ENCRYPTION_KEY is not set")
 	}
@@ -93,6 +97,12 @@ func main() {
 		os.Exit(1)
 	}
 	go fulfillment.NewScheduler(pool, client).Run(ctx)
+	if deliveryRegistry != nil {
+		// `goods_deliveries` is the source of truth about what is owed, not the
+		// job queue: the scheduler only translates "this row is due" into "run
+		// the worker", so a lost job costs a delay rather than a delivery.
+		go goodsdelivery.NewScheduler(pool, client, logger).Run(ctx)
+	}
 
 	// Automatic renewals. The worker builds the same adapter set the API does,
 	// because a renewal is a charge against the provider the customer already

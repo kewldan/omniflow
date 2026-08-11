@@ -46,7 +46,10 @@ type Commerce struct {
 	orders   *commercepg.Store
 	payments *paymentservice.Service
 	settings CommerceSettings
-	clock    func() time.Time
+	// goods holds the digital-goods adapters. A nil value leaves the shop
+	// unavailable, which is what an installation that sells none gets.
+	goods GoodsProviders
+	clock func() time.Time
 }
 
 // NewCommerce wires the bot's commerce surface.

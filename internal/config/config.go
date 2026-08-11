@@ -159,6 +159,11 @@ type BotConfig struct {
 	CryptoBotTestnet bool
 	YooKassaShopID   string
 	YooKassaSecret   string
+	// DataEncryptionKey unseals the digital-goods provider credential the shop
+	// needs to quote a price. It is optional: an installation with no shop never
+	// needs it, and the bot starts without the shop rather than refusing to
+	// start at all.
+	DataEncryptionKey []byte
 	// MarketingFrequencyCap bounds marketing messages per MarketingWindow. Zero
 	// disables the cap.
 	MarketingFrequencyCap int
@@ -271,6 +276,13 @@ func LoadBot() (BotConfig, error) {
 		MinimumTrialAccountAge: hourEnvOr("APP_TRIAL_MINIMUM_ACCOUNT_AGE_HOURS", 0),
 		CartTTL:                hourEnvOr("APP_CART_TTL_HOURS", 30*24*time.Hour),
 		Subscriptions:          loadSubscriptions(),
+	}
+	if encodedKey := os.Getenv("APP_DATA_ENCRYPTION_KEY"); encodedKey != "" {
+		key, err := decodeKey(encodedKey)
+		if err != nil {
+			return BotConfig{}, errors.New("APP_DATA_ENCRYPTION_KEY must be base64-encoded 32 bytes")
+		}
+		cfg.DataEncryptionKey = key
 	}
 	if cfg.DatabaseURL == "" {
 		return BotConfig{}, errors.New("APP_DATABASE_URL is required")
