@@ -48,6 +48,8 @@
           "commerce/fulfillment",
           "commerce/recurring-payments",
           "commerce/gifts-and-goods",
+          "commerce/campaigns",
+          "commerce/referrals-loyalty",
           "commerce/referrals-communication",
           "commerce/financial-invariants"
         ]
@@ -64,6 +66,8 @@
           "operations/admin-panel",
           "operations/admin-operations",
           "operations/support-desk",
+          "operations/required-channels",
+          "operations/ai-privacy",
           "operations/risk-controls",
           "operations/observability",
           "operations/maintenance-mode",

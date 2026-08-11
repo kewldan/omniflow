@@ -1,0 +1,142 @@
+---
+title: News, segments, and campaigns
+description: Reviewable audiences, the news lifecycle, and how a campaign is stopped once it is running.
+---
+
+## A segment is filters, never stored SQL
+
+An audience segment is a set of named filters compiled to parameterised SQL at
+read time. It is deliberately not a saved query fragment, for two reasons that
+each outweigh the flexibility a stored fragment would buy.
+
+An operator has to be able to read what a segment selects before sending
+anything to it, and an auditor has to be able to check afterwards what it
+selected. Neither is possible if the definition is a query somebody wrote once
+and nobody can now interpret.
+
+And a stored fragment is an injection surface with an audit trail attached.
+Every value here reaches SQL as a parameter, and the vocabulary is closed, so a
+segment cannot express anything the vocabulary does not allow — including
+reading a table it has no business reading.
+
+### The vocabulary
+
+| Filter | Selects |
+| --- | --- |
+| `status` | Account status |
+| `locale` | Interface language |
+| `subscription` | `active`, `expired`, or `none` |
+| `expiringWithinDays` | Live subscriptions ending soon |
+| `inactiveForDays` | No paid order in that many days |
+| `minimumSpendMinor` | Lifetime settled spend |
+| `loyaltyTier` | Current standing |
+| `planCode` | Holding a given plan |
+
+A key outside this list is refused on write rather than ignored. Silently
+dropping a filter would send to a wider audience than the operator asked for.
+
+### It explains itself
+
+Every segment carries a generated explanation of what it selects, in the same
+order as the filters. It is generated from the filters rather than typed by the
+operator, so it cannot describe something the query does not do.
+
+Compilation is deterministic: the same definition always produces the same SQL
+and the same explanation. A segment whose rendering changes between reviews is
+one nobody can approve.
+
+<Warning>
+  **An empty segment is every customer.** That is legitimate — an outage notice
+  means everybody — and the segment says so explicitly rather than rendering as
+  a blank definition. Nobody should mail the whole base by forgetting to add a
+  filter.
+</Warning>
+
+## The news lifecycle
+
+A publication timestamp alone cannot express "written but not ready",
+"scheduled for Tuesday", or "taken down because it was wrong" — and the last is
+the one an operator needs most urgently.
+
+Posts move through `draft` → `scheduled` → `published`, and from published to
+`unpublished` or `archived`. `published_at` is set once and kept, so
+unpublishing and republishing does not rewrite when customers first saw it.
+
+Scheduled posts are published by the worker on time, rather than depending on
+somebody being at a keyboard.
+
+## Templates validate their own variables
+
+A template declares the variables its body may use. A body referencing an
+undeclared variable is refused on write.
+
+The alternative is a customer receiving "Hello {{name}}" because nobody checked,
+and by then it has gone to everybody.
+
+Both languages are required, for the same reason canned support replies require
+both: the language of the customer is not the language of the operator.
+
+## How a campaign runs
+
+Creating a campaign queues nothing. The audience is estimated and stored, and
+the campaign sits in `draft` — a draft that had already queued its recipients
+would make the review step a formality.
+
+The estimate is counted with the same compiled fragment the send will walk, so
+what an operator approves and what actually receives the message cannot come
+from different definitions.
+
+Once running, the worker expands the audience into per-recipient rows in bounded
+batches. The recipient row's primary key is the deduplication: a
+paused-and-resumed campaign continues rather than restarting, and a customer
+cannot be queued twice.
+
+### Pausing works
+
+Only `running` campaigns are read for delivery. Pausing stops the send at the
+next batch without cancelling what has already gone and without losing the
+record of who received it.
+
+The permitted transitions are enforced in the statement rather than in the
+caller. A campaign that could jump from draft to completed would report a reach
+it never had.
+
+A segment that no longer compiles pauses its campaign rather than running
+against an audience nobody can read.
+
+## Who is skipped, and why
+
+The worker owns the audience. The bot's notifier owns delivery, because consent,
+quiet hours, frequency caps, and Telegram delivery health already live there —
+duplicating them would mean two places that can disagree about whether a
+customer may be messaged.
+
+A recipient the policy refuses is recorded as suppressed with a reason, never
+silently dropped:
+
+| Reason | Meaning |
+| --- | --- |
+| `no_consent` | Marketing consent not given |
+| `suppressed` | On the suppression list |
+| `frequency_cap` | Already had their marketing allowance this window |
+| `quiet_hours` | Inside their configured quiet window |
+| `delivery_blocked` | Blocked the bot, or the account is deactivated |
+| `no_telegram` | No reachable Telegram identity |
+
+An operator reviewing reach needs to see that four hundred people were on the
+list and not contacted, and why. A campaign that simply reports a smaller
+audience hides the decision.
+
+## Suppression is not the consent flag
+
+They mean different things. Consent is a preference the customer toggles; a
+suppression is a standing instruction that survives them toggling it back on by
+accident. Suppressions record a reason — customer request, bounce, complaint, or
+an operator decision — and who added them.
+
+## What is not stored
+
+Rendered message bodies. The template and its variables are the record, and the
+delivery the bot made is what the customer received. Copying the body into a
+campaigns table would duplicate customer-facing content into a second retention
+regime for no operational gain.

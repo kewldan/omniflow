@@ -1,0 +1,110 @@
+---
+title: Referral review and loyalty tiers
+description: Reversing a reward without rewriting history, and tier definitions a customer cannot silently fall out of.
+---
+
+## Referral review
+
+v0.4 built the referral programme: attribution, qualification, and a wallet
+reward through the ledger. What it had no answer for is the case an operator
+actually has to handle — somebody gaming it.
+
+### Signals ask for a person; they never punish
+
+An abuse signal holds a referral pair for review and marks it `held`. It cannot
+reject anything on its own.
+
+That is the whole policy. An automatic system that punishes customers silently
+is one nobody can explain to the customer it punished, so a heuristic's only
+power here is to ask for a human. Signals record what they saw in terms an
+operator can check — counts and identifiers, never a raw device fingerprint or
+an IP address, because a review surface is not a reason to widen what is
+retained.
+
+### Rejecting reverses through the ledger
+
+Rejecting a pair reverses every live reward with a compensating ledger
+transaction. It does not delete the original or edit it to zero.
+
+The ledger is append-only, and "this was granted and then taken back, by this
+operator, for this reason" is a different fact from "this was never granted" —
+the customer saw the balance either way, and the record has to say so.
+
+A rejection requires a reason, because it takes money back from a customer and
+the reason is what an operator quotes to them.
+
+<Warning>
+  **A reversal can take a balance negative.** That is deliberate. Refusing to
+  reverse because the money has already been spent would make an abusive
+  referral profitable as long as the reward is spent quickly. A negative balance
+  is visible, explicable from the ledger, and recoverable.
+</Warning>
+
+Referral review sits behind `risk.write` rather than a marketing permission.
+Deciding that somebody gamed a programme and taking their reward back is an
+adverse decision about a customer, which is what that permission governs
+everywhere else in the product.
+
+## Loyalty
+
+### Definitions are versioned and immutable
+
+A published loyalty definition is never edited. Editing publishes the next
+version, and the old one keeps explaining the assignments made under it.
+
+A customer who reached gold under one set of thresholds should not silently fall
+out of it because somebody changed the numbers. The standing stores the metric
+the decision was made on and the version in force, so "why am I silver?" has an
+answer that does not depend on what the thresholds say today.
+
+### Demotion is slower than promotion
+
+A customer who qualifies is promoted immediately. One who falls below keeps
+their tier for the configured grace period first, and recovering inside that
+window clears the clock rather than leaving them permanently one quiet month
+from demotion.
+
+A loyalty programme that demotes somebody for one slow month punishes exactly
+the customers it was built to keep.
+
+A zero grace period demotes at once. That is a legitimate configuration rather
+than a bug.
+
+### What a tier is measured on
+
+| Metric | Meaning |
+| --- | --- |
+| `spend` | Settled spend in the configured currency over the window |
+| `orders` | Paid orders over the window |
+| `tenure` | Days since the customer's first entitlement started |
+
+All three are facts Omniflow already records. That is deliberate: a loyalty
+model that needs new tracking is a loyalty model that needs new consent.
+
+### Publication rules
+
+Two things a `CHECK` constraint cannot express are refused by the domain:
+
+- The lowest tier must start at zero, so every customer reaches one. A
+  programme with no floor would leave a new customer in no tier at all.
+- A higher tier must not be worth less than a lower one. That is representable
+  and is certainly a mistake.
+
+### Evaluation is reproducible
+
+`Evaluate` takes the clock as an argument and has no database in it, so the same
+inputs always produce the same tier. A loyalty decision nobody can reproduce is
+one nobody can defend when a customer disputes it.
+
+It is also idempotent: history is written only when the standing actually
+changed, so a sweep running hourly does not produce a history entry every hour.
+
+Every change of standing is kept — a customer asking why they were demoted
+deserves an answer, and an operator correcting a mistake needs to see what the
+previous state was.
+
+### The discount rounds down
+
+Rounding should never favour the operator at the customer's expense, and here
+the operator is the one giving the discount. This is the opposite of the
+markup rule in the digital-goods shop, and for the same reason.

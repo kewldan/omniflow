@@ -1,0 +1,108 @@
+---
+title: AI privacy and the gateway
+description: What leaves the installation, what stops it leaving, and why AI is off until you turn it on.
+---
+
+Every AI feature sends text somebody else wrote — a support ticket, a customer's
+message, an operator's note — to a third party. This page is the account of what
+Omniflow does about that.
+
+<Note>
+  **AI is off until an owner configures it.** A gateway with no configured
+  provider answers "unavailable" to every request. Nothing is sent anywhere by
+  default, and no provider is contacted to find that out.
+</Note>
+
+## Nothing talks to a model directly
+
+`internal/aigateway` is the only route to a provider. Three properties follow
+from that, and each is why the indirection is worth having.
+
+**A feature cannot forget to redact.** Redaction happens inside the gateway, not
+in the caller. The only way to reach a provider is through a function that has
+already redacted, so a feature added next year inherits the protection without
+its author having to know it exists.
+
+**A task cannot be routed to an unapproved provider.** If a task is configured
+for a provider the owner has not approved, the request is refused — it does not
+fall back to another one. Fallback that widens where data goes is the single
+thing this gateway must never do.
+
+**A budget is a limit rather than a bill.** Ceilings are checked before the call.
+An unreadable meter fails closed, because spending against a budget nobody can
+measure is how an installation discovers its limit from an invoice. A provider
+that reports no token usage is charged an estimate rather than treated as free.
+
+## What is removed before anything is sent
+
+`internal/airedact` is the one place that decides. `Redact` takes no options: a
+redaction that can be partially disabled is one somebody will partially disable,
+and the first time that matters is the time a subscription link reaches a
+provider.
+
+| Category | What it catches |
+| --- | --- |
+| `subscription_link` | Any `https`, `vless`, `vmess`, `trojan`, or `ss` URL with a long path |
+| `token` | Telegram bot tokens, API keys, and long opaque secrets |
+| `payment_card` | Card-shaped digit runs, spaced or not |
+| `email` | Email addresses |
+| `phone` | International phone shapes |
+| `telegram_id` | Numeric identifiers, when labelled as such |
+| `ip_address` | IPv4 addresses |
+| `uuid` | Internal identifiers |
+
+Two details are worth knowing because they shaped the implementation.
+
+**Order is load-bearing.** A subscription link contains a UUID, and a UUID
+contains digit-and-dash runs that match the card pattern. Replacing an inner
+shape first leaves the outer one no longer matching its own pattern, so it
+survives as a half-redacted URL — worse than either outcome alone. Rules run
+widest shape first.
+
+**A redacted span becomes a labelled placeholder, not a hole.** A model reading
+"the customer sent [SUBSCRIPTION_LINK]" can still reason about the conversation.
+One reading a sentence with a gap in it cannot, and an operator comparing the
+original with what was sent can see exactly what was removed.
+
+Ordinary support prose is left untouched. That is pinned by a test, because a
+redactor that eats normal sentences makes the feature useless.
+
+## Seeing what would leave, before enabling anything
+
+The gateway can describe a request without making it. The preview reports the
+categories found, how many spans of each, and the size of what would be sent
+after redaction.
+
+It deliberately never includes the text. A data-use preview that quoted the
+content would be a second copy of the thing it exists to protect.
+
+The same account is returned with every completed request, so an operator can
+check the claim at the moment it matters rather than only when the feature was
+switched on.
+
+## Per-task configuration
+
+Each task carries its own provider, model, temperature, token limit, timeout,
+and budget. Summarising a ticket and judging whether somebody is committing
+fraud are not the same risk and should not share a configuration.
+
+| Task | What it does |
+| --- | --- |
+| `ticket_summary` | Summarises a support thread |
+| `reply_suggest` | Drafts a reply for an operator to edit |
+| `translate` | Russian/English, preserving product names and variables |
+| `classify` | Suggests category, priority, and tags |
+| `marketing_draft` | Drafts campaign and news copy |
+| `risk_analysis` | Explainable abuse and fraud assessment |
+
+## What AI is never allowed to do
+
+These are constraints on the product, not settings.
+
+- A generated reply is a draft. An authorised operator sends it.
+- AI may recommend an adverse action against a customer. It cannot take one:
+  no suspension, refund denial, wallet correction, or entitlement change happens
+  without a person.
+- AI may prepare a campaign. It cannot select recipients, schedule, or send.
+- Prompts, outputs, ticket content, customer data, and tool arguments never
+  enter anonymous telemetry.

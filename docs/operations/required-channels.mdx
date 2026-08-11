@@ -1,0 +1,99 @@
+---
+title: Mandatory channel subscription
+description: Requiring Telegram channel membership, and the rules that stop it punishing people unfairly.
+---
+
+An operator may require customers to be members of one or more Telegram
+channels. It is a marketing mechanism, and it is the only thing in Omniflow that
+can suspend a paying customer for a reason unrelated to payment. Every part of
+it is therefore reversible, warned about first, and auditable afterwards.
+
+## An unknown answer is never absence
+
+`getChatMember` can fail: Telegram is unreachable, the bot lost its admin rights
+in the channel, the API is rate-limiting. None of those mean the customer left.
+
+A failed check records `unknown`, which is a distinct state from `absent` and
+blocks nothing. Folding the two together would suspend people because of an
+outage, and that is the failure mode this mechanism has that nothing else in the
+product does.
+
+A customer with no membership record at all is in the same position: nobody has
+established they are absent, so nothing is gated.
+
+## Two requirements, two promises
+
+| Flag | What it does |
+| --- | --- |
+| `require_for_purchase` | Asks somebody to join before they pay |
+| `require_for_activation` | Takes access away from somebody who already did |
+
+They are separate because they are different promises. Only the activation
+requirement can suspend; gating a purchase never takes anything away from
+anybody.
+
+## Leaving is warned about before it costs anything
+
+The sequence is compliant → warned → suspended, and it is driven by a grace
+period the operator configures.
+
+The first check that finds a customer absent warns them and starts the clock.
+Nothing else happens until the clock runs out. The warning fires once per lapse
+rather than on every check, because a daily reminder to rejoin a channel is how
+a customer learns to ignore the bot.
+
+Three days is the default because it spans a weekend, which is when somebody is
+most likely to tidy up their channel list and least likely to notice the
+consequence.
+
+A zero grace period is a legitimate configuration and suspends at once — but it
+still sends the warning, because a customer suspended without warning is one who
+cannot tell why.
+
+## Rejoining restores automatically
+
+A customer who fixes the problem should not have to ask somebody to undo the
+consequence. The next check that finds them a member restores access, whether
+they were warned or already suspended.
+
+`left_at` is stamped the first time absence is seen and cleared on return, so
+the grace clock measures from when the customer actually left rather than from
+when a sweep noticed.
+
+## Exemptions
+
+The rule is a marketing mechanism, and there are always people it should not
+apply to: a paying customer who cannot join for their own reasons, somebody the
+operator promised, a test account.
+
+An exemption records who granted it and why, because one nobody can explain is
+indistinguishable from a mistake. It may carry an expiry.
+
+Exempting a suspended customer restores them at once — the rule no longer
+applies, so neither should its consequence. Revoking an exemption returns the
+customer to `compliant` rather than straight to `suspended`: the next check
+decides, and it warns first like anybody else. Suspending on revocation would
+take access away with no notice.
+
+## Caching and rate limits
+
+Membership answers are cached for a configurable window, six hours by default.
+`getChatMember` is rate-limited against a third party, and re-asking on every
+screen would make the bot slower for everybody in order to enforce a marketing
+rule.
+
+The worker re-verifies in bounded batches, so a large installation is re-checked
+over many passes rather than in one burst that gets the bot throttled.
+
+## Turning it off
+
+Disabling every channel stops enforcement immediately. The worker reads the
+enabled set first and returns without doing anything when it is empty, rather
+than continuing until some configuration cache expires.
+
+## Settings
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `channel_grace_seconds` | 259200 (3 days) | How long access continues after leaving |
+| `channel_recheck_seconds` | 21600 (6 hours) | How long a membership answer is trusted |
