@@ -46,13 +46,25 @@
   /*
    * The design uses a third, quieter text tone for mono metadata (IDs,
    * timestamps, captions). shadcn has no slot for it, so it stays explicit.
+   *
+   * The source design's light value is zinc-400 (#a1a1aa), which reaches only
+   * 2.5:1 on white. That is the tone every caption, timestamp, and identifier in
+   * both panels is drawn in, so it is darkened here to clear 4.5:1 on all three
+   * light surfaces — page, card, and muted chip. It stays visibly quieter than
+   * --muted-foreground, which is what the design asked the tone to do.
    */
-  --subtle-foreground: #a1a1aa;
+  --subtle-foreground: #6b6b75;
 
-  /* Status tones. The design only fixes the danger tone; the rest follow it. */
-  --success: #16a34a;
+  /*
+   * Status tones. The design fixes only the danger tone; the rest follow it.
+   *
+   * Each is used as text as well as a fill, so each clears 4.5:1 against the
+   * light surfaces rather than being picked for its swatch. The 500-weight
+   * variants these replace read well as a background and fail as a label.
+   */
+  --success: #15803d;
   --success-foreground: #fafafa;
-  --warning: #d97706;
+  --warning: #b45309;
   --warning-foreground: #fafafa;
   --info: #2563eb;
   --info-foreground: #fafafa;
@@ -99,7 +111,12 @@
   --input: #27272a;
   --ring: #d4d4d8;
 
-  --subtle-foreground: #71717a;
+  /*
+   * The source design's dark value is zinc-500 (#71717a), which reaches 3.7:1
+   * on the card surface. Lightened here to clear 4.5:1 on page, card, and muted
+   * while staying a step below --muted-foreground.
+   */
+  --subtle-foreground: #94949e;
 
   --success: #4ade80;
   --success-foreground: #18181b;
