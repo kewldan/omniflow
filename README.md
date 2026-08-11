@@ -16,7 +16,7 @@ Build Telegram-first self-service, subscriptions, billing, support, marketing, a
 [Quick start](#-quick-start) · [Roadmap](./ROADMAP.md) · [Documentation](./docs/index.mdx) · [Architecture](./docs/architecture/overview.mdx) · [Contributing](./CONTRIBUTING.md)
 
 > [!IMPORTANT]
-> Omniflow is under active development. The platform foundation, the commerce backend, the complete Telegram customer product, production runtime, and the v0.6 operator panel foundation — sign-in, two-factor, RBAC, audit, and the `/admin` shell — are implemented. Operational admin surfaces for customers, finance, catalog, and support arrive in v0.7 and v0.8. Web checkout remains intentionally disabled until the customer panel milestone; a payment method is offered in the bot only when the operator has configured that adapter.
+> Omniflow is under active development. The platform foundation, the commerce backend, the complete Telegram customer product, production runtime, and the complete v0.6 operator panel foundation — sign-in with two-factor, optional OIDC, granular RBAC, an append-only audit trail, security notices, and the `/admin` shell — are implemented and verified against PostgreSQL 18. Operational admin surfaces for customers, finance, catalog, and support arrive in v0.7 and v0.8. Web checkout remains intentionally disabled until the customer panel milestone; a payment method is offered in the bot only when the operator has configured that adapter.
 
 ## ✨ Highlights
 
@@ -27,6 +27,7 @@ Build Telegram-first self-service, subscriptions, billing, support, marketing, a
 | 💳 | **Commerce-ready backend** | Immutable plan versions, promotions, provider-neutral payments, refunds, wallet ledger, entitlements, durable fulfillment, and drift recovery. |
 | 🧭 | **One web application** | Customer routes and the `/admin` workspace share Next.js, localization, API bindings, and the same shadcn component system. |
 | 🔐 | **Operator panel with real access control** | Argon2id passwords, TOTP with recovery codes, optional OIDC, dual-expiry rotating sessions, six built-in roles, and an append-only audit trail enforced in the API rather than by hidden routes. |
+| 🔔 | **Security notices where you already look** | Sign-ins from a new address, password changes, second factors removed, and owner grants reach the operator Telegram group — naming the event and the account, never an address or a token. |
 | 🛡️ | **Privacy-conscious by design** | Protected Telegram messages, no HWID/IP display, no subscription-link storage, explicit secret boundaries, and optional anonymous telemetry. |
 | 🧱 | **Production-oriented foundation** | PostgreSQL migrations, durable River jobs, transactional outbox, Valkey, generated contracts, structured logs, observability, and security automation. |
 | 🧰 | **Contributor-friendly tooling** | Bun workspaces, Biome, TypeScript 7, Orval, sqlc, Atlas, Mintlify, Renovate, Release Please, and Conventional Commits. |

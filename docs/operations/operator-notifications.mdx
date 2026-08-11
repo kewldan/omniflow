@@ -28,6 +28,7 @@ On startup the bot creates one topic per event kind:
 | ⚠️ Fulfillment failures | Provisioning runs that stopped being a blip |
 | 🚨 Incidents | Maintenance transitions |
 | 💾 Backups | Backup outcomes |
+| 🔐 Admin security | Operator sign-ins from a new address, password changes and resets, two-factor removal, and owner grants |
 
 ## When binding fails
 
@@ -58,6 +59,11 @@ Past the cap for a topic within the window, further notices are marked `suppress
 Set the cap to `0` to send everything.
 
 ## Deduplication
+
+A security notice names the event and the operator account and nothing else. An
+operator address, a session token, and a client IP stay out of the group chat;
+that detail lives in the audit trail, behind the permissions that govern it. See
+[Admin panel](/operations/admin-panel).
 
 Every notice carries a dedupe key: the order for a purchase, the refund for a refund, the fulfillment operation for a failure. `operator_notifications (kind, dedupe_key)` is unique, so a retried webhook, a second reconciliation pass, and a job that fails repeatedly all produce one message.
 

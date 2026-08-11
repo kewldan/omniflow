@@ -27,9 +27,20 @@ The harness applies the committed migration files in order rather than a schema 
 - the outbox and the operator notice being written once per settlement;
 - maintenance blocking new orders while a paid order still settles;
 - the durable fulfillment job committing in the settlement transaction;
-- retention removing disposable rows and never an audit event.
+- retention removing disposable rows and never an audit event;
+- operator bootstrap creating exactly one owner, and the setup token being single-use;
+- sign-in answering identically for an unknown address and a wrong password, lockout after repeated failures, and the session, TOTP, and recovery-code lifecycles;
+- the last active owner surviving both role revocation and suspension, and only an owner granting the owner role;
+- suspension revoking live sessions, a password change sparing only the session that made it, and a reset link working once;
+- audit classification, both sort directions, and keyset pages that never repeat or skip a row.
 
 `load_test.go` is part of the same suite. It is not a throughput benchmark: it drives the same settlement, cart purchase, and subscription creation from many goroutines at once, because a duplicated charge only appears when the same work arrives from several directions simultaneously.
+
+Running the suite is the cheapest way to catch a class of defect that compiles
+and unit-tests cleanly: a Go enum widened without its database `CHECK`, an expiry
+computed from the application clock while its row's `created_at` comes from the
+database's, or a constraint whose derived name was guessed wrong. Each of those
+only fails against a real PostgreSQL.
 
 ## Migration upgrade gate
 
