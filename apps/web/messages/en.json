@@ -376,7 +376,18 @@
         "outbox.oldest_age": "Age of the oldest unpublished event. A large backlog of fresh events is healthy; one old event is not."
       },
       "unchanged": "unchanged",
-      "versusPrevious": "vs previous period"
+      "versusPrevious": "vs previous period",
+      "incidents": "Recent incidents",
+      "incidentAction": {
+        "activated": "Maintenance engaged",
+        "cleared": "Recovered"
+      },
+      "incidentSource": {
+        "manual": "by an operator",
+        "remnawave": "Remnawave unavailable",
+        "database": "database unavailable",
+        "valkey": "Valkey unavailable"
+      }
     },
     "customers": {
       "title": "Customers",
@@ -529,7 +540,40 @@
         "failed": "Failed",
         "abandoned": "Given up"
       },
-      "chargesNote": "A failed charge retries on a bounded schedule and then hands the customer back to manual renewal. Nothing here re-triggers one."
+      "chargesNote": "A failed charge retries on a bounded schedule and then hands the customer back to manual renewal. Nothing here re-triggers one.",
+      "detail": {
+        "description": "Every payment attempt and refund against this order.",
+        "notFound": "Order not found",
+        "loadFailed": "Could not load the order",
+        "subtotal": "Subtotal",
+        "discount": "Discount",
+        "wallet": "From wallet",
+        "external": "Via provider",
+        "paid": "Paid",
+        "refunded": "Refunded",
+        "intents": "Payment attempts",
+        "noIntents": "No payment was attempted for this order.",
+        "refunds": "Refunds",
+        "reconcile": "Re-poll provider",
+        "refundTitle": "Issue a refund",
+        "refundable": "Up to {amount} is still refundable.",
+        "refundAmount": "Amount",
+        "refundReason": "Reason",
+        "refundReasonPlaceholder": "Why this refund is being issued",
+        "minorUnitsHint": "The amount is an integer in the currency's minor unit. The payment service executes the refund against whatever the provider actually supports.",
+        "issueRefund": "Issue refund"
+      },
+      "events": {
+        "created": "Created",
+        "status_changed": "Status changed",
+        "amount_mismatch": "Amount did not match",
+        "wallet_unavailable": "Wallet unavailable",
+        "duplicate": "Duplicate payment",
+        "late": "Late settlement",
+        "overpayment": "Overpayment",
+        "underpayment": "Underpayment",
+        "reconciled": "Reconciled"
+      }
     },
     "risk": {
       "title": "Risk",
@@ -909,7 +953,36 @@
           "untested": "Capability test not run",
           "passed": "Test passed, not enabled",
           "failed": "Test failed"
-        }
+        },
+        "configure": "Configure",
+        "close": "Close",
+        "merchantId": "Merchant account",
+        "displayOrder": "Display order",
+        "credentialsField": "Credentials",
+        "credentialsHint": "Shop identifier and secret key",
+        "webhookSecret": "Webhook secret",
+        "webhookHint": "Secret used to verify inbound callbacks",
+        "keepStored": "Leave blank to keep the stored secret",
+        "enabledLabel": "Offer this provider at checkout",
+        "reason": "Reason",
+        "reasonPlaceholder": "Why this configuration is changing",
+        "secretNotice": "Stored secrets are sealed with the deployment's data encryption key and are never sent back to the browser. Leaving a field blank keeps what is stored.",
+        "save": "Save provider",
+        "test": "Test connection",
+        "testReason": "Connection test",
+        "testExplains": "The test performs an authenticated read; it never creates a payment.",
+        "testRecorded": "Result recorded.",
+        "probeError": {
+          "timeout": "The provider did not answer in time",
+          "rejected": "The provider rejected these credentials",
+          "unreachable": "The provider could not be reached"
+        },
+        "recurringUnsupportedLong": "This integration has no way to bind a payment method, so automatic charging cannot be enabled for it.",
+        "recurringExplains": "Whether a merchant account may charge a saved method is granted by the provider and cannot be discovered. Record the outcome of your own test; automatic charging cannot be enabled without a passing one.",
+        "recurringReasonPlaceholder": "What was tested, and with which merchant account",
+        "recurringEnable": "Passed — enable charging",
+        "recurringPassOnly": "Passed — record only",
+        "recurringFail": "Failed"
       }
     }
   }

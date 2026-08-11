@@ -481,6 +481,7 @@ type DunningAttempt struct {
 	OccurredAt      pgtype.Timestamptz `json:"occurred_at"`
 	NotifiedAt      pgtype.Timestamptz `json:"notified_at"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	NotifyRequired  bool               `json:"notify_required"`
 }
 
 type Entitlement struct {

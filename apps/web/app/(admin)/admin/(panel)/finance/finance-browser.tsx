@@ -220,7 +220,12 @@ function OrderSearch() {
         renderRow={(order) => (
           <TableRow key={order.id}>
             <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>
-              {new Date(order.createdAt).toLocaleString(locale)}
+              <Link
+                className="underline-offset-2 hover:underline"
+                href={`/admin/finance/${order.id}`}
+              >
+                {new Date(order.createdAt).toLocaleString(locale)}
+              </Link>
             </TableCell>
             <TableCell className="font-mono text-[11px]">
               <Link

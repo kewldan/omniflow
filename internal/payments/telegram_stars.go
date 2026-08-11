@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -128,3 +129,26 @@ func (provider *TelegramStars) VerifyWebhook(_ http.Header, body []byte) (Webhoo
 }
 
 var _ Provider = (*TelegramStars)(nil)
+
+// Probe verifies the bot token with getMe.
+//
+// A Stars adapter without a token is still valid for invoice creation and
+// settlement parsing, so it reports the probe as unsupported rather than
+// failing: there is nothing to authenticate.
+func (provider *TelegramStars) Probe(ctx context.Context) error {
+	if provider == nil || provider.token == "" {
+		return ErrUnsupported
+	}
+	var response struct {
+		Ok          bool   `json:"ok"`
+		Description string `json:"description"`
+	}
+	endpoint := provider.endpoint + "/bot" + provider.token + "/getMe"
+	if err := doJSON(ctx, provider.http, http.MethodGet, endpoint, nil, nil, &response); err != nil {
+		return err
+	}
+	if !response.Ok {
+		return fmt.Errorf("%w: %s", ErrProviderResponse, response.Description)
+	}
+	return nil
+}

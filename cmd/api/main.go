@@ -138,37 +138,17 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 		Logger:        logger,
 	})
 	go commerceStore.RunMaintenance(ctx, logger)
-	// The API process settles Stars only through the bot's authenticated update
-	// stream, so it registers the adapter with a refund-capable configuration
-	// only when a bot token is present.
-	starsAdapter := payments.Provider(&payments.TelegramStars{})
-	if cfg.TelegramToken != "" {
-		configured, providerErr := payments.NewTelegramStars(cfg.TelegramToken, paymentservice.NewStarsPayerResolver(pool))
-		if providerErr != nil {
-			valkeyClient.Close()
-			pool.Close()
-			return runtimeServices{}, nil, providerErr
-		}
-		starsAdapter = configured
-	}
-	providers := []payments.Provider{payments.Manual{}, starsAdapter}
-	if cfg.CryptoBotToken != "" {
-		provider, providerErr := payments.NewCryptoBot(cfg.CryptoBotToken, cfg.CryptoBotTestnet)
-		if providerErr != nil {
-			valkeyClient.Close()
-			pool.Close()
-			return runtimeServices{}, nil, providerErr
-		}
-		providers = append(providers, provider)
-	}
-	if cfg.YooKassaShopID != "" || cfg.YooKassaSecret != "" {
-		provider, providerErr := payments.NewYooKassa(cfg.YooKassaShopID, cfg.YooKassaSecret)
-		if providerErr != nil {
-			valkeyClient.Close()
-			pool.Close()
-			return runtimeServices{}, nil, providerErr
-		}
-		providers = append(providers, provider)
+	providers, err := paymentservice.ConfigureProviders(pool, paymentservice.ProviderOptions{
+		TelegramToken:    cfg.TelegramToken,
+		CryptoBotToken:   cfg.CryptoBotToken,
+		CryptoBotTestnet: cfg.CryptoBotTestnet,
+		YooKassaShopID:   cfg.YooKassaShopID,
+		YooKassaSecret:   cfg.YooKassaSecret,
+	})
+	if err != nil {
+		valkeyClient.Close()
+		pool.Close()
+		return runtimeServices{}, nil, err
 	}
 	remnawaveClient, err := remnawave.NewClient(cfg.RemnawaveURL, cfg.RemnawaveToken)
 	if err != nil {
@@ -250,7 +230,7 @@ func buildAdminPanel(
 	issueSetupTokenIfNeeded(logger, service)
 	return apihttp.NewAdminHandlers(apihttp.AdminOptions{
 		Service: service, Limiter: limiter, Logger: logger, Proxies: proxies,
-		Operations: operations, Providers: providerIndex(providers), Health: health,
+		Operations: operations, Providers: paymentservice.Index(providers), Health: health,
 		Fulfillment: fulfillmentService, Remnawave: remnawaveClient,
 		CookieSecure: cfg.AdminPanel.CookieSecure, Issuer: cfg.AdminPanel.Issuer,
 	}), nil
@@ -258,13 +238,6 @@ func buildAdminPanel(
 
 // providerIndex keys the configured adapters by name so the panel can publish
 // what each one declares about storing a payment method.
-func providerIndex(providers []payments.Provider) map[string]payments.Provider {
-	index := make(map[string]payments.Provider, len(providers))
-	for _, provider := range providers {
-		index[provider.Name()] = provider
-	}
-	return index
-}
 
 // seedCommerceSettings writes the wallet and subscription policy into the
 // database the first time the panel starts.

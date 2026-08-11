@@ -194,6 +194,14 @@ type WorkerConfig struct {
 	// digital goods, not because it stores anything of its own.
 	DataEncryptionKey []byte
 	DefaultCurrency   string
+	// Payment credentials. The worker holds them because it is the process that
+	// charges automatic renewals: a renewal is a charge against a provider, and
+	// a worker without the adapter could only ever record that it failed.
+	TelegramToken    string
+	CryptoBotToken   string
+	CryptoBotTestnet bool
+	YooKassaShopID   string
+	YooKassaSecret   string
 }
 
 func Load() (Config, error) {
@@ -313,15 +321,20 @@ func LoadBot() (BotConfig, error) {
 
 func LoadWorker() (WorkerConfig, error) {
 	cfg := WorkerConfig{
-		DatabaseURL:     os.Getenv("APP_DATABASE_URL"),
-		ValkeyURL:       os.Getenv("APP_VALKEY_URL"),
-		RemnawaveURL:    os.Getenv("APP_REMNAWAVE_URL"),
-		RemnawaveToken:  os.Getenv("APP_REMNAWAVE_TOKEN"),
-		MetricsAddr:     envOr("APP_WORKER_HTTP_ADDR", ":8081"),
-		MetricsEnabled:  boolEnvOr("APP_METRICS_ENABLED", true),
-		Maintenance:     loadMaintenance(),
-		Subscriptions:   loadSubscriptions(),
-		DefaultCurrency: strings.ToUpper(envOr("APP_DEFAULT_CURRENCY", "RUB")),
+		DatabaseURL:      os.Getenv("APP_DATABASE_URL"),
+		ValkeyURL:        os.Getenv("APP_VALKEY_URL"),
+		RemnawaveURL:     os.Getenv("APP_REMNAWAVE_URL"),
+		RemnawaveToken:   os.Getenv("APP_REMNAWAVE_TOKEN"),
+		MetricsAddr:      envOr("APP_WORKER_HTTP_ADDR", ":8081"),
+		MetricsEnabled:   boolEnvOr("APP_METRICS_ENABLED", true),
+		Maintenance:      loadMaintenance(),
+		Subscriptions:    loadSubscriptions(),
+		DefaultCurrency:  strings.ToUpper(envOr("APP_DEFAULT_CURRENCY", "RUB")),
+		TelegramToken:    os.Getenv("APP_TELEGRAM_TOKEN"),
+		CryptoBotToken:   os.Getenv("APP_CRYPTOBOT_TOKEN"),
+		CryptoBotTestnet: boolEnvOr("APP_CRYPTOBOT_TESTNET", true),
+		YooKassaShopID:   os.Getenv("APP_YOOKASSA_SHOP_ID"),
+		YooKassaSecret:   os.Getenv("APP_YOOKASSA_SECRET"),
 		Retention: RetentionConfig{
 			Outbox:    dayEnvOr("APP_RETENTION_OUTBOX_DAYS", 7*24*time.Hour),
 			Telemetry: dayEnvOr("APP_RETENTION_TELEMETRY_DAYS", 30*24*time.Hour),

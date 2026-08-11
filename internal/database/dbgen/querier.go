@@ -190,6 +190,12 @@ type Querier interface {
 	// their reason are required by the row itself, so an adverse decision cannot be
 	// recorded anonymously.
 	DecideBlocklistMatch(ctx context.Context, arg DecideBlocklistMatchParams) (BlocklistMatch, error)
+	// Pushes an attempt out without resolving it.
+	//
+	// This is what a still-pending payment gets. The provider has been asked and
+	// has not answered; recording a failure would be a lie and charging again
+	// would risk taking the money twice, so the attempt keeps its number and waits.
+	DeferDunningAttempt(ctx context.Context, arg DeferDunningAttemptParams) (DunningAttempt, error)
 	DeleteAdminOIDCProvider(ctx context.Context, slug string) error
 	// ---------------------------------------------------------------------------
 	// Recovery codes
@@ -276,6 +282,12 @@ type Querier interface {
 	// and the counts the page shows before any tab is opened.
 	GetCustomerOverview(ctx context.Context, id pgtype.UUID) (GetCustomerOverviewRow, error)
 	GetCustomerSubscription(ctx context.Context, arg GetCustomerSubscriptionParams) (Subscription, error)
+	// The order a renewal cycle is settling, if one was already opened.
+	//
+	// All attempts on a cycle share one order — the idempotency key is derived from
+	// the cycle key — so this is how a retry finds what the previous attempt
+	// created instead of opening a second one.
+	GetCycleOrder(ctx context.Context, arg GetCycleOrderParams) (Order, error)
 	GetDunningAttempt(ctx context.Context, arg GetDunningAttemptParams) (DunningAttempt, error)
 	GetEntitlement(ctx context.Context, id pgtype.UUID) (Entitlement, error)
 	GetFulfillmentOperation(ctx context.Context, id pgtype.UUID) (FulfillmentOperation, error)
@@ -446,6 +458,11 @@ type Querier interface {
 	ListLedgerEntriesByTransaction(ctx context.Context, transactionID pgtype.UUID) ([]LedgerEntry, error)
 	ListOpenDriftsDetailed(ctx context.Context, pageSize int32) ([]ListOpenDriftsDetailedRow, error)
 	ListOpenEntitlementDrifts(ctx context.Context, limit int32) ([]EntitlementDrift, error)
+	// Payment attempts on an order that have neither settled nor failed.
+	//
+	// A renewal must not be charged again while one of these is outstanding: the
+	// provider may still settle it, and a second charge would take the money twice.
+	ListOpenIntentsForOrder(ctx context.Context, orderID pgtype.UUID) ([]PaymentIntent, error)
 	ListOperatorTopics(ctx context.Context) ([]OperatorTopic, error)
 	ListOrderAddonLines(ctx context.Context, orderID pgtype.UUID) ([]OrderAddonLine, error)
 	ListOrderPaymentIntents(ctx context.Context, orderID pgtype.UUID) ([]PaymentIntent, error)
@@ -465,6 +482,12 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	ListPaymentProviderSettings(ctx context.Context) ([]PaymentProviderSetting, error)
 	ListPendingBulkOperationItems(ctx context.Context, arg ListPendingBulkOperationItemsParams) ([]BulkOperationItem, error)
+	// Failures the customer has not been told about, oldest first.
+	//
+	// The filter is deliberately a plain read of a stored decision. Which failures
+	// deserve a message is a product rule, and it is applied by the worker that
+	// resolved the attempt.
+	ListPendingDunningNotifications(ctx context.Context, pageSize int32) ([]ListPendingDunningNotificationsRow, error)
 	ListPendingOperatorNotifications(ctx context.Context, limit int32) ([]OperatorNotification, error)
 	// ---------------------------------------------------------------------------
 	// Add-ons
@@ -609,6 +632,10 @@ type Querier interface {
 	RequeueFulfillmentOperation(ctx context.Context, operationID pgtype.UUID) (FulfillmentOperation, error)
 	// Only a scheduled attempt resolves, so a retried worker cannot rewrite an
 	// outcome that has already been recorded.
+	//
+	// `notify_required` is written here rather than derived later because the rule
+	// that decides it lives in `internal/recurring`, and a second expression of it
+	// in SQL would be free to drift.
 	ResolveDunningAttempt(ctx context.Context, arg ResolveDunningAttemptParams) (DunningAttempt, error)
 	ResolveEntitlementDrifts(ctx context.Context, entitlementID pgtype.UUID) error
 	// An operator's verdict on a parked delivery. 'delivered' records that the
@@ -723,6 +750,7 @@ type Querier interface {
 	// Slides the inactivity window forward. The absolute deadline is never
 	// extended, so continuous activity cannot keep a session alive indefinitely.
 	TouchAdminSession(ctx context.Context, arg TouchAdminSessionParams) (AdminSession, error)
+	TouchPaymentMethodUsed(ctx context.Context, id pgtype.UUID) error
 	// Preferences are merged rather than replaced, so a panel that only knows about
 	// one key cannot silently drop the others when it saves.
 	UpdateAdminUserPreferences(ctx context.Context, arg UpdateAdminUserPreferencesParams) (AdminUser, error)

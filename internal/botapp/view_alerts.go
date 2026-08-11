@@ -98,3 +98,22 @@ func fulfillmentAlertView(locale Locale, succeeded bool, subscriptionLabel strin
 		row(callbackButton(text(locale, "action.menu"), routeHome)),
 	)}
 }
+
+// dunningAlertView tells a customer that an automatic charge did not go
+// through.
+//
+// The failure code is deliberately absent. "insufficient_funds" and
+// "declined" are operator vocabulary; what the customer needs is whether their
+// access is still there and what to do, and both messages say exactly that.
+// The precise code stays on the attempt row, where support can read it.
+func dunningAlertView(locale Locale, abandoned bool) View {
+	key := "alert.dunningRetry"
+	if abandoned {
+		key = "alert.dunningAbandoned"
+	}
+	return View{Text: text(locale, key), Keyboard: keyboard(
+		row(callbackButton(text(locale, "menu.renew"), routePlans)),
+		row(callbackButton(text(locale, "menu.settings"), routeSettings)),
+		row(callbackButton(text(locale, "action.menu"), routeHome)),
+	)}
+}

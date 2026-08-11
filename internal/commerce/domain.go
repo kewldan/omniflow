@@ -78,7 +78,11 @@ func ScheduleEntitlement(now time.Time, duration time.Duration, operation, upgra
 	switch operation {
 	case "purchase":
 		return schedule, nil
-	case "extension":
+	case "extension", "renewal":
+		// A renewal extends the same way a manual extension does. They are
+		// separate operations because the *reason* differs — one the customer
+		// asked for, one an automatic charge produced — and support has to be
+		// able to tell them apart. The entitlement arithmetic is identical.
 		schedule.EndsAt = base.Add(duration)
 		return schedule, nil
 	case "upgrade":

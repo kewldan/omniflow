@@ -9,7 +9,7 @@ import { Skeleton } from "@omniflow/ui/skeleton";
 import { Switch } from "@omniflow/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { useTranslations } from "next-intl";
-import { useEffect, useId, useState } from "react";
+import { Fragment, useEffect, useId, useState } from "react";
 import useSWR from "swr";
 
 import { PageHeader } from "@/components/admin/resource-table";
@@ -22,6 +22,8 @@ import {
 } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
+
+import { ProviderEditor } from "./provider-editor";
 
 /**
  * Wallet top-up, subscription concurrency, and payment-provider status.
@@ -275,7 +277,9 @@ function SubscriptionCard({
  */
 function ProviderCard() {
   const translate = useTranslations("admin.settings");
-  const { data, isLoading } = useSWR<Listing<ProviderSettings>, ApiError>(
+  const { can } = useSession();
+  const [editing, setEditing] = useState("");
+  const { data, isLoading, mutate } = useSWR<Listing<ProviderSettings>, ApiError>(
     "/v1/panel/settings/providers",
     fetcher,
   );
@@ -301,58 +305,82 @@ function ProviderCard() {
               <TableHead>{translate("providers.connection")}</TableHead>
               <TableHead>{translate("providers.webhook")}</TableHead>
               <TableHead>{translate("providers.recurring")}</TableHead>
+              <TableHead />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {items.map((provider) => (
-              <TableRow key={`${provider.provider}:${provider.merchantId}`}>
-                <TableCell className="font-mono text-[12px]">
-                  {provider.provider}
-                  {provider.merchantId && ` · ${provider.merchantId}`}
-                </TableCell>
-                <TableCell>
-                  <Badge variant={provider.enabled ? "success" : "neutral"}>
-                    {translate(provider.enabled ? "yes" : "no")}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  {translate(provider.credentialsSet ? "providers.set" : "providers.unset")}
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    variant={
-                      provider.connectionStatus === "healthy"
-                        ? "success"
-                        : provider.connectionStatus === "failing"
-                          ? "danger"
-                          : "neutral"
-                    }
-                  >
-                    {provider.connectionStatus}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    variant={
-                      provider.webhookStatus === "healthy"
-                        ? "success"
-                        : provider.webhookStatus === "failing"
-                          ? "danger"
-                          : "neutral"
-                    }
-                  >
-                    {provider.webhookStatus}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-sm">
-                  {!provider.adapterRecurring
-                    ? translate("providers.recurringUnsupported")
-                    : provider.recurringEnabled
-                      ? translate("providers.recurringOn")
-                      : translate(`providers.recurringTest.${provider.recurringTestStatus}`)}
-                </TableCell>
-              </TableRow>
-            ))}
+            {items.map((provider) => {
+              const key = `${provider.provider}:${provider.merchantId}`;
+              return (
+                <Fragment key={key}>
+                  <TableRow>
+                    <TableCell className="font-mono text-[12px]">
+                      {provider.provider}
+                      {provider.merchantId && ` · ${provider.merchantId}`}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={provider.enabled ? "success" : "neutral"}>
+                        {translate(provider.enabled ? "yes" : "no")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {translate(provider.credentialsSet ? "providers.set" : "providers.unset")}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          provider.connectionStatus === "healthy"
+                            ? "success"
+                            : provider.connectionStatus === "failing"
+                              ? "danger"
+                              : "neutral"
+                        }
+                      >
+                        {provider.connectionStatus}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          provider.webhookStatus === "healthy"
+                            ? "success"
+                            : provider.webhookStatus === "failing"
+                              ? "danger"
+                              : "neutral"
+                        }
+                      >
+                        {provider.webhookStatus}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {!provider.adapterRecurring
+                        ? translate("providers.recurringUnsupported")
+                        : provider.recurringEnabled
+                          ? translate("providers.recurringOn")
+                          : translate(`providers.recurringTest.${provider.recurringTestStatus}`)}
+                    </TableCell>
+                    <TableCell>
+                      {can("settings.write") && (
+                        <Button
+                          onClick={() => setEditing(editing === key ? "" : key)}
+                          size="sm"
+                          variant="ghost"
+                        >
+                          {translate(editing === key ? "providers.close" : "providers.configure")}
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                  {editing === key && (
+                    <TableRow>
+                      <TableCell className="p-2" colSpan={7}>
+                        <ProviderEditor onSaved={() => mutate()} provider={provider} />
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </Fragment>
+              );
+            })}
           </TableBody>
         </Table>
       </CardContent>

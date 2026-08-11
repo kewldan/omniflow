@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -137,6 +138,7 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 		write.Put("/settings/commerce/subscriptions", handlers.saveSubscriptionSettings)
 		write.Put("/settings/providers/{provider}", handlers.saveProviderSettings)
 		write.Post("/settings/providers/{provider}/recurring", handlers.configureRecurring)
+		write.Post("/settings/providers/{provider}/test", handlers.testProviderConnection)
 	})
 
 	// -- Risk ----------------------------------------------------------------
@@ -1012,6 +1014,74 @@ func (handlers *AdminHandlers) saveProviderSettings(writer http.ResponseWriter, 
 		saved.AdapterRecurring = handlers.adapterRecurring[saved.Provider]
 	}
 	handlers.respond(writer, request, saved, err)
+}
+
+// testProviderConnection asks the adapter to verify its own credentials.
+//
+// The probe is a read the provider's API already offers, so a test can never
+// create a payment. Three outcomes are distinguished because they need
+// different responses from an operator: the credentials work, the credentials
+// are rejected, or this adapter has no way to tell — the last is a limitation
+// to be recorded honestly, not a failure to be shown as one.
+func (handlers *AdminHandlers) testProviderConnection(writer http.ResponseWriter, request *http.Request) {
+	var body struct {
+		MerchantID string `json:"merchantId"`
+	}
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	name := chi.URLParam(request, "provider")
+	adapter, configured := handlers.providers[name]
+	if !configured {
+		writeProblem(
+			writer, request, http.StatusUnprocessableEntity,
+			"provider_not_loaded", "This provider is not configured in this deployment",
+		)
+		return
+	}
+
+	// The probe talks to a third party, so it gets its own deadline rather than
+	// borrowing the request's: an unresponsive provider must not hold an
+	// operator's connection open for as long as the server would allow.
+	ctx, cancel := context.WithTimeout(request.Context(), 20*time.Second)
+	defer cancel()
+
+	status, errorCode := "passed", ""
+	switch err := payments.Probe(ctx, adapter); {
+	case err == nil:
+	case errors.Is(err, payments.ErrUnsupported):
+		status = "unsupported"
+	default:
+		status, errorCode = "failed", probeErrorCode(err)
+		handlers.logger.WarnContext(
+			request.Context(), "provider connection test failed",
+			slog.String("provider", name), slog.String("error", err.Error()),
+		)
+	}
+
+	saved, err := handlers.operations.RecordConnectionCheck(
+		request.Context(), name, body.MerchantID, status, errorCode, actorFrom(request),
+	)
+	if err == nil {
+		saved.AdapterRecurring = handlers.adapterRecurring[name]
+	}
+	handlers.respond(writer, request, saved, err)
+}
+
+// probeErrorCode reduces an adapter failure to a stable, non-secret label.
+//
+// The provider's own message can carry a merchant identifier or a fragment of a
+// key, and it is already in the server log; what the panel stores and shows is
+// the class of failure.
+func probeErrorCode(err error) string {
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return "timeout"
+	case errors.Is(err, payments.ErrProviderResponse):
+		return "rejected"
+	default:
+		return "unreachable"
+	}
 }
 
 // configureRecurring records a capability test and, only on a pass, may enable

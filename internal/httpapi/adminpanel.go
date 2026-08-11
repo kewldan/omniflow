@@ -39,6 +39,9 @@ type AdminHandlers struct {
 	// storing a payment method. It is computed at construction so the panel and
 	// the enforcement path read the same fact.
 	adapterRecurring map[string]bool
+	// providers are the compiled-in payment adapters. The panel uses them only
+	// to probe credentials; it never creates a payment through them.
+	providers map[string]payments.Provider
 	// health runs the same dependency probes the readiness endpoint uses, so
 	// the panel and /readyz can never disagree about whether a dependency is up.
 	health *platform.Health
@@ -99,6 +102,7 @@ func NewAdminHandlers(options AdminOptions) *AdminHandlers {
 		proxies:          proxies,
 		operations:       options.Operations,
 		adapterRecurring: adapterCapabilities(options.Providers),
+		providers:        options.Providers,
 		health:           options.Health,
 		fulfillment:      options.Fulfillment,
 		remnawave:        options.Remnawave,

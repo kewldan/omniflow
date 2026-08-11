@@ -89,6 +89,12 @@ type CreateIntentInput struct {
 	Description     string
 	ReturnURL       string
 	ReceiptMetadata map[string]any
+	// SavedMethodToken charges a payment method the customer bound earlier
+	// instead of opening a checkout. It is only ever set by the renewal worker,
+	// which has already established that the customer consented, that the
+	// operator enabled recurring for this merchant account, and that the
+	// adapter can do it at all.
+	SavedMethodToken string
 }
 
 func (service *Service) CreateIntent(ctx context.Context, input CreateIntentInput) (dbgen.PaymentIntent, error) {
@@ -151,11 +157,38 @@ func (service *Service) CreateIntent(ctx context.Context, input CreateIntentInpu
 			return queries.UpdatePaymentIntentStatus(ctx, dbgen.UpdatePaymentIntentStatusParams{PaymentIntentID: intent.ID, Status: recovered.Status, ProviderReference: optionalText(recovered.ProviderReference), CheckoutUrl: optionalText(recovered.CheckoutURL)})
 		}
 	}
-	created, err := provider.Create(ctx, payments.CreateRequest{OrderID: input.OrderID, IdempotencyKey: input.IdempotencyKey, Amount: amount, Description: input.Description, ReturnURL: input.ReturnURL, Metadata: map[string]string{"order_id": input.OrderID}})
+	created, err := service.submit(ctx, provider, input, amount)
 	if err != nil {
 		return dbgen.PaymentIntent{}, err
 	}
 	return queries.UpdatePaymentIntentStatus(ctx, dbgen.UpdatePaymentIntentStatusParams{PaymentIntentID: intent.ID, Status: created.Status, ProviderReference: optionalText(created.ProviderReference), CheckoutUrl: optionalText(created.CheckoutURL)})
+}
+
+// submit asks the provider to move the money, by whichever of the two routes
+// this intent is for.
+//
+// An adapter that cannot charge a stored method is refused here rather than
+// silently falling back to opening a checkout: a renewal that quietly turns
+// into a payment link the customer never sees is worse than a failed renewal,
+// because nothing tells anyone it happened.
+func (service *Service) submit(
+	ctx context.Context, provider payments.Provider, input CreateIntentInput, amount commerce.Money,
+) (payments.Intent, error) {
+	if input.SavedMethodToken == "" {
+		return provider.Create(ctx, payments.CreateRequest{
+			OrderID: input.OrderID, IdempotencyKey: input.IdempotencyKey, Amount: amount,
+			Description: input.Description, ReturnURL: input.ReturnURL,
+			Metadata: map[string]string{"order_id": input.OrderID},
+		})
+	}
+	charger, ok := provider.(payments.RecurringCharger)
+	if !ok {
+		return payments.Intent{}, payments.ErrUnsupported
+	}
+	return charger.ChargeSaved(ctx, payments.SavedChargeRequest{
+		OrderID: input.OrderID, IdempotencyKey: input.IdempotencyKey,
+		MethodToken: input.SavedMethodToken, Amount: amount, Description: input.Description,
+	})
 }
 
 func (service *Service) Reconcile(ctx context.Context, paymentIntentID string) (dbgen.PaymentIntent, error) {

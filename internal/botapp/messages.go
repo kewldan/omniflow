@@ -316,6 +316,15 @@ var catalog = map[string]phrase{
 	"alert.expiry":          {ru: "⏳ <b>Подписка закончится через %d дн.</b>\n\nПродлите её, чтобы не потерять доступ.", en: "⏳ <b>Your subscription expires in %d day(s)</b>\n\nRenew it to keep your access."},
 	"alert.traffic":         {ru: "📡 <b>Использовано %d%% доступного трафика</b>\n\nПри исчерпании лимита подключение будет ограничено.", en: "📡 <b>You have used %d%% of your traffic allowance</b>\n\nYour connection is limited once the allowance runs out."},
 	"alert.renewal":         {ru: "♻️ <b>Пора продлить подписку</b>\n\nТариф: <b>%s</b>\nОсталось: <b>%d дн.</b>\nДействует до: <b>%s</b>", en: "♻️ <b>Time to renew</b>\n\nPlan: <b>%s</b>\nRemaining: <b>%d day(s)</b>\nValid until: <b>%s</b>"},
+	// Automatic renewal. The two messages differ because what the customer has
+	// to do differs: the first is a warning that resolves itself if the card
+	// starts working, the second is the end of automatic renewal.
+	"alert.dunningRetry": {
+		ru: "💳 <b>Не удалось списать оплату</b>\n\nМы попробуем ещё раз автоматически. Доступ пока сохраняется — проверьте способ оплаты или продлите вручную.",
+		en: "💳 <b>We could not take the payment</b>\n\nWe will try again automatically. Your access continues for now — check your payment method or renew by hand."},
+	"alert.dunningAbandoned": {
+		ru: "💳 <b>Автопродление остановлено</b>\n\nМы больше не пытаемся списать оплату. Продлите подписку вручную, чтобы сохранить доступ.",
+		en: "💳 <b>Automatic renewal has stopped</b>\n\nWe are no longer attempting to charge. Renew by hand to keep your access."},
 	"alert.fulfillmentDone": {ru: "🎉 <b>Подписка активирована</b>\n\nМожно подключаться.", en: "🎉 <b>Subscription activated</b>\n\nYou can connect now."},
 	"alert.fulfillmentFailed": {ru: "⚠️ <b>Активация задерживается</b>\n\nОплата сохранена, мы повторяем активацию автоматически. Если доступ не появится в течение часа — напишите в поддержку.",
 		en: "⚠️ <b>Activation is delayed</b>\n\nYour payment is safe and activation retries automatically. If access does not appear within an hour, contact support."},

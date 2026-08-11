@@ -33,6 +33,46 @@ func (q *Queries) CountDunningAttemptsForCycle(ctx context.Context, cycleKey str
 	return column_1, err
 }
 
+const deferDunningAttempt = `-- name: DeferDunningAttempt :one
+UPDATE dunning_attempts
+SET scheduled_for = $1
+WHERE id = $2 AND outcome = 'scheduled'
+RETURNING id, user_id, subscription_id, cycle_key, attempt, funding, payment_method_id, order_id, outcome, failure_code, scheduled_for, occurred_at, notified_at, created_at, notify_required
+`
+
+type DeferDunningAttemptParams struct {
+	ScheduledFor pgtype.Timestamptz `json:"scheduled_for"`
+	AttemptID    pgtype.UUID        `json:"attempt_id"`
+}
+
+// Pushes an attempt out without resolving it.
+//
+// This is what a still-pending payment gets. The provider has been asked and
+// has not answered; recording a failure would be a lie and charging again
+// would risk taking the money twice, so the attempt keeps its number and waits.
+func (q *Queries) DeferDunningAttempt(ctx context.Context, arg DeferDunningAttemptParams) (DunningAttempt, error) {
+	row := q.db.QueryRow(ctx, deferDunningAttempt, arg.ScheduledFor, arg.AttemptID)
+	var i DunningAttempt
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.SubscriptionID,
+		&i.CycleKey,
+		&i.Attempt,
+		&i.Funding,
+		&i.PaymentMethodID,
+		&i.OrderID,
+		&i.Outcome,
+		&i.FailureCode,
+		&i.ScheduledFor,
+		&i.OccurredAt,
+		&i.NotifiedAt,
+		&i.CreatedAt,
+		&i.NotifyRequired,
+	)
+	return i, err
+}
+
 const getAutoRenewSettings = `-- name: GetAutoRenewSettings :one
 
 SELECT user_id, enabled, plan_version_id, provider, currency, cancelled_at, updated_at, subscription_id, payment_method_id, funding, lead_time_seconds, consent_at, state, last_attempt_at, last_failure_code FROM auto_renew_settings
@@ -71,8 +111,48 @@ func (q *Queries) GetAutoRenewSettings(ctx context.Context, arg GetAutoRenewSett
 	return i, err
 }
 
+const getCycleOrder = `-- name: GetCycleOrder :one
+SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids FROM orders
+WHERE user_id = $1 AND idempotency_key = $2
+`
+
+type GetCycleOrderParams struct {
+	UserID         pgtype.UUID `json:"user_id"`
+	IdempotencyKey string      `json:"idempotency_key"`
+}
+
+// The order a renewal cycle is settling, if one was already opened.
+//
+// All attempts on a cycle share one order — the idempotency key is derived from
+// the cycle key — so this is how a retry finds what the previous attempt
+// created instead of opening a second one.
+func (q *Queries) GetCycleOrder(ctx context.Context, arg GetCycleOrderParams) (Order, error) {
+	row := q.db.QueryRow(ctx, getCycleOrder, arg.UserID, arg.IdempotencyKey)
+	var i Order
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.State,
+		&i.Operation,
+		&i.Currency,
+		&i.SubtotalMinor,
+		&i.DiscountMinor,
+		&i.WalletMinor,
+		&i.ExternalMinor,
+		&i.PaidMinor,
+		&i.RefundedMinor,
+		&i.IdempotencyKey,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SubscriptionID,
+		&i.SelectedSquadIds,
+	)
+	return i, err
+}
+
 const getDunningAttempt = `-- name: GetDunningAttempt :one
-SELECT id, user_id, subscription_id, cycle_key, attempt, funding, payment_method_id, order_id, outcome, failure_code, scheduled_for, occurred_at, notified_at, created_at FROM dunning_attempts
+SELECT id, user_id, subscription_id, cycle_key, attempt, funding, payment_method_id, order_id, outcome, failure_code, scheduled_for, occurred_at, notified_at, created_at, notify_required FROM dunning_attempts
 WHERE cycle_key = $1 AND attempt = $2
 `
 
@@ -99,6 +179,7 @@ func (q *Queries) GetDunningAttempt(ctx context.Context, arg GetDunningAttemptPa
 		&i.OccurredAt,
 		&i.NotifiedAt,
 		&i.CreatedAt,
+		&i.NotifyRequired,
 	)
 	return i, err
 }
@@ -217,7 +298,7 @@ func (q *Queries) ListAutoRenewDue(ctx context.Context, pageSize int32) ([]ListA
 }
 
 const listDueDunningAttempts = `-- name: ListDueDunningAttempts :many
-SELECT id, user_id, subscription_id, cycle_key, attempt, funding, payment_method_id, order_id, outcome, failure_code, scheduled_for, occurred_at, notified_at, created_at FROM dunning_attempts
+SELECT id, user_id, subscription_id, cycle_key, attempt, funding, payment_method_id, order_id, outcome, failure_code, scheduled_for, occurred_at, notified_at, created_at, notify_required FROM dunning_attempts
 WHERE outcome = 'scheduled' AND scheduled_for <= now()
 ORDER BY scheduled_for
 LIMIT $1
@@ -247,6 +328,7 @@ func (q *Queries) ListDueDunningAttempts(ctx context.Context, pageSize int32) ([
 			&i.OccurredAt,
 			&i.NotifiedAt,
 			&i.CreatedAt,
+			&i.NotifyRequired,
 		); err != nil {
 			return nil, err
 		}
@@ -259,7 +341,7 @@ func (q *Queries) ListDueDunningAttempts(ctx context.Context, pageSize int32) ([
 }
 
 const listDunningAttemptsForCustomer = `-- name: ListDunningAttemptsForCustomer :many
-SELECT id, user_id, subscription_id, cycle_key, attempt, funding, payment_method_id, order_id, outcome, failure_code, scheduled_for, occurred_at, notified_at, created_at FROM dunning_attempts
+SELECT id, user_id, subscription_id, cycle_key, attempt, funding, payment_method_id, order_id, outcome, failure_code, scheduled_for, occurred_at, notified_at, created_at, notify_required FROM dunning_attempts
 WHERE user_id = $1
 ORDER BY created_at DESC
 LIMIT $2
@@ -294,6 +376,52 @@ func (q *Queries) ListDunningAttemptsForCustomer(ctx context.Context, arg ListDu
 			&i.OccurredAt,
 			&i.NotifiedAt,
 			&i.CreatedAt,
+			&i.NotifyRequired,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOpenIntentsForOrder = `-- name: ListOpenIntentsForOrder :many
+SELECT id, order_id, provider, status, amount_minor, currency, provider_reference, checkout_url, idempotency_key, capabilities, receipt_metadata, created_at, updated_at FROM payment_intents
+WHERE order_id = $1
+  AND status NOT IN ('succeeded', 'failed', 'cancelled', 'expired', 'refunded')
+ORDER BY created_at DESC
+`
+
+// Payment attempts on an order that have neither settled nor failed.
+//
+// A renewal must not be charged again while one of these is outstanding: the
+// provider may still settle it, and a second charge would take the money twice.
+func (q *Queries) ListOpenIntentsForOrder(ctx context.Context, orderID pgtype.UUID) ([]PaymentIntent, error) {
+	rows, err := q.db.Query(ctx, listOpenIntentsForOrder, orderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []PaymentIntent{}
+	for rows.Next() {
+		var i PaymentIntent
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrderID,
+			&i.Provider,
+			&i.Status,
+			&i.AmountMinor,
+			&i.Currency,
+			&i.ProviderReference,
+			&i.CheckoutUrl,
+			&i.IdempotencyKey,
+			&i.Capabilities,
+			&i.ReceiptMetadata,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -355,8 +483,64 @@ func (q *Queries) ListPaymentMethods(ctx context.Context, userID pgtype.UUID) ([
 	return items, nil
 }
 
+const listPendingDunningNotifications = `-- name: ListPendingDunningNotifications :many
+SELECT d.id, d.user_id, d.subscription_id, d.cycle_key, d.attempt, d.funding, d.payment_method_id, d.order_id, d.outcome, d.failure_code, d.scheduled_for, d.occurred_at, d.notified_at, d.created_at, d.notify_required, r.telegram_id
+FROM dunning_attempts d
+JOIN remnawave_users r ON r.user_id = d.user_id AND r.telegram_id IS NOT NULL
+WHERE d.notify_required AND d.notified_at IS NULL
+ORDER BY d.occurred_at
+LIMIT $1
+`
+
+type ListPendingDunningNotificationsRow struct {
+	DunningAttempt DunningAttempt `json:"dunning_attempt"`
+	TelegramID     pgtype.Int8    `json:"telegram_id"`
+}
+
+// Failures the customer has not been told about, oldest first.
+//
+// The filter is deliberately a plain read of a stored decision. Which failures
+// deserve a message is a product rule, and it is applied by the worker that
+// resolved the attempt.
+func (q *Queries) ListPendingDunningNotifications(ctx context.Context, pageSize int32) ([]ListPendingDunningNotificationsRow, error) {
+	rows, err := q.db.Query(ctx, listPendingDunningNotifications, pageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListPendingDunningNotificationsRow{}
+	for rows.Next() {
+		var i ListPendingDunningNotificationsRow
+		if err := rows.Scan(
+			&i.DunningAttempt.ID,
+			&i.DunningAttempt.UserID,
+			&i.DunningAttempt.SubscriptionID,
+			&i.DunningAttempt.CycleKey,
+			&i.DunningAttempt.Attempt,
+			&i.DunningAttempt.Funding,
+			&i.DunningAttempt.PaymentMethodID,
+			&i.DunningAttempt.OrderID,
+			&i.DunningAttempt.Outcome,
+			&i.DunningAttempt.FailureCode,
+			&i.DunningAttempt.ScheduledFor,
+			&i.DunningAttempt.OccurredAt,
+			&i.DunningAttempt.NotifiedAt,
+			&i.DunningAttempt.CreatedAt,
+			&i.DunningAttempt.NotifyRequired,
+			&i.TelegramID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRecentDunningFailures = `-- name: ListRecentDunningFailures :many
-SELECT d.id, d.user_id, d.subscription_id, d.cycle_key, d.attempt, d.funding, d.payment_method_id, d.order_id, d.outcome, d.failure_code, d.scheduled_for, d.occurred_at, d.notified_at, d.created_at, u.status AS customer_status
+SELECT d.id, d.user_id, d.subscription_id, d.cycle_key, d.attempt, d.funding, d.payment_method_id, d.order_id, d.outcome, d.failure_code, d.scheduled_for, d.occurred_at, d.notified_at, d.created_at, d.notify_required, u.status AS customer_status
 FROM dunning_attempts d
 JOIN users u ON u.id = d.user_id
 WHERE d.outcome IN ('failed', 'abandoned')
@@ -405,6 +589,7 @@ func (q *Queries) ListRecentDunningFailures(ctx context.Context, arg ListRecentD
 			&i.DunningAttempt.OccurredAt,
 			&i.DunningAttempt.NotifiedAt,
 			&i.DunningAttempt.CreatedAt,
+			&i.DunningAttempt.NotifyRequired,
 			&i.CustomerStatus,
 		); err != nil {
 			return nil, err
@@ -421,7 +606,7 @@ const markDunningNotified = `-- name: MarkDunningNotified :one
 UPDATE dunning_attempts
 SET notified_at = now()
 WHERE id = $1 AND notified_at IS NULL
-RETURNING id, user_id, subscription_id, cycle_key, attempt, funding, payment_method_id, order_id, outcome, failure_code, scheduled_for, occurred_at, notified_at, created_at
+RETURNING id, user_id, subscription_id, cycle_key, attempt, funding, payment_method_id, order_id, outcome, failure_code, scheduled_for, occurred_at, notified_at, created_at, notify_required
 `
 
 func (q *Queries) MarkDunningNotified(ctx context.Context, attemptID pgtype.UUID) (DunningAttempt, error) {
@@ -442,6 +627,7 @@ func (q *Queries) MarkDunningNotified(ctx context.Context, attemptID pgtype.UUID
 		&i.OccurredAt,
 		&i.NotifiedAt,
 		&i.CreatedAt,
+		&i.NotifyRequired,
 	)
 	return i, err
 }
@@ -487,25 +673,32 @@ UPDATE dunning_attempts
 SET outcome = $1,
     failure_code = $2,
     order_id = $3,
+    notify_required = $4,
     occurred_at = now()
-WHERE id = $4 AND outcome = 'scheduled'
-RETURNING id, user_id, subscription_id, cycle_key, attempt, funding, payment_method_id, order_id, outcome, failure_code, scheduled_for, occurred_at, notified_at, created_at
+WHERE id = $5 AND outcome = 'scheduled'
+RETURNING id, user_id, subscription_id, cycle_key, attempt, funding, payment_method_id, order_id, outcome, failure_code, scheduled_for, occurred_at, notified_at, created_at, notify_required
 `
 
 type ResolveDunningAttemptParams struct {
-	Outcome     string      `json:"outcome"`
-	FailureCode pgtype.Text `json:"failure_code"`
-	OrderID     pgtype.UUID `json:"order_id"`
-	AttemptID   pgtype.UUID `json:"attempt_id"`
+	Outcome        string      `json:"outcome"`
+	FailureCode    pgtype.Text `json:"failure_code"`
+	OrderID        pgtype.UUID `json:"order_id"`
+	NotifyRequired bool        `json:"notify_required"`
+	AttemptID      pgtype.UUID `json:"attempt_id"`
 }
 
 // Only a scheduled attempt resolves, so a retried worker cannot rewrite an
 // outcome that has already been recorded.
+//
+// `notify_required` is written here rather than derived later because the rule
+// that decides it lives in `internal/recurring`, and a second expression of it
+// in SQL would be free to drift.
 func (q *Queries) ResolveDunningAttempt(ctx context.Context, arg ResolveDunningAttemptParams) (DunningAttempt, error) {
 	row := q.db.QueryRow(ctx, resolveDunningAttempt,
 		arg.Outcome,
 		arg.FailureCode,
 		arg.OrderID,
+		arg.NotifyRequired,
 		arg.AttemptID,
 	)
 	var i DunningAttempt
@@ -524,6 +717,7 @@ func (q *Queries) ResolveDunningAttempt(ctx context.Context, arg ResolveDunningA
 		&i.OccurredAt,
 		&i.NotifiedAt,
 		&i.CreatedAt,
+		&i.NotifyRequired,
 	)
 	return i, err
 }
@@ -628,7 +822,7 @@ INSERT INTO dunning_attempts (
   $5, $6, $7
 )
 ON CONFLICT (cycle_key, attempt) DO NOTHING
-RETURNING id, user_id, subscription_id, cycle_key, attempt, funding, payment_method_id, order_id, outcome, failure_code, scheduled_for, occurred_at, notified_at, created_at
+RETURNING id, user_id, subscription_id, cycle_key, attempt, funding, payment_method_id, order_id, outcome, failure_code, scheduled_for, occurred_at, notified_at, created_at, notify_required
 `
 
 type ScheduleDunningAttemptParams struct {
@@ -672,6 +866,7 @@ func (q *Queries) ScheduleDunningAttempt(ctx context.Context, arg ScheduleDunnin
 		&i.OccurredAt,
 		&i.NotifiedAt,
 		&i.CreatedAt,
+		&i.NotifyRequired,
 	)
 	return i, err
 }
@@ -757,6 +952,15 @@ func (q *Queries) SetDefaultPaymentMethod(ctx context.Context, arg SetDefaultPay
 		&i.RevokedAt,
 	)
 	return i, err
+}
+
+const touchPaymentMethodUsed = `-- name: TouchPaymentMethodUsed :exec
+UPDATE payment_methods SET last_used_at = now(), updated_at = now() WHERE id = $1
+`
+
+func (q *Queries) TouchPaymentMethodUsed(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, touchPaymentMethodUsed, id)
+	return err
 }
 
 const upsertAutoRenewSettings = `-- name: UpsertAutoRenewSettings :one

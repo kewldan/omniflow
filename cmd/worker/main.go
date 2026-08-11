@@ -11,16 +11,20 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omniflow/omniflow/internal/backup"
+	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/config"
 	"github.com/omniflow/omniflow/internal/fulfillment"
 	"github.com/omniflow/omniflow/internal/goodsdelivery"
 	apihttp "github.com/omniflow/omniflow/internal/httpapi"
 	"github.com/omniflow/omniflow/internal/jobs"
 	"github.com/omniflow/omniflow/internal/panelpg"
+	"github.com/omniflow/omniflow/internal/paymentservice"
 	"github.com/omniflow/omniflow/internal/platform"
 	"github.com/omniflow/omniflow/internal/remnawave"
+	"github.com/omniflow/omniflow/internal/renewal"
 	"github.com/omniflow/omniflow/internal/retention"
 	"github.com/omniflow/omniflow/internal/sweeper"
 	"github.com/riverqueue/river"
@@ -89,6 +93,34 @@ func main() {
 		os.Exit(1)
 	}
 	go fulfillment.NewScheduler(pool, client).Run(ctx)
+
+	// Automatic renewals. The worker builds the same adapter set the API does,
+	// because a renewal is a charge against the provider the customer already
+	// paid with: a worker missing that adapter could only record failures.
+	enqueue := func(enqueueCtx context.Context, tx pgx.Tx, operationID string) error {
+		_, insertErr := client.InsertTx(
+			enqueueCtx, tx, fulfillment.JobArgs{OperationID: operationID}, fulfillment.InsertOpts(),
+		)
+		return insertErr
+	}
+	commerceStore := commercepg.New(pool, enqueue, commercepg.Options{
+		Subscriptions: cfg.Subscriptions.Policy(), Logger: logger,
+	})
+	providers, err := paymentservice.ConfigureProviders(pool, paymentservice.ProviderOptions{
+		TelegramToken:    cfg.TelegramToken,
+		CryptoBotToken:   cfg.CryptoBotToken,
+		CryptoBotTestnet: cfg.CryptoBotTestnet,
+		YooKassaShopID:   cfg.YooKassaShopID,
+		YooKassaSecret:   cfg.YooKassaSecret,
+	})
+	if err != nil {
+		logger.Error("configure payment providers", "error", err)
+		os.Exit(1)
+	}
+	paymentService := paymentservice.New(pool, commerceStore, providers...).WithMetrics(metrics)
+	go renewal.New(
+		pool, commerceStore, paymentService, paymentservice.Index(providers), logger, renewal.Config{},
+	).Run(ctx)
 	// Lifecycle sweeps: gift and offer expiry always, plus blocklist refresh and
 	// anomaly evaluation when the encryption key makes a source credential
 	// readable.

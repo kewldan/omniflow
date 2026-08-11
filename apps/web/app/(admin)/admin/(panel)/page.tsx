@@ -17,6 +17,7 @@ import {
   formatBytes,
   formatDuration,
   formatMoney,
+  type Incident,
   type Metric,
 } from "@/lib/operations";
 import { useSession } from "@/lib/session";
@@ -142,9 +143,65 @@ export default function AdminHome() {
 
           <MetricGroup metrics={data.support} title={translate("dashboard.groups.support")} />
           <MetricGroup metrics={data.operations} title={translate("dashboard.groups.operations")} />
+          <Incidents />
         </>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Recent maintenance activations and recoveries.
+ *
+ * It sits under the operations tiles because that is the question it answers:
+ * a number that looks wrong is read differently once you can see the
+ * installation was in maintenance for twenty minutes last night.
+ *
+ * An installation that has never engaged maintenance renders nothing at all,
+ * rather than an empty card an operator learns to ignore.
+ */
+function Incidents() {
+  const translate = useTranslations("admin.dashboard");
+  const locale = useLocale();
+  const { data } = useSWR<{ items: Incident[] | null }, ApiError>(
+    "/v1/panel/overview/incidents?pageSize=10",
+    fetcher,
+  );
+
+  const items = data?.items ?? [];
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <section aria-labelledby="incidents-heading" className="flex flex-col gap-3">
+      <h2 className="font-semibold text-[15px] tracking-tight" id="incidents-heading">
+        {translate("incidents")}
+      </h2>
+      <Card>
+        <CardContent className="flex flex-col gap-2 pt-6">
+          {items.map((incident) => (
+            <div
+              className="flex flex-wrap items-baseline justify-between gap-3 text-sm"
+              key={incident.id}
+            >
+              <span className="flex items-center gap-2">
+                <Badge variant={incident.action === "activated" ? "warning" : "success"}>
+                  {translate(`incidentAction.${incident.action}`)}
+                </Badge>
+                <span className="text-muted-foreground">
+                  {translate(`incidentSource.${incident.source}`)}
+                </span>
+                {incident.reason && <span>{incident.reason}</span>}
+              </span>
+              <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                {new Date(incident.occurredAt).toLocaleString(locale)}
+              </span>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </section>
   );
 }
 

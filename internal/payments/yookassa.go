@@ -181,3 +181,49 @@ func basicAuth(username, password string) string {
 
 var _ Provider = (*YooKassa)(nil)
 var _ = fmt.Sprintf
+
+// Probe verifies the shop credentials by listing a single payment.
+//
+// The list endpoint is authenticated and read-only, so a pass means the shop
+// identifier and secret are accepted by YooKassa and a fail means they are not.
+// It never creates anything: an operator testing a connection must not be able
+// to produce a payment.
+func (provider *YooKassa) Probe(ctx context.Context) error {
+	var response struct {
+		Type string `json:"type"`
+	}
+	return provider.do(ctx, http.MethodGet, "/payments?limit=1", "", nil, &response)
+}
+
+// ChargeSaved charges a payment method the customer bound earlier.
+//
+// `capture: true` settles in one step rather than authorising and capturing
+// separately: there is nobody present to confirm, so a two-phase charge would
+// only create a window in which money is held and never taken.
+//
+// The idempotency key is the caller's, and YooKassa honours it for 24 hours,
+// which is what makes a retried worker safe: the same key returns the same
+// payment rather than making a second one.
+func (provider *YooKassa) ChargeSaved(ctx context.Context, request SavedChargeRequest) (Intent, error) {
+	exponent, err := currencyExponent(request.Amount.Currency)
+	if err != nil {
+		return Intent{}, err
+	}
+	body := map[string]any{
+		"amount": yooMoney{
+			Value:    formatMinor(request.Amount.Amount, exponent),
+			Currency: request.Amount.Currency,
+		},
+		"capture":           true,
+		"description":       request.Description,
+		"payment_method_id": request.MethodToken,
+		"metadata":          map[string]string{"order_id": request.OrderID},
+	}
+	var payment yooPayment
+	if err := provider.do(
+		ctx, http.MethodPost, "/payments", request.IdempotencyKey, body, &payment,
+	); err != nil {
+		return Intent{}, err
+	}
+	return provider.intent(payment)
+}

@@ -73,6 +73,30 @@ type Provider interface {
 	VerifyWebhook(http.Header, []byte) (WebhookEvent, error)
 }
 
+// SavedChargeRequest asks a provider to charge a token it issued earlier.
+//
+// The token is opaque and provider-scoped. Omniflow never holds a card number,
+// an expiry, or a verification value: the whole instrument stays with the
+// acquirer, and this hands back the reference it gave us.
+type SavedChargeRequest struct {
+	OrderID        string
+	IdempotencyKey string
+	MethodToken    string
+	Amount         commerce.Money
+	Description    string
+}
+
+// RecurringCharger is implemented by adapters that can charge a stored method
+// without the customer present.
+//
+// It is separate from Create because the two are different acts: Create opens a
+// checkout the customer completes, while this moves money on consent given
+// earlier. Keeping them apart means no code path can accidentally charge a
+// saved method while trying to start a checkout.
+type RecurringCharger interface {
+	ChargeSaved(context.Context, SavedChargeRequest) (Intent, error)
+}
+
 type Recoverer interface {
 	Recover(context.Context, string) (Intent, bool, error)
 }
@@ -135,4 +159,30 @@ func (Manual) Refund(_ context.Context, request RefundRequest) (Refund, error) {
 }
 func (Manual) VerifyWebhook(http.Header, []byte) (WebhookEvent, error) {
 	return WebhookEvent{}, ErrUnsupported
+}
+
+// ConnectionProbe is implemented by adapters that can verify their credentials
+// without moving money.
+//
+// The probe is a read the provider's own API already offers — listing recent
+// payments, describing the authenticated application — chosen so that a failed
+// probe means "these credentials do not work" and never "a customer was
+// charged". An adapter that cannot answer that question without a side effect
+// does not implement this, and the panel reports the credentials as untested
+// rather than inventing a result.
+type ConnectionProbe interface {
+	Probe(context.Context) error
+}
+
+// Probe verifies an adapter's credentials where it can.
+//
+// ErrUnsupported separates "the credentials are wrong" from "this adapter has
+// no way to tell", which the panel renders differently: the first is a
+// misconfiguration an operator must fix, the second is a limitation.
+func Probe(ctx context.Context, provider Provider) error {
+	probe, ok := provider.(ConnectionProbe)
+	if !ok {
+		return ErrUnsupported
+	}
+	return probe.Probe(ctx)
 }

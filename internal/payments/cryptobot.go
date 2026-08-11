@@ -225,3 +225,18 @@ func normalizeCryptoBotStatus(status string) string {
 		return "pending"
 	}
 }
+
+// Probe verifies the API token with getMe, which describes the authenticated
+// application and moves nothing.
+func (provider *CryptoBot) Probe(ctx context.Context) error {
+	var response struct {
+		Ok bool `json:"ok"`
+	}
+	if err := provider.call(ctx, "getMe", url.Values{}, &response); err != nil {
+		return err
+	}
+	if !response.Ok {
+		return fmt.Errorf("%w: getMe was rejected", ErrProviderResponse)
+	}
+	return nil
+}

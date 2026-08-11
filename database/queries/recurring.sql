@@ -172,13 +172,64 @@ LIMIT sqlc.arg(page_size);
 -- name: ResolveDunningAttempt :one
 -- Only a scheduled attempt resolves, so a retried worker cannot rewrite an
 -- outcome that has already been recorded.
+--
+-- `notify_required` is written here rather than derived later because the rule
+-- that decides it lives in `internal/recurring`, and a second expression of it
+-- in SQL would be free to drift.
 UPDATE dunning_attempts
 SET outcome = sqlc.arg(outcome),
     failure_code = sqlc.narg(failure_code),
     order_id = sqlc.narg(order_id),
+    notify_required = sqlc.arg(notify_required),
     occurred_at = now()
 WHERE id = sqlc.arg(attempt_id) AND outcome = 'scheduled'
 RETURNING *;
+
+-- name: DeferDunningAttempt :one
+-- Pushes an attempt out without resolving it.
+--
+-- This is what a still-pending payment gets. The provider has been asked and
+-- has not answered; recording a failure would be a lie and charging again
+-- would risk taking the money twice, so the attempt keeps its number and waits.
+UPDATE dunning_attempts
+SET scheduled_for = sqlc.arg(scheduled_for)
+WHERE id = sqlc.arg(attempt_id) AND outcome = 'scheduled'
+RETURNING *;
+
+-- name: ListPendingDunningNotifications :many
+-- Failures the customer has not been told about, oldest first.
+--
+-- The filter is deliberately a plain read of a stored decision. Which failures
+-- deserve a message is a product rule, and it is applied by the worker that
+-- resolved the attempt.
+SELECT sqlc.embed(d), r.telegram_id
+FROM dunning_attempts d
+JOIN remnawave_users r ON r.user_id = d.user_id AND r.telegram_id IS NOT NULL
+WHERE d.notify_required AND d.notified_at IS NULL
+ORDER BY d.occurred_at
+LIMIT sqlc.arg(page_size);
+
+-- name: GetCycleOrder :one
+-- The order a renewal cycle is settling, if one was already opened.
+--
+-- All attempts on a cycle share one order — the idempotency key is derived from
+-- the cycle key — so this is how a retry finds what the previous attempt
+-- created instead of opening a second one.
+SELECT * FROM orders
+WHERE user_id = sqlc.arg(user_id) AND idempotency_key = sqlc.arg(idempotency_key);
+
+-- name: ListOpenIntentsForOrder :many
+-- Payment attempts on an order that have neither settled nor failed.
+--
+-- A renewal must not be charged again while one of these is outstanding: the
+-- provider may still settle it, and a second charge would take the money twice.
+SELECT * FROM payment_intents
+WHERE order_id = sqlc.arg(order_id)
+  AND status NOT IN ('succeeded', 'failed', 'cancelled', 'expired', 'refunded')
+ORDER BY created_at DESC;
+
+-- name: TouchPaymentMethodUsed :exec
+UPDATE payment_methods SET last_used_at = now(), updated_at = now() WHERE id = $1;
 
 -- name: MarkDunningNotified :one
 UPDATE dunning_attempts

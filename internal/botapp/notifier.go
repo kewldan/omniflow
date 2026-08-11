@@ -101,6 +101,7 @@ func (notifier *Notifier) Run(ctx context.Context) {
 // RunOnce executes one full notification pass.
 func (notifier *Notifier) RunOnce(ctx context.Context) {
 	notifier.deliverSupportReplies(ctx)
+	notifier.deliverDunning(ctx)
 	candidates, err := notifier.store.notificationCandidates(ctx, notifier.settings.MarketingWindow)
 	if err != nil {
 		notifier.logger.Error("notification candidate lookup failed", "error", err)
@@ -259,6 +260,38 @@ func (notifier *Notifier) deliverSupportReplies(ctx context.Context) {
 		// mark is what raises the unread counter, so a retry cannot double-count.
 		if err := notifier.store.MarkOperatorReplyDelivered(ctx, reply.MessageID); err != nil {
 			notifier.logger.Error("operator reply delivery bookkeeping failed", "ticket_id", reply.TicketID, "error", err)
+		}
+	}
+}
+
+// deliverDunning tells customers about failed automatic charges.
+//
+// It bypasses the quiet-hours and preference machinery the lifecycle alerts go
+// through, and deliberately so: this is a payment notice about the customer's
+// own subscription, in the same class as a receipt. A customer who is about to
+// lose access because a card was declined is not served by holding the message
+// until morning, and there is no opt-out for it in the preference model either.
+func (notifier *Notifier) deliverDunning(ctx context.Context) {
+	notices, err := notifier.store.PendingDunningNotices(ctx, notificationBatch)
+	if err != nil {
+		notifier.logger.Error("dunning notice lookup failed", "error", err)
+		return
+	}
+	for _, notice := range notices {
+		if ctx.Err() != nil {
+			return
+		}
+		view := dunningAlertView(localeFrom(notice.Locale), notice.Abandoned)
+		if err := notifier.sender.Send(ctx, notice.CustomerID, notice.TelegramID, view); err != nil {
+			// Leaving the mark unset is what retries it. A customer who has
+			// blocked the bot is handled by the delivery state the sender keeps.
+			notifier.logger.Warn("dunning notice delivery failed",
+				"attemptId", notice.AttemptID, "error", err)
+			continue
+		}
+		if err := notifier.store.MarkDunningNotified(ctx, notice.AttemptID); err != nil {
+			notifier.logger.Error("dunning notice bookkeeping failed",
+				"attemptId", notice.AttemptID, "error", err)
 		}
 	}
 }

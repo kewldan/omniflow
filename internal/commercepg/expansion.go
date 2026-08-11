@@ -706,7 +706,7 @@ func (store *Store) notifyOperator(ctx context.Context, queries *dbgen.Queries, 
 // it, so renewals do not drown the purchase stream.
 func operatorKindForOrder(operation string) string {
 	switch operation {
-	case "extension":
+	case "extension", "renewal":
 		return "renewal"
 	case "topup":
 		return "topup"
