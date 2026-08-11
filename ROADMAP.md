@@ -607,14 +607,14 @@ Goal: finish support, communication, configuration, and operational readiness be
 - [x] Provider-neutral AI gateway with OpenAI-compatible, Anthropic, and Gemini adapters
 - [x] OpenAI-compatible adapter supports operator-selected hosted or local models
 - [x] Separate model, temperature, token limit, timeout, and budget configuration per task
-- [ ] Ticket-thread summary with customer intent, actions already attempted, and unresolved questions
-- [ ] Suggested ticket reply grounded in the visible conversation and approved knowledge sources
-- [ ] Rewrite controls for shorter, clearer, friendlier, more formal, or more technical replies
-- [ ] Russian/English translation that preserves product names, links, and template variables
-- [ ] Suggested category, priority, tags, sentiment, and escalation reason
+- [x] Ticket-thread summary with customer intent, actions already attempted, and unresolved questions
+- [x] Suggested ticket reply grounded in the visible conversation and approved knowledge sources
+- [x] Rewrite controls for shorter, clearer, friendlier, more formal, or more technical replies
+- [x] Russian/English translation that preserves product names, links, and template variables
+- [x] Suggested category, priority, tags, sentiment, and escalation reason
 - [ ] Similar-ticket and relevant documentation suggestions with source citations
 - [x] Secret, token, subscription-link, payment-data, and unnecessary-PII redaction before model requests
-- [ ] Generated replies remain editable drafts; an authorized operator must explicitly send them
+- [x] Generated replies remain editable drafts; an authorized operator must explicitly send them
 - [ ] Clear AI-generated label, provider/model disclosure, retry, cancellation, and fallback states
 
 ### Scam, abuse, and social-engineering analysis
