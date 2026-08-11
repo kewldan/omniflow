@@ -4,14 +4,14 @@ description: Buying a subscription for somebody else, and selling Telegram Premi
 ---
 
 <Warning>
-  **Delivery status in v0.7.** The data model, the domain rules, the Fragment
-  adapter, and the operator surfaces described here are implemented and
-  reachable in the panel. The customer-facing Telegram flows — buying a gift,
-  claiming one, and browsing the shop — and the background delivery worker are
-  **not yet wired**, so no gift or shop order can be created on a running
-  installation today. The corresponding roadmap items remain unchecked. Read
-  this page as the contract those flows will satisfy, not as a description of a
-  feature customers can use.
+  **Delivery status in v0.7.** The data model, the domain rules, the gateway
+  adapter, the digital-goods delivery worker, and the operator surfaces are
+  implemented. What is **not yet wired** is the customer-facing half: the
+  Telegram flows for buying a gift, claiming one, and browsing the shop. No gift
+  or shop order can therefore be created on a running installation today, and
+  the corresponding roadmap items remain unchecked. Everything downstream of an
+  order existing — delivery, classification, refund, and operator review — does
+  run.
 </Warning>
 
 ## Gifts

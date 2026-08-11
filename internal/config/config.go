@@ -188,6 +188,12 @@ type WorkerConfig struct {
 	Retention      RetentionConfig
 	Backup         BackupConfig
 	Subscriptions  SubscriptionConfig
+	// DataEncryptionKey unseals the provider credentials the worker needs to
+	// call an external service on the operator's behalf. It is the same key the
+	// API uses; the worker holds it because it is the process that delivers
+	// digital goods, not because it stores anything of its own.
+	DataEncryptionKey []byte
+	DefaultCurrency   string
 }
 
 func Load() (Config, error) {
@@ -307,14 +313,15 @@ func LoadBot() (BotConfig, error) {
 
 func LoadWorker() (WorkerConfig, error) {
 	cfg := WorkerConfig{
-		DatabaseURL:    os.Getenv("APP_DATABASE_URL"),
-		ValkeyURL:      os.Getenv("APP_VALKEY_URL"),
-		RemnawaveURL:   os.Getenv("APP_REMNAWAVE_URL"),
-		RemnawaveToken: os.Getenv("APP_REMNAWAVE_TOKEN"),
-		MetricsAddr:    envOr("APP_WORKER_HTTP_ADDR", ":8081"),
-		MetricsEnabled: boolEnvOr("APP_METRICS_ENABLED", true),
-		Maintenance:    loadMaintenance(),
-		Subscriptions:  loadSubscriptions(),
+		DatabaseURL:     os.Getenv("APP_DATABASE_URL"),
+		ValkeyURL:       os.Getenv("APP_VALKEY_URL"),
+		RemnawaveURL:    os.Getenv("APP_REMNAWAVE_URL"),
+		RemnawaveToken:  os.Getenv("APP_REMNAWAVE_TOKEN"),
+		MetricsAddr:     envOr("APP_WORKER_HTTP_ADDR", ":8081"),
+		MetricsEnabled:  boolEnvOr("APP_METRICS_ENABLED", true),
+		Maintenance:     loadMaintenance(),
+		Subscriptions:   loadSubscriptions(),
+		DefaultCurrency: strings.ToUpper(envOr("APP_DEFAULT_CURRENCY", "RUB")),
 		Retention: RetentionConfig{
 			Outbox:    dayEnvOr("APP_RETENTION_OUTBOX_DAYS", 7*24*time.Hour),
 			Telemetry: dayEnvOr("APP_RETENTION_TELEMETRY_DAYS", 30*24*time.Hour),
@@ -324,6 +331,15 @@ func LoadWorker() (WorkerConfig, error) {
 	}
 	if cfg.DatabaseURL == "" || cfg.RemnawaveURL == "" || cfg.RemnawaveToken == "" {
 		return WorkerConfig{}, errors.New("APP_DATABASE_URL, APP_REMNAWAVE_URL, and APP_REMNAWAVE_TOKEN are required")
+	}
+	// Optional: an installation with no digital-goods shop never needs it, and
+	// requiring it would break every existing worker deployment.
+	if encodedKey := os.Getenv("APP_DATA_ENCRYPTION_KEY"); encodedKey != "" {
+		key, err := decodeKey(encodedKey)
+		if err != nil {
+			return WorkerConfig{}, errors.New("APP_DATA_ENCRYPTION_KEY must be base64-encoded 32 bytes")
+		}
+		cfg.DataEncryptionKey = key
 	}
 	backup, err := loadBackup()
 	if err != nil {

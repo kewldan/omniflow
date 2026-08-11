@@ -417,6 +417,7 @@ type Querier interface {
 	ListFulfillmentHistoryForOperation(ctx context.Context, operationID pgtype.UUID) ([]FulfillmentHistory, error)
 	ListGiftsForSender(ctx context.Context, arg ListGiftsForSenderParams) ([]Gift, error)
 	ListGiftsReceived(ctx context.Context, arg ListGiftsReceivedParams) ([]Gift, error)
+	ListGoodsDeliveriesNeedingReview(ctx context.Context, pageSize int32) ([]ListGoodsDeliveriesNeedingReviewRow, error)
 	ListGoodsDeliveryAttempts(ctx context.Context, orderID pgtype.UUID) ([]GoodsDeliveryAttempt, error)
 	ListGoodsOrdersForCustomer(ctx context.Context, arg ListGoodsOrdersForCustomerParams) ([]ListGoodsOrdersForCustomerRow, error)
 	ListGoodsProductLocalizations(ctx context.Context, productID pgtype.UUID) ([]GoodsProductLocalization, error)
@@ -550,6 +551,14 @@ type Querier interface {
 	// The distinction is why the rule's window only controls how often a signal is
 	// re-raised, and it is documented on the operator page as well.
 	ObserveTrafficUsage(ctx context.Context, arg ObserveTrafficUsageParams) ([]ObserveTrafficUsageRow, error)
+	// Stops a delivery whose outcome nobody can safely resolve.
+	//
+	// It leaves the due queue — the worker's index selects only 'pending' and
+	// 'submitted' — and waits for an operator. This is what an ambiguous outcome
+	// becomes: the purchase may already have spent the operator's funds, so
+	// retrying could deliver twice and refunding could give money back for goods
+	// the recipient received.
+	ParkGoodsDelivery(ctx context.Context, arg ParkGoodsDeliveryParams) (GoodsDelivery, error)
 	PurgeExpiredAdminSessions(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
 	// A condition that persists across several evaluation runs is one signal, not
 	// one per run: the dedupe key collides and the existing row is refreshed with
@@ -593,6 +602,9 @@ type Querier interface {
 	// outcome that has already been recorded.
 	ResolveDunningAttempt(ctx context.Context, arg ResolveDunningAttemptParams) (DunningAttempt, error)
 	ResolveEntitlementDrifts(ctx context.Context, entitlementID pgtype.UUID) error
+	// An operator's verdict on a parked delivery. 'delivered' records that the
+	// goods did arrive; 'failed' releases it to the refund path.
+	ResolveGoodsDeliveryReview(ctx context.Context, arg ResolveGoodsDeliveryReviewParams) (GoodsDelivery, error)
 	RetirePlanVersion(ctx context.Context, planVersionID pgtype.UUID) (PlanVersion, error)
 	ReviewAnomalySignal(ctx context.Context, arg ReviewAnomalySignalParams) (AnomalySignal, error)
 	RevokeAdminRole(ctx context.Context, arg RevokeAdminRoleParams) error

@@ -4002,7 +4002,15 @@ export const SearchPanelGoodsOrdersResponse = zod.object({
         quotedPriceMinor: zod.int(),
         marginMinor: zod.int(),
         currency: zod.string(),
-        status: zod.enum(["quoted", "paid", "delivering", "delivered", "failed", "refunded"]),
+        status: zod.enum([
+          "quoted",
+          "paid",
+          "delivering",
+          "delivered",
+          "failed",
+          "refunded",
+          "needs_review",
+        ]),
         deliveryStatus: zod.string().optional(),
         deliveryAttempts: zod.int().optional(),
         failureClass: zod
@@ -4012,10 +4020,17 @@ export const SearchPanelGoodsOrdersResponse = zod.object({
             "recipient_invalid",
             "provider_balance",
             "provider_unavailable",
+            "ambiguous",
           ])
           .optional(),
         errorCode: zod.string().optional(),
         refunded: zod.boolean(),
+        costKnown: zod
+          .boolean()
+          .optional()
+          .describe(
+            "False when the provider publishes no cost for this product. The margin is unknown, not zero.",
+          ),
         deliveredAt: zod.iso.datetime({ offset: true }).optional(),
         createdAt: zod.iso.datetime({ offset: true }),
       }),
@@ -4045,6 +4060,66 @@ export const ListPanelGoodsAttemptsResponse = zod.object({
     )
     .nullable(),
 });
+
+/**
+ * Requires goods.read. Deliveries whose outcome nobody could resolve automatically. The gateway honours no idempotency key, so a lost answer means the goods may or may not have been sent; retrying could deliver twice and refunding could give money back for goods the recipient received.
+ */
+export const listPanelGoodsReviewQueueQueryPageSizeDefault = 100;
+export const listPanelGoodsReviewQueueQueryPageSizeMax = 500;
+
+export const ListPanelGoodsReviewQueueQueryParams = zod.object({
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(listPanelGoodsReviewQueueQueryPageSizeMax)
+    .default(listPanelGoodsReviewQueueQueryPageSizeDefault),
+});
+
+export const ListPanelGoodsReviewQueueResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        orderId: zod.uuid(),
+        customerId: zod.uuid(),
+        providerSlug: zod.string(),
+        recipient: zod.string(),
+        priceMinor: zod.int(),
+        currency: zod.string(),
+        attempts: zod.int(),
+        errorCode: zod.string().optional(),
+        updatedAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .nullable(),
+});
+
+/**
+ * Requires goods.write and a reason. Records what an operator confirmed with the provider: `delivered` completes the order, and anything else releases the ordinary refund path and credits the customer's wallet.
+ */
+export const ResolvePanelGoodsDeliveryParams = zod.object({
+  orderID: zod.uuid(),
+});
+
+export const resolvePanelGoodsDeliveryHeaderXOperatorReasonMax = 400;
+
+export const ResolvePanelGoodsDeliveryHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "X-Operator-Reason": zod
+    .string()
+    .min(1)
+    .max(resolvePanelGoodsDeliveryHeaderXOperatorReasonMax)
+    .describe(
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+    ),
+});
+
+export const ResolvePanelGoodsDeliveryBody = zod.object({
+  delivered: zod.boolean(),
+});
+
+export const ResolvePanelGoodsDeliveryResponse = zod.void();
 
 /**
  * Requires goods.write and a reason. A delivered order cannot be cancelled: the recipient already has what was bought.

@@ -140,12 +140,12 @@ RETURNING *;
 -- name: CreateGoodsOrder :one
 INSERT INTO goods_orders (
   order_id, user_id, product_id, quantity, recipient_username, recipient_is_self,
-  quoted_cost_minor, quoted_price_minor, currency, quote_expires_at
+  quoted_cost_minor, quoted_price_minor, currency, quote_expires_at, cost_known
 ) VALUES (
   sqlc.arg(order_id), sqlc.arg(user_id), sqlc.arg(product_id), sqlc.arg(quantity),
   sqlc.arg(recipient_username), sqlc.arg(recipient_is_self),
   sqlc.arg(quoted_cost_minor), sqlc.arg(quoted_price_minor), sqlc.arg(currency),
-  sqlc.arg(quote_expires_at)
+  sqlc.arg(quote_expires_at), sqlc.arg(cost_known)
 )
 ON CONFLICT (order_id) DO NOTHING
 RETURNING *;
@@ -248,6 +248,40 @@ SET status = CASE WHEN sqlc.arg(terminal)::boolean THEN 'failed' ELSE 'submitted
     updated_at = now()
 WHERE order_id = sqlc.arg(order_id) AND status <> 'delivered'
 RETURNING *;
+
+-- name: ParkGoodsDelivery :one
+-- Stops a delivery whose outcome nobody can safely resolve.
+--
+-- It leaves the due queue — the worker's index selects only 'pending' and
+-- 'submitted' — and waits for an operator. This is what an ambiguous outcome
+-- becomes: the purchase may already have spent the operator's funds, so
+-- retrying could deliver twice and refunding could give money back for goods
+-- the recipient received.
+UPDATE goods_deliveries
+SET status = 'needs_review',
+    failure_class = 'ambiguous',
+    last_error_code = sqlc.narg(last_error_code),
+    updated_at = now()
+WHERE order_id = sqlc.arg(order_id) AND status IN ('pending', 'submitted')
+RETURNING *;
+
+-- name: ResolveGoodsDeliveryReview :one
+-- An operator's verdict on a parked delivery. 'delivered' records that the
+-- goods did arrive; 'failed' releases it to the refund path.
+UPDATE goods_deliveries
+SET status = sqlc.arg(status),
+    delivered_at = CASE WHEN sqlc.arg(status)::text = 'delivered' THEN now() ELSE NULL END,
+    updated_at = now()
+WHERE order_id = sqlc.arg(order_id) AND status = 'needs_review'
+RETURNING *;
+
+-- name: ListGoodsDeliveriesNeedingReview :many
+SELECT sqlc.embed(d), g.user_id, g.recipient_username, g.quoted_price_minor, g.currency
+FROM goods_deliveries d
+JOIN goods_orders g ON g.order_id = d.order_id
+WHERE d.status = 'needs_review'
+ORDER BY d.updated_at DESC
+LIMIT sqlc.arg(page_size);
 
 -- name: RecordGoodsDeliveryRefund :one
 UPDATE goods_deliveries

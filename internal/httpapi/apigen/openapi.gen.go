@@ -1025,6 +1025,7 @@ func (e PanelGoodsAttemptOutcome) Valid() bool {
 
 // Defines values for PanelGoodsOrderFailureClass.
 const (
+	PanelGoodsOrderFailureClassAmbiguous           PanelGoodsOrderFailureClass = "ambiguous"
 	PanelGoodsOrderFailureClassPermanent           PanelGoodsOrderFailureClass = "permanent"
 	PanelGoodsOrderFailureClassProviderBalance     PanelGoodsOrderFailureClass = "provider_balance"
 	PanelGoodsOrderFailureClassProviderUnavailable PanelGoodsOrderFailureClass = "provider_unavailable"
@@ -1035,6 +1036,8 @@ const (
 // Valid indicates whether the value is a known member of the PanelGoodsOrderFailureClass enum.
 func (e PanelGoodsOrderFailureClass) Valid() bool {
 	switch e {
+	case PanelGoodsOrderFailureClassAmbiguous:
+		return true
 	case PanelGoodsOrderFailureClassPermanent:
 		return true
 	case PanelGoodsOrderFailureClassProviderBalance:
@@ -1052,12 +1055,13 @@ func (e PanelGoodsOrderFailureClass) Valid() bool {
 
 // Defines values for PanelGoodsOrderStatus.
 const (
-	PanelGoodsOrderStatusDelivered  PanelGoodsOrderStatus = "delivered"
-	PanelGoodsOrderStatusDelivering PanelGoodsOrderStatus = "delivering"
-	PanelGoodsOrderStatusFailed     PanelGoodsOrderStatus = "failed"
-	PanelGoodsOrderStatusPaid       PanelGoodsOrderStatus = "paid"
-	PanelGoodsOrderStatusQuoted     PanelGoodsOrderStatus = "quoted"
-	PanelGoodsOrderStatusRefunded   PanelGoodsOrderStatus = "refunded"
+	PanelGoodsOrderStatusDelivered   PanelGoodsOrderStatus = "delivered"
+	PanelGoodsOrderStatusDelivering  PanelGoodsOrderStatus = "delivering"
+	PanelGoodsOrderStatusFailed      PanelGoodsOrderStatus = "failed"
+	PanelGoodsOrderStatusNeedsReview PanelGoodsOrderStatus = "needs_review"
+	PanelGoodsOrderStatusPaid        PanelGoodsOrderStatus = "paid"
+	PanelGoodsOrderStatusQuoted      PanelGoodsOrderStatus = "quoted"
+	PanelGoodsOrderStatusRefunded    PanelGoodsOrderStatus = "refunded"
 )
 
 // Valid indicates whether the value is a known member of the PanelGoodsOrderStatus enum.
@@ -1068,6 +1072,8 @@ func (e PanelGoodsOrderStatus) Valid() bool {
 	case PanelGoodsOrderStatusDelivering:
 		return true
 	case PanelGoodsOrderStatusFailed:
+		return true
+	case PanelGoodsOrderStatusNeedsReview:
 		return true
 	case PanelGoodsOrderStatusPaid:
 		return true
@@ -2957,6 +2963,8 @@ type PanelGoodsAttemptList struct {
 
 // PanelGoodsOrder defines model for PanelGoodsOrder.
 type PanelGoodsOrder struct {
+	// CostKnown False when the provider publishes no cost for this product. The margin is unknown, not zero.
+	CostKnown        *bool                        `json:"costKnown,omitempty"`
 	CreatedAt        time.Time                    `json:"createdAt"`
 	Currency         string                       `json:"currency"`
 	CustomerId       openapi_types.UUID           `json:"customerId"`
@@ -3249,6 +3257,24 @@ type PanelOutboxEntry struct {
 // PanelOutboxList defines model for PanelOutboxList.
 type PanelOutboxList struct {
 	Items *[]PanelOutboxEntry `json:"items"`
+}
+
+// PanelParkedDelivery defines model for PanelParkedDelivery.
+type PanelParkedDelivery struct {
+	Attempts     int                `json:"attempts"`
+	Currency     string             `json:"currency"`
+	CustomerId   openapi_types.UUID `json:"customerId"`
+	ErrorCode    *string            `json:"errorCode,omitempty"`
+	OrderId      openapi_types.UUID `json:"orderId"`
+	PriceMinor   int64              `json:"priceMinor"`
+	ProviderSlug string             `json:"providerSlug"`
+	Recipient    string             `json:"recipient"`
+	UpdatedAt    time.Time          `json:"updatedAt"`
+}
+
+// PanelParkedDeliveryList defines model for PanelParkedDeliveryList.
+type PanelParkedDeliveryList struct {
+	Items *[]PanelParkedDelivery `json:"items"`
 }
 
 // PanelPaymentEvent defines model for PanelPaymentEvent.
@@ -4384,6 +4410,20 @@ type CancelPanelGoodsDeliveryParams struct {
 	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
 }
 
+// ResolvePanelGoodsDeliveryJSONBody defines parameters for ResolvePanelGoodsDelivery.
+type ResolvePanelGoodsDeliveryJSONBody struct {
+	Delivered bool `json:"delivered"`
+}
+
+// ResolvePanelGoodsDeliveryParams defines parameters for ResolvePanelGoodsDelivery.
+type ResolvePanelGoodsDeliveryParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+
+	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
+}
+
 // ListPanelGoodsProductsParams defines parameters for ListPanelGoodsProducts.
 type ListPanelGoodsProductsParams struct {
 	IncludeArchived *bool `form:"includeArchived,omitempty" json:"includeArchived,omitempty"`
@@ -4420,6 +4460,11 @@ type SavePanelGoodsPricingParams struct {
 type SavePanelGoodsProviderParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// ListPanelGoodsReviewQueueParams defines parameters for ListPanelGoodsReviewQueue.
+type ListPanelGoodsReviewQueueParams struct {
+	PageSize *PageSize `form:"pageSize,omitempty" json:"pageSize,omitempty"`
 }
 
 // SearchPanelOffersParams defines parameters for SearchPanelOffers.
@@ -4722,6 +4767,9 @@ type RecordPanelRefundJSONRequestBody = PanelRefundRecord
 
 // ReconcilePanelPaymentJSONRequestBody defines body for ReconcilePanelPayment for application/json ContentType.
 type ReconcilePanelPaymentJSONRequestBody ReconcilePanelPaymentJSONBody
+
+// ResolvePanelGoodsDeliveryJSONRequestBody defines body for ResolvePanelGoodsDelivery for application/json ContentType.
+type ResolvePanelGoodsDeliveryJSONRequestBody ResolvePanelGoodsDeliveryJSONBody
 
 // CreatePanelGoodsProductJSONRequestBody defines body for CreatePanelGoodsProduct for application/json ContentType.
 type CreatePanelGoodsProductJSONRequestBody = PanelGoodsProductInput
@@ -5089,6 +5137,9 @@ type ServerInterface interface {
 	// (POST /v1/panel/goods/orders/{orderID}/cancel)
 	CancelPanelGoodsDelivery(w http.ResponseWriter, r *http.Request, orderID OrderID, params CancelPanelGoodsDeliveryParams)
 
+	// (POST /v1/panel/goods/orders/{orderID}/resolve)
+	ResolvePanelGoodsDelivery(w http.ResponseWriter, r *http.Request, orderID OrderID, params ResolvePanelGoodsDeliveryParams)
+
 	// (GET /v1/panel/goods/products)
 	ListPanelGoodsProducts(w http.ResponseWriter, r *http.Request, params ListPanelGoodsProductsParams)
 
@@ -5109,6 +5160,9 @@ type ServerInterface interface {
 
 	// (PUT /v1/panel/goods/providers/{slug})
 	SavePanelGoodsProvider(w http.ResponseWriter, r *http.Request, slug string, params SavePanelGoodsProviderParams)
+
+	// (GET /v1/panel/goods/review)
+	ListPanelGoodsReviewQueue(w http.ResponseWriter, r *http.Request, params ListPanelGoodsReviewQueueParams)
 
 	// (GET /v1/panel/offers)
 	SearchPanelOffers(w http.ResponseWriter, r *http.Request, params SearchPanelOffersParams)
@@ -5736,6 +5790,11 @@ func (_ Unimplemented) CancelPanelGoodsDelivery(w http.ResponseWriter, r *http.R
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (POST /v1/panel/goods/orders/{orderID}/resolve)
+func (_ Unimplemented) ResolvePanelGoodsDelivery(w http.ResponseWriter, r *http.Request, orderID OrderID, params ResolvePanelGoodsDeliveryParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /v1/panel/goods/products)
 func (_ Unimplemented) ListPanelGoodsProducts(w http.ResponseWriter, r *http.Request, params ListPanelGoodsProductsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -5768,6 +5827,11 @@ func (_ Unimplemented) ListPanelGoodsProviders(w http.ResponseWriter, r *http.Re
 
 // (PUT /v1/panel/goods/providers/{slug})
 func (_ Unimplemented) SavePanelGoodsProvider(w http.ResponseWriter, r *http.Request, slug string, params SavePanelGoodsProviderParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/goods/review)
+func (_ Unimplemented) ListPanelGoodsReviewQueue(w http.ResponseWriter, r *http.Request, params ListPanelGoodsReviewQueueParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -10307,6 +10371,83 @@ func (siw *ServerInterfaceWrapper) CancelPanelGoodsDelivery(w http.ResponseWrite
 	handler.ServeHTTP(w, r)
 }
 
+// ResolvePanelGoodsDelivery operation middleware
+func (siw *ServerInterfaceWrapper) ResolvePanelGoodsDelivery(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "orderID" -------------
+	var orderID OrderID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "orderID", chi.URLParam(r, "orderID"), &orderID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orderID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ResolvePanelGoodsDeliveryParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Operator-Reason" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Operator-Reason")]; found {
+		var XOperatorReason OperatorReason
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Operator-Reason", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Operator-Reason", valueList[0], &XOperatorReason, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Operator-Reason", Err: err})
+			return
+		}
+
+		params.XOperatorReason = XOperatorReason
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Operator-Reason is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Operator-Reason", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ResolvePanelGoodsDelivery(w, r, orderID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPanelGoodsProducts operation middleware
 func (siw *ServerInterfaceWrapper) ListPanelGoodsProducts(w http.ResponseWriter, r *http.Request) {
 
@@ -10615,6 +10756,39 @@ func (siw *ServerInterfaceWrapper) SavePanelGoodsProvider(w http.ResponseWriter,
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SavePanelGoodsProvider(w, r, slug, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPanelGoodsReviewQueue operation middleware
+func (siw *ServerInterfaceWrapper) ListPanelGoodsReviewQueue(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPanelGoodsReviewQueueParams
+
+	// ------------- Optional query parameter "pageSize" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "pageSize", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "pageSize"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pageSize", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPanelGoodsReviewQueue(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -12625,6 +12799,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/goods/orders/{orderID}/attempts", wrapper.ListPanelGoodsAttempts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/goods/review", wrapper.ListPanelGoodsReviewQueue)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/goods/orders/{orderID}/resolve", wrapper.ResolvePanelGoodsDelivery)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/panel/goods/orders/{orderID}/cancel", wrapper.CancelPanelGoodsDelivery)
@@ -16808,6 +16988,68 @@ func (response CancelPanelGoodsDelivery409ApplicationProblemPlusJSONResponse) Vi
 	return err
 }
 
+type ResolvePanelGoodsDeliveryRequestObject struct {
+	OrderID OrderID `json:"orderID"`
+	Params  ResolvePanelGoodsDeliveryParams
+	Body    *ResolvePanelGoodsDeliveryJSONRequestBody
+}
+
+type ResolvePanelGoodsDeliveryResponseObject interface {
+	VisitResolvePanelGoodsDeliveryResponse(w http.ResponseWriter) error
+}
+
+type ResolvePanelGoodsDelivery204Response struct {
+}
+
+func (response ResolvePanelGoodsDelivery204Response) VisitResolvePanelGoodsDeliveryResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type ResolvePanelGoodsDelivery403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ResolvePanelGoodsDelivery403ApplicationProblemPlusJSONResponse) VisitResolvePanelGoodsDeliveryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ResolvePanelGoodsDelivery409ApplicationProblemPlusJSONResponse Problem
+
+func (response ResolvePanelGoodsDelivery409ApplicationProblemPlusJSONResponse) VisitResolvePanelGoodsDeliveryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ResolvePanelGoodsDelivery422ApplicationProblemPlusJSONResponse Problem
+
+func (response ResolvePanelGoodsDelivery422ApplicationProblemPlusJSONResponse) VisitResolvePanelGoodsDeliveryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListPanelGoodsProductsRequestObject struct {
 	Params ListPanelGoodsProductsParams
 }
@@ -17145,6 +17387,44 @@ func (response SavePanelGoodsProvider422ApplicationProblemPlusJSONResponse) Visi
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelGoodsReviewQueueRequestObject struct {
+	Params ListPanelGoodsReviewQueueParams
+}
+
+type ListPanelGoodsReviewQueueResponseObject interface {
+	VisitListPanelGoodsReviewQueueResponse(w http.ResponseWriter) error
+}
+
+type ListPanelGoodsReviewQueue200JSONResponse PanelParkedDeliveryList
+
+func (response ListPanelGoodsReviewQueue200JSONResponse) VisitListPanelGoodsReviewQueueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelGoodsReviewQueue403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListPanelGoodsReviewQueue403ApplicationProblemPlusJSONResponse) VisitListPanelGoodsReviewQueueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -18864,6 +19144,9 @@ type StrictServerInterface interface {
 	// (POST /v1/panel/goods/orders/{orderID}/cancel)
 	CancelPanelGoodsDelivery(ctx context.Context, request CancelPanelGoodsDeliveryRequestObject) (CancelPanelGoodsDeliveryResponseObject, error)
 
+	// (POST /v1/panel/goods/orders/{orderID}/resolve)
+	ResolvePanelGoodsDelivery(ctx context.Context, request ResolvePanelGoodsDeliveryRequestObject) (ResolvePanelGoodsDeliveryResponseObject, error)
+
 	// (GET /v1/panel/goods/products)
 	ListPanelGoodsProducts(ctx context.Context, request ListPanelGoodsProductsRequestObject) (ListPanelGoodsProductsResponseObject, error)
 
@@ -18884,6 +19167,9 @@ type StrictServerInterface interface {
 
 	// (PUT /v1/panel/goods/providers/{slug})
 	SavePanelGoodsProvider(ctx context.Context, request SavePanelGoodsProviderRequestObject) (SavePanelGoodsProviderResponseObject, error)
+
+	// (GET /v1/panel/goods/review)
+	ListPanelGoodsReviewQueue(ctx context.Context, request ListPanelGoodsReviewQueueRequestObject) (ListPanelGoodsReviewQueueResponseObject, error)
 
 	// (GET /v1/panel/offers)
 	SearchPanelOffers(ctx context.Context, request SearchPanelOffersRequestObject) (SearchPanelOffersResponseObject, error)
@@ -22014,6 +22300,40 @@ func (sh *strictHandler) CancelPanelGoodsDelivery(w http.ResponseWriter, r *http
 	}
 }
 
+// ResolvePanelGoodsDelivery operation middleware
+func (sh *strictHandler) ResolvePanelGoodsDelivery(w http.ResponseWriter, r *http.Request, orderID OrderID, params ResolvePanelGoodsDeliveryParams) {
+	var request ResolvePanelGoodsDeliveryRequestObject
+
+	request.OrderID = orderID
+	request.Params = params
+
+	var body ResolvePanelGoodsDeliveryJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ResolvePanelGoodsDelivery(ctx, request.(ResolvePanelGoodsDeliveryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ResolvePanelGoodsDelivery")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ResolvePanelGoodsDeliveryResponseObject); ok {
+		if err := validResponse.VisitResolvePanelGoodsDeliveryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListPanelGoodsProducts operation middleware
 func (sh *strictHandler) ListPanelGoodsProducts(w http.ResponseWriter, r *http.Request, params ListPanelGoodsProductsParams) {
 	var request ListPanelGoodsProductsRequestObject
@@ -22227,6 +22547,32 @@ func (sh *strictHandler) SavePanelGoodsProvider(w http.ResponseWriter, r *http.R
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(SavePanelGoodsProviderResponseObject); ok {
 		if err := validResponse.VisitSavePanelGoodsProviderResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPanelGoodsReviewQueue operation middleware
+func (sh *strictHandler) ListPanelGoodsReviewQueue(w http.ResponseWriter, r *http.Request, params ListPanelGoodsReviewQueueParams) {
+	var request ListPanelGoodsReviewQueueRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPanelGoodsReviewQueue(ctx, request.(ListPanelGoodsReviewQueueRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPanelGoodsReviewQueue")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPanelGoodsReviewQueueResponseObject); ok {
+		if err := validResponse.VisitListPanelGoodsReviewQueueResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

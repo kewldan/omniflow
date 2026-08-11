@@ -2204,6 +2204,7 @@ export const PanelGoodsOrderStatus = {
   delivered: "delivered",
   failed: "failed",
   refunded: "refunded",
+  needs_review: "needs_review",
 } as const;
 
 export type PanelGoodsOrderFailureClass =
@@ -2215,6 +2216,7 @@ export const PanelGoodsOrderFailureClass = {
   recipient_invalid: "recipient_invalid",
   provider_balance: "provider_balance",
   provider_unavailable: "provider_unavailable",
+  ambiguous: "ambiguous",
 } as const;
 
 export interface PanelGoodsOrder {
@@ -2235,6 +2237,8 @@ export interface PanelGoodsOrder {
   failureClass?: PanelGoodsOrderFailureClass;
   errorCode?: string;
   refunded: boolean;
+  /** False when the provider publishes no cost for this product. The margin is unknown, not zero. */
+  costKnown?: boolean;
   deliveredAt?: string;
   createdAt: string;
 }
@@ -2243,6 +2247,23 @@ export interface PanelGoodsOrderPage {
   /** @nullable */
   items: PanelGoodsOrder[] | null;
   nextCursor?: string;
+}
+
+export interface PanelParkedDelivery {
+  orderId: string;
+  customerId: string;
+  providerSlug: string;
+  recipient: string;
+  priceMinor: number;
+  currency: string;
+  attempts: number;
+  errorCode?: string;
+  updatedAt: string;
+}
+
+export interface PanelParkedDeliveryList {
+  /** @nullable */
+  items: PanelParkedDelivery[] | null;
 }
 
 export type PanelGoodsAttemptOutcome =
@@ -2874,6 +2895,18 @@ export type SearchPanelGoodsOrdersParams = {
   pageSize?: PageSizeParameter;
   status?: string;
   customerId?: string;
+};
+
+export type ListPanelGoodsReviewQueueParams = {
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  pageSize?: PageSizeParameter;
+};
+
+export type ResolvePanelGoodsDeliveryBody = {
+  delivered: boolean;
 };
 
 export type ListPanelBulkOperationsParams = {
@@ -14101,6 +14134,194 @@ export const useListPanelGoodsAttempts = <TError = Promise<ProblemResponse>>(
   const swrFn = () => listPanelGoodsAttempts(orderID, fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelGoodsReviewQueueResponse200 = {
+  data: PanelParkedDeliveryList;
+  status: 200;
+};
+
+export type listPanelGoodsReviewQueueResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelGoodsReviewQueueResponseSuccess = listPanelGoodsReviewQueueResponse200 & {
+  headers: Headers;
+};
+export type listPanelGoodsReviewQueueResponseError = listPanelGoodsReviewQueueResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelGoodsReviewQueueResponse =
+  | listPanelGoodsReviewQueueResponseSuccess
+  | listPanelGoodsReviewQueueResponseError;
+
+export const getListPanelGoodsReviewQueueUrl = (params?: ListPanelGoodsReviewQueueParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/goods/review?${stringifiedParams}`
+    : `/v1/panel/goods/review`;
+};
+
+/**
+ * Requires goods.read. Deliveries whose outcome nobody could resolve automatically. The gateway honours no idempotency key, so a lost answer means the goods may or may not have been sent; retrying could deliver twice and refunding could give money back for goods the recipient received.
+ */
+export const listPanelGoodsReviewQueue = async (
+  params?: ListPanelGoodsReviewQueueParams,
+  options?: RequestInit,
+): Promise<listPanelGoodsReviewQueueResponse> => {
+  const res = await fetch(getListPanelGoodsReviewQueueUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelGoodsReviewQueueResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelGoodsReviewQueueResponse;
+};
+
+export const getListPanelGoodsReviewQueueKey = (params?: ListPanelGoodsReviewQueueParams) =>
+  [`/v1/panel/goods/review`, ...(params ? [params] : [])] as const;
+
+export type ListPanelGoodsReviewQueueQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelGoodsReviewQueue>>
+>;
+
+export const useListPanelGoodsReviewQueue = <TError = Promise<ProblemResponse>>(
+  params?: ListPanelGoodsReviewQueueParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelGoodsReviewQueue>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelGoodsReviewQueueKey(params) : null));
+  const swrFn = () => listPanelGoodsReviewQueue(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type resolvePanelGoodsDeliveryResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type resolvePanelGoodsDeliveryResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type resolvePanelGoodsDeliveryResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type resolvePanelGoodsDeliveryResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type resolvePanelGoodsDeliveryResponseSuccess = resolvePanelGoodsDeliveryResponse204 & {
+  headers: Headers;
+};
+export type resolvePanelGoodsDeliveryResponseError = (
+  | resolvePanelGoodsDeliveryResponse403
+  | resolvePanelGoodsDeliveryResponse409
+  | resolvePanelGoodsDeliveryResponse422
+) & {
+  headers: Headers;
+};
+
+export type resolvePanelGoodsDeliveryResponse =
+  | resolvePanelGoodsDeliveryResponseSuccess
+  | resolvePanelGoodsDeliveryResponseError;
+
+export const getResolvePanelGoodsDeliveryUrl = (orderID: string) => {
+  return `/v1/panel/goods/orders/${orderID}/resolve`;
+};
+
+/**
+ * Requires goods.write and a reason. Records what an operator confirmed with the provider: `delivered` completes the order, and anything else releases the ordinary refund path and credits the customer's wallet.
+ */
+export const resolvePanelGoodsDelivery = async (
+  orderID: string,
+  resolvePanelGoodsDeliveryBody: ResolvePanelGoodsDeliveryBody,
+  options?: RequestInit,
+): Promise<resolvePanelGoodsDeliveryResponse> => {
+  const res = await fetch(getResolvePanelGoodsDeliveryUrl(orderID), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(resolvePanelGoodsDeliveryBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: resolvePanelGoodsDeliveryResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as resolvePanelGoodsDeliveryResponse;
+};
+
+export const getResolvePanelGoodsDeliveryMutationFetcher = (
+  orderID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: ResolvePanelGoodsDeliveryBody }) => {
+    return resolvePanelGoodsDelivery(orderID, arg, options);
+  };
+};
+export const getResolvePanelGoodsDeliveryMutationKey = (orderID: string) =>
+  [`/v1/panel/goods/orders/${orderID}/resolve`] as const;
+
+export type ResolvePanelGoodsDeliveryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof resolvePanelGoodsDelivery>>
+>;
+
+export const useResolvePanelGoodsDelivery = <TError = Promise<ProblemResponse>>(
+  orderID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof resolvePanelGoodsDelivery>>,
+      TError,
+      Key,
+      ResolvePanelGoodsDeliveryBody,
+      Awaited<ReturnType<typeof resolvePanelGoodsDelivery>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getResolvePanelGoodsDeliveryMutationKey(orderID);
+  const swrFn = getResolvePanelGoodsDeliveryMutationFetcher(orderID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,

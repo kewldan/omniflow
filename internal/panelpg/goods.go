@@ -536,6 +536,90 @@ func (service *Service) GoodsDeliveryHistory(
 	return attempts, nil
 }
 
+// ParkedDelivery is a delivery whose outcome nobody could resolve
+// automatically.
+//
+// It exists because the gateway honours no idempotency key: a lost answer means
+// the goods may or may not have been sent. Retrying could deliver and charge
+// twice; refunding could give money back for goods the recipient received. An
+// operator checks with the provider and says which happened.
+type ParkedDelivery struct {
+	OrderID      string    `json:"orderId"`
+	CustomerID   string    `json:"customerId"`
+	ProviderSlug string    `json:"providerSlug"`
+	Recipient    string    `json:"recipient"`
+	PriceMinor   int64     `json:"priceMinor"`
+	Currency     string    `json:"currency"`
+	Attempts     int32     `json:"attempts"`
+	ErrorCode    string    `json:"errorCode,omitempty"`
+	UpdatedAt    time.Time `json:"updatedAt"`
+}
+
+// GoodsReviewQueue lists deliveries waiting on a human decision.
+func (service *Service) GoodsReviewQueue(ctx context.Context, limit int32) ([]ParkedDelivery, error) {
+	rows, err := service.queries().ListGoodsDeliveriesNeedingReview(ctx, pageSize(limit))
+	if err != nil {
+		return nil, err
+	}
+	parked := make([]ParkedDelivery, 0, len(rows))
+	for _, row := range rows {
+		parked = append(parked, ParkedDelivery{
+			OrderID:      uuidString(row.GoodsDelivery.OrderID),
+			CustomerID:   uuidString(row.UserID),
+			ProviderSlug: row.GoodsDelivery.ProviderSlug,
+			Recipient:    row.RecipientUsername,
+			PriceMinor:   row.QuotedPriceMinor,
+			Currency:     row.Currency,
+			Attempts:     row.GoodsDelivery.AttemptCount,
+			ErrorCode:    textValue(row.GoodsDelivery.LastErrorCode),
+			UpdatedAt:    timeValue(row.GoodsDelivery.UpdatedAt),
+		})
+	}
+	return parked, nil
+}
+
+// ResolveGoodsDelivery records an operator's verdict on a parked delivery.
+//
+// `delivered` means they confirmed with the provider that the recipient has the
+// goods; the order completes and nothing is refunded. Otherwise the delivery is
+// marked failed and the refund path runs, crediting the customer's wallet.
+//
+// A reason is required because this is a decision about money that somebody may
+// later have to defend, and the evidence for it lives outside Omniflow.
+func (service *Service) ResolveGoodsDelivery(
+	ctx context.Context, orderID string, delivered bool, actor Actor,
+) error {
+	if strings.TrimSpace(actor.Reason) == "" {
+		return ErrValidaton
+	}
+	id, err := parseUUID(orderID)
+	if err != nil {
+		return err
+	}
+
+	status, orderStatus := "failed", "failed"
+	if delivered {
+		status, orderStatus = "delivered", "delivered"
+	}
+
+	return service.inTx(ctx, func(queries *dbgen.Queries) error {
+		if _, txErr := queries.ResolveGoodsDeliveryReview(ctx, dbgen.ResolveGoodsDeliveryReviewParams{
+			OrderID: id, Status: status,
+		}); txErr != nil {
+			return rejected(txErr)
+		}
+		if _, txErr := queries.SetGoodsOrderStatus(ctx, dbgen.SetGoodsOrderStatusParams{
+			OrderID: id, Status: orderStatus,
+		}); txErr != nil {
+			return txErr
+		}
+		return appendAudit(ctx, queries, actor.audit(
+			"panel.goods.review_resolved", "financial", "order", orderID,
+			map[string]any{"delivered": delivered},
+		))
+	})
+}
+
 // CancelGoodsDelivery abandons a delivery that has not completed.
 //
 // The refund that follows is the ordinary wallet credit the permanent-failure

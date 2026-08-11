@@ -15,6 +15,7 @@ import (
 	"github.com/omniflow/omniflow/internal/backup"
 	"github.com/omniflow/omniflow/internal/config"
 	"github.com/omniflow/omniflow/internal/fulfillment"
+	"github.com/omniflow/omniflow/internal/goodsdelivery"
 	apihttp "github.com/omniflow/omniflow/internal/httpapi"
 	"github.com/omniflow/omniflow/internal/jobs"
 	"github.com/omniflow/omniflow/internal/platform"
@@ -60,6 +61,22 @@ func main() {
 	}
 	workers := river.NewWorkers()
 	river.AddWorker(workers, fulfillment.NewWorker(pool, remnawaveClient, metrics))
+
+	// The digital-goods shop is optional. Without an encryption key there is no
+	// way to unseal a provider credential, so the worker starts without it
+	// rather than refusing to start at all — an installation that sells no
+	// digital goods never needs one.
+	if len(cfg.DataEncryptionKey) == 32 {
+		registry, registryErr := goodsdelivery.NewRegistry(pool, cfg.DataEncryptionKey, cfg.DefaultCurrency)
+		if registryErr != nil {
+			logger.Error("initialize digital goods", "error", registryErr)
+			os.Exit(1)
+		}
+		river.AddWorker(workers, goodsdelivery.NewWorker(pool, registry, logger))
+	} else {
+		logger.Info("digital goods delivery disabled", "reason", "APP_DATA_ENCRYPTION_KEY is not set")
+	}
+
 	client, err := jobs.NewClientWithWorkers(pool, workers)
 	if err != nil {
 		logger.Error("initialize River", "error", err)

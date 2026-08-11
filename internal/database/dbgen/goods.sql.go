@@ -161,15 +161,15 @@ const createGoodsOrder = `-- name: CreateGoodsOrder :one
 
 INSERT INTO goods_orders (
   order_id, user_id, product_id, quantity, recipient_username, recipient_is_self,
-  quoted_cost_minor, quoted_price_minor, currency, quote_expires_at
+  quoted_cost_minor, quoted_price_minor, currency, quote_expires_at, cost_known
 ) VALUES (
   $1, $2, $3, $4,
   $5, $6,
   $7, $8, $9,
-  $10
+  $10, $11
 )
 ON CONFLICT (order_id) DO NOTHING
-RETURNING order_id, user_id, product_id, quantity, recipient_username, recipient_is_self, quoted_cost_minor, quoted_price_minor, currency, quote_expires_at, status, created_at, updated_at
+RETURNING order_id, user_id, product_id, quantity, recipient_username, recipient_is_self, quoted_cost_minor, quoted_price_minor, currency, quote_expires_at, status, created_at, updated_at, cost_known
 `
 
 type CreateGoodsOrderParams struct {
@@ -183,6 +183,7 @@ type CreateGoodsOrderParams struct {
 	QuotedPriceMinor  int64              `json:"quoted_price_minor"`
 	Currency          string             `json:"currency"`
 	QuoteExpiresAt    pgtype.Timestamptz `json:"quote_expires_at"`
+	CostKnown         bool               `json:"cost_known"`
 }
 
 // ---------------------------------------------------------------------------
@@ -200,6 +201,7 @@ func (q *Queries) CreateGoodsOrder(ctx context.Context, arg CreateGoodsOrderPara
 		arg.QuotedPriceMinor,
 		arg.Currency,
 		arg.QuoteExpiresAt,
+		arg.CostKnown,
 	)
 	var i GoodsOrder
 	err := row.Scan(
@@ -216,6 +218,7 @@ func (q *Queries) CreateGoodsOrder(ctx context.Context, arg CreateGoodsOrderPara
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CostKnown,
 	)
 	return i, err
 }
@@ -340,7 +343,7 @@ func (q *Queries) GetGoodsDelivery(ctx context.Context, orderID pgtype.UUID) (Go
 }
 
 const getGoodsOrder = `-- name: GetGoodsOrder :one
-SELECT order_id, user_id, product_id, quantity, recipient_username, recipient_is_self, quoted_cost_minor, quoted_price_minor, currency, quote_expires_at, status, created_at, updated_at FROM goods_orders WHERE order_id = $1
+SELECT order_id, user_id, product_id, quantity, recipient_username, recipient_is_self, quoted_cost_minor, quoted_price_minor, currency, quote_expires_at, status, created_at, updated_at, cost_known FROM goods_orders WHERE order_id = $1
 `
 
 func (q *Queries) GetGoodsOrder(ctx context.Context, orderID pgtype.UUID) (GoodsOrder, error) {
@@ -360,6 +363,7 @@ func (q *Queries) GetGoodsOrder(ctx context.Context, orderID pgtype.UUID) (Goods
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CostKnown,
 	)
 	return i, err
 }
@@ -540,6 +544,61 @@ func (q *Queries) ListDueGoodsDeliveries(ctx context.Context, pageSize int32) ([
 	return items, nil
 }
 
+const listGoodsDeliveriesNeedingReview = `-- name: ListGoodsDeliveriesNeedingReview :many
+SELECT d.order_id, d.provider_slug, d.idempotency_key, d.provider_reference, d.status, d.attempt_count, d.next_attempt_at, d.failure_class, d.last_error_code, d.refund_ledger_transaction_id, d.created_at, d.updated_at, d.delivered_at, g.user_id, g.recipient_username, g.quoted_price_minor, g.currency
+FROM goods_deliveries d
+JOIN goods_orders g ON g.order_id = d.order_id
+WHERE d.status = 'needs_review'
+ORDER BY d.updated_at DESC
+LIMIT $1
+`
+
+type ListGoodsDeliveriesNeedingReviewRow struct {
+	GoodsDelivery     GoodsDelivery `json:"goods_delivery"`
+	UserID            pgtype.UUID   `json:"user_id"`
+	RecipientUsername string        `json:"recipient_username"`
+	QuotedPriceMinor  int64         `json:"quoted_price_minor"`
+	Currency          string        `json:"currency"`
+}
+
+func (q *Queries) ListGoodsDeliveriesNeedingReview(ctx context.Context, pageSize int32) ([]ListGoodsDeliveriesNeedingReviewRow, error) {
+	rows, err := q.db.Query(ctx, listGoodsDeliveriesNeedingReview, pageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListGoodsDeliveriesNeedingReviewRow{}
+	for rows.Next() {
+		var i ListGoodsDeliveriesNeedingReviewRow
+		if err := rows.Scan(
+			&i.GoodsDelivery.OrderID,
+			&i.GoodsDelivery.ProviderSlug,
+			&i.GoodsDelivery.IdempotencyKey,
+			&i.GoodsDelivery.ProviderReference,
+			&i.GoodsDelivery.Status,
+			&i.GoodsDelivery.AttemptCount,
+			&i.GoodsDelivery.NextAttemptAt,
+			&i.GoodsDelivery.FailureClass,
+			&i.GoodsDelivery.LastErrorCode,
+			&i.GoodsDelivery.RefundLedgerTransactionID,
+			&i.GoodsDelivery.CreatedAt,
+			&i.GoodsDelivery.UpdatedAt,
+			&i.GoodsDelivery.DeliveredAt,
+			&i.UserID,
+			&i.RecipientUsername,
+			&i.QuotedPriceMinor,
+			&i.Currency,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listGoodsDeliveryAttempts = `-- name: ListGoodsDeliveryAttempts :many
 SELECT id, order_id, attempt, outcome, failure_class, error_code, provider_reference, correlation_id, occurred_at FROM goods_delivery_attempts WHERE order_id = $1 ORDER BY attempt
 `
@@ -575,7 +634,7 @@ func (q *Queries) ListGoodsDeliveryAttempts(ctx context.Context, orderID pgtype.
 }
 
 const listGoodsOrdersForCustomer = `-- name: ListGoodsOrdersForCustomer :many
-SELECT g.order_id, g.user_id, g.product_id, g.quantity, g.recipient_username, g.recipient_is_self, g.quoted_cost_minor, g.quoted_price_minor, g.currency, g.quote_expires_at, g.status, g.created_at, g.updated_at, p.id, p.code, p.provider_slug, p.kind, p.duration_months, p.star_quantity, p.visible, p.sort_order, p.created_at, p.archived_at
+SELECT g.order_id, g.user_id, g.product_id, g.quantity, g.recipient_username, g.recipient_is_self, g.quoted_cost_minor, g.quoted_price_minor, g.currency, g.quote_expires_at, g.status, g.created_at, g.updated_at, g.cost_known, p.id, p.code, p.provider_slug, p.kind, p.duration_months, p.star_quantity, p.visible, p.sort_order, p.created_at, p.archived_at
 FROM goods_orders g
 JOIN goods_products p ON p.id = g.product_id
 WHERE g.user_id = $1
@@ -616,6 +675,7 @@ func (q *Queries) ListGoodsOrdersForCustomer(ctx context.Context, arg ListGoodsO
 			&i.GoodsOrder.Status,
 			&i.GoodsOrder.CreatedAt,
 			&i.GoodsOrder.UpdatedAt,
+			&i.GoodsOrder.CostKnown,
 			&i.GoodsProduct.ID,
 			&i.GoodsProduct.Code,
 			&i.GoodsProduct.ProviderSlug,
@@ -843,6 +903,49 @@ func (q *Queries) LockGoodsDelivery(ctx context.Context, orderID pgtype.UUID) (G
 	return i, err
 }
 
+const parkGoodsDelivery = `-- name: ParkGoodsDelivery :one
+UPDATE goods_deliveries
+SET status = 'needs_review',
+    failure_class = 'ambiguous',
+    last_error_code = $1,
+    updated_at = now()
+WHERE order_id = $2 AND status IN ('pending', 'submitted')
+RETURNING order_id, provider_slug, idempotency_key, provider_reference, status, attempt_count, next_attempt_at, failure_class, last_error_code, refund_ledger_transaction_id, created_at, updated_at, delivered_at
+`
+
+type ParkGoodsDeliveryParams struct {
+	LastErrorCode pgtype.Text `json:"last_error_code"`
+	OrderID       pgtype.UUID `json:"order_id"`
+}
+
+// Stops a delivery whose outcome nobody can safely resolve.
+//
+// It leaves the due queue — the worker's index selects only 'pending' and
+// 'submitted' — and waits for an operator. This is what an ambiguous outcome
+// becomes: the purchase may already have spent the operator's funds, so
+// retrying could deliver twice and refunding could give money back for goods
+// the recipient received.
+func (q *Queries) ParkGoodsDelivery(ctx context.Context, arg ParkGoodsDeliveryParams) (GoodsDelivery, error) {
+	row := q.db.QueryRow(ctx, parkGoodsDelivery, arg.LastErrorCode, arg.OrderID)
+	var i GoodsDelivery
+	err := row.Scan(
+		&i.OrderID,
+		&i.ProviderSlug,
+		&i.IdempotencyKey,
+		&i.ProviderReference,
+		&i.Status,
+		&i.AttemptCount,
+		&i.NextAttemptAt,
+		&i.FailureClass,
+		&i.LastErrorCode,
+		&i.RefundLedgerTransactionID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeliveredAt,
+	)
+	return i, err
+}
+
 const recordGoodsDeliveryRefund = `-- name: RecordGoodsDeliveryRefund :one
 UPDATE goods_deliveries
 SET refund_ledger_transaction_id = $1, updated_at = now()
@@ -923,9 +1026,46 @@ func (q *Queries) RecordGoodsProviderHealth(ctx context.Context, arg RecordGoods
 	return i, err
 }
 
+const resolveGoodsDeliveryReview = `-- name: ResolveGoodsDeliveryReview :one
+UPDATE goods_deliveries
+SET status = $1,
+    delivered_at = CASE WHEN $1::text = 'delivered' THEN now() ELSE NULL END,
+    updated_at = now()
+WHERE order_id = $2 AND status = 'needs_review'
+RETURNING order_id, provider_slug, idempotency_key, provider_reference, status, attempt_count, next_attempt_at, failure_class, last_error_code, refund_ledger_transaction_id, created_at, updated_at, delivered_at
+`
+
+type ResolveGoodsDeliveryReviewParams struct {
+	Status  string      `json:"status"`
+	OrderID pgtype.UUID `json:"order_id"`
+}
+
+// An operator's verdict on a parked delivery. 'delivered' records that the
+// goods did arrive; 'failed' releases it to the refund path.
+func (q *Queries) ResolveGoodsDeliveryReview(ctx context.Context, arg ResolveGoodsDeliveryReviewParams) (GoodsDelivery, error) {
+	row := q.db.QueryRow(ctx, resolveGoodsDeliveryReview, arg.Status, arg.OrderID)
+	var i GoodsDelivery
+	err := row.Scan(
+		&i.OrderID,
+		&i.ProviderSlug,
+		&i.IdempotencyKey,
+		&i.ProviderReference,
+		&i.Status,
+		&i.AttemptCount,
+		&i.NextAttemptAt,
+		&i.FailureClass,
+		&i.LastErrorCode,
+		&i.RefundLedgerTransactionID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeliveredAt,
+	)
+	return i, err
+}
+
 const searchGoodsOrders = `-- name: SearchGoodsOrders :many
 SELECT
-  g.order_id, g.user_id, g.product_id, g.quantity, g.recipient_username, g.recipient_is_self, g.quoted_cost_minor, g.quoted_price_minor, g.currency, g.quote_expires_at, g.status, g.created_at, g.updated_at,
+  g.order_id, g.user_id, g.product_id, g.quantity, g.recipient_username, g.recipient_is_self, g.quoted_cost_minor, g.quoted_price_minor, g.currency, g.quote_expires_at, g.status, g.created_at, g.updated_at, g.cost_known,
   d.status AS delivery_status,
   d.attempt_count AS delivery_attempts,
   d.failure_class AS delivery_failure_class,
@@ -993,6 +1133,7 @@ func (q *Queries) SearchGoodsOrders(ctx context.Context, arg SearchGoodsOrdersPa
 			&i.GoodsOrder.Status,
 			&i.GoodsOrder.CreatedAt,
 			&i.GoodsOrder.UpdatedAt,
+			&i.GoodsOrder.CostKnown,
 			&i.DeliveryStatus,
 			&i.DeliveryAttempts,
 			&i.DeliveryFailureClass,
@@ -1014,7 +1155,7 @@ const setGoodsOrderStatus = `-- name: SetGoodsOrderStatus :one
 UPDATE goods_orders
 SET status = $1, updated_at = now()
 WHERE order_id = $2
-RETURNING order_id, user_id, product_id, quantity, recipient_username, recipient_is_self, quoted_cost_minor, quoted_price_minor, currency, quote_expires_at, status, created_at, updated_at
+RETURNING order_id, user_id, product_id, quantity, recipient_username, recipient_is_self, quoted_cost_minor, quoted_price_minor, currency, quote_expires_at, status, created_at, updated_at, cost_known
 `
 
 type SetGoodsOrderStatusParams struct {
@@ -1039,6 +1180,7 @@ func (q *Queries) SetGoodsOrderStatus(ctx context.Context, arg SetGoodsOrderStat
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CostKnown,
 	)
 	return i, err
 }

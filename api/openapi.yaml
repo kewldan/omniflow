@@ -1602,6 +1602,38 @@ paths:
       responses:
         "200": {description: Delivery attempts, content: {application/json: {schema: {$ref: "#/components/schemas/PanelGoodsAttemptList"}}}}
         "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/goods/review:
+    get:
+      operationId: listPanelGoodsReviewQueue
+      tags: [panel]
+      description: >-
+        Requires goods.read. Deliveries whose outcome nobody could resolve
+        automatically. The gateway honours no idempotency key, so a lost answer
+        means the goods may or may not have been sent; retrying could deliver
+        twice and refunding could give money back for goods the recipient
+        received.
+      parameters: [{$ref: "#/components/parameters/PageSize"}]
+      responses:
+        "200": {description: Parked deliveries, content: {application/json: {schema: {$ref: "#/components/schemas/PanelParkedDeliveryList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/goods/orders/{orderID}/resolve:
+    post:
+      operationId: resolvePanelGoodsDelivery
+      tags: [panel]
+      description: >-
+        Requires goods.write and a reason. Records what an operator confirmed
+        with the provider: `delivered` completes the order, and anything else
+        releases the ordinary refund path and credits the customer's wallet.
+      parameters:
+        - {$ref: "#/components/parameters/OrderID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/OperatorReason"}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [delivered], properties: {delivered: {type: boolean}}}}}}
+      responses:
+        "204": {description: Resolved}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/panel/goods/orders/{orderID}/cancel:
     post:
       operationId: cancelPanelGoodsDelivery
@@ -3048,12 +3080,13 @@ components:
         quotedPriceMinor: {type: integer, format: int64}
         marginMinor: {type: integer, format: int64}
         currency: {type: string}
-        status: {type: string, enum: [quoted, paid, delivering, delivered, failed, refunded]}
+        status: {type: string, enum: [quoted, paid, delivering, delivered, failed, refunded, needs_review]}
         deliveryStatus: {type: string}
         deliveryAttempts: {type: integer}
-        failureClass: {type: string, enum: [retryable, permanent, recipient_invalid, provider_balance, provider_unavailable]}
+        failureClass: {type: string, enum: [retryable, permanent, recipient_invalid, provider_balance, provider_unavailable, ambiguous]}
         errorCode: {type: string}
         refunded: {type: boolean}
+        costKnown: {type: boolean, description: "False when the provider publishes no cost for this product. The margin is unknown, not zero."}
         deliveredAt: {type: string, format: date-time}
         createdAt: {type: string, format: date-time}
     PanelGoodsOrderPage:
@@ -3062,6 +3095,23 @@ components:
       properties:
         items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelGoodsOrder"}}
         nextCursor: {type: string}
+    PanelParkedDelivery:
+      type: object
+      required: [orderId, customerId, providerSlug, recipient, priceMinor, currency, attempts, updatedAt]
+      properties:
+        orderId: {type: string, format: uuid}
+        customerId: {type: string, format: uuid}
+        providerSlug: {type: string}
+        recipient: {type: string}
+        priceMinor: {type: integer, format: int64}
+        currency: {type: string}
+        attempts: {type: integer}
+        errorCode: {type: string}
+        updatedAt: {type: string, format: date-time}
+    PanelParkedDeliveryList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelParkedDelivery"}}}
     PanelGoodsAttempt:
       type: object
       required: [attempt, outcome, correlationId, occurredAt]

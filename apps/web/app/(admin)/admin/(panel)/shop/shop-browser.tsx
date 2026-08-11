@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge } from "@omniflow/ui/badge";
+import { Button } from "@omniflow/ui/button";
 import { Card } from "@omniflow/ui/card";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
@@ -19,6 +20,9 @@ import {
   type Listing,
   type Page,
 } from "@/lib/operations";
+import { useSession } from "@/lib/session";
+import { PricingEditor } from "./pricing-editor";
+import { ReviewQueue } from "./review-queue";
 
 type GoodsProvider = {
   slug: string;
@@ -53,6 +57,7 @@ export function ShopBrowser() {
           <TabsTrigger value="orders">{translate("tabs.orders")}</TabsTrigger>
           <TabsTrigger value="products">{translate("tabs.products")}</TabsTrigger>
           <TabsTrigger value="providers">{translate("tabs.providers")}</TabsTrigger>
+          <TabsTrigger value="review">{translate("tabs.review")}</TabsTrigger>
         </TabsList>
         <TabsContent value="orders">
           <Orders active={tab === "orders"} />
@@ -62,6 +67,9 @@ export function ShopBrowser() {
         </TabsContent>
         <TabsContent value="providers">
           <Providers active={tab === "providers"} />
+        </TabsContent>
+        <TabsContent value="review">
+          <ReviewQueue active={tab === "review"} />
         </TabsContent>
       </Tabs>
     </div>
@@ -154,7 +162,9 @@ function Orders({ active }: { active: boolean }) {
 function Products({ active }: { active: boolean }) {
   const translate = useTranslations("admin.shop");
   const locale = useLocale();
-  const { data, isLoading } = useSWR<Listing<GoodsProduct>, ApiError>(
+  const { can } = useSession();
+  const [editing, setEditing] = useState<string | null>(null);
+  const { data, isLoading, mutate } = useSWR<Listing<GoodsProduct>, ApiError>(
     active ? "/v1/panel/goods/products" : null,
     fetcher,
   );
@@ -185,6 +195,7 @@ function Products({ active }: { active: boolean }) {
             <TableHead>{translate("columns.quantity")}</TableHead>
             <TableHead>{translate("columns.pricing")}</TableHead>
             <TableHead>{translate("columns.visible")}</TableHead>
+            {can("goods.write") && <TableHead>{translate("columns.actions")}</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -220,10 +231,43 @@ function Products({ active }: { active: boolean }) {
                   )}
                 </Badge>
               </TableCell>
+              {can("goods.write") && (
+                <TableCell>
+                  <Button
+                    onClick={() => setEditing(editing === product.id ? null : product.id)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    {translate("pricing.edit")}
+                  </Button>
+                </TableCell>
+              )}
             </TableRow>
           ))}
         </TableBody>
       </Table>
+
+      {/*
+        The editor sits under the table rather than in a dialog: a pricing rule
+        is read against the row above it, and a modal would hide the comparison
+        the operator is making.
+      */}
+      {editing && (
+        <div className="border-border border-t p-4">
+          {items
+            .filter((product) => product.id === editing)
+            .map((product) => (
+              <PricingEditor
+                key={product.id}
+                onSaved={async () => {
+                  setEditing(null);
+                  await mutate();
+                }}
+                product={product}
+              />
+            ))}
+        </div>
+      )}
     </Card>
   );
 }

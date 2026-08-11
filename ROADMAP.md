@@ -513,10 +513,19 @@ items above are deliberately unchecked.
 eligibility, and the operator register are implemented. Buying and claiming a
 gift in the bot is not.
 
-**Digital goods.** The provider-neutral adapter, the Fragment implementation,
-pricing with markup and rounding, quote expiry, the delivery record with its
-double-delivery guard, failure classification, spend ceilings, and the operator
-views are implemented. The bot shop and the delivery worker are not.
+**Digital goods.** The provider-neutral adapter, the gateway implementation,
+pricing with markup and rounding, quote expiry, the delivery worker with its
+double-delivery guard, failure classification, automatic wallet refunds, spend
+ceilings, and the operator views — including a review queue and a pricing
+editor — are implemented. The bot shop is not, so nothing creates a shop order
+yet.
+
+The gateway that fronts Fragment honours no idempotency key and exposes no way
+to poll a submission, so a lost answer is genuinely ambiguous. Such a delivery
+is classified `ambiguous` and resolved by neither retry nor refund: it parks in
+the panel's review queue until an operator confirms with the provider what
+happened. That is also why "delivery polling" stays unchecked — there is nothing
+to poll.
 
 **Recurring payments.** Capability resolution, consent, saved-method lifecycle,
 lead time, the dunning schedule, and the operator review queue are implemented.

@@ -160,6 +160,7 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 		read.Get("/goods/products", handlers.listGoodsProducts)
 		read.Get("/goods/orders", handlers.searchGoodsOrders)
 		read.Get("/goods/orders/{orderID}/attempts", handlers.goodsDeliveryHistory)
+		read.Get("/goods/review", handlers.goodsReviewQueue)
 	})
 	secure.With(handlers.requirePermission(rbac.PermissionGoodsWrite)).Group(func(write chi.Router) {
 		write.Put("/goods/providers/{slug}", handlers.saveGoodsProvider)
@@ -168,6 +169,7 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 		write.Put("/goods/products/{productID}/localizations/{locale}", handlers.saveGoodsLocalization)
 		write.Put("/goods/products/{productID}/pricing", handlers.saveGoodsPricing)
 		write.Post("/goods/orders/{orderID}/cancel", handlers.cancelGoodsDelivery)
+		write.Post("/goods/orders/{orderID}/resolve", handlers.resolveGoodsDelivery)
 	})
 
 	// -- Bulk actions --------------------------------------------------------
@@ -1254,6 +1256,34 @@ func (handlers *AdminHandlers) searchGoodsOrders(writer http.ResponseWriter, req
 func (handlers *AdminHandlers) goodsDeliveryHistory(writer http.ResponseWriter, request *http.Request) {
 	items, err := handlers.operations.GoodsDeliveryHistory(request.Context(), chi.URLParam(request, "orderID"))
 	handlers.respond(writer, request, map[string]any{"items": items}, err)
+}
+
+func (handlers *AdminHandlers) goodsReviewQueue(writer http.ResponseWriter, request *http.Request) {
+	items, err := handlers.operations.GoodsReviewQueue(request.Context(), queryInt(request, "pageSize"))
+	handlers.respond(writer, request, map[string]any{"items": items}, err)
+}
+
+// resolveGoodsDelivery records an operator's verdict on a delivery whose
+// outcome nobody could resolve automatically.
+//
+// The evidence lives outside Omniflow — the operator checks with the provider —
+// so this records what they found rather than deciding anything itself. Saying
+// it was not delivered releases the ordinary refund path.
+func (handlers *AdminHandlers) resolveGoodsDelivery(writer http.ResponseWriter, request *http.Request) {
+	var body struct {
+		Delivered bool `json:"delivered"`
+	}
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	err := handlers.operations.ResolveGoodsDelivery(
+		request.Context(), chi.URLParam(request, "orderID"), body.Delivered, actorFrom(request),
+	)
+	if err != nil {
+		handlers.operationsError(writer, request, err)
+		return
+	}
+	writer.WriteHeader(http.StatusNoContent)
 }
 
 func (handlers *AdminHandlers) cancelGoodsDelivery(writer http.ResponseWriter, request *http.Request) {

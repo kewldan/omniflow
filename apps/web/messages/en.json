@@ -671,7 +671,8 @@
       "tabs": {
         "orders": "Orders",
         "products": "Products",
-        "providers": "Providers"
+        "providers": "Providers",
+        "review": "Needs review"
       },
       "columns": {
         "createdAt": "Placed",
@@ -684,14 +685,17 @@
         "kind": "Kind",
         "quantity": "Quantity",
         "pricing": "Pricing",
-        "visible": "Visibility"
+        "visible": "Visibility",
+        "actions": "Actions"
       },
       "empty": {
         "orders": "No shop orders",
         "products": "No products",
         "productsDescription": "Add a product and a pricing rule before opening the shop.",
         "providers": "No providers",
-        "providersDescription": "Configure a digital-goods provider to sell Premium or Stars."
+        "providersDescription": "Configure a digital-goods provider to sell Premium or Stars.",
+        "review": "Nothing to review",
+        "reviewDescription": "No delivery is waiting on a human decision."
       },
       "status": {
         "quoted": "Quoted",
@@ -706,7 +710,8 @@
         "permanent": "Permanent",
         "recipient_invalid": "Recipient not reachable",
         "provider_balance": "Provider balance",
-        "provider_unavailable": "Provider unavailable"
+        "provider_unavailable": "Provider unavailable",
+        "ambiguous": "Outcome unknown"
       },
       "kind": {
         "telegram_premium": "Telegram Premium",
@@ -715,7 +720,18 @@
       "pricing": {
         "fixed": "Fixed at {amount}",
         "markup": "{percent}% markup, {rounding}",
-        "missing": "No pricing rule"
+        "missing": "No pricing rule",
+        "edit": "Pricing",
+        "editorTitle": "Pricing for {code}",
+        "useFixed": "Publish a fixed price",
+        "noPublishedCost": "This provider publishes no cost for Telegram Premium, so the price must be fixed. The margin on such an order is recorded as unknown rather than as the whole price.",
+        "currency": "Currency",
+        "fixedAmount": "Fixed price",
+        "markupBps": "Markup (basis points)",
+        "rounding": "Rounding",
+        "quoteTtl": "Quote validity (seconds)",
+        "minorUnitsHint": "Amounts are integers in the currency's minor unit. 1500 basis points is a 15% markup, and every rounding mode rounds up.",
+        "save": "Save pricing"
       },
       "rounding": {
         "none": "exact",
@@ -732,6 +748,13 @@
         "set": "Configured",
         "unset": "Not configured",
         "enabled": "Enabled"
+      },
+      "reviewExplainer": "The gateway honours no idempotency key, so a lost answer means the goods may or may not have been sent. Check with the provider, then record what you found — confirming delivery completes the order, and refunding credits the customer's wallet.",
+      "reviewReasonPlaceholder": "What you confirmed with the provider (required)",
+      "review": {
+        "attempts": "Attempts",
+        "confirmDelivered": "Confirm delivered",
+        "refund": "Refund customer"
       }
     },
     "gifts": {

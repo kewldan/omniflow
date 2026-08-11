@@ -4,3 +4,4 @@
 -- atlas:import migrations/20260811120000_purchase_expansion.sql
 -- atlas:import migrations/20260812000000_admin_foundation.sql
 -- atlas:import migrations/20260813000000_admin_operations.sql
+-- atlas:import migrations/20260814000000_goods_gateway.sql

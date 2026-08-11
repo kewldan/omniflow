@@ -621,6 +621,8 @@ type GoodsOrder struct {
 	Status            string             `json:"status"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	// False when the provider publishes no cost for this product and the operator set the price directly. Margin is unknown, not zero.
+	CostKnown bool `json:"cost_known"`
 }
 
 type GoodsPricing struct {
