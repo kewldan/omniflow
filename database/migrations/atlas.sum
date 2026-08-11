@@ -1,4 +1,4 @@
-h1:CQ7jaERvvfMEQcxogtV+D/Bg0iLVUr/BQy+nO5LfxMQ=
+h1:7i7FgrbsBE25QUE0Sdskhf/jfvgYP7v8FRiEW+roA/c=
 20260810160000_initial.sql h1:1kQrZBliczdiXY/iEDj2ZAU+pUo0tJpeSRzclMaGkBg=
 20260810190000_bot_self_service.sql h1:LS90y7P5Az1VyeoozUy8ljEsBUQmAAPv3fdH+4QTH5g=
 20260810220000_commerce.sql h1:F9VjoIN5PYaNjnYOHHNYKvv+kSYJ4KLnVu6eI5PVHzM=
@@ -11,3 +11,4 @@ h1:CQ7jaERvvfMEQcxogtV+D/Bg0iLVUr/BQy+nO5LfxMQ=
 20260816000000_support_desk.sql h1:+EHN5II6tC7F/kz9eeVSnYy99wZlOEUL6J9M66f0wDE=
 20260817000000_referrals_loyalty.sql h1:EqIJ71IjGQqYCAz8rNmCLh7+1e2jROUhtB0I3udQgdk=
 20260818000000_campaigns.sql h1:6AKHMfQiufDnSfPrBOpuNtDkNEUMerGCCmKxqp1myW4=
+20260819000000_required_channels.sql h1:yF/+qiwFFUIpspH4v8jS4MUjvT+OPrz9sMss+LwcVvk=
