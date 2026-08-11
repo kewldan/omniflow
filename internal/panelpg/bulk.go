@@ -316,3 +316,36 @@ func bulkOperationFrom(row dbgen.BulkOperation) BulkOperation {
 		CompletedAt: timePointer(row.CompletedAt),
 	}
 }
+
+// BulkSubscriptionTarget is the live entitlement a bulk change will act on.
+type BulkSubscriptionTarget struct {
+	EntitlementID string
+	CustomerID    string
+	EndsAt        time.Time
+	Status        string
+}
+
+// BulkSubscriptionTarget resolves one subscription a bulk operation targets.
+//
+// It addresses the subscription without naming a customer, which every other
+// path deliberately refuses to do. It is safe here because the target was
+// recorded by the preview — this is reading back a validated decision rather
+// than accepting a new one from a request.
+func (service *Service) BulkSubscriptionTarget(
+	ctx context.Context, subscriptionID string,
+) (BulkSubscriptionTarget, error) {
+	id, err := parseUUID(subscriptionID)
+	if err != nil {
+		return BulkSubscriptionTarget{}, err
+	}
+	row, err := service.queries().GetBulkSubscriptionTarget(ctx, id)
+	if err != nil {
+		return BulkSubscriptionTarget{}, notFound(err)
+	}
+	return BulkSubscriptionTarget{
+		EntitlementID: uuidString(row.EntitlementID),
+		CustomerID:    uuidString(row.UserID),
+		EndsAt:        timeValue(row.EndsAt),
+		Status:        row.Status,
+	}, nil
+}

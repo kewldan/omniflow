@@ -828,6 +828,39 @@ func (q *Queries) GetBulkOperationByIdempotency(ctx context.Context, idempotency
 	return i, err
 }
 
+const getBulkSubscriptionTarget = `-- name: GetBulkSubscriptionTarget :one
+SELECT e.id AS entitlement_id, e.user_id, e.ends_at, e.status
+FROM entitlements e
+WHERE e.subscription_id = $1
+  AND e.status IN ('active', 'limited')
+ORDER BY e.ends_at DESC
+LIMIT 1
+`
+
+type GetBulkSubscriptionTargetRow struct {
+	EntitlementID pgtype.UUID        `json:"entitlement_id"`
+	UserID        pgtype.UUID        `json:"user_id"`
+	EndsAt        pgtype.Timestamptz `json:"ends_at"`
+	Status        string             `json:"status"`
+}
+
+// The live entitlement behind a subscription a bulk operation targets.
+//
+// Addressing a subscription without naming its customer is safe here and only
+// here: the targets were recorded by the preview, which validated them, so this
+// is reading back a decision rather than accepting one.
+func (q *Queries) GetBulkSubscriptionTarget(ctx context.Context, subscriptionID pgtype.UUID) (GetBulkSubscriptionTargetRow, error) {
+	row := q.db.QueryRow(ctx, getBulkSubscriptionTarget, subscriptionID)
+	var i GetBulkSubscriptionTargetRow
+	err := row.Scan(
+		&i.EntitlementID,
+		&i.UserID,
+		&i.EndsAt,
+		&i.Status,
+	)
+	return i, err
+}
+
 const getCommerceSettings = `-- name: GetCommerceSettings :one
 
 

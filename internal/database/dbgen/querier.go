@@ -273,6 +273,12 @@ type Querier interface {
 	GetBlocklistSourceBySlug(ctx context.Context, slug string) (BlocklistSource, error)
 	GetBulkOperation(ctx context.Context, id pgtype.UUID) (BulkOperation, error)
 	GetBulkOperationByIdempotency(ctx context.Context, idempotencyKey string) (BulkOperation, error)
+	// The live entitlement behind a subscription a bulk operation targets.
+	//
+	// Addressing a subscription without naming its customer is safe here and only
+	// here: the targets were recorded by the preview, which validated them, so this
+	// is reading back a decision rather than accepting one.
+	GetBulkSubscriptionTarget(ctx context.Context, subscriptionID pgtype.UUID) (GetBulkSubscriptionTargetRow, error)
 	// Operator panel queries for v0.7: settings, dashboard, customer and finance
 	// operations, fulfillment and job diagnostics, and bulk actions.
 	//

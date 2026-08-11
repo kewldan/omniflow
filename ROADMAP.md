@@ -415,7 +415,7 @@ Goal: let operators run day-to-day customer, subscription, and financial operati
 - [x] Create, extend, enable, disable, reset traffic, change limits, and change squads through Remnawave API
 - [x] Device review and removal without exposing identifiers unnecessarily
 - [ ] Bulk import/export with preview, validation errors, progress, resumability, and audit history
-- [ ] Bulk actions with permission checks, impact preview, limits, and per-item results
+- [x] Bulk actions with permission checks, impact preview, limits, and per-item results
 - [x] External blocklist source configuration, refresh schedule, and connection health
 - [x] Blocklist match review with evidence, manual allowlist override, and appeal handling
 - [x] Block reason, actor, and source recorded as an audit event for every decision

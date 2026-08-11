@@ -813,3 +813,16 @@ LIMIT sqlc.arg(page_size);
 SELECT a.referrer_user_id, a.code, a.created_at
 FROM referral_attributions a
 WHERE a.referred_user_id = $1;
+
+-- name: GetBulkSubscriptionTarget :one
+-- The live entitlement behind a subscription a bulk operation targets.
+--
+-- Addressing a subscription without naming its customer is safe here and only
+-- here: the targets were recorded by the preview, which validated them, so this
+-- is reading back a decision rather than accepting one.
+SELECT e.id AS entitlement_id, e.user_id, e.ends_at, e.status
+FROM entitlements e
+WHERE e.subscription_id = sqlc.arg(subscription_id)
+  AND e.status IN ('active', 'limited')
+ORDER BY e.ends_at DESC
+LIMIT 1;

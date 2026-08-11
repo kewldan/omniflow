@@ -10,14 +10,16 @@ import { TableCell, TableRow } from "@omniflow/ui/table";
 import { RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { useId } from "react";
+import { useId, useState } from "react";
 import useSWR from "swr";
 
 import { PageHeader, ResourceTable } from "@/components/admin/resource-table";
 import { type ApiError, fetcher, toQuery } from "@/lib/api";
 import type { CustomerSummary, Page } from "@/lib/operations";
+import { useSession } from "@/lib/session";
 import { usePreferences } from "@/lib/use-preferences";
 import { useUrlFilters } from "@/lib/use-url-filters";
+import { BulkActions } from "./bulk-actions";
 
 const STATUSES = ["active", "suspended", "deleted"] as const;
 const SEGMENTS = ["subscribed", "lapsed", "never_purchased", "flagged"] as const;
@@ -47,6 +49,8 @@ export function CustomerSearch() {
   const { filters, cursorStack, setFilter, reset, goNext, goPrevious, hasPrevious } = useUrlFilters(
     ["status", "segment", "q"],
   );
+  const { can } = useSession();
+  const [bulk, setBulk] = useState(false);
   const { preferences } = usePreferences();
   const pageSize = preferences.pageSize || 25;
 
@@ -68,7 +72,19 @@ export function CustomerSearch() {
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader description={translate("description")} title={translate("title")} />
+      <PageHeader
+        actions={
+          can("customers.write") ? (
+            <Button onClick={() => setBulk((open) => !open)} size="sm" variant="outline">
+              {translate(bulk ? "bulk.hide" : "bulk.show")}
+            </Button>
+          ) : null
+        }
+        description={translate("description")}
+        title={translate("title")}
+      />
+
+      {bulk && <BulkActions />}
 
       <Card className="p-4">
         <div className="flex flex-wrap items-end gap-3">

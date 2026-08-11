@@ -526,6 +526,10 @@
         "empty": "Nothing recorded",
         "emptyDescription": "Operator actions against this customer appear here.",
         "systemActor": "System"
+      },
+      "bulk": {
+        "show": "Bulk actions",
+        "hide": "Hide bulk actions"
       }
     },
     "finance": {
@@ -1180,6 +1184,72 @@
         "title": "What the customer will see",
         "approximation": "An approximation of the Telegram message, not a live render — the bot draws the real one.",
         "missing": "No title for this language"
+      }
+    },
+    "bulk": {
+      "create": "New bulk action",
+      "close": "Close",
+      "start": "Apply",
+      "cancel": "Cancel",
+      "showItems": "Per-item results",
+      "hideItems": "Hide results",
+      "kind": {
+        "subscription_extend": "Extend subscriptions",
+        "subscription_enable": "Enable subscriptions",
+        "subscription_disable": "Disable subscriptions",
+        "wallet_credit": "Credit wallets",
+        "customer_export": "Export customers"
+      },
+      "status": {
+        "previewing": "Previewing",
+        "ready": "Ready to apply",
+        "running": "Running",
+        "completed": "Completed",
+        "failed": "Failed",
+        "cancelled": "Cancelled"
+      },
+      "itemStatus": {
+        "pending": "Pending",
+        "succeeded": "Done",
+        "failed": "Failed",
+        "skipped": "Skipped"
+      },
+      "errorCode": {
+        "invalid_parameters": "Bad parameters",
+        "subscription_unavailable": "No active subscription",
+        "enqueue_failed": "Could not queue",
+        "credit_failed": "Credit refused",
+        "wallet_unavailable": "Wallet unavailable",
+        "timeout": "Timed out",
+        "unsupported_kind": "Unsupported action",
+        "unsupported_target": "Wrong target type"
+      },
+      "counts": {
+        "total": "{count} targets",
+        "succeeded": "{count} done",
+        "failed": "{count} failed",
+        "skipped": "{count} skipped"
+      },
+      "empty": {
+        "title": "No bulk actions",
+        "description": "Bulk actions you preview appear here with their per-item results."
+      },
+      "composer": {
+        "title": "Preview a bulk action",
+        "description": "Previewing records the action and every target without applying anything. Nothing changes until you apply it.",
+        "kind": "Action",
+        "targets": {
+          "subscription": "Subscription IDs",
+          "customer": "Customer IDs"
+        },
+        "targetCount": "{count} identifiers",
+        "days": "Days to add",
+        "amount": "Amount (minor units)",
+        "currency": "Currency",
+        "reason": "Reason",
+        "reasonHint": "Why this is being applied to all of them",
+        "previewNotice": "Each target is applied and recorded one at a time, so a run that half succeeds says which half. Every change goes through the same fulfillment pipeline a single change uses.",
+        "preview": "Preview"
       }
     }
   }

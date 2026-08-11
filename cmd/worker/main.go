@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omniflow/omniflow/internal/backup"
+	"github.com/omniflow/omniflow/internal/bulkrunner"
 	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/config"
 	"github.com/omniflow/omniflow/internal/fulfillment"
@@ -143,6 +144,14 @@ func main() {
 		}
 	}
 	go sweeper.New(pool, operations, logger, sweeper.Config{}).Run(ctx)
+
+	// Bulk actions are applied here rather than in the API process, because a
+	// batch of four hundred subscriptions must not be tied to the lifetime of
+	// the request that started it.
+	fulfillmentService := fulfillment.NewService(pool, client)
+	go bulkrunner.New(
+		pool, operations, fulfillmentService, commerceStore, logger, bulkrunner.Config{},
+	).Run(ctx)
 
 	go retention.New(pool, logger, retention.Config{
 		Outbox: cfg.Retention.Outbox, Telemetry: cfg.Retention.Telemetry,
