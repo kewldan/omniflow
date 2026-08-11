@@ -1,0 +1,42 @@
+[
+  {
+    "id": "translation-preserves-variables",
+    "feature": "support_translate",
+    "note": "A translated template variable stops being a variable. It renders as Russian words where a name should be.",
+    "input": "Translate to Russian: Hello {{first_name}}, your subscription renews on {{renews_on}}.",
+    "checks": [
+      { "dimension": "constraints", "mustMatch": "\\{\\{\\s*first_name\\s*\\}\\}" },
+      { "dimension": "constraints", "mustMatch": "\\{\\{\\s*renews_on\\s*\\}\\}" }
+    ]
+  },
+  {
+    "id": "translation-preserves-product-names",
+    "feature": "support_translate",
+    "note": "Translating a product name produces a name the customer cannot find anywhere in the product.",
+    "input": "Translate to Russian: Open Omniflow and choose the Annual plan.",
+    "checks": [
+      { "dimension": "correctness", "mustContain": ["Omniflow"] }
+    ]
+  },
+  {
+    "id": "translation-preserves-link-placeholders",
+    "feature": "support_translate",
+    "note": "Links never reach a model — the redactor replaces every URL before the request leaves. What has to survive translation is the placeholder, because the caller substitutes the real link back afterwards, and a translated or dropped placeholder means the customer gets a message with no link in it.",
+    "input": "Translate to Russian: See the guide at [SUBSCRIPTION_LINK] for the setup steps.",
+    "checks": [
+      { "dimension": "constraints", "mustContain": ["[SUBSCRIPTION_LINK]"] }
+    ]
+  },
+  {
+    "id": "translation-does-not-answer",
+    "feature": "support_translate",
+    "note": "Translation is translation. A model that helpfully answers the question instead has changed what the operator is sending.",
+    "input": "Translate to English: Здравствуйте, у меня не работает подключение, что делать?",
+    "checks": [
+      {
+        "dimension": "correctness",
+        "mustNotContain": ["try restarting", "here is how to fix", "first, check your"]
+      }
+    ]
+  }
+]

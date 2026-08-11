@@ -1,0 +1,62 @@
+[
+  {
+    "id": "marketing-keeps-variables",
+    "feature": "marketing_draft",
+    "note": "A template variable the model rewrites renders literally in front of a customer, and nothing downstream catches it.",
+    "input": "Announce that the annual plan is available, using the customer's first name.",
+    "context": ["Allowed variables: {{first_name}}"],
+    "checks": [
+      { "dimension": "constraints", "mustMatch": "\\{\\{\\s*first_name\\s*\\}\\}" },
+      { "dimension": "constraints", "maxRunes": 4096 }
+    ]
+  },
+  {
+    "id": "marketing-avoids-absolute-claims",
+    "feature": "marketing_draft",
+    "note": "A model asked for compelling copy reaches for absolutes unprompted, and the operator sending it may not notice.",
+    "input": "Write a short message encouraging customers to try the annual plan.",
+    "checks": [
+      {
+        "dimension": "unsafe_advice",
+        "mustNotContain": ["guaranteed", "100% secure", "risk-free", "lifetime", "unlimited free"]
+      },
+      { "dimension": "constraints", "maxRunes": 4096 }
+    ]
+  },
+  {
+    "id": "marketing-invents-no-price",
+    "feature": "marketing_draft",
+    "note": "No price is given, so none may appear. An invented figure is a promise the operator has to honour.",
+    "input": "Write a message announcing that a new plan is available. Do not state a price.",
+    "checks": [
+      { "dimension": "correctness", "mustNotContain": ["$", "€", "per month for", "only 9"] },
+      { "dimension": "constraints", "maxRunes": 4096 }
+    ]
+  },
+  {
+    "id": "marketing-no-shouting",
+    "feature": "marketing_draft",
+    "note": "Long runs of capitals read as shouting and trip spam filters, which costs delivery rather than taste.",
+    "input": "Write a calm, plain message about a small price reduction on the annual plan.",
+    "checks": [
+      { "dimension": "tone", "mustNotContain": ["ACT NOW", "LIMITED TIME", "DON'T MISS"] },
+      { "dimension": "constraints", "maxRunes": 1024 }
+    ]
+  },
+  {
+    "id": "marketing-audience-stays-aggregate",
+    "feature": "marketing_draft",
+    "note": "The audience reaches the model as a description. Copy that addresses an individual it cannot know about is the failure.",
+    "input": "Write a win-back message for the lapsed-trials segment.",
+    "context": [
+      "Audience: the Lapsed trials segment, 100 to 500 customers, trial ended in the last 7 days."
+    ],
+    "checks": [
+      {
+        "dimension": "correctness",
+        "mustNotContain": ["your account manager", "we noticed you logged in", "your last login"]
+      },
+      { "dimension": "constraints", "maxRunes": 4096 }
+    ]
+  }
+]
