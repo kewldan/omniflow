@@ -630,15 +630,15 @@ Goal: finish support, communication, configuration, and operational readiness be
 
 ### AI writing and marketing tools
 
-- [ ] Draft news posts, service announcements, campaign messages, subjects, and calls to action
-- [ ] Rewrite, shorten, expand, simplify, change tone, and produce operator-requested variants
-- [ ] Translate and localize between Russian and English rather than performing literal translation only
-- [ ] Preserve and validate template variables, Markdown/HTML rules, Telegram limits, and channel constraints
-- [ ] Brand-voice, forbidden-claims, consent, quiet-hours, and communication-policy checks
-- [ ] Readability, ambiguity, spam-likelihood, and potentially misleading language review
+- [x] Draft news posts, service announcements, campaign messages, subjects, and calls to action
+- [x] Rewrite, shorten, expand, simplify, change tone, and produce operator-requested variants
+- [x] Translate and localize between Russian and English rather than performing literal translation only
+- [x] Preserve and validate template variables, Markdown/HTML rules, Telegram limits, and channel constraints
+- [x] Brand-voice, forbidden-claims, consent, quiet-hours, and communication-policy checks
+- [x] Readability, ambiguity, spam-likelihood, and potentially misleading language review
 - [ ] Audience-aware suggestions using aggregate segment definitions without exposing raw customer lists
 - [ ] Side-by-side diff, undo, version history, and explicit operator acceptance of generated edits
-- [ ] AI may prepare a campaign draft but cannot select recipients, schedule, or send without confirmation
+- [x] AI may prepare a campaign draft but cannot select recipients, schedule, or send without confirmation
 
 ### Admin copilot
 
