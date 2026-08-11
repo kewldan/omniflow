@@ -101,13 +101,15 @@ ALTER TABLE plans
 
 -- plan_versions.remnawave_squad_ids stays the always-assigned set. The rows
 -- below are the additional squads a customer may choose from.
+-- The inline column checks below take the names PostgreSQL derives from the
+-- column, so the cross-column constraint needs a name of its own.
 ALTER TABLE plan_versions
   ADD COLUMN squad_selection text NOT NULL DEFAULT 'automatic'
     CHECK (squad_selection IN ('automatic', 'optional', 'required')),
   ADD COLUMN min_selectable_squads integer NOT NULL DEFAULT 0 CHECK (min_selectable_squads >= 0),
   ADD COLUMN max_selectable_squads integer
     CHECK (max_selectable_squads IS NULL OR max_selectable_squads > 0),
-  ADD CONSTRAINT plan_versions_squad_selection_check
+  ADD CONSTRAINT plan_versions_selectable_squad_range_check
     CHECK (max_selectable_squads IS NULL OR max_selectable_squads >= min_selectable_squads);
 
 CREATE TABLE plan_version_squads (

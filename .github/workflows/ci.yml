@@ -109,6 +109,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      # The stack reads its configuration from .env, which is never committed.
+      # The example file is the documented starting point, so validating
+      # against it also proves the example stays usable.
+      - name: Seed the environment from the committed example
+        run: cp .env.example .env
       - name: Validate the base compose file
         run: docker compose -f compose.yaml config --quiet
       - name: Validate the Traefik overlay

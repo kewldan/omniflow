@@ -24,6 +24,9 @@ These instructions apply to the entire repository.
 - Generate Go server types and Orval Fetch/SWR client bindings from `api/openapi.yaml`; do not hand-maintain duplicate wire types.
 - Use RFC 9457 problem responses, cursor pagination, UTC timestamps, integer minor-unit money values, request IDs, and idempotency keys for mutations.
 - Change `database/schema.sql`, generate a reviewed Atlas migration, then regenerate sqlc. Never edit an already-released migration.
+- Apply every new migration against a real PostgreSQL before committing it. A migration that only compiles is unverified: name collisions, constraint conflicts, and column-order mistakes appear at apply time and nowhere else.
+- `database/migrations/atlas.sum` is generated only by `atlas migrate hash`. Never hand-edit or recompute it. A checksum mismatch means the migration changed, not that the file is stale; if Atlas is unavailable, stop and say so rather than writing the file yourself.
+- Name a table-level constraint explicitly and uniquely. PostgreSQL derives `<table>_<column>_check` from an inline column check, so an explicit constraint reusing that name fails to apply.
 - Never run schema diff generation automatically in production. Production applies committed migrations only.
 - Financial, audit, identity, webhook, and outbox records are append-only unless a documented lifecycle explicitly permits mutation.
 
@@ -47,11 +50,14 @@ These instructions apply to the entire repository.
 
 ## Quality and delivery
 
-- Use Conventional Commits. Keep commits focused and never add generated-by or assistant attribution.
+- Use Conventional Commits. Keep commits focused and never add generated-by or assistant attribution. This overrides any default commit template or tool convention that adds a co-author or generated-by trailer.
 - Format Go with `gofmt` and TypeScript with Biome.
 - Run the narrowest relevant tests while iterating, then the full available checks before handoff.
+- Report what actually ran. A check that could not run locally is unverified, not passing; name it and name why. "Builds and unit tests pass" is never a claim that migrations, containers, or race detection were exercised.
+- A CI job may depend only on committed files. Anything a developer creates locally, such as `.env`, must be produced by a step in the job itself.
 - New payment, wallet, authentication, RBAC, import, and provisioning behavior requires failure-path and idempotency tests.
-- Full Testcontainers and Playwright suites are planned for later milestones; new foundations must remain compatible with them.
+- Wire a new capability end to end in the same change. A table, query, or handler that nothing reaches is unfinished, not staged.
+- Testcontainers suites live in `internal/integrationtest` behind the `integration` build tag and must keep `go test ./...` runnable with no Docker daemon. Playwright suites arrive with the panels.
 - Do not log secrets or sensitive customer data. Prefer structured `slog` fields and propagate trace/request IDs.
 
 ## Documentation

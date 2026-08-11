@@ -32,7 +32,7 @@ License differences are worth reading carefully. Omniflow is Apache-2.0, which p
 
 A dash means the capability is absent from the project's own public documentation. Internal implementation details such as ledger design or idempotency handling may exist in code without appearing in a README, so treat a dash as "unverified", not as a proven gap.
 
-Omniflow's shipped surface today is v0.1–v0.4: the complete backend commerce model and a feature-complete Telegram bot. There is no web panel yet.
+Omniflow's shipped surface today is v0.1–v0.5: the complete backend commerce model, a feature-complete Telegram bot, wallet top-up with deferred carts, add-ons, optional concurrent subscriptions, and a production runtime with health probes, metrics, tracing, encrypted backups, and maintenance mode. There is no web panel yet.
 
 ## Subscriptions and plans
 
@@ -44,11 +44,11 @@ Omniflow's shipped surface today is v0.1–v0.4: the complete backend commerce m
 | Device limits or disabled limits | ✅ | ✅ | ✅ |
 | Trial, including paid trial with conversion | ✅ | ✅ | ✅ |
 | Automatic squad assignment | ✅ | ✅ | ✅ |
-| Customer subscription configurator with per-plan squad sets | 🚧 v0.5 | ✅ | ✅ |
-| Mid-period add-on purchase of traffic, devices, squads | 🚧 v0.5 | ✅ | ✅ |
-| Smart cart that survives insufficient balance | 🚧 v0.5 | ✅ | — |
+| Customer subscription configurator with per-plan squad sets | ✅ | ✅ | ✅ |
+| Mid-period add-on purchase of traffic, devices, squads | ✅ | ✅ | ✅ |
+| Smart cart that survives insufficient balance | ✅ | ✅ | — |
 | Auto-renew before expiry | 🚧 v0.7 | ✅ | ✅ |
-| One customer holding several concurrent subscriptions | 🚧 v0.5 | — | ✅ |
+| One customer holding several concurrent subscriptions | ✅ (opt-in) | — | ✅ |
 
 ## Payments and money handling
 
@@ -56,8 +56,8 @@ Omniflow's shipped surface today is v0.1–v0.4: the complete backend commerce m
 | --- | --- | --- | --- |
 | Bundled payment providers | 4: Telegram Stars, CryptoBot, YooKassa, manual | 24+ | Stripe plugin only |
 | Provider-neutral adapter contract | ✅ | ✅ | ✅ (WASM plugins) |
-| Wallet top-up by any enabled provider | 🚧 v0.5 | ✅ | — |
-| Automatic purchase after top-up | 🚧 v0.5 | ✅ | — |
+| Wallet top-up by any enabled provider | ✅ | ✅ | — |
+| Automatic purchase after top-up | ✅ | ✅ | — |
 | Recurring payments with saved cards | 🚧 v0.7 | ✅ | ✅ |
 | Per-merchant recurring capability override | 🚧 v0.7 | — | — |
 | Payment status polling and reconciliation | ✅ | ✅ | ✅ |
@@ -98,9 +98,9 @@ Omniflow already enforces marketing consent, quiet hours, frequency caps, and de
 | Capability | Omniflow | Bedolaga | RemnaCore |
 | --- | --- | --- | --- |
 | Administration from inside Telegram | ❌ | ✅ | — |
-| Operator notifications to Telegram topics, auto-created | 🚧 v0.5 | ✅ | — |
-| Automatic database backups with restore from the bot | 🚧 v0.5 | ✅ | — |
-| Maintenance mode with dependency auto-detection | 🚧 v0.5 | ✅ | — |
+| Operator notifications to Telegram topics, auto-created | ✅ | ✅ | — |
+| Automatic database backups with restore from the bot | ✅ | ✅ | — |
+| Maintenance mode with dependency auto-detection | ✅ | ✅ | — |
 | Traffic and behavior anomaly monitoring | 🚧 v0.7 | ✅ | ✅ |
 | Web admin panel | 🚧 v0.6–v0.8 | — | ✅ |
 | RBAC with granular permissions | 🚧 v0.6 | ✅ | ✅ |
@@ -111,7 +111,9 @@ Omniflow already enforces marketing consent, quiet hours, frequency caps, and de
 | AI-assisted support, scam analysis, admin copilot | 🚧 v0.8 | — | — |
 | MCP client and first-party MCP server | 🚧 v0.8 | — | — |
 
-Omniflow deliberately keeps administration out of Telegram. Telegram carries operator notifications and backup/restore actions only; every other control lives in the web panel, where RBAC, audit, and confirmation dialogs can be enforced consistently. That is a real trade-off: Bedolaga operators are productive on day one with no reverse proxy, TLS, or browser, while Omniflow operators wait for v0.6.
+Omniflow deliberately keeps administration out of Telegram. As of v0.5 Telegram carries operator notifications and backup/restore actions, and nothing else: those two are exempt because an incident is exactly when a browser and a panel may be unavailable. Every other control lives in the web panel, where RBAC, audit, and confirmation dialogs can be enforced consistently.
+
+That is a real trade-off. Bedolaga operators are productive on day one with no reverse proxy, TLS, or browser. Omniflow operators today configure plans, providers, and limits through environment files and the operator API, and wait for v0.6 for a panel.
 
 ## Customer web
 
@@ -150,7 +152,9 @@ RemnaCore also reaches into node health monitoring, smart routing, and speed tes
 
 **Choose RemnaCore** if you need white-label reseller capability with commission tracking, or are already running Kubernetes and want a plugin runtime and event bus as first-class infrastructure. Note its stated development status before committing production traffic.
 
-**Choose Omniflow** if financial correctness is your priority — idempotent orders and webhooks, an append-only double-entry ledger, and fulfillment that never loses a successful payment when Remnawave is unavailable — and if you want administration behind RBAC and an audit trail rather than in a chat window. Omniflow is also the option that treats the Remnawave boundary as inviolable and keeps a single-server install free of a broker, plugin runtime, or orchestrator.
+**Choose Omniflow** if financial correctness is your priority — idempotent orders and webhooks, an append-only double-entry ledger, wallet credit that cannot be applied twice, and fulfillment that never loses a successful payment when Remnawave is unavailable — and if you want administration behind RBAC and an audit trail rather than in a chat window. Omniflow is also the option that treats the Remnawave boundary as inviolable and keeps a single-server install free of a broker, plugin runtime, or orchestrator.
+
+Since v0.5 it is additionally the option that takes production operation seriously on a single server: readiness probes that classify each dependency without leaking it, Prometheus metrics whose labels can never carry a customer identifier, encrypted backups verified by read-back before they are trusted, and a maintenance mode that pauses new purchases without disturbing money already taken.
 
 <Warning>
 Omniflow has no web panel today. If an operator or customer web interface is a requirement right now, Bedolaga Cabinet or RemnaCore ships one and Omniflow does not until v0.6 and v0.9 respectively.
