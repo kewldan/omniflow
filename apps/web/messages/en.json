@@ -1472,6 +1472,74 @@
           "replayed": "Replayed"
         }
       }
+    },
+    "marketing": {
+      "title": "Marketing",
+      "description": "Campaigns, audience segments, the suppression list, and the referral programme.",
+      "save": "Save",
+      "saveFailed": "That could not be saved.",
+      "campaigns": {
+        "title": "Campaigns",
+        "description": "A campaign is created in draft with its estimated audience already visible. Scheduling is a separate action.",
+        "reason": "Campaign changed",
+        "newTitle": "New campaign",
+        "name": "Name",
+        "segment": "Audience segment",
+        "template": "Template",
+        "createDraft": "Create draft",
+        "preview": "This would reach about {count} customers.",
+        "empty": "No campaigns yet.",
+        "status": "Status",
+        "audience": "Estimated",
+        "results": "Results",
+        "counts": "{sent} sent · {failed} failed · {suppressed} suppressed",
+        "scheduleFor": "Send at",
+        "states": {
+          "draft": "Draft",
+          "scheduled": "Scheduled",
+          "running": "Sending",
+          "paused": "Paused",
+          "cancelled": "Cancelled",
+          "completed": "Completed",
+          "failed": "Failed"
+        },
+        "actions": {
+          "scheduled": "Schedule",
+          "paused": "Pause",
+          "cancelled": "Cancel"
+        }
+      },
+      "segments": {
+        "title": "Audience segments",
+        "description": "Each definition is shown in words, generated from the filters themselves, so it cannot describe something the query does not do.",
+        "size": "{count} customers"
+      },
+      "suppressions": {
+        "title": "Suppression list",
+        "description": "Customers who receive no marketing messages. Transactional messages are unaffected.",
+        "reasonHeader": "Suppression changed",
+        "empty": "Nobody is suppressed.",
+        "customer": "Customer",
+        "reason": "Reason",
+        "remove": "Remove"
+      },
+      "referrals": {
+        "title": "Referral programme",
+        "description": "What an invite earns, who it earns for, and how long an invite stays attributable.",
+        "reason": "Referral programme changed",
+        "enabled": "Programme enabled",
+        "inviterReward": "Inviter reward (minor units)",
+        "inviteeReward": "Invitee reward (minor units)",
+        "cap": "Rewards per inviter",
+        "capPlaceholder": "Empty means no cap",
+        "validity": "Attribution validity (days)",
+        "paylessTitle": "This programme pays nothing",
+        "payless": "Enabling a programme with no reward on either side sends the invites and pays neither party. Set a reward, or leave the programme off.",
+        "attributed": "Attributed",
+        "qualified": "Qualified",
+        "rejected": "Rejected",
+        "rewarded": "Paid out"
+      }
     }
   }
 }

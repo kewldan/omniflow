@@ -97,7 +97,6 @@ export const NAVIGATION: NavigationSection[] = [
         href: "/admin/marketing",
         icon: Megaphone,
         permission: "marketing.read",
-        planned: true,
       },
     ],
   },

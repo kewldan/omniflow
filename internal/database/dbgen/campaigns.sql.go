@@ -11,6 +11,49 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const campaignRecipientSample = `-- name: CampaignRecipientSample :many
+SELECT u.id, r.telegram_id
+FROM users u
+LEFT JOIN remnawave_users r ON r.user_id = u.id
+WHERE u.status = 'active'
+  AND NOT EXISTS (
+    SELECT 1 FROM communication_suppressions s
+    WHERE s.user_id = u.id AND (s.expires_at IS NULL OR s.expires_at > now())
+  )
+ORDER BY u.created_at DESC
+LIMIT $1
+`
+
+type CampaignRecipientSampleRow struct {
+	ID         pgtype.UUID `json:"id"`
+	TelegramID pgtype.Int8 `json:"telegram_id"`
+}
+
+// A handful of recipients a campaign would reach, for the preview.
+//
+// It is a sample rather than the list: an operator checking a segment needs to
+// see that it selected the right kind of person, and rendering ten thousand
+// customers to prove it is both slow and a disclosure nobody asked for.
+func (q *Queries) CampaignRecipientSample(ctx context.Context, sampleSize int32) ([]CampaignRecipientSampleRow, error) {
+	rows, err := q.db.Query(ctx, campaignRecipientSample, sampleSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CampaignRecipientSampleRow{}
+	for rows.Next() {
+		var i CampaignRecipientSampleRow
+		if err := rows.Scan(&i.ID, &i.TelegramID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const createCampaign = `-- name: CreateCampaign :one
 INSERT INTO campaigns (name, template_id, segment_id, estimated_audience, created_by)
 VALUES ($1, $2, $3,
@@ -139,6 +182,32 @@ func (q *Queries) GetMessageTemplate(ctx context.Context, id pgtype.UUID) (Messa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.UpdatedBy,
+	)
+	return i, err
+}
+
+const getReferralProgram = `-- name: GetReferralProgram :one
+SELECT singleton, enabled, currency, inviter_reward_minor, invitee_reward_minor, qualification, inviter_reward_cap, attribution_validity_days, reward_expiry_days, terms_url, updated_at FROM referral_programs WHERE singleton
+`
+
+// The single referral configuration. The table is a singleton because a second
+// programme would mean two answers to "what does an invite earn?", and the
+// customer would have been told one of them.
+func (q *Queries) GetReferralProgram(ctx context.Context) (ReferralProgram, error) {
+	row := q.db.QueryRow(ctx, getReferralProgram)
+	var i ReferralProgram
+	err := row.Scan(
+		&i.Singleton,
+		&i.Enabled,
+		&i.Currency,
+		&i.InviterRewardMinor,
+		&i.InviteeRewardMinor,
+		&i.Qualification,
+		&i.InviterRewardCap,
+		&i.AttributionValidityDays,
+		&i.RewardExpiryDays,
+		&i.TermsUrl,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -522,6 +591,36 @@ func (q *Queries) RecountCampaign(ctx context.Context, campaignID pgtype.UUID) (
 	return i, err
 }
 
+const referralProgramSummary = `-- name: ReferralProgramSummary :one
+SELECT
+  count(*) FILTER (WHERE a.qualified_at IS NOT NULL)::bigint AS qualified,
+  count(*) FILTER (WHERE a.rejected_reason IS NOT NULL)::bigint AS rejected,
+  count(*)::bigint AS attributed,
+  coalesce((SELECT sum(amount_minor) FROM referral_rewards), 0)::bigint AS rewarded_minor
+FROM referral_attributions a
+`
+
+type ReferralProgramSummaryRow struct {
+	Qualified     int64 `json:"qualified"`
+	Rejected      int64 `json:"rejected"`
+	Attributed    int64 `json:"attributed"`
+	RewardedMinor int64 `json:"rewarded_minor"`
+}
+
+// What the programme has actually cost and produced, so an operator changing a
+// reward can see what the current one did rather than guessing.
+func (q *Queries) ReferralProgramSummary(ctx context.Context) (ReferralProgramSummaryRow, error) {
+	row := q.db.QueryRow(ctx, referralProgramSummary)
+	var i ReferralProgramSummaryRow
+	err := row.Scan(
+		&i.Qualified,
+		&i.Rejected,
+		&i.Attributed,
+		&i.RewardedMinor,
+	)
+	return i, err
+}
+
 const resolveCampaignRecipient = `-- name: ResolveCampaignRecipient :exec
 UPDATE campaign_recipients
 SET status = $1,
@@ -549,6 +648,72 @@ func (q *Queries) ResolveCampaignRecipient(ctx context.Context, arg ResolveCampa
 		arg.UserID,
 	)
 	return err
+}
+
+const saveReferralProgram = `-- name: SaveReferralProgram :one
+INSERT INTO referral_programs (
+  singleton, enabled, currency, inviter_reward_minor, invitee_reward_minor,
+  qualification, inviter_reward_cap, attribution_validity_days,
+  reward_expiry_days, terms_url
+) VALUES (
+  true, $1, $2, $3,
+  $4, $5,
+  $6, $7,
+  $8, $9
+)
+ON CONFLICT (singleton) DO UPDATE SET
+  enabled = EXCLUDED.enabled,
+  currency = EXCLUDED.currency,
+  inviter_reward_minor = EXCLUDED.inviter_reward_minor,
+  invitee_reward_minor = EXCLUDED.invitee_reward_minor,
+  qualification = EXCLUDED.qualification,
+  inviter_reward_cap = EXCLUDED.inviter_reward_cap,
+  attribution_validity_days = EXCLUDED.attribution_validity_days,
+  reward_expiry_days = EXCLUDED.reward_expiry_days,
+  terms_url = EXCLUDED.terms_url,
+  updated_at = now()
+RETURNING singleton, enabled, currency, inviter_reward_minor, invitee_reward_minor, qualification, inviter_reward_cap, attribution_validity_days, reward_expiry_days, terms_url, updated_at
+`
+
+type SaveReferralProgramParams struct {
+	Enabled                 bool        `json:"enabled"`
+	Currency                string      `json:"currency"`
+	InviterRewardMinor      int64       `json:"inviter_reward_minor"`
+	InviteeRewardMinor      int64       `json:"invitee_reward_minor"`
+	Qualification           string      `json:"qualification"`
+	InviterRewardCap        pgtype.Int4 `json:"inviter_reward_cap"`
+	AttributionValidityDays int32       `json:"attribution_validity_days"`
+	RewardExpiryDays        pgtype.Int4 `json:"reward_expiry_days"`
+	TermsUrl                pgtype.Text `json:"terms_url"`
+}
+
+func (q *Queries) SaveReferralProgram(ctx context.Context, arg SaveReferralProgramParams) (ReferralProgram, error) {
+	row := q.db.QueryRow(ctx, saveReferralProgram,
+		arg.Enabled,
+		arg.Currency,
+		arg.InviterRewardMinor,
+		arg.InviteeRewardMinor,
+		arg.Qualification,
+		arg.InviterRewardCap,
+		arg.AttributionValidityDays,
+		arg.RewardExpiryDays,
+		arg.TermsUrl,
+	)
+	var i ReferralProgram
+	err := row.Scan(
+		&i.Singleton,
+		&i.Enabled,
+		&i.Currency,
+		&i.InviterRewardMinor,
+		&i.InviteeRewardMinor,
+		&i.Qualification,
+		&i.InviterRewardCap,
+		&i.AttributionValidityDays,
+		&i.RewardExpiryDays,
+		&i.TermsUrl,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const searchNewsPosts = `-- name: SearchNewsPosts :many

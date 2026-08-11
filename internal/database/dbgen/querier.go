@@ -47,6 +47,12 @@ type Querier interface {
 	// up again immediately.
 	BeginGoodsDeliveryAttempt(ctx context.Context, arg BeginGoodsDeliveryAttemptParams) (GoodsDelivery, error)
 	BindOperatorTopic(ctx context.Context, arg BindOperatorTopicParams) (OperatorTopic, error)
+	// A handful of recipients a campaign would reach, for the preview.
+	//
+	// It is a sample rather than the list: an operator checking a segment needs to
+	// see that it selected the right kind of person, and rendering ten thousand
+	// customers to prove it is both slow and a disclosure nobody asked for.
+	CampaignRecipientSample(ctx context.Context, sampleSize int32) ([]CampaignRecipientSampleRow, error)
 	CancelBulkOperation(ctx context.Context, operationID pgtype.UUID) (BulkOperation, error)
 	CancelCart(ctx context.Context, userID pgtype.UUID) (Cart, error)
 	// Only an operation that has not yet succeeded may be cancelled, so a completed
@@ -393,6 +399,10 @@ type Querier interface {
 	GetPrimarySubscription(ctx context.Context, userID pgtype.UUID) (Subscription, error)
 	GetPromoForRedemption(ctx context.Context, normalizedCode string) (GetPromoForRedemptionRow, error)
 	GetPromotionAdmin(ctx context.Context, id pgtype.UUID) (Promotion, error)
+	// The single referral configuration. The table is a singleton because a second
+	// programme would mean two answers to "what does an invite earn?", and the
+	// customer would have been told one of them.
+	GetReferralProgram(ctx context.Context) (ReferralProgram, error)
 	GetRefundByIdempotency(ctx context.Context, arg GetRefundByIdempotencyParams) (Refund, error)
 	GetRemnawaveMappingByCustomer(ctx context.Context, userID pgtype.UUID) (RemnawaveUser, error)
 	GetRemnawaveUserIDByTelegramID(ctx context.Context, telegramID pgtype.Int8) (int64, error)
@@ -827,6 +837,9 @@ type Querier interface {
 	RecountBulkOperation(ctx context.Context, operationID pgtype.UUID) (BulkOperation, error)
 	RecountCampaign(ctx context.Context, campaignID pgtype.UUID) (Campaign, error)
 	RedeemPersonalOffer(ctx context.Context, arg RedeemPersonalOfferParams) (PersonalOffer, error)
+	// What the programme has actually cost and produced, so an operator changing a
+	// reward can see what the current one did rather than guessing.
+	ReferralProgramSummary(ctx context.Context) (ReferralProgramSummaryRow, error)
 	ReleasePaymentMutationLock(ctx context.Context, hashtextextended string) error
 	ReleaseRetentionHold(ctx context.Context, arg ReleaseRetentionHoldParams) (AiRetentionHold, error)
 	RemoveBlocklistAllowlistEntry(ctx context.Context, userID pgtype.UUID) error
@@ -875,6 +888,7 @@ type Querier interface {
 	// holds one binding, so the row is refreshed rather than duplicated. Consent is
 	// re-stamped because the customer just granted it again.
 	SavePaymentMethod(ctx context.Context, arg SavePaymentMethodParams) (PaymentMethod, error)
+	SaveReferralProgram(ctx context.Context, arg SaveReferralProgramParams) (ReferralProgram, error)
 	// Secrets are written on their own so a screen that did not change a token does
 	// not have to re-send it, which is what makes a write-only field workable.
 	SaveSettingSecrets(ctx context.Context, arg SaveSettingSecretsParams) error

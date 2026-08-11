@@ -14,18 +14,14 @@
     "feature": "support_translate",
     "note": "Translating a product name produces a name the customer cannot find anywhere in the product.",
     "input": "Translate to Russian: Open Omniflow and choose the Annual plan.",
-    "checks": [
-      { "dimension": "correctness", "mustContain": ["Omniflow"] }
-    ]
+    "checks": [{ "dimension": "correctness", "mustContain": ["Omniflow"] }]
   },
   {
     "id": "translation-preserves-link-placeholders",
     "feature": "support_translate",
     "note": "Links never reach a model — the redactor replaces every URL before the request leaves. What has to survive translation is the placeholder, because the caller substitutes the real link back afterwards, and a translated or dropped placeholder means the customer gets a message with no link in it.",
     "input": "Translate to Russian: See the guide at [SUBSCRIPTION_LINK] for the setup steps.",
-    "checks": [
-      { "dimension": "constraints", "mustContain": ["[SUBSCRIPTION_LINK]"] }
-    ]
+    "checks": [{ "dimension": "constraints", "mustContain": ["[SUBSCRIPTION_LINK]"] }]
   },
   {
     "id": "translation-does-not-answer",

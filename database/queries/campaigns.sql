@@ -198,3 +198,60 @@ DELETE FROM communication_suppressions WHERE user_id = $1;
 
 -- name: IsSuppressed :one
 SELECT EXISTS (SELECT 1 FROM communication_suppressions WHERE user_id = $1) AS suppressed;
+
+-- name: GetReferralProgram :one
+-- The single referral configuration. The table is a singleton because a second
+-- programme would mean two answers to "what does an invite earn?", and the
+-- customer would have been told one of them.
+SELECT * FROM referral_programs WHERE singleton;
+
+-- name: SaveReferralProgram :one
+INSERT INTO referral_programs (
+  singleton, enabled, currency, inviter_reward_minor, invitee_reward_minor,
+  qualification, inviter_reward_cap, attribution_validity_days,
+  reward_expiry_days, terms_url
+) VALUES (
+  true, sqlc.arg(enabled), sqlc.arg(currency), sqlc.arg(inviter_reward_minor),
+  sqlc.arg(invitee_reward_minor), sqlc.arg(qualification),
+  sqlc.narg(inviter_reward_cap), sqlc.arg(attribution_validity_days),
+  sqlc.narg(reward_expiry_days), sqlc.narg(terms_url)
+)
+ON CONFLICT (singleton) DO UPDATE SET
+  enabled = EXCLUDED.enabled,
+  currency = EXCLUDED.currency,
+  inviter_reward_minor = EXCLUDED.inviter_reward_minor,
+  invitee_reward_minor = EXCLUDED.invitee_reward_minor,
+  qualification = EXCLUDED.qualification,
+  inviter_reward_cap = EXCLUDED.inviter_reward_cap,
+  attribution_validity_days = EXCLUDED.attribution_validity_days,
+  reward_expiry_days = EXCLUDED.reward_expiry_days,
+  terms_url = EXCLUDED.terms_url,
+  updated_at = now()
+RETURNING *;
+
+-- name: ReferralProgramSummary :one
+-- What the programme has actually cost and produced, so an operator changing a
+-- reward can see what the current one did rather than guessing.
+SELECT
+  count(*) FILTER (WHERE a.qualified_at IS NOT NULL)::bigint AS qualified,
+  count(*) FILTER (WHERE a.rejected_reason IS NOT NULL)::bigint AS rejected,
+  count(*)::bigint AS attributed,
+  coalesce((SELECT sum(amount_minor) FROM referral_rewards), 0)::bigint AS rewarded_minor
+FROM referral_attributions a;
+
+-- name: CampaignRecipientSample :many
+-- A handful of recipients a campaign would reach, for the preview.
+--
+-- It is a sample rather than the list: an operator checking a segment needs to
+-- see that it selected the right kind of person, and rendering ten thousand
+-- customers to prove it is both slow and a disclosure nobody asked for.
+SELECT u.id, r.telegram_id
+FROM users u
+LEFT JOIN remnawave_users r ON r.user_id = u.id
+WHERE u.status = 'active'
+  AND NOT EXISTS (
+    SELECT 1 FROM communication_suppressions s
+    WHERE s.user_id = u.id AND (s.expires_at IS NULL OR s.expires_at > now())
+  )
+ORDER BY u.created_at DESC
+LIMIT sqlc.arg(sample_size);
