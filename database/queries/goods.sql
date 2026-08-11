@@ -140,11 +140,12 @@ RETURNING *;
 -- name: CreateGoodsOrder :one
 INSERT INTO goods_orders (
   order_id, user_id, product_id, quantity, recipient_username, recipient_is_self,
-  quoted_cost_minor, quoted_price_minor, currency, quote_expires_at, cost_known
+  quoted_cost_minor, quoted_price_minor, discount_minor, currency, quote_expires_at, cost_known
 ) VALUES (
   sqlc.arg(order_id), sqlc.arg(user_id), sqlc.arg(product_id), sqlc.arg(quantity),
   sqlc.arg(recipient_username), sqlc.arg(recipient_is_self),
-  sqlc.arg(quoted_cost_minor), sqlc.arg(quoted_price_minor), sqlc.arg(currency),
+  sqlc.arg(quoted_cost_minor), sqlc.arg(quoted_price_minor), sqlc.arg(discount_minor),
+  sqlc.arg(currency),
   sqlc.arg(quote_expires_at), sqlc.arg(cost_known)
 )
 ON CONFLICT (order_id) DO NOTHING

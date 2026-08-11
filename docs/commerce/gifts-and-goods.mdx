@@ -4,11 +4,11 @@ description: Buying a subscription for somebody else, and selling Telegram Premi
 ---
 
 <Note>
-  **One limitation.** Promo codes and saved carts apply to plan purchases but
-  not to shop orders. Promotion applicability and cart quoting are both
-  plan-scoped, and pointing them at digital goods is a catalogue design decision
-  rather than a wiring one. The wallet is applied to a shop order exactly as it
-  is to a plan.
+  A shop order is an ordinary order. The wallet, promo codes, saved carts,
+  payment providers, refunds, receipts, and history all work the same way they
+  do for a plan. What differs is a cost floor on discounts and the fact that a
+  saved shop purchase never buys itself — both explained under
+  [Promotions and saved purchases](#promotions-and-saved-purchases).
 </Note>
 
 ## Gifts
@@ -234,6 +234,71 @@ change that would fix that.
 Credentials — the gateway URL and its shared token — are sealed with
 `APP_DATA_ENCRYPTION_KEY`, never returned by the API after they are written, and
 excluded from diagnostics.
+
+## Promotions and saved purchases
+
+A shop price is not a plan price, and three decisions follow from that.
+
+### A promotion applies to plans or to goods, never both
+
+An unscoped plan promotion means "every plan". If digital goods had simply
+joined that set, every promotion an operator had ever written would have started
+discounting shop orders the moment they upgraded — which nobody agreed to, and
+which does not mean what it looks like: a plan price is a number the operator
+chose, and a shop price is a provider quote plus a markup. "Fifty percent off"
+written for plans is a different instruction against a product whose margin might
+be eight percent.
+
+So a promotion names its catalogue. Existing promotions default to plans and keep
+meaning exactly what they meant. A shop promotion is scoped to specific products
+or, left unscoped, applies to every visible one.
+
+### A discount cannot take an order below what the provider charges
+
+The provider still charges its cost whatever the customer pays, so a discount
+past the markup is the installation paying to make a sale.
+
+That is a legitimate thing to choose and an illegitimate thing to arrive at by
+accident. Markup is where an operator sets the price; a promotion is a discount
+off the price they set. A code that would breach cost is **refused with that
+reason**, not quietly capped — a percentage that silently becomes a different
+percentage is the mismatch that generates a support ticket.
+
+Two exceptions follow from the same reasoning:
+
+- A product sold at a **fixed price the operator configured** has no provider
+  quote behind it. That number is theirs, exactly like a plan price, and it can
+  be discounted to zero.
+- A product whose provider **will not say what it charges** has no floor to check
+  against, so it cannot be discounted at all. Discounting a number nobody can
+  bound is how an installation sells under cost without knowing.
+
+The floor is enforced in the table as well as in the application, so a script or
+a backfill cannot write what the checkout refuses.
+
+<Warning>
+  The realised margin on a discounted order is `price − discount − cost`. The
+  discount is stored on the shop order for exactly this reason: without it the
+  finance view would report the full markup on a sale that earned less.
+</Warning>
+
+### A saved shop purchase never buys itself
+
+A saved plan charges unattended when a wallet top-up covers it. That is safe
+because the price it re-quotes against is the operator's own and changes rarely.
+
+A shop price is a provider quote that expires in minutes. Charging one unattended
+would mean charging a number the customer last saw days ago, against a rate that
+has moved since. So a shop purchase is saved and the customer confirms it when
+they come back.
+
+What is shared is the property that matters: the price is **re-quoted before any
+charge**. A price that fell is applied without comment — nobody objects to paying
+less. A price that rose is refused, and the customer is shown both numbers.
+
+A customer has one open cart. Saving a shop item therefore replaces a saved plan
+rather than sitting beside it: keeping both would mean the auto-purchase sweep
+charging for something the customer believed they had replaced.
 
 ## Buying in the bot
 

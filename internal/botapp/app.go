@@ -283,6 +283,14 @@ func (app *App) handleFlowMessage(ctx context.Context, client *telegram.Bot, upd
 		}
 		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID,
 			app.SubmitShopRecipient(ctx, session, productID, message.Text)))
+	case "goods_promo":
+		productID, _ := flowContext["productId"].(string)
+		recipient, _ := flowContext["recipient"].(string)
+		if err := app.customers.CancelSession(ctx, session.TelegramID); err != nil {
+			app.logger.Warn("session cleanup failed", "error", err)
+		}
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID,
+			app.SubmitShopPromo(ctx, session, productID, recipient, message.Text)))
 	case "gift_message":
 		token, _ := flowContext["gift"].(string)
 		if err := app.customers.CancelSession(ctx, session.TelegramID); err != nil {

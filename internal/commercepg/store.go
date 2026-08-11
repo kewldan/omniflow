@@ -141,10 +141,18 @@ type CreateOrderInput struct {
 // Promotion and policy rejections carry a stable machine reason so a customer
 // surface can explain exactly why a code was refused.
 var (
-	ErrPromoUnknown        = errors.New("promo_unknown")
-	ErrPromoIneligible     = errors.New("promo_ineligible")
-	ErrPromoExhausted      = errors.New("promo_exhausted")
-	ErrPromoInvalid        = errors.New("promo_invalid")
+	ErrPromoUnknown    = errors.New("promo_unknown")
+	ErrPromoIneligible = errors.New("promo_ineligible")
+	ErrPromoExhausted  = errors.New("promo_exhausted")
+	ErrPromoInvalid    = errors.New("promo_invalid")
+	// ErrPromoBelowCost reports a shop discount that would take the price under
+	// what the provider charges. It is its own reason rather than folded into
+	// ineligible, because the customer's next move differs: an ineligible code
+	// is the wrong code, and this one is the right code on the wrong product.
+	ErrPromoBelowCost = errors.New("promo_below_cost")
+	// ErrCartMissing reports an operation on a saved cart the customer does not
+	// have. It is separate from a rejection: there is nothing to reject.
+	ErrCartMissing         = errors.New("cart_missing")
 	ErrOperationForbidden  = errors.New("operation_forbidden")
 	ErrPlanUnavailable     = errors.New("plan_unavailable")
 	ErrTrialAlreadyClaimed = errors.New("trial_already_used")
@@ -232,7 +240,7 @@ func (store *Store) quote(ctx context.Context, queries *dbgen.Queries, userID, p
 			return OrderQuote{}, ErrPromoUnknown
 		}
 		eligible, eligibilityErr := queries.IsPromotionPlanEligible(ctx, dbgen.IsPromotionPlanEligibleParams{TargetPromotionID: lockedPromo.PromotionID, TargetPlanID: plan.PlanID})
-		if eligibilityErr != nil || !eligible.Valid || !eligible.Bool {
+		if eligibilityErr != nil || !eligible {
 			return OrderQuote{}, ErrPromoIneligible
 		}
 		counts, countErr := queries.CountPromoRedemptions(ctx, dbgen.CountPromoRedemptionsParams{UserID: userID, PromoCodeID: lockedPromo.ID, PromotionID: lockedPromo.PromotionID})
@@ -247,7 +255,7 @@ func (store *Store) quote(ctx context.Context, queries *dbgen.Queries, userID, p
 		if limit.Valid && counts.TotalCount >= limit.Int32 || lockedPromo.RedemptionLimit.Valid && counts.CodeCount >= lockedPromo.RedemptionLimit.Int32 || counts.CustomerCount >= lockedPromo.PerCustomerLimit {
 			return OrderQuote{}, ErrPromoExhausted
 		}
-		promotion := commerce.Promotion{Kind: lockedPromo.Kind, Value: lockedPromo.Value, CustomerLimit: int(lockedPromo.PerCustomerLimit), RedemptionCount: int(counts.TotalCount), CustomerRedeemed: int(counts.CustomerCount)}
+		promotion := commerce.Promotion{Kind: lockedPromo.Kind, Value: lockedPromo.Value, AppliesTo: lockedPromo.AppliesTo, CustomerLimit: int(lockedPromo.PerCustomerLimit), RedemptionCount: int(counts.TotalCount), CustomerRedeemed: int(counts.CustomerCount)}
 		if lockedPromo.Currency.Valid {
 			promotion.Currency = lockedPromo.Currency.String
 		}

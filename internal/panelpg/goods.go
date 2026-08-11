@@ -421,8 +421,15 @@ type GoodsOrder struct {
 	RecipientIsSelf  bool   `json:"recipientIsSelf"`
 	QuotedCostMinor  int64  `json:"quotedCostMinor"`
 	QuotedPriceMinor int64  `json:"quotedPriceMinor"`
-	// MarginMinor is the difference the operator earned. It is derived here
-	// rather than recomputed from the markup, which may have changed since.
+	// DiscountMinor is what a promotion took off. It is published beside the
+	// quoted price rather than folded into it, so an operator can see that a
+	// thin margin was a discount they authorised rather than a pricing mistake.
+	DiscountMinor int64 `json:"discountMinor"`
+	// MarginMinor is what the operator actually earned: the quoted price, less
+	// the discount given, less what the provider charged. It is derived from
+	// what was stored rather than recomputed from the markup, which may have
+	// changed since — and it subtracts the discount, because the provider still
+	// charged its cost whatever the customer paid.
 	MarginMinor      int64      `json:"marginMinor"`
 	Currency         string     `json:"currency"`
 	Status           string     `json:"status"`
@@ -485,7 +492,9 @@ func (service *Service) SearchGoodsOrders(
 			RecipientIsSelf:  row.GoodsOrder.RecipientIsSelf,
 			QuotedCostMinor:  row.GoodsOrder.QuotedCostMinor,
 			QuotedPriceMinor: row.GoodsOrder.QuotedPriceMinor,
-			MarginMinor:      row.GoodsOrder.QuotedPriceMinor - row.GoodsOrder.QuotedCostMinor,
+			DiscountMinor:    row.GoodsOrder.DiscountMinor,
+			MarginMinor: row.GoodsOrder.QuotedPriceMinor -
+				row.GoodsOrder.DiscountMinor - row.GoodsOrder.QuotedCostMinor,
 			Currency:         row.GoodsOrder.Currency,
 			Status:           row.GoodsOrder.Status,
 			DeliveryStatus:   textValue(row.DeliveryStatus),

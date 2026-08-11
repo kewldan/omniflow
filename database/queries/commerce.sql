@@ -241,7 +241,8 @@ WHERE v.id = sqlc.arg(plan_version_id) AND pr.currency = sqlc.arg(currency);
 
 -- name: GetPromoForRedemption :one
 SELECT pc.*, p.kind, p.value, p.currency, p.starts_at, p.ends_at,
-       p.redemption_limit AS promotion_redemption_limit, p.per_customer_limit, p.eligibility
+       p.redemption_limit AS promotion_redemption_limit, p.per_customer_limit, p.eligibility,
+       p.applies_to
 FROM promo_codes pc
 JOIN promotions p ON p.id = pc.promotion_id
 WHERE pc.normalized_code = sqlc.arg(normalized_code) AND pc.active AND p.active
@@ -267,11 +268,42 @@ WHERE u.id = sqlc.arg(user_id)
 GROUP BY u.id;
 
 -- name: IsPromotionPlanEligible :one
-SELECT NOT EXISTS (SELECT 1 FROM promotion_plans pp WHERE pp.promotion_id = sqlc.arg(target_promotion_id))
+-- A promotion must name the plans catalogue to discount a plan.
+--
+-- The applies_to clause is load-bearing rather than belt-and-braces: an
+-- unscoped promotion has no promotion_plans rows, so without it a promotion
+-- written for the shop would pass the wildcard branch and discount every plan.
+SELECT (
+  EXISTS (
+    SELECT 1 FROM promotions p
+    WHERE p.id = sqlc.arg(target_promotion_id) AND p.applies_to = 'plans'
+  )
+  AND (
+    NOT EXISTS (SELECT 1 FROM promotion_plans pp WHERE pp.promotion_id = sqlc.arg(target_promotion_id))
     OR EXISTS (
       SELECT 1 FROM promotion_plans pp
       WHERE pp.promotion_id = sqlc.arg(target_promotion_id) AND pp.plan_id = sqlc.arg(target_plan_id)
-    ) AS eligible;
+    )
+  )
+)::boolean AS eligible;
+
+-- name: IsPromotionGoodsEligible :one
+-- The same rule for the shop. Empty scoping means every visible product,
+-- which is safe here in a way the applies_to default was not: an operator
+-- writing a goods promotion has by definition decided goods are in scope.
+SELECT (
+  EXISTS (
+    SELECT 1 FROM promotions p
+    WHERE p.id = sqlc.arg(target_promotion_id) AND p.applies_to = 'goods'
+  )
+  AND (
+    NOT EXISTS (SELECT 1 FROM promotion_goods pg WHERE pg.promotion_id = sqlc.arg(target_promotion_id))
+    OR EXISTS (
+      SELECT 1 FROM promotion_goods pg
+      WHERE pg.promotion_id = sqlc.arg(target_promotion_id) AND pg.product_id = sqlc.arg(target_product_id)
+    )
+  )
+)::boolean AS eligible;
 
 -- name: InsertPromoRedemption :one
 INSERT INTO promo_redemptions (promo_code_id, promotion_id, user_id, order_id, discount_minor)

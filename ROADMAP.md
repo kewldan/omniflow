@@ -390,7 +390,7 @@ it lets a customer exceed a limit the operator configured.
 
 ---
 
-## 🚧 v0.7 — Admin operations and commerce
+## ✅ v0.7 — Admin operations and commerce
 
 Goal: let operators run day-to-day customer, subscription, and financial operations.
 
@@ -481,7 +481,15 @@ Goal: let operators run day-to-day customer, subscription, and financial operati
 - [x] Idempotent delivery that cannot deliver Premium or Stars twice for one order
 - [x] Delivery polling, delayed-delivery state, and provider failure classification
 - [x] Automatic wallet refund when delivery fails permanently
-- [ ] Wallet, promo, and cart support reusing the existing commerce pipeline — the wallet is applied to a shop order exactly as it is to a plan; promo codes and saved carts are not, because promotion applicability and cart quoting are both plan-scoped and extending them to digital goods is a catalog design decision rather than a wiring one
+- [x] Wallet, promo, and cart support reusing the existing commerce pipeline — a
+      shop order carries the wallet, a promo code, and a saved cart through the
+      same order, redemption, and cart tables a plan uses. The catalogue
+      decisions it needed are recorded in the schema: a promotion applies to
+      plans or to goods and never both, so no existing promotion widened on
+      upgrade; a discount may not take an order below what the provider
+      charges, enforced in the table as well as in Go; and a saved shop
+      purchase re-quotes before any charge and never buys itself, because a
+      provider quote expires and a plan price does not
 - [x] Bot shop navigation with catalog, details, confirmation, delivery progress, and history
 - [x] Admin catalog, provider credentials, markup configuration, and order review
 - [x] Encrypted provider credentials with spend limits and low-balance alerts

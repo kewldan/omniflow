@@ -47,6 +47,21 @@ func (app *App) handleShopAction(ctx context.Context, session commerceContext, p
 			return app.shopScreen(ctx, session), true
 		}
 		return app.shopPurchase(ctx, session, parts[1], parts[2]), true
+	case "shop-promo":
+		if len(parts) != 3 {
+			return app.shopScreen(ctx, session), true
+		}
+		return app.shopAskPromo(ctx, session, parts[1], parts[2]), true
+	case "shop-unpromo":
+		if len(parts) != 3 {
+			return app.shopScreen(ctx, session), true
+		}
+		return app.shopClearPromo(ctx, session, parts[1], parts[2]), true
+	case "shop-save":
+		if len(parts) != 3 {
+			return app.shopScreen(ctx, session), true
+		}
+		return app.shopSaveForLater(ctx, session, parts[1], parts[2]), true
 	case "shop-order":
 		return app.shopOrderScreen(ctx, session, argument), true
 	default:
@@ -137,7 +152,112 @@ func (app *App) shopReview(
 		app.logger.Warn("shop quote failed", "product", product.Code, "error", err)
 		return shopItemView(session.Locale, product, ShopQuote{}, true)
 	}
-	return shopConfirmView(session.Locale, product, quote, recipient, isSelf)
+	return shopConfirmView(session.Locale, product, quote, recipient, isSelf,
+		app.shopPromoState(ctx, session, product, quote))
+}
+
+// shopPromoState prices whatever code the customer has saved against the quote
+// of the moment.
+//
+// It re-validates rather than trusting what was stored, because a code that was
+// valid when it was typed may not be now: the promotion can have ended, and the
+// provider rate can have moved and left no headroom. A code that no longer
+// applies is reported as a rejection rather than silently dropped, so the
+// customer learns what happened to the discount they were expecting.
+func (app *App) shopPromoState(
+	ctx context.Context, session commerceContext, product ShopProduct, quote ShopQuote,
+) ShopPromoState {
+	cart, found, err := app.commerce.SavedShopPurchase(ctx, session.Customer.ID)
+	if err != nil || !found || cart.PromoCode == "" {
+		return ShopPromoState{}
+	}
+	if cart.ProductID != product.ID {
+		// The saved cart is for something else. Its code is not this purchase's
+		// business.
+		return ShopPromoState{}
+	}
+	discount, rejection := app.commerce.PreviewShopPromo(
+		ctx, session.Customer.ID, product, quote, cart.PromoCode)
+	return ShopPromoState{Code: cart.PromoCode, DiscountMinor: discount, Rejection: rejection}
+}
+
+// shopAskPromo prompts for a code, saving the purchase first so the code has
+// something to attach to and so navigating away does not lose the selection.
+func (app *App) shopAskPromo(
+	ctx context.Context, session commerceContext, productID, recipient string,
+) View {
+	if _, err := app.saveShopCart(ctx, session, productID, recipient); err != nil {
+		app.logger.Error("shop cart save failed", "error", err)
+		return app.errorView(session.Locale, routeShop)
+	}
+	if err := app.customers.BeginSessionState(
+		ctx, session.TelegramID, "goods_promo",
+		map[string]any{"productId": productID, "recipient": recipient},
+	); err != nil {
+		app.logger.Error("shop promo prompt failed", "error", err)
+		return app.errorView(session.Locale, routeShop)
+	}
+	return promoPromptView(session.Locale)
+}
+
+// SubmitShopPromo stores the code the customer typed and re-renders the review.
+func (app *App) SubmitShopPromo(
+	ctx context.Context, session commerceContext, productID, recipient, input string,
+) View {
+	if _, err := app.commerce.SetShopPromo(ctx, session.Customer.ID, input); err != nil {
+		// An unusable code is not a failure of the purchase. The review screen
+		// re-renders and says the code did not apply.
+		app.logger.Info("shop promo rejected", "error", err)
+	}
+	isSelf := strings.EqualFold(recipient, session.Username)
+	return app.shopReview(ctx, session, productID, recipient, isSelf)
+}
+
+func (app *App) shopClearPromo(
+	ctx context.Context, session commerceContext, productID, recipient string,
+) View {
+	if _, err := app.commerce.SetShopPromo(ctx, session.Customer.ID, ""); err != nil {
+		app.logger.Warn("shop promo removal failed", "error", err)
+	}
+	isSelf := strings.EqualFold(recipient, session.Username)
+	return app.shopReview(ctx, session, productID, recipient, isSelf)
+}
+
+// shopSaveForLater keeps the purchase without charging for it.
+//
+// Unlike a saved plan, it never buys itself when a top-up lands. A shop price is
+// a provider quote that expires, and charging one unattended would mean charging
+// a number the customer last saw days ago.
+func (app *App) shopSaveForLater(
+	ctx context.Context, session commerceContext, productID, recipient string,
+) View {
+	product, err := app.saveShopCart(ctx, session, productID, recipient)
+	if err != nil {
+		app.logger.Error("shop cart save failed", "error", err)
+		return app.errorView(session.Locale, routeShop)
+	}
+	return shopSavedView(session.Locale, product)
+}
+
+// saveShopCart stores the selection as the customer's open cart.
+func (app *App) saveShopCart(
+	ctx context.Context, session commerceContext, productID, recipient string,
+) (ShopProduct, error) {
+	product, found, err := app.customers.ShopProduct(ctx, session.Locale, productID)
+	if err != nil || !found {
+		return ShopProduct{}, errors.New("product is unavailable")
+	}
+	quote, err := app.commerce.QuoteGoods(ctx, product, 1)
+	if err != nil {
+		return ShopProduct{}, err
+	}
+	isSelf := strings.EqualFold(recipient, session.Username)
+	if err := app.commerce.SaveShopPurchase(
+		ctx, session.Customer.ID, product, recipient, isSelf, quote,
+	); err != nil {
+		return ShopProduct{}, err
+	}
+	return product, nil
 }
 
 // shopPurchase opens the order and starts payment.
@@ -157,8 +277,20 @@ func (app *App) shopPurchase(
 	}
 	isSelf := strings.EqualFold(recipient, session.Username)
 
+	// The promo code lives on the saved cart, which is where it went when the
+	// customer typed it. Reading it here rather than threading it through the
+	// callback data keeps the button under Telegram's payload limit and means a
+	// customer who navigated away and came back still has their discount.
+	promoCode := ""
+	var savedCartID string
+	if saved, found, savedErr := app.commerce.SavedShopPurchase(
+		ctx, session.Customer.ID,
+	); savedErr == nil && found && saved.ProductID == product.ID {
+		promoCode, savedCartID = saved.PromoCode, saved.CartID
+	}
+
 	order, err := app.commerce.StartShopPurchase(
-		ctx, session.Customer.ID, product, 1, recipient, isSelf, quote, false,
+		ctx, session.Customer.ID, product, 1, recipient, isSelf, quote, false, promoCode,
 	)
 	switch {
 	case errors.Is(err, commercepg.ErrMaintenance):
@@ -167,11 +299,29 @@ func (app *App) shopPurchase(
 		// The rate moved while the customer was deciding. Re-quoting is the
 		// honest response; charging the stale number is not.
 		return app.shopItemScreen(ctx, session, productID)
+	case errors.Is(err, commercepg.ErrPromoUnknown),
+		errors.Is(err, commercepg.ErrPromoIneligible),
+		errors.Is(err, commercepg.ErrPromoExhausted),
+		errors.Is(err, commercepg.ErrPromoBelowCost),
+		errors.Is(err, commercepg.ErrPromoInvalid):
+		// The code stopped applying between the review screen and the button.
+		// Re-rendering the review says so and leaves the purchase available
+		// without the discount, rather than failing the whole thing.
+		return app.shopReview(ctx, session, productID, recipient, isSelf)
 	case err != nil:
 		app.logger.Error("shop order creation failed", "error", err)
 		return View{
 			Text:     text(session.Locale, "error.order"),
 			Keyboard: keyboard(row(callbackButton(text(session.Locale, "action.back"), routeShop))),
+		}
+	}
+
+	// The cart did its job. Closing it here rather than at delivery means a
+	// customer who buys and comes back does not find the same thing still
+	// saved, which reads as a second pending purchase.
+	if savedCartID != "" {
+		if err = app.commerce.CloseSavedShopPurchase(ctx, savedCartID, order.ID); err != nil {
+			app.logger.Warn("shop cart close failed", "error", err)
 		}
 	}
 

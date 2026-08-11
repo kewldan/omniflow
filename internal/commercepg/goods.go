@@ -40,6 +40,11 @@ type GoodsOrderInput struct {
 	// SkipWallet keeps the customer's balance out of this purchase.
 	SkipWallet bool
 	PromoCode  string
+	// OperatorPriced marks a product sold at a price the operator configured
+	// rather than derived from a provider quote. That number is theirs to
+	// discount to zero, exactly like a plan price; a derived one is floored at
+	// what the provider charges.
+	OperatorPriced bool
 }
 
 // ErrQuoteExpired is returned when a customer confirms a price that is no
@@ -97,18 +102,28 @@ func (store *Store) CreateGoodsOrder(
 		return dbgen.Order{}, err
 	}
 
+	// A promotion is resolved and locked before the wallet is applied, because
+	// the wallet covers what is left after the discount rather than the other
+	// way round. Getting that order wrong would spend a customer's balance on a
+	// discount they were also given.
+	discountMinor, promo, err := store.goodsDiscount(ctx, queries, userID, productID, input)
+	if err != nil {
+		return dbgen.Order{}, err
+	}
+	payable := input.PriceMinor - discountMinor
+
 	// The wallet is applied the same way a plan purchase applies it, so a
 	// customer with a balance sees the same behaviour in the shop as everywhere
 	// else.
 	walletMinor := int64(0)
 	if !input.SkipWallet {
 		if walletMinor, err = store.walletContribution(
-			ctx, queries, userID, input.Currency, input.PriceMinor,
+			ctx, queries, userID, input.Currency, payable,
 		); err != nil {
 			return dbgen.Order{}, err
 		}
 	}
-	externalMinor := input.PriceMinor - walletMinor
+	externalMinor := payable - walletMinor
 	state := string(commerce.OrderPending)
 	if externalMinor == 0 {
 		state = string(commerce.OrderPaid)
@@ -120,7 +135,7 @@ func (store *Store) CreateGoodsOrder(
 
 	order, err := queries.CreateOrder(ctx, dbgen.CreateOrderParams{
 		UserID: userID, State: state, Operation: "goods", Currency: input.Currency,
-		SubtotalMinor: input.PriceMinor, DiscountMinor: 0,
+		SubtotalMinor: input.PriceMinor, DiscountMinor: discountMinor,
 		WalletMinor: walletMinor, ExternalMinor: externalMinor,
 		IdempotencyKey:   input.IdempotencyKey,
 		ExpiresAt:        pgtype.Timestamptz{Time: expiresAt, Valid: true},
@@ -136,11 +151,23 @@ func (store *Store) CreateGoodsOrder(
 		RecipientIsSelf:   input.RecipientIsSelf,
 		QuotedCostMinor:   input.CostMinor,
 		QuotedPriceMinor:  input.PriceMinor,
+		DiscountMinor:     discountMinor,
 		Currency:          input.Currency,
 		QuoteExpiresAt:    pgtype.Timestamptz{Time: expiresAt, Valid: true},
 		CostKnown:         input.CostKnown,
 	}); err != nil {
 		return dbgen.Order{}, err
+	}
+	// The redemption is recorded against the order, using the same table a plan
+	// purchase uses, so a promotion's usage count covers both catalogues and an
+	// operator reading "redeemed 40 times" gets one number rather than two.
+	if promo != nil {
+		if _, err = queries.InsertPromoRedemption(ctx, dbgen.InsertPromoRedemptionParams{
+			PromoCodeID: promo.ID, PromotionID: promo.PromotionID,
+			UserID: userID, OrderID: order.ID, DiscountMinor: discountMinor,
+		}); err != nil {
+			return dbgen.Order{}, err
+		}
 	}
 	if state == string(commerce.OrderPaid) {
 		if err = store.settleGoodsOrder(ctx, queries, order, "wallet:"+input.IdempotencyKey); err != nil {
@@ -214,4 +241,97 @@ func (store *Store) settleGoodsOrder(
 		return nil
 	}
 	return err
+}
+
+// goodsDiscount resolves a promo code against one shop line.
+//
+// It repeats the shape of the plan path deliberately rather than sharing it:
+// the two differ in which eligibility query runs and in the cost floor, and a
+// shared function with two flags would hide exactly the parts that differ. What
+// is shared is everything that matters for correctness — the same row lock, the
+// same redemption counting, the same customer eligibility check, and the same
+// domain rules for the window and the limits.
+func (store *Store) goodsDiscount(
+	ctx context.Context, queries *dbgen.Queries,
+	userID, productID pgtype.UUID, input GoodsOrderInput,
+) (int64, *dbgen.GetPromoForRedemptionRow, error) {
+	if input.PromoCode == "" {
+		return 0, nil, nil
+	}
+	normalized, err := commerce.NormalizePromoCode(input.PromoCode)
+	if err != nil {
+		return 0, nil, ErrPromoInvalid
+	}
+	// FOR UPDATE on the promotion, so two customers redeeming the last use of a
+	// limited code serialise rather than both succeeding.
+	locked, err := queries.GetPromoForRedemption(ctx, normalized)
+	if err != nil {
+		return 0, nil, ErrPromoUnknown
+	}
+	eligible, err := queries.IsPromotionGoodsEligible(ctx, dbgen.IsPromotionGoodsEligibleParams{
+		TargetPromotionID: locked.PromotionID, TargetProductID: productID,
+	})
+	if err != nil || !eligible {
+		return 0, nil, ErrPromoIneligible
+	}
+	counts, err := queries.CountPromoRedemptions(ctx, dbgen.CountPromoRedemptionsParams{
+		UserID: userID, PromoCodeID: locked.ID, PromotionID: locked.PromotionID,
+	})
+	if err != nil {
+		return 0, nil, err
+	}
+	customerEligible, err := queries.CheckPromotionCustomerEligibility(
+		ctx, dbgen.CheckPromotionCustomerEligibilityParams{
+			Eligibility: locked.Eligibility, UserID: userID,
+		})
+	if err != nil || !customerEligible.Valid || !customerEligible.Bool {
+		return 0, nil, ErrPromoIneligible
+	}
+	limit := locked.PromotionRedemptionLimit
+	if limit.Valid && counts.TotalCount >= limit.Int32 ||
+		locked.RedemptionLimit.Valid && counts.CodeCount >= locked.RedemptionLimit.Int32 ||
+		counts.CustomerCount >= locked.PerCustomerLimit {
+		return 0, nil, ErrPromoExhausted
+	}
+
+	promotion := commerce.Promotion{
+		Kind: locked.Kind, Value: locked.Value, AppliesTo: locked.AppliesTo,
+		CustomerLimit:   int(locked.PerCustomerLimit),
+		RedemptionCount: int(counts.TotalCount), CustomerRedeemed: int(counts.CustomerCount),
+	}
+	if locked.Currency.Valid {
+		promotion.Currency = locked.Currency.String
+	}
+	if locked.StartsAt.Valid {
+		promotion.StartsAt = &locked.StartsAt.Time
+	}
+	if locked.EndsAt.Valid {
+		promotion.EndsAt = &locked.EndsAt.Time
+	}
+	if limit.Valid {
+		value := int(limit.Int32)
+		promotion.RedemptionLimit = &value
+	}
+
+	discount, err := promotion.DiscountForGoods(store.clock(), commerce.GoodsDiscountRequest{
+		CustomerID: input.CustomerID, ProductID: uuidString(productID),
+		Price:     commerce.Money{Amount: input.PriceMinor, Currency: input.Currency},
+		CostMinor: input.CostMinor, CostKnown: input.CostKnown,
+		// A product with no provider cost is one the operator priced themselves,
+		// which is the same kind of number as a plan price and theirs to
+		// discount. The shop service sets CostKnown, so this needs no second
+		// source of truth.
+		OperatorPriced: !input.CostKnown && input.OperatorPriced,
+	})
+	switch {
+	case errors.Is(err, commerce.ErrDiscountBelowCost):
+		return 0, nil, ErrPromoBelowCost
+	case errors.Is(err, commerce.ErrCostUnknownForDiscount):
+		return 0, nil, ErrPromoBelowCost
+	case errors.Is(err, commerce.ErrPromotionNotForGoods):
+		return 0, nil, ErrPromoIneligible
+	case err != nil:
+		return 0, nil, ErrPromoIneligible
+	}
+	return discount.Amount, &locked, nil
 }

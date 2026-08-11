@@ -109,7 +109,7 @@ func (service *Commerce) QuoteGoods(
 // order at a price that is still honourable.
 func (service *Commerce) StartShopPurchase(
 	ctx context.Context, customerID string, product ShopProduct, quantity int,
-	recipient string, isSelf bool, quote ShopQuote, skipWallet bool,
+	recipient string, isSelf bool, quote ShopQuote, skipWallet bool, promoCode string,
 ) (OrderSummary, error) {
 	normalized, err := goods.NormalizeRecipient(recipient)
 	if err != nil {
@@ -120,7 +120,11 @@ func (service *Commerce) StartShopPurchase(
 		Recipient: normalized, RecipientIsSelf: isSelf,
 		CostMinor: quote.CostMinor, PriceMinor: quote.PriceMinor, CostKnown: quote.CostKnown,
 		Currency: quote.Currency, QuoteExpiresAt: quote.ExpiresAt,
-		SkipWallet: skipWallet,
+		SkipWallet: skipWallet, PromoCode: promoCode,
+		// A fixed price is one the operator chose, so it carries no provider
+		// cost floor. Deriving this here keeps the rule in one place rather than
+		// asking every caller to remember it.
+		OperatorPriced: product.FixedMinor != nil,
 		IdempotencyKey: fmt.Sprintf("goods:%s:%s:%s:%d",
 			customerID, product.ID, normalized, quote.ExpiresAt.Unix()),
 	})
@@ -178,4 +182,115 @@ func (service *Commerce) ClaimGift(
 	return ClaimedGift{
 		Kind: gift.Kind, CreditMinor: gift.CreditMinor.Int64, Currency: gift.Currency,
 	}, nil
+}
+
+// SavedShopPurchase is a shop selection the customer kept for later.
+type SavedShopPurchase struct {
+	CartID     string
+	ProductID  string
+	Quantity   int
+	Recipient  string
+	IsSelf     bool
+	PromoCode  string
+	SavedMinor int64
+	Currency   string
+}
+
+// SaveShopPurchase keeps a selection without charging for it.
+func (service *Commerce) SaveShopPurchase(
+	ctx context.Context, customerID string, product ShopProduct,
+	recipient string, isSelf bool, quote ShopQuote,
+) error {
+	_, err := service.orders.SaveGoodsCart(ctx, commercepg.GoodsCartInput{
+		CustomerID: customerID, ProductID: product.ID, Quantity: 1,
+		Recipient: recipient, IsSelf: isSelf,
+		SavedPriceMinor: quote.PriceMinor, Currency: quote.Currency,
+	})
+	return err
+}
+
+// SavedShopPurchase reads the saved selection, if the customer's open cart is a
+// shop one.
+func (service *Commerce) SavedShopPurchase(
+	ctx context.Context, customerID string,
+) (SavedShopPurchase, bool, error) {
+	cart, found, err := service.orders.OpenGoodsCart(ctx, customerID)
+	if err != nil || !found {
+		return SavedShopPurchase{}, false, err
+	}
+	return SavedShopPurchase{
+		CartID:     uuidText(cart.ID),
+		ProductID:  uuidText(cart.Line.ProductID),
+		Quantity:   int(cart.Line.Quantity),
+		Recipient:  cart.Line.RecipientUsername,
+		IsSelf:     cart.Line.RecipientIsSelf,
+		PromoCode:  cart.PromoCode.String,
+		SavedMinor: cart.Line.SavedPriceMinor,
+		Currency:   cart.Line.Currency,
+	}, true, nil
+}
+
+// SetShopPromo attaches or clears the code on the saved selection.
+func (service *Commerce) SetShopPromo(
+	ctx context.Context, customerID, code string,
+) (string, error) {
+	cart, err := service.orders.SetGoodsCartPromo(ctx, customerID, code)
+	if err != nil {
+		return "", err
+	}
+	return cart.PromoCode.String, nil
+}
+
+// DiscardShopPurchase drops the saved selection.
+func (service *Commerce) DiscardShopPurchase(ctx context.Context, customerID string) error {
+	return service.orders.DiscardGoodsCart(ctx, customerID)
+}
+
+// PreviewShopPromo prices a code against a quote without redeeming it.
+//
+// It opens the same transaction the purchase would and rolls it back, so a
+// preview can never consume a redemption — the same guarantee the plan preview
+// gives.
+func (service *Commerce) PreviewShopPromo(
+	ctx context.Context, customerID string, product ShopProduct,
+	quote ShopQuote, code string,
+) (int64, string) {
+	if code == "" {
+		return 0, ""
+	}
+	discount, err := service.orders.PreviewGoodsDiscount(ctx, commercepg.GoodsOrderInput{
+		CustomerID: customerID, ProductID: product.ID,
+		PriceMinor: quote.PriceMinor, CostMinor: quote.CostMinor,
+		CostKnown: quote.CostKnown, Currency: quote.Currency,
+		PromoCode: code, OperatorPriced: product.FixedMinor != nil,
+	})
+	if err != nil {
+		return 0, shopPromoRejection(err)
+	}
+	return discount, ""
+}
+
+// shopPromoRejection maps a refusal onto the machine reason a screen renders.
+//
+// The reasons stay distinct rather than collapsing into "invalid", because the
+// customer's next move differs: an unknown code is a typo, an exhausted one is
+// too late, and a below-cost one is the right code on the wrong product.
+func shopPromoRejection(err error) string {
+	switch {
+	case errors.Is(err, commercepg.ErrPromoUnknown):
+		return "unknown"
+	case errors.Is(err, commercepg.ErrPromoExhausted):
+		return "exhausted"
+	case errors.Is(err, commercepg.ErrPromoBelowCost):
+		return "belowCost"
+	case errors.Is(err, commercepg.ErrPromoIneligible):
+		return "ineligible"
+	default:
+		return "invalid"
+	}
+}
+
+// CloseSavedShopPurchase marks the saved selection as bought.
+func (service *Commerce) CloseSavedShopPurchase(ctx context.Context, cartID, orderID string) error {
+	return service.orders.MarkGoodsCartPurchased(ctx, cartID, orderID)
 }

@@ -110,21 +110,57 @@ func shopRecipientPromptView(locale Locale) View {
 // this screen exists rather than buying straight from the product page.
 func shopConfirmView(
 	locale Locale, product ShopProduct, quote ShopQuote, recipient string, isSelf bool,
+	promo ShopPromoState,
 ) View {
 	body := text(locale, "shop.confirmTitle") +
 		"\n\n" + text(locale, "shop.confirmProduct", html.EscapeString(product.Name)) +
 		"\n" + shopAmountLine(locale, product) +
 		"\n" + text(locale, "shop.price", formatMoney(quote.PriceMinor, quote.Currency))
+
+	// The discount is shown as its own line with the total restated beneath it,
+	// rather than as a single already-reduced number. A customer who typed a
+	// code needs to see that it did something.
+	if promo.DiscountMinor > 0 {
+		body += "\n" + text(locale, "shop.promoApplied",
+			html.EscapeString(promo.Code), formatMoney(promo.DiscountMinor, quote.Currency)) +
+			"\n" + text(locale, "shop.total",
+			formatMoney(quote.PriceMinor-promo.DiscountMinor, quote.Currency))
+	} else if promo.Rejection != "" {
+		body += "\n" + text(locale, "shop.promo."+promo.Rejection)
+	}
+
 	if isSelf {
 		body += "\n\n" + text(locale, "shop.confirmSelf", html.EscapeString(recipient))
 	} else {
 		body += "\n\n" + text(locale, "shop.confirmOther", html.EscapeString(recipient))
 	}
 	body += "\n\n" + text(locale, "shop.irreversible")
+
+	promoLabel := text(locale, "shop.addPromo")
+	promoAction := fmt.Sprintf("shop-promo:%s:%s", product.ID, recipient)
+	if promo.Code != "" {
+		promoLabel = text(locale, "shop.removePromo")
+		promoAction = fmt.Sprintf("shop-unpromo:%s:%s", product.ID, recipient)
+	}
 	return View{Text: body, Keyboard: keyboard(
 		row(actionButton(text(locale, "shop.confirmBuy"), fmt.Sprintf("shop-buy:%s:%s", product.ID, recipient))),
+		row(actionButton(promoLabel, promoAction)),
+		row(actionButton(text(locale, "shop.saveForLater"), fmt.Sprintf("shop-save:%s:%s", product.ID, recipient))),
 		row(callbackButton(text(locale, "action.cancel"), routeShop)),
 	)}
+}
+
+// ShopPromoState is what the review screen knows about a promo code the
+// customer has attached to this purchase.
+//
+// Rejection carries the machine reason rather than a message, so the view picks
+// the wording and the service stays out of the presentation. An empty code with
+// a rejection is a code that was typed and did not survive re-validation, which
+// is a different screen from never having typed one.
+type ShopPromoState struct {
+	Code          string
+	DiscountMinor int64
+	Rejection     string
 }
 
 // shopOrdersView is the customer's shop history.
@@ -200,4 +236,19 @@ func filterKind(products []ShopProduct, kind string) []ShopProduct {
 		}
 	}
 	return filtered
+}
+
+// shopSavedView confirms that a selection was kept without being bought.
+//
+// It states plainly that nothing will be charged automatically. A saved plan
+// does buy itself when a top-up covers it, so a customer who has used that
+// feature would otherwise reasonably assume this one behaves the same way.
+func shopSavedView(locale Locale, product ShopProduct) View {
+	body := text(locale, "shop.savedTitle") +
+		"\n\n" + text(locale, "shop.confirmProduct", html.EscapeString(product.Name)) +
+		"\n\n" + text(locale, "shop.savedNotice")
+	return View{Text: body, Keyboard: keyboard(
+		row(actionButton(text(locale, "shop.resume"), "shop-item:"+product.ID)),
+		row(callbackButton(text(locale, "action.back"), routeShop)),
+	)}
 }

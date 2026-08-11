@@ -1146,7 +1146,7 @@ func (q *Queries) GetPlanAdmin(ctx context.Context, id pgtype.UUID) (Plan, error
 }
 
 const getPromotionAdmin = `-- name: GetPromotionAdmin :one
-SELECT id, code, kind, value, currency, starts_at, ends_at, redemption_limit, per_customer_limit, eligibility, active, created_at, stackable, precedence FROM promotions WHERE id = $1
+SELECT id, code, kind, value, currency, starts_at, ends_at, redemption_limit, per_customer_limit, eligibility, active, created_at, stackable, precedence, applies_to FROM promotions WHERE id = $1
 `
 
 func (q *Queries) GetPromotionAdmin(ctx context.Context, id pgtype.UUID) (Promotion, error) {
@@ -1167,6 +1167,7 @@ func (q *Queries) GetPromotionAdmin(ctx context.Context, id pgtype.UUID) (Promot
 		&i.CreatedAt,
 		&i.Stackable,
 		&i.Precedence,
+		&i.AppliesTo,
 	)
 	return i, err
 }
@@ -2977,7 +2978,7 @@ func (q *Queries) SearchOrders(ctx context.Context, arg SearchOrdersParams) ([]O
 
 const searchPromotions = `-- name: SearchPromotions :many
 SELECT
-  p.id, p.code, p.kind, p.value, p.currency, p.starts_at, p.ends_at, p.redemption_limit, p.per_customer_limit, p.eligibility, p.active, p.created_at, p.stackable, p.precedence,
+  p.id, p.code, p.kind, p.value, p.currency, p.starts_at, p.ends_at, p.redemption_limit, p.per_customer_limit, p.eligibility, p.active, p.created_at, p.stackable, p.precedence, p.applies_to,
   (SELECT count(*) FROM promo_redemptions r WHERE r.promotion_id = p.id)::bigint AS redemption_count,
   (SELECT COALESCE(sum(r.discount_minor), 0) FROM promo_redemptions r WHERE r.promotion_id = p.id)::bigint AS discount_minor
 FROM promotions p
@@ -3023,6 +3024,7 @@ func (q *Queries) SearchPromotions(ctx context.Context, arg SearchPromotionsPara
 			&i.Promotion.CreatedAt,
 			&i.Promotion.Stackable,
 			&i.Promotion.Precedence,
+			&i.Promotion.AppliesTo,
 			&i.RedemptionCount,
 			&i.DiscountMinor,
 		); err != nil {
@@ -3366,7 +3368,7 @@ SET value = $1,
     stackable = $9,
     precedence = $10
 WHERE id = $11
-RETURNING id, code, kind, value, currency, starts_at, ends_at, redemption_limit, per_customer_limit, eligibility, active, created_at, stackable, precedence
+RETURNING id, code, kind, value, currency, starts_at, ends_at, redemption_limit, per_customer_limit, eligibility, active, created_at, stackable, precedence, applies_to
 `
 
 type UpdatePromotionParams struct {
@@ -3413,6 +3415,7 @@ func (q *Queries) UpdatePromotion(ctx context.Context, arg UpdatePromotionParams
 		&i.CreatedAt,
 		&i.Stackable,
 		&i.Precedence,
+		&i.AppliesTo,
 	)
 	return i, err
 }

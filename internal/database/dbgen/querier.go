@@ -68,6 +68,7 @@ type Querier interface {
 	// Single redemption by construction: the predicate only matches a deliverable,
 	// unexpired gift, so a second claim of the same code updates no row.
 	ClaimGift(ctx context.Context, arg ClaimGiftParams) (Gift, error)
+	ClearCartGoods(ctx context.Context, cartID pgtype.UUID) error
 	ClearDefaultPaymentMethod(ctx context.Context, userID pgtype.UUID) error
 	CloseSubscription(ctx context.Context, arg CloseSubscriptionParams) (Subscription, error)
 	// Promotes a half-authenticated session once the second factor is proven. The
@@ -337,6 +338,7 @@ type Querier interface {
 	GetBulkSubscriptionTarget(ctx context.Context, subscriptionID pgtype.UUID) (GetBulkSubscriptionTargetRow, error)
 	GetCampaign(ctx context.Context, id pgtype.UUID) (GetCampaignRow, error)
 	GetCannedResponse(ctx context.Context, id pgtype.UUID) (SupportCannedResponse, error)
+	GetCartGoods(ctx context.Context, cartID pgtype.UUID) (GetCartGoodsRow, error)
 	GetChannelEnforcement(ctx context.Context, userID pgtype.UUID) (ChannelEnforcement, error)
 	// Operator panel queries for v0.7: settings, dashboard, customer and finance
 	// operations, fulfillment and job diagnostics, and bulk actions.
@@ -455,7 +457,16 @@ type Querier interface {
 	IsAddonOfferedForPlan(ctx context.Context, arg IsAddonOfferedForPlanParams) (bool, error)
 	IsBlocklistAllowlisted(ctx context.Context, userID pgtype.UUID) (bool, error)
 	IsChannelExempt(ctx context.Context, userID pgtype.UUID) (bool, error)
-	IsPromotionPlanEligible(ctx context.Context, arg IsPromotionPlanEligibleParams) (pgtype.Bool, error)
+	// The same rule for the shop. Empty scoping means every visible product,
+	// which is safe here in a way the applies_to default was not: an operator
+	// writing a goods promotion has by definition decided goods are in scope.
+	IsPromotionGoodsEligible(ctx context.Context, arg IsPromotionGoodsEligibleParams) (bool, error)
+	// A promotion must name the plans catalogue to discount a plan.
+	//
+	// The applies_to clause is load-bearing rather than belt-and-braces: an
+	// unscoped promotion has no promotion_plans rows, so without it a promotion
+	// written for the shop would pass the wildcard branch and discount every plan.
+	IsPromotionPlanEligible(ctx context.Context, arg IsPromotionPlanEligibleParams) (bool, error)
 	IsSuppressed(ctx context.Context, userID pgtype.UUID) (bool, error)
 	LinkAdminOIDCIdentity(ctx context.Context, arg LinkAdminOIDCIdentityParams) (AdminOidcIdentity, error)
 	LinkCustomerIdentity(ctx context.Context, arg LinkCustomerIdentityParams) (Identity, error)
@@ -988,12 +999,21 @@ type Querier interface {
 	SetCampaignState(ctx context.Context, arg SetCampaignStateParams) (Campaign, error)
 	SetCartAddon(ctx context.Context, arg SetCartAddonParams) error
 	SetCartAutoPurchase(ctx context.Context, arg SetCartAutoPurchaseParams) (Cart, error)
+	// The single goods line. A plan cart's add-ons are cleared alongside, because
+	// a cart that changed kind must not keep the other kind's contents.
+	SetCartGoods(ctx context.Context, arg SetCartGoodsParams) error
 	SetChannelEnforcement(ctx context.Context, arg SetChannelEnforcementParams) (ChannelEnforcement, error)
 	SetDefaultPaymentMethod(ctx context.Context, arg SetDefaultPaymentMethodParams) (PaymentMethod, error)
 	// Clearing and setting run in one transaction, because the partial unique index
 	// allows exactly one default: doing them apart would leave a window in which a
 	// new ticket has nowhere to go.
 	SetDefaultSupportQueue(ctx context.Context, queueID pgtype.UUID) error
+	// The promo code a saved shop purchase carries.
+	//
+	// It lives on the cart rather than in a session state because the cart is
+	// already the thing that survives navigating away, and a code held anywhere
+	// else would be a second place a customer's intention can be lost.
+	SetGoodsCartPromo(ctx context.Context, arg SetGoodsCartPromoParams) (Cart, error)
 	SetGoodsOrderStatus(ctx context.Context, arg SetGoodsOrderStatusParams) (GoodsOrder, error)
 	SetMCPServerCredentials(ctx context.Context, arg SetMCPServerCredentialsParams) error
 	// The owner's decisions: enablement, the permission it maps to, and whether it
@@ -1104,6 +1124,17 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	UpsertCart(ctx context.Context, arg UpsertCartParams) (Cart, error)
 	UpsertCustomerImportItem(ctx context.Context, arg UpsertCustomerImportItemParams) (CustomerImportItem, error)
+	// Saving a shop purchase for later.
+	//
+	// It replaces whatever open cart the customer had, because there is one open
+	// cart per customer and a saved plan and a saved shop item are two different
+	// intentions. Silently keeping both would mean an auto-purchase charging for
+	// something the customer thought they had replaced.
+	//
+	// auto_purchase is false and stays false. A goods price is a provider quote
+	// that expires; charging one unattended means charging a number the customer
+	// last saw days ago.
+	UpsertGoodsCart(ctx context.Context, arg UpsertGoodsCartParams) (Cart, error)
 	UpsertGoodsPricing(ctx context.Context, arg UpsertGoodsPricingParams) (GoodsPricing, error)
 	UpsertGoodsProductLocalization(ctx context.Context, arg UpsertGoodsProductLocalizationParams) (GoodsProductLocalization, error)
 	// A null ciphertext on update means "leave the stored credential alone", so the

@@ -811,7 +811,7 @@ INSERT INTO promotions (
 )
 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
 ON CONFLICT (code) DO UPDATE SET code = EXCLUDED.code
-RETURNING id, code, kind, value, currency, starts_at, ends_at, redemption_limit, per_customer_limit, eligibility, active, created_at, stackable, precedence
+RETURNING id, code, kind, value, currency, starts_at, ends_at, redemption_limit, per_customer_limit, eligibility, active, created_at, stackable, precedence, applies_to
 `
 
 type CreatePromotionParams struct {
@@ -856,6 +856,7 @@ func (q *Queries) CreatePromotion(ctx context.Context, arg CreatePromotionParams
 		&i.CreatedAt,
 		&i.Stackable,
 		&i.Precedence,
+		&i.AppliesTo,
 	)
 	return i, err
 }
@@ -1459,7 +1460,8 @@ func (q *Queries) GetPlanVersionForOrder(ctx context.Context, arg GetPlanVersion
 
 const getPromoForRedemption = `-- name: GetPromoForRedemption :one
 SELECT pc.id, pc.promotion_id, pc.normalized_code, pc.redemption_limit, pc.active, pc.created_at, p.kind, p.value, p.currency, p.starts_at, p.ends_at,
-       p.redemption_limit AS promotion_redemption_limit, p.per_customer_limit, p.eligibility
+       p.redemption_limit AS promotion_redemption_limit, p.per_customer_limit, p.eligibility,
+       p.applies_to
 FROM promo_codes pc
 JOIN promotions p ON p.id = pc.promotion_id
 WHERE pc.normalized_code = $1 AND pc.active AND p.active
@@ -1481,6 +1483,7 @@ type GetPromoForRedemptionRow struct {
 	PromotionRedemptionLimit pgtype.Int4        `json:"promotion_redemption_limit"`
 	PerCustomerLimit         int32              `json:"per_customer_limit"`
 	Eligibility              []byte             `json:"eligibility"`
+	AppliesTo                string             `json:"applies_to"`
 }
 
 func (q *Queries) GetPromoForRedemption(ctx context.Context, normalizedCode string) (GetPromoForRedemptionRow, error) {
@@ -1501,6 +1504,7 @@ func (q *Queries) GetPromoForRedemption(ctx context.Context, normalizedCode stri
 		&i.PromotionRedemptionLimit,
 		&i.PerCustomerLimit,
 		&i.Eligibility,
+		&i.AppliesTo,
 	)
 	return i, err
 }
@@ -1997,12 +2001,51 @@ func (q *Queries) InsertWebhookEvent(ctx context.Context, arg InsertWebhookEvent
 	return i, err
 }
 
+const isPromotionGoodsEligible = `-- name: IsPromotionGoodsEligible :one
+SELECT (
+  EXISTS (
+    SELECT 1 FROM promotions p
+    WHERE p.id = $1 AND p.applies_to = 'goods'
+  )
+  AND (
+    NOT EXISTS (SELECT 1 FROM promotion_goods pg WHERE pg.promotion_id = $1)
+    OR EXISTS (
+      SELECT 1 FROM promotion_goods pg
+      WHERE pg.promotion_id = $1 AND pg.product_id = $2
+    )
+  )
+)::boolean AS eligible
+`
+
+type IsPromotionGoodsEligibleParams struct {
+	TargetPromotionID pgtype.UUID `json:"target_promotion_id"`
+	TargetProductID   pgtype.UUID `json:"target_product_id"`
+}
+
+// The same rule for the shop. Empty scoping means every visible product,
+// which is safe here in a way the applies_to default was not: an operator
+// writing a goods promotion has by definition decided goods are in scope.
+func (q *Queries) IsPromotionGoodsEligible(ctx context.Context, arg IsPromotionGoodsEligibleParams) (bool, error) {
+	row := q.db.QueryRow(ctx, isPromotionGoodsEligible, arg.TargetPromotionID, arg.TargetProductID)
+	var eligible bool
+	err := row.Scan(&eligible)
+	return eligible, err
+}
+
 const isPromotionPlanEligible = `-- name: IsPromotionPlanEligible :one
-SELECT NOT EXISTS (SELECT 1 FROM promotion_plans pp WHERE pp.promotion_id = $1)
+SELECT (
+  EXISTS (
+    SELECT 1 FROM promotions p
+    WHERE p.id = $1 AND p.applies_to = 'plans'
+  )
+  AND (
+    NOT EXISTS (SELECT 1 FROM promotion_plans pp WHERE pp.promotion_id = $1)
     OR EXISTS (
       SELECT 1 FROM promotion_plans pp
       WHERE pp.promotion_id = $1 AND pp.plan_id = $2
-    ) AS eligible
+    )
+  )
+)::boolean AS eligible
 `
 
 type IsPromotionPlanEligibleParams struct {
@@ -2010,9 +2053,14 @@ type IsPromotionPlanEligibleParams struct {
 	TargetPlanID      pgtype.UUID `json:"target_plan_id"`
 }
 
-func (q *Queries) IsPromotionPlanEligible(ctx context.Context, arg IsPromotionPlanEligibleParams) (pgtype.Bool, error) {
+// A promotion must name the plans catalogue to discount a plan.
+//
+// The applies_to clause is load-bearing rather than belt-and-braces: an
+// unscoped promotion has no promotion_plans rows, so without it a promotion
+// written for the shop would pass the wildcard branch and discount every plan.
+func (q *Queries) IsPromotionPlanEligible(ctx context.Context, arg IsPromotionPlanEligibleParams) (bool, error) {
 	row := q.db.QueryRow(ctx, isPromotionPlanEligible, arg.TargetPromotionID, arg.TargetPlanID)
-	var eligible pgtype.Bool
+	var eligible bool
 	err := row.Scan(&eligible)
 	return eligible, err
 }

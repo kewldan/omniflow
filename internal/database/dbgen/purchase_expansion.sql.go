@@ -98,7 +98,7 @@ func (q *Queries) BindOperatorTopic(ctx context.Context, arg BindOperatorTopicPa
 const cancelCart = `-- name: CancelCart :one
 UPDATE carts SET status = 'cancelled', updated_at = now()
 WHERE user_id = $1 AND status = 'open'
-RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at
+RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind
 `
 
 func (q *Queries) CancelCart(ctx context.Context, userID pgtype.UUID) (Cart, error) {
@@ -122,8 +122,18 @@ func (q *Queries) CancelCart(ctx context.Context, userID pgtype.UUID) (Cart, err
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ExpiresAt,
+		&i.Kind,
 	)
 	return i, err
+}
+
+const clearCartGoods = `-- name: ClearCartGoods :exec
+DELETE FROM cart_goods WHERE cart_id = $1
+`
+
+func (q *Queries) ClearCartGoods(ctx context.Context, cartID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, clearCartGoods, cartID)
+	return err
 }
 
 const closeSubscription = `-- name: CloseSubscription :one
@@ -665,7 +675,7 @@ func (q *Queries) EnqueueOperatorNotification(ctx context.Context, arg EnqueueOp
 const expireCarts = `-- name: ExpireCarts :many
 UPDATE carts SET status = 'expired', updated_at = now()
 WHERE status = 'open' AND expires_at <= now()
-RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at
+RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind
 `
 
 func (q *Queries) ExpireCarts(ctx context.Context) ([]Cart, error) {
@@ -695,6 +705,7 @@ func (q *Queries) ExpireCarts(ctx context.Context) ([]Cart, error) {
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ExpiresAt,
+			&i.Kind,
 		); err != nil {
 			return nil, err
 		}
@@ -847,6 +858,48 @@ func (q *Queries) GetBackup(ctx context.Context, id pgtype.UUID) (Backup, error)
 	return i, err
 }
 
+const getCartGoods = `-- name: GetCartGoods :one
+SELECT g.cart_id, g.product_id, g.quantity, g.recipient_username, g.recipient_is_self, g.saved_price_minor, g.currency, g.created_at, p.code AS product_code, p.kind AS product_kind, p.visible, p.archived_at
+FROM cart_goods g
+JOIN goods_products p ON p.id = g.product_id
+WHERE g.cart_id = $1
+`
+
+type GetCartGoodsRow struct {
+	CartID            pgtype.UUID        `json:"cart_id"`
+	ProductID         pgtype.UUID        `json:"product_id"`
+	Quantity          int32              `json:"quantity"`
+	RecipientUsername string             `json:"recipient_username"`
+	RecipientIsSelf   bool               `json:"recipient_is_self"`
+	SavedPriceMinor   int64              `json:"saved_price_minor"`
+	Currency          string             `json:"currency"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	ProductCode       string             `json:"product_code"`
+	ProductKind       string             `json:"product_kind"`
+	Visible           bool               `json:"visible"`
+	ArchivedAt        pgtype.Timestamptz `json:"archived_at"`
+}
+
+func (q *Queries) GetCartGoods(ctx context.Context, cartID pgtype.UUID) (GetCartGoodsRow, error) {
+	row := q.db.QueryRow(ctx, getCartGoods, cartID)
+	var i GetCartGoodsRow
+	err := row.Scan(
+		&i.CartID,
+		&i.ProductID,
+		&i.Quantity,
+		&i.RecipientUsername,
+		&i.RecipientIsSelf,
+		&i.SavedPriceMinor,
+		&i.Currency,
+		&i.CreatedAt,
+		&i.ProductCode,
+		&i.ProductKind,
+		&i.Visible,
+		&i.ArchivedAt,
+	)
+	return i, err
+}
+
 const getCustomerSubscription = `-- name: GetCustomerSubscription :one
 SELECT id, user_id, slot, label, status, remnawave_user_id, remnawave_username, observed_state, reconciled_at, created_at, updated_at, closed_at FROM subscriptions WHERE id = $1 AND user_id = $2
 `
@@ -926,7 +979,7 @@ func (q *Queries) GetMaintenanceState(ctx context.Context) (MaintenanceState, er
 }
 
 const getOpenCart = `-- name: GetOpenCart :one
-SELECT id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at FROM carts WHERE user_id = $1 AND status = 'open'
+SELECT id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind FROM carts WHERE user_id = $1 AND status = 'open'
 `
 
 func (q *Queries) GetOpenCart(ctx context.Context, userID pgtype.UUID) (Cart, error) {
@@ -950,6 +1003,7 @@ func (q *Queries) GetOpenCart(ctx context.Context, userID pgtype.UUID) (Cart, er
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ExpiresAt,
+		&i.Kind,
 	)
 	return i, err
 }
@@ -1738,7 +1792,7 @@ func (q *Queries) LockCustomerSubscriptions(ctx context.Context, dollar_1 string
 }
 
 const lockOpenCart = `-- name: LockOpenCart :one
-SELECT id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at FROM carts WHERE user_id = $1 AND status = 'open' FOR UPDATE
+SELECT id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind FROM carts WHERE user_id = $1 AND status = 'open' FOR UPDATE
 `
 
 func (q *Queries) LockOpenCart(ctx context.Context, userID pgtype.UUID) (Cart, error) {
@@ -1762,6 +1816,7 @@ func (q *Queries) LockOpenCart(ctx context.Context, userID pgtype.UUID) (Cart, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ExpiresAt,
+		&i.Kind,
 	)
 	return i, err
 }
@@ -1815,7 +1870,7 @@ const markCartPurchased = `-- name: MarkCartPurchased :one
 UPDATE carts
 SET status = 'purchased', order_id = $1, last_failure = NULL, updated_at = now()
 WHERE id = $2 AND status = 'open'
-RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at
+RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind
 `
 
 type MarkCartPurchasedParams struct {
@@ -1844,6 +1899,7 @@ func (q *Queries) MarkCartPurchased(ctx context.Context, arg MarkCartPurchasedPa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ExpiresAt,
+		&i.Kind,
 	)
 	return i, err
 }
@@ -1880,7 +1936,7 @@ const recordCartFailure = `-- name: RecordCartFailure :one
 UPDATE carts
 SET last_failure = $1, attempt_count = attempt_count + 1, updated_at = now()
 WHERE id = $2
-RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at
+RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind
 `
 
 type RecordCartFailureParams struct {
@@ -1909,6 +1965,7 @@ func (q *Queries) RecordCartFailure(ctx context.Context, arg RecordCartFailurePa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ExpiresAt,
+		&i.Kind,
 	)
 	return i, err
 }
@@ -1965,7 +2022,7 @@ func (q *Queries) SetCartAddon(ctx context.Context, arg SetCartAddonParams) erro
 const setCartAutoPurchase = `-- name: SetCartAutoPurchase :one
 UPDATE carts SET auto_purchase = $1, updated_at = now()
 WHERE user_id = $2 AND status = 'open'
-RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at
+RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind
 `
 
 type SetCartAutoPurchaseParams struct {
@@ -1994,6 +2051,97 @@ func (q *Queries) SetCartAutoPurchase(ctx context.Context, arg SetCartAutoPurcha
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ExpiresAt,
+		&i.Kind,
+	)
+	return i, err
+}
+
+const setCartGoods = `-- name: SetCartGoods :exec
+WITH cleared AS (
+  DELETE FROM cart_addons WHERE cart_id = $1
+)
+INSERT INTO cart_goods (
+  cart_id, product_id, quantity, recipient_username, recipient_is_self,
+  saved_price_minor, currency
+)
+VALUES (
+  $1, $2, $3,
+  $4, $5,
+  $6, $7
+)
+ON CONFLICT (cart_id) DO UPDATE SET
+  product_id = EXCLUDED.product_id,
+  quantity = EXCLUDED.quantity,
+  recipient_username = EXCLUDED.recipient_username,
+  recipient_is_self = EXCLUDED.recipient_is_self,
+  saved_price_minor = EXCLUDED.saved_price_minor,
+  currency = EXCLUDED.currency
+`
+
+type SetCartGoodsParams struct {
+	CartID            pgtype.UUID `json:"cart_id"`
+	ProductID         pgtype.UUID `json:"product_id"`
+	Quantity          int32       `json:"quantity"`
+	RecipientUsername string      `json:"recipient_username"`
+	RecipientIsSelf   bool        `json:"recipient_is_self"`
+	SavedPriceMinor   int64       `json:"saved_price_minor"`
+	Currency          string      `json:"currency"`
+}
+
+// The single goods line. A plan cart's add-ons are cleared alongside, because
+// a cart that changed kind must not keep the other kind's contents.
+func (q *Queries) SetCartGoods(ctx context.Context, arg SetCartGoodsParams) error {
+	_, err := q.db.Exec(ctx, setCartGoods,
+		arg.CartID,
+		arg.ProductID,
+		arg.Quantity,
+		arg.RecipientUsername,
+		arg.RecipientIsSelf,
+		arg.SavedPriceMinor,
+		arg.Currency,
+	)
+	return err
+}
+
+const setGoodsCartPromo = `-- name: SetGoodsCartPromo :one
+UPDATE carts
+SET promo_code = $1, updated_at = now()
+WHERE user_id = $2 AND status = 'open' AND kind = 'goods'
+RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind
+`
+
+type SetGoodsCartPromoParams struct {
+	PromoCode pgtype.Text `json:"promo_code"`
+	UserID    pgtype.UUID `json:"user_id"`
+}
+
+// The promo code a saved shop purchase carries.
+//
+// It lives on the cart rather than in a session state because the cart is
+// already the thing that survives navigating away, and a code held anywhere
+// else would be a second place a customer's intention can be lost.
+func (q *Queries) SetGoodsCartPromo(ctx context.Context, arg SetGoodsCartPromoParams) (Cart, error) {
+	row := q.db.QueryRow(ctx, setGoodsCartPromo, arg.PromoCode, arg.UserID)
+	var i Cart
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.SubscriptionID,
+		&i.PlanVersionID,
+		&i.Operation,
+		&i.Currency,
+		&i.PromoCode,
+		&i.SelectedSquadIds,
+		&i.AutoPurchase,
+		&i.Status,
+		&i.IdempotencyKey,
+		&i.OrderID,
+		&i.LastFailure,
+		&i.AttemptCount,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ExpiresAt,
+		&i.Kind,
 	)
 	return i, err
 }
@@ -2081,11 +2229,12 @@ const upsertCart = `-- name: UpsertCart :one
 
 INSERT INTO carts (
   user_id, subscription_id, plan_version_id, operation, currency, promo_code,
-  selected_squad_ids, auto_purchase, idempotency_key, expires_at
+  selected_squad_ids, auto_purchase, idempotency_key, expires_at, kind
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'plan')
 ON CONFLICT (user_id) WHERE status = 'open'
 DO UPDATE SET subscription_id = EXCLUDED.subscription_id,
+              kind = EXCLUDED.kind,
               plan_version_id = EXCLUDED.plan_version_id,
               operation = EXCLUDED.operation,
               currency = EXCLUDED.currency,
@@ -2097,7 +2246,7 @@ DO UPDATE SET subscription_id = EXCLUDED.subscription_id,
               last_failure = NULL,
               attempt_count = 0,
               updated_at = now()
-RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at
+RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind
 `
 
 type UpsertCartParams struct {
@@ -2148,6 +2297,81 @@ func (q *Queries) UpsertCart(ctx context.Context, arg UpsertCartParams) (Cart, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ExpiresAt,
+		&i.Kind,
+	)
+	return i, err
+}
+
+const upsertGoodsCart = `-- name: UpsertGoodsCart :one
+INSERT INTO carts (
+  user_id, plan_version_id, operation, currency, auto_purchase,
+  idempotency_key, expires_at, kind
+)
+VALUES (
+  $1, NULL, 'purchase', $2, false,
+  $3, $4, 'goods'
+)
+ON CONFLICT (user_id) WHERE status = 'open'
+DO UPDATE SET kind = 'goods',
+              plan_version_id = NULL,
+              subscription_id = NULL,
+              operation = 'purchase',
+              currency = EXCLUDED.currency,
+              promo_code = NULL,
+              selected_squad_ids = '{}',
+              auto_purchase = false,
+              expires_at = EXCLUDED.expires_at,
+              idempotency_key = EXCLUDED.idempotency_key,
+              last_failure = NULL,
+              attempt_count = 0,
+              updated_at = now()
+RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind
+`
+
+type UpsertGoodsCartParams struct {
+	UserID         pgtype.UUID        `json:"user_id"`
+	Currency       string             `json:"currency"`
+	IdempotencyKey string             `json:"idempotency_key"`
+	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
+}
+
+// Saving a shop purchase for later.
+//
+// It replaces whatever open cart the customer had, because there is one open
+// cart per customer and a saved plan and a saved shop item are two different
+// intentions. Silently keeping both would mean an auto-purchase charging for
+// something the customer thought they had replaced.
+//
+// auto_purchase is false and stays false. A goods price is a provider quote
+// that expires; charging one unattended means charging a number the customer
+// last saw days ago.
+func (q *Queries) UpsertGoodsCart(ctx context.Context, arg UpsertGoodsCartParams) (Cart, error) {
+	row := q.db.QueryRow(ctx, upsertGoodsCart,
+		arg.UserID,
+		arg.Currency,
+		arg.IdempotencyKey,
+		arg.ExpiresAt,
+	)
+	var i Cart
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.SubscriptionID,
+		&i.PlanVersionID,
+		&i.Operation,
+		&i.Currency,
+		&i.PromoCode,
+		&i.SelectedSquadIds,
+		&i.AutoPurchase,
+		&i.Status,
+		&i.IdempotencyKey,
+		&i.OrderID,
+		&i.LastFailure,
+		&i.AttemptCount,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ExpiresAt,
+		&i.Kind,
 	)
 	return i, err
 }

@@ -161,15 +161,16 @@ const createGoodsOrder = `-- name: CreateGoodsOrder :one
 
 INSERT INTO goods_orders (
   order_id, user_id, product_id, quantity, recipient_username, recipient_is_self,
-  quoted_cost_minor, quoted_price_minor, currency, quote_expires_at, cost_known
+  quoted_cost_minor, quoted_price_minor, discount_minor, currency, quote_expires_at, cost_known
 ) VALUES (
   $1, $2, $3, $4,
   $5, $6,
   $7, $8, $9,
-  $10, $11
+  $10,
+  $11, $12
 )
 ON CONFLICT (order_id) DO NOTHING
-RETURNING order_id, user_id, product_id, quantity, recipient_username, recipient_is_self, quoted_cost_minor, quoted_price_minor, currency, quote_expires_at, status, created_at, updated_at, cost_known
+RETURNING order_id, user_id, product_id, quantity, recipient_username, recipient_is_self, quoted_cost_minor, quoted_price_minor, currency, quote_expires_at, status, created_at, updated_at, cost_known, discount_minor
 `
 
 type CreateGoodsOrderParams struct {
@@ -181,6 +182,7 @@ type CreateGoodsOrderParams struct {
 	RecipientIsSelf   bool               `json:"recipient_is_self"`
 	QuotedCostMinor   int64              `json:"quoted_cost_minor"`
 	QuotedPriceMinor  int64              `json:"quoted_price_minor"`
+	DiscountMinor     int64              `json:"discount_minor"`
 	Currency          string             `json:"currency"`
 	QuoteExpiresAt    pgtype.Timestamptz `json:"quote_expires_at"`
 	CostKnown         bool               `json:"cost_known"`
@@ -199,6 +201,7 @@ func (q *Queries) CreateGoodsOrder(ctx context.Context, arg CreateGoodsOrderPara
 		arg.RecipientIsSelf,
 		arg.QuotedCostMinor,
 		arg.QuotedPriceMinor,
+		arg.DiscountMinor,
 		arg.Currency,
 		arg.QuoteExpiresAt,
 		arg.CostKnown,
@@ -219,6 +222,7 @@ func (q *Queries) CreateGoodsOrder(ctx context.Context, arg CreateGoodsOrderPara
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CostKnown,
+		&i.DiscountMinor,
 	)
 	return i, err
 }
@@ -343,7 +347,7 @@ func (q *Queries) GetGoodsDelivery(ctx context.Context, orderID pgtype.UUID) (Go
 }
 
 const getGoodsOrder = `-- name: GetGoodsOrder :one
-SELECT order_id, user_id, product_id, quantity, recipient_username, recipient_is_self, quoted_cost_minor, quoted_price_minor, currency, quote_expires_at, status, created_at, updated_at, cost_known FROM goods_orders WHERE order_id = $1
+SELECT order_id, user_id, product_id, quantity, recipient_username, recipient_is_self, quoted_cost_minor, quoted_price_minor, currency, quote_expires_at, status, created_at, updated_at, cost_known, discount_minor FROM goods_orders WHERE order_id = $1
 `
 
 func (q *Queries) GetGoodsOrder(ctx context.Context, orderID pgtype.UUID) (GoodsOrder, error) {
@@ -364,6 +368,7 @@ func (q *Queries) GetGoodsOrder(ctx context.Context, orderID pgtype.UUID) (Goods
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CostKnown,
+		&i.DiscountMinor,
 	)
 	return i, err
 }
@@ -634,7 +639,7 @@ func (q *Queries) ListGoodsDeliveryAttempts(ctx context.Context, orderID pgtype.
 }
 
 const listGoodsOrdersForCustomer = `-- name: ListGoodsOrdersForCustomer :many
-SELECT g.order_id, g.user_id, g.product_id, g.quantity, g.recipient_username, g.recipient_is_self, g.quoted_cost_minor, g.quoted_price_minor, g.currency, g.quote_expires_at, g.status, g.created_at, g.updated_at, g.cost_known, p.id, p.code, p.provider_slug, p.kind, p.duration_months, p.star_quantity, p.visible, p.sort_order, p.created_at, p.archived_at
+SELECT g.order_id, g.user_id, g.product_id, g.quantity, g.recipient_username, g.recipient_is_self, g.quoted_cost_minor, g.quoted_price_minor, g.currency, g.quote_expires_at, g.status, g.created_at, g.updated_at, g.cost_known, g.discount_minor, p.id, p.code, p.provider_slug, p.kind, p.duration_months, p.star_quantity, p.visible, p.sort_order, p.created_at, p.archived_at
 FROM goods_orders g
 JOIN goods_products p ON p.id = g.product_id
 WHERE g.user_id = $1
@@ -676,6 +681,7 @@ func (q *Queries) ListGoodsOrdersForCustomer(ctx context.Context, arg ListGoodsO
 			&i.GoodsOrder.CreatedAt,
 			&i.GoodsOrder.UpdatedAt,
 			&i.GoodsOrder.CostKnown,
+			&i.GoodsOrder.DiscountMinor,
 			&i.GoodsProduct.ID,
 			&i.GoodsProduct.Code,
 			&i.GoodsProduct.ProviderSlug,
@@ -1065,7 +1071,7 @@ func (q *Queries) ResolveGoodsDeliveryReview(ctx context.Context, arg ResolveGoo
 
 const searchGoodsOrders = `-- name: SearchGoodsOrders :many
 SELECT
-  g.order_id, g.user_id, g.product_id, g.quantity, g.recipient_username, g.recipient_is_self, g.quoted_cost_minor, g.quoted_price_minor, g.currency, g.quote_expires_at, g.status, g.created_at, g.updated_at, g.cost_known,
+  g.order_id, g.user_id, g.product_id, g.quantity, g.recipient_username, g.recipient_is_self, g.quoted_cost_minor, g.quoted_price_minor, g.currency, g.quote_expires_at, g.status, g.created_at, g.updated_at, g.cost_known, g.discount_minor,
   d.status AS delivery_status,
   d.attempt_count AS delivery_attempts,
   d.failure_class AS delivery_failure_class,
@@ -1134,6 +1140,7 @@ func (q *Queries) SearchGoodsOrders(ctx context.Context, arg SearchGoodsOrdersPa
 			&i.GoodsOrder.CreatedAt,
 			&i.GoodsOrder.UpdatedAt,
 			&i.GoodsOrder.CostKnown,
+			&i.GoodsOrder.DiscountMinor,
 			&i.DeliveryStatus,
 			&i.DeliveryAttempts,
 			&i.DeliveryFailureClass,
@@ -1155,7 +1162,7 @@ const setGoodsOrderStatus = `-- name: SetGoodsOrderStatus :one
 UPDATE goods_orders
 SET status = $1, updated_at = now()
 WHERE order_id = $2
-RETURNING order_id, user_id, product_id, quantity, recipient_username, recipient_is_self, quoted_cost_minor, quoted_price_minor, currency, quote_expires_at, status, created_at, updated_at, cost_known
+RETURNING order_id, user_id, product_id, quantity, recipient_username, recipient_is_self, quoted_cost_minor, quoted_price_minor, currency, quote_expires_at, status, created_at, updated_at, cost_known, discount_minor
 `
 
 type SetGoodsOrderStatusParams struct {
@@ -1181,6 +1188,7 @@ func (q *Queries) SetGoodsOrderStatus(ctx context.Context, arg SetGoodsOrderStat
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CostKnown,
+		&i.DiscountMinor,
 	)
 	return i, err
 }

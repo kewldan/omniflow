@@ -129,11 +129,12 @@ LIMIT sqlc.arg(row_limit);
 -- name: UpsertCart :one
 INSERT INTO carts (
   user_id, subscription_id, plan_version_id, operation, currency, promo_code,
-  selected_squad_ids, auto_purchase, idempotency_key, expires_at
+  selected_squad_ids, auto_purchase, idempotency_key, expires_at, kind
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'plan')
 ON CONFLICT (user_id) WHERE status = 'open'
 DO UPDATE SET subscription_id = EXCLUDED.subscription_id,
+              kind = EXCLUDED.kind,
               plan_version_id = EXCLUDED.plan_version_id,
               operation = EXCLUDED.operation,
               currency = EXCLUDED.currency,
@@ -473,3 +474,81 @@ WHERE status <> 'open'
 SELECT count(*)::integer AS pending_count,
        COALESCE(EXTRACT(EPOCH FROM (now() - min(occurred_at))), 0)::bigint AS oldest_age_seconds
 FROM outbox_events WHERE published_at IS NULL;
+
+-- name: UpsertGoodsCart :one
+-- Saving a shop purchase for later.
+--
+-- It replaces whatever open cart the customer had, because there is one open
+-- cart per customer and a saved plan and a saved shop item are two different
+-- intentions. Silently keeping both would mean an auto-purchase charging for
+-- something the customer thought they had replaced.
+--
+-- auto_purchase is false and stays false. A goods price is a provider quote
+-- that expires; charging one unattended means charging a number the customer
+-- last saw days ago.
+INSERT INTO carts (
+  user_id, plan_version_id, operation, currency, auto_purchase,
+  idempotency_key, expires_at, kind
+)
+VALUES (
+  sqlc.arg(user_id), NULL, 'purchase', sqlc.arg(currency), false,
+  sqlc.arg(idempotency_key), sqlc.arg(expires_at), 'goods'
+)
+ON CONFLICT (user_id) WHERE status = 'open'
+DO UPDATE SET kind = 'goods',
+              plan_version_id = NULL,
+              subscription_id = NULL,
+              operation = 'purchase',
+              currency = EXCLUDED.currency,
+              promo_code = NULL,
+              selected_squad_ids = '{}',
+              auto_purchase = false,
+              expires_at = EXCLUDED.expires_at,
+              idempotency_key = EXCLUDED.idempotency_key,
+              last_failure = NULL,
+              attempt_count = 0,
+              updated_at = now()
+RETURNING *;
+
+-- name: SetCartGoods :exec
+-- The single goods line. A plan cart's add-ons are cleared alongside, because
+-- a cart that changed kind must not keep the other kind's contents.
+WITH cleared AS (
+  DELETE FROM cart_addons WHERE cart_id = sqlc.arg(cart_id)
+)
+INSERT INTO cart_goods (
+  cart_id, product_id, quantity, recipient_username, recipient_is_self,
+  saved_price_minor, currency
+)
+VALUES (
+  sqlc.arg(cart_id), sqlc.arg(product_id), sqlc.arg(quantity),
+  sqlc.arg(recipient_username), sqlc.arg(recipient_is_self),
+  sqlc.arg(saved_price_minor), sqlc.arg(currency)
+)
+ON CONFLICT (cart_id) DO UPDATE SET
+  product_id = EXCLUDED.product_id,
+  quantity = EXCLUDED.quantity,
+  recipient_username = EXCLUDED.recipient_username,
+  recipient_is_self = EXCLUDED.recipient_is_self,
+  saved_price_minor = EXCLUDED.saved_price_minor,
+  currency = EXCLUDED.currency;
+
+-- name: GetCartGoods :one
+SELECT g.*, p.code AS product_code, p.kind AS product_kind, p.visible, p.archived_at
+FROM cart_goods g
+JOIN goods_products p ON p.id = g.product_id
+WHERE g.cart_id = $1;
+
+-- name: ClearCartGoods :exec
+DELETE FROM cart_goods WHERE cart_id = $1;
+
+-- name: SetGoodsCartPromo :one
+-- The promo code a saved shop purchase carries.
+--
+-- It lives on the cart rather than in a session state because the cart is
+-- already the thing that survives navigating away, and a code held anywhere
+-- else would be a second place a customer's intention can be lost.
+UPDATE carts
+SET promo_code = sqlc.narg(promo_code), updated_at = now()
+WHERE user_id = sqlc.arg(user_id) AND status = 'open' AND kind = 'goods'
+RETURNING *;

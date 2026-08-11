@@ -520,12 +520,24 @@ type Cart struct {
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
+	Kind             string             `json:"kind"`
 }
 
 type CartAddon struct {
 	CartID         pgtype.UUID `json:"cart_id"`
 	AddonVersionID pgtype.UUID `json:"addon_version_id"`
 	Quantity       int32       `json:"quantity"`
+}
+
+type CartGood struct {
+	CartID            pgtype.UUID        `json:"cart_id"`
+	ProductID         pgtype.UUID        `json:"product_id"`
+	Quantity          int32              `json:"quantity"`
+	RecipientUsername string             `json:"recipient_username"`
+	RecipientIsSelf   bool               `json:"recipient_is_self"`
+	SavedPriceMinor   int64              `json:"saved_price_minor"`
+	Currency          string             `json:"currency"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 }
 
 type ChannelEnforcement struct {
@@ -797,7 +809,8 @@ type GoodsOrder struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	// False when the provider publishes no cost for this product and the operator set the price directly. Margin is unknown, not zero.
-	CostKnown bool `json:"cost_known"`
+	CostKnown     bool  `json:"cost_known"`
+	DiscountMinor int64 `json:"discount_minor"`
 }
 
 type GoodsPricing struct {
@@ -1346,6 +1359,13 @@ type Promotion struct {
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	Stackable        bool               `json:"stackable"`
 	Precedence       int32              `json:"precedence"`
+	// Which catalogue this promotion discounts. Existing rows default to plans, so no promotion widens on upgrade.
+	AppliesTo string `json:"applies_to"`
+}
+
+type PromotionGood struct {
+	PromotionID pgtype.UUID `json:"promotion_id"`
+	ProductID   pgtype.UUID `json:"product_id"`
 }
 
 type PromotionPlan struct {

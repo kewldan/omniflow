@@ -121,13 +121,20 @@ func (version PlanVersion) Price(currency string) (Money, error) {
 }
 
 type Promotion struct {
-	ID               string
-	Kind             string
-	Value            int64
-	Currency         string
-	StartsAt         *time.Time
-	EndsAt           *time.Time
-	PlanIDs          map[string]struct{}
+	ID       string
+	Kind     string
+	Value    int64
+	Currency string
+	// AppliesTo names the catalogue this promotion discounts: plans or goods,
+	// never both. An empty value reads as plans, which is what every promotion
+	// written before the shop existed meant.
+	AppliesTo string
+	StartsAt  *time.Time
+	EndsAt    *time.Time
+	// PlanIDs scopes a plan promotion. Empty means every plan.
+	PlanIDs map[string]struct{}
+	// ProductIDs scopes a goods promotion. Empty means every visible product.
+	ProductIDs       map[string]struct{}
 	Eligibility      func(customerID string) bool
 	RedemptionLimit  *int
 	CustomerLimit    int
@@ -135,7 +142,21 @@ type Promotion struct {
 	CustomerRedeemed int
 }
 
+// AppliesToGoods reports whether this promotion is for the shop.
+func (promotion Promotion) AppliesToGoods() bool {
+	return promotion.AppliesTo == PromotionAppliesToGoods
+}
+
 func (promotion Promotion) Discount(now time.Time, customerID, planID string, subtotal Money) (Money, error) {
+	// A promotion written for the shop does not discount a plan. The check is
+	// here rather than only at the call site so the two catalogues cannot drift:
+	// whichever path a promotion reaches, it is refused unless it names that one.
+	//
+	// `planID` is empty when DiscountForGoods delegates the shared rules here,
+	// which is the one case where a goods promotion legitimately arrives.
+	if promotion.AppliesToGoods() && planID != "" {
+		return Money{}, ErrPromotionInvalid
+	}
 	if promotion.StartsAt != nil && now.Before(*promotion.StartsAt) || promotion.EndsAt != nil && !now.Before(*promotion.EndsAt) {
 		return Money{}, ErrPromotionInvalid
 	}

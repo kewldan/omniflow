@@ -135,6 +135,23 @@ var catalog = map[string]phrase{
 	// Required channels, at the moment a purchase is attempted. The wording
 	// names the channels rather than saying "requirements not met", because a
 	// customer who cannot see what to do simply leaves.
+	// Shop promo codes and saved purchases. The rejections stay distinct
+	// because the customer's next move differs: a typo, a code that ran out, and
+	// the right code on the wrong product are three different problems.
+	"shop.addPromo":         {ru: "🏷 Промокод", en: "🏷 Promo code"},
+	"shop.removePromo":      {ru: "Убрать промокод", en: "Remove promo code"},
+	"shop.promoApplied":     {ru: "Промокод %s: −%s", en: "Promo %s: −%s"},
+	"shop.total":            {ru: "К оплате: %s", en: "Total: %s"},
+	"shop.promo.unknown":    {ru: "Такого промокода нет.", en: "That promo code does not exist."},
+	"shop.promo.exhausted":  {ru: "Этот промокод уже использован.", en: "That promo code has been used up."},
+	"shop.promo.ineligible": {ru: "Этот промокод не действует на этот товар.", en: "That promo code does not apply to this item."},
+	"shop.promo.belowCost":  {ru: "Скидка по этому промокоду больше, чем этот товар может дать.", en: "That code discounts more than this item can give."},
+	"shop.promo.invalid":    {ru: "Промокод не подошёл.", en: "That promo code could not be applied."},
+	"shop.saveForLater":     {ru: "Сохранить на потом", en: "Save for later"},
+	"shop.savedTitle":       {ru: "🔖 <b>Сохранено</b>", en: "🔖 <b>Saved</b>"},
+	"shop.savedNotice":      {ru: "Мы ничего не спишем автоматически: цена у поставщика меняется, поэтому вы подтвердите её сами, когда вернётесь.", en: "Nothing will be charged automatically. The provider price moves, so you confirm it yourself when you come back."},
+	"shop.resume":           {ru: "Вернуться к покупке", en: "Resume purchase"},
+
 	"channels.required": {ru: "📣 <b>Сначала подпишитесь</b>\n\nЧтобы продолжить покупку, подпишитесь на:", en: "📣 <b>Please subscribe first</b>\n\nTo continue with your purchase, subscribe to:"},
 	"channels.retry":    {ru: "Я подписался", en: "I have subscribed"},
 	"channels.open":     {ru: "Открыть %s", en: "Open %s"},
