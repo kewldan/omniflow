@@ -3,16 +3,13 @@ title: Gifts and digital goods
 description: Buying a subscription for somebody else, and selling Telegram Premium and Stars alongside VPN access.
 ---
 
-<Warning>
-  **Delivery status in v0.7.** The data model, the domain rules, the gateway
-  adapter, the digital-goods delivery worker, and the operator surfaces are
-  implemented. What is **not yet wired** is the customer-facing half: the
-  Telegram flows for buying a gift, claiming one, and browsing the shop. No gift
-  or shop order can therefore be created on a running installation today, and
-  the corresponding roadmap items remain unchecked. Everything downstream of an
-  order existing — delivery, classification, refund, and operator review — does
-  run.
-</Warning>
+<Note>
+  **One limitation.** Promo codes and saved carts apply to plan purchases but
+  not to shop orders. Promotion applicability and cart quoting are both
+  plan-scoped, and pointing them at digital goods is a catalogue design decision
+  rather than a wiring one. The wallet is applied to a shop order exactly as it
+  is to a plan.
+</Note>
 
 ## Gifts
 
@@ -237,3 +234,66 @@ change that would fix that.
 Credentials — the gateway URL and its shared token — are sealed with
 `APP_DATA_ENCRYPTION_KEY`, never returned by the API after they are written, and
 excluded from diagnostics.
+
+## Buying in the bot
+
+### Gifts
+
+A sender chooses a subscription or an amount of wallet credit, optionally writes
+a note, and receives a claim code. The code exists in exactly that one message:
+only its SHA-256 is stored, so a database read — a backup, a dump, a compromised
+replica — never yields a redeemable code, and a sender who loses it cannot have
+it recovered. The stored hint is the last four characters, which is enough to
+tell two of your own gifts apart and not enough for anybody to redeem one.
+
+A gift becomes claimable when the sender's order is paid, and the code is shown
+before then with a note saying so — a recipient trying early would otherwise be
+refused with no explanation.
+
+Every refusal renders the same message. A recipient learning the difference
+between "no such code", "already claimed", and "expired" would also be an
+attacker learning which codes exist.
+
+A gifted subscription extends what the recipient already has rather than
+replacing it, and is provisioned through the same fulfillment pipeline a
+purchase uses, in the claim's own transaction. The gift cannot be marked claimed
+without the recipient actually getting something.
+
+### The shop
+
+The catalogue separates Premium from Stars, because one is answered with a
+duration and the other with a quantity.
+
+The price is quoted when the product is opened, not at confirmation, so the
+number on the screen is the number that will be charged and its expiry is
+stated. A quote that has expired by the time the customer confirms is re-taken
+rather than honoured. A product with a fixed price never touches the provider at
+all: the operator has already decided what the customer pays and absorbs the
+variance.
+
+The recipient review step is a separate screen. Digital goods cannot be recalled
+once a gateway has sent them, so a mistyped username is unrecoverable, and the
+handle is restated in full immediately above the button that spends the money.
+
+The recipient's Telegram handle is never stored on the customer record. A handle
+can be changed or dropped at any time, and keeping a copy would mean holding a
+stale identifier for somebody who has moved on. It is stored on the shop order,
+where delivery and support genuinely need it.
+
+## Delivery, polling, and the ambiguous outcome
+
+`goods_deliveries` is the source of truth about what is owed, not the job queue.
+A scheduler translates "this row is due" into "run the worker", so a lost job, a
+purged queue, or a restarted process costs a delay rather than a delivery.
+
+A row that already carries a provider reference has been submitted and has not
+finished. Asking again would be asking for a second purchase, so the worker
+polls instead — that is what delayed delivery means in practice.
+
+An adapter that cannot be polled leaves the outcome genuinely unknown, and
+unknown is neither a failure to retry nor a success to record. The gateway that
+fronts Fragment is exactly that case: it honours no idempotency key and exposes
+no way to poll a submission. Such a delivery is classified `ambiguous` and parks
+in the panel's review queue until an operator confirms with the provider what
+happened. Retrying could deliver twice; refunding could give money back for
+goods the recipient received.

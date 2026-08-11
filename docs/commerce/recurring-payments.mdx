@@ -3,15 +3,6 @@ title: Recurring payments
 description: Saved payment methods, auto-renew consent, and the bounded dunning schedule.
 ---
 
-<Warning>
-  **Delivery status in v0.7.** The data model, the capability and scheduling
-  rules, the saved-method lifecycle, and the operator review surfaces are
-  implemented. The worker that actually attempts a renewal charge, and the
-  customer-facing consent flow in the bot, are **not yet wired**, so no
-  automatic charge is made on a running installation today. The corresponding
-  roadmap items remain unchecked.
-</Warning>
-
 Automatic charging is the one place in the product where money moves with nobody
 watching. Three rules govern it, and all three are enforced rather than
 documented.
@@ -110,3 +101,62 @@ an attempt they did not ask for.
 A customer's saved methods and charge history appear on their profile, gated on
 `finance.read`. An operator with `finance.write` may revoke a method on the
 customer's behalf.
+
+## What the worker actually does
+
+`internal/renewal` is the only place in Omniflow where money moves with nobody
+watching, and its design follows from that. The rules — whether a charge is
+allowed, when the next attempt falls, when to give up, when to tell the customer
+— live in `internal/recurring`, which has no database in it and is unit-tested
+on its own. The worker owns the transaction boundaries and the provider calls.
+
+One cycle takes the customer's money at most once, and that rests on three
+mechanisms rather than on care.
+
+**The schedule is a table.** `dunning_attempts` carries the attempt number, its
+due time, and its outcome, with a unique key on `(cycle_key, attempt)`. A
+restarted worker resumes from it rather than starting over, and a duplicated
+pass inserts nothing.
+
+**Every attempt on a cycle shares one order.** The order's idempotency key is
+derived from the cycle key, so a retry finds the order the previous attempt
+opened instead of billing for a second period.
+
+**An outstanding payment blocks a new charge.** If the provider has been asked
+and has not answered, the attempt is deferred rather than failed: the honest
+reading of silence is "unknown", and charging again on unknown is how a customer
+gets billed twice.
+
+Consent is re-checked at the moment of charging rather than at the moment of
+scheduling, because the second is the one that moves money. A customer who
+turned auto-renew off in between is not charged.
+
+## What the customer controls
+
+The bot states the three things somebody needs to know before agreeing to a
+charge they will not be present for: what plan, from where, and how long before
+expiry. Enabling auto-renew is what records consent — the worker checks that
+timestamp rather than the flag, so a row written by an import or a migration can
+never produce a charge.
+
+Saved methods have their own screen showing the provider's own masked label,
+which is all Omniflow has. Removing the last method falls auto-renew back to the
+wallet and suspends it rather than leaving a customer consented to a charge that
+can no longer be made; the consent record stays, so re-adding a card does not
+mean agreeing again.
+
+A wallet-funded renewal spends the balance and a card-funded one leaves it
+alone. Silently draining a customer's wallet because their card is on file would
+be a different agreement from the one they made.
+
+## Which failures the customer hears about
+
+Not every one. The first decline is usually resolved by the retry, and a
+notification per attempt teaches a customer to ignore them. The second failure
+and the final abandonment are the two that change what the customer has to do,
+and those are the two that are sent.
+
+The decision is stored on the attempt rather than recomputed in the notifier's
+query, so the rule lives in one place. The message says whether access
+continues and what to do; the failure code stays on the attempt row where
+support can read it, because "insufficient_funds" is operator vocabulary.

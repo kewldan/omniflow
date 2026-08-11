@@ -414,9 +414,13 @@ func (store *Store) creditGift(
 	ctx context.Context, queries *dbgen.Queries, gift dbgen.Gift, recipientID pgtype.UUID,
 ) (pgtype.UUID, error) {
 	amount := gift.CreditMinor.Int64
+	// The counterpart is platform clearing rather than revenue. The sender's
+	// money was collected and recognised when their order settled; claiming
+	// moves the value the platform is already holding into the recipient's
+	// wallet, and recognising it a second time would double-count it.
 	entries := []commerce.LedgerEntry{
 		{AccountType: "customer_wallet", CustomerID: uuidString(recipientID), Currency: gift.Currency, AmountMinor: amount},
-		{AccountType: "revenue", Currency: gift.Currency, AmountMinor: -amount},
+		{AccountType: "platform_clearing", Currency: gift.Currency, AmountMinor: -amount},
 	}
 	if err := commerce.ValidateLedger(entries); err != nil {
 		return pgtype.UUID{}, err
@@ -436,7 +440,7 @@ func (store *Store) creditGift(
 		return pgtype.UUID{}, err
 	}
 	if _, err = queries.InsertLedgerEntry(ctx, dbgen.InsertLedgerEntryParams{
-		TransactionID: transaction.ID, AccountType: "revenue",
+		TransactionID: transaction.ID, AccountType: "platform_clearing",
 		Currency: gift.Currency, AmountMinor: -amount,
 	}); err != nil {
 		return pgtype.UUID{}, err

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
@@ -157,14 +158,29 @@ func TestConcurrentSubscriptionPurchasesRespectTheLimit(t *testing.T) {
 	if subscriptions > testOptions().Subscriptions.EffectiveMax() {
 		t.Fatalf("the concurrency limit was breached: %d subscriptions", subscriptions)
 	}
-	sawRejection := false
+	// Every attempt beyond the limit must have been refused by something. Which
+	// something is not the property worth asserting: under Serializable, most
+	// racers are aborted by PostgreSQL before they ever reach the domain check,
+	// and a serialization abort is the stronger outcome — it means the conflict
+	// was caught by the database rather than by an application read that could
+	// have gone stale. Demanding a specific error made this test assert which
+	// guard won a race rather than that the limit held.
+	succeeded := 0
 	for _, err := range rejected {
-		if errors.Is(err, commerce.ErrSubscriptionRejected) {
-			sawRejection = true
+		switch {
+		case err == nil:
+			succeeded++
+		case errors.Is(err, commerce.ErrSubscriptionRejected):
+		case isSerializationFailure(err):
+		default:
+			t.Fatalf("a purchase failed for an unexpected reason: %v", err)
 		}
 	}
-	if !sawRejection {
-		t.Fatal("expected at least one purchase to be refused by the limit")
+	if succeeded != subscriptions {
+		t.Fatalf("%d purchases reported success but %d subscriptions exist", succeeded, subscriptions)
+	}
+	if succeeded == burst {
+		t.Fatal("every concurrent purchase succeeded, so the limit was never exercised")
 	}
 }
 
@@ -210,4 +226,12 @@ func TestReconciliationSweepIsIdempotentUnderLoad(t *testing.T) {
 	if state != "expired" {
 		t.Fatalf("expected the order to expire, got %q", state)
 	}
+}
+
+// isSerializationFailure reports a transaction PostgreSQL aborted rather than
+// let breach an invariant. It is a normal outcome of contention, and the caller
+// is expected to retry; here it is proof the conflict was caught.
+func isSerializationFailure(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "40001"
 }

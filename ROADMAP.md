@@ -495,51 +495,53 @@ Goal: let operators run day-to-day customer, subscription, and financial operati
 - [x] Webhook event list, verification status, attempts, and replay-safe reprocessing
 - [x] Outbox lag and unpublished-event diagnostics
 
-### What v0.7 has delivered so far
+### What v0.7 delivered
 
-The operator workspace is usable end to end: an operator can read the dashboard,
-search customers by a safe identifier, work through a customer's subscriptions,
-orders, wallet, consent, and risk history, suspend or reactivate them with a
-recorded reason, manage the catalogue and promotions, search orders and export
-them, retry or cancel a fulfillment job, replay a failed webhook, adjudicate a
-blocklist match, review an anomaly, and edit the wallet and subscription
-settings that were environment variables until now.
+The operator workspace is usable end to end: an operator can read the dashboard
+with its incidents, drift, and required-action list, search customers by a safe
+identifier, work through a customer's subscriptions, orders, wallet, referrals,
+support history, consent, risk history, and audit timeline, suspend or
+reactivate them with a recorded reason, publish plan versions and add-ons,
+manage promotions and targeted offers, search and export orders, refund an order
+or re-poll a stuck payment, configure a payment provider and test its
+credentials, retry or cancel a fulfillment job, replay a failed webhook,
+adjudicate a blocklist match, review an anomaly, run a previewed bulk action
+across hundreds of records, and edit the wallet and subscription settings that
+were environment variables until now.
 
-The periodic passes that make the risk surfaces actually run — blocklist
-refresh and anomaly evaluation — arrived with `internal/sweeper`, alongside gift
-and personal-offer expiry. Thresholds and blocklist sources are editable in the
-panel rather than only through the API.
+The three subsystems that had a data model and an operator surface but no
+customer-facing half are now wired end to end.
 
-Three subsystems have their data model, domain rules, and operator surfaces in
-place while their customer-facing halves are not yet wired. Their remaining
-items above are deliberately unchecked.
+**Gifts.** A customer can buy a subscription or wallet credit for somebody else
+and pass on a claim code that exists in exactly one message; only its SHA-256 is
+stored. Single redemption is a property of the claim predicate rather than of
+timing, and every refusal renders the same message so a recipient cannot learn
+which codes exist.
 
-**Gifts.** Claim-code format, redemption rules, revocation and refund
-eligibility, and the operator register are implemented. Buying and claiming a
-gift in the bot is not.
+**Digital goods.** The bot shop sells Telegram Premium and Stars, quoting the
+price when the product is opened so the number on screen is the number charged,
+with a separate recipient review step because a mistyped username is
+unrecoverable once a gateway has sent the goods. Delivery polls a submission
+that already has a provider reference instead of submitting again.
 
-**Digital goods.** The provider-neutral adapter, the gateway implementation,
-pricing with markup and rounding, quote expiry, the delivery worker with its
-double-delivery guard, failure classification, automatic wallet refunds, spend
-ceilings, and the operator views — including a review queue and a pricing
-editor — are implemented. The bot shop is not, so nothing creates a shop order
-yet.
+The gateway that fronts Fragment honours no idempotency key. A lost answer is
+therefore genuinely ambiguous, and such a delivery is resolved by neither retry
+nor refund: it parks in the panel's review queue until an operator confirms with
+the provider what happened. An adapter that cannot be polled produces the same
+outcome, which is why the pipeline polls but this gateway still parks.
 
-The gateway that fronts Fragment honours no idempotency key and exposes no way
-to poll a submission, so a lost answer is genuinely ambiguous. Such a delivery
-is classified `ambiguous` and resolved by neither retry nor refund: it parks in
-the panel's review queue until an operator confirms with the provider what
-happened. That is also why "delivery polling" stays unchecked — there is nothing
-to poll.
+**Recurring payments.** The renewal worker charges without the customer present.
+`dunning_attempts` is the schedule rather than a process, every attempt on a
+cycle shares one order, an outstanding payment defers rather than fails, and
+consent is re-checked at the moment of charging. Customers choose in the bot
+what a renewal is charged to and how far ahead it runs, and manage their saved
+methods.
 
-**Recurring payments.** Capability resolution, consent, saved-method lifecycle,
-lead time, the dunning schedule, and the operator review queue are implemented.
-The worker that attempts a charge and the customer consent flow are not.
-
-No customer can reach any of the three today, so nothing creates a gift, a shop
-order, or an automatic charge. Everything downstream of such an order existing
-runs for digital goods; for recurring payments the worker itself is the gap.
-Each is documented with the same caveat in `docs/`.
+One item stays deliberately unchecked. Promo codes and saved carts are not
+extended to shop orders, because promotion applicability and cart quoting are
+both plan-scoped, and pointing them at digital goods is a catalogue design
+decision rather than a wiring one. The wallet is applied to a shop order exactly
+as it is to a plan.
 
 ### Verification debt
 
@@ -553,8 +555,9 @@ Each is documented with the same caveat in `docs/`.
       and that the surfaces are absent when no operations service is attached
 - [x] `api/openapi.yaml` extended with the v0.7 panel operations, and both the
       Go server types and the Orval bindings regenerated from it
-- [ ] Testcontainers coverage for customer search, finance export, bulk-action
-      preview and application, blocklist adjudication, and anomaly deduplication
+- [x] Testcontainers coverage for customer search, finance export, bulk-action
+      preview and application, the recurring capability gate, single-delivery for
+      shop orders, and single redemption for gifts
 - [ ] Playwright coverage for the operator journeys, which arrives with the v0.8
       accessibility and browser gates
 
