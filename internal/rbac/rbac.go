@@ -105,6 +105,16 @@ var AllPermissions = []Permission{
 	PermissionGoodsRead, PermissionGoodsWrite,
 }
 
+// Known reports whether a string names a permission this build defines.
+//
+// It exists because permissions are now referenced from data as well as from
+// code: an owner maps an MCP tool to one, and a typo there would produce a tool
+// nobody can invoke, which reads as a bug rather than as a mistake. Checking at
+// the point of configuration turns it into a message about the field.
+func Known(candidate Permission) bool {
+	return slices.Contains(AllPermissions, candidate)
+}
+
 // Role is a built-in operator role. The set is fixed in v0.6; operator-defined
 // roles are planned for a later version and will extend this catalogue rather
 // than replace it.

@@ -41,14 +41,14 @@ SELECT secrets_ciphertext FROM installation_settings WHERE section = $1;
 -- name: SettingSecretsPresent :many
 -- Whether a secret exists, without returning it. It is what the panel shows in
 -- place of the value: "configured" is the only safe rendering of a secret.
-SELECT section, secrets_ciphertext IS NOT NULL AS configured
+SELECT section, (secrets_ciphertext IS NOT NULL)::boolean AS configured
 FROM installation_settings
 ORDER BY section;
 
 -- name: ListAIProviders :many
 SELECT slug, kind, display_name, base_url, enabled, zero_retention, trains_on_data,
        retention_notice, data_region, last_checked_at, last_check_ok, last_check_detail,
-       credentials_ciphertext IS NOT NULL AS credential_configured,
+       (credentials_ciphertext IS NOT NULL)::boolean AS credential_configured,
        created_at, updated_at, updated_by
 FROM ai_providers
 ORDER BY display_name;
@@ -174,7 +174,7 @@ SELECT
   coalesce(sum(input_tokens), 0)::bigint AS input_tokens,
   coalesce(sum(output_tokens), 0)::bigint AS output_tokens,
   coalesce(sum(estimated_cost_minor), 0)::bigint AS cost_minor,
-  coalesce(round(avg(latency_ms))::bigint, 0) AS mean_latency_ms,
+  coalesce(round(avg(latency_ms)), 0)::bigint AS mean_latency_ms,
   coalesce(percentile_disc(0.95) WITHIN GROUP (ORDER BY latency_ms), 0)::bigint AS p95_latency_ms,
   count(*) FILTER (WHERE outcome <> 'succeeded')::bigint AS failures
 FROM ai_usage_events
@@ -228,7 +228,7 @@ SELECT slug, display_name, endpoint, enabled, allowed_hosts, allow_private_netwo
        timeout_ms, max_response_bytes, max_calls_per_request, max_depth, cost_limit_minor,
        protocol_version, server_name, server_version, capabilities, discovered_at,
        last_checked_at, last_check_ok, last_check_detail, consecutive_failures,
-       credentials_ciphertext IS NOT NULL AS credential_configured,
+       (credentials_ciphertext IS NOT NULL)::boolean AS credential_configured,
        created_at, updated_at, updated_by
 FROM mcp_servers
 ORDER BY display_name;
@@ -238,7 +238,7 @@ SELECT slug, display_name, endpoint, enabled, allowed_hosts, allow_private_netwo
        timeout_ms, max_response_bytes, max_calls_per_request, max_depth, cost_limit_minor,
        protocol_version, server_name, server_version, capabilities, discovered_at,
        last_checked_at, last_check_ok, last_check_detail, consecutive_failures,
-       credentials_ciphertext IS NOT NULL AS credential_configured,
+       (credentials_ciphertext IS NOT NULL)::boolean AS credential_configured,
        created_at, updated_at, updated_by
 FROM mcp_servers
 WHERE slug = $1;

@@ -58,7 +58,7 @@ SELECT
   coalesce(sum(input_tokens), 0)::bigint AS input_tokens,
   coalesce(sum(output_tokens), 0)::bigint AS output_tokens,
   coalesce(sum(estimated_cost_minor), 0)::bigint AS cost_minor,
-  coalesce(round(avg(latency_ms))::bigint, 0) AS mean_latency_ms,
+  coalesce(round(avg(latency_ms)), 0)::bigint AS mean_latency_ms,
   coalesce(percentile_disc(0.95) WITHIN GROUP (ORDER BY latency_ms), 0)::bigint AS p95_latency_ms,
   count(*) FILTER (WHERE outcome <> 'succeeded')::bigint AS failures
 FROM ai_usage_events
@@ -73,16 +73,16 @@ type AIUsageReportParams struct {
 }
 
 type AIUsageReportRow struct {
-	Feature       string      `json:"feature"`
-	ProviderSlug  string      `json:"provider_slug"`
-	Model         string      `json:"model"`
-	Requests      int64       `json:"requests"`
-	InputTokens   int64       `json:"input_tokens"`
-	OutputTokens  int64       `json:"output_tokens"`
-	CostMinor     int64       `json:"cost_minor"`
-	MeanLatencyMs interface{} `json:"mean_latency_ms"`
-	P95LatencyMs  int64       `json:"p95_latency_ms"`
-	Failures      int64       `json:"failures"`
+	Feature       string `json:"feature"`
+	ProviderSlug  string `json:"provider_slug"`
+	Model         string `json:"model"`
+	Requests      int64  `json:"requests"`
+	InputTokens   int64  `json:"input_tokens"`
+	OutputTokens  int64  `json:"output_tokens"`
+	CostMinor     int64  `json:"cost_minor"`
+	MeanLatencyMs int64  `json:"mean_latency_ms"`
+	P95LatencyMs  int64  `json:"p95_latency_ms"`
+	Failures      int64  `json:"failures"`
 }
 
 // Token, request, latency, error, and estimated-cost reporting, grouped by the
@@ -344,7 +344,7 @@ SELECT slug, display_name, endpoint, enabled, allowed_hosts, allow_private_netwo
        timeout_ms, max_response_bytes, max_calls_per_request, max_depth, cost_limit_minor,
        protocol_version, server_name, server_version, capabilities, discovered_at,
        last_checked_at, last_check_ok, last_check_detail, consecutive_failures,
-       credentials_ciphertext IS NOT NULL AS credential_configured,
+       (credentials_ciphertext IS NOT NULL)::boolean AS credential_configured,
        created_at, updated_at, updated_by
 FROM mcp_servers
 WHERE slug = $1
@@ -371,7 +371,7 @@ type GetMCPServerRow struct {
 	LastCheckOk          pgtype.Bool        `json:"last_check_ok"`
 	LastCheckDetail      pgtype.Text        `json:"last_check_detail"`
 	ConsecutiveFailures  int32              `json:"consecutive_failures"`
-	CredentialConfigured interface{}        `json:"credential_configured"`
+	CredentialConfigured bool               `json:"credential_configured"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 	UpdatedBy            pgtype.UUID        `json:"updated_by"`
@@ -503,7 +503,7 @@ func (q *Queries) ListAIFeatures(ctx context.Context) ([]AiFeature, error) {
 const listAIProviders = `-- name: ListAIProviders :many
 SELECT slug, kind, display_name, base_url, enabled, zero_retention, trains_on_data,
        retention_notice, data_region, last_checked_at, last_check_ok, last_check_detail,
-       credentials_ciphertext IS NOT NULL AS credential_configured,
+       (credentials_ciphertext IS NOT NULL)::boolean AS credential_configured,
        created_at, updated_at, updated_by
 FROM ai_providers
 ORDER BY display_name
@@ -522,7 +522,7 @@ type ListAIProvidersRow struct {
 	LastCheckedAt        pgtype.Timestamptz `json:"last_checked_at"`
 	LastCheckOk          pgtype.Bool        `json:"last_check_ok"`
 	LastCheckDetail      pgtype.Text        `json:"last_check_detail"`
-	CredentialConfigured interface{}        `json:"credential_configured"`
+	CredentialConfigured bool               `json:"credential_configured"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 	UpdatedBy            pgtype.UUID        `json:"updated_by"`
@@ -741,7 +741,7 @@ SELECT slug, display_name, endpoint, enabled, allowed_hosts, allow_private_netwo
        timeout_ms, max_response_bytes, max_calls_per_request, max_depth, cost_limit_minor,
        protocol_version, server_name, server_version, capabilities, discovered_at,
        last_checked_at, last_check_ok, last_check_detail, consecutive_failures,
-       credentials_ciphertext IS NOT NULL AS credential_configured,
+       (credentials_ciphertext IS NOT NULL)::boolean AS credential_configured,
        created_at, updated_at, updated_by
 FROM mcp_servers
 ORDER BY display_name
@@ -768,7 +768,7 @@ type ListMCPServersRow struct {
 	LastCheckOk          pgtype.Bool        `json:"last_check_ok"`
 	LastCheckDetail      pgtype.Text        `json:"last_check_detail"`
 	ConsecutiveFailures  int32              `json:"consecutive_failures"`
-	CredentialConfigured interface{}        `json:"credential_configured"`
+	CredentialConfigured bool               `json:"credential_configured"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 	UpdatedBy            pgtype.UUID        `json:"updated_by"`
@@ -1423,14 +1423,14 @@ func (q *Queries) SetMCPToolPolicy(ctx context.Context, arg SetMCPToolPolicyPara
 }
 
 const settingSecretsPresent = `-- name: SettingSecretsPresent :many
-SELECT section, secrets_ciphertext IS NOT NULL AS configured
+SELECT section, (secrets_ciphertext IS NOT NULL)::boolean AS configured
 FROM installation_settings
 ORDER BY section
 `
 
 type SettingSecretsPresentRow struct {
-	Section    string      `json:"section"`
-	Configured interface{} `json:"configured"`
+	Section    string `json:"section"`
+	Configured bool   `json:"configured"`
 }
 
 // Whether a secret exists, without returning it. It is what the panel shows in
