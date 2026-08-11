@@ -578,7 +578,7 @@ Goal: finish support, communication, configuration, and operational readiness be
 
 ### Referrals and loyalty
 
-- [ ] Referral program enablement, qualification rule, inviter/invitee reward, cap, and validity period
+- [x] Referral program enablement, qualification rule, inviter/invitee reward, cap, and validity period
 - [x] Attribution, qualification, rejected/fraud state, and reward history
 - [x] Manual review and correction through compensating ledger entries
 - [x] Loyalty tiers/rules with versioned definitions and deterministic evaluation
@@ -588,7 +588,7 @@ Goal: finish support, communication, configuration, and operational readiness be
 
 - [x] Localized news posts with draft, preview, schedule, publish, unpublish, and archive
 - [x] Audience segments using explicit, reviewable filters
-- [ ] Campaign preview, estimated audience, test delivery, schedule, pause, cancel, and results — the schedule, pause, cancel, expansion, and result counters are implemented and enforced; the panel screens and test delivery remain
+- [x] Campaign preview, estimated audience, schedule, pause, cancel, and results — the panel shows the segment's definition in words beside its live count before a draft is created; test delivery to a single operator account remains and is tracked in the verification debt below
 - [x] Transactional and marketing templates with variables validated before send
 - [x] Consent, suppression list, quiet hours, frequency caps, and delivery deduplication
 - [x] Delivery states for queued, sent, failed, blocked, and clicked where supported
@@ -597,7 +597,7 @@ Goal: finish support, communication, configuration, and operational readiness be
 ### Mandatory channel subscription
 
 - [x] Operator-configured required Telegram channels with per-channel enablement
-- [ ] Membership verification before purchase and before subscription activation
+- [x] Membership verification before purchase and before subscription activation
 - [x] Periodic re-verification with automatic entitlement disable on unsubscribe
 - [x] Grace period, warning notification, and automatic restore on rejoin
 - [x] Exemption list, per-customer bypass, and a complete audit trail for every state change
@@ -612,17 +612,17 @@ Goal: finish support, communication, configuration, and operational readiness be
 - [x] Rewrite controls for shorter, clearer, friendlier, more formal, or more technical replies
 - [x] Russian/English translation that preserves product names, links, and template variables
 - [x] Suggested category, priority, tags, sentiment, and escalation reason
-- [ ] Similar-ticket and relevant documentation suggestions with source citations
+- [x] Similar-ticket and relevant documentation suggestions with source citations
 - [x] Secret, token, subscription-link, payment-data, and unnecessary-PII redaction before model requests
 - [x] Generated replies remain editable drafts; an authorized operator must explicitly send them
-- [ ] Clear AI-generated label, provider/model disclosure, retry, cancellation, and fallback states
+- [x] Clear AI-generated label, provider/model disclosure, retry, cancellation, and fallback states
 
 ### Scam, abuse, and social-engineering analysis
 
 - [x] Explainable risk analysis for scam, phishing, impersonation, social engineering, payment fraud, and referral abuse
 - [x] Evidence list, confidence, uncertainty, and matched policy signals instead of an unexplained score
-- [ ] Cross-ticket pattern detection using minimized, permission-safe structured signals
-- [ ] Suspicious-link and attachment metadata checks through explicitly configured tools
+- [x] Cross-ticket pattern detection using minimized, permission-safe structured signals
+- [x] Suspicious-link and attachment metadata checks through explicitly configured tools
 - [x] Operator feedback for false positive, confirmed abuse, and insufficient evidence
 - [x] Human review required before suspension, refund denial, wallet correction, or other adverse action
 - [x] AI output can recommend an action but cannot silently punish a customer or mutate financial state
@@ -636,8 +636,8 @@ Goal: finish support, communication, configuration, and operational readiness be
 - [x] Preserve and validate template variables, Markdown/HTML rules, Telegram limits, and channel constraints
 - [x] Brand-voice, forbidden-claims, consent, quiet-hours, and communication-policy checks
 - [x] Readability, ambiguity, spam-likelihood, and potentially misleading language review
-- [ ] Audience-aware suggestions using aggregate segment definitions without exposing raw customer lists
-- [ ] Side-by-side diff, undo, version history, and explicit operator acceptance of generated edits
+- [x] Audience-aware suggestions using aggregate segment definitions without exposing raw customer lists
+- [x] Side-by-side diff, undo, version history, and explicit operator acceptance of generated edits
 - [x] AI may prepare a campaign draft but cannot select recipients, schedule, or send without confirmation
 
 ### Admin copilot
@@ -651,43 +651,43 @@ Goal: finish support, communication, configuration, and operational readiness be
 
 ### MCP integration
 
-- [ ] MCP client with remote Streamable HTTP transport and standards-based authorization
-- [ ] Discover MCP tools, resources, and prompts with cached capability metadata and health status
-- [ ] Owner-managed MCP server registry with explicit enablement, allowlists, timeouts, and egress restrictions
-- [ ] Encrypted MCP credentials that are write-only in the admin interface
-- [ ] Per-server and per-tool mapping to Omniflow RBAC permissions
-- [ ] JSON Schema validation for every tool input and output before it reaches AI or application code
-- [ ] Tool-call preview showing server, tool, arguments, affected records, and expected side effects
-- [ ] Human confirmation for external writes and every consequential Omniflow mutation
-- [ ] First-party Omniflow MCP server for permission-scoped admin tools, resources, and operational documentation
-- [ ] First-party MCP server is read-only by default; mutation capabilities are separately enabled and audited
-- [ ] Prompt-injection defenses that treat tickets, webpages, attachments, MCP resources, and tool output as untrusted data
-- [ ] Tool recursion, call-count, duration, response-size, and monetary-cost limits
-- [ ] Circuit breakers and graceful degradation when an MCP server is unavailable or returns invalid data
-- [ ] Full audit trail for connection changes, model requests, tool calls, confirmations, results, and failures
+- [x] MCP client with remote Streamable HTTP transport and standards-based authorization
+- [x] Discover MCP tools, resources, and prompts with cached capability metadata and health status
+- [x] Owner-managed MCP server registry with explicit enablement, allowlists, timeouts, and egress restrictions
+- [x] Encrypted MCP credentials that are write-only in the admin interface
+- [x] Per-server and per-tool mapping to Omniflow RBAC permissions
+- [x] JSON Schema validation for every tool input and output before it reaches AI or application code
+- [x] Tool-call preview showing server, tool, arguments, affected records, and expected side effects
+- [x] Human confirmation for external writes and every consequential Omniflow mutation
+- [x] First-party Omniflow MCP server for permission-scoped admin tools, resources, and operational documentation
+- [x] First-party MCP server is read-only by default; mutation capabilities are separately enabled and audited
+- [x] Prompt-injection defenses that treat tickets, webpages, attachments, MCP resources, and tool output as untrusted data
+- [x] Tool recursion, call-count, duration, response-size, and monetary-cost limits
+- [x] Circuit breakers and graceful degradation when an MCP server is unavailable or returns invalid data
+- [x] Full audit trail for connection changes, model requests, tool calls, confirmations, results, and failures
 
 ### AI privacy, governance, and cost controls
 
 - [x] AI and MCP are globally optional and disabled until an owner configures them
-- [ ] Per-feature enablement for support, marketing, scam analysis, copilot, and MCP tools
+- [x] Per-feature enablement for support, marketing, scam analysis, copilot, and MCP tools
 - [x] Data-use preview shows operators exactly which fields will leave the installation
-- [ ] Provider-specific retention/training warnings and documented zero-retention options where available
-- [ ] Configurable prompt/output retention with deletion and legal-hold behavior
+- [x] Provider-specific retention/training warnings and documented zero-retention options where available
+- [x] Configurable prompt/output retention with deletion and legal-hold behavior
 - [x] AI prompts, outputs, ticket content, customer data, and tool arguments never enter anonymous telemetry
-- [ ] Per-role, per-operator, per-feature, and installation-wide usage limits
-- [ ] Token, request, latency, error, and estimated-cost reporting without exposing prompt content in metrics
+- [x] Per-role, per-operator, per-feature, and installation-wide usage limits
+- [x] Token, request, latency, error, and estimated-cost reporting without exposing prompt content in metrics
 - [x] Provider/model fallback is explicit and cannot route data to an unapproved provider
-- [ ] Audit exports identify generated content and consequential decisions influenced by AI
+- [x] Audit exports identify generated content and consequential decisions influenced by AI
 
 ### AI and MCP quality gates
 
-- [ ] Sanitized evaluation sets for support replies, translations, marketing edits, and scam analysis
-- [ ] Regression thresholds for correctness, groundedness, citation validity, tone, and unsafe advice
-- [ ] Prompt-injection, tool-confusion, data-exfiltration, privilege-escalation, and indirect-injection tests
+- [x] Sanitized evaluation sets for support replies, translations, marketing edits, and scam analysis
+- [x] Regression thresholds for correctness, groundedness, citation validity, tone, and unsafe advice
+- [x] Prompt-injection, tool-confusion, data-exfiltration, privilege-escalation, and indirect-injection tests
 - [x] Tests proving operators cannot invoke tools beyond their own RBAC permissions through AI or MCP
-- [ ] Tests proving duplicate or retried tool calls cannot duplicate financial or provisioning effects
-- [ ] Model/provider outage, timeout, malformed output, budget exhaustion, and partial-tool-failure tests
-- [ ] AI features degrade to normal manual admin workflows without blocking support or operations
+- [x] Tests proving duplicate or retried tool calls cannot duplicate financial or provisioning effects
+- [x] Model/provider outage, timeout, malformed output, budget exhaustion, and partial-tool-failure tests
+- [x] AI features degrade to normal manual admin workflows without blocking support or operations
 
 ### Settings and operations
 
@@ -695,25 +695,25 @@ Goal: finish support, communication, configuration, and operational readiness be
 - [ ] Remnawave connection, compatibility check, reconciliation schedule, and safe token rotation
 - [ ] Telegram bot identity, webhook, command, and delivery status
 - [ ] Operator group and topic binding with automatic topic creation and permission diagnostics
-- [ ] Mandatory channel list, verification schedule, grace period, and exemption management
+- [x] Mandatory channel list, verification schedule, grace period, and exemption management
 - [ ] Maintenance-mode policy, dependency detection thresholds, and customer notice text
 - [ ] Payment-provider configuration and capability matrix
 - [ ] Notification thresholds, templates, and test delivery
-- [ ] AI providers, model routing, budgets, privacy controls, evaluation status, and connection tests
-- [ ] MCP server registry, authorization, capability allowlists, health, and audit history
+- [x] AI providers, model routing, budgets, privacy controls, evaluation status, and connection tests
+- [x] MCP server registry, authorization, capability allowlists, health, and audit history
 - [ ] Telemetry status, exact payload preview, and global opt-out
 - [ ] Operator, role, session, and security settings
 - [ ] Backup schedule, retention, encryption, restore history, and verified test restore
 - [ ] Backup status, version, migration status, update availability, and diagnostics bundle
-- [ ] Secrets never returned after write and always excluded from diagnostics
+- [x] Secrets never returned after write and always excluded from diagnostics
 
 ### Definition of admin complete
 
 - [ ] An owner can configure and operate every backend capability without SQL or shell access
 - [ ] Support and finance roles can do their jobs without receiving unrelated permissions
 - [ ] Every sensitive mutation is authorized, validated, confirmed where necessary, and audited
-- [ ] AI-assisted work is grounded, editable, attributable, and never required for a manual workflow
-- [ ] MCP tools cannot bypass RBAC, mutation confirmation, idempotency, or audit requirements
+- [x] AI-assisted work is grounded, editable, attributable, and never required for a manual workflow
+- [x] MCP tools cannot bypass RBAC, mutation confirmation, idempotency, or audit requirements
 - [ ] Testcontainers cover repositories and critical workflows
 - [ ] Playwright covers admin authentication and highest-risk operator journeys
 - [ ] Accessibility, responsive layout, localization, and browser support gates pass
