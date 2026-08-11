@@ -326,34 +326,53 @@ Goal: build the secure operator shell only after the Telegram/backend product is
 
 ### Authentication and sessions
 
-- [ ] Secure first-owner bootstrap with one-time setup token
-- [ ] Password hashing with current recommended parameters
-- [ ] TOTP two-factor authentication and recovery codes
-- [ ] Session rotation, inactivity timeout, absolute expiry, logout-all, and device/session list
-- [ ] Login rate limiting, lockout/backoff, and security notifications
-- [ ] CSRF protection, secure cookies, trusted proxy handling, and restrictive security headers
-- [ ] Password reset flow that does not disclose account existence
-- [ ] Optional OIDC configuration without making an external identity provider mandatory
+- [x] Secure first-owner bootstrap with one-time setup token
+- [x] Password hashing with current recommended parameters
+- [x] TOTP two-factor authentication and recovery codes
+- [x] Session rotation, inactivity timeout, absolute expiry, logout-all, and device/session list
+- [x] Login rate limiting and lockout/backoff
+- [ ] Security notifications for new sign-ins and credential changes — needs the operator
+      notification transport planned for v0.7
+- [x] CSRF protection, secure cookies, trusted proxy handling, and restrictive security headers
+- [x] Password reset flow that does not disclose account existence — the token is
+      logged for out-of-band delivery until email transport lands in v0.7
+- [ ] Optional OIDC configuration without making an external identity provider mandatory —
+      schema and queries are in place; the discovery, PKCE, and callback flow is not
 
 ### RBAC and audit
 
-- [ ] Owner, administrator, support, finance, marketing, and read-only auditor roles
-- [ ] Granular permissions enforced in the Go API and Next.js server boundary
-- [ ] No authorization decisions based only on hidden routes or frontend state
-- [ ] Append-only audit events for authentication, configuration, customer, financial, and support actions
-- [ ] Actor, target, action, reason, timestamp, request ID, and safe before/after metadata
-- [ ] Audit search, filters, pagination, and export without secrets
+- [x] Owner, administrator, support, finance, marketing, and read-only auditor roles
+- [x] Granular permissions enforced in the Go API
+- [ ] Permissions enforced at the Next.js server boundary — the panel renders from the
+      permission set and the API enforces it on every request, but there is no
+      server-side gate in the Next.js layer yet
+- [x] No authorization decisions based only on hidden routes or frontend state
+- [x] Append-only audit events for authentication, authorization, and configuration actions
+- [x] Actor, target, action, reason, timestamp, request ID, and safe before/after metadata
+- [x] Audit search, filters, pagination, and export without secrets
 
 ### Shared admin application shell
 
-- [ ] Responsive `/admin` layout using shared shadcn primitives
-- [ ] Accessible navigation, command search, breadcrumbs, and keyboard operation
-- [ ] Russian and English `next-intl` catalogs
-- [ ] Typed Orval API hooks, SWR cache policy, and standardized mutations
-- [ ] React Hook Form and Zod validation for all settings and mutations
-- [ ] Explicit skeleton, empty, partial, stale, permission-denied, and error states
-- [ ] Global notifications, confirmation dialogs, destructive-action safeguards, and unsaved-change protection
-- [ ] URL-backed filters, cursor pagination, sortable tables, and saved operator preferences
+- [x] Responsive `/admin` layout using shared shadcn primitives
+- [x] Accessible navigation, command search, breadcrumbs, and keyboard operation
+- [x] Russian and English `next-intl` catalogs
+- [x] Generated Orval client and SWR cache policy
+- [ ] Panel pages consume the generated Orval hooks directly — they currently call a
+      shared typed fetch wrapper against the same contract
+- [x] React Hook Form and Zod validation for all settings and mutations
+- [x] Explicit skeleton, empty, partial, stale, permission-denied, and error states
+- [x] Global notifications, confirmation dialogs, and destructive-action safeguards
+- [ ] Unsaved-change protection
+- [x] URL-backed filters and cursor pagination
+- [ ] Sortable tables and saved operator preferences — the sortable header primitive
+      exists; no v0.6 surface has a column worth sorting yet
+
+### Verification debt
+
+- [ ] Apply `20260812000000_admin_foundation.sql` against a real PostgreSQL 18 and
+      record its checksum with `atlas migrate hash`
+- [ ] Testcontainers coverage for bootstrap, sign-in, lockout, session lifecycle,
+      role changes, and the audit trail
 
 ---
 

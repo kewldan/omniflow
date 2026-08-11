@@ -6,11 +6,13 @@ export default async function CustomerHome() {
   const translate = await getTranslations("home");
   return (
     <main className="mx-auto flex min-h-screen max-w-5xl items-center px-6 py-20">
-      <Card className="max-w-2xl border-slate-800 bg-slate-950/80">
+      <Card className="max-w-2xl">
         <CardHeader>
-          <p className="text-sm font-medium text-sky-400">{translate("eyebrow")}</p>
-          <CardTitle className="text-5xl tracking-tight">{translate("title")}</CardTitle>
-          <CardDescription className="text-lg leading-8">
+          <p className="font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.16em]">
+            {translate("eyebrow")}
+          </p>
+          <CardTitle className="text-4xl tracking-[-0.035em]">{translate("title")}</CardTitle>
+          <CardDescription className="text-base leading-7">
             {translate("description")}
           </CardDescription>
         </CardHeader>

@@ -125,6 +125,24 @@ type Config struct {
 	TopUp                     TopUpConfig
 	Subscriptions             SubscriptionConfig
 	Maintenance               MaintenanceConfig
+	AdminPanel                AdminPanelConfig
+}
+
+// AdminPanelConfig configures the operator panel API introduced in v0.6.
+type AdminPanelConfig struct {
+	// Enabled mounts /v1/panel. It requires APP_DATA_ENCRYPTION_KEY, which
+	// seals TOTP secrets, so a bot-only installation can leave it off.
+	Enabled bool
+	// CookieSecure marks the session cookie Secure. It defaults to true and
+	// should only be turned off for a plain-HTTP local stack, where a browser
+	// would otherwise refuse the cookie and sign-in could never complete.
+	CookieSecure bool
+	// TrustedProxies lists the IPs or CIDR blocks whose X-Forwarded-For header
+	// may be believed. Empty means the header is ignored entirely, which is
+	// correct when the API is exposed directly.
+	TrustedProxies []string
+	// Issuer labels operator accounts inside an authenticator app.
+	Issuer string
 }
 
 type BotConfig struct {
@@ -192,6 +210,7 @@ func Load() (Config, error) {
 		DefaultCurrency:           strings.ToUpper(envOr("APP_DEFAULT_CURRENCY", "RUB")),
 		Subscriptions:             loadSubscriptions(),
 		Maintenance:               loadMaintenance(),
+		AdminPanel:                loadAdminPanel(),
 	}
 	if encodedKey := os.Getenv("APP_DATA_ENCRYPTION_KEY"); encodedKey != "" {
 		key, err := decodeKey(encodedKey)
@@ -351,6 +370,22 @@ func loadMaintenance() MaintenanceConfig {
 		FailureStreak:  intEnvOr("APP_MAINTENANCE_FAILURE_STREAK", 3),
 		RecoveryStreak: intEnvOr("APP_MAINTENANCE_RECOVERY_STREAK", 3),
 	}
+}
+
+func loadAdminPanel() AdminPanelConfig {
+	cfg := AdminPanelConfig{
+		Enabled: boolEnvOr("APP_ADMIN_PANEL_ENABLED", true),
+		// Defaults to true so a deployment that forgets to set it still gets a
+		// cookie a browser will only send over TLS.
+		CookieSecure: boolEnvOr("APP_ADMIN_COOKIE_SECURE", true),
+		Issuer:       envOr("APP_ADMIN_TOTP_ISSUER", "Omniflow"),
+	}
+	for entry := range strings.SplitSeq(os.Getenv("APP_TRUSTED_PROXIES"), ",") {
+		if trimmed := strings.TrimSpace(entry); trimmed != "" {
+			cfg.TrustedProxies = append(cfg.TrustedProxies, trimmed)
+		}
+	}
+	return cfg
 }
 
 func loadOperator() (OperatorConfig, error) {

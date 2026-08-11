@@ -25,17 +25,51 @@ type Querier interface {
 	CancelOrder(ctx context.Context, arg CancelOrderParams) (Order, error)
 	CheckPromotionCustomerEligibility(ctx context.Context, arg CheckPromotionCustomerEligibilityParams) (pgtype.Bool, error)
 	CloseSubscription(ctx context.Context, arg CloseSubscriptionParams) (Subscription, error)
+	// Promotes a half-authenticated session once the second factor is proven. The
+	// token is rotated in the same statement so the cookie that existed during the
+	// challenge cannot be replayed as a fully authenticated one.
+	CompleteAdminSessionChallenge(ctx context.Context, arg CompleteAdminSessionChallengeParams) (AdminSession, error)
 	CompleteBackup(ctx context.Context, arg CompleteBackupParams) (Backup, error)
 	CompleteBackupRestore(ctx context.Context, arg CompleteBackupRestoreParams) (BackupRestore, error)
 	CompleteOperatorNotification(ctx context.Context, arg CompleteOperatorNotificationParams) (OperatorNotification, error)
 	CompleteWebhookEvent(ctx context.Context, arg CompleteWebhookEventParams) (ProviderWebhookEvent, error)
+	ConfirmAdminTOTP(ctx context.Context, adminUserID pgtype.UUID) (AdminUser, error)
+	ConsumeAdminPasswordReset(ctx context.Context, resetID pgtype.UUID) (AdminPasswordReset, error)
+	// Single-use by construction: the `used_at IS NULL` predicate means a replay of
+	// the same code updates no row and returns no result.
+	ConsumeAdminRecoveryCode(ctx context.Context, arg ConsumeAdminRecoveryCodeParams) (AdminRecoveryCode, error)
+	ConsumeAdminSetupToken(ctx context.Context, arg ConsumeAdminSetupTokenParams) (AdminSetupToken, error)
 	// Callers must hold LockCustomerSubscriptions for this count to be meaningful.
 	CountActiveSubscriptions(ctx context.Context, arg CountActiveSubscriptionsParams) (CountActiveSubscriptionsRow, error)
+	CountAdminOIDCIdentities(ctx context.Context, adminUserID pgtype.UUID) (int64, error)
+	// Guards the "an installation always keeps one owner" invariant. Only accounts
+	// that could actually sign in count, so suspending the last owner is refused
+	// for the same reason revoking the role is.
+	CountAdminOwners(ctx context.Context, excludingAdminUserID pgtype.UUID) (int64, error)
+	// Operator identity, sessions, and the audit trail for the v0.6 admin panel.
+	// ---------------------------------------------------------------------------
+	// Administrator accounts
+	// ---------------------------------------------------------------------------
+	CountAdminUsers(ctx context.Context) (int64, error)
 	CountPlanVersionSquads(ctx context.Context, arg CountPlanVersionSquadsParams) (int32, error)
 	CountPromoRedemptions(ctx context.Context, arg CountPromoRedemptionsParams) (CountPromoRedemptionsRow, error)
 	CountRecentOperatorNotifications(ctx context.Context, arg CountRecentOperatorNotificationsParams) (int32, error)
 	CountRunningBackups(ctx context.Context) (int32, error)
 	CountUnpublishedOutboxEvents(ctx context.Context) (CountUnpublishedOutboxEventsRow, error)
+	CountUnusedAdminRecoveryCodes(ctx context.Context, adminUserID pgtype.UUID) (int64, error)
+	// ---------------------------------------------------------------------------
+	// Password resets
+	// ---------------------------------------------------------------------------
+	CreateAdminPasswordReset(ctx context.Context, arg CreateAdminPasswordResetParams) (AdminPasswordReset, error)
+	// ---------------------------------------------------------------------------
+	// Sessions
+	// ---------------------------------------------------------------------------
+	CreateAdminSession(ctx context.Context, arg CreateAdminSessionParams) (AdminSession, error)
+	// ---------------------------------------------------------------------------
+	// First-owner bootstrap
+	// ---------------------------------------------------------------------------
+	CreateAdminSetupToken(ctx context.Context, arg CreateAdminSetupTokenParams) (AdminSetupToken, error)
+	CreateAdminUser(ctx context.Context, arg CreateAdminUserParams) (AdminUser, error)
 	// ---------------------------------------------------------------------------
 	// Backups
 	// ---------------------------------------------------------------------------
@@ -60,6 +94,11 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	CreateWalletTopup(ctx context.Context, arg CreateWalletTopupParams) (WalletTopup, error)
 	CreditWalletTopup(ctx context.Context, arg CreditWalletTopupParams) (WalletTopup, error)
+	DeleteAdminOIDCProvider(ctx context.Context, slug string) error
+	// ---------------------------------------------------------------------------
+	// Recovery codes
+	// ---------------------------------------------------------------------------
+	DeleteAdminRecoveryCodes(ctx context.Context, adminUserID pgtype.UUID) error
 	DeleteCartAddon(ctx context.Context, arg DeleteCartAddonParams) error
 	// ---------------------------------------------------------------------------
 	// Retention and cleanup
@@ -71,12 +110,28 @@ type Querier interface {
 	DeleteOldTelemetryEvents(ctx context.Context, retentionSeconds float64) (int64, error)
 	DeletePublishedOutboxEvents(ctx context.Context, retentionSeconds float64) (int64, error)
 	DeleteResolvedDrifts(ctx context.Context, retentionSeconds float64) (int64, error)
+	DisableAdminTOTP(ctx context.Context, adminUserID pgtype.UUID) (AdminUser, error)
 	EnqueueOperatorNotification(ctx context.Context, arg EnqueueOperatorNotificationParams) (OperatorNotification, error)
+	// Retires outstanding tokens by moving their expiry into the past rather than
+	// marking them consumed: `admin_setup_tokens_consumption_complete` requires a
+	// consuming account, and an unredeemed token has none. Both the lookup and the
+	// redemption already refuse an expired row.
+	ExpireAdminSetupTokens(ctx context.Context) (int64, error)
 	ExpireCarts(ctx context.Context) ([]Cart, error)
 	ExpirePendingOrders(ctx context.Context) ([]Order, error)
 	FailBackup(ctx context.Context, arg FailBackupParams) (Backup, error)
 	FailOperatorTopic(ctx context.Context, arg FailOperatorTopicParams) (OperatorTopic, error)
 	GetAddonVersionForOrder(ctx context.Context, arg GetAddonVersionForOrderParams) (GetAddonVersionForOrderRow, error)
+	GetAdminOIDCIdentity(ctx context.Context, arg GetAdminOIDCIdentityParams) (GetAdminOIDCIdentityRow, error)
+	GetAdminOIDCProviderBySlug(ctx context.Context, slug string) (AdminOidcProvider, error)
+	GetAdminPasswordReset(ctx context.Context, tokenHash []byte) (GetAdminPasswordResetRow, error)
+	// Returns the session and its owner in one round trip. Liveness is decided in
+	// Go so an expired session can be distinguished from a missing one and revoked
+	// explicitly, rather than silently disappearing from the result set.
+	GetAdminSessionByToken(ctx context.Context, tokenHash []byte) (GetAdminSessionByTokenRow, error)
+	GetAdminSetupToken(ctx context.Context, tokenHash []byte) (AdminSetupToken, error)
+	GetAdminUser(ctx context.Context, id pgtype.UUID) (AdminUser, error)
+	GetAdminUserByEmail(ctx context.Context, emailNormalized string) (AdminUser, error)
 	GetAvailableWalletBalance(ctx context.Context, arg GetAvailableWalletBalanceParams) (int64, error)
 	GetBackup(ctx context.Context, id pgtype.UUID) (Backup, error)
 	GetCustomer(ctx context.Context, id pgtype.UUID) (User, error)
@@ -109,6 +164,14 @@ type Querier interface {
 	GetSubscriptionByRemnawaveUser(ctx context.Context, remnawaveUserID pgtype.Int8) (Subscription, error)
 	GetTelemetryInstallationID(ctx context.Context) (pgtype.UUID, error)
 	GetWalletBalance(ctx context.Context, arg GetWalletBalanceParams) (int64, error)
+	// ---------------------------------------------------------------------------
+	// Role grants
+	// ---------------------------------------------------------------------------
+	GrantAdminRole(ctx context.Context, arg GrantAdminRoleParams) error
+	InsertAdminRecoveryCode(ctx context.Context, arg InsertAdminRecoveryCodeParams) error
+	// The single writer for the audit trail. `category` and `outcome` are the two
+	// axes the admin panel filters and exports on, so every caller classifies its
+	// event rather than letting it fall into an untyped bucket.
 	InsertAuditEvent(ctx context.Context, arg InsertAuditEventParams) (AuditEvent, error)
 	InsertConsentRecord(ctx context.Context, arg InsertConsentRecordParams) (ConsentRecord, error)
 	InsertCustomerLifecycleEvent(ctx context.Context, arg InsertCustomerLifecycleEventParams) (CustomerLifecycleEvent, error)
@@ -123,10 +186,24 @@ type Querier interface {
 	InsertPaymentEvent(ctx context.Context, arg InsertPaymentEventParams) (PaymentEvent, error)
 	InsertPromoRedemption(ctx context.Context, arg InsertPromoRedemptionParams) (PromoRedemption, error)
 	InsertWebhookEvent(ctx context.Context, arg InsertWebhookEventParams) (ProviderWebhookEvent, error)
+	InvalidateAdminPasswordResets(ctx context.Context, adminUserID pgtype.UUID) (int64, error)
 	IsAddonOfferedForPlan(ctx context.Context, arg IsAddonOfferedForPlanParams) (bool, error)
 	IsPromotionPlanEligible(ctx context.Context, arg IsPromotionPlanEligibleParams) (pgtype.Bool, error)
+	LinkAdminOIDCIdentity(ctx context.Context, arg LinkAdminOIDCIdentityParams) (AdminOidcIdentity, error)
 	LinkCustomerIdentity(ctx context.Context, arg LinkCustomerIdentityParams) (Identity, error)
 	LinkTelegramRemnawaveUser(ctx context.Context, arg LinkTelegramRemnawaveUserParams) (int64, error)
+	// ---------------------------------------------------------------------------
+	// Optional OIDC configuration
+	// ---------------------------------------------------------------------------
+	ListAdminOIDCProviders(ctx context.Context) ([]AdminOidcProvider, error)
+	ListAdminRoles(ctx context.Context, adminUserID pgtype.UUID) ([]string, error)
+	ListAdminRolesForUsers(ctx context.Context, adminUserIds []pgtype.UUID) ([]ListAdminRolesForUsersRow, error)
+	ListAdminSessions(ctx context.Context, arg ListAdminSessionsParams) ([]AdminSession, error)
+	// Keyset pagination on (created_at, id): the pair is unique, so a page boundary
+	// never repeats or skips a row even when several accounts share a timestamp.
+	ListAdminUsers(ctx context.Context, arg ListAdminUsersParams) ([]AdminUser, error)
+	// Populates the action filter without scanning the whole table from the client.
+	ListAuditEventActions(ctx context.Context) ([]string, error)
 	// Only carts whose customer holds wallet history are considered, so the sweep
 	// never re-prices a cart that cannot possibly be covered yet.
 	ListAutoPurchaseCarts(ctx context.Context, limit int32) ([]ListAutoPurchaseCartsRow, error)
@@ -136,6 +213,7 @@ type Querier interface {
 	ListCustomerIdentities(ctx context.Context, userID pgtype.UUID) ([]Identity, error)
 	ListCustomerImportItems(ctx context.Context, arg ListCustomerImportItemsParams) ([]CustomerImportItem, error)
 	ListCustomerImportTelegramIDs(ctx context.Context, importID pgtype.UUID) ([]ListCustomerImportTelegramIDsRow, error)
+	ListEnabledAdminOIDCProviders(ctx context.Context) ([]AdminOidcProvider, error)
 	ListEntitlementsForReconciliation(ctx context.Context, limit int32) ([]Entitlement, error)
 	ListExpiredBackups(ctx context.Context, limit int32) ([]Backup, error)
 	ListExpiredWalletCredits(ctx context.Context, limit int32) ([]ListExpiredWalletCreditsRow, error)
@@ -173,17 +251,43 @@ type Querier interface {
 	MarkBackupPruned(ctx context.Context, id pgtype.UUID) (Backup, error)
 	MarkCartPurchased(ctx context.Context, arg MarkCartPurchasedParams) (Cart, error)
 	NextPlanVersion(ctx context.Context, planID pgtype.UUID) (int32, error)
+	PurgeExpiredAdminSessions(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
 	// ---------------------------------------------------------------------------
 	// Maintenance mode
 	// ---------------------------------------------------------------------------
 	// A read-only probe used on the hot purchase path. A missing row means
 	// maintenance mode has never been engaged, which is the same as inactive.
 	ReadMaintenanceState(ctx context.Context) (MaintenanceState, error)
+	// The caller computes the lockout deadline from the resulting attempt count, so
+	// the backoff curve stays in Go where it is unit-testable.
+	RecordAdminLoginFailure(ctx context.Context, arg RecordAdminLoginFailureParams) (AdminUser, error)
+	RecordAdminLoginSuccess(ctx context.Context, adminUserID pgtype.UUID) (AdminUser, error)
+	RecordAdminOIDCLogin(ctx context.Context, id pgtype.UUID) error
 	RecordCartFailure(ctx context.Context, arg RecordCartFailureParams) (Cart, error)
 	ReleasePaymentMutationLock(ctx context.Context, hashtextextended string) error
 	RenameSubscription(ctx context.Context, arg RenameSubscriptionParams) (Subscription, error)
 	ResolveEntitlementDrifts(ctx context.Context, entitlementID pgtype.UUID) error
+	RevokeAdminRole(ctx context.Context, arg RevokeAdminRoleParams) error
+	RevokeAdminSession(ctx context.Context, arg RevokeAdminSessionParams) (AdminSession, error)
+	// Logout-everywhere. `keep_session_id` lets the caller preserve the session
+	// that requested it, which is what a password change should do.
+	RevokeAdminSessionsForUser(ctx context.Context, arg RevokeAdminSessionsForUserParams) (int64, error)
 	RevokeCustomerIdentity(ctx context.Context, arg RevokeCustomerIdentityParams) (Identity, error)
+	RotateAdminSessionToken(ctx context.Context, arg RotateAdminSessionTokenParams) (AdminSession, error)
+	// ---------------------------------------------------------------------------
+	// Audit trail
+	// ---------------------------------------------------------------------------
+	// Audit events are written through `InsertAuditEvent` in commerce.sql, which is
+	// the single writer for the trail. The queries below only read it.
+	// Keyset pagination on (occurred_at, id) descending. Every filter is optional
+	// and null-tolerant, so the panel can compose them from URL state without
+	// building SQL on the client side.
+	SearchAuditEvents(ctx context.Context, arg SearchAuditEventsParams) ([]AuditEvent, error)
+	// Starts enrolment. `totp_confirmed_at` is deliberately cleared: a secret that
+	// has not been proven by a code cannot satisfy a login challenge.
+	SetAdminTOTPSecret(ctx context.Context, arg SetAdminTOTPSecretParams) (AdminUser, error)
+	SetAdminUserPassword(ctx context.Context, arg SetAdminUserPasswordParams) (AdminUser, error)
+	SetAdminUserStatus(ctx context.Context, arg SetAdminUserStatusParams) (AdminUser, error)
 	SetCartAddon(ctx context.Context, arg SetCartAddonParams) error
 	SetCartAutoPurchase(ctx context.Context, arg SetCartAutoPurchaseParams) (Cart, error)
 	SetMaintenanceState(ctx context.Context, arg SetMaintenanceStateParams) (MaintenanceState, error)
@@ -195,6 +299,10 @@ type Querier interface {
 	// Superseding is scoped to one subscription so buying a second subscription
 	// never retires the first one's entitlement.
 	SupersedePreviousEntitlements(ctx context.Context, arg SupersedePreviousEntitlementsParams) error
+	// Slides the inactivity window forward. The absolute deadline is never
+	// extended, so continuous activity cannot keep a session alive indefinitely.
+	TouchAdminSession(ctx context.Context, arg TouchAdminSessionParams) (AdminSession, error)
+	UpdateAdminUserProfile(ctx context.Context, arg UpdateAdminUserProfileParams) (AdminUser, error)
 	UpdateContactChannelPreferences(ctx context.Context, arg UpdateContactChannelPreferencesParams) (ContactChannel, error)
 	UpdateCustomerImportProgress(ctx context.Context, arg UpdateCustomerImportProgressParams) (CustomerImport, error)
 	UpdateCustomerPreferences(ctx context.Context, arg UpdateCustomerPreferencesParams) (User, error)
@@ -203,6 +311,7 @@ type Querier interface {
 	UpdateOrderPayment(ctx context.Context, arg UpdateOrderPaymentParams) (Order, error)
 	UpdateOrderRefund(ctx context.Context, arg UpdateOrderRefundParams) (Order, error)
 	UpdatePaymentIntentStatus(ctx context.Context, arg UpdatePaymentIntentStatusParams) (PaymentIntent, error)
+	UpsertAdminOIDCProvider(ctx context.Context, arg UpsertAdminOIDCProviderParams) (AdminOidcProvider, error)
 	// ---------------------------------------------------------------------------
 	// Cart and deferred purchase
 	// ---------------------------------------------------------------------------

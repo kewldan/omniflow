@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/omniflow/omniflow/internal/adminauthpg"
 	"github.com/omniflow/omniflow/internal/catalogpg"
 	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/config"
@@ -69,7 +71,7 @@ func main() {
 	server := &http.Server{
 		Addr: cfg.HTTPAddr,
 		Handler: apihttp.NewRouter(logger, apihttp.RouterOptions{
-			Health: health, Metrics: metrics, Commerce: runtime.handlers,
+			Health: health, Metrics: metrics, Commerce: runtime.handlers, Admin: runtime.admin,
 			CollectorEnabled: cfg.TelemetryCollectorEnabled, Telemetry: telemetryClient, Version: version,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
@@ -100,6 +102,7 @@ func main() {
 // runtimeServices is what main needs back from the commerce wiring.
 type runtimeServices struct {
 	handlers *apihttp.CommerceHandlers
+	admin    *apihttp.AdminHandlers
 }
 
 func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, health *platform.Health, metrics *platform.Metrics) (runtimeServices, func(), error) {
@@ -199,5 +202,81 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 
 	handlers := apihttp.NewCommerceHandlers(dbgen.New(pool), catalogpg.New(pool), commerceStore, paymentService, customerService, importservice.New(pool, remnawaveClient), fulfillment.NewService(pool, riverClient), platform.NewRateLimiter(valkeyClient), cfg.OperatorToken)
 	handlers.WithOperations(pool, riverClient, commerceStore)
-	return runtimeServices{handlers: handlers}, func() { valkeyClient.Close(); pool.Close() }, nil
+
+	services := runtimeServices{handlers: handlers}
+	if cfg.AdminPanel.Enabled {
+		adminHandlers, adminErr := buildAdminPanel(logger, cfg, pool, platform.NewRateLimiter(valkeyClient))
+		if adminErr != nil {
+			valkeyClient.Close()
+			pool.Close()
+			return runtimeServices{}, nil, adminErr
+		}
+		services.admin = adminHandlers
+	}
+	return services, func() { valkeyClient.Close(); pool.Close() }, nil
+}
+
+// buildAdminPanel wires the operator panel API.
+//
+// It reuses APP_DATA_ENCRYPTION_KEY, already validated as 32 bytes by the
+// commerce precondition above, to seal TOTP secrets.
+func buildAdminPanel(
+	logger *slog.Logger, cfg config.Config, pool *pgxpool.Pool, limiter *platform.RateLimiter,
+) (*apihttp.AdminHandlers, error) {
+	service, err := adminauthpg.New(pool, cfg.DataEncryptionKey, adminauthpg.Options{})
+	if err != nil {
+		return nil, err
+	}
+	proxies, err := apihttp.NewTrustedProxies(cfg.AdminPanel.TrustedProxies)
+	if err != nil {
+		return nil, err
+	}
+	if !cfg.AdminPanel.CookieSecure {
+		// Worth a loud line in the log: a session cookie without Secure can be
+		// captured off any plain-HTTP request to the same host.
+		logger.Warn("admin session cookie is not marked Secure; use this only for local development")
+	}
+	issueSetupTokenIfNeeded(logger, service)
+	return apihttp.NewAdminHandlers(apihttp.AdminOptions{
+		Service: service, Limiter: limiter, Logger: logger, Proxies: proxies,
+		CookieSecure: cfg.AdminPanel.CookieSecure, Issuer: cfg.AdminPanel.Issuer,
+	}), nil
+}
+
+// issueSetupTokenIfNeeded prints a one-time bootstrap token when an
+// installation has no operator account yet.
+//
+// The token goes to the log rather than to an HTTP response, because at this
+// point nothing can authenticate and an endpoint that handed it out would give
+// it to anyone who asked. It is issued only while no operator exists, so a
+// restart of an established installation prints nothing.
+//
+// A failure here never blocks startup: the API is still useful without the
+// panel, and the operator can restart to try again.
+func issueSetupTokenIfNeeded(logger *slog.Logger, service *adminauthpg.Service) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	state, err := service.BootstrapStatus(ctx)
+	if err != nil {
+		logger.Warn("could not determine admin setup state", "error", err)
+		return
+	}
+	if !state.Required {
+		return
+	}
+
+	token, err := service.IssueSetupToken(ctx)
+	if err != nil {
+		if errors.Is(err, adminauthpg.ErrBootstrapClosed) {
+			return
+		}
+		logger.Warn("could not issue an admin setup token", "error", err)
+		return
+	}
+	logger.Warn(
+		"no administrator exists yet; redeem this one-time setup token at /admin/setup",
+		"token", token,
+		"expires_in", adminauthpg.SetupTokenTTL.String(),
+	)
 }

@@ -6,29 +6,266 @@
     "action": "Continue in Telegram"
   },
   "admin": {
-    "product": "Omniflow",
-    "eyebrow": "Open-source control plane",
-    "title": "Admin workspace",
-    "description": "Operations and customer self-service now share one application and one component system.",
-    "settingsTitle": "System defaults",
-    "settingsDescription": "RHF, Zod, and Zustand are wired for admin workflows.",
-    "navigation": {
-      "dashboard": "Dashboard",
-      "payments": "Payments",
-      "customers": "Customers",
+    "panelBadge": "Admin",
+    "roles": {
+      "owner": "Owner",
+      "administrator": "Administrator",
       "support": "Support",
-      "plans": "Plans",
+      "finance": "Finance",
       "marketing": "Marketing",
-      "referrals": "Referrals",
-      "system": "System",
-      "security": "Security"
+      "auditor": "Auditor"
+    },
+    "theme": {
+      "label": "Appearance",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    },
+    "navigation": {
+      "label": "Admin navigation",
+      "open": "Open navigation",
+      "planned": "Soon",
+      "sections": {
+        "overview": "Overview",
+        "operations": "Operations",
+        "governance": "Governance",
+        "account": "Account"
+      },
+      "items": {
+        "dashboard": "Dashboard",
+        "customers": "Customers",
+        "finance": "Finance",
+        "catalog": "Catalog",
+        "support": "Support",
+        "marketing": "Marketing",
+        "operators": "Operators",
+        "audit": "Audit log",
+        "system": "System",
+        "security": "Security"
+      }
+    },
+    "commandMenu": {
+      "trigger": "Search…",
+      "title": "Command menu",
+      "description": "Jump to a page or change the appearance.",
+      "placeholder": "Type a page or a command…",
+      "empty": "Nothing matched.",
+      "appearance": "Appearance"
+    },
+    "userMenu": {
+      "label": "Account menu",
+      "security": "Security",
+      "signOut": "Sign out",
+      "signOutFailed": "Sign-out failed. Try again."
+    },
+    "states": {
+      "loading": "Loading",
+      "retry": "Try again",
+      "sessionError": "The panel could not load",
+      "sessionErrorDescription": "The API did not answer. Check that it is running and reachable.",
+      "forbidden": "You do not have access to this page",
+      "forbiddenDescription": "Your roles do not include the permission this page requires. Ask an owner if you need it."
+    },
+    "home": {
+      "eyebrow": "Operator panel",
+      "greeting": "Hello, {name}",
+      "description": "This release delivers the panel shell, operator accounts, and the audit trail. Customer, finance, and catalog surfaces arrive in the next versions.",
+      "accessTitle": "Your access",
+      "accessDescription": "The roles you hold and the permissions they grant. The API enforces exactly this set.",
+      "shortcutsTitle": "Go to",
+      "open": "Open",
+      "cards": {
+        "operatorsDescription": "Review who can sign in, and suspend an account when someone leaves.",
+        "auditDescription": "Search every recorded authentication, authorization, and configuration action.",
+        "securityDescription": "Manage your password, two-factor authentication, and active sessions."
+      }
+    },
+    "login": {
+      "title": "Sign in",
+      "description": "Use your operator account.",
+      "challengeTitle": "Two-factor verification",
+      "challengeDescription": "Enter the code from your authenticator app.",
+      "email": "Email",
+      "password": "Password",
+      "code": "Code",
+      "codeHint": "You can also use one of your recovery codes.",
+      "submit": "Sign in",
+      "verify": "Verify",
+      "errors": {
+        "invalidCredentials": "Those details are not correct.",
+        "locked": "Too many failed attempts. Try again later.",
+        "rateLimited": "Too many attempts. Wait a moment and try again.",
+        "invalidCode": "That code is not valid.",
+        "generic": "Sign-in failed. Try again.",
+        "network": "The API could not be reached."
+      }
+    },
+    "setup": {
+      "title": "Create the first owner",
+      "description": "This installation has no operator account yet.",
+      "loading": "Checking setup state",
+      "tokenHint": "The setup token was printed to the API log when it started. It can be used once.",
+      "setupToken": "Setup token",
+      "displayName": "Name",
+      "email": "Email",
+      "password": "Password",
+      "passwordHint": "At least 12 characters. Length matters more than symbols.",
+      "confirmPassword": "Confirm password",
+      "submit": "Create owner",
+      "errors": {
+        "closed": "Setup has already been completed.",
+        "weakPassword": "That password is too short.",
+        "passwordMismatch": "The passwords do not match.",
+        "generic": "Setup could not be completed."
+      }
+    },
+    "operators": {
+      "title": "Operators",
+      "description": "Everyone who can sign in to this panel.",
+      "empty": "No operators yet",
+      "emptyDescription": "Only the owner account exists so far.",
+      "error": "Operators could not be loaded",
+      "errorDescription": "The API did not answer.",
+      "retry": "Try again",
+      "next": "Next",
+      "previous": "Previous",
+      "shown": "{count} shown · page {page}",
+      "columns": {
+        "operator": "Operator",
+        "roles": "Roles",
+        "status": "Status",
+        "twoFactor": "Two-factor"
+      },
+      "statuses": {
+        "active": "Active",
+        "suspended": "Suspended",
+        "disabled": "Disabled"
+      },
+      "twoFactor": {
+        "on": "Enabled",
+        "off": "Not set up"
+      },
+      "actions": {
+        "suspend": "Suspend",
+        "reinstate": "Reinstate",
+        "cancel": "Cancel"
+      },
+      "confirm": {
+        "title": "Suspend this operator?",
+        "description": "They will be signed out everywhere immediately and will not be able to sign in again until reinstated.",
+        "prompt": "Type {name} to confirm"
+      },
+      "toasts": {
+        "suspended": "{name} was suspended.",
+        "reinstated": "{name} was reinstated.",
+        "lastOwner": "The installation must keep at least one active owner.",
+        "statusFailed": "The status could not be changed."
+      }
+    },
+    "audit": {
+      "title": "Audit log",
+      "description": "Every authentication, authorization, and configuration action, newest first. The trail is append-only.",
+      "export": "Export CSV",
+      "empty": "Nothing recorded yet",
+      "emptyDescription": "Actions will appear here as operators use the panel.",
+      "noMatches": "No events matched",
+      "noMatchesDescription": "Try widening or clearing the filters.",
+      "error": "The audit log could not be loaded",
+      "errorDescription": "The API did not answer.",
+      "retry": "Try again",
+      "next": "Next",
+      "previous": "Previous",
+      "shown": "{count} shown · page {page}",
+      "filters": {
+        "category": "Category",
+        "outcome": "Outcome",
+        "action": "Action",
+        "any": "Any",
+        "clear": "Clear filters"
+      },
+      "columns": {
+        "occurredAt": "When",
+        "action": "Action",
+        "category": "Category",
+        "outcome": "Outcome",
+        "target": "Target"
+      },
+      "categories": {
+        "authentication": "Authentication",
+        "authorization": "Authorization",
+        "configuration": "Configuration",
+        "customer": "Customer",
+        "financial": "Financial",
+        "support": "Support",
+        "marketing": "Marketing",
+        "system": "System"
+      },
+      "outcomes": {
+        "success": "Success",
+        "failure": "Failure",
+        "denied": "Denied"
+      }
+    },
+    "security": {
+      "title": "Security",
+      "description": "Your password, two-factor authentication, and the devices signed in to your account.",
+      "twoFactor": {
+        "title": "Two-factor authentication",
+        "description": "A code from your authenticator app, required at every sign-in.",
+        "on": "Enabled",
+        "off": "Not set up",
+        "recommendTitle": "Two-factor is not set up",
+        "recommendDescription": "This account controls customer data and money. A password alone is not enough.",
+        "scanHint": "Add this secret to your authenticator app, then enter the code it shows.",
+        "codeLabel": "Code from the app",
+        "enable": "Set up two-factor",
+        "confirm": "Confirm",
+        "cancel": "Cancel",
+        "disable": "Turn off",
+        "disableTitle": "Turn off two-factor?",
+        "disableWarning": "Your account will be protected by a password alone. Confirm with your password.",
+        "passwordPlaceholder": "Your password",
+        "enabled": "Two-factor is now enabled.",
+        "disabled": "Two-factor is now off.",
+        "recoveryTitle": "Save your recovery codes",
+        "recoveryDescription": "These are shown once. Each can be used a single time if you lose your authenticator.",
+        "remaining": "{count} recovery codes remaining.",
+        "errors": {
+          "start": "Enrolment could not be started.",
+          "confirm": "Enrolment could not be completed.",
+          "invalidCode": "That code is not valid.",
+          "disable": "Two-factor could not be turned off."
+        }
+      },
+      "password": {
+        "title": "Password",
+        "description": "At least 12 characters.",
+        "current": "Current password",
+        "next": "New password",
+        "confirm": "Confirm new password",
+        "hint": "Length matters more than symbols.",
+        "submit": "Change password",
+        "revokesOthers": "This signs you out everywhere else.",
+        "changed": "Your password was changed.",
+        "errors": {
+          "wrongCurrent": "The current password is not correct.",
+          "mismatch": "The passwords do not match.",
+          "generic": "The password could not be changed."
+        }
+      },
+      "sessions": {
+        "title": "Active sessions",
+        "description": "Where your account is currently signed in.",
+        "current": "This device",
+        "unknownDevice": "Unknown device",
+        "revoke": "Sign out",
+        "revokeOthers": "Sign out everywhere else",
+        "revoked": "That session was ended.",
+        "revokedAll": "Every other session was ended.",
+        "revokeFailed": "The session could not be ended.",
+        "error": "Sessions could not be loaded",
+        "retry": "Try again"
+      }
     }
-  },
-  "settings": {
-    "locale": "Default locale",
-    "russian": "Russian",
-    "english": "English",
-    "telemetry": "Anonymous telemetry",
-    "save": "Save preview"
   }
 }

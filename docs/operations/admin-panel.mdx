@@ -1,0 +1,168 @@
+---
+title: Admin panel
+description: First-owner setup, operator roles, sessions, and the audit trail.
+---
+
+The admin panel is the operator console at `/admin`. Its API lives at `/v1/panel`
+and is authenticated with a session cookie, not the `APP_OPERATOR_TOKEN` bearer
+token used by `/v1/admin`. The two surfaces are deliberately separate: they have
+different trust models, and sharing a prefix would let one inherit the other's
+middleware.
+
+## First-owner setup
+
+A fresh installation has no operator account, so nothing can sign in yet. On
+first start the API mints a one-time setup token and writes it to its log:
+
+```
+level=WARN msg="no administrator exists yet; redeem this one-time setup token at /admin/setup" token=... expires_in=30m0s
+```
+
+Open `/admin/setup`, paste the token, and create the first owner. The token is
+valid for 30 minutes and can be redeemed once.
+
+The bootstrap path closes permanently as soon as any operator account exists. A
+token that leaked before that point cannot be redeemed afterwards, and requesting
+a new token retires any outstanding one.
+
+<Warning>
+  The setup token grants owner access to the whole installation. Read it from the
+  server log directly rather than forwarding the log to a chat or ticket.
+</Warning>
+
+## Roles and permissions
+
+Roles are built in. The permission catalogue and the role-to-permission mapping
+are compiled into the application, so a database edit cannot widen access; the
+database records only which roles an operator holds.
+
+| Role | What it can do |
+| --- | --- |
+| `owner` | Everything, including creating operators and changing role grants |
+| `administrator` | All day-to-day operations and settings; cannot manage operator accounts |
+| `support` | Customers, subscriptions, and the support desk |
+| `finance` | Orders, payments, refunds, wallet adjustments, and audit export |
+| `marketing` | Campaigns, news, and referral configuration |
+| `auditor` | Read-only across every surface, plus audit export |
+
+Only an owner may create an operator, change role grants, or grant the owner
+role. Keeping that owner-only means a compromised administrator session cannot
+mint itself a second account or widen its own privileges.
+
+The installation always keeps at least one active owner. Revoking the last
+owner's role, or suspending the last owner, is refused rather than leaving the
+panel unadministrable.
+
+Permissions are enforced in the Go API on every request. The panel renders from
+the same permission set it receives, so hiding a control is presentation only —
+reaching a hidden route grants nothing.
+
+## Sessions
+
+Only the SHA-256 digest of a session token is stored, so a database read or an
+offline backup never yields a usable cookie.
+
+Two expiries run at once:
+
+- **Inactivity** — 30 minutes, slid forward on each authenticated request.
+- **Absolute** — 12 hours, never extended.
+
+A session kept warm by a background tab still ends at the absolute horizon.
+Tokens also rotate every 15 minutes, which bounds how long a token captured from
+a log or a proxy stays replayable.
+
+Each operator can review their live sessions at `/admin/security`, end any one of
+them, or sign out everywhere else. Changing a password ends every other session;
+completing a password reset ends all of them.
+
+## Two-factor authentication
+
+TOTP follows RFC 6238 with 6-digit codes on a 30-second step, and works with any
+standard authenticator app. Secrets are sealed with `APP_DATA_ENCRYPTION_KEY`
+before storage.
+
+Enrolment is two steps. Adding the secret stores it unconfirmed; it satisfies no
+login challenge until the first code is verified. An abandoned enrolment leaves
+the account exactly as it was.
+
+Confirming enrolment issues ten single-use recovery codes, shown once. Only their
+digests are stored. Regenerating the set invalidates every unused code.
+
+Turning two-factor off requires re-entering the password, because removing a
+second factor is exactly what an attacker on a hijacked session would attempt.
+
+## Sign-in protection
+
+- Sign-in answers identically for a wrong password, an unknown address, and a
+  disabled account, and an unknown address is verified against a decoy hash so it
+  costs the same. Operator accounts therefore cannot be enumerated.
+- Five consecutive failures lock an account, with the wait doubling on each
+  further failure up to one hour.
+- Requests are rate limited per address and per source address, so neither a
+  single account nor a spray across many can be ground down.
+- Password reset always answers `202`, whether or not the address matched an
+  account.
+
+<Note>
+  v0.6 has no operator email transport, so a reset token is written to the API log
+  at warn level for the operator to deliver out of band. Email delivery arrives
+  with the notification work in v0.7.
+</Note>
+
+## Audit trail
+
+Every authentication, authorization, and configuration action is appended to
+`audit_events`, which exposes reads only. Each row carries the actor, target,
+action, category, outcome, reason, request ID, timestamp, and safe before/after
+metadata.
+
+Events are classified on two axes the panel filters and exports on:
+
+- **Category** — `authentication`, `authorization`, `configuration`, `customer`,
+  `financial`, `support`, `marketing`, `system`
+- **Outcome** — `success`, `failure`, `denied`
+
+A permission denial is recorded as well as refused: an operator repeatedly
+reaching for something they cannot do is exactly what an audit review looks for.
+
+Browse the trail at `/admin/audit`. Filters are held in the URL, so a view can be
+bookmarked and shared. Anyone with `audit.export` can download the filtered trail
+as CSV.
+
+## Configuration
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `APP_ADMIN_PANEL_ENABLED` | `true` | Mounts `/v1/panel`. Turn off for a bot-only installation. |
+| `APP_ADMIN_COOKIE_SECURE` | `true` | Marks the session cookie `Secure`. |
+| `APP_ADMIN_TOTP_ISSUER` | `Omniflow` | Label shown in authenticator apps. |
+| `APP_TRUSTED_PROXIES` | *(empty)* | Comma-separated IPs or CIDR blocks whose `X-Forwarded-For` may be believed. |
+| `APP_DATA_ENCRYPTION_KEY` | *(required)* | Base64 32 bytes. Seals TOTP secrets. |
+
+### Running behind a reverse proxy
+
+`X-Forwarded-For` is trivially forged, so it is honoured only when the immediate
+peer is listed in `APP_TRUSTED_PROXIES`. Leave the variable empty when the API is
+exposed directly — the socket address is then used, which is correct.
+
+The address feeds rate limiting and the audit trail, so getting this wrong in
+either direction matters: trust nothing and every request behind a proxy shares
+one address; trust too much and an attacker chooses their own.
+
+<Warning>
+  `APP_ADMIN_COOKIE_SECURE=false` is for local development over plain HTTP only.
+  Without `Secure`, the session cookie can be captured from any unencrypted
+  request to the same host.
+</Warning>
+
+## Security headers
+
+Every panel response carries `nosniff`, `X-Frame-Options: DENY`, a strict
+`Content-Security-Policy` with `frame-ancestors 'none'`, `Referrer-Policy:
+no-referrer`, and `Cache-Control: no-store`.
+
+The session cookie uses the `__Host-` prefix, so a browser refuses it with a
+`Domain` attribute or over plain HTTP and a sibling subdomain cannot overwrite
+it. Every unsafe method additionally requires a per-session CSRF token echoed in
+`X-CSRF-Token`; it is derived from a secret held with the session, so a token
+minted for one session cannot be replayed in another.

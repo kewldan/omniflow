@@ -5,6 +5,8 @@
 package dbgen
 
 import (
+	"net/netip"
+
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -44,6 +46,104 @@ type AddonVersion struct {
 	RetiredAt         pgtype.Timestamptz `json:"retired_at"`
 }
 
+type AdminOidcIdentity struct {
+	ID          pgtype.UUID        `json:"id"`
+	AdminUserID pgtype.UUID        `json:"admin_user_id"`
+	ProviderID  pgtype.UUID        `json:"provider_id"`
+	Subject     string             `json:"subject"`
+	LinkedAt    pgtype.Timestamptz `json:"linked_at"`
+	LastLoginAt pgtype.Timestamptz `json:"last_login_at"`
+}
+
+type AdminOidcProvider struct {
+	ID                     pgtype.UUID        `json:"id"`
+	Slug                   string             `json:"slug"`
+	DisplayName            string             `json:"display_name"`
+	Issuer                 string             `json:"issuer"`
+	DiscoveryUrl           string             `json:"discovery_url"`
+	ClientID               string             `json:"client_id"`
+	ClientSecretCiphertext []byte             `json:"client_secret_ciphertext"`
+	Scopes                 []string           `json:"scopes"`
+	Enabled                bool               `json:"enabled"`
+	RequireVerifiedEmail   bool               `json:"require_verified_email"`
+	AllowAutoProvision     bool               `json:"allow_auto_provision"`
+	AutoProvisionRole      pgtype.Text        `json:"auto_provision_role"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+}
+
+type AdminPasswordReset struct {
+	ID          pgtype.UUID        `json:"id"`
+	AdminUserID pgtype.UUID        `json:"admin_user_id"`
+	TokenHash   []byte             `json:"token_hash"`
+	RequestedIp *netip.Addr        `json:"requested_ip"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+	UsedAt      pgtype.Timestamptz `json:"used_at"`
+}
+
+type AdminRecoveryCode struct {
+	ID          pgtype.UUID        `json:"id"`
+	AdminUserID pgtype.UUID        `json:"admin_user_id"`
+	CodeHash    []byte             `json:"code_hash"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UsedAt      pgtype.Timestamptz `json:"used_at"`
+}
+
+type AdminSession struct {
+	ID                pgtype.UUID        `json:"id"`
+	AdminUserID       pgtype.UUID        `json:"admin_user_id"`
+	TokenHash         []byte             `json:"token_hash"`
+	CsrfSecret        []byte             `json:"csrf_secret"`
+	PendingTotp       bool               `json:"pending_totp"`
+	AuthMethods       []string           `json:"auth_methods"`
+	Ip                *netip.Addr        `json:"ip"`
+	UserAgent         pgtype.Text        `json:"user_agent"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	LastSeenAt        pgtype.Timestamptz `json:"last_seen_at"`
+	RotatedAt         pgtype.Timestamptz `json:"rotated_at"`
+	IdleExpiresAt     pgtype.Timestamptz `json:"idle_expires_at"`
+	AbsoluteExpiresAt pgtype.Timestamptz `json:"absolute_expires_at"`
+	RevokedAt         pgtype.Timestamptz `json:"revoked_at"`
+	RevokedReason     pgtype.Text        `json:"revoked_reason"`
+}
+
+type AdminSetupToken struct {
+	ID         pgtype.UUID        `json:"id"`
+	TokenHash  []byte             `json:"token_hash"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt pgtype.Timestamptz `json:"consumed_at"`
+	ConsumedBy pgtype.UUID        `json:"consumed_by"`
+}
+
+type AdminUser struct {
+	ID                   pgtype.UUID        `json:"id"`
+	Email                string             `json:"email"`
+	EmailNormalized      string             `json:"email_normalized"`
+	DisplayName          string             `json:"display_name"`
+	PasswordHash         pgtype.Text        `json:"password_hash"`
+	Status               string             `json:"status"`
+	Locale               string             `json:"locale"`
+	Timezone             string             `json:"timezone"`
+	TotpSecretCiphertext []byte             `json:"totp_secret_ciphertext"`
+	TotpConfirmedAt      pgtype.Timestamptz `json:"totp_confirmed_at"`
+	FailedLoginCount     int32              `json:"failed_login_count"`
+	LockedUntil          pgtype.Timestamptz `json:"locked_until"`
+	PasswordChangedAt    pgtype.Timestamptz `json:"password_changed_at"`
+	LastLoginAt          pgtype.Timestamptz `json:"last_login_at"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	DisabledAt           pgtype.Timestamptz `json:"disabled_at"`
+}
+
+type AdminUserRole struct {
+	AdminUserID pgtype.UUID        `json:"admin_user_id"`
+	Role        string             `json:"role"`
+	GrantedAt   pgtype.Timestamptz `json:"granted_at"`
+	GrantedBy   pgtype.UUID        `json:"granted_by"`
+}
+
 type AuditEvent struct {
 	ID         pgtype.UUID        `json:"id"`
 	ActorType  string             `json:"actor_type"`
@@ -55,6 +155,8 @@ type AuditEvent struct {
 	RequestID  pgtype.Text        `json:"request_id"`
 	Metadata   []byte             `json:"metadata"`
 	OccurredAt pgtype.Timestamptz `json:"occurred_at"`
+	Category   string             `json:"category"`
+	Outcome    string             `json:"outcome"`
 }
 
 type AutoRenewSetting struct {

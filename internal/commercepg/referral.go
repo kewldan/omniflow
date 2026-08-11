@@ -211,6 +211,7 @@ func (store *Store) recordReferralReward(ctx context.Context, tx pgx.Tx, queries
 	}
 	_, err = queries.InsertAuditEvent(ctx, dbgen.InsertAuditEventParams{
 		ActorType: "system", Action: "referral.reward_granted", TargetType: "customer",
+		Category: "financial", Outcome: "success",
 		TargetID: uuidString(beneficiary), Reason: pgtype.Text{String: "referral qualified", Valid: true},
 		Metadata: metadata,
 	})

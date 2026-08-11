@@ -373,6 +373,283 @@ paths:
         "200": {description: Maintenance state applied, content: {application/json: {schema: {$ref: "#/components/schemas/Maintenance"}}}}
         "400": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  # ---------------------------------------------------------------------------
+  # Operator panel (v0.6)
+  #
+  # Session-cookie authenticated, CSRF-protected, and permission-gated. This is
+  # a separate surface from /v1/admin, which the Telegram operator tooling
+  # reaches with a shared bearer token and a different trust model.
+  # ---------------------------------------------------------------------------
+  /v1/panel/bootstrap:
+    get:
+      operationId: getPanelBootstrapStatus
+      tags: [panel]
+      security: []
+      description: Reports whether the installation still needs its first owner.
+      responses:
+        "200": {description: Setup state, content: {application/json: {schema: {$ref: "#/components/schemas/BootstrapStatus"}}}}
+    post:
+      operationId: completePanelBootstrap
+      tags: [panel]
+      security: []
+      description: >-
+        Redeems the one-time setup token printed by the API on first start and
+        creates the first owner. Refused once any operator account exists.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/BootstrapInput"}}}}
+      responses:
+        "201": {description: First owner created, content: {application/json: {schema: {$ref: "#/components/schemas/AdminAccount"}}}}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/auth/login:
+    post:
+      operationId: panelLogin
+      tags: [panel]
+      security: []
+      description: >-
+        Password factor. Answers identically for a wrong password, an unknown
+        address, and a disabled account, so operator accounts cannot be
+        enumerated. On success it sets the session cookie; when the account has
+        TOTP enrolled the session authorizes nothing until the challenge passes.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/LoginInput"}}}}
+      responses:
+        "200": {description: Password accepted, content: {application/json: {schema: {$ref: "#/components/schemas/LoginResult"}}}}
+        "401": {$ref: "#/components/responses/Problem"}
+        "429": {$ref: "#/components/responses/Problem"}
+  /v1/panel/auth/challenge:
+    post:
+      operationId: panelVerifyChallenge
+      tags: [panel]
+      security: []
+      description: Completes the second factor with a TOTP code or a single-use recovery code.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/ChallengeInput"}}}}
+      responses:
+        "200": {description: Second factor accepted, content: {application/json: {schema: {$ref: "#/components/schemas/LoginResult"}}}}
+        "401": {$ref: "#/components/responses/Problem"}
+        "429": {$ref: "#/components/responses/Problem"}
+  /v1/panel/auth/password-reset:
+    post:
+      operationId: panelRequestPasswordReset
+      tags: [panel]
+      security: []
+      description: >-
+        Always answers 202, whether or not the address matched an account, so
+        the endpoint never discloses which addresses are registered.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PasswordResetRequestInput"}}}}
+      responses:
+        "202": {description: Request accepted}
+  /v1/panel/auth/password-reset/complete:
+    post:
+      operationId: panelCompletePasswordReset
+      tags: [panel]
+      security: []
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PasswordResetCompleteInput"}}}}
+      responses:
+        "204": {description: Password reset and every session ended}
+        "401": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/auth/session:
+    get:
+      operationId: getPanelSession
+      tags: [panel]
+      description: >-
+        The current operator, their effective permissions, and the CSRF token.
+        The panel renders from these permissions, which are the same set the API
+        enforces.
+      responses:
+        "200": {description: Current session, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSession"}}}}
+        "401": {$ref: "#/components/responses/Problem"}
+  /v1/panel/auth/logout:
+    post:
+      operationId: panelLogout
+      tags: [panel]
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      responses:
+        "204": {description: Session ended}
+  /v1/panel/auth/logout-all:
+    post:
+      operationId: panelLogoutAll
+      tags: [panel]
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      description: Ends every other session, sparing the one making the request.
+      responses:
+        "200": {description: Sessions ended, content: {application/json: {schema: {type: object, required: [revokedSessions], properties: {revokedSessions: {type: integer, format: int64}}}}}}
+  /v1/panel/auth/profile:
+    patch:
+      operationId: updatePanelProfile
+      tags: [panel]
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/ProfileInput"}}}}
+      responses:
+        "200": {description: Profile saved, content: {application/json: {schema: {$ref: "#/components/schemas/AdminAccount"}}}}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/auth/password:
+    post:
+      operationId: changePanelPassword
+      tags: [panel]
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      description: Rotates the password and ends every other session.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PasswordChangeInput"}}}}
+      responses:
+        "204": {description: Password changed}
+        "401": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/auth/sessions:
+    get:
+      operationId: listPanelSessions
+      tags: [panel]
+      responses:
+        "200": {description: Live sessions, content: {application/json: {schema: {$ref: "#/components/schemas/SessionList"}}}}
+  /v1/panel/auth/sessions/{sessionID}:
+    delete:
+      operationId: revokePanelSession
+      tags: [panel]
+      parameters:
+        - {in: path, name: sessionID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "204": {description: Session ended}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/panel/auth/totp:
+    post:
+      operationId: beginPanelTotpEnrolment
+      tags: [panel]
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      description: >-
+        Issues a secret and otpauth URI. The secret is stored unconfirmed and
+        satisfies no login challenge until the first code is verified.
+      responses:
+        "200": {description: Enrolment started, content: {application/json: {schema: {$ref: "#/components/schemas/TotpEnrolment"}}}}
+    delete:
+      operationId: disablePanelTotp
+      tags: [panel]
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      description: Removes the second factor. The password is re-proven first.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PasswordConfirmInput"}}}}
+      responses:
+        "204": {description: Two-factor disabled}
+        "401": {$ref: "#/components/responses/Problem"}
+  /v1/panel/auth/totp/confirm:
+    post:
+      operationId: confirmPanelTotpEnrolment
+      tags: [panel]
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      description: Activates the second factor and returns the recovery codes exactly once.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/ChallengeInput"}}}}
+      responses:
+        "200": {description: Two-factor enabled, content: {application/json: {schema: {$ref: "#/components/schemas/RecoveryCodes"}}}}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/auth/recovery-codes:
+    post:
+      operationId: regeneratePanelRecoveryCodes
+      tags: [panel]
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      description: Replaces the whole set, invalidating any unused code.
+      responses:
+        "200": {description: New codes, content: {application/json: {schema: {$ref: "#/components/schemas/RecoveryCodes"}}}}
+  /v1/panel/admins:
+    get:
+      operationId: listPanelAdmins
+      tags: [panel]
+      description: Requires admins.read.
+      parameters:
+        - {$ref: "#/components/parameters/Cursor"}
+        - {$ref: "#/components/parameters/PageSize"}
+        - {in: query, name: status, schema: {type: string, enum: [active, suspended, disabled]}}
+      responses:
+        "200": {description: Operator accounts, content: {application/json: {schema: {$ref: "#/components/schemas/AdminAccountPage"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+    post:
+      operationId: createPanelAdmin
+      tags: [panel]
+      description: Requires admins.write, which only the owner role holds.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/AdminAccountInput"}}}}
+      responses:
+        "201": {description: Operator created, content: {application/json: {schema: {$ref: "#/components/schemas/AdminAccount"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/admins/{adminID}:
+    get:
+      operationId: getPanelAdmin
+      tags: [panel]
+      parameters: [{$ref: "#/components/parameters/AdminID"}]
+      responses:
+        "200": {description: Operator, content: {application/json: {schema: {$ref: "#/components/schemas/AdminAccount"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/panel/admins/{adminID}/roles:
+    put:
+      operationId: setPanelAdminRoles
+      tags: [panel]
+      description: >-
+        Requires admins.roles. Removing the last active owner is refused, and
+        only an owner may grant the owner role.
+      parameters:
+        - {$ref: "#/components/parameters/AdminID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/RolesInput"}}}}
+      responses:
+        "200": {description: Roles changed, content: {application/json: {schema: {$ref: "#/components/schemas/AdminAccount"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+  /v1/panel/admins/{adminID}/status:
+    post:
+      operationId: setPanelAdminStatus
+      tags: [panel]
+      description: >-
+        Requires admins.write. Suspending an operator revokes their live
+        sessions immediately; suspending the last active owner is refused.
+      parameters:
+        - {$ref: "#/components/parameters/AdminID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/AdminStatusInput"}}}}
+      responses:
+        "200": {description: Status changed, content: {application/json: {schema: {$ref: "#/components/schemas/AdminAccount"}}}}
+        "409": {$ref: "#/components/responses/Problem"}
+  /v1/panel/audit:
+    get:
+      operationId: searchPanelAudit
+      tags: [panel]
+      description: Requires audit.read. The trail is append-only and exposes reads only.
+      parameters:
+        - {$ref: "#/components/parameters/Cursor"}
+        - {$ref: "#/components/parameters/PageSize"}
+        - {in: query, name: category, schema: {$ref: "#/components/schemas/AuditCategory"}}
+        - {in: query, name: outcome, schema: {$ref: "#/components/schemas/AuditOutcome"}}
+        - {in: query, name: actorType, schema: {type: string}}
+        - {in: query, name: actorId, schema: {type: string}}
+        - {in: query, name: action, schema: {type: string}}
+        - {in: query, name: targetType, schema: {type: string}}
+        - {in: query, name: targetId, schema: {type: string}}
+        - {in: query, name: from, schema: {type: string, format: date-time}}
+        - {in: query, name: to, schema: {type: string, format: date-time}}
+      responses:
+        "200": {description: Audit events, content: {application/json: {schema: {$ref: "#/components/schemas/AuditPage"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/audit/actions:
+    get:
+      operationId: listPanelAuditActions
+      tags: [panel]
+      responses:
+        "200": {description: Distinct action names, content: {application/json: {schema: {type: object, required: [items], properties: {items: {type: array, items: {type: string}}}}}}}
+  /v1/panel/audit/export:
+    get:
+      operationId: exportPanelAudit
+      tags: [panel]
+      description: >-
+        Requires audit.export. Streams the filtered trail as CSV with the same
+        columns the browser shows. Nothing writes a secret into an audit row.
+      responses:
+        "200": {description: CSV export, content: {text/csv: {schema: {type: string}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/rbac/catalog:
+    get:
+      operationId: getPanelRbacCatalog
+      tags: [panel]
+      description: The compiled-in permission catalogue and the built-in role definitions.
+      responses:
+        "200": {description: Catalogue, content: {application/json: {schema: {$ref: "#/components/schemas/RbacCatalog"}}}}
   /v1/telemetry/events:
     post:
       operationId: collectTelemetryEvent
@@ -384,7 +661,19 @@ paths:
 components:
   securitySchemes:
     operatorToken: {type: http, scheme: bearer}
+    # The panel authenticates with a __Host-prefixed, HttpOnly session cookie.
+    # It is declared so generated clients send credentials; the CSRF token is a
+    # separate required header on every unsafe method.
+    panelSession: {type: apiKey, in: cookie, name: __Host-omniflow_admin}
   parameters:
+    AdminID: {in: path, name: adminID, required: true, schema: {type: string, format: uuid}}
+    Cursor: {in: query, name: cursor, schema: {type: string, description: "Opaque keyset cursor from the previous page."}}
+    CSRFToken:
+      in: header
+      name: X-CSRF-Token
+      required: true
+      description: Echoes the token from the current session. Required on every unsafe method.
+      schema: {type: string}
     CustomerID: {in: path, name: customerID, required: true, schema: {type: string, format: uuid}}
     PlanID: {in: path, name: planID, required: true, schema: {type: string, format: uuid}}
     OrderID: {in: path, name: orderID, required: true, schema: {type: string, format: uuid}}
@@ -653,5 +942,205 @@ components:
       type: object
       required: [type, title, status]
       properties: {type: {type: string, format: uri}, title: {type: string}, status: {type: integer}, detail: {type: string}, request_id: {type: string}}
+
+    # -------------------------------------------------------------------------
+    # Operator panel (v0.6)
+    # -------------------------------------------------------------------------
+    AdminRole:
+      type: string
+      enum: [owner, administrator, support, finance, marketing, auditor]
+    AdminStatus: {type: string, enum: [active, suspended, disabled]}
+    AdminLocale: {type: string, enum: [en, ru]}
+    AuditCategory:
+      type: string
+      enum: [authentication, authorization, configuration, customer, financial, support, marketing, system]
+    AuditOutcome: {type: string, enum: [success, failure, denied]}
+
+    BootstrapStatus:
+      type: object
+      required: [setupRequired]
+      properties: {setupRequired: {type: boolean}}
+    BootstrapInput:
+      type: object
+      additionalProperties: false
+      required: [setupToken, email, displayName, password]
+      properties:
+        setupToken: {type: string}
+        email: {type: string, format: email}
+        displayName: {type: string, minLength: 1, maxLength: 80}
+        password: {type: string, minLength: 12, maxLength: 256}
+        locale: {$ref: "#/components/schemas/AdminLocale"}
+
+    AdminAccount:
+      type: object
+      required: [id, email, displayName, status, locale, timezone, roles, totpEnabled, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        email: {type: string, format: email}
+        displayName: {type: string}
+        status: {$ref: "#/components/schemas/AdminStatus"}
+        locale: {$ref: "#/components/schemas/AdminLocale"}
+        timezone: {type: string}
+        roles: {type: array, items: {$ref: "#/components/schemas/AdminRole"}}
+        totpEnabled: {type: boolean}
+        lastLoginAt: {type: string, format: date-time}
+        createdAt: {type: string, format: date-time}
+    AdminAccountPage:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/AdminAccount"}}
+        nextCursor: {type: string, description: "Empty when this is the last page."}
+    AdminAccountInput:
+      type: object
+      additionalProperties: false
+      required: [email, displayName, password, roles]
+      properties:
+        email: {type: string, format: email}
+        displayName: {type: string, minLength: 1, maxLength: 80}
+        password: {type: string, minLength: 12, maxLength: 256}
+        locale: {$ref: "#/components/schemas/AdminLocale"}
+        timezone: {type: string}
+        roles: {type: array, items: {$ref: "#/components/schemas/AdminRole"}}
+    AdminStatusInput:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties: {status: {$ref: "#/components/schemas/AdminStatus"}}
+    RolesInput:
+      type: object
+      additionalProperties: false
+      required: [roles]
+      properties: {roles: {type: array, items: {$ref: "#/components/schemas/AdminRole"}}}
+
+    LoginInput:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties: {email: {type: string, format: email}, password: {type: string}}
+    LoginResult:
+      type: object
+      required: [csrfToken, expiresAt, account]
+      properties:
+        challengeRequired: {type: boolean, description: "When true, the session authorizes nothing until the second factor passes."}
+        csrfToken: {type: string}
+        expiresAt: {type: string, format: date-time}
+        account: {$ref: "#/components/schemas/AdminAccount"}
+    ChallengeInput:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties: {code: {type: string, description: "A TOTP code or a single-use recovery code."}}
+    PanelSession:
+      type: object
+      required: [account, permissions, csrfToken, sessionId, expiresAt]
+      properties:
+        account: {$ref: "#/components/schemas/AdminAccount"}
+        permissions:
+          type: array
+          items: {type: string}
+          description: "Effective permissions. The panel renders from these; the API enforces the same set."
+        csrfToken: {type: string}
+        sessionId: {type: string, format: uuid}
+        expiresAt: {type: string, format: date-time}
+        remainingRecoveryCodes: {type: integer, minimum: 0}
+
+    ProfileInput:
+      type: object
+      additionalProperties: false
+      required: [displayName]
+      properties:
+        displayName: {type: string, minLength: 1, maxLength: 80}
+        locale: {$ref: "#/components/schemas/AdminLocale"}
+        timezone: {type: string}
+    PasswordChangeInput:
+      type: object
+      additionalProperties: false
+      required: [currentPassword, newPassword]
+      properties: {currentPassword: {type: string}, newPassword: {type: string, minLength: 12, maxLength: 256}}
+    PasswordConfirmInput:
+      type: object
+      additionalProperties: false
+      required: [password]
+      properties: {password: {type: string}}
+    PasswordResetRequestInput:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties: {email: {type: string, format: email}}
+    PasswordResetCompleteInput:
+      type: object
+      additionalProperties: false
+      required: [token, newPassword]
+      properties: {token: {type: string}, newPassword: {type: string, minLength: 12, maxLength: 256}}
+
+    AdminSession:
+      type: object
+      required: [id, current, createdAt, lastSeenAt, expiresAt, methods]
+      properties:
+        id: {type: string, format: uuid}
+        current: {type: boolean}
+        ip: {type: string}
+        userAgent: {type: string}
+        createdAt: {type: string, format: date-time}
+        lastSeenAt: {type: string, format: date-time}
+        expiresAt: {type: string, format: date-time}
+        methods: {type: array, items: {type: string}, description: "Authentication methods this session completed."}
+    SessionList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, items: {$ref: "#/components/schemas/AdminSession"}}}
+
+    TotpEnrolment:
+      type: object
+      required: [secret, uri]
+      properties:
+        secret: {type: string, description: "Base32 shared secret, returned only during enrolment."}
+        uri: {type: string, description: "otpauth:// URI for an authenticator app."}
+    RecoveryCodes:
+      type: object
+      required: [recoveryCodes]
+      properties:
+        recoveryCodes:
+          type: array
+          items: {type: string}
+          description: "Returned exactly once. Only digests are stored."
+
+    AuditEvent:
+      type: object
+      required: [id, occurredAt, actorType, action, category, outcome, targetType, targetId]
+      properties:
+        id: {type: string, format: uuid}
+        occurredAt: {type: string, format: date-time}
+        actorType: {type: string, enum: [customer, operator, admin, system, provider]}
+        actorId: {type: string}
+        action: {type: string}
+        category: {$ref: "#/components/schemas/AuditCategory"}
+        outcome: {$ref: "#/components/schemas/AuditOutcome"}
+        targetType: {type: string}
+        targetId: {type: string}
+        reason: {type: string}
+        requestId: {type: string}
+        metadata: {type: object, additionalProperties: true, description: "Safe before/after context. Never a secret."}
+    AuditPage:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/AuditEvent"}}
+        nextCursor: {type: string}
+
+    RbacCatalog:
+      type: object
+      required: [permissions, roles]
+      properties:
+        permissions: {type: array, items: {type: string}}
+        roles:
+          type: array
+          items:
+            type: object
+            required: [role, permissions]
+            properties:
+              role: {$ref: "#/components/schemas/AdminRole"}
+              permissions: {type: array, items: {type: string}}
   responses:
     Problem: {description: Request failed, content: {application/problem+json: {schema: {$ref: "#/components/schemas/Problem"}}}}

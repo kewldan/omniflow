@@ -595,6 +595,16 @@ WHERE entitlement_id = $1 AND status = 'open';
 SELECT * FROM entitlement_drifts WHERE status = 'open' ORDER BY detected_at DESC LIMIT $1;
 
 -- name: InsertAuditEvent :one
-INSERT INTO audit_events (actor_type, actor_id, action, target_type, target_id, reason, request_id, metadata)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+-- The single writer for the audit trail. `category` and `outcome` are the two
+-- axes the admin panel filters and exports on, so every caller classifies its
+-- event rather than letting it fall into an untyped bucket.
+INSERT INTO audit_events (
+  actor_type, actor_id, action, category, outcome,
+  target_type, target_id, reason, request_id, metadata
+) VALUES (
+  sqlc.arg(actor_type), sqlc.narg(actor_id), sqlc.arg(action),
+  sqlc.arg(category), sqlc.arg(outcome),
+  sqlc.arg(target_type), sqlc.arg(target_id),
+  sqlc.narg(reason), sqlc.narg(request_id), sqlc.arg(metadata)
+)
 RETURNING *;

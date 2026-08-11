@@ -1,0 +1,254 @@
+/*
+ * Omniflow design tokens.
+ *
+ * Extracted from the "VPN Mini App" Claude Design project so the customer
+ * mini-app and the operator panel render from one system. The source design
+ * ships two palettes on a zinc neutral ramp, Geist for UI text and Geist Mono
+ * for identifiers, amounts, and metadata labels.
+ *
+ * Token names follow the shadcn contract, so `packages/ui` primitives and any
+ * component pulled with `bun run ui:add` resolve against the same variables.
+ */
+
+/* Enter/exit utilities keyed off Radix `data-state`, as shadcn components expect. */
+@import "tw-animate-css";
+
+:root {
+  /* Neutral ramp — design "light" theme. */
+  --background: #fafafa;
+  --foreground: #09090b;
+
+  --card: #ffffff;
+  --card-foreground: #09090b;
+
+  --popover: #ffffff;
+  --popover-foreground: #09090b;
+
+  --primary: #18181b;
+  --primary-foreground: #fafafa;
+
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
+
+  --muted: #f4f4f5;
+  --muted-foreground: #52525b;
+
+  --accent: #f4f4f5;
+  --accent-foreground: #18181b;
+
+  --destructive: #dc2626;
+  --destructive-foreground: #fafafa;
+
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: #18181b;
+
+  /*
+   * The design uses a third, quieter text tone for mono metadata (IDs,
+   * timestamps, captions). shadcn has no slot for it, so it stays explicit.
+   */
+  --subtle-foreground: #a1a1aa;
+
+  /* Status tones. The design only fixes the danger tone; the rest follow it. */
+  --success: #16a34a;
+  --success-foreground: #fafafa;
+  --warning: #d97706;
+  --warning-foreground: #fafafa;
+  --info: #2563eb;
+  --info-foreground: #fafafa;
+
+  /* Chrome that sits above the page — the design's Telegram header surface. */
+  --chrome: #f1f1ef;
+  --chrome-border: #e4e4e7;
+
+  /* Translucent overlays (sheets, floating bars) from the design's glass set. */
+  --glass: rgb(255 255 255 / 0.66);
+  --glass-border: rgb(9 9 11 / 0.08);
+  --glass-pill: rgb(9 9 11 / 0.07);
+  --glass-shadow: 0 10px 30px rgb(9 9 11 / 0.12);
+
+  color-scheme: light;
+}
+
+.dark {
+  --background: #09090b;
+  --foreground: #fafafa;
+
+  --card: #18181b;
+  --card-foreground: #fafafa;
+
+  --popover: #18181b;
+  --popover-foreground: #fafafa;
+
+  --primary: #fafafa;
+  --primary-foreground: #18181b;
+
+  --secondary: #27272a;
+  --secondary-foreground: #fafafa;
+
+  --muted: #27272a;
+  --muted-foreground: #a1a1aa;
+
+  --accent: #27272a;
+  --accent-foreground: #fafafa;
+
+  --destructive: #f87171;
+  --destructive-foreground: #18181b;
+
+  --border: #27272a;
+  --input: #27272a;
+  --ring: #d4d4d8;
+
+  --subtle-foreground: #71717a;
+
+  --success: #4ade80;
+  --success-foreground: #18181b;
+  --warning: #fbbf24;
+  --warning-foreground: #18181b;
+  --info: #60a5fa;
+  --info-foreground: #18181b;
+
+  --chrome: #17181a;
+  --chrome-border: #242427;
+
+  --glass: rgb(24 24 27 / 0.62);
+  --glass-border: rgb(255 255 255 / 0.12);
+  --glass-pill: rgb(255 255 255 / 0.13);
+  --glass-shadow: 0 10px 34px rgb(0 0 0 / 0.55);
+
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-subtle-foreground: var(--subtle-foreground);
+  --color-chrome: var(--chrome);
+  --color-chrome-border: var(--chrome-border);
+
+  /*
+   * Corner radii read straight off the design: 5px chips, 8-9px controls,
+   * 10px rows and cards, 12px feature cards, pills for avatars and badges.
+   */
+  --radius-xs: 5px;
+  --radius-sm: 8px;
+  --radius-md: 9px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+
+  --font-sans: var(--font-geist-sans), Geist, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), "Geist Mono", ui-monospace, monospace;
+
+  /* The design's single easing curve, used for every entrance transition. */
+  --ease-emphasis: cubic-bezier(0.2, 0.9, 0.25, 1);
+
+  --animate-step-in: step-in 0.4s var(--ease-emphasis) both;
+  --animate-rise: rise 0.32s var(--ease-emphasis) both;
+  --animate-pop-in: pop-in 0.34s var(--ease-emphasis) both;
+
+  @keyframes step-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(9px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes pop-in {
+    0% {
+      opacity: 0;
+      transform: scale(0.5);
+    }
+    62% {
+      transform: scale(1.07);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /*
+   * Headings in the source design carry noticeably tight tracking; amounts and
+   * counters are always tabular so figures do not shift between renders.
+   */
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.02em;
+  }
+
+  [data-numeric] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /*
+   * Every entrance animation collapses when the visitor asks for less motion.
+   * This is the one place `!important` is correct: the declarations it has to
+   * beat are utility classes and Radix inline styles, which otherwise win on
+   * specificity and would keep animating against an explicit OS preference.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    /* biome-ignore-start lint/complexity/noImportantStyles: must override utility and inline animation styles */
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+    /* biome-ignore-end lint/complexity/noImportantStyles: must override utility and inline animation styles */
+  }
+}

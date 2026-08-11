@@ -1581,15 +1581,24 @@ func (q *Queries) GetWalletBalance(ctx context.Context, arg GetWalletBalancePara
 }
 
 const insertAuditEvent = `-- name: InsertAuditEvent :one
-INSERT INTO audit_events (actor_type, actor_id, action, target_type, target_id, reason, request_id, metadata)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, actor_type, actor_id, action, target_type, target_id, reason, request_id, metadata, occurred_at
+INSERT INTO audit_events (
+  actor_type, actor_id, action, category, outcome,
+  target_type, target_id, reason, request_id, metadata
+) VALUES (
+  $1, $2, $3,
+  $4, $5,
+  $6, $7,
+  $8, $9, $10
+)
+RETURNING id, actor_type, actor_id, action, target_type, target_id, reason, request_id, metadata, occurred_at, category, outcome
 `
 
 type InsertAuditEventParams struct {
 	ActorType  string      `json:"actor_type"`
 	ActorID    pgtype.Text `json:"actor_id"`
 	Action     string      `json:"action"`
+	Category   string      `json:"category"`
+	Outcome    string      `json:"outcome"`
 	TargetType string      `json:"target_type"`
 	TargetID   string      `json:"target_id"`
 	Reason     pgtype.Text `json:"reason"`
@@ -1597,11 +1606,16 @@ type InsertAuditEventParams struct {
 	Metadata   []byte      `json:"metadata"`
 }
 
+// The single writer for the audit trail. `category` and `outcome` are the two
+// axes the admin panel filters and exports on, so every caller classifies its
+// event rather than letting it fall into an untyped bucket.
 func (q *Queries) InsertAuditEvent(ctx context.Context, arg InsertAuditEventParams) (AuditEvent, error) {
 	row := q.db.QueryRow(ctx, insertAuditEvent,
 		arg.ActorType,
 		arg.ActorID,
 		arg.Action,
+		arg.Category,
+		arg.Outcome,
 		arg.TargetType,
 		arg.TargetID,
 		arg.Reason,
@@ -1620,6 +1634,8 @@ func (q *Queries) InsertAuditEvent(ctx context.Context, arg InsertAuditEventPara
 		&i.RequestID,
 		&i.Metadata,
 		&i.OccurredAt,
+		&i.Category,
+		&i.Outcome,
 	)
 	return i, err
 }

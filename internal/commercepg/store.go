@@ -630,7 +630,7 @@ func (store *Store) AdjustWallet(ctx context.Context, customerID, currency strin
 		return err
 	}
 	metadata, _ := json.Marshal(map[string]any{"amountMinor": amount, "currency": currency})
-	if _, err = queries.InsertAuditEvent(ctx, dbgen.InsertAuditEventParams{ActorType: "operator", ActorID: pgtype.Text{String: actorID, Valid: true}, Action: "wallet.adjusted", TargetType: "customer", TargetID: customerID, Reason: pgtype.Text{String: reason, Valid: true}, Metadata: metadata}); err != nil {
+	if _, err = queries.InsertAuditEvent(ctx, dbgen.InsertAuditEventParams{ActorType: "operator", ActorID: pgtype.Text{String: actorID, Valid: true}, Action: "wallet.adjusted", Category: "financial", Outcome: "success", TargetType: "customer", TargetID: customerID, Reason: pgtype.Text{String: reason, Valid: true}, Metadata: metadata}); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)

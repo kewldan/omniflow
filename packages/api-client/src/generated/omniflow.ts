@@ -702,6 +702,256 @@ export interface Problem {
   request_id?: string;
 }
 
+export type AdminRole = (typeof AdminRole)[keyof typeof AdminRole];
+
+export const AdminRole = {
+  owner: "owner",
+  administrator: "administrator",
+  support: "support",
+  finance: "finance",
+  marketing: "marketing",
+  auditor: "auditor",
+} as const;
+
+export type AdminStatus = (typeof AdminStatus)[keyof typeof AdminStatus];
+
+export const AdminStatus = {
+  active: "active",
+  suspended: "suspended",
+  disabled: "disabled",
+} as const;
+
+export type AdminLocale = (typeof AdminLocale)[keyof typeof AdminLocale];
+
+export const AdminLocale = {
+  en: "en",
+  ru: "ru",
+} as const;
+
+export type AuditCategory = (typeof AuditCategory)[keyof typeof AuditCategory];
+
+export const AuditCategory = {
+  authentication: "authentication",
+  authorization: "authorization",
+  configuration: "configuration",
+  customer: "customer",
+  financial: "financial",
+  support: "support",
+  marketing: "marketing",
+  system: "system",
+} as const;
+
+export type AuditOutcome = (typeof AuditOutcome)[keyof typeof AuditOutcome];
+
+export const AuditOutcome = {
+  success: "success",
+  failure: "failure",
+  denied: "denied",
+} as const;
+
+export interface BootstrapStatus {
+  setupRequired: boolean;
+}
+
+export interface BootstrapInput {
+  setupToken: string;
+  email: string;
+  /**
+   * @minLength 1
+   * @maxLength 80
+   */
+  displayName: string;
+  /**
+   * @minLength 12
+   * @maxLength 256
+   */
+  password: string;
+  locale?: AdminLocale;
+}
+
+export interface AdminAccount {
+  id: string;
+  email: string;
+  displayName: string;
+  status: AdminStatus;
+  locale: AdminLocale;
+  timezone: string;
+  roles: AdminRole[];
+  totpEnabled: boolean;
+  lastLoginAt?: string;
+  createdAt: string;
+}
+
+export interface AdminAccountPage {
+  items: AdminAccount[];
+  /** Empty when this is the last page. */
+  nextCursor?: string;
+}
+
+export interface AdminAccountInput {
+  email: string;
+  /**
+   * @minLength 1
+   * @maxLength 80
+   */
+  displayName: string;
+  /**
+   * @minLength 12
+   * @maxLength 256
+   */
+  password: string;
+  locale?: AdminLocale;
+  timezone?: string;
+  roles: AdminRole[];
+}
+
+export interface AdminStatusInput {
+  status: AdminStatus;
+}
+
+export interface RolesInput {
+  roles: AdminRole[];
+}
+
+export interface LoginInput {
+  email: string;
+  password: string;
+}
+
+export interface LoginResult {
+  /** When true, the session authorizes nothing until the second factor passes. */
+  challengeRequired?: boolean;
+  csrfToken: string;
+  expiresAt: string;
+  account: AdminAccount;
+}
+
+export interface ChallengeInput {
+  /** A TOTP code or a single-use recovery code. */
+  code: string;
+}
+
+export interface PanelSession {
+  account: AdminAccount;
+  /** Effective permissions. The panel renders from these; the API enforces the same set. */
+  permissions: string[];
+  csrfToken: string;
+  sessionId: string;
+  expiresAt: string;
+  /** @minimum 0 */
+  remainingRecoveryCodes?: number;
+}
+
+export interface ProfileInput {
+  /**
+   * @minLength 1
+   * @maxLength 80
+   */
+  displayName: string;
+  locale?: AdminLocale;
+  timezone?: string;
+}
+
+export interface PasswordChangeInput {
+  currentPassword: string;
+  /**
+   * @minLength 12
+   * @maxLength 256
+   */
+  newPassword: string;
+}
+
+export interface PasswordConfirmInput {
+  password: string;
+}
+
+export interface PasswordResetRequestInput {
+  email: string;
+}
+
+export interface PasswordResetCompleteInput {
+  token: string;
+  /**
+   * @minLength 12
+   * @maxLength 256
+   */
+  newPassword: string;
+}
+
+export interface AdminSession {
+  id: string;
+  current: boolean;
+  ip?: string;
+  userAgent?: string;
+  createdAt: string;
+  lastSeenAt: string;
+  expiresAt: string;
+  /** Authentication methods this session completed. */
+  methods: string[];
+}
+
+export interface SessionList {
+  items: AdminSession[];
+}
+
+export interface TotpEnrolment {
+  /** Base32 shared secret, returned only during enrolment. */
+  secret: string;
+  /** otpauth:// URI for an authenticator app. */
+  uri: string;
+}
+
+export interface RecoveryCodes {
+  /** Returned exactly once. Only digests are stored. */
+  recoveryCodes: string[];
+}
+
+export type AuditEventActorType = (typeof AuditEventActorType)[keyof typeof AuditEventActorType];
+
+export const AuditEventActorType = {
+  customer: "customer",
+  operator: "operator",
+  admin: "admin",
+  system: "system",
+  provider: "provider",
+} as const;
+
+/**
+ * Safe before/after context. Never a secret.
+ */
+export type AuditEventMetadata = { [key: string]: unknown };
+
+export interface AuditEvent {
+  id: string;
+  occurredAt: string;
+  actorType: AuditEventActorType;
+  actorId?: string;
+  action: string;
+  category: AuditCategory;
+  outcome: AuditOutcome;
+  targetType: string;
+  targetId: string;
+  reason?: string;
+  requestId?: string;
+  /** Safe before/after context. Never a secret. */
+  metadata?: AuditEventMetadata;
+}
+
+export interface AuditPage {
+  items: AuditEvent[];
+  nextCursor?: string;
+}
+
+export type RbacCatalogRolesItem = {
+  role: AdminRole;
+  permissions: string[];
+};
+
+export interface RbacCatalog {
+  permissions: string[];
+  roles: RbacCatalogRolesItem[];
+}
+
 /**
  * Request failed
  */
@@ -710,6 +960,13 @@ export type ProblemResponse = Problem;
 export type PlanBody = PlanInput;
 
 export type PlanVersionBody = PlanVersionInput;
+
+export type CursorParameter = string;
+
+/**
+ * Echoes the token from the current session. Required on every unsafe method.
+ */
+export type CSRFTokenParameter = string;
 
 export type IdempotencyKeyParameter = string;
 
@@ -802,6 +1059,57 @@ export type ListBackupsParams = {
    * @maximum 100
    */
   limit?: number;
+};
+
+export type PanelLogoutAll200 = {
+  revokedSessions: number;
+};
+
+export type ListPanelAdminsParams = {
+  /**
+   * Opaque keyset cursor from the previous page.
+   */
+  cursor?: CursorParameter;
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  pageSize?: PageSizeParameter;
+  status?: ListPanelAdminsStatus;
+};
+
+export type ListPanelAdminsStatus =
+  (typeof ListPanelAdminsStatus)[keyof typeof ListPanelAdminsStatus];
+
+export const ListPanelAdminsStatus = {
+  active: "active",
+  suspended: "suspended",
+  disabled: "disabled",
+} as const;
+
+export type SearchPanelAuditParams = {
+  /**
+   * Opaque keyset cursor from the previous page.
+   */
+  cursor?: CursorParameter;
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  pageSize?: PageSizeParameter;
+  category?: AuditCategory;
+  outcome?: AuditOutcome;
+  actorType?: string;
+  actorId?: string;
+  action?: string;
+  targetType?: string;
+  targetId?: string;
+  from?: string;
+  to?: string;
+};
+
+export type ListPanelAuditActions200 = {
+  items: string[];
 };
 
 export type getHealthResponse200 = {
@@ -3605,6 +3913,1942 @@ export const useSetMaintenance = <TError = Promise<ProblemResponse>>(options?: {
   const swrFn = getSetMaintenanceMutationFetcher(fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelBootstrapStatusResponse200 = {
+  data: BootstrapStatus;
+  status: 200;
+};
+
+export type getPanelBootstrapStatusResponseSuccess = getPanelBootstrapStatusResponse200 & {
+  headers: Headers;
+};
+
+export type getPanelBootstrapStatusResponse = getPanelBootstrapStatusResponseSuccess;
+
+export const getGetPanelBootstrapStatusUrl = () => {
+  return `/v1/panel/bootstrap`;
+};
+
+/**
+ * Reports whether the installation still needs its first owner.
+ */
+export const getPanelBootstrapStatus = async (
+  options?: RequestInit,
+): Promise<getPanelBootstrapStatusResponse> => {
+  const res = await fetch(getGetPanelBootstrapStatusUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelBootstrapStatusResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelBootstrapStatusResponse;
+};
+
+export const getGetPanelBootstrapStatusKey = () => [`/v1/panel/bootstrap`] as const;
+
+export type GetPanelBootstrapStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelBootstrapStatus>>
+>;
+
+export const useGetPanelBootstrapStatus = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelBootstrapStatus>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelBootstrapStatusKey() : null));
+  const swrFn = () => getPanelBootstrapStatus(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type completePanelBootstrapResponse201 = {
+  data: AdminAccount;
+  status: 201;
+};
+
+export type completePanelBootstrapResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type completePanelBootstrapResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type completePanelBootstrapResponseSuccess = completePanelBootstrapResponse201 & {
+  headers: Headers;
+};
+export type completePanelBootstrapResponseError = (
+  | completePanelBootstrapResponse409
+  | completePanelBootstrapResponse422
+) & {
+  headers: Headers;
+};
+
+export type completePanelBootstrapResponse =
+  | completePanelBootstrapResponseSuccess
+  | completePanelBootstrapResponseError;
+
+export const getCompletePanelBootstrapUrl = () => {
+  return `/v1/panel/bootstrap`;
+};
+
+/**
+ * Redeems the one-time setup token printed by the API on first start and creates the first owner. Refused once any operator account exists.
+ */
+export const completePanelBootstrap = async (
+  bootstrapInput: BootstrapInput,
+  options?: RequestInit,
+): Promise<completePanelBootstrapResponse> => {
+  const res = await fetch(getCompletePanelBootstrapUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(bootstrapInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: completePanelBootstrapResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as completePanelBootstrapResponse;
+};
+
+export const getCompletePanelBootstrapMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: BootstrapInput }) => {
+    return completePanelBootstrap(arg, options);
+  };
+};
+export const getCompletePanelBootstrapMutationKey = () => [`/v1/panel/bootstrap`] as const;
+
+export type CompletePanelBootstrapMutationResult = NonNullable<
+  Awaited<ReturnType<typeof completePanelBootstrap>>
+>;
+
+export const useCompletePanelBootstrap = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof completePanelBootstrap>>,
+    TError,
+    Key,
+    BootstrapInput,
+    Awaited<ReturnType<typeof completePanelBootstrap>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getCompletePanelBootstrapMutationKey();
+  const swrFn = getCompletePanelBootstrapMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type panelLoginResponse200 = {
+  data: LoginResult;
+  status: 200;
+};
+
+export type panelLoginResponse401 = {
+  data: ProblemResponse;
+  status: 401;
+};
+
+export type panelLoginResponse429 = {
+  data: ProblemResponse;
+  status: 429;
+};
+
+export type panelLoginResponseSuccess = panelLoginResponse200 & {
+  headers: Headers;
+};
+export type panelLoginResponseError = (panelLoginResponse401 | panelLoginResponse429) & {
+  headers: Headers;
+};
+
+export type panelLoginResponse = panelLoginResponseSuccess | panelLoginResponseError;
+
+export const getPanelLoginUrl = () => {
+  return `/v1/panel/auth/login`;
+};
+
+/**
+ * Password factor. Answers identically for a wrong password, an unknown address, and a disabled account, so operator accounts cannot be enumerated. On success it sets the session cookie; when the account has TOTP enrolled the session authorizes nothing until the challenge passes.
+ */
+export const panelLogin = async (
+  loginInput: LoginInput,
+  options?: RequestInit,
+): Promise<panelLoginResponse> => {
+  const res = await fetch(getPanelLoginUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(loginInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: panelLoginResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as panelLoginResponse;
+};
+
+export const getPanelLoginMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: LoginInput }) => {
+    return panelLogin(arg, options);
+  };
+};
+export const getPanelLoginMutationKey = () => [`/v1/panel/auth/login`] as const;
+
+export type PanelLoginMutationResult = NonNullable<Awaited<ReturnType<typeof panelLogin>>>;
+
+export const usePanelLogin = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof panelLogin>>,
+    TError,
+    Key,
+    LoginInput,
+    Awaited<ReturnType<typeof panelLogin>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getPanelLoginMutationKey();
+  const swrFn = getPanelLoginMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type panelVerifyChallengeResponse200 = {
+  data: LoginResult;
+  status: 200;
+};
+
+export type panelVerifyChallengeResponse401 = {
+  data: ProblemResponse;
+  status: 401;
+};
+
+export type panelVerifyChallengeResponse429 = {
+  data: ProblemResponse;
+  status: 429;
+};
+
+export type panelVerifyChallengeResponseSuccess = panelVerifyChallengeResponse200 & {
+  headers: Headers;
+};
+export type panelVerifyChallengeResponseError = (
+  | panelVerifyChallengeResponse401
+  | panelVerifyChallengeResponse429
+) & {
+  headers: Headers;
+};
+
+export type panelVerifyChallengeResponse =
+  | panelVerifyChallengeResponseSuccess
+  | panelVerifyChallengeResponseError;
+
+export const getPanelVerifyChallengeUrl = () => {
+  return `/v1/panel/auth/challenge`;
+};
+
+/**
+ * Completes the second factor with a TOTP code or a single-use recovery code.
+ */
+export const panelVerifyChallenge = async (
+  challengeInput: ChallengeInput,
+  options?: RequestInit,
+): Promise<panelVerifyChallengeResponse> => {
+  const res = await fetch(getPanelVerifyChallengeUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(challengeInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: panelVerifyChallengeResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as panelVerifyChallengeResponse;
+};
+
+export const getPanelVerifyChallengeMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: ChallengeInput }) => {
+    return panelVerifyChallenge(arg, options);
+  };
+};
+export const getPanelVerifyChallengeMutationKey = () => [`/v1/panel/auth/challenge`] as const;
+
+export type PanelVerifyChallengeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof panelVerifyChallenge>>
+>;
+
+export const usePanelVerifyChallenge = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof panelVerifyChallenge>>,
+    TError,
+    Key,
+    ChallengeInput,
+    Awaited<ReturnType<typeof panelVerifyChallenge>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getPanelVerifyChallengeMutationKey();
+  const swrFn = getPanelVerifyChallengeMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type panelRequestPasswordResetResponse202 = {
+  data: void;
+  status: 202;
+};
+
+export type panelRequestPasswordResetResponseSuccess = panelRequestPasswordResetResponse202 & {
+  headers: Headers;
+};
+
+export type panelRequestPasswordResetResponse = panelRequestPasswordResetResponseSuccess;
+
+export const getPanelRequestPasswordResetUrl = () => {
+  return `/v1/panel/auth/password-reset`;
+};
+
+/**
+ * Always answers 202, whether or not the address matched an account, so the endpoint never discloses which addresses are registered.
+ */
+export const panelRequestPasswordReset = async (
+  passwordResetRequestInput: PasswordResetRequestInput,
+  options?: RequestInit,
+): Promise<panelRequestPasswordResetResponse> => {
+  const res = await fetch(getPanelRequestPasswordResetUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(passwordResetRequestInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: panelRequestPasswordResetResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as panelRequestPasswordResetResponse;
+};
+
+export const getPanelRequestPasswordResetMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PasswordResetRequestInput }) => {
+    return panelRequestPasswordReset(arg, options);
+  };
+};
+export const getPanelRequestPasswordResetMutationKey = () =>
+  [`/v1/panel/auth/password-reset`] as const;
+
+export type PanelRequestPasswordResetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof panelRequestPasswordReset>>
+>;
+
+export const usePanelRequestPasswordReset = <TError = Promise<unknown>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof panelRequestPasswordReset>>,
+    TError,
+    Key,
+    PasswordResetRequestInput,
+    Awaited<ReturnType<typeof panelRequestPasswordReset>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getPanelRequestPasswordResetMutationKey();
+  const swrFn = getPanelRequestPasswordResetMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type panelCompletePasswordResetResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type panelCompletePasswordResetResponse401 = {
+  data: ProblemResponse;
+  status: 401;
+};
+
+export type panelCompletePasswordResetResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type panelCompletePasswordResetResponseSuccess = panelCompletePasswordResetResponse204 & {
+  headers: Headers;
+};
+export type panelCompletePasswordResetResponseError = (
+  | panelCompletePasswordResetResponse401
+  | panelCompletePasswordResetResponse422
+) & {
+  headers: Headers;
+};
+
+export type panelCompletePasswordResetResponse =
+  | panelCompletePasswordResetResponseSuccess
+  | panelCompletePasswordResetResponseError;
+
+export const getPanelCompletePasswordResetUrl = () => {
+  return `/v1/panel/auth/password-reset/complete`;
+};
+
+export const panelCompletePasswordReset = async (
+  passwordResetCompleteInput: PasswordResetCompleteInput,
+  options?: RequestInit,
+): Promise<panelCompletePasswordResetResponse> => {
+  const res = await fetch(getPanelCompletePasswordResetUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(passwordResetCompleteInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: panelCompletePasswordResetResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as panelCompletePasswordResetResponse;
+};
+
+export const getPanelCompletePasswordResetMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PasswordResetCompleteInput }) => {
+    return panelCompletePasswordReset(arg, options);
+  };
+};
+export const getPanelCompletePasswordResetMutationKey = () =>
+  [`/v1/panel/auth/password-reset/complete`] as const;
+
+export type PanelCompletePasswordResetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof panelCompletePasswordReset>>
+>;
+
+export const usePanelCompletePasswordReset = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof panelCompletePasswordReset>>,
+    TError,
+    Key,
+    PasswordResetCompleteInput,
+    Awaited<ReturnType<typeof panelCompletePasswordReset>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getPanelCompletePasswordResetMutationKey();
+  const swrFn = getPanelCompletePasswordResetMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelSessionResponse200 = {
+  data: PanelSession;
+  status: 200;
+};
+
+export type getPanelSessionResponse401 = {
+  data: ProblemResponse;
+  status: 401;
+};
+
+export type getPanelSessionResponseSuccess = getPanelSessionResponse200 & {
+  headers: Headers;
+};
+export type getPanelSessionResponseError = getPanelSessionResponse401 & {
+  headers: Headers;
+};
+
+export type getPanelSessionResponse = getPanelSessionResponseSuccess | getPanelSessionResponseError;
+
+export const getGetPanelSessionUrl = () => {
+  return `/v1/panel/auth/session`;
+};
+
+/**
+ * The current operator, their effective permissions, and the CSRF token. The panel renders from these permissions, which are the same set the API enforces.
+ */
+export const getPanelSession = async (options?: RequestInit): Promise<getPanelSessionResponse> => {
+  const res = await fetch(getGetPanelSessionUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelSessionResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelSessionResponse;
+};
+
+export const getGetPanelSessionKey = () => [`/v1/panel/auth/session`] as const;
+
+export type GetPanelSessionQueryResult = NonNullable<Awaited<ReturnType<typeof getPanelSession>>>;
+
+export const useGetPanelSession = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelSession>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelSessionKey() : null));
+  const swrFn = () => getPanelSession(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type panelLogoutResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type panelLogoutResponseSuccess = panelLogoutResponse204 & {
+  headers: Headers;
+};
+
+export type panelLogoutResponse = panelLogoutResponseSuccess;
+
+export const getPanelLogoutUrl = () => {
+  return `/v1/panel/auth/logout`;
+};
+
+export const panelLogout = async (options?: RequestInit): Promise<panelLogoutResponse> => {
+  const res = await fetch(getPanelLogoutUrl(), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: panelLogoutResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as panelLogoutResponse;
+};
+
+export const getPanelLogoutMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return panelLogout(options);
+  };
+};
+export const getPanelLogoutMutationKey = () => [`/v1/panel/auth/logout`] as const;
+
+export type PanelLogoutMutationResult = NonNullable<Awaited<ReturnType<typeof panelLogout>>>;
+
+export const usePanelLogout = <TError = Promise<unknown>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof panelLogout>>,
+    TError,
+    Key,
+    Arguments,
+    Awaited<ReturnType<typeof panelLogout>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getPanelLogoutMutationKey();
+  const swrFn = getPanelLogoutMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type panelLogoutAllResponse200 = {
+  data: PanelLogoutAll200;
+  status: 200;
+};
+
+export type panelLogoutAllResponseSuccess = panelLogoutAllResponse200 & {
+  headers: Headers;
+};
+
+export type panelLogoutAllResponse = panelLogoutAllResponseSuccess;
+
+export const getPanelLogoutAllUrl = () => {
+  return `/v1/panel/auth/logout-all`;
+};
+
+/**
+ * Ends every other session, sparing the one making the request.
+ */
+export const panelLogoutAll = async (options?: RequestInit): Promise<panelLogoutAllResponse> => {
+  const res = await fetch(getPanelLogoutAllUrl(), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: panelLogoutAllResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as panelLogoutAllResponse;
+};
+
+export const getPanelLogoutAllMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return panelLogoutAll(options);
+  };
+};
+export const getPanelLogoutAllMutationKey = () => [`/v1/panel/auth/logout-all`] as const;
+
+export type PanelLogoutAllMutationResult = NonNullable<Awaited<ReturnType<typeof panelLogoutAll>>>;
+
+export const usePanelLogoutAll = <TError = Promise<unknown>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof panelLogoutAll>>,
+    TError,
+    Key,
+    Arguments,
+    Awaited<ReturnType<typeof panelLogoutAll>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getPanelLogoutAllMutationKey();
+  const swrFn = getPanelLogoutAllMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type updatePanelProfileResponse200 = {
+  data: AdminAccount;
+  status: 200;
+};
+
+export type updatePanelProfileResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type updatePanelProfileResponseSuccess = updatePanelProfileResponse200 & {
+  headers: Headers;
+};
+export type updatePanelProfileResponseError = updatePanelProfileResponse422 & {
+  headers: Headers;
+};
+
+export type updatePanelProfileResponse =
+  | updatePanelProfileResponseSuccess
+  | updatePanelProfileResponseError;
+
+export const getUpdatePanelProfileUrl = () => {
+  return `/v1/panel/auth/profile`;
+};
+
+export const updatePanelProfile = async (
+  profileInput: ProfileInput,
+  options?: RequestInit,
+): Promise<updatePanelProfileResponse> => {
+  const res = await fetch(getUpdatePanelProfileUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(profileInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: updatePanelProfileResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as updatePanelProfileResponse;
+};
+
+export const getUpdatePanelProfileMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: ProfileInput }) => {
+    return updatePanelProfile(arg, options);
+  };
+};
+export const getUpdatePanelProfileMutationKey = () => [`/v1/panel/auth/profile`] as const;
+
+export type UpdatePanelProfileMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updatePanelProfile>>
+>;
+
+export const useUpdatePanelProfile = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof updatePanelProfile>>,
+    TError,
+    Key,
+    ProfileInput,
+    Awaited<ReturnType<typeof updatePanelProfile>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getUpdatePanelProfileMutationKey();
+  const swrFn = getUpdatePanelProfileMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type changePanelPasswordResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type changePanelPasswordResponse401 = {
+  data: ProblemResponse;
+  status: 401;
+};
+
+export type changePanelPasswordResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type changePanelPasswordResponseSuccess = changePanelPasswordResponse204 & {
+  headers: Headers;
+};
+export type changePanelPasswordResponseError = (
+  | changePanelPasswordResponse401
+  | changePanelPasswordResponse422
+) & {
+  headers: Headers;
+};
+
+export type changePanelPasswordResponse =
+  | changePanelPasswordResponseSuccess
+  | changePanelPasswordResponseError;
+
+export const getChangePanelPasswordUrl = () => {
+  return `/v1/panel/auth/password`;
+};
+
+/**
+ * Rotates the password and ends every other session.
+ */
+export const changePanelPassword = async (
+  passwordChangeInput: PasswordChangeInput,
+  options?: RequestInit,
+): Promise<changePanelPasswordResponse> => {
+  const res = await fetch(getChangePanelPasswordUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(passwordChangeInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: changePanelPasswordResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as changePanelPasswordResponse;
+};
+
+export const getChangePanelPasswordMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PasswordChangeInput }) => {
+    return changePanelPassword(arg, options);
+  };
+};
+export const getChangePanelPasswordMutationKey = () => [`/v1/panel/auth/password`] as const;
+
+export type ChangePanelPasswordMutationResult = NonNullable<
+  Awaited<ReturnType<typeof changePanelPassword>>
+>;
+
+export const useChangePanelPassword = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof changePanelPassword>>,
+    TError,
+    Key,
+    PasswordChangeInput,
+    Awaited<ReturnType<typeof changePanelPassword>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getChangePanelPasswordMutationKey();
+  const swrFn = getChangePanelPasswordMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelSessionsResponse200 = {
+  data: SessionList;
+  status: 200;
+};
+
+export type listPanelSessionsResponseSuccess = listPanelSessionsResponse200 & {
+  headers: Headers;
+};
+
+export type listPanelSessionsResponse = listPanelSessionsResponseSuccess;
+
+export const getListPanelSessionsUrl = () => {
+  return `/v1/panel/auth/sessions`;
+};
+
+export const listPanelSessions = async (
+  options?: RequestInit,
+): Promise<listPanelSessionsResponse> => {
+  const res = await fetch(getListPanelSessionsUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelSessionsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelSessionsResponse;
+};
+
+export const getListPanelSessionsKey = () => [`/v1/panel/auth/sessions`] as const;
+
+export type ListPanelSessionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelSessions>>
+>;
+
+export const useListPanelSessions = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelSessions>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelSessionsKey() : null));
+  const swrFn = () => listPanelSessions(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type revokePanelSessionResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type revokePanelSessionResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type revokePanelSessionResponseSuccess = revokePanelSessionResponse204 & {
+  headers: Headers;
+};
+export type revokePanelSessionResponseError = revokePanelSessionResponse404 & {
+  headers: Headers;
+};
+
+export type revokePanelSessionResponse =
+  | revokePanelSessionResponseSuccess
+  | revokePanelSessionResponseError;
+
+export const getRevokePanelSessionUrl = (sessionID: string) => {
+  return `/v1/panel/auth/sessions/${sessionID}`;
+};
+
+export const revokePanelSession = async (
+  sessionID: string,
+  options?: RequestInit,
+): Promise<revokePanelSessionResponse> => {
+  const res = await fetch(getRevokePanelSessionUrl(sessionID), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: revokePanelSessionResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as revokePanelSessionResponse;
+};
+
+export const getRevokePanelSessionMutationFetcher = (sessionID: string, options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return revokePanelSession(sessionID, options);
+  };
+};
+export const getRevokePanelSessionMutationKey = (sessionID: string) =>
+  [`/v1/panel/auth/sessions/${sessionID}`] as const;
+
+export type RevokePanelSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof revokePanelSession>>
+>;
+
+export const useRevokePanelSession = <TError = Promise<ProblemResponse>>(
+  sessionID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof revokePanelSession>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof revokePanelSession>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRevokePanelSessionMutationKey(sessionID);
+  const swrFn = getRevokePanelSessionMutationFetcher(sessionID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type beginPanelTotpEnrolmentResponse200 = {
+  data: TotpEnrolment;
+  status: 200;
+};
+
+export type beginPanelTotpEnrolmentResponseSuccess = beginPanelTotpEnrolmentResponse200 & {
+  headers: Headers;
+};
+
+export type beginPanelTotpEnrolmentResponse = beginPanelTotpEnrolmentResponseSuccess;
+
+export const getBeginPanelTotpEnrolmentUrl = () => {
+  return `/v1/panel/auth/totp`;
+};
+
+/**
+ * Issues a secret and otpauth URI. The secret is stored unconfirmed and satisfies no login challenge until the first code is verified.
+ */
+export const beginPanelTotpEnrolment = async (
+  options?: RequestInit,
+): Promise<beginPanelTotpEnrolmentResponse> => {
+  const res = await fetch(getBeginPanelTotpEnrolmentUrl(), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: beginPanelTotpEnrolmentResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as beginPanelTotpEnrolmentResponse;
+};
+
+export const getBeginPanelTotpEnrolmentMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return beginPanelTotpEnrolment(options);
+  };
+};
+export const getBeginPanelTotpEnrolmentMutationKey = () => [`/v1/panel/auth/totp`] as const;
+
+export type BeginPanelTotpEnrolmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof beginPanelTotpEnrolment>>
+>;
+
+export const useBeginPanelTotpEnrolment = <TError = Promise<unknown>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof beginPanelTotpEnrolment>>,
+    TError,
+    Key,
+    Arguments,
+    Awaited<ReturnType<typeof beginPanelTotpEnrolment>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getBeginPanelTotpEnrolmentMutationKey();
+  const swrFn = getBeginPanelTotpEnrolmentMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type disablePanelTotpResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type disablePanelTotpResponse401 = {
+  data: ProblemResponse;
+  status: 401;
+};
+
+export type disablePanelTotpResponseSuccess = disablePanelTotpResponse204 & {
+  headers: Headers;
+};
+export type disablePanelTotpResponseError = disablePanelTotpResponse401 & {
+  headers: Headers;
+};
+
+export type disablePanelTotpResponse =
+  | disablePanelTotpResponseSuccess
+  | disablePanelTotpResponseError;
+
+export const getDisablePanelTotpUrl = () => {
+  return `/v1/panel/auth/totp`;
+};
+
+/**
+ * Removes the second factor. The password is re-proven first.
+ */
+export const disablePanelTotp = async (
+  passwordConfirmInput: PasswordConfirmInput,
+  options?: RequestInit,
+): Promise<disablePanelTotpResponse> => {
+  const res = await fetch(getDisablePanelTotpUrl(), {
+    ...options,
+    method: "DELETE",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(passwordConfirmInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: disablePanelTotpResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as disablePanelTotpResponse;
+};
+
+export const getDisablePanelTotpMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PasswordConfirmInput }) => {
+    return disablePanelTotp(arg, options);
+  };
+};
+export const getDisablePanelTotpMutationKey = () => [`/v1/panel/auth/totp`] as const;
+
+export type DisablePanelTotpMutationResult = NonNullable<
+  Awaited<ReturnType<typeof disablePanelTotp>>
+>;
+
+export const useDisablePanelTotp = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof disablePanelTotp>>,
+    TError,
+    Key,
+    PasswordConfirmInput,
+    Awaited<ReturnType<typeof disablePanelTotp>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getDisablePanelTotpMutationKey();
+  const swrFn = getDisablePanelTotpMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type confirmPanelTotpEnrolmentResponse200 = {
+  data: RecoveryCodes;
+  status: 200;
+};
+
+export type confirmPanelTotpEnrolmentResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type confirmPanelTotpEnrolmentResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type confirmPanelTotpEnrolmentResponseSuccess = confirmPanelTotpEnrolmentResponse200 & {
+  headers: Headers;
+};
+export type confirmPanelTotpEnrolmentResponseError = (
+  | confirmPanelTotpEnrolmentResponse409
+  | confirmPanelTotpEnrolmentResponse422
+) & {
+  headers: Headers;
+};
+
+export type confirmPanelTotpEnrolmentResponse =
+  | confirmPanelTotpEnrolmentResponseSuccess
+  | confirmPanelTotpEnrolmentResponseError;
+
+export const getConfirmPanelTotpEnrolmentUrl = () => {
+  return `/v1/panel/auth/totp/confirm`;
+};
+
+/**
+ * Activates the second factor and returns the recovery codes exactly once.
+ */
+export const confirmPanelTotpEnrolment = async (
+  challengeInput: ChallengeInput,
+  options?: RequestInit,
+): Promise<confirmPanelTotpEnrolmentResponse> => {
+  const res = await fetch(getConfirmPanelTotpEnrolmentUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(challengeInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: confirmPanelTotpEnrolmentResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as confirmPanelTotpEnrolmentResponse;
+};
+
+export const getConfirmPanelTotpEnrolmentMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: ChallengeInput }) => {
+    return confirmPanelTotpEnrolment(arg, options);
+  };
+};
+export const getConfirmPanelTotpEnrolmentMutationKey = () =>
+  [`/v1/panel/auth/totp/confirm`] as const;
+
+export type ConfirmPanelTotpEnrolmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof confirmPanelTotpEnrolment>>
+>;
+
+export const useConfirmPanelTotpEnrolment = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof confirmPanelTotpEnrolment>>,
+    TError,
+    Key,
+    ChallengeInput,
+    Awaited<ReturnType<typeof confirmPanelTotpEnrolment>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getConfirmPanelTotpEnrolmentMutationKey();
+  const swrFn = getConfirmPanelTotpEnrolmentMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type regeneratePanelRecoveryCodesResponse200 = {
+  data: RecoveryCodes;
+  status: 200;
+};
+
+export type regeneratePanelRecoveryCodesResponseSuccess =
+  regeneratePanelRecoveryCodesResponse200 & {
+    headers: Headers;
+  };
+
+export type regeneratePanelRecoveryCodesResponse = regeneratePanelRecoveryCodesResponseSuccess;
+
+export const getRegeneratePanelRecoveryCodesUrl = () => {
+  return `/v1/panel/auth/recovery-codes`;
+};
+
+/**
+ * Replaces the whole set, invalidating any unused code.
+ */
+export const regeneratePanelRecoveryCodes = async (
+  options?: RequestInit,
+): Promise<regeneratePanelRecoveryCodesResponse> => {
+  const res = await fetch(getRegeneratePanelRecoveryCodesUrl(), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: regeneratePanelRecoveryCodesResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as regeneratePanelRecoveryCodesResponse;
+};
+
+export const getRegeneratePanelRecoveryCodesMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return regeneratePanelRecoveryCodes(options);
+  };
+};
+export const getRegeneratePanelRecoveryCodesMutationKey = () =>
+  [`/v1/panel/auth/recovery-codes`] as const;
+
+export type RegeneratePanelRecoveryCodesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof regeneratePanelRecoveryCodes>>
+>;
+
+export const useRegeneratePanelRecoveryCodes = <TError = Promise<unknown>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof regeneratePanelRecoveryCodes>>,
+    TError,
+    Key,
+    Arguments,
+    Awaited<ReturnType<typeof regeneratePanelRecoveryCodes>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRegeneratePanelRecoveryCodesMutationKey();
+  const swrFn = getRegeneratePanelRecoveryCodesMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelAdminsResponse200 = {
+  data: AdminAccountPage;
+  status: 200;
+};
+
+export type listPanelAdminsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelAdminsResponseSuccess = listPanelAdminsResponse200 & {
+  headers: Headers;
+};
+export type listPanelAdminsResponseError = listPanelAdminsResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelAdminsResponse = listPanelAdminsResponseSuccess | listPanelAdminsResponseError;
+
+export const getListPanelAdminsUrl = (params?: ListPanelAdminsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/admins?${stringifiedParams}`
+    : `/v1/panel/admins`;
+};
+
+/**
+ * Requires admins.read.
+ */
+export const listPanelAdmins = async (
+  params?: ListPanelAdminsParams,
+  options?: RequestInit,
+): Promise<listPanelAdminsResponse> => {
+  const res = await fetch(getListPanelAdminsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelAdminsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelAdminsResponse;
+};
+
+export const getListPanelAdminsKey = (params?: ListPanelAdminsParams) =>
+  [`/v1/panel/admins`, ...(params ? [params] : [])] as const;
+
+export type ListPanelAdminsQueryResult = NonNullable<Awaited<ReturnType<typeof listPanelAdmins>>>;
+
+export const useListPanelAdmins = <TError = Promise<ProblemResponse>>(
+  params?: ListPanelAdminsParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelAdmins>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelAdminsKey(params) : null));
+  const swrFn = () => listPanelAdmins(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type createPanelAdminResponse201 = {
+  data: AdminAccount;
+  status: 201;
+};
+
+export type createPanelAdminResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type createPanelAdminResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type createPanelAdminResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type createPanelAdminResponseSuccess = createPanelAdminResponse201 & {
+  headers: Headers;
+};
+export type createPanelAdminResponseError = (
+  | createPanelAdminResponse403
+  | createPanelAdminResponse409
+  | createPanelAdminResponse422
+) & {
+  headers: Headers;
+};
+
+export type createPanelAdminResponse =
+  | createPanelAdminResponseSuccess
+  | createPanelAdminResponseError;
+
+export const getCreatePanelAdminUrl = () => {
+  return `/v1/panel/admins`;
+};
+
+/**
+ * Requires admins.write, which only the owner role holds.
+ */
+export const createPanelAdmin = async (
+  adminAccountInput: AdminAccountInput,
+  options?: RequestInit,
+): Promise<createPanelAdminResponse> => {
+  const res = await fetch(getCreatePanelAdminUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminAccountInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: createPanelAdminResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as createPanelAdminResponse;
+};
+
+export const getCreatePanelAdminMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: AdminAccountInput }) => {
+    return createPanelAdmin(arg, options);
+  };
+};
+export const getCreatePanelAdminMutationKey = () => [`/v1/panel/admins`] as const;
+
+export type CreatePanelAdminMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPanelAdmin>>
+>;
+
+export const useCreatePanelAdmin = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof createPanelAdmin>>,
+    TError,
+    Key,
+    AdminAccountInput,
+    Awaited<ReturnType<typeof createPanelAdmin>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getCreatePanelAdminMutationKey();
+  const swrFn = getCreatePanelAdminMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelAdminResponse200 = {
+  data: AdminAccount;
+  status: 200;
+};
+
+export type getPanelAdminResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getPanelAdminResponseSuccess = getPanelAdminResponse200 & {
+  headers: Headers;
+};
+export type getPanelAdminResponseError = getPanelAdminResponse404 & {
+  headers: Headers;
+};
+
+export type getPanelAdminResponse = getPanelAdminResponseSuccess | getPanelAdminResponseError;
+
+export const getGetPanelAdminUrl = (adminID: string) => {
+  return `/v1/panel/admins/${adminID}`;
+};
+
+export const getPanelAdmin = async (
+  adminID: string,
+  options?: RequestInit,
+): Promise<getPanelAdminResponse> => {
+  const res = await fetch(getGetPanelAdminUrl(adminID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelAdminResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelAdminResponse;
+};
+
+export const getGetPanelAdminKey = (adminID: string) => [`/v1/panel/admins/${adminID}`] as const;
+
+export type GetPanelAdminQueryResult = NonNullable<Awaited<ReturnType<typeof getPanelAdmin>>>;
+
+export const useGetPanelAdmin = <TError = Promise<ProblemResponse>>(
+  adminID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelAdmin>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false && adminID !== null && adminID !== undefined;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelAdminKey(adminID) : null));
+  const swrFn = () => getPanelAdmin(adminID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type setPanelAdminRolesResponse200 = {
+  data: AdminAccount;
+  status: 200;
+};
+
+export type setPanelAdminRolesResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type setPanelAdminRolesResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type setPanelAdminRolesResponseSuccess = setPanelAdminRolesResponse200 & {
+  headers: Headers;
+};
+export type setPanelAdminRolesResponseError = (
+  | setPanelAdminRolesResponse403
+  | setPanelAdminRolesResponse409
+) & {
+  headers: Headers;
+};
+
+export type setPanelAdminRolesResponse =
+  | setPanelAdminRolesResponseSuccess
+  | setPanelAdminRolesResponseError;
+
+export const getSetPanelAdminRolesUrl = (adminID: string) => {
+  return `/v1/panel/admins/${adminID}/roles`;
+};
+
+/**
+ * Requires admins.roles. Removing the last active owner is refused, and only an owner may grant the owner role.
+ */
+export const setPanelAdminRoles = async (
+  adminID: string,
+  rolesInput: RolesInput,
+  options?: RequestInit,
+): Promise<setPanelAdminRolesResponse> => {
+  const res = await fetch(getSetPanelAdminRolesUrl(adminID), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(rolesInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: setPanelAdminRolesResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as setPanelAdminRolesResponse;
+};
+
+export const getSetPanelAdminRolesMutationFetcher = (adminID: string, options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: RolesInput }) => {
+    return setPanelAdminRoles(adminID, arg, options);
+  };
+};
+export const getSetPanelAdminRolesMutationKey = (adminID: string) =>
+  [`/v1/panel/admins/${adminID}/roles`] as const;
+
+export type SetPanelAdminRolesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setPanelAdminRoles>>
+>;
+
+export const useSetPanelAdminRoles = <TError = Promise<ProblemResponse>>(
+  adminID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof setPanelAdminRoles>>,
+      TError,
+      Key,
+      RolesInput,
+      Awaited<ReturnType<typeof setPanelAdminRoles>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSetPanelAdminRolesMutationKey(adminID);
+  const swrFn = getSetPanelAdminRolesMutationFetcher(adminID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type setPanelAdminStatusResponse200 = {
+  data: AdminAccount;
+  status: 200;
+};
+
+export type setPanelAdminStatusResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type setPanelAdminStatusResponseSuccess = setPanelAdminStatusResponse200 & {
+  headers: Headers;
+};
+export type setPanelAdminStatusResponseError = setPanelAdminStatusResponse409 & {
+  headers: Headers;
+};
+
+export type setPanelAdminStatusResponse =
+  | setPanelAdminStatusResponseSuccess
+  | setPanelAdminStatusResponseError;
+
+export const getSetPanelAdminStatusUrl = (adminID: string) => {
+  return `/v1/panel/admins/${adminID}/status`;
+};
+
+/**
+ * Requires admins.write. Suspending an operator revokes their live sessions immediately; suspending the last active owner is refused.
+ */
+export const setPanelAdminStatus = async (
+  adminID: string,
+  adminStatusInput: AdminStatusInput,
+  options?: RequestInit,
+): Promise<setPanelAdminStatusResponse> => {
+  const res = await fetch(getSetPanelAdminStatusUrl(adminID), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminStatusInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: setPanelAdminStatusResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as setPanelAdminStatusResponse;
+};
+
+export const getSetPanelAdminStatusMutationFetcher = (adminID: string, options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: AdminStatusInput }) => {
+    return setPanelAdminStatus(adminID, arg, options);
+  };
+};
+export const getSetPanelAdminStatusMutationKey = (adminID: string) =>
+  [`/v1/panel/admins/${adminID}/status`] as const;
+
+export type SetPanelAdminStatusMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setPanelAdminStatus>>
+>;
+
+export const useSetPanelAdminStatus = <TError = Promise<ProblemResponse>>(
+  adminID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof setPanelAdminStatus>>,
+      TError,
+      Key,
+      AdminStatusInput,
+      Awaited<ReturnType<typeof setPanelAdminStatus>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSetPanelAdminStatusMutationKey(adminID);
+  const swrFn = getSetPanelAdminStatusMutationFetcher(adminID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type searchPanelAuditResponse200 = {
+  data: AuditPage;
+  status: 200;
+};
+
+export type searchPanelAuditResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type searchPanelAuditResponseSuccess = searchPanelAuditResponse200 & {
+  headers: Headers;
+};
+export type searchPanelAuditResponseError = searchPanelAuditResponse403 & {
+  headers: Headers;
+};
+
+export type searchPanelAuditResponse =
+  | searchPanelAuditResponseSuccess
+  | searchPanelAuditResponseError;
+
+export const getSearchPanelAuditUrl = (params?: SearchPanelAuditParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/v1/panel/audit?${stringifiedParams}` : `/v1/panel/audit`;
+};
+
+/**
+ * Requires audit.read. The trail is append-only and exposes reads only.
+ */
+export const searchPanelAudit = async (
+  params?: SearchPanelAuditParams,
+  options?: RequestInit,
+): Promise<searchPanelAuditResponse> => {
+  const res = await fetch(getSearchPanelAuditUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: searchPanelAuditResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as searchPanelAuditResponse;
+};
+
+export const getSearchPanelAuditKey = (params?: SearchPanelAuditParams) =>
+  [`/v1/panel/audit`, ...(params ? [params] : [])] as const;
+
+export type SearchPanelAuditQueryResult = NonNullable<Awaited<ReturnType<typeof searchPanelAudit>>>;
+
+export const useSearchPanelAudit = <TError = Promise<ProblemResponse>>(
+  params?: SearchPanelAuditParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof searchPanelAudit>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getSearchPanelAuditKey(params) : null));
+  const swrFn = () => searchPanelAudit(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelAuditActionsResponse200 = {
+  data: ListPanelAuditActions200;
+  status: 200;
+};
+
+export type listPanelAuditActionsResponseSuccess = listPanelAuditActionsResponse200 & {
+  headers: Headers;
+};
+
+export type listPanelAuditActionsResponse = listPanelAuditActionsResponseSuccess;
+
+export const getListPanelAuditActionsUrl = () => {
+  return `/v1/panel/audit/actions`;
+};
+
+export const listPanelAuditActions = async (
+  options?: RequestInit,
+): Promise<listPanelAuditActionsResponse> => {
+  const res = await fetch(getListPanelAuditActionsUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelAuditActionsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelAuditActionsResponse;
+};
+
+export const getListPanelAuditActionsKey = () => [`/v1/panel/audit/actions`] as const;
+
+export type ListPanelAuditActionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelAuditActions>>
+>;
+
+export const useListPanelAuditActions = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelAuditActions>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelAuditActionsKey() : null));
+  const swrFn = () => listPanelAuditActions(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type exportPanelAuditResponse200 = {
+  data: string;
+  status: 200;
+};
+
+export type exportPanelAuditResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type exportPanelAuditResponseSuccess = exportPanelAuditResponse200 & {
+  headers: Headers;
+};
+export type exportPanelAuditResponseError = exportPanelAuditResponse403 & {
+  headers: Headers;
+};
+
+export type exportPanelAuditResponse =
+  | exportPanelAuditResponseSuccess
+  | exportPanelAuditResponseError;
+
+export const getExportPanelAuditUrl = () => {
+  return `/v1/panel/audit/export`;
+};
+
+/**
+ * Requires audit.export. Streams the filtered trail as CSV with the same columns the browser shows. Nothing writes a secret into an audit row.
+ */
+export const exportPanelAudit = async (
+  options?: RequestInit,
+): Promise<exportPanelAuditResponse> => {
+  const res = await fetch(getExportPanelAuditUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const contentType = (res.headers.get("content-type") ?? "").toLowerCase();
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: exportPanelAuditResponse["data"] = body
+    ? contentType.includes("json")
+      ? JSON.parse(body)
+      : body
+    : {};
+  return { data, status: res.status, headers: res.headers } as exportPanelAuditResponse;
+};
+
+export const getExportPanelAuditKey = () => [`/v1/panel/audit/export`] as const;
+
+export type ExportPanelAuditQueryResult = NonNullable<Awaited<ReturnType<typeof exportPanelAudit>>>;
+
+export const useExportPanelAudit = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof exportPanelAudit>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getExportPanelAuditKey() : null));
+  const swrFn = () => exportPanelAudit(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelRbacCatalogResponse200 = {
+  data: RbacCatalog;
+  status: 200;
+};
+
+export type getPanelRbacCatalogResponseSuccess = getPanelRbacCatalogResponse200 & {
+  headers: Headers;
+};
+
+export type getPanelRbacCatalogResponse = getPanelRbacCatalogResponseSuccess;
+
+export const getGetPanelRbacCatalogUrl = () => {
+  return `/v1/panel/rbac/catalog`;
+};
+
+/**
+ * The compiled-in permission catalogue and the built-in role definitions.
+ */
+export const getPanelRbacCatalog = async (
+  options?: RequestInit,
+): Promise<getPanelRbacCatalogResponse> => {
+  const res = await fetch(getGetPanelRbacCatalogUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelRbacCatalogResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelRbacCatalogResponse;
+};
+
+export const getGetPanelRbacCatalogKey = () => [`/v1/panel/rbac/catalog`] as const;
+
+export type GetPanelRbacCatalogQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelRbacCatalog>>
+>;
+
+export const useGetPanelRbacCatalog = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelRbacCatalog>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelRbacCatalogKey() : null));
+  const swrFn = () => getPanelRbacCatalog(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,

@@ -1,19 +1,15 @@
 @import "tailwindcss";
+@import "@omniflow/ui/styles/theme.css";
+
+/*
+ * Tailwind scans the shared component library as well as this app, so classes
+ * that only appear inside `packages/ui` are still emitted.
+ */
 @source "../../../packages/ui/src";
 
-:root {
-  color-scheme: dark;
-  --background: #070b12;
-  --foreground: #e5edf7;
-}
+/* Dark mode is driven by a class on <html>, which next-themes toggles. */
+@custom-variant dark (&:where(.dark, .dark *));
 
 * {
   box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
 }

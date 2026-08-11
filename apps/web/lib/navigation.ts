@@ -1,0 +1,122 @@
+import {
+  ClipboardList,
+  CreditCard,
+  LayoutDashboard,
+  LifeBuoy,
+  type LucideIcon,
+  Megaphone,
+  Package,
+  Server,
+  ShieldCheck,
+  UserCog,
+  Users,
+} from "lucide-react";
+
+/**
+ * The panel's navigation model.
+ *
+ * `permission` is the capability that makes an entry reachable. An entry the
+ * operator cannot use is hidden rather than shown-and-disabled, because a
+ * disabled control invites repeated clicking with no way to resolve it. The API
+ * enforces the same permission regardless of what is rendered.
+ *
+ * `messageKey` indexes the next-intl catalogue rather than carrying literal
+ * copy, so every label exists in both Russian and English.
+ */
+export type NavigationItem = {
+  key: string;
+  href: string;
+  icon: LucideIcon;
+  permission?: string;
+  /** Entries for surfaces that arrive in a later version render as disabled. */
+  planned?: boolean;
+};
+
+export type NavigationSection = {
+  key: string;
+  items: NavigationItem[];
+};
+
+export const NAVIGATION: NavigationSection[] = [
+  {
+    key: "overview",
+    items: [{ key: "dashboard", href: "/admin", icon: LayoutDashboard }],
+  },
+  {
+    key: "operations",
+    items: [
+      {
+        key: "customers",
+        href: "/admin/customers",
+        icon: Users,
+        permission: "customers.read",
+        planned: true,
+      },
+      {
+        key: "finance",
+        href: "/admin/finance",
+        icon: CreditCard,
+        permission: "finance.read",
+        planned: true,
+      },
+      {
+        key: "catalog",
+        href: "/admin/catalog",
+        icon: Package,
+        permission: "catalog.read",
+        planned: true,
+      },
+      {
+        key: "support",
+        href: "/admin/support",
+        icon: LifeBuoy,
+        permission: "support.read",
+        planned: true,
+      },
+      {
+        key: "marketing",
+        href: "/admin/marketing",
+        icon: Megaphone,
+        permission: "marketing.read",
+        planned: true,
+      },
+    ],
+  },
+  {
+    key: "governance",
+    items: [
+      { key: "operators", href: "/admin/operators", icon: UserCog, permission: "admins.read" },
+      { key: "audit", href: "/admin/audit", icon: ClipboardList, permission: "audit.read" },
+      {
+        key: "system",
+        href: "/admin/system",
+        icon: Server,
+        permission: "system.read",
+        planned: true,
+      },
+    ],
+  },
+  {
+    key: "account",
+    items: [{ key: "security", href: "/admin/security", icon: ShieldCheck }],
+  },
+];
+
+/** Flattens the sections, which the command palette searches over. */
+export const NAVIGATION_ITEMS: NavigationItem[] = NAVIGATION.flatMap((section) => section.items);
+
+/**
+ * Resolves the breadcrumb trail for a pathname.
+ *
+ * `/admin` is always the root, and the deepest matching entry is the leaf, so a
+ * nested detail route still shows where it sits.
+ */
+export function breadcrumbTrail(pathname: string): NavigationItem[] {
+  if (pathname === "/admin") {
+    return [];
+  }
+  const match = NAVIGATION_ITEMS.filter(
+    (item) => item.href !== "/admin" && pathname.startsWith(item.href),
+  ).sort((left, right) => right.href.length - left.href.length)[0];
+  return match ? [match] : [];
+}

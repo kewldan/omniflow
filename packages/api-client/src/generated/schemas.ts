@@ -940,6 +940,576 @@ export const SetMaintenanceResponse = zod.object({
   expectedReturnAt: zod.iso.datetime({ offset: true }).optional(),
 });
 
+/**
+ * Reports whether the installation still needs its first owner.
+ */
+export const GetPanelBootstrapStatusResponse = zod.object({
+  setupRequired: zod.boolean(),
+});
+
+/**
+ * Redeems the one-time setup token printed by the API on first start and creates the first owner. Refused once any operator account exists.
+ */
+export const completePanelBootstrapBodyDisplayNameMax = 80;
+
+export const completePanelBootstrapBodyPasswordMin = 12;
+export const completePanelBootstrapBodyPasswordMax = 256;
+
+export const CompletePanelBootstrapBody = zod.object({
+  setupToken: zod.string(),
+  email: zod.email(),
+  displayName: zod.string().min(1).max(completePanelBootstrapBodyDisplayNameMax),
+  password: zod
+    .string()
+    .min(completePanelBootstrapBodyPasswordMin)
+    .max(completePanelBootstrapBodyPasswordMax),
+  locale: zod.enum(["en", "ru"]).optional(),
+});
+
+export const CompletePanelBootstrapResponse = zod.object({
+  id: zod.uuid(),
+  email: zod.email(),
+  displayName: zod.string(),
+  status: zod.enum(["active", "suspended", "disabled"]),
+  locale: zod.enum(["en", "ru"]),
+  timezone: zod.string(),
+  roles: zod.array(
+    zod.enum(["owner", "administrator", "support", "finance", "marketing", "auditor"]),
+  ),
+  totpEnabled: zod.boolean(),
+  lastLoginAt: zod.iso.datetime({ offset: true }).optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Password factor. Answers identically for a wrong password, an unknown address, and a disabled account, so operator accounts cannot be enumerated. On success it sets the session cookie; when the account has TOTP enrolled the session authorizes nothing until the challenge passes.
+ */
+export const PanelLoginBody = zod.object({
+  email: zod.email(),
+  password: zod.string(),
+});
+
+export const PanelLoginResponse = zod.object({
+  challengeRequired: zod
+    .boolean()
+    .optional()
+    .describe("When true, the session authorizes nothing until the second factor passes."),
+  csrfToken: zod.string(),
+  expiresAt: zod.iso.datetime({ offset: true }),
+  account: zod.object({
+    id: zod.uuid(),
+    email: zod.email(),
+    displayName: zod.string(),
+    status: zod.enum(["active", "suspended", "disabled"]),
+    locale: zod.enum(["en", "ru"]),
+    timezone: zod.string(),
+    roles: zod.array(
+      zod.enum(["owner", "administrator", "support", "finance", "marketing", "auditor"]),
+    ),
+    totpEnabled: zod.boolean(),
+    lastLoginAt: zod.iso.datetime({ offset: true }).optional(),
+    createdAt: zod.iso.datetime({ offset: true }),
+  }),
+});
+
+/**
+ * Completes the second factor with a TOTP code or a single-use recovery code.
+ */
+export const PanelVerifyChallengeBody = zod.object({
+  code: zod.string().describe("A TOTP code or a single-use recovery code."),
+});
+
+export const PanelVerifyChallengeResponse = zod.object({
+  challengeRequired: zod
+    .boolean()
+    .optional()
+    .describe("When true, the session authorizes nothing until the second factor passes."),
+  csrfToken: zod.string(),
+  expiresAt: zod.iso.datetime({ offset: true }),
+  account: zod.object({
+    id: zod.uuid(),
+    email: zod.email(),
+    displayName: zod.string(),
+    status: zod.enum(["active", "suspended", "disabled"]),
+    locale: zod.enum(["en", "ru"]),
+    timezone: zod.string(),
+    roles: zod.array(
+      zod.enum(["owner", "administrator", "support", "finance", "marketing", "auditor"]),
+    ),
+    totpEnabled: zod.boolean(),
+    lastLoginAt: zod.iso.datetime({ offset: true }).optional(),
+    createdAt: zod.iso.datetime({ offset: true }),
+  }),
+});
+
+/**
+ * Always answers 202, whether or not the address matched an account, so the endpoint never discloses which addresses are registered.
+ */
+export const PanelRequestPasswordResetBody = zod.object({
+  email: zod.email(),
+});
+
+export const PanelRequestPasswordResetResponse = zod.void();
+
+export const panelCompletePasswordResetBodyNewPasswordMin = 12;
+export const panelCompletePasswordResetBodyNewPasswordMax = 256;
+
+export const PanelCompletePasswordResetBody = zod.object({
+  token: zod.string(),
+  newPassword: zod
+    .string()
+    .min(panelCompletePasswordResetBodyNewPasswordMin)
+    .max(panelCompletePasswordResetBodyNewPasswordMax),
+});
+
+export const PanelCompletePasswordResetResponse = zod.void();
+
+/**
+ * The current operator, their effective permissions, and the CSRF token. The panel renders from these permissions, which are the same set the API enforces.
+ */
+export const getPanelSessionResponseRemainingRecoveryCodesMin = 0;
+
+export const GetPanelSessionResponse = zod.object({
+  account: zod.object({
+    id: zod.uuid(),
+    email: zod.email(),
+    displayName: zod.string(),
+    status: zod.enum(["active", "suspended", "disabled"]),
+    locale: zod.enum(["en", "ru"]),
+    timezone: zod.string(),
+    roles: zod.array(
+      zod.enum(["owner", "administrator", "support", "finance", "marketing", "auditor"]),
+    ),
+    totpEnabled: zod.boolean(),
+    lastLoginAt: zod.iso.datetime({ offset: true }).optional(),
+    createdAt: zod.iso.datetime({ offset: true }),
+  }),
+  permissions: zod
+    .array(zod.string())
+    .describe(
+      "Effective permissions. The panel renders from these; the API enforces the same set.",
+    ),
+  csrfToken: zod.string(),
+  sessionId: zod.uuid(),
+  expiresAt: zod.iso.datetime({ offset: true }),
+  remainingRecoveryCodes: zod
+    .int()
+    .min(getPanelSessionResponseRemainingRecoveryCodesMin)
+    .optional(),
+});
+
+export const PanelLogoutHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const PanelLogoutResponse = zod.void();
+
+/**
+ * Ends every other session, sparing the one making the request.
+ */
+export const PanelLogoutAllHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const PanelLogoutAllResponse = zod.object({
+  revokedSessions: zod.int(),
+});
+
+export const UpdatePanelProfileHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const updatePanelProfileBodyDisplayNameMax = 80;
+
+export const UpdatePanelProfileBody = zod.object({
+  displayName: zod.string().min(1).max(updatePanelProfileBodyDisplayNameMax),
+  locale: zod.enum(["en", "ru"]).optional(),
+  timezone: zod.string().optional(),
+});
+
+export const UpdatePanelProfileResponse = zod.object({
+  id: zod.uuid(),
+  email: zod.email(),
+  displayName: zod.string(),
+  status: zod.enum(["active", "suspended", "disabled"]),
+  locale: zod.enum(["en", "ru"]),
+  timezone: zod.string(),
+  roles: zod.array(
+    zod.enum(["owner", "administrator", "support", "finance", "marketing", "auditor"]),
+  ),
+  totpEnabled: zod.boolean(),
+  lastLoginAt: zod.iso.datetime({ offset: true }).optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Rotates the password and ends every other session.
+ */
+export const ChangePanelPasswordHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const changePanelPasswordBodyNewPasswordMin = 12;
+export const changePanelPasswordBodyNewPasswordMax = 256;
+
+export const ChangePanelPasswordBody = zod.object({
+  currentPassword: zod.string(),
+  newPassword: zod
+    .string()
+    .min(changePanelPasswordBodyNewPasswordMin)
+    .max(changePanelPasswordBodyNewPasswordMax),
+});
+
+export const ChangePanelPasswordResponse = zod.void();
+
+export const ListPanelSessionsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      current: zod.boolean(),
+      ip: zod.string().optional(),
+      userAgent: zod.string().optional(),
+      createdAt: zod.iso.datetime({ offset: true }),
+      lastSeenAt: zod.iso.datetime({ offset: true }),
+      expiresAt: zod.iso.datetime({ offset: true }),
+      methods: zod.array(zod.string()).describe("Authentication methods this session completed."),
+    }),
+  ),
+});
+
+export const RevokePanelSessionParams = zod.object({
+  sessionID: zod.uuid(),
+});
+
+export const RevokePanelSessionHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const RevokePanelSessionResponse = zod.void();
+
+/**
+ * Issues a secret and otpauth URI. The secret is stored unconfirmed and satisfies no login challenge until the first code is verified.
+ */
+export const BeginPanelTotpEnrolmentHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const BeginPanelTotpEnrolmentResponse = zod.object({
+  secret: zod.string().describe("Base32 shared secret, returned only during enrolment."),
+  uri: zod.string().describe("otpauth:// URI for an authenticator app."),
+});
+
+/**
+ * Removes the second factor. The password is re-proven first.
+ */
+export const DisablePanelTotpHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const DisablePanelTotpBody = zod.object({
+  password: zod.string(),
+});
+
+export const DisablePanelTotpResponse = zod.void();
+
+/**
+ * Activates the second factor and returns the recovery codes exactly once.
+ */
+export const ConfirmPanelTotpEnrolmentHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const ConfirmPanelTotpEnrolmentBody = zod.object({
+  code: zod.string().describe("A TOTP code or a single-use recovery code."),
+});
+
+export const ConfirmPanelTotpEnrolmentResponse = zod.object({
+  recoveryCodes: zod
+    .array(zod.string())
+    .describe("Returned exactly once. Only digests are stored."),
+});
+
+/**
+ * Replaces the whole set, invalidating any unused code.
+ */
+export const RegeneratePanelRecoveryCodesHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const RegeneratePanelRecoveryCodesResponse = zod.object({
+  recoveryCodes: zod
+    .array(zod.string())
+    .describe("Returned exactly once. Only digests are stored."),
+});
+
+/**
+ * Requires admins.read.
+ */
+export const listPanelAdminsQueryPageSizeDefault = 100;
+export const listPanelAdminsQueryPageSizeMax = 500;
+
+export const ListPanelAdminsQueryParams = zod.object({
+  cursor: zod.string().optional(),
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(listPanelAdminsQueryPageSizeMax)
+    .default(listPanelAdminsQueryPageSizeDefault),
+  status: zod.enum(["active", "suspended", "disabled"]).optional(),
+});
+
+export const ListPanelAdminsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      email: zod.email(),
+      displayName: zod.string(),
+      status: zod.enum(["active", "suspended", "disabled"]),
+      locale: zod.enum(["en", "ru"]),
+      timezone: zod.string(),
+      roles: zod.array(
+        zod.enum(["owner", "administrator", "support", "finance", "marketing", "auditor"]),
+      ),
+      totpEnabled: zod.boolean(),
+      lastLoginAt: zod.iso.datetime({ offset: true }).optional(),
+      createdAt: zod.iso.datetime({ offset: true }),
+    }),
+  ),
+  nextCursor: zod.string().optional().describe("Empty when this is the last page."),
+});
+
+/**
+ * Requires admins.write, which only the owner role holds.
+ */
+export const CreatePanelAdminHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const createPanelAdminBodyDisplayNameMax = 80;
+
+export const createPanelAdminBodyPasswordMin = 12;
+export const createPanelAdminBodyPasswordMax = 256;
+
+export const CreatePanelAdminBody = zod.object({
+  email: zod.email(),
+  displayName: zod.string().min(1).max(createPanelAdminBodyDisplayNameMax),
+  password: zod.string().min(createPanelAdminBodyPasswordMin).max(createPanelAdminBodyPasswordMax),
+  locale: zod.enum(["en", "ru"]).optional(),
+  timezone: zod.string().optional(),
+  roles: zod.array(
+    zod.enum(["owner", "administrator", "support", "finance", "marketing", "auditor"]),
+  ),
+});
+
+export const CreatePanelAdminResponse = zod.object({
+  id: zod.uuid(),
+  email: zod.email(),
+  displayName: zod.string(),
+  status: zod.enum(["active", "suspended", "disabled"]),
+  locale: zod.enum(["en", "ru"]),
+  timezone: zod.string(),
+  roles: zod.array(
+    zod.enum(["owner", "administrator", "support", "finance", "marketing", "auditor"]),
+  ),
+  totpEnabled: zod.boolean(),
+  lastLoginAt: zod.iso.datetime({ offset: true }).optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+});
+
+export const GetPanelAdminParams = zod.object({
+  adminID: zod.uuid(),
+});
+
+export const GetPanelAdminResponse = zod.object({
+  id: zod.uuid(),
+  email: zod.email(),
+  displayName: zod.string(),
+  status: zod.enum(["active", "suspended", "disabled"]),
+  locale: zod.enum(["en", "ru"]),
+  timezone: zod.string(),
+  roles: zod.array(
+    zod.enum(["owner", "administrator", "support", "finance", "marketing", "auditor"]),
+  ),
+  totpEnabled: zod.boolean(),
+  lastLoginAt: zod.iso.datetime({ offset: true }).optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Requires admins.roles. Removing the last active owner is refused, and only an owner may grant the owner role.
+ */
+export const SetPanelAdminRolesParams = zod.object({
+  adminID: zod.uuid(),
+});
+
+export const SetPanelAdminRolesHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const SetPanelAdminRolesBody = zod.object({
+  roles: zod.array(
+    zod.enum(["owner", "administrator", "support", "finance", "marketing", "auditor"]),
+  ),
+});
+
+export const SetPanelAdminRolesResponse = zod.object({
+  id: zod.uuid(),
+  email: zod.email(),
+  displayName: zod.string(),
+  status: zod.enum(["active", "suspended", "disabled"]),
+  locale: zod.enum(["en", "ru"]),
+  timezone: zod.string(),
+  roles: zod.array(
+    zod.enum(["owner", "administrator", "support", "finance", "marketing", "auditor"]),
+  ),
+  totpEnabled: zod.boolean(),
+  lastLoginAt: zod.iso.datetime({ offset: true }).optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Requires admins.write. Suspending an operator revokes their live sessions immediately; suspending the last active owner is refused.
+ */
+export const SetPanelAdminStatusParams = zod.object({
+  adminID: zod.uuid(),
+});
+
+export const SetPanelAdminStatusHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const SetPanelAdminStatusBody = zod.object({
+  status: zod.enum(["active", "suspended", "disabled"]),
+});
+
+export const SetPanelAdminStatusResponse = zod.object({
+  id: zod.uuid(),
+  email: zod.email(),
+  displayName: zod.string(),
+  status: zod.enum(["active", "suspended", "disabled"]),
+  locale: zod.enum(["en", "ru"]),
+  timezone: zod.string(),
+  roles: zod.array(
+    zod.enum(["owner", "administrator", "support", "finance", "marketing", "auditor"]),
+  ),
+  totpEnabled: zod.boolean(),
+  lastLoginAt: zod.iso.datetime({ offset: true }).optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Requires audit.read. The trail is append-only and exposes reads only.
+ */
+export const searchPanelAuditQueryPageSizeDefault = 100;
+export const searchPanelAuditQueryPageSizeMax = 500;
+
+export const SearchPanelAuditQueryParams = zod.object({
+  cursor: zod.string().optional(),
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(searchPanelAuditQueryPageSizeMax)
+    .default(searchPanelAuditQueryPageSizeDefault),
+  category: zod
+    .enum([
+      "authentication",
+      "authorization",
+      "configuration",
+      "customer",
+      "financial",
+      "support",
+      "marketing",
+      "system",
+    ])
+    .optional(),
+  outcome: zod.enum(["success", "failure", "denied"]).optional(),
+  actorType: zod.string().optional(),
+  actorId: zod.string().optional(),
+  action: zod.string().optional(),
+  targetType: zod.string().optional(),
+  targetId: zod.string().optional(),
+  from: zod.iso.datetime({ offset: true }).optional(),
+  to: zod.iso.datetime({ offset: true }).optional(),
+});
+
+export const SearchPanelAuditResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      occurredAt: zod.iso.datetime({ offset: true }),
+      actorType: zod.enum(["customer", "operator", "admin", "system", "provider"]),
+      actorId: zod.string().optional(),
+      action: zod.string(),
+      category: zod.enum([
+        "authentication",
+        "authorization",
+        "configuration",
+        "customer",
+        "financial",
+        "support",
+        "marketing",
+        "system",
+      ]),
+      outcome: zod.enum(["success", "failure", "denied"]),
+      targetType: zod.string(),
+      targetId: zod.string(),
+      reason: zod.string().optional(),
+      requestId: zod.string().optional(),
+      metadata: zod
+        .record(zod.string(), zod.unknown())
+        .optional()
+        .describe("Safe before/after context. Never a secret."),
+    }),
+  ),
+  nextCursor: zod.string().optional(),
+});
+
+export const ListPanelAuditActionsResponse = zod.object({
+  items: zod.array(zod.string()),
+});
+
+/**
+ * Requires audit.export. Streams the filtered trail as CSV with the same columns the browser shows. Nothing writes a secret into an audit row.
+ */
+export const ExportPanelAuditResponse = zod.unknown();
+
+/**
+ * The compiled-in permission catalogue and the built-in role definitions.
+ */
+export const GetPanelRbacCatalogResponse = zod.object({
+  permissions: zod.array(zod.string()),
+  roles: zod.array(
+    zod.object({
+      role: zod.enum(["owner", "administrator", "support", "finance", "marketing", "auditor"]),
+      permissions: zod.array(zod.string()),
+    }),
+  ),
+});
+
 export const collectTelemetryEventBodyInstallationIdMin = 16;
 export const collectTelemetryEventBodyInstallationIdMax = 64;
 

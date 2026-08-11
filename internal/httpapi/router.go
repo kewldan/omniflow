@@ -19,6 +19,9 @@ type RouterOptions struct {
 	Health   *platform.Health
 	Metrics  *platform.Metrics
 	Commerce *CommerceHandlers
+	// Admin serves the operator panel API. A nil value leaves /v1/panel
+	// unmounted, which is what a bot-only installation wants.
+	Admin *AdminHandlers
 	// CollectorEnabled exposes the anonymous telemetry collector endpoint.
 	CollectorEnabled bool
 	Telemetry        *telemetry.Client
@@ -57,6 +60,9 @@ func NewRouter(logger *slog.Logger, options RouterOptions) http.Handler {
 	}
 	if options.Commerce != nil {
 		options.Commerce.Mount(router)
+	}
+	if options.Admin != nil {
+		options.Admin.Mount(router)
 	}
 	return router
 }

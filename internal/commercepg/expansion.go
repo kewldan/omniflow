@@ -671,6 +671,7 @@ func (store *Store) recordAddonOrphan(ctx context.Context, queries *dbgen.Querie
 	}
 	if _, err = queries.InsertAuditEvent(ctx, dbgen.InsertAuditEventParams{
 		ActorType: "system", Action: "addon.no_active_entitlement", TargetType: "order",
+		Category: "financial", Outcome: "failure",
 		TargetID: uuidString(order.ID),
 		Reason:   pgtype.Text{String: "add-on settled without a live entitlement", Valid: true},
 		Metadata: metadata,
