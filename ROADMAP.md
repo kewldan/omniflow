@@ -642,12 +642,12 @@ Goal: finish support, communication, configuration, and operational readiness be
 
 ### Admin copilot
 
-- [ ] Permission-aware assistant for explaining dashboards, failed jobs, webhook errors, and reconciliation drift
-- [ ] Natural-language search over customers, orders, tickets, and audit history using authorized structured tools
-- [ ] Answers cite the records, metrics, documentation, or tool results used to produce them
-- [ ] Suggested next actions deep-link to the normal admin workflow rather than bypassing it
-- [ ] Read-only by default; every mutation requires a preview, permission check, reason, and confirmation
-- [ ] No autonomous payment, refund, wallet, entitlement, suspension, campaign, or role mutation
+- [x] Permission-aware assistant for explaining dashboards, failed jobs, webhook errors, and reconciliation drift
+- [x] Natural-language search over customers, orders, tickets, and audit history using authorized structured tools
+- [x] Answers cite the records, metrics, documentation, or tool results used to produce them
+- [x] Suggested next actions deep-link to the normal admin workflow rather than bypassing it
+- [x] Read-only by default; every mutation requires a preview, permission check, reason, and confirmation
+- [x] No autonomous payment, refund, wallet, entitlement, suspension, campaign, or role mutation
 
 ### MCP integration
 
@@ -684,7 +684,7 @@ Goal: finish support, communication, configuration, and operational readiness be
 - [ ] Sanitized evaluation sets for support replies, translations, marketing edits, and scam analysis
 - [ ] Regression thresholds for correctness, groundedness, citation validity, tone, and unsafe advice
 - [ ] Prompt-injection, tool-confusion, data-exfiltration, privilege-escalation, and indirect-injection tests
-- [ ] Tests proving operators cannot invoke tools beyond their own RBAC permissions through AI or MCP
+- [x] Tests proving operators cannot invoke tools beyond their own RBAC permissions through AI or MCP
 - [ ] Tests proving duplicate or retried tool calls cannot duplicate financial or provisioning effects
 - [ ] Model/provider outage, timeout, malformed output, budget exhaustion, and partial-tool-failure tests
 - [ ] AI features degrade to normal manual admin workflows without blocking support or operations
