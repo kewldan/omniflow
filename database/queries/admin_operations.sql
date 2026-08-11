@@ -826,3 +826,34 @@ WHERE e.subscription_id = sqlc.arg(subscription_id)
   AND e.status IN ('active', 'limited')
 ORDER BY e.ends_at DESC
 LIMIT 1;
+
+-- name: ListCustomerImports :many
+-- The import history an operator reviews. Newest first, because the question is
+-- almost always about the run that just happened.
+SELECT * FROM customer_imports
+ORDER BY started_at DESC
+LIMIT sqlc.arg(page_size);
+
+-- name: ExportCustomers :many
+-- The customer export, in a stable column order.
+--
+-- It carries the identifiers an operator may safely be given and the facts they
+-- need to reconcile against another system. It deliberately does not carry a
+-- subscription link, a payment token, or a hardware identifier: an export is a
+-- file that leaves the installation, and those must not.
+SELECT
+  u.id,
+  u.status,
+  u.locale,
+  u.timezone,
+  u.created_at,
+  r.telegram_id,
+  (SELECT count(*)::bigint FROM subscriptions s WHERE s.user_id = u.id) AS subscription_count,
+  (SELECT count(*)::bigint FROM orders o WHERE o.user_id = u.id AND o.state IN ('paid', 'fulfilled')) AS paid_order_count
+FROM users u
+LEFT JOIN remnawave_users r ON r.user_id = u.id
+WHERE (sqlc.narg(status)::text IS NULL OR u.status = sqlc.narg(status)::text)
+  AND (sqlc.narg(cursor_created_at)::timestamptz IS NULL
+       OR (u.created_at, u.id) < (sqlc.narg(cursor_created_at)::timestamptz, sqlc.narg(cursor_id)::uuid))
+ORDER BY u.created_at DESC, u.id DESC
+LIMIT sqlc.arg(page_size);

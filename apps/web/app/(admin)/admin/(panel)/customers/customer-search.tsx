@@ -20,6 +20,7 @@ import { useSession } from "@/lib/session";
 import { usePreferences } from "@/lib/use-preferences";
 import { useUrlFilters } from "@/lib/use-url-filters";
 import { BulkActions } from "./bulk-actions";
+import { ImportPanel } from "./import-panel";
 
 const STATUSES = ["active", "suspended", "deleted"] as const;
 const SEGMENTS = ["subscribed", "lapsed", "never_purchased", "flagged"] as const;
@@ -84,6 +85,7 @@ export function CustomerSearch() {
         title={translate("title")}
       />
 
+      {bulk && <ImportPanel />}
       {bulk && <BulkActions />}
 
       <Card className="p-4">

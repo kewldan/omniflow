@@ -410,11 +410,11 @@ Goal: let operators run day-to-day customer, subscription, and financial operati
 - [x] Customer search by safe identifiers with status and segment filters
 - [x] Customer profile with identities, subscription, devices, orders, wallet, referrals, support, consent, and audit timeline
 - [x] Every concurrent subscription listed with independent lifecycle actions and its own Remnawave mapping
-- [ ] Create/link/import customer with duplicate detection
+- [x] Create/link/import customer with duplicate detection
 - [x] Suspend, reactivate, anonymize, and delete according to retention rules
 - [x] Create, extend, enable, disable, reset traffic, change limits, and change squads through Remnawave API
 - [x] Device review and removal without exposing identifiers unnecessarily
-- [ ] Bulk import/export with preview, validation errors, progress, resumability, and audit history
+- [x] Bulk import/export with preview, validation errors, progress, resumability, and audit history
 - [x] Bulk actions with permission checks, impact preview, limits, and per-item results
 - [x] External blocklist source configuration, refresh schedule, and connection health
 - [x] Blocklist match review with evidence, manual allowlist override, and appeal handling

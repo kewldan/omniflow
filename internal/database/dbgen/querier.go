@@ -241,6 +241,13 @@ type Querier interface {
 	ExpireGifts(ctx context.Context) ([]Gift, error)
 	ExpirePendingOrders(ctx context.Context) ([]Order, error)
 	ExpirePersonalOffers(ctx context.Context) (int64, error)
+	// The customer export, in a stable column order.
+	//
+	// It carries the identifiers an operator may safely be given and the facts they
+	// need to reconcile against another system. It deliberately does not carry a
+	// subscription link, a payment token, or a hardware identifier: an export is a
+	// file that leaves the installation, and those must not.
+	ExportCustomers(ctx context.Context, arg ExportCustomersParams) ([]ExportCustomersRow, error)
 	// The CSV export's source. Column order here is the column order in the file,
 	// and the schema is stable: a new column is appended, never inserted, so a
 	// spreadsheet or importer built against an older export keeps working.
@@ -433,6 +440,9 @@ type Querier interface {
 	ListCustomerIdentities(ctx context.Context, userID pgtype.UUID) ([]Identity, error)
 	ListCustomerImportItems(ctx context.Context, arg ListCustomerImportItemsParams) ([]CustomerImportItem, error)
 	ListCustomerImportTelegramIDs(ctx context.Context, importID pgtype.UUID) ([]ListCustomerImportTelegramIDsRow, error)
+	// The import history an operator reviews. Newest first, because the question is
+	// almost always about the run that just happened.
+	ListCustomerImports(ctx context.Context, pageSize int32) ([]CustomerImport, error)
 	ListCustomerLedgerEntries(ctx context.Context, arg ListCustomerLedgerEntriesParams) ([]ListCustomerLedgerEntriesRow, error)
 	ListCustomerOrders(ctx context.Context, arg ListCustomerOrdersParams) ([]Order, error)
 	// Who this customer invited, and whether the invitation turned into anything.

@@ -674,6 +674,83 @@ func (q *Queries) DashboardWebhookHealth(ctx context.Context, lookback pgtype.In
 	return i, err
 }
 
+const exportCustomers = `-- name: ExportCustomers :many
+SELECT
+  u.id,
+  u.status,
+  u.locale,
+  u.timezone,
+  u.created_at,
+  r.telegram_id,
+  (SELECT count(*)::bigint FROM subscriptions s WHERE s.user_id = u.id) AS subscription_count,
+  (SELECT count(*)::bigint FROM orders o WHERE o.user_id = u.id AND o.state IN ('paid', 'fulfilled')) AS paid_order_count
+FROM users u
+LEFT JOIN remnawave_users r ON r.user_id = u.id
+WHERE ($1::text IS NULL OR u.status = $1::text)
+  AND ($2::timestamptz IS NULL
+       OR (u.created_at, u.id) < ($2::timestamptz, $3::uuid))
+ORDER BY u.created_at DESC, u.id DESC
+LIMIT $4
+`
+
+type ExportCustomersParams struct {
+	Status          pgtype.Text        `json:"status"`
+	CursorCreatedAt pgtype.Timestamptz `json:"cursor_created_at"`
+	CursorID        pgtype.UUID        `json:"cursor_id"`
+	PageSize        int32              `json:"page_size"`
+}
+
+type ExportCustomersRow struct {
+	ID                pgtype.UUID        `json:"id"`
+	Status            string             `json:"status"`
+	Locale            string             `json:"locale"`
+	Timezone          string             `json:"timezone"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	TelegramID        pgtype.Int8        `json:"telegram_id"`
+	SubscriptionCount int64              `json:"subscription_count"`
+	PaidOrderCount    int64              `json:"paid_order_count"`
+}
+
+// The customer export, in a stable column order.
+//
+// It carries the identifiers an operator may safely be given and the facts they
+// need to reconcile against another system. It deliberately does not carry a
+// subscription link, a payment token, or a hardware identifier: an export is a
+// file that leaves the installation, and those must not.
+func (q *Queries) ExportCustomers(ctx context.Context, arg ExportCustomersParams) ([]ExportCustomersRow, error) {
+	rows, err := q.db.Query(ctx, exportCustomers,
+		arg.Status,
+		arg.CursorCreatedAt,
+		arg.CursorID,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ExportCustomersRow{}
+	for rows.Next() {
+		var i ExportCustomersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Status,
+			&i.Locale,
+			&i.Timezone,
+			&i.CreatedAt,
+			&i.TelegramID,
+			&i.SubscriptionCount,
+			&i.PaidOrderCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const exportFinanceRows = `-- name: ExportFinanceRows :many
 SELECT
   o.id AS order_id,
@@ -1344,6 +1421,47 @@ func (q *Queries) ListCustomerConsents(ctx context.Context, userID pgtype.UUID) 
 			&i.Source,
 			&i.OccurredAt,
 			&i.RequestID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCustomerImports = `-- name: ListCustomerImports :many
+SELECT id, source, status, cursor, total_count, valid_count, conflict_count, invalid_count, error_summary, started_at, updated_at, completed_at FROM customer_imports
+ORDER BY started_at DESC
+LIMIT $1
+`
+
+// The import history an operator reviews. Newest first, because the question is
+// almost always about the run that just happened.
+func (q *Queries) ListCustomerImports(ctx context.Context, pageSize int32) ([]CustomerImport, error) {
+	rows, err := q.db.Query(ctx, listCustomerImports, pageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CustomerImport{}
+	for rows.Next() {
+		var i CustomerImport
+		if err := rows.Scan(
+			&i.ID,
+			&i.Source,
+			&i.Status,
+			&i.Cursor,
+			&i.TotalCount,
+			&i.ValidCount,
+			&i.ConflictCount,
+			&i.InvalidCount,
+			&i.ErrorSummary,
+			&i.StartedAt,
+			&i.UpdatedAt,
+			&i.CompletedAt,
 		); err != nil {
 			return nil, err
 		}

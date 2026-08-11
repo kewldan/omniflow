@@ -1251,6 +1251,37 @@
         "previewNotice": "Each target is applied and recorded one at a time, so a run that half succeeds says which half. Every change goes through the same fulfillment pipeline a single change uses.",
         "preview": "Preview"
       }
+    },
+    "imports": {
+      "title": "Import and export",
+      "description": "Customer imports are previewed before they are applied. A record that collides with somebody who already exists is counted as a conflict rather than silently merged or skipped.",
+      "export": "Download customer CSV",
+      "exportNotice": "The export carries identifiers, status, locale, timezone, and counts. It deliberately carries no subscription link, payment token, or hardware identifier — an export is a file that leaves the installation.",
+      "resumable": "Resumable",
+      "status": {
+        "previewing": "Previewing",
+        "ready": "Ready",
+        "applying": "Applying",
+        "completed": "Completed",
+        "failed": "Failed",
+        "cancelled": "Cancelled"
+      },
+      "counts": {
+        "total": "{count} records",
+        "valid": "{count} clean",
+        "conflicts": "{count} conflicts",
+        "invalid": "{count} invalid"
+      },
+      "error": {
+        "missing_telegram_id": "No Telegram identifier",
+        "duplicate_telegram_id": "Duplicate Telegram identifier",
+        "invalid_username": "Unreadable username",
+        "invalid_expiry": "Unreadable expiry"
+      },
+      "empty": {
+        "title": "No imports yet",
+        "description": "Import runs and their validation results appear here."
+      }
     }
   }
 }

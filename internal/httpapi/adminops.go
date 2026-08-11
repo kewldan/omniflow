@@ -55,6 +55,8 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 		read.Get("/customers/{customerID}/tickets", handlers.customerTickets)
 		read.Get("/customers/{customerID}/consents", handlers.customerConsents)
 		read.Get("/customers/{customerID}/referrals", handlers.customerReferrals)
+		read.Get("/imports", handlers.listCustomerImports)
+		read.Get("/customers/export", handlers.exportCustomers)
 	})
 	secure.With(handlers.requirePermission(rbac.PermissionCustomersWrite)).
 		Post("/customers/{customerID}/status", handlers.setCustomerStatus)
@@ -1118,6 +1120,57 @@ func (handlers *AdminHandlers) configureRecurring(writer http.ResponseWriter, re
 		saved.AdapterRecurring = handlers.adapterRecurring[provider]
 	}
 	handlers.respond(writer, request, saved, err)
+}
+
+func (handlers *AdminHandlers) listCustomerImports(writer http.ResponseWriter, request *http.Request) {
+	items, err := handlers.operations.ListCustomerImports(
+		request.Context(), int32(queryInt(request, "pageSize")),
+	)
+	handlers.respond(writer, request, map[string]any{"items": items}, err)
+}
+
+// exportCustomers streams the customer list as CSV.
+//
+// It walks the cursor server-side and flushes as it goes, so an export over a
+// large installation never has to be held in memory. The page count is bounded
+// for the same reason the audit and finance exports are: one request must not
+// be able to walk an unbounded table forever.
+func (handlers *AdminHandlers) exportCustomers(writer http.ResponseWriter, request *http.Request) {
+	writer.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	writer.Header().Set("Content-Disposition", `attachment; filename="customers.csv"`)
+	writer.WriteHeader(http.StatusOK)
+
+	header := make([]string, 0, len(panelpg.CustomerExportHeader))
+	for _, column := range panelpg.CustomerExportHeader {
+		header = append(header, csvField(column))
+	}
+	_, _ = writer.Write([]byte(strings.Join(header, ",") + "\n"))
+
+	status, cursor := query(request, "status"), ""
+	const maxPages = 200
+	for page := 0; page < maxPages; page++ {
+		records, next, err := handlers.operations.ExportCustomers(
+			request.Context(), status, cursor, panelpg.MaxPageSize,
+		)
+		if err != nil {
+			handlers.logger.Error("customer export failed", "error", err)
+			return
+		}
+		for _, record := range records {
+			encoded := make([]string, 0, len(record))
+			for _, field := range record {
+				encoded = append(encoded, csvField(field))
+			}
+			_, _ = writer.Write([]byte(strings.Join(encoded, ",") + "\n"))
+		}
+		if next == "" {
+			return
+		}
+		cursor = next
+		if flusher, ok := writer.(http.Flusher); ok {
+			flusher.Flush()
+		}
+	}
 }
 
 func (handlers *AdminHandlers) customerReferrals(writer http.ResponseWriter, request *http.Request) {

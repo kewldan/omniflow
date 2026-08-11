@@ -2,6 +2,7 @@ package panelpg
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strconv"
 	"strings"
@@ -565,4 +566,103 @@ func (service *Service) CustomerReferrals(
 		})
 	}
 	return summary, nil
+}
+
+// CustomerImport is one import run as the panel shows it.
+//
+// The four counters are the whole point of the preview step: an operator
+// approving an import needs to know how many records are clean, how many
+// collide with somebody who already exists, and how many cannot be read at all
+// — before anything is written.
+type CustomerImport struct {
+	ID           string          `json:"id"`
+	Source       string          `json:"source"`
+	Status       string          `json:"status"`
+	Total        int32           `json:"total"`
+	Valid        int32           `json:"valid"`
+	Conflicts    int32           `json:"conflicts"`
+	Invalid      int32           `json:"invalid"`
+	ErrorSummary json.RawMessage `json:"errorSummary"`
+	Resumable    bool            `json:"resumable"`
+	StartedAt    time.Time       `json:"startedAt"`
+	UpdatedAt    time.Time       `json:"updatedAt"`
+	CompletedAt  *time.Time      `json:"completedAt,omitempty"`
+}
+
+// ListCustomerImports reads the import history.
+func (service *Service) ListCustomerImports(
+	ctx context.Context, limit int32,
+) ([]CustomerImport, error) {
+	rows, err := service.queries().ListCustomerImports(ctx, pageSize(limit))
+	if err != nil {
+		return nil, err
+	}
+	imports := make([]CustomerImport, 0, len(rows))
+	for _, row := range rows {
+		record := CustomerImport{
+			ID: uuidString(row.ID), Source: row.Source, Status: row.Status,
+			Total: row.TotalCount, Valid: row.ValidCount,
+			Conflicts: row.ConflictCount, Invalid: row.InvalidCount,
+			ErrorSummary: row.ErrorSummary,
+			// A stored cursor is what makes a run resumable: it names where the
+			// source was left off, so a run interrupted at record 40,000 does
+			// not start again at one.
+			Resumable: row.Cursor.Valid && row.Cursor.String != "",
+			StartedAt: timeValue(row.StartedAt), UpdatedAt: timeValue(row.UpdatedAt),
+		}
+		if row.CompletedAt.Valid {
+			completed := timeValue(row.CompletedAt)
+			record.CompletedAt = &completed
+		}
+		imports = append(imports, record)
+	}
+	return imports, nil
+}
+
+// CustomerExportHeader is the export's column order. It is a package-level
+// value so the CSV writer and any test read the same list.
+var CustomerExportHeader = []string{
+	"customer_id", "status", "locale", "timezone", "created_at",
+	"telegram_id", "subscriptions", "paid_orders",
+}
+
+// ExportCustomers streams one page of the customer export.
+//
+// It carries the identifiers an operator may safely be given and the facts they
+// need to reconcile against another system. It deliberately carries no
+// subscription link, payment token, or hardware identifier: an export is a file
+// that leaves the installation, and those must not.
+func (service *Service) ExportCustomers(
+	ctx context.Context, status, cursor string, limit int32,
+) ([][]string, string, error) {
+	decoded := DecodeCursor(cursor)
+	rows, err := service.queries().ExportCustomers(ctx, dbgen.ExportCustomersParams{
+		Status:          optionalText(status),
+		CursorCreatedAt: decoded.timestamp(),
+		CursorID:        decoded.uuid(),
+		PageSize:        pageSize(limit),
+	})
+	if err != nil {
+		return nil, "", err
+	}
+	records := make([][]string, 0, len(rows))
+	next := ""
+	for _, row := range rows {
+		telegram := ""
+		if row.TelegramID.Valid {
+			telegram = strconv.FormatInt(row.TelegramID.Int64, 10)
+		}
+		records = append(records, []string{
+			uuidString(row.ID), row.Status, row.Locale, row.Timezone,
+			timeValue(row.CreatedAt).Format(time.RFC3339),
+			telegram,
+			strconv.FormatInt(row.SubscriptionCount, 10),
+			strconv.FormatInt(row.PaidOrderCount, 10),
+		})
+		next = EncodeCursor(timeValue(row.CreatedAt), uuidString(row.ID))
+	}
+	if int32(len(rows)) < pageSize(limit) {
+		next = ""
+	}
+	return records, next, nil
 }
