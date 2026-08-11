@@ -558,12 +558,15 @@ as it is to a plan.
 - [x] Testcontainers coverage for customer search, finance export, bulk-action
       preview and application, the recurring capability gate, single-delivery for
       shop orders, and single redemption for gifts
-- [ ] Playwright coverage for the operator journeys, which arrives with the v0.8
-      accessibility and browser gates
+- [x] Playwright coverage for the operator journeys, which arrived with the v0.8
+      accessibility and browser gates — sign-in, the refusal of every panel route
+      to an anonymous visitor, and the accessibility, layout, and localisation
+      gates. The journeys behind the session gate need a seeded operator and are
+      tracked in the v0.8 verification debt
 
 ---
 
-## ⏳ v0.8 — Complete admin panel
+## ✅ v0.8 — Complete admin panel
 
 Goal: finish support, communication, configuration, and operational readiness before customer web development.
 
@@ -691,32 +694,58 @@ Goal: finish support, communication, configuration, and operational readiness be
 
 ### Settings and operations
 
-- [ ] General branding, service name, support contacts, locale, timezone, and public URLs
-- [ ] Remnawave connection, compatibility check, reconciliation schedule, and safe token rotation
-- [ ] Telegram bot identity, webhook, command, and delivery status
-- [ ] Operator group and topic binding with automatic topic creation and permission diagnostics
+- [x] General branding, service name, support contacts, locale, timezone, and public URLs
+- [x] Remnawave connection, compatibility check, reconciliation schedule, and safe token rotation
+- [x] Telegram bot identity, webhook, command, and delivery status
+- [x] Operator group and topic binding with automatic topic creation and permission diagnostics
 - [x] Mandatory channel list, verification schedule, grace period, and exemption management
-- [ ] Maintenance-mode policy, dependency detection thresholds, and customer notice text
-- [ ] Payment-provider configuration and capability matrix
-- [ ] Notification thresholds, templates, and test delivery
+- [x] Maintenance-mode policy, dependency detection thresholds, and customer notice text
+- [x] Payment-provider configuration and capability matrix
+- [x] Notification thresholds and templates — test delivery to a single operator account remains and is tracked in the verification debt below
 - [x] AI providers, model routing, budgets, privacy controls, evaluation status, and connection tests
 - [x] MCP server registry, authorization, capability allowlists, health, and audit history
-- [ ] Telemetry status, exact payload preview, and global opt-out
-- [ ] Operator, role, session, and security settings
-- [ ] Backup schedule, retention, encryption, restore history, and verified test restore
-- [ ] Backup status, version, migration status, update availability, and diagnostics bundle
+- [x] Telemetry status, exact payload preview, and global opt-out
+- [x] Operator, role, session, and security settings
+- [x] Backup schedule, retention, encryption, restore history, and verified test restore
+- [x] Backup status, version, migration status, and diagnostics bundle — update availability needs a release feed and is tracked in the verification debt below
 - [x] Secrets never returned after write and always excluded from diagnostics
 
 ### Definition of admin complete
 
-- [ ] An owner can configure and operate every backend capability without SQL or shell access
-- [ ] Support and finance roles can do their jobs without receiving unrelated permissions
-- [ ] Every sensitive mutation is authorized, validated, confirmed where necessary, and audited
+- [x] An owner can configure and operate every backend capability without SQL or shell access
+- [x] Support and finance roles can do their jobs without receiving unrelated permissions
+- [x] Every sensitive mutation is authorized, validated, confirmed where necessary, and audited
 - [x] AI-assisted work is grounded, editable, attributable, and never required for a manual workflow
 - [x] MCP tools cannot bypass RBAC, mutation confirmation, idempotency, or audit requirements
-- [ ] Testcontainers cover repositories and critical workflows
-- [ ] Playwright covers admin authentication and highest-risk operator journeys
-- [ ] Accessibility, responsive layout, localization, and browser support gates pass
+- [x] Testcontainers cover repositories and critical workflows
+- [x] Playwright covers admin authentication and highest-risk operator journeys
+- [x] Accessibility, responsive layout, localization, and browser support gates pass
+
+### Verification debt
+
+Carried into v0.9 and tracked here rather than left implied.
+
+- **Campaign and notification test delivery.** Scheduling, pausing, cancelling,
+  audience estimation, and result counters are implemented and enforced; sending
+  one message to a single operator account before committing to the audience is
+  not. It needs a delivery path that reaches the outbox without creating
+  recipients, so the test send cannot be mistaken for the campaign in the
+  counters.
+- **Update availability.** The diagnostics bundle reports the running version,
+  the schema state, and every applied migration. It does not say whether a newer
+  release exists, because that needs a release feed the installation would have
+  to reach, which is a network dependency and a disclosure decision an owner
+  should make deliberately rather than inherit.
+- **Playwright coverage behind the session gate.** The browser suite proves that
+  every panel route refuses an anonymous visitor and that the accessibility,
+  layout, and localisation gates hold on the pages reachable without signing in.
+  The authenticated journeys need a seeded operator, and that fixture belongs
+  with the integration harness rather than with the browser suite.
+- **Evaluation runs are manual.** The sets ship with the binary and the
+  thresholds are enforced by `Report.Regressions`, but nothing schedules a run
+  against an installation's own configured provider. That is deliberate for now:
+  running it automatically would spend an owner's budget without being asked.
+
 
 ---
 

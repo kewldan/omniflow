@@ -1,0 +1,89 @@
+---
+title: Installation settings
+description: Configuring every backend capability from the panel, and what the panel deliberately will not show you.
+---
+
+Everything an installation needs configuring — branding, the Remnawave
+connection, the Telegram bot, the operator group, required channels, maintenance,
+notification thresholds, telemetry, backups, and session policy — is editable in
+**Settings**. None of it needs SQL or shell access.
+
+## How a section is saved
+
+Each screen is one section, saved atomically. A section is what you edit, and
+saving one atomically is the difference between a half-applied Remnawave
+connection and none at all.
+
+Every save carries the version the screen was rendered from. If somebody else
+saved first, you get a conflict and a prompt to reload rather than silently
+overwriting their change — which is what would otherwise happen when the same
+screen is open in two tabs.
+
+## Secrets are write-only
+
+<Warning>
+  A stored secret is never returned. Not to the panel, not to the API, not to the
+  diagnostics bundle. The field you see is always empty.
+</Warning>
+
+This is enforced by the queries not selecting the column, rather than by a filter
+somebody has to remember to apply. What the panel shows instead is whether a
+value exists.
+
+Leaving a secret field empty on save **keeps the stored value**. That is what
+makes rotating a token a deliberate act — you type a new one — rather than a side
+effect of editing the base URL next to it.
+
+The audit entry records which secret names were rotated and never their values.
+"Somebody changed the bot token on Tuesday" is the auditable fact.
+
+## Telemetry: the exact payload
+
+The telemetry screen renders the payload that would be sent, built from the same
+values the sender uses. A preview assembled separately would be a promise about a
+different program.
+
+The payload is a heartbeat: an anonymous installation identifier, the version,
+the Go version, the platform, and the time. There is deliberately no customer
+count, no revenue figure, and no domain — a number small enough to identify an
+installation is an identifier.
+
+Telemetry is off unless you turn it on, and the screen shows whether anything has
+ever been sent.
+
+## Backups and restores
+
+Schedule, retention, directory, and the encryption key sit together, and the
+history below shows both backups and restores.
+
+<Note>
+  A backup nobody has ever restored is a backup nobody knows works. The restore
+  history sits beside the backup list rather than on a separate screen for that
+  reason.
+</Note>
+
+## The diagnostics bundle
+
+The bundle is what you send somebody when you need help. It carries the version,
+the Go version and platform, the schema state and applied migration count, which
+sections are configured and which hold a secret, backup status, payment provider
+health, maintenance state, and row counts.
+
+It is assembled from an **allowlist** of fields rather than by dumping state and
+filtering it. A filter has to be updated every time a field is added; an
+allowlist fails closed when somebody forgets. So the bundle contains no
+credentials, and no section documents either — a branding document is harmless
+and an operator-group document names a chat, and drawing that line per section is
+exactly the mistake an allowlist avoids.
+
+Generating the bundle needs `system.read`, because it describes the running
+installation rather than its settings.
+
+## What is not here yet
+
+- **Update availability.** The bundle reports the running version and the schema
+  state. It does not say whether a newer release exists: that needs a release
+  feed the installation would have to reach, which is a network dependency and a
+  disclosure decision an owner should make deliberately.
+- **Notification test delivery.** Thresholds and templates are configurable;
+  sending one test message to a single operator account is not yet wired.

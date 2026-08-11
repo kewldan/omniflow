@@ -1,0 +1,132 @@
+---
+title: AI governance and evaluation
+description: Turning features on one at a time, bounding what they can spend, keeping what you choose to keep, and knowing when the answers get worse.
+---
+
+[AI privacy](/operations/ai-privacy) covers what leaves the installation and what
+stops it. This page covers the decisions around that: which features are on, who
+may use them, what is kept afterwards, and how you find out when the quality
+drops.
+
+## Features are enabled one at a time
+
+There are nine features — ticket summaries, suggested replies, rewriting,
+translation, classification, marketing drafts, abuse analysis, the admin
+copilot, and MCP tools — and each is separately enabled with its own provider,
+model, budget, and retention.
+
+A feature is off until you enable it *and* choose a provider and model. A feature
+that is switched on but misconfigured shows as "enabled but not usable" rather
+than silently behaving as off: a switch that reads as on and behaves as off is
+the worst of both.
+
+Every feature has a manual workflow behind it that predates it. Switching AI off
+leaves those exactly as they were; the surfaces report "unavailable" rather than
+failing.
+
+## What the provider does with your data
+
+Each provider carries your answers from its own terms: whether it retains
+requests, whether it may train on them, what region it processes in, and any
+retention notice you paste in. Omniflow cannot verify these and does not pretend
+to — they are recorded so the panel can warn you **before** a feature is switched
+on rather than after data has left.
+
+The warnings render beside the feature's own switch. A warning in a separate
+panel is one you read after deciding.
+
+## Usage limits
+
+Ceilings apply at four scopes: one operator, one role, one feature, or the whole
+installation. Each bounds requests, tokens, or estimated cost over a window.
+
+When several apply, the **narrowest** one is the one you are told about, because
+the remedy differs: "you have used your allowance" and "the installation has used
+its allowance" call for different actions from the same person.
+
+<Warning>
+  An unreadable meter refuses the call. Spending against a limit nobody can
+  measure is how an installation discovers its ceiling from an invoice.
+</Warning>
+
+An installation with no limits configured has no ceiling — that is the common
+case and a legitimate one.
+
+## Spend and performance
+
+The usage report shows requests, tokens, mean and p95 latency, failures, and
+estimated cost, grouped by feature, provider, and model.
+
+No prompt or output content appears in it, because none is stored: the table it
+reads has no column for them. A metrics table that *can* hold a ticket body
+eventually holds one.
+
+Cost is stated as estimated. Omniflow does not see the invoice, and a column
+named `cost_minor` without "estimated" nearby invites somebody to reconcile
+against it.
+
+## Retention and legal hold
+
+Retention is set per feature, because the material differs: a marketing draft is
+your own copy, and a support summary is somebody's complaint. Prompts are not
+kept by default; outputs are, for a period you set.
+
+A legal hold suspends deletion for one subject. It works in one direction only:
+it can extend retention of something already kept, and it can never cause
+something to be kept that your policy said not to store. A hold is an instruction
+not to delete, not an instruction to collect.
+
+## Audit exports identify AI-influenced decisions
+
+When an operator acts on something a model produced, that is recorded with the
+subject, the feature, the provider and model, the policy version, and the
+operator — and whether they accepted it, **edited** it, or rejected it.
+
+Edited is separate from accepted because rewriting half of a draft is a different
+decision from pressing send unchanged. Consequential decisions — the adverse and
+financial ones — are flagged, so an export can be narrowed to the ones anybody
+will actually ask about.
+
+The export sits behind the audit export permission rather than the settings one:
+it is an audit artefact.
+
+## Evaluation and regression thresholds
+
+Omniflow ships evaluation sets for suggested replies, marketing copy, abuse
+analysis, and translation. They exist to answer a question you cannot answer by
+reading code: **has the behaviour got worse?** A prompt change, a model change,
+or a provider change can all degrade an answer without breaking a single test.
+
+Two properties make the sets safe to ship:
+
+**Every case is proven synthetic.** Each case's text runs through the production
+redactor at load time, and a case containing anything it would strip is refused.
+An evaluation set is exactly the kind of file that accumulates a real ticket
+somebody pasted in while debugging, and a promise in a README does not survive
+that.
+
+**Every expectation is a property, not a golden string.** "Cites a source it was
+given", "stays under the Telegram limit", "does not promise a refund" — these
+survive a model that words things differently. A fixture of expected output fails
+on the first paraphrase and gets deleted within a month.
+
+### The thresholds
+
+| Dimension | Floor | Why |
+| --- | --- | --- |
+| Groundedness | 1.0 | An answer built on nothing is not a quality trade-off |
+| Citation validity | 1.0 | An invented citation means an invented claim |
+| Unsafe advice | 1.0 | Reaching a customer once is once too many |
+| Constraints | 1.0 | A broken variable or an over-length message fails the send |
+| Refusal | 1.0 | A feature that answers what it should refuse has no floor worth setting |
+| Correctness | 0.9 | Language varies |
+| Tone | 0.8 | A threshold nobody can hold gets lowered rather than met |
+
+A dimension the suite does not exercise produces **no regression and no
+reassurance**. It is reported as untested instead, because conflating "we checked
+and it was fine" with "we never checked" is how a gate stops gating.
+
+<Note>
+  Evaluation runs are manual today. Running them automatically would spend your
+  budget against your configured provider without being asked.
+</Note>

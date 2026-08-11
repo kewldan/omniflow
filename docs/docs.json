@@ -21,11 +21,19 @@
       },
       {
         "group": "Architecture",
-        "pages": ["architecture/overview", "architecture/data-ownership", "architecture/technology"]
+        "pages": [
+          "architecture/overview",
+          "architecture/data-ownership",
+          "architecture/technology"
+        ]
       },
       {
         "group": "Integrations",
-        "pages": ["integrations/remnawave", "integrations/payments", "integrations/telegram"]
+        "pages": [
+          "integrations/remnawave",
+          "integrations/payments",
+          "integrations/telegram"
+        ]
       },
       {
         "group": "Commerce",
@@ -57,9 +65,12 @@
           "operations/reverse-proxy",
           "operations/admin-panel",
           "operations/admin-operations",
+          "operations/installation-settings",
           "operations/support-desk",
           "operations/required-channels",
           "operations/ai-privacy",
+          "operations/ai-governance",
+          "operations/mcp",
           "operations/risk-controls",
           "operations/observability",
           "operations/maintenance-mode",

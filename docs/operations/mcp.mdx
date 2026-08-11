@@ -1,0 +1,162 @@
+---
+title: MCP connections
+description: Connecting Omniflow to Model Context Protocol servers, and exposing Omniflow as one, without either becoming a way around your permissions.
+---
+
+An MCP server is a third party that an assistant gets access to. That is the
+whole security problem in one sentence, and every decision on this page follows
+from it.
+
+Omniflow sits on both sides of the protocol. It is a **client** of servers you
+register, and it is a **server** that a client of yours can connect to. The
+threat model is inverted between the two, and the conclusions are not symmetric.
+
+<Note>
+  **Every connection is off until an owner turns it on**, reaches only the hosts
+  and tools that owner named, and appears in the audit trail whether it succeeds
+  or is refused.
+</Note>
+
+## Omniflow as a client
+
+### Discovery is not authorisation
+
+Registering a server and enabling its tools are two different decisions.
+Discovery reads what a server advertises — its tools, resources, prompts, and
+protocol version — and stores it so you can look at it. Nothing becomes callable
+until you allowlist it individually.
+
+A rediscovery refreshes descriptions and schemas and leaves your decisions alone.
+If it re-enabled a tool you had switched off, discovery would be a way to widen
+access without anybody agreeing to it.
+
+### Every tool maps to a permission you already have
+
+A tool is unusable until you map it to an Omniflow permission, and the check
+runs against **the asking operator's own grant** rather than the server's
+authority. A support operator cannot reach a tool mapped to `finance.write`,
+through the assistant or through anything else.
+
+The panel refuses a permission that does not exist, so a typo becomes a message
+about the field rather than a tool nobody can invoke.
+
+### Arguments and results are both validated
+
+Every tool input and output is checked against the JSON Schema the server
+declared, in the subset Omniflow can actually enforce. A schema using a construct
+outside that subset makes the **tool** unusable at discovery time, with the
+reason shown, rather than being silently unenforced when it is called.
+
+Validating the way in and not the way out would leave the interesting direction
+unchecked: the result is the part an attacker controls. A result that does not
+match its declared contract is refused rather than passed on — that is the case
+where a server has been replaced.
+
+Objects are closed by default. An argument the tool never declared is not
+forwarded, because a client that forwards unknown arguments is how a
+tool-confusion attempt adds one.
+
+### Nothing external is written without a person
+
+A tool you marked as a write requires an explicit confirmation and a stated
+reason on every call. The preview shows the server, the endpoint, the tool, the
+validated arguments, the permission the call is authorised by, and whether
+anything changes outside Omniflow — because a confirmation that does not say what
+will happen is a click-through.
+
+The write flag is yours to set rather than read from the server's own annotation.
+A server that wanted to avoid a confirmation prompt would simply not set the hint.
+
+### Everything a server returns is data
+
+Tool results are fenced, labelled as data, and scanned for the shapes an indirect
+prompt injection takes: instruction overrides, role claims, tool directives,
+exfiltration attempts, and hidden text. Findings are shown to you and recorded.
+
+The scan is the secondary defence. The structural one is that the content is
+presented to a model as a quotation rather than as instruction, which changes
+what it *is* rather than trying to guess what it says. Content carrying the fence
+delimiter has it removed — an escape a model might undo is not a boundary — and
+zero-width characters are stripped, because they exist here to hide instructions
+from the person reviewing the same text the model reads.
+
+A server's own `instructions` field is captured for display and never forwarded
+to a model. A remote party that can write your system prompt controls your
+assistant.
+
+### Limits and egress
+
+| Bound | Default | What it prevents |
+| --- | --- | --- |
+| Timeout | 20s | An operator waiting on a hung connection |
+| Response size | 256 KB | Memory exhaustion, and a blown context with the bill attached |
+| Calls per request | 8 | A result that suggests another call, forever |
+| Recursion depth | 3 | The same thing, nested |
+| Cost ceiling | unset | Spend you did not agree to |
+
+Egress is checked **before every request**, not once at registration. A hostname
+resolves to a different address than it did an hour ago, and a server that
+re-points at a cloud metadata endpoint after approval is the textbook version of
+this attack. Loopback, private, and link-local addresses are refused unless you
+explicitly allow a private network — which a self-hosted server legitimately
+needs, and which is off by default because it is also how a connection becomes an
+internal port scanner.
+
+Plaintext endpoints are refused by the Go validation *and* by a table constraint.
+A rule that lives only in application code is a rule one migration script can
+step around.
+
+### When a server misbehaves
+
+Repeated transport failures open a circuit breaker, and calls are refused
+immediately until a cooldown lets one probe through. The point is not to protect
+the remote server: it is that an operator waiting on a ticket gets "this
+connection is down" in milliseconds rather than a twenty-second timeout per
+attempt.
+
+A tool that ran and returned an error does **not** trip the breaker. That is a
+working connection giving an answer, and counting it would take a server offline
+for correctly refusing a bad argument.
+
+## Omniflow as a server
+
+The first-party server exposes permission-scoped admin tools, resources, and
+operational documentation.
+
+**Every call is authorised as a person.** A connection carries a token that
+resolves to an operator, and a tool that operator could not use in the panel is a
+tool they cannot use here. There is no service identity with its own permissions;
+one would be a way around RBAC with a nicer interface.
+
+**Tools an operator cannot use are not listed.** A listing that advertises what
+somebody cannot have teaches an assistant to keep asking.
+
+**Read-only unless you say otherwise, twice.** Mutating tools need
+`AllowMutations` *and* the specific tool named in the allowlist. "Connect an
+assistant to your admin panel" should not be one switch that also means "and let
+it issue refunds".
+
+**Every mutation is idempotent by key.** A mutating tool requires an idempotency
+key, and a repeat with the same key returns the first result without running
+anything. Streamable HTTP retries, and a retried transport must not turn one
+refund into two. The same key with different arguments is refused: that is a
+caller bug, not a retry, and returning the first result would silently answer a
+question nobody asked.
+
+## What is recorded
+
+Connection changes, discoveries, tool calls, confirmations, results, failures,
+and **refusals**. A trail that only records what happened cannot answer "did
+anyone try?", which is the question asked after an incident.
+
+Each entry carries the operator, the arguments as sent, whether it was confirmed,
+the stated reason, the response size, the duration, and any injection findings in
+the result — so an answer that turns out strange has a record of the material
+that produced it.
+
+## Where to configure it
+
+**Settings → AI and MCP.** Registering a server, allowlisting its tools, mapping
+each to a permission, marking which ones write, and reading the activity trail
+all happen there. Credentials are write-only: the field is always empty because
+the API never returns a value, and leaving it empty keeps the stored one.
