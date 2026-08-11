@@ -13,7 +13,7 @@ Omniflow uses environment variables and Docker secrets. Never commit `.env` or p
 | `APP_REMNAWAVE_URL` | Yes | — | Remnawave API base URL |
 | `APP_REMNAWAVE_TOKEN` | Yes | — | Remnawave API credential |
 | `APP_OPERATOR_TOKEN` | For commerce API | — | Bearer token protecting pre-admin operator operations |
-| `APP_DATA_ENCRYPTION_KEY` | For commerce API | — | Base64-encoded 32-byte AES-GCM key for contact values |
+| `APP_DATA_ENCRYPTION_KEY` | For commerce API; optional for the worker | — | Base64-encoded 32-byte AES-GCM key for contact values, operator secrets, and provider credentials |
 | `APP_TELEGRAM_TOKEN` | For bot | — | Telegram Bot API token |
 | `APP_SUPPORT_URL` | No | — | HTTPS support chat or helpdesk URL shown by the bot |
 | `APP_TERMS_URL` | No | — | Terms of service linked from plan and checkout screens |
@@ -105,6 +105,17 @@ Store `APP_BACKUP_ENCRYPTION_KEY` somewhere the database backup itself does not 
 The operator panel at `/admin`, served by the `/v1/panel` API. It reuses
 `APP_DATA_ENCRYPTION_KEY` to seal TOTP secrets and OIDC client secrets, so that
 key is required when the panel is enabled.
+
+<Note>
+  From v0.7 the **worker** reads `APP_DATA_ENCRYPTION_KEY` too. It is the process
+  that delivers digital goods and refreshes external blocklists, and both need
+  to unseal a provider credential the panel wrote.
+
+  It stays optional there. A worker started without it logs
+  `digital goods delivery disabled` and runs everything else normally, which is
+  what an installation that sells no digital goods and subscribes to no
+  blocklist wants. Set it on the worker as soon as you configure either.
+</Note>
 
 | Variable | Required | Default | Purpose |
 | --- | --- | --- | --- |

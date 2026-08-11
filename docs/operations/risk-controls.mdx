@@ -118,6 +118,42 @@ was rolled back. The notice names the metric, the severity, and the numbers. It
 does not name the customer: an operator group is a chat, and the panel is where
 somebody with the permission looks the subject up.
 
+## When any of this runs
+
+Both surfaces are driven by `internal/sweeper` in the worker process, not by a
+request. Its passes are tickers rather than durable jobs because each is a
+whole-table sweep with no per-record argument, and each is idempotent, so a pass
+that runs twice reaches the same state as one that ran once.
+
+| Pass | Cadence |
+| --- | --- |
+| Gift and personal-offer expiry | Every sweep, five minutes by default |
+| Blocklist refresh | Every sweep, but only for sources whose own interval has elapsed |
+| Anomaly evaluation | Throttled separately, fifteen minutes by default |
+
+Anomaly evaluation is throttled on its own because it aggregates over the orders
+table, and a persisting signal is deduplicated by window — running it more often
+produces no extra alerts, only extra work.
+
+A failing pass never stops the others. A publisher being unreachable must not
+prevent gifts expiring, and a rule that cannot be evaluated must not stop a list
+refreshing. Each blocklist source is independent for the same reason: one being
+down leaves the others refreshed and leaves the failing source's previous
+entries intact, rather than emptying a list nobody could replace.
+
+## Editing thresholds and sources
+
+Both are edited in the panel under **Risk**, with `risk.write`.
+
+The threshold form applies the same coherence rule the evaluator does — an alert
+threshold at least the warning threshold, and a window of at least five minutes
+— so a rule that would be silently skipped at evaluation time is refused at save
+time instead. Each field states the unit it is in.
+
+The source form is HTTPS-only, and an empty authorization header means "keep
+what is stored", so re-saving a source never echoes its credential back into the
+browser.
+
 ## Permissions
 
 `risk.read` reads sources, matches, rules, and signals. `risk.write` decides a

@@ -505,6 +505,11 @@ them, retry or cancel a fulfillment job, replay a failed webhook, adjudicate a
 blocklist match, review an anomaly, and edit the wallet and subscription
 settings that were environment variables until now.
 
+The periodic passes that make the risk surfaces actually run — blocklist
+refresh and anomaly evaluation — arrived with `internal/sweeper`, alongside gift
+and personal-offer expiry. Thresholds and blocklist sources are editable in the
+panel rather than only through the API.
+
 Three subsystems have their data model, domain rules, and operator surfaces in
 place while their customer-facing halves are not yet wired. Their remaining
 items above are deliberately unchecked.
@@ -512,10 +517,6 @@ items above are deliberately unchecked.
 **Gifts.** Claim-code format, redemption rules, revocation and refund
 eligibility, and the operator register are implemented. Buying and claiming a
 gift in the bot is not.
-
-The periodic sweeps that make the risk surfaces run — blocklist refresh and
-anomaly evaluation — arrived with `internal/sweeper`, alongside gift and
-personal-offer expiry.
 
 **Digital goods.** The provider-neutral adapter, the gateway implementation,
 pricing with markup and rounding, quote expiry, the delivery worker with its
@@ -535,8 +536,10 @@ to poll.
 lead time, the dunning schedule, and the operator review queue are implemented.
 The worker that attempts a charge and the customer consent flow are not.
 
-Nothing in those three can be reached by a customer today, so no order can be
-created against them. Each is documented with the same caveat in `docs/`.
+No customer can reach any of the three today, so nothing creates a gift, a shop
+order, or an automatic charge. Everything downstream of such an order existing
+runs for digital goods; for recurring payments the worker itself is the gap.
+Each is documented with the same caveat in `docs/`.
 
 ### Verification debt
 
