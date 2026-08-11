@@ -1,13 +1,14 @@
 "use client";
 
 import { Badge } from "@omniflow/ui/badge";
+import { Button } from "@omniflow/ui/button";
 import { Card } from "@omniflow/ui/card";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Switch } from "@omniflow/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@omniflow/ui/tabs";
 import { useLocale, useTranslations } from "next-intl";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import useSWR from "swr";
 
 import { PageHeader } from "@/components/admin/resource-table";
@@ -21,6 +22,9 @@ import {
   useOperatorAction,
 } from "@/lib/operations";
 import { useSession } from "@/lib/session";
+
+import { Addons } from "./addon-editor";
+import { PlanVersionEditor } from "./version-editor";
 
 /**
  * Plans, add-ons, and promotions.
@@ -40,10 +44,14 @@ export function CatalogBrowser() {
       <Tabs onValueChange={setTab} value={tab}>
         <TabsList>
           <TabsTrigger value="plans">{translate("tabs.plans")}</TabsTrigger>
+          <TabsTrigger value="addons">{translate("tabs.addons")}</TabsTrigger>
           <TabsTrigger value="promotions">{translate("tabs.promotions")}</TabsTrigger>
         </TabsList>
         <TabsContent value="plans">
           <Plans active={tab === "plans"} />
+        </TabsContent>
+        <TabsContent value="addons">
+          <Addons active={tab === "addons"} />
         </TabsContent>
         <TabsContent value="promotions">
           <Promotions active={tab === "promotions"} />
@@ -57,6 +65,7 @@ function Plans({ active }: { active: boolean }) {
   const translate = useTranslations("admin.catalog");
   const { can } = useSession();
   const { run, pending } = useOperatorAction();
+  const [editing, setEditing] = useState("");
 
   const { data, isLoading, mutate } = useSWR<Listing<PlanSummary>, ApiError>(
     active ? "/v1/panel/catalog/plans" : null,
@@ -90,42 +99,69 @@ function Plans({ active }: { active: boolean }) {
             <TableHead>{translate("columns.orders")}</TableHead>
             <TableHead>{translate("columns.concurrency")}</TableHead>
             <TableHead>{translate("columns.visible")}</TableHead>
+            <TableHead />
           </TableRow>
         </TableHeader>
         <TableBody>
           {items.map((plan) => (
-            <TableRow key={plan.id}>
-              <TableCell className="font-mono text-[12px]">
-                <span className="flex items-center gap-2">
-                  {plan.code}
-                  {plan.archivedAt && <Badge variant="neutral">{translate("archived")}</Badge>}
-                </span>
-              </TableCell>
-              <TableCell>{translate(`kind.${plan.kind}`)}</TableCell>
-              <TableCell data-numeric>v{plan.latestVersion}</TableCell>
-              <TableCell data-numeric>{plan.orderLineCount}</TableCell>
-              <TableCell data-numeric>{plan.maxConcurrentPerCustomer ?? "—"}</TableCell>
-              <TableCell>
-                <Switch
-                  aria-label={translate("columns.visible")}
-                  checked={plan.visible}
-                  disabled={!can("catalog.write") || pending || Boolean(plan.archivedAt)}
-                  onCheckedChange={async (visible) => {
-                    const ok = await run(`/v1/panel/catalog/plans/${plan.id}`, {
-                      body: {
-                        maxConcurrentPerCustomer: plan.maxConcurrentPerCustomer ?? null,
-                        sortOrder: plan.sortOrder,
-                        visible,
-                      },
-                      method: "PATCH",
-                    });
-                    if (ok) {
-                      await mutate();
-                    }
-                  }}
-                />
-              </TableCell>
-            </TableRow>
+            <Fragment key={plan.id}>
+              <TableRow>
+                <TableCell className="font-mono text-[12px]">
+                  <span className="flex items-center gap-2">
+                    {plan.code}
+                    {plan.archivedAt && <Badge variant="neutral">{translate("archived")}</Badge>}
+                  </span>
+                </TableCell>
+                <TableCell>{translate(`kind.${plan.kind}`)}</TableCell>
+                <TableCell data-numeric>v{plan.latestVersion}</TableCell>
+                <TableCell data-numeric>{plan.orderLineCount}</TableCell>
+                <TableCell data-numeric>{plan.maxConcurrentPerCustomer ?? "—"}</TableCell>
+                <TableCell>
+                  <Switch
+                    aria-label={translate("columns.visible")}
+                    checked={plan.visible}
+                    disabled={!can("catalog.write") || pending || Boolean(plan.archivedAt)}
+                    onCheckedChange={async (visible) => {
+                      const ok = await run(`/v1/panel/catalog/plans/${plan.id}`, {
+                        body: {
+                          maxConcurrentPerCustomer: plan.maxConcurrentPerCustomer ?? null,
+                          sortOrder: plan.sortOrder,
+                          visible,
+                        },
+                        method: "PATCH",
+                      });
+                      if (ok) {
+                        await mutate();
+                      }
+                    }}
+                  />
+                </TableCell>
+                <TableCell>
+                  {can("catalog.write") && !plan.archivedAt && (
+                    <Button
+                      onClick={() => setEditing(editing === plan.id ? "" : plan.id)}
+                      size="sm"
+                      variant="ghost"
+                    >
+                      {translate(editing === plan.id ? "version.close" : "version.open")}
+                    </Button>
+                  )}
+                </TableCell>
+              </TableRow>
+              {editing === plan.id && (
+                <TableRow>
+                  <TableCell className="p-2" colSpan={7}>
+                    <PlanVersionEditor
+                      onPublished={() => {
+                        setEditing("");
+                        void mutate();
+                      }}
+                      planId={plan.id}
+                    />
+                  </TableCell>
+                </TableRow>
+              )}
+            </Fragment>
           ))}
         </TableBody>
       </Table>

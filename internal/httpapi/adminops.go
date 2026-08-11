@@ -88,7 +88,10 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 		write.Patch("/catalog/plans/{planID}", handlers.updatePlan)
 		write.Post("/catalog/plans/{planID}/archive", handlers.archivePlan)
 		write.Put("/catalog/plans/{planID}/localizations/{locale}", handlers.savePlanLocalization)
+		write.Post("/catalog/plans/{planID}/versions", handlers.createPlanVersion)
 		write.Post("/catalog/plan-versions/{planVersionID}/retire", handlers.retirePlanVersion)
+		write.Put("/catalog/addons", handlers.saveAddon)
+		write.Post("/catalog/addon-versions/{addonVersionID}/retire", handlers.retireAddonVersion)
 		write.Patch("/catalog/promotions/{promotionID}", handlers.updatePromotion)
 		write.Post("/catalog/promo-codes/{promoCodeID}/status", handlers.setPromoCodeActive)
 	})
@@ -1114,6 +1117,91 @@ func (handlers *AdminHandlers) configureRecurring(writer http.ResponseWriter, re
 		saved.AdapterRecurring = handlers.adapterRecurring[provider]
 	}
 	handlers.respond(writer, request, saved, err)
+}
+
+// createPlanVersion publishes the next version of a plan.
+//
+// There is no update route on purpose. A plan version is immutable once an
+// order references it, so an editor that could change one would silently
+// re-price history; publishing the next version leaves the old one costing what
+// it cost.
+func (handlers *AdminHandlers) createPlanVersion(writer http.ResponseWriter, request *http.Request) {
+	var body struct {
+		BillingPeriod         string           `json:"billingPeriod"`
+		DurationSeconds       int64            `json:"durationSeconds"`
+		TrafficAllowanceBytes *int64           `json:"trafficAllowanceBytes"`
+		DeviceLimit           *int32           `json:"deviceLimit"`
+		SquadIDs              []string         `json:"squadIds"`
+		SquadSelection        string           `json:"squadSelection"`
+		MinSelectableSquads   int32            `json:"minSelectableSquads"`
+		MaxSelectableSquads   *int32           `json:"maxSelectableSquads"`
+		UpgradePolicy         string           `json:"upgradePolicy"`
+		DowngradePolicy       string           `json:"downgradePolicy"`
+		CancellationPolicy    string           `json:"cancellationPolicy"`
+		GracePeriodSeconds    int64            `json:"gracePeriodSeconds"`
+		TrialEligibility      string           `json:"trialEligibility"`
+		RecurringCapable      bool             `json:"recurringCapable"`
+		Prices                map[string]int64 `json:"prices"`
+		AddonIDs              []string         `json:"addonIds"`
+	}
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	version, err := handlers.operations.CreatePlanVersion(
+		request.Context(), chi.URLParam(request, "planID"),
+		panelpg.PlanVersionInput{
+			BillingPeriod: body.BillingPeriod, DurationSeconds: body.DurationSeconds,
+			TrafficAllowanceBytes: body.TrafficAllowanceBytes, DeviceLimit: body.DeviceLimit,
+			SquadIDs: body.SquadIDs, SquadSelection: body.SquadSelection,
+			MinSelectableSquads: body.MinSelectableSquads,
+			MaxSelectableSquads: body.MaxSelectableSquads,
+			UpgradePolicy:       body.UpgradePolicy, DowngradePolicy: body.DowngradePolicy,
+			CancellationPolicy: body.CancellationPolicy,
+			GracePeriodSeconds: body.GracePeriodSeconds,
+			TrialEligibility:   body.TrialEligibility, RecurringCapable: body.RecurringCapable,
+			Prices: body.Prices, AddonIDs: body.AddonIDs,
+		}, actorFrom(request),
+	)
+	handlers.respond(writer, request, version, err)
+}
+
+// saveAddon creates or updates an add-on and publishes a new version of it.
+func (handlers *AdminHandlers) saveAddon(writer http.ResponseWriter, request *http.Request) {
+	var body struct {
+		Code          string           `json:"code"`
+		Kind          string           `json:"kind"`
+		Visible       bool             `json:"visible"`
+		SortOrder     int32            `json:"sortOrder"`
+		NameEN        string           `json:"nameEn"`
+		NameRU        string           `json:"nameRu"`
+		DescriptionEN string           `json:"descriptionEn"`
+		DescriptionRU string           `json:"descriptionRu"`
+		TrafficBytes  *int64           `json:"trafficBytes"`
+		DeviceSlots   *int32           `json:"deviceSlots"`
+		SquadIDs      []string         `json:"squadIds"`
+		MaxQuantity   int32            `json:"maxQuantity"`
+		Proration     string           `json:"proration"`
+		Prices        map[string]int64 `json:"prices"`
+	}
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	addonID, err := handlers.operations.SaveAddon(request.Context(), panelpg.AddonInput{
+		Code: body.Code, Kind: body.Kind, Visible: body.Visible, SortOrder: body.SortOrder,
+		NameEN: body.NameEN, NameRU: body.NameRU,
+		DescriptionEN: body.DescriptionEN, DescriptionRU: body.DescriptionRU,
+		TrafficBytes: body.TrafficBytes, DeviceSlots: body.DeviceSlots,
+		SquadIDs: body.SquadIDs, MaxQuantity: body.MaxQuantity,
+		Proration: body.Proration, Prices: body.Prices,
+	}, actorFrom(request))
+	handlers.respond(writer, request, map[string]any{"id": addonID}, err)
+}
+
+func (handlers *AdminHandlers) retireAddonVersion(writer http.ResponseWriter, request *http.Request) {
+	err := handlers.operations.RetireAddonVersion(
+		request.Context(), chi.URLParam(request, "addonVersionID"), actorFrom(request),
+	)
+	handlers.respond(writer, request, map[string]any{"retired": true}, err)
 }
 
 // ---------------------------------------------------------------------------

@@ -200,6 +200,34 @@ export type Promotion = {
  * too. What the offer adds is a target, a validity window, its own copy in both
  * languages, and single-use redemption.
  */
+/**
+ * One immutable version of a plan.
+ *
+ * A version is never edited: once an order references it, changing it would
+ * re-price history. The editor publishes the next version instead.
+ */
+export type PlanVersion = {
+  id: string;
+  version: number;
+  billingPeriod: string;
+  durationSeconds: number;
+  trafficAllowanceBytes?: number;
+  deviceLimit?: number;
+  squadIds: string[];
+  squadSelection: string;
+  minSelectableSquads: number;
+  maxSelectableSquads?: number;
+  upgradePolicy: string;
+  downgradePolicy: string;
+  cancellationPolicy: string;
+  gracePeriodSeconds: number;
+  trialEligibility: string;
+  recurringCapable: boolean;
+  prices: Record<string, number>;
+  createdAt: string;
+  retiredAt?: string;
+};
+
 export type PersonalOffer = {
   id: string;
   customerId: string;

@@ -135,6 +135,74 @@ func (q *Queries) CompleteBulkOperationItem(ctx context.Context, arg CompleteBul
 	return i, err
 }
 
+const createAddonPrice = `-- name: CreateAddonPrice :one
+INSERT INTO addon_prices (addon_version_id, currency, amount_minor)
+VALUES ($1, $2, $3)
+ON CONFLICT (addon_version_id, currency) DO UPDATE SET amount_minor = EXCLUDED.amount_minor
+RETURNING addon_version_id, currency, amount_minor
+`
+
+type CreateAddonPriceParams struct {
+	AddonVersionID pgtype.UUID `json:"addon_version_id"`
+	Currency       string      `json:"currency"`
+	AmountMinor    int64       `json:"amount_minor"`
+}
+
+func (q *Queries) CreateAddonPrice(ctx context.Context, arg CreateAddonPriceParams) (AddonPrice, error) {
+	row := q.db.QueryRow(ctx, createAddonPrice, arg.AddonVersionID, arg.Currency, arg.AmountMinor)
+	var i AddonPrice
+	err := row.Scan(&i.AddonVersionID, &i.Currency, &i.AmountMinor)
+	return i, err
+}
+
+const createAddonVersion = `-- name: CreateAddonVersion :one
+INSERT INTO addon_versions (
+  addon_id, version, traffic_bytes, device_slots, remnawave_squad_ids,
+  max_quantity, proration
+) VALUES (
+  $1, $2, $3,
+  $4, $5,
+  $6, $7
+)
+RETURNING id, addon_id, version, traffic_bytes, device_slots, remnawave_squad_ids, max_quantity, proration, created_at, retired_at
+`
+
+type CreateAddonVersionParams struct {
+	AddonID           pgtype.UUID   `json:"addon_id"`
+	Version           int32         `json:"version"`
+	TrafficBytes      pgtype.Int8   `json:"traffic_bytes"`
+	DeviceSlots       pgtype.Int4   `json:"device_slots"`
+	RemnawaveSquadIds []pgtype.UUID `json:"remnawave_squad_ids"`
+	MaxQuantity       int32         `json:"max_quantity"`
+	Proration         string        `json:"proration"`
+}
+
+func (q *Queries) CreateAddonVersion(ctx context.Context, arg CreateAddonVersionParams) (AddonVersion, error) {
+	row := q.db.QueryRow(ctx, createAddonVersion,
+		arg.AddonID,
+		arg.Version,
+		arg.TrafficBytes,
+		arg.DeviceSlots,
+		arg.RemnawaveSquadIds,
+		arg.MaxQuantity,
+		arg.Proration,
+	)
+	var i AddonVersion
+	err := row.Scan(
+		&i.ID,
+		&i.AddonID,
+		&i.Version,
+		&i.TrafficBytes,
+		&i.DeviceSlots,
+		&i.RemnawaveSquadIds,
+		&i.MaxQuantity,
+		&i.Proration,
+		&i.CreatedAt,
+		&i.RetiredAt,
+	)
+	return i, err
+}
+
 const createBulkOperation = `-- name: CreateBulkOperation :one
 
 INSERT INTO bulk_operations (kind, requested_by, reason, parameters, idempotency_key)
@@ -181,6 +249,93 @@ func (q *Queries) CreateBulkOperation(ctx context.Context, arg CreateBulkOperati
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CompletedAt,
+	)
+	return i, err
+}
+
+const createPlanVersionFull = `-- name: CreatePlanVersionFull :one
+
+INSERT INTO plan_versions (
+  plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes,
+  device_limit, remnawave_squad_ids, squad_selection, min_selectable_squads,
+  max_selectable_squads, upgrade_policy, downgrade_policy, cancellation_policy,
+  grace_period_seconds, trial_eligibility, recurring_capable
+) VALUES (
+  $1, $2, $3,
+  $4, $5,
+  $6, $7, $8,
+  $9, $10,
+  $11, $12, $13,
+  $14, $15, $16
+)
+RETURNING id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads
+`
+
+type CreatePlanVersionFullParams struct {
+	PlanID                pgtype.UUID   `json:"plan_id"`
+	Version               int32         `json:"version"`
+	BillingPeriod         string        `json:"billing_period"`
+	DurationSeconds       int64         `json:"duration_seconds"`
+	TrafficAllowanceBytes pgtype.Int8   `json:"traffic_allowance_bytes"`
+	DeviceLimit           pgtype.Int4   `json:"device_limit"`
+	RemnawaveSquadIds     []pgtype.UUID `json:"remnawave_squad_ids"`
+	SquadSelection        string        `json:"squad_selection"`
+	MinSelectableSquads   int32         `json:"min_selectable_squads"`
+	MaxSelectableSquads   pgtype.Int4   `json:"max_selectable_squads"`
+	UpgradePolicy         string        `json:"upgrade_policy"`
+	DowngradePolicy       string        `json:"downgrade_policy"`
+	CancellationPolicy    string        `json:"cancellation_policy"`
+	GracePeriodSeconds    int64         `json:"grace_period_seconds"`
+	TrialEligibility      string        `json:"trial_eligibility"`
+	RecurringCapable      bool          `json:"recurring_capable"`
+}
+
+// ---------------------------------------------------------------------------
+// Catalogue authoring
+// ---------------------------------------------------------------------------
+// A plan version is immutable once an order references it, so the editor never
+// updates one: it creates the next version and lets the old one keep pricing
+// the orders that already used it.
+func (q *Queries) CreatePlanVersionFull(ctx context.Context, arg CreatePlanVersionFullParams) (PlanVersion, error) {
+	row := q.db.QueryRow(ctx, createPlanVersionFull,
+		arg.PlanID,
+		arg.Version,
+		arg.BillingPeriod,
+		arg.DurationSeconds,
+		arg.TrafficAllowanceBytes,
+		arg.DeviceLimit,
+		arg.RemnawaveSquadIds,
+		arg.SquadSelection,
+		arg.MinSelectableSquads,
+		arg.MaxSelectableSquads,
+		arg.UpgradePolicy,
+		arg.DowngradePolicy,
+		arg.CancellationPolicy,
+		arg.GracePeriodSeconds,
+		arg.TrialEligibility,
+		arg.RecurringCapable,
+	)
+	var i PlanVersion
+	err := row.Scan(
+		&i.ID,
+		&i.PlanID,
+		&i.Version,
+		&i.BillingPeriod,
+		&i.DurationSeconds,
+		&i.TrafficAllowanceBytes,
+		&i.DeviceLimit,
+		&i.RemnawaveSquadIds,
+		&i.UpgradePolicy,
+		&i.DowngradePolicy,
+		&i.CancellationPolicy,
+		&i.RecurringCapable,
+		&i.CreatedAt,
+		&i.RetiredAt,
+		&i.GracePeriodSeconds,
+		&i.TrialEligibility,
+		&i.SquadSelection,
+		&i.MinSelectableSquads,
+		&i.MaxSelectableSquads,
 	)
 	return i, err
 }
@@ -2026,6 +2181,34 @@ func (q *Queries) MarkWebhookEventForReplay(ctx context.Context, eventID pgtype.
 	return i, err
 }
 
+const nextAddonVersion = `-- name: NextAddonVersion :one
+WITH locked AS (SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0)))
+SELECT COALESCE(max(version), 0)::integer + 1 FROM addon_versions, locked WHERE addon_id = $1
+`
+
+func (q *Queries) NextAddonVersion(ctx context.Context, addonID pgtype.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, nextAddonVersion, addonID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const offerAddonWithPlanVersion = `-- name: OfferAddonWithPlanVersion :exec
+INSERT INTO plan_version_addons (plan_version_id, addon_id)
+VALUES ($1, $2)
+ON CONFLICT DO NOTHING
+`
+
+type OfferAddonWithPlanVersionParams struct {
+	PlanVersionID pgtype.UUID `json:"plan_version_id"`
+	AddonID       pgtype.UUID `json:"addon_id"`
+}
+
+func (q *Queries) OfferAddonWithPlanVersion(ctx context.Context, arg OfferAddonWithPlanVersionParams) error {
+	_, err := q.db.Exec(ctx, offerAddonWithPlanVersion, arg.PlanVersionID, arg.AddonID)
+	return err
+}
+
 const recordProviderConnectionCheck = `-- name: RecordProviderConnectionCheck :one
 UPDATE payment_provider_settings
 SET connection_status = $1,
@@ -2215,6 +2398,30 @@ func (q *Queries) RequeueFulfillmentOperation(ctx context.Context, operationID p
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CompletedAt,
+	)
+	return i, err
+}
+
+const retireAddonVersion = `-- name: RetireAddonVersion :one
+UPDATE addon_versions SET retired_at = now()
+WHERE id = $1 AND retired_at IS NULL
+RETURNING id, addon_id, version, traffic_bytes, device_slots, remnawave_squad_ids, max_quantity, proration, created_at, retired_at
+`
+
+func (q *Queries) RetireAddonVersion(ctx context.Context, addonVersionID pgtype.UUID) (AddonVersion, error) {
+	row := q.db.QueryRow(ctx, retireAddonVersion, addonVersionID)
+	var i AddonVersion
+	err := row.Scan(
+		&i.ID,
+		&i.AddonID,
+		&i.Version,
+		&i.TrafficBytes,
+		&i.DeviceSlots,
+		&i.RemnawaveSquadIds,
+		&i.MaxQuantity,
+		&i.Proration,
+		&i.CreatedAt,
+		&i.RetiredAt,
 	)
 	return i, err
 }
@@ -2741,6 +2948,17 @@ func (q *Queries) SetBulkOperationTotal(ctx context.Context, arg SetBulkOperatio
 	return i, err
 }
 
+const setPlanVersionAddons = `-- name: SetPlanVersionAddons :exec
+DELETE FROM plan_version_addons WHERE plan_version_id = $1
+`
+
+// Replaces the add-ons offered with a plan version. Deleting first keeps the
+// set exactly what the operator chose rather than the union of every edit.
+func (q *Queries) SetPlanVersionAddons(ctx context.Context, planVersionID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, setPlanVersionAddons, planVersionID)
+	return err
+}
+
 const setPromoCodeActive = `-- name: SetPromoCodeActive :one
 UPDATE promo_codes SET active = $1 WHERE id = $2 RETURNING id, promotion_id, normalized_code, redemption_limit, active, created_at
 `
@@ -3030,6 +3248,73 @@ func (q *Queries) UpdateTopUpSettings(ctx context.Context, arg UpdateTopUpSettin
 		&i.MaxSubscriptionsPerCustomer,
 		&i.UpdatedAt,
 		&i.UpdatedBy,
+	)
+	return i, err
+}
+
+const upsertAddon = `-- name: UpsertAddon :one
+INSERT INTO addons (code, kind, visible, sort_order)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (code) DO UPDATE
+  SET visible = EXCLUDED.visible, sort_order = EXCLUDED.sort_order
+RETURNING id, code, kind, visible, sort_order, created_at, archived_at
+`
+
+type UpsertAddonParams struct {
+	Code      string `json:"code"`
+	Kind      string `json:"kind"`
+	Visible   bool   `json:"visible"`
+	SortOrder int32  `json:"sort_order"`
+}
+
+func (q *Queries) UpsertAddon(ctx context.Context, arg UpsertAddonParams) (Addon, error) {
+	row := q.db.QueryRow(ctx, upsertAddon,
+		arg.Code,
+		arg.Kind,
+		arg.Visible,
+		arg.SortOrder,
+	)
+	var i Addon
+	err := row.Scan(
+		&i.ID,
+		&i.Code,
+		&i.Kind,
+		&i.Visible,
+		&i.SortOrder,
+		&i.CreatedAt,
+		&i.ArchivedAt,
+	)
+	return i, err
+}
+
+const upsertAddonLocalization = `-- name: UpsertAddonLocalization :one
+INSERT INTO addon_localizations (addon_id, locale, name, description)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (addon_id, locale) DO UPDATE
+  SET name = EXCLUDED.name, description = EXCLUDED.description
+RETURNING addon_id, locale, name, description
+`
+
+type UpsertAddonLocalizationParams struct {
+	AddonID     pgtype.UUID `json:"addon_id"`
+	Locale      string      `json:"locale"`
+	Name        string      `json:"name"`
+	Description string      `json:"description"`
+}
+
+func (q *Queries) UpsertAddonLocalization(ctx context.Context, arg UpsertAddonLocalizationParams) (AddonLocalization, error) {
+	row := q.db.QueryRow(ctx, upsertAddonLocalization,
+		arg.AddonID,
+		arg.Locale,
+		arg.Name,
+		arg.Description,
+	)
+	var i AddonLocalization
+	err := row.Scan(
+		&i.AddonID,
+		&i.Locale,
+		&i.Name,
+		&i.Description,
 	)
 	return i, err
 }

@@ -423,12 +423,12 @@ Goal: let operators run day-to-day customer, subscription, and financial operati
 ### Catalog and promotions
 
 - [x] Plan list, create, version, archive, visibility, localization, and ordering
-- [ ] Price, currency, duration, traffic, device, squad, and eligibility configuration
-- [ ] Trial, upgrade, downgrade, grace-period, and renewal policies
+- [x] Price, currency, duration, traffic, device, squad, and eligibility configuration
+- [x] Trial, upgrade, downgrade, grace-period, and renewal policies
 - [x] Multiple-subscription enablement with per-customer and per-plan concurrency limits
 - [x] Promotion and promo-code management with usage analytics
-- [ ] Plan-scoped squad sets, selection policy, and subscription-configurator visibility
-- [ ] Add-on catalog for traffic, device slots, and squads with versioned pricing and proration rules
+- [x] Plan-scoped squad sets, selection policy, and subscription-configurator visibility
+- [x] Add-on catalog for traffic, device slots, and squads with versioned pricing and proration rules
 - [x] Promo-code reward types for fixed amount, percentage, subscription days, and trial grant
 - [x] Wallet-credit promo codes recorded as ordinary ledger entries
 - [x] Stacking rules, precedence order, and explicit rejection reasons

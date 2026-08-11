@@ -712,3 +712,76 @@ SELECT * FROM addon_versions WHERE addon_id = $1 ORDER BY version DESC;
 
 -- name: ListAddonPrices :many
 SELECT * FROM addon_prices WHERE addon_version_id = $1 ORDER BY currency;
+
+-- ---------------------------------------------------------------------------
+-- Catalogue authoring
+-- ---------------------------------------------------------------------------
+
+-- name: CreatePlanVersionFull :one
+-- A plan version is immutable once an order references it, so the editor never
+-- updates one: it creates the next version and lets the old one keep pricing
+-- the orders that already used it.
+INSERT INTO plan_versions (
+  plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes,
+  device_limit, remnawave_squad_ids, squad_selection, min_selectable_squads,
+  max_selectable_squads, upgrade_policy, downgrade_policy, cancellation_policy,
+  grace_period_seconds, trial_eligibility, recurring_capable
+) VALUES (
+  sqlc.arg(plan_id), sqlc.arg(version), sqlc.arg(billing_period),
+  sqlc.arg(duration_seconds), sqlc.narg(traffic_allowance_bytes),
+  sqlc.narg(device_limit), sqlc.arg(remnawave_squad_ids), sqlc.arg(squad_selection),
+  sqlc.arg(min_selectable_squads), sqlc.narg(max_selectable_squads),
+  sqlc.arg(upgrade_policy), sqlc.arg(downgrade_policy), sqlc.arg(cancellation_policy),
+  sqlc.arg(grace_period_seconds), sqlc.arg(trial_eligibility), sqlc.arg(recurring_capable)
+)
+RETURNING *;
+
+-- name: SetPlanVersionAddons :exec
+-- Replaces the add-ons offered with a plan version. Deleting first keeps the
+-- set exactly what the operator chose rather than the union of every edit.
+DELETE FROM plan_version_addons WHERE plan_version_id = sqlc.arg(plan_version_id);
+
+-- name: OfferAddonWithPlanVersion :exec
+INSERT INTO plan_version_addons (plan_version_id, addon_id)
+VALUES (sqlc.arg(plan_version_id), sqlc.arg(addon_id))
+ON CONFLICT DO NOTHING;
+
+-- name: UpsertAddon :one
+INSERT INTO addons (code, kind, visible, sort_order)
+VALUES (sqlc.arg(code), sqlc.arg(kind), sqlc.arg(visible), sqlc.arg(sort_order))
+ON CONFLICT (code) DO UPDATE
+  SET visible = EXCLUDED.visible, sort_order = EXCLUDED.sort_order
+RETURNING *;
+
+-- name: UpsertAddonLocalization :one
+INSERT INTO addon_localizations (addon_id, locale, name, description)
+VALUES (sqlc.arg(addon_id), sqlc.arg(locale), sqlc.arg(name), sqlc.arg(description))
+ON CONFLICT (addon_id, locale) DO UPDATE
+  SET name = EXCLUDED.name, description = EXCLUDED.description
+RETURNING *;
+
+-- name: NextAddonVersion :one
+WITH locked AS (SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0)))
+SELECT COALESCE(max(version), 0)::integer + 1 FROM addon_versions, locked WHERE addon_id = $1;
+
+-- name: CreateAddonVersion :one
+INSERT INTO addon_versions (
+  addon_id, version, traffic_bytes, device_slots, remnawave_squad_ids,
+  max_quantity, proration
+) VALUES (
+  sqlc.arg(addon_id), sqlc.arg(version), sqlc.narg(traffic_bytes),
+  sqlc.narg(device_slots), sqlc.arg(remnawave_squad_ids),
+  sqlc.arg(max_quantity), sqlc.arg(proration)
+)
+RETURNING *;
+
+-- name: CreateAddonPrice :one
+INSERT INTO addon_prices (addon_version_id, currency, amount_minor)
+VALUES (sqlc.arg(addon_version_id), sqlc.arg(currency), sqlc.arg(amount_minor))
+ON CONFLICT (addon_version_id, currency) DO UPDATE SET amount_minor = EXCLUDED.amount_minor
+RETURNING *;
+
+-- name: RetireAddonVersion :one
+UPDATE addon_versions SET retired_at = now()
+WHERE id = sqlc.arg(addon_version_id) AND retired_at IS NULL
+RETURNING *;

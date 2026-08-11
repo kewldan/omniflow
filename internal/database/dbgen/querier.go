@@ -83,6 +83,8 @@ type Querier interface {
 	CountRunningBackups(ctx context.Context) (int32, error)
 	CountUnpublishedOutboxEvents(ctx context.Context) (CountUnpublishedOutboxEventsRow, error)
 	CountUnusedAdminRecoveryCodes(ctx context.Context, adminUserID pgtype.UUID) (int64, error)
+	CreateAddonPrice(ctx context.Context, arg CreateAddonPriceParams) (AddonPrice, error)
+	CreateAddonVersion(ctx context.Context, arg CreateAddonVersionParams) (AddonVersion, error)
 	// ---------------------------------------------------------------------------
 	// Password resets
 	// ---------------------------------------------------------------------------
@@ -147,6 +149,13 @@ type Querier interface {
 	CreatePlan(ctx context.Context, arg CreatePlanParams) (Plan, error)
 	CreatePlanPrice(ctx context.Context, arg CreatePlanPriceParams) (PlanPrice, error)
 	CreatePlanVersion(ctx context.Context, arg CreatePlanVersionParams) (PlanVersion, error)
+	// ---------------------------------------------------------------------------
+	// Catalogue authoring
+	// ---------------------------------------------------------------------------
+	// A plan version is immutable once an order references it, so the editor never
+	// updates one: it creates the next version and lets the old one keep pricing
+	// the orders that already used it.
+	CreatePlanVersionFull(ctx context.Context, arg CreatePlanVersionFullParams) (PlanVersion, error)
 	CreatePromoCode(ctx context.Context, arg CreatePromoCodeParams) (PromoCode, error)
 	CreatePromotion(ctx context.Context, arg CreatePromotionParams) (Promotion, error)
 	CreateRefund(ctx context.Context, arg CreateRefundParams) (Refund, error)
@@ -561,6 +570,7 @@ type Querier interface {
 	// source that lists one of them. An exact index probe per source, so the check
 	// is cheap enough to run on the sign-up and purchase paths.
 	MatchBlocklistFingerprints(ctx context.Context, fingerprints [][]byte) ([]MatchBlocklistFingerprintsRow, error)
+	NextAddonVersion(ctx context.Context, addonID pgtype.UUID) (int32, error)
 	NextPlanVersion(ctx context.Context, planID pgtype.UUID) (int32, error)
 	// ---------------------------------------------------------------------------
 	// Observations the rules are evaluated against
@@ -583,6 +593,7 @@ type Querier interface {
 	// The distinction is why the rule's window only controls how often a signal is
 	// re-raised, and it is documented on the operator page as well.
 	ObserveTrafficUsage(ctx context.Context, arg ObserveTrafficUsageParams) ([]ObserveTrafficUsageRow, error)
+	OfferAddonWithPlanVersion(ctx context.Context, arg OfferAddonWithPlanVersionParams) error
 	// Stops a delivery whose outcome nobody can safely resolve.
 	//
 	// It leaves the due queue — the worker's index selects only 'pending' and
@@ -641,6 +652,7 @@ type Querier interface {
 	// An operator's verdict on a parked delivery. 'delivered' records that the
 	// goods did arrive; 'failed' releases it to the refund path.
 	ResolveGoodsDeliveryReview(ctx context.Context, arg ResolveGoodsDeliveryReviewParams) (GoodsDelivery, error)
+	RetireAddonVersion(ctx context.Context, addonVersionID pgtype.UUID) (AddonVersion, error)
 	RetirePlanVersion(ctx context.Context, planVersionID pgtype.UUID) (PlanVersion, error)
 	ReviewAnomalySignal(ctx context.Context, arg ReviewAnomalySignalParams) (AnomalySignal, error)
 	RevokeAdminRole(ctx context.Context, arg RevokeAdminRoleParams) error
@@ -729,6 +741,9 @@ type Querier interface {
 	SetGoodsOrderStatus(ctx context.Context, arg SetGoodsOrderStatusParams) (GoodsOrder, error)
 	SetMaintenanceState(ctx context.Context, arg SetMaintenanceStateParams) (MaintenanceState, error)
 	SetOrderState(ctx context.Context, arg SetOrderStateParams) (Order, error)
+	// Replaces the add-ons offered with a plan version. Deleting first keeps the
+	// set exactly what the operator chose rather than the union of every edit.
+	SetPlanVersionAddons(ctx context.Context, planVersionID pgtype.UUID) error
 	SetPlanVisibility(ctx context.Context, arg SetPlanVisibilityParams) (Plan, error)
 	SetPromoCodeActive(ctx context.Context, arg SetPromoCodeActiveParams) (PromoCode, error)
 	// The two writes are one statement on purpose: `recurring_enabled` may only be
@@ -768,6 +783,8 @@ type Querier interface {
 	UpdatePromotion(ctx context.Context, arg UpdatePromotionParams) (Promotion, error)
 	UpdateSubscriptionSettings(ctx context.Context, arg UpdateSubscriptionSettingsParams) (CommerceSetting, error)
 	UpdateTopUpSettings(ctx context.Context, arg UpdateTopUpSettingsParams) (CommerceSetting, error)
+	UpsertAddon(ctx context.Context, arg UpsertAddonParams) (Addon, error)
+	UpsertAddonLocalization(ctx context.Context, arg UpsertAddonLocalizationParams) (AddonLocalization, error)
 	UpsertAdminOIDCProvider(ctx context.Context, arg UpsertAdminOIDCProviderParams) (AdminOidcProvider, error)
 	UpsertAnomalyRule(ctx context.Context, arg UpsertAnomalyRuleParams) (AnomalyRule, error)
 	// `consent_at` is only ever written when auto-renew is being turned on, and it

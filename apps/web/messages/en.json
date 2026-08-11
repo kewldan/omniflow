@@ -743,7 +743,8 @@
       "exclusive": "Exclusive",
       "tabs": {
         "plans": "Plans",
-        "promotions": "Promotions"
+        "promotions": "Promotions",
+        "addons": "Add-ons"
       },
       "columns": {
         "code": "Code",
@@ -776,6 +777,117 @@
         "credit": "{amount} wallet credit",
         "days": "{value} extra days",
         "trial": "{value}-day trial"
+      },
+      "version": {
+        "open": "New version",
+        "close": "Close",
+        "title": "Publish the next version",
+        "description": "A plan version is immutable once an order references it, so this publishes a new one instead of changing the current one.",
+        "billingPeriod": "Billing period",
+        "billingPeriodValue": {
+          "day": "Daily",
+          "week": "Weekly",
+          "month": "Monthly",
+          "quarter": "Quarterly",
+          "year": "Yearly",
+          "custom": "Custom"
+        },
+        "duration": "Duration (days)",
+        "durationHint": "How long one period lasts.",
+        "grace": "Grace period (days)",
+        "graceHint": "Access continues this long after expiry. Zero disables it.",
+        "traffic": "Traffic (GB)",
+        "trafficHint": "Leave empty for unlimited. Zero is not the same thing.",
+        "devices": "Device limit",
+        "devicesHint": "Leave empty for unlimited.",
+        "squads": "Squad IDs",
+        "squadsHint": "Comma-separated Remnawave squad identifiers.",
+        "squadSelection": "Squad selection",
+        "squadSelectionValue": {
+          "automatic": "Assigned automatically",
+          "customer_choice": "Customer chooses",
+          "fixed": "Fixed set"
+        },
+        "minSquads": "Minimum chosen",
+        "maxSquads": "Maximum chosen",
+        "maxSquadsHint": "Leave empty for no upper bound.",
+        "upgradePolicy": "Upgrade",
+        "upgradePolicyValue": {
+          "forbid": "Not allowed",
+          "replace": "New period from today",
+          "extend": "Added to the current period"
+        },
+        "downgradePolicy": "Downgrade",
+        "downgradePolicyValue": {
+          "forbid": "Not allowed",
+          "immediate": "Immediately",
+          "at_expiry": "At the end of the period"
+        },
+        "cancellationPolicy": "Cancellation",
+        "cancellationPolicyValue": {
+          "immediate": "Immediately",
+          "at_expiry": "At the end of the period"
+        },
+        "trialEligibility": "Trial eligibility",
+        "trialEligibilityValue": {
+          "new_customer": "New customers only",
+          "never": "No trial",
+          "any_customer": "Any customer"
+        },
+        "recurringCapable": "Can be charged automatically",
+        "prices": "Prices",
+        "pricesHint": "Comma-separated CURRENCY=amount, in the currency's minor unit. For example RUB=49900, USD=599.",
+        "reason": "Reason",
+        "reasonHint": "Why this version is being published.",
+        "immutability": "Existing orders keep the version they were bought at. Publishing does not change any price a customer has already paid.",
+        "publish": "Publish version"
+      },
+      "addons": {
+        "create": "New add-on",
+        "close": "Close",
+        "visible": "Visible",
+        "hidden": "Hidden",
+        "kind": {
+          "traffic": "Traffic",
+          "devices": "Device slots",
+          "squads": "Squads"
+        },
+        "proration": {
+          "full_price": "Full price whatever remains",
+          "remaining_period": "Scaled to the remaining period",
+          "daily_rate": "Priced by day"
+        },
+        "empty": {
+          "title": "No add-ons",
+          "description": "Add-ons let a customer buy extra traffic, device slots, or squads on top of a plan."
+        },
+        "composer": {
+          "title": "Create an add-on",
+          "description": "The add-on row carries presentation and stays editable; the version carries what the customer gets and what it costs, and does not.",
+          "code": "Code",
+          "kind": "Kind",
+          "nameEn": "Name (EN)",
+          "nameRu": "Name (RU)",
+          "payload": {
+            "traffic": "Traffic (GB)",
+            "devices": "Device slots",
+            "squads": "Squad IDs"
+          },
+          "payloadHint": {
+            "traffic": "Added to the subscription's allowance.",
+            "devices": "Added to the subscription's device limit.",
+            "squads": "Comma-separated Remnawave squad identifiers."
+          },
+          "quantity": "Maximum quantity",
+          "quantityHint": "How many of this add-on one order may include.",
+          "proration": "Mid-period pricing",
+          "prices": "Prices",
+          "pricesHint": "Comma-separated CURRENCY=amount, in the currency's minor unit.",
+          "visible": "Offer this add-on to customers",
+          "reason": "Reason",
+          "immutability": "Both languages are required. Saving publishes a new version; orders already placed keep the version they were bought at.",
+          "submit": "Save add-on"
+        }
       }
     },
     "shop": {
