@@ -435,7 +435,10 @@
         "subscriptions": "Subscriptions",
         "orders": "Orders",
         "wallet": "Wallet",
-        "risk": "Risk"
+        "risk": "Risk",
+        "referrals": "Referrals",
+        "support": "Support",
+        "timeline": "Timeline"
       },
       "actions": {
         "reason": "Reason",
@@ -494,6 +497,35 @@
         "unavailable": "Devices are unavailable — Remnawave did not answer.",
         "remove": "Remove",
         "reasonPlaceholder": "Reason for removing a device (required)"
+      },
+      "referrals": {
+        "code": "Referral code",
+        "invitedBy": "Invited by",
+        "invited": "Invited",
+        "converted": "Converted",
+        "convertedYes": "Bought",
+        "convertedNo": "Not yet",
+        "noInvitees": "This customer has not invited anybody.",
+        "privacy": "Invitees are identified only by their Omniflow identifier and whether they bought anything. Their account details are not part of this view."
+      },
+      "support": {
+        "tickets": "Support tickets",
+        "consents": "Consents",
+        "noTickets": "No support tickets.",
+        "noConsents": "No consent records.",
+        "noSubject": "(no subject)",
+        "granted": "Granted",
+        "withdrawn": "Withdrawn",
+        "consentKind": {
+          "terms": "Terms of service",
+          "marketing": "Marketing messages",
+          "privacy": "Privacy policy"
+        }
+      },
+      "timeline": {
+        "empty": "Nothing recorded",
+        "emptyDescription": "Operator actions against this customer appear here.",
+        "systemActor": "System"
       }
     },
     "finance": {

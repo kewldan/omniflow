@@ -785,3 +785,31 @@ RETURNING *;
 UPDATE addon_versions SET retired_at = now()
 WHERE id = sqlc.arg(addon_version_id) AND retired_at IS NULL
 RETURNING *;
+
+-- name: GetCustomerReferralCode :one
+SELECT code, created_at FROM referral_codes WHERE user_id = $1;
+
+-- name: ListCustomerReferrals :many
+-- Who this customer invited, and whether the invitation turned into anything.
+--
+-- The invitee is named only by identifier: a referrer is entitled to know how
+-- many of their invitations converted, not to a list of other people's account
+-- details.
+SELECT
+  a.referred_user_id,
+  a.created_at,
+  u.status AS referred_status,
+  EXISTS (
+    SELECT 1 FROM orders o
+    WHERE o.user_id = a.referred_user_id AND o.state IN ('paid', 'fulfilled')
+  ) AS converted
+FROM referral_attributions a
+JOIN users u ON u.id = a.referred_user_id
+WHERE a.referrer_user_id = sqlc.arg(referrer_user_id)
+ORDER BY a.created_at DESC
+LIMIT sqlc.arg(page_size);
+
+-- name: GetCustomerReferrer :one
+SELECT a.referrer_user_id, a.code, a.created_at
+FROM referral_attributions a
+WHERE a.referred_user_id = $1;

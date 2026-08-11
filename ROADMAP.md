@@ -408,7 +408,7 @@ Goal: let operators run day-to-day customer, subscription, and financial operati
 ### Customers and subscriptions
 
 - [x] Customer search by safe identifiers with status and segment filters
-- [ ] Customer profile with identities, subscription, devices, orders, wallet, referrals, support, consent, and audit timeline
+- [x] Customer profile with identities, subscription, devices, orders, wallet, referrals, support, consent, and audit timeline
 - [x] Every concurrent subscription listed with independent lifecycle actions and its own Remnawave mapping
 - [ ] Create/link/import customer with duplicate detection
 - [x] Suspend, reactivate, anonymize, and delete according to retention rules

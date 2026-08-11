@@ -2,10 +2,12 @@ package panelpg
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 )
@@ -492,4 +494,75 @@ func (service *Service) RenameSubscription(
 			map[string]any{"customerId": customerID},
 		))
 	})
+}
+
+// ReferralSummary is what one customer's referral activity looks like.
+//
+// The invitees are named only by identifier and status. A referrer is entitled
+// to know how many of their invitations converted; they are not entitled to a
+// list of other people's account details, and neither is an operator looking at
+// this screen for a support question about the referrer.
+type ReferralSummary struct {
+	Code       string          `json:"code,omitempty"`
+	CodeIssued *time.Time      `json:"codeIssuedAt,omitempty"`
+	InvitedBy  string          `json:"invitedBy,omitempty"`
+	InvitedVia string          `json:"invitedVia,omitempty"`
+	InvitedAt  *time.Time      `json:"invitedAt,omitempty"`
+	Invitees   []ReferralInvit `json:"invitees"`
+}
+
+// ReferralInvit is one invitation this customer sent.
+type ReferralInvit struct {
+	CustomerID string    `json:"customerId"`
+	Status     string    `json:"status"`
+	Converted  bool      `json:"converted"`
+	InvitedAt  time.Time `json:"invitedAt"`
+}
+
+// CustomerReferrals assembles the referral view for one customer.
+//
+// Every part is optional: a customer who never opened the referral screen has
+// no code, one who arrived on their own has no referrer, and one whose
+// invitations went nowhere has an empty list. None of those is an error, so
+// each missing piece is simply absent rather than failing the whole read.
+func (service *Service) CustomerReferrals(
+	ctx context.Context, customerID string, limit int32,
+) (ReferralSummary, error) {
+	id, err := parseUUID(customerID)
+	if err != nil {
+		return ReferralSummary{}, err
+	}
+	queries := service.queries()
+	summary := ReferralSummary{Invitees: []ReferralInvit{}}
+
+	if code, codeErr := queries.GetCustomerReferralCode(ctx, id); codeErr == nil {
+		issued := timeValue(code.CreatedAt)
+		summary.Code, summary.CodeIssued = code.Code, &issued
+	} else if !errors.Is(codeErr, pgx.ErrNoRows) {
+		return ReferralSummary{}, codeErr
+	}
+
+	if referrer, refErr := queries.GetCustomerReferrer(ctx, id); refErr == nil {
+		invited := timeValue(referrer.CreatedAt)
+		summary.InvitedBy = uuidString(referrer.ReferrerUserID)
+		summary.InvitedVia, summary.InvitedAt = referrer.Code, &invited
+	} else if !errors.Is(refErr, pgx.ErrNoRows) {
+		return ReferralSummary{}, refErr
+	}
+
+	rows, err := queries.ListCustomerReferrals(ctx, dbgen.ListCustomerReferralsParams{
+		ReferrerUserID: id, PageSize: pageSize(limit),
+	})
+	if err != nil {
+		return ReferralSummary{}, err
+	}
+	for _, row := range rows {
+		summary.Invitees = append(summary.Invitees, ReferralInvit{
+			CustomerID: uuidString(row.ReferredUserID),
+			Status:     row.ReferredStatus,
+			Converted:  row.Converted,
+			InvitedAt:  timeValue(row.CreatedAt),
+		})
+	}
+	return summary, nil
 }

@@ -28,6 +28,7 @@ import {
 } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 
+import { AuditTimeline, ReferralPanel, SupportPanel } from "./customer-history";
 import { SubscriptionActions, SubscriptionDevices } from "./subscription-actions";
 
 /**
@@ -120,7 +121,14 @@ export function CustomerProfileView({ customerId }: { customerId: string }) {
           {can("finance.read") && (
             <TabsTrigger value="wallet">{translate("tabs.wallet")}</TabsTrigger>
           )}
+          <TabsTrigger value="referrals">{translate("tabs.referrals")}</TabsTrigger>
+          {can("support.read") && (
+            <TabsTrigger value="support">{translate("tabs.support")}</TabsTrigger>
+          )}
           {can("risk.read") && <TabsTrigger value="risk">{translate("tabs.risk")}</TabsTrigger>}
+          {can("audit.read") && (
+            <TabsTrigger value="timeline">{translate("tabs.timeline")}</TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="subscriptions">
@@ -134,9 +142,22 @@ export function CustomerProfileView({ customerId }: { customerId: string }) {
             <WalletList active={tab === "wallet"} base={base} locale={locale} />
           </TabsContent>
         )}
+        <TabsContent value="referrals">
+          <ReferralPanel active={tab === "referrals"} base={base} />
+        </TabsContent>
+        {can("support.read") && (
+          <TabsContent value="support">
+            <SupportPanel active={tab === "support"} base={base} />
+          </TabsContent>
+        )}
         {can("risk.read") && (
           <TabsContent value="risk">
             <RiskList active={tab === "risk"} base={base} locale={locale} />
+          </TabsContent>
+        )}
+        {can("audit.read") && (
+          <TabsContent value="timeline">
+            <AuditTimeline active={tab === "timeline"} customerId={customerId} locale={locale} />
           </TabsContent>
         )}
       </Tabs>

@@ -54,6 +54,7 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 		read.Get("/customers/{customerID}/orders", handlers.customerOrders)
 		read.Get("/customers/{customerID}/tickets", handlers.customerTickets)
 		read.Get("/customers/{customerID}/consents", handlers.customerConsents)
+		read.Get("/customers/{customerID}/referrals", handlers.customerReferrals)
 	})
 	secure.With(handlers.requirePermission(rbac.PermissionCustomersWrite)).
 		Post("/customers/{customerID}/status", handlers.setCustomerStatus)
@@ -1117,6 +1118,13 @@ func (handlers *AdminHandlers) configureRecurring(writer http.ResponseWriter, re
 		saved.AdapterRecurring = handlers.adapterRecurring[provider]
 	}
 	handlers.respond(writer, request, saved, err)
+}
+
+func (handlers *AdminHandlers) customerReferrals(writer http.ResponseWriter, request *http.Request) {
+	summary, err := handlers.operations.CustomerReferrals(
+		request.Context(), chi.URLParam(request, "customerID"), int32(queryInt(request, "pageSize")),
+	)
+	handlers.respond(writer, request, summary, err)
 }
 
 // createPlanVersion publishes the next version of a plan.

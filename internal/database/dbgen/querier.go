@@ -290,6 +290,8 @@ type Querier interface {
 	// One round trip for the profile header: the customer, their Telegram mapping,
 	// and the counts the page shows before any tab is opened.
 	GetCustomerOverview(ctx context.Context, id pgtype.UUID) (GetCustomerOverviewRow, error)
+	GetCustomerReferralCode(ctx context.Context, userID pgtype.UUID) (GetCustomerReferralCodeRow, error)
+	GetCustomerReferrer(ctx context.Context, referredUserID pgtype.UUID) (GetCustomerReferrerRow, error)
 	GetCustomerSubscription(ctx context.Context, arg GetCustomerSubscriptionParams) (Subscription, error)
 	// The order a renewal cycle is settling, if one was already opened.
 	//
@@ -427,6 +429,12 @@ type Querier interface {
 	ListCustomerImportTelegramIDs(ctx context.Context, importID pgtype.UUID) ([]ListCustomerImportTelegramIDsRow, error)
 	ListCustomerLedgerEntries(ctx context.Context, arg ListCustomerLedgerEntriesParams) ([]ListCustomerLedgerEntriesRow, error)
 	ListCustomerOrders(ctx context.Context, arg ListCustomerOrdersParams) ([]Order, error)
+	// Who this customer invited, and whether the invitation turned into anything.
+	//
+	// The invitee is named only by identifier: a referrer is entitled to know how
+	// many of their invitations converted, not to a list of other people's account
+	// details.
+	ListCustomerReferrals(ctx context.Context, arg ListCustomerReferralsParams) ([]ListCustomerReferralsRow, error)
 	// Every concurrent subscription with the entitlement currently governing it, so
 	// the panel can offer independent lifecycle actions per subscription rather
 	// than assuming one per customer.

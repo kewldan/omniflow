@@ -917,6 +917,41 @@ func (q *Queries) GetCustomerOverview(ctx context.Context, id pgtype.UUID) (GetC
 	return i, err
 }
 
+const getCustomerReferralCode = `-- name: GetCustomerReferralCode :one
+SELECT code, created_at FROM referral_codes WHERE user_id = $1
+`
+
+type GetCustomerReferralCodeRow struct {
+	Code      string             `json:"code"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) GetCustomerReferralCode(ctx context.Context, userID pgtype.UUID) (GetCustomerReferralCodeRow, error) {
+	row := q.db.QueryRow(ctx, getCustomerReferralCode, userID)
+	var i GetCustomerReferralCodeRow
+	err := row.Scan(&i.Code, &i.CreatedAt)
+	return i, err
+}
+
+const getCustomerReferrer = `-- name: GetCustomerReferrer :one
+SELECT a.referrer_user_id, a.code, a.created_at
+FROM referral_attributions a
+WHERE a.referred_user_id = $1
+`
+
+type GetCustomerReferrerRow struct {
+	ReferrerUserID pgtype.UUID        `json:"referrer_user_id"`
+	Code           string             `json:"code"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) GetCustomerReferrer(ctx context.Context, referredUserID pgtype.UUID) (GetCustomerReferrerRow, error) {
+	row := q.db.QueryRow(ctx, getCustomerReferrer, referredUserID)
+	var i GetCustomerReferrerRow
+	err := row.Scan(&i.ReferrerUserID, &i.Code, &i.CreatedAt)
+	return i, err
+}
+
 const getFulfillmentOperation = `-- name: GetFulfillmentOperation :one
 SELECT id, entitlement_id, operation, status, idempotency_key, correlation_id, desired_state, attempt_count, next_attempt_at, last_error_code, created_at, updated_at, completed_at FROM fulfillment_operations WHERE id = $1
 `
@@ -1381,6 +1416,64 @@ func (q *Queries) ListCustomerOrders(ctx context.Context, arg ListCustomerOrders
 			&i.UpdatedAt,
 			&i.SubscriptionID,
 			&i.SelectedSquadIds,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCustomerReferrals = `-- name: ListCustomerReferrals :many
+SELECT
+  a.referred_user_id,
+  a.created_at,
+  u.status AS referred_status,
+  EXISTS (
+    SELECT 1 FROM orders o
+    WHERE o.user_id = a.referred_user_id AND o.state IN ('paid', 'fulfilled')
+  ) AS converted
+FROM referral_attributions a
+JOIN users u ON u.id = a.referred_user_id
+WHERE a.referrer_user_id = $1
+ORDER BY a.created_at DESC
+LIMIT $2
+`
+
+type ListCustomerReferralsParams struct {
+	ReferrerUserID pgtype.UUID `json:"referrer_user_id"`
+	PageSize       int32       `json:"page_size"`
+}
+
+type ListCustomerReferralsRow struct {
+	ReferredUserID pgtype.UUID        `json:"referred_user_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	ReferredStatus string             `json:"referred_status"`
+	Converted      bool               `json:"converted"`
+}
+
+// Who this customer invited, and whether the invitation turned into anything.
+//
+// The invitee is named only by identifier: a referrer is entitled to know how
+// many of their invitations converted, not to a list of other people's account
+// details.
+func (q *Queries) ListCustomerReferrals(ctx context.Context, arg ListCustomerReferralsParams) ([]ListCustomerReferralsRow, error) {
+	rows, err := q.db.Query(ctx, listCustomerReferrals, arg.ReferrerUserID, arg.PageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListCustomerReferralsRow{}
+	for rows.Next() {
+		var i ListCustomerReferralsRow
+		if err := rows.Scan(
+			&i.ReferredUserID,
+			&i.CreatedAt,
+			&i.ReferredStatus,
+			&i.Converted,
 		); err != nil {
 			return nil, err
 		}
