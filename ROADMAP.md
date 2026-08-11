@@ -604,16 +604,16 @@ Goal: finish support, communication, configuration, and operational readiness be
 
 ### AI-assisted support
 
-- [ ] Provider-neutral AI gateway with OpenAI-compatible, Anthropic, and Gemini adapters
-- [ ] OpenAI-compatible adapter supports operator-selected hosted or local models
-- [ ] Separate model, temperature, token limit, timeout, and budget configuration per task
+- [x] Provider-neutral AI gateway with OpenAI-compatible, Anthropic, and Gemini adapters
+- [x] OpenAI-compatible adapter supports operator-selected hosted or local models
+- [x] Separate model, temperature, token limit, timeout, and budget configuration per task
 - [ ] Ticket-thread summary with customer intent, actions already attempted, and unresolved questions
 - [ ] Suggested ticket reply grounded in the visible conversation and approved knowledge sources
 - [ ] Rewrite controls for shorter, clearer, friendlier, more formal, or more technical replies
 - [ ] Russian/English translation that preserves product names, links, and template variables
 - [ ] Suggested category, priority, tags, sentiment, and escalation reason
 - [ ] Similar-ticket and relevant documentation suggestions with source citations
-- [ ] Secret, token, subscription-link, payment-data, and unnecessary-PII redaction before model requests
+- [x] Secret, token, subscription-link, payment-data, and unnecessary-PII redaction before model requests
 - [ ] Generated replies remain editable drafts; an authorized operator must explicitly send them
 - [ ] Clear AI-generated label, provider/model disclosure, retry, cancellation, and fallback states
 
@@ -668,15 +668,15 @@ Goal: finish support, communication, configuration, and operational readiness be
 
 ### AI privacy, governance, and cost controls
 
-- [ ] AI and MCP are globally optional and disabled until an owner configures them
+- [x] AI and MCP are globally optional and disabled until an owner configures them
 - [ ] Per-feature enablement for support, marketing, scam analysis, copilot, and MCP tools
-- [ ] Data-use preview shows operators exactly which fields will leave the installation
+- [x] Data-use preview shows operators exactly which fields will leave the installation
 - [ ] Provider-specific retention/training warnings and documented zero-retention options where available
 - [ ] Configurable prompt/output retention with deletion and legal-hold behavior
-- [ ] AI prompts, outputs, ticket content, customer data, and tool arguments never enter anonymous telemetry
+- [x] AI prompts, outputs, ticket content, customer data, and tool arguments never enter anonymous telemetry
 - [ ] Per-role, per-operator, per-feature, and installation-wide usage limits
 - [ ] Token, request, latency, error, and estimated-cost reporting without exposing prompt content in metrics
-- [ ] Provider/model fallback is explicit and cannot route data to an unapproved provider
+- [x] Provider/model fallback is explicit and cannot route data to an unapproved provider
 - [ ] Audit exports identify generated content and consequential decisions influenced by AI
 
 ### AI and MCP quality gates
