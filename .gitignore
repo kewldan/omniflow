@@ -30,3 +30,6 @@ pnpm-debug.log*
 # Mintlify
 docs/.mintlify/
 docs/openapi.yaml
+
+# Windows build artefacts. `go build` without -o drops the binary here.
+*.exe
