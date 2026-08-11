@@ -207,7 +207,7 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 	services := runtimeServices{handlers: handlers}
 	if cfg.AdminPanel.Enabled {
 		adminHandlers, adminErr := buildAdminPanel(
-			ctx, logger, cfg, pool, platform.NewRateLimiter(valkeyClient), providers,
+			ctx, logger, cfg, pool, platform.NewRateLimiter(valkeyClient), providers, health,
 		)
 		if adminErr != nil {
 			valkeyClient.Close()
@@ -225,7 +225,7 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 // commerce precondition above, to seal TOTP secrets.
 func buildAdminPanel(
 	ctx context.Context, logger *slog.Logger, cfg config.Config, pool *pgxpool.Pool,
-	limiter *platform.RateLimiter, providers []payments.Provider,
+	limiter *platform.RateLimiter, providers []payments.Provider, health *platform.Health,
 ) (*apihttp.AdminHandlers, error) {
 	service, err := adminauthpg.New(pool, cfg.DataEncryptionKey, adminauthpg.Options{})
 	if err != nil {
@@ -248,7 +248,7 @@ func buildAdminPanel(
 	issueSetupTokenIfNeeded(logger, service)
 	return apihttp.NewAdminHandlers(apihttp.AdminOptions{
 		Service: service, Limiter: limiter, Logger: logger, Proxies: proxies,
-		Operations: operations, Providers: providerIndex(providers),
+		Operations: operations, Providers: providerIndex(providers), Health: health,
 		CookieSecure: cfg.AdminPanel.CookieSecure, Issuer: cfg.AdminPanel.Issuer,
 	}), nil
 }

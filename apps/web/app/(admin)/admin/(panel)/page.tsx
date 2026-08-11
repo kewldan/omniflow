@@ -231,7 +231,10 @@ function MetricGroup({ metrics, title }: { metrics: Metric[]; title: string }) {
             <CardTitle className="font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.12em]">
               {translate(`metrics.${metric.key}`)}
             </CardTitle>
-            <p className="mt-1 font-semibold text-2xl tabular-nums">{renderMetric(metric)}</p>
+            <p className="mt-1 flex items-baseline gap-2">
+              <span className="font-semibold text-2xl tabular-nums">{renderMetric(metric)}</span>
+              <Comparison metric={metric} />
+            </p>
             <p className="mt-1 text-muted-foreground text-xs">
               {translate(`definitions.${metric.definition}`)}
             </p>
@@ -239,6 +242,30 @@ function MetricGroup({ metrics, title }: { metrics: Metric[]; title: string }) {
         ))}
       </div>
     </section>
+  );
+}
+
+/**
+ * The change against the preceding window of the same length.
+ *
+ * Only windowed measures carry one. A point-in-time total compared against
+ * "the same total a month ago" would be answering a question the query did not
+ * ask, so those simply have no arrow.
+ */
+function Comparison({ metric }: { metric: Metric }) {
+  const translate = useTranslations("admin.dashboard");
+  if (metric.comparison === undefined) {
+    return null;
+  }
+  const delta = metric.value - metric.comparison;
+  if (delta === 0) {
+    return <span className="text-muted-foreground text-xs">{translate("unchanged")}</span>;
+  }
+  return (
+    <span className="text-muted-foreground text-xs tabular-nums">
+      {delta > 0 ? "+" : ""}
+      {delta.toLocaleString()} {translate("versusPrevious")}
+    </span>
   );
 }
 

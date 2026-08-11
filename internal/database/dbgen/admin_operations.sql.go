@@ -191,9 +191,17 @@ SELECT
   count(*) FILTER (WHERE status = 'active')::bigint AS active_customers,
   count(*) FILTER (WHERE status = 'suspended')::bigint AS suspended_customers,
   count(*) FILTER (WHERE status = 'deleted')::bigint AS deleted_customers,
-  count(*) FILTER (WHERE created_at >= now() - $1::interval)::bigint AS new_customers
+  count(*) FILTER (
+    WHERE created_at >= now() - $1::interval - $2::interval
+      AND created_at < now() - $2::interval
+  )::bigint AS new_customers
 FROM users
 `
+
+type DashboardCustomerTotalsParams struct {
+	Lookback pgtype.Interval `json:"lookback"`
+	Shift    pgtype.Interval `json:"shift"`
+}
 
 type DashboardCustomerTotalsRow struct {
 	ActiveCustomers    int64 `json:"active_customers"`
@@ -208,8 +216,13 @@ type DashboardCustomerTotalsRow struct {
 // Every count carries its own definition, which the panel repeats beside the
 // number: "active" is a customer record that is neither suspended nor deleted,
 // not one with a live subscription.
-func (q *Queries) DashboardCustomerTotals(ctx context.Context, lookback pgtype.Interval) (DashboardCustomerTotalsRow, error) {
-	row := q.db.QueryRow(ctx, dashboardCustomerTotals, lookback)
+//
+// `shift` moves the window back by its own length, so the same statement serves
+// both the current period and the one before it. That is what lets the panel
+// show a comparison without a second, subtly different query that could drift
+// from this one.
+func (q *Queries) DashboardCustomerTotals(ctx context.Context, arg DashboardCustomerTotalsParams) (DashboardCustomerTotalsRow, error) {
+	row := q.db.QueryRow(ctx, dashboardCustomerTotals, arg.Lookback, arg.Shift)
 	var i DashboardCustomerTotalsRow
 	err := row.Scan(
 		&i.ActiveCustomers,
@@ -295,12 +308,14 @@ SELECT
       AND i.updated_at < now() - $1::interval
   )::bigint AS stuck
 FROM payment_intents i
-WHERE i.created_at >= now() - $2::interval
+WHERE i.created_at >= now() - $2::interval - $3::interval
+  AND i.created_at < now() - $3::interval
 `
 
 type DashboardPaymentHealthParams struct {
 	StuckAfter pgtype.Interval `json:"stuck_after"`
 	Lookback   pgtype.Interval `json:"lookback"`
+	Shift      pgtype.Interval `json:"shift"`
 }
 
 type DashboardPaymentHealthRow struct {
@@ -311,7 +326,7 @@ type DashboardPaymentHealthRow struct {
 }
 
 func (q *Queries) DashboardPaymentHealth(ctx context.Context, arg DashboardPaymentHealthParams) (DashboardPaymentHealthRow, error) {
-	row := q.db.QueryRow(ctx, dashboardPaymentHealth, arg.StuckAfter, arg.Lookback)
+	row := q.db.QueryRow(ctx, dashboardPaymentHealth, arg.StuckAfter, arg.Lookback, arg.Shift)
 	var i DashboardPaymentHealthRow
 	err := row.Scan(
 		&i.Succeeded,
@@ -320,6 +335,54 @@ func (q *Queries) DashboardPaymentHealth(ctx context.Context, arg DashboardPayme
 		&i.Stuck,
 	)
 	return i, err
+}
+
+const dashboardProviderHealth = `-- name: DashboardProviderHealth :many
+SELECT provider, merchant_id, enabled, connection_status, webhook_status,
+       connection_checked_at, webhook_last_event_at
+FROM payment_provider_settings
+ORDER BY provider, merchant_id
+`
+
+type DashboardProviderHealthRow struct {
+	Provider            string             `json:"provider"`
+	MerchantID          string             `json:"merchant_id"`
+	Enabled             bool               `json:"enabled"`
+	ConnectionStatus    string             `json:"connection_status"`
+	WebhookStatus       string             `json:"webhook_status"`
+	ConnectionCheckedAt pgtype.Timestamptz `json:"connection_checked_at"`
+	WebhookLastEventAt  pgtype.Timestamptz `json:"webhook_last_event_at"`
+}
+
+// What each configured payment provider last reported. The panel shows it
+// beside the live dependency probes so an operator sees "configured but never
+// reached" as distinct from "reached and failing".
+func (q *Queries) DashboardProviderHealth(ctx context.Context) ([]DashboardProviderHealthRow, error) {
+	rows, err := q.db.Query(ctx, dashboardProviderHealth)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []DashboardProviderHealthRow{}
+	for rows.Next() {
+		var i DashboardProviderHealthRow
+		if err := rows.Scan(
+			&i.Provider,
+			&i.MerchantID,
+			&i.Enabled,
+			&i.ConnectionStatus,
+			&i.WebhookStatus,
+			&i.ConnectionCheckedAt,
+			&i.WebhookLastEventAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const dashboardRevenue = `-- name: DashboardRevenue :many
@@ -331,10 +394,16 @@ SELECT
   count(*)::bigint AS order_count
 FROM orders o
 WHERE o.state IN ('paid', 'fulfilled', 'partially_refunded', 'refunded')
-  AND o.updated_at >= now() - $1::interval
+  AND o.updated_at >= now() - $1::interval - $2::interval
+  AND o.updated_at < now() - $2::interval
 GROUP BY o.currency
 ORDER BY o.currency
 `
+
+type DashboardRevenueParams struct {
+	Lookback pgtype.Interval `json:"lookback"`
+	Shift    pgtype.Interval `json:"shift"`
+}
 
 type DashboardRevenueRow struct {
 	Currency      string `json:"currency"`
@@ -347,8 +416,8 @@ type DashboardRevenueRow struct {
 // Deliberately three separate figures rather than one "revenue": money taken
 // through a provider, wallet credit spent, and money returned are different
 // questions, and adding them together answers none of them.
-func (q *Queries) DashboardRevenue(ctx context.Context, lookback pgtype.Interval) ([]DashboardRevenueRow, error) {
-	rows, err := q.db.Query(ctx, dashboardRevenue, lookback)
+func (q *Queries) DashboardRevenue(ctx context.Context, arg DashboardRevenueParams) ([]DashboardRevenueRow, error) {
+	rows, err := q.db.Query(ctx, dashboardRevenue, arg.Lookback, arg.Shift)
 	if err != nil {
 		return nil, err
 	}

@@ -19,6 +19,18 @@ type Metric struct {
 	// explaining exactly what was counted.
 	Definition string `json:"definition"`
 	Value      int64  `json:"value"`
+	// Comparison is the same measure over the immediately preceding window of
+	// the same length. It is nil for a point-in-time total, where comparing
+	// against "the same total a month ago" would mean something the query did
+	// not measure.
+	Comparison *int64 `json:"comparison,omitempty"`
+}
+
+// compared attaches a previous-window figure to a windowed metric.
+func compared(metric Metric, previous int64) Metric {
+	value := previous
+	metric.Comparison = &value
+	return metric
 }
 
 // RevenueLine separates the three figures that are routinely and wrongly added
@@ -35,6 +47,9 @@ type RevenueLine struct {
 	// producing a smaller total.
 	RefundedMinor int64 `json:"refundedMinor"`
 	OrderCount    int64 `json:"orderCount"`
+	// PreviousPaidMinor is provider money over the preceding window of the same
+	// length, when there was any.
+	PreviousPaidMinor *int64 `json:"previousPaidMinor,omitempty"`
 }
 
 // Dashboard is the operations overview.
@@ -100,7 +115,18 @@ func (service *Service) Dashboard(ctx context.Context) (Dashboard, error) {
 	queries := service.queries()
 	window := interval(dashboardWindow)
 
-	customers, err := queries.DashboardCustomerTotals(ctx, window)
+	customers, err := queries.DashboardCustomerTotals(ctx, dbgen.DashboardCustomerTotalsParams{
+		Lookback: window, Shift: interval(0),
+	})
+	if err != nil {
+		return Dashboard{}, err
+	}
+	// The same statement, shifted back by its own length. Using one query for
+	// both windows is what stops a comparison drifting from the number it is
+	// compared against.
+	previousCustomers, err := queries.DashboardCustomerTotals(ctx, dbgen.DashboardCustomerTotalsParams{
+		Lookback: window, Shift: window,
+	})
 	if err != nil {
 		return Dashboard{}, err
 	}
@@ -109,12 +135,26 @@ func (service *Service) Dashboard(ctx context.Context) (Dashboard, error) {
 		return Dashboard{}, err
 	}
 	payments, err := queries.DashboardPaymentHealth(ctx, dbgen.DashboardPaymentHealthParams{
-		StuckAfter: interval(stuckPaymentAfter), Lookback: window,
+		StuckAfter: interval(stuckPaymentAfter), Lookback: window, Shift: interval(0),
 	})
 	if err != nil {
 		return Dashboard{}, err
 	}
-	revenue, err := queries.DashboardRevenue(ctx, window)
+	previousPayments, err := queries.DashboardPaymentHealth(ctx, dbgen.DashboardPaymentHealthParams{
+		StuckAfter: interval(stuckPaymentAfter), Lookback: window, Shift: window,
+	})
+	if err != nil {
+		return Dashboard{}, err
+	}
+	revenue, err := queries.DashboardRevenue(ctx, dbgen.DashboardRevenueParams{
+		Lookback: window, Shift: interval(0),
+	})
+	if err != nil {
+		return Dashboard{}, err
+	}
+	previousRevenue, err := queries.DashboardRevenue(ctx, dbgen.DashboardRevenueParams{
+		Lookback: window, Shift: window,
+	})
 	if err != nil {
 		return Dashboard{}, err
 	}
@@ -155,7 +195,10 @@ func (service *Service) Dashboard(ctx context.Context) (Dashboard, error) {
 			{Key: "activeCustomers", Definition: "customer.status.active", Value: customers.ActiveCustomers},
 			{Key: "suspendedCustomers", Definition: "customer.status.suspended", Value: customers.SuspendedCustomers},
 			{Key: "deletedCustomers", Definition: "customer.status.deleted", Value: customers.DeletedCustomers},
-			{Key: "newCustomers", Definition: "customer.created.window", Value: customers.NewCustomers},
+			compared(
+				Metric{Key: "newCustomers", Definition: "customer.created.window", Value: customers.NewCustomers},
+				previousCustomers.NewCustomers,
+			),
 		},
 		Subscriptions: []Metric{
 			{Key: "activeEntitlements", Definition: "entitlement.active", Value: subscriptions.ActiveEntitlements},
@@ -167,9 +210,15 @@ func (service *Service) Dashboard(ctx context.Context) (Dashboard, error) {
 			{Key: "observedTrafficBytes", Definition: "traffic.observed", Value: subscriptions.ObservedTrafficBytes},
 		},
 		Payments: []Metric{
-			{Key: "paymentsSucceeded", Definition: "payment.succeeded.window", Value: payments.Succeeded},
+			compared(
+				Metric{Key: "paymentsSucceeded", Definition: "payment.succeeded.window", Value: payments.Succeeded},
+				previousPayments.Succeeded,
+			),
 			{Key: "paymentsInFlight", Definition: "payment.inflight", Value: payments.InFlight},
-			{Key: "paymentsFailed", Definition: "payment.failed.window", Value: payments.Failed},
+			compared(
+				Metric{Key: "paymentsFailed", Definition: "payment.failed.window", Value: payments.Failed},
+				previousPayments.Failed,
+			),
 			{Key: "paymentsStuck", Definition: "payment.stuck", Value: payments.Stuck},
 		},
 		Support: []Metric{
@@ -190,14 +239,25 @@ func (service *Service) Dashboard(ctx context.Context) (Dashboard, error) {
 		},
 	}
 
+	previousPaid := make(map[string]int64, len(previousRevenue))
+	for _, line := range previousRevenue {
+		previousPaid[line.Currency] = line.PaidMinor
+	}
 	for _, line := range revenue {
-		dashboard.Revenue = append(dashboard.Revenue, RevenueLine{
+		entry := RevenueLine{
 			Currency:      line.Currency,
 			PaidMinor:     line.PaidMinor,
 			WalletMinor:   line.WalletMinor,
 			RefundedMinor: line.RefundedMinor,
 			OrderCount:    line.OrderCount,
-		})
+		}
+		// Only provider money is compared. Wallet spend and refunds move for
+		// reasons that make a period-over-period arrow misleading rather than
+		// informative.
+		if previous, ok := previousPaid[line.Currency]; ok {
+			entry.PreviousPaidMinor = &previous
+		}
+		dashboard.Revenue = append(dashboard.Revenue, entry)
 	}
 
 	dashboard.Attention = attentionFrom(payments.Stuck, jobs.Failed, webhooks.Failed,

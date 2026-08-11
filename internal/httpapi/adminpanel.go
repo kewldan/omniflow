@@ -37,6 +37,9 @@ type AdminHandlers struct {
 	// storing a payment method. It is computed at construction so the panel and
 	// the enforcement path read the same fact.
 	adapterRecurring map[string]bool
+	// health runs the same dependency probes the readiness endpoint uses, so
+	// the panel and /readyz can never disagree about whether a dependency is up.
+	health *platform.Health
 
 	cookieName   string
 	cookieSecure bool
@@ -55,6 +58,8 @@ type AdminOptions struct {
 	// Providers are the configured payment adapters, used only to publish their
 	// declared capabilities.
 	Providers map[string]payments.Provider
+	// Health is the same dependency registry the readiness probe reports on.
+	Health *platform.Health
 	// CookieSecure must be true in production. It is separately configurable
 	// only so a plain-HTTP local development stack can sign in at all.
 	CookieSecure bool
@@ -79,6 +84,7 @@ func NewAdminHandlers(options AdminOptions) *AdminHandlers {
 		proxies:          proxies,
 		operations:       options.Operations,
 		adapterRecurring: adapterCapabilities(options.Providers),
+		health:           options.Health,
 		// The __Host- prefix binds the cookie to this exact origin: a browser
 		// refuses to accept it with a Domain attribute or over plain HTTP, so
 		// a sibling subdomain cannot set or overwrite the operator's session.

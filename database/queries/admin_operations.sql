@@ -130,11 +130,19 @@ RETURNING *;
 -- Every count carries its own definition, which the panel repeats beside the
 -- number: "active" is a customer record that is neither suspended nor deleted,
 -- not one with a live subscription.
+--
+-- `shift` moves the window back by its own length, so the same statement serves
+-- both the current period and the one before it. That is what lets the panel
+-- show a comparison without a second, subtly different query that could drift
+-- from this one.
 SELECT
   count(*) FILTER (WHERE status = 'active')::bigint AS active_customers,
   count(*) FILTER (WHERE status = 'suspended')::bigint AS suspended_customers,
   count(*) FILTER (WHERE status = 'deleted')::bigint AS deleted_customers,
-  count(*) FILTER (WHERE created_at >= now() - sqlc.arg(lookback)::interval)::bigint AS new_customers
+  count(*) FILTER (
+    WHERE created_at >= now() - sqlc.arg(lookback)::interval - sqlc.arg(shift)::interval
+      AND created_at < now() - sqlc.arg(shift)::interval
+  )::bigint AS new_customers
 FROM users;
 
 -- name: DashboardSubscriptionTotals :one
@@ -159,7 +167,8 @@ SELECT
       AND i.updated_at < now() - sqlc.arg(stuck_after)::interval
   )::bigint AS stuck
 FROM payment_intents i
-WHERE i.created_at >= now() - sqlc.arg(lookback)::interval;
+WHERE i.created_at >= now() - sqlc.arg(lookback)::interval - sqlc.arg(shift)::interval
+  AND i.created_at < now() - sqlc.arg(shift)::interval;
 
 -- name: DashboardRevenue :many
 -- Deliberately three separate figures rather than one "revenue": money taken
@@ -173,7 +182,8 @@ SELECT
   count(*)::bigint AS order_count
 FROM orders o
 WHERE o.state IN ('paid', 'fulfilled', 'partially_refunded', 'refunded')
-  AND o.updated_at >= now() - sqlc.arg(lookback)::interval
+  AND o.updated_at >= now() - sqlc.arg(lookback)::interval - sqlc.arg(shift)::interval
+  AND o.updated_at < now() - sqlc.arg(shift)::interval
 GROUP BY o.currency
 ORDER BY o.currency;
 
@@ -217,6 +227,15 @@ SELECT
   COALESCE(extract(epoch FROM now() - min(occurred_at)), 0)::bigint AS oldest_age_seconds
 FROM outbox_events
 WHERE published_at IS NULL;
+
+-- name: DashboardProviderHealth :many
+-- What each configured payment provider last reported. The panel shows it
+-- beside the live dependency probes so an operator sees "configured but never
+-- reached" as distinct from "reached and failing".
+SELECT provider, merchant_id, enabled, connection_status, webhook_status,
+       connection_checked_at, webhook_last_event_at
+FROM payment_provider_settings
+ORDER BY provider, merchant_id;
 
 -- name: ListRecentMaintenanceEvents :many
 SELECT * FROM maintenance_events ORDER BY occurred_at DESC LIMIT sqlc.arg(page_size);

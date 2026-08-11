@@ -18,6 +18,54 @@ export type Metric = {
   key: string;
   definition: string;
   value: number;
+  /** The same measure over the preceding window; absent for a point-in-time total. */
+  comparison?: number;
+};
+
+export type DependencyCheck = {
+  name: string;
+  healthy: boolean;
+  error?: string;
+  checkedAt: string;
+  latencyMs: number;
+  consecutiveFailures?: number;
+};
+
+export type ProviderHealth = {
+  provider: string;
+  merchantId?: string;
+  enabled: boolean;
+  connectionStatus: string;
+  webhookStatus: string;
+  connectionCheckedAt?: string;
+  webhookLastEventAt?: string;
+};
+
+export type HealthReport = {
+  healthy: boolean;
+  dependencies: DependencyCheck[] | null;
+  paymentProviders: ProviderHealth[] | null;
+  goodsProviders: { slug: string; status: string; enabled: boolean; lowBalance: boolean }[] | null;
+};
+
+export type MaintenanceState = {
+  active: boolean;
+  source: string;
+  reason: string;
+  noticeRu: string;
+  noticeEn: string;
+  expectedReturnAt?: string;
+  activatedAt?: string;
+  updatedAt: string;
+};
+
+export type Incident = {
+  id: string;
+  action: string;
+  source: string;
+  reason: string;
+  actorType: string;
+  occurredAt: string;
 };
 
 export type RevenueLine = {
@@ -26,6 +74,7 @@ export type RevenueLine = {
   walletMinor: number;
   refundedMinor: number;
   orderCount: number;
+  previousPaidMinor?: number;
 };
 
 export type AttentionItem = {

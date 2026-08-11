@@ -374,7 +374,9 @@
         "drift.missing_remote": "Entitlements whose Remnawave user no longer exists.",
         "outbox.unpublished": "Domain events the publisher has not yet drained.",
         "outbox.oldest_age": "Age of the oldest unpublished event. A large backlog of fresh events is healthy; one old event is not."
-      }
+      },
+      "unchanged": "unchanged",
+      "versusPrevious": "vs previous period"
     },
     "customers": {
       "title": "Customers",
@@ -592,7 +594,8 @@
         "jobs": "Failed jobs",
         "webhooks": "Webhooks",
         "drift": "Drift",
-        "outbox": "Outbox"
+        "outbox": "Outbox",
+        "health": "Health"
       },
       "columns": {
         "createdAt": "Created",
@@ -637,6 +640,37 @@
         "traffic": "Traffic",
         "device_limit": "Device limit",
         "squads": "Squads"
+      },
+      "health": {
+        "dependencies": "Dependencies",
+        "dependenciesDescription": "The same probes the readiness endpoint reports on, so the panel and your load balancer can never disagree about whether a dependency is up.",
+        "noProbes": "No dependency probes are registered.",
+        "up": "Up",
+        "down": "Down",
+        "providers": "Providers",
+        "providersDescription": "What each configured provider last reported. \"Configured but never reached\" is a different problem from \"reached and failing\", so they are shown separately from the live probes above.",
+        "noProviders": "No providers are configured.",
+        "disabled": "Disabled",
+        "connection": "Connection",
+        "webhook": "Webhook",
+        "lowBalance": "Low balance",
+        "maintenance": "Maintenance mode",
+        "maintenanceDescription": "Blocks new purchases and defers fulfillment. It never cancels, refunds, or expires anything already paid for.",
+        "maintenanceOn": "Active",
+        "maintenanceOff": "Inactive",
+        "maintenanceToggle": "Maintenance mode active",
+        "reason": "Reason",
+        "reasonPlaceholder": "Why maintenance is being engaged or cleared",
+        "noticeRu": "Customer notice (Russian)",
+        "noticeEn": "Customer notice (English)",
+        "noticesRequired": "Both languages are required. A customer who reads only one and gets a blank screen is worse served than one who gets a notice they can read.",
+        "automaticNote": "This was engaged by dependency detection, not by an operator. It clears itself when the dependency recovers; clearing it by hand would re-enable purchases while the dependency is still down.",
+        "source": {
+          "manual": "Engaged manually",
+          "remnawave": "Remnawave unavailable",
+          "database": "Database unavailable",
+          "valkey": "Valkey unavailable"
+        }
       }
     },
     "catalog": {

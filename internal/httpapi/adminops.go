@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/omniflow/omniflow/internal/panelpg"
 	"github.com/omniflow/omniflow/internal/payments"
+	"github.com/omniflow/omniflow/internal/platform"
 	"github.com/omniflow/omniflow/internal/rbac"
 )
 
@@ -36,6 +37,12 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 		Get("/overview/dashboard", handlers.dashboard)
 	secure.With(handlers.requirePermission(rbac.PermissionSystemRead)).
 		Get("/overview/incidents", handlers.recentIncidents)
+	secure.With(handlers.requirePermission(rbac.PermissionSystemRead)).
+		Get("/overview/health", handlers.dependencyHealth)
+	secure.With(handlers.requirePermission(rbac.PermissionSystemRead)).
+		Get("/overview/maintenance", handlers.maintenanceState)
+	secure.With(handlers.requirePermission(rbac.PermissionSystemWrite)).
+		Put("/overview/maintenance", handlers.setMaintenance)
 
 	// -- Customers -----------------------------------------------------------
 	secure.With(handlers.requirePermission(rbac.PermissionCustomersRead)).Group(func(read chi.Router) {
@@ -315,6 +322,65 @@ func (handlers *AdminHandlers) dashboard(writer http.ResponseWriter, request *ht
 func (handlers *AdminHandlers) recentIncidents(writer http.ResponseWriter, request *http.Request) {
 	events, err := handlers.operations.RecentIncidents(request.Context(), queryInt(request, "pageSize"))
 	handlers.respond(writer, request, map[string]any{"items": events}, err)
+}
+
+// dependencyHealth reports the live dependency probes beside what each
+// configured provider last told us.
+//
+// The probes are the same registry /readyz reports on, so the panel and the
+// load balancer can never disagree about whether PostgreSQL is up. A provider's
+// status comes from the database instead, because "configured but never
+// reached" is a different problem from "reached and failing" and a live probe
+// would collapse the two.
+func (handlers *AdminHandlers) dependencyHealth(writer http.ResponseWriter, request *http.Request) {
+	dependencies := []platform.Check{}
+	healthy := true
+	if handlers.health != nil {
+		dependencies, healthy = handlers.health.Report(request.Context())
+	}
+
+	providers, err := handlers.operations.ProviderHealth(request.Context())
+	if err != nil {
+		handlers.operationsError(writer, request, err)
+		return
+	}
+	goodsProviders, err := handlers.operations.GoodsProviderHealth(request.Context())
+	if err != nil {
+		handlers.operationsError(writer, request, err)
+		return
+	}
+
+	writeJSON(writer, http.StatusOK, map[string]any{
+		"healthy": healthy, "dependencies": dependencies,
+		"paymentProviders": providers, "goodsProviders": goodsProviders,
+	})
+}
+
+func (handlers *AdminHandlers) maintenanceState(writer http.ResponseWriter, request *http.Request) {
+	state, err := handlers.operations.MaintenanceState(request.Context())
+	handlers.respond(writer, request, state, err)
+}
+
+// setMaintenance switches maintenance mode manually.
+//
+// A manual change is always recorded as manual, never as automatic detection:
+// the two are cleared by different things, and mislabelling one would leave an
+// operator waiting for a recovery that will not come.
+func (handlers *AdminHandlers) setMaintenance(writer http.ResponseWriter, request *http.Request) {
+	var body struct {
+		Active           bool       `json:"active"`
+		NoticeRU         string     `json:"noticeRu"`
+		NoticeEN         string     `json:"noticeEn"`
+		ExpectedReturnAt *time.Time `json:"expectedReturnAt"`
+	}
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	state, err := handlers.operations.SetMaintenance(request.Context(), panelpg.MaintenanceInput{
+		Active: body.Active, NoticeRU: body.NoticeRU, NoticeEN: body.NoticeEN,
+		ExpectedReturnAt: body.ExpectedReturnAt,
+	}, actorFrom(request))
+	handlers.respond(writer, request, state, err)
 }
 
 // ---------------------------------------------------------------------------

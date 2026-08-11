@@ -23,6 +23,8 @@ import {
 } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 
+import { HealthPanel } from "./health-panel";
+
 type OutboxEntry = { id: string; topic: string; occurredAt: string; ageSeconds: number };
 
 type Drift = {
@@ -43,18 +45,22 @@ type Drift = {
  */
 export function SystemDiagnostics() {
   const translate = useTranslations("admin.system");
-  const [tab, setTab] = useState("jobs");
+  const [tab, setTab] = useState("health");
 
   return (
     <div className="flex flex-col gap-5">
       <PageHeader description={translate("description")} title={translate("title")} />
       <Tabs onValueChange={setTab} value={tab}>
         <TabsList>
+          <TabsTrigger value="health">{translate("tabs.health")}</TabsTrigger>
           <TabsTrigger value="jobs">{translate("tabs.jobs")}</TabsTrigger>
           <TabsTrigger value="webhooks">{translate("tabs.webhooks")}</TabsTrigger>
           <TabsTrigger value="drift">{translate("tabs.drift")}</TabsTrigger>
           <TabsTrigger value="outbox">{translate("tabs.outbox")}</TabsTrigger>
         </TabsList>
+        <TabsContent value="health">
+          <HealthPanel active={tab === "health"} />
+        </TabsContent>
         <TabsContent value="jobs">
           <Jobs active={tab === "jobs"} />
         </TabsContent>

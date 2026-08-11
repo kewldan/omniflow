@@ -162,7 +162,12 @@ type Querier interface {
 	// Every count carries its own definition, which the panel repeats beside the
 	// number: "active" is a customer record that is neither suspended nor deleted,
 	// not one with a live subscription.
-	DashboardCustomerTotals(ctx context.Context, lookback pgtype.Interval) (DashboardCustomerTotalsRow, error)
+	//
+	// `shift` moves the window back by its own length, so the same statement serves
+	// both the current period and the one before it. That is what lets the panel
+	// show a comparison without a second, subtly different query that could drift
+	// from this one.
+	DashboardCustomerTotals(ctx context.Context, arg DashboardCustomerTotalsParams) (DashboardCustomerTotalsRow, error)
 	DashboardDriftTotals(ctx context.Context) (DashboardDriftTotalsRow, error)
 	DashboardJobHealth(ctx context.Context, lateAfter pgtype.Interval) (DashboardJobHealthRow, error)
 	// The oldest unpublished event is the honest measure of lag: a queue with a
@@ -170,10 +175,14 @@ type Querier interface {
 	// ago is not.
 	DashboardOutboxLag(ctx context.Context) (DashboardOutboxLagRow, error)
 	DashboardPaymentHealth(ctx context.Context, arg DashboardPaymentHealthParams) (DashboardPaymentHealthRow, error)
+	// What each configured payment provider last reported. The panel shows it
+	// beside the live dependency probes so an operator sees "configured but never
+	// reached" as distinct from "reached and failing".
+	DashboardProviderHealth(ctx context.Context) ([]DashboardProviderHealthRow, error)
 	// Deliberately three separate figures rather than one "revenue": money taken
 	// through a provider, wallet credit spent, and money returned are different
 	// questions, and adding them together answers none of them.
-	DashboardRevenue(ctx context.Context, lookback pgtype.Interval) ([]DashboardRevenueRow, error)
+	DashboardRevenue(ctx context.Context, arg DashboardRevenueParams) ([]DashboardRevenueRow, error)
 	DashboardSubscriptionTotals(ctx context.Context, lookback pgtype.Interval) (DashboardSubscriptionTotalsRow, error)
 	DashboardSupportTotals(ctx context.Context, staleAfter pgtype.Interval) (DashboardSupportTotalsRow, error)
 	DashboardWebhookHealth(ctx context.Context, lookback pgtype.Interval) (DashboardWebhookHealthRow, error)
