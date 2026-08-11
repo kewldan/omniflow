@@ -19,10 +19,6 @@ type Metric struct {
 	// explaining exactly what was counted.
 	Definition string `json:"definition"`
 	Value      int64  `json:"value"`
-	// Comparison is the same measure over the immediately preceding window of
-	// the same length, or nil when the measure is a point-in-time total and has
-	// no meaningful comparison.
-	Comparison *int64 `json:"comparison,omitempty"`
 }
 
 // RevenueLine separates the three figures that are routinely and wrongly added

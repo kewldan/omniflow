@@ -16,7 +16,7 @@ Build Telegram-first self-service, subscriptions, billing, support, marketing, a
 [Quick start](#-quick-start) · [Roadmap](./ROADMAP.md) · [Documentation](./docs/index.mdx) · [Architecture](./docs/architecture/overview.mdx) · [Contributing](./CONTRIBUTING.md)
 
 > [!IMPORTANT]
-> Omniflow is under active development. The platform foundation, the commerce backend, the complete Telegram customer product, production runtime, and the complete v0.6 operator panel foundation — sign-in with two-factor, optional OIDC, granular RBAC, an append-only audit trail, security notices, and the `/admin` shell — are implemented and verified against PostgreSQL 18. Operational admin surfaces for customers, finance, catalog, and support arrive in v0.7 and v0.8. Web checkout remains intentionally disabled until the customer panel milestone; a payment method is offered in the bot only when the operator has configured that adapter.
+> Omniflow is under active development. The platform foundation, the commerce backend, the complete Telegram customer product, production runtime, the v0.6 operator panel foundation, and the v0.7 operator workspace — dashboard, customer and subscription administration, catalogue, finance with CSV export, job and webhook diagnostics, risk review, and commerce settings — are implemented and verified against PostgreSQL 18. Gifts, the digital-goods shop, and recurring payments have their data model, domain rules, and operator surfaces in place; their customer-facing Telegram flows and background workers are not wired yet and are still unchecked in the roadmap. The support desk and campaign delivery arrive in v0.8. Web checkout remains intentionally disabled until the customer panel milestone; a payment method is offered in the bot only when the operator has configured that adapter.
 
 ## ✨ Highlights
 
@@ -27,6 +27,8 @@ Build Telegram-first self-service, subscriptions, billing, support, marketing, a
 | 💳 | **Commerce-ready backend** | Immutable plan versions, promotions, provider-neutral payments, refunds, wallet ledger, entitlements, durable fulfillment, and drift recovery. |
 | 🧭 | **One web application** | Customer routes and the `/admin` workspace share Next.js, localization, API bindings, and the same shadcn component system. |
 | 🔐 | **Operator panel with real access control** | Argon2id passwords, TOTP with recovery codes, optional OIDC, dual-expiry rotating sessions, six built-in roles, and an append-only audit trail enforced in the API rather than by hidden routes. |
+| 📊 | **An operations dashboard that explains itself** | Every tile publishes the definition of what it counted, times are UTC, and revenue is reported as three separate figures rather than one number that double-counts wallet credit. |
+| 🛑 | **Risk signals that never punish anybody** | External blocklists are stored as salted digests, anomaly rules are operator-configured per metric, and every adverse decision is a human one with a mandatory reason and an audit event. |
 | 🔔 | **Security notices where you already look** | Sign-ins from a new address, password changes, second factors removed, and owner grants reach the operator Telegram group — naming the event and the account, never an address or a token. |
 | 🛡️ | **Privacy-conscious by design** | Protected Telegram messages, no HWID/IP display, no subscription-link storage, explicit secret boundaries, and optional anonymous telemetry. |
 | 🧱 | **Production-oriented foundation** | PostgreSQL migrations, durable River jobs, transactional outbox, Valkey, generated contracts, structured logs, observability, and security automation. |
@@ -161,10 +163,10 @@ The complete versioned delivery contract is maintained in [ROADMAP.md](./ROADMAP
 - [x] Telegram support desk, news inbox, communication consent, and referral reward policies
 - [x] Operator authentication, two-factor, optional OIDC, RBAC enforcement, and audit search
 - [x] Responsive `/admin` shell with command search, localization, and URL-backed filters
-- [ ] Operator customer, finance, catalog, and support workflows
+- [x] Operator dashboard, customer, subscription, catalogue, finance, risk, and job workflows
+- [ ] Customer-facing gift, digital-goods, and auto-renew flows in the bot
 - [ ] Operator support inbox and campaign delivery
 - [ ] End-to-end browser coverage
-- [ ] Production Telegram webhook mode
 
 ## 📡 Anonymous telemetry
 

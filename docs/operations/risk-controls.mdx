@@ -1,0 +1,128 @@
+---
+title: Risk controls
+description: External blocklists and anomaly detection — evidence for an operator, never an automatic sanction.
+---
+
+Omniflow can subscribe to external blocklists and can watch a handful of metrics
+for values that look wrong. Both surfaces produce rows an operator reads.
+
+One rule governs the whole area and is enforced in the schema, the service
+layer, and the panel copy: **nothing here punishes a customer**. A match and a
+signal are evidence. The adverse action, when there is one, is an ordinary
+customer or finance mutation on the customer's own page, with its own
+permission, its own mandatory reason, and its own audit event.
+
+That is what makes automated detection safe to run at all: the worst a false
+positive can do is cost an operator the time it takes to dismiss it.
+
+## Blocklists
+
+An operator configures a source: a display name, what its entries identify
+(`telegram_id`, `email`, or `username`), an HTTPS URL, an optional authorization
+header, and a refresh interval.
+
+### What is stored
+
+Only a digest. Each entry is kept as the SHA-256 of its normalised value, salted
+by the kind it identifies. Three things follow.
+
+Omniflow holds no readable copy of a third party's list, so it cannot leak or
+republish one. A fingerprint from one installation means nothing in another. And
+a lookup is still an exact index probe, which is the only kind of lookup a
+blocklist needs.
+
+Normalisation happens before hashing and is per kind. Telegram identifiers are
+reduced to their canonical decimal form, usernames are lowercased with a leading
+`@` or a `t.me/` prefix stripped, and an address is lowercased in the domain
+only — lowercasing the local part or stripping dots is a provider-specific
+convention that would make two genuinely different addresses collide.
+
+### Refresh
+
+A refresh replaces a source's entries wholesale inside one transaction, so an
+entry the publisher removed stops matching in the same instant the new set
+starts, and a refresh that fails part way leaves the previous list intact rather
+than an arbitrary prefix of the new one.
+
+Both a JSON array and a plain-text file of one value per line are accepted, and
+the shape is decided from the first non-space byte rather than from a declared
+content type — a list served with a careless `text/plain` still imports. A line
+that does not normalise is skipped and counted rather than failing the refresh:
+one malformed row in a third-party list must not leave an operator with a stale
+blocklist and no explanation.
+
+A source publishing more than 500,000 entries is refused. A list that suddenly
+grows that large is far more likely to be misconfigured or redirected than
+genuinely that big, and importing it would replace a working list with garbage.
+
+### Deciding a match
+
+A match records the customer, the source, and the kind of identifier that hit.
+An operator decides `allowed` or `blocked` with a mandatory reason, and their
+identity is recorded, so an adverse decision can never be anonymous.
+
+Re-detecting a match that has already been decided does not reopen it. The
+allowlist goes further: an allowlisted customer is skipped entirely by the
+check, which is what makes an operator's "this one is fine" survive the next
+refresh of the source.
+
+A blocked match can be appealed, which returns it to the review queue.
+
+## Anomaly detection
+
+Four metrics can be watched, each with its own rule:
+
+| Metric | Measures |
+| --- | --- |
+| `purchase` | Paid order value per customer in the window |
+| `refund` | Refunded value per customer in the window |
+| `referral` | Qualified referrals per inviter in the window |
+| `traffic` | Observed traffic on a subscription |
+
+A rule carries a window, a warning threshold, an alert threshold, and a minimum
+sample. Thresholds are in the metric's own unit — bytes for traffic, minor units
+for purchase and refund, a plain count for referral — because converting them
+would mean showing an operator a number they did not type.
+
+`minimum_sample` is what stops a brand-new installation raising an alert on its
+first three orders. A window with fewer observations than that raises nothing.
+
+<Note>
+  The traffic rule is a **level** check, not a rate. Remnawave owns traffic and
+  Omniflow holds only the counter it last observed, so the rule flags a
+  subscription whose observed usage has passed a threshold, not one whose usage
+  grew quickly. The rule's window controls how often such a subscription is
+  re-raised, not what is measured.
+</Note>
+
+### Deduplication
+
+A condition that persists across several evaluation runs is one signal, not one
+per run. The dedupe key is the metric, the subject, and the window bucket the
+observation falls in, so a customer who stays above a threshold for six hours
+produces one alert per window rather than one per sweep. A signal an operator
+has already reviewed stays reviewed when the same condition is observed again.
+
+### Evidence
+
+Each signal carries the numbers that produced it — counts, sums, the currency,
+the window — and never a message body, a link, a token, an address, or any other
+customer content. An operator reviewing a signal needs to see why it fired,
+which is arithmetic, not correspondence.
+
+### Notifications
+
+A raised signal is queued to the `anomaly` operator topic in the same
+transaction that persists it, so an alert cannot be announced for a signal that
+was rolled back. The notice names the metric, the severity, and the numbers. It
+does not name the customer: an operator group is a chat, and the panel is where
+somebody with the permission looks the subject up.
+
+## Permissions
+
+`risk.read` reads sources, matches, rules, and signals. `risk.write` decides a
+match, appeals one, manages sources and rules, and edits the allowlist.
+
+Every role that holds `risk.write` also holds `customers.read`, which is
+asserted by a unit test: a role that could decide a match without being able to
+read the customer would be deciding blind.

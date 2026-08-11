@@ -320,7 +320,7 @@ Every capability in this version is configured through environment and configura
 
 ---
 
-## 🚧 v0.6 — Admin panel foundation and access control
+## ✅ v0.6 — Admin panel foundation and access control
 
 Goal: build the secure operator shell only after the Telegram/backend product is complete.
 
@@ -390,24 +390,24 @@ it lets a customer exceed a limit the operator configured.
 
 ---
 
-## ⏳ v0.7 — Admin operations and commerce
+## 🚧 v0.7 — Admin operations and commerce
 
 Goal: let operators run day-to-day customer, subscription, and financial operations.
 
 ### Overview and system health
 
-- [ ] Dashboard for active/expired customers, traffic, renewals, payment health, open support, and failed jobs
+- [x] Dashboard for active/expired customers, traffic, renewals, payment health, open support, and failed jobs
 - [ ] Metrics with explicit definitions, timezone, comparison period, and data freshness
 - [ ] Remnawave, PostgreSQL, Valkey, Telegram, worker, and provider health
 - [ ] Recent incidents, reconciliation drift, webhook failures, and required actions
 - [ ] Traffic, purchase, refund, and referral anomaly detection with configurable thresholds
 - [ ] Anomaly alerts delivered to the operator topic with evidence and no automatic customer punishment
-- [ ] Anomaly review with threshold configuration, supporting evidence, acknowledgement, and dismissal
+- [x] Anomaly review with threshold configuration, supporting evidence, acknowledgement, and dismissal
 - [ ] Maintenance-mode state, activation reason, and manual override
 
 ### Customers and subscriptions
 
-- [ ] Customer search by safe identifiers with status and segment filters
+- [x] Customer search by safe identifiers with status and segment filters
 - [ ] Customer profile with identities, subscription, devices, orders, wallet, referrals, support, consent, and audit timeline
 - [ ] Every concurrent subscription listed with independent lifecycle actions and its own Remnawave mapping
 - [ ] Create/link/import customer with duplicate detection
@@ -417,83 +417,132 @@ Goal: let operators run day-to-day customer, subscription, and financial operati
 - [ ] Bulk import/export with preview, validation errors, progress, resumability, and audit history
 - [ ] Bulk actions with permission checks, impact preview, limits, and per-item results
 - [ ] External blocklist source configuration, refresh schedule, and connection health
-- [ ] Blocklist match review with evidence, manual allowlist override, and appeal handling
-- [ ] Block reason, actor, and source recorded as an audit event for every decision
+- [x] Blocklist match review with evidence, manual allowlist override, and appeal handling
+- [x] Block reason, actor, and source recorded as an audit event for every decision
 
 ### Catalog and promotions
 
-- [ ] Plan list, create, version, archive, visibility, localization, and ordering
+- [x] Plan list, create, version, archive, visibility, localization, and ordering
 - [ ] Price, currency, duration, traffic, device, squad, and eligibility configuration
 - [ ] Trial, upgrade, downgrade, grace-period, and renewal policies
-- [ ] Multiple-subscription enablement with per-customer and per-plan concurrency limits
-- [ ] Promotion and promo-code management with usage analytics
+- [x] Multiple-subscription enablement with per-customer and per-plan concurrency limits
+- [x] Promotion and promo-code management with usage analytics
 - [ ] Plan-scoped squad sets, selection policy, and subscription-configurator visibility
 - [ ] Add-on catalog for traffic, device slots, and squads with versioned pricing and proration rules
-- [ ] Promo-code reward types for fixed amount, percentage, subscription days, and trial grant
-- [ ] Wallet-credit promo codes recorded as ordinary ledger entries
-- [ ] Stacking rules, precedence order, and explicit rejection reasons
+- [x] Promo-code reward types for fixed amount, percentage, subscription days, and trial grant
+- [x] Wallet-credit promo codes recorded as ordinary ledger entries
+- [x] Stacking rules, precedence order, and explicit rejection reasons
 - [ ] Personal offers targeted at a single customer with validity window and single-use redemption
 - [ ] Offer presentation in the bot with expiry countdown, terms, and dismissal
 - [ ] Preview of customer-facing Telegram and web presentation
 
 ### Finance
 
-- [ ] Order and payment search, details, timelines, and provider references
+- [x] Order and payment search, details, timelines, and provider references
 - [ ] Pending/stuck payment reconciliation and safe retry tools
 - [ ] Refund workflow with provider capability checks, reason, confirmation, and audit
-- [ ] Append-only wallet ledger and permission-gated corrective entries
+- [x] Append-only wallet ledger and permission-gated corrective entries
 - [ ] Provider configuration with encrypted secrets, connection test, and webhook status
-- [ ] Wallet top-up configuration, limits, preset amounts, and enabled providers
-- [ ] Financial CSV export with stable schema and timezone/currency clarity
-- [ ] Revenue views separated from payment volume, wallet credits, and refunds
+- [x] Wallet top-up configuration, limits, preset amounts, and enabled providers
+- [x] Financial CSV export with stable schema and timezone/currency clarity
+- [x] Revenue views separated from payment volume, wallet credits, and refunds
 
 ### Recurring payments and auto-renew
 
-- [ ] Per-provider recurring capability declared through the provider contract
-- [ ] Per-merchant override for providers that do not grant card binding to every merchant
-- [ ] Saved payment method referenced only by provider token, with no card data stored by Omniflow
+- [x] Per-provider recurring capability declared through the provider contract
+- [x] Per-merchant override for providers that do not grant card binding to every merchant
+- [x] Saved payment method referenced only by provider token, with no card data stored by Omniflow
 - [ ] Customer-visible saved methods, default selection, and removal
 - [ ] Auto-renew from a saved method or wallet balance with a configurable lead time
 - [ ] Failed-charge retry schedule, dunning notification, and automatic fallback to manual renewal
-- [ ] Auto-renew disabled by default and enabled only after explicit customer consent
-- [ ] Operator enablement per provider and per merchant with an explicit capability test
-- [ ] Saved-method, dunning, and auto-renew failure review in the admin panel
+- [x] Auto-renew disabled by default and enabled only after explicit customer consent
+- [x] Operator enablement per provider and per merchant with an explicit capability test
+- [x] Saved-method, dunning, and auto-renew failure review in the admin panel
 
 ### Gifts
 
 - [ ] Purchase a subscription, add-on, or wallet credit for another person
-- [ ] Gift codes claimable by an unlinked recipient with claim, expiry, and revocation states
+- [x] Gift codes claimable by an unlinked recipient with claim, expiry, and revocation states
 - [ ] Telegram gift delivery with an optional sender message and privacy-safe recipient handling
-- [ ] Gift orders kept separate from the recipient's own order and payment history
-- [ ] Refund, abuse, and reclaim rules for unclaimed, expired, and disputed gifts
-- [ ] Gift order, claim, expiry, revocation, and refund management in the admin panel
+- [x] Gift orders kept separate from the recipient's own order and payment history
+- [x] Refund, abuse, and reclaim rules for unclaimed, expired, and disputed gifts
+- [x] Gift order, claim, expiry, revocation, and refund management in the admin panel
 
 ### Digital goods shop
 
-- [ ] Provider-neutral digital-goods adapter with a Fragment-backed implementation
+- [x] Provider-neutral digital-goods adapter with a Fragment-backed implementation
 - [ ] Telegram Premium catalog with supported durations and localized presentation
 - [ ] Telegram Stars catalog with operator-defined quantities or packs
-- [ ] Recipient Telegram username validation and explicit confirmation before payment
+- [x] Recipient Telegram username validation and explicit confirmation before payment
 - [ ] Purchase for the customer or for another username with a recipient review step
-- [ ] Operator-configured markup, rounding, and currency conversion over provider cost
-- [ ] Quoted price with an explicit expiry whenever the provider rate is volatile
-- [ ] Digital-goods orders kept separate from subscription orders and Remnawave entitlements
-- [ ] Idempotent delivery that cannot deliver Premium or Stars twice for one order
+- [x] Operator-configured markup, rounding, and currency conversion over provider cost
+- [x] Quoted price with an explicit expiry whenever the provider rate is volatile
+- [x] Digital-goods orders kept separate from subscription orders and Remnawave entitlements
+- [x] Idempotent delivery that cannot deliver Premium or Stars twice for one order
 - [ ] Delivery polling, delayed-delivery state, and provider failure classification
-- [ ] Automatic wallet refund when delivery fails permanently
+- [x] Automatic wallet refund when delivery fails permanently
 - [ ] Wallet, promo, and cart support reusing the existing commerce pipeline
 - [ ] Bot shop navigation with catalog, details, confirmation, delivery progress, and history
-- [ ] Admin catalog, provider credentials, markup configuration, and order review
-- [ ] Encrypted provider credentials with spend limits and low-balance alerts
-- [ ] No recipient data retained beyond what delivery and support genuinely require
+- [x] Admin catalog, provider credentials, markup configuration, and order review
+- [x] Encrypted provider credentials with spend limits and low-balance alerts
+- [x] No recipient data retained beyond what delivery and support genuinely require
 
 ### Fulfillment and jobs
 
-- [ ] Fulfillment history and Remnawave drift view
-- [ ] Retry/cancel controls constrained by job state and idempotency rules
-- [ ] Dead-letter queue view with safe error details
-- [ ] Webhook event list, verification status, attempts, and replay-safe reprocessing
-- [ ] Outbox lag and unpublished-event diagnostics
+- [x] Fulfillment history and Remnawave drift view
+- [x] Retry/cancel controls constrained by job state and idempotency rules
+- [x] Dead-letter queue view with safe error details
+- [x] Webhook event list, verification status, attempts, and replay-safe reprocessing
+- [x] Outbox lag and unpublished-event diagnostics
+
+### What v0.7 has delivered so far
+
+The operator workspace is usable end to end: an operator can read the dashboard,
+search customers by a safe identifier, work through a customer's subscriptions,
+orders, wallet, consent, and risk history, suspend or reactivate them with a
+recorded reason, manage the catalogue and promotions, search orders and export
+them, retry or cancel a fulfillment job, replay a failed webhook, adjudicate a
+blocklist match, review an anomaly, and edit the wallet and subscription
+settings that were environment variables until now.
+
+Three subsystems have their data model, domain rules, and operator surfaces in
+place while their customer-facing halves are not yet wired. Their remaining
+items above are deliberately unchecked.
+
+**Gifts.** Claim-code format, redemption rules, revocation and refund
+eligibility, and the operator register are implemented. Buying and claiming a
+gift in the bot is not.
+
+**Digital goods.** The provider-neutral adapter, the Fragment implementation,
+pricing with markup and rounding, quote expiry, the delivery record with its
+double-delivery guard, failure classification, spend ceilings, and the operator
+views are implemented. The bot shop and the delivery worker are not.
+
+**Recurring payments.** Capability resolution, consent, saved-method lifecycle,
+lead time, the dunning schedule, and the operator review queue are implemented.
+The worker that attempts a charge and the customer consent flow are not.
+
+Nothing in those three can be reached by a customer today, so no order can be
+created against them. Each is documented with the same caveat in `docs/`.
+
+### Verification debt
+
+- [x] `20260813000000_admin_operations.sql` applied against PostgreSQL 18.4 from
+      a bare database, and its checksum recorded with `atlas migrate hash`
+- [x] Unit coverage for anomaly evaluation and deduplication, blocklist
+      normalisation and parsing, gift claim rules, digital-goods pricing and
+      failure classification, and the recurring capability, lead-time, and
+      dunning rules
+- [x] Route tests proving every operations endpoint sits behind the session gate
+      and that the surfaces are absent when no operations service is attached
+- [ ] `api/openapi.yaml` extended with the v0.7 panel operations, and the Orval
+      bindings regenerated from it. The panel calls the same paths through the
+      shared typed transport, so the surfaces work, but the published contract
+      does not describe them yet
+- [ ] Testcontainers coverage for customer search, finance export, bulk-action
+      preview and application, blocklist adjudication, and anomaly deduplication
+- [ ] Playwright coverage for the operator journeys, which arrives with the v0.8
+      accessibility and browser gates
 
 ---
 

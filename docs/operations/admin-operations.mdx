@@ -1,0 +1,191 @@
+---
+title: Admin operations
+description: The day-to-day operator surfaces — dashboard, customers, catalogue, finance, jobs, and settings.
+---
+
+The panel's operations surfaces arrived in v0.7. They sit on the v0.6 shell:
+same session cookie, same CSRF token, same compiled-in permission catalogue, and
+the same `/v1/panel` prefix. What they add is the ability to run the business
+without SQL or shell access.
+
+Every route is gated twice. The Next.js server boundary refuses to render a page
+an operator cannot use, so a forbidden surface never produces markup. The Go API
+checks the same permission on every request, and that check — not the hidden
+route — is what actually protects the data.
+
+## Permissions added in v0.7
+
+| Permission | Grants |
+| --- | --- |
+| `risk.read` / `risk.write` | Read and decide blocklist matches and anomaly signals |
+| `gifts.read` / `gifts.write` | Read the gift register; revoke and refund unredeemed gifts |
+| `goods.read` / `goods.write` | Read the digital-goods shop; edit its catalogue and provider credentials |
+
+Risk is separate from customer administration because the two answer different
+questions: reading a customer record is routine support work, and deciding that
+an external list's opinion of them is correct is a judgement with consequences.
+Digital goods is separate from `catalog` because a goods provider holds the
+operator's own money — someone who may price a VPN plan should not automatically
+be able to rotate a credential that spends from a funded balance.
+
+Support and finance receive read access to all three. Finance additionally gets
+`gifts.write`, because revoking an unredeemed gift is a refund decision.
+
+## Reason header
+
+Most mutations require an explanation, supplied in the `X-Operator-Reason`
+request header. The API refuses a change that needs one and did not get one, so
+the panel disables the control until a reason is typed rather than letting an
+operator discover the requirement from an error.
+
+A reason is mandatory for suspending or reactivating a customer, deciding or
+appealing a blocklist match, allowlisting a customer, revoking a gift,
+cancelling a shop delivery, issuing a refund, and previewing a bulk action.
+
+## Dashboard
+
+Every tile publishes the definition of what it counted. This is not decoration:
+the failure mode of an operations dashboard is not a wrong number, it is a right
+number somebody read as meaning something else. "Active customers" counts
+customer records that are neither suspended nor deleted — it is not the number
+of people with a live subscription, and the tile says so.
+
+Three properties are worth knowing.
+
+**Times are UTC.** The payload states the timezone and the panel converts for
+display, so two operators in different places never compare figures that
+silently covered different days.
+
+**Revenue is three numbers, not one.** Money taken through a provider, wallet
+credit spent, and money returned are reported separately. Wallet credit was
+already counted as revenue when the balance was funded, so adding it to provider
+money counts it twice.
+
+**Traffic is observed, not authoritative.** Remnawave owns traffic. Omniflow
+holds the counter it last observed, and the tile is labelled accordingly.
+
+The "needs action" list is derived from the same figures the tiles show, so an
+alert can never contradict the tile beside it. Each entry deep-links into the
+ordinary surface that resolves it rather than offering a shortcut that bypasses
+the usual confirmation and audit.
+
+## Customers
+
+Search accepts an Omniflow customer identifier, a Telegram identifier, or a
+Remnawave username, and decides which one it is from its shape.
+
+There is deliberately no free-text search. Contact values are stored as
+ciphertext plus a fingerprint precisely so they cannot be trawled, and a
+substring search over customer records is the query that turns a support account
+into a bulk-export account.
+
+Segments filter by relationship rather than by status: has a live subscription,
+lapsed, never purchased, or flagged for review.
+
+A customer profile lists every concurrent subscription with the entitlement
+currently governing it, plus orders, wallet movements, support history, consent
+state, and any risk matches. The wallet tab is gated on `finance.read` rather
+than on customer access, so a support operator can see that a customer has a
+balance without reading every movement that produced it.
+
+<Note>
+  Suspending a customer does not disable a Remnawave user directly. The
+  fulfillment pipeline observes customer state; a panel click that bypassed it
+  would leave Omniflow and Remnawave disagreeing with no record of why.
+</Note>
+
+## Catalogue
+
+Plans, their versions, and promotions. The catalogue is versioned, so nothing
+here rewrites history: hiding or archiving a plan stops new purchases and leaves
+every order that already bought it priced against the immutable version it was
+sold at. The plan list shows how many order lines reference a plan so archiving
+one in active use is a visible decision rather than a surprise.
+
+v0.7 widens promotion rewards beyond discounts:
+
+| Kind | Effect |
+| --- | --- |
+| `percent` | Percentage off the order |
+| `fixed` | Fixed amount off the order |
+| `wallet_credit` | Credit posted to the customer's wallet as an ordinary ledger entry |
+| `days` | Extra subscription days |
+| `trial` | A granted trial period |
+
+Two promotions combine only when both are marked stackable. `precedence` orders
+evaluation, highest first, so applying several is deterministic rather than
+dependent on the order the customer entered them.
+
+A promotion's kind is not editable. Changing a live promotion from a percentage
+discount into a wallet credit would silently change what every unredeemed code
+is worth; a different reward is a different promotion.
+
+## Finance
+
+Order search, the reconciliation queue, and the failed-charge review.
+
+The reconciliation queue lists payment intents that have been in flight longer
+than any supported provider should take. Reconciling re-polls the provider
+through the existing idempotent payment service — the panel records who asked
+and why, and never decides how a payment settles.
+
+The CSV export has a stable schema: a later version appends a column and never
+inserts one, so an importer built against an older export keeps working. Amounts
+are integers in the currency's minor unit and every timestamp is UTC, both
+stated in the column names rather than only here.
+
+## Jobs and diagnostics
+
+Failed fulfillment operations, provider callbacks, Remnawave drift, and the
+outbox backlog.
+
+A retry re-queues the same operation under the same idempotency key, so the
+worker still performs it exactly once. Cancelling is offered only for an
+operation that has not succeeded: a completed provisioning cannot be retracted
+by a panel click. A webhook may be replayed only if it failed or was ignored —
+reprocessing is keyed on the provider event identifier, so a second pass reaches
+the same terminal state instead of applying twice.
+
+None of these views shows a provider payload or a Remnawave response body. They
+carry a status, a classification, and a correlation identifier, which is what an
+operator needs to decide whether to retry, and none of which can leak a
+subscription link onto an operator's screen.
+
+## Settings
+
+Wallet top-up limits and subscription concurrency were environment variables
+until v0.7. They are now rows in `commerce_settings`.
+
+The migration path is deliberate. On the first start after upgrading, the API
+seeds the row from the environment the installation already had, so an operator
+coming from v0.5 keeps the limits they configured rather than getting schema
+defaults. From then on the panel is the only thing that writes them, and the
+environment variables stay readable so restoring into a fresh database
+reproduces the same starting point.
+
+The provider list shows what the operator configured beside what each
+compiled-in adapter actually declares. A recurring switch that is unavailable is
+explained rather than merely refused: either the integration has no way to bind
+a payment method, or the operator's own merchant account has not passed a
+capability test.
+
+## Bulk actions
+
+A bulk action is previewed, then applied. Only a `ready` operation may start, so
+"impact preview before bulk change" is a property of the database rather than a
+habit of the panel — there is no path from a request to an applied change that
+skips the preview.
+
+One action is limited to 1000 targets. That is a limit rather than a page: a
+change whose preview an operator cannot review is a change nobody has actually
+approved. Each run keeps its own mandatory reason, its own audit event, and a
+per-item outcome, and the counters are recomputed from the items rather than
+incremented, so a retried worker cannot double-count.
+
+A running operation cannot be cancelled. Some of its targets have already been
+changed, and a half-applied action reporting "cancelled" would misrepresent what
+happened; it runs to completion and the per-item results say exactly which
+targets were touched.
+
+Previewing requires an `Idempotency-Key` header, so a double-submitted form
+returns the preview it already created rather than a second one.

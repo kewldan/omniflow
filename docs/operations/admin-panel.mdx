@@ -40,9 +40,9 @@ database records only which roles an operator holds.
 | --- | --- |
 | `owner` | Everything, including creating operators and changing role grants |
 | `administrator` | All day-to-day operations and settings; cannot manage operator accounts |
-| `support` | Customers, subscriptions, and the support desk |
-| `finance` | Orders, payments, refunds, wallet adjustments, and audit export |
-| `marketing` | Campaigns, news, and referral configuration |
+| `support` | Customers, subscriptions, and the support desk; reads risk, gifts, and the shop |
+| `finance` | Orders, payments, refunds, wallet adjustments, and audit export; revokes and refunds unredeemed gifts |
+| `marketing` | Campaigns, news, referral configuration, and personal offers |
 | `auditor` | Read-only across every surface, plus audit export |
 
 Only an owner may create an operator, change role grants, or grant the owner
@@ -56,6 +56,10 @@ panel unadministrable.
 Permissions are enforced in the Go API on every request. The panel renders from
 the same permission set it receives, so hiding a control is presentation only —
 reaching a hidden route grants nothing.
+
+v0.7 adds `risk`, `gifts`, and `goods` to the catalogue. What they cover and why
+they are separate capabilities is described in
+[Admin operations](/operations/admin-operations).
 
 ## Sessions
 

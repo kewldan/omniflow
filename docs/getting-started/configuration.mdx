@@ -46,6 +46,16 @@ Customer-initiated top-up reuses the existing order, payment, webhook, and recon
 | `APP_WALLET_TOPUP_MAXIMUM_MINOR` | No | `5000000` | Largest single top-up; `0` removes the ceiling |
 | `APP_WALLET_TOPUP_WINDOW_LIMIT_MINOR` | No | `10000000` | Credit allowed inside the rolling window; `0` disables the control |
 | `APP_WALLET_TOPUP_WINDOW_HOURS` | No | `24` | Length of the rolling window |
+
+<Note>
+  From v0.7 the wallet top-up limits and the subscription concurrency settings
+  live in the database and are edited in the panel under **Settings**. The
+  variables above seed that row **once**, on the first start after upgrading, so
+  an installation coming from v0.5 keeps the limits its operator configured.
+  Changing a variable afterwards has no effect on a database that already holds
+  the row; keep them set so that restoring into a fresh database reproduces the
+  same starting point.
+</Note>
 | `APP_CART_TTL_HOURS` | No | `720` | How long a saved cart waits for the balance to cover it |
 
 A preset that the limits would refuse is never rendered, so a customer cannot tap a button the backend then rejects.

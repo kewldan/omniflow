@@ -18,7 +18,6 @@ export type Metric = {
   key: string;
   definition: string;
   value: number;
-  comparison?: number;
 };
 
 export type RevenueLine = {

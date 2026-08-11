@@ -1,0 +1,174 @@
+---
+title: Gifts and digital goods
+description: Buying a subscription for somebody else, and selling Telegram Premium and Stars alongside VPN access.
+---
+
+<Warning>
+  **Delivery status in v0.7.** The data model, the domain rules, the Fragment
+  adapter, and the operator surfaces described here are implemented and
+  reachable in the panel. The customer-facing Telegram flows — buying a gift,
+  claiming one, and browsing the shop — and the background delivery worker are
+  **not yet wired**, so no gift or shop order can be created on a running
+  installation today. The corresponding roadmap items remain unchecked. Read
+  this page as the contract those flows will satisfy, not as a description of a
+  feature customers can use.
+</Warning>
+
+## Gifts
+
+A gift is bought by one customer and redeemed by another. It may be a
+subscription, an add-on, or wallet credit.
+
+### Whose history it appears in
+
+The order belongs to the sender and is never copied into the recipient's
+history. `orders.user_id` is the sender; the entitlement or ledger entry the
+claim produces carries the recipient. That is what keeps a gift out of the
+recipient's payment history while still giving them what was bought.
+
+### Claim codes
+
+A code is sixteen Crockford base-32 characters — no `I`, `L`, `O`, or `U`, so
+nothing in it is visually ambiguous and no accidental word appears in it. Eighty
+bits, combined with the attempt ceiling and the endpoint's rate limit, makes
+guessing one impractical.
+
+Only the SHA-256 of the code is stored. A database read never yields a
+redeemable code. The last four characters are kept separately as a hint, which
+is enough for a sender to tell two of their own gifts apart and for support to
+confirm which gift a conversation is about, and not enough to redeem one.
+
+Input is normalised before lookup: separators are stripped and the three
+Crockford substitutions (`I`/`L` to `1`, `O` to `0`) are applied, because those
+are the characters a person copying by hand reliably confuses. Anything else is
+rejected rather than guessed at.
+
+### Redemption rules
+
+Redemption is exactly once by construction: the claim statement only matches a
+gift that is deliverable and unexpired, so a second claim of the same code
+updates no row.
+
+The refusal reasons are checked in a deliberate order:
+
+1. **Attempt ceiling.** After ten failed presentations a code stops answering
+   anything at all, rather than continuing to leak which failure it is. The
+   count is durable state on the row, so it survives a restart and cannot be
+   reset by waiting out a rate-limit window.
+2. **Status.** A gift whose payment has not settled answers "not yet" rather
+   than a refusal. A claimed, revoked, refunded, or expired gift is refused.
+3. **Expiry**, even if the sweeper has not run yet.
+4. **Self-claim.** A sender cannot redeem their own gift: routing money through
+   the gift path would otherwise reach a promotion or reward they are not
+   eligible for.
+5. **Named recipient.** A gift addressed to a Telegram identifier is claimable
+   only by that identifier.
+
+### Revocation and refunds
+
+An operator may revoke a gift that is pending, deliverable, or expired. A
+claimed gift is deliberately **not** revocable: the recipient already holds what
+it bought, and taking that back is a refund decision made against their
+entitlement or ledger, with its own permission and its own record.
+
+Only a gift that was never redeemed is refundable to its sender. Refunding a
+claimed gift would mean the sender's money back and the recipient's entitlement
+intact, which is exactly the abuse this rule prevents.
+
+Revoking takes a row lock first, so a revoke and a claim arriving at the same
+moment serialise: whichever commits first wins and the other sees a state its
+guarded update refuses.
+
+## Digital goods
+
+A digital good is not VPN access. Nothing in this area creates, modifies, reads,
+or depends on a Remnawave entitlement, and a delivery failure here can never
+disturb a subscription.
+
+### Provider contract
+
+The adapter interface is small on purpose — quote, deliver, poll, balance, and a
+supported-kinds check. Pricing, retry policy, refunds, and the customer record
+all sit outside it, so adding a second provider means implementing five methods
+rather than re-deciding how the shop works.
+
+Fragment is the only implementation that ships in v0.7. It is not special-cased
+anywhere: a product names its provider by slug, and the adapter is selected from
+that.
+
+### Pricing
+
+What the customer pays is derived from what the provider charges: a markup in
+basis points, then a rounding rule, both operator-configured per product.
+
+| Rounding | Effect |
+| --- | --- |
+| `none`, `up_minor` | The exact amount |
+| `up_unit` | Up to a whole major unit |
+| `up_ten_units` | Up to a multiple of ten major units |
+| `up_hundred_units` | Up to a multiple of a hundred major units |
+
+Every mode rounds up, and the markup itself rounds up rather than truncating. A
+shop that loses a minor unit on every sale is a shop whose configured margin is
+not the margin it earns.
+
+`fixed_amount_minor` opts out of derivation entirely for an operator who would
+rather publish one price and absorb the variance.
+
+Because a provider's rate can move, a quote carries an expiry. `quote_ttl_seconds`
+sets it when the adapter does not publish one of its own, and a quote that has
+gone stale produces a new quote rather than a charge at the old number.
+
+Both sides of the quote are stored on the order: what the provider asked and
+what the customer was shown. Their difference is the realised margin, which is
+why the finance view can report it without recomputing a markup that may since
+have changed.
+
+### Recipients
+
+The recipient is a Telegram username and nothing else. No display name, no
+numeric identifier, no profile data: delivery needs the username and support
+needs to be able to answer "where did it go", and neither needs more.
+
+Input is normalised from the forms people actually paste — a bare handle, an
+`@` prefix, a `t.me/` link, a link with a query string — and validated against
+Telegram's own rule of five to thirty-two characters beginning with a letter.
+
+### Delivery
+
+One delivery row per order, enforced by the primary key. That single constraint
+is what makes double delivery impossible: a replayed job, a duplicated webhook,
+and a retried worker all find the row that already exists and act on its recorded
+state instead of submitting a second time. The idempotency key travels to the
+provider as well, which is the provider-side half of the same guard.
+
+A failure is classified, and the class decides what happens next:
+
+| Class | Outcome |
+| --- | --- |
+| `retryable` | Retried on the backoff schedule |
+| `provider_balance` | Retried, and raises an alert — the operator can top up |
+| `provider_unavailable` | Retried; an outage rather than a rejection |
+| `recipient_invalid` | Refunded — nothing the worker does will make the username resolve |
+| `permanent` | Refunded |
+
+Retry and refund partition the classes exactly: every terminal failure refunds,
+and no failure is both retried and refunded. An unrecognised provider error code
+is treated as retryable, because retrying an order that was permanently rejected
+wastes a few attempts whereas refunding one that would have succeeded loses the
+delivery.
+
+Backoff doubles from a minute to a ceiling of an hour, and six attempts — a
+little over two hours — is where a retryable failure becomes a refund. The
+refund is an ordinary wallet credit, so it appears in the customer's wallet
+history exactly like any other.
+
+### Spend controls
+
+A provider carries a balance, a low-balance threshold, and a rolling spend
+ceiling measured in provider cost rather than customer price — the ceiling
+protects the operator's funding source, and that is what the provider actually
+draws down. A zero ceiling means no ceiling.
+
+Credentials are sealed with `APP_DATA_ENCRYPTION_KEY`, are never returned by the
+API after they are written, and are excluded from diagnostics.

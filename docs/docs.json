@@ -12,15 +12,28 @@
     "groups": [
       {
         "group": "Start",
-        "pages": ["index", "comparison", "getting-started/quickstart", "getting-started/configuration"]
+        "pages": [
+          "index",
+          "comparison",
+          "getting-started/quickstart",
+          "getting-started/configuration"
+        ]
       },
       {
         "group": "Architecture",
-        "pages": ["architecture/overview", "architecture/data-ownership", "architecture/technology"]
+        "pages": [
+          "architecture/overview",
+          "architecture/data-ownership",
+          "architecture/technology"
+        ]
       },
       {
         "group": "Integrations",
-        "pages": ["integrations/remnawave", "integrations/payments", "integrations/telegram"]
+        "pages": [
+          "integrations/remnawave",
+          "integrations/payments",
+          "integrations/telegram"
+        ]
       },
       {
         "group": "Commerce",
@@ -33,6 +46,8 @@
           "commerce/subscriptions",
           "commerce/addons-configurator",
           "commerce/fulfillment",
+          "commerce/recurring-payments",
+          "commerce/gifts-and-goods",
           "commerce/referrals-communication",
           "commerce/financial-invariants"
         ]
@@ -47,6 +62,8 @@
           "operations/deployment",
           "operations/reverse-proxy",
           "operations/admin-panel",
+          "operations/admin-operations",
+          "operations/risk-controls",
           "operations/observability",
           "operations/maintenance-mode",
           "operations/operator-notifications",
