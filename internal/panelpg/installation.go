@@ -163,7 +163,7 @@ func (service *Service) SaveSettingSection(
 			UpdatedAt:        row.UpdatedAt.Time, UpdatedBy: uuidString(row.UpdatedBy),
 		}
 		return appendAudit(ctx, queries, actor.audit(
-			"settings.section.saved", "settings", "installation_setting", section,
+			"settings.section.saved", "configuration", "installation_setting", section,
 			// The metadata records which secret names were rotated, never their
 			// values: "somebody changed the bot token on Tuesday" is the
 			// auditable fact.
@@ -295,7 +295,7 @@ func (service *Service) SaveAIProvider(
 			}
 		}
 		return appendAudit(ctx, queries, actor.audit(
-			"ai.provider.saved", "settings", "ai_provider", provider.Slug,
+			"ai.provider.saved", "configuration", "ai_provider", provider.Slug,
 			map[string]any{
 				"enabled": provider.Enabled, "kind": provider.Kind,
 				"keyRotated": strings.TrimSpace(apiKey) != "",
@@ -355,7 +355,7 @@ func (service *Service) DeleteAIProvider(ctx context.Context, slug string, actor
 			return err
 		}
 		return appendAudit(ctx, queries, actor.audit(
-			"ai.provider.deleted", "settings", "ai_provider", slug, nil,
+			"ai.provider.deleted", "configuration", "ai_provider", slug, nil,
 		))
 	})
 }
@@ -473,7 +473,7 @@ func (service *Service) ConfigureAIFeature(
 			return notFound(err)
 		}
 		return appendAudit(ctx, queries, actor.audit(
-			"ai.feature.configured", "settings", "ai_feature", feature.Feature,
+			"ai.feature.configured", "configuration", "ai_feature", feature.Feature,
 			map[string]any{
 				"enabled": feature.Enabled, "provider": feature.Provider,
 				"model": feature.Model, "retainPrompts": feature.RetainPrompts,
@@ -694,7 +694,7 @@ func (service *Service) SaveAIUsageLimit(
 			return err
 		}
 		return appendAudit(ctx, queries, actor.audit(
-			"ai.limit.saved", "settings", "ai_usage_limit", limit.Scope+"/"+limit.Ref,
+			"ai.limit.saved", "configuration", "ai_usage_limit", limit.Scope+"/"+limit.Ref,
 			map[string]any{"feature": limit.Feature, "windowSeconds": limit.WindowSeconds},
 		))
 	})
@@ -712,7 +712,7 @@ func (service *Service) DeleteAIUsageLimit(ctx context.Context, id string, actor
 			return err
 		}
 		return appendAudit(ctx, queries, actor.audit(
-			"ai.limit.deleted", "settings", "ai_usage_limit", id, nil,
+			"ai.limit.deleted", "configuration", "ai_usage_limit", id, nil,
 		))
 	})
 }
@@ -848,6 +848,12 @@ func (service *Service) MCPServers(ctx context.Context) ([]MCPServerConfig, erro
 func (service *Service) SaveMCPServer(
 	ctx context.Context, config MCPServerConfig, credential string, actor Actor,
 ) (MCPServerConfig, error) {
+	// A nil slice becomes SQL NULL, and the column is NOT NULL with an empty
+	// default. Normalising here rather than relying on the default means the
+	// common case — a server with no extra hosts — is the one that works.
+	if config.AllowedHosts == nil {
+		config.AllowedHosts = []string{}
+	}
 	candidate := mcp.Server{
 		Slug: config.Slug, Name: config.DisplayName, Endpoint: config.Endpoint,
 		Enabled: config.Enabled, AllowedHosts: config.AllowedHosts,
@@ -884,7 +890,7 @@ func (service *Service) SaveMCPServer(
 			}
 		}
 		return appendAudit(ctx, queries, actor.audit(
-			"mcp.server.saved", "settings", "mcp_server", config.Slug,
+			"mcp.server.saved", "configuration", "mcp_server", config.Slug,
 			map[string]any{
 				"enabled": config.Enabled, "endpoint": config.Endpoint,
 				"credentialRotated": strings.TrimSpace(credential) != "",
@@ -929,7 +935,7 @@ func (service *Service) DeleteMCPServer(ctx context.Context, slug string, actor 
 			return err
 		}
 		return appendAudit(ctx, queries, actor.audit(
-			"mcp.server.deleted", "settings", "mcp_server", slug, nil,
+			"mcp.server.deleted", "configuration", "mcp_server", slug, nil,
 		))
 	})
 }
@@ -1030,7 +1036,7 @@ func (service *Service) SetMCPToolPolicy(
 		}
 		saved = mcpToolsFrom([]dbgen.McpTool{row})[0]
 		return appendAudit(ctx, queries, actor.audit(
-			"mcp.tool.policy", "settings", "mcp_tool", tool.Server+"/"+tool.Tool,
+			"mcp.tool.policy", "configuration", "mcp_tool", tool.Server+"/"+tool.Tool,
 			map[string]any{
 				"enabled": tool.Enabled, "permission": tool.Permission, "writes": tool.Writes,
 			},
