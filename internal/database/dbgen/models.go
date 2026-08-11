@@ -431,6 +431,32 @@ type CartAddon struct {
 	Quantity       int32       `json:"quantity"`
 }
 
+type ChannelEnforcement struct {
+	UserID      pgtype.UUID        `json:"user_id"`
+	State       string             `json:"state"`
+	WarnedAt    pgtype.Timestamptz `json:"warned_at"`
+	GraceUntil  pgtype.Timestamptz `json:"grace_until"`
+	SuspendedAt pgtype.Timestamptz `json:"suspended_at"`
+	RestoredAt  pgtype.Timestamptz `json:"restored_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ChannelExemption struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	Reason    string             `json:"reason"`
+	GrantedBy pgtype.UUID        `json:"granted_by"`
+	GrantedAt pgtype.Timestamptz `json:"granted_at"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+}
+
+type ChannelMembership struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	ChannelID pgtype.UUID        `json:"channel_id"`
+	State     string             `json:"state"`
+	CheckedAt pgtype.Timestamptz `json:"checked_at"`
+	LeftAt    pgtype.Timestamptz `json:"left_at"`
+}
+
 type CommerceSetting struct {
 	Singleton                   bool               `json:"singleton"`
 	TopupEnabled                bool               `json:"topup_enabled"`
@@ -444,6 +470,8 @@ type CommerceSetting struct {
 	MaxSubscriptionsPerCustomer int32              `json:"max_subscriptions_per_customer"`
 	UpdatedAt                   pgtype.Timestamptz `json:"updated_at"`
 	UpdatedBy                   pgtype.UUID        `json:"updated_by"`
+	ChannelGraceSeconds         int64              `json:"channel_grace_seconds"`
+	ChannelRecheckSeconds       int64              `json:"channel_recheck_seconds"`
 }
 
 type CommunicationSuppression struct {
@@ -1253,6 +1281,21 @@ type RemnawaveUser struct {
 	ObservedState []byte             `json:"observed_state"`
 	ReconciledAt  pgtype.Timestamptz `json:"reconciled_at"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+type RequiredChannel struct {
+	ID                   pgtype.UUID        `json:"id"`
+	TelegramChatID       int64              `json:"telegram_chat_id"`
+	Username             pgtype.Text        `json:"username"`
+	Title                string             `json:"title"`
+	InviteUrl            pgtype.Text        `json:"invite_url"`
+	Enabled              bool               `json:"enabled"`
+	RequireForPurchase   bool               `json:"require_for_purchase"`
+	RequireForActivation bool               `json:"require_for_activation"`
+	SortOrder            int32              `json:"sort_order"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	CreatedBy            pgtype.UUID        `json:"created_by"`
 }
 
 type Subscription struct {

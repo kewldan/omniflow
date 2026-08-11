@@ -596,11 +596,11 @@ Goal: finish support, communication, configuration, and operational readiness be
 
 ### Mandatory channel subscription
 
-- [ ] Operator-configured required Telegram channels with per-channel enablement
+- [x] Operator-configured required Telegram channels with per-channel enablement
 - [ ] Membership verification before purchase and before subscription activation
-- [ ] Periodic re-verification with automatic entitlement disable on unsubscribe
-- [ ] Grace period, warning notification, and automatic restore on rejoin
-- [ ] Exemption list, per-customer bypass, and a complete audit trail for every state change
+- [x] Periodic re-verification with automatic entitlement disable on unsubscribe
+- [x] Grace period, warning notification, and automatic restore on rejoin
+- [x] Exemption list, per-customer bypass, and a complete audit trail for every state change
 
 ### AI-assisted support
 

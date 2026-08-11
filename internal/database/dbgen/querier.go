@@ -49,6 +49,7 @@ type Querier interface {
 	CancelFulfillmentOperation(ctx context.Context, operationID pgtype.UUID) (FulfillmentOperation, error)
 	CancelGoodsDelivery(ctx context.Context, orderID pgtype.UUID) (GoodsDelivery, error)
 	CancelOrder(ctx context.Context, arg CancelOrderParams) (Order, error)
+	ChannelGateSettings(ctx context.Context) (ChannelGateSettingsRow, error)
 	CheckPromotionCustomerEligibility(ctx context.Context, arg CheckPromotionCustomerEligibilityParams) (pgtype.Bool, error)
 	// Single redemption by construction: the predicate only matches a deliverable,
 	// unexpired gift, so a second claim of the same code updates no row.
@@ -249,6 +250,7 @@ type Querier interface {
 	DeleteExpiredWebhookEvents(ctx context.Context) (int64, error)
 	DeleteOldTelemetryEvents(ctx context.Context, retentionSeconds float64) (int64, error)
 	DeletePublishedOutboxEvents(ctx context.Context, retentionSeconds float64) (int64, error)
+	DeleteRequiredChannel(ctx context.Context, id pgtype.UUID) error
 	DeleteResolvedDrifts(ctx context.Context, retentionSeconds float64) (int64, error)
 	DisableAdminTOTP(ctx context.Context, adminUserID pgtype.UUID) (AdminUser, error)
 	DismissPersonalOffer(ctx context.Context, arg DismissPersonalOfferParams) (PersonalOffer, error)
@@ -310,6 +312,7 @@ type Querier interface {
 	GetBulkSubscriptionTarget(ctx context.Context, subscriptionID pgtype.UUID) (GetBulkSubscriptionTargetRow, error)
 	GetCampaign(ctx context.Context, id pgtype.UUID) (GetCampaignRow, error)
 	GetCannedResponse(ctx context.Context, id pgtype.UUID) (SupportCannedResponse, error)
+	GetChannelEnforcement(ctx context.Context, userID pgtype.UUID) (ChannelEnforcement, error)
 	// Operator panel queries for v0.7: settings, dashboard, customer and finance
 	// operations, fulfillment and job diagnostics, and bulk actions.
 	//
@@ -391,6 +394,7 @@ type Querier interface {
 	// Role grants
 	// ---------------------------------------------------------------------------
 	GrantAdminRole(ctx context.Context, arg GrantAdminRoleParams) error
+	GrantChannelExemption(ctx context.Context, arg GrantChannelExemptionParams) (ChannelExemption, error)
 	InsertAdminRecoveryCode(ctx context.Context, arg InsertAdminRecoveryCodeParams) error
 	// The single writer for the audit trail. `category` and `outcome` are the two
 	// axes the admin panel filters and exports on, so every caller classifies its
@@ -415,6 +419,7 @@ type Querier interface {
 	InvalidateAdminPasswordResets(ctx context.Context, adminUserID pgtype.UUID) (int64, error)
 	IsAddonOfferedForPlan(ctx context.Context, arg IsAddonOfferedForPlanParams) (bool, error)
 	IsBlocklistAllowlisted(ctx context.Context, userID pgtype.UUID) (bool, error)
+	IsChannelExempt(ctx context.Context, userID pgtype.UUID) (bool, error)
 	IsPromotionPlanEligible(ctx context.Context, arg IsPromotionPlanEligibleParams) (pgtype.Bool, error)
 	IsSuppressed(ctx context.Context, userID pgtype.UUID) (bool, error)
 	LinkAdminOIDCIdentity(ctx context.Context, arg LinkAdminOIDCIdentityParams) (AdminOidcIdentity, error)
@@ -479,6 +484,9 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	ListCannedResponses(ctx context.Context) ([]SupportCannedResponse, error)
 	ListCartAddons(ctx context.Context, cartID pgtype.UUID) ([]CartAddon, error)
+	// Warned customers whose grace has run out.
+	ListChannelEnforcementDue(ctx context.Context, pageSize int32) ([]ListChannelEnforcementDueRow, error)
+	ListChannelExemptions(ctx context.Context, pageSize int32) ([]ListChannelExemptionsRow, error)
 	ListContactChannels(ctx context.Context, userID pgtype.UUID) ([]ListContactChannelsRow, error)
 	ListCustomerConsents(ctx context.Context, userID pgtype.UUID) ([]ConsentRecord, error)
 	ListCustomerIdentities(ctx context.Context, userID pgtype.UUID) ([]Identity, error)
@@ -488,6 +496,7 @@ type Querier interface {
 	// almost always about the run that just happened.
 	ListCustomerImports(ctx context.Context, pageSize int32) ([]CustomerImport, error)
 	ListCustomerLedgerEntries(ctx context.Context, arg ListCustomerLedgerEntriesParams) ([]ListCustomerLedgerEntriesRow, error)
+	ListCustomerMemberships(ctx context.Context, userID pgtype.UUID) ([]ChannelMembership, error)
 	ListCustomerOrders(ctx context.Context, arg ListCustomerOrdersParams) ([]Order, error)
 	// Who this customer invited, and whether the invitation turned into anything.
 	//
@@ -504,6 +513,11 @@ type Querier interface {
 	// an embedded struct would have to scan those nulls into non-nullable fields.
 	ListCustomerSubscriptionsDetailed(ctx context.Context, userID pgtype.UUID) ([]ListCustomerSubscriptionsDetailedRow, error)
 	ListCustomerSupportTickets(ctx context.Context, arg ListCustomerSupportTicketsParams) ([]SupportTicket, error)
+	// Customers whose membership answer has gone stale, oldest first.
+	//
+	// A customer with no record at all is included, because "never checked" and
+	// "checked long ago" need the same thing done about them.
+	ListCustomersForChannelRecheck(ctx context.Context, arg ListCustomersForChannelRecheckParams) ([]ListCustomersForChannelRecheckRow, error)
 	ListDueBlocklistSources(ctx context.Context, pageSize int32) ([]BlocklistSource, error)
 	ListDueCampaigns(ctx context.Context, pageSize int32) ([]Campaign, error)
 	ListDueDunningAttempts(ctx context.Context, pageSize int32) ([]DunningAttempt, error)
@@ -511,6 +525,7 @@ type Querier interface {
 	ListDueNewsPosts(ctx context.Context, pageSize int32) ([]NewsPost, error)
 	ListDunningAttemptsForCustomer(ctx context.Context, arg ListDunningAttemptsForCustomerParams) ([]DunningAttempt, error)
 	ListEnabledAdminOIDCProviders(ctx context.Context) ([]AdminOidcProvider, error)
+	ListEnabledChannels(ctx context.Context) ([]RequiredChannel, error)
 	ListEntitlementsForReconciliation(ctx context.Context, limit int32) ([]Entitlement, error)
 	ListExpiredBackups(ctx context.Context, limit int32) ([]Backup, error)
 	ListExpiredWalletCredits(ctx context.Context, limit int32) ([]ListExpiredWalletCreditsRow, error)
@@ -600,6 +615,8 @@ type Querier interface {
 	ListReferralRewardsForPair(ctx context.Context, referredUserID pgtype.UUID) ([]ReferralReward, error)
 	ListRefundsForOrder(ctx context.Context, orderID pgtype.UUID) ([]Refund, error)
 	ListRemnawaveMappings(ctx context.Context) ([]ListRemnawaveMappingsRow, error)
+	// Mandatory channel subscription.
+	ListRequiredChannels(ctx context.Context) ([]RequiredChannel, error)
 	// Intents that have been in flight longer than a provider should take. The
 	// panel offers reconciliation and retry from this list; neither mutates money
 	// directly, both go through the existing idempotent payment service.
@@ -743,6 +760,10 @@ type Querier interface {
 	RecordGoodsDeliveryRefund(ctx context.Context, arg RecordGoodsDeliveryRefundParams) (GoodsDelivery, error)
 	RecordGoodsProviderHealth(ctx context.Context, arg RecordGoodsProviderHealthParams) (GoodsProvider, error)
 	RecordLoyaltyChange(ctx context.Context, arg RecordLoyaltyChangeParams) (LoyaltyStandingHistory, error)
+	// `left_at` is set the first time absence is seen and cleared on return, so the
+	// grace clock measures from when the customer actually left rather than from
+	// when a sweep noticed.
+	RecordMembership(ctx context.Context, arg RecordMembershipParams) (ChannelMembership, error)
 	RecordProviderConnectionCheck(ctx context.Context, arg RecordProviderConnectionCheckParams) (PaymentProviderSetting, error)
 	RecordProviderWebhookHealth(ctx context.Context, arg RecordProviderWebhookHealthParams) (PaymentProviderSetting, error)
 	// Signals are advisory and deduplicated per pair, so a sweep that runs twice
@@ -788,6 +809,7 @@ type Querier interface {
 	// Logout-everywhere. `keep_session_id` lets the caller preserve the session
 	// that requested it, which is what a password change should do.
 	RevokeAdminSessionsForUser(ctx context.Context, arg RevokeAdminSessionsForUserParams) (int64, error)
+	RevokeChannelExemption(ctx context.Context, userID pgtype.UUID) error
 	RevokeCustomerIdentity(ctx context.Context, arg RevokeCustomerIdentityParams) (Identity, error)
 	// An operator may reclaim a gift that has not been redeemed. A claimed gift is
 	// deliberately not revocable: the recipient already holds what it bought, and
@@ -887,6 +909,7 @@ type Querier interface {
 	SetCampaignState(ctx context.Context, arg SetCampaignStateParams) (Campaign, error)
 	SetCartAddon(ctx context.Context, arg SetCartAddonParams) error
 	SetCartAutoPurchase(ctx context.Context, arg SetCartAutoPurchaseParams) (Cart, error)
+	SetChannelEnforcement(ctx context.Context, arg SetChannelEnforcementParams) (ChannelEnforcement, error)
 	SetDefaultPaymentMethod(ctx context.Context, arg SetDefaultPaymentMethodParams) (PaymentMethod, error)
 	// Clearing and setting run in one transaction, because the partial unique index
 	// allows exactly one default: doing them apart would leave a window in which a
@@ -1009,6 +1032,7 @@ type Querier interface {
 	UpsertPaymentProviderSettings(ctx context.Context, arg UpsertPaymentProviderSettingsParams) (PaymentProviderSetting, error)
 	UpsertPlanLocalization(ctx context.Context, arg UpsertPlanLocalizationParams) (PlanLocalization, error)
 	UpsertRemnawaveMapping(ctx context.Context, arg UpsertRemnawaveMappingParams) (RemnawaveUser, error)
+	UpsertRequiredChannel(ctx context.Context, arg UpsertRequiredChannelParams) (RequiredChannel, error)
 	UpsertSubscriptionRemnawaveUser(ctx context.Context, arg UpsertSubscriptionRemnawaveUserParams) (Subscription, error)
 	UpsertSupportQueue(ctx context.Context, arg UpsertSupportQueueParams) (SupportQueue, error)
 	UpsertSupportTag(ctx context.Context, arg UpsertSupportTagParams) (SupportTag, error)
