@@ -35,6 +35,18 @@ docker compose --profile web up --build
 - Customer account: `http://localhost:3000`
 - Admin workspace: `http://localhost:3000/admin`
 
+The panel has no operator account yet. On first start the API writes a one-time
+setup token to its log:
+
+```
+level=WARN msg="no administrator exists yet; redeem this one-time setup token at /admin/setup" token=... expires_in=30m0s
+```
+
+Open `/admin/setup`, paste the token, and create the first owner. The token is
+valid for 30 minutes, can be used once, and stops working permanently as soon as
+an operator account exists. Then set up two-factor authentication under
+**Security** — see [Admin panel](/operations/admin-panel).
+
 ## Next steps
 
 - Configure Remnawave and Telegram credentials.

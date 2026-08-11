@@ -4,11 +4,12 @@ description: Deployment and application security expectations.
 ---
 
 - Store secrets outside the repository and rotate them after suspected exposure.
-- Require passkey or TOTP MFA for privileged operators.
+- Require TOTP two-factor for every operator account. Set it up under **Security** in the panel; see [Admin panel](/operations/admin-panel) for sessions, roles, and the audit trail.
 - Keep PostgreSQL and Valkey off the public network.
 - Verify every payment and Telegram webhook.
 - Restrict upload types and sizes.
-- Keep audit history append-only.
+- Keep audit history append-only. Panel actions are recorded automatically, including denied ones.
+- Set `APP_TRUSTED_PROXIES` when the API sits behind a reverse proxy, so rate limiting and the audit trail record the real client address.
 - Run supported patch versions and review automated dependency updates.
 
 Report vulnerabilities through GitHub private vulnerability reporting.

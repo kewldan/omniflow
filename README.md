@@ -16,7 +16,7 @@ Build Telegram-first self-service, subscriptions, billing, support, marketing, a
 [Quick start](#-quick-start) · [Roadmap](./ROADMAP.md) · [Documentation](./docs/index.mdx) · [Architecture](./docs/architecture/overview.mdx) · [Contributing](./CONTRIBUTING.md)
 
 > [!IMPORTANT]
-> Omniflow is under active development. The platform foundation, the v0.3 commerce backend, and the complete v0.4 Telegram customer product — plan discovery, checkout, subscription lifecycle, support desk, and communication controls — are implemented. Web checkout remains intentionally disabled until the customer panel milestone; a payment method is offered in the bot only when the operator has configured that adapter.
+> Omniflow is under active development. The platform foundation, the commerce backend, the complete Telegram customer product, production runtime, and the v0.6 operator panel foundation — sign-in, two-factor, RBAC, audit, and the `/admin` shell — are implemented. Operational admin surfaces for customers, finance, catalog, and support arrive in v0.7 and v0.8. Web checkout remains intentionally disabled until the customer panel milestone; a payment method is offered in the bot only when the operator has configured that adapter.
 
 ## ✨ Highlights
 
@@ -26,6 +26,7 @@ Build Telegram-first self-service, subscriptions, billing, support, marketing, a
 | 🔗 | **Remnawave-native integration** | Targets the official Remnawave 3.2.2 API and keeps Remnawave authoritative for VPN users, traffic, devices, links, nodes, and squads. |
 | 💳 | **Commerce-ready backend** | Immutable plan versions, promotions, provider-neutral payments, refunds, wallet ledger, entitlements, durable fulfillment, and drift recovery. |
 | 🧭 | **One web application** | Customer routes and the `/admin` workspace share Next.js, localization, API bindings, and the same shadcn component system. |
+| 🔐 | **Operator panel with real access control** | Argon2id passwords, TOTP with recovery codes, optional OIDC, dual-expiry rotating sessions, six built-in roles, and an append-only audit trail enforced in the API rather than by hidden routes. |
 | 🛡️ | **Privacy-conscious by design** | Protected Telegram messages, no HWID/IP display, no subscription-link storage, explicit secret boundaries, and optional anonymous telemetry. |
 | 🧱 | **Production-oriented foundation** | PostgreSQL migrations, durable River jobs, transactional outbox, Valkey, generated contracts, structured logs, observability, and security automation. |
 | 🧰 | **Contributor-friendly tooling** | Bun workspaces, Biome, TypeScript 7, Orval, sqlc, Atlas, Mintlify, Renovate, Release Please, and Conventional Commits. |
@@ -123,6 +124,9 @@ docker compose --profile web up --build
 
 - 👤 Customer account: [http://localhost:3000](http://localhost:3000)
 - 🧑‍💻 Admin workspace: [http://localhost:3000/admin](http://localhost:3000/admin)
+
+On first start the API writes a one-time setup token to its log. Redeem it at
+`/admin/setup` to create the first owner; see [Admin panel](./docs/operations/admin-panel.mdx).
 - ❤️ API health: [http://localhost:8080/healthz](http://localhost:8080/healthz)
 
 For complete configuration and deployment guidance, see the [quick-start documentation](./docs/getting-started/quickstart.mdx).
@@ -154,9 +158,11 @@ The complete versioned delivery contract is maintained in [ROADMAP.md](./ROADMAP
 - [x] Plans, orders, payments, refunds, wallet ledger, entitlements, and Remnawave fulfillment backend
 - [x] Telegram plan discovery, checkout, renewals, and post-payment lifecycle UX
 - [x] Telegram support desk, news inbox, communication consent, and referral reward policies
+- [x] Operator authentication, two-factor, optional OIDC, RBAC enforcement, and audit search
+- [x] Responsive `/admin` shell with command search, localization, and URL-backed filters
+- [ ] Operator customer, finance, catalog, and support workflows
 - [ ] Operator support inbox and campaign delivery
-- [ ] Authentication, RBAC enforcement, audit views, and operator workflows
-- [ ] Testcontainers and end-to-end browser coverage
+- [ ] End-to-end browser coverage
 - [ ] Production Telegram webhook mode
 
 ## 📡 Anonymous telemetry

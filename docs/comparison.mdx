@@ -32,7 +32,7 @@ License differences are worth reading carefully. Omniflow is Apache-2.0, which p
 
 A dash means the capability is absent from the project's own public documentation. Internal implementation details such as ledger design or idempotency handling may exist in code without appearing in a README, so treat a dash as "unverified", not as a proven gap.
 
-Omniflow's shipped surface today is v0.1–v0.5: the complete backend commerce model, a feature-complete Telegram bot, wallet top-up with deferred carts, add-ons, optional concurrent subscriptions, and a production runtime with health probes, metrics, tracing, encrypted backups, and maintenance mode. There is no web panel yet.
+Omniflow's shipped surface today is v0.1–v0.6: the complete backend commerce model, a feature-complete Telegram bot, wallet top-up with deferred carts, add-ons, optional concurrent subscriptions, a production runtime with health probes, metrics, tracing, encrypted backups, and maintenance mode, and the operator panel foundation — sign-in with two-factor, optional OIDC, granular RBAC, and an append-only audit trail. The panel's day-to-day operational screens are still to come.
 
 ## Subscriptions and plans
 
@@ -102,10 +102,10 @@ Omniflow already enforces marketing consent, quiet hours, frequency caps, and de
 | Automatic database backups with restore from the bot | ✅ | ✅ | — |
 | Maintenance mode with dependency auto-detection | ✅ | ✅ | — |
 | Traffic and behavior anomaly monitoring | 🚧 v0.7 | ✅ | ✅ |
-| Web admin panel | 🚧 v0.6–v0.8 | — | ✅ |
-| RBAC with granular permissions | 🚧 v0.6 | ✅ | ✅ |
-| Append-only audit events with actor, reason, and before/after | 🚧 v0.6 | — | — |
-| TOTP two-factor authentication and session management | 🚧 v0.6 | — | ✅ |
+| Web admin panel | 🚧 shell in v0.6, operations in v0.7–v0.8 | — | ✅ |
+| RBAC with granular permissions | ✅ | ✅ | ✅ |
+| Append-only audit events with actor, reason, and before/after | ✅ | — | — |
+| TOTP two-factor authentication and session management | ✅ | — | ✅ |
 | External blocklist ingestion | 🚧 v0.7 | ✅ | — |
 | Bulk import/export with preview and resumability | 🚧 v0.7 | ✅ | — |
 | AI-assisted support, scam analysis, admin copilot | 🚧 v0.8 | — | — |
@@ -113,7 +113,7 @@ Omniflow already enforces marketing consent, quiet hours, frequency caps, and de
 
 Omniflow deliberately keeps administration out of Telegram. As of v0.5 Telegram carries operator notifications and backup/restore actions, and nothing else: those two are exempt because an incident is exactly when a browser and a panel may be unavailable. Every other control lives in the web panel, where RBAC, audit, and confirmation dialogs can be enforced consistently.
 
-That is a real trade-off. Bedolaga operators are productive on day one with no reverse proxy, TLS, or browser. Omniflow operators today configure plans, providers, and limits through environment files and the operator API, and wait for v0.6 for a panel.
+That is a real trade-off. Bedolaga operators are productive on day one with no reverse proxy, TLS, or browser. As of v0.6 Omniflow has the panel shell, operator accounts, and the audit trail, but plans, providers, and limits are still configured through environment files and the operator API until the v0.7 and v0.8 surfaces land.
 
 ## Customer web
 
@@ -157,5 +157,5 @@ RemnaCore also reaches into node health monitoring, smart routing, and speed tes
 Since v0.5 it is additionally the option that takes production operation seriously on a single server: readiness probes that classify each dependency without leaking it, Prometheus metrics whose labels can never carry a customer identifier, encrypted backups verified by read-back before they are trusted, and a maintenance mode that pauses new purchases without disturbing money already taken.
 
 <Warning>
-Omniflow has no web panel today. If an operator or customer web interface is a requirement right now, Bedolaga Cabinet or RemnaCore ships one and Omniflow does not until v0.6 and v0.9 respectively.
+Omniflow's operator panel currently covers sign-in, two-factor, operator accounts, and the audit trail; day-to-day customer, finance, catalog, and support screens arrive in v0.7 and v0.8, and the customer web panel in v0.9. If a complete operator or customer web interface is a requirement right now, Bedolaga Cabinet or RemnaCore ships one and Omniflow does not yet.
 </Warning>

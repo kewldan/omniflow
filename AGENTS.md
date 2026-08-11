@@ -37,6 +37,7 @@ These instructions apply to the entire repository.
 - Keep the frontend on TypeScript 7-compatible tooling; generated API clients must not require TypeScript's removed programmatic APIs.
 - Biome is the only TypeScript/JavaScript formatter and linter.
 - Keep customer and admin routes in `apps/web`; both surfaces must use shared shadcn primitives from `packages/ui`.
+- The operator panel API is `/v1/panel` (session cookie, CSRF, RBAC). `/v1/admin` is the separate bearer-token surface for Telegram operator tooling. Do not merge the prefixes: each would inherit the other's middleware.
 - All user-facing copy must use `next-intl` message catalogs in Russian and English.
 - Preserve accessibility, keyboard navigation, responsive layouts, and explicit loading/empty/error states.
 
@@ -56,6 +57,7 @@ These instructions apply to the entire repository.
 - Report what actually ran. A check that could not run locally is unverified, not passing; name it and name why. "Builds and unit tests pass" is never a claim that migrations, containers, or race detection were exercised.
 - A CI job may depend only on committed files. Anything a developer creates locally, such as `.env`, must be produced by a step in the job itself.
 - New payment, wallet, authentication, RBAC, import, and provisioning behavior requires failure-path and idempotency tests.
+- Authorization lives in `internal/rbac` and is compiled in. Never introduce a second place that decides what a role may do, and never let a hidden route or frontend state be the only thing enforcing a permission.
 - Wire a new capability end to end in the same change. A table, query, or handler that nothing reaches is unfinished, not staged.
 - Testcontainers suites live in `internal/integrationtest` behind the `integration` build tag and must keep `go test ./...` runnable with no Docker daemon. Playwright suites arrive with the panels.
 - Do not log secrets or sensitive customer data. Prefer structured `slog` fields and propagate trace/request IDs.

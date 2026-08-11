@@ -89,6 +89,38 @@ Generate a secret token with `openssl rand -hex 32`. An update that does not car
 
 Store `APP_BACKUP_ENCRYPTION_KEY` somewhere the database backup itself does not reach. A backup encrypted with a key that is only inside that backup cannot be restored.
 
+
+## Admin panel
+
+The operator panel at `/admin`, served by the `/v1/panel` API. It reuses
+`APP_DATA_ENCRYPTION_KEY` to seal TOTP secrets and OIDC client secrets, so that
+key is required when the panel is enabled.
+
+| Variable | Required | Default | Purpose |
+| --- | --- | --- | --- |
+| `APP_ADMIN_PANEL_ENABLED` | No | `true` | Mount `/v1/panel`. Turn off for a bot-only installation |
+| `APP_ADMIN_COOKIE_SECURE` | No | `true` | Mark the session cookie `Secure` |
+| `APP_ADMIN_TOTP_ISSUER` | No | `Omniflow` | Label shown in authenticator apps |
+| `APP_TRUSTED_PROXIES` | No | — | Comma-separated IPs or CIDR blocks whose `X-Forwarded-For` may be believed |
+
+On first start, when no administrator exists, the API writes a one-time setup
+token to its log. Redeem it at `/admin/setup` to create the first owner.
+
+`X-Forwarded-For` is trivially forged, so it is honoured only when the immediate
+peer is listed in `APP_TRUSTED_PROXIES`. Leave it empty when the API is exposed
+directly — the socket address is then used, which is correct. The resolved
+address feeds rate limiting, security notifications, and the audit trail, so
+getting it wrong in either direction matters: trust nothing and every request
+behind a proxy shares one address; trust too much and an attacker picks their own.
+
+<Warning>
+  `APP_ADMIN_COOKIE_SECURE=false` is for local plain-HTTP development only.
+  Without `Secure`, the session cookie can be captured from any unencrypted
+  request to the same host.
+</Warning>
+
+Full behaviour is documented in [Admin panel](/operations/admin-panel).
+
 ## Maintenance and retention
 
 | Variable | Required | Default | Purpose |
