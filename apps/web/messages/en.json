@@ -41,7 +41,11 @@
         "operators": "Operators",
         "audit": "Audit log",
         "system": "System",
-        "security": "Security"
+        "security": "Security",
+        "shop": "Shop",
+        "gifts": "Gifts",
+        "risk": "Risk",
+        "settings": "Settings"
       }
     },
     "commandMenu": {
@@ -79,7 +83,9 @@
         "operatorsDescription": "Review who can sign in, and suspend an account when someone leaves.",
         "auditDescription": "Search every recorded authentication, authorization, and configuration action.",
         "securityDescription": "Manage your password, two-factor authentication, and active sessions."
-      }
+      },
+      "noDashboard": "No dashboard access",
+      "noDashboardDescription": "The operations dashboard needs the system.read permission. Your roles do not include it."
     },
     "login": {
       "title": "Sign in",
@@ -266,6 +272,543 @@
         "revokeFailed": "The session could not be ended.",
         "error": "Sessions could not be loaded",
         "retry": "Try again"
+      }
+    },
+    "operations": {
+      "retry": "Retry",
+      "error": "Could not load",
+      "errorDescription": "The API did not answer. Retry, or check the service health.",
+      "empty": "Nothing here yet",
+      "emptyDescription": "Records appear here as soon as there are any.",
+      "noMatches": "No matches",
+      "noMatchesDescription": "No record matches the current filter.",
+      "clearFilters": "Clear filters",
+      "next": "Next",
+      "previous": "Previous",
+      "shown": "{count} shown · page {page}"
+    },
+    "dashboard": {
+      "freshness": "Read {at} · all times {timezone} · window {window}",
+      "attention": "Needs action",
+      "open": "Open",
+      "noRevenue": "No settled orders in this window.",
+      "revenueDefinition": "Three separate figures. Provider money and wallet credit are not added together: wallet credit was already counted as revenue when the balance was funded.",
+      "groups": {
+        "customers": "Customers",
+        "subscriptions": "Subscriptions",
+        "payments": "Payments",
+        "revenue": "Revenue",
+        "support": "Support",
+        "operations": "Operations"
+      },
+      "revenue": {
+        "paid": "Paid",
+        "wallet": "Wallet",
+        "refunded": "Refunded",
+        "orders": "Orders"
+      },
+      "severity": {
+        "alert": "Alert",
+        "warning": "Warning"
+      },
+      "attentionItems": {
+        "stuckPayments": "Stuck payments",
+        "failedJobs": "Failed fulfillment jobs",
+        "failedWebhooks": "Failed webhooks",
+        "openDrifts": "Remnawave drift",
+        "outboxLag": "Outbox lag (seconds)",
+        "openAnomalies": "Anomalies to review",
+        "openBlocklistMatches": "Blocklist matches to review",
+        "staleTickets": "Stale tickets"
+      },
+      "metrics": {
+        "activeCustomers": "Active",
+        "suspendedCustomers": "Suspended",
+        "deletedCustomers": "Deleted",
+        "newCustomers": "New in window",
+        "activeEntitlements": "Active",
+        "limitedEntitlements": "Limited",
+        "lapsedEntitlements": "Lapsed",
+        "renewalsDue": "Renewals due",
+        "observedTrafficBytes": "Observed traffic",
+        "paymentsSucceeded": "Succeeded",
+        "paymentsInFlight": "In flight",
+        "paymentsFailed": "Failed",
+        "paymentsStuck": "Stuck",
+        "openTickets": "Open",
+        "staleTickets": "Stale",
+        "jobsQueued": "Queued",
+        "jobsFailed": "Failed",
+        "jobsOverdue": "Overdue",
+        "webhooksUnprocessed": "Unprocessed",
+        "webhooksFailed": "Failed",
+        "webhooksUnverified": "Unverified",
+        "openDrifts": "Open drift",
+        "missingRemote": "Missing in Remnawave",
+        "outboxUnpublished": "Outbox backlog",
+        "outboxOldestAgeSeconds": "Oldest outbox event"
+      },
+      "definitions": {
+        "customer.status.active": "Customer records that are neither suspended nor deleted. Not the same as having a live subscription.",
+        "customer.status.suspended": "Customer records an operator has suspended.",
+        "customer.status.deleted": "Customer records marked deleted under the retention policy.",
+        "customer.created.window": "Customer records created inside the reporting window.",
+        "entitlement.active": "Entitlements marked active whose end instant is still in the future.",
+        "entitlement.limited": "Entitlements in the limited state, typically past a traffic or device cap.",
+        "entitlement.lapsed": "Entitlements still marked active or limited whose end instant has passed.",
+        "entitlement.renewal.window": "Active entitlements ending inside the reporting window.",
+        "traffic.observed": "The traffic counter Omniflow last observed from Remnawave. Remnawave is authoritative; this is a snapshot, not a total.",
+        "payment.succeeded.window": "Payment intents that settled inside the reporting window.",
+        "payment.inflight": "Payment intents currently pending, awaiting action, or processing.",
+        "payment.failed.window": "Payment intents that failed inside the reporting window.",
+        "payment.stuck": "Payment intents in flight and untouched for longer than any supported provider should take.",
+        "support.open": "Support tickets in the open state.",
+        "support.stale": "Open tickets with no message for a day or more.",
+        "job.queued": "Fulfillment operations pending or retrying.",
+        "job.failed": "Fulfillment operations that exhausted their retries.",
+        "job.overdue": "Queued fulfillment operations whose next attempt was due some time ago.",
+        "webhook.unprocessed.window": "Provider callbacks received but not yet processed.",
+        "webhook.failed.window": "Provider callbacks whose processing failed.",
+        "webhook.unverified.window": "Provider callbacks whose signature did not verify.",
+        "drift.open": "Unresolved differences between Omniflow and Remnawave.",
+        "drift.missing_remote": "Entitlements whose Remnawave user no longer exists.",
+        "outbox.unpublished": "Domain events the publisher has not yet drained.",
+        "outbox.oldest_age": "Age of the oldest unpublished event. A large backlog of fresh events is healthy; one old event is not."
+      }
+    },
+    "customers": {
+      "title": "Customers",
+      "description": "Search by an identifier you already hold, then work through the customer's subscriptions, orders, wallet, and risk history.",
+      "notFound": "Customer not found",
+      "notFoundDescription": "No customer record matches that identifier.",
+      "loadFailed": "Could not load the customer",
+      "overview": "Overview",
+      "createdAt": "Registered {at}",
+      "filters": {
+        "query": "Identifier",
+        "queryPlaceholder": "Customer ID, Telegram ID, or Remnawave username",
+        "status": "Status",
+        "segment": "Segment",
+        "any": "Any",
+        "clear": "Clear filters"
+      },
+      "status": {
+        "active": "Active",
+        "suspended": "Suspended",
+        "deleted": "Deleted"
+      },
+      "segments": {
+        "subscribed": "Has a live subscription",
+        "lapsed": "Lapsed",
+        "never_purchased": "Never purchased",
+        "flagged": "Flagged for review"
+      },
+      "columns": {
+        "customer": "Customer",
+        "status": "Status",
+        "telegram": "Telegram",
+        "locale": "Locale",
+        "createdAt": "Registered"
+      },
+      "facts": {
+        "subscriptions": "Subscriptions",
+        "orders": "Orders",
+        "tickets": "Open tickets",
+        "referrals": "Referrals",
+        "flags": "{count} flagged for review",
+        "allowlisted": "Allowlisted"
+      },
+      "tabs": {
+        "subscriptions": "Subscriptions",
+        "orders": "Orders",
+        "wallet": "Wallet",
+        "risk": "Risk"
+      },
+      "actions": {
+        "reason": "Reason",
+        "reasonPlaceholder": "Why this change is being made",
+        "suspend": "Suspend",
+        "reactivate": "Reactivate"
+      },
+      "empty": {
+        "subscriptions": "No subscriptions",
+        "orders": "No orders",
+        "wallet": "No wallet movements",
+        "risk": "No risk matches",
+        "riskDescription": "No blocklist source lists any identifier for this customer."
+      },
+      "subscription": {
+        "slot": "Slot {slot}",
+        "plan": "Plan",
+        "entitlement": "Entitlement",
+        "endsAt": "Ends",
+        "traffic": "Traffic",
+        "unlimited": "Unlimited"
+      },
+      "order": {
+        "createdAt": "Placed",
+        "operation": "Operation",
+        "state": "State",
+        "paid": "Paid"
+      },
+      "wallet": {
+        "createdAt": "When",
+        "type": "Type",
+        "reference": "Reference",
+        "amount": "Amount"
+      },
+      "risk": {
+        "detectedAt": "Detected",
+        "source": "Source",
+        "subject": "Identifier",
+        "status": "Decision",
+        "reason": "Reason"
+      }
+    },
+    "finance": {
+      "title": "Finance",
+      "description": "Order history, the reconciliation queue, and automatic charges that did not go through.",
+      "export": "Export CSV",
+      "tabs": {
+        "orders": "Orders",
+        "stuck": "Stuck payments",
+        "charges": "Failed charges"
+      },
+      "filters": {
+        "state": "State",
+        "operation": "Operation",
+        "any": "Any",
+        "clear": "Clear filters"
+      },
+      "columns": {
+        "createdAt": "Placed",
+        "customer": "Customer",
+        "operation": "Operation",
+        "state": "State",
+        "paid": "Paid",
+        "refunded": "Refunded",
+        "updatedAt": "Last change",
+        "provider": "Provider",
+        "amount": "Amount",
+        "attempt": "Attempt",
+        "funding": "Funding",
+        "outcome": "Outcome",
+        "failureCode": "Failure"
+      },
+      "empty": {
+        "stuck": "Nothing stuck",
+        "stuckDescription": "Every payment in flight is still inside the expected window.",
+        "charges": "No failed charges",
+        "chargesDescription": "Every automatic renewal in the recent history went through."
+      },
+      "funding": {
+        "wallet": "Wallet",
+        "saved_method": "Saved method"
+      },
+      "outcome": {
+        "failed": "Failed",
+        "abandoned": "Given up"
+      },
+      "chargesNote": "A failed charge retries on a bounded schedule and then hands the customer back to manual renewal. Nothing here re-triggers one."
+    },
+    "risk": {
+      "title": "Risk",
+      "description": "Blocklist matches and anomaly signals, with the evidence that produced them.",
+      "noAutoAction": "Nothing on this page changes a customer. A decision here records a verdict and a reason; suspending an account is a separate action on the customer's own page.",
+      "reasonPlaceholder": "Reason for the decision (required)",
+      "observed": "Observed {observed} against a threshold of {threshold}.",
+      "disabled": "Disabled",
+      "tabs": {
+        "matches": "Blocklist matches",
+        "anomalies": "Anomalies",
+        "sources": "Sources"
+      },
+      "empty": {
+        "matches": "Nothing to review",
+        "matchesDescription": "No blocklist match is waiting for a decision.",
+        "anomalies": "No open signals",
+        "anomaliesDescription": "No metric has crossed its configured threshold.",
+        "sources": "No blocklist sources",
+        "sourcesDescription": "Add a source to check customer identifiers against a published list."
+      },
+      "columns": {
+        "detectedAt": "Detected",
+        "customer": "Customer",
+        "source": "Source",
+        "subject": "Identifier",
+        "decision": "Decision",
+        "sourceName": "Source",
+        "entries": "Entries",
+        "health": "Health",
+        "lastRefresh": "Last refresh"
+      },
+      "actions": {
+        "allow": "Allow",
+        "block": "Block",
+        "acknowledge": "Acknowledge",
+        "dismiss": "Dismiss"
+      },
+      "metrics": {
+        "traffic": "Traffic",
+        "purchase": "Purchase volume",
+        "refund": "Refund volume",
+        "referral": "Referrals"
+      },
+      "severity": {
+        "warning": "Warning",
+        "alert": "Alert"
+      }
+    },
+    "system": {
+      "title": "System",
+      "description": "Fulfillment jobs, provider callbacks, Remnawave drift, and the outbox backlog.",
+      "tabs": {
+        "jobs": "Failed jobs",
+        "webhooks": "Webhooks",
+        "drift": "Drift",
+        "outbox": "Outbox"
+      },
+      "columns": {
+        "createdAt": "Created",
+        "operation": "Operation",
+        "attempts": "Attempts",
+        "errorCode": "Error",
+        "correlation": "Correlation",
+        "actions": "Actions",
+        "receivedAt": "Received",
+        "provider": "Provider",
+        "signature": "Signature",
+        "status": "Status",
+        "detectedAt": "Detected",
+        "kind": "Kind",
+        "customer": "Customer",
+        "topic": "Topic",
+        "age": "Age"
+      },
+      "empty": {
+        "jobs": "No failed jobs",
+        "jobsDescription": "Every fulfillment operation has succeeded or is still retrying.",
+        "webhooks": "No provider callbacks",
+        "drift": "No drift",
+        "driftDescription": "Omniflow and Remnawave agree on every entitlement.",
+        "outbox": "Outbox is drained",
+        "outboxDescription": "Every domain event has been published."
+      },
+      "actions": {
+        "retry": "Retry",
+        "cancel": "Cancel",
+        "replay": "Replay"
+      },
+      "signature": {
+        "valid": "Verified",
+        "invalid": "Unverified"
+      },
+      "driftKind": {
+        "missing_remote": "Missing in Remnawave",
+        "external_edit": "Edited externally",
+        "status": "Status",
+        "expiry": "Expiry",
+        "traffic": "Traffic",
+        "device_limit": "Device limit",
+        "squads": "Squads"
+      }
+    },
+    "catalog": {
+      "title": "Catalog",
+      "description": "Plans, their versions, and the promotions that discount them.",
+      "archived": "Archived",
+      "stackable": "Stacks",
+      "exclusive": "Exclusive",
+      "tabs": {
+        "plans": "Plans",
+        "promotions": "Promotions"
+      },
+      "columns": {
+        "code": "Code",
+        "kind": "Kind",
+        "version": "Version",
+        "orders": "Order lines",
+        "concurrency": "Max per customer",
+        "visible": "Visible",
+        "reward": "Reward",
+        "stacking": "Stacking",
+        "redemptions": "Redemptions",
+        "discount": "Discount given",
+        "active": "Active"
+      },
+      "empty": {
+        "plans": "No plans",
+        "plansDescription": "Create a plan before opening the catalog to customers.",
+        "promotions": "No promotions"
+      },
+      "kind": {
+        "trial": "Trial",
+        "one_time": "One-time",
+        "recurring": "Recurring",
+        "free": "Free",
+        "manual": "Manual"
+      },
+      "reward": {
+        "percent": "{value}% off",
+        "fixed": "{amount} off",
+        "credit": "{amount} wallet credit",
+        "days": "{value} extra days",
+        "trial": "{value}-day trial"
+      }
+    },
+    "shop": {
+      "title": "Digital goods",
+      "description": "Telegram Premium and Stars sold alongside subscriptions. Nothing here touches a VPN entitlement.",
+      "self": "Self",
+      "refunded": "refunded",
+      "lowBalance": "Low balance",
+      "archived": "Archived",
+      "visible": "Visible",
+      "hidden": "Hidden",
+      "yes": "Yes",
+      "no": "No",
+      "months": "{count} months",
+      "tabs": {
+        "orders": "Orders",
+        "products": "Products",
+        "providers": "Providers"
+      },
+      "columns": {
+        "createdAt": "Placed",
+        "recipient": "Recipient",
+        "price": "Price",
+        "margin": "Margin",
+        "status": "Status",
+        "delivery": "Delivery",
+        "code": "Code",
+        "kind": "Kind",
+        "quantity": "Quantity",
+        "pricing": "Pricing",
+        "visible": "Visibility"
+      },
+      "empty": {
+        "orders": "No shop orders",
+        "products": "No products",
+        "productsDescription": "Add a product and a pricing rule before opening the shop.",
+        "providers": "No providers",
+        "providersDescription": "Configure a digital-goods provider to sell Premium or Stars."
+      },
+      "status": {
+        "quoted": "Quoted",
+        "paid": "Paid",
+        "delivering": "Delivering",
+        "delivered": "Delivered",
+        "failed": "Failed",
+        "refunded": "Refunded"
+      },
+      "failure": {
+        "retryable": "Retrying",
+        "permanent": "Permanent",
+        "recipient_invalid": "Recipient not reachable",
+        "provider_balance": "Provider balance",
+        "provider_unavailable": "Provider unavailable"
+      },
+      "kind": {
+        "telegram_premium": "Telegram Premium",
+        "telegram_stars": "Telegram Stars"
+      },
+      "pricing": {
+        "fixed": "Fixed at {amount}",
+        "markup": "{percent}% markup, {rounding}",
+        "missing": "No pricing rule"
+      },
+      "rounding": {
+        "none": "exact",
+        "up_minor": "exact",
+        "up_unit": "rounded up to a unit",
+        "up_ten_units": "rounded up to ten",
+        "up_hundred_units": "rounded up to a hundred"
+      },
+      "provider": {
+        "balance": "Balance",
+        "spendLimit": "Spend ceiling",
+        "noLimit": "No ceiling",
+        "credentials": "Credentials",
+        "set": "Configured",
+        "unset": "Not configured",
+        "enabled": "Enabled"
+      }
+    },
+    "gifts": {
+      "title": "Gifts",
+      "description": "Subscriptions, add-ons, and wallet credit bought for somebody else.",
+      "all": "All",
+      "reasonPlaceholder": "Reason for revoking (required)",
+      "columns": {
+        "createdAt": "Bought",
+        "kind": "Gift",
+        "hint": "Code",
+        "sender": "Sender",
+        "status": "Status",
+        "expiresAt": "Expires",
+        "actions": "Actions"
+      },
+      "status": {
+        "pending": "Awaiting payment",
+        "deliverable": "Claimable",
+        "claimed": "Claimed",
+        "expired": "Expired",
+        "revoked": "Revoked",
+        "refunded": "Refunded"
+      },
+      "kind": {
+        "subscription": "Subscription",
+        "addon": "Add-on",
+        "wallet_credit": "Wallet credit"
+      },
+      "actions": {
+        "revoke": "Revoke",
+        "refund": "Mark refunded"
+      }
+    },
+    "settings": {
+      "title": "Commerce settings",
+      "description": "Wallet top-up limits, subscription concurrency, and payment-provider status.",
+      "save": "Save",
+      "yes": "Yes",
+      "no": "No",
+      "unsavedChanges": "You have unsaved changes. Leave this page anyway?",
+      "topUp": {
+        "title": "Wallet top-up",
+        "description": "Limits are integers in the currency's minor unit.",
+        "enabled": "Top-up enabled",
+        "minimum": "Minimum",
+        "maximum": "Maximum",
+        "windowHours": "Rolling window (hours)",
+        "windowLimit": "Rolling window limit",
+        "presets": "Preset amounts",
+        "presetsHint": "Comma-separated minor units. Free entry stays available whatever this list contains."
+      },
+      "subscriptions": {
+        "title": "Concurrent subscriptions",
+        "description": "The installation-wide ceiling. A plan may narrow it further, never widen it.",
+        "multiEnabled": "Allow more than one subscription per customer",
+        "maxPerCustomer": "Maximum per customer",
+        "disableNote": "Turning this off closes nothing. Customers who already hold several keep them; the ceiling applies to new purchases."
+      },
+      "providers": {
+        "title": "Payment providers",
+        "description": "What the operator configured, beside what each compiled-in adapter actually declares.",
+        "provider": "Provider",
+        "enabled": "Enabled",
+        "credentials": "Credentials",
+        "connection": "Connection",
+        "webhook": "Webhook",
+        "recurring": "Recurring",
+        "set": "Configured",
+        "unset": "Not configured",
+        "recurringUnsupported": "Adapter cannot store a payment method",
+        "recurringOn": "Enabled",
+        "recurringTest": {
+          "untested": "Capability test not run",
+          "passed": "Test passed, not enabled",
+          "failed": "Test failed"
+        }
       }
     }
   }

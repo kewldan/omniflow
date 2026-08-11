@@ -41,7 +41,11 @@
         "operators": "Операторы",
         "audit": "Журнал действий",
         "system": "Система",
-        "security": "Безопасность"
+        "security": "Безопасность",
+        "shop": "Магазин",
+        "gifts": "Подарки",
+        "risk": "Риски",
+        "settings": "Настройки"
       }
     },
     "commandMenu": {
@@ -79,7 +83,9 @@
         "operatorsDescription": "Кто может входить в админку, и как заблокировать ушедшего сотрудника.",
         "auditDescription": "Поиск по всем действиям входа, авторизации и настройки.",
         "securityDescription": "Пароль, двухфакторная аутентификация и активные сессии."
-      }
+      },
+      "noDashboard": "Нет доступа к панели",
+      "noDashboardDescription": "Для панели показателей нужно право system.read. У ваших ролей его нет."
     },
     "login": {
       "title": "Вход",
@@ -266,6 +272,543 @@
         "revokeFailed": "Не удалось завершить сессию.",
         "error": "Не удалось загрузить сессии",
         "retry": "Повторить"
+      }
+    },
+    "operations": {
+      "retry": "Повторить",
+      "error": "Не удалось загрузить",
+      "errorDescription": "API не ответил. Повторите или проверьте состояние сервиса.",
+      "empty": "Пока пусто",
+      "emptyDescription": "Записи появятся здесь, как только они будут.",
+      "noMatches": "Совпадений нет",
+      "noMatchesDescription": "Ни одна запись не подходит под текущий фильтр.",
+      "clearFilters": "Сбросить фильтры",
+      "next": "Дальше",
+      "previous": "Назад",
+      "shown": "показано {count} · страница {page}"
+    },
+    "dashboard": {
+      "freshness": "Прочитано {at} · время в {timezone} · окно {window}",
+      "attention": "Требует действий",
+      "open": "Открыть",
+      "noRevenue": "За это окно нет оплаченных заказов.",
+      "revenueDefinition": "Три отдельные величины. Деньги провайдера и списания с кошелька не складываются: кошелёк уже был учтён как выручка при пополнении.",
+      "groups": {
+        "customers": "Клиенты",
+        "subscriptions": "Подписки",
+        "payments": "Платежи",
+        "revenue": "Выручка",
+        "support": "Поддержка",
+        "operations": "Операции"
+      },
+      "revenue": {
+        "paid": "Оплачено",
+        "wallet": "Кошелёк",
+        "refunded": "Возвращено",
+        "orders": "Заказы"
+      },
+      "severity": {
+        "alert": "Тревога",
+        "warning": "Предупреждение"
+      },
+      "attentionItems": {
+        "stuckPayments": "Зависшие платежи",
+        "failedJobs": "Неудачные задачи выдачи",
+        "failedWebhooks": "Неудачные вебхуки",
+        "openDrifts": "Расхождения с Remnawave",
+        "outboxLag": "Задержка outbox (секунды)",
+        "openAnomalies": "Аномалии на разбор",
+        "openBlocklistMatches": "Совпадения со списками",
+        "staleTickets": "Забытые обращения"
+      },
+      "metrics": {
+        "activeCustomers": "Активные",
+        "suspendedCustomers": "Заблокированные",
+        "deletedCustomers": "Удалённые",
+        "newCustomers": "Новые за окно",
+        "activeEntitlements": "Активные",
+        "limitedEntitlements": "Ограниченные",
+        "lapsedEntitlements": "Истёкшие",
+        "renewalsDue": "Продления на подходе",
+        "observedTrafficBytes": "Наблюдаемый трафик",
+        "paymentsSucceeded": "Успешные",
+        "paymentsInFlight": "В процессе",
+        "paymentsFailed": "Неудачные",
+        "paymentsStuck": "Зависшие",
+        "openTickets": "Открытые",
+        "staleTickets": "Забытые",
+        "jobsQueued": "В очереди",
+        "jobsFailed": "Неудачные",
+        "jobsOverdue": "Просроченные",
+        "webhooksUnprocessed": "Необработанные",
+        "webhooksFailed": "Неудачные",
+        "webhooksUnverified": "Без подписи",
+        "openDrifts": "Открытые расхождения",
+        "missingRemote": "Нет в Remnawave",
+        "outboxUnpublished": "Очередь outbox",
+        "outboxOldestAgeSeconds": "Самое старое событие"
+      },
+      "definitions": {
+        "customer.status.active": "Записи клиентов, которые не заблокированы и не удалены. Это не то же самое, что действующая подписка.",
+        "customer.status.suspended": "Записи клиентов, заблокированных оператором.",
+        "customer.status.deleted": "Записи клиентов, помеченных удалёнными по политике хранения.",
+        "customer.created.window": "Записи клиентов, созданные внутри отчётного окна.",
+        "entitlement.active": "Права доступа со статусом active, срок которых ещё не истёк.",
+        "entitlement.limited": "Права доступа в ограниченном состоянии — обычно после лимита трафика или устройств.",
+        "entitlement.lapsed": "Права доступа со статусом active или limited, срок которых уже прошёл.",
+        "entitlement.renewal.window": "Активные права доступа, истекающие внутри отчётного окна.",
+        "traffic.observed": "Счётчик трафика, который Omniflow последний раз получил от Remnawave. Источник истины — Remnawave; это снимок, а не итог.",
+        "payment.succeeded.window": "Платёжные намерения, завершившиеся внутри отчётного окна.",
+        "payment.inflight": "Платёжные намерения в состоянии ожидания, действия или обработки.",
+        "payment.failed.window": "Платёжные намерения, завершившиеся неудачей внутри окна.",
+        "payment.stuck": "Платёжные намерения, висящие дольше, чем требуется любому поддерживаемому провайдеру.",
+        "support.open": "Обращения в статусе «открыто».",
+        "support.stale": "Открытые обращения без сообщений сутки и дольше.",
+        "job.queued": "Операции выдачи в очереди или на повторе.",
+        "job.failed": "Операции выдачи, исчерпавшие повторы.",
+        "job.overdue": "Операции в очереди, чей срок следующей попытки давно прошёл.",
+        "webhook.unprocessed.window": "Полученные, но ещё не обработанные вызовы провайдера.",
+        "webhook.failed.window": "Вызовы провайдера, обработка которых не удалась.",
+        "webhook.unverified.window": "Вызовы провайдера, подпись которых не сошлась.",
+        "drift.open": "Неразрешённые расхождения между Omniflow и Remnawave.",
+        "drift.missing_remote": "Права доступа, чей пользователь Remnawave больше не существует.",
+        "outbox.unpublished": "Доменные события, которые публикатор ещё не разобрал.",
+        "outbox.oldest_age": "Возраст самого старого неопубликованного события. Большая очередь свежих событий — норма, одно старое — нет."
+      }
+    },
+    "customers": {
+      "title": "Клиенты",
+      "description": "Найдите по идентификатору, который у вас уже есть, и работайте с подписками, заказами, кошельком и рисками клиента.",
+      "notFound": "Клиент не найден",
+      "notFoundDescription": "Ни одна запись не соответствует этому идентификатору.",
+      "loadFailed": "Не удалось загрузить клиента",
+      "overview": "Обзор",
+      "createdAt": "Зарегистрирован {at}",
+      "filters": {
+        "query": "Идентификатор",
+        "queryPlaceholder": "ID клиента, Telegram ID или имя в Remnawave",
+        "status": "Статус",
+        "segment": "Сегмент",
+        "any": "Любой",
+        "clear": "Сбросить фильтры"
+      },
+      "status": {
+        "active": "Активен",
+        "suspended": "Заблокирован",
+        "deleted": "Удалён"
+      },
+      "segments": {
+        "subscribed": "Есть действующая подписка",
+        "lapsed": "Подписка истекла",
+        "never_purchased": "Никогда не покупал",
+        "flagged": "Отмечен на разбор"
+      },
+      "columns": {
+        "customer": "Клиент",
+        "status": "Статус",
+        "telegram": "Telegram",
+        "locale": "Язык",
+        "createdAt": "Регистрация"
+      },
+      "facts": {
+        "subscriptions": "Подписки",
+        "orders": "Заказы",
+        "tickets": "Открытые обращения",
+        "referrals": "Рефералы",
+        "flags": "на разборе: {count}",
+        "allowlisted": "В белом списке"
+      },
+      "tabs": {
+        "subscriptions": "Подписки",
+        "orders": "Заказы",
+        "wallet": "Кошелёк",
+        "risk": "Риски"
+      },
+      "actions": {
+        "reason": "Причина",
+        "reasonPlaceholder": "Зачем вносится изменение",
+        "suspend": "Заблокировать",
+        "reactivate": "Разблокировать"
+      },
+      "empty": {
+        "subscriptions": "Подписок нет",
+        "orders": "Заказов нет",
+        "wallet": "Движений по кошельку нет",
+        "risk": "Совпадений нет",
+        "riskDescription": "Ни один список не содержит идентификаторов этого клиента."
+      },
+      "subscription": {
+        "slot": "Слот {slot}",
+        "plan": "Тариф",
+        "entitlement": "Право доступа",
+        "endsAt": "Истекает",
+        "traffic": "Трафик",
+        "unlimited": "Без лимита"
+      },
+      "order": {
+        "createdAt": "Создан",
+        "operation": "Операция",
+        "state": "Статус",
+        "paid": "Оплачено"
+      },
+      "wallet": {
+        "createdAt": "Когда",
+        "type": "Тип",
+        "reference": "Ссылка",
+        "amount": "Сумма"
+      },
+      "risk": {
+        "detectedAt": "Обнаружено",
+        "source": "Источник",
+        "subject": "Идентификатор",
+        "status": "Решение",
+        "reason": "Причина"
+      }
+    },
+    "finance": {
+      "title": "Финансы",
+      "description": "История заказов, очередь сверки и не прошедшие автосписания.",
+      "export": "Выгрузить CSV",
+      "tabs": {
+        "orders": "Заказы",
+        "stuck": "Зависшие платежи",
+        "charges": "Неудачные списания"
+      },
+      "filters": {
+        "state": "Статус",
+        "operation": "Операция",
+        "any": "Любой",
+        "clear": "Сбросить фильтры"
+      },
+      "columns": {
+        "createdAt": "Создан",
+        "customer": "Клиент",
+        "operation": "Операция",
+        "state": "Статус",
+        "paid": "Оплачено",
+        "refunded": "Возвращено",
+        "updatedAt": "Изменён",
+        "provider": "Провайдер",
+        "amount": "Сумма",
+        "attempt": "Попытка",
+        "funding": "Источник",
+        "outcome": "Итог",
+        "failureCode": "Ошибка"
+      },
+      "empty": {
+        "stuck": "Зависших нет",
+        "stuckDescription": "Все платежи в процессе укладываются в ожидаемое окно.",
+        "charges": "Неудачных списаний нет",
+        "chargesDescription": "Все автопродления за последнее время прошли."
+      },
+      "funding": {
+        "wallet": "Кошелёк",
+        "saved_method": "Сохранённый способ"
+      },
+      "outcome": {
+        "failed": "Неудача",
+        "abandoned": "Прекращено"
+      },
+      "chargesNote": "Неудачное списание повторяется по ограниченному расписанию, после чего клиент возвращается к ручному продлению. Отсюда списание не запускается заново."
+    },
+    "risk": {
+      "title": "Риски",
+      "description": "Совпадения со списками блокировок и сигналы аномалий вместе с доказательствами.",
+      "noAutoAction": "Ничего на этой странице не меняет клиента. Решение здесь фиксирует вердикт и причину; блокировка аккаунта — отдельное действие на странице самого клиента.",
+      "reasonPlaceholder": "Причина решения (обязательно)",
+      "observed": "Наблюдалось {observed} при пороге {threshold}.",
+      "disabled": "Отключён",
+      "tabs": {
+        "matches": "Совпадения",
+        "anomalies": "Аномалии",
+        "sources": "Источники"
+      },
+      "empty": {
+        "matches": "Разбирать нечего",
+        "matchesDescription": "Ни одно совпадение не ждёт решения.",
+        "anomalies": "Открытых сигналов нет",
+        "anomaliesDescription": "Ни один показатель не превысил настроенный порог.",
+        "sources": "Источников нет",
+        "sourcesDescription": "Добавьте источник, чтобы сверять идентификаторы клиентов с публикуемым списком."
+      },
+      "columns": {
+        "detectedAt": "Обнаружено",
+        "customer": "Клиент",
+        "source": "Источник",
+        "subject": "Идентификатор",
+        "decision": "Решение",
+        "sourceName": "Источник",
+        "entries": "Записей",
+        "health": "Состояние",
+        "lastRefresh": "Обновлён"
+      },
+      "actions": {
+        "allow": "Разрешить",
+        "block": "Заблокировать",
+        "acknowledge": "Принять",
+        "dismiss": "Отклонить"
+      },
+      "metrics": {
+        "traffic": "Трафик",
+        "purchase": "Объём покупок",
+        "refund": "Объём возвратов",
+        "referral": "Рефералы"
+      },
+      "severity": {
+        "warning": "Предупреждение",
+        "alert": "Тревога"
+      }
+    },
+    "system": {
+      "title": "Система",
+      "description": "Задачи выдачи, вызовы провайдеров, расхождения с Remnawave и очередь outbox.",
+      "tabs": {
+        "jobs": "Неудачные задачи",
+        "webhooks": "Вебхуки",
+        "drift": "Расхождения",
+        "outbox": "Outbox"
+      },
+      "columns": {
+        "createdAt": "Создано",
+        "operation": "Операция",
+        "attempts": "Попытки",
+        "errorCode": "Ошибка",
+        "correlation": "Корреляция",
+        "actions": "Действия",
+        "receivedAt": "Получено",
+        "provider": "Провайдер",
+        "signature": "Подпись",
+        "status": "Статус",
+        "detectedAt": "Обнаружено",
+        "kind": "Тип",
+        "customer": "Клиент",
+        "topic": "Тема",
+        "age": "Возраст"
+      },
+      "empty": {
+        "jobs": "Неудачных задач нет",
+        "jobsDescription": "Все операции выдачи успешны или ещё повторяются.",
+        "webhooks": "Вызовов провайдеров нет",
+        "drift": "Расхождений нет",
+        "driftDescription": "Omniflow и Remnawave согласованы по всем правам доступа.",
+        "outbox": "Очередь пуста",
+        "outboxDescription": "Все доменные события опубликованы."
+      },
+      "actions": {
+        "retry": "Повторить",
+        "cancel": "Отменить",
+        "replay": "Переиграть"
+      },
+      "signature": {
+        "valid": "Проверена",
+        "invalid": "Не проверена"
+      },
+      "driftKind": {
+        "missing_remote": "Нет в Remnawave",
+        "external_edit": "Изменено извне",
+        "status": "Статус",
+        "expiry": "Срок",
+        "traffic": "Трафик",
+        "device_limit": "Лимит устройств",
+        "squads": "Сквады"
+      }
+    },
+    "catalog": {
+      "title": "Каталог",
+      "description": "Тарифы, их версии и промо-акции, которые дают скидку.",
+      "archived": "В архиве",
+      "stackable": "Складывается",
+      "exclusive": "Отдельно",
+      "tabs": {
+        "plans": "Тарифы",
+        "promotions": "Промо"
+      },
+      "columns": {
+        "code": "Код",
+        "kind": "Тип",
+        "version": "Версия",
+        "orders": "Строк заказов",
+        "concurrency": "Максимум на клиента",
+        "visible": "Видимость",
+        "reward": "Награда",
+        "stacking": "Складывание",
+        "redemptions": "Использований",
+        "discount": "Скидка выдана",
+        "active": "Активно"
+      },
+      "empty": {
+        "plans": "Тарифов нет",
+        "plansDescription": "Создайте тариф, прежде чем открывать каталог клиентам.",
+        "promotions": "Промо-акций нет"
+      },
+      "kind": {
+        "trial": "Пробный",
+        "one_time": "Разовый",
+        "recurring": "Регулярный",
+        "free": "Бесплатный",
+        "manual": "Ручной"
+      },
+      "reward": {
+        "percent": "скидка {value}%",
+        "fixed": "скидка {amount}",
+        "credit": "{amount} на кошелёк",
+        "days": "+{value} дней",
+        "trial": "пробный период {value} дней"
+      }
+    },
+    "shop": {
+      "title": "Цифровые товары",
+      "description": "Telegram Premium и Stars рядом с подписками. Ничего здесь не затрагивает права доступа VPN.",
+      "self": "Себе",
+      "refunded": "возвращено",
+      "lowBalance": "Низкий баланс",
+      "archived": "В архиве",
+      "visible": "Видим",
+      "hidden": "Скрыт",
+      "yes": "Да",
+      "no": "Нет",
+      "months": "{count} мес.",
+      "tabs": {
+        "orders": "Заказы",
+        "products": "Товары",
+        "providers": "Провайдеры"
+      },
+      "columns": {
+        "createdAt": "Создан",
+        "recipient": "Получатель",
+        "price": "Цена",
+        "margin": "Маржа",
+        "status": "Статус",
+        "delivery": "Доставка",
+        "code": "Код",
+        "kind": "Тип",
+        "quantity": "Количество",
+        "pricing": "Цена",
+        "visible": "Видимость"
+      },
+      "empty": {
+        "orders": "Заказов нет",
+        "products": "Товаров нет",
+        "productsDescription": "Добавьте товар и правило цены, прежде чем открывать магазин.",
+        "providers": "Провайдеров нет",
+        "providersDescription": "Настройте провайдера, чтобы продавать Premium или Stars."
+      },
+      "status": {
+        "quoted": "Расчёт",
+        "paid": "Оплачен",
+        "delivering": "Доставляется",
+        "delivered": "Доставлен",
+        "failed": "Неудача",
+        "refunded": "Возвращён"
+      },
+      "failure": {
+        "retryable": "Повтор",
+        "permanent": "Окончательная",
+        "recipient_invalid": "Получатель недоступен",
+        "provider_balance": "Баланс провайдера",
+        "provider_unavailable": "Провайдер недоступен"
+      },
+      "kind": {
+        "telegram_premium": "Telegram Premium",
+        "telegram_stars": "Telegram Stars"
+      },
+      "pricing": {
+        "fixed": "фиксировано {amount}",
+        "markup": "наценка {percent}%, {rounding}",
+        "missing": "Правило цены не задано"
+      },
+      "rounding": {
+        "none": "без округления",
+        "up_minor": "без округления",
+        "up_unit": "вверх до единицы",
+        "up_ten_units": "вверх до десятка",
+        "up_hundred_units": "вверх до сотни"
+      },
+      "provider": {
+        "balance": "Баланс",
+        "spendLimit": "Лимит трат",
+        "noLimit": "Без лимита",
+        "credentials": "Ключи",
+        "set": "Заданы",
+        "unset": "Не заданы",
+        "enabled": "Включён"
+      }
+    },
+    "gifts": {
+      "title": "Подарки",
+      "description": "Подписки, дополнения и пополнения кошелька, купленные для другого человека.",
+      "all": "Все",
+      "reasonPlaceholder": "Причина отзыва (обязательно)",
+      "columns": {
+        "createdAt": "Куплен",
+        "kind": "Подарок",
+        "hint": "Код",
+        "sender": "Отправитель",
+        "status": "Статус",
+        "expiresAt": "Истекает",
+        "actions": "Действия"
+      },
+      "status": {
+        "pending": "Ждёт оплаты",
+        "deliverable": "Можно получить",
+        "claimed": "Получен",
+        "expired": "Истёк",
+        "revoked": "Отозван",
+        "refunded": "Возвращён"
+      },
+      "kind": {
+        "subscription": "Подписка",
+        "addon": "Дополнение",
+        "wallet_credit": "Кошелёк"
+      },
+      "actions": {
+        "revoke": "Отозвать",
+        "refund": "Отметить возврат"
+      }
+    },
+    "settings": {
+      "title": "Настройки коммерции",
+      "description": "Лимиты пополнения кошелька, число подписок и состояние платёжных провайдеров.",
+      "save": "Сохранить",
+      "yes": "Да",
+      "no": "Нет",
+      "unsavedChanges": "Есть несохранённые изменения. Всё равно уйти со страницы?",
+      "topUp": {
+        "title": "Пополнение кошелька",
+        "description": "Лимиты — целые числа в минорных единицах валюты.",
+        "enabled": "Пополнение включено",
+        "minimum": "Минимум",
+        "maximum": "Максимум",
+        "windowHours": "Скользящее окно (часы)",
+        "windowLimit": "Лимит за окно",
+        "presets": "Готовые суммы",
+        "presetsHint": "Через запятую, в минорных единицах. Ввод произвольной суммы остаётся доступен в любом случае."
+      },
+      "subscriptions": {
+        "title": "Одновременные подписки",
+        "description": "Потолок для всей установки. Тариф может его сузить, но не расширить.",
+        "multiEnabled": "Разрешить больше одной подписки на клиента",
+        "maxPerCustomer": "Максимум на клиента",
+        "disableNote": "Выключение ничего не закрывает. У кого уже несколько — те их сохраняют; потолок действует для новых покупок."
+      },
+      "providers": {
+        "title": "Платёжные провайдеры",
+        "description": "Что настроил оператор — рядом с тем, что заявляет сам адаптер.",
+        "provider": "Провайдер",
+        "enabled": "Включён",
+        "credentials": "Ключи",
+        "connection": "Соединение",
+        "webhook": "Вебхук",
+        "recurring": "Автосписание",
+        "set": "Заданы",
+        "unset": "Не заданы",
+        "recurringUnsupported": "Адаптер не умеет сохранять способ оплаты",
+        "recurringOn": "Включено",
+        "recurringTest": {
+          "untested": "Проверка не выполнялась",
+          "passed": "Проверка пройдена, не включено",
+          "failed": "Проверка не пройдена"
+        }
       }
     }
   }
