@@ -16,7 +16,7 @@ Build Telegram-first self-service, subscriptions, billing, support, marketing, a
 [Quick start](#-quick-start) · [Roadmap](./ROADMAP.md) · [Documentation](./docs/index.mdx) · [Architecture](./docs/architecture/overview.mdx) · [Contributing](./CONTRIBUTING.md)
 
 > [!IMPORTANT]
-> Omniflow is under active development. The platform foundation, the commerce backend, the complete Telegram customer product, production runtime, the v0.6 operator panel foundation, the v0.7 operator workspace, and the v0.8 complete admin panel are implemented and verified against PostgreSQL 18. An operator can run the support desk, build audience segments and campaigns, configure the referral programme and loyalty tiers, require Telegram channel membership before a purchase, and configure every backend capability — branding, the Remnawave connection, the bot, the operator group, maintenance, notification thresholds, telemetry, backups, and session policy — without SQL or shell access. AI and MCP are optional, off until an owner configures them, enabled one feature at a time, and bounded per operator, role, feature, and installation. A shop order now carries the wallet, a promo code, and a saved cart through the same pipeline a plan uses, with a discount floored at what the provider charges and a saved shop purchase that re-quotes rather than buying itself. Campaign and notification test delivery and update-availability reporting are tracked in the roadmap's verification debt. The customer web panel arrives in v0.9. Web checkout remains intentionally disabled until that milestone; a payment method is offered in the bot only when the operator has configured that adapter.
+> Omniflow is under active development. Everything through v0.8 is implemented on `main` and verified against PostgreSQL 18: the platform foundation, the commerce backend, the complete Telegram customer product, the production runtime, and the whole operator panel. An operator can run the support desk, build audience segments and campaigns, configure the referral programme and loyalty tiers, require Telegram channel membership before a purchase, and configure every backend capability — branding, the Remnawave connection, the bot, the operator group, maintenance, notification thresholds, telemetry, backups, and session policy — without SQL or shell access. AI and MCP are optional, off until an owner configures them, enabled one feature at a time, and bounded per operator, role, feature, and installation. A shop order now carries the wallet, a promo code, and a saved cart through the same pipeline a plan uses, with a discount floored at what the provider charges and a saved shop purchase that re-quotes rather than buying itself. Campaign and notification test delivery and update-availability reporting are tracked in the roadmap's verification debt. The customer web panel arrives in v0.9. Web checkout remains intentionally disabled until that milestone; a payment method is offered in the bot only when the operator has configured that adapter.
 
 ## ✨ Highlights
 
@@ -169,9 +169,14 @@ The complete versioned delivery contract is maintained in [ROADMAP.md](./ROADMAP
 - [x] Operator authentication, two-factor, optional OIDC, RBAC enforcement, and audit search
 - [x] Responsive `/admin` shell with command search, localization, and URL-backed filters
 - [x] Operator dashboard, customer, subscription, catalogue, finance, risk, and job workflows
-- [ ] Customer-facing gift, digital-goods, and auto-renew flows in the bot
-- [ ] Operator support inbox and campaign delivery
-- [ ] End-to-end browser coverage
+- [x] Customer-facing gift, digital-goods, and auto-renew flows in the bot
+- [x] Operator support desk, audience segments, campaigns, referrals, and loyalty
+- [x] Installation settings, diagnostics, and telemetry preview without SQL access
+- [x] Optional AI features and MCP connections, off until an owner configures them
+- [x] End-to-end browser coverage with accessibility, layout, and localization gates
+- [ ] Customer web panel: sign-in, dashboard, and subscription management
+- [ ] Customer web checkout, shop, support, and referrals
+- [ ] 1.0: upgrade compatibility, security review, and community documentation
 
 ## 📡 Anonymous telemetry
 

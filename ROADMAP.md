@@ -10,6 +10,13 @@ Telegram Bot + backend → Admin web panel → Customer web panel → 1.0 GA
 
 Work may prepare shared foundations early, but a later product surface must not displace unfinished requirements from the current phase. A version is complete only when its listed behavior, migrations, documentation, security controls, and release gates are complete.
 
+**Where the boundary is today.** v0.1 through v0.8 are complete on `main`: the
+backend, the Telegram customer product, the production runtime, and the whole
+operator panel. v0.9 is the current phase and starts the customer web panel. Two
+v0.8 items shipped with a caveat stated in their own line and detailed in the
+verification debt section at the end of v0.8; nothing else is outstanding behind
+a checked box.
+
 ## Status legend
 
 - ✅ Released or implemented on `main`
@@ -757,7 +764,7 @@ Carried into v0.9 and tracked here rather than left implied.
 
 ---
 
-## ⏳ v0.9 — Customer web foundation
+## 🚧 v0.9 — Customer web foundation
 
 Goal: expose the proven customer capabilities through the shared web application.
 
