@@ -212,12 +212,13 @@ func TestThePromptCarriesTheConstraints(t *testing.T) {
 	}
 }
 
-// This package cannot reach customers. A brief that named a segment would be
-// one step from being able to.
-func TestABriefCannotNameAnAudience(t *testing.T) {
-	// Compile-time property, asserted by construction: Brief has no audience,
-	// segment, schedule, or recipient field. The test documents the intent so
-	// adding one is a deliberate act with a failing test attached.
+// This package cannot reach customers, and the brief is where that is enforced:
+// it carries a purpose and a language, and nothing that could name a recipient
+// or a send time.
+func TestABriefCannotNameARecipientOrASchedule(t *testing.T) {
+	// Asserted by construction — Brief has no recipient, list, or schedule
+	// field. The test documents the intent so adding one is a deliberate act
+	// with a failing test attached.
 	brief := Brief{Purpose: "x", Variables: nil, Language: "en", MaxRunes: 100}
 	if brief.Purpose == "" {
 		t.Fatal("unreachable")

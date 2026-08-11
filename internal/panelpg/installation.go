@@ -222,7 +222,7 @@ type AIProvider struct {
 	RetentionNote  string    `json:"retentionNote,omitempty"`
 	DataRegion     string    `json:"dataRegion,omitempty"`
 	KeyConfigured  bool      `json:"keyConfigured"`
-	LastCheckedAt  time.Time `json:"lastCheckedAt,omitempty"`
+	LastCheckedAt  time.Time `json:"lastCheckedAt,omitzero"`
 	LastCheckOK    bool      `json:"lastCheckOk"`
 	LastCheckError string    `json:"lastCheckError,omitempty"`
 	UpdatedAt      time.Time `json:"updatedAt"`
@@ -732,7 +732,7 @@ type AIDecision struct {
 	Disposition   string    `json:"disposition"`
 	Consequential bool      `json:"consequential"`
 	Summary       string    `json:"summary,omitempty"`
-	OccurredAt    time.Time `json:"occurredAt,omitempty"`
+	OccurredAt    time.Time `json:"occurredAt,omitzero"`
 	OperatorEmail string    `json:"operatorEmail,omitempty"`
 }
 
@@ -804,9 +804,9 @@ type MCPServerConfig struct {
 	ServerName           string          `json:"serverName,omitempty"`
 	ServerVersion        string          `json:"serverVersion,omitempty"`
 	Capabilities         json.RawMessage `json:"capabilities,omitempty"`
-	DiscoveredAt         time.Time       `json:"discoveredAt,omitempty"`
+	DiscoveredAt         time.Time       `json:"discoveredAt,omitzero"`
 
-	LastCheckedAt       time.Time `json:"lastCheckedAt,omitempty"`
+	LastCheckedAt       time.Time `json:"lastCheckedAt,omitzero"`
 	LastCheckOK         bool      `json:"lastCheckOk"`
 	LastCheckError      string    `json:"lastCheckError,omitempty"`
 	ConsecutiveFailures int32     `json:"consecutiveFailures"`
