@@ -430,7 +430,17 @@
         "reason": "Reason",
         "reasonPlaceholder": "Why this change is being made",
         "suspend": "Suspend",
-        "reactivate": "Reactivate"
+        "reactivate": "Reactivate",
+        "enable": "Enable",
+        "disable": "Disable",
+        "resetTraffic": "Reset traffic",
+        "extend": "Extend to",
+        "setLimits": "Apply limits",
+        "endsAt": "New expiry",
+        "trafficBytes": "Traffic allowance (bytes)",
+        "deviceLimit": "Device limit",
+        "notProvisioned": "This subscription has no entitlement yet, so there is nothing to change. It is provisioned when a paid order is fulfilled.",
+        "queued": "Queued {operation}. The fulfillment worker applies it and records the result under System."
       },
       "empty": {
         "subscriptions": "No subscriptions",
@@ -465,6 +475,14 @@
         "subject": "Identifier",
         "status": "Decision",
         "reason": "Reason"
+      },
+      "devices": {
+        "title": "Devices",
+        "empty": "No devices are connected.",
+        "unknown": "Unknown",
+        "unavailable": "Devices are unavailable — Remnawave did not answer.",
+        "remove": "Remove",
+        "reasonPlaceholder": "Reason for removing a device (required)"
       }
     },
     "finance": {

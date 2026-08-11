@@ -28,6 +28,8 @@ import {
 } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 
+import { SubscriptionActions, SubscriptionDevices } from "./subscription-actions";
+
 /**
  * One customer, with every surface that touches them.
  *
@@ -122,7 +124,7 @@ export function CustomerProfileView({ customerId }: { customerId: string }) {
         </TabsList>
 
         <TabsContent value="subscriptions">
-          <SubscriptionList active={tab === "subscriptions"} base={base} />
+          <SubscriptionList active={tab === "subscriptions"} base={base} customerId={customerId} />
         </TabsContent>
         <TabsContent value="orders">
           <OrderList active={tab === "orders"} base={base} locale={locale} />
@@ -212,7 +214,15 @@ function StatusAction({
   );
 }
 
-function SubscriptionList({ active, base }: { active: boolean; base: string }) {
+function SubscriptionList({
+  active,
+  base,
+  customerId,
+}: {
+  active: boolean;
+  base: string;
+  customerId: string;
+}) {
   const translate = useTranslations("admin.customers");
   const { data, isLoading } = useSWR<Listing<SubscriptionDetail>, ApiError>(
     active ? `${base}/subscriptions` : null,
@@ -266,6 +276,13 @@ function SubscriptionList({ active, base }: { active: boolean; base: string }) {
               }
             />
           </dl>
+
+          <SubscriptionDevices customerId={customerId} subscriptionId={subscription.id} />
+          <SubscriptionActions
+            customerId={customerId}
+            hasEntitlement={Boolean(subscription.entitlementId)}
+            subscriptionId={subscription.id}
+          />
         </Card>
       ))}
     </div>

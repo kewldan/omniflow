@@ -208,6 +208,7 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 	if cfg.AdminPanel.Enabled {
 		adminHandlers, adminErr := buildAdminPanel(
 			ctx, logger, cfg, pool, platform.NewRateLimiter(valkeyClient), providers, health,
+			fulfillment.NewService(pool, riverClient), remnawaveClient,
 		)
 		if adminErr != nil {
 			valkeyClient.Close()
@@ -226,6 +227,7 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 func buildAdminPanel(
 	ctx context.Context, logger *slog.Logger, cfg config.Config, pool *pgxpool.Pool,
 	limiter *platform.RateLimiter, providers []payments.Provider, health *platform.Health,
+	fulfillmentService *fulfillment.Service, remnawaveClient *remnawave.Client,
 ) (*apihttp.AdminHandlers, error) {
 	service, err := adminauthpg.New(pool, cfg.DataEncryptionKey, adminauthpg.Options{})
 	if err != nil {
@@ -249,6 +251,7 @@ func buildAdminPanel(
 	return apihttp.NewAdminHandlers(apihttp.AdminOptions{
 		Service: service, Limiter: limiter, Logger: logger, Proxies: proxies,
 		Operations: operations, Providers: providerIndex(providers), Health: health,
+		Fulfillment: fulfillmentService, Remnawave: remnawaveClient,
 		CookieSecure: cfg.AdminPanel.CookieSecure, Issuer: cfg.AdminPanel.Issuer,
 	}), nil
 }

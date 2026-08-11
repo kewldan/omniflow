@@ -11,10 +11,12 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/omniflow/omniflow/internal/adminauth"
 	"github.com/omniflow/omniflow/internal/adminauthpg"
+	"github.com/omniflow/omniflow/internal/fulfillment"
 	"github.com/omniflow/omniflow/internal/panelpg"
 	"github.com/omniflow/omniflow/internal/payments"
 	"github.com/omniflow/omniflow/internal/platform"
 	"github.com/omniflow/omniflow/internal/rbac"
+	"github.com/omniflow/omniflow/internal/remnawave"
 )
 
 // AdminHandlers serves the operator panel API.
@@ -40,6 +42,13 @@ type AdminHandlers struct {
 	// health runs the same dependency probes the readiness endpoint uses, so
 	// the panel and /readyz can never disagree about whether a dependency is up.
 	health *platform.Health
+	// fulfillment queues an operator's subscription change through the same
+	// pipeline a purchase uses, so it carries the same idempotency key, retry
+	// policy, and history.
+	fulfillment *fulfillment.Service
+	// remnawave answers the device questions Omniflow does not store. A nil
+	// value leaves the device routes unmounted.
+	remnawave *remnawave.Client
 
 	cookieName   string
 	cookieSecure bool
@@ -60,6 +69,12 @@ type AdminOptions struct {
 	Providers map[string]payments.Provider
 	// Health is the same dependency registry the readiness probe reports on.
 	Health *platform.Health
+	// Fulfillment queues subscription changes. A nil value leaves those routes
+	// unmounted.
+	Fulfillment *fulfillment.Service
+	// Remnawave answers device queries. A nil value leaves those routes
+	// unmounted.
+	Remnawave *remnawave.Client
 	// CookieSecure must be true in production. It is separately configurable
 	// only so a plain-HTTP local development stack can sign in at all.
 	CookieSecure bool
@@ -85,6 +100,8 @@ func NewAdminHandlers(options AdminOptions) *AdminHandlers {
 		operations:       options.Operations,
 		adapterRecurring: adapterCapabilities(options.Providers),
 		health:           options.Health,
+		fulfillment:      options.Fulfillment,
+		remnawave:        options.Remnawave,
 		// The __Host- prefix binds the cookie to this exact origin: a browser
 		// refuses to accept it with a Domain attribute or over plain HTTP, so
 		// a sibling subdomain cannot set or overwrite the operator's session.

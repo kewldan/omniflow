@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/omniflow/omniflow/internal/panelpg"
 	"github.com/omniflow/omniflow/internal/payments"
 	"github.com/omniflow/omniflow/internal/platform"
@@ -55,6 +56,10 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 	})
 	secure.With(handlers.requirePermission(rbac.PermissionCustomersWrite)).
 		Post("/customers/{customerID}/status", handlers.setCustomerStatus)
+	secure.With(handlers.requirePermission(rbac.PermissionCustomersWrite)).
+		Post("/customers/{customerID}/anonymize", handlers.anonymizeCustomer)
+	secure.With(handlers.requirePermission(rbac.PermissionCustomersWrite)).
+		Post("/customers/{customerID}/deletion", handlers.requestCustomerDeletion)
 	secure.With(handlers.requirePermission(rbac.PermissionSubscriptionsWrite)).
 		Patch("/customers/{customerID}/subscriptions/{subscriptionID}", handlers.renameSubscription)
 
@@ -178,6 +183,8 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 		write.Post("/goods/orders/{orderID}/cancel", handlers.cancelGoodsDelivery)
 		write.Post("/goods/orders/{orderID}/resolve", handlers.resolveGoodsDelivery)
 	})
+
+	handlers.mountSubscriptionOperations(secure)
 
 	// -- Bulk actions --------------------------------------------------------
 	secure.With(handlers.requirePermission(rbac.PermissionCustomersRead)).Group(func(read chi.Router) {
@@ -445,6 +452,35 @@ func (handlers *AdminHandlers) setCustomerStatus(writer http.ResponseWriter, req
 	}
 	profile, err := handlers.operations.SetCustomerStatus(
 		request.Context(), chi.URLParam(request, "customerID"), body.Status, actorFrom(request),
+	)
+	handlers.respond(writer, request, profile, err)
+}
+
+// anonymizeCustomer scrubs identifying data while keeping financial history.
+//
+// The two cannot be separated: an order that funded a ledger entry cannot be
+// removed without unbalancing the ledger, so anonymisation removes who placed
+// it and keeps that it was placed.
+func (handlers *AdminHandlers) anonymizeCustomer(writer http.ResponseWriter, request *http.Request) {
+	err := handlers.operations.AnonymizeCustomer(
+		request.Context(), chi.URLParam(request, "customerID"), actorFrom(request),
+	)
+	if err != nil {
+		handlers.operationsError(writer, request, err)
+		return
+	}
+	writer.WriteHeader(http.StatusNoContent)
+}
+
+// requestCustomerDeletion marks a customer for deletion under the retention
+// policy.
+//
+// It is a request rather than an act. The retention worker removes the record
+// once its window elapses, which gives an operator time to discover a mistake
+// and keeps a deletion from tearing a hole in the ledger mid-transaction.
+func (handlers *AdminHandlers) requestCustomerDeletion(writer http.ResponseWriter, request *http.Request) {
+	profile, err := handlers.operations.RequestCustomerDeletion(
+		request.Context(), chi.URLParam(request, "customerID"), actorFrom(request),
 	)
 	handlers.respond(writer, request, profile, err)
 }
@@ -1442,6 +1478,19 @@ func (handlers *AdminHandlers) bulkItems(writer http.ResponseWriter, request *ht
 		return
 	}
 	writeJSON(writer, http.StatusOK, map[string]any{"operation": operation, "items": items})
+}
+
+// uuidValue renders a pgtype UUID for a response body.
+func uuidValue(id pgtype.UUID) string {
+	if !id.Valid {
+		return ""
+	}
+	value, err := id.Value()
+	if err != nil {
+		return ""
+	}
+	text, _ := value.(string)
+	return text
 }
 
 // adapterCapabilities reduces the configured payment adapters to the one fact

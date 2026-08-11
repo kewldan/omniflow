@@ -397,13 +397,13 @@ Goal: let operators run day-to-day customer, subscription, and financial operati
 ### Overview and system health
 
 - [x] Dashboard for active/expired customers, traffic, renewals, payment health, open support, and failed jobs
-- [ ] Metrics with explicit definitions, timezone, comparison period, and data freshness
-- [ ] Remnawave, PostgreSQL, Valkey, Telegram, worker, and provider health
+- [x] Metrics with explicit definitions, timezone, comparison period, and data freshness
+- [x] Remnawave, PostgreSQL, Valkey, Telegram, worker, and provider health
 - [ ] Recent incidents, reconciliation drift, webhook failures, and required actions
 - [x] Traffic, purchase, refund, and referral anomaly detection with configurable thresholds
 - [x] Anomaly alerts delivered to the operator topic with evidence and no automatic customer punishment
 - [x] Anomaly review with threshold configuration, supporting evidence, acknowledgement, and dismissal
-- [ ] Maintenance-mode state, activation reason, and manual override
+- [x] Maintenance-mode state, activation reason, and manual override
 
 ### Customers and subscriptions
 
@@ -411,9 +411,9 @@ Goal: let operators run day-to-day customer, subscription, and financial operati
 - [ ] Customer profile with identities, subscription, devices, orders, wallet, referrals, support, consent, and audit timeline
 - [ ] Every concurrent subscription listed with independent lifecycle actions and its own Remnawave mapping
 - [ ] Create/link/import customer with duplicate detection
-- [ ] Suspend, reactivate, anonymize, and delete according to retention rules
-- [ ] Create, extend, enable, disable, reset traffic, change limits, and change squads through Remnawave API
-- [ ] Device review and removal without exposing identifiers unnecessarily
+- [x] Suspend, reactivate, anonymize, and delete according to retention rules
+- [x] Create, extend, enable, disable, reset traffic, change limits, and change squads through Remnawave API
+- [x] Device review and removal without exposing identifiers unnecessarily
 - [ ] Bulk import/export with preview, validation errors, progress, resumability, and audit history
 - [ ] Bulk actions with permission checks, impact preview, limits, and per-item results
 - [x] External blocklist source configuration, refresh schedule, and connection health
