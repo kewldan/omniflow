@@ -397,6 +397,13 @@ func optionalTimestamp(at *time.Time) pgtype.Timestamptz {
 	return timestamp(*at)
 }
 
+// interval converts a Go duration into the pgtype the database takes, so an
+// expiry can be computed from the database's own clock rather than this
+// process's.
+func interval(duration time.Duration) pgtype.Interval {
+	return pgtype.Interval{Microseconds: duration.Microseconds(), Valid: true}
+}
+
 // timePointer converts a nullable column into a pointer the domain policies
 // take, where nil means "no deadline" rather than the zero time.
 func timePointer(value pgtype.Timestamptz) *time.Time {

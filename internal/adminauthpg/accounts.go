@@ -576,7 +576,7 @@ func (service *Service) RequestPasswordReset(
 			AdminUserID: row.ID,
 			TokenHash:   digest[:],
 			RequestedIp: request.IP,
-			ExpiresAt:   timestamp(service.now().Add(PasswordResetTTL)),
+			Lifetime:    interval(PasswordResetTTL),
 		}); txErr != nil {
 			return txErr
 		}

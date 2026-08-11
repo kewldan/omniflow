@@ -255,26 +255,33 @@ func (q *Queries) CountUnusedAdminRecoveryCodes(ctx context.Context, adminUserID
 const createAdminPasswordReset = `-- name: CreateAdminPasswordReset :one
 
 INSERT INTO admin_password_resets (admin_user_id, token_hash, requested_ip, expires_at)
-VALUES ($1, $2, $3, $4)
+VALUES (
+  $1, $2, $3,
+  now() + $4::interval
+)
 RETURNING id, admin_user_id, token_hash, requested_ip, created_at, expires_at, used_at
 `
 
 type CreateAdminPasswordResetParams struct {
-	AdminUserID pgtype.UUID        `json:"admin_user_id"`
-	TokenHash   []byte             `json:"token_hash"`
-	RequestedIp *netip.Addr        `json:"requested_ip"`
-	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+	AdminUserID pgtype.UUID     `json:"admin_user_id"`
+	TokenHash   []byte          `json:"token_hash"`
+	RequestedIp *netip.Addr     `json:"requested_ip"`
+	Lifetime    pgtype.Interval `json:"lifetime"`
 }
 
 // ---------------------------------------------------------------------------
 // Password resets
 // ---------------------------------------------------------------------------
+// The expiry is derived from the database clock, not the application's.
+// `created_at` defaults to now(), so taking the deadline from a second clock
+// would let drift between the two violate `expires_at > created_at` and reject
+// an otherwise valid request.
 func (q *Queries) CreateAdminPasswordReset(ctx context.Context, arg CreateAdminPasswordResetParams) (AdminPasswordReset, error) {
 	row := q.db.QueryRow(ctx, createAdminPasswordReset,
 		arg.AdminUserID,
 		arg.TokenHash,
 		arg.RequestedIp,
-		arg.ExpiresAt,
+		arg.Lifetime,
 	)
 	var i AdminPasswordReset
 	err := row.Scan(
@@ -354,20 +361,21 @@ func (q *Queries) CreateAdminSession(ctx context.Context, arg CreateAdminSession
 const createAdminSetupToken = `-- name: CreateAdminSetupToken :one
 
 INSERT INTO admin_setup_tokens (token_hash, expires_at)
-VALUES ($1, $2)
+VALUES ($1, now() + $2::interval)
 RETURNING id, token_hash, created_at, expires_at, consumed_at, consumed_by
 `
 
 type CreateAdminSetupTokenParams struct {
-	TokenHash []byte             `json:"token_hash"`
-	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	TokenHash []byte          `json:"token_hash"`
+	Lifetime  pgtype.Interval `json:"lifetime"`
 }
 
 // ---------------------------------------------------------------------------
 // First-owner bootstrap
 // ---------------------------------------------------------------------------
+// Same single-clock rule as the password reset above.
 func (q *Queries) CreateAdminSetupToken(ctx context.Context, arg CreateAdminSetupTokenParams) (AdminSetupToken, error) {
-	row := q.db.QueryRow(ctx, createAdminSetupToken, arg.TokenHash, arg.ExpiresAt)
+	row := q.db.QueryRow(ctx, createAdminSetupToken, arg.TokenHash, arg.Lifetime)
 	var i AdminSetupToken
 	err := row.Scan(
 		&i.ID,

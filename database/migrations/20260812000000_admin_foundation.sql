@@ -267,6 +267,35 @@ CREATE TABLE admin_oidc_identities (
 );
 
 -- ---------------------------------------------------------------------------
+-- Operator security notices
+-- ---------------------------------------------------------------------------
+
+-- Security-relevant operator events — a sign-in from a new address, a password
+-- change, a second factor removed, an owner granted — are delivered through the
+-- existing operator notification outbox, which needs a stream of its own.
+--
+-- Both tables enumerate the known kinds, so the new one has to be admitted in
+-- both. Widening only the notification table would let a notice be queued and
+-- then never bind a topic to deliver it through.
+ALTER TABLE operator_topics
+  DROP CONSTRAINT operator_topics_kind_check;
+
+ALTER TABLE operator_topics
+  ADD CONSTRAINT operator_topics_kind_known CHECK (
+    kind IN ('purchase', 'renewal', 'topup', 'refund',
+             'fulfillment_failure', 'incident', 'backup', 'security')
+  );
+
+ALTER TABLE operator_notifications
+  DROP CONSTRAINT operator_notifications_kind_check;
+
+ALTER TABLE operator_notifications
+  ADD CONSTRAINT operator_notifications_kind_known CHECK (
+    kind IN ('purchase', 'renewal', 'topup', 'refund',
+             'fulfillment_failure', 'incident', 'backup', 'security')
+  );
+
+-- ---------------------------------------------------------------------------
 -- Audit trail
 -- ---------------------------------------------------------------------------
 

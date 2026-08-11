@@ -375,9 +375,18 @@ Goal: build the secure operator shell only after the Telegram/backend product is
 
 - [x] Testcontainers coverage for bootstrap, sign-in, lockout, session lifecycle,
       role changes, preferences, pagination, and the audit trail
-- [ ] Run that suite, and apply `20260812000000_admin_foundation.sql` against a real
-      PostgreSQL 18, then record its checksum with `atlas migrate hash` — blocked
-      locally: no Docker daemon and no Atlas binary
+- [x] `20260812000000_admin_foundation.sql` applied against PostgreSQL 18.4 from a bare
+      database, and its checksum recorded with `atlas migrate hash`
+
+---
+
+## 🐞 Known defect carried from v0.5
+
+`TestConcurrentSubscriptionPurchasesRespectTheLimit` fails: concurrent purchases are
+not refused when they would exceed the configured per-customer subscription limit
+(`internal/integrationtest/load_test.go:167`). Reproduced at `1f3199e`, so it predates
+the v0.6 work and is unrelated to the admin panel. It needs a fix before 1.0 because
+it lets a customer exceed a limit the operator configured.
 
 ---
 

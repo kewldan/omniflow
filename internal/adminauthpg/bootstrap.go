@@ -66,7 +66,7 @@ func (service *Service) IssueSetupToken(ctx context.Context) (string, error) {
 		}
 		_, txErr = queries.CreateAdminSetupToken(ctx, dbgen.CreateAdminSetupTokenParams{
 			TokenHash: digest[:],
-			ExpiresAt: timestamp(service.now().Add(SetupTokenTTL)),
+			Lifetime:  interval(SetupTokenTTL),
 		})
 		return txErr
 	})

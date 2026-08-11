@@ -64,6 +64,10 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	// Password resets
 	// ---------------------------------------------------------------------------
+	// The expiry is derived from the database clock, not the application's.
+	// `created_at` defaults to now(), so taking the deadline from a second clock
+	// would let drift between the two violate `expires_at > created_at` and reject
+	// an otherwise valid request.
 	CreateAdminPasswordReset(ctx context.Context, arg CreateAdminPasswordResetParams) (AdminPasswordReset, error)
 	// ---------------------------------------------------------------------------
 	// Sessions
@@ -72,6 +76,7 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	// First-owner bootstrap
 	// ---------------------------------------------------------------------------
+	// Same single-clock rule as the password reset above.
 	CreateAdminSetupToken(ctx context.Context, arg CreateAdminSetupTokenParams) (AdminSetupToken, error)
 	CreateAdminUser(ctx context.Context, arg CreateAdminUserParams) (AdminUser, error)
 	// ---------------------------------------------------------------------------

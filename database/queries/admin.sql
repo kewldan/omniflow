@@ -261,8 +261,15 @@ WHERE admin_user_id = $1 AND used_at IS NULL;
 -- ---------------------------------------------------------------------------
 
 -- name: CreateAdminPasswordReset :one
+-- The expiry is derived from the database clock, not the application's.
+-- `created_at` defaults to now(), so taking the deadline from a second clock
+-- would let drift between the two violate `expires_at > created_at` and reject
+-- an otherwise valid request.
 INSERT INTO admin_password_resets (admin_user_id, token_hash, requested_ip, expires_at)
-VALUES (sqlc.arg(admin_user_id), sqlc.arg(token_hash), sqlc.narg(requested_ip), sqlc.arg(expires_at))
+VALUES (
+  sqlc.arg(admin_user_id), sqlc.arg(token_hash), sqlc.narg(requested_ip),
+  now() + sqlc.arg(lifetime)::interval
+)
 RETURNING *;
 
 -- name: GetAdminPasswordReset :one
@@ -287,8 +294,9 @@ WHERE admin_user_id = sqlc.arg(admin_user_id) AND used_at IS NULL;
 -- ---------------------------------------------------------------------------
 
 -- name: CreateAdminSetupToken :one
+-- Same single-clock rule as the password reset above.
 INSERT INTO admin_setup_tokens (token_hash, expires_at)
-VALUES (sqlc.arg(token_hash), sqlc.arg(expires_at))
+VALUES (sqlc.arg(token_hash), now() + sqlc.arg(lifetime)::interval)
 RETURNING *;
 
 -- name: GetAdminSetupToken :one

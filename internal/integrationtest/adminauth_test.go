@@ -202,7 +202,11 @@ func TestAdminLockoutAfterRepeatedFailures(t *testing.T) {
 func TestAdminTOTPEnrolmentAndRecoveryCodes(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	now := time.Unix(1_700_000_000, 0).UTC()
+	// Frozen so the expected TOTP code is derived from the same step the service
+	// uses, but frozen at the real current time rather than an arbitrary past
+	// one: session rows carry deadlines from this clock and a `created_at` from
+	// the database's, and the two have to agree about roughly when "now" is.
+	now := time.Now().UTC()
 	service := newAdminService(t, harness, func() time.Time { return now })
 	owner := bootstrapOwner(t, ctx, service)
 
