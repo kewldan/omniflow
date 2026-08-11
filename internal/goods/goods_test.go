@@ -1,11 +1,7 @@
 package goods
 
 import (
-	"context"
-	"encoding/json"
 	"errors"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 )
@@ -119,16 +115,38 @@ func TestQuoteFreshness(t *testing.T) {
 	}
 }
 
-func TestRetryAndRefundPartitionEveryFailureClass(t *testing.T) {
+func TestEveryFailureClassHasExactlyOneResolution(t *testing.T) {
+	// Each class resolves in exactly one way: retried, refunded, or parked for
+	// a person. A class that matched two of these would let one code path
+	// refund an order another path is still retrying.
 	classes := []string{
 		FailureRetryable, FailurePermanent, FailureRecipientInvalid,
-		FailureProviderBalance, FailureProviderUnavailable,
+		FailureProviderBalance, FailureProviderUnavailable, FailureAmbiguous,
 	}
 	for _, class := range classes {
-		retry, refund := Retryable(class), Refundable(class)
-		if retry == refund {
-			t.Fatalf("class %q is both retried (%v) and refunded (%v) or neither", class, retry, refund)
+		resolutions := 0
+		for _, resolved := range []bool{Retryable(class), Refundable(class), NeedsReview(class)} {
+			if resolved {
+				resolutions++
+			}
 		}
+		if resolutions != 1 {
+			t.Fatalf("class %q has %d resolutions, want exactly 1", class, resolutions)
+		}
+	}
+}
+
+// An ambiguous outcome is the one an automated rule must not resolve: both
+// answers can be wrong in a way that costs somebody money.
+func TestAmbiguousIsNeitherRetriedNorRefunded(t *testing.T) {
+	if Retryable(FailureAmbiguous) {
+		t.Fatal("retrying an ambiguous purchase could deliver and charge twice")
+	}
+	if Refundable(FailureAmbiguous) {
+		t.Fatal("refunding an ambiguous purchase could give money back for delivered goods")
+	}
+	if !NeedsReview(FailureAmbiguous) {
+		t.Fatal("an ambiguous purchase must be parked for an operator")
 	}
 }
 
@@ -144,188 +162,5 @@ func TestBackoffGrowsAndIsCapped(t *testing.T) {
 	}
 	if got := Backoff(MaxAttempts + 10); got != time.Hour {
 		t.Fatalf("the schedule must be capped at an hour, got %v", got)
-	}
-}
-
-// --- Fragment adapter -------------------------------------------------------
-
-func fragmentServer(t *testing.T, handler http.HandlerFunc) *Fragment {
-	t.Helper()
-	server := httptest.NewServer(handler)
-	t.Cleanup(server.Close)
-	provider, err := NewFragment(FragmentOptions{Token: "test-token", BaseURL: server.URL})
-	if err != nil {
-		t.Fatal(err)
-	}
-	return provider
-}
-
-func TestFragmentRequiresACredential(t *testing.T) {
-	if _, err := NewFragment(FragmentOptions{}); err == nil {
-		t.Fatal("an adapter with no token must not be constructed")
-	}
-}
-
-func TestFragmentDeliverySendsTheIdempotencyKey(t *testing.T) {
-	var seenKey, seenRecipient string
-	provider := fragmentServer(t, func(writer http.ResponseWriter, request *http.Request) {
-		seenKey = request.Header.Get("Idempotency-Key")
-		var body map[string]any
-		_ = json.NewDecoder(request.Body).Decode(&body)
-		seenRecipient, _ = body["recipient"].(string)
-		writer.Header().Set("Content-Type", "application/json")
-		_, _ = writer.Write([]byte(`{"reference":"frg-1","status":"completed"}`))
-	})
-
-	delivery, err := provider.Deliver(context.Background(), DeliveryRequest{
-		Request: Request{
-			Kind: KindTelegramPremium, DurationMonths: 3, Quantity: 1,
-			// Deliberately a pasted link: the adapter must normalise before
-			// handing anything to the provider.
-			Recipient: "https://t.me/@Omniflow_User",
-		},
-		OrderID: "order-1", IdempotencyKey: "goods:order-1",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if seenKey != "goods:order-1" {
-		t.Fatalf("the idempotency key must reach the provider, got %q", seenKey)
-	}
-	if seenRecipient != "Omniflow_User" {
-		t.Fatalf("the provider must receive a bare username, got %q", seenRecipient)
-	}
-	if delivery.Status != "delivered" || delivery.Reference != "frg-1" {
-		t.Fatalf("unexpected delivery %+v", delivery)
-	}
-}
-
-func TestFragmentClassifiesProviderFailures(t *testing.T) {
-	cases := map[string]string{
-		"recipient_not_found": FailureRecipientInvalid,
-		"insufficient_funds":  FailureProviderBalance,
-		"rate_limited":        FailureRetryable,
-		"invalid_request":     FailurePermanent,
-		"something_new":       FailureRetryable,
-	}
-	for code, want := range cases {
-		provider := fragmentServer(t, func(writer http.ResponseWriter, _ *http.Request) {
-			writer.Header().Set("Content-Type", "application/json")
-			_, _ = writer.Write([]byte(`{"status":"failed","error_code":"` + code + `"}`))
-		})
-		delivery, err := provider.Deliver(context.Background(), DeliveryRequest{
-			Request: Request{Kind: KindTelegramStars, StarQuantity: 100, Recipient: "omniflow_user"},
-			OrderID: "order", IdempotencyKey: "key",
-		})
-		if err != nil {
-			t.Fatalf("a classified provider failure is a delivery outcome, not an error: %v", err)
-		}
-		if delivery.FailureClass != want {
-			t.Fatalf("error code %q classified as %q, want %q", code, delivery.FailureClass, want)
-		}
-	}
-}
-
-func TestFragmentClassifiesTransportFailures(t *testing.T) {
-	// A 4xx will not resolve on retry.
-	refusing := fragmentServer(t, func(writer http.ResponseWriter, _ *http.Request) {
-		http.Error(writer, "no", http.StatusBadRequest)
-	})
-	delivery, err := refusing.Deliver(context.Background(), DeliveryRequest{
-		Request: Request{Kind: KindTelegramStars, StarQuantity: 50, Recipient: "omniflow_user"},
-		OrderID: "order", IdempotencyKey: "key",
-	})
-	if err != nil || delivery.FailureClass != FailurePermanent {
-		t.Fatalf("expected a permanent failure, got %+v (%v)", delivery, err)
-	}
-
-	// A 429 is a retry, not a refund.
-	throttled := fragmentServer(t, func(writer http.ResponseWriter, _ *http.Request) {
-		http.Error(writer, "slow down", http.StatusTooManyRequests)
-	})
-	delivery, _ = throttled.Deliver(context.Background(), DeliveryRequest{
-		Request: Request{Kind: KindTelegramStars, StarQuantity: 50, Recipient: "omniflow_user"},
-		OrderID: "order", IdempotencyKey: "key",
-	})
-	if delivery.FailureClass != FailureRetryable {
-		t.Fatalf("throttling must be retryable, got %q", delivery.FailureClass)
-	}
-
-	// A 5xx is an outage: retried, and never assumed to have delivered nothing.
-	broken := fragmentServer(t, func(writer http.ResponseWriter, _ *http.Request) {
-		http.Error(writer, "oops", http.StatusBadGateway)
-	})
-	delivery, _ = broken.Deliver(context.Background(), DeliveryRequest{
-		Request: Request{Kind: KindTelegramStars, StarQuantity: 50, Recipient: "omniflow_user"},
-		OrderID: "order", IdempotencyKey: "key",
-	})
-	if delivery.FailureClass != FailureProviderUnavailable {
-		t.Fatalf("an outage must be provider-unavailable, got %q", delivery.FailureClass)
-	}
-}
-
-func TestFragmentRefusesAnUnreachableRecipientWithoutCallingTheProvider(t *testing.T) {
-	called := false
-	provider := fragmentServer(t, func(writer http.ResponseWriter, _ *http.Request) {
-		called = true
-		writer.WriteHeader(http.StatusOK)
-	})
-	delivery, err := provider.Deliver(context.Background(), DeliveryRequest{
-		Request: Request{Kind: KindTelegramStars, StarQuantity: 50, Recipient: "no"},
-		OrderID: "order", IdempotencyKey: "key",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if called {
-		t.Fatal("a username that cannot be a handle must not reach the provider")
-	}
-	if delivery.FailureClass != FailureRecipientInvalid {
-		t.Fatalf("expected a recipient-invalid failure, got %+v", delivery)
-	}
-}
-
-func TestFragmentQuoteRejectsAnUnusableAnswer(t *testing.T) {
-	provider := fragmentServer(t, func(writer http.ResponseWriter, _ *http.Request) {
-		writer.Header().Set("Content-Type", "application/json")
-		_, _ = writer.Write([]byte(`{"amount_minor":0,"currency":""}`))
-	})
-	if _, err := provider.Quote(context.Background(), Request{
-		Kind: KindTelegramStars, StarQuantity: 100, Currency: "RUB",
-	}); err == nil {
-		t.Fatal("a quote with no amount must not be accepted")
-	}
-}
-
-func TestFragmentValidateRecipientDoesNotBlockOnProviderOutage(t *testing.T) {
-	provider := fragmentServer(t, func(writer http.ResponseWriter, _ *http.Request) {
-		http.Error(writer, "down", http.StatusServiceUnavailable)
-	})
-	if err := provider.ValidateRecipient(context.Background(), "omniflow_user"); err != nil {
-		t.Fatalf("a provider that cannot answer is not evidence of a bad username: %v", err)
-	}
-
-	missing := fragmentServer(t, func(writer http.ResponseWriter, _ *http.Request) {
-		writer.Header().Set("Content-Type", "application/json")
-		_, _ = writer.Write([]byte(`{"exists":false}`))
-	})
-	if err := missing.ValidateRecipient(context.Background(), "omniflow_user"); !errors.Is(err, ErrInvalidRecipient) {
-		t.Fatalf("expected ErrInvalidRecipient, got %v", err)
-	}
-}
-
-func TestFragmentSupportsOnlyItsOwnKinds(t *testing.T) {
-	provider, err := NewFragment(FragmentOptions{Token: "t"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !provider.Supports(KindTelegramPremium) || !provider.Supports(KindTelegramStars) {
-		t.Fatal("Fragment sells both Telegram kinds")
-	}
-	if provider.Supports("gift_card") {
-		t.Fatal("an unsupported kind must be refused rather than attempted")
-	}
-	if _, err := provider.Quote(context.Background(), Request{Kind: "gift_card"}); !errors.Is(err, ErrUnsupported) {
-		t.Fatalf("expected ErrUnsupported, got %v", err)
 	}
 }

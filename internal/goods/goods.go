@@ -57,6 +57,15 @@ const (
 	FailureProviderBalance = "provider_balance"
 	// FailureProviderUnavailable is an outage: retry, and stop quoting.
 	FailureProviderUnavailable = "provider_unavailable"
+	// FailureAmbiguous is an outcome nobody can safely act on automatically:
+	// the purchase may or may not have completed.
+	//
+	// It exists because a provider that honours no idempotency key turns a lost
+	// answer into a genuine unknown. Retrying could deliver — and charge the
+	// operator — twice; refunding could give money back for goods the recipient
+	// received. It is therefore neither retried nor refunded, and the delivery
+	// stops and waits for a person.
+	FailureAmbiguous = "ambiguous"
 )
 
 var (
@@ -197,15 +206,24 @@ type Request struct {
 	Currency       string
 }
 
-// DeliveryRequest carries the idempotency key the provider must honour.
+// DeliveryRequest is one submission.
 //
-// The key is derived from the order, so a retried worker, a duplicated job, and
-// a replayed webhook all present the same one. An adapter that cannot honour it
-// must implement its own de-duplication before submitting.
+// `IdempotencyKey` is derived from the order, so a retried worker, a duplicated
+// job, and a replayed webhook all present the same one. An adapter whose
+// provider honours it gets exactly-once for free; one whose provider does not
+// must report a lost answer as FailureAmbiguous rather than guessing, because
+// the database primary key on `goods_deliveries.order_id` can stop a second
+// *attempt* but cannot undo a purchase that already happened.
+//
+// `BuyerTelegramID` is bookkeeping for a gateway that keys its own customer
+// records by Telegram identifier. It is the buyer's, never the recipient's:
+// delivery is addressed by username, and Omniflow does not know the numeric
+// identifier behind an arbitrary handle.
 type DeliveryRequest struct {
 	Request
-	OrderID        string
-	IdempotencyKey string
+	OrderID         string
+	IdempotencyKey  string
+	BuyerTelegramID int64
 }
 
 // Delivery is the provider's view of one submission.
@@ -259,9 +277,9 @@ func Retryable(failureClass string) bool {
 // Refundable reports whether a failure class ends the delivery and returns the
 // customer's money.
 //
-// It is the exact complement of Retryable for the classes that exist, which is
-// the property that matters: every terminal failure refunds, and no failure is
-// both retried and refunded.
+// No class is both retried and refunded. FailureAmbiguous is neither: it is the
+// one outcome an automated rule must not resolve, because both answers can be
+// wrong in a way that costs somebody money.
 func Refundable(failureClass string) bool {
 	switch failureClass {
 	case FailurePermanent, FailureRecipientInvalid:
@@ -269,6 +287,12 @@ func Refundable(failureClass string) bool {
 	default:
 		return false
 	}
+}
+
+// NeedsReview reports whether a failure class parks the delivery for an
+// operator instead of resolving it.
+func NeedsReview(failureClass string) bool {
+	return failureClass == FailureAmbiguous
 }
 
 // Backoff is the delay before attempt number `attempt` is retried.

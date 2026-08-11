@@ -85,16 +85,58 @@ A digital good is not VPN access. Nothing in this area creates, modifies, reads,
 or depends on a Remnawave entitlement, and a delivery failure here can never
 disturb a subscription.
 
-### Provider contract
+### The gateway, and why Omniflow does not talk to Fragment
 
-The adapter interface is small on purpose — quote, deliver, poll, balance, and a
-supported-kinds check. Pricing, retry policy, refunds, and the customer record
-all sit outside it, so adding a second provider means implementing five methods
-rather than re-deciding how the shop works.
+Fragment has no API. Buying there means driving an authenticated browser
+session through a stateful multi-step flow and settling the result with an
+on-chain TON transfer from a wallet derived from a mnemonic.
 
-Fragment is the only implementation that ships in v0.7. It is not special-cased
-anywhere: a product names its provider by slug, and the adapter is selected from
-that.
+Omniflow deliberately does not hold that wallet. A self-hosted product should
+not ship a configuration field that can spend real money, and a stateful
+scraping session is not something a background worker can share safely. Instead
+the operator runs a **gateway** that owns the Fragment session, the TON wallet,
+and the settlement, and Omniflow calls it over HTTP Basic as the fixed
+`omniflow` user.
+
+The adapter interface stays small — supports, quote, deliver, poll, balance —
+so a second gateway or a different goods provider is five methods, not a
+rewrite of the shop.
+
+### What the gateway does and does not offer
+
+| Capability | Status |
+| --- | --- |
+| Deliver Stars by username | `POST /admin/stars/send`, minimum 50 |
+| Deliver Premium by username | `POST /admin/premium/send`, 3, 6, or 12 months |
+| Star cost | `GET /admin/stars/value`, a per-star price in the gateway's currency |
+| Premium cost | Not published — the operator sets the sale price in the panel |
+| Idempotency key | **Not honoured** |
+| Poll a submission | Not offered |
+| Wallet balance | Not offered |
+| Validate a recipient before payment | Not offered |
+
+Delivery is addressed by username. The `user_id` the gateway also takes is
+bookkeeping for its own customer records, so Omniflow sends the **buyer's**
+Telegram identifier — it does not know the numeric identifier behind an
+arbitrary handle, and the handle is what actually receives the goods.
+
+<Warning>
+  **Two gateway limitations affect what Omniflow can promise.**
+
+  There is no idempotency key, so a request whose answer never arrives is
+  genuinely ambiguous: the goods may already have been sent and the operator's
+  funds already spent.
+
+  And a success is not proof of delivery. The gateway answers 200 for a purchase
+  its own processor abandoned — insufficient TON, an expired Fragment session,
+  and a rejected purchase are reported to an operator chat and then returned
+  from normally. Until the gateway distinguishes those, an accepted submission
+  means "the gateway took it".
+
+  Both are fixed on the gateway side: honour an `Idempotency-Key` header, and
+  raise on a failed purchase instead of returning. Until then, read "delivered"
+  in the panel as "submitted and accepted".
+</Warning>
 
 ### Pricing
 
@@ -112,17 +154,21 @@ Every mode rounds up, and the markup itself rounds up rather than truncating. A
 shop that loses a minor unit on every sale is a shop whose configured margin is
 not the margin it earns.
 
-`fixed_amount_minor` opts out of derivation entirely for an operator who would
-rather publish one price and absorb the variance.
+Stars are quoted from the gateway's published per-star value, rounded to the
+minor unit per star and then multiplied — the same arithmetic the gateway
+charges against.
 
-Because a provider's rate can move, a quote carries an expiry. `quote_ttl_seconds`
-sets it when the adapter does not publish one of its own, and a quote that has
-gone stale produces a new quote rather than a charge at the old number.
+Premium has no published cost. The operator sets the sale price directly with
+`fixed_amount_minor`, and Omniflow records that the cost is unknown rather than
+zero, so the finance view reports the margin as unknown instead of as a hundred
+per cent.
 
-Both sides of the quote are stored on the order: what the provider asked and
-what the customer was shown. Their difference is the realised margin, which is
-why the finance view can report it without recomputing a markup that may since
-have changed.
+Both sides of a quote are stored on the order: what the provider asked and what
+the customer was shown. Their difference is the realised margin, which is why
+the finance view can report it without recomputing a markup that may since have
+changed. Because a gateway rate can move, a quote carries an expiry;
+`quote_ttl_seconds` sets it, and a stale quote produces a new one rather than a
+charge at the old number.
 
 ### Recipients
 
@@ -133,14 +179,15 @@ needs to be able to answer "where did it go", and neither needs more.
 Input is normalised from the forms people actually paste — a bare handle, an
 `@` prefix, a `t.me/` link, a link with a query string — and validated against
 Telegram's own rule of five to thirty-two characters beginning with a letter.
+The gateway exposes no pre-payment check, so a handle that is well-formed but
+unreachable is caught at delivery and refunded.
 
-### Delivery
+### Delivery and failure classification
 
-One delivery row per order, enforced by the primary key. That single constraint
-is what makes double delivery impossible: a replayed job, a duplicated webhook,
-and a retried worker all find the row that already exists and act on its recorded
-state instead of submitting a second time. The idempotency key travels to the
-provider as well, which is the provider-side half of the same guard.
+One delivery row per order, enforced by the primary key. That constraint stops a
+replayed job, a duplicated webhook, or a retried worker from submitting a second
+time. It cannot undo a purchase that already happened, which is exactly why the
+ambiguous class below exists.
 
 A failure is classified, and the class decides what happens next:
 
@@ -148,27 +195,45 @@ A failure is classified, and the class decides what happens next:
 | --- | --- |
 | `retryable` | Retried on the backoff schedule |
 | `provider_balance` | Retried, and raises an alert — the operator can top up |
-| `provider_unavailable` | Retried; an outage rather than a rejection |
+| `provider_unavailable` | Retried; an outage or a rejected credential, not a rejection of the order |
 | `recipient_invalid` | Refunded — nothing the worker does will make the username resolve |
 | `permanent` | Refunded |
+| `ambiguous` | **Neither.** Parked for an operator |
 
-Retry and refund partition the classes exactly: every terminal failure refunds,
-and no failure is both retried and refunded. An unrecognised provider error code
-is treated as retryable, because retrying an order that was permanently rejected
-wastes a few attempts whereas refunding one that would have succeeded loses the
-delivery.
+Every class resolves in exactly one way, which is asserted by a unit test.
+Retrying an ambiguous purchase could deliver and charge twice; refunding one
+could give money back for goods the recipient received. Both answers can be
+wrong in a way that costs somebody money, so the delivery stops and waits.
+
+A server error from the gateway is ambiguous rather than retryable, because the
+gateway settles on-chain and writes its own records afterwards — a 5xx can be
+raised from code that runs after the goods were paid for. A lost connection is
+ambiguous for the same reason.
 
 Backoff doubles from a minute to a ceiling of an hour, and six attempts — a
 little over two hours — is where a retryable failure becomes a refund. The
 refund is an ordinary wallet credit, so it appears in the customer's wallet
 history exactly like any other.
 
+### Paying with wallet balance
+
+A shop purchase is an ordinary order, so wallet-first payment applies to it
+unchanged: the balance covers what it can and the remainder becomes the external
+amount a provider settles. A customer with enough balance pays for Premium or
+Stars without a payment provider being involved at all.
+
 ### Spend controls
 
-A provider carries a balance, a low-balance threshold, and a rolling spend
-ceiling measured in provider cost rather than customer price — the ceiling
-protects the operator's funding source, and that is what the provider actually
-draws down. A zero ceiling means no ceiling.
+The provider record carries a low-balance threshold and a rolling spend ceiling
+measured in provider cost rather than customer price — the ceiling protects the
+operator's funding source, and that is what the provider actually draws down. A
+zero ceiling means no ceiling.
 
-Credentials are sealed with `APP_DATA_ENCRYPTION_KEY`, are never returned by the
-API after they are written, and are excluded from diagnostics.
+The gateway publishes no balance, so the low-balance alert has nothing to fire
+on for it today; an exhausted TON wallet instead surfaces as deliveries the
+gateway accepts and silently abandons. Exposing a balance endpoint is the single
+change that would fix that.
+
+Credentials — the gateway URL and its shared token — are sealed with
+`APP_DATA_ENCRYPTION_KEY`, never returned by the API after they are written, and
+excluded from diagnostics.
