@@ -35,6 +35,9 @@ func (handlers *AdminHandlers) mountSettings(secure chi.Router) {
 		read.Get("/settings/ai/limits", handlers.aiLimits)
 		read.Get("/settings/ai/usage", handlers.aiUsage)
 
+		read.Get("/settings/telemetry/preview", handlers.telemetryPreview)
+		read.Get("/settings/backups", handlers.backupHistory)
+
 		read.Get("/settings/mcp/servers", handlers.mcpServers)
 		read.Get("/settings/mcp/servers/{slug}/tools", handlers.mcpTools)
 		read.Get("/settings/mcp/events", handlers.mcpEvents)
@@ -52,6 +55,13 @@ func (handlers *AdminHandlers) mountSettings(secure chi.Router) {
 		write.Put("/settings/mcp/servers", handlers.saveMCPServer)
 		write.Delete("/settings/mcp/servers/{slug}", handlers.deleteMCPServer)
 		write.Put("/settings/mcp/servers/{slug}/tools/{tool}", handlers.setMCPToolPolicy)
+	})
+
+	// The diagnostics bundle is a system artefact rather than a setting: it
+	// describes the running installation, and the people who need it are the
+	// people already looking at system health.
+	secure.With(handlers.requirePermission(rbac.PermissionSystemRead)).Group(func(read chi.Router) {
+		read.Get("/settings/diagnostics", handlers.diagnostics)
 	})
 
 	// The AI decision export identifies consequential decisions a model shaped.
@@ -273,4 +283,39 @@ func (handlers *AdminHandlers) mcpEvents(writer http.ResponseWriter, request *ht
 		request.Context(), query(request, "server"), query(request, "outcome"),
 		query(request, "cursor"), queryInt(request, "pageSize"))
 	handlers.respond(writer, request, page, err)
+}
+
+func (handlers *AdminHandlers) diagnostics(writer http.ResponseWriter, request *http.Request) {
+	bundle, err := handlers.operations.Diagnostics(request.Context(), handlers.version)
+	handlers.respond(writer, request, bundle, err)
+}
+
+func (handlers *AdminHandlers) telemetryPreview(writer http.ResponseWriter, request *http.Request) {
+	// The enablement and endpoint come from the settings section rather than
+	// from process configuration, so the preview describes what this
+	// installation would send rather than what the binary was started with.
+	section, err := handlers.operations.SettingSection(request.Context(), "telemetry")
+	if err != nil {
+		handlers.operationsError(writer, request, err)
+		return
+	}
+	var configured struct {
+		Enabled  bool   `json:"enabled"`
+		Endpoint string `json:"endpoint"`
+	}
+	_ = json.Unmarshal(section.Document, &configured)
+
+	preview, err := handlers.operations.TelemetryPreview(
+		request.Context(), configured.Enabled, configured.Endpoint, handlers.version)
+	handlers.respond(writer, request, preview, err)
+}
+
+func (handlers *AdminHandlers) backupHistory(writer http.ResponseWriter, request *http.Request) {
+	backups, restores, err := handlers.operations.BackupHistory(
+		request.Context(), queryInt(request, "limit"))
+	// A backup nobody has ever restored is a backup nobody knows works, so the
+	// restore history is returned alongside rather than on a separate screen.
+	handlers.respond(writer, request, map[string]any{
+		"backups": backups, "restores": restores,
+	}, err)
 }

@@ -363,3 +363,36 @@ WHERE (sqlc.narg(server_slug)::text IS NULL OR server_slug = sqlc.narg(server_sl
        OR (occurred_at, id) < (sqlc.narg(cursor_at)::timestamptz, sqlc.narg(cursor_id)::uuid))
 ORDER BY occurred_at DESC, id DESC
 LIMIT sqlc.arg(page_size);
+
+-- name: BackupStatus :one
+-- A backup nobody has ever restored is a backup nobody knows works, so the last
+-- restore is part of the status rather than a separate screen.
+SELECT
+  count(*)::bigint AS total,
+  max(started_at) FILTER (WHERE status = 'completed')::timestamptz AS last_at,
+  coalesce((SELECT size_bytes FROM backups WHERE status = 'completed'
+            ORDER BY started_at DESC LIMIT 1), 0)::bigint AS last_size_bytes,
+  max(verified_at)::timestamptz AS last_verified_at,
+  (SELECT max(requested_at) FROM backup_restores)::timestamptz AS last_restore_at,
+  (SELECT count(*) FROM backup_restores)::bigint AS restore_count
+FROM backups;
+
+-- name: DiagnosticCounts :one
+-- Row counts for the tables an operator's question usually concerns. Counts
+-- rather than samples, for the obvious reason.
+SELECT
+  (SELECT count(*) FROM users)::bigint AS customers,
+  (SELECT count(*) FROM subscriptions WHERE status = 'active')::bigint AS subscriptions,
+  (SELECT count(*) FROM orders)::bigint AS orders,
+  (SELECT count(*) FROM support_tickets WHERE status IN ('open', 'pending'))::bigint AS open_tickets,
+  (SELECT count(*) FROM admin_users WHERE status = 'active')::bigint AS operators,
+  (SELECT count(*) FROM outbox_events WHERE published_at IS NULL)::bigint AS outbox_pending;
+
+-- name: TelemetryInstallation :one
+SELECT installation_id FROM telemetry_installation LIMIT 1;
+
+-- name: TelemetrySummary :one
+SELECT count(*)::bigint AS total, max(occurred_at)::timestamptz AS last_at FROM telemetry_events;
+
+-- name: ListBackupRestores :many
+SELECT * FROM backup_restores ORDER BY requested_at DESC LIMIT $1;

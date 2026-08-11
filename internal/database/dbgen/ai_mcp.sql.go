@@ -118,6 +118,43 @@ func (q *Queries) AIUsageReport(ctx context.Context, arg AIUsageReportParams) ([
 	return items, nil
 }
 
+const backupStatus = `-- name: BackupStatus :one
+SELECT
+  count(*)::bigint AS total,
+  max(started_at) FILTER (WHERE status = 'completed')::timestamptz AS last_at,
+  coalesce((SELECT size_bytes FROM backups WHERE status = 'completed'
+            ORDER BY started_at DESC LIMIT 1), 0)::bigint AS last_size_bytes,
+  max(verified_at)::timestamptz AS last_verified_at,
+  (SELECT max(requested_at) FROM backup_restores)::timestamptz AS last_restore_at,
+  (SELECT count(*) FROM backup_restores)::bigint AS restore_count
+FROM backups
+`
+
+type BackupStatusRow struct {
+	Total          int64              `json:"total"`
+	LastAt         pgtype.Timestamptz `json:"last_at"`
+	LastSizeBytes  int64              `json:"last_size_bytes"`
+	LastVerifiedAt pgtype.Timestamptz `json:"last_verified_at"`
+	LastRestoreAt  pgtype.Timestamptz `json:"last_restore_at"`
+	RestoreCount   int64              `json:"restore_count"`
+}
+
+// A backup nobody has ever restored is a backup nobody knows works, so the last
+// restore is part of the status rather than a separate screen.
+func (q *Queries) BackupStatus(ctx context.Context) (BackupStatusRow, error) {
+	row := q.db.QueryRow(ctx, backupStatus)
+	var i BackupStatusRow
+	err := row.Scan(
+		&i.Total,
+		&i.LastAt,
+		&i.LastSizeBytes,
+		&i.LastVerifiedAt,
+		&i.LastRestoreAt,
+		&i.RestoreCount,
+	)
+	return i, err
+}
+
 const configureAIFeature = `-- name: ConfigureAIFeature :one
 UPDATE ai_features
 SET enabled = $1,
@@ -218,6 +255,41 @@ DELETE FROM mcp_servers WHERE slug = $1
 func (q *Queries) DeleteMCPServer(ctx context.Context, slug string) error {
 	_, err := q.db.Exec(ctx, deleteMCPServer, slug)
 	return err
+}
+
+const diagnosticCounts = `-- name: DiagnosticCounts :one
+SELECT
+  (SELECT count(*) FROM users)::bigint AS customers,
+  (SELECT count(*) FROM subscriptions WHERE status = 'active')::bigint AS subscriptions,
+  (SELECT count(*) FROM orders)::bigint AS orders,
+  (SELECT count(*) FROM support_tickets WHERE status IN ('open', 'pending'))::bigint AS open_tickets,
+  (SELECT count(*) FROM admin_users WHERE status = 'active')::bigint AS operators,
+  (SELECT count(*) FROM outbox_events WHERE published_at IS NULL)::bigint AS outbox_pending
+`
+
+type DiagnosticCountsRow struct {
+	Customers     int64 `json:"customers"`
+	Subscriptions int64 `json:"subscriptions"`
+	Orders        int64 `json:"orders"`
+	OpenTickets   int64 `json:"open_tickets"`
+	Operators     int64 `json:"operators"`
+	OutboxPending int64 `json:"outbox_pending"`
+}
+
+// Row counts for the tables an operator's question usually concerns. Counts
+// rather than samples, for the obvious reason.
+func (q *Queries) DiagnosticCounts(ctx context.Context) (DiagnosticCountsRow, error) {
+	row := q.db.QueryRow(ctx, diagnosticCounts)
+	var i DiagnosticCountsRow
+	err := row.Scan(
+		&i.Customers,
+		&i.Subscriptions,
+		&i.Orders,
+		&i.OpenTickets,
+		&i.Operators,
+		&i.OutboxPending,
+	)
+	return i, err
 }
 
 const exportAIDecisions = `-- name: ExportAIDecisions :many
@@ -623,6 +695,39 @@ func (q *Queries) ListActiveRetentionHolds(ctx context.Context) ([]AiRetentionHo
 			&i.PlacedAt,
 			&i.ReleasedAt,
 			&i.ReleasedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listBackupRestores = `-- name: ListBackupRestores :many
+SELECT id, backup_id, status, operator_id, reason, error_code, requested_at, completed_at FROM backup_restores ORDER BY requested_at DESC LIMIT $1
+`
+
+func (q *Queries) ListBackupRestores(ctx context.Context, limit int32) ([]BackupRestore, error) {
+	rows, err := q.db.Query(ctx, listBackupRestores, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []BackupRestore{}
+	for rows.Next() {
+		var i BackupRestore
+		if err := rows.Scan(
+			&i.ID,
+			&i.BackupID,
+			&i.Status,
+			&i.OperatorID,
+			&i.Reason,
+			&i.ErrorCode,
+			&i.RequestedAt,
+			&i.CompletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1453,6 +1558,33 @@ func (q *Queries) SettingSecretsPresent(ctx context.Context) ([]SettingSecretsPr
 		return nil, err
 	}
 	return items, nil
+}
+
+const telemetryInstallation = `-- name: TelemetryInstallation :one
+SELECT installation_id FROM telemetry_installation LIMIT 1
+`
+
+func (q *Queries) TelemetryInstallation(ctx context.Context) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, telemetryInstallation)
+	var installation_id pgtype.UUID
+	err := row.Scan(&installation_id)
+	return installation_id, err
+}
+
+const telemetrySummary = `-- name: TelemetrySummary :one
+SELECT count(*)::bigint AS total, max(occurred_at)::timestamptz AS last_at FROM telemetry_events
+`
+
+type TelemetrySummaryRow struct {
+	Total  int64              `json:"total"`
+	LastAt pgtype.Timestamptz `json:"last_at"`
+}
+
+func (q *Queries) TelemetrySummary(ctx context.Context) (TelemetrySummaryRow, error) {
+	row := q.db.QueryRow(ctx, telemetrySummary)
+	var i TelemetrySummaryRow
+	err := row.Scan(&i.Total, &i.LastAt)
+	return i, err
 }
 
 const upsertAIProvider = `-- name: UpsertAIProvider :one

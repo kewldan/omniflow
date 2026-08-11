@@ -1540,6 +1540,131 @@
         "rejected": "Rejected",
         "rewarded": "Paid out"
       }
+    },
+    "installationSettings": {
+      "save": "Save",
+      "reason": "{section} settings changed",
+      "conflictTitle": "Somebody else saved this first",
+      "conflict": "This screen is showing an older version of the section. Reload to see the current values before saving again — saving now would discard the other change.",
+      "lastSaved": "Last saved {when} (version {version})",
+      "neverSaved": "Never saved.",
+      "configured": "Configured",
+      "notConfigured": "Not set",
+      "secretPlaceholder": "Leave empty to keep the current value",
+      "secretsNote": "Secrets are never returned after they are written. A field shown as configured holds a value this screen cannot display, and leaving it empty keeps it.",
+      "sections": {
+        "branding": {
+          "title": "Branding and contact",
+          "description": "The name, contact, and URLs customers see."
+        },
+        "remnawave": {
+          "title": "Remnawave connection",
+          "description": "Where the panel reaches Remnawave, how often it reconciles, and the token it uses."
+        },
+        "telegram": {
+          "title": "Telegram bot",
+          "description": "Bot identity, webhook delivery, and the credentials behind them."
+        },
+        "operatorGroup": {
+          "title": "Operator group",
+          "description": "Where operator notifications go, and how many arrive before they are collapsed."
+        },
+        "requiredChannels": {
+          "title": "Required channels",
+          "description": "How often membership is re-verified and how long a customer has to rejoin before access is affected."
+        },
+        "maintenance": {
+          "title": "Maintenance mode",
+          "description": "When maintenance turns itself on, and what customers are told while it is."
+        },
+        "notifications": {
+          "title": "Notification thresholds",
+          "description": "How bad something has to get before an operator is told, and when not to tell them."
+        },
+        "telemetry": {
+          "title": "Telemetry",
+          "description": "Whether anonymous version data leaves this installation, and where it goes."
+        },
+        "backup": {
+          "title": "Backups",
+          "description": "Schedule, retention, and the key backups are encrypted with."
+        },
+        "security": {
+          "title": "Sessions and security",
+          "description": "How long an operator session lasts and what is required to start one."
+        }
+      },
+      "fields": {
+        "serviceName": "Service name",
+        "supportContact": "Support contact",
+        "publicUrl": "Public URL",
+        "termsUrl": "Terms URL",
+        "defaultLocale": "Default locale",
+        "timezone": "Timezone",
+        "remnawaveBaseUrl": "Remnawave base URL",
+        "reconcileInterval": "Reconciliation interval (minutes)",
+        "compatibilityChecked": "Compatibility confirmed",
+        "remnawaveToken": "Remnawave token",
+        "botUsername": "Bot username",
+        "webhookUrl": "Webhook URL",
+        "webhookEnabled": "Webhook delivery",
+        "botToken": "Bot token",
+        "webhookSecret": "Webhook secret",
+        "operatorChatId": "Operator chat ID",
+        "createTopics": "Create topics automatically",
+        "notificationCap": "Notifications per window",
+        "windowMinutes": "Window (minutes)",
+        "recheckInterval": "Re-verify every (minutes)",
+        "graceHours": "Grace period (hours)",
+        "warnBeforeSuspend": "Warn before suspending",
+        "autoEnable": "Enable automatically on failure",
+        "failureThreshold": "Consecutive failures before enabling",
+        "noticeEn": "Customer notice (English)",
+        "noticeRu": "Customer notice (Russian)",
+        "failedPaymentThreshold": "Failed payments before alerting",
+        "driftThreshold": "Entitlement drifts before alerting",
+        "outboxThreshold": "Outbox backlog before alerting",
+        "quietHoursStart": "Quiet hours start",
+        "quietHoursEnd": "Quiet hours end",
+        "telemetryEnabled": "Send telemetry",
+        "telemetryEndpoint": "Telemetry endpoint",
+        "backupEnabled": "Scheduled backups",
+        "backupInterval": "Backup interval (hours)",
+        "backupRetention": "Retention (days)",
+        "backupDirectory": "Backup directory",
+        "backupEncryptionKey": "Backup encryption key",
+        "sessionIdle": "Idle timeout (minutes)",
+        "sessionAbsolute": "Absolute session length (hours)",
+        "requireTotp": "Require an authenticator app",
+        "allowedOrigins": "Allowed origins"
+      },
+      "telemetryPreview": {
+        "title": "What telemetry would send",
+        "description": "The exact payload, rendered from the same values the sender uses. Nothing here identifies your customers, your revenue, or your domain.",
+        "on": "Telemetry on",
+        "off": "Telemetry off",
+        "lastSent": "Last sent {when}.",
+        "neverSent": "Nothing has ever been sent.",
+        "fields": "Fields: {fields}"
+      },
+      "backups": {
+        "title": "Backups and restores",
+        "description": "A backup nobody has ever restored is a backup nobody knows works, so the restore history sits here too.",
+        "empty": "No backups recorded.",
+        "when": "When",
+        "kind": "Kind",
+        "status": "Status",
+        "size": "Size",
+        "verified": "Verified",
+        "unverified": "Not verified",
+        "restores": "Restore history",
+        "noRestores": "No restore has ever been performed or tested."
+      },
+      "diagnostics": {
+        "title": "Diagnostics bundle",
+        "description": "Version, schema state, configuration status, and counts — assembled from an allowlist, so it contains no secrets and no customer data.",
+        "generate": "Generate bundle"
+      }
     }
   }
 }

@@ -42,6 +42,9 @@ type Querier interface {
 	// should be able to put it down.
 	AssignSupportTicket(ctx context.Context, arg AssignSupportTicketParams) (SupportTicket, error)
 	AttachReferralSignal(ctx context.Context, arg AttachReferralSignalParams) error
+	// A backup nobody has ever restored is a backup nobody knows works, so the last
+	// restore is part of the status rather than a separate screen.
+	BackupStatus(ctx context.Context) (BackupStatusRow, error)
 	// Claims the next attempt and pushes the retry deadline out before any provider
 	// call is made, so a worker that dies mid-request does not have the row picked
 	// up again immediately.
@@ -267,6 +270,9 @@ type Querier interface {
 	DeletePublishedOutboxEvents(ctx context.Context, retentionSeconds float64) (int64, error)
 	DeleteRequiredChannel(ctx context.Context, id pgtype.UUID) error
 	DeleteResolvedDrifts(ctx context.Context, retentionSeconds float64) (int64, error)
+	// Row counts for the tables an operator's question usually concerns. Counts
+	// rather than samples, for the obvious reason.
+	DiagnosticCounts(ctx context.Context) (DiagnosticCountsRow, error)
 	DisableAdminTOTP(ctx context.Context, adminUserID pgtype.UUID) (AdminUser, error)
 	DismissPersonalOffer(ctx context.Context, arg DismissPersonalOfferParams) (PersonalOffer, error)
 	EnqueueOperatorNotification(ctx context.Context, arg EnqueueOperatorNotificationParams) (OperatorNotification, error)
@@ -494,6 +500,7 @@ type Querier interface {
 	// the dunning table agree on what "this renewal" means without a second round
 	// trip.
 	ListAutoRenewDue(ctx context.Context, pageSize int32) ([]ListAutoRenewDueRow, error)
+	ListBackupRestores(ctx context.Context, limit int32) ([]BackupRestore, error)
 	ListBackups(ctx context.Context, limit int32) ([]Backup, error)
 	ListBlocklistMatchesForCustomer(ctx context.Context, userID pgtype.UUID) ([]ListBlocklistMatchesForCustomerRow, error)
 	// External blocklists and anomaly detection.
@@ -1045,6 +1052,8 @@ type Querier interface {
 	SupportWorkloadReport(ctx context.Context, since pgtype.Timestamptz) ([]SupportWorkloadReportRow, error)
 	SuppressCustomer(ctx context.Context, arg SuppressCustomerParams) (CommunicationSuppression, error)
 	TagSupportTicket(ctx context.Context, arg TagSupportTicketParams) error
+	TelemetryInstallation(ctx context.Context) (pgtype.UUID, error)
+	TelemetrySummary(ctx context.Context) (TelemetrySummaryRow, error)
 	// Slides the inactivity window forward. The absolute deadline is never
 	// extended, so continuous activity cannot keep a session alive indefinitely.
 	TouchAdminSession(ctx context.Context, arg TouchAdminSessionParams) (AdminSession, error)

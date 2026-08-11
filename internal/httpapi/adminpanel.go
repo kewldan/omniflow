@@ -53,6 +53,10 @@ type AdminHandlers struct {
 	// value leaves the device routes unmounted.
 	remnawave *remnawave.Client
 
+	// version is the running build, published in diagnostics and in the
+	// telemetry preview so an operator can see what would be sent.
+	version string
+
 	cookieName   string
 	cookieSecure bool
 	cookiePath   string
@@ -83,6 +87,19 @@ type AdminOptions struct {
 	CookieSecure bool
 	// Issuer labels the account inside an authenticator app.
 	Issuer string
+	// Version is the running build. It appears in the diagnostics bundle and in
+	// the telemetry preview, so an empty value renders as "unknown" rather than
+	// as a version somebody might quote back.
+	Version string
+}
+
+// versionOrUnknown renders an unset build version as something an operator will
+// not quote back as a real one.
+func versionOrUnknown(version string) string {
+	if strings.TrimSpace(version) == "" {
+		return "unknown"
+	}
+	return version
 }
 
 // NewAdminHandlers builds the panel API.
@@ -106,6 +123,7 @@ func NewAdminHandlers(options AdminOptions) *AdminHandlers {
 		health:           options.Health,
 		fulfillment:      options.Fulfillment,
 		remnawave:        options.Remnawave,
+		version:          versionOrUnknown(options.Version),
 		// The __Host- prefix binds the cookie to this exact origin: a browser
 		// refuses to accept it with a Domain attribute or over plain HTTP, so
 		// a sibling subdomain cannot set or overwrite the operator's session.
