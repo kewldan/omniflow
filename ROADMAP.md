@@ -619,14 +619,14 @@ Goal: finish support, communication, configuration, and operational readiness be
 
 ### Scam, abuse, and social-engineering analysis
 
-- [ ] Explainable risk analysis for scam, phishing, impersonation, social engineering, payment fraud, and referral abuse
-- [ ] Evidence list, confidence, uncertainty, and matched policy signals instead of an unexplained score
+- [x] Explainable risk analysis for scam, phishing, impersonation, social engineering, payment fraud, and referral abuse
+- [x] Evidence list, confidence, uncertainty, and matched policy signals instead of an unexplained score
 - [ ] Cross-ticket pattern detection using minimized, permission-safe structured signals
 - [ ] Suspicious-link and attachment metadata checks through explicitly configured tools
-- [ ] Operator feedback for false positive, confirmed abuse, and insufficient evidence
-- [ ] Human review required before suspension, refund denial, wallet correction, or other adverse action
-- [ ] AI output can recommend an action but cannot silently punish a customer or mutate financial state
-- [ ] Risk models, prompts, thresholds, and policy versions recorded with each assessment
+- [x] Operator feedback for false positive, confirmed abuse, and insufficient evidence
+- [x] Human review required before suspension, refund denial, wallet correction, or other adverse action
+- [x] AI output can recommend an action but cannot silently punish a customer or mutate financial state
+- [x] Risk models, prompts, thresholds, and policy versions recorded with each assessment
 
 ### AI writing and marketing tools
 
