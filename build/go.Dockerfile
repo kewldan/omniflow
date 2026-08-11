@@ -19,9 +19,11 @@ COPY --from=build /out/app /app
 USER nonroot:nonroot
 ENTRYPOINT ["/app"]
 
-FROM alpine:3.22.2 AS runtime-postgres
 # pg_dump and pg_restore must match the server major version, so the client is
-# pinned to the same PostgreSQL 18 the compose stack runs.
+# pinned to the same PostgreSQL 18 the compose stack runs. Alpine 3.23 is the
+# first release carrying postgresql18-client; do not lower this base without
+# checking that the package still exists.
+FROM alpine:3.23.5 AS runtime-postgres
 RUN apk add --no-cache postgresql18-client ca-certificates tzdata \
     && adduser -D -u 65532 -h /home/nonroot nonroot \
     && mkdir -p /var/lib/omniflow/backups \

@@ -236,6 +236,9 @@ func (store *Store) CreateTopUpOrder(ctx context.Context, input TopUpInput) (dbg
 		Currency: input.Currency, SubtotalMinor: input.AmountMinor, DiscountMinor: 0,
 		WalletMinor: 0, ExternalMinor: input.AmountMinor, IdempotencyKey: input.IdempotencyKey,
 		ExpiresAt: pgtype.Timestamptz{Time: expiresAt, Valid: true},
+		// The column is NOT NULL and the insert always names it, so the column
+		// default never applies: a nil slice would encode as NULL.
+		SelectedSquadIds: noSquads(),
 	})
 	if err != nil {
 		return dbgen.Order{}, err
@@ -430,6 +433,9 @@ func (store *Store) CreateAddonOrder(ctx context.Context, input AddonOrderInput)
 		SubtotalMinor: subtotal, DiscountMinor: 0, WalletMinor: domainOrder.WalletMinor,
 		ExternalMinor: domainOrder.ExternalMinor, IdempotencyKey: input.IdempotencyKey,
 		ExpiresAt: pgtype.Timestamptz{Time: expiresAt, Valid: true}, SubscriptionID: subscriptionID,
+		// An add-on order changes capacity, never the squad set, but the column
+		// is NOT NULL and a nil slice would encode as NULL.
+		SelectedSquadIds: noSquads(),
 	})
 	if err != nil {
 		return dbgen.Order{}, err
@@ -709,3 +715,7 @@ func operatorKindForOrder(operation string) string {
 }
 
 func optionalText(value string) pgtype.Text { return pgtype.Text{String: value, Valid: value != ""} }
+
+// noSquads is an empty, non-nil squad set. pgx encodes a nil slice as NULL and
+// an empty one as '{}', and every array column here is NOT NULL.
+func noSquads() []pgtype.UUID { return []pgtype.UUID{} }
