@@ -3,7 +3,7 @@
     "eyebrow": "Omniflow customer account",
     "title": "Your connection, in one place.",
     "description": "View subscriptions, traffic, devices, access links, payments, referrals, and support.",
-    "action": "Continue in Telegram"
+    "action": "Open my account"
   },
   "admin": {
     "panelBadge": "Admin",
@@ -1664,6 +1664,178 @@
         "title": "Diagnostics bundle",
         "description": "Version, schema state, configuration status, and counts — assembled from an allowlist, so it contains no secrets and no customer data.",
         "generate": "Generate bundle"
+      }
+    }
+  },
+  "account": {
+    "nav": {
+      "title": "VPN",
+      "subtitle": "your account",
+      "tabs": "Sections",
+      "back": "Back",
+      "subscriptions": "Plans",
+      "devices": "Devices",
+      "profile": "Account"
+    },
+    "actions": {
+      "cancel": "Cancel",
+      "save": "Save",
+      "retry": "Try again"
+    },
+    "states": {
+      "signedOut": "Sign in to continue",
+      "signedOutDescription": "Your account, subscription, and devices are behind a sign-in.",
+      "unavailable": "This account is unavailable",
+      "unavailableDescription": "It has been suspended or closed. Contact support if that is unexpected.",
+      "error": "Something went wrong",
+      "errorDescription": "The page could not be loaded. Try again in a moment.",
+      "retry": "Try again",
+      "upstream": "Temporarily unavailable",
+      "upstreamDescription": "Live traffic and device figures cannot be read right now. Your subscription is unaffected.",
+      "stale": "Live traffic and device figures are unavailable right now, so the numbers below may be out of date.",
+      "reauthenticate": "Sign in again to confirm this action.",
+      "maintenance": "Maintenance in progress",
+      "maintenanceDescription": "We are working on the service. Your subscription and its remaining time are unaffected.",
+      "maintenanceReturn": "Expected back around {time}"
+    },
+    "signIn": {
+      "action": "Sign in",
+      "title": "Sign in",
+      "description": "Use the account you already have. Nothing new to remember.",
+      "withProvider": "Continue with {provider}",
+      "telegramHint": "Loading the Telegram button…",
+      "magicLinkHint": "No Telegram button? Send /login to the bot and it will message you a one-time sign-in link.",
+      "noMethods": "No sign-in method is configured yet. Contact support.",
+      "errors": {
+        "generic": "Sign-in could not be completed. Try again.",
+        "link_invalid": "That sign-in link has already been used or has expired. Ask the bot for a new one.",
+        "method_unavailable": "That sign-in method is not available.",
+        "account_unavailable": "This account is unavailable. Contact support if that is unexpected.",
+        "sign_in_expired": "The sign-in took too long. Start again.",
+        "sign_in_denied": "You cancelled at the provider.",
+        "sign_in_failed": "Sign-in could not be completed. Try again.",
+        "unverified_email": "That provider did not confirm your email address, so it cannot be used to sign in here."
+      }
+    },
+    "dashboard": {
+      "subscriptions": "My subscriptions",
+      "switcher": "Choose a subscription",
+      "all": "All",
+      "empty": "No subscription yet",
+      "emptyDescription": "Once you buy one it appears here with its traffic, devices, and expiry."
+    },
+    "subscription": {
+      "days": "days",
+      "connect": "Connect",
+      "manage": "Manage this subscription",
+      "name": "Name",
+      "renamed": "Name saved",
+      "security": "Access link",
+      "rotate": "Issue a new link",
+      "rotatePhrase": "NEW LINK",
+      "rotatePrompt": "Type NEW LINK to confirm",
+      "rotateWarning": "The old link stops working on every device. You will need to add the subscription again in your app. Your traffic and expiry are unaffected.",
+      "rotated": "A new link has been issued",
+      "rotatedHint": "Open the connect screen to add the new link to your devices.",
+      "trafficUsed": "{used} of {limit}",
+      "trafficUnlimited": "{used} used · unlimited",
+      "devicesUsed": "{used} of {limit} devices",
+      "devicesUnlimited": "{used} devices · no limit",
+      "phase": {
+        "none": "Not active",
+        "provisioning": "Being set up",
+        "active": "Active until {date}",
+        "expiring_soon": "Ends {date}",
+        "grace": "Expired — grace period until {date}",
+        "limited": "Traffic used up",
+        "disabled": "Disabled",
+        "expired": "Expired {date}",
+        "failed": "Setup failed — contact support"
+      }
+    },
+    "devices": {
+      "title": "Connected devices",
+      "remove": "Disconnect",
+      "removeAll": "Disconnect all devices",
+      "removed": "Device disconnected",
+      "removedAll": "Every device was disconnected",
+      "unknown": "Unknown device",
+      "empty": "No devices yet",
+      "emptyDescription": "Add the subscription to an app and the device appears here.",
+      "connect": "Connect a device",
+      "hint": "One link works on every device. Disconnecting frees the slot immediately.",
+      "confirmRemove": "Disconnect this device?",
+      "confirmRemoveDescription": "It stops connecting until the subscription is added again.",
+      "confirmRemoveAll": "Disconnect every device?",
+      "confirmRemoveAllDescription": "Every device stops connecting until the subscription is added again."
+    },
+    "connect": {
+      "platform": "Platform",
+      "platforms": {
+        "ios": "iOS",
+        "android": "Android",
+        "windows": "Windows",
+        "macos": "macOS",
+        "linux": "Linux"
+      },
+      "step1": "Install {app} on the device you want to connect.",
+      "step2": "Tap the button below — the subscription is added for you.",
+      "step3": "If nothing opens, copy the link and paste it into the app.",
+      "openIn": "Open in an app",
+      "openWith": "Open in {app}",
+      "link": "Subscription link",
+      "copy": "Copy",
+      "copied": "Copied",
+      "copyFailed": "The link could not be copied. Select and copy it manually.",
+      "qrAlt": "QR code for this subscription link",
+      "qrHint": "Point another device's camera at this code to add the subscription there.",
+      "provisioning": "Still being set up",
+      "provisioningDescription": "Your subscription is being prepared. This screen works as soon as it is ready."
+    },
+    "profile": {
+      "signedIn": "Signed in with",
+      "appearance": "Theme",
+      "theme": {
+        "dark": "Dark",
+        "light": "Light"
+      },
+      "language": "Language",
+      "languageHint": "Applies here and to the messages the bot sends. Current: {current}.",
+      "languageSaved": "Language saved",
+      "security": "Security",
+      "sessions": "Sessions and security",
+      "method": {
+        "telegram": "Telegram",
+        "magic_link": "Sign-in link",
+        "oidc": "{provider}"
+      }
+    },
+    "security": {
+      "sessions": "Active sessions",
+      "current": "this device",
+      "end": "End",
+      "endAll": "Sign out everywhere",
+      "endAllDescription": "Every session ends, including this one. You will need to sign in again.",
+      "sessionEnded": "Session ended",
+      "methods": "Ways to sign in",
+      "unlink": "Remove",
+      "unlinkDescription": "You will no longer be able to sign in this way.",
+      "methodRemoved": "Sign-in method removed",
+      "lastMethodHint": "The last remaining method cannot be removed — it is the only way back into this account.",
+      "events": "Account history",
+      "eventsEmpty": "Nothing recorded yet",
+      "eventsEmptyDescription": "Sign-ins and account changes appear here.",
+      "event": {
+        "signed_in": "Signed in",
+        "signed_out": "Signed out",
+        "signed_out_all": "Signed out everywhere",
+        "session_revoked": "A session was ended",
+        "magic_link_requested": "A sign-in link was requested",
+        "identity_linked": "A sign-in method was added",
+        "identity_unlinked": "A sign-in method was removed",
+        "subscription_key_rotated": "A new access link was issued",
+        "device_removed": "A device was disconnected",
+        "devices_removed_all": "Every device was disconnected"
       }
     }
   }

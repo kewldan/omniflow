@@ -1,13 +1,10 @@
 package adminauth
 
 import (
-	"crypto/hmac"
-	"crypto/rand"
-	"crypto/sha256"
-	"crypto/subtle"
-	"encoding/base64"
 	"errors"
 	"time"
+
+	"github.com/omniflow/omniflow/internal/websession"
 )
 
 // SessionPolicy is the lifetime configuration for operator sessions.
@@ -40,10 +37,14 @@ var DefaultSessionPolicy = SessionPolicy{
 const (
 	// SessionTokenBytes is the entropy in a session token. 256 bits makes the
 	// token unguessable independently of any rate limit.
-	SessionTokenBytes = 32
+	SessionTokenBytes = websession.TokenBytes
 	// CSRFSecretBytes is the per-session secret the double-submit token is
 	// derived from.
-	CSRFSecretBytes = 32
+	CSRFSecretBytes = websession.CSRFSecretBytes
+
+	// csrfLabel domain-separates the operator panel's double-submit token from
+	// the customer panel's, which derives its own from the same construction.
+	csrfLabel = "omniflow.admin.csrf"
 )
 
 var (
@@ -61,12 +62,7 @@ var (
 // Only the digest is persisted. A database read therefore never yields a usable
 // cookie, and an offline backup cannot be replayed against a live installation.
 func NewSessionToken() (token string, digest []byte, err error) {
-	raw := make([]byte, SessionTokenBytes)
-	if _, err = rand.Read(raw); err != nil {
-		return "", nil, err
-	}
-	token = base64.RawURLEncoding.EncodeToString(raw)
-	return token, HashSessionToken(token), nil
+	return websession.NewToken()
 }
 
 // HashSessionToken returns the storage digest for a session token.
@@ -74,36 +70,20 @@ func NewSessionToken() (token string, digest []byte, err error) {
 // SHA-256 is correct here for the same reason it is for recovery codes: the
 // token is 256 bits of uniform entropy, so there is nothing for a slow hash to
 // defend against, and lookups happen on every request.
-func HashSessionToken(token string) []byte {
-	sum := sha256.Sum256([]byte(token))
-	return sum[:]
-}
+func HashSessionToken(token string) []byte { return websession.HashToken(token) }
 
 // NewCSRFSecret returns a per-session secret for the double-submit token.
-func NewCSRFSecret() ([]byte, error) {
-	secret := make([]byte, CSRFSecretBytes)
-	if _, err := rand.Read(secret); err != nil {
-		return nil, err
-	}
-	return secret, nil
-}
+func NewCSRFSecret() ([]byte, error) { return websession.NewCSRFSecret() }
 
 // CSRFToken derives the token handed to the browser from the session's secret.
 //
 // Binding it to the session means a token minted for one session cannot be
 // replayed inside another, which a bare random double-submit cookie allows.
-func CSRFToken(secret []byte) string {
-	mac := hmac.New(sha256.New, secret)
-	mac.Write([]byte("omniflow.admin.csrf"))
-	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
-}
+func CSRFToken(secret []byte) string { return websession.CSRFToken(secret, csrfLabel) }
 
 // ValidCSRFToken reports whether a submitted token matches the session secret.
 func ValidCSRFToken(secret []byte, submitted string) bool {
-	if len(secret) == 0 || submitted == "" {
-		return false
-	}
-	return subtle.ConstantTimeCompare([]byte(CSRFToken(secret)), []byte(submitted)) == 1
+	return websession.ValidCSRFToken(secret, csrfLabel, submitted)
 }
 
 // SessionDeadlines computes the two expiries for a session created at `now`.

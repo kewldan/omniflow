@@ -1713,6 +1713,336 @@ paths:
         "200": {description: Operation and items, content: {application/json: {schema: {$ref: "#/components/schemas/PanelBulkDetail"}}}}
         "403": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}
+  # ---------------------------------------------------------------------------
+  # Customer web panel (v0.9)
+  #
+  # A third prefix alongside /v1/panel and /v1/admin. It carries its own session
+  # cookie and its own CSRF token: a customer session must never be able to reach
+  # an operator route, and separate prefixes are what makes that structural
+  # rather than a check somebody has to remember.
+  # ---------------------------------------------------------------------------
+  /v1/account/auth/methods:
+    get:
+      operationId: listAccountSignInMethods
+      tags: [account]
+      security: []
+      description: >-
+        Which sign-in routes this installation actually offers. The sign-in
+        screen renders from this, so an installation with no bot token never
+        shows a Telegram button that cannot work.
+      responses:
+        "200": {description: Available routes, content: {application/json: {schema: {$ref: "#/components/schemas/AccountSignInMethods"}}}}
+  /v1/account/auth/telegram:
+    post:
+      operationId: accountSignInWithTelegram
+      tags: [account]
+      security: []
+      description: >-
+        Verifies a Telegram Login Widget payload. The hash is checked against the
+        bot token and the auth_date must be recent, so a captured payload cannot
+        be replayed indefinitely.
+      requestBody: {required: true, content: {application/json: {schema: {type: object, additionalProperties: {type: string}}}}}
+      responses:
+        "200": {description: Signed in, content: {application/json: {schema: {$ref: "#/components/schemas/AccountSignIn"}}}}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/account/auth/telegram/miniapp:
+    post:
+      operationId: accountSignInWithMiniApp
+      tags: [account]
+      security: []
+      description: Verifies the initData a Telegram Mini App hands to its own page.
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [initData], properties: {initData: {type: string}}}}}}
+      responses:
+        "200": {description: Signed in, content: {application/json: {schema: {$ref: "#/components/schemas/AccountSignIn"}}}}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/account/auth/link:
+    get:
+      operationId: accountCompleteMagicLink
+      tags: [account]
+      security: []
+      description: >-
+        Redeems a one-time link the bot delivered. The token is consumed before
+        the redirect is issued, so the URL left in history is already spent.
+      parameters:
+        - {in: query, name: token, required: true, schema: {type: string}}
+      responses:
+        "302": {description: Signed in and redirected into the panel}
+  /v1/account/auth/oidc/{slug}/start:
+    get:
+      operationId: startAccountOidc
+      tags: [account]
+      security: []
+      parameters:
+        - {$ref: "#/components/parameters/OidcSlug"}
+        - {in: query, name: next, schema: {type: string, description: "Same-site path to return to."}}
+      responses:
+        "302": {description: Redirect to the provider}
+        "404": {$ref: "#/components/responses/Problem"}
+        "502": {$ref: "#/components/responses/Problem"}
+  /v1/account/auth/oidc/{slug}/callback:
+    get:
+      operationId: completeAccountOidc
+      tags: [account]
+      security: []
+      parameters:
+        - {$ref: "#/components/parameters/OidcSlug"}
+        - {in: query, name: code, schema: {type: string}}
+        - {in: query, name: state, schema: {type: string}}
+        - {in: query, name: error, schema: {type: string}}
+      responses:
+        "302": {description: "Signed in, or redirected back to sign-in with a reason"}
+  /v1/account/me:
+    get:
+      operationId: getAccountSession
+      tags: [account]
+      description: The signed-in customer, how they authenticated, and whether a sensitive action needs a fresh sign-in.
+      responses:
+        "200": {description: Current session, content: {application/json: {schema: {$ref: "#/components/schemas/AccountSession"}}}}
+        "401": {$ref: "#/components/responses/Problem"}
+    patch:
+      operationId: updateAccountProfile
+      tags: [account]
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/AccountProfileInput"}}}}
+      responses:
+        "200": {description: Profile saved, content: {application/json: {schema: {$ref: "#/components/schemas/AccountCustomer"}}}}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/account/auth/logout:
+    post:
+      operationId: accountLogout
+      tags: [account]
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      responses:
+        "204": {description: Session ended}
+  /v1/account/auth/logout-all:
+    post:
+      operationId: accountLogoutAll
+      tags: [account]
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      description: >-
+        Ends every session. keepCurrent spares the caller's own, which is what
+        "sign out my other devices" means; leaving it false is what a suspected
+        compromise needs.
+      requestBody: {required: true, content: {application/json: {schema: {type: object, properties: {keepCurrent: {type: boolean, default: false}}}}}}
+      responses:
+        "200": {description: Sessions ended, content: {application/json: {schema: {type: object, required: [revoked], properties: {revoked: {type: integer}}}}}}
+  /v1/account/sessions:
+    get:
+      operationId: listAccountSessions
+      tags: [account]
+      responses:
+        "200": {description: Live sessions, content: {application/json: {schema: {$ref: "#/components/schemas/AccountSessionList"}}}}
+  /v1/account/sessions/{sessionID}:
+    delete:
+      operationId: revokeAccountSession
+      tags: [account]
+      parameters:
+        - {in: path, name: sessionID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "204": {description: Session ended}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/account/security-events:
+    get:
+      operationId: listAccountSecurityEvents
+      tags: [account]
+      description: >-
+        The customer's own account history. The vocabulary is closed and carries
+        no amount, link, or other party's identifier.
+      parameters:
+        - {in: query, name: cursor, schema: {type: string, format: date-time}}
+        - {in: query, name: cursorId, schema: {type: string, format: uuid}}
+      responses:
+        "200": {description: Events, content: {application/json: {schema: {$ref: "#/components/schemas/AccountSecurityEventList"}}}}
+  /v1/account/sign-in-methods:
+    get:
+      operationId: listAccountLinkedMethods
+      tags: [account]
+      responses:
+        "200": {description: Linked methods, content: {application/json: {schema: {$ref: "#/components/schemas/AccountLinkedMethodList"}}}}
+  /v1/account/sign-in-methods/{identityID}:
+    delete:
+      operationId: unlinkAccountSignInMethod
+      tags: [account]
+      description: >-
+        Refuses to remove the last usable method. Needs a recent sign-in, because
+        a session left open must not be enough to strip somebody's way back into
+        their own account.
+      parameters:
+        - {in: path, name: identityID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "204": {description: Removed}
+        "401": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+  /v1/account/sign-in-methods/oidc/{slug}/start:
+    get:
+      operationId: startAccountOidcLink
+      tags: [account]
+      description: >-
+        Attaches a provider to the account already signed in. This is the only
+        route by which an existing customer gains an OIDC method: signing in with
+        an unlinked subject never adopts an existing account by email.
+      parameters: [{$ref: "#/components/parameters/OidcSlug"}]
+      responses:
+        "302": {description: Redirect to the provider}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/account/overview:
+    get:
+      operationId: getAccountOverview
+      tags: [account]
+      parameters:
+        - {in: query, name: locale, schema: {type: string, enum: [ru, en]}}
+      responses:
+        "200": {description: Dashboard, content: {application/json: {schema: {$ref: "#/components/schemas/AccountOverview"}}}}
+  /v1/account/subscriptions/{subscriptionID}:
+    get:
+      operationId: getAccountSubscription
+      tags: [account]
+      parameters:
+        - {$ref: "#/components/parameters/AccountSubscriptionID"}
+        - {in: query, name: locale, schema: {type: string, enum: [ru, en]}}
+      responses:
+        "200": {description: Subscription, content: {application/json: {schema: {$ref: "#/components/schemas/AccountSubscription"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+    patch:
+      operationId: renameAccountSubscription
+      tags: [account]
+      description: The customer's own label, which every screen and notification uses to name the subscription.
+      parameters:
+        - {$ref: "#/components/parameters/AccountSubscriptionID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [label], properties: {label: {type: string, minLength: 1, maxLength: 40}}}}}}
+      responses:
+        "204": {description: Renamed}
+        "404": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/account/subscriptions/{subscriptionID}/connection:
+    get:
+      operationId: getAccountConnection
+      tags: [account]
+      description: >-
+        The access link plus the documented clients for one platform. The client
+        list is the same one the bot renders, so the two surfaces cannot
+        recommend different applications.
+      parameters:
+        - {$ref: "#/components/parameters/AccountSubscriptionID"}
+        - {in: query, name: platform, schema: {type: string, enum: [ios, android, windows, macos, linux]}}
+      responses:
+        "200": {description: Connection details, content: {application/json: {schema: {$ref: "#/components/schemas/AccountConnection"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
+  /v1/account/subscriptions/{subscriptionID}/rotate-link:
+    post:
+      operationId: rotateAccountSubscriptionLink
+      tags: [account]
+      description: >-
+        Issues a new access link and invalidates the old one. Every connected
+        device stops working until the new link is imported, so it needs both an
+        explicit confirmation and a recent sign-in.
+      parameters:
+        - {$ref: "#/components/parameters/AccountSubscriptionID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [confirm], properties: {confirm: {type: boolean}}}}}}
+      responses:
+        "200": {description: Rotated, content: {application/json: {schema: {type: object, required: [subscriptionUrl], properties: {subscriptionUrl: {type: string}}}}}}
+        "401": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
+  /v1/account/subscriptions/{subscriptionID}/devices:
+    get:
+      operationId: listAccountDevices
+      tags: [account]
+      description: >-
+        Connected devices. No hardware identifier and no IP address is returned;
+        a device is named by an opaque handle the server resolves back.
+      parameters: [{$ref: "#/components/parameters/AccountSubscriptionID"}]
+      responses:
+        "200": {description: Devices, content: {application/json: {schema: {$ref: "#/components/schemas/AccountDeviceList"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
+    delete:
+      operationId: removeAllAccountDevices
+      tags: [account]
+      description: Disconnects every device at once. Needs confirmation and a recent sign-in.
+      parameters:
+        - {$ref: "#/components/parameters/AccountSubscriptionID"}
+        - {in: query, name: confirm, required: true, schema: {type: string, enum: ["true"]}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "200": {description: Removed, content: {application/json: {schema: {type: object, required: [removed], properties: {removed: {type: integer}}}}}}
+        "401": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/account/subscriptions/{subscriptionID}/devices/{handle}:
+    delete:
+      operationId: removeAccountDevice
+      tags: [account]
+      parameters:
+        - {$ref: "#/components/parameters/AccountSubscriptionID"}
+        - {in: path, name: handle, required: true, schema: {type: string}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "204": {description: Disconnected}
+        "404": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/customer-oidc:
+    get:
+      operationId: listPanelCustomerOidcProviders
+      tags: [panel]
+      description: >-
+        Requires settings.read. The customer panel's sign-in providers. The
+        client secret is never returned; `hasClientSecret` says whether one is
+        held.
+      responses:
+        "200": {description: Providers, content: {application/json: {schema: {$ref: "#/components/schemas/CustomerOidcProviderList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+    put:
+      operationId: savePanelCustomerOidcProvider
+      tags: [panel]
+      description: >-
+        Requires settings.write. Creating or updating a provider. Disabling one
+        also ends the sessions it established, because a provider that is off
+        while its access remains open is not off.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/CustomerOidcProviderInput"}}}}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/CustomerOidcProvider"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/customer-oidc/presets:
+    get:
+      operationId: listPanelCustomerOidcPresets
+      tags: [panel]
+      description: >-
+        Requires settings.read. Shipped starting points for well-known
+        providers. A preset is data that prefills the form; nothing downstream
+        branches on which one a provider came from.
+      responses:
+        "200": {description: Presets, content: {application/json: {schema: {$ref: "#/components/schemas/CustomerOidcPresetList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/customer-oidc/{slug}:
+    delete:
+      operationId: deletePanelCustomerOidcProvider
+      tags: [panel]
+      description: >-
+        Requires settings.write. Removes a provider and ends its sessions. The
+        linked identities are kept: deleting them would silently take a sign-in
+        method away from customers who may have no other one.
+      parameters:
+        - {$ref: "#/components/parameters/OidcSlug"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "204": {description: Removed}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
   /v1/telemetry/events:
     post:
       operationId: collectTelemetryEvent
@@ -1728,6 +2058,10 @@ components:
     # It is declared so generated clients send credentials; the CSRF token is a
     # separate required header on every unsafe method.
     panelSession: {type: apiKey, in: cookie, name: __Host-omniflow_admin}
+    # The customer panel authenticates with its own __Host-prefixed cookie, so
+    # the two panels can be open in one browser without either replacing the
+    # other, and a customer credential can never satisfy an operator route.
+    accountSession: {type: apiKey, in: cookie, name: __Host-omniflow_account}
   parameters:
     AdminID: {in: path, name: adminID, required: true, schema: {type: string, format: uuid}}
     Cursor: {in: query, name: cursor, schema: {type: string, description: "Opaque keyset cursor from the previous page."}}
@@ -1738,6 +2072,8 @@ components:
       description: Echoes the token from the current session. Required on every unsafe method.
       schema: {type: string}
     CustomerID: {in: path, name: customerID, required: true, schema: {type: string, format: uuid}}
+    AccountSubscriptionID: {in: path, name: subscriptionID, required: true, schema: {type: string, format: uuid}}
+    OidcSlug: {in: path, name: slug, required: true, schema: {type: string, pattern: "^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$"}}
     PlanID: {in: path, name: planID, required: true, schema: {type: string, format: uuid}}
     OrderID: {in: path, name: orderID, required: true, schema: {type: string, format: uuid}}
     PaymentID: {in: path, name: paymentID, required: true, schema: {type: string, format: uuid}}
@@ -3176,5 +3512,286 @@ components:
         operation: {$ref: "#/components/schemas/PanelBulkOperation"}
         items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelBulkItem"}}
 
+    # -------------------------------------------------------------------------
+    # Customer web panel (v0.9)
+    # -------------------------------------------------------------------------
+    AccountSignInMethods:
+      type: object
+      required: [telegram, magicLink, oidc]
+      properties:
+        telegram: {type: boolean, description: "A bot token is configured, so the login widget can be verified."}
+        magicLink: {type: boolean, description: "The operator enabled the bot-delivered fallback."}
+        oidc:
+          type: array
+          items:
+            type: object
+            required: [slug, displayName]
+            properties:
+              slug: {type: string}
+              displayName: {type: string}
+              icon: {type: string, description: "Name of a shipped icon, never a third-party URL."}
+    AccountCustomer:
+      type: object
+      required: [id, locale, timezone, status]
+      properties:
+        id: {type: string, format: uuid}
+        locale: {type: string, enum: [ru, en]}
+        timezone: {type: string}
+        status: {type: string, enum: [active, suspended, deleted]}
+    AccountSignIn:
+      type: object
+      required: [customer, expiresAt]
+      properties:
+        customer: {$ref: "#/components/schemas/AccountCustomer"}
+        expiresAt: {type: string, format: date-time}
+    AccountSession:
+      type: object
+      required: [customer, session]
+      properties:
+        customer: {$ref: "#/components/schemas/AccountCustomer"}
+        session:
+          type: object
+          required: [id, authMethod, expiresAt, reauthenticationRequired]
+          properties:
+            id: {type: string, format: uuid}
+            authMethod: {type: string, enum: [telegram, magic_link, oidc]}
+            authProvider: {type: string}
+            expiresAt: {type: string, format: date-time}
+            reauthenticationRequired:
+              type: boolean
+              description: >-
+                The session is older than the re-authentication window, so a
+                destructive action will be refused until the customer signs in
+                again.
+    AccountProfileInput:
+      type: object
+      required: [locale, timezone]
+      properties:
+        locale: {type: string, enum: [ru, en]}
+        timezone: {type: string}
+    AccountSessionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [id, current, authMethod, createdAt, lastSeenAt, expiresAt]
+            properties:
+              id: {type: string, format: uuid}
+              current: {type: boolean}
+              authMethod: {type: string, enum: [telegram, magic_link, oidc]}
+              authProvider: {type: string}
+              ip: {type: string}
+              userAgent: {type: string}
+              createdAt: {type: string, format: date-time}
+              lastSeenAt: {type: string, format: date-time}
+              expiresAt: {type: string, format: date-time}
+    AccountSecurityEventList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [id, event, occurredAt]
+            properties:
+              id: {type: string, format: uuid}
+              event:
+                type: string
+                enum:
+                  - signed_in
+                  - signed_out
+                  - signed_out_all
+                  - session_revoked
+                  - magic_link_requested
+                  - identity_linked
+                  - identity_unlinked
+                  - subscription_key_rotated
+                  - device_removed
+                  - devices_removed_all
+              ip: {type: string}
+              userAgent: {type: string}
+              metadata: {type: object, additionalProperties: true}
+              occurredAt: {type: string, format: date-time}
+    AccountLinkedMethodList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [id, provider, label, removable]
+            properties:
+              id: {type: string, format: uuid}
+              provider: {type: string, description: "'telegram' or 'oidc:<slug>'."}
+              label: {type: string}
+              removable: {type: boolean, description: "False for the only remaining method."}
+    AccountTraffic:
+      type: object
+      required: [usedBytes, unlimited, percent]
+      properties:
+        usedBytes: {type: integer, format: int64}
+        limitBytes: {type: integer, format: int64, nullable: true}
+        unlimited: {type: boolean}
+        percent:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: >-
+            Computed on the server and clamped, so the bar and its textual
+            equivalent cannot disagree. Meaningless when unlimited.
+    AccountDeviceUsage:
+      type: object
+      required: [used, unlimited]
+      properties:
+        used: {type: integer}
+        limit: {type: integer, nullable: true}
+        unlimited: {type: boolean}
+    AccountSubscription:
+      type: object
+      required: [id, slot, label, plan, phase, daysLeft, provisioned, live, traffic, devices]
+      properties:
+        id: {type: string, format: uuid}
+        slot: {type: integer}
+        label: {type: string}
+        plan: {type: string}
+        phase:
+          type: string
+          enum: [none, provisioning, active, expiring_soon, grace, limited, disabled, expired, failed]
+        endsAt: {type: string, format: date-time}
+        daysLeft: {type: integer}
+        provisioned: {type: boolean}
+        live:
+          type: boolean
+          description: >-
+            The traffic and device figures were read from Remnawave. When false
+            they are the last observed values and the panel says so.
+        traffic: {$ref: "#/components/schemas/AccountTraffic"}
+        devices: {$ref: "#/components/schemas/AccountDeviceUsage"}
+    AccountNotice:
+      type: object
+      required: [active, message]
+      properties:
+        active: {type: boolean}
+        message:
+          type: string
+          description: >-
+            The operator's own customer-facing wording in the customer's
+            language. Empty when none was configured, which the panel renders
+            with its own localized copy.
+        expectedReturnAt:
+          type: string
+          format: date-time
+          description: Absent when the operator gave no estimate.
+    AccountOverview:
+      type: object
+      required: [customer, subscriptions, showSwitcher, degraded]
+      properties:
+        customer: {$ref: "#/components/schemas/AccountCustomer"}
+        subscriptions: {type: array, items: {$ref: "#/components/schemas/AccountSubscription"}}
+        notice:
+          allOf: [{$ref: "#/components/schemas/AccountNotice"}]
+          description: Present only while maintenance or an incident is active.
+        showSwitcher:
+          type: boolean
+          description: >-
+            Concurrent subscriptions are enabled. A single-subscription
+            installation gets one screen with no selection step.
+        degraded: {type: boolean, description: "Remnawave could not be reached for at least one subscription."}
+    AccountConnection:
+      type: object
+      required: [subscriptionUrl, platform, platforms, clients]
+      properties:
+        subscriptionUrl: {type: string}
+        platform: {type: string}
+        platforms: {type: array, items: {type: string}}
+        clients:
+          type: array
+          items:
+            type: object
+            required: [name, deepLink]
+            properties:
+              name: {type: string}
+              deepLink: {type: string}
+    AccountDeviceList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [handle, lastSeen]
+            properties:
+              handle: {type: string, description: "Opaque reference. Never the hardware identifier."}
+              name: {type: string}
+              platform: {type: string}
+              lastSeen: {type: string, format: date-time}
+    CustomerOidcProvider:
+      type: object
+      required: [slug, displayName, issuer, discoveryUrl, clientId, scopes, enabled, requireVerifiedEmail, allowAutoProvision, hasClientSecret]
+      properties:
+        slug: {type: string}
+        displayName: {type: string}
+        issuer: {type: string, format: uri}
+        discoveryUrl: {type: string, format: uri}
+        clientId: {type: string}
+        scopes: {type: array, items: {type: string}}
+        enabled: {type: boolean}
+        icon: {type: string, description: "Name of a shipped icon, never a third-party URL."}
+        sortOrder: {type: integer}
+        requireVerifiedEmail: {type: boolean}
+        allowAutoProvision:
+          type: boolean
+          description: >-
+            Whether a subject matching no existing customer may create one. It
+            never adopts an existing customer by email address.
+        hasClientSecret: {type: boolean}
+    CustomerOidcProviderList:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/CustomerOidcProvider"}}
+    CustomerOidcProviderInput:
+      type: object
+      required: [slug, displayName, issuer, discoveryUrl, clientId]
+      properties:
+        slug: {type: string, pattern: "^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$"}
+        displayName: {type: string, minLength: 1, maxLength: 80}
+        issuer: {type: string, format: uri}
+        discoveryUrl: {type: string, format: uri}
+        clientId: {type: string}
+        clientSecret:
+          type: string
+          description: >-
+            Write-only. Omit to keep the stored secret; it is never returned.
+        scopes: {type: array, items: {type: string}}
+        enabled: {type: boolean, default: false}
+        icon: {type: string}
+        sortOrder: {type: integer, default: 0}
+        requireVerifiedEmail: {type: boolean, default: true}
+        allowAutoProvision: {type: boolean, default: true}
+    CustomerOidcPresetList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [slug, displayName, issuer, discoveryUrl, scopes, requireVerifiedEmail]
+            properties:
+              slug: {type: string}
+              displayName: {type: string}
+              issuer: {type: string, format: uri}
+              discoveryUrl: {type: string, format: uri}
+              scopes: {type: array, items: {type: string}}
+              icon: {type: string}
+              requireVerifiedEmail: {type: boolean}
+              note: {type: string, description: "What the operator has to know that the form does not show."}
   responses:
     Problem: {description: Request failed, content: {application/problem+json: {schema: {$ref: "#/components/schemas/Problem"}}}}

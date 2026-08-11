@@ -18,6 +18,186 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AccountCustomerLocale.
+const (
+	AccountCustomerLocaleEn AccountCustomerLocale = "en"
+	AccountCustomerLocaleRu AccountCustomerLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the AccountCustomerLocale enum.
+func (e AccountCustomerLocale) Valid() bool {
+	switch e {
+	case AccountCustomerLocaleEn:
+		return true
+	case AccountCustomerLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountCustomerStatus.
+const (
+	AccountCustomerStatusActive    AccountCustomerStatus = "active"
+	AccountCustomerStatusDeleted   AccountCustomerStatus = "deleted"
+	AccountCustomerStatusSuspended AccountCustomerStatus = "suspended"
+)
+
+// Valid indicates whether the value is a known member of the AccountCustomerStatus enum.
+func (e AccountCustomerStatus) Valid() bool {
+	switch e {
+	case AccountCustomerStatusActive:
+		return true
+	case AccountCustomerStatusDeleted:
+		return true
+	case AccountCustomerStatusSuspended:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountProfileInputLocale.
+const (
+	AccountProfileInputLocaleEn AccountProfileInputLocale = "en"
+	AccountProfileInputLocaleRu AccountProfileInputLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the AccountProfileInputLocale enum.
+func (e AccountProfileInputLocale) Valid() bool {
+	switch e {
+	case AccountProfileInputLocaleEn:
+		return true
+	case AccountProfileInputLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountSecurityEventListItemsEvent.
+const (
+	DeviceRemoved          AccountSecurityEventListItemsEvent = "device_removed"
+	DevicesRemovedAll      AccountSecurityEventListItemsEvent = "devices_removed_all"
+	IdentityLinked         AccountSecurityEventListItemsEvent = "identity_linked"
+	IdentityUnlinked       AccountSecurityEventListItemsEvent = "identity_unlinked"
+	MagicLinkRequested     AccountSecurityEventListItemsEvent = "magic_link_requested"
+	SessionRevoked         AccountSecurityEventListItemsEvent = "session_revoked"
+	SignedIn               AccountSecurityEventListItemsEvent = "signed_in"
+	SignedOut              AccountSecurityEventListItemsEvent = "signed_out"
+	SignedOutAll           AccountSecurityEventListItemsEvent = "signed_out_all"
+	SubscriptionKeyRotated AccountSecurityEventListItemsEvent = "subscription_key_rotated"
+)
+
+// Valid indicates whether the value is a known member of the AccountSecurityEventListItemsEvent enum.
+func (e AccountSecurityEventListItemsEvent) Valid() bool {
+	switch e {
+	case DeviceRemoved:
+		return true
+	case DevicesRemovedAll:
+		return true
+	case IdentityLinked:
+		return true
+	case IdentityUnlinked:
+		return true
+	case MagicLinkRequested:
+		return true
+	case SessionRevoked:
+		return true
+	case SignedIn:
+		return true
+	case SignedOut:
+		return true
+	case SignedOutAll:
+		return true
+	case SubscriptionKeyRotated:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountSessionSessionAuthMethod.
+const (
+	AccountSessionSessionAuthMethodMagicLink AccountSessionSessionAuthMethod = "magic_link"
+	AccountSessionSessionAuthMethodOidc      AccountSessionSessionAuthMethod = "oidc"
+	AccountSessionSessionAuthMethodTelegram  AccountSessionSessionAuthMethod = "telegram"
+)
+
+// Valid indicates whether the value is a known member of the AccountSessionSessionAuthMethod enum.
+func (e AccountSessionSessionAuthMethod) Valid() bool {
+	switch e {
+	case AccountSessionSessionAuthMethodMagicLink:
+		return true
+	case AccountSessionSessionAuthMethodOidc:
+		return true
+	case AccountSessionSessionAuthMethodTelegram:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountSessionListItemsAuthMethod.
+const (
+	AccountSessionListItemsAuthMethodMagicLink AccountSessionListItemsAuthMethod = "magic_link"
+	AccountSessionListItemsAuthMethodOidc      AccountSessionListItemsAuthMethod = "oidc"
+	AccountSessionListItemsAuthMethodTelegram  AccountSessionListItemsAuthMethod = "telegram"
+)
+
+// Valid indicates whether the value is a known member of the AccountSessionListItemsAuthMethod enum.
+func (e AccountSessionListItemsAuthMethod) Valid() bool {
+	switch e {
+	case AccountSessionListItemsAuthMethodMagicLink:
+		return true
+	case AccountSessionListItemsAuthMethodOidc:
+		return true
+	case AccountSessionListItemsAuthMethodTelegram:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountSubscriptionPhase.
+const (
+	AccountSubscriptionPhaseActive       AccountSubscriptionPhase = "active"
+	AccountSubscriptionPhaseDisabled     AccountSubscriptionPhase = "disabled"
+	AccountSubscriptionPhaseExpired      AccountSubscriptionPhase = "expired"
+	AccountSubscriptionPhaseExpiringSoon AccountSubscriptionPhase = "expiring_soon"
+	AccountSubscriptionPhaseFailed       AccountSubscriptionPhase = "failed"
+	AccountSubscriptionPhaseGrace        AccountSubscriptionPhase = "grace"
+	AccountSubscriptionPhaseLimited      AccountSubscriptionPhase = "limited"
+	AccountSubscriptionPhaseNone         AccountSubscriptionPhase = "none"
+	AccountSubscriptionPhaseProvisioning AccountSubscriptionPhase = "provisioning"
+)
+
+// Valid indicates whether the value is a known member of the AccountSubscriptionPhase enum.
+func (e AccountSubscriptionPhase) Valid() bool {
+	switch e {
+	case AccountSubscriptionPhaseActive:
+		return true
+	case AccountSubscriptionPhaseDisabled:
+		return true
+	case AccountSubscriptionPhaseExpired:
+		return true
+	case AccountSubscriptionPhaseExpiringSoon:
+		return true
+	case AccountSubscriptionPhaseFailed:
+		return true
+	case AccountSubscriptionPhaseGrace:
+		return true
+	case AccountSubscriptionPhaseLimited:
+		return true
+	case AccountSubscriptionPhaseNone:
+		return true
+	case AccountSubscriptionPhaseProvisioning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AdminLocale.
 const (
 	AdminLocaleEn AdminLocale = "en"
@@ -1770,6 +1950,84 @@ func (e WebhookEventStatus) Valid() bool {
 	}
 }
 
+// Defines values for GetAccountOverviewParamsLocale.
+const (
+	GetAccountOverviewParamsLocaleEn GetAccountOverviewParamsLocale = "en"
+	GetAccountOverviewParamsLocaleRu GetAccountOverviewParamsLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the GetAccountOverviewParamsLocale enum.
+func (e GetAccountOverviewParamsLocale) Valid() bool {
+	switch e {
+	case GetAccountOverviewParamsLocaleEn:
+		return true
+	case GetAccountOverviewParamsLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAccountSubscriptionParamsLocale.
+const (
+	GetAccountSubscriptionParamsLocaleEn GetAccountSubscriptionParamsLocale = "en"
+	GetAccountSubscriptionParamsLocaleRu GetAccountSubscriptionParamsLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the GetAccountSubscriptionParamsLocale enum.
+func (e GetAccountSubscriptionParamsLocale) Valid() bool {
+	switch e {
+	case GetAccountSubscriptionParamsLocaleEn:
+		return true
+	case GetAccountSubscriptionParamsLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAccountConnectionParamsPlatform.
+const (
+	Android GetAccountConnectionParamsPlatform = "android"
+	Ios     GetAccountConnectionParamsPlatform = "ios"
+	Linux   GetAccountConnectionParamsPlatform = "linux"
+	Macos   GetAccountConnectionParamsPlatform = "macos"
+	Windows GetAccountConnectionParamsPlatform = "windows"
+)
+
+// Valid indicates whether the value is a known member of the GetAccountConnectionParamsPlatform enum.
+func (e GetAccountConnectionParamsPlatform) Valid() bool {
+	switch e {
+	case Android:
+		return true
+	case Ios:
+		return true
+	case Linux:
+		return true
+	case Macos:
+		return true
+	case Windows:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RemoveAllAccountDevicesParamsConfirm.
+const (
+	True RemoveAllAccountDevicesParamsConfirm = "true"
+)
+
+// Valid indicates whether the value is a known member of the RemoveAllAccountDevicesParamsConfirm enum.
+func (e RemoveAllAccountDevicesParamsConfirm) Valid() bool {
+	switch e {
+	case True:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListJobsParamsState.
 const (
 	ListJobsParamsStateAvailable  ListJobsParamsState = "available"
@@ -2085,6 +2343,200 @@ func (e DecidePanelBlocklistMatchJSONBodyDecision) Valid() bool {
 	}
 }
 
+// AccountConnection defines model for AccountConnection.
+type AccountConnection struct {
+	Clients []struct {
+		DeepLink string `json:"deepLink"`
+		Name     string `json:"name"`
+	} `json:"clients"`
+	Platform        string   `json:"platform"`
+	Platforms       []string `json:"platforms"`
+	SubscriptionUrl string   `json:"subscriptionUrl"`
+}
+
+// AccountCustomer defines model for AccountCustomer.
+type AccountCustomer struct {
+	Id       openapi_types.UUID    `json:"id"`
+	Locale   AccountCustomerLocale `json:"locale"`
+	Status   AccountCustomerStatus `json:"status"`
+	Timezone string                `json:"timezone"`
+}
+
+// AccountCustomerLocale defines model for AccountCustomer.Locale.
+type AccountCustomerLocale string
+
+// AccountCustomerStatus defines model for AccountCustomer.Status.
+type AccountCustomerStatus string
+
+// AccountDeviceList defines model for AccountDeviceList.
+type AccountDeviceList struct {
+	Items []struct {
+		// Handle Opaque reference. Never the hardware identifier.
+		Handle   string    `json:"handle"`
+		LastSeen time.Time `json:"lastSeen"`
+		Name     *string   `json:"name,omitempty"`
+		Platform *string   `json:"platform,omitempty"`
+	} `json:"items"`
+}
+
+// AccountDeviceUsage defines model for AccountDeviceUsage.
+type AccountDeviceUsage struct {
+	Limit     *int `json:"limit,omitempty"`
+	Unlimited bool `json:"unlimited"`
+	Used      int  `json:"used"`
+}
+
+// AccountLinkedMethodList defines model for AccountLinkedMethodList.
+type AccountLinkedMethodList struct {
+	Items []struct {
+		Id    openapi_types.UUID `json:"id"`
+		Label string             `json:"label"`
+
+		// Provider 'telegram' or 'oidc:<slug>'.
+		Provider string `json:"provider"`
+
+		// Removable False for the only remaining method.
+		Removable bool `json:"removable"`
+	} `json:"items"`
+}
+
+// AccountNotice defines model for AccountNotice.
+type AccountNotice struct {
+	Active bool `json:"active"`
+
+	// ExpectedReturnAt Absent when the operator gave no estimate.
+	ExpectedReturnAt *time.Time `json:"expectedReturnAt,omitempty"`
+
+	// Message The operator's own customer-facing wording in the customer's language. Empty when none was configured, which the panel renders with its own localized copy.
+	Message string `json:"message"`
+}
+
+// AccountOverview defines model for AccountOverview.
+type AccountOverview struct {
+	Customer AccountCustomer `json:"customer"`
+
+	// Degraded Remnawave could not be reached for at least one subscription.
+	Degraded bool `json:"degraded"`
+
+	// Notice Present only while maintenance or an incident is active.
+	Notice *AccountNotice `json:"notice,omitempty"`
+
+	// ShowSwitcher Concurrent subscriptions are enabled. A single-subscription installation gets one screen with no selection step.
+	ShowSwitcher  bool                  `json:"showSwitcher"`
+	Subscriptions []AccountSubscription `json:"subscriptions"`
+}
+
+// AccountProfileInput defines model for AccountProfileInput.
+type AccountProfileInput struct {
+	Locale   AccountProfileInputLocale `json:"locale"`
+	Timezone string                    `json:"timezone"`
+}
+
+// AccountProfileInputLocale defines model for AccountProfileInput.Locale.
+type AccountProfileInputLocale string
+
+// AccountSecurityEventList defines model for AccountSecurityEventList.
+type AccountSecurityEventList struct {
+	Items []struct {
+		Event      AccountSecurityEventListItemsEvent `json:"event"`
+		Id         openapi_types.UUID                 `json:"id"`
+		Ip         *string                            `json:"ip,omitempty"`
+		Metadata   *map[string]interface{}            `json:"metadata,omitempty"`
+		OccurredAt time.Time                          `json:"occurredAt"`
+		UserAgent  *string                            `json:"userAgent,omitempty"`
+	} `json:"items"`
+}
+
+// AccountSecurityEventListItemsEvent defines model for AccountSecurityEventList.Items.Event.
+type AccountSecurityEventListItemsEvent string
+
+// AccountSession defines model for AccountSession.
+type AccountSession struct {
+	Customer AccountCustomer `json:"customer"`
+	Session  struct {
+		AuthMethod   AccountSessionSessionAuthMethod `json:"authMethod"`
+		AuthProvider *string                         `json:"authProvider,omitempty"`
+		ExpiresAt    time.Time                       `json:"expiresAt"`
+		Id           openapi_types.UUID              `json:"id"`
+
+		// ReauthenticationRequired The session is older than the re-authentication window, so a destructive action will be refused until the customer signs in again.
+		ReauthenticationRequired bool `json:"reauthenticationRequired"`
+	} `json:"session"`
+}
+
+// AccountSessionSessionAuthMethod defines model for AccountSession.Session.AuthMethod.
+type AccountSessionSessionAuthMethod string
+
+// AccountSessionList defines model for AccountSessionList.
+type AccountSessionList struct {
+	Items []struct {
+		AuthMethod   AccountSessionListItemsAuthMethod `json:"authMethod"`
+		AuthProvider *string                           `json:"authProvider,omitempty"`
+		CreatedAt    time.Time                         `json:"createdAt"`
+		Current      bool                              `json:"current"`
+		ExpiresAt    time.Time                         `json:"expiresAt"`
+		Id           openapi_types.UUID                `json:"id"`
+		Ip           *string                           `json:"ip,omitempty"`
+		LastSeenAt   time.Time                         `json:"lastSeenAt"`
+		UserAgent    *string                           `json:"userAgent,omitempty"`
+	} `json:"items"`
+}
+
+// AccountSessionListItemsAuthMethod defines model for AccountSessionList.Items.AuthMethod.
+type AccountSessionListItemsAuthMethod string
+
+// AccountSignIn defines model for AccountSignIn.
+type AccountSignIn struct {
+	Customer  AccountCustomer `json:"customer"`
+	ExpiresAt time.Time       `json:"expiresAt"`
+}
+
+// AccountSignInMethods defines model for AccountSignInMethods.
+type AccountSignInMethods struct {
+	// MagicLink The operator enabled the bot-delivered fallback.
+	MagicLink bool `json:"magicLink"`
+	Oidc      []struct {
+		DisplayName string `json:"displayName"`
+
+		// Icon Name of a shipped icon, never a third-party URL.
+		Icon *string `json:"icon,omitempty"`
+		Slug string  `json:"slug"`
+	} `json:"oidc"`
+
+	// Telegram A bot token is configured, so the login widget can be verified.
+	Telegram bool `json:"telegram"`
+}
+
+// AccountSubscription defines model for AccountSubscription.
+type AccountSubscription struct {
+	DaysLeft int                `json:"daysLeft"`
+	Devices  AccountDeviceUsage `json:"devices"`
+	EndsAt   *time.Time         `json:"endsAt,omitempty"`
+	Id       openapi_types.UUID `json:"id"`
+	Label    string             `json:"label"`
+
+	// Live The traffic and device figures were read from Remnawave. When false they are the last observed values and the panel says so.
+	Live        bool                     `json:"live"`
+	Phase       AccountSubscriptionPhase `json:"phase"`
+	Plan        string                   `json:"plan"`
+	Provisioned bool                     `json:"provisioned"`
+	Slot        int                      `json:"slot"`
+	Traffic     AccountTraffic           `json:"traffic"`
+}
+
+// AccountSubscriptionPhase defines model for AccountSubscription.Phase.
+type AccountSubscriptionPhase string
+
+// AccountTraffic defines model for AccountTraffic.
+type AccountTraffic struct {
+	LimitBytes *int64 `json:"limitBytes,omitempty"`
+
+	// Percent Computed on the server and clamped, so the bar and its textual equivalent cannot disagree. Meaningless when unlimited.
+	Percent   int   `json:"percent"`
+	Unlimited bool  `json:"unlimited"`
+	UsedBytes int64 `json:"usedBytes"`
+}
+
 // AdminAccount defines model for AdminAccount.
 type AdminAccount struct {
 	CreatedAt   time.Time           `json:"createdAt"`
@@ -2261,6 +2713,64 @@ type Customer struct {
 
 // CustomerStatus defines model for Customer.Status.
 type CustomerStatus string
+
+// CustomerOidcPresetList defines model for CustomerOidcPresetList.
+type CustomerOidcPresetList struct {
+	Items []struct {
+		DiscoveryUrl string  `json:"discoveryUrl"`
+		DisplayName  string  `json:"displayName"`
+		Icon         *string `json:"icon,omitempty"`
+		Issuer       string  `json:"issuer"`
+
+		// Note What the operator has to know that the form does not show.
+		Note                 *string  `json:"note,omitempty"`
+		RequireVerifiedEmail bool     `json:"requireVerifiedEmail"`
+		Scopes               []string `json:"scopes"`
+		Slug                 string   `json:"slug"`
+	} `json:"items"`
+}
+
+// CustomerOidcProvider defines model for CustomerOidcProvider.
+type CustomerOidcProvider struct {
+	// AllowAutoProvision Whether a subject matching no existing customer may create one. It never adopts an existing customer by email address.
+	AllowAutoProvision bool   `json:"allowAutoProvision"`
+	ClientId           string `json:"clientId"`
+	DiscoveryUrl       string `json:"discoveryUrl"`
+	DisplayName        string `json:"displayName"`
+	Enabled            bool   `json:"enabled"`
+	HasClientSecret    bool   `json:"hasClientSecret"`
+
+	// Icon Name of a shipped icon, never a third-party URL.
+	Icon                 *string  `json:"icon,omitempty"`
+	Issuer               string   `json:"issuer"`
+	RequireVerifiedEmail bool     `json:"requireVerifiedEmail"`
+	Scopes               []string `json:"scopes"`
+	Slug                 string   `json:"slug"`
+	SortOrder            *int     `json:"sortOrder,omitempty"`
+}
+
+// CustomerOidcProviderInput defines model for CustomerOidcProviderInput.
+type CustomerOidcProviderInput struct {
+	AllowAutoProvision *bool  `json:"allowAutoProvision,omitempty"`
+	ClientId           string `json:"clientId"`
+
+	// ClientSecret Write-only. Omit to keep the stored secret; it is never returned.
+	ClientSecret         *string   `json:"clientSecret,omitempty"`
+	DiscoveryUrl         string    `json:"discoveryUrl"`
+	DisplayName          string    `json:"displayName"`
+	Enabled              *bool     `json:"enabled,omitempty"`
+	Icon                 *string   `json:"icon,omitempty"`
+	Issuer               string    `json:"issuer"`
+	RequireVerifiedEmail *bool     `json:"requireVerifiedEmail,omitempty"`
+	Scopes               *[]string `json:"scopes,omitempty"`
+	Slug                 string    `json:"slug"`
+	SortOrder            *int      `json:"sortOrder,omitempty"`
+}
+
+// CustomerOidcProviderList defines model for CustomerOidcProviderList.
+type CustomerOidcProviderList struct {
+	Items []CustomerOidcProvider `json:"items"`
+}
 
 // CustomerPreferences defines model for CustomerPreferences.
 type CustomerPreferences struct {
@@ -3910,6 +4420,9 @@ type WebhookEventList struct {
 	Items []WebhookEvent `json:"items"`
 }
 
+// AccountSubscriptionID defines model for AccountSubscriptionID.
+type AccountSubscriptionID = openapi_types.UUID
+
 // AdminID defines model for AdminID.
 type AdminID = openapi_types.UUID
 
@@ -3934,6 +4447,9 @@ type ImportID = openapi_types.UUID
 // JobID defines model for JobID.
 type JobID = int64
 
+// OidcSlug defines model for OidcSlug.
+type OidcSlug = string
+
 // OperatorReason defines model for OperatorReason.
 type OperatorReason = string
 
@@ -3954,6 +4470,135 @@ type Plan = PlanInput
 
 // PlanVersion defines model for PlanVersion.
 type PlanVersion = PlanVersionInput
+
+// AccountCompleteMagicLinkParams defines parameters for AccountCompleteMagicLink.
+type AccountCompleteMagicLinkParams struct {
+	Token string `form:"token" json:"token"`
+}
+
+// AccountLogoutParams defines parameters for AccountLogout.
+type AccountLogoutParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// AccountLogoutAllJSONBody defines parameters for AccountLogoutAll.
+type AccountLogoutAllJSONBody struct {
+	KeepCurrent *bool `json:"keepCurrent,omitempty"`
+}
+
+// AccountLogoutAllParams defines parameters for AccountLogoutAll.
+type AccountLogoutAllParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// CompleteAccountOidcParams defines parameters for CompleteAccountOidc.
+type CompleteAccountOidcParams struct {
+	Code  *string `form:"code,omitempty" json:"code,omitempty"`
+	State *string `form:"state,omitempty" json:"state,omitempty"`
+	Error *string `form:"error,omitempty" json:"error,omitempty"`
+}
+
+// StartAccountOidcParams defines parameters for StartAccountOidc.
+type StartAccountOidcParams struct {
+	Next *string `form:"next,omitempty" json:"next,omitempty"`
+}
+
+// AccountSignInWithTelegramJSONBody defines parameters for AccountSignInWithTelegram.
+type AccountSignInWithTelegramJSONBody map[string]string
+
+// AccountSignInWithMiniAppJSONBody defines parameters for AccountSignInWithMiniApp.
+type AccountSignInWithMiniAppJSONBody struct {
+	InitData string `json:"initData"`
+}
+
+// UpdateAccountProfileParams defines parameters for UpdateAccountProfile.
+type UpdateAccountProfileParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// GetAccountOverviewParams defines parameters for GetAccountOverview.
+type GetAccountOverviewParams struct {
+	Locale *GetAccountOverviewParamsLocale `form:"locale,omitempty" json:"locale,omitempty"`
+}
+
+// GetAccountOverviewParamsLocale defines parameters for GetAccountOverview.
+type GetAccountOverviewParamsLocale string
+
+// ListAccountSecurityEventsParams defines parameters for ListAccountSecurityEvents.
+type ListAccountSecurityEventsParams struct {
+	Cursor   *time.Time          `form:"cursor,omitempty" json:"cursor,omitempty"`
+	CursorId *openapi_types.UUID `form:"cursorId,omitempty" json:"cursorId,omitempty"`
+}
+
+// RevokeAccountSessionParams defines parameters for RevokeAccountSession.
+type RevokeAccountSessionParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// UnlinkAccountSignInMethodParams defines parameters for UnlinkAccountSignInMethod.
+type UnlinkAccountSignInMethodParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// GetAccountSubscriptionParams defines parameters for GetAccountSubscription.
+type GetAccountSubscriptionParams struct {
+	Locale *GetAccountSubscriptionParamsLocale `form:"locale,omitempty" json:"locale,omitempty"`
+}
+
+// GetAccountSubscriptionParamsLocale defines parameters for GetAccountSubscription.
+type GetAccountSubscriptionParamsLocale string
+
+// RenameAccountSubscriptionJSONBody defines parameters for RenameAccountSubscription.
+type RenameAccountSubscriptionJSONBody struct {
+	Label string `json:"label"`
+}
+
+// RenameAccountSubscriptionParams defines parameters for RenameAccountSubscription.
+type RenameAccountSubscriptionParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// GetAccountConnectionParams defines parameters for GetAccountConnection.
+type GetAccountConnectionParams struct {
+	Platform *GetAccountConnectionParamsPlatform `form:"platform,omitempty" json:"platform,omitempty"`
+}
+
+// GetAccountConnectionParamsPlatform defines parameters for GetAccountConnection.
+type GetAccountConnectionParamsPlatform string
+
+// RemoveAllAccountDevicesParams defines parameters for RemoveAllAccountDevices.
+type RemoveAllAccountDevicesParams struct {
+	Confirm RemoveAllAccountDevicesParamsConfirm `form:"confirm" json:"confirm"`
+
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// RemoveAllAccountDevicesParamsConfirm defines parameters for RemoveAllAccountDevices.
+type RemoveAllAccountDevicesParamsConfirm string
+
+// RemoveAccountDeviceParams defines parameters for RemoveAccountDevice.
+type RemoveAccountDeviceParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// RotateAccountSubscriptionLinkJSONBody defines parameters for RotateAccountSubscriptionLink.
+type RotateAccountSubscriptionLinkJSONBody struct {
+	Confirm bool `json:"confirm"`
+}
+
+// RotateAccountSubscriptionLinkParams defines parameters for RotateAccountSubscriptionLink.
+type RotateAccountSubscriptionLinkParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
 
 // ListBackupsParams defines parameters for ListBackups.
 type ListBackupsParams struct {
@@ -4594,6 +5239,18 @@ type SavePanelTopUpSettingsParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// SavePanelCustomerOidcProviderParams defines parameters for SavePanelCustomerOidcProvider.
+type SavePanelCustomerOidcProviderParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// DeletePanelCustomerOidcProviderParams defines parameters for DeletePanelCustomerOidcProvider.
+type DeletePanelCustomerOidcProviderParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // SavePanelProviderSettingsParams defines parameters for SavePanelProviderSettings.
 type SavePanelProviderSettingsParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
@@ -4653,6 +5310,24 @@ type ReplayPanelWebhookParams struct {
 
 // ReceivePaymentWebhookJSONBody defines parameters for ReceivePaymentWebhook.
 type ReceivePaymentWebhookJSONBody map[string]interface{}
+
+// AccountLogoutAllJSONRequestBody defines body for AccountLogoutAll for application/json ContentType.
+type AccountLogoutAllJSONRequestBody AccountLogoutAllJSONBody
+
+// AccountSignInWithTelegramJSONRequestBody defines body for AccountSignInWithTelegram for application/json ContentType.
+type AccountSignInWithTelegramJSONRequestBody AccountSignInWithTelegramJSONBody
+
+// AccountSignInWithMiniAppJSONRequestBody defines body for AccountSignInWithMiniApp for application/json ContentType.
+type AccountSignInWithMiniAppJSONRequestBody AccountSignInWithMiniAppJSONBody
+
+// UpdateAccountProfileJSONRequestBody defines body for UpdateAccountProfile for application/json ContentType.
+type UpdateAccountProfileJSONRequestBody = AccountProfileInput
+
+// RenameAccountSubscriptionJSONRequestBody defines body for RenameAccountSubscription for application/json ContentType.
+type RenameAccountSubscriptionJSONRequestBody RenameAccountSubscriptionJSONBody
+
+// RotateAccountSubscriptionLinkJSONRequestBody defines body for RotateAccountSubscriptionLink for application/json ContentType.
+type RotateAccountSubscriptionLinkJSONRequestBody RotateAccountSubscriptionLinkJSONBody
 
 // UpdateCustomerJSONRequestBody defines body for UpdateCustomer for application/json ContentType.
 type UpdateCustomerJSONRequestBody = CustomerPreferences
@@ -4807,6 +5482,9 @@ type SavePanelSubscriptionSettingsJSONRequestBody = PanelSubscriptionSettings
 // SavePanelTopUpSettingsJSONRequestBody defines body for SavePanelTopUpSettings for application/json ContentType.
 type SavePanelTopUpSettingsJSONRequestBody = PanelTopUpSettings
 
+// SavePanelCustomerOidcProviderJSONRequestBody defines body for SavePanelCustomerOidcProvider for application/json ContentType.
+type SavePanelCustomerOidcProviderJSONRequestBody = CustomerOidcProviderInput
+
 // SavePanelProviderSettingsJSONRequestBody defines body for SavePanelProviderSettings for application/json ContentType.
 type SavePanelProviderSettingsJSONRequestBody = PanelProviderSettingsInput
 
@@ -4833,6 +5511,78 @@ type ServerInterface interface {
 
 	// (GET /readyz)
 	GetReadiness(w http.ResponseWriter, r *http.Request)
+
+	// (GET /v1/account/auth/link)
+	AccountCompleteMagicLink(w http.ResponseWriter, r *http.Request, params AccountCompleteMagicLinkParams)
+
+	// (POST /v1/account/auth/logout)
+	AccountLogout(w http.ResponseWriter, r *http.Request, params AccountLogoutParams)
+
+	// (POST /v1/account/auth/logout-all)
+	AccountLogoutAll(w http.ResponseWriter, r *http.Request, params AccountLogoutAllParams)
+
+	// (GET /v1/account/auth/methods)
+	ListAccountSignInMethods(w http.ResponseWriter, r *http.Request)
+
+	// (GET /v1/account/auth/oidc/{slug}/callback)
+	CompleteAccountOidc(w http.ResponseWriter, r *http.Request, slug OidcSlug, params CompleteAccountOidcParams)
+
+	// (GET /v1/account/auth/oidc/{slug}/start)
+	StartAccountOidc(w http.ResponseWriter, r *http.Request, slug OidcSlug, params StartAccountOidcParams)
+
+	// (POST /v1/account/auth/telegram)
+	AccountSignInWithTelegram(w http.ResponseWriter, r *http.Request)
+
+	// (POST /v1/account/auth/telegram/miniapp)
+	AccountSignInWithMiniApp(w http.ResponseWriter, r *http.Request)
+
+	// (GET /v1/account/me)
+	GetAccountSession(w http.ResponseWriter, r *http.Request)
+
+	// (PATCH /v1/account/me)
+	UpdateAccountProfile(w http.ResponseWriter, r *http.Request, params UpdateAccountProfileParams)
+
+	// (GET /v1/account/overview)
+	GetAccountOverview(w http.ResponseWriter, r *http.Request, params GetAccountOverviewParams)
+
+	// (GET /v1/account/security-events)
+	ListAccountSecurityEvents(w http.ResponseWriter, r *http.Request, params ListAccountSecurityEventsParams)
+
+	// (GET /v1/account/sessions)
+	ListAccountSessions(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /v1/account/sessions/{sessionID})
+	RevokeAccountSession(w http.ResponseWriter, r *http.Request, sessionID openapi_types.UUID, params RevokeAccountSessionParams)
+
+	// (GET /v1/account/sign-in-methods)
+	ListAccountLinkedMethods(w http.ResponseWriter, r *http.Request)
+
+	// (GET /v1/account/sign-in-methods/oidc/{slug}/start)
+	StartAccountOidcLink(w http.ResponseWriter, r *http.Request, slug OidcSlug)
+
+	// (DELETE /v1/account/sign-in-methods/{identityID})
+	UnlinkAccountSignInMethod(w http.ResponseWriter, r *http.Request, identityID openapi_types.UUID, params UnlinkAccountSignInMethodParams)
+
+	// (GET /v1/account/subscriptions/{subscriptionID})
+	GetAccountSubscription(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params GetAccountSubscriptionParams)
+
+	// (PATCH /v1/account/subscriptions/{subscriptionID})
+	RenameAccountSubscription(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params RenameAccountSubscriptionParams)
+
+	// (GET /v1/account/subscriptions/{subscriptionID}/connection)
+	GetAccountConnection(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params GetAccountConnectionParams)
+
+	// (DELETE /v1/account/subscriptions/{subscriptionID}/devices)
+	RemoveAllAccountDevices(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params RemoveAllAccountDevicesParams)
+
+	// (GET /v1/account/subscriptions/{subscriptionID}/devices)
+	ListAccountDevices(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID)
+
+	// (DELETE /v1/account/subscriptions/{subscriptionID}/devices/{handle})
+	RemoveAccountDevice(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, handle string, params RemoveAccountDeviceParams)
+
+	// (POST /v1/account/subscriptions/{subscriptionID}/rotate-link)
+	RotateAccountSubscriptionLink(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params RotateAccountSubscriptionLinkParams)
 
 	// (GET /v1/admin/backups)
 	ListBackups(w http.ResponseWriter, r *http.Request, params ListBackupsParams)
@@ -5221,6 +5971,18 @@ type ServerInterface interface {
 	// (PUT /v1/panel/settings/commerce/topup)
 	SavePanelTopUpSettings(w http.ResponseWriter, r *http.Request, params SavePanelTopUpSettingsParams)
 
+	// (GET /v1/panel/settings/customer-oidc)
+	ListPanelCustomerOidcProviders(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /v1/panel/settings/customer-oidc)
+	SavePanelCustomerOidcProvider(w http.ResponseWriter, r *http.Request, params SavePanelCustomerOidcProviderParams)
+
+	// (GET /v1/panel/settings/customer-oidc/presets)
+	ListPanelCustomerOidcPresets(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /v1/panel/settings/customer-oidc/{slug})
+	DeletePanelCustomerOidcProvider(w http.ResponseWriter, r *http.Request, slug OidcSlug, params DeletePanelCustomerOidcProviderParams)
+
 	// (GET /v1/panel/settings/providers)
 	ListPanelProviderSettings(w http.ResponseWriter, r *http.Request)
 
@@ -5282,6 +6044,126 @@ func (_ Unimplemented) GetMetrics(w http.ResponseWriter, r *http.Request) {
 
 // (GET /readyz)
 func (_ Unimplemented) GetReadiness(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/auth/link)
+func (_ Unimplemented) AccountCompleteMagicLink(w http.ResponseWriter, r *http.Request, params AccountCompleteMagicLinkParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/auth/logout)
+func (_ Unimplemented) AccountLogout(w http.ResponseWriter, r *http.Request, params AccountLogoutParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/auth/logout-all)
+func (_ Unimplemented) AccountLogoutAll(w http.ResponseWriter, r *http.Request, params AccountLogoutAllParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/auth/methods)
+func (_ Unimplemented) ListAccountSignInMethods(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/auth/oidc/{slug}/callback)
+func (_ Unimplemented) CompleteAccountOidc(w http.ResponseWriter, r *http.Request, slug OidcSlug, params CompleteAccountOidcParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/auth/oidc/{slug}/start)
+func (_ Unimplemented) StartAccountOidc(w http.ResponseWriter, r *http.Request, slug OidcSlug, params StartAccountOidcParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/auth/telegram)
+func (_ Unimplemented) AccountSignInWithTelegram(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/auth/telegram/miniapp)
+func (_ Unimplemented) AccountSignInWithMiniApp(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/me)
+func (_ Unimplemented) GetAccountSession(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /v1/account/me)
+func (_ Unimplemented) UpdateAccountProfile(w http.ResponseWriter, r *http.Request, params UpdateAccountProfileParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/overview)
+func (_ Unimplemented) GetAccountOverview(w http.ResponseWriter, r *http.Request, params GetAccountOverviewParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/security-events)
+func (_ Unimplemented) ListAccountSecurityEvents(w http.ResponseWriter, r *http.Request, params ListAccountSecurityEventsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/sessions)
+func (_ Unimplemented) ListAccountSessions(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /v1/account/sessions/{sessionID})
+func (_ Unimplemented) RevokeAccountSession(w http.ResponseWriter, r *http.Request, sessionID openapi_types.UUID, params RevokeAccountSessionParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/sign-in-methods)
+func (_ Unimplemented) ListAccountLinkedMethods(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/sign-in-methods/oidc/{slug}/start)
+func (_ Unimplemented) StartAccountOidcLink(w http.ResponseWriter, r *http.Request, slug OidcSlug) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /v1/account/sign-in-methods/{identityID})
+func (_ Unimplemented) UnlinkAccountSignInMethod(w http.ResponseWriter, r *http.Request, identityID openapi_types.UUID, params UnlinkAccountSignInMethodParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/subscriptions/{subscriptionID})
+func (_ Unimplemented) GetAccountSubscription(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params GetAccountSubscriptionParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /v1/account/subscriptions/{subscriptionID})
+func (_ Unimplemented) RenameAccountSubscription(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params RenameAccountSubscriptionParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/subscriptions/{subscriptionID}/connection)
+func (_ Unimplemented) GetAccountConnection(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params GetAccountConnectionParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /v1/account/subscriptions/{subscriptionID}/devices)
+func (_ Unimplemented) RemoveAllAccountDevices(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params RemoveAllAccountDevicesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/subscriptions/{subscriptionID}/devices)
+func (_ Unimplemented) ListAccountDevices(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /v1/account/subscriptions/{subscriptionID}/devices/{handle})
+func (_ Unimplemented) RemoveAccountDevice(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, handle string, params RemoveAccountDeviceParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/subscriptions/{subscriptionID}/rotate-link)
+func (_ Unimplemented) RotateAccountSubscriptionLink(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params RotateAccountSubscriptionLinkParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -5930,6 +6812,26 @@ func (_ Unimplemented) SavePanelTopUpSettings(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /v1/panel/settings/customer-oidc)
+func (_ Unimplemented) ListPanelCustomerOidcProviders(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /v1/panel/settings/customer-oidc)
+func (_ Unimplemented) SavePanelCustomerOidcProvider(w http.ResponseWriter, r *http.Request, params SavePanelCustomerOidcProviderParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/settings/customer-oidc/presets)
+func (_ Unimplemented) ListPanelCustomerOidcPresets(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /v1/panel/settings/customer-oidc/{slug})
+func (_ Unimplemented) DeletePanelCustomerOidcProvider(w http.ResponseWriter, r *http.Request, slug OidcSlug, params DeletePanelCustomerOidcProviderParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /v1/panel/settings/providers)
 func (_ Unimplemented) ListPanelProviderSettings(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -6051,6 +6953,929 @@ func (siw *ServerInterfaceWrapper) GetReadiness(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetReadiness(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AccountCompleteMagicLink operation middleware
+func (siw *ServerInterfaceWrapper) AccountCompleteMagicLink(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AccountCompleteMagicLinkParams
+
+	// ------------- Required query parameter "token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "token", r.URL.Query(), &params.Token, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AccountCompleteMagicLink(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AccountLogout operation middleware
+func (siw *ServerInterfaceWrapper) AccountLogout(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AccountLogoutParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AccountLogout(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AccountLogoutAll operation middleware
+func (siw *ServerInterfaceWrapper) AccountLogoutAll(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AccountLogoutAllParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AccountLogoutAll(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAccountSignInMethods operation middleware
+func (siw *ServerInterfaceWrapper) ListAccountSignInMethods(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAccountSignInMethods(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CompleteAccountOidc operation middleware
+func (siw *ServerInterfaceWrapper) CompleteAccountOidc(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug OidcSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", chi.URLParam(r, "slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slug", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CompleteAccountOidcParams
+
+	// ------------- Optional query parameter "code" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "code", r.URL.Query(), &params.Code, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "code"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "error" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "error", r.URL.Query(), &params.Error, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "error"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "error", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CompleteAccountOidc(w, r, slug, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartAccountOidc operation middleware
+func (siw *ServerInterfaceWrapper) StartAccountOidc(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug OidcSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", chi.URLParam(r, "slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slug", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params StartAccountOidcParams
+
+	// ------------- Optional query parameter "next" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "next", r.URL.Query(), &params.Next, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "next"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "next", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartAccountOidc(w, r, slug, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AccountSignInWithTelegram operation middleware
+func (siw *ServerInterfaceWrapper) AccountSignInWithTelegram(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AccountSignInWithTelegram(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AccountSignInWithMiniApp operation middleware
+func (siw *ServerInterfaceWrapper) AccountSignInWithMiniApp(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AccountSignInWithMiniApp(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountSession operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountSession(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountSession(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateAccountProfile operation middleware
+func (siw *ServerInterfaceWrapper) UpdateAccountProfile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateAccountProfileParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateAccountProfile(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountOverview operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountOverview(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAccountOverviewParams
+
+	// ------------- Optional query parameter "locale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "locale", r.URL.Query(), &params.Locale, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "locale"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locale", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountOverview(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAccountSecurityEvents operation middleware
+func (siw *ServerInterfaceWrapper) ListAccountSecurityEvents(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAccountSecurityEventsParams
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursorId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursorId", r.URL.Query(), &params.CursorId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursorId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursorId", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAccountSecurityEvents(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAccountSessions operation middleware
+func (siw *ServerInterfaceWrapper) ListAccountSessions(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAccountSessions(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokeAccountSession operation middleware
+func (siw *ServerInterfaceWrapper) RevokeAccountSession(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "sessionID" -------------
+	var sessionID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sessionID", chi.URLParam(r, "sessionID"), &sessionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sessionID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RevokeAccountSessionParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokeAccountSession(w, r, sessionID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAccountLinkedMethods operation middleware
+func (siw *ServerInterfaceWrapper) ListAccountLinkedMethods(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAccountLinkedMethods(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartAccountOidcLink operation middleware
+func (siw *ServerInterfaceWrapper) StartAccountOidcLink(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug OidcSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", chi.URLParam(r, "slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slug", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartAccountOidcLink(w, r, slug)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UnlinkAccountSignInMethod operation middleware
+func (siw *ServerInterfaceWrapper) UnlinkAccountSignInMethod(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "identityID" -------------
+	var identityID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "identityID", chi.URLParam(r, "identityID"), &identityID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "identityID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UnlinkAccountSignInMethodParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnlinkAccountSignInMethod(w, r, identityID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountSubscription operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountSubscription(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID AccountSubscriptionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAccountSubscriptionParams
+
+	// ------------- Optional query parameter "locale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "locale", r.URL.Query(), &params.Locale, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "locale"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locale", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountSubscription(w, r, subscriptionID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RenameAccountSubscription operation middleware
+func (siw *ServerInterfaceWrapper) RenameAccountSubscription(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID AccountSubscriptionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RenameAccountSubscriptionParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RenameAccountSubscription(w, r, subscriptionID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountConnection operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountConnection(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID AccountSubscriptionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAccountConnectionParams
+
+	// ------------- Optional query parameter "platform" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "platform", r.URL.Query(), &params.Platform, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "platform"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "platform", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountConnection(w, r, subscriptionID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemoveAllAccountDevices operation middleware
+func (siw *ServerInterfaceWrapper) RemoveAllAccountDevices(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID AccountSubscriptionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RemoveAllAccountDevicesParams
+
+	// ------------- Required query parameter "confirm" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "confirm", r.URL.Query(), &params.Confirm, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "confirm"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "confirm", Err: err})
+		}
+		return
+	}
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemoveAllAccountDevices(w, r, subscriptionID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAccountDevices operation middleware
+func (siw *ServerInterfaceWrapper) ListAccountDevices(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID AccountSubscriptionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAccountDevices(w, r, subscriptionID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemoveAccountDevice operation middleware
+func (siw *ServerInterfaceWrapper) RemoveAccountDevice(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID AccountSubscriptionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "handle" -------------
+	var handle string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "handle", chi.URLParam(r, "handle"), &handle, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "handle", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RemoveAccountDeviceParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemoveAccountDevice(w, r, subscriptionID, handle, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RotateAccountSubscriptionLink operation middleware
+func (siw *ServerInterfaceWrapper) RotateAccountSubscriptionLink(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID AccountSubscriptionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RotateAccountSubscriptionLinkParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RotateAccountSubscriptionLink(w, r, subscriptionID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -11703,6 +13528,133 @@ func (siw *ServerInterfaceWrapper) SavePanelTopUpSettings(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// ListPanelCustomerOidcProviders operation middleware
+func (siw *ServerInterfaceWrapper) ListPanelCustomerOidcProviders(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPanelCustomerOidcProviders(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SavePanelCustomerOidcProvider operation middleware
+func (siw *ServerInterfaceWrapper) SavePanelCustomerOidcProvider(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SavePanelCustomerOidcProviderParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SavePanelCustomerOidcProvider(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPanelCustomerOidcPresets operation middleware
+func (siw *ServerInterfaceWrapper) ListPanelCustomerOidcPresets(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPanelCustomerOidcPresets(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeletePanelCustomerOidcProvider operation middleware
+func (siw *ServerInterfaceWrapper) DeletePanelCustomerOidcProvider(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug OidcSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", chi.URLParam(r, "slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slug", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeletePanelCustomerOidcProviderParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeletePanelCustomerOidcProvider(w, r, slug, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPanelProviderSettings operation middleware
 func (siw *ServerInterfaceWrapper) ListPanelProviderSettings(w http.ResponseWriter, r *http.Request) {
 
@@ -12825,6 +14777,90 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/v1/panel/bulk/{operationID}/items", wrapper.ListPanelBulkItems)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/auth/methods", wrapper.ListAccountSignInMethods)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/auth/telegram", wrapper.AccountSignInWithTelegram)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/auth/telegram/miniapp", wrapper.AccountSignInWithMiniApp)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/auth/link", wrapper.AccountCompleteMagicLink)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/auth/oidc/{slug}/start", wrapper.StartAccountOidc)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/auth/oidc/{slug}/callback", wrapper.CompleteAccountOidc)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/me", wrapper.GetAccountSession)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/v1/account/me", wrapper.UpdateAccountProfile)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/auth/logout", wrapper.AccountLogout)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/auth/logout-all", wrapper.AccountLogoutAll)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/sessions", wrapper.ListAccountSessions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/account/sessions/{sessionID}", wrapper.RevokeAccountSession)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/security-events", wrapper.ListAccountSecurityEvents)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/sign-in-methods", wrapper.ListAccountLinkedMethods)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/account/sign-in-methods/{identityID}", wrapper.UnlinkAccountSignInMethod)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/sign-in-methods/oidc/{slug}/start", wrapper.StartAccountOidcLink)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/overview", wrapper.GetAccountOverview)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}", wrapper.GetAccountSubscription)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}", wrapper.RenameAccountSubscription)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/connection", wrapper.GetAccountConnection)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/rotate-link", wrapper.RotateAccountSubscriptionLink)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/devices", wrapper.RemoveAllAccountDevices)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/devices", wrapper.ListAccountDevices)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/devices/{handle}", wrapper.RemoveAccountDevice)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/settings/customer-oidc", wrapper.ListPanelCustomerOidcProviders)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/panel/settings/customer-oidc", wrapper.SavePanelCustomerOidcProvider)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/settings/customer-oidc/presets", wrapper.ListPanelCustomerOidcPresets)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/panel/settings/customer-oidc/{slug}", wrapper.DeletePanelCustomerOidcProvider)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/telemetry/events", wrapper.CollectTelemetryEvent)
 	})
 
@@ -12923,6 +14959,975 @@ func (response GetReadiness503JSONResponse) VisitGetReadinessResponse(w http.Res
 		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountCompleteMagicLinkRequestObject struct {
+	Params AccountCompleteMagicLinkParams
+}
+
+type AccountCompleteMagicLinkResponseObject interface {
+	VisitAccountCompleteMagicLinkResponse(w http.ResponseWriter) error
+}
+
+type AccountCompleteMagicLink302Response struct {
+}
+
+func (response AccountCompleteMagicLink302Response) VisitAccountCompleteMagicLinkResponse(w http.ResponseWriter) error {
+	w.WriteHeader(302)
+	return nil
+}
+
+type AccountLogoutRequestObject struct {
+	Params AccountLogoutParams
+}
+
+type AccountLogoutResponseObject interface {
+	VisitAccountLogoutResponse(w http.ResponseWriter) error
+}
+
+type AccountLogout204Response struct {
+}
+
+func (response AccountLogout204Response) VisitAccountLogoutResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type AccountLogoutAllRequestObject struct {
+	Params AccountLogoutAllParams
+	Body   *AccountLogoutAllJSONRequestBody
+}
+
+type AccountLogoutAllResponseObject interface {
+	VisitAccountLogoutAllResponse(w http.ResponseWriter) error
+}
+
+type AccountLogoutAll200JSONResponse struct {
+	Revoked int `json:"revoked"`
+}
+
+func (response AccountLogoutAll200JSONResponse) VisitAccountLogoutAllResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountSignInMethodsRequestObject struct {
+}
+
+type ListAccountSignInMethodsResponseObject interface {
+	VisitListAccountSignInMethodsResponse(w http.ResponseWriter) error
+}
+
+type ListAccountSignInMethods200JSONResponse AccountSignInMethods
+
+func (response ListAccountSignInMethods200JSONResponse) VisitListAccountSignInMethodsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CompleteAccountOidcRequestObject struct {
+	Slug   OidcSlug `json:"slug"`
+	Params CompleteAccountOidcParams
+}
+
+type CompleteAccountOidcResponseObject interface {
+	VisitCompleteAccountOidcResponse(w http.ResponseWriter) error
+}
+
+type CompleteAccountOidc302Response struct {
+}
+
+func (response CompleteAccountOidc302Response) VisitCompleteAccountOidcResponse(w http.ResponseWriter) error {
+	w.WriteHeader(302)
+	return nil
+}
+
+type StartAccountOidcRequestObject struct {
+	Slug   OidcSlug `json:"slug"`
+	Params StartAccountOidcParams
+}
+
+type StartAccountOidcResponseObject interface {
+	VisitStartAccountOidcResponse(w http.ResponseWriter) error
+}
+
+type StartAccountOidc302Response struct {
+}
+
+func (response StartAccountOidc302Response) VisitStartAccountOidcResponse(w http.ResponseWriter) error {
+	w.WriteHeader(302)
+	return nil
+}
+
+type StartAccountOidc404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response StartAccountOidc404ApplicationProblemPlusJSONResponse) VisitStartAccountOidcResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartAccountOidc502ApplicationProblemPlusJSONResponse Problem
+
+func (response StartAccountOidc502ApplicationProblemPlusJSONResponse) VisitStartAccountOidcResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountSignInWithTelegramRequestObject struct {
+	Body *AccountSignInWithTelegramJSONRequestBody
+}
+
+type AccountSignInWithTelegramResponseObject interface {
+	VisitAccountSignInWithTelegramResponse(w http.ResponseWriter) error
+}
+
+type AccountSignInWithTelegram200JSONResponse AccountSignIn
+
+func (response AccountSignInWithTelegram200JSONResponse) VisitAccountSignInWithTelegramResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountSignInWithTelegram401ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response AccountSignInWithTelegram401ApplicationProblemPlusJSONResponse) VisitAccountSignInWithTelegramResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountSignInWithTelegram403ApplicationProblemPlusJSONResponse Problem
+
+func (response AccountSignInWithTelegram403ApplicationProblemPlusJSONResponse) VisitAccountSignInWithTelegramResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountSignInWithTelegram404ApplicationProblemPlusJSONResponse Problem
+
+func (response AccountSignInWithTelegram404ApplicationProblemPlusJSONResponse) VisitAccountSignInWithTelegramResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountSignInWithMiniAppRequestObject struct {
+	Body *AccountSignInWithMiniAppJSONRequestBody
+}
+
+type AccountSignInWithMiniAppResponseObject interface {
+	VisitAccountSignInWithMiniAppResponse(w http.ResponseWriter) error
+}
+
+type AccountSignInWithMiniApp200JSONResponse AccountSignIn
+
+func (response AccountSignInWithMiniApp200JSONResponse) VisitAccountSignInWithMiniAppResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountSignInWithMiniApp401ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response AccountSignInWithMiniApp401ApplicationProblemPlusJSONResponse) VisitAccountSignInWithMiniAppResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountSignInWithMiniApp403ApplicationProblemPlusJSONResponse Problem
+
+func (response AccountSignInWithMiniApp403ApplicationProblemPlusJSONResponse) VisitAccountSignInWithMiniAppResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountSignInWithMiniApp404ApplicationProblemPlusJSONResponse Problem
+
+func (response AccountSignInWithMiniApp404ApplicationProblemPlusJSONResponse) VisitAccountSignInWithMiniAppResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountSessionRequestObject struct {
+}
+
+type GetAccountSessionResponseObject interface {
+	VisitGetAccountSessionResponse(w http.ResponseWriter) error
+}
+
+type GetAccountSession200JSONResponse AccountSession
+
+func (response GetAccountSession200JSONResponse) VisitGetAccountSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountSession401ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetAccountSession401ApplicationProblemPlusJSONResponse) VisitGetAccountSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateAccountProfileRequestObject struct {
+	Params UpdateAccountProfileParams
+	Body   *UpdateAccountProfileJSONRequestBody
+}
+
+type UpdateAccountProfileResponseObject interface {
+	VisitUpdateAccountProfileResponse(w http.ResponseWriter) error
+}
+
+type UpdateAccountProfile200JSONResponse AccountCustomer
+
+func (response UpdateAccountProfile200JSONResponse) VisitUpdateAccountProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateAccountProfile422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateAccountProfile422ApplicationProblemPlusJSONResponse) VisitUpdateAccountProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountOverviewRequestObject struct {
+	Params GetAccountOverviewParams
+}
+
+type GetAccountOverviewResponseObject interface {
+	VisitGetAccountOverviewResponse(w http.ResponseWriter) error
+}
+
+type GetAccountOverview200JSONResponse AccountOverview
+
+func (response GetAccountOverview200JSONResponse) VisitGetAccountOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountSecurityEventsRequestObject struct {
+	Params ListAccountSecurityEventsParams
+}
+
+type ListAccountSecurityEventsResponseObject interface {
+	VisitListAccountSecurityEventsResponse(w http.ResponseWriter) error
+}
+
+type ListAccountSecurityEvents200JSONResponse AccountSecurityEventList
+
+func (response ListAccountSecurityEvents200JSONResponse) VisitListAccountSecurityEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountSessionsRequestObject struct {
+}
+
+type ListAccountSessionsResponseObject interface {
+	VisitListAccountSessionsResponse(w http.ResponseWriter) error
+}
+
+type ListAccountSessions200JSONResponse AccountSessionList
+
+func (response ListAccountSessions200JSONResponse) VisitListAccountSessionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokeAccountSessionRequestObject struct {
+	SessionID openapi_types.UUID `json:"sessionID"`
+	Params    RevokeAccountSessionParams
+}
+
+type RevokeAccountSessionResponseObject interface {
+	VisitRevokeAccountSessionResponse(w http.ResponseWriter) error
+}
+
+type RevokeAccountSession204Response struct {
+}
+
+func (response RevokeAccountSession204Response) VisitRevokeAccountSessionResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type RevokeAccountSession404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RevokeAccountSession404ApplicationProblemPlusJSONResponse) VisitRevokeAccountSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountLinkedMethodsRequestObject struct {
+}
+
+type ListAccountLinkedMethodsResponseObject interface {
+	VisitListAccountLinkedMethodsResponse(w http.ResponseWriter) error
+}
+
+type ListAccountLinkedMethods200JSONResponse AccountLinkedMethodList
+
+func (response ListAccountLinkedMethods200JSONResponse) VisitListAccountLinkedMethodsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartAccountOidcLinkRequestObject struct {
+	Slug OidcSlug `json:"slug"`
+}
+
+type StartAccountOidcLinkResponseObject interface {
+	VisitStartAccountOidcLinkResponse(w http.ResponseWriter) error
+}
+
+type StartAccountOidcLink302Response struct {
+}
+
+func (response StartAccountOidcLink302Response) VisitStartAccountOidcLinkResponse(w http.ResponseWriter) error {
+	w.WriteHeader(302)
+	return nil
+}
+
+type StartAccountOidcLink404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response StartAccountOidcLink404ApplicationProblemPlusJSONResponse) VisitStartAccountOidcLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnlinkAccountSignInMethodRequestObject struct {
+	IdentityID openapi_types.UUID `json:"identityID"`
+	Params     UnlinkAccountSignInMethodParams
+}
+
+type UnlinkAccountSignInMethodResponseObject interface {
+	VisitUnlinkAccountSignInMethodResponse(w http.ResponseWriter) error
+}
+
+type UnlinkAccountSignInMethod204Response struct {
+}
+
+func (response UnlinkAccountSignInMethod204Response) VisitUnlinkAccountSignInMethodResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type UnlinkAccountSignInMethod401ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response UnlinkAccountSignInMethod401ApplicationProblemPlusJSONResponse) VisitUnlinkAccountSignInMethodResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnlinkAccountSignInMethod404ApplicationProblemPlusJSONResponse Problem
+
+func (response UnlinkAccountSignInMethod404ApplicationProblemPlusJSONResponse) VisitUnlinkAccountSignInMethodResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnlinkAccountSignInMethod409ApplicationProblemPlusJSONResponse Problem
+
+func (response UnlinkAccountSignInMethod409ApplicationProblemPlusJSONResponse) VisitUnlinkAccountSignInMethodResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountSubscriptionRequestObject struct {
+	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
+	Params         GetAccountSubscriptionParams
+}
+
+type GetAccountSubscriptionResponseObject interface {
+	VisitGetAccountSubscriptionResponse(w http.ResponseWriter) error
+}
+
+type GetAccountSubscription200JSONResponse AccountSubscription
+
+func (response GetAccountSubscription200JSONResponse) VisitGetAccountSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountSubscription404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetAccountSubscription404ApplicationProblemPlusJSONResponse) VisitGetAccountSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RenameAccountSubscriptionRequestObject struct {
+	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
+	Params         RenameAccountSubscriptionParams
+	Body           *RenameAccountSubscriptionJSONRequestBody
+}
+
+type RenameAccountSubscriptionResponseObject interface {
+	VisitRenameAccountSubscriptionResponse(w http.ResponseWriter) error
+}
+
+type RenameAccountSubscription204Response struct {
+}
+
+func (response RenameAccountSubscription204Response) VisitRenameAccountSubscriptionResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type RenameAccountSubscription404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RenameAccountSubscription404ApplicationProblemPlusJSONResponse) VisitRenameAccountSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RenameAccountSubscription422ApplicationProblemPlusJSONResponse Problem
+
+func (response RenameAccountSubscription422ApplicationProblemPlusJSONResponse) VisitRenameAccountSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountConnectionRequestObject struct {
+	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
+	Params         GetAccountConnectionParams
+}
+
+type GetAccountConnectionResponseObject interface {
+	VisitGetAccountConnectionResponse(w http.ResponseWriter) error
+}
+
+type GetAccountConnection200JSONResponse AccountConnection
+
+func (response GetAccountConnection200JSONResponse) VisitGetAccountConnectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountConnection404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetAccountConnection404ApplicationProblemPlusJSONResponse) VisitGetAccountConnectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountConnection409ApplicationProblemPlusJSONResponse Problem
+
+func (response GetAccountConnection409ApplicationProblemPlusJSONResponse) VisitGetAccountConnectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountConnection503ApplicationProblemPlusJSONResponse Problem
+
+func (response GetAccountConnection503ApplicationProblemPlusJSONResponse) VisitGetAccountConnectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveAllAccountDevicesRequestObject struct {
+	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
+	Params         RemoveAllAccountDevicesParams
+}
+
+type RemoveAllAccountDevicesResponseObject interface {
+	VisitRemoveAllAccountDevicesResponse(w http.ResponseWriter) error
+}
+
+type RemoveAllAccountDevices200JSONResponse struct {
+	Removed int `json:"removed"`
+}
+
+func (response RemoveAllAccountDevices200JSONResponse) VisitRemoveAllAccountDevicesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveAllAccountDevices401ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RemoveAllAccountDevices401ApplicationProblemPlusJSONResponse) VisitRemoveAllAccountDevicesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveAllAccountDevices422ApplicationProblemPlusJSONResponse Problem
+
+func (response RemoveAllAccountDevices422ApplicationProblemPlusJSONResponse) VisitRemoveAllAccountDevicesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountDevicesRequestObject struct {
+	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
+}
+
+type ListAccountDevicesResponseObject interface {
+	VisitListAccountDevicesResponse(w http.ResponseWriter) error
+}
+
+type ListAccountDevices200JSONResponse AccountDeviceList
+
+func (response ListAccountDevices200JSONResponse) VisitListAccountDevicesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountDevices404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListAccountDevices404ApplicationProblemPlusJSONResponse) VisitListAccountDevicesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountDevices409ApplicationProblemPlusJSONResponse Problem
+
+func (response ListAccountDevices409ApplicationProblemPlusJSONResponse) VisitListAccountDevicesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountDevices503ApplicationProblemPlusJSONResponse Problem
+
+func (response ListAccountDevices503ApplicationProblemPlusJSONResponse) VisitListAccountDevicesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveAccountDeviceRequestObject struct {
+	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
+	Handle         string                `json:"handle"`
+	Params         RemoveAccountDeviceParams
+}
+
+type RemoveAccountDeviceResponseObject interface {
+	VisitRemoveAccountDeviceResponse(w http.ResponseWriter) error
+}
+
+type RemoveAccountDevice204Response struct {
+}
+
+func (response RemoveAccountDevice204Response) VisitRemoveAccountDeviceResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type RemoveAccountDevice404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RemoveAccountDevice404ApplicationProblemPlusJSONResponse) VisitRemoveAccountDeviceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveAccountDevice503ApplicationProblemPlusJSONResponse Problem
+
+func (response RemoveAccountDevice503ApplicationProblemPlusJSONResponse) VisitRemoveAccountDeviceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RotateAccountSubscriptionLinkRequestObject struct {
+	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
+	Params         RotateAccountSubscriptionLinkParams
+	Body           *RotateAccountSubscriptionLinkJSONRequestBody
+}
+
+type RotateAccountSubscriptionLinkResponseObject interface {
+	VisitRotateAccountSubscriptionLinkResponse(w http.ResponseWriter) error
+}
+
+type RotateAccountSubscriptionLink200JSONResponse struct {
+	SubscriptionUrl string `json:"subscriptionUrl"`
+}
+
+func (response RotateAccountSubscriptionLink200JSONResponse) VisitRotateAccountSubscriptionLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RotateAccountSubscriptionLink401ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RotateAccountSubscriptionLink401ApplicationProblemPlusJSONResponse) VisitRotateAccountSubscriptionLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RotateAccountSubscriptionLink404ApplicationProblemPlusJSONResponse Problem
+
+func (response RotateAccountSubscriptionLink404ApplicationProblemPlusJSONResponse) VisitRotateAccountSubscriptionLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RotateAccountSubscriptionLink422ApplicationProblemPlusJSONResponse Problem
+
+func (response RotateAccountSubscriptionLink422ApplicationProblemPlusJSONResponse) VisitRotateAccountSubscriptionLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RotateAccountSubscriptionLink503ApplicationProblemPlusJSONResponse Problem
+
+func (response RotateAccountSubscriptionLink503ApplicationProblemPlusJSONResponse) VisitRotateAccountSubscriptionLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(503)
 	_, err := buf.WriteTo(w)
 	return err
@@ -18279,6 +21284,180 @@ func (response SavePanelTopUpSettings422ApplicationProblemPlusJSONResponse) Visi
 	return err
 }
 
+type ListPanelCustomerOidcProvidersRequestObject struct {
+}
+
+type ListPanelCustomerOidcProvidersResponseObject interface {
+	VisitListPanelCustomerOidcProvidersResponse(w http.ResponseWriter) error
+}
+
+type ListPanelCustomerOidcProviders200JSONResponse CustomerOidcProviderList
+
+func (response ListPanelCustomerOidcProviders200JSONResponse) VisitListPanelCustomerOidcProvidersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelCustomerOidcProviders403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListPanelCustomerOidcProviders403ApplicationProblemPlusJSONResponse) VisitListPanelCustomerOidcProvidersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelCustomerOidcProviderRequestObject struct {
+	Params SavePanelCustomerOidcProviderParams
+	Body   *SavePanelCustomerOidcProviderJSONRequestBody
+}
+
+type SavePanelCustomerOidcProviderResponseObject interface {
+	VisitSavePanelCustomerOidcProviderResponse(w http.ResponseWriter) error
+}
+
+type SavePanelCustomerOidcProvider200JSONResponse CustomerOidcProvider
+
+func (response SavePanelCustomerOidcProvider200JSONResponse) VisitSavePanelCustomerOidcProviderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelCustomerOidcProvider403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SavePanelCustomerOidcProvider403ApplicationProblemPlusJSONResponse) VisitSavePanelCustomerOidcProviderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelCustomerOidcProvider422ApplicationProblemPlusJSONResponse Problem
+
+func (response SavePanelCustomerOidcProvider422ApplicationProblemPlusJSONResponse) VisitSavePanelCustomerOidcProviderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelCustomerOidcPresetsRequestObject struct {
+}
+
+type ListPanelCustomerOidcPresetsResponseObject interface {
+	VisitListPanelCustomerOidcPresetsResponse(w http.ResponseWriter) error
+}
+
+type ListPanelCustomerOidcPresets200JSONResponse CustomerOidcPresetList
+
+func (response ListPanelCustomerOidcPresets200JSONResponse) VisitListPanelCustomerOidcPresetsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelCustomerOidcPresets403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListPanelCustomerOidcPresets403ApplicationProblemPlusJSONResponse) VisitListPanelCustomerOidcPresetsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelCustomerOidcProviderRequestObject struct {
+	Slug   OidcSlug `json:"slug"`
+	Params DeletePanelCustomerOidcProviderParams
+}
+
+type DeletePanelCustomerOidcProviderResponseObject interface {
+	VisitDeletePanelCustomerOidcProviderResponse(w http.ResponseWriter) error
+}
+
+type DeletePanelCustomerOidcProvider204Response struct {
+}
+
+func (response DeletePanelCustomerOidcProvider204Response) VisitDeletePanelCustomerOidcProviderResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeletePanelCustomerOidcProvider403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DeletePanelCustomerOidcProvider403ApplicationProblemPlusJSONResponse) VisitDeletePanelCustomerOidcProviderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelCustomerOidcProvider404ApplicationProblemPlusJSONResponse Problem
+
+func (response DeletePanelCustomerOidcProvider404ApplicationProblemPlusJSONResponse) VisitDeletePanelCustomerOidcProviderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListPanelProviderSettingsRequestObject struct {
 }
 
@@ -18841,6 +22020,78 @@ type StrictServerInterface interface {
 	// (GET /readyz)
 	GetReadiness(ctx context.Context, request GetReadinessRequestObject) (GetReadinessResponseObject, error)
 
+	// (GET /v1/account/auth/link)
+	AccountCompleteMagicLink(ctx context.Context, request AccountCompleteMagicLinkRequestObject) (AccountCompleteMagicLinkResponseObject, error)
+
+	// (POST /v1/account/auth/logout)
+	AccountLogout(ctx context.Context, request AccountLogoutRequestObject) (AccountLogoutResponseObject, error)
+
+	// (POST /v1/account/auth/logout-all)
+	AccountLogoutAll(ctx context.Context, request AccountLogoutAllRequestObject) (AccountLogoutAllResponseObject, error)
+
+	// (GET /v1/account/auth/methods)
+	ListAccountSignInMethods(ctx context.Context, request ListAccountSignInMethodsRequestObject) (ListAccountSignInMethodsResponseObject, error)
+
+	// (GET /v1/account/auth/oidc/{slug}/callback)
+	CompleteAccountOidc(ctx context.Context, request CompleteAccountOidcRequestObject) (CompleteAccountOidcResponseObject, error)
+
+	// (GET /v1/account/auth/oidc/{slug}/start)
+	StartAccountOidc(ctx context.Context, request StartAccountOidcRequestObject) (StartAccountOidcResponseObject, error)
+
+	// (POST /v1/account/auth/telegram)
+	AccountSignInWithTelegram(ctx context.Context, request AccountSignInWithTelegramRequestObject) (AccountSignInWithTelegramResponseObject, error)
+
+	// (POST /v1/account/auth/telegram/miniapp)
+	AccountSignInWithMiniApp(ctx context.Context, request AccountSignInWithMiniAppRequestObject) (AccountSignInWithMiniAppResponseObject, error)
+
+	// (GET /v1/account/me)
+	GetAccountSession(ctx context.Context, request GetAccountSessionRequestObject) (GetAccountSessionResponseObject, error)
+
+	// (PATCH /v1/account/me)
+	UpdateAccountProfile(ctx context.Context, request UpdateAccountProfileRequestObject) (UpdateAccountProfileResponseObject, error)
+
+	// (GET /v1/account/overview)
+	GetAccountOverview(ctx context.Context, request GetAccountOverviewRequestObject) (GetAccountOverviewResponseObject, error)
+
+	// (GET /v1/account/security-events)
+	ListAccountSecurityEvents(ctx context.Context, request ListAccountSecurityEventsRequestObject) (ListAccountSecurityEventsResponseObject, error)
+
+	// (GET /v1/account/sessions)
+	ListAccountSessions(ctx context.Context, request ListAccountSessionsRequestObject) (ListAccountSessionsResponseObject, error)
+
+	// (DELETE /v1/account/sessions/{sessionID})
+	RevokeAccountSession(ctx context.Context, request RevokeAccountSessionRequestObject) (RevokeAccountSessionResponseObject, error)
+
+	// (GET /v1/account/sign-in-methods)
+	ListAccountLinkedMethods(ctx context.Context, request ListAccountLinkedMethodsRequestObject) (ListAccountLinkedMethodsResponseObject, error)
+
+	// (GET /v1/account/sign-in-methods/oidc/{slug}/start)
+	StartAccountOidcLink(ctx context.Context, request StartAccountOidcLinkRequestObject) (StartAccountOidcLinkResponseObject, error)
+
+	// (DELETE /v1/account/sign-in-methods/{identityID})
+	UnlinkAccountSignInMethod(ctx context.Context, request UnlinkAccountSignInMethodRequestObject) (UnlinkAccountSignInMethodResponseObject, error)
+
+	// (GET /v1/account/subscriptions/{subscriptionID})
+	GetAccountSubscription(ctx context.Context, request GetAccountSubscriptionRequestObject) (GetAccountSubscriptionResponseObject, error)
+
+	// (PATCH /v1/account/subscriptions/{subscriptionID})
+	RenameAccountSubscription(ctx context.Context, request RenameAccountSubscriptionRequestObject) (RenameAccountSubscriptionResponseObject, error)
+
+	// (GET /v1/account/subscriptions/{subscriptionID}/connection)
+	GetAccountConnection(ctx context.Context, request GetAccountConnectionRequestObject) (GetAccountConnectionResponseObject, error)
+
+	// (DELETE /v1/account/subscriptions/{subscriptionID}/devices)
+	RemoveAllAccountDevices(ctx context.Context, request RemoveAllAccountDevicesRequestObject) (RemoveAllAccountDevicesResponseObject, error)
+
+	// (GET /v1/account/subscriptions/{subscriptionID}/devices)
+	ListAccountDevices(ctx context.Context, request ListAccountDevicesRequestObject) (ListAccountDevicesResponseObject, error)
+
+	// (DELETE /v1/account/subscriptions/{subscriptionID}/devices/{handle})
+	RemoveAccountDevice(ctx context.Context, request RemoveAccountDeviceRequestObject) (RemoveAccountDeviceResponseObject, error)
+
+	// (POST /v1/account/subscriptions/{subscriptionID}/rotate-link)
+	RotateAccountSubscriptionLink(ctx context.Context, request RotateAccountSubscriptionLinkRequestObject) (RotateAccountSubscriptionLinkResponseObject, error)
+
 	// (GET /v1/admin/backups)
 	ListBackups(ctx context.Context, request ListBackupsRequestObject) (ListBackupsResponseObject, error)
 
@@ -19228,6 +22479,18 @@ type StrictServerInterface interface {
 	// (PUT /v1/panel/settings/commerce/topup)
 	SavePanelTopUpSettings(ctx context.Context, request SavePanelTopUpSettingsRequestObject) (SavePanelTopUpSettingsResponseObject, error)
 
+	// (GET /v1/panel/settings/customer-oidc)
+	ListPanelCustomerOidcProviders(ctx context.Context, request ListPanelCustomerOidcProvidersRequestObject) (ListPanelCustomerOidcProvidersResponseObject, error)
+
+	// (PUT /v1/panel/settings/customer-oidc)
+	SavePanelCustomerOidcProvider(ctx context.Context, request SavePanelCustomerOidcProviderRequestObject) (SavePanelCustomerOidcProviderResponseObject, error)
+
+	// (GET /v1/panel/settings/customer-oidc/presets)
+	ListPanelCustomerOidcPresets(ctx context.Context, request ListPanelCustomerOidcPresetsRequestObject) (ListPanelCustomerOidcPresetsResponseObject, error)
+
+	// (DELETE /v1/panel/settings/customer-oidc/{slug})
+	DeletePanelCustomerOidcProvider(ctx context.Context, request DeletePanelCustomerOidcProviderRequestObject) (DeletePanelCustomerOidcProviderResponseObject, error)
+
 	// (GET /v1/panel/settings/providers)
 	ListPanelProviderSettings(ctx context.Context, request ListPanelProviderSettingsRequestObject) (ListPanelProviderSettingsResponseObject, error)
 
@@ -19396,6 +22659,671 @@ func (sh *strictHandler) GetReadiness(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetReadinessResponseObject); ok {
 		if err := validResponse.VisitGetReadinessResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AccountCompleteMagicLink operation middleware
+func (sh *strictHandler) AccountCompleteMagicLink(w http.ResponseWriter, r *http.Request, params AccountCompleteMagicLinkParams) {
+	var request AccountCompleteMagicLinkRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AccountCompleteMagicLink(ctx, request.(AccountCompleteMagicLinkRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AccountCompleteMagicLink")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AccountCompleteMagicLinkResponseObject); ok {
+		if err := validResponse.VisitAccountCompleteMagicLinkResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AccountLogout operation middleware
+func (sh *strictHandler) AccountLogout(w http.ResponseWriter, r *http.Request, params AccountLogoutParams) {
+	var request AccountLogoutRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AccountLogout(ctx, request.(AccountLogoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AccountLogout")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AccountLogoutResponseObject); ok {
+		if err := validResponse.VisitAccountLogoutResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AccountLogoutAll operation middleware
+func (sh *strictHandler) AccountLogoutAll(w http.ResponseWriter, r *http.Request, params AccountLogoutAllParams) {
+	var request AccountLogoutAllRequestObject
+
+	request.Params = params
+
+	var body AccountLogoutAllJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AccountLogoutAll(ctx, request.(AccountLogoutAllRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AccountLogoutAll")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AccountLogoutAllResponseObject); ok {
+		if err := validResponse.VisitAccountLogoutAllResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAccountSignInMethods operation middleware
+func (sh *strictHandler) ListAccountSignInMethods(w http.ResponseWriter, r *http.Request) {
+	var request ListAccountSignInMethodsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAccountSignInMethods(ctx, request.(ListAccountSignInMethodsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAccountSignInMethods")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAccountSignInMethodsResponseObject); ok {
+		if err := validResponse.VisitListAccountSignInMethodsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CompleteAccountOidc operation middleware
+func (sh *strictHandler) CompleteAccountOidc(w http.ResponseWriter, r *http.Request, slug OidcSlug, params CompleteAccountOidcParams) {
+	var request CompleteAccountOidcRequestObject
+
+	request.Slug = slug
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CompleteAccountOidc(ctx, request.(CompleteAccountOidcRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CompleteAccountOidc")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CompleteAccountOidcResponseObject); ok {
+		if err := validResponse.VisitCompleteAccountOidcResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StartAccountOidc operation middleware
+func (sh *strictHandler) StartAccountOidc(w http.ResponseWriter, r *http.Request, slug OidcSlug, params StartAccountOidcParams) {
+	var request StartAccountOidcRequestObject
+
+	request.Slug = slug
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StartAccountOidc(ctx, request.(StartAccountOidcRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartAccountOidc")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StartAccountOidcResponseObject); ok {
+		if err := validResponse.VisitStartAccountOidcResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AccountSignInWithTelegram operation middleware
+func (sh *strictHandler) AccountSignInWithTelegram(w http.ResponseWriter, r *http.Request) {
+	var request AccountSignInWithTelegramRequestObject
+
+	var body AccountSignInWithTelegramJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AccountSignInWithTelegram(ctx, request.(AccountSignInWithTelegramRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AccountSignInWithTelegram")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AccountSignInWithTelegramResponseObject); ok {
+		if err := validResponse.VisitAccountSignInWithTelegramResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AccountSignInWithMiniApp operation middleware
+func (sh *strictHandler) AccountSignInWithMiniApp(w http.ResponseWriter, r *http.Request) {
+	var request AccountSignInWithMiniAppRequestObject
+
+	var body AccountSignInWithMiniAppJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AccountSignInWithMiniApp(ctx, request.(AccountSignInWithMiniAppRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AccountSignInWithMiniApp")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AccountSignInWithMiniAppResponseObject); ok {
+		if err := validResponse.VisitAccountSignInWithMiniAppResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountSession operation middleware
+func (sh *strictHandler) GetAccountSession(w http.ResponseWriter, r *http.Request) {
+	var request GetAccountSessionRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountSession(ctx, request.(GetAccountSessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountSession")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountSessionResponseObject); ok {
+		if err := validResponse.VisitGetAccountSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateAccountProfile operation middleware
+func (sh *strictHandler) UpdateAccountProfile(w http.ResponseWriter, r *http.Request, params UpdateAccountProfileParams) {
+	var request UpdateAccountProfileRequestObject
+
+	request.Params = params
+
+	var body UpdateAccountProfileJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateAccountProfile(ctx, request.(UpdateAccountProfileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateAccountProfile")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateAccountProfileResponseObject); ok {
+		if err := validResponse.VisitUpdateAccountProfileResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountOverview operation middleware
+func (sh *strictHandler) GetAccountOverview(w http.ResponseWriter, r *http.Request, params GetAccountOverviewParams) {
+	var request GetAccountOverviewRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountOverview(ctx, request.(GetAccountOverviewRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountOverview")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountOverviewResponseObject); ok {
+		if err := validResponse.VisitGetAccountOverviewResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAccountSecurityEvents operation middleware
+func (sh *strictHandler) ListAccountSecurityEvents(w http.ResponseWriter, r *http.Request, params ListAccountSecurityEventsParams) {
+	var request ListAccountSecurityEventsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAccountSecurityEvents(ctx, request.(ListAccountSecurityEventsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAccountSecurityEvents")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAccountSecurityEventsResponseObject); ok {
+		if err := validResponse.VisitListAccountSecurityEventsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAccountSessions operation middleware
+func (sh *strictHandler) ListAccountSessions(w http.ResponseWriter, r *http.Request) {
+	var request ListAccountSessionsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAccountSessions(ctx, request.(ListAccountSessionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAccountSessions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAccountSessionsResponseObject); ok {
+		if err := validResponse.VisitListAccountSessionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RevokeAccountSession operation middleware
+func (sh *strictHandler) RevokeAccountSession(w http.ResponseWriter, r *http.Request, sessionID openapi_types.UUID, params RevokeAccountSessionParams) {
+	var request RevokeAccountSessionRequestObject
+
+	request.SessionID = sessionID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RevokeAccountSession(ctx, request.(RevokeAccountSessionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RevokeAccountSession")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RevokeAccountSessionResponseObject); ok {
+		if err := validResponse.VisitRevokeAccountSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAccountLinkedMethods operation middleware
+func (sh *strictHandler) ListAccountLinkedMethods(w http.ResponseWriter, r *http.Request) {
+	var request ListAccountLinkedMethodsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAccountLinkedMethods(ctx, request.(ListAccountLinkedMethodsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAccountLinkedMethods")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAccountLinkedMethodsResponseObject); ok {
+		if err := validResponse.VisitListAccountLinkedMethodsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StartAccountOidcLink operation middleware
+func (sh *strictHandler) StartAccountOidcLink(w http.ResponseWriter, r *http.Request, slug OidcSlug) {
+	var request StartAccountOidcLinkRequestObject
+
+	request.Slug = slug
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StartAccountOidcLink(ctx, request.(StartAccountOidcLinkRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartAccountOidcLink")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StartAccountOidcLinkResponseObject); ok {
+		if err := validResponse.VisitStartAccountOidcLinkResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UnlinkAccountSignInMethod operation middleware
+func (sh *strictHandler) UnlinkAccountSignInMethod(w http.ResponseWriter, r *http.Request, identityID openapi_types.UUID, params UnlinkAccountSignInMethodParams) {
+	var request UnlinkAccountSignInMethodRequestObject
+
+	request.IdentityID = identityID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UnlinkAccountSignInMethod(ctx, request.(UnlinkAccountSignInMethodRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UnlinkAccountSignInMethod")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UnlinkAccountSignInMethodResponseObject); ok {
+		if err := validResponse.VisitUnlinkAccountSignInMethodResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountSubscription operation middleware
+func (sh *strictHandler) GetAccountSubscription(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params GetAccountSubscriptionParams) {
+	var request GetAccountSubscriptionRequestObject
+
+	request.SubscriptionID = subscriptionID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountSubscription(ctx, request.(GetAccountSubscriptionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountSubscription")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountSubscriptionResponseObject); ok {
+		if err := validResponse.VisitGetAccountSubscriptionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RenameAccountSubscription operation middleware
+func (sh *strictHandler) RenameAccountSubscription(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params RenameAccountSubscriptionParams) {
+	var request RenameAccountSubscriptionRequestObject
+
+	request.SubscriptionID = subscriptionID
+	request.Params = params
+
+	var body RenameAccountSubscriptionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RenameAccountSubscription(ctx, request.(RenameAccountSubscriptionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RenameAccountSubscription")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RenameAccountSubscriptionResponseObject); ok {
+		if err := validResponse.VisitRenameAccountSubscriptionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountConnection operation middleware
+func (sh *strictHandler) GetAccountConnection(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params GetAccountConnectionParams) {
+	var request GetAccountConnectionRequestObject
+
+	request.SubscriptionID = subscriptionID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountConnection(ctx, request.(GetAccountConnectionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountConnection")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountConnectionResponseObject); ok {
+		if err := validResponse.VisitGetAccountConnectionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RemoveAllAccountDevices operation middleware
+func (sh *strictHandler) RemoveAllAccountDevices(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params RemoveAllAccountDevicesParams) {
+	var request RemoveAllAccountDevicesRequestObject
+
+	request.SubscriptionID = subscriptionID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RemoveAllAccountDevices(ctx, request.(RemoveAllAccountDevicesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RemoveAllAccountDevices")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RemoveAllAccountDevicesResponseObject); ok {
+		if err := validResponse.VisitRemoveAllAccountDevicesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAccountDevices operation middleware
+func (sh *strictHandler) ListAccountDevices(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID) {
+	var request ListAccountDevicesRequestObject
+
+	request.SubscriptionID = subscriptionID
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAccountDevices(ctx, request.(ListAccountDevicesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAccountDevices")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAccountDevicesResponseObject); ok {
+		if err := validResponse.VisitListAccountDevicesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RemoveAccountDevice operation middleware
+func (sh *strictHandler) RemoveAccountDevice(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, handle string, params RemoveAccountDeviceParams) {
+	var request RemoveAccountDeviceRequestObject
+
+	request.SubscriptionID = subscriptionID
+	request.Handle = handle
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RemoveAccountDevice(ctx, request.(RemoveAccountDeviceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RemoveAccountDevice")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RemoveAccountDeviceResponseObject); ok {
+		if err := validResponse.VisitRemoveAccountDeviceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RotateAccountSubscriptionLink operation middleware
+func (sh *strictHandler) RotateAccountSubscriptionLink(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params RotateAccountSubscriptionLinkParams) {
+	var request RotateAccountSubscriptionLinkRequestObject
+
+	request.SubscriptionID = subscriptionID
+	request.Params = params
+
+	var body RotateAccountSubscriptionLinkJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RotateAccountSubscriptionLink(ctx, request.(RotateAccountSubscriptionLinkRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RotateAccountSubscriptionLink")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RotateAccountSubscriptionLinkResponseObject); ok {
+		if err := validResponse.VisitRotateAccountSubscriptionLinkResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -23112,6 +27040,114 @@ func (sh *strictHandler) SavePanelTopUpSettings(w http.ResponseWriter, r *http.R
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(SavePanelTopUpSettingsResponseObject); ok {
 		if err := validResponse.VisitSavePanelTopUpSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPanelCustomerOidcProviders operation middleware
+func (sh *strictHandler) ListPanelCustomerOidcProviders(w http.ResponseWriter, r *http.Request) {
+	var request ListPanelCustomerOidcProvidersRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPanelCustomerOidcProviders(ctx, request.(ListPanelCustomerOidcProvidersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPanelCustomerOidcProviders")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPanelCustomerOidcProvidersResponseObject); ok {
+		if err := validResponse.VisitListPanelCustomerOidcProvidersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SavePanelCustomerOidcProvider operation middleware
+func (sh *strictHandler) SavePanelCustomerOidcProvider(w http.ResponseWriter, r *http.Request, params SavePanelCustomerOidcProviderParams) {
+	var request SavePanelCustomerOidcProviderRequestObject
+
+	request.Params = params
+
+	var body SavePanelCustomerOidcProviderJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SavePanelCustomerOidcProvider(ctx, request.(SavePanelCustomerOidcProviderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SavePanelCustomerOidcProvider")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SavePanelCustomerOidcProviderResponseObject); ok {
+		if err := validResponse.VisitSavePanelCustomerOidcProviderResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPanelCustomerOidcPresets operation middleware
+func (sh *strictHandler) ListPanelCustomerOidcPresets(w http.ResponseWriter, r *http.Request) {
+	var request ListPanelCustomerOidcPresetsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPanelCustomerOidcPresets(ctx, request.(ListPanelCustomerOidcPresetsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPanelCustomerOidcPresets")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPanelCustomerOidcPresetsResponseObject); ok {
+		if err := validResponse.VisitListPanelCustomerOidcPresetsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeletePanelCustomerOidcProvider operation middleware
+func (sh *strictHandler) DeletePanelCustomerOidcProvider(w http.ResponseWriter, r *http.Request, slug OidcSlug, params DeletePanelCustomerOidcProviderParams) {
+	var request DeletePanelCustomerOidcProviderRequestObject
+
+	request.Slug = slug
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeletePanelCustomerOidcProvider(ctx, request.(DeletePanelCustomerOidcProviderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeletePanelCustomerOidcProvider")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeletePanelCustomerOidcProviderResponseObject); ok {
+		if err := validResponse.VisitDeletePanelCustomerOidcProviderResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -4332,6 +4332,629 @@ export const ListPanelBulkItemsResponse = zod.object({
     .nullable(),
 });
 
+/**
+ * Which sign-in routes this installation actually offers. The sign-in screen renders from this, so an installation with no bot token never shows a Telegram button that cannot work.
+ */
+export const ListAccountSignInMethodsResponse = zod.object({
+  telegram: zod
+    .boolean()
+    .describe("A bot token is configured, so the login widget can be verified."),
+  magicLink: zod.boolean().describe("The operator enabled the bot-delivered fallback."),
+  oidc: zod.array(
+    zod.object({
+      slug: zod.string(),
+      displayName: zod.string(),
+      icon: zod.string().optional().describe("Name of a shipped icon, never a third-party URL."),
+    }),
+  ),
+});
+
+/**
+ * Verifies a Telegram Login Widget payload. The hash is checked against the bot token and the auth_date must be recent, so a captured payload cannot be replayed indefinitely.
+ */
+export const AccountSignInWithTelegramBody = zod.record(zod.string(), zod.string());
+
+export const AccountSignInWithTelegramResponse = zod.object({
+  customer: zod.object({
+    id: zod.uuid(),
+    locale: zod.enum(["ru", "en"]),
+    timezone: zod.string(),
+    status: zod.enum(["active", "suspended", "deleted"]),
+  }),
+  expiresAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Verifies the initData a Telegram Mini App hands to its own page.
+ */
+export const AccountSignInWithMiniAppBody = zod.object({
+  initData: zod.string(),
+});
+
+export const AccountSignInWithMiniAppResponse = zod.object({
+  customer: zod.object({
+    id: zod.uuid(),
+    locale: zod.enum(["ru", "en"]),
+    timezone: zod.string(),
+    status: zod.enum(["active", "suspended", "deleted"]),
+  }),
+  expiresAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Redeems a one-time link the bot delivered. The token is consumed before the redirect is issued, so the URL left in history is already spent.
+ */
+export const AccountCompleteMagicLinkQueryParams = zod.object({
+  token: zod.string(),
+});
+
+export const AccountCompleteMagicLinkResponse = zod.void();
+
+export const startAccountOidcPathSlugRegExp = /^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$/;
+
+export const StartAccountOidcParams = zod.object({
+  slug: zod.string().regex(startAccountOidcPathSlugRegExp),
+});
+
+export const StartAccountOidcQueryParams = zod.object({
+  next: zod.string().optional(),
+});
+
+export const StartAccountOidcResponse = zod.void();
+
+export const completeAccountOidcPathSlugRegExp = /^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$/;
+
+export const CompleteAccountOidcParams = zod.object({
+  slug: zod.string().regex(completeAccountOidcPathSlugRegExp),
+});
+
+export const CompleteAccountOidcQueryParams = zod.object({
+  code: zod.string().optional(),
+  state: zod.string().optional(),
+  error: zod.string().optional(),
+});
+
+export const CompleteAccountOidcResponse = zod.void();
+
+/**
+ * The signed-in customer, how they authenticated, and whether a sensitive action needs a fresh sign-in.
+ */
+export const GetAccountSessionResponse = zod.object({
+  customer: zod.object({
+    id: zod.uuid(),
+    locale: zod.enum(["ru", "en"]),
+    timezone: zod.string(),
+    status: zod.enum(["active", "suspended", "deleted"]),
+  }),
+  session: zod.object({
+    id: zod.uuid(),
+    authMethod: zod.enum(["telegram", "magic_link", "oidc"]),
+    authProvider: zod.string().optional(),
+    expiresAt: zod.iso.datetime({ offset: true }),
+    reauthenticationRequired: zod
+      .boolean()
+      .describe(
+        "The session is older than the re-authentication window, so a destructive action will be refused until the customer signs in again.",
+      ),
+  }),
+});
+
+export const UpdateAccountProfileHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const UpdateAccountProfileBody = zod.object({
+  locale: zod.enum(["ru", "en"]),
+  timezone: zod.string(),
+});
+
+export const UpdateAccountProfileResponse = zod.object({
+  id: zod.uuid(),
+  locale: zod.enum(["ru", "en"]),
+  timezone: zod.string(),
+  status: zod.enum(["active", "suspended", "deleted"]),
+});
+
+export const AccountLogoutHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const AccountLogoutResponse = zod.void();
+
+/**
+ * Ends every session. keepCurrent spares the caller's own, which is what "sign out my other devices" means; leaving it false is what a suspected compromise needs.
+ */
+export const AccountLogoutAllHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const accountLogoutAllBodyKeepCurrentDefault = false;
+
+export const AccountLogoutAllBody = zod.object({
+  keepCurrent: zod.boolean().default(accountLogoutAllBodyKeepCurrentDefault),
+});
+
+export const AccountLogoutAllResponse = zod.object({
+  revoked: zod.int(),
+});
+
+export const ListAccountSessionsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      current: zod.boolean(),
+      authMethod: zod.enum(["telegram", "magic_link", "oidc"]),
+      authProvider: zod.string().optional(),
+      ip: zod.string().optional(),
+      userAgent: zod.string().optional(),
+      createdAt: zod.iso.datetime({ offset: true }),
+      lastSeenAt: zod.iso.datetime({ offset: true }),
+      expiresAt: zod.iso.datetime({ offset: true }),
+    }),
+  ),
+});
+
+export const RevokeAccountSessionParams = zod.object({
+  sessionID: zod.uuid(),
+});
+
+export const RevokeAccountSessionHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const RevokeAccountSessionResponse = zod.void();
+
+/**
+ * The customer's own account history. The vocabulary is closed and carries no amount, link, or other party's identifier.
+ */
+export const ListAccountSecurityEventsQueryParams = zod.object({
+  cursor: zod.iso.datetime({ offset: true }).optional(),
+  cursorId: zod.uuid().optional(),
+});
+
+export const ListAccountSecurityEventsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      event: zod.enum([
+        "signed_in",
+        "signed_out",
+        "signed_out_all",
+        "session_revoked",
+        "magic_link_requested",
+        "identity_linked",
+        "identity_unlinked",
+        "subscription_key_rotated",
+        "device_removed",
+        "devices_removed_all",
+      ]),
+      ip: zod.string().optional(),
+      userAgent: zod.string().optional(),
+      metadata: zod.record(zod.string(), zod.unknown()).optional(),
+      occurredAt: zod.iso.datetime({ offset: true }),
+    }),
+  ),
+});
+
+export const ListAccountLinkedMethodsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      provider: zod.string().describe("'telegram' or 'oidc:<slug>'."),
+      label: zod.string(),
+      removable: zod.boolean().describe("False for the only remaining method."),
+    }),
+  ),
+});
+
+/**
+ * Refuses to remove the last usable method. Needs a recent sign-in, because a session left open must not be enough to strip somebody's way back into their own account.
+ */
+export const UnlinkAccountSignInMethodParams = zod.object({
+  identityID: zod.uuid(),
+});
+
+export const UnlinkAccountSignInMethodHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const UnlinkAccountSignInMethodResponse = zod.void();
+
+/**
+ * Attaches a provider to the account already signed in. This is the only route by which an existing customer gains an OIDC method: signing in with an unlinked subject never adopts an existing account by email.
+ */
+export const startAccountOidcLinkPathSlugRegExp = /^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$/;
+
+export const StartAccountOidcLinkParams = zod.object({
+  slug: zod.string().regex(startAccountOidcLinkPathSlugRegExp),
+});
+
+export const StartAccountOidcLinkResponse = zod.void();
+
+export const GetAccountOverviewQueryParams = zod.object({
+  locale: zod.enum(["ru", "en"]).optional(),
+});
+
+export const getAccountOverviewResponseSubscriptionsItemTrafficPercentMin = 0;
+export const getAccountOverviewResponseSubscriptionsItemTrafficPercentMax = 100;
+
+export const GetAccountOverviewResponse = zod.object({
+  customer: zod.object({
+    id: zod.uuid(),
+    locale: zod.enum(["ru", "en"]),
+    timezone: zod.string(),
+    status: zod.enum(["active", "suspended", "deleted"]),
+  }),
+  subscriptions: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      slot: zod.int(),
+      label: zod.string(),
+      plan: zod.string(),
+      phase: zod.enum([
+        "none",
+        "provisioning",
+        "active",
+        "expiring_soon",
+        "grace",
+        "limited",
+        "disabled",
+        "expired",
+        "failed",
+      ]),
+      endsAt: zod.iso.datetime({ offset: true }).optional(),
+      daysLeft: zod.int(),
+      provisioned: zod.boolean(),
+      live: zod
+        .boolean()
+        .describe(
+          "The traffic and device figures were read from Remnawave. When false they are the last observed values and the panel says so.",
+        ),
+      traffic: zod.object({
+        usedBytes: zod.int(),
+        limitBytes: zod.int().nullish(),
+        unlimited: zod.boolean(),
+        percent: zod
+          .int()
+          .min(getAccountOverviewResponseSubscriptionsItemTrafficPercentMin)
+          .max(getAccountOverviewResponseSubscriptionsItemTrafficPercentMax)
+          .describe(
+            "Computed on the server and clamped, so the bar and its textual equivalent cannot disagree. Meaningless when unlimited.",
+          ),
+      }),
+      devices: zod.object({
+        used: zod.int(),
+        limit: zod.int().nullish(),
+        unlimited: zod.boolean(),
+      }),
+    }),
+  ),
+  notice: zod
+    .object({
+      active: zod.boolean(),
+      message: zod
+        .string()
+        .describe(
+          "The operator's own customer-facing wording in the customer's language. Empty when none was configured, which the panel renders with its own localized copy.",
+        ),
+      expectedReturnAt: zod.iso
+        .datetime({ offset: true })
+        .optional()
+        .describe("Absent when the operator gave no estimate."),
+    })
+    .optional()
+    .describe("Present only while maintenance or an incident is active."),
+  showSwitcher: zod
+    .boolean()
+    .describe(
+      "Concurrent subscriptions are enabled. A single-subscription installation gets one screen with no selection step.",
+    ),
+  degraded: zod.boolean().describe("Remnawave could not be reached for at least one subscription."),
+});
+
+export const GetAccountSubscriptionParams = zod.object({
+  subscriptionID: zod.uuid(),
+});
+
+export const GetAccountSubscriptionQueryParams = zod.object({
+  locale: zod.enum(["ru", "en"]).optional(),
+});
+
+export const getAccountSubscriptionResponseTrafficPercentMin = 0;
+export const getAccountSubscriptionResponseTrafficPercentMax = 100;
+
+export const GetAccountSubscriptionResponse = zod.object({
+  id: zod.uuid(),
+  slot: zod.int(),
+  label: zod.string(),
+  plan: zod.string(),
+  phase: zod.enum([
+    "none",
+    "provisioning",
+    "active",
+    "expiring_soon",
+    "grace",
+    "limited",
+    "disabled",
+    "expired",
+    "failed",
+  ]),
+  endsAt: zod.iso.datetime({ offset: true }).optional(),
+  daysLeft: zod.int(),
+  provisioned: zod.boolean(),
+  live: zod
+    .boolean()
+    .describe(
+      "The traffic and device figures were read from Remnawave. When false they are the last observed values and the panel says so.",
+    ),
+  traffic: zod.object({
+    usedBytes: zod.int(),
+    limitBytes: zod.int().nullish(),
+    unlimited: zod.boolean(),
+    percent: zod
+      .int()
+      .min(getAccountSubscriptionResponseTrafficPercentMin)
+      .max(getAccountSubscriptionResponseTrafficPercentMax)
+      .describe(
+        "Computed on the server and clamped, so the bar and its textual equivalent cannot disagree. Meaningless when unlimited.",
+      ),
+  }),
+  devices: zod.object({
+    used: zod.int(),
+    limit: zod.int().nullish(),
+    unlimited: zod.boolean(),
+  }),
+});
+
+/**
+ * The customer's own label, which every screen and notification uses to name the subscription.
+ */
+export const RenameAccountSubscriptionParams = zod.object({
+  subscriptionID: zod.uuid(),
+});
+
+export const RenameAccountSubscriptionHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const renameAccountSubscriptionBodyLabelMax = 40;
+
+export const RenameAccountSubscriptionBody = zod.object({
+  label: zod.string().min(1).max(renameAccountSubscriptionBodyLabelMax),
+});
+
+export const RenameAccountSubscriptionResponse = zod.void();
+
+/**
+ * The access link plus the documented clients for one platform. The client list is the same one the bot renders, so the two surfaces cannot recommend different applications.
+ */
+export const GetAccountConnectionParams = zod.object({
+  subscriptionID: zod.uuid(),
+});
+
+export const GetAccountConnectionQueryParams = zod.object({
+  platform: zod.enum(["ios", "android", "windows", "macos", "linux"]).optional(),
+});
+
+export const GetAccountConnectionResponse = zod.object({
+  subscriptionUrl: zod.string(),
+  platform: zod.string(),
+  platforms: zod.array(zod.string()),
+  clients: zod.array(
+    zod.object({
+      name: zod.string(),
+      deepLink: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * Issues a new access link and invalidates the old one. Every connected device stops working until the new link is imported, so it needs both an explicit confirmation and a recent sign-in.
+ */
+export const RotateAccountSubscriptionLinkParams = zod.object({
+  subscriptionID: zod.uuid(),
+});
+
+export const RotateAccountSubscriptionLinkHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const RotateAccountSubscriptionLinkBody = zod.object({
+  confirm: zod.boolean(),
+});
+
+export const RotateAccountSubscriptionLinkResponse = zod.object({
+  subscriptionUrl: zod.string(),
+});
+
+/**
+ * Connected devices. No hardware identifier and no IP address is returned; a device is named by an opaque handle the server resolves back.
+ */
+export const ListAccountDevicesParams = zod.object({
+  subscriptionID: zod.uuid(),
+});
+
+export const ListAccountDevicesResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      handle: zod.string().describe("Opaque reference. Never the hardware identifier."),
+      name: zod.string().optional(),
+      platform: zod.string().optional(),
+      lastSeen: zod.iso.datetime({ offset: true }),
+    }),
+  ),
+});
+
+/**
+ * Disconnects every device at once. Needs confirmation and a recent sign-in.
+ */
+export const RemoveAllAccountDevicesParams = zod.object({
+  subscriptionID: zod.uuid(),
+});
+
+export const RemoveAllAccountDevicesQueryParams = zod.object({
+  confirm: zod.enum(["true"]),
+});
+
+export const RemoveAllAccountDevicesHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const RemoveAllAccountDevicesResponse = zod.object({
+  removed: zod.int(),
+});
+
+export const RemoveAccountDeviceParams = zod.object({
+  subscriptionID: zod.uuid(),
+  handle: zod.string(),
+});
+
+export const RemoveAccountDeviceHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const RemoveAccountDeviceResponse = zod.void();
+
+/**
+ * Requires settings.read. The customer panel's sign-in providers. The client secret is never returned; `hasClientSecret` says whether one is held.
+ */
+export const ListPanelCustomerOidcProvidersResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      slug: zod.string(),
+      displayName: zod.string(),
+      issuer: zod.url(),
+      discoveryUrl: zod.url(),
+      clientId: zod.string(),
+      scopes: zod.array(zod.string()),
+      enabled: zod.boolean(),
+      icon: zod.string().optional().describe("Name of a shipped icon, never a third-party URL."),
+      sortOrder: zod.int().optional(),
+      requireVerifiedEmail: zod.boolean(),
+      allowAutoProvision: zod
+        .boolean()
+        .describe(
+          "Whether a subject matching no existing customer may create one. It never adopts an existing customer by email address.",
+        ),
+      hasClientSecret: zod.boolean(),
+    }),
+  ),
+});
+
+/**
+ * Requires settings.write. Creating or updating a provider. Disabling one also ends the sessions it established, because a provider that is off while its access remains open is not off.
+ */
+export const SavePanelCustomerOidcProviderHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const savePanelCustomerOidcProviderBodySlugRegExp = /^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$/;
+export const savePanelCustomerOidcProviderBodyDisplayNameMax = 80;
+
+export const savePanelCustomerOidcProviderBodyEnabledDefault = false;
+export const savePanelCustomerOidcProviderBodySortOrderDefault = 0;
+export const savePanelCustomerOidcProviderBodyRequireVerifiedEmailDefault = true;
+export const savePanelCustomerOidcProviderBodyAllowAutoProvisionDefault = true;
+
+export const SavePanelCustomerOidcProviderBody = zod.object({
+  slug: zod.string().regex(savePanelCustomerOidcProviderBodySlugRegExp),
+  displayName: zod.string().min(1).max(savePanelCustomerOidcProviderBodyDisplayNameMax),
+  issuer: zod.url(),
+  discoveryUrl: zod.url(),
+  clientId: zod.string(),
+  clientSecret: zod
+    .string()
+    .optional()
+    .describe("Write-only. Omit to keep the stored secret; it is never returned."),
+  scopes: zod.array(zod.string()).optional(),
+  enabled: zod.boolean().default(savePanelCustomerOidcProviderBodyEnabledDefault),
+  icon: zod.string().optional(),
+  sortOrder: zod.int().default(savePanelCustomerOidcProviderBodySortOrderDefault),
+  requireVerifiedEmail: zod
+    .boolean()
+    .default(savePanelCustomerOidcProviderBodyRequireVerifiedEmailDefault),
+  allowAutoProvision: zod
+    .boolean()
+    .default(savePanelCustomerOidcProviderBodyAllowAutoProvisionDefault),
+});
+
+export const SavePanelCustomerOidcProviderResponse = zod.object({
+  slug: zod.string(),
+  displayName: zod.string(),
+  issuer: zod.url(),
+  discoveryUrl: zod.url(),
+  clientId: zod.string(),
+  scopes: zod.array(zod.string()),
+  enabled: zod.boolean(),
+  icon: zod.string().optional().describe("Name of a shipped icon, never a third-party URL."),
+  sortOrder: zod.int().optional(),
+  requireVerifiedEmail: zod.boolean(),
+  allowAutoProvision: zod
+    .boolean()
+    .describe(
+      "Whether a subject matching no existing customer may create one. It never adopts an existing customer by email address.",
+    ),
+  hasClientSecret: zod.boolean(),
+});
+
+/**
+ * Requires settings.read. Shipped starting points for well-known providers. A preset is data that prefills the form; nothing downstream branches on which one a provider came from.
+ */
+export const ListPanelCustomerOidcPresetsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      slug: zod.string(),
+      displayName: zod.string(),
+      issuer: zod.url(),
+      discoveryUrl: zod.url(),
+      scopes: zod.array(zod.string()),
+      icon: zod.string().optional(),
+      requireVerifiedEmail: zod.boolean(),
+      note: zod
+        .string()
+        .optional()
+        .describe("What the operator has to know that the form does not show."),
+    }),
+  ),
+});
+
+/**
+ * Requires settings.write. Removes a provider and ends its sessions. The linked identities are kept: deleting them would silently take a sign-in method away from customers who may have no other one.
+ */
+export const deletePanelCustomerOidcProviderPathSlugRegExp = /^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$/;
+
+export const DeletePanelCustomerOidcProviderParams = zod.object({
+  slug: zod.string().regex(deletePanelCustomerOidcProviderPathSlugRegExp),
+});
+
+export const DeletePanelCustomerOidcProviderHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const DeletePanelCustomerOidcProviderResponse = zod.void();
+
 export const collectTelemetryEventBodyInstallationIdMin = 16;
 export const collectTelemetryEventBodyInstallationIdMax = 64;
 

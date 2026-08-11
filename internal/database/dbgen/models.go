@@ -652,6 +652,65 @@ type CustomerLifecycleEvent struct {
 	OccurredAt pgtype.Timestamptz `json:"occurred_at"`
 }
 
+type CustomerMagicLink struct {
+	ID          pgtype.UUID        `json:"id"`
+	UserID      pgtype.UUID        `json:"user_id"`
+	TokenHash   []byte             `json:"token_hash"`
+	RequestedIp *netip.Addr        `json:"requested_ip"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt  pgtype.Timestamptz `json:"consumed_at"`
+	ConsumedIp  *netip.Addr        `json:"consumed_ip"`
+}
+
+type CustomerOidcProvider struct {
+	ID                     pgtype.UUID        `json:"id"`
+	Slug                   string             `json:"slug"`
+	DisplayName            string             `json:"display_name"`
+	Issuer                 string             `json:"issuer"`
+	DiscoveryUrl           string             `json:"discovery_url"`
+	ClientID               string             `json:"client_id"`
+	ClientSecretCiphertext []byte             `json:"client_secret_ciphertext"`
+	Scopes                 []string           `json:"scopes"`
+	Enabled                bool               `json:"enabled"`
+	Icon                   pgtype.Text        `json:"icon"`
+	SortOrder              int32              `json:"sort_order"`
+	RequireVerifiedEmail   bool               `json:"require_verified_email"`
+	AllowAutoProvision     bool               `json:"allow_auto_provision"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	DisabledAt             pgtype.Timestamptz `json:"disabled_at"`
+}
+
+type CustomerSecurityEvent struct {
+	ID         pgtype.UUID        `json:"id"`
+	UserID     pgtype.UUID        `json:"user_id"`
+	Event      string             `json:"event"`
+	Ip         *netip.Addr        `json:"ip"`
+	UserAgent  pgtype.Text        `json:"user_agent"`
+	RequestID  pgtype.Text        `json:"request_id"`
+	Metadata   []byte             `json:"metadata"`
+	OccurredAt pgtype.Timestamptz `json:"occurred_at"`
+}
+
+type CustomerSession struct {
+	ID                pgtype.UUID        `json:"id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	TokenHash         []byte             `json:"token_hash"`
+	CsrfSecret        []byte             `json:"csrf_secret"`
+	AuthMethod        string             `json:"auth_method"`
+	AuthProvider      pgtype.Text        `json:"auth_provider"`
+	Ip                *netip.Addr        `json:"ip"`
+	UserAgent         pgtype.Text        `json:"user_agent"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	LastSeenAt        pgtype.Timestamptz `json:"last_seen_at"`
+	RotatedAt         pgtype.Timestamptz `json:"rotated_at"`
+	IdleExpiresAt     pgtype.Timestamptz `json:"idle_expires_at"`
+	AbsoluteExpiresAt pgtype.Timestamptz `json:"absolute_expires_at"`
+	RevokedAt         pgtype.Timestamptz `json:"revoked_at"`
+	RevokedReason     pgtype.Text        `json:"revoked_reason"`
+}
+
 type DunningAttempt struct {
 	ID              pgtype.UUID        `json:"id"`
 	UserID          pgtype.UUID        `json:"user_id"`

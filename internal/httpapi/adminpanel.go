@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/omniflow/omniflow/internal/adminauth"
 	"github.com/omniflow/omniflow/internal/adminauthpg"
+	"github.com/omniflow/omniflow/internal/customerauthpg"
 	"github.com/omniflow/omniflow/internal/fulfillment"
 	"github.com/omniflow/omniflow/internal/panelpg"
 	"github.com/omniflow/omniflow/internal/payments"
@@ -52,6 +53,10 @@ type AdminHandlers struct {
 	// remnawave answers the device questions Omniflow does not store. A nil
 	// value leaves the device routes unmounted.
 	remnawave *remnawave.Client
+	// customerAuth manages the customer panel's sign-in providers. A nil value
+	// leaves those settings routes unmounted, which is what an installation
+	// running no customer panel gets.
+	customerAuth *customerauthpg.Service
 
 	// version is the running build, published in diagnostics and in the
 	// telemetry preview so an operator can see what would be sent.
@@ -193,6 +198,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 			handlers.mountLoyalty(secure)
 			handlers.mountMarketing(secure)
 			handlers.mountSettings(secure)
+			handlers.mountCustomerAuth(secure)
 		})
 	})
 }

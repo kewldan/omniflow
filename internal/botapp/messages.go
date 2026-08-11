@@ -65,6 +65,24 @@ var catalog = map[string]phrase{
 		en: "⏳ Too many requests. Please wait a moment and try again."},
 	"menu.replay": {ru: "Это действие уже выполнено.", en: "This action has already been completed."},
 
+	// Customer web sign-in. The link is a bearer credential for ten minutes, so
+	// the copy says so plainly rather than leaving the customer to guess whether
+	// forwarding it is safe.
+	"weblogin.link": {
+		ru: "🔐 <b>Вход в личный кабинет</b>\n\nСсылка действует 10 минут и сработает один раз. " +
+			"Не пересылайте её — тот, кто откроет ссылку, войдёт в ваш аккаунт.\n\n%s",
+		en: "🔐 <b>Sign in to your account</b>\n\nThis link works once and expires in 10 minutes. " +
+			"Do not forward it — whoever opens it signs in as you.\n\n%s"},
+	"weblogin.unavailable": {
+		ru: "Вход на сайте через ссылку сейчас недоступен.",
+		en: "Link sign-in on the website is not available right now."},
+	"weblogin.throttled": {
+		ru: "Вы запросили слишком много ссылок. Попробуйте позже.",
+		en: "Too many sign-in links requested. Please try again later."},
+	"weblogin.failed": {
+		ru: "Не удалось создать ссылку. Попробуйте ещё раз.",
+		en: "The sign-in link could not be created. Please try again."},
+
 	// Catalog.
 	"plans.title": {ru: "🛒 <b>Тарифы</b>\n\nВыберите тариф. Все цены указаны за один период и без скрытых платежей.",
 		en: "🛒 <b>Plans</b>\n\nChoose a plan. Every price covers one full period with no hidden fees."},

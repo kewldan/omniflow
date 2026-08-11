@@ -79,6 +79,10 @@ type App struct {
 	// process wires one in, and a nil verifier gates nothing — an installation
 	// that requires no channels wanted exactly that.
 	membership MembershipVerifier
+
+	// webSignIn issues one-time links into the customer web panel. It stays nil
+	// unless the operator enabled the magic-link fallback.
+	webSignIn WebSignIn
 }
 
 func New(logger *slog.Logger, store Store, remnawaveService remnawave.Service, supportURL string) *App {
@@ -151,6 +155,7 @@ func (app *App) Register(client *telegram.Bot) {
 	client.RegisterHandler(telegram.HandlerTypeMessageText, "orders", telegram.MatchTypeCommandStartOnly, app.HandleOrders)
 	client.RegisterHandler(telegram.HandlerTypeMessageText, "wallet", telegram.MatchTypeCommandStartOnly, app.HandleWallet)
 	client.RegisterHandler(telegram.HandlerTypeMessageText, "ops", telegram.MatchTypeCommandStartOnly, app.HandleOps)
+	client.RegisterHandler(telegram.HandlerTypeMessageText, "login", telegram.MatchTypeCommandStartOnly, app.HandleWebLogin)
 	client.RegisterHandler(telegram.HandlerTypeMessageText, "cancel", telegram.MatchTypeCommandStartOnly, app.HandleCancel)
 	client.RegisterHandler(telegram.HandlerTypeCallbackQueryData, callbackPrefix, telegram.MatchTypePrefix, app.HandleCallback)
 	client.RegisterHandler(telegram.HandlerTypeCallbackQueryData, actionPrefix, telegram.MatchTypePrefix, app.HandleCallback)

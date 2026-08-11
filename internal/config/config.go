@@ -126,6 +126,26 @@ type Config struct {
 	Subscriptions             SubscriptionConfig
 	Maintenance               MaintenanceConfig
 	AdminPanel                AdminPanelConfig
+	CustomerPanel             CustomerPanelConfig
+	PublicURL                 string
+}
+
+// CustomerPanelConfig configures the customer web panel API introduced in v0.9.
+type CustomerPanelConfig struct {
+	// Enabled mounts /v1/account. It needs APP_DATA_ENCRYPTION_KEY, which seals
+	// OIDC client secrets and the sign-in flow cookie, so a Telegram-only
+	// installation can leave it off.
+	Enabled bool
+	// CookieSecure marks the session cookie Secure. It defaults to true and
+	// should only be turned off for a plain-HTTP local stack, where a browser
+	// would otherwise refuse the cookie and sign-in could never complete.
+	CookieSecure bool
+	// MagicLinkEnabled offers the bot-delivered sign-in link as a fallback for
+	// installations where the Telegram login widget is not usable — typically
+	// because the domain has not been bound in BotFather. It is off by default:
+	// it is a second bearer credential travelling through a chat, and an
+	// operator should switch it on deliberately.
+	MagicLinkEnabled bool
 }
 
 // AdminPanelConfig configures the operator panel API introduced in v0.6.
@@ -180,6 +200,9 @@ type BotConfig struct {
 	Operator      OperatorConfig
 	Backup        BackupConfig
 	Webhook       TelegramWebhookConfig
+	// CustomerPanel tells the bot whether to offer the web sign-in link. The bot
+	// is the delivery channel for it, so it needs the same switch the API reads.
+	CustomerPanel CustomerPanelConfig
 }
 
 type WorkerConfig struct {
@@ -230,6 +253,8 @@ func Load() (Config, error) {
 		Subscriptions:             loadSubscriptions(),
 		Maintenance:               loadMaintenance(),
 		AdminPanel:                loadAdminPanel(),
+		CustomerPanel:             loadCustomerPanel(),
+		PublicURL:                 os.Getenv("APP_PUBLIC_URL"),
 	}
 	if encodedKey := os.Getenv("APP_DATA_ENCRYPTION_KEY"); encodedKey != "" {
 		key, err := decodeKey(encodedKey)
@@ -313,6 +338,10 @@ func LoadBot() (BotConfig, error) {
 	}
 	if cfg.YooKassaShopID != "" && cfg.PublicURL == "" {
 		return BotConfig{}, errors.New("APP_PUBLIC_URL is required for YooKassa hosted checkout return links")
+	}
+	cfg.CustomerPanel = loadCustomerPanel()
+	if cfg.CustomerPanel.MagicLinkEnabled && cfg.PublicURL == "" {
+		return BotConfig{}, errors.New("APP_PUBLIC_URL is required when the customer magic-link fallback is enabled")
 	}
 	topUp, err := loadTopUp()
 	if err != nil {
@@ -427,6 +456,17 @@ func loadAdminPanel() AdminPanelConfig {
 		}
 	}
 	return cfg
+}
+
+// loadCustomerPanel reads the v0.9 customer web settings.
+func loadCustomerPanel() CustomerPanelConfig {
+	return CustomerPanelConfig{
+		Enabled: boolEnvOr("APP_CUSTOMER_PANEL_ENABLED", true),
+		// Defaults to true so a deployment that forgets to set it still gets a
+		// cookie a browser will only send over TLS.
+		CookieSecure:     boolEnvOr("APP_CUSTOMER_COOKIE_SECURE", true),
+		MagicLinkEnabled: boolEnvOr("APP_CUSTOMER_MAGIC_LINK_ENABLED", false),
+	}
 }
 
 func loadOperator() (OperatorConfig, error) {

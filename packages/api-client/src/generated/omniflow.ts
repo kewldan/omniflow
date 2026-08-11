@@ -2381,6 +2381,306 @@ export interface PanelBulkDetail {
   items: PanelBulkItem[] | null;
 }
 
+export type AccountSignInMethodsOidcItem = {
+  slug: string;
+  displayName: string;
+  /** Name of a shipped icon, never a third-party URL. */
+  icon?: string;
+};
+
+export interface AccountSignInMethods {
+  /** A bot token is configured, so the login widget can be verified. */
+  telegram: boolean;
+  /** The operator enabled the bot-delivered fallback. */
+  magicLink: boolean;
+  oidc: AccountSignInMethodsOidcItem[];
+}
+
+export type AccountCustomerLocale =
+  (typeof AccountCustomerLocale)[keyof typeof AccountCustomerLocale];
+
+export const AccountCustomerLocale = {
+  ru: "ru",
+  en: "en",
+} as const;
+
+export type AccountCustomerStatus =
+  (typeof AccountCustomerStatus)[keyof typeof AccountCustomerStatus];
+
+export const AccountCustomerStatus = {
+  active: "active",
+  suspended: "suspended",
+  deleted: "deleted",
+} as const;
+
+export interface AccountCustomer {
+  id: string;
+  locale: AccountCustomerLocale;
+  timezone: string;
+  status: AccountCustomerStatus;
+}
+
+export interface AccountSignIn {
+  customer: AccountCustomer;
+  expiresAt: string;
+}
+
+export type AccountSessionSessionAuthMethod =
+  (typeof AccountSessionSessionAuthMethod)[keyof typeof AccountSessionSessionAuthMethod];
+
+export const AccountSessionSessionAuthMethod = {
+  telegram: "telegram",
+  magic_link: "magic_link",
+  oidc: "oidc",
+} as const;
+
+export type AccountSessionSession = {
+  id: string;
+  authMethod: AccountSessionSessionAuthMethod;
+  authProvider?: string;
+  expiresAt: string;
+  /** The session is older than the re-authentication window, so a destructive action will be refused until the customer signs in again. */
+  reauthenticationRequired: boolean;
+};
+
+export interface AccountSession {
+  customer: AccountCustomer;
+  session: AccountSessionSession;
+}
+
+export type AccountProfileInputLocale =
+  (typeof AccountProfileInputLocale)[keyof typeof AccountProfileInputLocale];
+
+export const AccountProfileInputLocale = {
+  ru: "ru",
+  en: "en",
+} as const;
+
+export interface AccountProfileInput {
+  locale: AccountProfileInputLocale;
+  timezone: string;
+}
+
+export type AccountSessionListItemsItemAuthMethod =
+  (typeof AccountSessionListItemsItemAuthMethod)[keyof typeof AccountSessionListItemsItemAuthMethod];
+
+export const AccountSessionListItemsItemAuthMethod = {
+  telegram: "telegram",
+  magic_link: "magic_link",
+  oidc: "oidc",
+} as const;
+
+export type AccountSessionListItemsItem = {
+  id: string;
+  current: boolean;
+  authMethod: AccountSessionListItemsItemAuthMethod;
+  authProvider?: string;
+  ip?: string;
+  userAgent?: string;
+  createdAt: string;
+  lastSeenAt: string;
+  expiresAt: string;
+};
+
+export interface AccountSessionList {
+  items: AccountSessionListItemsItem[];
+}
+
+export type AccountSecurityEventListItemsItemEvent =
+  (typeof AccountSecurityEventListItemsItemEvent)[keyof typeof AccountSecurityEventListItemsItemEvent];
+
+export const AccountSecurityEventListItemsItemEvent = {
+  signed_in: "signed_in",
+  signed_out: "signed_out",
+  signed_out_all: "signed_out_all",
+  session_revoked: "session_revoked",
+  magic_link_requested: "magic_link_requested",
+  identity_linked: "identity_linked",
+  identity_unlinked: "identity_unlinked",
+  subscription_key_rotated: "subscription_key_rotated",
+  device_removed: "device_removed",
+  devices_removed_all: "devices_removed_all",
+} as const;
+
+export type AccountSecurityEventListItemsItemMetadata = { [key: string]: unknown };
+
+export type AccountSecurityEventListItemsItem = {
+  id: string;
+  event: AccountSecurityEventListItemsItemEvent;
+  ip?: string;
+  userAgent?: string;
+  metadata?: AccountSecurityEventListItemsItemMetadata;
+  occurredAt: string;
+};
+
+export interface AccountSecurityEventList {
+  items: AccountSecurityEventListItemsItem[];
+}
+
+export type AccountLinkedMethodListItemsItem = {
+  id: string;
+  /** 'telegram' or 'oidc:<slug>'. */
+  provider: string;
+  label: string;
+  /** False for the only remaining method. */
+  removable: boolean;
+};
+
+export interface AccountLinkedMethodList {
+  items: AccountLinkedMethodListItemsItem[];
+}
+
+export interface AccountTraffic {
+  usedBytes: number;
+  /** @nullable */
+  limitBytes?: number | null;
+  unlimited: boolean;
+  /**
+   * Computed on the server and clamped, so the bar and its textual equivalent cannot disagree. Meaningless when unlimited.
+   * @minimum 0
+   * @maximum 100
+   */
+  percent: number;
+}
+
+export interface AccountDeviceUsage {
+  used: number;
+  /** @nullable */
+  limit?: number | null;
+  unlimited: boolean;
+}
+
+export type AccountSubscriptionPhase =
+  (typeof AccountSubscriptionPhase)[keyof typeof AccountSubscriptionPhase];
+
+export const AccountSubscriptionPhase = {
+  none: "none",
+  provisioning: "provisioning",
+  active: "active",
+  expiring_soon: "expiring_soon",
+  grace: "grace",
+  limited: "limited",
+  disabled: "disabled",
+  expired: "expired",
+  failed: "failed",
+} as const;
+
+export interface AccountSubscription {
+  id: string;
+  slot: number;
+  label: string;
+  plan: string;
+  phase: AccountSubscriptionPhase;
+  endsAt?: string;
+  daysLeft: number;
+  provisioned: boolean;
+  /** The traffic and device figures were read from Remnawave. When false they are the last observed values and the panel says so. */
+  live: boolean;
+  traffic: AccountTraffic;
+  devices: AccountDeviceUsage;
+}
+
+export interface AccountNotice {
+  active: boolean;
+  /** The operator's own customer-facing wording in the customer's language. Empty when none was configured, which the panel renders with its own localized copy. */
+  message: string;
+  /** Absent when the operator gave no estimate. */
+  expectedReturnAt?: string;
+}
+
+export interface AccountOverview {
+  customer: AccountCustomer;
+  subscriptions: AccountSubscription[];
+  /** Present only while maintenance or an incident is active. */
+  notice?: AccountNotice;
+  /** Concurrent subscriptions are enabled. A single-subscription installation gets one screen with no selection step. */
+  showSwitcher: boolean;
+  /** Remnawave could not be reached for at least one subscription. */
+  degraded: boolean;
+}
+
+export type AccountConnectionClientsItem = {
+  name: string;
+  deepLink: string;
+};
+
+export interface AccountConnection {
+  subscriptionUrl: string;
+  platform: string;
+  platforms: string[];
+  clients: AccountConnectionClientsItem[];
+}
+
+export type AccountDeviceListItemsItem = {
+  /** Opaque reference. Never the hardware identifier. */
+  handle: string;
+  name?: string;
+  platform?: string;
+  lastSeen: string;
+};
+
+export interface AccountDeviceList {
+  items: AccountDeviceListItemsItem[];
+}
+
+export interface CustomerOidcProvider {
+  slug: string;
+  displayName: string;
+  issuer: string;
+  discoveryUrl: string;
+  clientId: string;
+  scopes: string[];
+  enabled: boolean;
+  /** Name of a shipped icon, never a third-party URL. */
+  icon?: string;
+  sortOrder?: number;
+  requireVerifiedEmail: boolean;
+  /** Whether a subject matching no existing customer may create one. It never adopts an existing customer by email address. */
+  allowAutoProvision: boolean;
+  hasClientSecret: boolean;
+}
+
+export interface CustomerOidcProviderList {
+  items: CustomerOidcProvider[];
+}
+
+export interface CustomerOidcProviderInput {
+  /** @pattern ^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$ */
+  slug: string;
+  /**
+   * @minLength 1
+   * @maxLength 80
+   */
+  displayName: string;
+  issuer: string;
+  discoveryUrl: string;
+  clientId: string;
+  /** Write-only. Omit to keep the stored secret; it is never returned. */
+  clientSecret?: string;
+  scopes?: string[];
+  enabled?: boolean;
+  icon?: string;
+  sortOrder?: number;
+  requireVerifiedEmail?: boolean;
+  allowAutoProvision?: boolean;
+}
+
+export type CustomerOidcPresetListItemsItem = {
+  slug: string;
+  displayName: string;
+  issuer: string;
+  discoveryUrl: string;
+  scopes: string[];
+  icon?: string;
+  requireVerifiedEmail: boolean;
+  /** What the operator has to know that the form does not show. */
+  note?: string;
+};
+
+export interface CustomerOidcPresetList {
+  items: CustomerOidcPresetListItemsItem[];
+}
+
 /**
  * Request failed
  */
@@ -2923,6 +3223,112 @@ export type ListPanelBulkItemsParams = {
    * @maximum 500
    */
   pageSize?: PageSizeParameter;
+};
+
+export type AccountSignInWithTelegramBody = { [key: string]: string };
+
+export type AccountSignInWithMiniAppBody = {
+  initData: string;
+};
+
+export type AccountCompleteMagicLinkParams = {
+  token: string;
+};
+
+export type StartAccountOidcParams = {
+  /**
+   * Same-site path to return to.
+   */
+  next?: string;
+};
+
+export type CompleteAccountOidcParams = {
+  code?: string;
+  state?: string;
+  error?: string;
+};
+
+export type AccountLogoutAllBody = {
+  keepCurrent?: boolean;
+};
+
+export type AccountLogoutAll200 = {
+  revoked: number;
+};
+
+export type ListAccountSecurityEventsParams = {
+  cursor?: string;
+  cursorId?: string;
+};
+
+export type GetAccountOverviewParams = {
+  locale?: GetAccountOverviewLocale;
+};
+
+export type GetAccountOverviewLocale =
+  (typeof GetAccountOverviewLocale)[keyof typeof GetAccountOverviewLocale];
+
+export const GetAccountOverviewLocale = {
+  ru: "ru",
+  en: "en",
+} as const;
+
+export type GetAccountSubscriptionParams = {
+  locale?: GetAccountSubscriptionLocale;
+};
+
+export type GetAccountSubscriptionLocale =
+  (typeof GetAccountSubscriptionLocale)[keyof typeof GetAccountSubscriptionLocale];
+
+export const GetAccountSubscriptionLocale = {
+  ru: "ru",
+  en: "en",
+} as const;
+
+export type RenameAccountSubscriptionBody = {
+  /**
+   * @minLength 1
+   * @maxLength 40
+   */
+  label: string;
+};
+
+export type GetAccountConnectionParams = {
+  platform?: GetAccountConnectionPlatform;
+};
+
+export type GetAccountConnectionPlatform =
+  (typeof GetAccountConnectionPlatform)[keyof typeof GetAccountConnectionPlatform];
+
+export const GetAccountConnectionPlatform = {
+  ios: "ios",
+  android: "android",
+  windows: "windows",
+  macos: "macos",
+  linux: "linux",
+} as const;
+
+export type RotateAccountSubscriptionLinkBody = {
+  confirm: boolean;
+};
+
+export type RotateAccountSubscriptionLink200 = {
+  subscriptionUrl: string;
+};
+
+export type RemoveAllAccountDevicesParams = {
+  confirm: RemoveAllAccountDevicesConfirm;
+};
+
+export type RemoveAllAccountDevicesConfirm =
+  (typeof RemoveAllAccountDevicesConfirm)[keyof typeof RemoveAllAccountDevicesConfirm];
+
+export const RemoveAllAccountDevicesConfirm = {
+  true: "true",
+} as const;
+
+export type RemoveAllAccountDevices200 = {
+  removed: number;
 };
 
 export type getHealthResponse200 = {
@@ -14872,6 +15278,2324 @@ export const useListPanelBulkItems = <TError = Promise<ProblemResponse>>(
   const swrFn = () => listPanelBulkItems(operationID, params, fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listAccountSignInMethodsResponse200 = {
+  data: AccountSignInMethods;
+  status: 200;
+};
+
+export type listAccountSignInMethodsResponseSuccess = listAccountSignInMethodsResponse200 & {
+  headers: Headers;
+};
+
+export type listAccountSignInMethodsResponse = listAccountSignInMethodsResponseSuccess;
+
+export const getListAccountSignInMethodsUrl = () => {
+  return `/v1/account/auth/methods`;
+};
+
+/**
+ * Which sign-in routes this installation actually offers. The sign-in screen renders from this, so an installation with no bot token never shows a Telegram button that cannot work.
+ */
+export const listAccountSignInMethods = async (
+  options?: RequestInit,
+): Promise<listAccountSignInMethodsResponse> => {
+  const res = await fetch(getListAccountSignInMethodsUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listAccountSignInMethodsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listAccountSignInMethodsResponse;
+};
+
+export const getListAccountSignInMethodsKey = () => [`/v1/account/auth/methods`] as const;
+
+export type ListAccountSignInMethodsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAccountSignInMethods>>
+>;
+
+export const useListAccountSignInMethods = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listAccountSignInMethods>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListAccountSignInMethodsKey() : null));
+  const swrFn = () => listAccountSignInMethods(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type accountSignInWithTelegramResponse200 = {
+  data: AccountSignIn;
+  status: 200;
+};
+
+export type accountSignInWithTelegramResponse401 = {
+  data: ProblemResponse;
+  status: 401;
+};
+
+export type accountSignInWithTelegramResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type accountSignInWithTelegramResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type accountSignInWithTelegramResponseSuccess = accountSignInWithTelegramResponse200 & {
+  headers: Headers;
+};
+export type accountSignInWithTelegramResponseError = (
+  | accountSignInWithTelegramResponse401
+  | accountSignInWithTelegramResponse403
+  | accountSignInWithTelegramResponse404
+) & {
+  headers: Headers;
+};
+
+export type accountSignInWithTelegramResponse =
+  | accountSignInWithTelegramResponseSuccess
+  | accountSignInWithTelegramResponseError;
+
+export const getAccountSignInWithTelegramUrl = () => {
+  return `/v1/account/auth/telegram`;
+};
+
+/**
+ * Verifies a Telegram Login Widget payload. The hash is checked against the bot token and the auth_date must be recent, so a captured payload cannot be replayed indefinitely.
+ */
+export const accountSignInWithTelegram = async (
+  accountSignInWithTelegramBody: AccountSignInWithTelegramBody,
+  options?: RequestInit,
+): Promise<accountSignInWithTelegramResponse> => {
+  const res = await fetch(getAccountSignInWithTelegramUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(accountSignInWithTelegramBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: accountSignInWithTelegramResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as accountSignInWithTelegramResponse;
+};
+
+export const getAccountSignInWithTelegramMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: AccountSignInWithTelegramBody }) => {
+    return accountSignInWithTelegram(arg, options);
+  };
+};
+export const getAccountSignInWithTelegramMutationKey = () => [`/v1/account/auth/telegram`] as const;
+
+export type AccountSignInWithTelegramMutationResult = NonNullable<
+  Awaited<ReturnType<typeof accountSignInWithTelegram>>
+>;
+
+export const useAccountSignInWithTelegram = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof accountSignInWithTelegram>>,
+    TError,
+    Key,
+    AccountSignInWithTelegramBody,
+    Awaited<ReturnType<typeof accountSignInWithTelegram>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getAccountSignInWithTelegramMutationKey();
+  const swrFn = getAccountSignInWithTelegramMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type accountSignInWithMiniAppResponse200 = {
+  data: AccountSignIn;
+  status: 200;
+};
+
+export type accountSignInWithMiniAppResponse401 = {
+  data: ProblemResponse;
+  status: 401;
+};
+
+export type accountSignInWithMiniAppResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type accountSignInWithMiniAppResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type accountSignInWithMiniAppResponseSuccess = accountSignInWithMiniAppResponse200 & {
+  headers: Headers;
+};
+export type accountSignInWithMiniAppResponseError = (
+  | accountSignInWithMiniAppResponse401
+  | accountSignInWithMiniAppResponse403
+  | accountSignInWithMiniAppResponse404
+) & {
+  headers: Headers;
+};
+
+export type accountSignInWithMiniAppResponse =
+  | accountSignInWithMiniAppResponseSuccess
+  | accountSignInWithMiniAppResponseError;
+
+export const getAccountSignInWithMiniAppUrl = () => {
+  return `/v1/account/auth/telegram/miniapp`;
+};
+
+/**
+ * Verifies the initData a Telegram Mini App hands to its own page.
+ */
+export const accountSignInWithMiniApp = async (
+  accountSignInWithMiniAppBody: AccountSignInWithMiniAppBody,
+  options?: RequestInit,
+): Promise<accountSignInWithMiniAppResponse> => {
+  const res = await fetch(getAccountSignInWithMiniAppUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(accountSignInWithMiniAppBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: accountSignInWithMiniAppResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as accountSignInWithMiniAppResponse;
+};
+
+export const getAccountSignInWithMiniAppMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: AccountSignInWithMiniAppBody }) => {
+    return accountSignInWithMiniApp(arg, options);
+  };
+};
+export const getAccountSignInWithMiniAppMutationKey = () =>
+  [`/v1/account/auth/telegram/miniapp`] as const;
+
+export type AccountSignInWithMiniAppMutationResult = NonNullable<
+  Awaited<ReturnType<typeof accountSignInWithMiniApp>>
+>;
+
+export const useAccountSignInWithMiniApp = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof accountSignInWithMiniApp>>,
+    TError,
+    Key,
+    AccountSignInWithMiniAppBody,
+    Awaited<ReturnType<typeof accountSignInWithMiniApp>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getAccountSignInWithMiniAppMutationKey();
+  const swrFn = getAccountSignInWithMiniAppMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type accountCompleteMagicLinkResponse302 = {
+  data: void;
+  status: 302;
+};
+export type accountCompleteMagicLinkResponseError = accountCompleteMagicLinkResponse302 & {
+  headers: Headers;
+};
+
+export type accountCompleteMagicLinkResponse = accountCompleteMagicLinkResponseError;
+
+export const getAccountCompleteMagicLinkUrl = (params: AccountCompleteMagicLinkParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/account/auth/link?${stringifiedParams}`
+    : `/v1/account/auth/link`;
+};
+
+/**
+ * Redeems a one-time link the bot delivered. The token is consumed before the redirect is issued, so the URL left in history is already spent.
+ */
+export const accountCompleteMagicLink = async (
+  params: AccountCompleteMagicLinkParams,
+  options?: RequestInit,
+): Promise<accountCompleteMagicLinkResponse> => {
+  const res = await fetch(getAccountCompleteMagicLinkUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: accountCompleteMagicLinkResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as accountCompleteMagicLinkResponse;
+};
+
+export const getAccountCompleteMagicLinkKey = (params: AccountCompleteMagicLinkParams) =>
+  [`/v1/account/auth/link`, ...(params ? [params] : [])] as const;
+
+export type AccountCompleteMagicLinkQueryResult = NonNullable<
+  Awaited<ReturnType<typeof accountCompleteMagicLink>>
+>;
+
+export const useAccountCompleteMagicLink = <TError = Promise<void>>(
+  params: AccountCompleteMagicLinkParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof accountCompleteMagicLink>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getAccountCompleteMagicLinkKey(params) : null));
+  const swrFn = () => accountCompleteMagicLink(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type startAccountOidcResponse302 = {
+  data: void;
+  status: 302;
+};
+
+export type startAccountOidcResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type startAccountOidcResponse502 = {
+  data: ProblemResponse;
+  status: 502;
+};
+export type startAccountOidcResponseError = (
+  | startAccountOidcResponse302
+  | startAccountOidcResponse404
+  | startAccountOidcResponse502
+) & {
+  headers: Headers;
+};
+
+export type startAccountOidcResponse = startAccountOidcResponseError;
+
+export const getStartAccountOidcUrl = (slug: string, params?: StartAccountOidcParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/account/auth/oidc/${slug}/start?${stringifiedParams}`
+    : `/v1/account/auth/oidc/${slug}/start`;
+};
+
+export const startAccountOidc = async (
+  slug: string,
+  params?: StartAccountOidcParams,
+  options?: RequestInit,
+): Promise<startAccountOidcResponse> => {
+  const res = await fetch(getStartAccountOidcUrl(slug, params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: startAccountOidcResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as startAccountOidcResponse;
+};
+
+export const getStartAccountOidcKey = (slug: string, params?: StartAccountOidcParams) =>
+  [`/v1/account/auth/oidc/${slug}/start`, ...(params ? [params] : [])] as const;
+
+export type StartAccountOidcQueryResult = NonNullable<Awaited<ReturnType<typeof startAccountOidc>>>;
+
+export const useStartAccountOidc = <TError = Promise<void | ProblemResponse>>(
+  slug: string,
+  params?: StartAccountOidcParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof startAccountOidc>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false && slug !== null && slug !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getStartAccountOidcKey(slug, params) : null));
+  const swrFn = () => startAccountOidc(slug, params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type completeAccountOidcResponse302 = {
+  data: void;
+  status: 302;
+};
+export type completeAccountOidcResponseError = completeAccountOidcResponse302 & {
+  headers: Headers;
+};
+
+export type completeAccountOidcResponse = completeAccountOidcResponseError;
+
+export const getCompleteAccountOidcUrl = (slug: string, params?: CompleteAccountOidcParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/account/auth/oidc/${slug}/callback?${stringifiedParams}`
+    : `/v1/account/auth/oidc/${slug}/callback`;
+};
+
+export const completeAccountOidc = async (
+  slug: string,
+  params?: CompleteAccountOidcParams,
+  options?: RequestInit,
+): Promise<completeAccountOidcResponse> => {
+  const res = await fetch(getCompleteAccountOidcUrl(slug, params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: completeAccountOidcResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as completeAccountOidcResponse;
+};
+
+export const getCompleteAccountOidcKey = (slug: string, params?: CompleteAccountOidcParams) =>
+  [`/v1/account/auth/oidc/${slug}/callback`, ...(params ? [params] : [])] as const;
+
+export type CompleteAccountOidcQueryResult = NonNullable<
+  Awaited<ReturnType<typeof completeAccountOidc>>
+>;
+
+export const useCompleteAccountOidc = <TError = Promise<void>>(
+  slug: string,
+  params?: CompleteAccountOidcParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof completeAccountOidc>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false && slug !== null && slug !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getCompleteAccountOidcKey(slug, params) : null));
+  const swrFn = () => completeAccountOidc(slug, params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountSessionResponse200 = {
+  data: AccountSession;
+  status: 200;
+};
+
+export type getAccountSessionResponse401 = {
+  data: ProblemResponse;
+  status: 401;
+};
+
+export type getAccountSessionResponseSuccess = getAccountSessionResponse200 & {
+  headers: Headers;
+};
+export type getAccountSessionResponseError = getAccountSessionResponse401 & {
+  headers: Headers;
+};
+
+export type getAccountSessionResponse =
+  | getAccountSessionResponseSuccess
+  | getAccountSessionResponseError;
+
+export const getGetAccountSessionUrl = () => {
+  return `/v1/account/me`;
+};
+
+/**
+ * The signed-in customer, how they authenticated, and whether a sensitive action needs a fresh sign-in.
+ */
+export const getAccountSession = async (
+  options?: RequestInit,
+): Promise<getAccountSessionResponse> => {
+  const res = await fetch(getGetAccountSessionUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountSessionResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountSessionResponse;
+};
+
+export const getGetAccountSessionKey = () => [`/v1/account/me`] as const;
+
+export type GetAccountSessionQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountSession>>
+>;
+
+export const useGetAccountSession = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountSession>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetAccountSessionKey() : null));
+  const swrFn = () => getAccountSession(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type updateAccountProfileResponse200 = {
+  data: AccountCustomer;
+  status: 200;
+};
+
+export type updateAccountProfileResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type updateAccountProfileResponseSuccess = updateAccountProfileResponse200 & {
+  headers: Headers;
+};
+export type updateAccountProfileResponseError = updateAccountProfileResponse422 & {
+  headers: Headers;
+};
+
+export type updateAccountProfileResponse =
+  | updateAccountProfileResponseSuccess
+  | updateAccountProfileResponseError;
+
+export const getUpdateAccountProfileUrl = () => {
+  return `/v1/account/me`;
+};
+
+export const updateAccountProfile = async (
+  accountProfileInput: AccountProfileInput,
+  options?: RequestInit,
+): Promise<updateAccountProfileResponse> => {
+  const res = await fetch(getUpdateAccountProfileUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(accountProfileInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: updateAccountProfileResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as updateAccountProfileResponse;
+};
+
+export const getUpdateAccountProfileMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: AccountProfileInput }) => {
+    return updateAccountProfile(arg, options);
+  };
+};
+export const getUpdateAccountProfileMutationKey = () => [`/v1/account/me`] as const;
+
+export type UpdateAccountProfileMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAccountProfile>>
+>;
+
+export const useUpdateAccountProfile = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof updateAccountProfile>>,
+    TError,
+    Key,
+    AccountProfileInput,
+    Awaited<ReturnType<typeof updateAccountProfile>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getUpdateAccountProfileMutationKey();
+  const swrFn = getUpdateAccountProfileMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type accountLogoutResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type accountLogoutResponseSuccess = accountLogoutResponse204 & {
+  headers: Headers;
+};
+
+export type accountLogoutResponse = accountLogoutResponseSuccess;
+
+export const getAccountLogoutUrl = () => {
+  return `/v1/account/auth/logout`;
+};
+
+export const accountLogout = async (options?: RequestInit): Promise<accountLogoutResponse> => {
+  const res = await fetch(getAccountLogoutUrl(), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: accountLogoutResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as accountLogoutResponse;
+};
+
+export const getAccountLogoutMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return accountLogout(options);
+  };
+};
+export const getAccountLogoutMutationKey = () => [`/v1/account/auth/logout`] as const;
+
+export type AccountLogoutMutationResult = NonNullable<Awaited<ReturnType<typeof accountLogout>>>;
+
+export const useAccountLogout = <TError = Promise<unknown>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof accountLogout>>,
+    TError,
+    Key,
+    Arguments,
+    Awaited<ReturnType<typeof accountLogout>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getAccountLogoutMutationKey();
+  const swrFn = getAccountLogoutMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type accountLogoutAllResponse200 = {
+  data: AccountLogoutAll200;
+  status: 200;
+};
+
+export type accountLogoutAllResponseSuccess = accountLogoutAllResponse200 & {
+  headers: Headers;
+};
+
+export type accountLogoutAllResponse = accountLogoutAllResponseSuccess;
+
+export const getAccountLogoutAllUrl = () => {
+  return `/v1/account/auth/logout-all`;
+};
+
+/**
+ * Ends every session. keepCurrent spares the caller's own, which is what "sign out my other devices" means; leaving it false is what a suspected compromise needs.
+ */
+export const accountLogoutAll = async (
+  accountLogoutAllBody: AccountLogoutAllBody,
+  options?: RequestInit,
+): Promise<accountLogoutAllResponse> => {
+  const res = await fetch(getAccountLogoutAllUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(accountLogoutAllBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: accountLogoutAllResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as accountLogoutAllResponse;
+};
+
+export const getAccountLogoutAllMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: AccountLogoutAllBody }) => {
+    return accountLogoutAll(arg, options);
+  };
+};
+export const getAccountLogoutAllMutationKey = () => [`/v1/account/auth/logout-all`] as const;
+
+export type AccountLogoutAllMutationResult = NonNullable<
+  Awaited<ReturnType<typeof accountLogoutAll>>
+>;
+
+export const useAccountLogoutAll = <TError = Promise<unknown>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof accountLogoutAll>>,
+    TError,
+    Key,
+    AccountLogoutAllBody,
+    Awaited<ReturnType<typeof accountLogoutAll>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getAccountLogoutAllMutationKey();
+  const swrFn = getAccountLogoutAllMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listAccountSessionsResponse200 = {
+  data: AccountSessionList;
+  status: 200;
+};
+
+export type listAccountSessionsResponseSuccess = listAccountSessionsResponse200 & {
+  headers: Headers;
+};
+
+export type listAccountSessionsResponse = listAccountSessionsResponseSuccess;
+
+export const getListAccountSessionsUrl = () => {
+  return `/v1/account/sessions`;
+};
+
+export const listAccountSessions = async (
+  options?: RequestInit,
+): Promise<listAccountSessionsResponse> => {
+  const res = await fetch(getListAccountSessionsUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listAccountSessionsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listAccountSessionsResponse;
+};
+
+export const getListAccountSessionsKey = () => [`/v1/account/sessions`] as const;
+
+export type ListAccountSessionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAccountSessions>>
+>;
+
+export const useListAccountSessions = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listAccountSessions>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListAccountSessionsKey() : null));
+  const swrFn = () => listAccountSessions(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type revokeAccountSessionResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type revokeAccountSessionResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type revokeAccountSessionResponseSuccess = revokeAccountSessionResponse204 & {
+  headers: Headers;
+};
+export type revokeAccountSessionResponseError = revokeAccountSessionResponse404 & {
+  headers: Headers;
+};
+
+export type revokeAccountSessionResponse =
+  | revokeAccountSessionResponseSuccess
+  | revokeAccountSessionResponseError;
+
+export const getRevokeAccountSessionUrl = (sessionID: string) => {
+  return `/v1/account/sessions/${sessionID}`;
+};
+
+export const revokeAccountSession = async (
+  sessionID: string,
+  options?: RequestInit,
+): Promise<revokeAccountSessionResponse> => {
+  const res = await fetch(getRevokeAccountSessionUrl(sessionID), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: revokeAccountSessionResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as revokeAccountSessionResponse;
+};
+
+export const getRevokeAccountSessionMutationFetcher = (
+  sessionID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return revokeAccountSession(sessionID, options);
+  };
+};
+export const getRevokeAccountSessionMutationKey = (sessionID: string) =>
+  [`/v1/account/sessions/${sessionID}`] as const;
+
+export type RevokeAccountSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof revokeAccountSession>>
+>;
+
+export const useRevokeAccountSession = <TError = Promise<ProblemResponse>>(
+  sessionID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof revokeAccountSession>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof revokeAccountSession>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRevokeAccountSessionMutationKey(sessionID);
+  const swrFn = getRevokeAccountSessionMutationFetcher(sessionID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listAccountSecurityEventsResponse200 = {
+  data: AccountSecurityEventList;
+  status: 200;
+};
+
+export type listAccountSecurityEventsResponseSuccess = listAccountSecurityEventsResponse200 & {
+  headers: Headers;
+};
+
+export type listAccountSecurityEventsResponse = listAccountSecurityEventsResponseSuccess;
+
+export const getListAccountSecurityEventsUrl = (params?: ListAccountSecurityEventsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/account/security-events?${stringifiedParams}`
+    : `/v1/account/security-events`;
+};
+
+/**
+ * The customer's own account history. The vocabulary is closed and carries no amount, link, or other party's identifier.
+ */
+export const listAccountSecurityEvents = async (
+  params?: ListAccountSecurityEventsParams,
+  options?: RequestInit,
+): Promise<listAccountSecurityEventsResponse> => {
+  const res = await fetch(getListAccountSecurityEventsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listAccountSecurityEventsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listAccountSecurityEventsResponse;
+};
+
+export const getListAccountSecurityEventsKey = (params?: ListAccountSecurityEventsParams) =>
+  [`/v1/account/security-events`, ...(params ? [params] : [])] as const;
+
+export type ListAccountSecurityEventsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAccountSecurityEvents>>
+>;
+
+export const useListAccountSecurityEvents = <TError = Promise<unknown>>(
+  params?: ListAccountSecurityEventsParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listAccountSecurityEvents>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListAccountSecurityEventsKey(params) : null));
+  const swrFn = () => listAccountSecurityEvents(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listAccountLinkedMethodsResponse200 = {
+  data: AccountLinkedMethodList;
+  status: 200;
+};
+
+export type listAccountLinkedMethodsResponseSuccess = listAccountLinkedMethodsResponse200 & {
+  headers: Headers;
+};
+
+export type listAccountLinkedMethodsResponse = listAccountLinkedMethodsResponseSuccess;
+
+export const getListAccountLinkedMethodsUrl = () => {
+  return `/v1/account/sign-in-methods`;
+};
+
+export const listAccountLinkedMethods = async (
+  options?: RequestInit,
+): Promise<listAccountLinkedMethodsResponse> => {
+  const res = await fetch(getListAccountLinkedMethodsUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listAccountLinkedMethodsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listAccountLinkedMethodsResponse;
+};
+
+export const getListAccountLinkedMethodsKey = () => [`/v1/account/sign-in-methods`] as const;
+
+export type ListAccountLinkedMethodsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAccountLinkedMethods>>
+>;
+
+export const useListAccountLinkedMethods = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listAccountLinkedMethods>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListAccountLinkedMethodsKey() : null));
+  const swrFn = () => listAccountLinkedMethods(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type unlinkAccountSignInMethodResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type unlinkAccountSignInMethodResponse401 = {
+  data: ProblemResponse;
+  status: 401;
+};
+
+export type unlinkAccountSignInMethodResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type unlinkAccountSignInMethodResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type unlinkAccountSignInMethodResponseSuccess = unlinkAccountSignInMethodResponse204 & {
+  headers: Headers;
+};
+export type unlinkAccountSignInMethodResponseError = (
+  | unlinkAccountSignInMethodResponse401
+  | unlinkAccountSignInMethodResponse404
+  | unlinkAccountSignInMethodResponse409
+) & {
+  headers: Headers;
+};
+
+export type unlinkAccountSignInMethodResponse =
+  | unlinkAccountSignInMethodResponseSuccess
+  | unlinkAccountSignInMethodResponseError;
+
+export const getUnlinkAccountSignInMethodUrl = (identityID: string) => {
+  return `/v1/account/sign-in-methods/${identityID}`;
+};
+
+/**
+ * Refuses to remove the last usable method. Needs a recent sign-in, because a session left open must not be enough to strip somebody's way back into their own account.
+ */
+export const unlinkAccountSignInMethod = async (
+  identityID: string,
+  options?: RequestInit,
+): Promise<unlinkAccountSignInMethodResponse> => {
+  const res = await fetch(getUnlinkAccountSignInMethodUrl(identityID), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: unlinkAccountSignInMethodResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as unlinkAccountSignInMethodResponse;
+};
+
+export const getUnlinkAccountSignInMethodMutationFetcher = (
+  identityID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return unlinkAccountSignInMethod(identityID, options);
+  };
+};
+export const getUnlinkAccountSignInMethodMutationKey = (identityID: string) =>
+  [`/v1/account/sign-in-methods/${identityID}`] as const;
+
+export type UnlinkAccountSignInMethodMutationResult = NonNullable<
+  Awaited<ReturnType<typeof unlinkAccountSignInMethod>>
+>;
+
+export const useUnlinkAccountSignInMethod = <TError = Promise<ProblemResponse>>(
+  identityID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof unlinkAccountSignInMethod>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof unlinkAccountSignInMethod>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getUnlinkAccountSignInMethodMutationKey(identityID);
+  const swrFn = getUnlinkAccountSignInMethodMutationFetcher(identityID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type startAccountOidcLinkResponse302 = {
+  data: void;
+  status: 302;
+};
+
+export type startAccountOidcLinkResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+export type startAccountOidcLinkResponseError = (
+  | startAccountOidcLinkResponse302
+  | startAccountOidcLinkResponse404
+) & {
+  headers: Headers;
+};
+
+export type startAccountOidcLinkResponse = startAccountOidcLinkResponseError;
+
+export const getStartAccountOidcLinkUrl = (slug: string) => {
+  return `/v1/account/sign-in-methods/oidc/${slug}/start`;
+};
+
+/**
+ * Attaches a provider to the account already signed in. This is the only route by which an existing customer gains an OIDC method: signing in with an unlinked subject never adopts an existing account by email.
+ */
+export const startAccountOidcLink = async (
+  slug: string,
+  options?: RequestInit,
+): Promise<startAccountOidcLinkResponse> => {
+  const res = await fetch(getStartAccountOidcLinkUrl(slug), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: startAccountOidcLinkResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as startAccountOidcLinkResponse;
+};
+
+export const getStartAccountOidcLinkKey = (slug: string) =>
+  [`/v1/account/sign-in-methods/oidc/${slug}/start`] as const;
+
+export type StartAccountOidcLinkQueryResult = NonNullable<
+  Awaited<ReturnType<typeof startAccountOidcLink>>
+>;
+
+export const useStartAccountOidcLink = <TError = Promise<void | ProblemResponse>>(
+  slug: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof startAccountOidcLink>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false && slug !== null && slug !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getStartAccountOidcLinkKey(slug) : null));
+  const swrFn = () => startAccountOidcLink(slug, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountOverviewResponse200 = {
+  data: AccountOverview;
+  status: 200;
+};
+
+export type getAccountOverviewResponseSuccess = getAccountOverviewResponse200 & {
+  headers: Headers;
+};
+
+export type getAccountOverviewResponse = getAccountOverviewResponseSuccess;
+
+export const getGetAccountOverviewUrl = (params?: GetAccountOverviewParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/account/overview?${stringifiedParams}`
+    : `/v1/account/overview`;
+};
+
+export const getAccountOverview = async (
+  params?: GetAccountOverviewParams,
+  options?: RequestInit,
+): Promise<getAccountOverviewResponse> => {
+  const res = await fetch(getGetAccountOverviewUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountOverviewResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountOverviewResponse;
+};
+
+export const getGetAccountOverviewKey = (params?: GetAccountOverviewParams) =>
+  [`/v1/account/overview`, ...(params ? [params] : [])] as const;
+
+export type GetAccountOverviewQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountOverview>>
+>;
+
+export const useGetAccountOverview = <TError = Promise<unknown>>(
+  params?: GetAccountOverviewParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountOverview>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetAccountOverviewKey(params) : null));
+  const swrFn = () => getAccountOverview(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountSubscriptionResponse200 = {
+  data: AccountSubscription;
+  status: 200;
+};
+
+export type getAccountSubscriptionResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getAccountSubscriptionResponseSuccess = getAccountSubscriptionResponse200 & {
+  headers: Headers;
+};
+export type getAccountSubscriptionResponseError = getAccountSubscriptionResponse404 & {
+  headers: Headers;
+};
+
+export type getAccountSubscriptionResponse =
+  | getAccountSubscriptionResponseSuccess
+  | getAccountSubscriptionResponseError;
+
+export const getGetAccountSubscriptionUrl = (
+  subscriptionID: string,
+  params?: GetAccountSubscriptionParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/account/subscriptions/${subscriptionID}?${stringifiedParams}`
+    : `/v1/account/subscriptions/${subscriptionID}`;
+};
+
+export const getAccountSubscription = async (
+  subscriptionID: string,
+  params?: GetAccountSubscriptionParams,
+  options?: RequestInit,
+): Promise<getAccountSubscriptionResponse> => {
+  const res = await fetch(getGetAccountSubscriptionUrl(subscriptionID, params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountSubscriptionResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountSubscriptionResponse;
+};
+
+export const getGetAccountSubscriptionKey = (
+  subscriptionID: string,
+  params?: GetAccountSubscriptionParams,
+) => [`/v1/account/subscriptions/${subscriptionID}`, ...(params ? [params] : [])] as const;
+
+export type GetAccountSubscriptionQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountSubscription>>
+>;
+
+export const useGetAccountSubscription = <TError = Promise<ProblemResponse>>(
+  subscriptionID: string,
+  params?: GetAccountSubscriptionParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountSubscription>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && subscriptionID !== null && subscriptionID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ??
+    (() => (isEnabled ? getGetAccountSubscriptionKey(subscriptionID, params) : null));
+  const swrFn = () => getAccountSubscription(subscriptionID, params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type renameAccountSubscriptionResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type renameAccountSubscriptionResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type renameAccountSubscriptionResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type renameAccountSubscriptionResponseSuccess = renameAccountSubscriptionResponse204 & {
+  headers: Headers;
+};
+export type renameAccountSubscriptionResponseError = (
+  | renameAccountSubscriptionResponse404
+  | renameAccountSubscriptionResponse422
+) & {
+  headers: Headers;
+};
+
+export type renameAccountSubscriptionResponse =
+  | renameAccountSubscriptionResponseSuccess
+  | renameAccountSubscriptionResponseError;
+
+export const getRenameAccountSubscriptionUrl = (subscriptionID: string) => {
+  return `/v1/account/subscriptions/${subscriptionID}`;
+};
+
+/**
+ * The customer's own label, which every screen and notification uses to name the subscription.
+ */
+export const renameAccountSubscription = async (
+  subscriptionID: string,
+  renameAccountSubscriptionBody: RenameAccountSubscriptionBody,
+  options?: RequestInit,
+): Promise<renameAccountSubscriptionResponse> => {
+  const res = await fetch(getRenameAccountSubscriptionUrl(subscriptionID), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(renameAccountSubscriptionBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: renameAccountSubscriptionResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as renameAccountSubscriptionResponse;
+};
+
+export const getRenameAccountSubscriptionMutationFetcher = (
+  subscriptionID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: RenameAccountSubscriptionBody }) => {
+    return renameAccountSubscription(subscriptionID, arg, options);
+  };
+};
+export const getRenameAccountSubscriptionMutationKey = (subscriptionID: string) =>
+  [`/v1/account/subscriptions/${subscriptionID}`] as const;
+
+export type RenameAccountSubscriptionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof renameAccountSubscription>>
+>;
+
+export const useRenameAccountSubscription = <TError = Promise<ProblemResponse>>(
+  subscriptionID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof renameAccountSubscription>>,
+      TError,
+      Key,
+      RenameAccountSubscriptionBody,
+      Awaited<ReturnType<typeof renameAccountSubscription>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRenameAccountSubscriptionMutationKey(subscriptionID);
+  const swrFn = getRenameAccountSubscriptionMutationFetcher(subscriptionID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountConnectionResponse200 = {
+  data: AccountConnection;
+  status: 200;
+};
+
+export type getAccountConnectionResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getAccountConnectionResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type getAccountConnectionResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
+export type getAccountConnectionResponseSuccess = getAccountConnectionResponse200 & {
+  headers: Headers;
+};
+export type getAccountConnectionResponseError = (
+  | getAccountConnectionResponse404
+  | getAccountConnectionResponse409
+  | getAccountConnectionResponse503
+) & {
+  headers: Headers;
+};
+
+export type getAccountConnectionResponse =
+  | getAccountConnectionResponseSuccess
+  | getAccountConnectionResponseError;
+
+export const getGetAccountConnectionUrl = (
+  subscriptionID: string,
+  params?: GetAccountConnectionParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/account/subscriptions/${subscriptionID}/connection?${stringifiedParams}`
+    : `/v1/account/subscriptions/${subscriptionID}/connection`;
+};
+
+/**
+ * The access link plus the documented clients for one platform. The client list is the same one the bot renders, so the two surfaces cannot recommend different applications.
+ */
+export const getAccountConnection = async (
+  subscriptionID: string,
+  params?: GetAccountConnectionParams,
+  options?: RequestInit,
+): Promise<getAccountConnectionResponse> => {
+  const res = await fetch(getGetAccountConnectionUrl(subscriptionID, params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountConnectionResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountConnectionResponse;
+};
+
+export const getGetAccountConnectionKey = (
+  subscriptionID: string,
+  params?: GetAccountConnectionParams,
+) =>
+  [`/v1/account/subscriptions/${subscriptionID}/connection`, ...(params ? [params] : [])] as const;
+
+export type GetAccountConnectionQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountConnection>>
+>;
+
+export const useGetAccountConnection = <TError = Promise<ProblemResponse>>(
+  subscriptionID: string,
+  params?: GetAccountConnectionParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountConnection>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && subscriptionID !== null && subscriptionID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ??
+    (() => (isEnabled ? getGetAccountConnectionKey(subscriptionID, params) : null));
+  const swrFn = () => getAccountConnection(subscriptionID, params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type rotateAccountSubscriptionLinkResponse200 = {
+  data: RotateAccountSubscriptionLink200;
+  status: 200;
+};
+
+export type rotateAccountSubscriptionLinkResponse401 = {
+  data: ProblemResponse;
+  status: 401;
+};
+
+export type rotateAccountSubscriptionLinkResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type rotateAccountSubscriptionLinkResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type rotateAccountSubscriptionLinkResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
+export type rotateAccountSubscriptionLinkResponseSuccess =
+  rotateAccountSubscriptionLinkResponse200 & {
+    headers: Headers;
+  };
+export type rotateAccountSubscriptionLinkResponseError = (
+  | rotateAccountSubscriptionLinkResponse401
+  | rotateAccountSubscriptionLinkResponse404
+  | rotateAccountSubscriptionLinkResponse422
+  | rotateAccountSubscriptionLinkResponse503
+) & {
+  headers: Headers;
+};
+
+export type rotateAccountSubscriptionLinkResponse =
+  | rotateAccountSubscriptionLinkResponseSuccess
+  | rotateAccountSubscriptionLinkResponseError;
+
+export const getRotateAccountSubscriptionLinkUrl = (subscriptionID: string) => {
+  return `/v1/account/subscriptions/${subscriptionID}/rotate-link`;
+};
+
+/**
+ * Issues a new access link and invalidates the old one. Every connected device stops working until the new link is imported, so it needs both an explicit confirmation and a recent sign-in.
+ */
+export const rotateAccountSubscriptionLink = async (
+  subscriptionID: string,
+  rotateAccountSubscriptionLinkBody: RotateAccountSubscriptionLinkBody,
+  options?: RequestInit,
+): Promise<rotateAccountSubscriptionLinkResponse> => {
+  const res = await fetch(getRotateAccountSubscriptionLinkUrl(subscriptionID), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(rotateAccountSubscriptionLinkBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: rotateAccountSubscriptionLinkResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as rotateAccountSubscriptionLinkResponse;
+};
+
+export const getRotateAccountSubscriptionLinkMutationFetcher = (
+  subscriptionID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: RotateAccountSubscriptionLinkBody }) => {
+    return rotateAccountSubscriptionLink(subscriptionID, arg, options);
+  };
+};
+export const getRotateAccountSubscriptionLinkMutationKey = (subscriptionID: string) =>
+  [`/v1/account/subscriptions/${subscriptionID}/rotate-link`] as const;
+
+export type RotateAccountSubscriptionLinkMutationResult = NonNullable<
+  Awaited<ReturnType<typeof rotateAccountSubscriptionLink>>
+>;
+
+export const useRotateAccountSubscriptionLink = <TError = Promise<ProblemResponse>>(
+  subscriptionID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof rotateAccountSubscriptionLink>>,
+      TError,
+      Key,
+      RotateAccountSubscriptionLinkBody,
+      Awaited<ReturnType<typeof rotateAccountSubscriptionLink>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRotateAccountSubscriptionLinkMutationKey(subscriptionID);
+  const swrFn = getRotateAccountSubscriptionLinkMutationFetcher(subscriptionID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listAccountDevicesResponse200 = {
+  data: AccountDeviceList;
+  status: 200;
+};
+
+export type listAccountDevicesResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type listAccountDevicesResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type listAccountDevicesResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
+export type listAccountDevicesResponseSuccess = listAccountDevicesResponse200 & {
+  headers: Headers;
+};
+export type listAccountDevicesResponseError = (
+  | listAccountDevicesResponse404
+  | listAccountDevicesResponse409
+  | listAccountDevicesResponse503
+) & {
+  headers: Headers;
+};
+
+export type listAccountDevicesResponse =
+  | listAccountDevicesResponseSuccess
+  | listAccountDevicesResponseError;
+
+export const getListAccountDevicesUrl = (subscriptionID: string) => {
+  return `/v1/account/subscriptions/${subscriptionID}/devices`;
+};
+
+/**
+ * Connected devices. No hardware identifier and no IP address is returned; a device is named by an opaque handle the server resolves back.
+ */
+export const listAccountDevices = async (
+  subscriptionID: string,
+  options?: RequestInit,
+): Promise<listAccountDevicesResponse> => {
+  const res = await fetch(getListAccountDevicesUrl(subscriptionID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listAccountDevicesResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listAccountDevicesResponse;
+};
+
+export const getListAccountDevicesKey = (subscriptionID: string) =>
+  [`/v1/account/subscriptions/${subscriptionID}/devices`] as const;
+
+export type ListAccountDevicesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAccountDevices>>
+>;
+
+export const useListAccountDevices = <TError = Promise<ProblemResponse>>(
+  subscriptionID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listAccountDevices>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && subscriptionID !== null && subscriptionID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListAccountDevicesKey(subscriptionID) : null));
+  const swrFn = () => listAccountDevices(subscriptionID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type removeAllAccountDevicesResponse200 = {
+  data: RemoveAllAccountDevices200;
+  status: 200;
+};
+
+export type removeAllAccountDevicesResponse401 = {
+  data: ProblemResponse;
+  status: 401;
+};
+
+export type removeAllAccountDevicesResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type removeAllAccountDevicesResponseSuccess = removeAllAccountDevicesResponse200 & {
+  headers: Headers;
+};
+export type removeAllAccountDevicesResponseError = (
+  | removeAllAccountDevicesResponse401
+  | removeAllAccountDevicesResponse422
+) & {
+  headers: Headers;
+};
+
+export type removeAllAccountDevicesResponse =
+  | removeAllAccountDevicesResponseSuccess
+  | removeAllAccountDevicesResponseError;
+
+export const getRemoveAllAccountDevicesUrl = (
+  subscriptionID: string,
+  params: RemoveAllAccountDevicesParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/account/subscriptions/${subscriptionID}/devices?${stringifiedParams}`
+    : `/v1/account/subscriptions/${subscriptionID}/devices`;
+};
+
+/**
+ * Disconnects every device at once. Needs confirmation and a recent sign-in.
+ */
+export const removeAllAccountDevices = async (
+  subscriptionID: string,
+  params: RemoveAllAccountDevicesParams,
+  options?: RequestInit,
+): Promise<removeAllAccountDevicesResponse> => {
+  const res = await fetch(getRemoveAllAccountDevicesUrl(subscriptionID, params), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: removeAllAccountDevicesResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as removeAllAccountDevicesResponse;
+};
+
+export const getRemoveAllAccountDevicesMutationFetcher = (
+  subscriptionID: string,
+  params: RemoveAllAccountDevicesParams,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return removeAllAccountDevices(subscriptionID, params, options);
+  };
+};
+export const getRemoveAllAccountDevicesMutationKey = (
+  subscriptionID: string,
+  params: RemoveAllAccountDevicesParams,
+) => [`/v1/account/subscriptions/${subscriptionID}/devices`, ...(params ? [params] : [])] as const;
+
+export type RemoveAllAccountDevicesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeAllAccountDevices>>
+>;
+
+export const useRemoveAllAccountDevices = <TError = Promise<ProblemResponse>>(
+  subscriptionID: string,
+  params: RemoveAllAccountDevicesParams,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof removeAllAccountDevices>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof removeAllAccountDevices>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey =
+    swrOptions?.swrKey ?? getRemoveAllAccountDevicesMutationKey(subscriptionID, params);
+  const swrFn = getRemoveAllAccountDevicesMutationFetcher(subscriptionID, params, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type removeAccountDeviceResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type removeAccountDeviceResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type removeAccountDeviceResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
+export type removeAccountDeviceResponseSuccess = removeAccountDeviceResponse204 & {
+  headers: Headers;
+};
+export type removeAccountDeviceResponseError = (
+  | removeAccountDeviceResponse404
+  | removeAccountDeviceResponse503
+) & {
+  headers: Headers;
+};
+
+export type removeAccountDeviceResponse =
+  | removeAccountDeviceResponseSuccess
+  | removeAccountDeviceResponseError;
+
+export const getRemoveAccountDeviceUrl = (subscriptionID: string, handle: string) => {
+  return `/v1/account/subscriptions/${subscriptionID}/devices/${handle}`;
+};
+
+export const removeAccountDevice = async (
+  subscriptionID: string,
+  handle: string,
+  options?: RequestInit,
+): Promise<removeAccountDeviceResponse> => {
+  const res = await fetch(getRemoveAccountDeviceUrl(subscriptionID, handle), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: removeAccountDeviceResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as removeAccountDeviceResponse;
+};
+
+export const getRemoveAccountDeviceMutationFetcher = (
+  subscriptionID: string,
+  handle: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return removeAccountDevice(subscriptionID, handle, options);
+  };
+};
+export const getRemoveAccountDeviceMutationKey = (subscriptionID: string, handle: string) =>
+  [`/v1/account/subscriptions/${subscriptionID}/devices/${handle}`] as const;
+
+export type RemoveAccountDeviceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeAccountDevice>>
+>;
+
+export const useRemoveAccountDevice = <TError = Promise<ProblemResponse>>(
+  subscriptionID: string,
+  handle: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof removeAccountDevice>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof removeAccountDevice>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRemoveAccountDeviceMutationKey(subscriptionID, handle);
+  const swrFn = getRemoveAccountDeviceMutationFetcher(subscriptionID, handle, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelCustomerOidcProvidersResponse200 = {
+  data: CustomerOidcProviderList;
+  status: 200;
+};
+
+export type listPanelCustomerOidcProvidersResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelCustomerOidcProvidersResponseSuccess =
+  listPanelCustomerOidcProvidersResponse200 & {
+    headers: Headers;
+  };
+export type listPanelCustomerOidcProvidersResponseError =
+  listPanelCustomerOidcProvidersResponse403 & {
+    headers: Headers;
+  };
+
+export type listPanelCustomerOidcProvidersResponse =
+  | listPanelCustomerOidcProvidersResponseSuccess
+  | listPanelCustomerOidcProvidersResponseError;
+
+export const getListPanelCustomerOidcProvidersUrl = () => {
+  return `/v1/panel/settings/customer-oidc`;
+};
+
+/**
+ * Requires settings.read. The customer panel's sign-in providers. The client secret is never returned; `hasClientSecret` says whether one is held.
+ */
+export const listPanelCustomerOidcProviders = async (
+  options?: RequestInit,
+): Promise<listPanelCustomerOidcProvidersResponse> => {
+  const res = await fetch(getListPanelCustomerOidcProvidersUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelCustomerOidcProvidersResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as listPanelCustomerOidcProvidersResponse;
+};
+
+export const getListPanelCustomerOidcProvidersKey = () =>
+  [`/v1/panel/settings/customer-oidc`] as const;
+
+export type ListPanelCustomerOidcProvidersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelCustomerOidcProviders>>
+>;
+
+export const useListPanelCustomerOidcProviders = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelCustomerOidcProviders>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelCustomerOidcProvidersKey() : null));
+  const swrFn = () => listPanelCustomerOidcProviders(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelCustomerOidcProviderResponse200 = {
+  data: CustomerOidcProvider;
+  status: 200;
+};
+
+export type savePanelCustomerOidcProviderResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelCustomerOidcProviderResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelCustomerOidcProviderResponseSuccess =
+  savePanelCustomerOidcProviderResponse200 & {
+    headers: Headers;
+  };
+export type savePanelCustomerOidcProviderResponseError = (
+  | savePanelCustomerOidcProviderResponse403
+  | savePanelCustomerOidcProviderResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelCustomerOidcProviderResponse =
+  | savePanelCustomerOidcProviderResponseSuccess
+  | savePanelCustomerOidcProviderResponseError;
+
+export const getSavePanelCustomerOidcProviderUrl = () => {
+  return `/v1/panel/settings/customer-oidc`;
+};
+
+/**
+ * Requires settings.write. Creating or updating a provider. Disabling one also ends the sessions it established, because a provider that is off while its access remains open is not off.
+ */
+export const savePanelCustomerOidcProvider = async (
+  customerOidcProviderInput: CustomerOidcProviderInput,
+  options?: RequestInit,
+): Promise<savePanelCustomerOidcProviderResponse> => {
+  const res = await fetch(getSavePanelCustomerOidcProviderUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(customerOidcProviderInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelCustomerOidcProviderResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as savePanelCustomerOidcProviderResponse;
+};
+
+export const getSavePanelCustomerOidcProviderMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: CustomerOidcProviderInput }) => {
+    return savePanelCustomerOidcProvider(arg, options);
+  };
+};
+export const getSavePanelCustomerOidcProviderMutationKey = () =>
+  [`/v1/panel/settings/customer-oidc`] as const;
+
+export type SavePanelCustomerOidcProviderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelCustomerOidcProvider>>
+>;
+
+export const useSavePanelCustomerOidcProvider = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof savePanelCustomerOidcProvider>>,
+    TError,
+    Key,
+    CustomerOidcProviderInput,
+    Awaited<ReturnType<typeof savePanelCustomerOidcProvider>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelCustomerOidcProviderMutationKey();
+  const swrFn = getSavePanelCustomerOidcProviderMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelCustomerOidcPresetsResponse200 = {
+  data: CustomerOidcPresetList;
+  status: 200;
+};
+
+export type listPanelCustomerOidcPresetsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelCustomerOidcPresetsResponseSuccess =
+  listPanelCustomerOidcPresetsResponse200 & {
+    headers: Headers;
+  };
+export type listPanelCustomerOidcPresetsResponseError = listPanelCustomerOidcPresetsResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelCustomerOidcPresetsResponse =
+  | listPanelCustomerOidcPresetsResponseSuccess
+  | listPanelCustomerOidcPresetsResponseError;
+
+export const getListPanelCustomerOidcPresetsUrl = () => {
+  return `/v1/panel/settings/customer-oidc/presets`;
+};
+
+/**
+ * Requires settings.read. Shipped starting points for well-known providers. A preset is data that prefills the form; nothing downstream branches on which one a provider came from.
+ */
+export const listPanelCustomerOidcPresets = async (
+  options?: RequestInit,
+): Promise<listPanelCustomerOidcPresetsResponse> => {
+  const res = await fetch(getListPanelCustomerOidcPresetsUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelCustomerOidcPresetsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelCustomerOidcPresetsResponse;
+};
+
+export const getListPanelCustomerOidcPresetsKey = () =>
+  [`/v1/panel/settings/customer-oidc/presets`] as const;
+
+export type ListPanelCustomerOidcPresetsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelCustomerOidcPresets>>
+>;
+
+export const useListPanelCustomerOidcPresets = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelCustomerOidcPresets>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelCustomerOidcPresetsKey() : null));
+  const swrFn = () => listPanelCustomerOidcPresets(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type deletePanelCustomerOidcProviderResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type deletePanelCustomerOidcProviderResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type deletePanelCustomerOidcProviderResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type deletePanelCustomerOidcProviderResponseSuccess =
+  deletePanelCustomerOidcProviderResponse204 & {
+    headers: Headers;
+  };
+export type deletePanelCustomerOidcProviderResponseError = (
+  | deletePanelCustomerOidcProviderResponse403
+  | deletePanelCustomerOidcProviderResponse404
+) & {
+  headers: Headers;
+};
+
+export type deletePanelCustomerOidcProviderResponse =
+  | deletePanelCustomerOidcProviderResponseSuccess
+  | deletePanelCustomerOidcProviderResponseError;
+
+export const getDeletePanelCustomerOidcProviderUrl = (slug: string) => {
+  return `/v1/panel/settings/customer-oidc/${slug}`;
+};
+
+/**
+ * Requires settings.write. Removes a provider and ends its sessions. The linked identities are kept: deleting them would silently take a sign-in method away from customers who may have no other one.
+ */
+export const deletePanelCustomerOidcProvider = async (
+  slug: string,
+  options?: RequestInit,
+): Promise<deletePanelCustomerOidcProviderResponse> => {
+  const res = await fetch(getDeletePanelCustomerOidcProviderUrl(slug), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: deletePanelCustomerOidcProviderResponse["data"] = body ? JSON.parse(body) : undefined;
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as deletePanelCustomerOidcProviderResponse;
+};
+
+export const getDeletePanelCustomerOidcProviderMutationFetcher = (
+  slug: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return deletePanelCustomerOidcProvider(slug, options);
+  };
+};
+export const getDeletePanelCustomerOidcProviderMutationKey = (slug: string) =>
+  [`/v1/panel/settings/customer-oidc/${slug}`] as const;
+
+export type DeletePanelCustomerOidcProviderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deletePanelCustomerOidcProvider>>
+>;
+
+export const useDeletePanelCustomerOidcProvider = <TError = Promise<ProblemResponse>>(
+  slug: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof deletePanelCustomerOidcProvider>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof deletePanelCustomerOidcProvider>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getDeletePanelCustomerOidcProviderMutationKey(slug);
+  const swrFn = getDeletePanelCustomerOidcProviderMutationFetcher(slug, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,

@@ -1,4 +1,4 @@
-h1:HHZNKzadE+nR4BEdnxV4kn04Z1A0YBymCdF6beQkoN0=
+h1:L8EhhoWFxGqfzN3Wy9rOKErJkwXcgNDf57nF2jOXcVE=
 20260810160000_initial.sql h1:1kQrZBliczdiXY/iEDj2ZAU+pUo0tJpeSRzclMaGkBg=
 20260810190000_bot_self_service.sql h1:LS90y7P5Az1VyeoozUy8ljEsBUQmAAPv3fdH+4QTH5g=
 20260810220000_commerce.sql h1:F9VjoIN5PYaNjnYOHHNYKvv+kSYJ4KLnVu6eI5PVHzM=
@@ -14,3 +14,4 @@ h1:HHZNKzadE+nR4BEdnxV4kn04Z1A0YBymCdF6beQkoN0=
 20260819000000_required_channels.sql h1:yF/+qiwFFUIpspH4v8jS4MUjvT+OPrz9sMss+LwcVvk=
 20260820000000_ai_mcp_settings.sql h1:7pFgUORXY9W5z5DNQtgxBCrtoOswDfEEgyr/cYWZdt0=
 20260821000000_goods_promotions_carts.sql h1:5Nvu82gbjmOZ8rmEyqRX3VC/wp/O6E6BJ8QiQRTWZCc=
+20260822000000_customer_web.sql h1:7lHBqFedl5S2vtASiUHu9WL6tKU2pxLkzfundP5CSmM=

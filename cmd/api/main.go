@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,10 +13,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/omniflow/omniflow/internal/accountpg"
 	"github.com/omniflow/omniflow/internal/adminauthpg"
 	"github.com/omniflow/omniflow/internal/catalogpg"
 	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/config"
+	"github.com/omniflow/omniflow/internal/customerauthpg"
 	"github.com/omniflow/omniflow/internal/customerpg"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 	"github.com/omniflow/omniflow/internal/fulfillment"
@@ -104,6 +107,7 @@ func main() {
 type runtimeServices struct {
 	handlers *apihttp.CommerceHandlers
 	admin    *apihttp.AdminHandlers
+	account  *apihttp.AccountHandlers
 }
 
 func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, health *platform.Health, metrics *platform.Metrics) (runtimeServices, func(), error) {
@@ -197,6 +201,22 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 		}
 		services.admin = adminHandlers
 	}
+	if cfg.CustomerPanel.Enabled {
+		accountHandlers, identity, accountErr := buildCustomerPanel(
+			logger, cfg, pool, platform.NewRateLimiter(valkeyClient), remnawaveClient,
+		)
+		if accountErr != nil {
+			valkeyClient.Close()
+			pool.Close()
+			return runtimeServices{}, nil, accountErr
+		}
+		services.account = accountHandlers
+		// The operator panel manages the customer sign-in providers, so it needs
+		// the same service the customer surface authenticates against.
+		if services.admin != nil {
+			services.admin.WithCustomerAuth(identity)
+		}
+	}
 	return services, func() { valkeyClient.Close(); pool.Close() }, nil
 }
 
@@ -235,6 +255,68 @@ func buildAdminPanel(
 		CookieSecure: cfg.AdminPanel.CookieSecure, Issuer: cfg.AdminPanel.Issuer,
 		Version: version,
 	}), nil
+}
+
+// buildCustomerPanel wires the customer web API.
+//
+// It reuses APP_DATA_ENCRYPTION_KEY, already validated as 32 bytes above, to
+// seal OIDC client secrets and the sign-in flow cookie. The Telegram bot token
+// is what verifies a login-widget or Mini App payload; without one the panel
+// still runs and simply does not offer that route.
+func buildCustomerPanel(
+	logger *slog.Logger, cfg config.Config, pool *pgxpool.Pool,
+	limiter *platform.RateLimiter, remnawaveClient *remnawave.Client,
+) (*apihttp.AccountHandlers, *customerauthpg.Service, error) {
+	identity, err := customerauthpg.New(pool, cfg.DataEncryptionKey, customerauthpg.Options{
+		TelegramBotToken: cfg.TelegramToken,
+		MagicLinkEnabled: cfg.CustomerPanel.MagicLinkEnabled,
+		PublicURL:        cfg.PublicURL,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	// The account read model records device removals and link rotations in the
+	// same log the identity adapter writes sign-ins to, so the customer reads one
+	// history rather than two partial ones.
+	account, err := accountpg.New(pool, remnawaveClient, accountpg.Options{
+		Logger: logger,
+		Security: accountpg.SecurityRecorderFunc(func(
+			ctx context.Context, customerID, event string,
+			request accountpg.SecurityRequest, metadata map[string]any,
+		) error {
+			return identity.RecordSecurityEvent(ctx, customerID, event, customerauthpg.RequestContext{
+				IP: parseAddress(request.IP), UserAgent: request.UserAgent, RequestID: request.RequestID,
+			}, metadata)
+		}),
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	proxies, err := apihttp.NewTrustedProxies(cfg.AdminPanel.TrustedProxies)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !cfg.CustomerPanel.CookieSecure {
+		logger.Warn("customer session cookie is not marked Secure; use this only for local development")
+	}
+	if cfg.CustomerPanel.MagicLinkEnabled && cfg.PublicURL == "" {
+		return nil, nil, errors.New("APP_PUBLIC_URL is required when the customer magic-link fallback is enabled")
+	}
+	return apihttp.NewAccountHandlers(apihttp.AccountOptions{
+		Auth: identity, Account: account, Limiter: limiter, Logger: logger, Proxies: proxies,
+		CookieSecure: cfg.CustomerPanel.CookieSecure,
+	}), identity, nil
+}
+
+// parseAddress converts a rendered client address back for storage, yielding nil
+// for anything unparseable so a malformed value is recorded as "not observed"
+// rather than as a placeholder somebody might read as real.
+func parseAddress(value string) *netip.Addr {
+	address, err := netip.ParseAddr(value)
+	if err != nil {
+		return nil
+	}
+	return &address
 }
 
 // providerIndex keys the configured adapters by name so the panel can publish

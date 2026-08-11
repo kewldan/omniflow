@@ -17,7 +17,7 @@ import { expect, test } from "@playwright/test";
  * happen.
  */
 
-const PUBLIC_PAGES = ["/", "/admin/login"];
+const PUBLIC_PAGES = ["/", "/admin/login", "/account/sign-in"];
 
 test.describe("accessibility", () => {
   for (const path of PUBLIC_PAGES) {

@@ -1,5 +1,6 @@
 import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
 export default async function CustomerHome() {
@@ -17,7 +18,12 @@ export default async function CustomerHome() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button>{translate("action")}</Button>
+          {/* The landing page is public, so it links into the account rather
+              than assuming a session; the panel itself decides whether the
+              visitor needs to sign in first. */}
+          <Button asChild>
+            <Link href="/account">{translate("action")}</Link>
+          </Button>
         </CardContent>
       </Card>
     </main>

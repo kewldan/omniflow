@@ -22,6 +22,9 @@ type RouterOptions struct {
 	// Admin serves the operator panel API. A nil value leaves /v1/panel
 	// unmounted, which is what a bot-only installation wants.
 	Admin *AdminHandlers
+	// Account serves the customer web panel API. A nil value leaves /v1/account
+	// unmounted, which is what a Telegram-only installation wants.
+	Account *AccountHandlers
 	// CollectorEnabled exposes the anonymous telemetry collector endpoint.
 	CollectorEnabled bool
 	Telemetry        *telemetry.Client
@@ -63,6 +66,9 @@ func NewRouter(logger *slog.Logger, options RouterOptions) http.Handler {
 	}
 	if options.Admin != nil {
 		options.Admin.Mount(router)
+	}
+	if options.Account != nil {
+		options.Account.Mount(router)
 	}
 	return router
 }

@@ -88,6 +88,10 @@ type Querier interface {
 	// the same code updates no row and returns no result.
 	ConsumeAdminRecoveryCode(ctx context.Context, arg ConsumeAdminRecoveryCodeParams) (AdminRecoveryCode, error)
 	ConsumeAdminSetupToken(ctx context.Context, arg ConsumeAdminSetupTokenParams) (AdminSetupToken, error)
+	// Single use is a property of this statement, not of the code around it: the
+	// `consumed_at IS NULL` predicate is evaluated under the row lock the UPDATE
+	// takes, so two browsers racing on one link produce exactly one winner.
+	ConsumeCustomerMagicLink(ctx context.Context, arg ConsumeCustomerMagicLinkParams) (CustomerMagicLink, error)
 	// Callers must hold LockCustomerSubscriptions for this count to be meaningful.
 	CountActiveSubscriptions(ctx context.Context, arg CountActiveSubscriptionsParams) (CountActiveSubscriptionsRow, error)
 	CountAdminOIDCIdentities(ctx context.Context, adminUserID pgtype.UUID) (int64, error)
@@ -111,6 +115,9 @@ type Querier interface {
 	CountOpenBlocklistMatches(ctx context.Context) (int64, error)
 	CountPlanVersionSquads(ctx context.Context, arg CountPlanVersionSquadsParams) (int32, error)
 	CountPromoRedemptions(ctx context.Context, arg CountPromoRedemptionsParams) (CountPromoRedemptionsRow, error)
+	// Feeds the per-customer request limit, so asking for a link repeatedly cannot
+	// be used to flood somebody's Telegram chat.
+	CountRecentCustomerMagicLinks(ctx context.Context, arg CountRecentCustomerMagicLinksParams) (int64, error)
 	CountRecentOperatorNotifications(ctx context.Context, arg CountRecentOperatorNotificationsParams) (int32, error)
 	CountRunningBackups(ctx context.Context) (int32, error)
 	CountUnpublishedOutboxEvents(ctx context.Context) (CountUnpublishedOutboxEventsRow, error)
@@ -146,7 +153,18 @@ type Querier interface {
 	CreateBulkOperation(ctx context.Context, arg CreateBulkOperationParams) (BulkOperation, error)
 	CreateCampaign(ctx context.Context, arg CreateCampaignParams) (Campaign, error)
 	CreateContactChannel(ctx context.Context, arg CreateContactChannelParams) (ContactChannel, error)
+	// Used only when a sign-in route is allowed to provision. The row it creates is
+	// an ordinary customer with no entitlement, no balance, and no Remnawave user.
+	CreateCustomerForSignIn(ctx context.Context, arg CreateCustomerForSignInParams) (User, error)
 	CreateCustomerImport(ctx context.Context) (CustomerImport, error)
+	// ---------------------------------------------------------------------------
+	// Magic links
+	// ---------------------------------------------------------------------------
+	CreateCustomerMagicLink(ctx context.Context, arg CreateCustomerMagicLinkParams) (CustomerMagicLink, error)
+	// ---------------------------------------------------------------------------
+	// Sessions
+	// ---------------------------------------------------------------------------
+	CreateCustomerSession(ctx context.Context, arg CreateCustomerSessionParams) (CustomerSession, error)
 	CreateEntitlement(ctx context.Context, arg CreateEntitlementParams) (Entitlement, error)
 	CreateFulfillmentOperation(ctx context.Context, arg CreateFulfillmentOperationParams) (FulfillmentOperation, error)
 	// Gifts and personal offers.
@@ -259,11 +277,17 @@ type Querier interface {
 	DeleteBlocklistEntries(ctx context.Context, sourceID pgtype.UUID) error
 	DeleteBlocklistSource(ctx context.Context, id pgtype.UUID) error
 	DeleteCartAddon(ctx context.Context, arg DeleteCartAddonParams) error
+	DeleteCustomerOIDCProvider(ctx context.Context, slug string) (int64, error)
 	// ---------------------------------------------------------------------------
 	// Retention and cleanup
 	// ---------------------------------------------------------------------------
 	DeleteExpiredBotSessions(ctx context.Context) (int64, error)
 	DeleteExpiredCheckoutSessions(ctx context.Context) (int64, error)
+	DeleteExpiredCustomerMagicLinks(ctx context.Context, retention pgtype.Interval) (int64, error)
+	DeleteExpiredCustomerSecurityEvents(ctx context.Context, retention pgtype.Interval) (int64, error)
+	// Retention sweep. A session is removed only once it is well past any use, so
+	// the security list can still explain a recent sign-out.
+	DeleteExpiredCustomerSessions(ctx context.Context, retention pgtype.Interval) (int64, error)
 	DeleteExpiredSupportAttachments(ctx context.Context) (int64, error)
 	DeleteExpiredWebhookEvents(ctx context.Context) (int64, error)
 	DeleteMCPServer(ctx context.Context, slug string) error
@@ -304,6 +328,15 @@ type Querier interface {
 	FailOperatorTopic(ctx context.Context, arg FailOperatorTopicParams) (OperatorTopic, error)
 	GetAIFeature(ctx context.Context, feature string) (AiFeature, error)
 	GetAIProviderCredentials(ctx context.Context, slug string) (GetAIProviderCredentialsRow, error)
+	GetAccountSubscription(ctx context.Context, arg GetAccountSubscriptionParams) (GetAccountSubscriptionRow, error)
+	// Customer web sign-in, sessions, and account security for v0.9.
+	// ---------------------------------------------------------------------------
+	// Identity resolution
+	// ---------------------------------------------------------------------------
+	// The single lookup every sign-in route funnels through. Matching on the
+	// (provider, subject) pair and nothing else is what makes an upstream email
+	// change a non-event: the subject is the identifier, the address is a claim.
+	GetActiveIdentityBySubject(ctx context.Context, arg GetActiveIdentityBySubjectParams) (GetActiveIdentityBySubjectRow, error)
 	GetActiveOfferForPromotion(ctx context.Context, arg GetActiveOfferForPromotionParams) (PersonalOffer, error)
 	GetAddonVersionForOrder(ctx context.Context, arg GetAddonVersionForOrderParams) (GetAddonVersionForOrderRow, error)
 	GetAdminOIDCIdentity(ctx context.Context, arg GetAdminOIDCIdentityParams) (GetAdminOIDCIdentityRow, error)
@@ -352,13 +385,18 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	GetCommerceSettings(ctx context.Context) (CommerceSetting, error)
 	GetCustomer(ctx context.Context, id pgtype.UUID) (User, error)
+	GetCustomerIdentityForUnlink(ctx context.Context, arg GetCustomerIdentityForUnlinkParams) (Identity, error)
 	GetCustomerImport(ctx context.Context, id pgtype.UUID) (CustomerImport, error)
 	GetCustomerImportItemCounts(ctx context.Context, importID pgtype.UUID) (GetCustomerImportItemCountsRow, error)
+	GetCustomerOIDCProvider(ctx context.Context, slug string) (CustomerOidcProvider, error)
 	// One round trip for the profile header: the customer, their Telegram mapping,
 	// and the counts the page shows before any tab is opened.
 	GetCustomerOverview(ctx context.Context, id pgtype.UUID) (GetCustomerOverviewRow, error)
 	GetCustomerReferralCode(ctx context.Context, userID pgtype.UUID) (GetCustomerReferralCodeRow, error)
 	GetCustomerReferrer(ctx context.Context, referredUserID pgtype.UUID) (GetCustomerReferrerRow, error)
+	// Resolves a cookie into a session and the customer behind it in one round trip,
+	// because this runs on every authenticated request.
+	GetCustomerSessionByToken(ctx context.Context, tokenHash []byte) (GetCustomerSessionByTokenRow, error)
 	GetCustomerSubscription(ctx context.Context, arg GetCustomerSubscriptionParams) (Subscription, error)
 	// The order a renewal cycle is settling, if one was already opened.
 	//
@@ -441,6 +479,10 @@ type Querier interface {
 	InsertBulkOperationItem(ctx context.Context, arg InsertBulkOperationItemParams) error
 	InsertConsentRecord(ctx context.Context, arg InsertConsentRecordParams) (ConsentRecord, error)
 	InsertCustomerLifecycleEvent(ctx context.Context, arg InsertCustomerLifecycleEventParams) (CustomerLifecycleEvent, error)
+	// ---------------------------------------------------------------------------
+	// Security events
+	// ---------------------------------------------------------------------------
+	InsertCustomerSecurityEvent(ctx context.Context, arg InsertCustomerSecurityEventParams) (CustomerSecurityEvent, error)
 	InsertEntitlementAddon(ctx context.Context, arg InsertEntitlementAddonParams) (EntitlementAddon, error)
 	InsertEntitlementDrift(ctx context.Context, arg InsertEntitlementDriftParams) (EntitlementDrift, error)
 	InsertFulfillmentHistory(ctx context.Context, arg InsertFulfillmentHistoryParams) (FulfillmentHistory, error)
@@ -474,6 +516,18 @@ type Querier interface {
 	ListAIFeatures(ctx context.Context) ([]AiFeature, error)
 	ListAIProviders(ctx context.Context) ([]ListAIProvidersRow, error)
 	ListAIUsageLimits(ctx context.Context) ([]AiUsageLimit, error)
+	// The customer web panel's own read model for v0.9.
+	//
+	// Every statement is scoped by `user_id`. Ownership is part of the query rather
+	// than a check the caller is trusted to perform first, so an identifier lifted
+	// from a URL can never address somebody else's subscription.
+	// One row per active subscription, with the entitlement currently in force and
+	// the plan version it was bought under.
+	//
+	// The lateral join takes the latest entitlement that has not been superseded:
+	// an extension writes a new row rather than editing the old one, so "current"
+	// is the newest live row rather than the only row.
+	ListAccountSubscriptions(ctx context.Context, arg ListAccountSubscriptionsParams) ([]ListAccountSubscriptionsRow, error)
 	// What the bot shows. Expired-but-not-yet-swept rows are filtered here rather
 	// than relying on the sweeper having run, so an offer never outlives its window
 	// on screen.
@@ -548,6 +602,10 @@ type Querier interface {
 	ListCustomerImports(ctx context.Context, pageSize int32) ([]CustomerImport, error)
 	ListCustomerLedgerEntries(ctx context.Context, arg ListCustomerLedgerEntriesParams) ([]ListCustomerLedgerEntriesRow, error)
 	ListCustomerMemberships(ctx context.Context, userID pgtype.UUID) ([]ChannelMembership, error)
+	// ---------------------------------------------------------------------------
+	// Customer OIDC providers
+	// ---------------------------------------------------------------------------
+	ListCustomerOIDCProviders(ctx context.Context) ([]CustomerOidcProvider, error)
 	ListCustomerOrders(ctx context.Context, arg ListCustomerOrdersParams) ([]Order, error)
 	// Who this customer invited, and whether the invitation turned into anything.
 	//
@@ -555,6 +613,16 @@ type Querier interface {
 	// many of their invitations converted, not to a list of other people's account
 	// details.
 	ListCustomerReferrals(ctx context.Context, arg ListCustomerReferralsParams) ([]ListCustomerReferralsRow, error)
+	ListCustomerSecurityEvents(ctx context.Context, arg ListCustomerSecurityEventsParams) ([]CustomerSecurityEvent, error)
+	// The customer's own device list, live sessions first and most recent first.
+	ListCustomerSessions(ctx context.Context, arg ListCustomerSessionsParams) ([]CustomerSession, error)
+	// ---------------------------------------------------------------------------
+	// Linked sign-in methods
+	// ---------------------------------------------------------------------------
+	// Everything that can currently sign this customer in. The unlink guard reads
+	// this list rather than counting in SQL, so one rule in `internal/customer`
+	// decides what "the last usable method" means.
+	ListCustomerSignInIdentities(ctx context.Context, userID pgtype.UUID) ([]Identity, error)
 	// Every concurrent subscription with the entitlement currently governing it, so
 	// the panel can offer independent lifecycle actions per subscription rather
 	// than assuming one per customer.
@@ -577,6 +645,7 @@ type Querier interface {
 	ListDunningAttemptsForCustomer(ctx context.Context, arg ListDunningAttemptsForCustomerParams) ([]DunningAttempt, error)
 	ListEnabledAdminOIDCProviders(ctx context.Context) ([]AdminOidcProvider, error)
 	ListEnabledChannels(ctx context.Context) ([]RequiredChannel, error)
+	ListEnabledCustomerOIDCProviders(ctx context.Context) ([]CustomerOidcProvider, error)
 	// What an installation actually exposes: enabled tools on enabled servers whose
 	// schema this build can enforce.
 	ListEnabledMCPTools(ctx context.Context) ([]McpTool, error)
@@ -862,6 +931,9 @@ type Querier interface {
 	ReleaseRetentionHold(ctx context.Context, arg ReleaseRetentionHoldParams) (AiRetentionHold, error)
 	RemoveBlocklistAllowlistEntry(ctx context.Context, userID pgtype.UUID) error
 	RemovePromotionPlan(ctx context.Context, arg RemovePromotionPlanParams) error
+	// The label is what every screen and notification uses to name a subscription,
+	// which is what makes several concurrent ones legible.
+	RenameAccountSubscription(ctx context.Context, arg RenameAccountSubscriptionParams) (Subscription, error)
 	RenameSubscription(ctx context.Context, arg RenameSubscriptionParams) (Subscription, error)
 	// An operator retry only ever moves a terminal-looking row back into the queue.
 	// It cannot skip the idempotency key, so the retried attempt is the same
@@ -893,6 +965,16 @@ type Querier interface {
 	RevokeAdminSessionsForUser(ctx context.Context, arg RevokeAdminSessionsForUserParams) (int64, error)
 	RevokeChannelExemption(ctx context.Context, userID pgtype.UUID) error
 	RevokeCustomerIdentity(ctx context.Context, arg RevokeCustomerIdentityParams) (Identity, error)
+	// Guarded by `user_id` as well as `id`, so a customer can only ever end one of
+	// their own sessions even if they learn another session's identifier.
+	RevokeCustomerSession(ctx context.Context, arg RevokeCustomerSessionParams) (CustomerSession, error)
+	// Every session established through one OIDC provider. An operator disabling or
+	// removing a provider needs the sessions it minted to end with it; leaving them
+	// live would mean the provider is off but its access is not.
+	RevokeCustomerSessionsForProvider(ctx context.Context, authProvider pgtype.Text) ([]pgtype.UUID, error)
+	// "Sign out everywhere". `except_session_id` keeps the caller's own session
+	// alive when the customer asked to end the others rather than all of them.
+	RevokeCustomerSessionsForUser(ctx context.Context, arg RevokeCustomerSessionsForUserParams) ([]pgtype.UUID, error)
 	// An operator may reclaim a gift that has not been redeemed. A claimed gift is
 	// deliberately not revocable: the recipient already holds what it bought, and
 	// taking it back is a refund decision with its own record.
@@ -902,6 +984,10 @@ type Querier interface {
 	RevokePaymentMethod(ctx context.Context, arg RevokePaymentMethodParams) (PaymentMethod, error)
 	RevokePersonalOffer(ctx context.Context, offerID pgtype.UUID) (PersonalOffer, error)
 	RotateAdminSessionToken(ctx context.Context, arg RotateAdminSessionTokenParams) (AdminSession, error)
+	// Swapping the token behind a live session shortens the window in which one
+	// captured from a log or a proxy stays replayable. The unique index on
+	// `token_hash` means a colliding rotation fails rather than merging sessions.
+	RotateCustomerSessionToken(ctx context.Context, arg RotateCustomerSessionTokenParams) (CustomerSession, error)
 	// Re-presenting the same provider token is not a new method: the provider still
 	// holds one binding, so the row is refreshed rather than duplicated. Consent is
 	// re-stamped because the customer just granted it again.
@@ -1077,9 +1163,16 @@ type Querier interface {
 	// Slides the inactivity window forward. The absolute deadline is never
 	// extended, so continuous activity cannot keep a session alive indefinitely.
 	TouchAdminSession(ctx context.Context, arg TouchAdminSessionParams) (AdminSession, error)
+	// Slides the inactivity deadline forward, clamped so it can never pass the
+	// absolute one. Without the clamp a request made just before the absolute
+	// horizon would extend a session the absolute limit had already ended.
+	TouchCustomerSession(ctx context.Context, arg TouchCustomerSessionParams) (CustomerSession, error)
 	TouchPaymentMethodUsed(ctx context.Context, id pgtype.UUID) error
 	UnsuppressCustomer(ctx context.Context, userID pgtype.UUID) error
 	UntagSupportTicket(ctx context.Context, arg UntagSupportTicketParams) error
+	// The customer's own locale and timezone. Both are validated in Go against the
+	// supported set before they reach here.
+	UpdateAccountProfile(ctx context.Context, arg UpdateAccountProfileParams) (User, error)
 	// Preferences are merged rather than replaced, so a panel that only knows about
 	// one key cannot silently drop the others when it saves.
 	UpdateAdminUserPreferences(ctx context.Context, arg UpdateAdminUserPreferencesParams) (AdminUser, error)
@@ -1124,6 +1217,9 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	UpsertCart(ctx context.Context, arg UpsertCartParams) (Cart, error)
 	UpsertCustomerImportItem(ctx context.Context, arg UpsertCustomerImportItemParams) (CustomerImportItem, error)
+	// The client secret is only overwritten when a new one is supplied, so saving
+	// the form without retyping it does not blank the stored credential.
+	UpsertCustomerOIDCProvider(ctx context.Context, arg UpsertCustomerOIDCProviderParams) (CustomerOidcProvider, error)
 	// Saving a shop purchase for later.
 	//
 	// It replaces whatever open cart the customer had, because there is one open

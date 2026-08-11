@@ -17,6 +17,7 @@ import (
 	"github.com/omniflow/omniflow/internal/channelworker"
 	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/config"
+	"github.com/omniflow/omniflow/internal/customerauthpg"
 	"github.com/omniflow/omniflow/internal/goodsdelivery"
 	apihttp "github.com/omniflow/omniflow/internal/httpapi"
 	"github.com/omniflow/omniflow/internal/operator"
@@ -103,6 +104,22 @@ func main() {
 		DatabaseURL: cfg.DatabaseURL,
 	})
 	application.EnableOperatorTools(backupService, cfg.Operator.OperatorIDs)
+
+	// The web sign-in link is delivered through this chat, so the bot is what
+	// issues it. It stays off unless the operator enabled the fallback, and the
+	// /login command then reports the route as unavailable.
+	if cfg.CustomerPanel.MagicLinkEnabled && len(cfg.DataEncryptionKey) == 32 {
+		identity, identityErr := customerauthpg.New(pool, cfg.DataEncryptionKey, customerauthpg.Options{
+			TelegramBotToken: cfg.TelegramToken,
+			MagicLinkEnabled: true,
+			PublicURL:        cfg.PublicURL,
+		})
+		if identityErr != nil {
+			logger.Error("customer web sign-in could not be configured", "error", identityErr)
+			os.Exit(1)
+		}
+		application.WithWebSignIn(webSignIn{service: identity})
+	}
 
 	// Channel membership is verified in two places, and both need the bot's
 	// token. The worker re-checks everybody periodically and takes access away
@@ -307,6 +324,17 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.BotConfi
 	return commerceService, pool, pool.Close, nil
 }
 
+// webSignIn adapts the identity service to the narrow interface the bot needs.
+//
+// The bot supplies no request context: an update arriving over long polling or a
+// webhook has no client address of its own, and recording the Telegram server's
+// address against a customer's security log would be worse than recording none.
+type webSignIn struct{ service *customerauthpg.Service }
+
+func (issuer webSignIn) IssueMagicLink(ctx context.Context, customerID string) (string, error) {
+	return issuer.service.IssueMagicLink(ctx, customerID, customerauthpg.RequestContext{})
+}
+
 func configureCommands(ctx context.Context, logger *slog.Logger, client *telegram.Bot) {
 	commands := []models.BotCommand{
 		{Command: "start", Description: "Open your Omniflow account"},
@@ -316,6 +344,7 @@ func configureCommands(ctx context.Context, logger *slog.Logger, client *telegra
 		{Command: "wallet", Description: "Wallet balance and top-up"},
 		{Command: "settings", Description: "Language and notifications"},
 		{Command: "support", Description: "Contact support"},
+		{Command: "login", Description: "Sign in on the website"},
 		{Command: "cancel", Description: "Cancel the current action"},
 	}
 	if _, err := client.SetMyCommands(ctx, &telegram.SetMyCommandsParams{Commands: commands}); err != nil {

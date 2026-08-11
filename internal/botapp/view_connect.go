@@ -4,40 +4,16 @@ import (
 	"strings"
 
 	"github.com/go-telegram/bot/models"
+	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/remnawave"
 )
 
-// clientApp is one recommended client for a platform, together with the deep
-// link that imports a subscription into it.
-type clientApp struct {
-	name   string
-	scheme string
-}
-
-// deepLink builds the app's import URL. It is offered as copyable text because
-// Telegram inline buttons accept only http, https, and tg links; copying is the
-// documented fallback and works on every platform.
-func (app clientApp) deepLink(subscriptionURL string) string {
-	return app.scheme + subscriptionURL
-}
-
-// platformClients maps a platform onto the clients Omniflow documents. Ordering
-// is the recommendation order shown to the customer.
-var platformClients = map[string][]clientApp{
-	"ios":     {{"Happ", "happ://add/"}, {"v2RayTun", "v2raytun://import/"}, {"Streisand", "streisand://import/"}},
-	"android": {{"Happ", "happ://add/"}, {"v2RayTun", "v2raytun://import/"}, {"Hiddify", "hiddify://import/"}},
-	"windows": {{"Hiddify", "hiddify://import/"}, {"v2RayTun", "v2raytun://import/"}},
-	"macos":   {{"Happ", "happ://add/"}, {"Streisand", "streisand://import/"}},
-	"linux":   {{"Hiddify", "hiddify://import/"}},
-}
-
-var platformOrder = []string{"ios", "android", "windows", "macos", "linux"}
-
 // connectPlatformsView asks which platform the customer is setting up.
 func connectPlatformsView(locale Locale, subscription remnawave.Subscription) View {
-	rows := make([][]models.InlineKeyboardButton, 0, len(platformOrder)+2)
+	platforms := commerce.ConnectPlatforms()
+	rows := make([][]models.InlineKeyboardButton, 0, len(platforms)+2)
 	pair := make([]models.InlineKeyboardButton, 0, 2)
-	for _, platform := range platformOrder {
+	for _, platform := range platforms {
 		pair = append(pair, actionButton(text(locale, "connect.platform."+platform), "connect:"+platform))
 		if len(pair) == 2 {
 			rows = append(rows, row(pair...))
@@ -58,17 +34,17 @@ func connectPlatformsView(locale Locale, subscription remnawave.Subscription) Vi
 // connectPlatformView gives step-by-step instructions plus per-app deep links
 // and the raw link as a manual fallback.
 func connectPlatformView(locale Locale, platform string, subscription remnawave.Subscription) View {
-	apps, known := platformClients[platform]
-	if !known || len(apps) == 0 {
+	apps := commerce.ClientsForPlatform(platform)
+	if len(apps) == 0 {
 		return connectPlatformsView(locale, subscription)
 	}
-	body := text(locale, "connect.steps", text(locale, "connect.platform."+platform), apps[0].name)
+	body := text(locale, "connect.steps", text(locale, "connect.platform."+platform), apps[0].Name)
 	rows := make([][]models.InlineKeyboardButton, 0, len(apps)+3)
 	if safeURL(subscription.SubscriptionURL) {
 		for _, app := range apps {
 			rows = append(rows, row(models.InlineKeyboardButton{
-				Text:     text(locale, "connect.deepLink", app.name),
-				CopyText: &models.CopyTextButton{Text: app.deepLink(subscription.SubscriptionURL)},
+				Text:     text(locale, "connect.deepLink", app.Name),
+				CopyText: &models.CopyTextButton{Text: app.DeepLink(subscription.SubscriptionURL)},
 			}))
 		}
 		rows = append(rows, row(models.InlineKeyboardButton{Text: text(locale, "connect.copyLink"), CopyText: &models.CopyTextButton{Text: subscription.SubscriptionURL}}))
