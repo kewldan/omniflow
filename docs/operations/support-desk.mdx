@@ -1,0 +1,120 @@
+---
+title: Support desk
+description: Queues, assignment, internal notes, canned replies, merges, and the response-time measures that go with them.
+---
+
+v0.4 gave a customer one open ticket and an operator a Telegram topic to answer
+it in. That is enough for one person answering a handful of tickets a day, and
+it stops being enough the moment there are two operators, because nothing says
+who is answering what.
+
+## A customer may hold several tickets
+
+The one-open-ticket-per-customer rule is gone. A billing question and a
+connection problem are two conversations: forcing them into one thread makes
+both harder to answer and impossible to route separately.
+
+The bot still continues the customer's most recent open ticket when they simply
+type, because that is what they mean. A second thread is opened deliberately —
+from the ticket list in the bot, or by an operator.
+
+## Queues carry the promise
+
+A queue is a named bucket with a first-response target and a resolution target.
+The target lives on the queue rather than on the priority because they answer
+different questions: priority is how this ticket compares to the work in front
+of it, and the target is what the operator promised the customer. A billing
+queue may promise four hours for everything in it while a general queue promises
+two days.
+
+Exactly one queue is the default, enforced by a partial unique index, so a new
+ticket always has somewhere to go. A queue with open tickets in it cannot be
+archived — archiving one would hide work rather than finish it.
+
+Every installation starts with a `general` queue. It can be renamed, joined by
+others, or demoted from default, but there is always one.
+
+## Internal notes are not messages
+
+A note is a separate table, not a `visibility` flag on `support_messages`.
+
+That is deliberate and it is the whole safety property. Every path that delivers
+a message to a customer reads `support_messages`; a flag on that table would
+mean every one of those paths has to remember to check it, and the first one
+that forgets sends an operator's private note to the customer it is about. A
+note cannot be delivered because it is not in the table the delivery path reads.
+
+The panel renders notes and messages in one timeline and styles them
+differently, but the reply box and the note box are separate controls with
+separate buttons. A toggle would be a state somebody can be wrong about, and
+being wrong there means sending the customer a note about them.
+
+## Replies are written here and delivered by the bot
+
+The panel writes the reply; the bot's notifier delivers it. That keeps consent,
+quiet hours, Telegram delivery health, and blocked-account handling in one place
+instead of duplicated into the panel.
+
+A reply requires an `Idempotency-Key`, which becomes the message's dedupe key,
+so a resubmitted form reaches the message that already exists rather than
+sending the customer the same answer twice.
+
+The reply body is deliberately absent from the audit metadata. The message
+itself is the record; copying it into the audit trail would duplicate customer
+content into a second retention regime.
+
+## Canned responses require both languages
+
+A canned reply that exists in one language is one an operator will send to the
+wrong half of the customer base, because the language of the customer is not the
+language of the operator.
+
+Each response declares the permission needed to send it. A response the operator
+may not use is filtered out of the list rather than shown disabled: a list of
+replies somebody cannot send is a list they have to read past every time.
+
+## Merging keeps both conversations
+
+The absorbed ticket keeps its row and points at its survivor, and its messages
+move so the conversation reads as one thread. Deleting it would lose the
+customer's own words and the trail that explains where they went.
+
+A merge across customers is refused. Putting one customer's words into another's
+conversation is not a mistake worth warning about afterwards.
+
+## What the report measures, exactly
+
+The definitions travel with the numbers, because a response-time report whose
+definition is ambiguous is a report people argue about instead of acting on.
+
+| Measure | Definition |
+| --- | --- |
+| Open tickets | Tickets in the open or pending state, whatever their queue |
+| Unassigned | Open or pending tickets nobody has taken |
+| Overdue | Open or pending tickets past their queue's first-response target with no operator reply yet. A queue with a zero target never breaches |
+| Resolved in window | Tickets that reached resolved or closed inside the window |
+| Median first response | Median time from a ticket being created to its first operator reply, over replies made inside the window |
+| Replies | Operator messages written by that operator inside the window, including replies to tickets assigned to somebody else |
+
+The response measure is a median rather than a mean. One ticket answered a week
+late would otherwise make a good week look bad.
+
+`first_response_at` is set by the first operator reply and never moved, so the
+measure survives a conversation that goes back and forth for a week.
+`reopened_count` counts the round trips, which is the signal that an answer did
+not actually answer the question — a customer who writes back on a resolved
+ticket reopens it automatically.
+
+## Permissions
+
+| Action | Permission |
+| --- | --- |
+| Read queues, tickets, canned replies, and the report | `support.read` |
+| Assign, reply, note, tag, merge, and change status | `support.write` |
+| Define queues, tags, and canned replies | `settings.write` |
+
+Reading a ticket and answering one are separate because they are separate jobs:
+a finance operator investigating a refund needs to read the conversation that led
+to it, and should not be able to reply to the customer in the desk's voice.
+Defining queues is configuration rather than day-to-day support work, so an
+operator answering tickets cannot redefine the promises their queue makes.

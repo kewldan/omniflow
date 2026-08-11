@@ -1134,7 +1134,8 @@
       }
     },
     "nav": {
-      "offers": "Offers"
+      "offers": "Offers",
+      "support": "Support"
     },
     "offers": {
       "title": "Personal offers",
@@ -1281,6 +1282,77 @@
       "empty": {
         "title": "No imports yet",
         "description": "Import runs and their validation results appear here."
+      }
+    },
+    "support": {
+      "title": "Support desk",
+      "description": "What is waiting, who has it, and how close it is to what the queue promised.",
+      "tabs": {
+        "queue": "Queue",
+        "report": "Workload"
+      },
+      "resetFilters": "Reset",
+      "noSubject": "(no subject)",
+      "nobody": "Unassigned",
+      "overdue": "Overdue",
+      "selectTicket": "Choose a ticket to read it.",
+      "loadFailed": "Could not load this ticket",
+      "unassigned": "{count} unassigned",
+      "breached": "{count} overdue",
+      "target": "target {duration}",
+      "reopened": "reopened {count}×",
+      "mergedAway": "Merged into another ticket",
+      "internalNote": "Internal note",
+      "delivered": "delivered",
+      "queued": "queued",
+      "takeIt": "Take it",
+      "release": "Release",
+      "tagAction": "Tag…",
+      "mergeInto": "Merge into ticket ID",
+      "merge": "Merge",
+      "insertCanned": "Insert a canned reply…",
+      "cannedHint": "Only replies your role may send are listed.",
+      "replyPlaceholder": "Your reply to the customer",
+      "send": "Send reply",
+      "sendHint": "The bot delivers it, applying the customer's delivery preferences.",
+      "notePlaceholder": "An internal note — the customer never sees this",
+      "addNote": "Add note",
+      "status": {
+        "all": "All",
+        "open": "Open",
+        "pending": "Pending",
+        "resolved": "Resolved",
+        "closed": "Closed",
+        "merged": "Merged"
+      },
+      "priority": {
+        "low": "Low",
+        "normal": "Normal",
+        "high": "High",
+        "urgent": "Urgent"
+      },
+      "sender": {
+        "customer": "Customer",
+        "operator": "Operator",
+        "system": "System"
+      },
+      "empty": {
+        "title": "Nothing waiting",
+        "description": "No tickets match these filters."
+      },
+      "report": {
+        "window": "{days} days",
+        "open": "Open",
+        "unassigned": "Unassigned",
+        "breached": "Overdue",
+        "resolved": "Resolved",
+        "median": "Median first reply",
+        "medianShort": "Median reply",
+        "operator": "Operator",
+        "replies": "Replies",
+        "openTickets": "Open",
+        "resolvedTickets": "Resolved",
+        "definitions": "What these numbers mean"
       }
     }
   }

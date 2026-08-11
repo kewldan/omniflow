@@ -226,11 +226,26 @@ func (store *PostgresStore) AppendCustomerMessage(ctx context.Context, customerI
 			return "", ErrTicketClosed
 		}
 	} else {
-		err = tx.QueryRow(ctx, `INSERT INTO support_tickets (user_id, subject)
-			VALUES ($1::uuid, left($2, 120))
-			ON CONFLICT (user_id) WHERE status = 'open'
-			DO UPDATE SET updated_at = now()
-			RETURNING id::text`, customerID, subject).Scan(&resolved)
+		// A customer may now hold several open tickets, because a billing
+		// question and a connection problem are two conversations. The bot still
+		// continues the most recent open one when the customer just types,
+		// because that is what they mean; the panel and the ticket list are
+		// where a second thread is chosen deliberately.
+		err = tx.QueryRow(ctx, `
+			WITH existing AS (
+				SELECT id FROM support_tickets
+				WHERE user_id = $1::uuid AND status IN ('open', 'pending')
+				ORDER BY last_message_at DESC LIMIT 1
+			), created AS (
+				INSERT INTO support_tickets (user_id, subject, queue_id)
+				SELECT $1::uuid, left($2, 120),
+				       (SELECT id FROM support_queues WHERE is_default AND archived_at IS NULL)
+				WHERE NOT EXISTS (SELECT 1 FROM existing)
+				RETURNING id
+			)
+			SELECT id::text FROM existing
+			UNION ALL
+			SELECT id::text FROM created`, customerID, subject).Scan(&resolved)
 		if err != nil {
 			return "", err
 		}
@@ -250,8 +265,16 @@ func (store *PostgresStore) AppendCustomerMessage(ctx context.Context, customerI
 			return "", err
 		}
 	}
+	// The operator-side unread counter is the mirror of the customer's, and it
+	// is what makes a queue show what has arrived since anybody looked. A
+	// customer message on a resolved ticket reopens it, because a customer who
+	// writes back has not had their question answered.
 	if _, err = tx.Exec(ctx, `UPDATE support_tickets
 		SET updated_at = now(), last_message_at = now(),
+		    operator_unread_count = operator_unread_count + 1,
+		    status = CASE WHEN status = 'resolved' THEN 'open' ELSE status END,
+		    reopened_count = CASE WHEN status = 'resolved' THEN reopened_count + 1 ELSE reopened_count END,
+		    resolved_at = CASE WHEN status = 'resolved' THEN NULL ELSE resolved_at END,
 		    subject = CASE WHEN subject = '' THEN left($2, 120) ELSE subject END
 		WHERE id = $1::uuid`, resolved, firstLine(body)); err != nil {
 		return "", err

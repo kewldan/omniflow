@@ -91,6 +91,8 @@ func TestOperationsRoutesAreAbsentWithoutTheService(t *testing.T) {
 		"/v1/panel/customers",
 		"/v1/panel/finance/orders",
 		"/v1/panel/goods/products",
+		"/v1/panel/support/tickets",
+		"/v1/panel/support/queues",
 	} {
 		recorder := httptest.NewRecorder()
 		router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path, nil))
@@ -128,6 +130,15 @@ func TestOperationsRoutesRequireASession(t *testing.T) {
 		{http.MethodGet, "/v1/panel/risk/matches"},
 		{http.MethodPost, "/v1/panel/risk/anomalies/00000000-0000-0000-0000-000000000000/review"},
 		{http.MethodGet, "/v1/panel/gifts"},
+		{http.MethodGet, "/v1/panel/support/queues"},
+		{http.MethodGet, "/v1/panel/support/tickets"},
+		{http.MethodGet, "/v1/panel/support/tickets/00000000-0000-0000-0000-000000000000"},
+		{http.MethodGet, "/v1/panel/support/report"},
+		{http.MethodPost, "/v1/panel/support/tickets/00000000-0000-0000-0000-000000000000/assign"},
+		{http.MethodPost, "/v1/panel/support/tickets/00000000-0000-0000-0000-000000000000/reply"},
+		{http.MethodPost, "/v1/panel/support/tickets/00000000-0000-0000-0000-000000000000/notes"},
+		{http.MethodPost, "/v1/panel/support/tickets/00000000-0000-0000-0000-000000000000/merge"},
+		{http.MethodPut, "/v1/panel/support/canned"},
 		{http.MethodGet, "/v1/panel/goods/products"},
 		{http.MethodPost, "/v1/panel/bulk"},
 	}

@@ -90,7 +90,6 @@ export const NAVIGATION: NavigationSection[] = [
         href: "/admin/support",
         icon: LifeBuoy,
         permission: "support.read",
-        planned: true,
       },
       {
         key: "marketing",

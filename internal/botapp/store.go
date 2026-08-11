@@ -172,13 +172,27 @@ func (store *PostgresStore) SubmitSupport(ctx context.Context, telegramID int64,
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	var ticketID string
+	// A customer may hold several open tickets since v0.8, so this continues the
+	// most recent one rather than relying on a uniqueness constraint that no
+	// longer exists.
 	err = tx.QueryRow(ctx, `WITH account AS (
 		SELECT user_id FROM remnawave_users WHERE telegram_id = $1
+	), existing AS (
+		SELECT t.id FROM support_tickets t
+		JOIN account a ON a.user_id = t.user_id
+		WHERE t.status IN ('open', 'pending')
+		ORDER BY t.last_message_at DESC LIMIT 1
 	), created AS (
-		INSERT INTO support_tickets (user_id) SELECT user_id FROM account
-		ON CONFLICT (user_id) WHERE status = 'open' DO UPDATE SET updated_at = now()
+		INSERT INTO support_tickets (user_id, queue_id)
+		SELECT a.user_id,
+		       (SELECT id FROM support_queues WHERE is_default AND archived_at IS NULL)
+		FROM account a
+		WHERE NOT EXISTS (SELECT 1 FROM existing)
 		RETURNING id
-	) SELECT id::text FROM created`, telegramID).Scan(&ticketID)
+	)
+	SELECT id::text FROM existing
+	UNION ALL
+	SELECT id::text FROM created`, telegramID).Scan(&ticketID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotLinked
 	}

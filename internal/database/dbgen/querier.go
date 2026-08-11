@@ -16,13 +16,26 @@ type Querier interface {
 	AddPromotionPlan(ctx context.Context, arg AddPromotionPlanParams) error
 	AnonymizeCustomerData(ctx context.Context, targetUserID pgtype.UUID) error
 	AppealBlocklistMatch(ctx context.Context, arg AppealBlocklistMatchParams) (BlocklistMatch, error)
+	AppendOperatorMessage(ctx context.Context, arg AppendOperatorMessageParams) (SupportMessage, error)
+	AppendSupportNote(ctx context.Context, arg AppendSupportNoteParams) (SupportNote, error)
 	ApplyCustomerImportItem(ctx context.Context, arg ApplyCustomerImportItemParams) (CustomerImportItem, error)
 	ApplyCustomerLifecycle(ctx context.Context, arg ApplyCustomerLifecycleParams) (User, error)
 	// Add-on capacity is folded into the entitlement itself, so the existing
 	// fulfillment pipeline reads one desired state and never sums add-ons again.
 	ApplyEntitlementAddonTotals(ctx context.Context, arg ApplyEntitlementAddonTotalsParams) (Entitlement, error)
 	ApproveManualPayment(ctx context.Context, arg ApproveManualPaymentParams) (ManualPaymentApproval, error)
+	ArchiveCannedResponse(ctx context.Context, responseID pgtype.UUID) (SupportCannedResponse, error)
 	ArchivePlan(ctx context.Context, arg ArchivePlanParams) (Plan, error)
+	// A queue with open tickets in it cannot be archived. Archiving one would hide
+	// work rather than finish it.
+	ArchiveSupportQueue(ctx context.Context, queueID pgtype.UUID) (SupportQueue, error)
+	// ---------------------------------------------------------------------------
+	// Ticket mutations
+	// ---------------------------------------------------------------------------
+	// Assigning to NULL releases the ticket back to its queue, which is a normal
+	// action rather than an error state: an operator who cannot finish something
+	// should be able to put it down.
+	AssignSupportTicket(ctx context.Context, arg AssignSupportTicketParams) (SupportTicket, error)
 	// Claims the next attempt and pushes the retry deadline out before any provider
 	// call is made, so a worker that dies mid-request does not have the row picked
 	// up again immediately.
@@ -73,6 +86,7 @@ type Querier interface {
 	// Administrator accounts
 	// ---------------------------------------------------------------------------
 	CountAdminUsers(ctx context.Context) (int64, error)
+	CountCannedResponseUse(ctx context.Context, responseID pgtype.UUID) error
 	CountDunningAttemptsForCycle(ctx context.Context, cycleKey string) (int64, error)
 	CountGiftsByStatus(ctx context.Context) ([]CountGiftsByStatusRow, error)
 	CountOpenAnomalySignals(ctx context.Context) (int64, error)
@@ -286,6 +300,7 @@ type Querier interface {
 	// here: the targets were recorded by the preview, which validated them, so this
 	// is reading back a decision rather than accepting one.
 	GetBulkSubscriptionTarget(ctx context.Context, subscriptionID pgtype.UUID) (GetBulkSubscriptionTargetRow, error)
+	GetCannedResponse(ctx context.Context, id pgtype.UUID) (SupportCannedResponse, error)
 	// Operator panel queries for v0.7: settings, dashboard, customer and finance
 	// operations, fulfillment and job diagnostics, and bulk actions.
 	//
@@ -312,6 +327,7 @@ type Querier interface {
 	// the cycle key — so this is how a retry finds what the previous attempt
 	// created instead of opening a second one.
 	GetCycleOrder(ctx context.Context, arg GetCycleOrderParams) (Order, error)
+	GetDefaultSupportQueue(ctx context.Context) (SupportQueue, error)
 	GetDunningAttempt(ctx context.Context, arg GetDunningAttemptParams) (DunningAttempt, error)
 	GetEntitlement(ctx context.Context, id pgtype.UUID) (Entitlement, error)
 	GetFulfillmentOperation(ctx context.Context, id pgtype.UUID) (FulfillmentOperation, error)
@@ -353,6 +369,9 @@ type Querier interface {
 	GetReservedRefundAmount(ctx context.Context, paymentIntentID pgtype.UUID) (int64, error)
 	GetSubscription(ctx context.Context, id pgtype.UUID) (Subscription, error)
 	GetSubscriptionByRemnawaveUser(ctx context.Context, remnawaveUserID pgtype.Int8) (Subscription, error)
+	GetSupportQueue(ctx context.Context, id pgtype.UUID) (SupportQueue, error)
+	GetSupportTagByCode(ctx context.Context, code string) (SupportTag, error)
+	GetSupportTicket(ctx context.Context, id pgtype.UUID) (GetSupportTicketRow, error)
 	GetTelemetryInstallationID(ctx context.Context) (pgtype.UUID, error)
 	GetWalletBalance(ctx context.Context, arg GetWalletBalanceParams) (int64, error)
 	GetWebhookEventForReplay(ctx context.Context, id pgtype.UUID) (ProviderWebhookEvent, error)
@@ -434,6 +453,10 @@ type Querier interface {
 	ListBlocklistSources(ctx context.Context) ([]BlocklistSource, error)
 	ListBulkOperationItems(ctx context.Context, arg ListBulkOperationItemsParams) ([]BulkOperationItem, error)
 	ListBulkOperations(ctx context.Context, pageSize int32) ([]BulkOperation, error)
+	// ---------------------------------------------------------------------------
+	// Canned responses
+	// ---------------------------------------------------------------------------
+	ListCannedResponses(ctx context.Context) ([]SupportCannedResponse, error)
 	ListCartAddons(ctx context.Context, cartID pgtype.UUID) ([]CartAddon, error)
 	ListContactChannels(ctx context.Context, userID pgtype.UUID) ([]ListContactChannelsRow, error)
 	ListCustomerConsents(ctx context.Context, userID pgtype.UUID) ([]ConsentRecord, error)
@@ -556,6 +579,21 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	ListSubscriptions(ctx context.Context, userID pgtype.UUID) ([]Subscription, error)
 	ListSubscriptionsForAlerts(ctx context.Context, limit int32) ([]ListSubscriptionsForAlertsRow, error)
+	// ---------------------------------------------------------------------------
+	// Messages, notes, and tags
+	// ---------------------------------------------------------------------------
+	ListSupportMessages(ctx context.Context, arg ListSupportMessagesParams) ([]ListSupportMessagesRow, error)
+	ListSupportNotes(ctx context.Context, arg ListSupportNotesParams) ([]ListSupportNotesRow, error)
+	// The support desk.
+	//
+	// Every read here is queue-shaped: an operator's question is almost always
+	// "what is waiting, and who has it", not "show me ticket X". The one lookup by
+	// identifier exists for the conversation view a queue row links to.
+	// ---------------------------------------------------------------------------
+	// Queues
+	// ---------------------------------------------------------------------------
+	ListSupportQueues(ctx context.Context) ([]ListSupportQueuesRow, error)
+	ListSupportTags(ctx context.Context) ([]SupportTag, error)
 	ListTelegramIdentitySubjects(ctx context.Context) ([]string, error)
 	ListUnpublishedOutboxEvents(ctx context.Context, pageSize int32) ([]ListUnpublishedOutboxEventsRow, error)
 	// The customer-facing catalogue in one round trip: product, localisation for
@@ -577,6 +615,7 @@ type Querier interface {
 	LockGoodsDelivery(ctx context.Context, orderID pgtype.UUID) (GoodsDelivery, error)
 	LockOpenCart(ctx context.Context, userID pgtype.UUID) (Cart, error)
 	LockOrder(ctx context.Context, id pgtype.UUID) (Order, error)
+	LockSupportTicket(ctx context.Context, id pgtype.UUID) (SupportTicket, error)
 	LockWalletTopup(ctx context.Context, orderID pgtype.UUID) (WalletTopup, error)
 	MarkBackupPruned(ctx context.Context, id pgtype.UUID) (Backup, error)
 	MarkCartPurchased(ctx context.Context, arg MarkCartPurchasedParams) (Cart, error)
@@ -586,6 +625,7 @@ type Querier interface {
 	MarkGiftDeliverable(ctx context.Context, giftID pgtype.UUID) (Gift, error)
 	MarkGiftRefunded(ctx context.Context, giftID pgtype.UUID) (Gift, error)
 	MarkPaymentMethodStatus(ctx context.Context, arg MarkPaymentMethodStatusParams) (PaymentMethod, error)
+	MarkSupportTicketRead(ctx context.Context, ticketID pgtype.UUID) (SupportTicket, error)
 	// Reprocessing is replay-safe because the downstream handlers are keyed on the
 	// provider event identifier, so a second pass over the same body reaches the
 	// same terminal state instead of applying twice.
@@ -594,6 +634,14 @@ type Querier interface {
 	// source that lists one of them. An exact index probe per source, so the check
 	// is cheap enough to run on the sign-up and purchase paths.
 	MatchBlocklistFingerprints(ctx context.Context, fingerprints [][]byte) ([]MatchBlocklistFingerprintsRow, error)
+	// The absorbed ticket keeps its row and its messages and points at its
+	// survivor. Deleting it would lose the customer's own words and the trail that
+	// explains where they went.
+	MergeSupportTicket(ctx context.Context, arg MergeSupportTicketParams) (SupportTicket, error)
+	// Moves the absorbed ticket's messages onto the survivor so the conversation
+	// reads as one thread.
+	MoveSupportMessages(ctx context.Context, arg MoveSupportMessagesParams) error
+	MoveSupportTicket(ctx context.Context, arg MoveSupportTicketParams) (SupportTicket, error)
 	NextAddonVersion(ctx context.Context, addonID pgtype.UUID) (int32, error)
 	NextPlanVersion(ctx context.Context, planID pgtype.UUID) (int32, error)
 	// ---------------------------------------------------------------------------
@@ -653,6 +701,9 @@ type Querier interface {
 	RecordGoodsProviderHealth(ctx context.Context, arg RecordGoodsProviderHealthParams) (GoodsProvider, error)
 	RecordProviderConnectionCheck(ctx context.Context, arg RecordProviderConnectionCheckParams) (PaymentProviderSetting, error)
 	RecordProviderWebhookHealth(ctx context.Context, arg RecordProviderWebhookHealthParams) (PaymentProviderSetting, error)
+	// Only the first operator reply sets it, so the measure survives a
+	// conversation that goes back and forth for a week.
+	RecordSupportFirstResponse(ctx context.Context, ticketID pgtype.UUID) (SupportTicket, error)
 	// Counters are recomputed from the items rather than incremented, so a retried
 	// worker cannot double-count an outcome it already recorded.
 	RecountBulkOperation(ctx context.Context, operationID pgtype.UUID) (BulkOperation, error)
@@ -745,6 +796,14 @@ type Querier interface {
 	SearchOrders(ctx context.Context, arg SearchOrdersParams) ([]Order, error)
 	SearchPersonalOffers(ctx context.Context, arg SearchPersonalOffersParams) ([]PersonalOffer, error)
 	SearchPromotions(ctx context.Context, arg SearchPromotionsParams) ([]SearchPromotionsRow, error)
+	// ---------------------------------------------------------------------------
+	// Ticket queue view
+	// ---------------------------------------------------------------------------
+	// The queue. Oldest activity first, because a desk works the top of the list.
+	//
+	// The SLA columns are computed here rather than in the panel so that "overdue"
+	// means the same thing in the list, in the counters, and in the report.
+	SearchSupportTickets(ctx context.Context, arg SearchSupportTicketsParams) ([]SearchSupportTicketsRow, error)
 	// The raw body is deliberately not selected: it can contain provider payloads,
 	// and the panel never needs it to answer "did this arrive and was it accepted".
 	SearchWebhookEvents(ctx context.Context, arg SearchWebhookEventsParams) ([]SearchWebhookEventsRow, error)
@@ -762,6 +821,10 @@ type Querier interface {
 	SetCartAddon(ctx context.Context, arg SetCartAddonParams) error
 	SetCartAutoPurchase(ctx context.Context, arg SetCartAutoPurchaseParams) (Cart, error)
 	SetDefaultPaymentMethod(ctx context.Context, arg SetDefaultPaymentMethodParams) (PaymentMethod, error)
+	// Clearing and setting run in one transaction, because the partial unique index
+	// allows exactly one default: doing them apart would leave a window in which a
+	// new ticket has nowhere to go.
+	SetDefaultSupportQueue(ctx context.Context, queueID pgtype.UUID) error
 	SetGoodsOrderStatus(ctx context.Context, arg SetGoodsOrderStatusParams) (GoodsOrder, error)
 	SetMaintenanceState(ctx context.Context, arg SetMaintenanceStateParams) (MaintenanceState, error)
 	SetOrderState(ctx context.Context, arg SetOrderStateParams) (Order, error)
@@ -774,6 +837,13 @@ type Querier interface {
 	// true alongside a passing test, and the table constraint refuses any pair that
 	// violates it.
 	SetProviderRecurring(ctx context.Context, arg SetProviderRecurringParams) (PaymentProviderSetting, error)
+	SetSupportTicketPriority(ctx context.Context, arg SetSupportTicketPriorityParams) (SupportTicket, error)
+	// Resolution and reopening are recorded rather than inferred.
+	//
+	// `resolved_at` is set the first time a ticket reaches a terminal state and
+	// cleared when it comes back, and `reopened_count` counts the round trips —
+	// which is the signal that an answer did not actually answer the question.
+	SetSupportTicketStatus(ctx context.Context, arg SetSupportTicketStatusParams) (SupportTicket, error)
 	// Only a previewed operation may run. That is what enforces "impact preview
 	// before bulk change" in the database rather than only in the panel.
 	StartBulkOperation(ctx context.Context, operationID pgtype.UUID) (BulkOperation, error)
@@ -786,10 +856,26 @@ type Querier interface {
 	// Superseding is scoped to one subscription so buying a second subscription
 	// never retires the first one's entitlement.
 	SupersedePreviousEntitlements(ctx context.Context, arg SupersedePreviousEntitlementsParams) error
+	// The desk at a glance: what is waiting, what is overdue, and how quickly the
+	// desk is answering.
+	SupportDeskSummary(ctx context.Context, since pgtype.Timestamptz) (SupportDeskSummaryRow, error)
+	// ---------------------------------------------------------------------------
+	// Workload and response-time reporting
+	// ---------------------------------------------------------------------------
+	// Per-operator workload over a window.
+	//
+	// The definitions are deliberately narrow and are documented beside the report:
+	// `replies` counts operator messages the operator actually wrote, `resolved`
+	// counts tickets that reached a terminal state while assigned to them, and the
+	// response measure is the median rather than the mean, because one ticket
+	// answered a week late would otherwise make a good week look bad.
+	SupportWorkloadReport(ctx context.Context, since pgtype.Timestamptz) ([]SupportWorkloadReportRow, error)
+	TagSupportTicket(ctx context.Context, arg TagSupportTicketParams) error
 	// Slides the inactivity window forward. The absolute deadline is never
 	// extended, so continuous activity cannot keep a session alive indefinitely.
 	TouchAdminSession(ctx context.Context, arg TouchAdminSessionParams) (AdminSession, error)
 	TouchPaymentMethodUsed(ctx context.Context, id pgtype.UUID) error
+	UntagSupportTicket(ctx context.Context, arg UntagSupportTicketParams) error
 	// Preferences are merged rather than replaced, so a panel that only knows about
 	// one key cannot silently drop the others when it saves.
 	UpdateAdminUserPreferences(ctx context.Context, arg UpdateAdminUserPreferencesParams) (AdminUser, error)
@@ -825,6 +911,7 @@ type Querier interface {
 	// A null auth header on update means "keep the stored credential", matching the
 	// write-only treatment every other secret in the schema gets.
 	UpsertBlocklistSource(ctx context.Context, arg UpsertBlocklistSourceParams) (BlocklistSource, error)
+	UpsertCannedResponse(ctx context.Context, arg UpsertCannedResponseParams) (SupportCannedResponse, error)
 	// ---------------------------------------------------------------------------
 	// Cart and deferred purchase
 	// ---------------------------------------------------------------------------
@@ -846,6 +933,8 @@ type Querier interface {
 	UpsertPlanLocalization(ctx context.Context, arg UpsertPlanLocalizationParams) (PlanLocalization, error)
 	UpsertRemnawaveMapping(ctx context.Context, arg UpsertRemnawaveMappingParams) (RemnawaveUser, error)
 	UpsertSubscriptionRemnawaveUser(ctx context.Context, arg UpsertSubscriptionRemnawaveUserParams) (Subscription, error)
+	UpsertSupportQueue(ctx context.Context, arg UpsertSupportQueueParams) (SupportQueue, error)
+	UpsertSupportTag(ctx context.Context, arg UpsertSupportTagParams) (SupportTag, error)
 }
 
 var _ Querier = (*Queries)(nil)

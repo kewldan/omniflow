@@ -1150,6 +1150,21 @@ type SupportAttachment struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type SupportCannedResponse struct {
+	ID                 pgtype.UUID        `json:"id"`
+	Code               string             `json:"code"`
+	TitleEn            string             `json:"title_en"`
+	TitleRu            string             `json:"title_ru"`
+	BodyEn             string             `json:"body_en"`
+	BodyRu             string             `json:"body_ru"`
+	RequiresPermission string             `json:"requires_permission"`
+	UsageCount         int64              `json:"usage_count"`
+	ArchivedAt         pgtype.Timestamptz `json:"archived_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy          pgtype.UUID        `json:"updated_by"`
+}
+
 type SupportMessage struct {
 	ID                int64              `json:"id"`
 	TicketID          pgtype.UUID        `json:"ticket_id"`
@@ -1160,6 +1175,39 @@ type SupportMessage struct {
 	DedupeKey         pgtype.Text        `json:"dedupe_key"`
 	DeliveredAt       pgtype.Timestamptz `json:"delivered_at"`
 	ReadAt            pgtype.Timestamptz `json:"read_at"`
+	AuthorID          pgtype.UUID        `json:"author_id"`
+	CannedResponseID  pgtype.UUID        `json:"canned_response_id"`
+}
+
+type SupportNote struct {
+	ID        int64              `json:"id"`
+	TicketID  pgtype.UUID        `json:"ticket_id"`
+	AuthorID  pgtype.UUID        `json:"author_id"`
+	Body      string             `json:"body"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type SupportQueue struct {
+	ID                         pgtype.UUID        `json:"id"`
+	Code                       string             `json:"code"`
+	NameEn                     string             `json:"name_en"`
+	NameRu                     string             `json:"name_ru"`
+	FirstResponseTargetSeconds int64              `json:"first_response_target_seconds"`
+	ResolutionTargetSeconds    int64              `json:"resolution_target_seconds"`
+	IsDefault                  bool               `json:"is_default"`
+	SortOrder                  int32              `json:"sort_order"`
+	ArchivedAt                 pgtype.Timestamptz `json:"archived_at"`
+	CreatedAt                  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                  pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SupportTag struct {
+	ID         pgtype.UUID        `json:"id"`
+	Code       string             `json:"code"`
+	NameEn     string             `json:"name_en"`
+	NameRu     string             `json:"name_ru"`
+	ArchivedAt pgtype.Timestamptz `json:"archived_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
 type SupportTicket struct {
@@ -1173,6 +1221,21 @@ type SupportTicket struct {
 	LastMessageAt       pgtype.Timestamptz `json:"last_message_at"`
 	CustomerUnreadCount int32              `json:"customer_unread_count"`
 	ClosedAt            pgtype.Timestamptz `json:"closed_at"`
+	QueueID             pgtype.UUID        `json:"queue_id"`
+	AssigneeID          pgtype.UUID        `json:"assignee_id"`
+	AssignedAt          pgtype.Timestamptz `json:"assigned_at"`
+	FirstResponseAt     pgtype.Timestamptz `json:"first_response_at"`
+	ResolvedAt          pgtype.Timestamptz `json:"resolved_at"`
+	ReopenedCount       int32              `json:"reopened_count"`
+	OperatorUnreadCount int32              `json:"operator_unread_count"`
+	MergedIntoTicketID  pgtype.UUID        `json:"merged_into_ticket_id"`
+}
+
+type SupportTicketTag struct {
+	TicketID pgtype.UUID        `json:"ticket_id"`
+	TagID    pgtype.UUID        `json:"tag_id"`
+	TaggedBy pgtype.UUID        `json:"tagged_by"`
+	TaggedAt pgtype.Timestamptz `json:"tagged_at"`
 }
 
 type TelemetryEvent struct {

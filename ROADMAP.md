@@ -569,12 +569,12 @@ Goal: finish support, communication, configuration, and operational readiness be
 
 ### Support desk
 
-- [ ] Ticket queues, assignment, priority, tags, status, SLA timestamps, and unread counts
-- [ ] Conversation view with safe attachment handling and operator replies delivered to Telegram/web
-- [ ] Internal notes distinct from customer-visible messages
-- [ ] Canned responses with localization and permission controls
-- [ ] Merge/duplicate handling, close/reopen, and complete audit history
-- [ ] Support workload and response-time reporting with documented definitions
+- [x] Ticket queues, assignment, priority, tags, status, SLA timestamps, and unread counts
+- [x] Conversation view with safe attachment handling and operator replies delivered to Telegram/web
+- [x] Internal notes distinct from customer-visible messages
+- [x] Canned responses with localization and permission controls
+- [x] Merge/duplicate handling, close/reopen, and complete audit history
+- [x] Support workload and response-time reporting with documented definitions
 
 ### Referrals and loyalty
 

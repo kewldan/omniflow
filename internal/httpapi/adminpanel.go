@@ -171,6 +171,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 			secure.Get("/rbac/catalog", handlers.permissionCatalog)
 			handlers.mountOIDCSecure(secure)
 			handlers.mountOperations(secure)
+			handlers.mountSupport(secure)
 		})
 	})
 }

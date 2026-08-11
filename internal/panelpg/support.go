@@ -1,0 +1,842 @@
+package panelpg
+
+import (
+	"context"
+	"errors"
+	"strings"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/omniflow/omniflow/internal/database/dbgen"
+)
+
+// SupportQueue is one named bucket of work with its promise attached.
+type SupportQueue struct {
+	ID                   string `json:"id"`
+	Code                 string `json:"code"`
+	NameEN               string `json:"nameEn"`
+	NameRU               string `json:"nameRu"`
+	FirstResponseSeconds int64  `json:"firstResponseTargetSeconds"`
+	ResolutionSeconds    int64  `json:"resolutionTargetSeconds"`
+	IsDefault            bool   `json:"isDefault"`
+	SortOrder            int32  `json:"sortOrder"`
+	// The three counts are what an operator reads before choosing what to work
+	// on: how much is here, how much nobody owns, and how much is already late.
+	Open       int64 `json:"openCount"`
+	Unassigned int64 `json:"unassignedCount"`
+	Breached   int64 `json:"breachedCount"`
+}
+
+// SupportTicket is one conversation as the desk sees it.
+type SupportTicket struct {
+	ID           string     `json:"id"`
+	CustomerID   string     `json:"customerId"`
+	QueueID      string     `json:"queueId"`
+	QueueCode    string     `json:"queueCode"`
+	Subject      string     `json:"subject"`
+	Status       string     `json:"status"`
+	Priority     string     `json:"priority"`
+	AssigneeID   string     `json:"assigneeId,omitempty"`
+	AssigneeName string     `json:"assigneeName,omitempty"`
+	Tags         []string   `json:"tags"`
+	MessageCount int64      `json:"messageCount"`
+	Unread       int32      `json:"unreadCount"`
+	Reopened     int32      `json:"reopenedCount"`
+	Breached     bool       `json:"firstResponseBreached"`
+	MergedInto   string     `json:"mergedIntoTicketId,omitempty"`
+	CreatedAt    time.Time  `json:"createdAt"`
+	LastMessage  time.Time  `json:"lastMessageAt"`
+	FirstReply   *time.Time `json:"firstResponseAt,omitempty"`
+	ResolvedAt   *time.Time `json:"resolvedAt,omitempty"`
+}
+
+// SupportMessage is one turn of the conversation the customer can see.
+type SupportMessage struct {
+	ID         int64     `json:"id"`
+	Sender     string    `json:"sender"`
+	Body       string    `json:"body"`
+	AuthorName string    `json:"authorName,omitempty"`
+	Delivered  bool      `json:"delivered"`
+	CreatedAt  time.Time `json:"createdAt"`
+}
+
+// SupportNote is an operator's private note.
+//
+// It is a distinct type reading a distinct table, not a flagged message. The
+// separation is what makes it impossible to deliver: the path that sends a
+// message to a customer reads `support_messages`, and a note is not in it.
+type SupportNote struct {
+	ID         int64     `json:"id"`
+	AuthorName string    `json:"authorName"`
+	Body       string    `json:"body"`
+	CreatedAt  time.Time `json:"createdAt"`
+}
+
+// TicketFilter narrows the queue view.
+type TicketFilter struct {
+	QueueID        string
+	Status         string
+	Priority       string
+	AssigneeID     string
+	UnassignedOnly bool
+	CustomerID     string
+	Tag            string
+	Cursor         string
+	PageSize       int32
+}
+
+// TicketPage is one page of the queue.
+type TicketPage struct {
+	Items      []SupportTicket `json:"items"`
+	NextCursor string          `json:"nextCursor,omitempty"`
+}
+
+// SupportQueues lists the queues with their live counts.
+func (service *Service) SupportQueues(ctx context.Context) ([]SupportQueue, error) {
+	rows, err := service.queries().ListSupportQueues(ctx)
+	if err != nil {
+		return nil, err
+	}
+	queues := make([]SupportQueue, 0, len(rows))
+	for _, row := range rows {
+		queues = append(queues, SupportQueue{
+			ID: uuidString(row.SupportQueue.ID), Code: row.SupportQueue.Code,
+			NameEN: row.SupportQueue.NameEn, NameRU: row.SupportQueue.NameRu,
+			FirstResponseSeconds: row.SupportQueue.FirstResponseTargetSeconds,
+			ResolutionSeconds:    row.SupportQueue.ResolutionTargetSeconds,
+			IsDefault:            row.SupportQueue.IsDefault,
+			SortOrder:            row.SupportQueue.SortOrder,
+			Open:                 row.OpenCount,
+			Unassigned:           row.UnassignedCount,
+			Breached:             row.BreachedCount,
+		})
+	}
+	return queues, nil
+}
+
+// SaveSupportQueue creates or updates a queue.
+func (service *Service) SaveSupportQueue(
+	ctx context.Context, queue SupportQueue, actor Actor,
+) (SupportQueue, error) {
+	if strings.TrimSpace(queue.Code) == "" ||
+		strings.TrimSpace(queue.NameEN) == "" || strings.TrimSpace(queue.NameRU) == "" {
+		return SupportQueue{}, ErrValidaton
+	}
+	if queue.FirstResponseSeconds < 0 || queue.ResolutionSeconds < 0 {
+		return SupportQueue{}, ErrValidaton
+	}
+
+	var saved SupportQueue
+	err := service.inTx(ctx, func(queries *dbgen.Queries) error {
+		row, txErr := queries.UpsertSupportQueue(ctx, dbgen.UpsertSupportQueueParams{
+			Code:   strings.ToLower(strings.TrimSpace(queue.Code)),
+			NameEn: queue.NameEN, NameRu: queue.NameRU,
+			FirstResponseTargetSeconds: queue.FirstResponseSeconds,
+			ResolutionTargetSeconds:    queue.ResolutionSeconds,
+			SortOrder:                  queue.SortOrder,
+		})
+		if txErr != nil {
+			return txErr
+		}
+		if queue.IsDefault {
+			// Clearing and setting run together, because the partial unique
+			// index allows exactly one default and a gap would leave a new
+			// ticket with nowhere to go.
+			if txErr = queries.SetDefaultSupportQueue(ctx, row.ID); txErr != nil {
+				return txErr
+			}
+			row.IsDefault = true
+		}
+		saved = SupportQueue{
+			ID: uuidString(row.ID), Code: row.Code, NameEN: row.NameEn, NameRU: row.NameRu,
+			FirstResponseSeconds: row.FirstResponseTargetSeconds,
+			ResolutionSeconds:    row.ResolutionTargetSeconds,
+			IsDefault:            row.IsDefault, SortOrder: row.SortOrder,
+		}
+		return appendAudit(ctx, queries, actor.audit(
+			"panel.support_queue.saved", "configuration", "support_queue", saved.ID,
+			map[string]any{
+				"code": saved.Code, "isDefault": saved.IsDefault,
+				"firstResponseTargetSeconds": saved.FirstResponseSeconds,
+			},
+		))
+	})
+	return saved, err
+}
+
+// SearchTickets reads the queue.
+func (service *Service) SearchTickets(
+	ctx context.Context, filter TicketFilter,
+) (TicketPage, error) {
+	size := pageSize(filter.PageSize)
+	cursor := DecodeCursor(filter.Cursor)
+
+	rows, err := service.queries().SearchSupportTickets(ctx, dbgen.SearchSupportTicketsParams{
+		QueueID:             optionalUUID(filter.QueueID),
+		Status:              optionalText(filter.Status),
+		Priority:            optionalText(filter.Priority),
+		AssigneeID:          optionalUUID(filter.AssigneeID),
+		UnassignedOnly:      filter.UnassignedOnly,
+		CustomerID:          optionalUUID(filter.CustomerID),
+		Tag:                 optionalText(filter.Tag),
+		CursorLastMessageAt: cursor.timestamp(),
+		CursorID:            cursor.uuid(),
+		PageSize:            size + 1,
+	})
+	if err != nil {
+		return TicketPage{}, err
+	}
+
+	page := TicketPage{Items: make([]SupportTicket, 0, min(len(rows), int(size)))}
+	for index, row := range rows {
+		if index == int(size) {
+			last := rows[index-1]
+			page.NextCursor = EncodeCursor(
+				timeValue(last.SupportTicket.LastMessageAt), uuidString(last.SupportTicket.ID),
+			)
+			break
+		}
+		ticket := ticketFrom(row.SupportTicket)
+		ticket.QueueCode = row.QueueCode
+		ticket.AssigneeName = row.AssigneeName
+		ticket.Tags = row.Tags
+		ticket.MessageCount = row.MessageCount
+		ticket.Breached = row.FirstResponseBreached.Bool
+		page.Items = append(page.Items, ticket)
+	}
+	return page, nil
+}
+
+// TicketDetail is one ticket with everything an operator needs to answer it.
+type TicketDetail struct {
+	Ticket   SupportTicket    `json:"ticket"`
+	Messages []SupportMessage `json:"messages"`
+	Notes    []SupportNote    `json:"notes"`
+}
+
+// Ticket assembles the conversation view.
+//
+// Messages and notes are returned as separate lists rather than interleaved.
+// The panel renders them together, but keeping them apart in the response means
+// no client can accidentally treat a note as something the customer has seen.
+func (service *Service) Ticket(ctx context.Context, ticketID string) (TicketDetail, error) {
+	id, err := parseUUID(ticketID)
+	if err != nil {
+		return TicketDetail{}, err
+	}
+	queries := service.queries()
+
+	row, err := queries.GetSupportTicket(ctx, id)
+	if err != nil {
+		return TicketDetail{}, notFound(err)
+	}
+	ticket := ticketFrom(row.SupportTicket)
+	ticket.QueueCode = row.QueueCode
+	ticket.AssigneeName = row.AssigneeName
+	ticket.Tags = row.Tags
+
+	messageRows, err := queries.ListSupportMessages(ctx, dbgen.ListSupportMessagesParams{
+		TicketID: id, PageSize: 200,
+	})
+	if err != nil {
+		return TicketDetail{}, err
+	}
+	detail := TicketDetail{
+		Ticket:   ticket,
+		Messages: make([]SupportMessage, 0, len(messageRows)),
+		Notes:    []SupportNote{},
+	}
+	for _, message := range messageRows {
+		detail.Messages = append(detail.Messages, SupportMessage{
+			ID: message.SupportMessage.ID, Sender: message.SupportMessage.Sender,
+			Body: message.SupportMessage.Body, AuthorName: message.AuthorName,
+			Delivered: message.SupportMessage.DeliveredAt.Valid,
+			CreatedAt: timeValue(message.SupportMessage.CreatedAt),
+		})
+	}
+
+	noteRows, err := queries.ListSupportNotes(ctx, dbgen.ListSupportNotesParams{
+		TicketID: id, PageSize: 200,
+	})
+	if err != nil {
+		return TicketDetail{}, err
+	}
+	for _, note := range noteRows {
+		detail.Notes = append(detail.Notes, SupportNote{
+			ID: note.SupportNote.ID, AuthorName: note.AuthorName,
+			Body: note.SupportNote.Body, CreatedAt: timeValue(note.SupportNote.CreatedAt),
+		})
+	}
+	return detail, nil
+}
+
+// AssignTicket takes a ticket or puts it down.
+func (service *Service) AssignTicket(
+	ctx context.Context, ticketID, assigneeID string, actor Actor,
+) (SupportTicket, error) {
+	id, err := parseUUID(ticketID)
+	if err != nil {
+		return SupportTicket{}, err
+	}
+	var ticket SupportTicket
+	err = service.inTx(ctx, func(queries *dbgen.Queries) error {
+		row, txErr := queries.AssignSupportTicket(ctx, dbgen.AssignSupportTicketParams{
+			TicketID: id, AssigneeID: optionalUUID(assigneeID),
+		})
+		if txErr != nil {
+			return notFound(txErr)
+		}
+		ticket = ticketFrom(row)
+		action := "panel.support_ticket.assigned"
+		if assigneeID == "" {
+			action = "panel.support_ticket.released"
+		}
+		return appendAudit(ctx, queries, actor.audit(
+			action, "support", "support_ticket", ticketID,
+			map[string]any{"assigneeId": assigneeID},
+		))
+	})
+	return ticket, err
+}
+
+// MoveTicket sends a ticket to a different queue.
+func (service *Service) MoveTicket(
+	ctx context.Context, ticketID, queueID string, actor Actor,
+) (SupportTicket, error) {
+	id, err := parseUUID(ticketID)
+	if err != nil {
+		return SupportTicket{}, err
+	}
+	queue, err := parseUUID(queueID)
+	if err != nil {
+		return SupportTicket{}, err
+	}
+	var ticket SupportTicket
+	err = service.inTx(ctx, func(queries *dbgen.Queries) error {
+		row, txErr := queries.MoveSupportTicket(ctx, dbgen.MoveSupportTicketParams{
+			TicketID: id, QueueID: queue,
+		})
+		if txErr != nil {
+			return notFound(txErr)
+		}
+		ticket = ticketFrom(row)
+		return appendAudit(ctx, queries, actor.audit(
+			"panel.support_ticket.moved", "support", "support_ticket", ticketID,
+			map[string]any{"queueId": queueID},
+		))
+	})
+	return ticket, err
+}
+
+// SetTicketPriority changes how a ticket compares to the work in front of it.
+func (service *Service) SetTicketPriority(
+	ctx context.Context, ticketID, priority string, actor Actor,
+) (SupportTicket, error) {
+	if !validTicketPriority[priority] {
+		return SupportTicket{}, ErrValidaton
+	}
+	id, err := parseUUID(ticketID)
+	if err != nil {
+		return SupportTicket{}, err
+	}
+	var ticket SupportTicket
+	err = service.inTx(ctx, func(queries *dbgen.Queries) error {
+		row, txErr := queries.SetSupportTicketPriority(ctx, dbgen.SetSupportTicketPriorityParams{
+			TicketID: id, Priority: priority,
+		})
+		if txErr != nil {
+			return notFound(txErr)
+		}
+		ticket = ticketFrom(row)
+		return appendAudit(ctx, queries, actor.audit(
+			"panel.support_ticket.prioritised", "support", "support_ticket", ticketID,
+			map[string]any{"priority": priority},
+		))
+	})
+	return ticket, err
+}
+
+// SetTicketStatus closes, resolves, or reopens a ticket.
+func (service *Service) SetTicketStatus(
+	ctx context.Context, ticketID, status string, actor Actor,
+) (SupportTicket, error) {
+	if !validTicketStatus[status] {
+		return SupportTicket{}, ErrValidaton
+	}
+	id, err := parseUUID(ticketID)
+	if err != nil {
+		return SupportTicket{}, err
+	}
+	var ticket SupportTicket
+	err = service.inTx(ctx, func(queries *dbgen.Queries) error {
+		row, txErr := queries.SetSupportTicketStatus(ctx, dbgen.SetSupportTicketStatusParams{
+			TicketID: id, Status: status,
+		})
+		if txErr != nil {
+			return notFound(txErr)
+		}
+		ticket = ticketFrom(row)
+		return appendAudit(ctx, queries, actor.audit(
+			"panel.support_ticket.status_changed", "support", "support_ticket", ticketID,
+			map[string]any{"status": status, "reopenedCount": ticket.Reopened},
+		))
+	})
+	return ticket, err
+}
+
+// MergeTicket folds one ticket into another.
+//
+// The absorbed ticket keeps its row and points at its survivor, and its
+// messages move so the conversation reads as one thread. Deleting it would lose
+// the customer's own words and the trail that explains where they went.
+func (service *Service) MergeTicket(
+	ctx context.Context, ticketID, survivorID string, actor Actor,
+) (SupportTicket, error) {
+	id, err := parseUUID(ticketID)
+	if err != nil {
+		return SupportTicket{}, err
+	}
+	survivor, err := parseUUID(survivorID)
+	if err != nil {
+		return SupportTicket{}, err
+	}
+	if ticketID == survivorID {
+		return SupportTicket{}, ErrValidaton
+	}
+
+	var ticket SupportTicket
+	err = service.inTx(ctx, func(queries *dbgen.Queries) error {
+		absorbed, txErr := queries.LockSupportTicket(ctx, id)
+		if txErr != nil {
+			return notFound(txErr)
+		}
+		target, txErr := queries.LockSupportTicket(ctx, survivor)
+		if txErr != nil {
+			return notFound(txErr)
+		}
+		if absorbed.UserID != target.UserID {
+			// Merging across customers would put one customer's words into
+			// another's conversation. It is refused rather than warned about.
+			return ErrValidaton
+		}
+		if txErr = queries.MoveSupportMessages(ctx, dbgen.MoveSupportMessagesParams{
+			SurvivorID: survivor, TicketID: id,
+		}); txErr != nil {
+			return txErr
+		}
+		row, txErr := queries.MergeSupportTicket(ctx, dbgen.MergeSupportTicketParams{
+			TicketID: id, SurvivorID: survivor,
+		})
+		if txErr != nil {
+			return notFound(txErr)
+		}
+		ticket = ticketFrom(row)
+		return appendAudit(ctx, queries, actor.audit(
+			"panel.support_ticket.merged", "support", "support_ticket", ticketID,
+			map[string]any{"survivorId": survivorID},
+		))
+	})
+	return ticket, err
+}
+
+// ReplyInput is one operator reply.
+type ReplyInput struct {
+	TicketID         string
+	Body             string
+	CannedResponseID string
+	// DedupeKey makes a resubmitted form reach the message that already exists
+	// rather than sending the customer the same answer twice.
+	DedupeKey string
+}
+
+// Reply appends an operator message and records the first-response time.
+//
+// The message is written but not sent here. The bot's notifier delivers it,
+// which is what keeps consent, quiet hours, and Telegram delivery health in one
+// place instead of duplicated into the panel.
+func (service *Service) Reply(
+	ctx context.Context, input ReplyInput, actor Actor,
+) (SupportMessage, error) {
+	if strings.TrimSpace(input.Body) == "" {
+		return SupportMessage{}, ErrValidaton
+	}
+	id, err := parseUUID(input.TicketID)
+	if err != nil {
+		return SupportMessage{}, err
+	}
+	authorID, err := parseUUID(actor.AdminID)
+	if err != nil {
+		return SupportMessage{}, ErrValidaton
+	}
+
+	var message SupportMessage
+	err = service.inTx(ctx, func(queries *dbgen.Queries) error {
+		row, txErr := queries.AppendOperatorMessage(ctx, dbgen.AppendOperatorMessageParams{
+			TicketID: id, Body: strings.TrimSpace(input.Body), AuthorID: authorID,
+			CannedResponseID: optionalUUID(input.CannedResponseID),
+			DedupeKey:        optionalText(input.DedupeKey),
+		})
+		if errors.Is(txErr, pgx.ErrNoRows) {
+			// The dedupe key already produced this message. A resubmitted form
+			// is a no-op, which is the point of the key.
+			return nil
+		}
+		if txErr != nil {
+			return txErr
+		}
+		message = SupportMessage{
+			ID: row.ID, Sender: row.Sender, Body: row.Body,
+			CreatedAt: timeValue(row.CreatedAt),
+		}
+		// Only the first reply sets the measure, so it survives a conversation
+		// that goes back and forth for a week.
+		if _, txErr = queries.RecordSupportFirstResponse(ctx, id); txErr != nil &&
+			!errors.Is(txErr, pgx.ErrNoRows) {
+			return txErr
+		}
+		if input.CannedResponseID != "" {
+			if canned, parseErr := parseUUID(input.CannedResponseID); parseErr == nil {
+				if txErr = queries.CountCannedResponseUse(ctx, canned); txErr != nil {
+					return txErr
+				}
+			}
+		}
+		return appendAudit(ctx, queries, actor.audit(
+			"panel.support_ticket.replied", "support", "support_ticket", input.TicketID,
+			// The body is deliberately absent from the audit metadata. The
+			// message itself is the record; copying it into the audit trail
+			// would duplicate customer content into a second retention regime.
+			map[string]any{"cannedResponseId": input.CannedResponseID},
+		))
+	})
+	return message, err
+}
+
+// AddNote records an operator's private note.
+func (service *Service) AddNote(
+	ctx context.Context, ticketID, body string, actor Actor,
+) (SupportNote, error) {
+	if strings.TrimSpace(body) == "" {
+		return SupportNote{}, ErrValidaton
+	}
+	id, err := parseUUID(ticketID)
+	if err != nil {
+		return SupportNote{}, err
+	}
+	authorID, err := parseUUID(actor.AdminID)
+	if err != nil {
+		return SupportNote{}, ErrValidaton
+	}
+
+	var note SupportNote
+	err = service.inTx(ctx, func(queries *dbgen.Queries) error {
+		row, txErr := queries.AppendSupportNote(ctx, dbgen.AppendSupportNoteParams{
+			TicketID: id, AuthorID: authorID, Body: strings.TrimSpace(body),
+		})
+		if txErr != nil {
+			return txErr
+		}
+		note = SupportNote{ID: row.ID, Body: row.Body, CreatedAt: timeValue(row.CreatedAt)}
+		return appendAudit(ctx, queries, actor.audit(
+			"panel.support_ticket.noted", "support", "support_ticket", ticketID, nil,
+		))
+	})
+	return note, err
+}
+
+// SetTicketTag adds or removes a tag.
+func (service *Service) SetTicketTag(
+	ctx context.Context, ticketID, code string, attach bool, actor Actor,
+) error {
+	id, err := parseUUID(ticketID)
+	if err != nil {
+		return err
+	}
+	return service.inTx(ctx, func(queries *dbgen.Queries) error {
+		tag, txErr := queries.GetSupportTagByCode(ctx, code)
+		if txErr != nil {
+			return notFound(txErr)
+		}
+		actorID := optionalUUID(actor.AdminID)
+		if attach {
+			txErr = queries.TagSupportTicket(ctx, dbgen.TagSupportTicketParams{
+				TicketID: id, TagID: tag.ID, TaggedBy: actorID,
+			})
+		} else {
+			txErr = queries.UntagSupportTicket(ctx, dbgen.UntagSupportTicketParams{
+				TicketID: id, TagID: tag.ID,
+			})
+		}
+		if txErr != nil {
+			return txErr
+		}
+		action := "panel.support_ticket.tagged"
+		if !attach {
+			action = "panel.support_ticket.untagged"
+		}
+		return appendAudit(ctx, queries, actor.audit(
+			action, "support", "support_ticket", ticketID, map[string]any{"tag": code},
+		))
+	})
+}
+
+// SupportTag is one label the desk uses.
+type SupportTag struct {
+	ID     string `json:"id"`
+	Code   string `json:"code"`
+	NameEN string `json:"nameEn"`
+	NameRU string `json:"nameRu"`
+}
+
+// SupportTags lists the available labels.
+func (service *Service) SupportTags(ctx context.Context) ([]SupportTag, error) {
+	rows, err := service.queries().ListSupportTags(ctx)
+	if err != nil {
+		return nil, err
+	}
+	tags := make([]SupportTag, 0, len(rows))
+	for _, row := range rows {
+		tags = append(tags, SupportTag{
+			ID: uuidString(row.ID), Code: row.Code, NameEN: row.NameEn, NameRU: row.NameRu,
+		})
+	}
+	return tags, nil
+}
+
+// SaveSupportTag creates or renames a label.
+func (service *Service) SaveSupportTag(
+	ctx context.Context, tag SupportTag, actor Actor,
+) (SupportTag, error) {
+	if strings.TrimSpace(tag.Code) == "" ||
+		strings.TrimSpace(tag.NameEN) == "" || strings.TrimSpace(tag.NameRU) == "" {
+		return SupportTag{}, ErrValidaton
+	}
+	var saved SupportTag
+	err := service.inTx(ctx, func(queries *dbgen.Queries) error {
+		row, txErr := queries.UpsertSupportTag(ctx, dbgen.UpsertSupportTagParams{
+			Code:   strings.ToLower(strings.TrimSpace(tag.Code)),
+			NameEn: tag.NameEN, NameRu: tag.NameRU,
+		})
+		if txErr != nil {
+			return txErr
+		}
+		saved = SupportTag{
+			ID: uuidString(row.ID), Code: row.Code, NameEN: row.NameEn, NameRU: row.NameRu,
+		}
+		return appendAudit(ctx, queries, actor.audit(
+			"panel.support_tag.saved", "configuration", "support_tag", saved.ID,
+			map[string]any{"code": saved.Code},
+		))
+	})
+	return saved, err
+}
+
+// CannedResponse is a reusable reply in both languages.
+type CannedResponse struct {
+	ID                 string `json:"id"`
+	Code               string `json:"code"`
+	TitleEN            string `json:"titleEn"`
+	TitleRU            string `json:"titleRu"`
+	BodyEN             string `json:"bodyEn"`
+	BodyRU             string `json:"bodyRu"`
+	RequiresPermission string `json:"requiresPermission"`
+	UsageCount         int64  `json:"usageCount"`
+}
+
+// CannedResponses lists the reusable replies, most-used first.
+func (service *Service) CannedResponses(ctx context.Context) ([]CannedResponse, error) {
+	rows, err := service.queries().ListCannedResponses(ctx)
+	if err != nil {
+		return nil, err
+	}
+	responses := make([]CannedResponse, 0, len(rows))
+	for _, row := range rows {
+		responses = append(responses, cannedFrom(row))
+	}
+	return responses, nil
+}
+
+// SaveCannedResponse creates or updates a reusable reply.
+//
+// Both languages are required, and the form says so rather than accepting one:
+// a canned reply that exists in a single language is one an operator will send
+// to the wrong half of the customer base, because the language of the customer
+// is not the language of the operator.
+func (service *Service) SaveCannedResponse(
+	ctx context.Context, response CannedResponse, actor Actor,
+) (CannedResponse, error) {
+	if strings.TrimSpace(response.Code) == "" ||
+		strings.TrimSpace(response.TitleEN) == "" || strings.TrimSpace(response.TitleRU) == "" ||
+		strings.TrimSpace(response.BodyEN) == "" || strings.TrimSpace(response.BodyRU) == "" {
+		return CannedResponse{}, ErrValidaton
+	}
+	permission := response.RequiresPermission
+	if strings.TrimSpace(permission) == "" {
+		permission = "support.write"
+	}
+
+	var saved CannedResponse
+	err := service.inTx(ctx, func(queries *dbgen.Queries) error {
+		row, txErr := queries.UpsertCannedResponse(ctx, dbgen.UpsertCannedResponseParams{
+			Code:    strings.ToLower(strings.TrimSpace(response.Code)),
+			TitleEn: response.TitleEN, TitleRu: response.TitleRU,
+			BodyEn: response.BodyEN, BodyRu: response.BodyRU,
+			RequiresPermission: permission,
+			UpdatedBy:          optionalUUID(actor.AdminID),
+		})
+		if txErr != nil {
+			return txErr
+		}
+		saved = cannedFrom(row)
+		return appendAudit(ctx, queries, actor.audit(
+			"panel.canned_response.saved", "configuration", "canned_response", saved.ID,
+			map[string]any{"code": saved.Code, "requiresPermission": permission},
+		))
+	})
+	return saved, err
+}
+
+// ArchiveCannedResponse retires a reply without deleting the record of what was
+// sent with it.
+func (service *Service) ArchiveCannedResponse(
+	ctx context.Context, responseID string, actor Actor,
+) error {
+	id, err := parseUUID(responseID)
+	if err != nil {
+		return err
+	}
+	return service.inTx(ctx, func(queries *dbgen.Queries) error {
+		if _, txErr := queries.ArchiveCannedResponse(ctx, id); txErr != nil {
+			return notFound(txErr)
+		}
+		return appendAudit(ctx, queries, actor.audit(
+			"panel.canned_response.archived", "configuration", "canned_response", responseID, nil,
+		))
+	})
+}
+
+// SupportReport is the desk's workload and response-time picture.
+//
+// The definitions travel with the numbers because a response-time report whose
+// definition is ambiguous is a report people argue about instead of acting on.
+type SupportReport struct {
+	Open       int64 `json:"openTickets"`
+	Unassigned int64 `json:"unassignedTickets"`
+	Breached   int64 `json:"breachedTickets"`
+	Resolved   int64 `json:"resolvedInWindow"`
+	// MedianFirstResponseSeconds is a median rather than a mean: one ticket
+	// answered a week late would otherwise make a good week look bad.
+	MedianFirstResponseSeconds int64             `json:"medianFirstResponseSeconds"`
+	WindowSeconds              int64             `json:"windowSeconds"`
+	Operators                  []OperatorLoad    `json:"operators"`
+	Definitions                map[string]string `json:"definitions"`
+}
+
+// OperatorLoad is one operator's share of the desk.
+type OperatorLoad struct {
+	OperatorID                 string `json:"operatorId"`
+	DisplayName                string `json:"displayName"`
+	Replies                    int64  `json:"replies"`
+	OpenTickets                int64  `json:"openTickets"`
+	ResolvedTickets            int64  `json:"resolvedTickets"`
+	MedianFirstResponseSeconds int64  `json:"medianFirstResponseSeconds"`
+}
+
+// SupportReport builds the workload report over a window.
+func (service *Service) SupportReport(
+	ctx context.Context, window time.Duration,
+) (SupportReport, error) {
+	if window <= 0 {
+		window = 7 * 24 * time.Hour
+	}
+	since := pgtype.Timestamptz{Time: time.Now().UTC().Add(-window), Valid: true}
+	queries := service.queries()
+
+	summary, err := queries.SupportDeskSummary(ctx, since)
+	if err != nil {
+		return SupportReport{}, err
+	}
+	rows, err := queries.SupportWorkloadReport(ctx, since)
+	if err != nil {
+		return SupportReport{}, err
+	}
+
+	report := SupportReport{
+		Open: summary.OpenTickets, Unassigned: summary.UnassignedTickets,
+		Breached: summary.BreachedTickets, Resolved: summary.ResolvedInWindow,
+		MedianFirstResponseSeconds: summary.MedianFirstResponseSeconds,
+		WindowSeconds:              int64(window.Seconds()),
+		Operators:                  make([]OperatorLoad, 0, len(rows)),
+		Definitions: map[string]string{
+			"openTickets":                "Tickets in the open or pending state, whatever their queue.",
+			"unassignedTickets":          "Open or pending tickets nobody has taken.",
+			"breachedTickets":            "Open or pending tickets past their queue's first-response target with no operator reply yet. A queue with a zero target never breaches.",
+			"resolvedInWindow":           "Tickets that reached resolved or closed inside the window.",
+			"medianFirstResponseSeconds": "Median time from a ticket being created to its first operator reply, over replies made inside the window. A median rather than a mean, so one very late answer does not distort the picture.",
+			"replies":                    "Operator messages written by this operator inside the window, including replies to tickets assigned to somebody else.",
+		},
+	}
+	for _, row := range rows {
+		report.Operators = append(report.Operators, OperatorLoad{
+			OperatorID: uuidString(row.OperatorID), DisplayName: row.DisplayName,
+			Replies: row.Replies, OpenTickets: row.OpenTickets,
+			ResolvedTickets:            row.ResolvedTickets,
+			MedianFirstResponseSeconds: row.MedianFirstResponseSeconds,
+		})
+	}
+	return report, nil
+}
+
+// MarkTicketRead clears the operator-side unread counter.
+func (service *Service) MarkTicketRead(ctx context.Context, ticketID string) error {
+	id, err := parseUUID(ticketID)
+	if err != nil {
+		return err
+	}
+	_, err = service.queries().MarkSupportTicketRead(ctx, id)
+	return notFound(err)
+}
+
+var (
+	validTicketStatus = map[string]bool{
+		"open": true, "pending": true, "resolved": true, "closed": true,
+	}
+	validTicketPriority = map[string]bool{
+		"low": true, "normal": true, "high": true, "urgent": true,
+	}
+)
+
+func ticketFrom(row dbgen.SupportTicket) SupportTicket {
+	ticket := SupportTicket{
+		ID: uuidString(row.ID), CustomerID: uuidString(row.UserID),
+		QueueID: uuidString(row.QueueID), Subject: row.Subject,
+		Status: row.Status, Priority: row.Priority,
+		AssigneeID:  uuidString(row.AssigneeID),
+		Tags:        []string{},
+		Unread:      row.OperatorUnreadCount,
+		Reopened:    row.ReopenedCount,
+		MergedInto:  uuidString(row.MergedIntoTicketID),
+		CreatedAt:   timeValue(row.CreatedAt),
+		LastMessage: timeValue(row.LastMessageAt),
+	}
+	if row.FirstResponseAt.Valid {
+		first := timeValue(row.FirstResponseAt)
+		ticket.FirstReply = &first
+	}
+	if row.ResolvedAt.Valid {
+		resolved := timeValue(row.ResolvedAt)
+		ticket.ResolvedAt = &resolved
+	}
+	return ticket
+}
+
+func cannedFrom(row dbgen.SupportCannedResponse) CannedResponse {
+	return CannedResponse{
+		ID: uuidString(row.ID), Code: row.Code,
+		TitleEN: row.TitleEn, TitleRU: row.TitleRu,
+		BodyEN: row.BodyEn, BodyRU: row.BodyRu,
+		RequiresPermission: row.RequiresPermission,
+		UsageCount:         row.UsageCount,
+	}
+}
