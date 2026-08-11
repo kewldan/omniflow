@@ -126,6 +126,7 @@ type AdminUser struct {
 	Status               string             `json:"status"`
 	Locale               string             `json:"locale"`
 	Timezone             string             `json:"timezone"`
+	Preferences          []byte             `json:"preferences"`
 	TotpSecretCiphertext []byte             `json:"totp_secret_ciphertext"`
 	TotpConfirmedAt      pgtype.Timestamptz `json:"totp_confirmed_at"`
 	FailedLoginCount     int32              `json:"failed_login_count"`

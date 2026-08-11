@@ -28,6 +28,7 @@ import { z } from "zod";
 import { StateNotice } from "@/components/admin/state-notice";
 import { ApiError, apiFetch, fetcher } from "@/lib/api";
 import { useSession } from "@/lib/session";
+import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
 
 type AdminSession = {
   id: string;
@@ -264,6 +265,7 @@ function TwoFactorCard({ enabled, onChanged }: { enabled: boolean; onChanged: ()
 
 function PasswordCard() {
   const translate = useTranslations("admin.security.password");
+  const guard = useTranslations("admin");
   const currentId = useId();
   const nextId = useId();
   const confirmId = useId();
@@ -272,6 +274,13 @@ function PasswordCard() {
     defaultValues: { confirmPassword: "", currentPassword: "", newPassword: "" },
     resolver: zodResolver(passwordSchema),
   });
+
+  // Navigating away mid-change loses the typed passwords silently, so the
+  // attempt is confirmed rather than absorbed.
+  useUnsavedChanges(
+    form.formState.isDirty && !form.formState.isSubmitSuccessful,
+    guard("states.unsavedChanges"),
+  );
 
   async function submit(values: z.infer<typeof passwordSchema>) {
     try {

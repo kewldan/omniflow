@@ -100,6 +100,9 @@ func TestMigrationsApplyFromABareDatabase(t *testing.T) {
 		"addons", "addon_versions", "order_addon_lines", "entitlement_addons",
 		"operator_topics", "operator_notifications", "backups", "backup_restores",
 		"maintenance_state", "maintenance_events", "plan_version_squads",
+		"admin_users", "admin_user_roles", "admin_sessions", "admin_recovery_codes",
+		"admin_password_resets", "admin_setup_tokens",
+		"admin_oidc_providers", "admin_oidc_identities",
 	} {
 		var exists bool
 		if err := harness.pool.QueryRow(ctx,

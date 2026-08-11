@@ -109,6 +109,24 @@ second factor is exactly what an attacker on a hijacked session would attempt.
   with the notification work in v0.7.
 </Note>
 
+## Security notifications
+
+Security-relevant events are posted to the **🔐 Admin security** topic in the
+operator Telegram group, alongside the purchase and incident streams:
+
+- a sign-in from an address the account has not used before
+- a password change or a completed password reset
+- two-factor being turned off
+- the owner role being granted
+
+A notice names the event and the operator account and nothing else. An address,
+a session token, and a client IP all stay out of the group chat; that detail
+lives in the audit trail, behind the permissions that govern it.
+
+Notices are written in the same transaction as the change they describe, so one
+can never announce something that was rolled back, and they are deduplicated, so
+a retried transaction produces a single message.
+
 ## Audit trail
 
 Every authentication, authorization, and configuration action is appended to
@@ -128,6 +146,40 @@ reaching for something they cannot do is exactly what an audit review looks for.
 Browse the trail at `/admin/audit`. Filters are held in the URL, so a view can be
 bookmarked and shared. Anyone with `audit.export` can download the filtered trail
 as CSV.
+
+## OIDC sign-in
+
+OIDC is configuration, not code: supply a discovery document and client
+credentials under **Settings → OIDC**, and nothing provider-specific exists in
+the application. Anything that speaks OpenID Connect Discovery works, and an
+installation with no configured provider authenticates with passwords alone.
+
+The flow is authorization code with PKCE. PKCE is used even though this is a
+confidential client, because it binds the code to the originating request, so a
+code intercepted at the redirect cannot be redeemed by anyone else. The
+anti-forgery state and the PKCE verifier travel in a short-lived encrypted
+cookie rather than the database, so an abandoned sign-in leaves nothing behind.
+
+Every ID token is verified against the provider's published JWKS, issuer, and
+audience before it is trusted.
+
+Two policies govern which account a subject reaches:
+
+- **Verified email required** (default on). A provider may assert an address it
+  has not verified; requiring the claim stops it from minting access to an
+  account it does not control.
+- **Auto-provisioning** (default off). A subject that matches no linked account
+  is refused. With auto-provisioning on, a subject whose address is *not* already
+  in use gets a fresh account in the configured role. An address that already
+  belongs to an operator is never silently adopted — linking has to be a
+  deliberate act by someone already signed in. The owner role can never be
+  auto-provisioned.
+
+Redirect URI to register with the provider:
+
+```
+https://<your-host>/v1/panel/auth/oidc/<slug>/callback
+```
 
 ## Configuration
 

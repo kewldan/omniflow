@@ -3,6 +3,7 @@ package adminauthpg
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/omniflow/omniflow/internal/adminauth"
@@ -154,11 +155,19 @@ func (service *Service) DisableTOTP(ctx context.Context, adminUserID, actorID st
 		if txErr := queries.DeleteAdminRecoveryCodes(ctx, id); txErr != nil {
 			return txErr
 		}
-		return appendAudit(ctx, queries, AuditEntry{
+		if txErr := appendAudit(ctx, queries, AuditEntry{
 			ActorType: "admin", ActorID: actorID,
 			Action: "admin.totp.disabled", Category: "authentication",
 			TargetType: "admin_user", TargetID: adminUserID, RequestID: request.RequestID,
-		})
+		}); txErr != nil {
+			return txErr
+		}
+		// Removing a second factor weakens the account, so it is announced for
+		// the same reason a password change is.
+		return notifySecurity(
+			ctx, queries, "admin.totp.disabled", adminUserID,
+			service.now().UTC().Format(time.RFC3339), "password",
+		)
 	})
 }
 

@@ -84,6 +84,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 		panel.Post("/auth/challenge", handlers.challenge)
 		panel.Post("/auth/password-reset", handlers.requestPasswordReset)
 		panel.Post("/auth/password-reset/complete", handlers.completePasswordReset)
+		handlers.mountOIDCPublic(panel)
 
 		// Authenticated.
 		panel.Group(func(secure chi.Router) {
@@ -94,6 +95,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 			secure.Post("/auth/logout", handlers.logout)
 			secure.Post("/auth/logout-all", handlers.logoutAll)
 			secure.Patch("/auth/profile", handlers.updateProfile)
+			secure.Put("/auth/preferences", handlers.savePreferences)
 			secure.Post("/auth/password", handlers.changePassword)
 
 			secure.Get("/auth/sessions", handlers.listSessions)
@@ -123,6 +125,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 				Get("/audit/export", handlers.exportAudit)
 
 			secure.Get("/rbac/catalog", handlers.permissionCatalog)
+			handlers.mountOIDCSecure(secure)
 		})
 	})
 }
@@ -131,7 +134,28 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 // Bootstrap
 // ---------------------------------------------------------------------------
 
+// ready reports whether an identity service is attached, answering 503 when it
+// is not.
+//
+// The authenticated routes need no such check: requireSession refuses them
+// before any handler runs. The routes reachable before sign-in do run, and a
+// panel mounted without a service should degrade to "unavailable" rather than
+// crash the process on the first unauthenticated request.
+func (handlers *AdminHandlers) ready(writer http.ResponseWriter, request *http.Request) bool {
+	if handlers.service == nil {
+		writeProblem(
+			writer, request, http.StatusServiceUnavailable,
+			"panel_unavailable", "The operator panel is not configured",
+		)
+		return false
+	}
+	return true
+}
+
 func (handlers *AdminHandlers) bootstrapStatus(writer http.ResponseWriter, request *http.Request) {
+	if !handlers.ready(writer, request) {
+		return
+	}
 	state, err := handlers.service.BootstrapStatus(request.Context())
 	if err != nil {
 		writeProblem(writer, request, http.StatusInternalServerError, "bootstrap_unavailable", "Setup status is unavailable")
@@ -141,6 +165,9 @@ func (handlers *AdminHandlers) bootstrapStatus(writer http.ResponseWriter, reque
 }
 
 func (handlers *AdminHandlers) completeBootstrap(writer http.ResponseWriter, request *http.Request) {
+	if !handlers.ready(writer, request) {
+		return
+	}
 	var body struct {
 		SetupToken  string `json:"setupToken"`
 		Email       string `json:"email"`
@@ -177,6 +204,9 @@ func (handlers *AdminHandlers) completeBootstrap(writer http.ResponseWriter, req
 // ---------------------------------------------------------------------------
 
 func (handlers *AdminHandlers) login(writer http.ResponseWriter, request *http.Request) {
+	if !handlers.ready(writer, request) {
+		return
+	}
 	var body struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
@@ -223,6 +253,9 @@ func (handlers *AdminHandlers) login(writer http.ResponseWriter, request *http.R
 }
 
 func (handlers *AdminHandlers) challenge(writer http.ResponseWriter, request *http.Request) {
+	if !handlers.ready(writer, request) {
+		return
+	}
 	var body struct {
 		Code string `json:"code"`
 	}
@@ -329,6 +362,20 @@ func (handlers *AdminHandlers) updateProfile(writer http.ResponseWriter, request
 	writeJSON(writer, http.StatusOK, accountPayload(account))
 }
 
+func (handlers *AdminHandlers) savePreferences(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := PrincipalFrom(request.Context())
+	var body adminauthpg.Preferences
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	saved, err := handlers.service.SavePreferences(request.Context(), principal.Account.ID, body)
+	if err != nil {
+		writeProblem(writer, request, http.StatusInternalServerError, "preferences_failed", "Preferences could not be saved")
+		return
+	}
+	writeJSON(writer, http.StatusOK, saved)
+}
+
 func (handlers *AdminHandlers) changePassword(writer http.ResponseWriter, request *http.Request) {
 	principal, _ := PrincipalFrom(request.Context())
 	var body struct {
@@ -357,6 +404,9 @@ func (handlers *AdminHandlers) changePassword(writer http.ResponseWriter, reques
 }
 
 func (handlers *AdminHandlers) requestPasswordReset(writer http.ResponseWriter, request *http.Request) {
+	if !handlers.ready(writer, request) {
+		return
+	}
 	var body struct {
 		Email string `json:"email"`
 	}
@@ -391,6 +441,9 @@ func (handlers *AdminHandlers) requestPasswordReset(writer http.ResponseWriter, 
 }
 
 func (handlers *AdminHandlers) completePasswordReset(writer http.ResponseWriter, request *http.Request) {
+	if !handlers.ready(writer, request) {
+		return
+	}
 	var body struct {
 		Token       string `json:"token"`
 		NewPassword string `json:"newPassword"`
@@ -825,6 +878,7 @@ func accountPayload(account adminauthpg.Account) map[string]any {
 		"roles":       roleStrings(account.Roles),
 		"totpEnabled": account.TOTPEnabled,
 		"createdAt":   account.CreatedAt.UTC(),
+		"preferences": account.Preferences,
 	}
 	if account.LastLoginAt != nil {
 		payload["lastLoginAt"] = account.LastLoginAt.UTC()
@@ -862,6 +916,9 @@ func auditFilterFrom(request *http.Request) adminauthpg.AuditFilter {
 		TargetID:   query.Get("targetId"),
 		Cursor:     query.Get("cursor"),
 		PageSize:   int32(pageSize),
+		// Any value other than an explicit "asc" keeps the newest-first default,
+		// which is the ordering an operator reviewing recent activity wants.
+		Ascending: query.Get("sort") == "asc",
 	}
 	if from, err := time.Parse(time.RFC3339, query.Get("from")); err == nil {
 		filter.From = &from

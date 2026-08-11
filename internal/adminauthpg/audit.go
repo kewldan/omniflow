@@ -23,6 +23,10 @@ type AuditFilter struct {
 	To         *time.Time
 	Cursor     string
 	PageSize   int32
+	// Ascending flips the trail to oldest-first. The cursor encodes a position
+	// in the ordering, so a cursor minted in one direction is not valid in the
+	// other; the panel resets paging whenever the direction changes.
+	Ascending bool
 }
 
 // AuditEvent is one row of the trail as the API presents it.
@@ -63,20 +67,39 @@ func (service *Service) SearchAudit(ctx context.Context, filter AuditFilter) (Au
 
 	// One extra row reveals whether a further page exists without counting the
 	// whole table, which on an append-only trail would grow without bound.
-	rows, err := dbgen.New(service.pool).SearchAuditEvents(ctx, dbgen.SearchAuditEventsParams{
-		CursorOccurredAt: cursorAt,
-		CursorID:         cursorID,
-		Category:         optionalText(filter.Category),
-		Outcome:          optionalText(filter.Outcome),
-		ActorType:        optionalText(filter.ActorType),
-		ActorID:          optionalText(filter.ActorID),
-		Action:           optionalText(filter.Action),
-		TargetType:       optionalText(filter.TargetType),
-		TargetID:         optionalText(filter.TargetID),
-		OccurredFrom:     optionalTimestamp(filter.From),
-		OccurredTo:       optionalTimestamp(filter.To),
-		PageSize:         pageSize + 1,
-	})
+	queries := dbgen.New(service.pool)
+	var rows []dbgen.AuditEvent
+	if filter.Ascending {
+		rows, err = queries.SearchAuditEventsAscending(ctx, dbgen.SearchAuditEventsAscendingParams{
+			CursorOccurredAt: cursorAt,
+			CursorID:         cursorID,
+			Category:         optionalText(filter.Category),
+			Outcome:          optionalText(filter.Outcome),
+			ActorType:        optionalText(filter.ActorType),
+			ActorID:          optionalText(filter.ActorID),
+			Action:           optionalText(filter.Action),
+			TargetType:       optionalText(filter.TargetType),
+			TargetID:         optionalText(filter.TargetID),
+			OccurredFrom:     optionalTimestamp(filter.From),
+			OccurredTo:       optionalTimestamp(filter.To),
+			PageSize:         pageSize + 1,
+		})
+	} else {
+		rows, err = queries.SearchAuditEvents(ctx, dbgen.SearchAuditEventsParams{
+			CursorOccurredAt: cursorAt,
+			CursorID:         cursorID,
+			Category:         optionalText(filter.Category),
+			Outcome:          optionalText(filter.Outcome),
+			ActorType:        optionalText(filter.ActorType),
+			ActorID:          optionalText(filter.ActorID),
+			Action:           optionalText(filter.Action),
+			TargetType:       optionalText(filter.TargetType),
+			TargetID:         optionalText(filter.TargetID),
+			OccurredFrom:     optionalTimestamp(filter.From),
+			OccurredTo:       optionalTimestamp(filter.To),
+			PageSize:         pageSize + 1,
+		})
+	}
 	if err != nil {
 		return AuditPage{}, err
 	}

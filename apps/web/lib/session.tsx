@@ -15,6 +15,13 @@ export type PanelAccount = {
   timezone: string;
   roles: string[];
   totpEnabled: boolean;
+  /** Panel settings that follow the account between browsers. */
+  preferences?: {
+    pageSize?: number;
+    density?: "compact" | "comfortable";
+    auditSort?: "asc" | "desc";
+    auditCategory?: string;
+  };
   lastLoginAt?: string;
   createdAt: string;
 };

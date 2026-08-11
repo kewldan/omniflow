@@ -200,6 +200,26 @@ func (service *Service) startSession(
 			return err
 		}
 
+		// A notice for every sign-in would be ignored within a week. One for a
+		// sign-in from an address this account has not used before is the
+		// signal an operator actually wants.
+		if request.IP != nil {
+			seen, countErr := queries.CountAdminSessionsFromAddress(ctx, dbgen.CountAdminSessionsFromAddressParams{
+				AdminUserID: row.ID, Ip: request.IP, ExcludingSessionID: session.ID,
+			})
+			if countErr != nil {
+				return countErr
+			}
+			if seen == 0 {
+				if err = notifySecurity(
+					ctx, queries, "admin.login.new_location",
+					uuidString(row.ID), uuidString(session.ID), "password",
+				); err != nil {
+					return err
+				}
+			}
+		}
+
 		result = LoginResult{
 			Token:             token,
 			ChallengeRequired: challengeRequired,

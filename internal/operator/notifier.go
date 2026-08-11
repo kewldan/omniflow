@@ -28,7 +28,7 @@ import (
 )
 
 // Kinds are the event streams that each get their own forum topic.
-var Kinds = []string{"purchase", "renewal", "topup", "refund", "fulfillment_failure", "incident", "backup"}
+var Kinds = []string{"purchase", "renewal", "topup", "refund", "fulfillment_failure", "incident", "backup", "security"}
 
 // topicNames are the forum topics the bot creates for the operator. The operator
 // supplies only a group; the bot owns every topic in it.
@@ -40,6 +40,7 @@ var topicNames = map[string]string{
 	"fulfillment_failure": "⚠️ Fulfillment failures",
 	"incident":            "🚨 Incidents",
 	"backup":              "💾 Backups",
+	"security":            "🔐 Admin security",
 }
 
 // Config binds the operator group and bounds notification volume.
@@ -256,7 +257,11 @@ func renderNotification(notification dbgen.OperatorNotification) string {
 	_ = json.Unmarshal(notification.Payload, &payload)
 	builder := &strings.Builder{}
 	fmt.Fprintf(builder, "<b>%s</b>\n", html.EscapeString(topicNames[notification.Kind]))
-	for _, field := range []string{"orderId", "subscriptionId", "entitlementId", "provider", "operation", "currency", "amountMinor", "creditedMinor", "classification", "reason", "source", "errorCode", "fileName", "sizeBytes", "status"} {
+	// Security notices name the event and the operator account it concerns, and
+	// nothing else. An operator address, a session token, and a raw client
+	// address all stay out of the group chat; they are available in the audit
+	// trail to anyone entitled to read it.
+	for _, field := range []string{"orderId", "subscriptionId", "entitlementId", "provider", "operation", "currency", "amountMinor", "creditedMinor", "classification", "reason", "source", "errorCode", "fileName", "sizeBytes", "status", "event", "adminUserId", "method"} {
 		value, ok := payload[field]
 		if !ok || value == nil || value == "" {
 			continue

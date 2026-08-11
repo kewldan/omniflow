@@ -64,7 +64,8 @@
       "sessionError": "The panel could not load",
       "sessionErrorDescription": "The API did not answer. Check that it is running and reachable.",
       "forbidden": "You do not have access to this page",
-      "forbiddenDescription": "Your roles do not include the permission this page requires. Ask an owner if you need it."
+      "forbiddenDescription": "Your roles do not include the permission this page requires. Ask an owner if you need it.",
+      "unsavedChanges": "You have unsaved changes. Leave this page and discard them?"
     },
     "home": {
       "eyebrow": "Operator panel",

@@ -147,6 +147,7 @@ type Account struct {
 	PasswordSet  bool
 	LockedUntil  *time.Time
 	FailedLogins int
+	Preferences  Preferences
 }
 
 // Principal is a resolved, fully authenticated request identity.
@@ -235,6 +236,36 @@ func appendAudit(ctx context.Context, queries *dbgen.Queries, entry AuditEntry) 
 	return err
 }
 
+// notifySecurity queues an operator notice about a security-relevant change.
+//
+// It runs inside the caller's transaction, so the notice commits with the change
+// it describes and can never announce something that was rolled back. Delivery
+// itself is the bot's job: this only appends to the operator notification
+// outbox, which keeps this package free of any transport dependency.
+//
+// The payload names the event and the account and nothing else. An address, a
+// token, or a client IP would end up in a group chat; the audit trail already
+// holds that detail behind the permissions that govern it.
+func notifySecurity(
+	ctx context.Context, queries *dbgen.Queries, event, adminUserID, dedupe string, method string,
+) error {
+	payload, err := json.Marshal(map[string]any{
+		"event": event, "adminUserId": adminUserID, "method": method,
+	})
+	if err != nil {
+		return err
+	}
+	// The unique (kind, dedupe_key) index makes a repeated enqueue a no-op, so a
+	// retried transaction cannot produce two notices for one event.
+	_, err = queries.EnqueueOperatorNotification(ctx, dbgen.EnqueueOperatorNotificationParams{
+		Kind: "security", DedupeKey: event + ":" + dedupe, Payload: payload,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	return err
+}
+
 // NormalizeEmail produces the lookup key for an address. Only case and
 // surrounding whitespace are folded: stripping dots or plus-tags would merge
 // addresses that some providers treat as genuinely distinct mailboxes.
@@ -250,6 +281,26 @@ func (service *Service) sealSecret(plaintext, associated string) ([]byte, error)
 	}
 	return service.secrets.Seal(nonce, nonce, []byte(plaintext), []byte(associated)), nil
 }
+
+// SealFlowState encrypts short-lived transport state, such as the OIDC
+// anti-forgery state and PKCE verifier, for a cookie the browser holds but
+// cannot read or forge.
+func (service *Service) SealFlowState(plaintext []byte) ([]byte, error) {
+	return service.sealSecret(string(plaintext), flowAssociatedData)
+}
+
+// OpenFlowState reverses SealFlowState.
+func (service *Service) OpenFlowState(ciphertext []byte) ([]byte, error) {
+	opened, err := service.openSecret(ciphertext, flowAssociatedData)
+	if err != nil {
+		return nil, err
+	}
+	return []byte(opened), nil
+}
+
+// flowAssociatedData keeps a sealed flow cookie from being replayed into any
+// other field that shares the encryption key.
+const flowAssociatedData = "admin.flow"
 
 // openSecret reverses sealSecret.
 func (service *Service) openSecret(ciphertext []byte, associated string) (string, error) {
@@ -277,6 +328,7 @@ func (service *Service) accountFrom(row dbgen.AdminUser, roles []rbac.Role) Acco
 		CreatedAt:    row.CreatedAt.Time,
 		PasswordSet:  row.PasswordHash.Valid,
 		FailedLogins: int(row.FailedLoginCount),
+		Preferences:  decodePreferences(row.Preferences),
 	}
 	if row.LastLoginAt.Valid {
 		at := row.LastLoginAt.Time

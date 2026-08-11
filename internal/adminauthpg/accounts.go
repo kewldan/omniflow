@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"slices"
 	"strings"
@@ -244,6 +245,16 @@ func (service *Service) SetRoles(
 		}); txErr != nil {
 			return txErr
 		}
+		// Gaining the owner role is the largest privilege change the system
+		// allows, so it is announced even though the change was authorized.
+		if !slices.Contains(current, rbac.RoleOwner) && slices.Contains(roles, rbac.RoleOwner) {
+			if txErr = notifySecurity(
+				ctx, queries, "admin.owner_granted", adminUserID,
+				service.now().UTC().Format(time.RFC3339), "role_change",
+			); txErr != nil {
+				return txErr
+			}
+		}
 		account = service.accountFrom(row, roles)
 		return nil
 	})
@@ -367,6 +378,68 @@ func (service *Service) UpdateProfile(
 	return account, nil
 }
 
+// Preferences are the panel settings that follow an operator between browsers.
+//
+// The set is closed and every value is bounded, so a client cannot use this as
+// arbitrary per-account storage or push a value the panel will choke on.
+type Preferences struct {
+	PageSize      int    `json:"pageSize,omitempty"`
+	Density       string `json:"density,omitempty"`
+	AuditSort     string `json:"auditSort,omitempty"`
+	AuditCategory string `json:"auditCategory,omitempty"`
+}
+
+// SavePreferences merges a preference patch into the operator's stored set.
+func (service *Service) SavePreferences(
+	ctx context.Context, adminUserID string, patch Preferences,
+) (Preferences, error) {
+	id, err := parseUUID(adminUserID)
+	if err != nil {
+		return Preferences{}, err
+	}
+	encoded, err := json.Marshal(sanitizePreferences(patch))
+	if err != nil {
+		return Preferences{}, err
+	}
+	row, err := dbgen.New(service.pool).UpdateAdminUserPreferences(ctx, dbgen.UpdateAdminUserPreferencesParams{
+		AdminUserID: id, Preferences: encoded,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Preferences{}, ErrNotFound
+	}
+	if err != nil {
+		return Preferences{}, err
+	}
+	return decodePreferences(row.Preferences), nil
+}
+
+// sanitizePreferences drops anything outside the supported range instead of
+// storing it, so a bad value cannot be persisted and then break every later read.
+func sanitizePreferences(patch Preferences) Preferences {
+	clean := Preferences{}
+	if patch.PageSize >= 10 && patch.PageSize <= 100 {
+		clean.PageSize = patch.PageSize
+	}
+	if patch.Density == "compact" || patch.Density == "comfortable" {
+		clean.Density = patch.Density
+	}
+	if patch.AuditSort == "asc" || patch.AuditSort == "desc" {
+		clean.AuditSort = patch.AuditSort
+	}
+	if len(patch.AuditCategory) <= 32 {
+		clean.AuditCategory = patch.AuditCategory
+	}
+	return clean
+}
+
+func decodePreferences(raw []byte) Preferences {
+	preferences := Preferences{}
+	if len(raw) > 0 {
+		_ = json.Unmarshal(raw, &preferences)
+	}
+	return sanitizePreferences(preferences)
+}
+
 // VerifyPassword re-proves an operator's password without changing any state.
 //
 // It backs the step-up check in front of actions that weaken the account's own
@@ -449,12 +522,20 @@ func (service *Service) ChangePassword(
 		if _, txErr = queries.InvalidateAdminPasswordResets(ctx, id); txErr != nil {
 			return txErr
 		}
-		return appendAudit(ctx, queries, AuditEntry{
+		if txErr = appendAudit(ctx, queries, AuditEntry{
 			ActorType: "admin", ActorID: adminUserID,
 			Action: "admin.password.changed", Category: "authentication",
 			TargetType: "admin_user", TargetID: adminUserID, RequestID: request.RequestID,
 			Metadata: map[string]any{"revokedSessions": revoked},
-		})
+		}); txErr != nil {
+			return txErr
+		}
+		// A password change the account holder did not make is the clearest
+		// signal of a compromise, so it is announced rather than only logged.
+		return notifySecurity(
+			ctx, queries, "admin.password.changed", adminUserID,
+			service.now().UTC().Format(time.RFC3339), "self",
+		)
 	})
 }
 
@@ -557,13 +638,19 @@ func (service *Service) CompletePasswordReset(
 		if txErr != nil {
 			return txErr
 		}
-		return appendAudit(ctx, queries, AuditEntry{
+		if txErr = appendAudit(ctx, queries, AuditEntry{
 			ActorType: "admin", ActorID: uuidString(row.AdminUser.ID),
 			Action: "admin.password.reset_completed", Category: "authentication",
 			TargetType: "admin_user", TargetID: uuidString(row.AdminUser.ID),
 			RequestID: request.RequestID,
 			Metadata:  map[string]any{"revokedSessions": revoked},
-		})
+		}); txErr != nil {
+			return txErr
+		}
+		return notifySecurity(
+			ctx, queries, "admin.password.reset_completed", uuidString(row.AdminUser.ID),
+			uuidString(row.AdminPasswordReset.ID), "reset_token",
+		)
 	})
 }
 

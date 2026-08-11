@@ -331,21 +331,21 @@ Goal: build the secure operator shell only after the Telegram/backend product is
 - [x] TOTP two-factor authentication and recovery codes
 - [x] Session rotation, inactivity timeout, absolute expiry, logout-all, and device/session list
 - [x] Login rate limiting and lockout/backoff
-- [ ] Security notifications for new sign-ins and credential changes — needs the operator
-      notification transport planned for v0.7
+- [x] Security notifications for new sign-ins and credential changes, delivered to the
+      operator Telegram group
 - [x] CSRF protection, secure cookies, trusted proxy handling, and restrictive security headers
 - [x] Password reset flow that does not disclose account existence — the token is
       logged for out-of-band delivery until email transport lands in v0.7
-- [ ] Optional OIDC configuration without making an external identity provider mandatory —
-      schema and queries are in place; the discovery, PKCE, and callback flow is not
+- [x] Optional OIDC configuration without making an external identity provider mandatory:
+      discovery, PKCE, JWKS verification, verified-email requirement, and opt-in
+      auto-provisioning that never adopts an existing address
 
 ### RBAC and audit
 
 - [x] Owner, administrator, support, finance, marketing, and read-only auditor roles
 - [x] Granular permissions enforced in the Go API
-- [ ] Permissions enforced at the Next.js server boundary — the panel renders from the
-      permission set and the API enforces it on every request, but there is no
-      server-side gate in the Next.js layer yet
+- [x] Permissions enforced at the Next.js server boundary, so an operator without a
+      permission never receives the page
 - [x] No authorization decisions based only on hidden routes or frontend state
 - [x] Append-only audit events for authentication, authorization, and configuration actions
 - [x] Actor, target, action, reason, timestamp, request ID, and safe before/after metadata
@@ -356,23 +356,28 @@ Goal: build the secure operator shell only after the Telegram/backend product is
 - [x] Responsive `/admin` layout using shared shadcn primitives
 - [x] Accessible navigation, command search, breadcrumbs, and keyboard operation
 - [x] Russian and English `next-intl` catalogs
-- [x] Generated Orval client and SWR cache policy
-- [ ] Panel pages consume the generated Orval hooks directly — they currently call a
-      shared typed fetch wrapper against the same contract
+- [x] Generated Orval client, shared typed transport, and SWR cache policy
 - [x] React Hook Form and Zod validation for all settings and mutations
 - [x] Explicit skeleton, empty, partial, stale, permission-denied, and error states
-- [x] Global notifications, confirmation dialogs, and destructive-action safeguards
-- [ ] Unsaved-change protection
-- [x] URL-backed filters and cursor pagination
-- [ ] Sortable tables and saved operator preferences — the sortable header primitive
-      exists; no v0.6 surface has a column worth sorting yet
+- [x] Global notifications, confirmation dialogs, destructive-action safeguards, and
+      unsaved-change protection
+- [x] URL-backed filters, cursor pagination, sortable tables, and saved operator preferences
+
+### Known limitation
+
+- Panel pages call the shared typed transport rather than the generated SWR hooks.
+  Orval 8.24's `client: "swr"` generator emits bare `fetch` calls and ignores
+  `override.mutator`, so a generated hook carries neither the session cookie nor the
+  CSRF token. Both target the same generated contract from `api/openapi.yaml`; only the
+  transport differs. Revisit when the generator supports a mutator for this client.
 
 ### Verification debt
 
-- [ ] Apply `20260812000000_admin_foundation.sql` against a real PostgreSQL 18 and
-      record its checksum with `atlas migrate hash`
-- [ ] Testcontainers coverage for bootstrap, sign-in, lockout, session lifecycle,
-      role changes, and the audit trail
+- [x] Testcontainers coverage for bootstrap, sign-in, lockout, session lifecycle,
+      role changes, preferences, pagination, and the audit trail
+- [ ] Run that suite, and apply `20260812000000_admin_foundation.sql` against a real
+      PostgreSQL 18, then record its checksum with `atlas migrate hash` — blocked
+      locally: no Docker daemon and no Atlas binary
 
 ---
 

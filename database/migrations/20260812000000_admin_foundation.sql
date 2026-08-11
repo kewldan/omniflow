@@ -41,6 +41,13 @@ CREATE TABLE admin_users (
   locale text NOT NULL DEFAULT 'en' CHECK (locale IN ('en', 'ru')),
   timezone text NOT NULL DEFAULT 'UTC',
 
+  -- Panel preferences that survive a new browser or a new device: page size,
+  -- table density, and default sort. Kept as jsonb rather than columns because
+  -- the set grows with every surface the panel gains, and none of it is a
+  -- business record worth a migration each time. The API validates and bounds
+  -- the shape on write, so an unrecognised key never reaches the panel.
+  preferences jsonb NOT NULL DEFAULT '{}'::jsonb,
+
   -- TOTP secrets are sealed with APP_DATA_ENCRYPTION_KEY exactly like customer
   -- contact values, so a database dump alone never yields a working second
   -- factor. `totp_confirmed_at` stays null while enrolment is in progress, so a

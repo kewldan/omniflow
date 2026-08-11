@@ -46,6 +46,10 @@ type Querier interface {
 	// that could actually sign in count, so suspending the last owner is refused
 	// for the same reason revoking the role is.
 	CountAdminOwners(ctx context.Context, excludingAdminUserID pgtype.UUID) (int64, error)
+	// How many times this operator has signed in from an address before. Zero means
+	// the current sign-in is from somewhere new, which is what makes a security
+	// notice worth sending rather than noise on every successful login.
+	CountAdminSessionsFromAddress(ctx context.Context, arg CountAdminSessionsFromAddressParams) (int64, error)
 	// Operator identity, sessions, and the audit trail for the v0.6 admin panel.
 	// ---------------------------------------------------------------------------
 	// Administrator accounts
@@ -283,6 +287,13 @@ type Querier interface {
 	// and null-tolerant, so the panel can compose them from URL state without
 	// building SQL on the client side.
 	SearchAuditEvents(ctx context.Context, arg SearchAuditEventsParams) ([]AuditEvent, error)
+	// The oldest-first counterpart of SearchAuditEvents.
+	//
+	// Direction is a separate query rather than a CASE inside one, because a CASE
+	// in ORDER BY defeats the index and forces a sort of the whole matched set —
+	// on an append-only trail that grows without bound, that is the difference
+	// between an index scan and a full scan.
+	SearchAuditEventsAscending(ctx context.Context, arg SearchAuditEventsAscendingParams) ([]AuditEvent, error)
 	// Starts enrolment. `totp_confirmed_at` is deliberately cleared: a secret that
 	// has not been proven by a code cannot satisfy a login challenge.
 	SetAdminTOTPSecret(ctx context.Context, arg SetAdminTOTPSecretParams) (AdminUser, error)
@@ -302,6 +313,9 @@ type Querier interface {
 	// Slides the inactivity window forward. The absolute deadline is never
 	// extended, so continuous activity cannot keep a session alive indefinitely.
 	TouchAdminSession(ctx context.Context, arg TouchAdminSessionParams) (AdminSession, error)
+	// Preferences are merged rather than replaced, so a panel that only knows about
+	// one key cannot silently drop the others when it saves.
+	UpdateAdminUserPreferences(ctx context.Context, arg UpdateAdminUserPreferencesParams) (AdminUser, error)
 	UpdateAdminUserProfile(ctx context.Context, arg UpdateAdminUserProfileParams) (AdminUser, error)
 	UpdateContactChannelPreferences(ctx context.Context, arg UpdateContactChannelPreferencesParams) (ContactChannel, error)
 	UpdateCustomerImportProgress(ctx context.Context, arg UpdateCustomerImportProgressParams) (CustomerImport, error)

@@ -44,6 +44,15 @@ SET display_name = sqlc.arg(display_name),
 WHERE id = sqlc.arg(admin_user_id)
 RETURNING *;
 
+-- name: UpdateAdminUserPreferences :one
+-- Preferences are merged rather than replaced, so a panel that only knows about
+-- one key cannot silently drop the others when it saves.
+UPDATE admin_users
+SET preferences = preferences || sqlc.arg(preferences)::jsonb,
+    updated_at = now()
+WHERE id = sqlc.arg(admin_user_id)
+RETURNING *;
+
 -- name: SetAdminUserPassword :one
 UPDATE admin_users
 SET password_hash = sqlc.arg(password_hash),
@@ -206,6 +215,15 @@ SELECT * FROM admin_sessions
 WHERE admin_user_id = $1 AND revoked_at IS NULL AND absolute_expires_at > now()
 ORDER BY last_seen_at DESC
 LIMIT sqlc.arg(page_size);
+
+-- name: CountAdminSessionsFromAddress :one
+-- How many times this operator has signed in from an address before. Zero means
+-- the current sign-in is from somewhere new, which is what makes a security
+-- notice worth sending rather than noise on every successful login.
+SELECT count(*)::bigint FROM admin_sessions
+WHERE admin_user_id = sqlc.arg(admin_user_id)
+  AND ip = sqlc.arg(ip)
+  AND id <> sqlc.arg(excluding_session_id);
 
 -- name: PurgeExpiredAdminSessions :execrows
 DELETE FROM admin_sessions
@@ -379,6 +397,30 @@ WHERE (
   AND (sqlc.narg(occurred_from)::timestamptz IS NULL OR occurred_at >= sqlc.narg(occurred_from))
   AND (sqlc.narg(occurred_to)::timestamptz IS NULL OR occurred_at < sqlc.narg(occurred_to))
 ORDER BY occurred_at DESC, id DESC
+LIMIT sqlc.arg(page_size);
+
+-- name: SearchAuditEventsAscending :many
+-- The oldest-first counterpart of SearchAuditEvents.
+--
+-- Direction is a separate query rather than a CASE inside one, because a CASE
+-- in ORDER BY defeats the index and forces a sort of the whole matched set —
+-- on an append-only trail that grows without bound, that is the difference
+-- between an index scan and a full scan.
+SELECT * FROM audit_events
+WHERE (
+    sqlc.narg(cursor_occurred_at)::timestamptz IS NULL
+    OR (occurred_at, id) > (sqlc.narg(cursor_occurred_at)::timestamptz, sqlc.narg(cursor_id)::uuid)
+  )
+  AND (sqlc.narg(category)::text IS NULL OR category = sqlc.narg(category))
+  AND (sqlc.narg(outcome)::text IS NULL OR outcome = sqlc.narg(outcome))
+  AND (sqlc.narg(actor_type)::text IS NULL OR actor_type = sqlc.narg(actor_type))
+  AND (sqlc.narg(actor_id)::text IS NULL OR actor_id = sqlc.narg(actor_id))
+  AND (sqlc.narg(action)::text IS NULL OR action = sqlc.narg(action))
+  AND (sqlc.narg(target_type)::text IS NULL OR target_type = sqlc.narg(target_type))
+  AND (sqlc.narg(target_id)::text IS NULL OR target_id = sqlc.narg(target_id))
+  AND (sqlc.narg(occurred_from)::timestamptz IS NULL OR occurred_at >= sqlc.narg(occurred_from))
+  AND (sqlc.narg(occurred_to)::timestamptz IS NULL OR occurred_at < sqlc.narg(occurred_to))
+ORDER BY occurred_at ASC, id ASC
 LIMIT sqlc.arg(page_size);
 
 -- name: ListAuditEventActions :many
