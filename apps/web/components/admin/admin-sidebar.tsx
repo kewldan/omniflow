@@ -7,7 +7,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 
-import { NAVIGATION } from "@/lib/navigation";
+import { NAVIGATION, NAVIGATION_ITEMS } from "@/lib/navigation";
 import { useSession } from "@/lib/session";
 
 /**
@@ -21,6 +21,13 @@ export function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const translate = useTranslations("admin");
   const { can } = useSession();
+
+  // Only the deepest matching entry is current. Without this, a nested route
+  // like /admin/settings/ai would highlight its parent as well, and two
+  // "you are here" markers tell an operator nothing about where they are.
+  const currentHref = NAVIGATION_ITEMS.filter((item) =>
+    item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href),
+  ).sort((left, right) => right.href.length - left.href.length)[0]?.href;
 
   return (
     <nav aria-label={translate("navigation.label")} className="flex h-full flex-col">
@@ -40,10 +47,7 @@ export function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
                 </p>
                 <ul className="flex flex-col gap-0.5">
                   {visible.map((item) => {
-                    const active =
-                      item.href === "/admin"
-                        ? pathname === "/admin"
-                        : pathname.startsWith(item.href);
+                    const active = item.href === currentHref;
                     const Icon = item.icon;
                     const label = translate(`navigation.items.${item.key}`);
 

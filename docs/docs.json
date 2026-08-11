@@ -21,19 +21,11 @@
       },
       {
         "group": "Architecture",
-        "pages": [
-          "architecture/overview",
-          "architecture/data-ownership",
-          "architecture/technology"
-        ]
+        "pages": ["architecture/overview", "architecture/data-ownership", "architecture/technology"]
       },
       {
         "group": "Integrations",
-        "pages": [
-          "integrations/remnawave",
-          "integrations/payments",
-          "integrations/telegram"
-        ]
+        "pages": ["integrations/remnawave", "integrations/payments", "integrations/telegram"]
       },
       {
         "group": "Commerce",

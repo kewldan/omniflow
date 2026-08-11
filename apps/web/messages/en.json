@@ -45,7 +45,8 @@
         "shop": "Shop",
         "gifts": "Gifts",
         "risk": "Risk",
-        "settings": "Settings"
+        "settings": "Settings",
+        "aiSettings": "AI and MCP"
       }
     },
     "commandMenu": {
@@ -1353,6 +1354,123 @@
         "openTickets": "Open",
         "resolvedTickets": "Resolved",
         "definitions": "What these numbers mean"
+      }
+    },
+    "aiSettings": {
+      "title": "AI and MCP",
+      "description": "Providers, per-feature enablement, spend limits, and connected MCP servers. Nothing here runs until you turn it on.",
+      "saveFailed": "That could not be saved.",
+      "remove": "Remove",
+      "providers": {
+        "title": "Providers",
+        "description": "What a provider does with the data you send is recorded here, from its own terms. Omniflow cannot verify these answers and does not try to.",
+        "empty": "No provider is configured, so every AI feature is unavailable.",
+        "reason": "AI provider configuration changed",
+        "enabled": "Approved for use",
+        "zeroRetention": "Zero retention",
+        "trainsOnData": "May train on your data",
+        "keyConfigured": "Key configured",
+        "keyMissing": "No key",
+        "apiKey": "API key",
+        "apiKeyPlaceholder": "Leave empty to keep the current key",
+        "rotate": "Rotate key",
+        "checkOk": "Last connection test passed.",
+        "checkFailed": "Last connection test failed: {detail}",
+        "neverChecked": "Never connection-tested.",
+        "addTitle": "Add a provider",
+        "add": "Add provider",
+        "slug": "Identifier",
+        "displayName": "Name",
+        "baseUrl": "Base URL"
+      },
+      "features": {
+        "title": "Features",
+        "description": "Each feature is off until you enable it and choose a provider and model. Retention is set per feature, because a marketing draft and a support summary are not the same material.",
+        "reason": "AI feature configuration changed",
+        "provider": "Provider",
+        "model": "Model",
+        "retentionDays": "Retention (days)",
+        "retainPrompts": "Keep prompts",
+        "retainOutputs": "Keep outputs",
+        "misconfigured": "Enabled but not usable",
+        "names": {
+          "support_summary": "Ticket summaries",
+          "support_reply": "Suggested replies",
+          "support_rewrite": "Reply rewriting",
+          "support_translate": "Translation",
+          "support_classify": "Ticket classification",
+          "marketing_draft": "Marketing drafts",
+          "risk_analysis": "Abuse analysis",
+          "copilot": "Admin copilot",
+          "mcp_tools": "MCP tools"
+        },
+        "warnings": {
+          "provider_trains_on_data": "This provider may train on your data",
+          "provider_retains_data": "This provider is not zero-retention",
+          "provider_region_unstated": "No data region recorded",
+          "provider_never_checked": "Never connection-tested",
+          "provider_check_failing": "The last connection test failed",
+          "prompts_retained": "Prompts are kept in Omniflow",
+          "feature_has_no_provider": "No provider and model chosen"
+        }
+      },
+      "limits": {
+        "title": "Usage limits",
+        "description": "Ceilings by operator, role, feature, or installation. The narrowest applicable one is the one an operator is told about, because the remedy differs.",
+        "reason": "AI usage limit changed",
+        "scope": "Scope",
+        "window": "Window",
+        "requests": "Requests",
+        "ref": "Operator or role",
+        "refPlaceholder": "Leave empty for installation-wide",
+        "add": "Add limit"
+      },
+      "usage": {
+        "title": "Spend and performance",
+        "description": "Requests, tokens, latency, and estimated cost.",
+        "window": "{since} to {until}. No prompt or output content is stored, so none appears here.",
+        "empty": "No AI requests in this period.",
+        "feature": "Feature",
+        "model": "Provider and model",
+        "requests": "Requests",
+        "tokens": "Tokens",
+        "latency": "Mean / p95",
+        "failures": "Failures"
+      },
+      "mcp": {
+        "title": "MCP servers",
+        "description": "An MCP server is a third party your assistant can reach. A connection is off until you enable it, and reaches only the tools you allowlist.",
+        "empty": "No MCP server is registered.",
+        "reason": "MCP connection changed",
+        "enabled": "Connection enabled",
+        "reachable": "Reachable",
+        "unreachable": "Unreachable after {failures} failures",
+        "neverContacted": "Never contacted",
+        "notDiscovered": "Not discovered",
+        "privateNetwork": "Private network allowed",
+        "limits": "Timeout {timeout} · at most {calls} calls per request · depth {depth} · {bytes} per response",
+        "tool": "Tool",
+        "permission": "Requires",
+        "writes": "Changes data",
+        "allowed": "Allowlisted",
+        "writesYes": "Writes",
+        "writesNo": "Reads",
+        "schemaUnusable": "This build cannot enforce the declared schema, so the tool cannot be enabled."
+      },
+      "mcpAudit": {
+        "title": "MCP activity",
+        "description": "Every call and every refusal. A trail that only records what happened cannot answer whether anyone tried.",
+        "empty": "No MCP activity recorded.",
+        "when": "When",
+        "what": "Server and tool",
+        "outcome": "Outcome",
+        "detail": "Detail",
+        "outcomes": {
+          "allowed": "Allowed",
+          "refused": "Refused",
+          "failed": "Failed",
+          "replayed": "Replayed"
+        }
       }
     }
   }

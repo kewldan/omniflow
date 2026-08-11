@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   ShoppingBag,
   SlidersHorizontal,
+  Sparkles,
   UserCog,
   Users,
 } from "lucide-react";
@@ -111,6 +112,12 @@ export const NAVIGATION: NavigationSection[] = [
         key: "settings",
         href: "/admin/settings",
         icon: SlidersHorizontal,
+        permission: "settings.read",
+      },
+      {
+        key: "aiSettings",
+        href: "/admin/settings/ai",
+        icon: Sparkles,
         permission: "settings.read",
       },
     ],
