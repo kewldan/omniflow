@@ -80,6 +80,12 @@ export const NAVIGATION: NavigationSection[] = [
         permission: "gifts.read",
       },
       {
+        key: "offers",
+        href: "/admin/offers",
+        icon: Megaphone,
+        permission: "marketing.read",
+      },
+      {
         key: "support",
         href: "/admin/support",
         icon: LifeBuoy,

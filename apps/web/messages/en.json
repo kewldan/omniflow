@@ -984,6 +984,59 @@
         "recurringPassOnly": "Passed — record only",
         "recurringFail": "Failed"
       }
+    },
+    "nav": {
+      "offers": "Offers"
+    },
+    "offers": {
+      "title": "Personal offers",
+      "description": "A promotion pointed at one customer, with its own copy, validity window, and single redemption.",
+      "create": "New offer",
+      "close": "Close",
+      "resetFilters": "Reset",
+      "revoke": "Revoke",
+      "revokeReason": "Reason",
+      "columns": {
+        "title": "Offer",
+        "customer": "Customer",
+        "window": "Valid",
+        "status": "Status"
+      },
+      "status": {
+        "all": "All",
+        "active": "Active",
+        "redeemed": "Redeemed",
+        "dismissed": "Dismissed",
+        "expired": "Expired",
+        "revoked": "Revoked"
+      },
+      "empty": {
+        "title": "No offers",
+        "description": "Targeted offers appear here once you create one."
+      },
+      "composer": {
+        "title": "Create a personal offer",
+        "description": "The discount comes from an existing promotion, so the stacking rules and rejection reasons that already govern promotions govern this too.",
+        "customer": "Customer ID",
+        "customerHint": "The Omniflow identifier of the customer this is for",
+        "promotion": "Promotion",
+        "promotionHint": "Choose a promotion",
+        "titleEn": "Title (EN)",
+        "titleRu": "Title (RU)",
+        "termsEn": "Terms (EN)",
+        "termsRu": "Terms (RU)",
+        "startsAt": "Valid from",
+        "expiresAt": "Valid until",
+        "reason": "Reason",
+        "reasonHint": "Why this customer is being offered this",
+        "singleUse": "Both languages are required: an offer with copy in one language renders as a blank card for half your customers. The offer is redeemable once and is resolved the moment it is used, dismissed, or expires.",
+        "submit": "Create offer"
+      },
+      "preview": {
+        "title": "What the customer will see",
+        "approximation": "An approximation of the Telegram message, not a live render — the bot draws the real one.",
+        "missing": "No title for this language"
+      }
     }
   }
 }

@@ -192,6 +192,31 @@ export type Promotion = {
   endsAt?: string;
 };
 
+/**
+ * A promotion pointed at one customer.
+ *
+ * The discount itself lives on the promotion, so the stacking rules,
+ * precedence, and rejection reasons that already govern promotions govern this
+ * too. What the offer adds is a target, a validity window, its own copy in both
+ * languages, and single-use redemption.
+ */
+export type PersonalOffer = {
+  id: string;
+  customerId: string;
+  promotionId: string;
+  planId?: string;
+  titleRu: string;
+  titleEn: string;
+  termsRu?: string;
+  termsEn?: string;
+  status: string;
+  startsAt: string;
+  expiresAt: string;
+  orderId?: string;
+  createdAt: string;
+  resolvedAt?: string;
+};
+
 export type FulfillmentOperation = {
   id: string;
   entitlementId: string;

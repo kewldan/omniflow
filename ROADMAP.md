@@ -432,9 +432,9 @@ Goal: let operators run day-to-day customer, subscription, and financial operati
 - [x] Promo-code reward types for fixed amount, percentage, subscription days, and trial grant
 - [x] Wallet-credit promo codes recorded as ordinary ledger entries
 - [x] Stacking rules, precedence order, and explicit rejection reasons
-- [ ] Personal offers targeted at a single customer with validity window and single-use redemption
-- [ ] Offer presentation in the bot with expiry countdown, terms, and dismissal
-- [ ] Preview of customer-facing Telegram and web presentation
+- [x] Personal offers targeted at a single customer with validity window and single-use redemption
+- [x] Offer presentation in the bot with expiry countdown, terms, and dismissal
+- [x] Preview of customer-facing Telegram and web presentation
 
 ### Finance
 

@@ -20,7 +20,11 @@ type MenuState struct {
 	CommerceEnabled bool
 	// ShopEnabled is true when the operator has published at least one visible
 	// digital-goods product.
-	ShopEnabled   bool
+	ShopEnabled bool
+	// OfferCount is how many targeted offers are waiting. The menu shows the
+	// entry only when there is something in it, so a customer who has never been
+	// targeted never sees an empty screen.
+	OfferCount    int
 	UnreadSupport int
 	UnreadNews    int
 	// MultiSubscription swaps the single subscription entry for the switcher.
@@ -87,6 +91,9 @@ func (app *App) menuState(ctx context.Context, customerID string, locale Locale)
 	if products, err := app.customers.ShopProducts(ctx, locale); err == nil {
 		state.ShopEnabled = len(products) > 0
 	}
+	if offers, err := app.customers.ActiveOffers(ctx, customerID, locale, 1); err == nil {
+		state.OfferCount = len(offers)
+	}
 	return state
 }
 
@@ -117,6 +124,8 @@ func (app *App) loadCommerceView(ctx context.Context, session commerceContext, r
 		return View{}, false
 	case routeGifts:
 		return app.giftsScreen(ctx, session), true
+	case routeOffers:
+		return app.offersScreen(ctx, session), true
 	case routeAutoRenew:
 		return app.autoRenewScreen(ctx, session), true
 	case routeMethods:
@@ -523,6 +532,9 @@ func (app *App) handleCommerceAction(ctx context.Context, session commerceContex
 		return view, true
 	}
 	if view, handled := app.handleGiftAction(ctx, session, parts); handled {
+		return view, true
+	}
+	if view, handled := app.handleOfferAction(ctx, session, parts); handled {
 		return view, true
 	}
 	switch parts[0] {

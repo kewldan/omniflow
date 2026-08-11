@@ -116,6 +116,9 @@ func commerceMainKeyboard(locale Locale, menu MenuState) *models.InlineKeyboardM
 	}
 	shopRow = append(shopRow, callbackButton(text(locale, "menu.gifts"), routeGifts))
 	rows = append(rows, shopRow)
+	if menu.OfferCount > 0 {
+		rows = append(rows, row(callbackButton(text(locale, "menu.offers"), routeOffers)))
+	}
 	rows = append(rows,
 		row(callbackButton(supportLabel, routeSupport), callbackButton(newsLabel, routeNews)),
 		row(callbackButton(referral, routeReferral), callbackButton(settings, routeSettings)),

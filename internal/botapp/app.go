@@ -36,6 +36,7 @@ const (
 	routeShop         = "shop"
 	routeShopOrders   = "shoporders"
 	routeGifts        = "gifts"
+	routeOffers       = "offers"
 	// v0.5 surfaces.
 	routeTopUp         = "topup"
 	routeCart          = "cart"
@@ -751,7 +752,7 @@ func (app *App) lifecycleNoticeFor(ctx context.Context, telegramID int64, locale
 // it the bot explains that purchases are not configured rather than failing.
 func commerceOnlyRoute(route string) bool {
 	switch route {
-	case routePlans, routeOrders, routeWallet, routeNews, routeAutoRenew, routeMethods, routeShop, routeShopOrders, routeGifts, routeTopUp, routeCart, routeSubscriptions:
+	case routePlans, routeOrders, routeWallet, routeNews, routeAutoRenew, routeMethods, routeShop, routeShopOrders, routeGifts, routeOffers, routeTopUp, routeCart, routeSubscriptions:
 		return true
 	default:
 		return false
@@ -761,7 +762,7 @@ func commerceOnlyRoute(route string) bool {
 func knownRoute(route string) bool {
 	switch route {
 	case routeHome, routeSubscription, routeConnect, routeDevices, routeSupport, routeSettings, routeReferral,
-		routePlans, routeOrders, routeWallet, routeNews, routeAutoRenew, routeMethods, routeShop, routeShopOrders, routeGifts,
+		routePlans, routeOrders, routeWallet, routeNews, routeAutoRenew, routeMethods, routeShop, routeShopOrders, routeGifts, routeOffers,
 		routeTopUp, routeCart, routeSubscriptions:
 		return true
 	default:

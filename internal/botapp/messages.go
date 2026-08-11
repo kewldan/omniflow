@@ -58,6 +58,7 @@ var catalog = map[string]phrase{
 	"menu.upgrade": {ru: "⬆️ Сменить тариф", en: "⬆️ Change plan"},
 	"menu.shop":    {ru: "🛍 Магазин", en: "🛍 Shop"},
 	"menu.gifts":   {ru: "🎁 Подарки", en: "🎁 Gifts"},
+	"menu.offers":  {ru: "✨ Ваше предложение", en: "✨ Your offer"},
 	"menu.badge":   {ru: " · %d новых", en: " · %d new"},
 	"menu.unavail": {ru: "⚠️ <b>Раздел недоступен</b>\n\nПокупки ещё не настроены администратором сервиса. Обратитесь в поддержку.", en: "⚠️ <b>This section is unavailable</b>\n\nPurchases are not configured yet. Please contact support."},
 	"menu.rateLimit": {ru: "⏳ Слишком много запросов. Подождите немного и попробуйте снова.",
@@ -341,6 +342,20 @@ var catalog = map[string]phrase{
 	"gift.status.expired":      {ru: "истёк", en: "expired"},
 	"gift.status.revoked":      {ru: "отозван", en: "revoked"},
 	"gift.status.refunded":     {ru: "возвращён", en: "refunded"},
+
+	// Personal offers. The countdown is in whole days: an offer measured in
+	// hours reads as pressure rather than as information.
+	"offer.title": {ru: "✨ <b>Персональные предложения</b>", en: "✨ <b>Your offers</b>"},
+	"offer.empty": {ru: "✨ <b>Персональные предложения</b>\n\nСейчас предложений нет.",
+		en: "✨ <b>Your offers</b>\n\nYou have no offers right now."},
+	"offer.open":      {ru: "Открыть", en: "View"},
+	"offer.dismiss":   {ru: "Не интересно", en: "Not interested"},
+	"offer.remaining": {ru: "Осталось %d дн.", en: "%d day(s) left"},
+	"offer.lastDay":   {ru: "Последний день", en: "Last day"},
+	"offer.expired":   {ru: "Срок истёк", en: "Expired"},
+	"offer.code":      {ru: "Промокод: <code>%s</code>", en: "Promo code: <code>%s</code>"},
+	"offer.singleUse": {ru: "Предложение можно использовать один раз. Введите промокод при оформлении заказа.",
+		en: "The offer can be used once. Enter the promo code at checkout."},
 
 	// Connection instructions.
 	"connect.title":            {ru: "🚀 <b>Подключение</b>\n\nВыберите платформу — покажем приложение и шаги установки.", en: "🚀 <b>Connect</b>\n\nPick your platform for the recommended app and setup steps."},
