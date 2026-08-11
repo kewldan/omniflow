@@ -521,7 +521,8 @@
       "tabs": {
         "matches": "Blocklist matches",
         "anomalies": "Anomalies",
-        "sources": "Sources"
+        "sources": "Sources",
+        "rules": "Thresholds"
       },
       "empty": {
         "matches": "Nothing to review",
@@ -557,6 +558,31 @@
       "severity": {
         "warning": "Warning",
         "alert": "Alert"
+      },
+      "rules": {
+        "explainer": "A metric with no rule is not evaluated at all. Thresholds are in each metric's own unit, and a condition that persists raises one signal per window rather than one per sweep.",
+        "warn": "Warning threshold",
+        "alert": "Alert threshold",
+        "windowMinutes": "Window (minutes)",
+        "minimumSample": "Minimum sample",
+        "incoherent": "The alert threshold must be at least the warning threshold, and the window at least five minutes. A rule that fails this is skipped at evaluation time.",
+        "save": "Save thresholds",
+        "units": {
+          "purchase": "Paid order value per customer, in the currency's minor unit.",
+          "refund": "Refunded value per customer, in the currency's minor unit.",
+          "referral": "Qualified referrals per inviter, as a count.",
+          "traffic": "Observed usage per subscription, in bytes. Remnawave owns traffic, so this is a level check rather than a rate."
+        }
+      },
+      "sources": {
+        "addTitle": "Add or update a source",
+        "slug": "Identifier",
+        "displayName": "Name",
+        "url": "List URL",
+        "httpsOnly": "HTTPS only. Over plain HTTP anyone on the path could decide who this installation refuses to serve.",
+        "authHeader": "Authorization header",
+        "intervalHours": "Refresh every (hours)",
+        "save": "Save source"
       }
     },
     "system": {

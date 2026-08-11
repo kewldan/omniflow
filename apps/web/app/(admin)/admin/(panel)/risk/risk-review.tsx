@@ -24,6 +24,8 @@ import {
 } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 
+import { NoSources, RuleEditor, SourceEditor } from "./rule-editor";
+
 type BlocklistSource = {
   id: string;
   slug: string;
@@ -62,6 +64,7 @@ export function RiskReview() {
           <TabsTrigger value="matches">{translate("tabs.matches")}</TabsTrigger>
           <TabsTrigger value="anomalies">{translate("tabs.anomalies")}</TabsTrigger>
           <TabsTrigger value="sources">{translate("tabs.sources")}</TabsTrigger>
+          <TabsTrigger value="rules">{translate("tabs.rules")}</TabsTrigger>
         </TabsList>
         <TabsContent value="matches">
           <Matches active={tab === "matches"} />
@@ -71,6 +74,9 @@ export function RiskReview() {
         </TabsContent>
         <TabsContent value="sources">
           <Sources active={tab === "sources"} />
+        </TabsContent>
+        <TabsContent value="rules">
+          <RuleEditor active={tab === "rules"} />
         </TabsContent>
       </Tabs>
     </div>
@@ -294,9 +300,9 @@ function Anomalies({ active }: { active: boolean }) {
 }
 
 function Sources({ active }: { active: boolean }) {
-  const translate = useTranslations("admin.risk");
   const locale = useLocale();
-  const { data, isLoading } = useSWR<Listing<BlocklistSource>, ApiError>(
+  const { can } = useSession();
+  const { data, isLoading, mutate } = useSWR<Listing<BlocklistSource>, ApiError>(
     active ? "/v1/panel/risk/sources" : null,
     fetcher,
   );
@@ -305,18 +311,23 @@ function Sources({ active }: { active: boolean }) {
     return <Skeleton className="h-32 w-full" />;
   }
   const items = data?.items ?? [];
-  if (items.length === 0) {
-    return (
-      <Card className="p-6">
-        <StateNotice
-          description={translate("empty.sourcesDescription")}
-          title={translate("empty.sources")}
-          variant="empty"
-        />
-      </Card>
-    );
-  }
 
+  return (
+    <div className="flex flex-col gap-3">
+      {can("risk.write") && <SourceEditor onSaved={() => mutate()} />}
+      {items.length === 0 ? (
+        <Card className="p-6">
+          <NoSources />
+        </Card>
+      ) : (
+        <SourceTable items={items} locale={locale} />
+      )}
+    </div>
+  );
+}
+
+function SourceTable({ items, locale }: { items: BlocklistSource[]; locale: string }) {
+  const translate = useTranslations("admin.risk");
   return (
     <Card className="overflow-x-auto">
       <Table>

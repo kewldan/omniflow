@@ -400,8 +400,8 @@ Goal: let operators run day-to-day customer, subscription, and financial operati
 - [ ] Metrics with explicit definitions, timezone, comparison period, and data freshness
 - [ ] Remnawave, PostgreSQL, Valkey, Telegram, worker, and provider health
 - [ ] Recent incidents, reconciliation drift, webhook failures, and required actions
-- [ ] Traffic, purchase, refund, and referral anomaly detection with configurable thresholds
-- [ ] Anomaly alerts delivered to the operator topic with evidence and no automatic customer punishment
+- [x] Traffic, purchase, refund, and referral anomaly detection with configurable thresholds
+- [x] Anomaly alerts delivered to the operator topic with evidence and no automatic customer punishment
 - [x] Anomaly review with threshold configuration, supporting evidence, acknowledgement, and dismissal
 - [ ] Maintenance-mode state, activation reason, and manual override
 
@@ -416,7 +416,7 @@ Goal: let operators run day-to-day customer, subscription, and financial operati
 - [ ] Device review and removal without exposing identifiers unnecessarily
 - [ ] Bulk import/export with preview, validation errors, progress, resumability, and audit history
 - [ ] Bulk actions with permission checks, impact preview, limits, and per-item results
-- [ ] External blocklist source configuration, refresh schedule, and connection health
+- [x] External blocklist source configuration, refresh schedule, and connection health
 - [x] Blocklist match review with evidence, manual allowlist override, and appeal handling
 - [x] Block reason, actor, and source recorded as an audit event for every decision
 
@@ -512,6 +512,10 @@ items above are deliberately unchecked.
 **Gifts.** Claim-code format, redemption rules, revocation and refund
 eligibility, and the operator register are implemented. Buying and claiming a
 gift in the bot is not.
+
+The periodic sweeps that make the risk surfaces run — blocklist refresh and
+anomaly evaluation — arrived with `internal/sweeper`, alongside gift and
+personal-offer expiry.
 
 **Digital goods.** The provider-neutral adapter, the gateway implementation,
 pricing with markup and rounding, quote expiry, the delivery worker with its
