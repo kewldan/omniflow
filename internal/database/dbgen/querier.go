@@ -127,6 +127,7 @@ type Querier interface {
 	// Bulk operator actions
 	// ---------------------------------------------------------------------------
 	CreateBulkOperation(ctx context.Context, arg CreateBulkOperationParams) (BulkOperation, error)
+	CreateCampaign(ctx context.Context, arg CreateCampaignParams) (Campaign, error)
 	CreateContactChannel(ctx context.Context, arg CreateContactChannelParams) (ContactChannel, error)
 	CreateCustomerImport(ctx context.Context) (CustomerImport, error)
 	CreateEntitlement(ctx context.Context, arg CreateEntitlementParams) (Entitlement, error)
@@ -289,6 +290,7 @@ type Querier interface {
 	GetAdminUserByEmail(ctx context.Context, emailNormalized string) (AdminUser, error)
 	GetAnomalyRule(ctx context.Context, metric string) (AnomalyRule, error)
 	GetAnomalySignal(ctx context.Context, id pgtype.UUID) (AnomalySignal, error)
+	GetAudienceSegment(ctx context.Context, id pgtype.UUID) (AudienceSegment, error)
 	// ---------------------------------------------------------------------------
 	// Auto-renew
 	// ---------------------------------------------------------------------------
@@ -306,6 +308,7 @@ type Querier interface {
 	// here: the targets were recorded by the preview, which validated them, so this
 	// is reading back a decision rather than accepting one.
 	GetBulkSubscriptionTarget(ctx context.Context, subscriptionID pgtype.UUID) (GetBulkSubscriptionTargetRow, error)
+	GetCampaign(ctx context.Context, id pgtype.UUID) (GetCampaignRow, error)
 	GetCannedResponse(ctx context.Context, id pgtype.UUID) (SupportCannedResponse, error)
 	// Operator panel queries for v0.7: settings, dashboard, customer and finance
 	// operations, fulfillment and job diagnostics, and bulk actions.
@@ -354,6 +357,7 @@ type Querier interface {
 	GetLedgerTransactionByIdempotency(ctx context.Context, idempotencyKey string) (LedgerTransaction, error)
 	GetLoyaltyStanding(ctx context.Context, userID pgtype.UUID) (GetLoyaltyStandingRow, error)
 	GetMaintenanceState(ctx context.Context) (MaintenanceState, error)
+	GetMessageTemplate(ctx context.Context, id pgtype.UUID) (MessageTemplate, error)
 	GetOpenCart(ctx context.Context, userID pgtype.UUID) (Cart, error)
 	GetOperatorTopic(ctx context.Context, kind string) (OperatorTopic, error)
 	GetOrder(ctx context.Context, id pgtype.UUID) (Order, error)
@@ -412,6 +416,7 @@ type Querier interface {
 	IsAddonOfferedForPlan(ctx context.Context, arg IsAddonOfferedForPlanParams) (bool, error)
 	IsBlocklistAllowlisted(ctx context.Context, userID pgtype.UUID) (bool, error)
 	IsPromotionPlanEligible(ctx context.Context, arg IsPromotionPlanEligibleParams) (pgtype.Bool, error)
+	IsSuppressed(ctx context.Context, userID pgtype.UUID) (bool, error)
 	LinkAdminOIDCIdentity(ctx context.Context, arg LinkAdminOIDCIdentityParams) (AdminOidcIdentity, error)
 	LinkCustomerIdentity(ctx context.Context, arg LinkCustomerIdentityParams) (Identity, error)
 	LinkTelegramRemnawaveUser(ctx context.Context, arg LinkTelegramRemnawaveUserParams) (int64, error)
@@ -436,6 +441,10 @@ type Querier interface {
 	// Anomaly rules and signals
 	// ---------------------------------------------------------------------------
 	ListAnomalyRules(ctx context.Context) ([]AnomalyRule, error)
+	// ---------------------------------------------------------------------------
+	// Segments and templates
+	// ---------------------------------------------------------------------------
+	ListAudienceSegments(ctx context.Context) ([]AudienceSegment, error)
 	// Populates the action filter without scanning the whole table from the client.
 	ListAuditEventActions(ctx context.Context) ([]string, error)
 	// Only carts whose customer holds wallet history are considered, so the sweep
@@ -461,6 +470,10 @@ type Querier interface {
 	ListBlocklistSources(ctx context.Context) ([]BlocklistSource, error)
 	ListBulkOperationItems(ctx context.Context, arg ListBulkOperationItemsParams) ([]BulkOperationItem, error)
 	ListBulkOperations(ctx context.Context, pageSize int32) ([]BulkOperation, error)
+	// ---------------------------------------------------------------------------
+	// Campaigns
+	// ---------------------------------------------------------------------------
+	ListCampaigns(ctx context.Context, pageSize int32) ([]ListCampaignsRow, error)
 	// ---------------------------------------------------------------------------
 	// Canned responses
 	// ---------------------------------------------------------------------------
@@ -492,8 +505,10 @@ type Querier interface {
 	ListCustomerSubscriptionsDetailed(ctx context.Context, userID pgtype.UUID) ([]ListCustomerSubscriptionsDetailedRow, error)
 	ListCustomerSupportTickets(ctx context.Context, arg ListCustomerSupportTicketsParams) ([]SupportTicket, error)
 	ListDueBlocklistSources(ctx context.Context, pageSize int32) ([]BlocklistSource, error)
+	ListDueCampaigns(ctx context.Context, pageSize int32) ([]Campaign, error)
 	ListDueDunningAttempts(ctx context.Context, pageSize int32) ([]DunningAttempt, error)
 	ListDueGoodsDeliveries(ctx context.Context, pageSize int32) ([]GoodsDelivery, error)
+	ListDueNewsPosts(ctx context.Context, pageSize int32) ([]NewsPost, error)
 	ListDunningAttemptsForCustomer(ctx context.Context, arg ListDunningAttemptsForCustomerParams) ([]DunningAttempt, error)
 	ListEnabledAdminOIDCProviders(ctx context.Context) ([]AdminOidcProvider, error)
 	ListEntitlementsForReconciliation(ctx context.Context, limit int32) ([]Entitlement, error)
@@ -526,6 +541,7 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	ListLoyaltyPrograms(ctx context.Context, pageSize int32) ([]LoyaltyProgram, error)
 	ListLoyaltyTiers(ctx context.Context, programID pgtype.UUID) ([]LoyaltyTier, error)
+	ListMessageTemplates(ctx context.Context) ([]MessageTemplate, error)
 	ListOpenDriftsDetailed(ctx context.Context, pageSize int32) ([]ListOpenDriftsDetailedRow, error)
 	ListOpenEntitlementDrifts(ctx context.Context, limit int32) ([]EntitlementDrift, error)
 	// Payment attempts on an order that have neither settled nor failed.
@@ -552,6 +568,7 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	ListPaymentProviderSettings(ctx context.Context) ([]PaymentProviderSetting, error)
 	ListPendingBulkOperationItems(ctx context.Context, arg ListPendingBulkOperationItemsParams) ([]BulkOperationItem, error)
+	ListPendingCampaignRecipients(ctx context.Context, arg ListPendingCampaignRecipientsParams) ([]ListPendingCampaignRecipientsRow, error)
 	// Failures the customer has not been told about, oldest first.
 	//
 	// The filter is deliberately a plain read of a stored decision. Which failures
@@ -609,6 +626,10 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	ListSupportQueues(ctx context.Context) ([]ListSupportQueuesRow, error)
 	ListSupportTags(ctx context.Context) ([]SupportTag, error)
+	// ---------------------------------------------------------------------------
+	// Suppression
+	// ---------------------------------------------------------------------------
+	ListSuppressions(ctx context.Context, pageSize int32) ([]ListSuppressionsRow, error)
 	ListTelegramIdentitySubjects(ctx context.Context) ([]string, error)
 	ListUnpublishedOutboxEvents(ctx context.Context, pageSize int32) ([]ListUnpublishedOutboxEventsRow, error)
 	// The customer-facing catalogue in one round trip: product, localisation for
@@ -694,6 +715,9 @@ type Querier interface {
 	// allows exactly one and a customer can only stand in one definition at a time.
 	PublishLoyaltyProgram(ctx context.Context, programID pgtype.UUID) (LoyaltyProgram, error)
 	PurgeExpiredAdminSessions(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
+	// The primary key is the deduplication: a paused-and-resumed campaign continues
+	// rather than restarting, and a recipient cannot be queued twice.
+	QueueCampaignRecipient(ctx context.Context, arg QueueCampaignRecipientParams) error
 	// A condition that persists across several evaluation runs is one signal, not
 	// one per run: the dedupe key collides and the existing row is refreshed with
 	// the newest observation. A signal an operator already reviewed stays reviewed,
@@ -730,6 +754,7 @@ type Querier interface {
 	// Counters are recomputed from the items rather than incremented, so a retried
 	// worker cannot double-count an outcome it already recorded.
 	RecountBulkOperation(ctx context.Context, operationID pgtype.UUID) (BulkOperation, error)
+	RecountCampaign(ctx context.Context, campaignID pgtype.UUID) (Campaign, error)
 	RedeemPersonalOffer(ctx context.Context, arg RedeemPersonalOfferParams) (PersonalOffer, error)
 	ReleasePaymentMutationLock(ctx context.Context, hashtextextended string) error
 	RemoveBlocklistAllowlistEntry(ctx context.Context, userID pgtype.UUID) error
@@ -739,6 +764,7 @@ type Querier interface {
 	// It cannot skip the idempotency key, so the retried attempt is the same
 	// operation the worker already knows how to make exactly once.
 	RequeueFulfillmentOperation(ctx context.Context, operationID pgtype.UUID) (FulfillmentOperation, error)
+	ResolveCampaignRecipient(ctx context.Context, arg ResolveCampaignRecipientParams) error
 	// Only a scheduled attempt resolves, so a retried worker cannot rewrite an
 	// outcome that has already been recorded.
 	//
@@ -817,6 +843,11 @@ type Querier interface {
 	// Delivery columns are selected individually because an order that was never
 	// paid has no delivery row, and an embedded struct cannot hold that absence.
 	SearchGoodsOrders(ctx context.Context, arg SearchGoodsOrdersParams) ([]SearchGoodsOrdersRow, error)
+	// News authoring, segments, templates, and campaigns.
+	// ---------------------------------------------------------------------------
+	// News
+	// ---------------------------------------------------------------------------
+	SearchNewsPosts(ctx context.Context, arg SearchNewsPostsParams) ([]SearchNewsPostsRow, error)
 	// ---------------------------------------------------------------------------
 	// Finance
 	// ---------------------------------------------------------------------------
@@ -850,6 +881,10 @@ type Querier interface {
 	SetAdminUserStatus(ctx context.Context, arg SetAdminUserStatusParams) (AdminUser, error)
 	SetAutoRenewState(ctx context.Context, arg SetAutoRenewStateParams) (AutoRenewSetting, error)
 	SetBulkOperationTotal(ctx context.Context, arg SetBulkOperationTotalParams) (BulkOperation, error)
+	// The permitted transitions are enforced here rather than in the caller: a
+	// campaign that could jump from draft to completed would report a reach it never
+	// had.
+	SetCampaignState(ctx context.Context, arg SetCampaignStateParams) (Campaign, error)
 	SetCartAddon(ctx context.Context, arg SetCartAddonParams) error
 	SetCartAutoPurchase(ctx context.Context, arg SetCartAutoPurchaseParams) (Cart, error)
 	SetDefaultPaymentMethod(ctx context.Context, arg SetDefaultPaymentMethodParams) (PaymentMethod, error)
@@ -859,6 +894,9 @@ type Querier interface {
 	SetDefaultSupportQueue(ctx context.Context, queueID pgtype.UUID) error
 	SetGoodsOrderStatus(ctx context.Context, arg SetGoodsOrderStatusParams) (GoodsOrder, error)
 	SetMaintenanceState(ctx context.Context, arg SetMaintenanceStateParams) (MaintenanceState, error)
+	// Publication is recorded, not inferred. `published_at` is set once and kept, so
+	// unpublishing and republishing does not rewrite when customers first saw it.
+	SetNewsPostState(ctx context.Context, arg SetNewsPostStateParams) (NewsPost, error)
 	SetOrderState(ctx context.Context, arg SetOrderStateParams) (Order, error)
 	// Replaces the add-ons offered with a plan version. Deleting first keeps the
 	// set exactly what the operator chose rather than the union of every edit.
@@ -903,11 +941,13 @@ type Querier interface {
 	// response measure is the median rather than the mean, because one ticket
 	// answered a week late would otherwise make a good week look bad.
 	SupportWorkloadReport(ctx context.Context, since pgtype.Timestamptz) ([]SupportWorkloadReportRow, error)
+	SuppressCustomer(ctx context.Context, arg SuppressCustomerParams) (CommunicationSuppression, error)
 	TagSupportTicket(ctx context.Context, arg TagSupportTicketParams) error
 	// Slides the inactivity window forward. The absolute deadline is never
 	// extended, so continuous activity cannot keep a session alive indefinitely.
 	TouchAdminSession(ctx context.Context, arg TouchAdminSessionParams) (AdminSession, error)
 	TouchPaymentMethodUsed(ctx context.Context, id pgtype.UUID) error
+	UnsuppressCustomer(ctx context.Context, userID pgtype.UUID) error
 	UntagSupportTicket(ctx context.Context, arg UntagSupportTicketParams) error
 	// Preferences are merged rather than replaced, so a panel that only knows about
 	// one key cannot silently drop the others when it saves.
@@ -930,6 +970,7 @@ type Querier interface {
 	UpsertAddonLocalization(ctx context.Context, arg UpsertAddonLocalizationParams) (AddonLocalization, error)
 	UpsertAdminOIDCProvider(ctx context.Context, arg UpsertAdminOIDCProviderParams) (AdminOidcProvider, error)
 	UpsertAnomalyRule(ctx context.Context, arg UpsertAnomalyRuleParams) (AnomalyRule, error)
+	UpsertAudienceSegment(ctx context.Context, arg UpsertAudienceSegmentParams) (AudienceSegment, error)
 	// `consent_at` is only ever written when auto-renew is being turned on, and it
 	// is never cleared: a customer who disables and re-enables re-consents, and a
 	// customer who disables keeps the record that they once agreed.
@@ -956,6 +997,8 @@ type Querier interface {
 	// panel can render and re-save the form without ever echoing a secret back.
 	UpsertGoodsProvider(ctx context.Context, arg UpsertGoodsProviderParams) (GoodsProvider, error)
 	UpsertLoyaltyStanding(ctx context.Context, arg UpsertLoyaltyStandingParams) (LoyaltyStanding, error)
+	UpsertMessageTemplate(ctx context.Context, arg UpsertMessageTemplateParams) (MessageTemplate, error)
+	UpsertNewsPost(ctx context.Context, arg UpsertNewsPostParams) (NewsPost, error)
 	// ---------------------------------------------------------------------------
 	// Operator notifications
 	// ---------------------------------------------------------------------------

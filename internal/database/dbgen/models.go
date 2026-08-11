@@ -176,6 +176,18 @@ type AnomalySignal struct {
 	DedupeKey       string             `json:"dedupe_key"`
 }
 
+type AudienceSegment struct {
+	ID         pgtype.UUID        `json:"id"`
+	Code       string             `json:"code"`
+	NameEn     string             `json:"name_en"`
+	NameRu     string             `json:"name_ru"`
+	Filters    []byte             `json:"filters"`
+	ArchivedAt pgtype.Timestamptz `json:"archived_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	CreatedBy  pgtype.UUID        `json:"created_by"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
 type AuditEvent struct {
 	ID         pgtype.UUID        `json:"id"`
 	ActorType  string             `json:"actor_type"`
@@ -364,6 +376,35 @@ type BulkOperationItem struct {
 	ProcessedAt pgtype.Timestamptz `json:"processed_at"`
 }
 
+type Campaign struct {
+	ID                pgtype.UUID        `json:"id"`
+	Name              string             `json:"name"`
+	TemplateID        pgtype.UUID        `json:"template_id"`
+	SegmentID         pgtype.UUID        `json:"segment_id"`
+	Status            string             `json:"status"`
+	ScheduledFor      pgtype.Timestamptz `json:"scheduled_for"`
+	EstimatedAudience int32              `json:"estimated_audience"`
+	QueuedCount       int32              `json:"queued_count"`
+	SentCount         int32              `json:"sent_count"`
+	FailedCount       int32              `json:"failed_count"`
+	SuppressedCount   int32              `json:"suppressed_count"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	CreatedBy         pgtype.UUID        `json:"created_by"`
+	StartedAt         pgtype.Timestamptz `json:"started_at"`
+	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CampaignRecipient struct {
+	CampaignID        pgtype.UUID        `json:"campaign_id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	Status            string             `json:"status"`
+	SuppressionReason pgtype.Text        `json:"suppression_reason"`
+	ErrorCode         pgtype.Text        `json:"error_code"`
+	QueuedAt          pgtype.Timestamptz `json:"queued_at"`
+	ResolvedAt        pgtype.Timestamptz `json:"resolved_at"`
+}
+
 type Cart struct {
 	ID               pgtype.UUID        `json:"id"`
 	UserID           pgtype.UUID        `json:"user_id"`
@@ -403,6 +444,14 @@ type CommerceSetting struct {
 	MaxSubscriptionsPerCustomer int32              `json:"max_subscriptions_per_customer"`
 	UpdatedAt                   pgtype.Timestamptz `json:"updated_at"`
 	UpdatedBy                   pgtype.UUID        `json:"updated_by"`
+}
+
+type CommunicationSuppression struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	Reason    string             `json:"reason"`
+	Note      pgtype.Text        `json:"note"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	CreatedBy pgtype.UUID        `json:"created_by"`
 }
 
 type ConsentRecord struct {
@@ -786,14 +835,35 @@ type ManualPaymentApproval struct {
 	OccurredAt      pgtype.Timestamptz `json:"occurred_at"`
 }
 
+type MessageTemplate struct {
+	ID         pgtype.UUID        `json:"id"`
+	Code       string             `json:"code"`
+	Class      string             `json:"class"`
+	SubjectEn  string             `json:"subject_en"`
+	SubjectRu  string             `json:"subject_ru"`
+	BodyEn     string             `json:"body_en"`
+	BodyRu     string             `json:"body_ru"`
+	Variables  []string           `json:"variables"`
+	ArchivedAt pgtype.Timestamptz `json:"archived_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy  pgtype.UUID        `json:"updated_by"`
+}
+
 type NewsPost struct {
-	ID          pgtype.UUID        `json:"id"`
-	Slug        string             `json:"slug"`
-	Category    string             `json:"category"`
-	Class       string             `json:"class"`
-	PublishedAt pgtype.Timestamptz `json:"published_at"`
-	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	ID            pgtype.UUID        `json:"id"`
+	Slug          string             `json:"slug"`
+	Category      string             `json:"category"`
+	Class         string             `json:"class"`
+	PublishedAt   pgtype.Timestamptz `json:"published_at"`
+	ExpiresAt     pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	Status        string             `json:"status"`
+	ScheduledFor  pgtype.Timestamptz `json:"scheduled_for"`
+	UnpublishedAt pgtype.Timestamptz `json:"unpublished_at"`
+	ArchivedAt    pgtype.Timestamptz `json:"archived_at"`
+	CreatedBy     pgtype.UUID        `json:"created_by"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
 type NewsPostLocalization struct {
