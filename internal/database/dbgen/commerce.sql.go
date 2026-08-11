@@ -811,7 +811,7 @@ INSERT INTO promotions (
 )
 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
 ON CONFLICT (code) DO UPDATE SET code = EXCLUDED.code
-RETURNING id, code, kind, value, currency, starts_at, ends_at, redemption_limit, per_customer_limit, eligibility, active, created_at
+RETURNING id, code, kind, value, currency, starts_at, ends_at, redemption_limit, per_customer_limit, eligibility, active, created_at, stackable, precedence
 `
 
 type CreatePromotionParams struct {
@@ -854,6 +854,8 @@ func (q *Queries) CreatePromotion(ctx context.Context, arg CreatePromotionParams
 		&i.Eligibility,
 		&i.Active,
 		&i.CreatedAt,
+		&i.Stackable,
+		&i.Precedence,
 	)
 	return i, err
 }
