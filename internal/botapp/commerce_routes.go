@@ -115,6 +115,8 @@ func (app *App) loadCommerceView(ctx context.Context, session commerceContext, r
 			return view, true
 		}
 		return View{}, false
+	case routeGifts:
+		return app.giftsScreen(ctx, session), true
 	case routeAutoRenew:
 		return app.autoRenewScreen(ctx, session), true
 	case routeMethods:
@@ -518,6 +520,9 @@ func (app *App) handleCommerceAction(ctx context.Context, session commerceContex
 		return view, true
 	}
 	if view, handled := app.handleShopAction(ctx, session, parts); handled {
+		return view, true
+	}
+	if view, handled := app.handleGiftAction(ctx, session, parts); handled {
 		return view, true
 	}
 	switch parts[0] {

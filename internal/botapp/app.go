@@ -35,6 +35,7 @@ const (
 	routeMethods      = "methods"
 	routeShop         = "shop"
 	routeShopOrders   = "shoporders"
+	routeGifts        = "gifts"
 	// v0.5 surfaces.
 	routeTopUp         = "topup"
 	routeCart          = "cart"
@@ -244,7 +245,8 @@ func (app *App) handleFlowMessage(ctx context.Context, client *telegram.Bot, upd
 		return false
 	}
 	switch state {
-	case "promo_code", "support_reply", "topup_amount", "subscription_label", "goods_recipient":
+	case "promo_code", "support_reply", "topup_amount", "subscription_label",
+		"goods_recipient", "gift_message", "gift_claim":
 	default:
 		return false
 	}
@@ -275,6 +277,19 @@ func (app *App) handleFlowMessage(ctx context.Context, client *telegram.Bot, upd
 		}
 		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID,
 			app.SubmitShopRecipient(ctx, session, productID, message.Text)))
+	case "gift_message":
+		token, _ := flowContext["gift"].(string)
+		if err := app.customers.CancelSession(ctx, session.TelegramID); err != nil {
+			app.logger.Warn("session cleanup failed", "error", err)
+		}
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID,
+			app.SubmitGiftMessage(ctx, session, token, message.Text)))
+	case "gift_claim":
+		if err := app.customers.CancelSession(ctx, session.TelegramID); err != nil {
+			app.logger.Warn("session cleanup failed", "error", err)
+		}
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID,
+			app.SubmitGiftCode(ctx, session, message.Text)))
 	}
 	return true
 }
@@ -736,7 +751,7 @@ func (app *App) lifecycleNoticeFor(ctx context.Context, telegramID int64, locale
 // it the bot explains that purchases are not configured rather than failing.
 func commerceOnlyRoute(route string) bool {
 	switch route {
-	case routePlans, routeOrders, routeWallet, routeNews, routeAutoRenew, routeMethods, routeShop, routeShopOrders, routeTopUp, routeCart, routeSubscriptions:
+	case routePlans, routeOrders, routeWallet, routeNews, routeAutoRenew, routeMethods, routeShop, routeShopOrders, routeGifts, routeTopUp, routeCart, routeSubscriptions:
 		return true
 	default:
 		return false
@@ -746,7 +761,7 @@ func commerceOnlyRoute(route string) bool {
 func knownRoute(route string) bool {
 	switch route {
 	case routeHome, routeSubscription, routeConnect, routeDevices, routeSupport, routeSettings, routeReferral,
-		routePlans, routeOrders, routeWallet, routeNews, routeAutoRenew, routeMethods, routeShop, routeShopOrders,
+		routePlans, routeOrders, routeWallet, routeNews, routeAutoRenew, routeMethods, routeShop, routeShopOrders, routeGifts,
 		routeTopUp, routeCart, routeSubscriptions:
 		return true
 	default:

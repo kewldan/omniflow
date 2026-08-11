@@ -110,9 +110,12 @@ func commerceMainKeyboard(locale Locale, menu MenuState) *models.InlineKeyboardM
 	// The shop appears only when an operator has published something to sell,
 	// so an installation that sells no digital goods keeps exactly the menu it
 	// had before.
+	shopRow := make([]models.InlineKeyboardButton, 0, 2)
 	if menu.ShopEnabled {
-		rows = append(rows, row(callbackButton(text(locale, "menu.shop"), routeShop)))
+		shopRow = append(shopRow, callbackButton(text(locale, "menu.shop"), routeShop))
 	}
+	shopRow = append(shopRow, callbackButton(text(locale, "menu.gifts"), routeGifts))
+	rows = append(rows, shopRow)
 	rows = append(rows,
 		row(callbackButton(supportLabel, routeSupport), callbackButton(newsLabel, routeNews)),
 		row(callbackButton(referral, routeReferral), callbackButton(settings, routeSettings)),

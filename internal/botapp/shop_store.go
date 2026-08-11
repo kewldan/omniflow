@@ -196,3 +196,42 @@ func (store *PostgresStore) ShopOrderFor(
 	order.Quantity = int(quantity)
 	return order, true, nil
 }
+
+// SentGift is one gift the customer bought, as the sender sees it.
+//
+// The code hint is the last four characters. It lets a sender tell two of their
+// own gifts apart and is not enough for anybody to redeem one; the code itself
+// was never stored.
+type SentGift struct {
+	ID        string
+	Kind      string
+	Status    string
+	CodeHint  string
+	Currency  string
+	ExpiresAt time.Time
+	CreatedAt time.Time
+}
+
+// GiftsSent lists the customer's own gifts, newest first.
+func (store *PostgresStore) GiftsSent(
+	ctx context.Context, customerID string, limit int,
+) ([]SentGift, error) {
+	rows, err := store.pool.Query(ctx,
+		`SELECT id::text, kind, status, code_hint, currency, expires_at, created_at
+		 FROM gifts WHERE sender_user_id = $1::uuid
+		 ORDER BY created_at DESC LIMIT $2`, customerID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	sent := make([]SentGift, 0, limit)
+	for rows.Next() {
+		var gift SentGift
+		if err := rows.Scan(&gift.ID, &gift.Kind, &gift.Status, &gift.CodeHint,
+			&gift.Currency, &gift.ExpiresAt, &gift.CreatedAt); err != nil {
+			return nil, err
+		}
+		sent = append(sent, gift)
+	}
+	return sent, rows.Err()
+}

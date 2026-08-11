@@ -129,3 +129,53 @@ func (service *Commerce) StartShopPurchase(
 	}
 	return service.store.Order(ctx, customerID, uuidText(order.ID), LocaleEnglish)
 }
+
+// GiftPurchase is one gift as the sender sees it immediately after buying.
+//
+// `Code` is populated only on the response that created the gift. A later read
+// leaves it empty, because only the hash was kept.
+type GiftPurchase struct {
+	OrderID   string
+	GiftID    string
+	Code      string
+	CodeHint  string
+	Kind      string
+	Currency  string
+	ExpiresAt time.Time
+}
+
+// BuyGift opens a gift order for the sender.
+func (service *Commerce) BuyGift(
+	ctx context.Context, input commercepg.GiftOrderInput,
+) (GiftPurchase, error) {
+	purchase, err := service.orders.CreateGiftOrder(ctx, input)
+	if err != nil {
+		return GiftPurchase{}, err
+	}
+	return GiftPurchase{
+		OrderID: uuidText(purchase.Order.ID), GiftID: uuidText(purchase.Gift.ID),
+		Code: purchase.Code, CodeHint: purchase.Gift.CodeHint,
+		Kind: purchase.Gift.Kind, Currency: purchase.Gift.Currency,
+		ExpiresAt: purchase.Gift.ExpiresAt.Time,
+	}, nil
+}
+
+// ClaimedGift is what a recipient was given.
+type ClaimedGift struct {
+	Kind        string
+	CreditMinor int64
+	Currency    string
+}
+
+// ClaimGift redeems a code for the claiming customer.
+func (service *Commerce) ClaimGift(
+	ctx context.Context, code, claimantID string,
+) (ClaimedGift, error) {
+	gift, err := service.orders.ClaimGift(ctx, code, claimantID)
+	if err != nil {
+		return ClaimedGift{}, err
+	}
+	return ClaimedGift{
+		Kind: gift.Kind, CreditMinor: gift.CreditMinor.Int64, Currency: gift.Currency,
+	}, nil
+}

@@ -461,9 +461,9 @@ Goal: let operators run day-to-day customer, subscription, and financial operati
 
 ### Gifts
 
-- [ ] Purchase a subscription, add-on, or wallet credit for another person
+- [x] Purchase a subscription, add-on, or wallet credit for another person
 - [x] Gift codes claimable by an unlinked recipient with claim, expiry, and revocation states
-- [ ] Telegram gift delivery with an optional sender message and privacy-safe recipient handling
+- [x] Telegram gift delivery with an optional sender message and privacy-safe recipient handling
 - [x] Gift orders kept separate from the recipient's own order and payment history
 - [x] Refund, abuse, and reclaim rules for unclaimed, expired, and disputed gifts
 - [x] Gift order, claim, expiry, revocation, and refund management in the admin panel
@@ -471,18 +471,18 @@ Goal: let operators run day-to-day customer, subscription, and financial operati
 ### Digital goods shop
 
 - [x] Provider-neutral digital-goods adapter with a Fragment-backed implementation
-- [ ] Telegram Premium catalog with supported durations and localized presentation
-- [ ] Telegram Stars catalog with operator-defined quantities or packs
+- [x] Telegram Premium catalog with supported durations and localized presentation
+- [x] Telegram Stars catalog with operator-defined quantities or packs
 - [x] Recipient Telegram username validation and explicit confirmation before payment
-- [ ] Purchase for the customer or for another username with a recipient review step
+- [x] Purchase for the customer or for another username with a recipient review step
 - [x] Operator-configured markup, rounding, and currency conversion over provider cost
 - [x] Quoted price with an explicit expiry whenever the provider rate is volatile
 - [x] Digital-goods orders kept separate from subscription orders and Remnawave entitlements
 - [x] Idempotent delivery that cannot deliver Premium or Stars twice for one order
-- [ ] Delivery polling, delayed-delivery state, and provider failure classification
+- [x] Delivery polling, delayed-delivery state, and provider failure classification
 - [x] Automatic wallet refund when delivery fails permanently
-- [ ] Wallet, promo, and cart support reusing the existing commerce pipeline
-- [ ] Bot shop navigation with catalog, details, confirmation, delivery progress, and history
+- [ ] Wallet, promo, and cart support reusing the existing commerce pipeline — the wallet is applied to a shop order exactly as it is to a plan; promo codes and saved carts are not, because promotion applicability and cart quoting are both plan-scoped and extending them to digital goods is a catalog design decision rather than a wiring one
+- [x] Bot shop navigation with catalog, details, confirmation, delivery progress, and history
 - [x] Admin catalog, provider credentials, markup configuration, and order review
 - [x] Encrypted provider credentials with spend limits and low-balance alerts
 - [x] No recipient data retained beyond what delivery and support genuinely require

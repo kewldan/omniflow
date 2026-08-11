@@ -45,6 +45,14 @@ const (
 // gifts.
 const CodeLength = 16
 
+// DefaultLifetime is how long an unclaimed gift stays claimable.
+//
+// Thirty days is long enough that a recipient who is away for a few weeks does
+// not lose what they were given, and short enough that the sender's money is
+// not held against an outcome indefinitely — an expired gift is refundable to
+// the sender, so the window is also how long that liability stays open.
+const DefaultLifetime = 30 * 24 * time.Hour
+
 // MaxClaimAttempts bounds how many times one code may be presented and refused.
 //
 // It is durable state on the gift row rather than a counter in Valkey, so the
