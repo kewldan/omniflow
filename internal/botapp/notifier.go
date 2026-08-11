@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"html"
 	"log/slog"
 	"math"
 	"time"
@@ -102,6 +103,7 @@ func (notifier *Notifier) Run(ctx context.Context) {
 func (notifier *Notifier) RunOnce(ctx context.Context) {
 	notifier.deliverSupportReplies(ctx)
 	notifier.deliverDunning(ctx)
+	notifier.deliverCampaigns(ctx)
 	candidates, err := notifier.store.notificationCandidates(ctx, notifier.settings.MarketingWindow)
 	if err != nil {
 		notifier.logger.Error("notification candidate lookup failed", "error", err)
@@ -261,6 +263,114 @@ func (notifier *Notifier) deliverSupportReplies(ctx context.Context) {
 		if err := notifier.store.MarkOperatorReplyDelivered(ctx, reply.MessageID); err != nil {
 			notifier.logger.Error("operator reply delivery bookkeeping failed", "ticket_id", reply.TicketID, "error", err)
 		}
+	}
+}
+
+// deliverCampaigns sends the next slice of every running campaign.
+//
+// Every recipient goes through the same delivery policy a lifecycle alert does:
+// consent, quiet hours, the marketing frequency cap, and Telegram delivery
+// health. That is the reason delivery lives here rather than in the campaign
+// runner — duplicating the policy would mean two places that can disagree about
+// whether a customer may be messaged.
+//
+// A recipient the policy refuses is recorded as suppressed with the reason,
+// never silently dropped. An operator reviewing a campaign's reach needs to see
+// that four hundred people were on the list and not contacted, and why.
+func (notifier *Notifier) deliverCampaigns(ctx context.Context) {
+	messages, err := notifier.store.PendingCampaignMessages(ctx, notificationBatch)
+	if err != nil {
+		notifier.logger.Error("campaign message lookup failed", "error", err)
+		return
+	}
+	if len(messages) == 0 {
+		return
+	}
+	candidates, err := notifier.store.notificationCandidates(ctx, notifier.settings.MarketingWindow)
+	if err != nil {
+		notifier.logger.Error("notification candidate lookup failed", "error", err)
+		return
+	}
+	byCustomer := make(map[string]notificationCandidate, len(candidates))
+	for _, candidate := range candidates {
+		byCustomer[candidate.UserID] = candidate
+	}
+
+	for _, message := range messages {
+		if ctx.Err() != nil {
+			return
+		}
+		candidate, known := byCustomer[message.CustomerID]
+		if !known {
+			// The customer is no longer reachable through Telegram at all.
+			notifier.resolveCampaign(ctx, message, "suppressed", "no_telegram", "")
+			continue
+		}
+		policy := commerce.DeliveryPolicy{
+			KindEnabled:           kindEnabled("marketing", candidate),
+			MarketingConsent:      candidate.MarketingEnabled,
+			QuietHours:            candidate.quietHours(),
+			MarketingSentInWindow: candidate.MarketingSent,
+			MarketingFrequencyCap: notifier.settings.MarketingFrequencyCap,
+			FrequencyWindow:       notifier.settings.MarketingWindow,
+			DeliveryStatus:        candidate.DeliveryStatus,
+			RetryAfter:            candidate.RetryAfter.Time,
+		}
+		decision, err := commerce.EvaluateDelivery(notifier.clock().UTC(), message.Class, policy)
+		if err != nil {
+			notifier.logger.Error("campaign classification failed", "error", err)
+			continue
+		}
+		if !decision.Allow {
+			notifier.resolveCampaign(ctx, message, "suppressed", campaignSuppression(decision), "")
+			continue
+		}
+
+		body := renderTemplate(message.Body, map[string]string{})
+		view := View{Text: body}
+		if message.Subject != "" {
+			view.Text = "<b>" + html.EscapeString(message.Subject) + "</b>\n\n" + body
+		}
+		if sendErr := notifier.sender.Send(
+			ctx, message.CustomerID, message.TelegramID, view,
+		); sendErr != nil {
+			notifier.resolveCampaign(ctx, message, "failed", "", "send_failed")
+			continue
+		}
+		notifier.resolveCampaign(ctx, message, "sent", "", "")
+	}
+}
+
+// resolveCampaign records one recipient's outcome, logging rather than
+// retrying: the message has already been sent by the time this runs, and a
+// retry would send it again.
+func (notifier *Notifier) resolveCampaign(
+	ctx context.Context, message PendingCampaignMessage, status, suppression, errorCode string,
+) {
+	if err := notifier.store.ResolveCampaignRecipient(
+		ctx, message.CampaignID, message.CustomerID, status, suppression, errorCode,
+	); err != nil {
+		notifier.logger.Error("campaign bookkeeping failed",
+			"campaignId", message.CampaignID, "error", err)
+	}
+}
+
+// campaignSuppression maps a delivery decision onto the reason the campaign
+// records. The reasons are kept apart because they are different decisions and
+// an operator reviewing reach needs to tell them apart.
+func campaignSuppression(decision commerce.DeliveryDecision) string {
+	switch decision.Reason {
+	case "deferred":
+		// Quiet hours defer rather than refuse. A campaign does not hold a
+		// message until morning — it records that this recipient was inside
+		// their quiet window, and the operator can send again later.
+		return "quiet_hours"
+	case "frequency_cap":
+		return "frequency_cap"
+	case "bot_blocked", "user_deactivated":
+		return "delivery_blocked"
+	default:
+		return "no_consent"
 	}
 }
 

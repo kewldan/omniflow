@@ -586,13 +586,13 @@ Goal: finish support, communication, configuration, and operational readiness be
 
 ### News, campaigns, and communication
 
-- [ ] Localized news posts with draft, preview, schedule, publish, unpublish, and archive
-- [ ] Audience segments using explicit, reviewable filters
-- [ ] Campaign preview, estimated audience, test delivery, schedule, pause, cancel, and results
-- [ ] Transactional and marketing templates with variables validated before send
-- [ ] Consent, suppression list, quiet hours, frequency caps, and delivery deduplication
-- [ ] Delivery states for queued, sent, failed, blocked, and clicked where supported
-- [ ] No storage or telemetry of message content outside documented product data
+- [x] Localized news posts with draft, preview, schedule, publish, unpublish, and archive
+- [x] Audience segments using explicit, reviewable filters
+- [ ] Campaign preview, estimated audience, test delivery, schedule, pause, cancel, and results — the schedule, pause, cancel, expansion, and result counters are implemented and enforced; the panel screens and test delivery remain
+- [x] Transactional and marketing templates with variables validated before send
+- [x] Consent, suppression list, quiet hours, frequency caps, and delivery deduplication
+- [x] Delivery states for queued, sent, failed, blocked, and clicked where supported
+- [x] No storage or telemetry of message content outside documented product data
 
 ### Mandatory channel subscription
 

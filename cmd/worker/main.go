@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omniflow/omniflow/internal/backup"
 	"github.com/omniflow/omniflow/internal/bulkrunner"
+	"github.com/omniflow/omniflow/internal/campaigns"
 	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/config"
 	"github.com/omniflow/omniflow/internal/fulfillment"
@@ -149,6 +150,10 @@ func main() {
 	// batch of four hundred subscriptions must not be tied to the lifetime of
 	// the request that started it.
 	fulfillmentService := fulfillment.NewService(pool, client)
+	// Campaign expansion and scheduled publication. Delivery itself stays with
+	// the bot's notifier, which already owns consent, quiet hours, and Telegram
+	// health.
+	go campaigns.New(pool, logger, campaigns.Config{}).Run(ctx)
 	go bulkrunner.New(
 		pool, operations, fulfillmentService, commerceStore, logger, bulkrunner.Config{},
 	).Run(ctx)
