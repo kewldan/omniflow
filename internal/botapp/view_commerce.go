@@ -373,3 +373,29 @@ func shortID(id string) string {
 	}
 	return truncateRunes(id, 8)
 }
+
+// channelGateView asks a customer to join the channels a purchase requires.
+//
+// It names each channel and links to it. "Requirements not met" is accurate and
+// useless: a customer who cannot see what to do simply leaves, and the
+// installation loses the sale it was trying to condition.
+//
+// The retry button returns to the checkout rather than starting over, because
+// the checkout is still there — nothing was cancelled, and re-entering a plan,
+// a promo code, and a payment method to satisfy a subscription requirement is
+// how a requirement becomes an abandonment.
+func channelGateView(locale Locale, gate PurchaseGate) View {
+	lines := []string{text(locale, "channels.required")}
+	rows := make([][]models.InlineKeyboardButton, 0, len(gate.Missing)+1)
+	for _, requirement := range gate.Missing {
+		lines = append(lines, "• "+html.EscapeString(requirement.Title))
+		if safeURL(requirement.InviteURL) {
+			rows = append(rows, row(models.InlineKeyboardButton{
+				Text: text(locale, "channels.open", requirement.Title),
+				URL:  requirement.InviteURL,
+			}))
+		}
+	}
+	rows = append(rows, row(actionButton(text(locale, "channels.retry"), "checkout")))
+	return View{Text: strings.Join(lines, "\n"), Keyboard: keyboard(rows...)}
+}

@@ -132,6 +132,13 @@ var catalog = map[string]phrase{
 	"checkout.expired":      {ru: "⌛ <b>Оформление истекло</b>\n\nЦены могли измениться. Начните оформление заново.", en: "⌛ <b>Checkout expired</b>\n\nPrices may have changed. Please start again."},
 	"checkout.none":         {ru: "Нет активного оформления. Выберите тариф ещё раз.", en: "No checkout is in progress. Choose a plan again."},
 
+	// Required channels, at the moment a purchase is attempted. The wording
+	// names the channels rather than saying "requirements not met", because a
+	// customer who cannot see what to do simply leaves.
+	"channels.required": {ru: "📣 <b>Сначала подпишитесь</b>\n\nЧтобы продолжить покупку, подпишитесь на:", en: "📣 <b>Please subscribe first</b>\n\nTo continue with your purchase, subscribe to:"},
+	"channels.retry":    {ru: "Я подписался", en: "I have subscribed"},
+	"channels.open":     {ru: "Открыть %s", en: "Open %s"},
+
 	// Promo codes.
 	"promo.prompt":           {ru: "🏷 <b>Промокод</b>\n\nОтправьте код одним сообщением. Для отмены: /cancel", en: "🏷 <b>Promo code</b>\n\nSend the code in one message. To cancel: /cancel"},
 	"promo.applied":          {ru: "✅ Промокод <b>%s</b> применён.", en: "✅ Promo code <b>%s</b> applied."},

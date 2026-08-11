@@ -74,6 +74,11 @@ type App struct {
 	// operators is the Telegram backup/restore surface. It stays nil until an
 	// installation names its operator accounts.
 	operators *OperatorTools
+
+	// membership answers channel questions at checkout. It stays nil until the
+	// process wires one in, and a nil verifier gates nothing — an installation
+	// that requires no channels wanted exactly that.
+	membership MembershipVerifier
 }
 
 func New(logger *slog.Logger, store Store, remnawaveService remnawave.Service, supportURL string) *App {

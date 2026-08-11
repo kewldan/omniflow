@@ -287,6 +287,13 @@ func (app *App) confirmCheckout(ctx context.Context, session commerceContext) Vi
 	if err != nil {
 		return View{Text: text(session.Locale, "plan.gone"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "action.back"), routePlans)))}
 	}
+	// Membership is verified here rather than when the plan was chosen: a
+	// customer can leave a channel between browsing and paying, and this is the
+	// last moment before money moves. The checkout is left intact, so joining
+	// and pressing the button again resumes exactly where they were.
+	if gate := app.checkPurchaseChannels(ctx, session.Customer.ID, session.TelegramID); !gate.Allowed() {
+		return channelGateView(session.Locale, gate)
+	}
 	orderID, err := app.commerce.Confirm(ctx, checkout, plan, session.Customer)
 	switch {
 	case errors.Is(err, commercepg.ErrMaintenance):

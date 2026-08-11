@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omniflow/omniflow/internal/backup"
 	"github.com/omniflow/omniflow/internal/botapp"
+	"github.com/omniflow/omniflow/internal/channelworker"
 	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/config"
 	"github.com/omniflow/omniflow/internal/goodsdelivery"
@@ -102,6 +103,13 @@ func main() {
 		DatabaseURL: cfg.DatabaseURL,
 	})
 	application.EnableOperatorTools(backupService, cfg.Operator.OperatorIDs)
+
+	// Channel membership is verified in two places, and both need the bot's
+	// token. The worker re-checks everybody periodically and takes access away
+	// after a grace period; the app checks live at checkout, before money moves.
+	membership := botapp.NewTelegramMembership(client)
+	application.UseMembershipVerifier(membership)
+	go channelworker.New(pool, membership, logger, channelworker.Config{}).Run(ctx)
 
 	notifier := operator.New(pool, client, logger, operator.Config{
 		ChatID: cfg.Operator.ChatID, NotificationCap: cfg.Operator.NotificationCap, Window: cfg.Operator.Window,
