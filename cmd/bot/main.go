@@ -3,21 +3,28 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	telegram "github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/omniflow/omniflow/internal/backup"
 	"github.com/omniflow/omniflow/internal/botapp"
 	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/config"
+	apihttp "github.com/omniflow/omniflow/internal/httpapi"
+	"github.com/omniflow/omniflow/internal/operator"
 	"github.com/omniflow/omniflow/internal/payments"
 	"github.com/omniflow/omniflow/internal/paymentservice"
 	"github.com/omniflow/omniflow/internal/platform"
 	"github.com/omniflow/omniflow/internal/remnawave"
 )
+
+var version = "dev"
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -46,7 +53,15 @@ func main() {
 		os.Exit(1)
 	}
 	application := botapp.New(logger, identities, remnawaveClient, cfg.SupportURL)
-	client, err := telegram.New(cfg.TelegramToken, telegram.WithDefaultHandler(application.HandleDefault))
+	metrics := platform.NewMetrics("bot")
+	options := []telegram.Option{
+		telegram.WithDefaultHandler(application.HandleDefault),
+		telegram.WithMiddlewares(botapp.ObservabilityMiddleware(metrics)),
+	}
+	if cfg.Webhook.Enabled {
+		options = append(options, telegram.WithWebhookSecretToken(cfg.Webhook.SecretToken))
+	}
+	client, err := telegram.New(cfg.TelegramToken, options...)
 	if err != nil {
 		logger.Error("telegram client initialization failed", "error", err)
 		os.Exit(1)
@@ -61,7 +76,7 @@ func main() {
 
 	sender := botapp.NewSender(client, identities, logger)
 	settings := commerceSettings(cfg)
-	commerceService, closeCommerce, err := buildCommerce(ctx, logger, cfg, identities)
+	commerceService, pool, closeCommerce, err := buildCommerce(ctx, logger, cfg, identities)
 	if err != nil {
 		logger.Error("bot commerce initialization failed", "error", err)
 		os.Exit(1)
@@ -74,13 +89,136 @@ func main() {
 			os.Exit(1)
 		}
 		application.EnableCommerce(identities, commerceService, limiter, sender, settings)
-		logger.Info("telegram commerce enabled", "currency", settings.Currency)
+		logger.Info("telegram commerce enabled", "currency", settings.Currency, "multi_subscription", cfg.Subscriptions.MultiEnabled)
 	}
+
+	// Backups and restores are the only administrative actions Telegram
+	// carries, and only for explicitly named operator accounts.
+	backupService := backup.New(pool, logger, backup.Config{
+		Enabled: cfg.Backup.Enabled, Directory: cfg.Backup.Directory, Interval: cfg.Backup.Interval,
+		Retention: cfg.Backup.Retention, EncryptionKey: cfg.Backup.EncryptionKey,
+		PgDumpPath: cfg.Backup.PgDumpPath, PgRestorePath: cfg.Backup.PgRestorePath,
+		DatabaseURL: cfg.DatabaseURL,
+	})
+	application.EnableOperatorTools(backupService, cfg.Operator.OperatorIDs)
+
+	notifier := operator.New(pool, client, logger, operator.Config{
+		ChatID: cfg.Operator.ChatID, NotificationCap: cfg.Operator.NotificationCap, Window: cfg.Operator.Window,
+	})
+	go notifier.Run(ctx)
 	go botapp.NewNotifier(logger, sender, identities, remnawaveClient, commerceService, settings).Run(ctx)
 
-	logger.Info("telegram bot started", "remnawave_api", "3.2.2")
-	client.Start(ctx)
+	operationalServer := startOperationalServer(logger, cfg, pool, metrics)
+	webhookServer := startWebhookServer(logger, cfg, client)
+
+	logger.Info("telegram bot started", "remnawave_api", "3.2.2", "mode", updateMode(cfg))
+	if cfg.Webhook.Enabled {
+		if err = registerWebhook(ctx, logger, client, cfg); err != nil {
+			logger.Error("telegram webhook registration failed", "error", err)
+			os.Exit(1)
+		}
+		client.StartWebhook(ctx)
+	} else {
+		client.Start(ctx)
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	for _, server := range []*http.Server{webhookServer, operationalServer} {
+		if server == nil {
+			continue
+		}
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			logger.Warn("bot HTTP server shutdown failed", "error", err)
+		}
+	}
 	logger.Info("telegram bot stopped")
+}
+
+func updateMode(cfg config.BotConfig) string {
+	if cfg.Webhook.Enabled {
+		return "webhook"
+	}
+	return "long_polling"
+}
+
+// registerWebhook points Telegram at this installation and pins the secret token
+// it must present. Every update is then rejected unless it carries the token.
+func registerWebhook(ctx context.Context, logger *slog.Logger, client *telegram.Bot, cfg config.BotConfig) error {
+	_, err := client.SetWebhook(ctx, &telegram.SetWebhookParams{
+		URL:         cfg.Webhook.URL,
+		SecretToken: cfg.Webhook.SecretToken,
+		AllowedUpdates: []string{
+			"message", "edited_message", "callback_query", "pre_checkout_query",
+			"my_chat_member", "chat_member",
+		},
+	})
+	if err != nil {
+		return err
+	}
+	logger.Info("telegram webhook registered")
+	return nil
+}
+
+// startWebhookServer serves the Telegram webhook endpoint. The library verifies
+// the secret token before an update is accepted, and the body limit keeps a
+// malformed or hostile request from consuming memory.
+func startWebhookServer(logger *slog.Logger, cfg config.BotConfig, client *telegram.Bot) *http.Server {
+	if !cfg.Webhook.Enabled {
+		return nil
+	}
+	mux := http.NewServeMux()
+	handler := client.WebhookHandler()
+	mux.HandleFunc("POST /telegram/webhook", func(writer http.ResponseWriter, request *http.Request) {
+		request.Body = http.MaxBytesReader(writer, request.Body, 1<<20)
+		handler(writer, request)
+	})
+	server := &http.Server{
+		Addr:              cfg.Webhook.ListenAddr,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       90 * time.Second,
+	}
+	go func() {
+		logger.Info("telegram webhook endpoint listening", "address", cfg.Webhook.ListenAddr)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("telegram webhook server stopped unexpectedly", "error", err)
+		}
+	}()
+	return server
+}
+
+// startOperationalServer exposes the bot's liveness, readiness, and metrics
+// endpoints. It shares the webhook listener only when they are not both
+// configured on the same address.
+func startOperationalServer(logger *slog.Logger, cfg config.BotConfig, pool *pgxpool.Pool, metrics *platform.Metrics) *http.Server {
+	address := cfg.Webhook.MetricsAddr
+	// Serving metrics on the webhook listener would publish installation
+	// internals on a host that must be reachable from the internet.
+	if address == "" || address == cfg.Webhook.ListenAddr {
+		return nil
+	}
+	health := platform.NewHealth(2*time.Second, 3*time.Second)
+	if pool != nil {
+		health.Register("postgres", func(probeCtx context.Context) error { return pool.Ping(probeCtx) })
+	}
+	server := &http.Server{
+		Addr:              address,
+		Handler:           apihttp.NewRouter(logger, apihttp.RouterOptions{Health: health, Metrics: metrics, Version: version}),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       90 * time.Second,
+	}
+	go func() {
+		logger.Info("bot operational endpoints listening", "address", address)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("bot operational server stopped unexpectedly", "error", err)
+		}
+	}()
+	return server
 }
 
 func commerceSettings(cfg config.BotConfig) botapp.CommerceSettings {
@@ -92,6 +230,8 @@ func commerceSettings(cfg config.BotConfig) botapp.CommerceSettings {
 		MinimumTrialAccountAge: cfg.MinimumTrialAccountAge,
 		MarketingFrequencyCap:  cfg.MarketingFrequencyCap,
 		MarketingWindow:        cfg.MarketingWindow,
+		CartTTL:                cfg.CartTTL,
+		MultiSubscription:      cfg.Subscriptions.MultiEnabled,
 	}
 }
 
@@ -107,23 +247,27 @@ func buildLimiter(valkeyURL string) (*platform.RateLimiter, error) {
 // intents but never enqueues fulfillment itself: the worker owns provisioning,
 // and settlement writes the durable job through the outbox and River records the
 // API process already commits.
-func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.BotConfig, store *botapp.PostgresStore) (*botapp.Commerce, func(), error) {
-	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
+func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.BotConfig, store *botapp.PostgresStore) (*botapp.Commerce, *pgxpool.Pool, func(), error) {
+	pool, err := platform.TracedPool(ctx, cfg.DatabaseURL)
 	if err != nil {
-		return nil, func() {}, err
+		return nil, nil, func() {}, err
 	}
-	orders := commercepg.New(pool, nil)
+	orders := commercepg.New(pool, nil, commercepg.Options{
+		Subscriptions: cfg.Subscriptions.Policy(),
+		TopUp:         cfg.TopUp.Limits(),
+		Logger:        logger,
+	})
 	starsAdapter, err := payments.NewTelegramStars(cfg.TelegramToken, paymentservice.NewStarsPayerResolver(pool))
 	if err != nil {
 		pool.Close()
-		return nil, func() {}, err
+		return nil, nil, func() {}, err
 	}
 	providers := []payments.Provider{starsAdapter, payments.Manual{}}
 	if cfg.CryptoBotToken != "" {
 		provider, providerErr := payments.NewCryptoBot(cfg.CryptoBotToken, cfg.CryptoBotTestnet)
 		if providerErr != nil {
 			pool.Close()
-			return nil, func() {}, providerErr
+			return nil, nil, func() {}, providerErr
 		}
 		providers = append(providers, provider)
 	}
@@ -131,12 +275,12 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.BotConfi
 		provider, providerErr := payments.NewYooKassa(cfg.YooKassaShopID, cfg.YooKassaSecret)
 		if providerErr != nil {
 			pool.Close()
-			return nil, func() {}, providerErr
+			return nil, nil, func() {}, providerErr
 		}
 		providers = append(providers, provider)
 	}
 	paymentService := paymentservice.New(pool, orders, providers...)
-	return botapp.NewCommerce(logger, store, orders, paymentService, commerceSettings(cfg)), pool.Close, nil
+	return botapp.NewCommerce(logger, store, orders, paymentService, commerceSettings(cfg)), pool, pool.Close, nil
 }
 
 func configureCommands(ctx context.Context, logger *slog.Logger, client *telegram.Bot) {
@@ -145,6 +289,7 @@ func configureCommands(ctx context.Context, logger *slog.Logger, client *telegra
 		{Command: "menu", Description: "Show the main menu"},
 		{Command: "plans", Description: "Browse plans and buy"},
 		{Command: "orders", Description: "Order and payment history"},
+		{Command: "wallet", Description: "Wallet balance and top-up"},
 		{Command: "settings", Description: "Language and notifications"},
 		{Command: "support", Description: "Contact support"},
 		{Command: "cancel", Description: "Cancel the current action"},
@@ -157,6 +302,7 @@ func configureCommands(ctx context.Context, logger *slog.Logger, client *telegra
 		{Command: "menu", Description: "Показать главное меню"},
 		{Command: "plans", Description: "Тарифы и покупка"},
 		{Command: "orders", Description: "История заказов и оплат"},
+		{Command: "wallet", Description: "Баланс и пополнение"},
 		{Command: "settings", Description: "Язык и уведомления"},
 		{Command: "support", Description: "Написать в поддержку"},
 		{Command: "cancel", Description: "Отменить текущее действие"},

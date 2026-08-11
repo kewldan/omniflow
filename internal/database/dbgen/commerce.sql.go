@@ -205,7 +205,7 @@ WITH mutation AS (
 )
 UPDATE orders SET state = 'cancelled', updated_at = now()
 WHERE orders.id = $1 AND orders.state IN ('draft', 'pending', 'cancelled')
-RETURNING orders.id, orders.user_id, orders.state, orders.operation, orders.currency, orders.subtotal_minor, orders.discount_minor, orders.wallet_minor, orders.external_minor, orders.paid_minor, orders.refunded_minor, orders.idempotency_key, orders.expires_at, orders.created_at, orders.updated_at
+RETURNING orders.id, orders.user_id, orders.state, orders.operation, orders.currency, orders.subtotal_minor, orders.discount_minor, orders.wallet_minor, orders.external_minor, orders.paid_minor, orders.refunded_minor, orders.idempotency_key, orders.expires_at, orders.created_at, orders.updated_at, orders.subscription_id, orders.selected_squad_ids
 `
 
 type CancelOrderParams struct {
@@ -233,6 +233,8 @@ func (q *Queries) CancelOrder(ctx context.Context, arg CancelOrderParams) (Order
 		&i.ExpiresAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SubscriptionID,
+		&i.SelectedSquadIds,
 	)
 	return i, err
 }
@@ -398,11 +400,11 @@ func (q *Queries) CreateCustomerImport(ctx context.Context) (CustomerImport, err
 const createEntitlement = `-- name: CreateEntitlement :one
 INSERT INTO entitlements (
   user_id, order_id, plan_version_id, starts_at, ends_at,
-  traffic_allowance_bytes, device_limit, remnawave_squad_ids
+  traffic_allowance_bytes, device_limit, remnawave_squad_ids, subscription_id
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 ON CONFLICT (order_id) DO UPDATE SET order_id = EXCLUDED.order_id
-RETURNING id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at
+RETURNING id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id
 `
 
 type CreateEntitlementParams struct {
@@ -414,6 +416,7 @@ type CreateEntitlementParams struct {
 	TrafficAllowanceBytes pgtype.Int8        `json:"traffic_allowance_bytes"`
 	DeviceLimit           pgtype.Int4        `json:"device_limit"`
 	RemnawaveSquadIds     []pgtype.UUID      `json:"remnawave_squad_ids"`
+	SubscriptionID        pgtype.UUID        `json:"subscription_id"`
 }
 
 func (q *Queries) CreateEntitlement(ctx context.Context, arg CreateEntitlementParams) (Entitlement, error) {
@@ -426,6 +429,7 @@ func (q *Queries) CreateEntitlement(ctx context.Context, arg CreateEntitlementPa
 		arg.TrafficAllowanceBytes,
 		arg.DeviceLimit,
 		arg.RemnawaveSquadIds,
+		arg.SubscriptionID,
 	)
 	var i Entitlement
 	err := row.Scan(
@@ -444,6 +448,7 @@ func (q *Queries) CreateEntitlement(ctx context.Context, arg CreateEntitlementPa
 		&i.ReconciledAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SubscriptionID,
 	)
 	return i, err
 }
@@ -534,24 +539,27 @@ func (q *Queries) CreateLedgerTransaction(ctx context.Context, arg CreateLedgerT
 const createOrder = `-- name: CreateOrder :one
 INSERT INTO orders (
   user_id, state, operation, currency, subtotal_minor, discount_minor,
-  wallet_minor, external_minor, idempotency_key, expires_at
+  wallet_minor, external_minor, idempotency_key, expires_at,
+  subscription_id, selected_squad_ids
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 ON CONFLICT (user_id, idempotency_key) DO UPDATE SET idempotency_key = EXCLUDED.idempotency_key
-RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at
+RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids
 `
 
 type CreateOrderParams struct {
-	UserID         pgtype.UUID        `json:"user_id"`
-	State          string             `json:"state"`
-	Operation      string             `json:"operation"`
-	Currency       string             `json:"currency"`
-	SubtotalMinor  int64              `json:"subtotal_minor"`
-	DiscountMinor  int64              `json:"discount_minor"`
-	WalletMinor    int64              `json:"wallet_minor"`
-	ExternalMinor  int64              `json:"external_minor"`
-	IdempotencyKey string             `json:"idempotency_key"`
-	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
+	UserID           pgtype.UUID        `json:"user_id"`
+	State            string             `json:"state"`
+	Operation        string             `json:"operation"`
+	Currency         string             `json:"currency"`
+	SubtotalMinor    int64              `json:"subtotal_minor"`
+	DiscountMinor    int64              `json:"discount_minor"`
+	WalletMinor      int64              `json:"wallet_minor"`
+	ExternalMinor    int64              `json:"external_minor"`
+	IdempotencyKey   string             `json:"idempotency_key"`
+	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
+	SubscriptionID   pgtype.UUID        `json:"subscription_id"`
+	SelectedSquadIds []pgtype.UUID      `json:"selected_squad_ids"`
 }
 
 func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error) {
@@ -566,6 +574,8 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order
 		arg.ExternalMinor,
 		arg.IdempotencyKey,
 		arg.ExpiresAt,
+		arg.SubscriptionID,
+		arg.SelectedSquadIds,
 	)
 	var i Order
 	err := row.Scan(
@@ -584,6 +594,8 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order
 		&i.ExpiresAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SubscriptionID,
+		&i.SelectedSquadIds,
 	)
 	return i, err
 }
@@ -646,7 +658,7 @@ func (q *Queries) CreatePaymentIntent(ctx context.Context, arg CreatePaymentInte
 const createPlan = `-- name: CreatePlan :one
 INSERT INTO plans (code, kind, visible, sort_order) VALUES ($1, $2, $3, $4)
 ON CONFLICT (code) DO UPDATE SET code = EXCLUDED.code
-RETURNING id, code, kind, visible, sort_order, created_at, archived_at
+RETURNING id, code, kind, visible, sort_order, created_at, archived_at, max_concurrent_per_customer
 `
 
 type CreatePlanParams struct {
@@ -672,6 +684,7 @@ func (q *Queries) CreatePlan(ctx context.Context, arg CreatePlanParams) (Plan, e
 		&i.SortOrder,
 		&i.CreatedAt,
 		&i.ArchivedAt,
+		&i.MaxConcurrentPerCustomer,
 	)
 	return i, err
 }
@@ -702,7 +715,7 @@ INSERT INTO plan_versions (
   cancellation_policy, recurring_capable
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility
+RETURNING id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads
 `
 
 type CreatePlanVersionParams struct {
@@ -751,6 +764,9 @@ func (q *Queries) CreatePlanVersion(ctx context.Context, arg CreatePlanVersionPa
 		&i.RetiredAt,
 		&i.GracePeriodSeconds,
 		&i.TrialEligibility,
+		&i.SquadSelection,
+		&i.MinSelectableSquads,
+		&i.MaxSelectableSquads,
 	)
 	return i, err
 }
@@ -897,7 +913,7 @@ WITH expired AS (
   ON CONFLICT DO NOTHING
 )
 UPDATE orders SET state = 'expired', updated_at = now() WHERE id IN (SELECT id FROM expired)
-RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at
+RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids
 `
 
 func (q *Queries) ExpirePendingOrders(ctx context.Context) ([]Order, error) {
@@ -925,6 +941,8 @@ func (q *Queries) ExpirePendingOrders(ctx context.Context) ([]Order, error) {
 			&i.ExpiresAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.SubscriptionID,
+			&i.SelectedSquadIds,
 		); err != nil {
 			return nil, err
 		}
@@ -1029,7 +1047,7 @@ func (q *Queries) GetCustomerImportItemCounts(ctx context.Context, importID pgty
 }
 
 const getEntitlement = `-- name: GetEntitlement :one
-SELECT id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at FROM entitlements WHERE id = $1
+SELECT id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id FROM entitlements WHERE id = $1
 `
 
 func (q *Queries) GetEntitlement(ctx context.Context, id pgtype.UUID) (Entitlement, error) {
@@ -1051,6 +1069,7 @@ func (q *Queries) GetEntitlement(ctx context.Context, id pgtype.UUID) (Entitleme
 		&i.ReconciledAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SubscriptionID,
 	)
 	return i, err
 }
@@ -1092,15 +1111,22 @@ func (q *Queries) GetLatestConsents(ctx context.Context, userID pgtype.UUID) ([]
 }
 
 const getLatestEntitlementForChange = `-- name: GetLatestEntitlementForChange :one
-SELECT id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at FROM entitlements
-WHERE user_id = $1 AND status IN ('pending', 'active', 'limited', 'disabled')
+SELECT id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id FROM entitlements
+WHERE user_id = $1
+  AND ($2::uuid IS NULL OR subscription_id = $2::uuid)
+  AND status IN ('pending', 'active', 'limited', 'disabled')
 ORDER BY ends_at DESC
 LIMIT 1
 FOR UPDATE
 `
 
-func (q *Queries) GetLatestEntitlementForChange(ctx context.Context, userID pgtype.UUID) (Entitlement, error) {
-	row := q.db.QueryRow(ctx, getLatestEntitlementForChange, userID)
+type GetLatestEntitlementForChangeParams struct {
+	UserID         pgtype.UUID `json:"user_id"`
+	SubscriptionID pgtype.UUID `json:"subscription_id"`
+}
+
+func (q *Queries) GetLatestEntitlementForChange(ctx context.Context, arg GetLatestEntitlementForChangeParams) (Entitlement, error) {
+	row := q.db.QueryRow(ctx, getLatestEntitlementForChange, arg.UserID, arg.SubscriptionID)
 	var i Entitlement
 	err := row.Scan(
 		&i.ID,
@@ -1118,6 +1144,7 @@ func (q *Queries) GetLatestEntitlementForChange(ctx context.Context, userID pgty
 		&i.ReconciledAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SubscriptionID,
 	)
 	return i, err
 }
@@ -1143,7 +1170,7 @@ func (q *Queries) GetLedgerTransactionByIdempotency(ctx context.Context, idempot
 }
 
 const getOrder = `-- name: GetOrder :one
-SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at FROM orders WHERE id = $1
+SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids FROM orders WHERE id = $1
 `
 
 func (q *Queries) GetOrder(ctx context.Context, id pgtype.UUID) (Order, error) {
@@ -1165,12 +1192,14 @@ func (q *Queries) GetOrder(ctx context.Context, id pgtype.UUID) (Order, error) {
 		&i.ExpiresAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SubscriptionID,
+		&i.SelectedSquadIds,
 	)
 	return i, err
 }
 
 const getOrderByIdempotency = `-- name: GetOrderByIdempotency :one
-SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at FROM orders WHERE user_id = $1 AND idempotency_key = $2
+SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids FROM orders WHERE user_id = $1 AND idempotency_key = $2
 `
 
 type GetOrderByIdempotencyParams struct {
@@ -1197,6 +1226,8 @@ func (q *Queries) GetOrderByIdempotency(ctx context.Context, arg GetOrderByIdemp
 		&i.ExpiresAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SubscriptionID,
+		&i.SelectedSquadIds,
 	)
 	return i, err
 }
@@ -1353,7 +1384,7 @@ func (q *Queries) GetPaymentIntentByProviderReference(ctx context.Context, arg G
 }
 
 const getPlanVersionForOrder = `-- name: GetPlanVersionForOrder :one
-SELECT p.code, p.kind, v.id, v.plan_id, v.version, v.billing_period, v.duration_seconds, v.traffic_allowance_bytes, v.device_limit, v.remnawave_squad_ids, v.upgrade_policy, v.downgrade_policy, v.cancellation_policy, v.recurring_capable, v.created_at, v.retired_at, v.grace_period_seconds, v.trial_eligibility, pr.currency, pr.amount_minor
+SELECT p.code, p.kind, p.max_concurrent_per_customer, v.id, v.plan_id, v.version, v.billing_period, v.duration_seconds, v.traffic_allowance_bytes, v.device_limit, v.remnawave_squad_ids, v.upgrade_policy, v.downgrade_policy, v.cancellation_policy, v.recurring_capable, v.created_at, v.retired_at, v.grace_period_seconds, v.trial_eligibility, v.squad_selection, v.min_selectable_squads, v.max_selectable_squads, pr.currency, pr.amount_minor
 FROM plan_versions v
 JOIN plans p ON p.id = v.plan_id
 JOIN plan_prices pr ON pr.plan_version_id = v.id
@@ -1366,26 +1397,30 @@ type GetPlanVersionForOrderParams struct {
 }
 
 type GetPlanVersionForOrderRow struct {
-	Code                  string             `json:"code"`
-	Kind                  string             `json:"kind"`
-	ID                    pgtype.UUID        `json:"id"`
-	PlanID                pgtype.UUID        `json:"plan_id"`
-	Version               int32              `json:"version"`
-	BillingPeriod         string             `json:"billing_period"`
-	DurationSeconds       int64              `json:"duration_seconds"`
-	TrafficAllowanceBytes pgtype.Int8        `json:"traffic_allowance_bytes"`
-	DeviceLimit           pgtype.Int4        `json:"device_limit"`
-	RemnawaveSquadIds     []pgtype.UUID      `json:"remnawave_squad_ids"`
-	UpgradePolicy         string             `json:"upgrade_policy"`
-	DowngradePolicy       string             `json:"downgrade_policy"`
-	CancellationPolicy    string             `json:"cancellation_policy"`
-	RecurringCapable      bool               `json:"recurring_capable"`
-	CreatedAt             pgtype.Timestamptz `json:"created_at"`
-	RetiredAt             pgtype.Timestamptz `json:"retired_at"`
-	GracePeriodSeconds    int64              `json:"grace_period_seconds"`
-	TrialEligibility      string             `json:"trial_eligibility"`
-	Currency              string             `json:"currency"`
-	AmountMinor           int64              `json:"amount_minor"`
+	Code                     string             `json:"code"`
+	Kind                     string             `json:"kind"`
+	MaxConcurrentPerCustomer pgtype.Int4        `json:"max_concurrent_per_customer"`
+	ID                       pgtype.UUID        `json:"id"`
+	PlanID                   pgtype.UUID        `json:"plan_id"`
+	Version                  int32              `json:"version"`
+	BillingPeriod            string             `json:"billing_period"`
+	DurationSeconds          int64              `json:"duration_seconds"`
+	TrafficAllowanceBytes    pgtype.Int8        `json:"traffic_allowance_bytes"`
+	DeviceLimit              pgtype.Int4        `json:"device_limit"`
+	RemnawaveSquadIds        []pgtype.UUID      `json:"remnawave_squad_ids"`
+	UpgradePolicy            string             `json:"upgrade_policy"`
+	DowngradePolicy          string             `json:"downgrade_policy"`
+	CancellationPolicy       string             `json:"cancellation_policy"`
+	RecurringCapable         bool               `json:"recurring_capable"`
+	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+	RetiredAt                pgtype.Timestamptz `json:"retired_at"`
+	GracePeriodSeconds       int64              `json:"grace_period_seconds"`
+	TrialEligibility         string             `json:"trial_eligibility"`
+	SquadSelection           string             `json:"squad_selection"`
+	MinSelectableSquads      int32              `json:"min_selectable_squads"`
+	MaxSelectableSquads      pgtype.Int4        `json:"max_selectable_squads"`
+	Currency                 string             `json:"currency"`
+	AmountMinor              int64              `json:"amount_minor"`
 }
 
 func (q *Queries) GetPlanVersionForOrder(ctx context.Context, arg GetPlanVersionForOrderParams) (GetPlanVersionForOrderRow, error) {
@@ -1394,6 +1429,7 @@ func (q *Queries) GetPlanVersionForOrder(ctx context.Context, arg GetPlanVersion
 	err := row.Scan(
 		&i.Code,
 		&i.Kind,
+		&i.MaxConcurrentPerCustomer,
 		&i.ID,
 		&i.PlanID,
 		&i.Version,
@@ -1410,6 +1446,9 @@ func (q *Queries) GetPlanVersionForOrder(ctx context.Context, arg GetPlanVersion
 		&i.RetiredAt,
 		&i.GracePeriodSeconds,
 		&i.TrialEligibility,
+		&i.SquadSelection,
+		&i.MinSelectableSquads,
+		&i.MaxSelectableSquads,
 		&i.Currency,
 		&i.AmountMinor,
 	)
@@ -2156,7 +2195,7 @@ func (q *Queries) ListCustomerImportTelegramIDs(ctx context.Context, importID pg
 }
 
 const listEntitlementsForReconciliation = `-- name: ListEntitlementsForReconciliation :many
-SELECT id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at FROM entitlements
+SELECT id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id FROM entitlements
 WHERE status IN ('active', 'limited', 'disabled', 'expired')
   AND (reconciled_at IS NULL OR reconciled_at < now() - interval '15 minutes')
 ORDER BY reconciled_at NULLS FIRST
@@ -2188,6 +2227,7 @@ func (q *Queries) ListEntitlementsForReconciliation(ctx context.Context, limit i
 			&i.ReconciledAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.SubscriptionID,
 		); err != nil {
 			return nil, err
 		}
@@ -2442,7 +2482,7 @@ SELECT p.id, p.code, p.kind, p.sort_order, l.locale, l.name, l.description,
 FROM plans p
 JOIN plan_localizations l ON l.plan_id = p.id AND l.locale = $1
 JOIN LATERAL (
-  SELECT id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility FROM plan_versions pv
+  SELECT id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads FROM plan_versions pv
   WHERE pv.plan_id = p.id AND pv.retired_at IS NULL
   ORDER BY pv.version DESC LIMIT 1
 ) v ON true
@@ -2535,7 +2575,7 @@ func (q *Queries) LockFulfillmentOperation(ctx context.Context, id pgtype.UUID) 
 }
 
 const lockOrder = `-- name: LockOrder :one
-SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at FROM orders WHERE id = $1 FOR UPDATE
+SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids FROM orders WHERE id = $1 FOR UPDATE
 `
 
 func (q *Queries) LockOrder(ctx context.Context, id pgtype.UUID) (Order, error) {
@@ -2557,6 +2597,8 @@ func (q *Queries) LockOrder(ctx context.Context, id pgtype.UUID) (Order, error) 
 		&i.ExpiresAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SubscriptionID,
+		&i.SelectedSquadIds,
 	)
 	return i, err
 }
@@ -2623,7 +2665,7 @@ func (q *Queries) RevokeCustomerIdentity(ctx context.Context, arg RevokeCustomer
 }
 
 const setOrderState = `-- name: SetOrderState :one
-UPDATE orders SET state = $2, updated_at = now() WHERE id = $1 RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at
+UPDATE orders SET state = $2, updated_at = now() WHERE id = $1 RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids
 `
 
 type SetOrderStateParams struct {
@@ -2650,12 +2692,14 @@ func (q *Queries) SetOrderState(ctx context.Context, arg SetOrderStateParams) (O
 		&i.ExpiresAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SubscriptionID,
+		&i.SelectedSquadIds,
 	)
 	return i, err
 }
 
 const setPlanVisibility = `-- name: SetPlanVisibility :one
-UPDATE plans SET visible = $2, sort_order = $3 WHERE id = $1 RETURNING id, code, kind, visible, sort_order, created_at, archived_at
+UPDATE plans SET visible = $2, sort_order = $3 WHERE id = $1 RETURNING id, code, kind, visible, sort_order, created_at, archived_at, max_concurrent_per_customer
 `
 
 type SetPlanVisibilityParams struct {
@@ -2675,6 +2719,7 @@ func (q *Queries) SetPlanVisibility(ctx context.Context, arg SetPlanVisibilityPa
 		&i.SortOrder,
 		&i.CreatedAt,
 		&i.ArchivedAt,
+		&i.MaxConcurrentPerCustomer,
 	)
 	return i, err
 }
@@ -2684,16 +2729,20 @@ UPDATE entitlements
 SET status = 'superseded', updated_at = now()
 WHERE user_id = $1
   AND id <> $2
+  AND subscription_id IS NOT DISTINCT FROM $3::uuid
   AND status IN ('pending', 'active', 'limited', 'disabled')
 `
 
 type SupersedePreviousEntitlementsParams struct {
 	UserID               pgtype.UUID `json:"user_id"`
 	CurrentEntitlementID pgtype.UUID `json:"current_entitlement_id"`
+	SubscriptionID       pgtype.UUID `json:"subscription_id"`
 }
 
+// Superseding is scoped to one subscription so buying a second subscription
+// never retires the first one's entitlement.
 func (q *Queries) SupersedePreviousEntitlements(ctx context.Context, arg SupersedePreviousEntitlementsParams) error {
-	_, err := q.db.Exec(ctx, supersedePreviousEntitlements, arg.UserID, arg.CurrentEntitlementID)
+	_, err := q.db.Exec(ctx, supersedePreviousEntitlements, arg.UserID, arg.CurrentEntitlementID, arg.SubscriptionID)
 	return err
 }
 
@@ -2821,7 +2870,7 @@ UPDATE entitlements
 SET status = $1, remnawave_user_id = COALESCE($2, remnawave_user_id),
     observed_state = $3, reconciled_at = now(), updated_at = now()
 WHERE id = $4
-RETURNING id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at
+RETURNING id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id
 `
 
 type UpdateEntitlementObservedStateParams struct {
@@ -2855,6 +2904,7 @@ func (q *Queries) UpdateEntitlementObservedState(ctx context.Context, arg Update
 		&i.ReconciledAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SubscriptionID,
 	)
 	return i, err
 }
@@ -2907,7 +2957,7 @@ const updateOrderPayment = `-- name: UpdateOrderPayment :one
 UPDATE orders
 SET state = $1, paid_minor = $2, updated_at = now()
 WHERE id = $3
-RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at
+RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids
 `
 
 type UpdateOrderPaymentParams struct {
@@ -2935,6 +2985,8 @@ func (q *Queries) UpdateOrderPayment(ctx context.Context, arg UpdateOrderPayment
 		&i.ExpiresAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SubscriptionID,
+		&i.SelectedSquadIds,
 	)
 	return i, err
 }
@@ -2943,7 +2995,7 @@ const updateOrderRefund = `-- name: UpdateOrderRefund :one
 UPDATE orders
 SET state = $1, refunded_minor = $2, updated_at = now()
 WHERE id = $3
-RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at
+RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids
 `
 
 type UpdateOrderRefundParams struct {
@@ -2971,6 +3023,8 @@ func (q *Queries) UpdateOrderRefund(ctx context.Context, arg UpdateOrderRefundPa
 		&i.ExpiresAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SubscriptionID,
+		&i.SelectedSquadIds,
 	)
 	return i, err
 }

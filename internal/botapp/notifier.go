@@ -118,21 +118,46 @@ func (notifier *Notifier) RunOnce(ctx context.Context) {
 	}
 }
 
+// deliverLifecycle walks every subscription a customer owns. Alerts are keyed
+// per subscription, so a busy subscription can never suppress a quiet one's
+// expiry or traffic notice, and every message names the subscription it is
+// about as soon as the customer holds more than one.
 func (notifier *Notifier) deliverLifecycle(ctx context.Context, candidate notificationCandidate) {
 	locale := localeFrom(candidate.Locale)
-	if candidate.RemnawaveID > 0 {
-		user, lookupErr := notifier.remnawave.User(ctx, candidate.RemnawaveID)
+	subscriptions, err := notifier.store.Subscriptions(ctx, candidate.UserID, locale)
+	if err != nil {
+		notifier.logger.Warn("subscription lookup failed for notifications", "error", err)
+		return
+	}
+	if len(subscriptions) == 0 {
+		// A customer imported before v0.5 may still have only the
+		// customer-level Remnawave mapping. Alerts keep working for them.
+		notifier.deliverSubscriptionAlerts(ctx, candidate, SubscriptionSummary{RemnawaveID: candidate.RemnawaveID}, locale, false)
+		return
+	}
+	named := len(subscriptions) > 1
+	for _, subscription := range subscriptions {
+		if ctx.Err() != nil {
+			return
+		}
+		notifier.deliverSubscriptionAlerts(ctx, candidate, subscription, locale, named)
+	}
+}
+
+func (notifier *Notifier) deliverSubscriptionAlerts(ctx context.Context, candidate notificationCandidate, subscription SubscriptionSummary, locale Locale, named bool) {
+	if subscription.RemnawaveID > 0 {
+		user, lookupErr := notifier.remnawave.User(ctx, subscription.RemnawaveID)
 		if lookupErr != nil {
 			notifier.logger.Warn("notification user lookup failed", "error", lookupErr)
 		} else {
-			notifier.maybeSendExpiry(ctx, candidate, user, locale)
-			notifier.maybeSendTraffic(ctx, candidate, user, locale)
+			notifier.maybeSendExpiry(ctx, candidate, subscription, user, locale, named)
+			notifier.maybeSendTraffic(ctx, candidate, subscription, user, locale, named)
 		}
 	}
 	if notifier.commerce == nil {
 		return
 	}
-	entitlement, err := notifier.store.Entitlement(ctx, candidate.UserID, locale, notifier.settings.Currency)
+	entitlement, err := notifier.store.EntitlementForSubscription(ctx, candidate.UserID, subscription.ID, locale, notifier.settings.Currency)
 	if err != nil {
 		notifier.logger.Warn("entitlement lookup failed for notifications", "error", err)
 		return
@@ -140,24 +165,27 @@ func (notifier *Notifier) deliverLifecycle(ctx context.Context, candidate notifi
 	if !entitlement.Found {
 		return
 	}
+	if named {
+		entitlement.SubscriptionLabel = subscription.Label
+	}
 	now := notifier.clock().UTC()
 	if offset, due := commerce.RenewalReminderDue(now, entitlement.EndsAt); due {
 		dedupe := fmt.Sprintf("%s:%d", entitlement.ID, offset)
-		notifier.deliver(ctx, candidate, "renewal", dedupe, renewalReminderView(locale, entitlement, offset))
+		notifier.deliver(ctx, candidate, subscription.ID, "renewal", dedupe, renewalReminderView(locale, entitlement, offset))
 	}
 	if entitlement.GracePeriod > 0 && !now.Before(entitlement.EndsAt) && now.Before(entitlement.EndsAt.Add(entitlement.GracePeriod)) {
-		notifier.deliver(ctx, candidate, "grace", entitlement.ID, gracePeriodView(locale, entitlement))
+		notifier.deliver(ctx, candidate, subscription.ID, "grace", entitlement.ID, gracePeriodView(locale, entitlement))
 	}
 	if commerce.RecoveryDue(now, entitlement.EndsAt, entitlement.GracePeriod, notifier.settings.RecoveryWindow) {
-		notifier.deliver(ctx, candidate, "recovery", entitlement.ID, recoveryView(locale, entitlement))
+		notifier.deliver(ctx, candidate, subscription.ID, "recovery", entitlement.ID, recoveryView(locale, entitlement))
 	}
-	notifier.deliverFulfillment(ctx, candidate, entitlement, locale)
+	notifier.deliverFulfillment(ctx, candidate, subscription.ID, entitlement, locale)
 }
 
 // deliverFulfillment tells a customer when provisioning finished, or when it is
 // taking long enough that they deserve an explanation. The payment is never at
 // risk in either case.
-func (notifier *Notifier) deliverFulfillment(ctx context.Context, candidate notificationCandidate, entitlement Entitlement, locale Locale) {
+func (notifier *Notifier) deliverFulfillment(ctx context.Context, candidate notificationCandidate, subscriptionID string, entitlement Entitlement, locale Locale) {
 	status, err := notifier.store.LatestFulfillmentStatus(ctx, entitlement.ID)
 	if err != nil {
 		notifier.logger.Warn("fulfillment status lookup failed", "error", err)
@@ -165,13 +193,13 @@ func (notifier *Notifier) deliverFulfillment(ctx context.Context, candidate noti
 	}
 	switch status {
 	case "succeeded":
-		notifier.deliver(ctx, candidate, "fulfillment", entitlement.ID+":succeeded", fulfillmentAlertView(locale, true))
+		notifier.deliver(ctx, candidate, subscriptionID, "fulfillment", entitlement.ID+":succeeded", fulfillmentAlertView(locale, true, entitlement.SubscriptionLabel))
 	case "failed":
-		notifier.deliver(ctx, candidate, "fulfillment", entitlement.ID+":failed", fulfillmentAlertView(locale, false))
+		notifier.deliver(ctx, candidate, subscriptionID, "fulfillment", entitlement.ID+":failed", fulfillmentAlertView(locale, false, entitlement.SubscriptionLabel))
 	}
 }
 
-func (notifier *Notifier) maybeSendExpiry(ctx context.Context, candidate notificationCandidate, user remnawave.User, locale Locale) {
+func (notifier *Notifier) maybeSendExpiry(ctx context.Context, candidate notificationCandidate, subscription SubscriptionSummary, user remnawave.User, locale Locale, named bool) {
 	days := int(math.Ceil(time.Until(user.ExpireAt).Hours() / 24))
 	if days < 0 {
 		days = 0
@@ -180,10 +208,10 @@ func (notifier *Notifier) maybeSendExpiry(ctx context.Context, candidate notific
 		return
 	}
 	dedupe := fmt.Sprintf("%s:%d", user.ExpireAt.UTC().Format(time.DateOnly), days)
-	notifier.deliver(ctx, candidate, "expiry", dedupe, expiryAlertView(locale, days))
+	notifier.deliver(ctx, candidate, subscription.ID, "expiry", dedupe, expiryAlertView(locale, days, subscriptionLabelFor(subscription, named)))
 }
 
-func (notifier *Notifier) maybeSendTraffic(ctx context.Context, candidate notificationCandidate, user remnawave.User, locale Locale) {
+func (notifier *Notifier) maybeSendTraffic(ctx context.Context, candidate notificationCandidate, subscription SubscriptionSummary, user remnawave.User, locale Locale, named bool) {
 	if user.TrafficLimitBytes <= 0 {
 		return
 	}
@@ -198,7 +226,17 @@ func (notifier *Notifier) maybeSendTraffic(ctx context.Context, candidate notifi
 		return
 	}
 	dedupe := fmt.Sprintf("%d:%d:%s", threshold, user.TrafficLimitBytes, user.ExpireAt.UTC().Format(time.DateOnly))
-	notifier.deliver(ctx, candidate, "traffic", dedupe, trafficAlertView(locale, percent))
+	notifier.deliver(ctx, candidate, subscription.ID, "traffic", dedupe, trafficAlertView(locale, percent, subscriptionLabelFor(subscription, named)))
+}
+
+// subscriptionLabelFor returns the label an alert should carry, or an empty
+// string when the customer holds exactly one subscription and naming it would
+// only add noise.
+func subscriptionLabelFor(subscription SubscriptionSummary, named bool) string {
+	if !named {
+		return ""
+	}
+	return subscription.Label
 }
 
 func (notifier *Notifier) deliverSupportReplies(ctx context.Context) {
@@ -244,15 +282,17 @@ func (notifier *Notifier) deliverNews(ctx context.Context, candidates []notifica
 			continue
 		}
 		locale := localeFrom(announcement.Locale)
-		notifier.deliver(ctx, candidate, announcement.Category, announcement.PostID, newsAlertView(locale, announcement))
+		// News and announcements are installation-wide, so they carry no
+		// subscription and stay deduplicated per customer.
+		notifier.deliver(ctx, candidate, "", announcement.Category, announcement.PostID, newsAlertView(locale, announcement))
 	}
 }
 
 // deliver claims, evaluates, and sends one notification. Every outcome is
 // durable: sent, deferred to the end of quiet hours, suppressed with a reason,
 // or failed with a classified error code.
-func (notifier *Notifier) deliver(ctx context.Context, candidate notificationCandidate, kind, dedupe string, view View) {
-	claimed, err := notifier.store.claimNotification(ctx, candidate.UserID, kind, dedupe)
+func (notifier *Notifier) deliver(ctx context.Context, candidate notificationCandidate, subscriptionID, kind, dedupe string, view View) {
+	claimed, err := notifier.store.claimNotification(ctx, candidate.UserID, subscriptionID, kind, dedupe)
 	if err != nil {
 		notifier.logger.Error("notification claim failed", "kind", kind, "error", err)
 		return
@@ -275,18 +315,18 @@ func (notifier *Notifier) deliver(ctx context.Context, candidate notificationCan
 		notifier.logger.Error("notification classification failed", "kind", kind, "error", err)
 		return
 	}
-	if err := notifier.store.setNotificationClass(ctx, candidate.UserID, kind, dedupe, string(decision.Class)); err != nil {
+	if err := notifier.store.setNotificationClass(ctx, candidate.UserID, subscriptionID, kind, dedupe, string(decision.Class)); err != nil {
 		notifier.logger.Error("notification classification update failed", "kind", kind, "error", err)
 		return
 	}
 	if !decision.Allow {
-		if err := notifier.store.parkNotification(ctx, candidate.UserID, kind, dedupe, decision); err != nil {
+		if err := notifier.store.parkNotification(ctx, candidate.UserID, subscriptionID, kind, dedupe, decision); err != nil {
 			notifier.logger.Error("notification suppression bookkeeping failed", "kind", kind, "error", err)
 		}
 		return
 	}
 	sendErr := notifier.sender.Send(ctx, candidate.UserID, candidate.TelegramID, view)
-	if err := notifier.store.finishNotification(ctx, candidate.UserID, kind, dedupe, sendErr); err != nil {
+	if err := notifier.store.finishNotification(ctx, candidate.UserID, subscriptionID, kind, dedupe, sendErr); err != nil {
 		notifier.logger.Error("notification status update failed", "kind", kind, "error", err)
 	}
 }
@@ -347,41 +387,44 @@ func (store *PostgresStore) notificationCandidates(ctx context.Context, marketin
 // claimNotification reserves one delivery. A deferred message becomes claimable
 // again once its quiet window has passed, and a failed one only while it still
 // has retries left.
-func (store *PostgresStore) claimNotification(ctx context.Context, userID, kind, dedupe string) (bool, error) {
-	result, err := store.pool.Exec(ctx, `INSERT INTO notification_deliveries (user_id, kind, dedupe_key)
-		VALUES ($1::uuid, $2, $3) ON CONFLICT (user_id, kind, dedupe_key) DO UPDATE
+func (store *PostgresStore) claimNotification(ctx context.Context, userID, subscriptionID, kind, dedupe string) (bool, error) {
+	result, err := store.pool.Exec(ctx, `INSERT INTO notification_deliveries (user_id, subscription_id, kind, dedupe_key)
+		VALUES ($1::uuid, NULLIF($2, '')::uuid, $3, $4)
+		ON CONFLICT (user_id, kind, subscription_id, dedupe_key) DO UPDATE
 		SET status = 'pending', scheduled_at = now(), deferred_until = NULL
 		WHERE (notification_deliveries.status = 'failed' AND notification_deliveries.failure_count < 3)
 		   OR (notification_deliveries.status = 'deferred'
-		       AND COALESCE(notification_deliveries.deferred_until, now()) <= now())`, userID, kind, dedupe)
+		       AND COALESCE(notification_deliveries.deferred_until, now()) <= now())`, userID, subscriptionID, kind, dedupe)
 	return err == nil && result.RowsAffected() == 1, err
 }
 
-func (store *PostgresStore) setNotificationClass(ctx context.Context, userID, kind, dedupe, class string) error {
-	_, err := store.pool.Exec(ctx, `UPDATE notification_deliveries SET class = $4
-		WHERE user_id = $1::uuid AND kind = $2 AND dedupe_key = $3`, userID, kind, dedupe, class)
+// notificationKey scopes an update to exactly one delivery row. The subscription
+// is part of the key so two subscriptions of one customer never collide.
+const notificationKey = `WHERE user_id = $1::uuid AND subscription_id IS NOT DISTINCT FROM NULLIF($2, '')::uuid
+	AND kind = $3 AND dedupe_key = $4`
+
+func (store *PostgresStore) setNotificationClass(ctx context.Context, userID, subscriptionID, kind, dedupe, class string) error {
+	_, err := store.pool.Exec(ctx, `UPDATE notification_deliveries SET class = $5 `+notificationKey, userID, subscriptionID, kind, dedupe, class)
 	return err
 }
 
 // parkNotification records a policy outcome that is not a delivery: either a
 // deferral until quiet hours end or a permanent suppression with its reason.
-func (store *PostgresStore) parkNotification(ctx context.Context, userID, kind, dedupe string, decision commerce.DeliveryDecision) error {
+func (store *PostgresStore) parkNotification(ctx context.Context, userID, subscriptionID, kind, dedupe string, decision commerce.DeliveryDecision) error {
 	if decision.DeferUntil.IsZero() {
 		_, err := store.pool.Exec(ctx, `UPDATE notification_deliveries
-			SET status = 'suppressed', error_code = $4
-			WHERE user_id = $1::uuid AND kind = $2 AND dedupe_key = $3`, userID, kind, dedupe, decision.Reason)
+			SET status = 'suppressed', error_code = $5 `+notificationKey, userID, subscriptionID, kind, dedupe, decision.Reason)
 		return err
 	}
 	_, err := store.pool.Exec(ctx, `UPDATE notification_deliveries
-		SET status = 'deferred', deferred_until = $4, error_code = NULL
-		WHERE user_id = $1::uuid AND kind = $2 AND dedupe_key = $3`, userID, kind, dedupe, decision.DeferUntil)
+		SET status = 'deferred', deferred_until = $5, error_code = NULL `+notificationKey, userID, subscriptionID, kind, dedupe, decision.DeferUntil)
 	return err
 }
 
-func (store *PostgresStore) finishNotification(ctx context.Context, userID, kind, dedupe string, sendErr error) error {
+func (store *PostgresStore) finishNotification(ctx context.Context, userID, subscriptionID, kind, dedupe string, sendErr error) error {
 	if sendErr == nil {
-		_, err := store.pool.Exec(ctx, `UPDATE notification_deliveries SET status = 'sent', sent_at = now(), error_code = NULL
-			WHERE user_id = $1::uuid AND kind = $2 AND dedupe_key = $3`, userID, kind, dedupe)
+		_, err := store.pool.Exec(ctx, `UPDATE notification_deliveries
+			SET status = 'sent', sent_at = now(), error_code = NULL `+notificationKey, userID, subscriptionID, kind, dedupe)
 		return err
 	}
 	code := "telegram_unavailable"
@@ -390,7 +433,6 @@ func (store *PostgresStore) finishNotification(ctx context.Context, userID, kind
 		code = classified.Code
 	}
 	_, err := store.pool.Exec(ctx, `UPDATE notification_deliveries
-		SET status = 'failed', failure_count = failure_count + 1, error_code = $4
-		WHERE user_id = $1::uuid AND kind = $2 AND dedupe_key = $3`, userID, kind, dedupe, code)
+		SET status = 'failed', failure_count = failure_count + 1, error_code = $5 `+notificationKey, userID, subscriptionID, kind, dedupe, code)
 	return err
 }

@@ -30,6 +30,79 @@ Omniflow uses environment variables and Docker secrets. Never commit `.env` or p
 | `APP_CRYPTOBOT_TESTNET` | No | `true` | Use CryptoBot testnet |
 | `APP_YOOKASSA_SHOP_ID` | No | — | Enable YooKassa with the matching secret |
 | `APP_YOOKASSA_SECRET` | No | — | YooKassa Basic Auth secret |
+| `APP_METRICS_ENABLED` | No | `true` | Serve `/metrics` in the Prometheus text format |
+| `APP_WORKER_HTTP_ADDR` | No | `:8081` | Worker liveness, readiness, and metrics listener |
+| `APP_BOT_METRICS_ADDR` | No | — | Bot liveness, readiness, and metrics listener; unset keeps the bot off HTTP |
+
+## Wallet top-up
+
+Customer-initiated top-up reuses the existing order, payment, webhook, and reconciliation pipeline. Amounts are minor units of `APP_DEFAULT_CURRENCY`.
+
+| Variable | Required | Default | Purpose |
+| --- | --- | --- | --- |
+| `APP_WALLET_TOPUP_ENABLED` | No | `true` | Offer customer-initiated top-up |
+| `APP_WALLET_TOPUP_PRESETS` | No | `10000,30000,50000,100000` | One-tap amounts in minor units, ascending |
+| `APP_WALLET_TOPUP_MINIMUM_MINOR` | No | `10000` | Smallest single top-up |
+| `APP_WALLET_TOPUP_MAXIMUM_MINOR` | No | `5000000` | Largest single top-up; `0` removes the ceiling |
+| `APP_WALLET_TOPUP_WINDOW_LIMIT_MINOR` | No | `10000000` | Credit allowed inside the rolling window; `0` disables the control |
+| `APP_WALLET_TOPUP_WINDOW_HOURS` | No | `24` | Length of the rolling window |
+| `APP_CART_TTL_HOURS` | No | `720` | How long a saved cart waits for the balance to cover it |
+
+A preset that the limits would refuse is never rendered, so a customer cannot tap a button the backend then rejects.
+
+## Concurrent subscriptions
+
+| Variable | Required | Default | Purpose |
+| --- | --- | --- | --- |
+| `APP_MULTI_SUBSCRIPTION_ENABLED` | No | `false` | Allow one customer to hold several subscriptions |
+| `APP_MAX_SUBSCRIPTIONS_PER_CUSTOMER` | No | `3` | Ceiling per customer while the switch is on |
+
+The default keeps exactly one subscription per customer, which is what every installation upgraded from v0.4 already has. See [Concurrent subscriptions](/commerce/subscriptions) before turning it on.
+
+## Telegram webhook mode
+
+Long polling is the default and stays supported as a development and fallback mode. Set both variables to switch to webhooks.
+
+| Variable | Required | Default | Purpose |
+| --- | --- | --- | --- |
+| `APP_TELEGRAM_WEBHOOK_URL` | No | — | HTTPS URL Telegram delivers updates to |
+| `APP_TELEGRAM_WEBHOOK_SECRET` | With the URL | — | 32–256 characters of `A–Z a–z 0–9 _ -`; Telegram sends it back on every update |
+| `APP_BOT_HTTP_ADDR` | No | `:8082` | Webhook listener address |
+
+Generate a secret token with `openssl rand -hex 32`. An update that does not carry it is discarded before it is parsed.
+
+## Operator notifications and backups
+
+| Variable | Required | Default | Purpose |
+| --- | --- | --- | --- |
+| `APP_OPERATOR_CHAT_ID` | No | — | Telegram group that receives operator notices; the bot creates every topic itself |
+| `APP_OPERATOR_TELEGRAM_IDS` | For backups | — | Comma-separated Telegram accounts allowed to run `/ops` |
+| `APP_OPERATOR_NOTIFICATION_CAP` | No | `30` | Messages per topic per window before the rest are suppressed |
+| `APP_OPERATOR_NOTIFICATION_WINDOW_MINUTES` | No | `5` | Length of the volume window |
+| `APP_BACKUP_ENABLED` | No | `false` | Take scheduled PostgreSQL backups |
+| `APP_BACKUP_ENCRYPTION_KEY` | With backups | — | Base64-encoded 32-byte AES-GCM key, separate from the data key |
+| `APP_BACKUP_DIR` | No | `/var/lib/omniflow/backups` | Where encrypted dumps are written |
+| `APP_BACKUP_INTERVAL_HOURS` | No | `24` | Scheduled backup interval |
+| `APP_BACKUP_RETENTION_DAYS` | No | `14` | How long a completed backup is kept |
+| `APP_PG_DUMP_PATH` | No | `pg_dump` | Override when the client tools are not on `PATH` |
+| `APP_PG_RESTORE_PATH` | No | `pg_restore` | Override when the client tools are not on `PATH` |
+
+Store `APP_BACKUP_ENCRYPTION_KEY` somewhere the database backup itself does not reach. A backup encrypted with a key that is only inside that backup cannot be restored.
+
+## Maintenance and retention
+
+| Variable | Required | Default | Purpose |
+| --- | --- | --- | --- |
+| `APP_MAINTENANCE_AUTO_DETECT` | No | `true` | Enter maintenance automatically when a dependency stops answering |
+| `APP_MAINTENANCE_PROBE_SECONDS` | No | `30` | Interval between dependency samples |
+| `APP_MAINTENANCE_FAILURE_STREAK` | No | `3` | Consecutive failures before purchases pause |
+| `APP_MAINTENANCE_RECOVERY_STREAK` | No | `3` | Consecutive healthy samples before purchases resume |
+| `APP_RETENTION_OUTBOX_DAYS` | No | `7` | Keep published outbox events this long |
+| `APP_RETENTION_TELEMETRY_DAYS` | No | `30` | Keep collected telemetry events this long |
+| `APP_RETENTION_DRIFT_DAYS` | No | `90` | Keep resolved entitlement drifts this long |
+| `APP_RETENTION_INTERVAL_HOURS` | No | `1` | Cleanup sweep interval |
+
+Retention only removes disposable operational data. Financial, audit, consent, identity, and entitlement history is append-only and is never deleted by a sweep.
 
 Generate the data-encryption key once and back it up with the database:
 

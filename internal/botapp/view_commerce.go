@@ -129,7 +129,7 @@ func providerLabel(locale Locale, provider string) string {
 
 // checkoutView is the confirmation screen: the exact breakdown the customer is
 // agreeing to, plus the promo and wallet controls that change it.
-func checkoutView(locale Locale, plan Plan, session CheckoutSession, quote commerce.CheckoutQuote) View {
+func checkoutView(locale Locale, plan Plan, session CheckoutSession, quote commerce.CheckoutQuote, addonsAvailable bool) View {
 	lines := []string{
 		text(locale, "checkout.title"),
 		"",
@@ -141,6 +141,9 @@ func checkoutView(locale Locale, plan Plan, session CheckoutSession, quote comme
 	}
 	if quote.DiscountMinor > 0 {
 		lines = append(lines, text(locale, "checkout.discount", formatMoney(quote.DiscountMinor, quote.Subtotal.Currency)))
+	}
+	if quote.AddonMinor > 0 {
+		lines = append(lines, text(locale, "checkout.addons", formatMoney(quote.AddonMinor, quote.Subtotal.Currency)))
 	}
 	if quote.WalletAppliedMinor > 0 || quote.WalletBalanceMinor > 0 {
 		lines = append(lines, text(locale, "checkout.wallet", formatMoney(quote.WalletAppliedMinor, quote.Subtotal.Currency), formatMoney(quote.WalletBalanceMinor, quote.Subtotal.Currency)))
@@ -169,6 +172,14 @@ func checkoutView(locale Locale, plan Plan, session CheckoutSession, quote comme
 	}
 	if quote.WalletBalanceMinor > 0 {
 		rows = append(rows, row(actionButton(walletLabel, "wallet-toggle")))
+	}
+	if addonsAvailable {
+		rows = append(rows, row(actionButton(text(locale, "addon.title.short"), "checkout-addons")))
+	}
+	// An order the wallet cannot cover can be saved instead of abandoned: the
+	// customer tops up and it is bought automatically once the balance is there.
+	if quote.ExternalMinor > 0 {
+		rows = append(rows, row(actionButton(text(locale, "cart.save"), "cart-save")))
 	}
 	rows = append(rows,
 		row(actionButton(text(locale, "checkout.changeMethod"), "buy:"+session.PlanVersionID+":"+session.Operation)),
@@ -274,7 +285,7 @@ func orderDetailView(locale Locale, order OrderSummary, refunds []RefundStatus) 
 }
 
 // walletView shows the balance and the customer's own ledger history.
-func walletView(locale Locale, balanceMinor int64, currency string, entries []WalletEntry) View {
+func walletView(locale Locale, balanceMinor int64, currency string, entries []WalletEntry, topUpEnabled bool) View {
 	body := text(locale, "wallet.title", formatMoney(balanceMinor, currency))
 	if len(entries) == 0 {
 		body += text(locale, "wallet.empty")
@@ -290,11 +301,12 @@ func walletView(locale Locale, balanceMinor int64, currency string, entries []Wa
 		}
 		body += "\n" + strings.Join(lines, "\n")
 	}
-	return View{
-		Text:       body,
-		Keyboard:   keyboard(row(callbackButton(text(locale, "action.refresh"), routeWallet), callbackButton(text(locale, "action.back"), routeHome))),
-		RetryRoute: routeWallet,
+	rows := make([][]models.InlineKeyboardButton, 0, 3)
+	if topUpEnabled {
+		rows = append(rows, row(callbackButton(text(locale, "menu.topup"), routeTopUp)))
 	}
+	rows = append(rows, row(callbackButton(text(locale, "action.refresh"), routeWallet), callbackButton(text(locale, "action.back"), routeHome)))
+	return View{Text: body, Keyboard: keyboard(rows...), RetryRoute: routeWallet}
 }
 
 // lifecycleNotice explains the current subscription phase in plain language.

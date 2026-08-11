@@ -1,0 +1,12 @@
+{
+  "update_id": 4210001,
+  "update_type": "invoice_paid",
+  "request_date": "2026-08-11T10:15:00Z",
+  "payload": {
+    "invoice_id": 987654,
+    "status": "paid",
+    "amount": "1499.00",
+    "fiat": "RUB",
+    "payload": "018f0000-0000-7000-8000-000000000001"
+  }
+}

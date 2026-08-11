@@ -1,0 +1,90 @@
+---
+title: Add-ons and the subscription configurator
+description: Plan-scoped squad sets, mid-period capacity, and the proration rules behind each price.
+---
+
+Two things let a customer shape a subscription beyond picking a plan: choosing which squads it uses, and buying extra capacity part-way through a period.
+
+## Plan-scoped squad sets
+
+A plan version carries two squad collections:
+
+- `remnawave_squad_ids` — always assigned to every subscription on that plan;
+- `plan_version_squads` — the selectable set, each row carrying a Russian and an English label.
+
+`squad_selection` decides what the customer may do:
+
+| Value | Behaviour |
+| --- | --- |
+| `automatic` | Squads are assigned from the plan. A submitted selection is refused. |
+| `optional` | The customer may add squads from the offered set, within `max_selectable_squads`. |
+| `required` | The customer must pick at least `min_selectable_squads`, and at least one. |
+
+The final squad set for the entitlement is the included squads plus the accepted selection, deduplicated and sorted. Sorting matters: two customers who pick the same squads in a different order must produce byte-identical entitlement state, otherwise drift detection would report a mismatch that is not real.
+
+A selection is validated against the plan on the server. Callback data naming a squad the plan does not offer is refused with `squad_not_offered`, so a crafted callback cannot attach a squad the customer never paid for.
+
+The configurator only appears when a plan actually offers a choice. A plan with `automatic` selection goes straight from the plan screen to payment, exactly as before.
+
+## Add-ons
+
+An add-on adds capacity to a subscription. It can be bought two ways:
+
+- **With the plan**, at checkout or in a saved cart. It is charged on the same order, so one confirmation is one payment, and it covers the whole first period at the catalog price.
+- **Mid-period**, against a live entitlement. It is charged on its own order and priced with its version's proration rule against the time the period has left.
+
+Three kinds exist:
+
+| Kind | Adds |
+| --- | --- |
+| `traffic` | Bytes on top of the entitlement's allowance |
+| `devices` | Device slots on top of the entitlement's limit |
+| `squads` | Additional Remnawave squads |
+
+An add-on is offered only for plan versions that list it in `plan_version_addons`. Buying one against a plan that does not offer it is refused with `addon_unavailable`.
+
+### Versioned pricing
+
+Add-ons are versioned exactly like plans. `addon_versions` is immutable once an order references it, and `order_addon_lines` stores a snapshot of the version's capacity, price, and proration rule at purchase time. Changing an add-on's price creates a new version; it never rewrites a historical order.
+
+### Proration rules
+
+The proration rule is a property of the add-on version, and it is always explicit. Omniflow never infers a partial price from remaining time unless the add-on says so. It applies only to a mid-period purchase; an add-on bought with the plan covers a full period and is charged at the catalog price whatever its rule says.
+
+| Rule | Charge | Suited to |
+| --- | --- | --- |
+| `full_price` | The catalog price, whatever remains of the period | Capacity that does not decay, such as device slots |
+| `remaining_period` | Catalog price × remaining ÷ total, rounded up to the next minor unit | Traffic, where value scales with time |
+| `daily_rate` | Catalog price ÷ whole period days, rounded up, × remaining days, rounded up | Add-ons an operator prices per day |
+
+Three properties hold for every rule:
+
+1. A prorated charge never exceeds the catalog price.
+2. Rounding is always up, so a partial period never rounds to nothing.
+3. A purchase made before the period starts, or against a period with no remaining time, falls back to the full price. Charging zero for capacity that will still be delivered would give it away.
+
+The intermediate multiplication is done in 128 bits. A long period and a large price would overflow a 64-bit product and produce a nonsensical charge.
+
+### Applying an add-on
+
+Settlement folds the purchased capacity into the entitlement itself before the desired provisioning state is computed, so Remnawave receives one combined result rather than a plan followed by a correction:
+
+```text
+entitlement.traffic_allowance_bytes += Σ traffic × quantity
+entitlement.device_limit            += Σ slots × quantity
+entitlement.remnawave_squad_ids      = existing ∪ add-on squads
+```
+
+An entitlement with an unlimited allowance stays unlimited: adding capacity to "no limit" is meaningless, so a null limit is left null.
+
+Squads are a set and are never multiplied by quantity. Buying two of the same squad add-on charges twice and grants the same squads once, which is why `max_quantity` on a squad add-on should be 1.
+
+### Idempotent fulfillment
+
+`entitlement_addons` is unique on `(order_id, addon_version_id)`. A replayed settlement finds the row already present, skips it, and leaves the entitlement untouched. Only lines that were actually inserted contribute to the totals, so a partial replay cannot double-count.
+
+A mid-period add-on order enqueues its own fulfillment operation keyed `order:<order id>:addon`, so the operation itself is created once however many times settlement is attempted. An add-on bought with the plan needs no separate operation: it is already part of the entitlement the plan's own `create` operation provisions.
+
+### When there is nothing to attach to
+
+If the target subscription has no live entitlement by the time an add-on settles, the money is not lost and nothing is rolled back. The order stays `paid`, an `addon.no_active_entitlement` audit event is written, and an operator notice is queued so a human can refund or re-apply it. Rolling back a recorded payment would be worse than leaving an operator a clear task.

@@ -17,5 +17,16 @@ The following are release-blocking invariants:
 10. Provider history, consent, audit, ledger, webhook, and fulfillment history is append-only.
 11. Secrets, subscription links, contact plaintext, and raw authorization headers never enter logs or operational history.
 12. Refund mutations are serialized per payment intent, and pending plus successful refunds cannot exceed the provider-paid amount before the provider is called.
+13. A wallet top-up credits exactly the amount the provider settled, exactly once, keyed on its order. A top-up never spends wallet credit.
+14. A prorated add-on charge never exceeds its catalog price, never rounds down to nothing, and is computed in 128 bits so a long period cannot overflow it.
+15. Add-on capacity is applied to an entitlement at most once per order and add-on version, and a null limit stays null.
+16. A saved cart is re-priced against the current catalog before any charge, and is charged under one idempotency key however many paths attempt it at once.
+17. Concurrency limits are evaluated under a per-customer advisory lock, so simultaneous purchases cannot both pass.
+18. Maintenance mode blocks new orders and outbound provisioning only. It never cancels, refunds, expires, or otherwise mutates money already taken.
+19. Retention deletes disposable operational data only. Financial, audit, consent, identity, and entitlement history is never removed by a sweep.
 
-Focused domain tests cover wallet-first splitting, payment replay, currency mismatch, promotion scope, ledger balancing, webhook signatures, and customer lifecycle guards. PostgreSQL-backed transaction tests remain a v0.5 Testcontainers gate.
+## Where they are tested
+
+Domain tests cover wallet-first splitting, payment replay, currency mismatch, promotion scope, ledger balancing, webhook signatures, customer lifecycle guards, top-up limits and settlement, add-on proration, cart evaluation, concurrency policy, and squad resolution. They run in the default `go test ./...`.
+
+The Testcontainers suite in `internal/integrationtest` proves the transactional invariants against a real PostgreSQL: exactly-once top-up credit across replays, over- and underpayment resolving in the ledger, a cart charging once under concurrency, concurrency limits holding under load, one outbox event and one operator notice per settlement, maintenance blocking new orders while a paid one settles, and add-ons applying once. See [Testing strategy](/contributing/testing).

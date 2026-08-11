@@ -35,7 +35,7 @@ func NewTelegramStars(token string, resolve StarsCustomerResolver) (*TelegramSta
 	if strings.TrimSpace(token) == "" {
 		return nil, errors.New("Telegram bot token is required for the Stars adapter")
 	}
-	return &TelegramStars{token: token, resolve: resolve, http: &http.Client{Timeout: 15 * time.Second}, endpoint: "https://api.telegram.org"}, nil
+	return &TelegramStars{token: token, resolve: resolve, http: tracedClient(15 * time.Second), endpoint: "https://api.telegram.org"}, nil
 }
 
 func (provider *TelegramStars) Name() string { return "telegram_stars" }

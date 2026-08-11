@@ -26,7 +26,7 @@ func NewYooKassa(shopID, secret string) (*YooKassa, error) {
 	if strings.TrimSpace(shopID) == "" || strings.TrimSpace(secret) == "" {
 		return nil, errors.New("YooKassa shop ID and secret are required")
 	}
-	return &YooKassa{shopID: shopID, secret: secret, baseURL: "https://api.yookassa.ru/v3", http: &http.Client{Timeout: 15 * time.Second}, clock: time.Now}, nil
+	return &YooKassa{shopID: shopID, secret: secret, baseURL: "https://api.yookassa.ru/v3", http: tracedClient(15 * time.Second), clock: time.Now}, nil
 }
 
 func (provider *YooKassa) Name() string { return "yookassa" }

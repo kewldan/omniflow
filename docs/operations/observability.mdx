@@ -1,0 +1,102 @@
+---
+title: Health, metrics, and tracing
+description: What each process exposes, what it deliberately does not, and how to probe it.
+---
+
+Every Omniflow process exposes the same three operational endpoints. They are meant for your orchestrator and your monitoring, not for the public internet — see [Reverse proxy](/operations/reverse-proxy) for how to keep them off the public API host.
+
+| Endpoint | Answers | Use it for |
+| --- | --- | --- |
+| `/livez` | As soon as the process is running | Liveness probe and restart policy |
+| `/readyz` | Only when every dependency answers | Readiness probe and load-balancer membership |
+| `/metrics` | Prometheus text exposition | Scraping |
+
+`/healthz` is retained for compatibility with existing deployments and behaves like `/livez`.
+
+## Listeners
+
+| Process | Variable | Default |
+| --- | --- | --- |
+| API | `APP_HTTP_ADDR` | `:8080` |
+| Worker | `APP_WORKER_HTTP_ADDR` | `:8081` |
+| Bot | `APP_BOT_METRICS_ADDR` | unset — the bot serves no HTTP unless you set it |
+
+Set `APP_METRICS_ENABLED=false` to drop `/metrics` while keeping the probes.
+
+## Readiness
+
+Readiness runs one probe per registered dependency and returns 503 while any of them fails:
+
+```json
+{
+  "status": "degraded",
+  "checks": [
+    {"name": "postgres", "healthy": true, "checkedAt": "2026-08-11T12:00:00Z", "latencyMs": 2},
+    {"name": "valkey", "healthy": true, "checkedAt": "2026-08-11T12:00:00Z", "latencyMs": 1},
+    {"name": "remnawave", "healthy": false, "error": "timeout", "checkedAt": "2026-08-11T12:00:00Z", "latencyMs": 3001, "consecutiveFailures": 4}
+  ]
+}
+```
+
+The `error` field is a stable classification — `timeout` or `unavailable` — and never the underlying driver message. A pgx or HTTP error routinely contains a host name, a role, or a connection string, none of which belongs in a response an orchestrator logs.
+
+Results are cached briefly, so a burst of readiness requests cannot turn into a burst of database round trips.
+
+The Remnawave probe makes an **authenticated** call. An expired or revoked panel token therefore reports as unavailability rather than passing as a healthy panel.
+
+## Metrics
+
+Every metric carries a `service` label of `api`, `bot`, or `worker`.
+
+| Metric | Type | Labels |
+| --- | --- | --- |
+| `omniflow_http_requests_total` | counter | `route`, `method`, `status` |
+| `omniflow_http_request_duration_seconds` | histogram | `route`, `method` |
+| `omniflow_telegram_updates_total` | counter | `kind`, `outcome` |
+| `omniflow_telegram_sends_total` | counter | `outcome` |
+| `omniflow_jobs_total` | counter | `kind`, `outcome` |
+| `omniflow_job_duration_seconds` | histogram | `kind` |
+| `omniflow_provider_webhooks_total` | counter | `provider`, `outcome` |
+| `omniflow_payments_total` | counter | `provider`, `operation`, `classification` |
+| `omniflow_remnawave_requests_total` | counter | `operation`, `outcome` |
+| `omniflow_outbox_pending_events` | gauge | — |
+| `omniflow_maintenance_mode` | gauge | — |
+| `omniflow_dependency_up` | gauge | `dependency` |
+
+Every label is a bounded, non-identifying value: a route **template** such as `/v1/admin/orders/{orderID}`, a provider name, an operation, or an outcome. A customer, order, or payment identifier never becomes a label. Prometheus retains label values indefinitely and a metrics endpoint is rarely as well protected as an API, so a high-cardinality identifier there is both an operational problem and a privacy one.
+
+Status codes are bucketed to `2xx`, `4xx`, `5xx` for the same reason.
+
+### Alerts worth having
+
+- `omniflow_dependency_up == 0` for longer than your maintenance failure streak.
+- `omniflow_maintenance_mode == 1` for longer than a planned window.
+- `omniflow_outbox_pending_events` growing without bound, which means events are being written and not dispatched.
+- A rising rate of `omniflow_payments_total{classification="underpayment"}` or `{classification="wallet_unavailable"}`.
+- Any `omniflow_jobs_total{outcome="failed"}` for `fulfillment.operation`, which means a paid customer is waiting.
+
+## Tracing
+
+Omniflow emits OpenTelemetry spans across every hop:
+
+| Hop | Span |
+| --- | --- |
+| Inbound HTTP | `http.server` via `otelhttp` |
+| Telegram updates | `telegram.update`, with the update kind and ID |
+| Durable jobs | `fulfillment.operation`, with the job kind and attempt |
+| PostgreSQL | One span per query via `otelpgx` |
+| Remnawave and payment providers | Outbound `http.client` spans |
+
+With no exporter configured the global provider is a no-op, so instrumentation costs nothing until you wire one up. Point `OTEL_EXPORTER_OTLP_ENDPOINT` and the standard `OTEL_*` variables at your collector to turn it on.
+
+Span attributes follow the same rule as metric labels. A Telegram span carries the update ID, which correlates with the structured logs, but never the Telegram account. Query spans carry statement text and never argument values.
+
+## Correlation
+
+A single correlation identifier ties a Telegram update to the order, payment, job, and Remnawave request it causes. It appears as `correlation_id` in structured logs and as the `CorrelationID` on fulfillment operations and history rows, so an operator can follow one customer action from the tap to the panel call.
+
+## Log redaction
+
+Anything that reaches a log line, an operator notification, or a diagnostics bundle passes through the shared redactor first. It removes Telegram bot tokens, bearer and API-key headers, subscription and proxy links of every scheme, long opaque device identifiers, and card-length digit runs. Structured payloads are additionally redacted by key name.
+
+The redactor is deliberately aggressive. An over-redacted log line is a minor inconvenience; a leaked subscription link is a security incident.

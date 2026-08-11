@@ -218,7 +218,7 @@ Goal: make the bot a complete customer product using the v0.3 backend.
 
 ---
 
-## 🚧 v0.5 — Purchase expansion and production release
+## ✅ v0.5 — Purchase expansion and production release
 
 Goal: complete the customer purchase model, then declare the Telegram-first product production-ready before admin UI development becomes the primary focus.
 
@@ -226,101 +226,101 @@ Every capability in this version is configured through environment and configura
 
 ### Wallet and balance top-up
 
-- [ ] Customer-initiated top-up with operator-configured preset amounts and free entry
-- [ ] Top-up through any enabled provider reusing the existing order, webhook, and reconciliation pipeline
-- [ ] Top-up credited as an idempotent ledger entry with per-currency isolation
-- [ ] Minimum, maximum, and rolling-window top-up limits with explicit rejection reasons
-- [ ] Top-up history with pending, failed, expired, and duplicate-payment recovery
-- [ ] Overpayment and underpayment resolved into the ledger rather than the order
+- [x] Customer-initiated top-up with operator-configured preset amounts and free entry
+- [x] Top-up through any enabled provider reusing the existing order, webhook, and reconciliation pipeline
+- [x] Top-up credited as an idempotent ledger entry with per-currency isolation
+- [x] Minimum, maximum, and rolling-window top-up limits with explicit rejection reasons
+- [x] Top-up history with pending, failed, expired, and duplicate-payment recovery
+- [x] Overpayment and underpayment resolved into the ledger rather than the order
 
 ### Cart and deferred purchase
 
-- [ ] Persistent cart surviving insufficient balance, session loss, and navigation
-- [ ] Cart holds plan, period, selected squads, add-ons, and applied promo code
-- [ ] Price and eligibility re-validated against the current plan version before any charge
-- [ ] Automatic purchase of the saved cart once a top-up covers the outstanding amount
-- [ ] Idempotent auto-purchase that cannot double-charge on duplicate or replayed credits
-- [ ] Cart expiry, manual clearing, and explicit cancellation of pending auto-purchase
+- [x] Persistent cart surviving insufficient balance, session loss, and navigation
+- [x] Cart holds plan, period, selected squads, add-ons, and applied promo code
+- [x] Price and eligibility re-validated against the current plan version before any charge
+- [x] Automatic purchase of the saved cart once a top-up covers the outstanding amount
+- [x] Idempotent auto-purchase that cannot double-charge on duplicate or replayed credits
+- [x] Cart expiry, manual clearing, and explicit cancellation of pending auto-purchase
 
 ### Subscription configurator and add-ons
 
-- [ ] Plan-scoped squad sets so different plans expose different Remnawave squads
-- [ ] Automatic squad assignment or customer selection according to the plan policy
-- [ ] Mid-period add-on purchase of traffic, device slots, and additional squads
-- [ ] Add-on prices versioned with the plan so historical orders never change
-- [ ] Add-on entitlement applied idempotently through the existing fulfillment pipeline
-- [ ] Explicit, documented proration rules for every add-on instead of implicit behavior
+- [x] Plan-scoped squad sets so different plans expose different Remnawave squads
+- [x] Automatic squad assignment or customer selection according to the plan policy
+- [x] Mid-period add-on purchase of traffic, device slots, and additional squads
+- [x] Add-on prices versioned with the plan so historical orders never change
+- [x] Add-on entitlement applied idempotently through the existing fulfillment pipeline
+- [x] Explicit, documented proration rules for every add-on instead of implicit behavior
 
 ### Multiple concurrent subscriptions (optional)
 
-- [ ] Operator switch allowing more than one active subscription per customer, disabled by default
-- [ ] One customer mapped to several Remnawave users with a stable, customer-visible label per subscription
-- [ ] Plan, period, squads, device limit, traffic, and expiry tracked independently per subscription
-- [ ] Configurable maximum concurrent subscriptions per customer and per plan
-- [ ] Explicit subscription targeting in every purchase, renewal, extension, upgrade, downgrade, and cancellation flow
-- [ ] Per-subscription device management, link rotation, and connection instructions
-- [ ] Expiry and traffic alerts keyed per subscription so one subscription cannot suppress another's notification
-- [ ] Bot copy that names the affected subscription unambiguously in every state and notification
-- [ ] Wallet, promo eligibility, referral, and trial rules evaluated per customer, never per subscription
-- [ ] Trial abuse controls that count customers rather than subscriptions
-- [ ] Fulfillment, reconciliation, and drift detection scoped to the correct Remnawave user
-- [ ] Single-subscription installations keep the current one-screen experience with no extra selection step
-- [ ] Documented migration path in both directions, including safe return to single-subscription mode
+- [x] Operator switch allowing more than one active subscription per customer, disabled by default
+- [x] One customer mapped to several Remnawave users with a stable, customer-visible label per subscription
+- [x] Plan, period, squads, device limit, traffic, and expiry tracked independently per subscription
+- [x] Configurable maximum concurrent subscriptions per customer and per plan
+- [x] Explicit subscription targeting in every purchase, renewal, extension, upgrade, downgrade, and cancellation flow
+- [x] Per-subscription device management, link rotation, and connection instructions
+- [x] Expiry and traffic alerts keyed per subscription so one subscription cannot suppress another's notification
+- [x] Bot copy that names the affected subscription unambiguously in every state and notification
+- [x] Wallet, promo eligibility, referral, and trial rules evaluated per customer, never per subscription
+- [x] Trial abuse controls that count customers rather than subscriptions
+- [x] Fulfillment, reconciliation, and drift detection scoped to the correct Remnawave user
+- [x] Single-subscription installations keep the current one-screen experience with no extra selection step
+- [x] Documented migration path in both directions, including safe return to single-subscription mode
 
 ### Runtime and operations
 
-- [ ] Secret-token-validated Telegram webhook mode
-- [ ] Long polling retained as an explicit development/fallback mode
-- [ ] Provider webhook endpoints with signature verification and body-size limits
-- [ ] `/livez`, `/readyz`, dependency health, and graceful shutdown
-- [ ] Prometheus metrics for API, bot, jobs, webhooks, payments, and Remnawave calls
-- [ ] OpenTelemetry traces across HTTP, Telegram, River, PostgreSQL, and providers
-- [ ] Structured redaction tests for tokens, links, payment payloads, and customer content
-- [ ] Job retry/dead-letter visibility through operational APIs
-- [ ] PostgreSQL backup, restore, upgrade, and rollback documentation
-- [ ] Data-retention and cleanup jobs for sessions, provider payloads, attachments, and telemetry
+- [x] Secret-token-validated Telegram webhook mode
+- [x] Long polling retained as an explicit development/fallback mode
+- [x] Provider webhook endpoints with signature verification and body-size limits
+- [x] `/livez`, `/readyz`, dependency health, and graceful shutdown
+- [x] Prometheus metrics for API, bot, jobs, webhooks, payments, and Remnawave calls
+- [x] OpenTelemetry traces across HTTP, Telegram, River, PostgreSQL, and providers
+- [x] Structured redaction tests for tokens, links, payment payloads, and customer content
+- [x] Job retry/dead-letter visibility through operational APIs
+- [x] PostgreSQL backup, restore, upgrade, and rollback documentation
+- [x] Data-retention and cleanup jobs for sessions, provider payloads, attachments, and telemetry
 
 ### Operator notifications and backups in Telegram
 
-- [ ] Operator supplies a group ID and the bot creates and binds every required forum topic itself
-- [ ] Purchase, renewal, top-up, refund, fulfillment-failure, and incident events routed to their own topic
-- [ ] Topic rebinding, recreation after deletion, and clear failure states when permissions are missing
-- [ ] Notification volume controls so a burst cannot flood an operator group
-- [ ] Scheduled PostgreSQL backups with retention, encryption, and integrity verification
-- [ ] Backup status and restore initiated from the bot with confirmation, permission check, and audit event
-- [ ] No customer content, secret, or payment payload in any operator notification
+- [x] Operator supplies a group ID and the bot creates and binds every required forum topic itself
+- [x] Purchase, renewal, top-up, refund, fulfillment-failure, and incident events routed to their own topic
+- [x] Topic rebinding, recreation after deletion, and clear failure states when permissions are missing
+- [x] Notification volume controls so a burst cannot flood an operator group
+- [x] Scheduled PostgreSQL backups with retention, encryption, and integrity verification
+- [x] Backup status and restore initiated from the bot with confirmation, permission check, and audit event
+- [x] No customer content, secret, or payment payload in any operator notification
 
 ### Maintenance mode
 
-- [ ] Maintenance mode with manual activation and automatic detection of Remnawave or panel unavailability
-- [ ] Maintenance mode blocks purchases and fulfillment while preserving already-paid state
-- [ ] Localized customer notice, expected-return messaging, and automatic exit on recovery
+- [x] Maintenance mode with manual activation and automatic detection of Remnawave or panel unavailability
+- [x] Maintenance mode blocks purchases and fulfillment while preserving already-paid state
+- [x] Localized customer notice, expected-return messaging, and automatic exit on recovery
 
 ### Quality and compatibility
 
-- [ ] Testcontainers coverage for PostgreSQL, migrations, repositories, outbox, and River jobs
-- [ ] Contract tests against supported Remnawave 3.2.x behavior
-- [ ] Provider sandbox integration suites and replay fixtures
-- [ ] Load tests for update bursts, campaigns, webhook retries, and reconciliation
-- [ ] Upgrade test from every supported Omniflow migration baseline
-- [ ] Docker images pinned by version with SBOM, provenance, and vulnerability scan
-- [ ] Compose deployment tested with Caddy and Traefik examples
-- [ ] Complete operator setup, troubleshooting, and disaster-recovery docs
+- [x] Testcontainers coverage for PostgreSQL, migrations, repositories, outbox, and River jobs
+- [x] Contract tests against supported Remnawave 3.2.x behavior
+- [x] Provider sandbox integration suites and replay fixtures
+- [x] Load tests for update bursts, campaigns, webhook retries, and reconciliation
+- [x] Upgrade test from every supported Omniflow migration baseline
+- [x] Docker images pinned by version with SBOM, provenance, and vulnerability scan
+- [x] Compose deployment tested with Caddy and Traefik examples
+- [x] Complete operator setup, troubleshooting, and disaster-recovery docs
 
 ### Definition of bot/backend complete
 
-- [ ] A new operator can install Omniflow, import users, configure a plan and provider, and accept a real sandbox payment from Telegram
-- [ ] A successful payment is never lost when Remnawave is unavailable
-- [ ] Duplicate Telegram updates, callbacks, webhooks, and jobs cannot duplicate money or entitlement
-- [ ] Customers can purchase, connect, renew, manage devices, get support, and review history without a web panel
-- [ ] A customer can fund a wallet, keep a cart, and have it purchased automatically once the balance covers it
-- [ ] An operator receives purchase, renewal, top-up, and failure notifications and can restore a backup without a web panel
-- [ ] Enabling or disabling multiple concurrent subscriptions never orphans an entitlement or a Remnawave user
-- [ ] CI, security scanning, documentation validation, and release automation are green
+- [x] A new operator can install Omniflow, import users, configure a plan and provider, and accept a real sandbox payment from Telegram
+- [x] A successful payment is never lost when Remnawave is unavailable
+- [x] Duplicate Telegram updates, callbacks, webhooks, and jobs cannot duplicate money or entitlement
+- [x] Customers can purchase, connect, renew, manage devices, get support, and review history without a web panel
+- [x] A customer can fund a wallet, keep a cart, and have it purchased automatically once the balance covers it
+- [x] An operator receives purchase, renewal, top-up, and failure notifications and can restore a backup without a web panel
+- [x] Enabling or disabling multiple concurrent subscriptions never orphans an entitlement or a Remnawave user
+- [x] CI, security scanning, documentation validation, and release automation are green
 
 ---
 
-## ⏳ v0.6 — Admin panel foundation and access control
+## 🚧 v0.6 — Admin panel foundation and access control
 
 Goal: build the secure operator shell only after the Telegram/backend product is complete.
 

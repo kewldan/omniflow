@@ -32,6 +32,10 @@ const (
 	routeWallet       = "wallet"
 	routeNews         = "news"
 	routeAutoRenew    = "autorenew"
+	// v0.5 surfaces.
+	routeTopUp         = "topup"
+	routeCart          = "cart"
+	routeSubscriptions = "subs"
 )
 
 // callbackWindow and callbackBudget bound how many interactions one Telegram
@@ -61,6 +65,10 @@ type App struct {
 	limiter   *platform.RateLimiter
 	sender    *Sender
 	settings  CommerceSettings
+
+	// operators is the Telegram backup/restore surface. It stays nil until an
+	// installation names its operator accounts.
+	operators *OperatorTools
 }
 
 func New(logger *slog.Logger, store Store, remnawaveService remnawave.Service, supportURL string) *App {
@@ -118,6 +126,10 @@ var consequentialActions = map[string]bool{
 	"confirm": true, "order-cancel": true, "pm": true, "wallet-toggle": true,
 	"promo-clear": true, "invoice": true, "device-delete": true, "devices-delete": true,
 	"revoke": true, "ticket-close": true, "ticket-open": true, "autorenew": true,
+	// v0.5 actions that move money, provisioning, or database state.
+	"topup-pm": true, "cart-buy": true, "cart-clear": true, "cart-save": true,
+	"cart-auto": true, "addon-buy": true, "sub-revoke": true,
+	"ops-backup": true, "ops-restore": true,
 }
 
 func (app *App) Register(client *telegram.Bot) {
@@ -127,6 +139,8 @@ func (app *App) Register(client *telegram.Bot) {
 	client.RegisterHandler(telegram.HandlerTypeMessageText, "support", telegram.MatchTypeCommandStartOnly, app.HandleSupport)
 	client.RegisterHandler(telegram.HandlerTypeMessageText, "plans", telegram.MatchTypeCommandStartOnly, app.HandlePlans)
 	client.RegisterHandler(telegram.HandlerTypeMessageText, "orders", telegram.MatchTypeCommandStartOnly, app.HandleOrders)
+	client.RegisterHandler(telegram.HandlerTypeMessageText, "wallet", telegram.MatchTypeCommandStartOnly, app.HandleWallet)
+	client.RegisterHandler(telegram.HandlerTypeMessageText, "ops", telegram.MatchTypeCommandStartOnly, app.HandleOps)
 	client.RegisterHandler(telegram.HandlerTypeMessageText, "cancel", telegram.MatchTypeCommandStartOnly, app.HandleCancel)
 	client.RegisterHandler(telegram.HandlerTypeCallbackQueryData, callbackPrefix, telegram.MatchTypePrefix, app.HandleCallback)
 	client.RegisterHandler(telegram.HandlerTypeCallbackQueryData, actionPrefix, telegram.MatchTypePrefix, app.HandleCallback)
@@ -226,7 +240,9 @@ func (app *App) handleFlowMessage(ctx context.Context, client *telegram.Bot, upd
 		app.logger.Error("bot session lookup failed", "error", err)
 		return false
 	}
-	if state != "promo_code" && state != "support_reply" {
+	switch state {
+	case "promo_code", "support_reply", "topup_amount", "subscription_label":
+	default:
 		return false
 	}
 	session, err := app.commerceContext(ctx, message.From.ID, message.From.LanguageCode)
@@ -240,6 +256,15 @@ func (app *App) handleFlowMessage(ctx context.Context, client *telegram.Bot, upd
 	case "support_reply":
 		ticketID, _ := flowContext["ticketId"].(string)
 		app.completeSupportMessage(ctx, client, session, message, ticketID)
+	case "topup_amount":
+		if !app.allow(ctx, "bot:checkout", session.TelegramID, checkoutBudget) {
+			_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{Text: text(session.Locale, "menu.rateLimit")}))
+			return true
+		}
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, app.completeTopUpAmount(ctx, session, message.Text)))
+	case "subscription_label":
+		subscriptionID, _ := flowContext["subscriptionId"].(string)
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, app.completeSubscriptionRename(ctx, session, subscriptionID, message.Text)))
 	}
 	return true
 }
@@ -362,6 +387,10 @@ func (app *App) HandlePlans(ctx context.Context, client *telegram.Bot, update *m
 
 func (app *App) HandleOrders(ctx context.Context, client *telegram.Bot, update *models.Update) {
 	app.handleCommandRoute(ctx, client, update, routeOrders)
+}
+
+func (app *App) HandleWallet(ctx context.Context, client *telegram.Bot, update *models.Update) {
+	app.handleCommandRoute(ctx, client, update, routeWallet)
 }
 
 func (app *App) HandleCancel(ctx context.Context, client *telegram.Bot, update *models.Update) {
@@ -697,7 +726,7 @@ func (app *App) lifecycleNoticeFor(ctx context.Context, telegramID int64, locale
 // it the bot explains that purchases are not configured rather than failing.
 func commerceOnlyRoute(route string) bool {
 	switch route {
-	case routePlans, routeOrders, routeWallet, routeNews, routeAutoRenew:
+	case routePlans, routeOrders, routeWallet, routeNews, routeAutoRenew, routeTopUp, routeCart, routeSubscriptions:
 		return true
 	default:
 		return false
@@ -707,7 +736,8 @@ func commerceOnlyRoute(route string) bool {
 func knownRoute(route string) bool {
 	switch route {
 	case routeHome, routeSubscription, routeConnect, routeDevices, routeSupport, routeSettings, routeReferral,
-		routePlans, routeOrders, routeWallet, routeNews, routeAutoRenew:
+		routePlans, routeOrders, routeWallet, routeNews, routeAutoRenew,
+		routeTopUp, routeCart, routeSubscriptions:
 		return true
 	default:
 		return false

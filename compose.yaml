@@ -60,12 +60,17 @@ services:
       dockerfile: build/go.Dockerfile
       args:
         TARGET: bot
+        # The bot runs operator-initiated backups and restores, so its image
+        # needs the matching PostgreSQL client tools.
+        RUNTIME: postgres
     env_file: [.env]
     depends_on:
       migrate:
         condition: service_completed_successfully
       valkey:
         condition: service_healthy
+    volumes:
+      - backup-data:/var/lib/omniflow/backups
     networks: [internal]
 
   worker:
@@ -74,12 +79,16 @@ services:
       dockerfile: build/go.Dockerfile
       args:
         TARGET: worker
+        # The worker takes the scheduled backups with pg_dump.
+        RUNTIME: postgres
     env_file: [.env]
     depends_on:
       migrate:
         condition: service_completed_successfully
       valkey:
         condition: service_healthy
+    volumes:
+      - backup-data:/var/lib/omniflow/backups
     networks: [internal]
 
   web:
@@ -99,3 +108,6 @@ networks:
 
 volumes:
   postgres-data:
+  # Backups live outside the container filesystem so a rebuild never discards
+  # them. They are encrypted at rest with APP_BACKUP_ENCRYPTION_KEY.
+  backup-data:

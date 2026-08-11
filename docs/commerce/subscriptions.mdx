@@ -1,0 +1,97 @@
+---
+title: Concurrent subscriptions
+description: One customer, several Remnawave users, and how to turn the feature on and off safely.
+---
+
+By default a customer owns exactly one subscription, and every screen behaves as it did before this feature existed. An operator who needs more — a household with separate device pools, a customer running two regions — turns on concurrency explicitly.
+
+## The model
+
+A **subscription** is the stable, customer-visible handle for exactly one Remnawave user:
+
+| Column | Meaning |
+| --- | --- |
+| `slot` | Position within the customer's subscriptions, starting at 1 |
+| `label` | Customer-chosen name, up to 40 characters, shown in every screen and notification |
+| `remnawave_user_id` | The Remnawave user this subscription provisions |
+| `status` | `active` or `closed` |
+
+Entitlements, orders, notification deliveries, and auto-renew settings all carry a `subscription_id`. Wallet balance, promotion eligibility, referral attribution, and trial claims deliberately do not: those are properties of the **customer**, so opening a second subscription grants no second trial and no second referral reward.
+
+## What is per subscription and what is per customer
+
+| Per subscription | Per customer |
+| --- | --- |
+| Plan, period, squads, device limit, traffic, expiry | Wallet balance and ledger |
+| Remnawave user, access link, devices | Promotion and promo-code eligibility |
+| Expiry and traffic alerts | Referral attribution and rewards |
+| Renewal, upgrade, downgrade, cancellation | Trial eligibility and abuse controls |
+| Auto-renew intent | Support tickets, news, consent, locale |
+
+Trial abuse controls count customers, never subscriptions. `trial_claims` is keyed on the customer, so the second subscription of a customer who already used their trial cannot claim another one.
+
+## Enabling it
+
+```bash
+APP_MULTI_SUBSCRIPTION_ENABLED=true
+APP_MAX_SUBSCRIPTIONS_PER_CUSTOMER=3
+```
+
+A plan may set a tighter ceiling of its own through `plans.max_concurrent_per_customer`, which applies on top of the installation limit. A customer at either ceiling gets a stable refusal reason: `subscription_limit_reached` or `plan_limit_reached`.
+
+The limit is enforced where the money is, not in the interface. `CountActiveSubscriptions` takes a transaction-scoped advisory lock on the customer before it counts, so two simultaneous purchases cannot both observe a stale count and both pass.
+
+## What changes in the bot
+
+With the switch on:
+
+- the main menu opens a subscription switcher instead of the single subscription screen;
+- every purchase, renewal, upgrade, downgrade, and add-on names its target subscription explicitly;
+- device management, link rotation, and connection instructions act on the selected subscription's Remnawave user;
+- expiry, traffic, renewal, grace, recovery, and fulfillment notices name the subscription they are about.
+
+With the switch off, none of that appears. A customer with one subscription sees the v0.4 experience with no extra selection step, and alerts carry no subscription label because naming the only one would be noise.
+
+## Alert isolation
+
+Notification deduplication is keyed on `(user_id, kind, subscription_id, dedupe_key)`. Before this, two subscriptions expiring on the same day would have collided on one dedupe key and the customer would have been told about only one of them. The subscription is now part of the key, so a busy subscription can never suppress a quiet one's notice.
+
+## Fulfillment
+
+Each subscription provisions its own Remnawave user, derived deterministically from the subscription identifier:
+
+```text
+omniflow_<first 16 hex characters of the subscription id>
+```
+
+An installation upgraded from v0.4 keeps the customer-derived name for slot 1. The worker looks for the subscription-derived name first and the legacy customer-derived name second, so an existing Remnawave user is adopted rather than duplicated.
+
+The customer-level `remnawave_users` mapping continues to track the **primary** subscription (slot 1). That is what keeps the pre-commerce self-service screens resolving unchanged.
+
+Drift detection, reconciliation, and superseding are all scoped to one subscription. Buying a second subscription never retires the first one's entitlement.
+
+## Migrating in both directions
+
+### Turning it on
+
+Nothing has to be migrated. The v0.5 migration already created one subscription per existing customer, adopting the Remnawave user they had. Flipping `APP_MULTI_SUBSCRIPTION_ENABLED` to `true` only changes what customers are allowed to add from that point on.
+
+### Turning it off
+
+Setting it back to `false` is safe and non-destructive:
+
+- existing extra subscriptions keep working, keep renewing, and keep their Remnawave users;
+- no customer may open another one;
+- a customer who already has more than one still sees the switcher, because hiding subscriptions they own would be worse than showing them.
+
+Nothing is orphaned in either direction: the switch controls creation, never existing state.
+
+### Reducing a customer to one subscription
+
+If you want a customer genuinely down to a single subscription, close the extra ones deliberately:
+
+1. Let the extra subscription expire, or cancel it under the plan's cancellation policy.
+2. Confirm the entitlement is `expired` or `superseded` and no fulfillment operation is pending.
+3. Close the subscription, which sets `status = 'closed'` and stops it appearing.
+
+Closing a subscription does not delete its Remnawave user. Removing that is a separate, deliberate action in the panel, so a mistaken close never destroys access a customer paid for.

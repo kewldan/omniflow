@@ -82,7 +82,7 @@ func TestCheckoutViewShowsTheFullBreakdown(t *testing.T) {
 		DiscountMinor: 5000, WalletBalanceMinor: 10000, WalletAppliedMinor: 10000, ExternalMinor: 34900,
 		PromoCode: "WELCOME",
 	}
-	view := checkoutView(LocaleEnglish, Plan{Name: "Pro", Duration: 30 * 24 * time.Hour}, session, quote)
+	view := checkoutView(LocaleEnglish, Plan{Name: "Pro", Duration: 30 * 24 * time.Hour}, session, quote, false)
 	screen := view.Text + " | " + buttonLabels(view)
 	for _, fragment := range []string{"499 RUB", "50 RUB", "100 RUB", "349 RUB", "YooKassa", "WELCOME", "Use wallet"} {
 		if !strings.Contains(screen, fragment) {
@@ -97,7 +97,7 @@ func TestCheckoutViewShowsTheFullBreakdown(t *testing.T) {
 func TestCheckoutViewExplainsARejectedPromoCode(t *testing.T) {
 	t.Parallel()
 	quote := commerce.CheckoutQuote{Subtotal: commerce.Money{Amount: 1000, Currency: "RUB"}, ExternalMinor: 1000, PromoRejection: "promo_exhausted"}
-	view := checkoutView(LocaleEnglish, Plan{Name: "Pro", Duration: 24 * time.Hour}, CheckoutSession{}, quote)
+	view := checkoutView(LocaleEnglish, Plan{Name: "Pro", Duration: 24 * time.Hour}, CheckoutSession{}, quote, false)
 	if !strings.Contains(view.Text, "redemption limit") {
 		t.Fatalf("a refused promo code must explain itself: %s", view.Text)
 	}
@@ -189,11 +189,11 @@ func TestPaymentMethodViewOnlyOffersConfiguredAdapters(t *testing.T) {
 
 func TestWalletViewRendersBalanceAndHistory(t *testing.T) {
 	t.Parallel()
-	view := walletView(LocaleEnglish, 25000, "RUB", []WalletEntry{{Type: "referral_reward", AmountMinor: 10000, Currency: "RUB", OccurredAt: time.Now()}})
+	view := walletView(LocaleEnglish, 25000, "RUB", []WalletEntry{{Type: "referral_reward", AmountMinor: 10000, Currency: "RUB", OccurredAt: time.Now()}}, true)
 	if !strings.Contains(view.Text, "250 RUB") || !strings.Contains(view.Text, "referral reward") || !strings.Contains(view.Text, "+100 RUB") {
 		t.Fatalf("wallet view is incomplete: %s", view.Text)
 	}
-	empty := walletView(LocaleRussian, 0, "RUB", nil)
+	empty := walletView(LocaleRussian, 0, "RUB", nil, false)
 	if !strings.Contains(empty.Text, "Операций пока нет") {
 		t.Fatalf("empty wallet state is missing: %s", empty.Text)
 	}

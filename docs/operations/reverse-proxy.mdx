@@ -3,10 +3,58 @@ title: Reverse proxy
 description: Use Caddy, Traefik, Nginx, or another compatible ingress.
 ---
 
-Omniflow does not require or automatically start a reverse proxy. Operators may choose Caddy, Traefik, Nginx, HAProxy, or a managed ingress.
+Omniflow does not require, bundle, or automatically start a reverse proxy. Operators may choose Caddy, Traefik, Nginx, HAProxy, or a managed ingress.
 
 The proxy must provide TLS, preserve request IDs, enforce body limits, and route API, web, Telegram webhook, and provider webhook traffic correctly. Customer and admin routes are served by the same web container. Configure trusted proxy headers explicitly; never trust arbitrary `X-Forwarded-For` input.
 
-A maintained Caddy example is available at `deploy/proxies/Caddyfile`.
+## Maintained examples
 
-The example uses `WEB_DOMAIN` for the unified customer/admin application and `API_DOMAIN` for the Go API. The admin workspace remains under `/admin` on the web origin.
+Both are kept working and both are validated in CI.
+
+| Proxy | Files |
+| --- | --- |
+| Caddy | `deploy/proxies/Caddyfile` |
+| Traefik | `deploy/proxies/traefik.yaml`, `traefik-dynamic.yaml`, `traefik.compose.yaml` |
+
+The Traefik example runs as a compose overlay:
+
+```bash
+ACME_EMAIL=ops@example.com \
+WEB_DOMAIN=app.example.com \
+API_DOMAIN=api.example.com \
+BOT_WEBHOOK_DOMAIN=bot.example.com \
+docker compose -f compose.yaml -f deploy/proxies/traefik.compose.yaml up -d
+```
+
+The overlay also stops publishing the API and web ports on the host, since the proxy fronts them.
+
+## Hosts
+
+| Host | Serves |
+| --- | --- |
+| `WEB_DOMAIN` | The unified customer and admin application; the admin workspace stays under `/admin` |
+| `API_DOMAIN` | The Go API, including provider webhooks at `/v1/payments/webhooks/{provider}` |
+| `BOT_WEBHOOK_DOMAIN` | `POST /telegram/webhook` only, when the bot runs in webhook mode |
+
+`BOT_WEBHOOK_DOMAIN` may be the same host as the API. Keeping it separate is tidier but not required.
+
+## Do not publish the operational endpoints
+
+`/metrics` and `/readyz` describe installation internals: dependency health, queue depth, payment classifications. Both examples return 404 for them on the public API host. Scrape them over the internal network instead, or put them behind your own authentication.
+
+`/livez` is safe to expose — it reports only that the process is running.
+
+## Body limits
+
+| Route | Limit | Why |
+| --- | --- | --- |
+| API | 2 MB | The application already caps JSON bodies at 1 MB; the proxy limit is the outer guard |
+| Telegram webhook | 1 MB | Telegram updates are small, and the bot caps them too |
+
+## Do not rewrite request bodies
+
+Provider webhook signatures are computed over the exact bytes the provider sent. A proxy that re-encodes, pretty-prints, or normalises a JSON body invalidates every signature, and Omniflow will correctly reject the result as unverified. If webhooks start failing verification after a proxy change, this is the first thing to check.
+
+## Access logs
+
+An access log records request paths, and a subscription link is a request path. The Traefik example turns access logging off by default for that reason. If you need it, apply a path filter you have reviewed.

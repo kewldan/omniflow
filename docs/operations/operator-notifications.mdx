@@ -1,0 +1,88 @@
+---
+title: Operator notifications
+description: A Telegram group, forum topics the bot creates itself, and what those messages deliberately omit.
+---
+
+An operator supplies one thing: a Telegram group. The bot creates and binds every topic inside it, keeps them bound, and re-creates one that was deleted.
+
+## Setup
+
+1. Create a Telegram group and enable **Topics** in its settings.
+2. Add the bot and grant it **Manage Topics** and **Send Messages**.
+3. Set the group ID and restart the bot:
+
+```bash
+APP_OPERATOR_CHAT_ID=-1001234567890
+```
+
+A supergroup ID is negative and begins with `-100`. Forwarding a message from the group to a bot such as `@userinfobot` is the usual way to read it.
+
+On startup the bot creates one topic per event kind:
+
+| Topic | Carries |
+| --- | --- |
+| 💳 Purchases | Settled subscription orders |
+| ♻️ Renewals | Settled extensions |
+| 👛 Wallet top-ups | Credited top-ups, including over- and underpayments |
+| ↩️ Refunds | Recorded refunds |
+| ⚠️ Fulfillment failures | Provisioning runs that stopped being a blip |
+| 🚨 Incidents | Maintenance transitions |
+| 💾 Backups | Backup outcomes |
+
+## When binding fails
+
+A topic that cannot be created is recorded as `failed` with a classified reason rather than silently doing nothing:
+
+| Reason | Fix |
+| --- | --- |
+| `missing_manage_topics_permission` | Grant the bot Manage Topics |
+| `forum_topics_disabled` | Enable Topics in the group settings |
+| `chat_not_found` | Wrong chat ID, or the group was upgraded to a supergroup and its ID changed |
+| `bot_not_in_group` | Re-add the bot |
+
+Fix the cause and restart the bot, or wait for the next notification: delivery re-attempts the binding.
+
+Changing `APP_OPERATOR_CHAT_ID` rebinds everything. The topic identifiers from the old group are dropped and fresh topics are created in the new one.
+
+A topic deleted in Telegram is re-created on the next message to it, once, and the message is then retried.
+
+## Volume control
+
+```bash
+APP_OPERATOR_NOTIFICATION_CAP=30
+APP_OPERATOR_NOTIFICATION_WINDOW_MINUTES=5
+```
+
+Past the cap for a topic within the window, further notices are marked `suppressed` with reason `volume_cap` instead of being sent. They stay in the database and are counted in the logs, so nothing is lost — but a Remnawave outage producing thousands of fulfillment failures cannot bury the group.
+
+Set the cap to `0` to send everything.
+
+## Deduplication
+
+Every notice carries a dedupe key: the order for a purchase, the refund for a refund, the fulfillment operation for a failure. `operator_notifications (kind, dedupe_key)` is unique, so a retried webhook, a second reconciliation pass, and a job that fails repeatedly all produce one message.
+
+The notice is queued inside the same transaction as the event it describes. A notice therefore exists exactly when the thing it reports is durable — never for an event that rolled back, and never missing for one that committed.
+
+## What a notice contains
+
+Only whitelisted, non-personal fields are printed:
+
+```text
+💳 Purchases
+orderId: 018f0000-0000-7000-8000-000000000001
+subscriptionId: 018f0000-0000-7000-8000-000000000002
+operation: purchase
+currency: RUB
+amountMinor: 149900
+at: 2026-08-11T10:15:00Z
+```
+
+There is no customer name, no Telegram account, no subscription link, no provider token, and no payment payload. Everything else in the payload is dropped by the renderer, and the payload itself is redacted before it is stored.
+
+Identifiers are included precisely because they are useless on their own: an operator looks them up through the admin API, where authorization and audit apply. That is the point — the group is a signal, not a data store.
+
+## Fulfillment failure notices
+
+A failing provisioning run does not notify immediately. Ordinary backoff is expected to recover, so an operator is told only after three failed attempts, or immediately on a permanent failure. The dedupe key is the operation, so one struggling entitlement produces one message however many times it retries.
+
+The notice carries the entitlement, the operation, and a classified error code such as `remnawave_http_502` or `remnawave_unavailable`. It never carries the panel's response body.

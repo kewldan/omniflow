@@ -31,7 +31,7 @@ func NewCryptoBot(token string, testnet bool) (*CryptoBot, error) {
 	if testnet {
 		host = "https://testnet-pay.crypt.bot/api"
 	}
-	return &CryptoBot{token: token, baseURL: host, http: &http.Client{Timeout: 15 * time.Second}}, nil
+	return &CryptoBot{token: token, baseURL: host, http: tracedClient(15 * time.Second)}, nil
 }
 
 func (provider *CryptoBot) Name() string { return "cryptobot" }

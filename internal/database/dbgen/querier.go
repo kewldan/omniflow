@@ -16,11 +16,31 @@ type Querier interface {
 	AnonymizeCustomerData(ctx context.Context, targetUserID pgtype.UUID) error
 	ApplyCustomerImportItem(ctx context.Context, arg ApplyCustomerImportItemParams) (CustomerImportItem, error)
 	ApplyCustomerLifecycle(ctx context.Context, arg ApplyCustomerLifecycleParams) (User, error)
+	// Add-on capacity is folded into the entitlement itself, so the existing
+	// fulfillment pipeline reads one desired state and never sums add-ons again.
+	ApplyEntitlementAddonTotals(ctx context.Context, arg ApplyEntitlementAddonTotalsParams) (Entitlement, error)
 	ApproveManualPayment(ctx context.Context, arg ApproveManualPaymentParams) (ManualPaymentApproval, error)
+	BindOperatorTopic(ctx context.Context, arg BindOperatorTopicParams) (OperatorTopic, error)
+	CancelCart(ctx context.Context, userID pgtype.UUID) (Cart, error)
 	CancelOrder(ctx context.Context, arg CancelOrderParams) (Order, error)
 	CheckPromotionCustomerEligibility(ctx context.Context, arg CheckPromotionCustomerEligibilityParams) (pgtype.Bool, error)
+	CloseSubscription(ctx context.Context, arg CloseSubscriptionParams) (Subscription, error)
+	CompleteBackup(ctx context.Context, arg CompleteBackupParams) (Backup, error)
+	CompleteBackupRestore(ctx context.Context, arg CompleteBackupRestoreParams) (BackupRestore, error)
+	CompleteOperatorNotification(ctx context.Context, arg CompleteOperatorNotificationParams) (OperatorNotification, error)
 	CompleteWebhookEvent(ctx context.Context, arg CompleteWebhookEventParams) (ProviderWebhookEvent, error)
+	// Callers must hold LockCustomerSubscriptions for this count to be meaningful.
+	CountActiveSubscriptions(ctx context.Context, arg CountActiveSubscriptionsParams) (CountActiveSubscriptionsRow, error)
+	CountPlanVersionSquads(ctx context.Context, arg CountPlanVersionSquadsParams) (int32, error)
 	CountPromoRedemptions(ctx context.Context, arg CountPromoRedemptionsParams) (CountPromoRedemptionsRow, error)
+	CountRecentOperatorNotifications(ctx context.Context, arg CountRecentOperatorNotificationsParams) (int32, error)
+	CountRunningBackups(ctx context.Context) (int32, error)
+	CountUnpublishedOutboxEvents(ctx context.Context) (CountUnpublishedOutboxEventsRow, error)
+	// ---------------------------------------------------------------------------
+	// Backups
+	// ---------------------------------------------------------------------------
+	CreateBackup(ctx context.Context, arg CreateBackupParams) (Backup, error)
+	CreateBackupRestore(ctx context.Context, arg CreateBackupRestoreParams) (BackupRestore, error)
 	CreateContactChannel(ctx context.Context, arg CreateContactChannelParams) (ContactChannel, error)
 	CreateCustomerImport(ctx context.Context) (CustomerImport, error)
 	CreateEntitlement(ctx context.Context, arg CreateEntitlementParams) (Entitlement, error)
@@ -34,15 +54,43 @@ type Querier interface {
 	CreatePromoCode(ctx context.Context, arg CreatePromoCodeParams) (PromoCode, error)
 	CreatePromotion(ctx context.Context, arg CreatePromotionParams) (Promotion, error)
 	CreateRefund(ctx context.Context, arg CreateRefundParams) (Refund, error)
+	CreateSubscription(ctx context.Context, arg CreateSubscriptionParams) (Subscription, error)
+	// ---------------------------------------------------------------------------
+	// Wallet top-up
+	// ---------------------------------------------------------------------------
+	CreateWalletTopup(ctx context.Context, arg CreateWalletTopupParams) (WalletTopup, error)
+	CreditWalletTopup(ctx context.Context, arg CreditWalletTopupParams) (WalletTopup, error)
+	DeleteCartAddon(ctx context.Context, arg DeleteCartAddonParams) error
+	// ---------------------------------------------------------------------------
+	// Retention and cleanup
+	// ---------------------------------------------------------------------------
+	DeleteExpiredBotSessions(ctx context.Context) (int64, error)
+	DeleteExpiredCheckoutSessions(ctx context.Context) (int64, error)
+	DeleteExpiredSupportAttachments(ctx context.Context) (int64, error)
+	DeleteExpiredWebhookEvents(ctx context.Context) (int64, error)
+	DeleteOldTelemetryEvents(ctx context.Context, retentionSeconds float64) (int64, error)
+	DeletePublishedOutboxEvents(ctx context.Context, retentionSeconds float64) (int64, error)
+	DeleteResolvedDrifts(ctx context.Context, retentionSeconds float64) (int64, error)
+	EnqueueOperatorNotification(ctx context.Context, arg EnqueueOperatorNotificationParams) (OperatorNotification, error)
+	ExpireCarts(ctx context.Context) ([]Cart, error)
 	ExpirePendingOrders(ctx context.Context) ([]Order, error)
+	FailBackup(ctx context.Context, arg FailBackupParams) (Backup, error)
+	FailOperatorTopic(ctx context.Context, arg FailOperatorTopicParams) (OperatorTopic, error)
+	GetAddonVersionForOrder(ctx context.Context, arg GetAddonVersionForOrderParams) (GetAddonVersionForOrderRow, error)
 	GetAvailableWalletBalance(ctx context.Context, arg GetAvailableWalletBalanceParams) (int64, error)
+	GetBackup(ctx context.Context, id pgtype.UUID) (Backup, error)
 	GetCustomer(ctx context.Context, id pgtype.UUID) (User, error)
 	GetCustomerImport(ctx context.Context, id pgtype.UUID) (CustomerImport, error)
 	GetCustomerImportItemCounts(ctx context.Context, importID pgtype.UUID) (GetCustomerImportItemCountsRow, error)
+	GetCustomerSubscription(ctx context.Context, arg GetCustomerSubscriptionParams) (Subscription, error)
 	GetEntitlement(ctx context.Context, id pgtype.UUID) (Entitlement, error)
+	GetLatestBackup(ctx context.Context) (Backup, error)
 	GetLatestConsents(ctx context.Context, userID pgtype.UUID) ([]ConsentRecord, error)
-	GetLatestEntitlementForChange(ctx context.Context, userID pgtype.UUID) (Entitlement, error)
+	GetLatestEntitlementForChange(ctx context.Context, arg GetLatestEntitlementForChangeParams) (Entitlement, error)
 	GetLedgerTransactionByIdempotency(ctx context.Context, idempotencyKey string) (LedgerTransaction, error)
+	GetMaintenanceState(ctx context.Context) (MaintenanceState, error)
+	GetOpenCart(ctx context.Context, userID pgtype.UUID) (Cart, error)
+	GetOperatorTopic(ctx context.Context, kind string) (OperatorTopic, error)
 	GetOrder(ctx context.Context, id pgtype.UUID) (Order, error)
 	GetOrderByIdempotency(ctx context.Context, arg GetOrderByIdempotencyParams) (Order, error)
 	GetOrderEntitlementSpec(ctx context.Context, orderID pgtype.UUID) (GetOrderEntitlementSpecRow, error)
@@ -51,47 +99,101 @@ type Querier interface {
 	GetPaymentIntentByOrderProvider(ctx context.Context, arg GetPaymentIntentByOrderProviderParams) (PaymentIntent, error)
 	GetPaymentIntentByProviderReference(ctx context.Context, arg GetPaymentIntentByProviderReferenceParams) (PaymentIntent, error)
 	GetPlanVersionForOrder(ctx context.Context, arg GetPlanVersionForOrderParams) (GetPlanVersionForOrderRow, error)
+	GetPrimarySubscription(ctx context.Context, userID pgtype.UUID) (Subscription, error)
 	GetPromoForRedemption(ctx context.Context, normalizedCode string) (GetPromoForRedemptionRow, error)
 	GetRefundByIdempotency(ctx context.Context, arg GetRefundByIdempotencyParams) (Refund, error)
 	GetRemnawaveMappingByCustomer(ctx context.Context, userID pgtype.UUID) (RemnawaveUser, error)
 	GetRemnawaveUserIDByTelegramID(ctx context.Context, telegramID pgtype.Int8) (int64, error)
 	GetReservedRefundAmount(ctx context.Context, paymentIntentID pgtype.UUID) (int64, error)
+	GetSubscription(ctx context.Context, id pgtype.UUID) (Subscription, error)
+	GetSubscriptionByRemnawaveUser(ctx context.Context, remnawaveUserID pgtype.Int8) (Subscription, error)
 	GetTelemetryInstallationID(ctx context.Context) (pgtype.UUID, error)
 	GetWalletBalance(ctx context.Context, arg GetWalletBalanceParams) (int64, error)
 	InsertAuditEvent(ctx context.Context, arg InsertAuditEventParams) (AuditEvent, error)
 	InsertConsentRecord(ctx context.Context, arg InsertConsentRecordParams) (ConsentRecord, error)
 	InsertCustomerLifecycleEvent(ctx context.Context, arg InsertCustomerLifecycleEventParams) (CustomerLifecycleEvent, error)
+	InsertEntitlementAddon(ctx context.Context, arg InsertEntitlementAddonParams) (EntitlementAddon, error)
 	InsertEntitlementDrift(ctx context.Context, arg InsertEntitlementDriftParams) (EntitlementDrift, error)
 	InsertFulfillmentHistory(ctx context.Context, arg InsertFulfillmentHistoryParams) (FulfillmentHistory, error)
 	InsertLedgerEntry(ctx context.Context, arg InsertLedgerEntryParams) (LedgerEntry, error)
+	InsertMaintenanceEvent(ctx context.Context, arg InsertMaintenanceEventParams) (MaintenanceEvent, error)
+	InsertOrderAddonLine(ctx context.Context, arg InsertOrderAddonLineParams) (OrderAddonLine, error)
 	InsertOrderLine(ctx context.Context, arg InsertOrderLineParams) (OrderLine, error)
 	InsertOutboxEvent(ctx context.Context, arg InsertOutboxEventParams) (OutboxEvent, error)
 	InsertPaymentEvent(ctx context.Context, arg InsertPaymentEventParams) (PaymentEvent, error)
 	InsertPromoRedemption(ctx context.Context, arg InsertPromoRedemptionParams) (PromoRedemption, error)
 	InsertWebhookEvent(ctx context.Context, arg InsertWebhookEventParams) (ProviderWebhookEvent, error)
+	IsAddonOfferedForPlan(ctx context.Context, arg IsAddonOfferedForPlanParams) (bool, error)
 	IsPromotionPlanEligible(ctx context.Context, arg IsPromotionPlanEligibleParams) (pgtype.Bool, error)
 	LinkCustomerIdentity(ctx context.Context, arg LinkCustomerIdentityParams) (Identity, error)
 	LinkTelegramRemnawaveUser(ctx context.Context, arg LinkTelegramRemnawaveUserParams) (int64, error)
+	// Only carts whose customer holds wallet history are considered, so the sweep
+	// never re-prices a cart that cannot possibly be covered yet.
+	ListAutoPurchaseCarts(ctx context.Context, limit int32) ([]ListAutoPurchaseCartsRow, error)
+	ListBackups(ctx context.Context, limit int32) ([]Backup, error)
+	ListCartAddons(ctx context.Context, cartID pgtype.UUID) ([]CartAddon, error)
 	ListContactChannels(ctx context.Context, userID pgtype.UUID) ([]ListContactChannelsRow, error)
 	ListCustomerIdentities(ctx context.Context, userID pgtype.UUID) ([]Identity, error)
 	ListCustomerImportItems(ctx context.Context, arg ListCustomerImportItemsParams) ([]CustomerImportItem, error)
 	ListCustomerImportTelegramIDs(ctx context.Context, importID pgtype.UUID) ([]ListCustomerImportTelegramIDsRow, error)
 	ListEntitlementsForReconciliation(ctx context.Context, limit int32) ([]Entitlement, error)
+	ListExpiredBackups(ctx context.Context, limit int32) ([]Backup, error)
 	ListExpiredWalletCredits(ctx context.Context, limit int32) ([]ListExpiredWalletCreditsRow, error)
 	ListLedgerEntriesByTransaction(ctx context.Context, transactionID pgtype.UUID) ([]LedgerEntry, error)
 	ListOpenEntitlementDrifts(ctx context.Context, limit int32) ([]EntitlementDrift, error)
+	ListOperatorTopics(ctx context.Context) ([]OperatorTopic, error)
+	ListOrderAddonLines(ctx context.Context, orderID pgtype.UUID) ([]OrderAddonLine, error)
 	ListPaymentIntentsForReconciliation(ctx context.Context, limit int32) ([]PaymentIntent, error)
+	ListPendingOperatorNotifications(ctx context.Context, limit int32) ([]OperatorNotification, error)
+	// ---------------------------------------------------------------------------
+	// Add-ons
+	// ---------------------------------------------------------------------------
+	ListPlanAddons(ctx context.Context, arg ListPlanAddonsParams) ([]ListPlanAddonsRow, error)
+	ListPlanVersionSquads(ctx context.Context, planVersionID pgtype.UUID) ([]PlanVersionSquad, error)
 	ListRemnawaveMappings(ctx context.Context) ([]ListRemnawaveMappingsRow, error)
+	// Omniflow v0.5 queries: subscriptions, wallet top-up, carts, add-ons,
+	// operator notifications, backups, maintenance mode, and retention.
+	// ---------------------------------------------------------------------------
+	// Subscriptions
+	// ---------------------------------------------------------------------------
+	ListSubscriptions(ctx context.Context, userID pgtype.UUID) ([]Subscription, error)
+	ListSubscriptionsForAlerts(ctx context.Context, limit int32) ([]ListSubscriptionsForAlertsRow, error)
 	ListTelegramIdentitySubjects(ctx context.Context) ([]string, error)
 	ListVisiblePlans(ctx context.Context, locale string) ([]ListVisiblePlansRow, error)
+	ListWalletTopups(ctx context.Context, arg ListWalletTopupsParams) ([]ListWalletTopupsRow, error)
+	// Serialises concurrent purchases for one customer so two taps cannot both
+	// observe a stale count and both pass a concurrency limit check. It is a
+	// statement of its own rather than a CTE, because a planner is free not to
+	// evaluate a CTE whose rows are never needed.
+	LockCustomerSubscriptions(ctx context.Context, dollar_1 string) error
 	LockFulfillmentOperation(ctx context.Context, id pgtype.UUID) (FulfillmentOperation, error)
+	LockOpenCart(ctx context.Context, userID pgtype.UUID) (Cart, error)
 	LockOrder(ctx context.Context, id pgtype.UUID) (Order, error)
+	LockWalletTopup(ctx context.Context, orderID pgtype.UUID) (WalletTopup, error)
+	MarkBackupPruned(ctx context.Context, id pgtype.UUID) (Backup, error)
+	MarkCartPurchased(ctx context.Context, arg MarkCartPurchasedParams) (Cart, error)
 	NextPlanVersion(ctx context.Context, planID pgtype.UUID) (int32, error)
+	// ---------------------------------------------------------------------------
+	// Maintenance mode
+	// ---------------------------------------------------------------------------
+	// A read-only probe used on the hot purchase path. A missing row means
+	// maintenance mode has never been engaged, which is the same as inactive.
+	ReadMaintenanceState(ctx context.Context) (MaintenanceState, error)
+	RecordCartFailure(ctx context.Context, arg RecordCartFailureParams) (Cart, error)
 	ReleasePaymentMutationLock(ctx context.Context, hashtextextended string) error
+	RenameSubscription(ctx context.Context, arg RenameSubscriptionParams) (Subscription, error)
 	ResolveEntitlementDrifts(ctx context.Context, entitlementID pgtype.UUID) error
 	RevokeCustomerIdentity(ctx context.Context, arg RevokeCustomerIdentityParams) (Identity, error)
+	SetCartAddon(ctx context.Context, arg SetCartAddonParams) error
+	SetCartAutoPurchase(ctx context.Context, arg SetCartAutoPurchaseParams) (Cart, error)
+	SetMaintenanceState(ctx context.Context, arg SetMaintenanceStateParams) (MaintenanceState, error)
 	SetOrderState(ctx context.Context, arg SetOrderStateParams) (Order, error)
 	SetPlanVisibility(ctx context.Context, arg SetPlanVisibilityParams) (Plan, error)
+	// The rolling window counts what was actually credited, so a failed or expired
+	// attempt never consumes a customer's allowance.
+	SumRecentTopups(ctx context.Context, arg SumRecentTopupsParams) (int64, error)
+	// Superseding is scoped to one subscription so buying a second subscription
+	// never retires the first one's entitlement.
 	SupersedePreviousEntitlements(ctx context.Context, arg SupersedePreviousEntitlementsParams) error
 	UpdateContactChannelPreferences(ctx context.Context, arg UpdateContactChannelPreferencesParams) (ContactChannel, error)
 	UpdateCustomerImportProgress(ctx context.Context, arg UpdateCustomerImportProgressParams) (CustomerImport, error)
@@ -101,9 +203,18 @@ type Querier interface {
 	UpdateOrderPayment(ctx context.Context, arg UpdateOrderPaymentParams) (Order, error)
 	UpdateOrderRefund(ctx context.Context, arg UpdateOrderRefundParams) (Order, error)
 	UpdatePaymentIntentStatus(ctx context.Context, arg UpdatePaymentIntentStatusParams) (PaymentIntent, error)
+	// ---------------------------------------------------------------------------
+	// Cart and deferred purchase
+	// ---------------------------------------------------------------------------
+	UpsertCart(ctx context.Context, arg UpsertCartParams) (Cart, error)
 	UpsertCustomerImportItem(ctx context.Context, arg UpsertCustomerImportItemParams) (CustomerImportItem, error)
+	// ---------------------------------------------------------------------------
+	// Operator notifications
+	// ---------------------------------------------------------------------------
+	UpsertOperatorTopic(ctx context.Context, arg UpsertOperatorTopicParams) (OperatorTopic, error)
 	UpsertPlanLocalization(ctx context.Context, arg UpsertPlanLocalizationParams) (PlanLocalization, error)
 	UpsertRemnawaveMapping(ctx context.Context, arg UpsertRemnawaveMappingParams) (RemnawaveUser, error)
+	UpsertSubscriptionRemnawaveUser(ctx context.Context, arg UpsertSubscriptionRemnawaveUserParams) (Subscription, error)
 }
 
 var _ Querier = (*Queries)(nil)

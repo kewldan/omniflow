@@ -1,0 +1,16 @@
+{
+  "type": "notification",
+  "event": "payment.succeeded",
+  "object": {
+    "id": "2f0a1b3c-000f-5000-9000-1f7a0a0a0a0a",
+    "status": "succeeded",
+    "paid": true,
+    "amount": {
+      "value": "1499.00",
+      "currency": "RUB"
+    },
+    "metadata": {
+      "order_id": "018f0000-0000-7000-8000-000000000001"
+    }
+  }
+}

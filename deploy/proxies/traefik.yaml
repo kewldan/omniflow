@@ -1,0 +1,64 @@
+# Traefik static configuration for a single-server Omniflow deployment.
+#
+# Omniflow does not bundle or require a reverse proxy. This file is a working
+# example alongside the Caddyfile; either is a supported way to terminate TLS in
+# front of the stack.
+#
+# Usage:
+#   docker compose -f compose.yaml -f deploy/proxies/traefik.compose.yaml up -d
+#
+# The dynamic routing rules live in traefik-dynamic.yaml.
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
+    # Only the proxy's own network is trusted to set forwarding headers, so a
+    # client cannot spoof its source address.
+    forwardedHeaders:
+      trustedIPs:
+        - "10.0.0.0/8"
+        - "172.16.0.0/12"
+        - "192.168.0.0/16"
+  websecure:
+    address: ":443"
+    forwardedHeaders:
+      trustedIPs:
+        - "10.0.0.0/8"
+        - "172.16.0.0/12"
+        - "192.168.0.0/16"
+    http:
+      tls:
+        certResolver: letsencrypt
+    transport:
+      respondingTimeouts:
+        readTimeout: 30s
+        writeTimeout: 30s
+        idleTimeout: 90s
+
+providers:
+  file:
+    filename: /etc/traefik/dynamic.yaml
+    watch: true
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: "${ACME_EMAIL}"
+      storage: /letsencrypt/acme.json
+      tlsChallenge: {}
+
+# Access logs are off by default: they record request paths, and a subscription
+# link is a request path. Turn them on only with a path filter you have reviewed.
+accessLog: null
+
+log:
+  level: INFO
+
+api:
+  dashboard: false

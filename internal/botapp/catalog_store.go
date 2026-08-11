@@ -153,33 +153,54 @@ type Entitlement struct {
 	Currency      string
 	AmountMinor   int64
 	Found         bool
+	// SubscriptionID names the subscription this entitlement belongs to. It is
+	// empty for an entitlement created before v0.5 that has not been adopted.
+	SubscriptionID string
+	// SubscriptionLabel is set when a notification has to name the subscription
+	// unambiguously, which is whenever a customer holds more than one.
+	SubscriptionLabel string
 }
 
-// Entitlement reads the customer's most recent non-superseded entitlement.
+// Entitlement reads the customer's most recent non-superseded entitlement across
+// every subscription. It is what a single-subscription installation uses.
 func (store *PostgresStore) Entitlement(ctx context.Context, customerID string, locale Locale, currency string) (Entitlement, error) {
+	return store.entitlement(ctx, customerID, "", locale, currency)
+}
+
+// EntitlementForSubscription reads the entitlement of one named subscription, so
+// an alert, a renewal, or an add-on always acts on the right one.
+func (store *PostgresStore) EntitlementForSubscription(ctx context.Context, customerID, subscriptionID string, locale Locale, currency string) (Entitlement, error) {
+	return store.entitlement(ctx, customerID, subscriptionID, locale, currency)
+}
+
+func (store *PostgresStore) entitlement(ctx context.Context, customerID, subscriptionID string, locale Locale, currency string) (Entitlement, error) {
 	var (
 		entitlement  Entitlement
 		graceSeconds int64
 		planName     pgtype.Text
 		price        pgtype.Int8
+		subscription pgtype.Text
 	)
 	err := store.pool.QueryRow(ctx, `SELECT e.id::text, e.status, e.starts_at, e.ends_at,
-		v.grace_period_seconds, v.id::text, p.code, l.name, pr.amount_minor
+		v.grace_period_seconds, v.id::text, p.code, l.name, pr.amount_minor,
+		COALESCE(e.subscription_id::text, '')
 		FROM entitlements e
 		JOIN plan_versions v ON v.id = e.plan_version_id
 		JOIN plans p ON p.id = v.plan_id
 		LEFT JOIN plan_localizations l ON l.plan_id = p.id AND l.locale = $2
 		LEFT JOIN plan_prices pr ON pr.plan_version_id = v.id AND pr.currency = $3
 		WHERE e.user_id = $1::uuid AND e.status <> 'superseded'
-		ORDER BY e.ends_at DESC LIMIT 1`, customerID, string(locale), currency).
+		  AND ($4 = '' OR e.subscription_id = $4::uuid)
+		ORDER BY e.ends_at DESC LIMIT 1`, customerID, string(locale), currency, subscriptionID).
 		Scan(&entitlement.ID, &entitlement.Status, &entitlement.StartsAt, &entitlement.EndsAt,
-			&graceSeconds, &entitlement.PlanVersionID, &entitlement.PlanCode, &planName, &price)
+			&graceSeconds, &entitlement.PlanVersionID, &entitlement.PlanCode, &planName, &price, &subscription)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Entitlement{}, nil
 	}
 	if err != nil {
 		return Entitlement{}, err
 	}
+	entitlement.SubscriptionID = subscription.String
 	entitlement.Found = true
 	entitlement.GracePeriod = time.Duration(graceSeconds) * time.Second
 	entitlement.PlanName = planName.String

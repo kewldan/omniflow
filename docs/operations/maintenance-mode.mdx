@@ -1,0 +1,71 @@
+---
+title: Maintenance mode
+description: Pausing purchases and provisioning without disturbing money that has already been taken.
+---
+
+Maintenance mode is the switch that stops Omniflow taking new money it cannot yet fulfil. It is deliberately narrow: it blocks new purchases and holds outbound provisioning, and touches nothing else.
+
+## What it does and does not block
+
+| Blocked | Still working |
+| --- | --- |
+| Creating an order, including a top-up and an add-on | Settling a payment that is already in flight |
+| Starting a provider payment | Recording refunds |
+| Pushing entitlement state to Remnawave | Order, wallet, and payment history |
+| Automatic cart purchase | Support tickets and replies |
+| | Existing VPN access, which lives in Remnawave |
+
+An order that was paid before the window opened still settles, still credits the wallet or creates its entitlement, and still qualifies a referral. Only the outbound Remnawave call waits.
+
+A held fulfillment job is snoozed, not failed. It keeps its operation record, its idempotency key, and its retry budget, and runs as soon as the window closes.
+
+## Manual activation
+
+```http
+PUT /v1/admin/maintenance
+Authorization: Bearer <operator token>
+
+{
+  "active": true,
+  "operatorId": "ops@example.com",
+  "reason": "planned Remnawave upgrade",
+  "noticeRu": "Проводим плановое обновление. Доступ работает, покупки временно недоступны.",
+  "noticeEn": "We are running a planned upgrade. Your access keeps working; purchases are paused.",
+  "expectedReturnAt": "2026-08-11T15:00:00Z"
+}
+```
+
+Clearing it is the same call with `"active": false`.
+
+Both the notice fields are optional. An empty notice falls back to the built-in localized copy, which explains that access and paid orders are unaffected. Supplying your own is better when you can say something specific about the cause and the expected return.
+
+Every activation and clearance is recorded in `maintenance_events` with the actor, so an operator can explain the outage afterwards.
+
+## Automatic detection
+
+The API process already probes every dependency for its readiness endpoint, so it also owns automatic detection.
+
+```bash
+APP_MAINTENANCE_AUTO_DETECT=true
+APP_MAINTENANCE_PROBE_SECONDS=30
+APP_MAINTENANCE_FAILURE_STREAK=3
+APP_MAINTENANCE_RECOVERY_STREAK=3
+```
+
+- Maintenance opens after `FAILURE_STREAK` consecutive unhealthy samples. One timeout never closes an installation.
+- It closes after `RECOVERY_STREAK` consecutive healthy samples. A flapping dependency does not reopen purchases the moment it answers once.
+- **A window an operator opened is never closed automatically.** Recovery only clears a window that detection itself opened. An operator who turned it on is the only one who turns it off.
+
+The recorded `source` says which it was: `manual`, `remnawave`, `database`, or `valkey`. When several dependencies fail at once the database is named first, because it is the one that explains the others.
+
+## What a customer sees
+
+The purchase surface is replaced by a maintenance notice at its entry point — before the customer picks anything, not after they tap pay. The notice carries your wording when you supplied it, the built-in localized copy otherwise, and the expected return time when it is set. Support and order history stay reachable from it.
+
+Read-only screens are never blocked. A customer in a maintenance window can still see their subscription, their orders, and their wallet, which is exactly what they will want to check.
+
+## Observability
+
+`omniflow_maintenance_mode` is `1` while a window is open. Alert on it staying `1` for longer than a planned window: automatic detection opening a window you did not plan is the signal, and it staying open is the incident.
+
+`GET /v1/admin/maintenance` returns the current state, source, reason, and activation time.

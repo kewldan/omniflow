@@ -29,6 +29,9 @@
           "commerce/catalog-promotions",
           "commerce/orders-payments",
           "commerce/wallet-ledger",
+          "commerce/wallet-topup-cart",
+          "commerce/subscriptions",
+          "commerce/addons-configurator",
           "commerce/fulfillment",
           "commerce/referrals-communication",
           "commerce/financial-invariants"
@@ -43,6 +46,11 @@
         "pages": [
           "operations/deployment",
           "operations/reverse-proxy",
+          "operations/observability",
+          "operations/maintenance-mode",
+          "operations/operator-notifications",
+          "operations/backup-restore",
+          "operations/troubleshooting",
           "operations/telemetry",
           "operations/security"
         ]

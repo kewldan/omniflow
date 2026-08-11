@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -17,22 +18,54 @@ import (
 
 type EnqueueFulfillment func(context.Context, pgx.Tx, string) error
 
+// Options are the operator-configured policies the store enforces. They are
+// supplied by each process from configuration, so the API, the bot, and the
+// worker all apply the same limits.
+type Options struct {
+	Subscriptions commerce.SubscriptionPolicy
+	TopUp         commerce.TopUpLimits
+	Logger        *slog.Logger
+}
+
 type Store struct {
 	pool    *pgxpool.Pool
 	enqueue EnqueueFulfillment
 	clock   func() time.Time
+	options Options
 }
 
-func New(pool *pgxpool.Pool, enqueue EnqueueFulfillment) *Store {
-	return &Store{pool: pool, enqueue: enqueue, clock: time.Now}
+func New(pool *pgxpool.Pool, enqueue EnqueueFulfillment, options ...Options) *Store {
+	store := &Store{pool: pool, enqueue: enqueue, clock: time.Now}
+	if len(options) > 0 {
+		store.options = options[0]
+	}
+	if store.options.Logger == nil {
+		store.options.Logger = slog.Default()
+	}
+	return store
 }
 
-func (store *Store) RunMaintenance(ctx context.Context) {
+// SubscriptionPolicy reports the concurrency policy this store enforces.
+func (store *Store) SubscriptionPolicy() commerce.SubscriptionPolicy {
+	return store.options.Subscriptions
+}
+
+// TopUpLimits reports the wallet top-up policy this store enforces.
+func (store *Store) TopUpLimits() commerce.TopUpLimits { return store.options.TopUp }
+
+func (store *Store) RunMaintenance(ctx context.Context, logger *slog.Logger) {
+	if logger == nil {
+		logger = slog.Default()
+	}
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 	for {
 		_, _ = dbgen.New(store.pool).ExpirePendingOrders(ctx)
 		store.expireWalletCredits(ctx)
+		// A saved cart is charged as soon as any wallet credit covers it, not
+		// only when a top-up settles, so a referral reward or an operator
+		// correction releases it too.
+		store.SweepCarts(ctx, logger)
 		select {
 		case <-ctx.Done():
 			return
@@ -86,6 +119,23 @@ type CreateOrderInput struct {
 	// SkipWallet keeps the customer's wallet balance out of this order. The
 	// zero value applies the wallet first, which is the documented default.
 	SkipWallet bool
+	// SubscriptionID names the subscription this order changes. It is required
+	// once an installation enables concurrent subscriptions and the customer
+	// holds more than one; leaving it empty targets the primary subscription.
+	SubscriptionID string
+	// NewSubscription opens an additional subscription instead of changing an
+	// existing one. It is only meaningful for a purchase.
+	NewSubscription bool
+	// SubscriptionLabel is the customer-visible name for a newly opened
+	// subscription. An empty label falls back to a neutral default.
+	SubscriptionLabel string
+	// SelectedSquadIDs are the squads the customer chose from the plan's
+	// selectable set. They are validated against the plan's squad policy.
+	SelectedSquadIDs []string
+	// Addons are bought together with the plan and charged on the same order,
+	// so one confirmation is one payment. They cover the full first period, so
+	// no proration applies to them here.
+	Addons []AddonSelection
 }
 
 // Promotion and policy rejections carry a stable machine reason so a customer
@@ -98,6 +148,18 @@ var (
 	ErrOperationForbidden  = errors.New("operation_forbidden")
 	ErrPlanUnavailable     = errors.New("plan_unavailable")
 	ErrTrialAlreadyClaimed = errors.New("trial_already_used")
+	// ErrMaintenance refuses a new purchase while the installation is in
+	// maintenance. Money already taken is untouched: only new orders stop.
+	ErrMaintenance = errors.New("maintenance_active")
+	// ErrSubscriptionUnknown is returned when a checkout names a subscription
+	// that does not belong to the customer.
+	ErrSubscriptionUnknown = errors.New("subscription_unknown")
+	// ErrAddonUnavailable is returned when an add-on is archived, unpriced, or
+	// not offered for the plan being changed.
+	ErrAddonUnavailable = errors.New("addon_unavailable")
+	// ErrNoActiveSubscription is returned when an add-on has nothing to attach
+	// to, because the target subscription has no live entitlement.
+	ErrNoActiveSubscription = errors.New("no_active_subscription")
 )
 
 // OrderQuote is the priced, validated result of evaluating a checkout intent
@@ -109,7 +171,18 @@ type OrderQuote struct {
 	WalletBalance int64
 	WalletMinor   int64
 	ExternalMinor int64
-	promo         *dbgen.GetPromoForRedemptionRow
+	// SquadIDs is the resolved squad set: the plan's always-assigned squads
+	// plus the customer's accepted selection.
+	SquadIDs []string
+	// AddonMinor is what the selected add-ons add to the order total.
+	AddonMinor int64
+	addons     []pricedAddon
+	promo      *dbgen.GetPromoForRedemptionRow
+}
+
+// TotalMinor is what the customer owes before the wallet is applied.
+func (quote OrderQuote) TotalMinor() int64 {
+	return quote.Plan.AmountMinor - quote.DiscountMinor + quote.AddonMinor
 }
 
 // PreviewOrder prices a checkout intent without creating an order. It takes the
@@ -196,15 +269,57 @@ func (store *Store) quote(ctx context.Context, queries *dbgen.Queries, userID, p
 		discount = discountMoney.Amount
 		promo = &lockedPromo
 	}
+	squads, err := store.resolveSquads(ctx, queries, plan, input.SelectedSquadIDs)
+	if err != nil {
+		return OrderQuote{}, err
+	}
+	// Add-ons bought with the plan cover the whole first period, so they are
+	// charged at the catalog price with no proration.
+	addons, addonMinor, err := store.priceInitialAddons(ctx, queries, plan, input)
+	if err != nil {
+		return OrderQuote{}, err
+	}
 	applicableWallet := wallet
 	if input.SkipWallet {
 		applicableWallet = 0
 	}
-	domainOrder, err := commerce.NewOrder("", input.CustomerID, commerce.Money{Amount: plan.AmountMinor, Currency: plan.Currency}, discount, applicableWallet)
+	// The discount applies to the plan, not to the add-ons, so the add-on total
+	// is added after the promotion has been taken off the plan price.
+	subtotal := plan.AmountMinor + addonMinor
+	domainOrder, err := commerce.NewOrder("", input.CustomerID, commerce.Money{Amount: subtotal, Currency: plan.Currency}, discount, applicableWallet)
 	if err != nil {
 		return OrderQuote{}, err
 	}
-	return OrderQuote{Plan: plan, DiscountMinor: discount, WalletBalance: wallet, WalletMinor: domainOrder.WalletMinor, ExternalMinor: domainOrder.ExternalMinor, promo: promo}, nil
+	return OrderQuote{
+		Plan: plan, DiscountMinor: discount, WalletBalance: wallet,
+		WalletMinor: domainOrder.WalletMinor, ExternalMinor: domainOrder.ExternalMinor,
+		SquadIDs: squads, AddonMinor: addonMinor, addons: addons, promo: promo,
+	}, nil
+}
+
+// resolveSquads validates the customer's squad choice against the plan version's
+// selection policy and returns the final set the entitlement will carry.
+func (store *Store) resolveSquads(ctx context.Context, queries *dbgen.Queries, plan dbgen.GetPlanVersionForOrderRow, selected []string) ([]string, error) {
+	policy := commerce.SquadPolicy{
+		Selection: plan.SquadSelection,
+		Included:  databaseutil.UUIDStrings(plan.RemnawaveSquadIds),
+		Minimum:   int(plan.MinSelectableSquads),
+	}
+	if plan.MaxSelectableSquads.Valid {
+		maximum := int(plan.MaxSelectableSquads.Int32)
+		policy.Maximum = &maximum
+	}
+	if policy.Selection != "" && policy.Selection != "automatic" {
+		offered, err := queries.ListPlanVersionSquads(ctx, plan.ID)
+		if err != nil {
+			return nil, err
+		}
+		policy.Offered = make([]string, 0, len(offered))
+		for _, squad := range offered {
+			policy.Offered = append(policy.Offered, uuidString(squad.SquadID))
+		}
+	}
+	return policy.ResolveSquads(selected)
 }
 
 func (store *Store) CreateOrder(ctx context.Context, input CreateOrderInput) (dbgen.Order, error) {
@@ -237,11 +352,22 @@ func (store *Store) CreateOrder(ctx context.Context, input CreateOrderInput) (db
 	} else if !errors.Is(existingErr, pgx.ErrNoRows) {
 		return dbgen.Order{}, existingErr
 	}
+	if err = store.assertOperational(ctx, queries); err != nil {
+		return dbgen.Order{}, err
+	}
 	quote, err := store.quote(ctx, queries, userID, planVersionID, input)
 	if err != nil {
 		return dbgen.Order{}, err
 	}
 	plan, discount, promo := quote.Plan, quote.DiscountMinor, quote.promo
+	subscriptionID, err := store.resolveSubscription(ctx, queries, userID, plan, input)
+	if err != nil {
+		return dbgen.Order{}, err
+	}
+	squadIDs, err := databaseutil.ParseUUIDs(quote.SquadIDs)
+	if err != nil {
+		return dbgen.Order{}, err
+	}
 	domainOrder := commerce.Order{WalletMinor: quote.WalletMinor, ExternalMinor: quote.ExternalMinor}
 	state := string(commerce.OrderPending)
 	if domainOrder.ExternalMinor == 0 {
@@ -253,18 +379,26 @@ func (store *Store) CreateOrder(ctx context.Context, input CreateOrderInput) (db
 	}
 	order, err := queries.CreateOrder(ctx, dbgen.CreateOrderParams{
 		UserID: userID, State: state, Operation: input.Operation, Currency: plan.Currency,
-		SubtotalMinor: plan.AmountMinor, DiscountMinor: discount, WalletMinor: domainOrder.WalletMinor,
+		SubtotalMinor: plan.AmountMinor + quote.AddonMinor, DiscountMinor: discount,
+		WalletMinor:   domainOrder.WalletMinor,
 		ExternalMinor: domainOrder.ExternalMinor, IdempotencyKey: input.IdempotencyKey,
-		ExpiresAt: pgtype.Timestamptz{Time: expiresAt, Valid: true},
+		ExpiresAt:      pgtype.Timestamptz{Time: expiresAt, Valid: true},
+		SubscriptionID: subscriptionID, SelectedSquadIds: squadIDs,
 	})
 	if err != nil {
+		return dbgen.Order{}, err
+	}
+	// Add-ons bought with the plan are charged on this order, so one
+	// confirmation is one payment rather than two.
+	if err = store.insertAddonLines(ctx, queries, order.ID, quote.addons, expiresAt); err != nil {
 		return dbgen.Order{}, err
 	}
 	snapshot, _ := json.Marshal(map[string]any{
 		"planCode": plan.Code, "planKind": plan.Kind, "version": plan.Version,
 		"billingPeriod": plan.BillingPeriod, "durationSeconds": plan.DurationSeconds,
 		"trafficAllowanceBytes": nullableInt8(plan.TrafficAllowanceBytes),
-		"deviceLimit":           nullableInt4(plan.DeviceLimit), "squadIds": databaseutil.UUIDStrings(plan.RemnawaveSquadIds),
+		"deviceLimit":           nullableInt4(plan.DeviceLimit), "squadIds": quote.SquadIDs,
+		"planSquadIds":  databaseutil.UUIDStrings(plan.RemnawaveSquadIds),
 		"upgradePolicy": plan.UpgradePolicy, "downgradePolicy": plan.DowngradePolicy,
 		"cancellationPolicy": plan.CancellationPolicy,
 	})
@@ -320,6 +454,12 @@ func (store *Store) RecordProviderPayment(ctx context.Context, paymentIntentID, 
 	}
 	domainOrder := commerce.Order{ID: uuidString(order.ID), CustomerID: uuidString(order.UserID), State: commerce.OrderState(order.State), Subtotal: commerce.Money{Amount: order.SubtotalMinor, Currency: order.Currency}, DiscountMinor: order.DiscountMinor, WalletMinor: order.WalletMinor, ExternalMinor: order.ExternalMinor, PaidMinor: order.PaidMinor, RefundedMinor: order.RefundedMinor}
 	updated, classification, applyErr := domainOrder.ApplyPayment(commerce.PaymentResult{Amount: amount, Late: late})
+	// A wallet top-up owes nothing beyond the money itself, so a mismatch is
+	// resolved by crediting exactly what arrived instead of parking the order in
+	// a state that contradicts the payment.
+	if applyErr == nil && order.Operation == "topup" && (classification == "overpayment" || classification == "underpayment") {
+		updated.PaidMinor, updated.State = amount.Amount, commerce.OrderPaid
+	}
 	if applyErr == nil && (classification == "paid" || classification == "late") && order.WalletMinor > 0 {
 		walletBalance, balanceErr := queries.GetWalletBalance(ctx, dbgen.GetWalletBalanceParams{UserID: order.UserID, Currency: order.Currency})
 		if balanceErr != nil {
@@ -338,7 +478,8 @@ func (store *Store) RecordProviderPayment(ctx context.Context, paymentIntentID, 
 	if _, err = queries.InsertPaymentEvent(ctx, dbgen.InsertPaymentEventParams{PaymentIntentID: intent.ID, Type: eventType, PreviousStatus: pgtype.Text{String: intent.Status, Valid: true}, Status: pgtype.Text{String: "succeeded", Valid: true}, AmountMinor: pgtype.Int8{Int64: amount.Amount, Valid: true}, Currency: pgtype.Text{String: amount.Currency, Valid: true}, ProviderEventID: pgtype.Text{String: providerEventID, Valid: true}, Details: []byte(`{}`)}); err != nil {
 		return dbgen.Order{}, "", err
 	}
-	if applyErr != nil || classification == "underpayment" || classification == "overpayment" || classification == "currency_mismatch" || classification == "wallet_unavailable" || classification == "duplicate" {
+	settles := updated.State == commerce.OrderPaid
+	if applyErr != nil || !settles || classification == "currency_mismatch" || classification == "wallet_unavailable" || classification == "duplicate" {
 		if err = tx.Commit(ctx); err != nil {
 			return dbgen.Order{}, "", err
 		}
@@ -356,6 +497,13 @@ func (store *Store) RecordProviderPayment(ctx context.Context, paymentIntentID, 
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return dbgen.Order{}, "", err
+	}
+	// A settled top-up releases a saved cart. This runs after the commit on
+	// purpose: a cart failure must never roll back a payment that was received.
+	if order.Operation == "topup" {
+		if _, cartErr := store.TryPurchaseCart(context.WithoutCancel(ctx), uuidString(order.UserID)); cartErr != nil {
+			store.options.Logger.Warn("deferred cart purchase after top-up failed", "error", cartErr, "order_id", uuidString(order.ID))
+		}
 	}
 	return order, classification, nil
 }
@@ -406,6 +554,10 @@ func (store *Store) RecordRefund(ctx context.Context, paymentIntentID, refundID,
 	if err != nil {
 		return dbgen.Order{}, err
 	}
+	store.notifyOperator(ctx, queries, "refund", "refund:"+refundID, map[string]any{
+		"orderId": uuidString(order.ID), "currency": amount.Currency,
+		"amountMinor": amount.Amount, "status": state,
+	})
 	return order, tx.Commit(ctx)
 }
 
@@ -484,26 +636,24 @@ func (store *Store) AdjustWallet(ctx context.Context, customerID, currency strin
 	return tx.Commit(ctx)
 }
 
+// settlePaidOrder turns a paid order into the state it bought. It runs inside
+// the transaction that recorded the payment, so the ledger movement, the
+// entitlement, and the durable fulfillment job all commit together or not at
+// all.
 func (store *Store) settlePaidOrder(ctx context.Context, tx pgx.Tx, queries *dbgen.Queries, order dbgen.Order, idempotencyKey string) error {
-	settledMinor := order.WalletMinor + order.ExternalMinor
-	if settledMinor > 0 {
-		transaction, err := queries.CreateLedgerTransaction(ctx, dbgen.CreateLedgerTransactionParams{Type: "payment", ReferenceType: "order", ReferenceID: uuidString(order.ID), IdempotencyKey: idempotencyKey})
-		if err != nil {
+	switch order.Operation {
+	case "topup":
+		// A top-up buys nothing but credit, so it never creates an entitlement
+		// and never qualifies a referral.
+		return store.creditTopUp(ctx, queries, order, idempotencyKey)
+	case "addon":
+		if err := store.recordOrderRevenue(ctx, queries, order, idempotencyKey); err != nil {
 			return err
 		}
-		if order.WalletMinor > 0 {
-			if _, err = queries.InsertLedgerEntry(ctx, dbgen.InsertLedgerEntryParams{TransactionID: transaction.ID, AccountType: "customer_wallet", UserID: order.UserID, Currency: order.Currency, AmountMinor: -order.WalletMinor}); err != nil {
-				return err
-			}
-		}
-		if order.ExternalMinor > 0 {
-			if _, err = queries.InsertLedgerEntry(ctx, dbgen.InsertLedgerEntryParams{TransactionID: transaction.ID, AccountType: "provider_clearing", Currency: order.Currency, AmountMinor: -order.ExternalMinor}); err != nil {
-				return err
-			}
-		}
-		if _, err = queries.InsertLedgerEntry(ctx, dbgen.InsertLedgerEntryParams{TransactionID: transaction.ID, AccountType: "platform_clearing", Currency: order.Currency, AmountMinor: settledMinor}); err != nil {
-			return err
-		}
+		return store.applyOrderAddons(ctx, tx, queries, order, idempotencyKey)
+	}
+	if err := store.recordOrderRevenue(ctx, queries, order, idempotencyKey); err != nil {
+		return err
 	}
 	spec, err := queries.GetOrderEntitlementSpec(ctx, order.ID)
 	if err != nil {
@@ -511,7 +661,7 @@ func (store *Store) settlePaidOrder(ctx context.Context, tx pgx.Tx, queries *dbg
 	}
 	startsAt := store.clock().UTC()
 	var currentEndsAt *time.Time
-	if current, currentErr := queries.GetLatestEntitlementForChange(ctx, order.UserID); currentErr == nil {
+	if current, currentErr := queries.GetLatestEntitlementForChange(ctx, dbgen.GetLatestEntitlementForChangeParams{UserID: order.UserID, SubscriptionID: order.SubscriptionID}); currentErr == nil {
 		currentEndsAt = &current.EndsAt.Time
 	} else if !errors.Is(currentErr, pgx.ErrNoRows) {
 		return currentErr
@@ -520,11 +670,23 @@ func (store *Store) settlePaidOrder(ctx context.Context, tx pgx.Tx, queries *dbg
 	if err != nil {
 		return err
 	}
-	entitlement, err := queries.CreateEntitlement(ctx, dbgen.CreateEntitlementParams{UserID: order.UserID, OrderID: order.ID, PlanVersionID: spec.PlanVersionID, StartsAt: pgtype.Timestamptz{Time: schedule.StartsAt, Valid: true}, EndsAt: pgtype.Timestamptz{Time: schedule.EndsAt, Valid: true}, TrafficAllowanceBytes: spec.TrafficAllowanceBytes, DeviceLimit: spec.DeviceLimit, RemnawaveSquadIds: spec.RemnawaveSquadIds})
+	// The order carries the squad set the customer confirmed. A plan whose
+	// squads are assigned automatically leaves it empty and falls back to the
+	// plan version's own set.
+	squadIDs := order.SelectedSquadIds
+	if len(squadIDs) == 0 {
+		squadIDs = spec.RemnawaveSquadIds
+	}
+	entitlement, err := queries.CreateEntitlement(ctx, dbgen.CreateEntitlementParams{UserID: order.UserID, OrderID: order.ID, PlanVersionID: spec.PlanVersionID, StartsAt: pgtype.Timestamptz{Time: schedule.StartsAt, Valid: true}, EndsAt: pgtype.Timestamptz{Time: schedule.EndsAt, Valid: true}, TrafficAllowanceBytes: spec.TrafficAllowanceBytes, DeviceLimit: spec.DeviceLimit, RemnawaveSquadIds: squadIDs, SubscriptionID: order.SubscriptionID})
 	if err != nil {
 		return err
 	}
-	desired, _ := json.Marshal(map[string]any{"effectiveAt": schedule.EffectiveAt, "endsAt": schedule.EndsAt, "trafficAllowanceBytes": nullableInt8(spec.TrafficAllowanceBytes), "deviceLimit": nullableInt4(spec.DeviceLimit), "squadIds": databaseutil.UUIDStrings(spec.RemnawaveSquadIds)})
+	// Add-ons bought with the plan are folded into the entitlement before the
+	// desired state is computed, so provisioning pushes one combined result.
+	if entitlement, err = store.applyAddonLines(ctx, queries, order, entitlement); err != nil {
+		return err
+	}
+	desired, _ := json.Marshal(map[string]any{"effectiveAt": schedule.EffectiveAt, "endsAt": schedule.EndsAt, "trafficAllowanceBytes": nullableInt8(entitlement.TrafficAllowanceBytes), "deviceLimit": nullableInt4(entitlement.DeviceLimit), "squadIds": databaseutil.UUIDStrings(entitlement.RemnawaveSquadIds)})
 	operation, err := queries.CreateFulfillmentOperation(ctx, dbgen.CreateFulfillmentOperationParams{EntitlementID: entitlement.ID, Operation: "create", IdempotencyKey: "order:" + uuidString(order.ID) + ":fulfill", CorrelationID: idempotencyKey, DesiredState: desired})
 	if err != nil {
 		return err
@@ -532,6 +694,10 @@ func (store *Store) settlePaidOrder(ctx context.Context, tx pgx.Tx, queries *dbg
 	if _, err = queries.InsertOutboxEvent(ctx, dbgen.InsertOutboxEventParams{Topic: "order.paid", Payload: []byte(fmt.Sprintf(`{"orderId":%q,"entitlementId":%q}`, uuidString(order.ID), uuidString(entitlement.ID)))}); err != nil {
 		return err
 	}
+	store.notifyOperator(ctx, queries, operatorKindForOrder(order.Operation), "order:"+uuidString(order.ID), map[string]any{
+		"orderId": uuidString(order.ID), "subscriptionId": uuidStringOrEmpty(order.SubscriptionID),
+		"operation": order.Operation, "currency": order.Currency, "amountMinor": order.PaidMinor,
+	})
 	// Referral rewards are granted in the same transaction as the settlement
 	// that qualified them, so a retried webhook can never credit twice.
 	program, err := store.referralProgram(ctx, tx)

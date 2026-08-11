@@ -7,10 +7,20 @@ import (
 	"github.com/omniflow/omniflow/internal/commerce"
 )
 
+// subscriptionPrefix names the subscription an alert is about. It is empty for a
+// customer who holds exactly one, so a single-subscription installation reads
+// exactly as it did before.
+func subscriptionPrefix(locale Locale, label string) string {
+	if label == "" {
+		return ""
+	}
+	return text(locale, "alert.subscription", html.EscapeString(label)) + "\n\n"
+}
+
 // expiryAlertView is the v0.2 expiry reminder, now routed through the shared
-// delivery policy.
-func expiryAlertView(locale Locale, days int) View {
-	body := text(locale, "alert.expiry", days)
+// delivery policy and named per subscription.
+func expiryAlertView(locale Locale, days int, subscriptionLabel string) View {
+	body := subscriptionPrefix(locale, subscriptionLabel) + text(locale, "alert.expiry", days)
 	return View{Text: body, Keyboard: keyboard(
 		row(callbackButton(text(locale, "menu.renew"), routePlans)),
 		row(callbackButton(text(locale, "action.menu"), routeHome)),
@@ -18,33 +28,47 @@ func expiryAlertView(locale Locale, days int) View {
 }
 
 // trafficAlertView warns that the traffic allowance is running out.
-func trafficAlertView(locale Locale, percent int64) View {
-	return View{Text: text(locale, "alert.traffic", percent), Keyboard: keyboard(
+func trafficAlertView(locale Locale, percent int64, subscriptionLabel string) View {
+	body := subscriptionPrefix(locale, subscriptionLabel) + text(locale, "alert.traffic", percent)
+	return View{Text: body, Keyboard: keyboard(
 		row(callbackButton(text(locale, "menu.upgrade"), routePlans)),
 		row(callbackButton(text(locale, "action.menu"), routeHome)),
 	)}
 }
 
 // renewalReminderView offers a direct, idempotent renewal checkout. Tapping it
-// twice resumes the same checkout rather than creating a second order.
+// twice resumes the same checkout rather than creating a second order, and the
+// action names the subscription so a multi-subscription customer renews the one
+// the reminder is about.
 func renewalReminderView(locale Locale, entitlement Entitlement, days int) View {
 	rows := []([]models.InlineKeyboardButton){
-		row(actionButton(text(locale, "menu.renew"), "buy:"+entitlement.PlanVersionID+":extension")),
+		row(actionButton(text(locale, "menu.renew"), renewAction(entitlement))),
 		row(callbackButton(text(locale, "menu.plans"), routePlans)),
 		row(callbackButton(text(locale, "action.menu"), routeHome)),
 	}
 	return View{
-		Text:     text(locale, "alert.renewal", html.EscapeString(entitlement.PlanName), days, formatDate(entitlement.EndsAt)),
+		Text: subscriptionPrefix(locale, entitlement.SubscriptionLabel) +
+			text(locale, "alert.renewal", html.EscapeString(entitlement.PlanName), days, formatDate(entitlement.EndsAt)),
 		Keyboard: keyboard(rows...),
 	}
+}
+
+// renewAction targets the renewal at the subscription the entitlement belongs
+// to. Without a subscription it falls back to the plan-only action, which the
+// checkout then resolves to the customer's primary subscription.
+func renewAction(entitlement Entitlement) string {
+	if entitlement.SubscriptionID != "" {
+		return "sub-renew:" + entitlement.SubscriptionID
+	}
+	return "buy:" + entitlement.PlanVersionID + ":extension"
 }
 
 // gracePeriodView explains that access continues briefly after expiry.
 func gracePeriodView(locale Locale, entitlement Entitlement) View {
 	return View{
-		Text: lifecycleNotice(locale, commerce.PhaseGrace, entitlement),
+		Text: subscriptionPrefix(locale, entitlement.SubscriptionLabel) + lifecycleNotice(locale, commerce.PhaseGrace, entitlement),
 		Keyboard: keyboard(
-			row(actionButton(text(locale, "menu.renew"), "buy:"+entitlement.PlanVersionID+":extension")),
+			row(actionButton(text(locale, "menu.renew"), renewAction(entitlement))),
 			row(callbackButton(text(locale, "action.menu"), routeHome)),
 		),
 	}
@@ -53,7 +77,7 @@ func gracePeriodView(locale Locale, entitlement Entitlement) View {
 // recoveryView offers one-tap recovery for an expired subscription.
 func recoveryView(locale Locale, entitlement Entitlement) View {
 	return View{
-		Text: lifecycleNotice(locale, commerce.PhaseExpired, entitlement),
+		Text: subscriptionPrefix(locale, entitlement.SubscriptionLabel) + lifecycleNotice(locale, commerce.PhaseExpired, entitlement),
 		Keyboard: keyboard(
 			row(actionButton(text(locale, "life.recover"), "buy:"+entitlement.PlanVersionID+":purchase")),
 			row(callbackButton(text(locale, "menu.plans"), routePlans)),
@@ -64,12 +88,12 @@ func recoveryView(locale Locale, entitlement Entitlement) View {
 
 // fulfillmentAlertView tells a customer that provisioning finished or needs
 // attention, without exposing any Remnawave internals.
-func fulfillmentAlertView(locale Locale, succeeded bool) View {
+func fulfillmentAlertView(locale Locale, succeeded bool, subscriptionLabel string) View {
 	key := "alert.fulfillmentFailed"
 	if succeeded {
 		key = "alert.fulfillmentDone"
 	}
-	return View{Text: text(locale, key), Keyboard: keyboard(
+	return View{Text: subscriptionPrefix(locale, subscriptionLabel) + text(locale, key), Keyboard: keyboard(
 		row(callbackButton(text(locale, "connect.title.short"), routeConnect)),
 		row(callbackButton(text(locale, "action.menu"), routeHome)),
 	)}

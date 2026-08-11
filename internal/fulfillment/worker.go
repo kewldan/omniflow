@@ -11,20 +11,45 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
+	"github.com/omniflow/omniflow/internal/platform"
 	"github.com/omniflow/omniflow/internal/remnawave"
 	"github.com/riverqueue/river"
+	"go.opentelemetry.io/otel/codes"
 )
 
 type Worker struct {
 	river.WorkerDefaults[JobArgs]
 	pool        *pgxpool.Pool
 	provisioner remnawave.Provisioner
+	metrics     *platform.Metrics
 	clock       func() time.Time
 }
 
-func NewWorker(pool *pgxpool.Pool, provisioner remnawave.Provisioner) *Worker {
-	return &Worker{pool: pool, provisioner: provisioner, clock: time.Now}
+func NewWorker(pool *pgxpool.Pool, provisioner remnawave.Provisioner, metrics ...*platform.Metrics) *Worker {
+	worker := &Worker{pool: pool, provisioner: provisioner, clock: time.Now}
+	if len(metrics) > 0 {
+		worker.metrics = metrics[0]
+	}
+	return worker
+}
+
+// Work runs one fulfillment operation inside its own span, so a slow Remnawave
+// call, the database round trips it causes, and the retry that follows all show
+// up under one trace.
+func (worker *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
+	ctx, span := platform.StartSpan(ctx, "fulfillment.operation", platform.JobAttributes(JobArgs{}.Kind(), job.Attempt)...)
+	defer span.End()
+	started := time.Now()
+	err := worker.work(ctx, job)
+	outcome := "succeeded"
+	if err != nil {
+		outcome = "failed"
+		span.SetStatus(codes.Error, classifyError(err))
+	}
+	worker.metrics.ObserveJob(JobArgs{}.Kind(), outcome, time.Since(started))
+	return err
 }
 
 type desiredState struct {
@@ -35,7 +60,7 @@ type desiredState struct {
 	SquadIDs              []string  `json:"squadIds"`
 }
 
-func (worker *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
+func (worker *Worker) work(ctx context.Context, job *river.Job[JobArgs]) error {
 	operationID, err := parseUUID(job.Args.OperationID)
 	if err != nil {
 		return river.JobCancel(err)
@@ -71,8 +96,12 @@ func (worker *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 	if err != nil {
 		return err
 	}
+	subscription, err := worker.subscriptionFor(ctx, queries, entitlement)
+	if err != nil {
+		return err
+	}
 	if operation.Operation == "reconcile" {
-		if err := worker.detectDrift(ctx, queries, entitlement, desired); err != nil {
+		if err := worker.detectDrift(ctx, queries, entitlement, subscription, desired); err != nil {
 			code := classifyError(err)
 			_, _ = queries.InsertFulfillmentHistory(ctx, dbgen.InsertFulfillmentHistoryParams{OperationID: operation.ID, Status: "retrying", CorrelationID: operation.CorrelationID, RequestSummary: safeDesiredSummary(desired), ResponseSummary: []byte(`{}`), ErrorCode: pgtype.Text{String: code, Valid: true}})
 			if commitErr := tx.Commit(ctx); commitErr != nil {
@@ -81,20 +110,48 @@ func (worker *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 			return err
 		}
 	}
-	remote, callErr := worker.apply(ctx, queries, operation.Operation, entitlement, desired)
+	// Maintenance mode holds provisioning back without losing it: the operation
+	// stays pending and River snoozes the job until the dependency recovers.
+	if paused, pauseErr := worker.maintenanceActive(ctx, queries); pauseErr != nil {
+		return pauseErr
+	} else if paused {
+		if _, err = queries.UpdateFulfillmentOperation(ctx, dbgen.UpdateFulfillmentOperationParams{OperationID: operation.ID, Status: "retrying", AttemptCount: operation.AttemptCount - 1, NextAttemptAt: pgtype.Timestamptz{Time: worker.clock().Add(maintenanceSnooze), Valid: true}, LastErrorCode: pgtype.Text{String: "maintenance_active", Valid: true}}); err != nil {
+			return err
+		}
+		if err = tx.Commit(ctx); err != nil {
+			return err
+		}
+		return river.JobSnooze(maintenanceSnooze)
+	}
+	remote, callErr := worker.apply(ctx, queries, operation.Operation, entitlement, subscription, desired)
 	if callErr != nil {
 		code := classifyError(callErr)
 		nextAttempt := worker.clock().Add(backoff(operation.AttemptCount))
 		_, _ = queries.UpdateFulfillmentOperation(ctx, dbgen.UpdateFulfillmentOperationParams{OperationID: operation.ID, Status: "retrying", AttemptCount: operation.AttemptCount, NextAttemptAt: pgtype.Timestamptz{Time: nextAttempt, Valid: true}, LastErrorCode: pgtype.Text{String: code, Valid: true}})
 		_, _ = queries.InsertFulfillmentHistory(ctx, dbgen.InsertFulfillmentHistoryParams{OperationID: operation.ID, Status: "retrying", CorrelationID: operation.CorrelationID, RequestSummary: safeDesiredSummary(desired), ResponseSummary: []byte(`{}`), ErrorCode: pgtype.Text{String: code, Valid: true}})
+		// Operators are told once a run has clearly stopped being a blip. The
+		// dedupe key is the operation, so one struggling entitlement produces one
+		// notice however many times it retries.
+		if operation.AttemptCount >= operatorAlertAttempts {
+			notifyFulfillmentFailure(ctx, queries, operation, code)
+		}
 		if commitErr := tx.Commit(ctx); commitErr != nil {
 			return commitErr
 		}
 		return callErr
 	}
 	observed, _ := json.Marshal(map[string]any{"status": remote.Status, "expireAt": remote.ExpireAt, "trafficLimitBytes": remote.TrafficLimitBytes, "deviceLimit": remote.HWIDDeviceLimit})
-	if _, err = queries.UpsertRemnawaveMapping(ctx, dbgen.UpsertRemnawaveMappingParams{UserID: entitlement.UserID, RemnawaveID: remote.ID, ObservedState: observed}); err != nil {
-		return err
+	if subscription.ID.Valid {
+		if _, err = queries.UpsertSubscriptionRemnawaveUser(ctx, dbgen.UpsertSubscriptionRemnawaveUserParams{SubscriptionID: subscription.ID, RemnawaveUserID: pgtype.Int8{Int64: remote.ID, Valid: true}, RemnawaveUsername: pgtype.Text{String: remote.Username, Valid: remote.Username != ""}, ObservedState: observed}); err != nil {
+			return err
+		}
+	}
+	// The customer-level mapping stays the primary subscription's Remnawave
+	// user, so the v0.2 self-service screens keep resolving unchanged.
+	if subscription.Slot <= 1 {
+		if _, err = queries.UpsertRemnawaveMapping(ctx, dbgen.UpsertRemnawaveMappingParams{UserID: entitlement.UserID, RemnawaveID: remote.ID, ObservedState: observed}); err != nil {
+			return err
+		}
 	}
 	if _, err = queries.UpdateEntitlementObservedState(ctx, dbgen.UpdateEntitlementObservedStateParams{EntitlementID: entitlement.ID, Status: observedEntitlementStatus(remote), RemnawaveUserID: pgtype.Int8{Int64: remote.ID, Valid: true}, ObservedState: observed}); err != nil {
 		return err
@@ -103,7 +160,7 @@ func (worker *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 		return err
 	}
 	if operation.Operation == "create" {
-		if err = queries.SupersedePreviousEntitlements(ctx, dbgen.SupersedePreviousEntitlementsParams{UserID: entitlement.UserID, CurrentEntitlementID: entitlement.ID}); err != nil {
+		if err = queries.SupersedePreviousEntitlements(ctx, dbgen.SupersedePreviousEntitlementsParams{UserID: entitlement.UserID, CurrentEntitlementID: entitlement.ID, SubscriptionID: entitlement.SubscriptionID}); err != nil {
 			return err
 		}
 	}
@@ -121,16 +178,19 @@ func (worker *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 	return tx.Commit(ctx)
 }
 
-func (worker *Worker) detectDrift(ctx context.Context, queries *dbgen.Queries, entitlement dbgen.Entitlement, desired desiredState) error {
-	mapping, err := queries.GetRemnawaveMappingByCustomer(ctx, entitlement.UserID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		_, _ = queries.InsertEntitlementDrift(ctx, dbgen.InsertEntitlementDriftParams{EntitlementID: entitlement.ID, Kind: "missing_remote", Expected: []byte(`{"exists":true}`), Observed: []byte(`{"exists":false}`)})
-		return nil
-	}
+func (worker *Worker) detectDrift(ctx context.Context, queries *dbgen.Queries, entitlement dbgen.Entitlement, subscription dbgen.Subscription, desired desiredState) error {
+	// Drift is always evaluated against the Remnawave user this subscription
+	// owns, so one customer's second subscription can never be mistaken for the
+	// first one's remote state.
+	remoteID, err := worker.remoteUserID(ctx, queries, entitlement, subscription)
 	if err != nil {
 		return nil
 	}
-	remote, err := worker.provisioner.User(ctx, mapping.RemnawaveID)
+	if remoteID == 0 {
+		_, _ = queries.InsertEntitlementDrift(ctx, dbgen.InsertEntitlementDriftParams{EntitlementID: entitlement.ID, Kind: "missing_remote", Expected: []byte(`{"exists":true}`), Observed: []byte(`{"exists":false}`)})
+		return nil
+	}
+	remote, err := worker.provisioner.User(ctx, remoteID)
 	if errors.Is(err, remnawave.ErrNotFound) {
 		_, _ = queries.InsertEntitlementDrift(ctx, dbgen.InsertEntitlementDriftParams{EntitlementID: entitlement.ID, Kind: "missing_remote", Expected: []byte(`{"exists":true}`), Observed: []byte(`{"exists":false}`)})
 		return nil
@@ -172,21 +232,101 @@ func (worker *Worker) detectDrift(ctx context.Context, queries *dbgen.Queries, e
 	return nil
 }
 
-func (worker *Worker) apply(ctx context.Context, queries *dbgen.Queries, operation string, entitlement dbgen.Entitlement, desired desiredState) (remnawave.User, error) {
-	username := "omniflow_" + strings.ReplaceAll(uuidString(entitlement.UserID), "-", "")[:16]
+// maintenanceSnooze is how long a held fulfillment job waits before it looks at
+// the dependency again.
+const maintenanceSnooze = time.Minute
+
+// maintenanceActive reports whether provisioning is currently held back.
+func (worker *Worker) maintenanceActive(ctx context.Context, queries *dbgen.Queries) (bool, error) {
+	state, err := queries.ReadMaintenanceState(ctx)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	maintenance := commerce.Maintenance{Active: state.Active, Source: state.Source}
+	return maintenance.Blocks(commerce.ActionFulfillment), nil
+}
+
+// subscriptionFor resolves the subscription an entitlement provisions. An
+// entitlement written before v0.5 carries no subscription; it is adopted onto
+// the customer's primary subscription so it keeps its existing Remnawave user.
+func (worker *Worker) subscriptionFor(ctx context.Context, queries *dbgen.Queries, entitlement dbgen.Entitlement) (dbgen.Subscription, error) {
+	if entitlement.SubscriptionID.Valid {
+		subscription, err := queries.GetSubscription(ctx, entitlement.SubscriptionID)
+		if err == nil {
+			return subscription, nil
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return dbgen.Subscription{}, err
+		}
+	}
+	subscription, err := queries.GetPrimarySubscription(ctx, entitlement.UserID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return dbgen.Subscription{}, nil
+	}
+	return subscription, err
+}
+
+// remnawaveUsername is the deterministic Remnawave username for a subscription.
+// Deriving it from the subscription rather than the customer is what lets one
+// customer own several independent Remnawave users.
+func remnawaveUsername(subscriptionID pgtype.UUID) string {
+	return "omniflow_" + strings.ReplaceAll(uuidString(subscriptionID), "-", "")[:16]
+}
+
+// legacyUsername is the pre-v0.5 customer-derived name. It is still recognised
+// for a first subscription so an installation upgraded from v0.4 adopts the
+// Remnawave user it already has instead of creating a second one.
+func legacyUsername(userID pgtype.UUID) string {
+	return "omniflow_" + strings.ReplaceAll(uuidString(userID), "-", "")[:16]
+}
+
+// remoteUserID is the Remnawave user this entitlement provisions, or zero when
+// it has never been provisioned. The subscription is authoritative; the
+// customer-level mapping is only consulted for a pre-v0.5 entitlement.
+func (worker *Worker) remoteUserID(ctx context.Context, queries *dbgen.Queries, entitlement dbgen.Entitlement, subscription dbgen.Subscription) (int64, error) {
+	if subscription.RemnawaveUserID.Valid {
+		return subscription.RemnawaveUserID.Int64, nil
+	}
+	if subscription.ID.Valid && subscription.Slot > 1 {
+		return 0, nil
+	}
+	mapping, err := queries.GetRemnawaveMappingByCustomer(ctx, entitlement.UserID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	return mapping.RemnawaveID, nil
+}
+
+func (worker *Worker) apply(ctx context.Context, queries *dbgen.Queries, operation string, entitlement dbgen.Entitlement, subscription dbgen.Subscription, desired desiredState) (remnawave.User, error) {
+	username := legacyUsername(entitlement.UserID)
+	candidates := []string{username}
+	if subscription.ID.Valid {
+		username = remnawaveUsername(subscription.ID)
+		candidates = []string{username}
+		if subscription.Slot <= 1 {
+			candidates = append(candidates, legacyUsername(entitlement.UserID))
+		}
+	}
 	provision := remnawave.ProvisionUser{Username: username, ExpireAt: desired.EndsAt, TrafficLimitBytes: desired.TrafficAllowanceBytes, HWIDDeviceLimit: desired.DeviceLimit, InternalSquadIDs: desired.SquadIDs}
-	mapping, mappingErr := queries.GetRemnawaveMappingByCustomer(ctx, entitlement.UserID)
-	remoteID := int64(0)
-	if mappingErr == nil {
-		remoteID = mapping.RemnawaveID
-	} else if !errors.Is(mappingErr, pgx.ErrNoRows) {
-		return remnawave.User{}, mappingErr
+	remoteID, err := worker.remoteUserID(ctx, queries, entitlement, subscription)
+	if err != nil {
+		return remnawave.User{}, err
 	}
 	createOrRecover := func() (remnawave.User, error) {
-		if existing, err := worker.provisioner.UserByUsername(ctx, username); err == nil {
-			return worker.provisioner.UpdateUser(ctx, existing.ID, provision)
-		} else if !errors.Is(err, remnawave.ErrNotFound) {
-			return remnawave.User{}, err
+		for _, candidate := range candidates {
+			existing, lookupErr := worker.provisioner.UserByUsername(ctx, candidate)
+			if lookupErr == nil {
+				return worker.provisioner.UpdateUser(ctx, existing.ID, provision)
+			}
+			if !errors.Is(lookupErr, remnawave.ErrNotFound) {
+				return remnawave.User{}, lookupErr
+			}
 		}
 		return worker.provisioner.CreateUser(ctx, provision)
 	}
@@ -224,12 +364,35 @@ func (worker *Worker) apply(ctx context.Context, queries *dbgen.Queries, operati
 	return worker.provisioner.User(ctx, remoteID)
 }
 
+// operatorAlertAttempts is how many failed attempts a fulfillment run makes
+// before an operator is told. Below it, ordinary backoff is expected to recover.
+const operatorAlertAttempts = 3
+
 func (worker *Worker) failPermanent(ctx context.Context, tx pgx.Tx, queries *dbgen.Queries, operation dbgen.FulfillmentOperation, code string) error {
 	_, _ = queries.UpdateFulfillmentOperation(ctx, dbgen.UpdateFulfillmentOperationParams{OperationID: operation.ID, Status: "failed", AttemptCount: operation.AttemptCount + 1, NextAttemptAt: pgtype.Timestamptz{Time: worker.clock(), Valid: true}, LastErrorCode: pgtype.Text{String: code, Valid: true}})
+	notifyFulfillmentFailure(ctx, queries, operation, code)
 	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
 	return river.JobCancel(errors.New(code))
+}
+
+// notifyFulfillmentFailure queues an operator notice inside the worker's own
+// transaction. It carries identifiers and a classified error code only: never a
+// Remnawave response body, a link, or customer content.
+func notifyFulfillmentFailure(ctx context.Context, queries *dbgen.Queries, operation dbgen.FulfillmentOperation, code string) {
+	payload, err := json.Marshal(map[string]any{
+		"entitlementId": uuidString(operation.EntitlementID),
+		"operation":     operation.Operation,
+		"errorCode":     code,
+		"status":        "retrying",
+	})
+	if err != nil {
+		return
+	}
+	_, _ = queries.EnqueueOperatorNotification(ctx, dbgen.EnqueueOperatorNotificationParams{
+		Kind: "fulfillment_failure", DedupeKey: "operation:" + uuidString(operation.ID), Payload: payload,
+	})
 }
 
 func safeDesiredSummary(desired desiredState) []byte {

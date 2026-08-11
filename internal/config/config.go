@@ -10,11 +10,99 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/omniflow/omniflow/internal/commerce"
 )
 
 var currencyPattern = regexp.MustCompile(`^[A-Z]{3}$`)
 
 const defaultTelemetryEndpoint = "https://telemetry.omniflw.xyz/v1/telemetry/events"
+
+// TopUpConfig is the operator's wallet top-up policy. Until the admin panel
+// exposes it in v0.7 it is configured entirely from the environment.
+type TopUpConfig struct {
+	Enabled          bool
+	Presets          []int64
+	MinimumMinor     int64
+	MaximumMinor     int64
+	WindowLimitMinor int64
+	Window           time.Duration
+}
+
+// Limits converts the environment-configured top-up policy into the domain
+// value the commerce store enforces.
+func (cfg TopUpConfig) Limits() commerce.TopUpLimits {
+	return commerce.TopUpLimits{
+		Enabled: cfg.Enabled, Presets: cfg.Presets, MinimumMinor: cfg.MinimumMinor,
+		MaximumMinor: cfg.MaximumMinor, WindowLimitMinor: cfg.WindowLimitMinor, Window: cfg.Window,
+	}
+}
+
+// SubscriptionConfig switches concurrent subscriptions on and bounds them.
+// The default keeps one subscription per customer, which is what every
+// installation upgraded from v0.4 already has.
+type SubscriptionConfig struct {
+	MultiEnabled   bool
+	MaxPerCustomer int
+}
+
+// Policy converts the environment-configured concurrency settings into the
+// domain policy the commerce store enforces.
+func (cfg SubscriptionConfig) Policy() commerce.SubscriptionPolicy {
+	return commerce.SubscriptionPolicy{MultiEnabled: cfg.MultiEnabled, MaxPerCustomer: cfg.MaxPerCustomer}
+}
+
+// MaintenanceConfig controls automatic dependency detection. Manual activation
+// always works regardless of these values.
+type MaintenanceConfig struct {
+	AutoDetect     bool
+	ProbeInterval  time.Duration
+	FailureStreak  int
+	RecoveryStreak int
+}
+
+// BackupConfig describes scheduled PostgreSQL backups. Backups are written to
+// Directory, encrypted with EncryptionKey, and pruned once Retention elapses.
+type BackupConfig struct {
+	Enabled       bool
+	Directory     string
+	Interval      time.Duration
+	Retention     time.Duration
+	EncryptionKey []byte
+	PgDumpPath    string
+	PgRestorePath string
+}
+
+// RetentionConfig bounds how long disposable operational data is kept.
+type RetentionConfig struct {
+	Outbox    time.Duration
+	Telemetry time.Duration
+	Drift     time.Duration
+	Interval  time.Duration
+}
+
+// OperatorConfig binds the Telegram group that receives operator notifications
+// and bounds how many messages one topic may receive in a window.
+type OperatorConfig struct {
+	ChatID          int64
+	NotificationCap int
+	Window          time.Duration
+	// OperatorIDs are the Telegram accounts allowed to run backup and restore
+	// actions from the bot.
+	OperatorIDs []int64
+}
+
+// TelegramWebhookConfig selects how the bot receives updates. Long polling is
+// the default and stays supported as an explicit development and fallback mode.
+type TelegramWebhookConfig struct {
+	Enabled     bool
+	URL         string
+	SecretToken string
+	ListenAddr  string
+	// MetricsAddr serves the bot's liveness, readiness, and metrics endpoints.
+	// It is empty by default, which keeps the bot off HTTP entirely.
+	MetricsAddr string
+}
 
 type Config struct {
 	HTTPAddr                  string
@@ -23,6 +111,7 @@ type Config struct {
 	TelemetryEnabled          bool
 	TelemetryCollectorEnabled bool
 	TelemetryEndpoint         string
+	MetricsEnabled            bool
 	OperatorToken             string
 	DataEncryptionKey         []byte
 	RemnawaveURL              string
@@ -32,6 +121,10 @@ type Config struct {
 	CryptoBotTestnet          bool
 	YooKassaShopID            string
 	YooKassaSecret            string
+	DefaultCurrency           string
+	TopUp                     TopUpConfig
+	Subscriptions             SubscriptionConfig
+	Maintenance               MaintenanceConfig
 }
 
 type BotConfig struct {
@@ -57,12 +150,26 @@ type BotConfig struct {
 	RecoveryWindow time.Duration
 	// MinimumTrialAccountAge is the abuse control for freshly created accounts.
 	MinimumTrialAccountAge time.Duration
+	// CartTTL is how long a saved cart waits for the balance to cover it.
+	CartTTL       time.Duration
+	TopUp         TopUpConfig
+	Subscriptions SubscriptionConfig
+	Operator      OperatorConfig
+	Backup        BackupConfig
+	Webhook       TelegramWebhookConfig
 }
 
 type WorkerConfig struct {
 	DatabaseURL    string
+	ValkeyURL      string
 	RemnawaveURL   string
 	RemnawaveToken string
+	MetricsAddr    string
+	MetricsEnabled bool
+	Maintenance    MaintenanceConfig
+	Retention      RetentionConfig
+	Backup         BackupConfig
+	Subscriptions  SubscriptionConfig
 }
 
 func Load() (Config, error) {
@@ -73,6 +180,7 @@ func Load() (Config, error) {
 		TelemetryEnabled:          boolEnvOr("APP_TELEMETRY_ENABLED", true),
 		TelemetryCollectorEnabled: boolEnvOr("APP_TELEMETRY_COLLECTOR_ENABLED", false),
 		TelemetryEndpoint:         envOr("APP_TELEMETRY_ENDPOINT", defaultTelemetryEndpoint),
+		MetricsEnabled:            boolEnvOr("APP_METRICS_ENABLED", true),
 		OperatorToken:             os.Getenv("APP_OPERATOR_TOKEN"),
 		RemnawaveURL:              os.Getenv("APP_REMNAWAVE_URL"),
 		RemnawaveToken:            os.Getenv("APP_REMNAWAVE_TOKEN"),
@@ -81,15 +189,25 @@ func Load() (Config, error) {
 		CryptoBotTestnet:          boolEnvOr("APP_CRYPTOBOT_TESTNET", true),
 		YooKassaShopID:            os.Getenv("APP_YOOKASSA_SHOP_ID"),
 		YooKassaSecret:            os.Getenv("APP_YOOKASSA_SECRET"),
+		DefaultCurrency:           strings.ToUpper(envOr("APP_DEFAULT_CURRENCY", "RUB")),
+		Subscriptions:             loadSubscriptions(),
+		Maintenance:               loadMaintenance(),
 	}
 	if encodedKey := os.Getenv("APP_DATA_ENCRYPTION_KEY"); encodedKey != "" {
-		key, err := base64.StdEncoding.DecodeString(encodedKey)
-		if err != nil || len(key) != 32 {
+		key, err := decodeKey(encodedKey)
+		if err != nil {
 			return Config{}, errors.New("APP_DATA_ENCRYPTION_KEY must be base64-encoded 32 bytes")
 		}
 		cfg.DataEncryptionKey = key
 	}
-
+	topUp, err := loadTopUp()
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.TopUp = topUp
+	if !currencyPattern.MatchString(cfg.DefaultCurrency) {
+		return Config{}, errors.New("APP_DEFAULT_CURRENCY must be a three-letter ISO currency code")
+	}
 	if cfg.TelemetryEnabled {
 		parsed, err := url.ParseRequestURI(cfg.TelemetryEndpoint)
 		if err != nil || parsed.Scheme != "https" {
@@ -115,9 +233,11 @@ func LoadBot() (BotConfig, error) {
 		YooKassaShopID:         os.Getenv("APP_YOOKASSA_SHOP_ID"),
 		YooKassaSecret:         os.Getenv("APP_YOOKASSA_SECRET"),
 		MarketingFrequencyCap:  intEnvOr("APP_MARKETING_FREQUENCY_CAP", 3),
-		MarketingWindow:        durationEnvOr("APP_MARKETING_WINDOW_HOURS", 7*24*time.Hour),
-		RecoveryWindow:         durationEnvOr("APP_RECOVERY_WINDOW_HOURS", 14*24*time.Hour),
-		MinimumTrialAccountAge: durationEnvOr("APP_TRIAL_MINIMUM_ACCOUNT_AGE_HOURS", 0),
+		MarketingWindow:        hourEnvOr("APP_MARKETING_WINDOW_HOURS", 7*24*time.Hour),
+		RecoveryWindow:         hourEnvOr("APP_RECOVERY_WINDOW_HOURS", 14*24*time.Hour),
+		MinimumTrialAccountAge: hourEnvOr("APP_TRIAL_MINIMUM_ACCOUNT_AGE_HOURS", 0),
+		CartTTL:                hourEnvOr("APP_CART_TTL_HOURS", 30*24*time.Hour),
+		Subscriptions:          loadSubscriptions(),
 	}
 	if cfg.DatabaseURL == "" {
 		return BotConfig{}, errors.New("APP_DATABASE_URL is required")
@@ -149,15 +269,154 @@ func LoadBot() (BotConfig, error) {
 	if cfg.YooKassaShopID != "" && cfg.PublicURL == "" {
 		return BotConfig{}, errors.New("APP_PUBLIC_URL is required for YooKassa hosted checkout return links")
 	}
+	topUp, err := loadTopUp()
+	if err != nil {
+		return BotConfig{}, err
+	}
+	cfg.TopUp = topUp
+	if cfg.Operator, err = loadOperator(); err != nil {
+		return BotConfig{}, err
+	}
+	if cfg.Backup, err = loadBackup(); err != nil {
+		return BotConfig{}, err
+	}
+	if cfg.Webhook, err = loadTelegramWebhook(); err != nil {
+		return BotConfig{}, err
+	}
 	return cfg, nil
 }
 
 func LoadWorker() (WorkerConfig, error) {
-	cfg := WorkerConfig{DatabaseURL: os.Getenv("APP_DATABASE_URL"), RemnawaveURL: os.Getenv("APP_REMNAWAVE_URL"), RemnawaveToken: os.Getenv("APP_REMNAWAVE_TOKEN")}
+	cfg := WorkerConfig{
+		DatabaseURL:    os.Getenv("APP_DATABASE_URL"),
+		ValkeyURL:      os.Getenv("APP_VALKEY_URL"),
+		RemnawaveURL:   os.Getenv("APP_REMNAWAVE_URL"),
+		RemnawaveToken: os.Getenv("APP_REMNAWAVE_TOKEN"),
+		MetricsAddr:    envOr("APP_WORKER_HTTP_ADDR", ":8081"),
+		MetricsEnabled: boolEnvOr("APP_METRICS_ENABLED", true),
+		Maintenance:    loadMaintenance(),
+		Subscriptions:  loadSubscriptions(),
+		Retention: RetentionConfig{
+			Outbox:    dayEnvOr("APP_RETENTION_OUTBOX_DAYS", 7*24*time.Hour),
+			Telemetry: dayEnvOr("APP_RETENTION_TELEMETRY_DAYS", 30*24*time.Hour),
+			Drift:     dayEnvOr("APP_RETENTION_DRIFT_DAYS", 90*24*time.Hour),
+			Interval:  hourEnvOr("APP_RETENTION_INTERVAL_HOURS", time.Hour),
+		},
+	}
 	if cfg.DatabaseURL == "" || cfg.RemnawaveURL == "" || cfg.RemnawaveToken == "" {
 		return WorkerConfig{}, errors.New("APP_DATABASE_URL, APP_REMNAWAVE_URL, and APP_REMNAWAVE_TOKEN are required")
 	}
+	backup, err := loadBackup()
+	if err != nil {
+		return WorkerConfig{}, err
+	}
+	cfg.Backup = backup
 	return cfg, nil
+}
+
+func loadTopUp() (TopUpConfig, error) {
+	cfg := TopUpConfig{
+		Enabled:          boolEnvOr("APP_WALLET_TOPUP_ENABLED", true),
+		MinimumMinor:     int64EnvOr("APP_WALLET_TOPUP_MINIMUM_MINOR", 10000),
+		MaximumMinor:     int64EnvOr("APP_WALLET_TOPUP_MAXIMUM_MINOR", 5000000),
+		WindowLimitMinor: int64EnvOr("APP_WALLET_TOPUP_WINDOW_LIMIT_MINOR", 10000000),
+		Window:           hourEnvOr("APP_WALLET_TOPUP_WINDOW_HOURS", 24*time.Hour),
+	}
+	presets, err := int64ListEnv("APP_WALLET_TOPUP_PRESETS", []int64{10000, 30000, 50000, 100000})
+	if err != nil {
+		return TopUpConfig{}, err
+	}
+	cfg.Presets = presets
+	if cfg.MaximumMinor > 0 && cfg.MinimumMinor > cfg.MaximumMinor {
+		return TopUpConfig{}, errors.New("APP_WALLET_TOPUP_MINIMUM_MINOR must not exceed APP_WALLET_TOPUP_MAXIMUM_MINOR")
+	}
+	return cfg, nil
+}
+
+func loadSubscriptions() SubscriptionConfig {
+	cfg := SubscriptionConfig{
+		MultiEnabled:   boolEnvOr("APP_MULTI_SUBSCRIPTION_ENABLED", false),
+		MaxPerCustomer: intEnvOr("APP_MAX_SUBSCRIPTIONS_PER_CUSTOMER", 3),
+	}
+	if cfg.MaxPerCustomer < 1 {
+		cfg.MaxPerCustomer = 1
+	}
+	return cfg
+}
+
+func loadMaintenance() MaintenanceConfig {
+	return MaintenanceConfig{
+		AutoDetect:     boolEnvOr("APP_MAINTENANCE_AUTO_DETECT", true),
+		ProbeInterval:  secondEnvOr("APP_MAINTENANCE_PROBE_SECONDS", 30*time.Second),
+		FailureStreak:  intEnvOr("APP_MAINTENANCE_FAILURE_STREAK", 3),
+		RecoveryStreak: intEnvOr("APP_MAINTENANCE_RECOVERY_STREAK", 3),
+	}
+}
+
+func loadOperator() (OperatorConfig, error) {
+	cfg := OperatorConfig{
+		ChatID:          int64EnvOr("APP_OPERATOR_CHAT_ID", 0),
+		NotificationCap: intEnvOr("APP_OPERATOR_NOTIFICATION_CAP", 30),
+		Window:          minuteEnvOr("APP_OPERATOR_NOTIFICATION_WINDOW_MINUTES", 5*time.Minute),
+	}
+	operators, err := int64ListEnv("APP_OPERATOR_TELEGRAM_IDS", nil)
+	if err != nil {
+		return OperatorConfig{}, err
+	}
+	cfg.OperatorIDs = operators
+	return cfg, nil
+}
+
+func loadBackup() (BackupConfig, error) {
+	cfg := BackupConfig{
+		Enabled:       boolEnvOr("APP_BACKUP_ENABLED", false),
+		Directory:     envOr("APP_BACKUP_DIR", "/var/lib/omniflow/backups"),
+		Interval:      hourEnvOr("APP_BACKUP_INTERVAL_HOURS", 24*time.Hour),
+		Retention:     dayEnvOr("APP_BACKUP_RETENTION_DAYS", 14*24*time.Hour),
+		PgDumpPath:    envOr("APP_PG_DUMP_PATH", "pg_dump"),
+		PgRestorePath: envOr("APP_PG_RESTORE_PATH", "pg_restore"),
+	}
+	if encoded := os.Getenv("APP_BACKUP_ENCRYPTION_KEY"); encoded != "" {
+		key, err := decodeKey(encoded)
+		if err != nil {
+			return BackupConfig{}, errors.New("APP_BACKUP_ENCRYPTION_KEY must be base64-encoded 32 bytes")
+		}
+		cfg.EncryptionKey = key
+	}
+	if cfg.Enabled && len(cfg.EncryptionKey) != 32 {
+		return BackupConfig{}, errors.New("APP_BACKUP_ENCRYPTION_KEY is required when APP_BACKUP_ENABLED is true")
+	}
+	return cfg, nil
+}
+
+func loadTelegramWebhook() (TelegramWebhookConfig, error) {
+	cfg := TelegramWebhookConfig{
+		URL:         strings.TrimSpace(os.Getenv("APP_TELEGRAM_WEBHOOK_URL")),
+		SecretToken: os.Getenv("APP_TELEGRAM_WEBHOOK_SECRET"),
+		ListenAddr:  envOr("APP_BOT_HTTP_ADDR", ":8082"),
+		MetricsAddr: os.Getenv("APP_BOT_METRICS_ADDR"),
+	}
+	if cfg.URL == "" {
+		return cfg, nil
+	}
+	parsed, err := url.ParseRequestURI(cfg.URL)
+	if err != nil || parsed.Scheme != "https" {
+		return TelegramWebhookConfig{}, errors.New("APP_TELEGRAM_WEBHOOK_URL must be an HTTPS URL")
+	}
+	// Telegram only accepts A-Z, a-z, 0-9, underscore, and hyphen, 1-256 bytes.
+	if matched, _ := regexp.MatchString(`^[A-Za-z0-9_-]{32,256}$`, cfg.SecretToken); !matched {
+		return TelegramWebhookConfig{}, errors.New("APP_TELEGRAM_WEBHOOK_SECRET must be 32-256 characters of A-Z, a-z, 0-9, underscore, or hyphen")
+	}
+	cfg.Enabled = true
+	return cfg, nil
+}
+
+func decodeKey(encoded string) ([]byte, error) {
+	key, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil || len(key) != 32 {
+		return nil, errors.New("key must be base64-encoded 32 bytes")
+	}
+	return key, nil
 }
 
 func envOr(key, fallback string) string {
@@ -175,14 +434,62 @@ func intEnvOr(key string, fallback int) int {
 	return parsed
 }
 
-// durationEnvOr reads a whole number of hours so operators never have to encode
+func int64EnvOr(key string, fallback int64) int64 {
+	parsed, err := strconv.ParseInt(os.Getenv(key), 10, 64)
+	if err != nil {
+		return fallback
+	}
+	return parsed
+}
+
+// int64ListEnv reads a comma-separated list of whole numbers. An entry that is
+// not a positive number is an error rather than a silent omission, because a
+// mistyped preset would otherwise disappear from the bot without explanation.
+func int64ListEnv(key string, fallback []int64) ([]int64, error) {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return fallback, nil
+	}
+	parts := strings.Split(raw, ",")
+	values := make([]int64, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed == "" {
+			continue
+		}
+		parsed, err := strconv.ParseInt(trimmed, 10, 64)
+		if err != nil || parsed <= 0 {
+			return nil, fmt.Errorf("%s must be a comma-separated list of positive whole numbers", key)
+		}
+		values = append(values, parsed)
+	}
+	return values, nil
+}
+
+// hourEnvOr reads a whole number of hours so operators never have to encode
 // a Go duration string in the environment.
-func durationEnvOr(key string, fallback time.Duration) time.Duration {
+func hourEnvOr(key string, fallback time.Duration) time.Duration {
+	return scaledEnvOr(key, fallback, time.Hour)
+}
+
+func dayEnvOr(key string, fallback time.Duration) time.Duration {
+	return scaledEnvOr(key, fallback, 24*time.Hour)
+}
+
+func minuteEnvOr(key string, fallback time.Duration) time.Duration {
+	return scaledEnvOr(key, fallback, time.Minute)
+}
+
+func secondEnvOr(key string, fallback time.Duration) time.Duration {
+	return scaledEnvOr(key, fallback, time.Second)
+}
+
+func scaledEnvOr(key string, fallback time.Duration, unit time.Duration) time.Duration {
 	parsed, err := strconv.Atoi(os.Getenv(key))
 	if err != nil || parsed < 0 {
 		return fallback
 	}
-	return time.Duration(parsed) * time.Hour
+	return time.Duration(parsed) * unit
 }
 
 func boolEnvOr(key string, fallback bool) bool {

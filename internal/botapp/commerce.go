@@ -30,6 +30,11 @@ type CommerceSettings struct {
 	MinimumTrialAccountAge time.Duration
 	MarketingFrequencyCap  int
 	MarketingWindow        time.Duration
+	// CartTTL is how long a saved cart waits for the balance to cover it.
+	CartTTL time.Duration
+	// MultiSubscription mirrors the installation switch so a screen can hide the
+	// subscription picker entirely when only one subscription is possible.
+	MultiSubscription bool
 }
 
 // Commerce ties the bot to the v0.3 commerce backend. Every method is safe to
@@ -104,14 +109,34 @@ func preferredCurrency(option commerce.PaymentOption, available []string, prefer
 	return ""
 }
 
-// Quote prices the open checkout. A refused promotion is reported through the
-// quote instead of failing the screen, so the customer can remove or replace it.
-func (service *Commerce) Quote(ctx context.Context, session CheckoutSession) (commerce.CheckoutQuote, error) {
-	input := commercepg.CreateOrderInput{
+// orderInputFor projects an open checkout onto the store's order input. It is
+// the single place the bot decides what a checkout means, so a preview, a promo
+// re-validation, and the order that follows can never disagree.
+func (service *Commerce) orderInputFor(ctx context.Context, session CheckoutSession) (commercepg.CreateOrderInput, error) {
+	addons, err := service.store.CheckoutAddons(ctx, session.ID)
+	if err != nil {
+		return commercepg.CreateOrderInput{}, err
+	}
+	selections := make([]commercepg.AddonSelection, 0, len(addons))
+	for _, addon := range addons {
+		selections = append(selections, commercepg.AddonSelection{AddonVersionID: addon.AddonVersionID, Quantity: addon.Quantity})
+	}
+	return commercepg.CreateOrderInput{
 		CustomerID: session.CustomerID, PlanVersionID: session.PlanVersionID,
 		Currency: session.Currency, Operation: session.Operation,
 		PromoCode: session.PromoCode, SkipWallet: !session.ApplyWallet,
-		IdempotencyKey: session.IdempotencyKey,
+		IdempotencyKey: session.IdempotencyKey, SubscriptionID: session.SubscriptionID,
+		NewSubscription: session.NewSubscription, SelectedSquadIDs: session.SelectedSquadIDs,
+		Addons: selections,
+	}, nil
+}
+
+// Quote prices the open checkout. A refused promotion is reported through the
+// quote instead of failing the screen, so the customer can remove or replace it.
+func (service *Commerce) Quote(ctx context.Context, session CheckoutSession) (commerce.CheckoutQuote, error) {
+	input, err := service.orderInputFor(ctx, session)
+	if err != nil {
+		return commerce.CheckoutQuote{}, err
 	}
 	preview, err := service.orders.PreviewOrder(ctx, input)
 	if rejection := promoRejection(err); rejection != "" {
@@ -141,6 +166,7 @@ func quoteFrom(preview commercepg.OrderQuote, session CheckoutSession) commerce.
 		ExternalMinor:      preview.ExternalMinor,
 		PromoCode:          session.PromoCode,
 		PromoRejection:     session.PromoRejection,
+		AddonMinor:         preview.AddonMinor,
 	}
 }
 
@@ -153,12 +179,11 @@ func (service *Commerce) ApplyPromo(ctx context.Context, session CheckoutSession
 	}
 	candidate := session
 	candidate.PromoCode = normalized
-	if _, err = service.orders.PreviewOrder(ctx, commercepg.CreateOrderInput{
-		CustomerID: candidate.CustomerID, PlanVersionID: candidate.PlanVersionID,
-		Currency: candidate.Currency, Operation: candidate.Operation,
-		PromoCode: normalized, SkipWallet: !candidate.ApplyWallet,
-		IdempotencyKey: candidate.IdempotencyKey,
-	}); err != nil {
+	input, err := service.orderInputFor(ctx, candidate)
+	if err != nil {
+		return CheckoutSession{}, err
+	}
+	if _, err = service.orders.PreviewOrder(ctx, input); err != nil {
 		reason := promoRejection(err)
 		if reason == "" {
 			return CheckoutSession{}, err
@@ -201,12 +226,11 @@ func (service *Commerce) Confirm(ctx context.Context, session CheckoutSession, p
 			return "", fmt.Errorf("%w: %s", commerce.ErrTrialNotEligible, reason)
 		}
 	}
-	order, err := service.orders.CreateOrder(ctx, commercepg.CreateOrderInput{
-		CustomerID: session.CustomerID, PlanVersionID: session.PlanVersionID,
-		Currency: session.Currency, Operation: session.Operation,
-		PromoCode: session.PromoCode, SkipWallet: !session.ApplyWallet,
-		IdempotencyKey: session.IdempotencyKey,
-	})
+	input, err := service.orderInputFor(ctx, session)
+	if err != nil {
+		return "", err
+	}
+	order, err := service.orders.CreateOrder(ctx, input)
 	if err != nil {
 		return "", err
 	}

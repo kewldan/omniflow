@@ -19,6 +19,12 @@ type MenuState struct {
 	CommerceEnabled bool
 	UnreadSupport   int
 	UnreadNews      int
+	// MultiSubscription swaps the single subscription entry for the switcher.
+	MultiSubscription bool
+	// TopUpEnabled and HasCart keep the menu honest: a button appears only when
+	// the screen behind it can actually be used.
+	TopUpEnabled bool
+	HasCart      bool
 }
 
 // commerceContext is everything a commerce screen needs about the caller. It is
@@ -48,12 +54,19 @@ func (app *App) commerceContext(ctx context.Context, telegramID int64, telegramL
 
 // menuState collects the unread badges for the main menu.
 func (app *App) menuState(ctx context.Context, customerID string, locale Locale) MenuState {
-	state := MenuState{CommerceEnabled: true}
+	state := MenuState{
+		CommerceEnabled:   true,
+		MultiSubscription: app.commerce.SubscriptionPolicy().MultiEnabled,
+		TopUpEnabled:      app.commerce.TopUpLimits().Enabled,
+	}
 	if unread, err := app.customers.UnreadSupportCount(ctx, customerID); err == nil {
 		state.UnreadSupport = unread
 	}
 	if unread, err := app.customers.UnreadNewsCount(ctx, customerID, locale); err == nil {
 		state.UnreadNews = unread
+	}
+	if _, _, found, err := app.commerce.Cart(ctx, customerID); err == nil {
+		state.HasCart = found
 	}
 	return state
 }
@@ -63,6 +76,9 @@ func (app *App) menuState(ctx context.Context, customerID string, locale Locale)
 func (app *App) loadCommerceView(ctx context.Context, session commerceContext, route string) (View, bool) {
 	if !app.commerceEnabled() {
 		return View{}, false
+	}
+	if view, handled := app.loadExpansionView(ctx, session, route); handled {
+		return view, true
 	}
 	switch route {
 	case routePlans:
@@ -83,6 +99,11 @@ func (app *App) loadCommerceView(ctx context.Context, session commerceContext, r
 }
 
 func (app *App) plansScreen(ctx context.Context, session commerceContext) View {
+	// Maintenance stops the purchase surface at its entry point rather than at
+	// the payment step, so a customer is told before they choose anything.
+	if view, blocked := app.blockedByMaintenance(ctx, session); blocked {
+		return view
+	}
 	plans, err := app.customers.Plans(ctx, session.Locale, app.settings.Currency)
 	if err != nil {
 		app.logger.Error("plan catalog lookup failed", "error", err)
@@ -123,7 +144,7 @@ func (app *App) planScreen(ctx context.Context, session commerceContext, planVer
 
 // paymentMethodScreen starts a checkout and asks which configured adapter should
 // settle it. Choosing the method is what fixes the order currency.
-func (app *App) paymentMethodScreen(ctx context.Context, session commerceContext, planVersionID, operation string) View {
+func (app *App) paymentMethodScreen(ctx context.Context, session commerceContext, planVersionID, operation, subscriptionID string) View {
 	plan, err := app.customers.Plan(ctx, planVersionID, session.Locale, app.settings.Currency)
 	if errors.Is(err, ErrPlanUnavailable) {
 		return View{Text: text(session.Locale, "plan.gone"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "action.back"), routePlans)))}
@@ -136,9 +157,22 @@ func (app *App) paymentMethodScreen(ctx context.Context, session commerceContext
 	if err != nil || !commerce.AllowedOperation(normalized, plan.UpgradePolicy, plan.DowngradePolicy) {
 		return View{Text: text(session.Locale, "error.forbidden"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "action.back"), routePlans)))}
 	}
-	if _, err = app.customers.OpenCheckout(ctx, session.Customer.ID, planVersionID, normalized, app.settings.Currency); err != nil {
+	// A change to an existing subscription must name it. A plain purchase in a
+	// single-subscription installation targets the one the customer already has,
+	// so buying again renews it instead of silently opening a second one.
+	target, err := app.checkoutTarget(ctx, session, normalized, subscriptionID)
+	if err != nil {
+		app.logger.Error("subscription target lookup failed", "error", err)
+		return app.errorView(session.Locale, routePlans)
+	}
+	checkout, err := app.customers.OpenCheckout(ctx, session.Customer.ID, planVersionID, normalized, app.settings.Currency, target, nil)
+	if err != nil {
 		app.logger.Error("checkout could not be opened", "error", err)
 		return app.errorView(session.Locale, routePlans)
+	}
+	// A plan that lets the customer choose squads asks before it asks for money.
+	if policy, policyErr := app.customers.PlanSquads(ctx, planVersionID, session.Locale); policyErr == nil && policy.Configurable() {
+		return squadConfiguratorView(session.Locale, policy, checkout.SelectedSquadIDs)
 	}
 	choices, err := app.commerce.PaymentChoices(ctx, planVersionID)
 	if err != nil {
@@ -146,6 +180,29 @@ func (app *App) paymentMethodScreen(ctx context.Context, session commerceContext
 		return app.errorView(session.Locale, routePlans)
 	}
 	return paymentMethodView(session.Locale, plan, choices)
+}
+
+// checkoutTarget resolves which subscription a checkout changes. An explicit
+// identifier always wins; otherwise a change targets the primary subscription
+// and a purchase opens a new one only when concurrency is enabled.
+func (app *App) checkoutTarget(ctx context.Context, session commerceContext, operation, subscriptionID string) (string, error) {
+	if subscriptionID != "" {
+		if _, err := app.customers.Subscription(ctx, session.Customer.ID, subscriptionID, session.Locale); err != nil {
+			return "", err
+		}
+		return subscriptionID, nil
+	}
+	if commerce.TargetsNewSubscription(operation) && app.commerce.SubscriptionPolicy().MultiEnabled {
+		return "", nil
+	}
+	primary, err := app.customers.PrimarySubscription(ctx, session.Customer.ID, session.Locale)
+	if errors.Is(err, ErrSubscriptionNotFound) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return primary.ID, nil
 }
 
 // checkoutScreen renders the confirmation summary for the open checkout.
@@ -171,7 +228,11 @@ func (app *App) checkoutScreen(ctx context.Context, session commerceContext) Vie
 		app.logger.Error("checkout quote failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
 	}
-	return checkoutView(session.Locale, plan, checkout, quote)
+	addons, err := app.customers.PlanAddons(ctx, checkout.PlanVersionID, session.Locale, checkout.Currency)
+	if err != nil {
+		app.logger.Warn("add-on lookup failed", "error", err)
+	}
+	return checkoutView(session.Locale, plan, checkout, quote, len(addons) > 0)
 }
 
 // confirmCheckout creates the order and immediately starts the payment. Both
@@ -191,6 +252,18 @@ func (app *App) confirmCheckout(ctx context.Context, session commerceContext) Vi
 	}
 	orderID, err := app.commerce.Confirm(ctx, checkout, plan, session.Customer)
 	switch {
+	case errors.Is(err, commercepg.ErrMaintenance):
+		return app.maintenanceScreen(ctx, session)
+	case errors.Is(err, commerce.ErrSubscriptionRejected):
+		return View{
+			Text:     text(session.Locale, "subs.rejected", text(session.Locale, "subs."+commerce.SubscriptionRejectionReason(err))),
+			Keyboard: keyboard(row(callbackButton(text(session.Locale, "subs.back"), routeSubscriptions))),
+		}
+	case errors.Is(err, commerce.ErrSquadSelection):
+		return View{
+			Text:     text(session.Locale, "squad.title") + "\n\n" + text(session.Locale, "error.forbidden"),
+			Keyboard: keyboard(row(callbackButton(text(session.Locale, "menu.plans"), routePlans))),
+		}
 	case errors.Is(err, commerce.ErrTrialNotEligible):
 		return View{Text: text(session.Locale, "trial.rejected", text(session.Locale, "trial."+trialReasonOf(err))), Keyboard: keyboard(row(callbackButton(text(session.Locale, "menu.plans"), routePlans)))}
 	case errors.Is(err, commercepg.ErrTrialAlreadyClaimed):
@@ -275,7 +348,7 @@ func (app *App) walletScreen(ctx context.Context, session commerceContext) View 
 		app.logger.Error("wallet history lookup failed", "error", err)
 		return app.errorView(session.Locale, routeWallet)
 	}
-	return walletView(session.Locale, balance, app.settings.Currency, entries)
+	return walletView(session.Locale, balance, app.settings.Currency, entries, app.commerce.TopUpLimits().Enabled)
 }
 
 func (app *App) newsScreen(ctx context.Context, session commerceContext) View {
@@ -350,6 +423,9 @@ func (app *App) handleCommerceAction(ctx context.Context, session commerceContex
 	if len(parts) > 1 {
 		argument = parts[1]
 	}
+	if view, handled := app.handleExpansionAction(ctx, session, parts); handled {
+		return view, true
+	}
 	switch parts[0] {
 	case "plan":
 		return app.planScreen(ctx, session, argument), true
@@ -357,7 +433,7 @@ func (app *App) handleCommerceAction(ctx context.Context, session commerceContex
 		if len(parts) != 3 {
 			return app.errorView(session.Locale, routePlans), true
 		}
-		return app.paymentMethodScreen(ctx, session, parts[1], parts[2]), true
+		return app.paymentMethodScreen(ctx, session, parts[1], parts[2], ""), true
 	case "pm":
 		if len(parts) != 3 {
 			return app.errorView(session.Locale, routePlans), true
@@ -727,10 +803,16 @@ func argumentOf(parts []string) string {
 
 // commerceActions is the closed set of callback actions the commerce surface
 // owns. Anything else falls through to the v0.2 handlers.
-var commerceActions = map[string]bool{
-	"plan": true, "buy": true, "pm": true, "checkout": true, "confirm": true,
-	"promo": true, "promo-clear": true, "wallet-toggle": true, "order": true,
-	"order-cancel": true, "news": true, "ticket": true, "ticket-reply": true,
-	"ticket-close": true, "ticket-open": true, "support-new": true, "connect": true,
-	"autorenew": true, "quiet": true, "quiet-menu": true, "invoice": true,
-}
+var commerceActions = func() map[string]bool {
+	actions := map[string]bool{
+		"plan": true, "buy": true, "pm": true, "checkout": true, "confirm": true,
+		"promo": true, "promo-clear": true, "wallet-toggle": true, "order": true,
+		"order-cancel": true, "news": true, "ticket": true, "ticket-reply": true,
+		"ticket-close": true, "ticket-open": true, "support-new": true, "connect": true,
+		"autorenew": true, "quiet": true, "quiet-menu": true, "invoice": true,
+	}
+	for action := range expansionActions {
+		actions[action] = true
+	}
+	return actions
+}()

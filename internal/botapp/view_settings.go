@@ -84,12 +84,33 @@ func commerceMainKeyboard(locale Locale, menu MenuState) *models.InlineKeyboardM
 	if locale == LocaleRussian {
 		subscription, connect, devices, referral, settings = "📊 Подписка", "🚀 Подключиться", "📱 Устройства", "🎁 Пригласить", "⚙️ Настройки"
 	}
-	return keyboard(
-		row(callbackButton(text(locale, "menu.plans"), routePlans), callbackButton(subscription, routeSubscription)),
+	// With concurrent subscriptions enabled the first row opens the switcher
+	// instead of the single subscription screen. A single-subscription
+	// installation keeps exactly the menu it had before.
+	subscriptionRoute := routeSubscription
+	if menu.MultiSubscription {
+		subscription, subscriptionRoute = text(locale, "menu.subs"), routeSubscriptions
+	}
+	rows := [][]models.InlineKeyboardButton{
+		row(callbackButton(text(locale, "menu.plans"), routePlans), callbackButton(subscription, subscriptionRoute)),
 		row(callbackButton(connect, routeConnect), callbackButton(devices, routeDevices)),
 		row(callbackButton(text(locale, "menu.orders"), routeOrders), callbackButton(text(locale, "menu.wallet"), routeWallet)),
+	}
+	// The wallet and cart rows only appear when they can actually be used.
+	walletRow := make([]models.InlineKeyboardButton, 0, 2)
+	if menu.TopUpEnabled {
+		walletRow = append(walletRow, callbackButton(text(locale, "menu.topup"), routeTopUp))
+	}
+	if menu.HasCart {
+		walletRow = append(walletRow, callbackButton(text(locale, "menu.cart"), routeCart))
+	}
+	if len(walletRow) > 0 {
+		rows = append(rows, walletRow)
+	}
+	rows = append(rows,
 		row(callbackButton(supportLabel, routeSupport), callbackButton(newsLabel, routeNews)),
 		row(callbackButton(referral, routeReferral), callbackButton(settings, routeSettings)),
 		row(callbackButton(text(locale, "action.refresh"), routeHome)),
 	)
+	return keyboard(rows...)
 }

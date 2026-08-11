@@ -233,7 +233,7 @@ ON CONFLICT (normalized_code) DO UPDATE SET normalized_code = EXCLUDED.normalize
 RETURNING *;
 
 -- name: GetPlanVersionForOrder :one
-SELECT p.code, p.kind, v.*, pr.currency, pr.amount_minor
+SELECT p.code, p.kind, p.max_concurrent_per_customer, v.*, pr.currency, pr.amount_minor
 FROM plan_versions v
 JOIN plans p ON p.id = v.plan_id
 JOIN plan_prices pr ON pr.plan_version_id = v.id
@@ -281,9 +281,10 @@ RETURNING *;
 -- name: CreateOrder :one
 INSERT INTO orders (
   user_id, state, operation, currency, subtotal_minor, discount_minor,
-  wallet_minor, external_minor, idempotency_key, expires_at
+  wallet_minor, external_minor, idempotency_key, expires_at,
+  subscription_id, selected_squad_ids
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 ON CONFLICT (user_id, idempotency_key) DO UPDATE SET idempotency_key = EXCLUDED.idempotency_key
 RETURNING *;
 
@@ -303,7 +304,9 @@ WHERE ol.order_id = $1;
 
 -- name: GetLatestEntitlementForChange :one
 SELECT * FROM entitlements
-WHERE user_id = $1 AND status IN ('pending', 'active', 'limited', 'disabled')
+WHERE user_id = sqlc.arg(user_id)
+  AND (sqlc.narg(subscription_id)::uuid IS NULL OR subscription_id = sqlc.narg(subscription_id)::uuid)
+  AND status IN ('pending', 'active', 'limited', 'disabled')
 ORDER BY ends_at DESC
 LIMIT 1
 FOR UPDATE;
@@ -505,9 +508,9 @@ LIMIT $1;
 -- name: CreateEntitlement :one
 INSERT INTO entitlements (
   user_id, order_id, plan_version_id, starts_at, ends_at,
-  traffic_allowance_bytes, device_limit, remnawave_squad_ids
+  traffic_allowance_bytes, device_limit, remnawave_squad_ids, subscription_id
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 ON CONFLICT (order_id) DO UPDATE SET order_id = EXCLUDED.order_id
 RETURNING *;
 
@@ -567,10 +570,13 @@ WHERE id = sqlc.arg(entitlement_id)
 RETURNING *;
 
 -- name: SupersedePreviousEntitlements :exec
+-- Superseding is scoped to one subscription so buying a second subscription
+-- never retires the first one's entitlement.
 UPDATE entitlements
 SET status = 'superseded', updated_at = now()
 WHERE user_id = sqlc.arg(user_id)
   AND id <> sqlc.arg(current_entitlement_id)
+  AND subscription_id IS NOT DISTINCT FROM sqlc.narg(subscription_id)::uuid
   AND status IN ('pending', 'active', 'limited', 'disabled');
 
 -- name: InsertEntitlementDrift :one

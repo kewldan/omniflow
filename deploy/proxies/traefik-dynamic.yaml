@@ -1,0 +1,74 @@
+# Traefik dynamic configuration: routers, services, and middleware for the
+# Omniflow stack. Replace the host rules with your own domains.
+
+http:
+  middlewares:
+    security-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        contentTypeNosniff: true
+        frameDeny: true
+        referrerPolicy: strict-origin-when-cross-origin
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        customResponseHeaders:
+          Server: ""
+    api-body-limit:
+      buffering:
+        maxRequestBodyBytes: 2097152
+        memRequestBodyBytes: 1048576
+    webhook-body-limit:
+      buffering:
+        maxRequestBodyBytes: 1048576
+        memRequestBodyBytes: 1048576
+    # Metrics and readiness are operational endpoints and must not be reachable
+    # from the public API host.
+    block-internal-endpoints:
+      replacePathRegex:
+        regex: "^/(metrics|readyz)$"
+        replacement: "/__blocked"
+
+  routers:
+    web:
+      rule: "Host(`${WEB_DOMAIN}`)"
+      entryPoints: [websecure]
+      middlewares: [security-headers]
+      service: web
+      tls:
+        certResolver: letsencrypt
+
+    api:
+      rule: "Host(`${API_DOMAIN}`)"
+      entryPoints: [websecure]
+      middlewares: [security-headers, api-body-limit, block-internal-endpoints]
+      service: api
+      tls:
+        certResolver: letsencrypt
+
+    # Telegram webhook mode. Telegram authenticates with the secret token header,
+    # which the bot verifies before accepting an update.
+    bot-webhook:
+      rule: "Host(`${BOT_WEBHOOK_DOMAIN}`) && Path(`/telegram/webhook`)"
+      entryPoints: [websecure]
+      middlewares: [security-headers, webhook-body-limit]
+      service: bot
+      tls:
+        certResolver: letsencrypt
+
+  services:
+    web:
+      loadBalancer:
+        servers:
+          - url: "http://web:3000"
+    api:
+      loadBalancer:
+        healthCheck:
+          path: /livez
+          interval: 10s
+          timeout: 3s
+        servers:
+          - url: "http://api:8080"
+    bot:
+      loadBalancer:
+        servers:
+          - url: "http://bot:8082"

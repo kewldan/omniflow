@@ -1,0 +1,107 @@
+---
+title: Troubleshooting
+description: Symptoms, where to look, and what each state actually means.
+---
+
+Start with `/readyz` on each process and the `omniflow_dependency_up` gauge. Most incidents are one dependency, and the rest of this page assumes you have already ruled that out.
+
+## A customer paid and has no access
+
+This is the failure Omniflow is designed hardest against, and it is almost always provisioning rather than payment.
+
+1. Find the order. `GET /v1/admin/orders/{orderID}` shows its state and paid amount.
+2. `paid` means the money is recorded and the entitlement exists. `fulfilled` means Remnawave confirmed it.
+3. `GET /v1/admin/jobs?state=dead_letter` shows provisioning runs that will not retry on their own.
+4. `GET /v1/admin/fulfillment/drifts` shows entitlements whose remote state does not match.
+
+To re-drive a stalled run, `POST /v1/admin/jobs/{jobID}/retry`. The underlying fulfillment operation carries its own idempotency key, so a retry cannot double-apply something that already succeeded.
+
+The payment is never at risk here. Settlement and the durable job commit in one transaction, so a paid order always has a job waiting for it.
+
+## A payment succeeded at the provider but the order is pending
+
+The webhook has not arrived, or it was rejected.
+
+1. `GET /v1/admin/webhooks` lists recent intake with `signatureValid` and `status`.
+2. `signatureValid: false` means the signature did not verify. Check the provider credentials, and confirm the reverse proxy is not modifying the request body — a re-encoded body invalidates every signature.
+3. `status: failed` with `payment_not_found` means the webhook referenced a payment intent this installation does not have. Usually a webhook from a different environment pointed at this one.
+4. If no webhook arrived at all, `POST /v1/admin/payments/{paymentID}/reconcile` polls the provider directly. Reconciliation also runs automatically every minute.
+
+Both paths are idempotent. A webhook arriving after a manual reconciliation is a no-op.
+
+## A top-up credited the wrong amount
+
+Look at the `topup` topic or the payment events for the order. A top-up credits exactly what the provider settled:
+
+- `overpayment` — more arrived than was requested, and all of it was credited.
+- `underpayment` — less arrived, and that is what was credited.
+
+Both leave the order `paid`. This is intended: a wallet owes nothing beyond the money itself. If the discrepancy needs correcting, use a wallet adjustment with a reason, which is recorded as a compensating ledger entry rather than a rewrite.
+
+## A saved cart is not buying itself
+
+Check `carts.last_failure`:
+
+| Value | Meaning |
+| --- | --- |
+| `cart_insufficient_balance` | Working as intended; the balance does not cover the re-validated total |
+| `cart_plan_unavailable` | The plan or an add-on was archived, retired, or lost its price |
+| `cart_price_changed` | The order was refused at the current price |
+| `cart_auto_purchase_off` | The customer turned automatic purchase off |
+| `cart_maintenance` | The installation is in maintenance |
+
+Remember the cart is re-priced every attempt. A cart saved before a price rise will not buy at the old price, by design.
+
+## Duplicate charges
+
+They should be impossible, and the invariants say why:
+
+- `orders (user_id, idempotency_key)` is unique, so one checkout resolves to one order.
+- `ledger_transactions.idempotency_key` is unique and `(reference_type, reference_id, type)` is unique, so one settlement credits once.
+- `entitlement_addons (order_id, addon_version_id)` is unique, so one add-on applies once.
+- `fulfillment_operations.idempotency_key` is unique, so one operation runs once.
+
+If you believe you are seeing a duplicate, compare `ledger_entries` for the customer. Two entries under one transaction are the two sides of one movement, not two charges.
+
+## The operator group is silent
+
+1. Confirm `APP_OPERATOR_CHAT_ID` is set and the bot was restarted.
+2. Check `operator_topics` for a row with `status = 'failed'` and read `last_error_code`. See [Operator notifications](/operations/operator-notifications).
+3. Check `operator_notifications` for rows with `status = 'suppressed'` and `error_code = 'volume_cap'`, which means the cap is doing its job.
+
+## The bot receives no updates
+
+In long-polling mode, check the bot's logs for Telegram API errors and confirm outbound HTTPS works.
+
+In webhook mode:
+
+1. Confirm the proxy routes `POST /telegram/webhook` to the bot's listener and does not rewrite the body.
+2. Confirm `APP_TELEGRAM_WEBHOOK_SECRET` matches what was registered. An update without the secret token header is discarded before parsing, which looks identical to no traffic.
+3. Ask Telegram what it thinks: `getWebhookInfo` reports the URL it is delivering to and the last error it saw.
+
+Switching back to long polling is a supported fallback: clear `APP_TELEGRAM_WEBHOOK_URL` and restart.
+
+## Purchases are refused with a maintenance notice
+
+Check `GET /v1/admin/maintenance`. `source` says whether it was manual or automatic detection. An automatic window clears itself once the dependency has been healthy for the configured streak; a manual one never does. See [Maintenance mode](/operations/maintenance-mode).
+
+## The outbox is growing
+
+`GET /v1/admin/outbox` reports the pending count and the age of the oldest event. A growing count means events are being written and not dispatched. Check the worker's readiness and its dead-letter queue.
+
+## Backups are failing
+
+The failure reason is on the backup row and in the worker logs, as a classified code:
+
+| Code | Cause |
+| --- | --- |
+| `command_exit_N` | `pg_dump` or `pg_restore` exited non-zero, usually credentials or a version mismatch |
+| `verification_failed` | The written file could not be read back; check disk health and free space |
+| `file_missing` | The backup directory is not writable or not mounted |
+| `cancelled` | The process shut down mid-backup |
+
+`pg_dump` must match the server major version. The bot and worker images ship the PostgreSQL 18 client tools for exactly this reason; if you run them elsewhere, point `APP_PG_DUMP_PATH` at a matching binary.
+
+## A customer has two subscriptions and expects one
+
+Concurrent subscriptions are off by default. If a customer has more than one, either the switch is on, or they were adopted from separate Remnawave users at import. See [Concurrent subscriptions](/commerce/subscriptions) for how to reduce a customer to one without orphaning access.

@@ -1,0 +1,151 @@
+---
+title: Backup, restore, and disaster recovery
+description: Encrypted PostgreSQL backups, verified restores, and the upgrade and rollback procedure.
+---
+
+PostgreSQL is the only durable store Omniflow has. Valkey holds cache, rate limits, locks, and disposable state, so losing it costs nothing but a warm cache. Everything on this page therefore concerns PostgreSQL.
+
+## What a backup is
+
+A backup is `pg_dump --format=custom` output, encrypted with AES-256-GCM and written to `APP_BACKUP_DIR`. The worker takes one on a schedule; an operator can take one on demand from the bot.
+
+Encryption is framed rather than a single sealed blob, so a multi-gigabyte dump never has to fit in memory:
+
+```text
+"OFBK1"          5 bytes
+base nonce      12 bytes, random per file
+frames                    repeated: uint32 length, AES-256-GCM ciphertext
+```
+
+Each frame authenticates its own index and whether it ends the file. A reordered, duplicated, dropped, or truncated frame fails to open rather than producing a plausible-looking partial dump — which is the only outcome worse than having no backup at all.
+
+## Enabling backups
+
+```bash
+APP_BACKUP_ENABLED=true
+APP_BACKUP_ENCRYPTION_KEY=$(openssl rand -base64 32)
+APP_BACKUP_DIR=/var/lib/omniflow/backups
+APP_BACKUP_INTERVAL_HOURS=24
+APP_BACKUP_RETENTION_DAYS=14
+```
+
+<Warning>
+Store `APP_BACKUP_ENCRYPTION_KEY` somewhere the database backup itself does not reach — a password manager, a secrets manager, or a sealed envelope. A key that only exists inside the thing it decrypts is not a key.
+
+It is a **different** key from `APP_DATA_ENCRYPTION_KEY`. Both must be preserved: the backup key to read the dump, the data key to read the encrypted contact values inside it.
+</Warning>
+
+The bot and worker images ship the matching PostgreSQL 18 client tools. In the compose stack both mount a shared `backup-data` volume, so rebuilding a container never discards backups.
+
+## Verification
+
+A backup is recorded as `completed` only after it has been read back: the file is decrypted end to end and its SHA-256 digest is compared with the digest computed while writing. A backup that cannot be decrypted is deleted and recorded as `failed` with a classified error code.
+
+This runs on every backup, not only on demand. An unverified backup is a guess.
+
+## Operating from Telegram
+
+Telegram carries operator notifications and backup/restore actions only. Every other administrative control belongs in the web panel.
+
+```bash
+APP_OPERATOR_TELEGRAM_IDS=111111111,222222222
+```
+
+An account not in that list gets **no response at all** to `/ops` — not a refusal, which would confirm the command exists.
+
+`/ops` shows the most recent backups with status, size, and timestamp, plus:
+
+- **Back up now** — takes a manual backup immediately, refusing if one is already running.
+- **Restore latest…** — a two-step confirmation. The first tap only renders the warning; the second carries the backup identifier the operator saw.
+
+Both write an append-only audit event naming the Telegram account, the action, the backup, and the reason.
+
+## Restoring
+
+A restore verifies the backup first, then runs `pg_restore --clean --if-exists --no-owner --no-privileges --single-transaction`.
+
+<Warning>
+A restore replaces current database contents. Every change made since the backup was taken is lost, including orders placed, payments settled, and support messages received in that window.
+</Warning>
+
+Before restoring:
+
+1. Stop `api`, `bot`, and `worker`. A live worker will keep provisioning against state that is about to be replaced.
+2. Take a fresh backup of the current database, even if you believe it is broken. It is the only way back from a mistaken restore.
+3. Confirm the target backup's status is `completed`.
+
+After restoring:
+
+1. Start `worker` first and watch `/readyz` and the fulfillment topic.
+2. Start `api` and `bot`.
+3. Reconcile with Remnawave. Provisioning that happened after the backup point is still live in the panel but absent from Omniflow. Scheduled drift detection reports the mismatches within fifteen minutes, and each one is resolvable from the drift view.
+4. Re-check pending payments. A payment that settled after the backup point is picked up by the reconciliation poller or by a provider webhook retry. Both are idempotent, so nothing is charged or credited twice.
+
+### Restoring without the bot
+
+The worker binary doubles as a decryption filter, so a restore needs nothing but the binary, the key, and the file:
+
+```bash
+# Decrypt with the key from your secret store.
+APP_BACKUP_ENCRYPTION_KEY=... \
+  docker compose run --rm -T worker --decrypt-backup \
+  < omniflow-scheduled-20260811T030000Z.dump.enc > backup.dump
+
+# Restore with the client tools that ship in the postgres image.
+docker compose exec -T postgres pg_restore \
+  --clean --if-exists --no-owner --no-privileges --single-transaction \
+  --dbname "postgres://omniflow:omniflow@localhost:5432/omniflow" < backup.dump
+```
+
+The filter fails loudly on a wrong key or a damaged file rather than emitting partial output.
+
+## Retention and pruning
+
+Once `APP_BACKUP_RETENTION_DAYS` elapses the file is deleted and the row is marked `pruned`. The row is kept, so the history of which backups existed stays auditable after the files are gone.
+
+## Upgrading Omniflow
+
+Migrations are forward-only and applied by the `migrate` service before any application process starts.
+
+1. Take a backup and confirm it is `completed`.
+2. Pull the new images.
+3. Run `docker compose up -d`. The `migrate` service runs `atlas migrate apply`, and every other service waits for it to complete successfully.
+4. Watch `/readyz` on each process.
+
+Applying migrations twice is a no-op: Atlas records what has already run. CI proves every supported baseline — the empty database plus each prefix of the migration history — upgrades to head, and that re-applying head changes nothing.
+
+## Rolling back
+
+Omniflow does not ship down-migrations. A schema rollback is a restore:
+
+1. Stop `api`, `bot`, and `worker`.
+2. Restore the backup taken before the upgrade.
+3. Pin the previous image tags and start the stack.
+4. Reconcile with Remnawave as described above.
+
+This is why step one of an upgrade is a backup, and why the backup is verified before it is trusted.
+
+## Upgrading PostgreSQL
+
+Omniflow supports PostgreSQL 18. To move between major versions:
+
+1. Stop `api`, `bot`, and `worker`; leave `postgres` running.
+2. Take a backup and verify it.
+3. Stop `postgres` and start the new major version against an **empty** data directory.
+4. Restore the backup.
+5. Start the application processes.
+
+Do not point a new PostgreSQL major version at an old data directory. `pg_upgrade` is the alternative if you prefer an in-place upgrade, but the dump-and-restore path is the one this backup format is designed for.
+
+## Disaster-recovery drill
+
+Run this quarterly. An untested backup is an assumption.
+
+1. Take a manual backup from `/ops`.
+2. Start a throwaway PostgreSQL instance.
+3. Decrypt and restore the backup into it.
+4. Confirm row counts for `orders`, `ledger_entries`, `entitlements`, and `subscriptions` match the live database at the backup point.
+5. Confirm `APP_DATA_ENCRYPTION_KEY` still decrypts a contact channel in the restored copy.
+6. Destroy the throwaway instance.
+
+Record the date and the outcome. Step 5 is the one most often skipped and the one that most often fails: a database restored without its data-encryption key has unreadable contact values.

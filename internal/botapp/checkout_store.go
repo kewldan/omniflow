@@ -29,18 +29,29 @@ type CheckoutSession struct {
 	OrderID        string
 	IdempotencyKey string
 	ExpiresAt      time.Time
+	// SubscriptionID names the subscription this checkout changes. It is empty
+	// when the customer is opening a new one.
+	SubscriptionID string
+	// NewSubscription is set when the customer chose to open an additional
+	// subscription rather than change an existing one.
+	NewSubscription bool
+	// SelectedSquadIDs are the squads chosen in the configurator.
+	SelectedSquadIDs []string
 }
 
 // OpenCheckout replaces any unfinished checkout for the customer with a new one.
 // Only one checkout may be open at a time, which keeps the confirmation screen
 // and the order that follows it unambiguous.
-func (store *PostgresStore) OpenCheckout(ctx context.Context, customerID, planVersionID, operation, currency string) (CheckoutSession, error) {
+func (store *PostgresStore) OpenCheckout(ctx context.Context, customerID, planVersionID, operation, currency, subscriptionID string, defaultSquads []string) (CheckoutSession, error) {
 	if _, err := commerce.NormalizeOperation(operation); err != nil {
 		return CheckoutSession{}, err
 	}
 	key, err := newIdempotencyKey()
 	if err != nil {
 		return CheckoutSession{}, err
+	}
+	if defaultSquads == nil {
+		defaultSquads = []string{}
 	}
 	tx, err := store.pool.Begin(ctx)
 	if err != nil {
@@ -51,9 +62,9 @@ func (store *PostgresStore) OpenCheckout(ctx context.Context, customerID, planVe
 		return CheckoutSession{}, err
 	}
 	session, err := scanCheckout(tx.QueryRow(ctx, `INSERT INTO bot_checkout_sessions
-		(user_id, plan_version_id, operation, currency, idempotency_key)
-		VALUES ($1::uuid, $2::uuid, $3, $4, $5)
-		RETURNING `+checkoutColumns, customerID, planVersionID, operation, currency, key))
+		(user_id, plan_version_id, operation, currency, idempotency_key, subscription_id, selected_squad_ids)
+		VALUES ($1::uuid, $2::uuid, $3, $4, $5, NULLIF($6, '')::uuid, $7::uuid[])
+		RETURNING `+checkoutColumns, customerID, planVersionID, operation, currency, key, subscriptionID, defaultSquads))
 	if err != nil {
 		return CheckoutSession{}, err
 	}
@@ -61,7 +72,8 @@ func (store *PostgresStore) OpenCheckout(ctx context.Context, customerID, planVe
 }
 
 const checkoutColumns = `id::text, user_id::text, plan_version_id::text, operation, currency, provider,
-	promo_code, promo_rejection, apply_wallet, order_id::text, idempotency_key, expires_at`
+	promo_code, promo_rejection, apply_wallet, order_id::text, idempotency_key, expires_at,
+	subscription_id::text, selected_squad_ids`
 
 // Checkout reads the customer's open checkout, if any. An expired checkout is
 // removed so the customer restarts from a fresh, correctly priced quote.
@@ -125,20 +137,106 @@ func (store *PostgresStore) CancelCheckout(ctx context.Context, customerID strin
 
 func scanCheckout(row pgx.Row) (CheckoutSession, error) {
 	var (
-		session   CheckoutSession
-		provider  pgtype.Text
-		promo     pgtype.Text
-		rejection pgtype.Text
-		orderID   pgtype.Text
+		session      CheckoutSession
+		provider     pgtype.Text
+		promo        pgtype.Text
+		rejection    pgtype.Text
+		orderID      pgtype.Text
+		subscription pgtype.Text
+		squadIDs     []string
 	)
 	err := row.Scan(&session.ID, &session.CustomerID, &session.PlanVersionID, &session.Operation,
 		&session.Currency, &provider, &promo, &rejection, &session.ApplyWallet, &orderID,
-		&session.IdempotencyKey, &session.ExpiresAt)
+		&session.IdempotencyKey, &session.ExpiresAt, &subscription, &squadIDs)
 	if err != nil {
 		return CheckoutSession{}, err
 	}
 	session.Provider, session.PromoCode, session.PromoRejection, session.OrderID = provider.String, promo.String, rejection.String, orderID.String
+	session.SubscriptionID, session.SelectedSquadIDs = subscription.String, squadIDs
+	// A purchase with no named subscription opens a new one. A renewal, upgrade,
+	// or downgrade always names the subscription it changes.
+	session.NewSubscription = session.SubscriptionID == "" && session.Operation == "purchase"
 	return session, nil
+}
+
+// SetCheckoutSubscription targets an existing subscription, or clears the target
+// so the checkout opens a new one.
+func (store *PostgresStore) SetCheckoutSubscription(ctx context.Context, sessionID, subscriptionID string) (CheckoutSession, error) {
+	return scanCheckout(store.pool.QueryRow(ctx, `UPDATE bot_checkout_sessions
+		SET subscription_id = NULLIF($2, '')::uuid, updated_at = now()
+		WHERE id = $1::uuid AND order_id IS NULL
+		RETURNING `+checkoutColumns, sessionID, subscriptionID))
+}
+
+// SetCheckoutSquads stores the customer's squad selection for this checkout.
+func (store *PostgresStore) SetCheckoutSquads(ctx context.Context, sessionID string, squadIDs []string) (CheckoutSession, error) {
+	if squadIDs == nil {
+		squadIDs = []string{}
+	}
+	return scanCheckout(store.pool.QueryRow(ctx, `UPDATE bot_checkout_sessions
+		SET selected_squad_ids = $2::uuid[], updated_at = now()
+		WHERE id = $1::uuid AND order_id IS NULL
+		RETURNING `+checkoutColumns, sessionID, squadIDs))
+}
+
+// ToggleCheckoutSquad adds or removes one squad from the checkout selection and
+// returns the resulting set.
+func (store *PostgresStore) ToggleCheckoutSquad(ctx context.Context, session CheckoutSession, squadID string) (CheckoutSession, error) {
+	selected := make([]string, 0, len(session.SelectedSquadIDs)+1)
+	removed := false
+	for _, existing := range session.SelectedSquadIDs {
+		if existing == squadID {
+			removed = true
+			continue
+		}
+		selected = append(selected, existing)
+	}
+	if !removed {
+		selected = append(selected, squadID)
+	}
+	return store.SetCheckoutSquads(ctx, session.ID, selected)
+}
+
+// CheckoutAddon is one add-on attached to an open checkout.
+type CheckoutAddon struct {
+	AddonVersionID string
+	Quantity       int
+}
+
+// CheckoutAddons lists the add-ons attached to a checkout.
+func (store *PostgresStore) CheckoutAddons(ctx context.Context, sessionID string) ([]CheckoutAddon, error) {
+	rows, err := store.pool.Query(ctx, `SELECT addon_version_id::text, quantity
+		FROM bot_checkout_addons WHERE checkout_id = $1::uuid ORDER BY addon_version_id`, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	addons := make([]CheckoutAddon, 0, 4)
+	for rows.Next() {
+		var addon CheckoutAddon
+		if err = rows.Scan(&addon.AddonVersionID, &addon.Quantity); err != nil {
+			return nil, err
+		}
+		addons = append(addons, addon)
+	}
+	return addons, rows.Err()
+}
+
+// ToggleCheckoutAddon adds an add-on to a checkout at quantity one, or removes
+// it when it is already there.
+func (store *PostgresStore) ToggleCheckoutAddon(ctx context.Context, sessionID, addonVersionID string) error {
+	tag, err := store.pool.Exec(ctx, `DELETE FROM bot_checkout_addons
+		WHERE checkout_id = $1::uuid AND addon_version_id = $2::uuid`, sessionID, addonVersionID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() > 0 {
+		return nil
+	}
+	_, err = store.pool.Exec(ctx, `INSERT INTO bot_checkout_addons (checkout_id, addon_version_id, quantity)
+		VALUES ($1::uuid, $2::uuid, 1)
+		ON CONFLICT (checkout_id, addon_version_id) DO NOTHING`, sessionID, addonVersionID)
+	return err
 }
 
 // OrderSummary is the customer-facing projection of an order and everything

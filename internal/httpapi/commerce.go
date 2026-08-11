@@ -37,6 +37,7 @@ type CommerceHandlers struct {
 	fulfillment   *fulfillment.Service
 	promoLimiter  *platform.RateLimiter
 	operatorToken string
+	operations    *operations
 }
 
 func NewCommerceHandlers(queries *dbgen.Queries, catalogService *catalogpg.Service, commerceStore *commercepg.Store, paymentService *paymentservice.Service, customerService *customerpg.Service, importService *importservice.Service, fulfillmentService *fulfillment.Service, promoLimiter *platform.RateLimiter, operatorToken string) *CommerceHandlers {
@@ -70,6 +71,7 @@ func (handlers *CommerceHandlers) Mount(router chi.Router) {
 		admin.Post("/customers/{customerID}/wallet-adjustments", handlers.adjustWallet)
 		admin.Get("/fulfillment/drifts", handlers.listFulfillmentDrifts)
 		admin.Post("/entitlements/{entitlementID}/operations", handlers.enqueueFulfillmentOperation)
+		handlers.mountOperations(admin)
 	})
 }
 

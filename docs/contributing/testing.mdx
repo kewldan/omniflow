@@ -1,10 +1,52 @@
 ---
 title: Testing strategy
-description: Current checks and phased integration testing.
+description: What runs by default, what needs Docker, and what every financial change owes.
 ---
 
-The foundation requires Go unit/race tests, TypeScript checking, frontend builds, Biome, Atlas validation, Mintlify validation, vulnerability scanning, and container builds.
+## The default suite
 
-Full Testcontainers coverage for PostgreSQL and Valkey and Playwright coverage for admin/customer journeys are intentionally delayed until the corresponding business modules stabilize. The architecture and CI keep dedicated extension points for both suites.
+`go test ./...` runs everywhere with no Docker daemon and no network. It covers the domain packages, view rendering, provider webhook parsing, backup encryption, and log redaction. Keep it that way: a suite that needs infrastructure to run is a suite that stops being run.
 
-Payment, wallet, authentication, RBAC, import, and Remnawave fulfillment changes must still include focused failure-path and idempotency tests from their first implementation.
+Alongside it CI runs TypeScript checking, frontend builds, Biome, Atlas validation, Mintlify validation, vulnerability scanning, and container builds.
+
+## The integration suite
+
+Tests under `internal/integrationtest` carry the `integration` build tag and start PostgreSQL through Testcontainers:
+
+```bash
+go test -tags=integration -race -timeout=20m ./internal/integrationtest/...
+```
+
+The harness applies the committed migration files in order rather than a schema dump, so the suite is a migration gate as well as a repository gate. It covers:
+
+- migrations applying from a bare database, and the v0.4 → v0.5 adoption of existing customers onto subscriptions;
+- top-up crediting the wallet exactly once across a replayed webhook, a second event, and a reconciliation;
+- overpayment and underpayment resolving in the ledger while the order still settles;
+- a saved cart staying saved while short and being charged once when funded;
+- concurrency limits holding under simultaneous purchases;
+- the outbox and the operator notice being written once per settlement;
+- maintenance blocking new orders while a paid order still settles;
+- the durable fulfillment job committing in the settlement transaction;
+- retention removing disposable rows and never an audit event.
+
+`load_test.go` is part of the same suite. It is not a throughput benchmark: it drives the same settlement, cart purchase, and subscription creation from many goroutines at once, because a duplicated charge only appears when the same work arrives from several directions simultaneously.
+
+## Migration upgrade gate
+
+The `migrations` CI job runs once per supported baseline — the empty database plus each prefix of the migration history — applies the rest, then applies head a second time to prove it is a no-op. A migration that cannot run on top of a released version fails there.
+
+## What a financial change owes
+
+New payment, wallet, authentication, RBAC, import, and Remnawave fulfillment behaviour must include focused failure-path and idempotency tests from its first implementation. In practice that means proving, for the new path:
+
+1. The same input applied twice produces one effect.
+2. A partial failure leaves no half-applied state.
+3. Every rejection carries a stable machine reason, not a formatted message.
+
+## Provider fixtures
+
+`internal/payments/testdata` holds recorded webhook shapes with every real identifier replaced. Replaying them keeps parsing and signature verification honest without a sandbox account. Never commit a real payment payload, token, or signature — synthesise one instead.
+
+## Still to come
+
+Playwright coverage of admin and customer journeys arrives with the panels in v0.6 and v0.9. The architecture and CI keep the extension points for it.

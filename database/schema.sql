@@ -1,3 +1,4 @@
 -- atlas:import schema/base.sql
 -- atlas:import migrations/20260810220000_commerce.sql
 -- atlas:import migrations/20260811000000_telegram_commerce.sql
+-- atlas:import migrations/20260811120000_purchase_expansion.sql

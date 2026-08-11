@@ -1,0 +1,40 @@
+# Traefik overlay for the Omniflow compose stack. Combine it with the root
+# compose file:
+#
+#   docker compose -f compose.yaml -f deploy/proxies/traefik.compose.yaml up -d
+#
+# Publishing ports on the api and web services is unnecessary once the proxy
+# fronts them; this overlay keeps them on the internal network only.
+
+services:
+  traefik:
+    image: traefik:v3.6.1
+    restart: unless-stopped
+    command: ["--configFile=/etc/traefik/traefik.yaml"]
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL}
+      WEB_DOMAIN: ${WEB_DOMAIN:?set WEB_DOMAIN}
+      API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN}
+      BOT_WEBHOOK_DOMAIN: ${BOT_WEBHOOK_DOMAIN:-${API_DOMAIN}}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/proxies/traefik.yaml:/etc/traefik/traefik.yaml:ro
+      - ./deploy/proxies/traefik-dynamic.yaml:/etc/traefik/dynamic.yaml:ro
+      - traefik-acme:/letsencrypt
+    depends_on: [api]
+    networks: [internal]
+
+  # `!override` replaces the base list instead of merging into it, so the API
+  # and web ports stop being published on the host once Traefik fronts them.
+  # It needs Docker Compose 2.24.4 or newer; on an older release, delete the
+  # `ports` blocks from compose.yaml instead.
+  api:
+    ports: !override []
+
+  web:
+    ports: !override []
+
+volumes:
+  traefik-acme:

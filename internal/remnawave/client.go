@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 const maxResponseBytes = 1 << 20
@@ -145,8 +147,11 @@ func NewClient(rawURL, token string) (*Client, error) {
 	return &Client{
 		baseURL: baseURL,
 		token:   token,
+		// Every panel call is traced as a child of the request or job that
+		// caused it, which is what makes a slow Remnawave visible end to end.
 		http: &http.Client{
-			Timeout: 10 * time.Second,
+			Timeout:   10 * time.Second,
+			Transport: otelhttp.NewTransport(http.DefaultTransport),
 			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
 				return http.ErrUseLastResponse
 			},
@@ -250,6 +255,14 @@ func (client *Client) DeleteAllDevices(ctx context.Context, userID int64) error 
 
 func (client *Client) RevokeSubscription(ctx context.Context, userID int64) error {
 	return client.post(ctx, "/api/users/"+strconv.FormatInt(userID, 10)+"/actions/revoke", map[string]any{})
+}
+
+// Ping reports whether the panel answers an authenticated request. It reads one
+// user rather than an unauthenticated page, so an expired token is detected as
+// unavailability instead of being mistaken for a healthy panel.
+func (client *Client) Ping(ctx context.Context) error {
+	_, _, err := client.ListUsers(ctx, 0, 1)
+	return err
 }
 
 func (client *Client) get(ctx context.Context, path string, target any) error {

@@ -17,6 +17,48 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for BackupKind.
+const (
+	BackupKindManual    BackupKind = "manual"
+	BackupKindScheduled BackupKind = "scheduled"
+)
+
+// Valid indicates whether the value is a known member of the BackupKind enum.
+func (e BackupKind) Valid() bool {
+	switch e {
+	case BackupKindManual:
+		return true
+	case BackupKindScheduled:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BackupStatus.
+const (
+	BackupStatusCompleted BackupStatus = "completed"
+	BackupStatusFailed    BackupStatus = "failed"
+	BackupStatusPruned    BackupStatus = "pruned"
+	BackupStatusRunning   BackupStatus = "running"
+)
+
+// Valid indicates whether the value is a known member of the BackupStatus enum.
+func (e BackupStatus) Valid() bool {
+	switch e {
+	case BackupStatusCompleted:
+		return true
+	case BackupStatusFailed:
+		return true
+	case BackupStatusPruned:
+		return true
+	case BackupStatusRunning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ConsentInputPurpose.
 const (
 	Marketing ConsentInputPurpose = "marketing"
@@ -95,6 +137,24 @@ func (e CustomerPreferencesLocale) Valid() bool {
 	case CustomerPreferencesLocaleEn:
 		return true
 	case CustomerPreferencesLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DependencyCheckError.
+const (
+	Timeout     DependencyCheckError = "timeout"
+	Unavailable DependencyCheckError = "unavailable"
+)
+
+// Valid indicates whether the value is a known member of the DependencyCheckError enum.
+func (e DependencyCheckError) Valid() bool {
+	switch e {
+	case Timeout:
+		return true
+	case Unavailable:
 		return true
 	default:
 		return false
@@ -209,6 +269,30 @@ func (e LifecycleInputActorType) Valid() bool {
 	case LifecycleInputActorTypeOperator:
 		return true
 	case LifecycleInputActorTypeSystem:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MaintenanceSource.
+const (
+	MaintenanceSourceDatabase  MaintenanceSource = "database"
+	MaintenanceSourceManual    MaintenanceSource = "manual"
+	MaintenanceSourceRemnawave MaintenanceSource = "remnawave"
+	MaintenanceSourceValkey    MaintenanceSource = "valkey"
+)
+
+// Valid indicates whether the value is a known member of the MaintenanceSource enum.
+func (e MaintenanceSource) Valid() bool {
+	switch e {
+	case MaintenanceSourceDatabase:
+		return true
+	case MaintenanceSourceManual:
+		return true
+	case MaintenanceSourceRemnawave:
+		return true
+	case MaintenanceSourceValkey:
 		return true
 	default:
 		return false
@@ -464,6 +548,24 @@ func (e PromotionInputKind) Valid() bool {
 	}
 }
 
+// Defines values for ReadinessStatus.
+const (
+	Degraded ReadinessStatus = "degraded"
+	Ready    ReadinessStatus = "ready"
+)
+
+// Valid indicates whether the value is a known member of the ReadinessStatus enum.
+func (e ReadinessStatus) Valid() bool {
+	switch e {
+	case Degraded:
+		return true
+	case Ready:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TelemetryEventName.
 const (
 	FeatureUsage          TelemetryEventName = "feature.usage"
@@ -545,6 +647,60 @@ func (e WalletAdjustmentType) Valid() bool {
 	}
 }
 
+// Defines values for WebhookEventStatus.
+const (
+	WebhookEventStatusFailed    WebhookEventStatus = "failed"
+	WebhookEventStatusIgnored   WebhookEventStatus = "ignored"
+	WebhookEventStatusProcessed WebhookEventStatus = "processed"
+	WebhookEventStatusReceived  WebhookEventStatus = "received"
+)
+
+// Valid indicates whether the value is a known member of the WebhookEventStatus enum.
+func (e WebhookEventStatus) Valid() bool {
+	switch e {
+	case WebhookEventStatusFailed:
+		return true
+	case WebhookEventStatusIgnored:
+		return true
+	case WebhookEventStatusProcessed:
+		return true
+	case WebhookEventStatusReceived:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListJobsParamsState.
+const (
+	ListJobsParamsStateAvailable  ListJobsParamsState = "available"
+	ListJobsParamsStateCompleted  ListJobsParamsState = "completed"
+	ListJobsParamsStateDeadLetter ListJobsParamsState = "dead_letter"
+	ListJobsParamsStateRetryable  ListJobsParamsState = "retryable"
+	ListJobsParamsStateRunning    ListJobsParamsState = "running"
+	ListJobsParamsStateScheduled  ListJobsParamsState = "scheduled"
+)
+
+// Valid indicates whether the value is a known member of the ListJobsParamsState enum.
+func (e ListJobsParamsState) Valid() bool {
+	switch e {
+	case ListJobsParamsStateAvailable:
+		return true
+	case ListJobsParamsStateCompleted:
+		return true
+	case ListJobsParamsStateDeadLetter:
+		return true
+	case ListJobsParamsStateRetryable:
+		return true
+	case ListJobsParamsStateRunning:
+		return true
+	case ListJobsParamsStateScheduled:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListPlansParamsLocale.
 const (
 	ListPlansParamsLocaleEn ListPlansParamsLocale = "en"
@@ -561,6 +717,32 @@ func (e ListPlansParamsLocale) Valid() bool {
 	default:
 		return false
 	}
+}
+
+// Backup defines model for Backup.
+type Backup struct {
+	CompletedAt *time.Time         `json:"completedAt,omitempty"`
+	Encrypted   bool               `json:"encrypted"`
+	ErrorCode   *string            `json:"errorCode,omitempty"`
+	FileName    string             `json:"fileName"`
+	Id          openapi_types.UUID `json:"id"`
+	Kind        BackupKind         `json:"kind"`
+	RetainUntil time.Time          `json:"retainUntil"`
+	SizeBytes   int64              `json:"sizeBytes"`
+	StartedAt   time.Time          `json:"startedAt"`
+	Status      BackupStatus       `json:"status"`
+	VerifiedAt  *time.Time         `json:"verifiedAt,omitempty"`
+}
+
+// BackupKind defines model for Backup.Kind.
+type BackupKind string
+
+// BackupStatus defines model for Backup.Status.
+type BackupStatus string
+
+// BackupList defines model for BackupList.
+type BackupList struct {
+	Items []Backup `json:"items"`
 }
 
 // ConsentInput defines model for ConsentInput.
@@ -609,6 +791,23 @@ type CustomerPreferences struct {
 
 // CustomerPreferencesLocale defines model for CustomerPreferences.Locale.
 type CustomerPreferencesLocale string
+
+// DependencyCheck defines model for DependencyCheck.
+type DependencyCheck struct {
+	CheckedAt           time.Time `json:"checkedAt"`
+	ConsecutiveFailures *int      `json:"consecutiveFailures,omitempty"`
+
+	// Error Stable classification; never the underlying driver message.
+	Error     *DependencyCheckError `json:"error,omitempty"`
+	Healthy   bool                  `json:"healthy"`
+	LatencyMs int64                 `json:"latencyMs"`
+
+	// Name Dependency name, such as postgres, valkey, or remnawave.
+	Name string `json:"name"`
+}
+
+// DependencyCheckError Stable classification; never the underlying driver message.
+type DependencyCheckError string
 
 // FulfillmentDrift defines model for FulfillmentDrift.
 type FulfillmentDrift struct {
@@ -673,6 +872,29 @@ type ImportRun struct {
 	ValidCount    *int                `json:"validCount,omitempty"`
 }
 
+// Job defines model for Job.
+type Job struct {
+	Attempt     int        `json:"attempt"`
+	AttemptedAt *time.Time `json:"attemptedAt,omitempty"`
+	CreatedAt   time.Time  `json:"createdAt"`
+	ErrorCount  *int       `json:"errorCount,omitempty"`
+	FinalizedAt *time.Time `json:"finalizedAt,omitempty"`
+	Id          int64      `json:"id"`
+	Kind        string     `json:"kind"`
+
+	// LastError Redacted error text from the most recent attempt.
+	LastError   *string `json:"lastError,omitempty"`
+	MaxAttempts int     `json:"maxAttempts"`
+	Queue       string  `json:"queue"`
+	State       string  `json:"state"`
+}
+
+// JobList defines model for JobList.
+type JobList struct {
+	Items []Job  `json:"items"`
+	State string `json:"state"`
+}
+
 // LifecycleInput defines model for LifecycleInput.
 type LifecycleInput struct {
 	Action    LifecycleInputAction    `json:"action"`
@@ -691,6 +913,32 @@ type LifecycleInputActorType string
 type Localization struct {
 	Description *string `json:"description,omitempty"`
 	Name        string  `json:"name"`
+}
+
+// Maintenance defines model for Maintenance.
+type Maintenance struct {
+	ActivatedAt      *time.Time        `json:"activatedAt,omitempty"`
+	Active           bool              `json:"active"`
+	ExpectedReturnAt *time.Time        `json:"expectedReturnAt,omitempty"`
+	NoticeEn         *string           `json:"noticeEn,omitempty"`
+	NoticeRu         *string           `json:"noticeRu,omitempty"`
+	Reason           string            `json:"reason"`
+	Source           MaintenanceSource `json:"source"`
+}
+
+// MaintenanceSource defines model for Maintenance.Source.
+type MaintenanceSource string
+
+// MaintenanceInput defines model for MaintenanceInput.
+type MaintenanceInput struct {
+	Active           bool       `json:"active"`
+	ExpectedReturnAt *time.Time `json:"expectedReturnAt,omitempty"`
+	NoticeEn         *string    `json:"noticeEn,omitempty"`
+
+	// NoticeRu Customer-facing Russian notice. Empty falls back to the built-in copy.
+	NoticeRu   *string `json:"noticeRu,omitempty"`
+	OperatorId string  `json:"operatorId"`
+	Reason     *string `json:"reason,omitempty"`
 }
 
 // ManualDecision defines model for ManualDecision.
@@ -737,6 +985,12 @@ type OrderInput struct {
 
 // OrderInputOperation defines model for OrderInput.Operation.
 type OrderInputOperation string
+
+// OutboxStatus defines model for OutboxStatus.
+type OutboxStatus struct {
+	OldestAgeSeconds int64 `json:"oldestAgeSeconds"`
+	PendingCount     int   `json:"pendingCount"`
+}
 
 // PaymentInput defines model for PaymentInput.
 type PaymentInput struct {
@@ -859,6 +1113,15 @@ type PromotionInput struct {
 // PromotionInputKind defines model for PromotionInput.Kind.
 type PromotionInputKind string
 
+// Readiness defines model for Readiness.
+type Readiness struct {
+	Checks []DependencyCheck `json:"checks"`
+	Status ReadinessStatus   `json:"status"`
+}
+
+// ReadinessStatus defines model for Readiness.Status.
+type ReadinessStatus string
+
 // Refund defines model for Refund.
 type Refund struct {
 	AmountMinor       int64               `json:"amountMinor"`
@@ -912,6 +1175,26 @@ type WalletAdjustment struct {
 // WalletAdjustmentType defines model for WalletAdjustment.Type.
 type WalletAdjustmentType string
 
+// WebhookEvent defines model for WebhookEvent.
+type WebhookEvent struct {
+	ErrorCode       *string            `json:"errorCode,omitempty"`
+	Id              openapi_types.UUID `json:"id"`
+	ProcessedAt     *time.Time         `json:"processedAt,omitempty"`
+	Provider        string             `json:"provider"`
+	ProviderEventId string             `json:"providerEventId"`
+	ReceivedAt      time.Time          `json:"receivedAt"`
+	SignatureValid  bool               `json:"signatureValid"`
+	Status          WebhookEventStatus `json:"status"`
+}
+
+// WebhookEventStatus defines model for WebhookEvent.Status.
+type WebhookEventStatus string
+
+// WebhookEventList defines model for WebhookEventList.
+type WebhookEventList struct {
+	Items []WebhookEvent `json:"items"`
+}
+
 // CustomerID defines model for CustomerID.
 type CustomerID = openapi_types.UUID
 
@@ -923,6 +1206,9 @@ type IdempotencyKey = string
 
 // ImportID defines model for ImportID.
 type ImportID = openapi_types.UUID
+
+// JobID defines model for JobID.
+type JobID = int64
 
 // OrderID defines model for OrderID.
 type OrderID = openapi_types.UUID
@@ -941,6 +1227,11 @@ type Plan = PlanInput
 
 // PlanVersion defines model for PlanVersion.
 type PlanVersion = PlanVersionInput
+
+// ListBackupsParams defines parameters for ListBackups.
+type ListBackupsParams struct {
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
 
 // AdjustCustomerWalletParams defines parameters for AdjustCustomerWallet.
 type AdjustCustomerWalletParams struct {
@@ -971,6 +1262,15 @@ type ApplyRemnawaveImportParams struct {
 type ResumeRemnawaveImportParams struct {
 	PageSize *PageSize `form:"pageSize,omitempty" json:"pageSize,omitempty"`
 }
+
+// ListJobsParams defines parameters for ListJobs.
+type ListJobsParams struct {
+	State *ListJobsParamsState `form:"state,omitempty" json:"state,omitempty"`
+	Limit *int                 `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListJobsParamsState defines parameters for ListJobs.
+type ListJobsParamsState string
 
 // CreateOrderParams defines parameters for CreateOrder.
 type CreateOrderParams struct {
@@ -1007,6 +1307,11 @@ type CreateRefundParams struct {
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
+// ListWebhookEventsParams defines parameters for ListWebhookEvents.
+type ListWebhookEventsParams struct {
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // ListPlansParams defines parameters for ListPlans.
 type ListPlansParams struct {
 	Locale *ListPlansParamsLocale `form:"locale,omitempty" json:"locale,omitempty"`
@@ -1038,6 +1343,9 @@ type AdjustCustomerWalletJSONRequestBody = WalletAdjustment
 
 // EnqueueFulfillmentOperationJSONRequestBody defines body for EnqueueFulfillmentOperation for application/json ContentType.
 type EnqueueFulfillmentOperationJSONRequestBody = FulfillmentOperationInput
+
+// SetMaintenanceJSONRequestBody defines body for SetMaintenance for application/json ContentType.
+type SetMaintenanceJSONRequestBody = MaintenanceInput
 
 // CreateOrderJSONRequestBody defines body for CreateOrder for application/json ContentType.
 type CreateOrderJSONRequestBody = OrderInput
@@ -1075,6 +1383,18 @@ type ServerInterface interface {
 	// (GET /healthz)
 	GetHealth(w http.ResponseWriter, r *http.Request)
 
+	// (GET /livez)
+	GetLiveness(w http.ResponseWriter, r *http.Request)
+
+	// (GET /metrics)
+	GetMetrics(w http.ResponseWriter, r *http.Request)
+
+	// (GET /readyz)
+	GetReadiness(w http.ResponseWriter, r *http.Request)
+
+	// (GET /v1/admin/backups)
+	ListBackups(w http.ResponseWriter, r *http.Request, params ListBackupsParams)
+
 	// (PATCH /v1/admin/customers/{customerID})
 	UpdateCustomer(w http.ResponseWriter, r *http.Request, customerID CustomerID)
 
@@ -1111,6 +1431,21 @@ type ServerInterface interface {
 	// (POST /v1/admin/imports/remnawave/{importID}/resume)
 	ResumeRemnawaveImport(w http.ResponseWriter, r *http.Request, importID ImportID, params ResumeRemnawaveImportParams)
 
+	// (GET /v1/admin/jobs)
+	ListJobs(w http.ResponseWriter, r *http.Request, params ListJobsParams)
+
+	// (POST /v1/admin/jobs/{jobID}/cancel)
+	CancelJob(w http.ResponseWriter, r *http.Request, jobID JobID)
+
+	// (POST /v1/admin/jobs/{jobID}/retry)
+	RetryJob(w http.ResponseWriter, r *http.Request, jobID JobID)
+
+	// (GET /v1/admin/maintenance)
+	GetMaintenance(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /v1/admin/maintenance)
+	SetMaintenance(w http.ResponseWriter, r *http.Request)
+
 	// (POST /v1/admin/orders)
 	CreateOrder(w http.ResponseWriter, r *http.Request, params CreateOrderParams)
 
@@ -1122,6 +1457,9 @@ type ServerInterface interface {
 
 	// (POST /v1/admin/orders/{orderID}/payments)
 	CreatePaymentIntent(w http.ResponseWriter, r *http.Request, orderID OrderID, params CreatePaymentIntentParams)
+
+	// (GET /v1/admin/outbox)
+	GetOutboxStatus(w http.ResponseWriter, r *http.Request)
 
 	// (POST /v1/admin/payments/{paymentID}/manual-decision)
 	DecideManualPayment(w http.ResponseWriter, r *http.Request, paymentID PaymentID, params DecideManualPaymentParams)
@@ -1141,6 +1479,9 @@ type ServerInterface interface {
 	// (POST /v1/admin/promotions)
 	CreatePromotion(w http.ResponseWriter, r *http.Request)
 
+	// (GET /v1/admin/webhooks)
+	ListWebhookEvents(w http.ResponseWriter, r *http.Request, params ListWebhookEventsParams)
+
 	// (GET /v1/catalog/plans)
 	ListPlans(w http.ResponseWriter, r *http.Request, params ListPlansParams)
 
@@ -1157,6 +1498,26 @@ type Unimplemented struct{}
 
 // (GET /healthz)
 func (_ Unimplemented) GetHealth(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /livez)
+func (_ Unimplemented) GetLiveness(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /metrics)
+func (_ Unimplemented) GetMetrics(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /readyz)
+func (_ Unimplemented) GetReadiness(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/admin/backups)
+func (_ Unimplemented) ListBackups(w http.ResponseWriter, r *http.Request, params ListBackupsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1220,6 +1581,31 @@ func (_ Unimplemented) ResumeRemnawaveImport(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /v1/admin/jobs)
+func (_ Unimplemented) ListJobs(w http.ResponseWriter, r *http.Request, params ListJobsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/admin/jobs/{jobID}/cancel)
+func (_ Unimplemented) CancelJob(w http.ResponseWriter, r *http.Request, jobID JobID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/admin/jobs/{jobID}/retry)
+func (_ Unimplemented) RetryJob(w http.ResponseWriter, r *http.Request, jobID JobID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/admin/maintenance)
+func (_ Unimplemented) GetMaintenance(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /v1/admin/maintenance)
+func (_ Unimplemented) SetMaintenance(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (POST /v1/admin/orders)
 func (_ Unimplemented) CreateOrder(w http.ResponseWriter, r *http.Request, params CreateOrderParams) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -1237,6 +1623,11 @@ func (_ Unimplemented) CancelOrder(w http.ResponseWriter, r *http.Request, order
 
 // (POST /v1/admin/orders/{orderID}/payments)
 func (_ Unimplemented) CreatePaymentIntent(w http.ResponseWriter, r *http.Request, orderID OrderID, params CreatePaymentIntentParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/admin/outbox)
+func (_ Unimplemented) GetOutboxStatus(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1270,6 +1661,11 @@ func (_ Unimplemented) CreatePromotion(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /v1/admin/webhooks)
+func (_ Unimplemented) ListWebhookEvents(w http.ResponseWriter, r *http.Request, params ListWebhookEventsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /v1/catalog/plans)
 func (_ Unimplemented) ListPlans(w http.ResponseWriter, r *http.Request, params ListPlansParams) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -1299,6 +1695,81 @@ func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetHealth(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetLiveness operation middleware
+func (siw *ServerInterfaceWrapper) GetLiveness(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetLiveness(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMetrics operation middleware
+func (siw *ServerInterfaceWrapper) GetMetrics(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMetrics(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetReadiness operation middleware
+func (siw *ServerInterfaceWrapper) GetReadiness(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetReadiness(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListBackups operation middleware
+func (siw *ServerInterfaceWrapper) ListBackups(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListBackupsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListBackups(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1731,6 +2202,132 @@ func (siw *ServerInterfaceWrapper) ResumeRemnawaveImport(w http.ResponseWriter, 
 	handler.ServeHTTP(w, r)
 }
 
+// ListJobs operation middleware
+func (siw *ServerInterfaceWrapper) ListJobs(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListJobsParams
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListJobs(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CancelJob operation middleware
+func (siw *ServerInterfaceWrapper) CancelJob(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "jobID" -------------
+	var jobID JobID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "jobID", chi.URLParam(r, "jobID"), &jobID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "jobID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CancelJob(w, r, jobID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RetryJob operation middleware
+func (siw *ServerInterfaceWrapper) RetryJob(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "jobID" -------------
+	var jobID JobID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "jobID", chi.URLParam(r, "jobID"), &jobID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "jobID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RetryJob(w, r, jobID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMaintenance operation middleware
+func (siw *ServerInterfaceWrapper) GetMaintenance(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMaintenance(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetMaintenance operation middleware
+func (siw *ServerInterfaceWrapper) SetMaintenance(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetMaintenance(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CreateOrder operation middleware
 func (siw *ServerInterfaceWrapper) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
@@ -1901,6 +2498,20 @@ func (siw *ServerInterfaceWrapper) CreatePaymentIntent(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreatePaymentIntent(w, r, orderID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOutboxStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetOutboxStatus(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOutboxStatus(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2126,6 +2737,39 @@ func (siw *ServerInterfaceWrapper) CreatePromotion(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// ListWebhookEvents operation middleware
+func (siw *ServerInterfaceWrapper) ListWebhookEvents(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListWebhookEventsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListWebhookEvents(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPlans operation middleware
 func (siw *ServerInterfaceWrapper) ListPlans(w http.ResponseWriter, r *http.Request) {
 
@@ -2316,6 +2960,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/healthz", wrapper.GetHealth)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/livez", wrapper.GetLiveness)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/readyz", wrapper.GetReadiness)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/metrics", wrapper.GetMetrics)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/catalog/plans", wrapper.ListPlans)
 	})
 	r.Group(func(r chi.Router) {
@@ -2388,6 +3041,30 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/v1/admin/entitlements/{entitlementID}/operations", wrapper.EnqueueFulfillmentOperation)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/admin/jobs", wrapper.ListJobs)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/admin/jobs/{jobID}/retry", wrapper.RetryJob)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/admin/jobs/{jobID}/cancel", wrapper.CancelJob)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/admin/webhooks", wrapper.ListWebhookEvents)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/admin/outbox", wrapper.GetOutboxStatus)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/admin/backups", wrapper.ListBackups)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/admin/maintenance", wrapper.GetMaintenance)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/admin/maintenance", wrapper.SetMaintenance)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/telemetry/events", wrapper.CollectTelemetryEvent)
 	})
 
@@ -2413,6 +3090,118 @@ func (response GetHealth200JSONResponse) VisitGetHealthResponse(w http.ResponseW
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLivenessRequestObject struct {
+}
+
+type GetLivenessResponseObject interface {
+	VisitGetLivenessResponse(w http.ResponseWriter) error
+}
+
+type GetLiveness200JSONResponse Health
+
+func (response GetLiveness200JSONResponse) VisitGetLivenessResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMetricsRequestObject struct {
+}
+
+type GetMetricsResponseObject interface {
+	VisitGetMetricsResponse(w http.ResponseWriter) error
+}
+
+type GetMetrics200TextResponse string
+
+func (response GetMetrics200TextResponse) VisitGetMetricsResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(200)
+
+	_, err := w.Write([]byte(fmt.Sprint(response)))
+	return err
+}
+
+type GetReadinessRequestObject struct {
+}
+
+type GetReadinessResponseObject interface {
+	VisitGetReadinessResponse(w http.ResponseWriter) error
+}
+
+type GetReadiness200JSONResponse Readiness
+
+func (response GetReadiness200JSONResponse) VisitGetReadinessResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetReadiness503JSONResponse Readiness
+
+func (response GetReadiness503JSONResponse) VisitGetReadinessResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListBackupsRequestObject struct {
+	Params ListBackupsParams
+}
+
+type ListBackupsResponseObject interface {
+	VisitListBackupsResponse(w http.ResponseWriter) error
+}
+
+type ListBackups200JSONResponse BackupList
+
+func (response ListBackups200JSONResponse) VisitListBackupsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListBackups500ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListBackups500ApplicationProblemPlusJSONResponse) VisitListBackupsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(500)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -2857,6 +3646,223 @@ func (response ResumeRemnawaveImport422ApplicationProblemPlusJSONResponse) Visit
 	return err
 }
 
+type ListJobsRequestObject struct {
+	Params ListJobsParams
+}
+
+type ListJobsResponseObject interface {
+	VisitListJobsResponse(w http.ResponseWriter) error
+}
+
+type ListJobs200JSONResponse JobList
+
+func (response ListJobs200JSONResponse) VisitListJobsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListJobs400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListJobs400ApplicationProblemPlusJSONResponse) VisitListJobsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListJobs503ApplicationProblemPlusJSONResponse Problem
+
+func (response ListJobs503ApplicationProblemPlusJSONResponse) VisitListJobsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CancelJobRequestObject struct {
+	JobID JobID `json:"jobID"`
+}
+
+type CancelJobResponseObject interface {
+	VisitCancelJobResponse(w http.ResponseWriter) error
+}
+
+type CancelJob200JSONResponse Job
+
+func (response CancelJob200JSONResponse) VisitCancelJobResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CancelJob422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CancelJob422ApplicationProblemPlusJSONResponse) VisitCancelJobResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RetryJobRequestObject struct {
+	JobID JobID `json:"jobID"`
+}
+
+type RetryJobResponseObject interface {
+	VisitRetryJobResponse(w http.ResponseWriter) error
+}
+
+type RetryJob200JSONResponse Job
+
+func (response RetryJob200JSONResponse) VisitRetryJobResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RetryJob422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RetryJob422ApplicationProblemPlusJSONResponse) VisitRetryJobResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMaintenanceRequestObject struct {
+}
+
+type GetMaintenanceResponseObject interface {
+	VisitGetMaintenanceResponse(w http.ResponseWriter) error
+}
+
+type GetMaintenance200JSONResponse Maintenance
+
+func (response GetMaintenance200JSONResponse) VisitGetMaintenanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMaintenance500ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetMaintenance500ApplicationProblemPlusJSONResponse) VisitGetMaintenanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetMaintenanceRequestObject struct {
+	Body *SetMaintenanceJSONRequestBody
+}
+
+type SetMaintenanceResponseObject interface {
+	VisitSetMaintenanceResponse(w http.ResponseWriter) error
+}
+
+type SetMaintenance200JSONResponse Maintenance
+
+func (response SetMaintenance200JSONResponse) VisitSetMaintenanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetMaintenance400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SetMaintenance400ApplicationProblemPlusJSONResponse) VisitSetMaintenanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetMaintenance422ApplicationProblemPlusJSONResponse Problem
+
+func (response SetMaintenance422ApplicationProblemPlusJSONResponse) VisitSetMaintenanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type CreateOrderRequestObject struct {
 	Params CreateOrderParams
 	Body   *CreateOrderJSONRequestBody
@@ -3010,6 +4016,43 @@ func (response CreatePaymentIntent422ApplicationProblemPlusJSONResponse) VisitCr
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetOutboxStatusRequestObject struct {
+}
+
+type GetOutboxStatusResponseObject interface {
+	VisitGetOutboxStatusResponse(w http.ResponseWriter) error
+}
+
+type GetOutboxStatus200JSONResponse OutboxStatus
+
+func (response GetOutboxStatus200JSONResponse) VisitGetOutboxStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetOutboxStatus500ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetOutboxStatus500ApplicationProblemPlusJSONResponse) VisitGetOutboxStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(500)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -3242,6 +4285,44 @@ func (response CreatePromotion422ApplicationProblemPlusJSONResponse) VisitCreate
 	return err
 }
 
+type ListWebhookEventsRequestObject struct {
+	Params ListWebhookEventsParams
+}
+
+type ListWebhookEventsResponseObject interface {
+	VisitListWebhookEventsResponse(w http.ResponseWriter) error
+}
+
+type ListWebhookEvents200JSONResponse WebhookEventList
+
+func (response ListWebhookEvents200JSONResponse) VisitListWebhookEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListWebhookEvents500ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListWebhookEvents500ApplicationProblemPlusJSONResponse) VisitListWebhookEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListPlansRequestObject struct {
 	Params ListPlansParams
 }
@@ -3365,6 +4446,18 @@ type StrictServerInterface interface {
 	// (GET /healthz)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
 
+	// (GET /livez)
+	GetLiveness(ctx context.Context, request GetLivenessRequestObject) (GetLivenessResponseObject, error)
+
+	// (GET /metrics)
+	GetMetrics(ctx context.Context, request GetMetricsRequestObject) (GetMetricsResponseObject, error)
+
+	// (GET /readyz)
+	GetReadiness(ctx context.Context, request GetReadinessRequestObject) (GetReadinessResponseObject, error)
+
+	// (GET /v1/admin/backups)
+	ListBackups(ctx context.Context, request ListBackupsRequestObject) (ListBackupsResponseObject, error)
+
 	// (PATCH /v1/admin/customers/{customerID})
 	UpdateCustomer(ctx context.Context, request UpdateCustomerRequestObject) (UpdateCustomerResponseObject, error)
 
@@ -3401,6 +4494,21 @@ type StrictServerInterface interface {
 	// (POST /v1/admin/imports/remnawave/{importID}/resume)
 	ResumeRemnawaveImport(ctx context.Context, request ResumeRemnawaveImportRequestObject) (ResumeRemnawaveImportResponseObject, error)
 
+	// (GET /v1/admin/jobs)
+	ListJobs(ctx context.Context, request ListJobsRequestObject) (ListJobsResponseObject, error)
+
+	// (POST /v1/admin/jobs/{jobID}/cancel)
+	CancelJob(ctx context.Context, request CancelJobRequestObject) (CancelJobResponseObject, error)
+
+	// (POST /v1/admin/jobs/{jobID}/retry)
+	RetryJob(ctx context.Context, request RetryJobRequestObject) (RetryJobResponseObject, error)
+
+	// (GET /v1/admin/maintenance)
+	GetMaintenance(ctx context.Context, request GetMaintenanceRequestObject) (GetMaintenanceResponseObject, error)
+
+	// (PUT /v1/admin/maintenance)
+	SetMaintenance(ctx context.Context, request SetMaintenanceRequestObject) (SetMaintenanceResponseObject, error)
+
 	// (POST /v1/admin/orders)
 	CreateOrder(ctx context.Context, request CreateOrderRequestObject) (CreateOrderResponseObject, error)
 
@@ -3412,6 +4520,9 @@ type StrictServerInterface interface {
 
 	// (POST /v1/admin/orders/{orderID}/payments)
 	CreatePaymentIntent(ctx context.Context, request CreatePaymentIntentRequestObject) (CreatePaymentIntentResponseObject, error)
+
+	// (GET /v1/admin/outbox)
+	GetOutboxStatus(ctx context.Context, request GetOutboxStatusRequestObject) (GetOutboxStatusResponseObject, error)
 
 	// (POST /v1/admin/payments/{paymentID}/manual-decision)
 	DecideManualPayment(ctx context.Context, request DecideManualPaymentRequestObject) (DecideManualPaymentResponseObject, error)
@@ -3430,6 +4541,9 @@ type StrictServerInterface interface {
 
 	// (POST /v1/admin/promotions)
 	CreatePromotion(ctx context.Context, request CreatePromotionRequestObject) (CreatePromotionResponseObject, error)
+
+	// (GET /v1/admin/webhooks)
+	ListWebhookEvents(ctx context.Context, request ListWebhookEventsRequestObject) (ListWebhookEventsResponseObject, error)
 
 	// (GET /v1/catalog/plans)
 	ListPlans(ctx context.Context, request ListPlansRequestObject) (ListPlansResponseObject, error)
@@ -3497,6 +4611,104 @@ func (sh *strictHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetHealthResponseObject); ok {
 		if err := validResponse.VisitGetHealthResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetLiveness operation middleware
+func (sh *strictHandler) GetLiveness(w http.ResponseWriter, r *http.Request) {
+	var request GetLivenessRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetLiveness(ctx, request.(GetLivenessRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetLiveness")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetLivenessResponseObject); ok {
+		if err := validResponse.VisitGetLivenessResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetMetrics operation middleware
+func (sh *strictHandler) GetMetrics(w http.ResponseWriter, r *http.Request) {
+	var request GetMetricsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMetrics(ctx, request.(GetMetricsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMetrics")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetMetricsResponseObject); ok {
+		if err := validResponse.VisitGetMetricsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetReadiness operation middleware
+func (sh *strictHandler) GetReadiness(w http.ResponseWriter, r *http.Request) {
+	var request GetReadinessRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetReadiness(ctx, request.(GetReadinessRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetReadiness")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetReadinessResponseObject); ok {
+		if err := validResponse.VisitGetReadinessResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListBackups operation middleware
+func (sh *strictHandler) ListBackups(w http.ResponseWriter, r *http.Request, params ListBackupsParams) {
+	var request ListBackupsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListBackups(ctx, request.(ListBackupsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListBackups")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListBackupsResponseObject); ok {
+		if err := validResponse.VisitListBackupsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -3870,6 +5082,139 @@ func (sh *strictHandler) ResumeRemnawaveImport(w http.ResponseWriter, r *http.Re
 	}
 }
 
+// ListJobs operation middleware
+func (sh *strictHandler) ListJobs(w http.ResponseWriter, r *http.Request, params ListJobsParams) {
+	var request ListJobsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListJobs(ctx, request.(ListJobsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListJobs")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListJobsResponseObject); ok {
+		if err := validResponse.VisitListJobsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CancelJob operation middleware
+func (sh *strictHandler) CancelJob(w http.ResponseWriter, r *http.Request, jobID JobID) {
+	var request CancelJobRequestObject
+
+	request.JobID = jobID
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CancelJob(ctx, request.(CancelJobRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CancelJob")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CancelJobResponseObject); ok {
+		if err := validResponse.VisitCancelJobResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RetryJob operation middleware
+func (sh *strictHandler) RetryJob(w http.ResponseWriter, r *http.Request, jobID JobID) {
+	var request RetryJobRequestObject
+
+	request.JobID = jobID
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RetryJob(ctx, request.(RetryJobRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RetryJob")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RetryJobResponseObject); ok {
+		if err := validResponse.VisitRetryJobResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetMaintenance operation middleware
+func (sh *strictHandler) GetMaintenance(w http.ResponseWriter, r *http.Request) {
+	var request GetMaintenanceRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMaintenance(ctx, request.(GetMaintenanceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMaintenance")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetMaintenanceResponseObject); ok {
+		if err := validResponse.VisitGetMaintenanceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetMaintenance operation middleware
+func (sh *strictHandler) SetMaintenance(w http.ResponseWriter, r *http.Request) {
+	var request SetMaintenanceRequestObject
+
+	var body SetMaintenanceJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetMaintenance(ctx, request.(SetMaintenanceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetMaintenance")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetMaintenanceResponseObject); ok {
+		if err := validResponse.VisitSetMaintenanceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // CreateOrder operation middleware
 func (sh *strictHandler) CreateOrder(w http.ResponseWriter, r *http.Request, params CreateOrderParams) {
 	var request CreateOrderRequestObject
@@ -3990,6 +5335,30 @@ func (sh *strictHandler) CreatePaymentIntent(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(CreatePaymentIntentResponseObject); ok {
 		if err := validResponse.VisitCreatePaymentIntentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetOutboxStatus operation middleware
+func (sh *strictHandler) GetOutboxStatus(w http.ResponseWriter, r *http.Request) {
+	var request GetOutboxStatusRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetOutboxStatus(ctx, request.(GetOutboxStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetOutboxStatus")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetOutboxStatusResponseObject); ok {
+		if err := validResponse.VisitGetOutboxStatusResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -4180,6 +5549,32 @@ func (sh *strictHandler) CreatePromotion(w http.ResponseWriter, r *http.Request)
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(CreatePromotionResponseObject); ok {
 		if err := validResponse.VisitCreatePromotionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListWebhookEvents operation middleware
+func (sh *strictHandler) ListWebhookEvents(w http.ResponseWriter, r *http.Request, params ListWebhookEventsParams) {
+	var request ListWebhookEventsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListWebhookEvents(ctx, request.(ListWebhookEventsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListWebhookEvents")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListWebhookEventsResponseObject); ok {
+		if err := validResponse.VisitListWebhookEventsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

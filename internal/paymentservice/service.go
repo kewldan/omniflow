@@ -17,12 +17,14 @@ import (
 	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 	"github.com/omniflow/omniflow/internal/payments"
+	"github.com/omniflow/omniflow/internal/platform"
 )
 
 type Service struct {
 	pool      *pgxpool.Pool
 	commerce  *commercepg.Store
 	providers map[string]payments.Provider
+	metrics   *platform.Metrics
 	clock     func() time.Time
 }
 
@@ -32,6 +34,29 @@ func New(pool *pgxpool.Pool, commerceStore *commercepg.Store, providers ...payme
 		registry[provider.Name()] = provider
 	}
 	return &Service{pool: pool, commerce: commerceStore, providers: registry, clock: time.Now}
+}
+
+// WithMetrics attaches the Prometheus surface. Provider and classification names
+// are bounded values, so they are safe as labels; identifiers never are.
+func (service *Service) WithMetrics(metrics *platform.Metrics) *Service {
+	service.metrics = metrics
+	return service
+}
+
+// observeWebhook records one webhook intake outcome.
+func (service *Service) observeWebhook(provider, outcome string) {
+	if service.metrics == nil {
+		return
+	}
+	service.metrics.Webhooks.WithLabelValues(provider, outcome).Inc()
+}
+
+// observePayment records one settlement classification.
+func (service *Service) observePayment(provider, operation, classification string) {
+	if service.metrics == nil {
+		return
+	}
+	service.metrics.Payments.WithLabelValues(provider, operation, classification).Inc()
 }
 
 func (service *Service) RunReconciler(ctx context.Context) {
@@ -170,6 +195,7 @@ func (service *Service) HandleWebhook(ctx context.Context, providerName string, 
 	queries := dbgen.New(service.pool)
 	if verifyErr != nil {
 		_, _ = queries.InsertWebhookEvent(ctx, dbgen.InsertWebhookEventParams{Provider: providerName, ProviderEventID: "invalid:" + hex.EncodeToString(digest[:]), SignatureValid: false, BodySha256: digest[:], RawBody: body, Headers: safeHeaders(headers)})
+		service.observeWebhook(providerName, "signature_invalid")
 		return "", verifyErr
 	}
 	stored, err := queries.InsertWebhookEvent(ctx, dbgen.InsertWebhookEventParams{Provider: providerName, ProviderEventID: event.ID, SignatureValid: true, BodySha256: digest[:], RawBody: body, Headers: safeHeaders(headers)})
@@ -210,6 +236,8 @@ func (service *Service) HandleWebhook(ctx context.Context, providerName string, 
 	}
 	late := order.ExpiresAt.Valid && service.clock().After(order.ExpiresAt.Time)
 	_, classification, err := service.commerce.RecordProviderPayment(ctx, uuidString(intent.ID), event.ID, event.Amount, late)
+	service.observePayment(providerName, order.Operation, classification)
+	service.observeWebhook(providerName, classification)
 	status := "processed"
 	errorCode := pgtype.Text{}
 	if err != nil {

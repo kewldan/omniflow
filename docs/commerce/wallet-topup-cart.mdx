@@ -1,0 +1,106 @@
+---
+title: Wallet top-up and saved carts
+description: Customer-initiated funding, deferred purchase, and the invariants that keep both safe.
+---
+
+A customer who cannot pay the full price right now has two ways forward: fund the wallet and buy later, or save the order and let it buy itself once the balance covers it. Both reuse the commerce pipeline that already exists — nothing about top-up or carts introduces a second way to move money.
+
+## Top-up is an ordinary order
+
+A top-up is an order with `operation = 'topup'`. It gets a payment intent, a provider checkout, webhook intake, reconciliation, and refund handling exactly like a subscription purchase does. What differs is what settlement produces: credit in the customer's wallet instead of an entitlement.
+
+```text
+customer picks an amount
+  → order (operation=topup, wallet_minor=0, external_minor=amount)
+  → payment intent with the chosen provider
+  → provider settles
+  → ledger: provider_clearing −received, customer_wallet +received
+```
+
+A top-up never spends wallet credit. Funding a wallet from the same wallet would be circular, so `wallet_minor` is always zero.
+
+### Exactly-once credit
+
+The credit is one ledger transaction keyed on the order:
+
+```text
+reference_type = 'wallet_topup'
+reference_id   = <order id>
+idempotency_key = 'topup:<order id>'
+```
+
+`ledger_transactions.idempotency_key` is unique and `(reference_type, reference_id, type)` is unique, so a redelivered webhook, a reconciliation poll that arrives after the webhook, and a manual approval all converge on the same single transaction. The `wallet_topups.credited_at` timestamp is set in the same transaction, which is the second guard: a settlement that finds it already set returns without writing anything.
+
+### Overpayment and underpayment
+
+A subscription order that receives the wrong amount stays pending, because the thing it buys has a fixed price. A top-up has no such constraint: the customer asked to add money and money arrived.
+
+Omniflow therefore credits exactly what the provider settled and marks the order paid:
+
+| Received | Credited | Order state | Classification |
+| --- | --- | --- | --- |
+| Equal to the request | The request | `paid` | `paid` |
+| More than the request | The received amount | `paid` | `overpayment` |
+| Less than the request | The received amount | `paid` | `underpayment` |
+
+The mismatch is recorded as a payment event and reaches the operator top-up topic, so a discrepancy is visible without a customer having to report it.
+
+### Limits
+
+Three operator-configured bounds apply, all in minor units of the settlement currency:
+
+- a minimum, which is never below one minor unit;
+- a maximum for a single top-up;
+- a rolling-window ceiling on how much may be credited within a configured period.
+
+The window counts what was actually credited, so a failed, expired, or abandoned attempt never consumes a customer's allowance. Every rejection carries a stable reason — `topup_below_minimum`, `topup_above_maximum`, `topup_window_exceeded`, `topup_disabled`, `topup_invalid_amount` — that the bot renders in the customer's language.
+
+Presets are filtered against the same limits before they are rendered, so the bot never shows an amount the backend would refuse.
+
+### History
+
+The top-up screen lists every attempt with the state it reached: pending, paid, credited, cancelled, expired, or refunded. A pending attempt links to its order, which is the same recovery screen a subscription purchase uses — including refresh, provider re-check, and the duplicate-payment explanation.
+
+## Saved carts
+
+A cart is one saved purchase intent per customer: a plan version, a period, an operation, the selected squads, any add-ons, and an applied promo code. It survives an insufficient balance, a lost session, and navigating away from checkout.
+
+### The saved price is never the charged price
+
+A cart stores what the customer chose, not what it cost. Every time the cart is displayed or considered for purchase it is re-priced against the plan version that is current right now, including promotion eligibility and the wallet balance. If the plan changed, the customer sees the new price before anything is charged; if the plan disappeared, the cart reports `cart_plan_unavailable` and stays saved so it can be rebuilt, rather than being charged at a stale price.
+
+### Automatic purchase
+
+With automatic purchase on, the cart is charged as soon as the wallet covers it. Two things trigger the attempt:
+
+1. A settled top-up, immediately after its transaction commits.
+2. A periodic sweep, which catches credit from any other source — a referral reward, an operator correction, a promotional credit.
+
+The sweep is what makes the feature honest: "once a top-up covers the outstanding amount" is the common case, but a customer whose balance arrives another way gets the same outcome.
+
+### It cannot double-charge
+
+The order is created under the cart's own idempotency key, which is minted once when the cart is saved. `orders (user_id, idempotency_key)` is unique, so every path into the purchase — the settlement hook, the sweep, and a customer tapping **Buy now** — resolves to the same single order even if all three run at once.
+
+Editing a cart mints a new key. That is deliberate: a changed plan is a different purchase and must not resolve to the order the previous contents created. The partial unique index `carts (user_id) WHERE status = 'open'` serialises the edit against an in-flight purchase.
+
+A cart's add-ons are charged on the same order as the plan, so a cart is always exactly one order and one payment however much it contains.
+
+### Refusals
+
+Automatic purchase declines rather than fails, and always says why:
+
+| Reason | Meaning |
+| --- | --- |
+| `cart_insufficient_balance` | The wallet does not cover the re-validated total yet |
+| `cart_plan_unavailable` | The plan or an add-on is archived, retired, or unpriced |
+| `cart_price_changed` | The order was refused at the current price |
+| `cart_expired` | The cart's retention window elapsed |
+| `cart_auto_purchase_off` | The customer turned automatic purchase off |
+| `cart_maintenance` | The installation is in maintenance and taking no new orders |
+
+Only the first two need the customer to act. The cart stays saved in every case except an explicit clear.
+
+## What an operator configures
+
+Everything on this page is configured through environment variables until the admin panel exposes it. See [Configuration](/getting-started/configuration) for the full list.

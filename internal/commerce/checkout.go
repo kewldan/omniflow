@@ -16,6 +16,9 @@ type CheckoutQuote struct {
 	ExternalMinor      int64
 	PromoCode          string
 	PromoRejection     string
+	// AddonMinor is what the selected add-ons add to this order. They are
+	// charged on the same order as the plan, so one confirmation is one payment.
+	AddonMinor int64
 }
 
 // Quote computes the payable breakdown for a plan price, an already-validated

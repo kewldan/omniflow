@@ -1,15 +1,43 @@
 openapi: 3.0.3
 info:
   title: Omniflow API
-  version: 0.3.0
-  description: Customer, commerce, payment, wallet, and fulfillment API for Omniflow.
+  version: 0.5.0
+  description: Customer, commerce, payment, wallet, fulfillment, and operations API for Omniflow.
 paths:
   /healthz:
     get:
       operationId: getHealth
       tags: [system]
+      description: Retained for compatibility. New deployments should probe /livez and /readyz.
       responses:
         "200": {description: Service is healthy, content: {application/json: {schema: {$ref: "#/components/schemas/Health"}}}}
+  /livez:
+    get:
+      operationId: getLiveness
+      tags: [system]
+      description: Answers as soon as the process is running. It never touches a dependency.
+      responses:
+        "200": {description: Process is alive, content: {application/json: {schema: {$ref: "#/components/schemas/Health"}}}}
+  /readyz:
+    get:
+      operationId: getReadiness
+      tags: [system]
+      description: >-
+        Reports every registered dependency. Failures carry a stable
+        classification, never an underlying driver message, so the response
+        cannot leak a connection string or a credential.
+      responses:
+        "200": {description: Every dependency answered, content: {application/json: {schema: {$ref: "#/components/schemas/Readiness"}}}}
+        "503": {description: At least one dependency is unavailable, content: {application/json: {schema: {$ref: "#/components/schemas/Readiness"}}}}
+  /metrics:
+    get:
+      operationId: getMetrics
+      tags: [system]
+      description: >-
+        Prometheus text exposition. Every label is a bounded, non-identifying
+        value such as a route template, a provider name, or an outcome.
+      responses:
+        "200": {description: Metrics in the Prometheus text format, content: {text/plain: {schema: {type: string}}}}
   /v1/catalog/plans:
     get:
       operationId: listPlans
@@ -250,6 +278,101 @@ paths:
       responses:
         "202": {description: Durable idempotent fulfillment operation queued, content: {application/json: {schema: {$ref: "#/components/schemas/FulfillmentOperation"}}}}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/admin/jobs:
+    get:
+      operationId: listJobs
+      tags: [operations]
+      security: [{operatorToken: []}]
+      description: >-
+        Durable job visibility. The default filter is the dead-letter queue:
+        jobs that will not be retried again without an operator. Job arguments
+        are never echoed and error text is redacted.
+      parameters:
+        - {in: query, name: state, schema: {type: string, enum: [dead_letter, retryable, running, available, scheduled, completed], default: dead_letter}}
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+      responses:
+        "200": {description: Jobs in the requested state, content: {application/json: {schema: {$ref: "#/components/schemas/JobList"}}}}
+        "400": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
+  /v1/admin/jobs/{jobID}/retry:
+    post:
+      operationId: retryJob
+      tags: [operations]
+      security: [{operatorToken: []}]
+      description: >-
+        Re-queues a dead-lettered job. The underlying fulfillment operation
+        carries its own idempotency key, so a retry cannot repeat a side effect
+        that already succeeded.
+      parameters: [{$ref: "#/components/parameters/JobID"}]
+      responses:
+        "200": {description: Job re-queued, content: {application/json: {schema: {$ref: "#/components/schemas/Job"}}}}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/admin/jobs/{jobID}/cancel:
+    post:
+      operationId: cancelJob
+      tags: [operations]
+      security: [{operatorToken: []}]
+      parameters: [{$ref: "#/components/parameters/JobID"}]
+      responses:
+        "200": {description: Job cancelled, content: {application/json: {schema: {$ref: "#/components/schemas/Job"}}}}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/admin/webhooks:
+    get:
+      operationId: listWebhookEvents
+      tags: [operations]
+      security: [{operatorToken: []}]
+      description: >-
+        Provider webhook intake history with verification status and outcome.
+        The raw provider body is never returned.
+      parameters:
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+      responses:
+        "200": {description: Recent webhook events, content: {application/json: {schema: {$ref: "#/components/schemas/WebhookEventList"}}}}
+        "500": {$ref: "#/components/responses/Problem"}
+  /v1/admin/outbox:
+    get:
+      operationId: getOutboxStatus
+      tags: [operations]
+      security: [{operatorToken: []}]
+      description: Unpublished domain-event count and the age of the oldest one.
+      responses:
+        "200": {description: Outbox lag, content: {application/json: {schema: {$ref: "#/components/schemas/OutboxStatus"}}}}
+        "500": {$ref: "#/components/responses/Problem"}
+  /v1/admin/backups:
+    get:
+      operationId: listBackups
+      tags: [operations]
+      security: [{operatorToken: []}]
+      description: >-
+        Backup history with size, integrity digest presence, and retention.
+        Creating and restoring a backup is done from the bot, not the API.
+      parameters:
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+      responses:
+        "200": {description: Recent backups, content: {application/json: {schema: {$ref: "#/components/schemas/BackupList"}}}}
+        "500": {$ref: "#/components/responses/Problem"}
+  /v1/admin/maintenance:
+    get:
+      operationId: getMaintenance
+      tags: [operations]
+      security: [{operatorToken: []}]
+      responses:
+        "200": {description: Current maintenance state, content: {application/json: {schema: {$ref: "#/components/schemas/Maintenance"}}}}
+        "500": {$ref: "#/components/responses/Problem"}
+    put:
+      operationId: setMaintenance
+      tags: [operations]
+      security: [{operatorToken: []}]
+      description: >-
+        Activates or clears maintenance mode manually. Maintenance blocks new
+        purchases and holds outbound provisioning; it never cancels, refunds, or
+        expires an order that is already paid. Automatic detection may clear a
+        window it opened itself, but never one an operator opened.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/MaintenanceInput"}}}}
+      responses:
+        "200": {description: Maintenance state applied, content: {application/json: {schema: {$ref: "#/components/schemas/Maintenance"}}}}
+        "400": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/telemetry/events:
     post:
       operationId: collectTelemetryEvent
@@ -268,6 +391,7 @@ components:
     PaymentID: {in: path, name: paymentID, required: true, schema: {type: string, format: uuid}}
     ImportID: {in: path, name: importID, required: true, schema: {type: string, format: uuid}}
     EntitlementID: {in: path, name: entitlementID, required: true, schema: {type: string, format: uuid}}
+    JobID: {in: path, name: jobID, required: true, schema: {type: integer, format: int64}}
     IdempotencyKey: {in: header, name: Idempotency-Key, required: true, schema: {type: string, minLength: 8, maxLength: 128}}
     PageSize: {in: query, name: pageSize, schema: {type: integer, minimum: 1, maximum: 500, default: 100}}
   requestBodies:
@@ -278,6 +402,107 @@ components:
       type: object
       required: [status, version]
       properties: {status: {type: string}, version: {type: string}}
+    Readiness:
+      type: object
+      required: [status, checks]
+      properties:
+        status: {type: string, enum: [ready, degraded]}
+        checks:
+          type: array
+          items: {$ref: "#/components/schemas/DependencyCheck"}
+    DependencyCheck:
+      type: object
+      required: [name, healthy, checkedAt, latencyMs]
+      properties:
+        name: {type: string, description: "Dependency name, such as postgres, valkey, or remnawave."}
+        healthy: {type: boolean}
+        error: {type: string, enum: [timeout, unavailable], description: "Stable classification; never the underlying driver message."}
+        checkedAt: {type: string, format: date-time}
+        latencyMs: {type: integer, format: int64}
+        consecutiveFailures: {type: integer}
+    Job:
+      type: object
+      required: [id, kind, queue, state, attempt, maxAttempts, createdAt]
+      properties:
+        id: {type: integer, format: int64}
+        kind: {type: string}
+        queue: {type: string}
+        state: {type: string}
+        attempt: {type: integer}
+        maxAttempts: {type: integer}
+        errorCount: {type: integer}
+        lastError: {type: string, description: "Redacted error text from the most recent attempt."}
+        createdAt: {type: string, format: date-time}
+        attemptedAt: {type: string, format: date-time}
+        finalizedAt: {type: string, format: date-time}
+    JobList:
+      type: object
+      required: [state, items]
+      properties:
+        state: {type: string}
+        items: {type: array, items: {$ref: "#/components/schemas/Job"}}
+    WebhookEvent:
+      type: object
+      required: [id, provider, providerEventId, signatureValid, status, receivedAt]
+      properties:
+        id: {type: string, format: uuid}
+        provider: {type: string}
+        providerEventId: {type: string}
+        signatureValid: {type: boolean}
+        status: {type: string, enum: [received, processed, ignored, failed]}
+        errorCode: {type: string, nullable: true}
+        receivedAt: {type: string, format: date-time}
+        processedAt: {type: string, format: date-time, nullable: true}
+    WebhookEventList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, items: {$ref: "#/components/schemas/WebhookEvent"}}}
+    OutboxStatus:
+      type: object
+      required: [pendingCount, oldestAgeSeconds]
+      properties:
+        pendingCount: {type: integer}
+        oldestAgeSeconds: {type: integer, format: int64}
+    Backup:
+      type: object
+      required: [id, kind, status, fileName, sizeBytes, encrypted, startedAt, retainUntil]
+      properties:
+        id: {type: string, format: uuid}
+        kind: {type: string, enum: [scheduled, manual]}
+        status: {type: string, enum: [running, completed, failed, pruned]}
+        fileName: {type: string}
+        sizeBytes: {type: integer, format: int64}
+        encrypted: {type: boolean}
+        startedAt: {type: string, format: date-time}
+        completedAt: {type: string, format: date-time, nullable: true}
+        verifiedAt: {type: string, format: date-time, nullable: true}
+        retainUntil: {type: string, format: date-time}
+        errorCode: {type: string, nullable: true}
+    BackupList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, items: {$ref: "#/components/schemas/Backup"}}}
+    Maintenance:
+      type: object
+      required: [active, source, reason]
+      properties:
+        active: {type: boolean}
+        source: {type: string, enum: [manual, remnawave, database, valkey]}
+        reason: {type: string}
+        noticeRu: {type: string}
+        noticeEn: {type: string}
+        activatedAt: {type: string, format: date-time}
+        expectedReturnAt: {type: string, format: date-time}
+    MaintenanceInput:
+      type: object
+      required: [active, operatorId]
+      properties:
+        active: {type: boolean}
+        operatorId: {type: string, minLength: 1}
+        reason: {type: string, maxLength: 200}
+        noticeRu: {type: string, maxLength: 1000, description: "Customer-facing Russian notice. Empty falls back to the built-in copy."}
+        noticeEn: {type: string, maxLength: 1000}
+        expectedReturnAt: {type: string, format: date-time, nullable: true}
     Money:
       type: object
       required: [amountMinor, currency]

@@ -29,5 +29,27 @@
 	request_body {
 		max_size 2MB
 	}
+
+	# Metrics and readiness are operational endpoints. Publishing them on the
+	# public API host would expose installation internals to anyone.
+	@internal path /metrics /readyz
+	respond @internal 404
+
 	reverse_proxy api:8080
+}
+
+# Telegram webhook mode terminates here. Telegram itself authenticates with the
+# secret token header, which the bot verifies before it accepts an update, so
+# this host needs no other protection than TLS and a small body limit.
+{$BOT_WEBHOOK_DOMAIN} {
+	import security_headers
+	request_body {
+		max_size 1MB
+	}
+	handle /telegram/webhook {
+		reverse_proxy bot:8082
+	}
+	handle {
+		respond 404
+	}
 }

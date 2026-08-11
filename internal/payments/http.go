@@ -7,9 +7,19 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 const maxProviderBody = 1 << 20
+
+// tracedClient is the HTTP client every payment adapter uses. Provider calls
+// become child spans of the checkout or webhook that caused them, which is what
+// makes a slow provider visible without adding logging to each adapter.
+func tracedClient(timeout time.Duration) *http.Client {
+	return &http.Client{Timeout: timeout, Transport: otelhttp.NewTransport(http.DefaultTransport)}
+}
 
 func doJSON(ctx context.Context, client *http.Client, method, endpoint string, headers http.Header, requestBody, responseBody any) error {
 	var body io.Reader

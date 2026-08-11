@@ -8,6 +8,42 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Addon struct {
+	ID         pgtype.UUID        `json:"id"`
+	Code       string             `json:"code"`
+	Kind       string             `json:"kind"`
+	Visible    bool               `json:"visible"`
+	SortOrder  int32              `json:"sort_order"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	ArchivedAt pgtype.Timestamptz `json:"archived_at"`
+}
+
+type AddonLocalization struct {
+	AddonID     pgtype.UUID `json:"addon_id"`
+	Locale      string      `json:"locale"`
+	Name        string      `json:"name"`
+	Description string      `json:"description"`
+}
+
+type AddonPrice struct {
+	AddonVersionID pgtype.UUID `json:"addon_version_id"`
+	Currency       string      `json:"currency"`
+	AmountMinor    int64       `json:"amount_minor"`
+}
+
+type AddonVersion struct {
+	ID                pgtype.UUID        `json:"id"`
+	AddonID           pgtype.UUID        `json:"addon_id"`
+	Version           int32              `json:"version"`
+	TrafficBytes      pgtype.Int8        `json:"traffic_bytes"`
+	DeviceSlots       pgtype.Int4        `json:"device_slots"`
+	RemnawaveSquadIds []pgtype.UUID      `json:"remnawave_squad_ids"`
+	MaxQuantity       int32              `json:"max_quantity"`
+	Proration         string             `json:"proration"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	RetiredAt         pgtype.Timestamptz `json:"retired_at"`
+}
+
 type AuditEvent struct {
 	ID         pgtype.UUID        `json:"id"`
 	ActorType  string             `json:"actor_type"`
@@ -22,30 +58,66 @@ type AuditEvent struct {
 }
 
 type AutoRenewSetting struct {
-	UserID        pgtype.UUID        `json:"user_id"`
-	Enabled       bool               `json:"enabled"`
-	PlanVersionID pgtype.UUID        `json:"plan_version_id"`
-	Provider      pgtype.Text        `json:"provider"`
-	Currency      pgtype.Text        `json:"currency"`
-	CancelledAt   pgtype.Timestamptz `json:"cancelled_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	UserID         pgtype.UUID        `json:"user_id"`
+	Enabled        bool               `json:"enabled"`
+	PlanVersionID  pgtype.UUID        `json:"plan_version_id"`
+	Provider       pgtype.Text        `json:"provider"`
+	Currency       pgtype.Text        `json:"currency"`
+	CancelledAt    pgtype.Timestamptz `json:"cancelled_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	SubscriptionID pgtype.UUID        `json:"subscription_id"`
+}
+
+type Backup struct {
+	ID          pgtype.UUID        `json:"id"`
+	Kind        string             `json:"kind"`
+	Status      string             `json:"status"`
+	FileName    string             `json:"file_name"`
+	SizeBytes   int64              `json:"size_bytes"`
+	Sha256      []byte             `json:"sha256"`
+	Encrypted   bool               `json:"encrypted"`
+	VerifiedAt  pgtype.Timestamptz `json:"verified_at"`
+	ErrorCode   pgtype.Text        `json:"error_code"`
+	RequestedBy pgtype.Text        `json:"requested_by"`
+	StartedAt   pgtype.Timestamptz `json:"started_at"`
+	CompletedAt pgtype.Timestamptz `json:"completed_at"`
+	RetainUntil pgtype.Timestamptz `json:"retain_until"`
+}
+
+type BackupRestore struct {
+	ID          pgtype.UUID        `json:"id"`
+	BackupID    pgtype.UUID        `json:"backup_id"`
+	Status      string             `json:"status"`
+	OperatorID  string             `json:"operator_id"`
+	Reason      string             `json:"reason"`
+	ErrorCode   pgtype.Text        `json:"error_code"`
+	RequestedAt pgtype.Timestamptz `json:"requested_at"`
+	CompletedAt pgtype.Timestamptz `json:"completed_at"`
+}
+
+type BotCheckoutAddon struct {
+	CheckoutID     pgtype.UUID `json:"checkout_id"`
+	AddonVersionID pgtype.UUID `json:"addon_version_id"`
+	Quantity       int32       `json:"quantity"`
 }
 
 type BotCheckoutSession struct {
-	ID             pgtype.UUID        `json:"id"`
-	UserID         pgtype.UUID        `json:"user_id"`
-	PlanVersionID  pgtype.UUID        `json:"plan_version_id"`
-	Operation      string             `json:"operation"`
-	Currency       string             `json:"currency"`
-	Provider       pgtype.Text        `json:"provider"`
-	PromoCode      pgtype.Text        `json:"promo_code"`
-	PromoRejection pgtype.Text        `json:"promo_rejection"`
-	ApplyWallet    bool               `json:"apply_wallet"`
-	OrderID        pgtype.UUID        `json:"order_id"`
-	IdempotencyKey string             `json:"idempotency_key"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
-	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
+	ID               pgtype.UUID        `json:"id"`
+	UserID           pgtype.UUID        `json:"user_id"`
+	PlanVersionID    pgtype.UUID        `json:"plan_version_id"`
+	Operation        string             `json:"operation"`
+	Currency         string             `json:"currency"`
+	Provider         pgtype.Text        `json:"provider"`
+	PromoCode        pgtype.Text        `json:"promo_code"`
+	PromoRejection   pgtype.Text        `json:"promo_rejection"`
+	ApplyWallet      bool               `json:"apply_wallet"`
+	OrderID          pgtype.UUID        `json:"order_id"`
+	IdempotencyKey   string             `json:"idempotency_key"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
+	SubscriptionID   pgtype.UUID        `json:"subscription_id"`
+	SelectedSquadIds []pgtype.UUID      `json:"selected_squad_ids"`
 }
 
 type BotDeliveryState struct {
@@ -76,6 +148,32 @@ type BotSession struct {
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
 	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
 	Context    []byte             `json:"context"`
+}
+
+type Cart struct {
+	ID               pgtype.UUID        `json:"id"`
+	UserID           pgtype.UUID        `json:"user_id"`
+	SubscriptionID   pgtype.UUID        `json:"subscription_id"`
+	PlanVersionID    pgtype.UUID        `json:"plan_version_id"`
+	Operation        string             `json:"operation"`
+	Currency         string             `json:"currency"`
+	PromoCode        pgtype.Text        `json:"promo_code"`
+	SelectedSquadIds []pgtype.UUID      `json:"selected_squad_ids"`
+	AutoPurchase     bool               `json:"auto_purchase"`
+	Status           string             `json:"status"`
+	IdempotencyKey   string             `json:"idempotency_key"`
+	OrderID          pgtype.UUID        `json:"order_id"`
+	LastFailure      pgtype.Text        `json:"last_failure"`
+	AttemptCount     int32              `json:"attempt_count"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
+}
+
+type CartAddon struct {
+	CartID         pgtype.UUID `json:"cart_id"`
+	AddonVersionID pgtype.UUID `json:"addon_version_id"`
+	Quantity       int32       `json:"quantity"`
 }
 
 type ConsentRecord struct {
@@ -155,6 +253,19 @@ type Entitlement struct {
 	ReconciledAt          pgtype.Timestamptz `json:"reconciled_at"`
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	SubscriptionID        pgtype.UUID        `json:"subscription_id"`
+}
+
+type EntitlementAddon struct {
+	ID                pgtype.UUID        `json:"id"`
+	EntitlementID     pgtype.UUID        `json:"entitlement_id"`
+	OrderID           pgtype.UUID        `json:"order_id"`
+	AddonVersionID    pgtype.UUID        `json:"addon_version_id"`
+	Quantity          int32              `json:"quantity"`
+	TrafficBytes      pgtype.Int8        `json:"traffic_bytes"`
+	DeviceSlots       pgtype.Int4        `json:"device_slots"`
+	RemnawaveSquadIds []pgtype.UUID      `json:"remnawave_squad_ids"`
+	AppliedAt         pgtype.Timestamptz `json:"applied_at"`
 }
 
 type EntitlementDrift struct {
@@ -229,6 +340,29 @@ type LedgerTransaction struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type MaintenanceEvent struct {
+	ID         pgtype.UUID        `json:"id"`
+	Action     string             `json:"action"`
+	Source     string             `json:"source"`
+	Reason     string             `json:"reason"`
+	ActorType  string             `json:"actor_type"`
+	ActorID    pgtype.Text        `json:"actor_id"`
+	OccurredAt pgtype.Timestamptz `json:"occurred_at"`
+}
+
+type MaintenanceState struct {
+	Singleton        bool               `json:"singleton"`
+	Active           bool               `json:"active"`
+	Source           string             `json:"source"`
+	Reason           string             `json:"reason"`
+	NoticeRu         string             `json:"notice_ru"`
+	NoticeEn         string             `json:"notice_en"`
+	ExpectedReturnAt pgtype.Timestamptz `json:"expected_return_at"`
+	ActivatedAt      pgtype.Timestamptz `json:"activated_at"`
+	ClearedAt        pgtype.Timestamptz `json:"cleared_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
 type ManualPaymentApproval struct {
 	ID              pgtype.UUID        `json:"id"`
 	PaymentIntentID pgtype.UUID        `json:"payment_intent_id"`
@@ -264,35 +398,71 @@ type NewsRead struct {
 }
 
 type NotificationDelivery struct {
-	ID            pgtype.UUID        `json:"id"`
-	UserID        pgtype.UUID        `json:"user_id"`
+	ID             pgtype.UUID        `json:"id"`
+	UserID         pgtype.UUID        `json:"user_id"`
+	Kind           string             `json:"kind"`
+	DedupeKey      string             `json:"dedupe_key"`
+	Status         string             `json:"status"`
+	ScheduledAt    pgtype.Timestamptz `json:"scheduled_at"`
+	SentAt         pgtype.Timestamptz `json:"sent_at"`
+	FailureCount   int32              `json:"failure_count"`
+	Class          string             `json:"class"`
+	ErrorCode      pgtype.Text        `json:"error_code"`
+	DeferredUntil  pgtype.Timestamptz `json:"deferred_until"`
+	SubscriptionID pgtype.UUID        `json:"subscription_id"`
+}
+
+type OperatorNotification struct {
+	ID        pgtype.UUID        `json:"id"`
+	Kind      string             `json:"kind"`
+	DedupeKey string             `json:"dedupe_key"`
+	Status    string             `json:"status"`
+	Payload   []byte             `json:"payload"`
+	ErrorCode pgtype.Text        `json:"error_code"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	SentAt    pgtype.Timestamptz `json:"sent_at"`
+}
+
+type OperatorTopic struct {
 	Kind          string             `json:"kind"`
-	DedupeKey     string             `json:"dedupe_key"`
+	ChatID        int64              `json:"chat_id"`
+	TopicID       pgtype.Int8        `json:"topic_id"`
 	Status        string             `json:"status"`
-	ScheduledAt   pgtype.Timestamptz `json:"scheduled_at"`
-	SentAt        pgtype.Timestamptz `json:"sent_at"`
-	FailureCount  int32              `json:"failure_count"`
-	Class         string             `json:"class"`
-	ErrorCode     pgtype.Text        `json:"error_code"`
-	DeferredUntil pgtype.Timestamptz `json:"deferred_until"`
+	LastErrorCode pgtype.Text        `json:"last_error_code"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Order struct {
-	ID             pgtype.UUID        `json:"id"`
-	UserID         pgtype.UUID        `json:"user_id"`
-	State          string             `json:"state"`
-	Operation      string             `json:"operation"`
-	Currency       string             `json:"currency"`
-	SubtotalMinor  int64              `json:"subtotal_minor"`
-	DiscountMinor  int64              `json:"discount_minor"`
-	WalletMinor    int64              `json:"wallet_minor"`
-	ExternalMinor  int64              `json:"external_minor"`
-	PaidMinor      int64              `json:"paid_minor"`
-	RefundedMinor  int64              `json:"refunded_minor"`
-	IdempotencyKey string             `json:"idempotency_key"`
-	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	ID               pgtype.UUID        `json:"id"`
+	UserID           pgtype.UUID        `json:"user_id"`
+	State            string             `json:"state"`
+	Operation        string             `json:"operation"`
+	Currency         string             `json:"currency"`
+	SubtotalMinor    int64              `json:"subtotal_minor"`
+	DiscountMinor    int64              `json:"discount_minor"`
+	WalletMinor      int64              `json:"wallet_minor"`
+	ExternalMinor    int64              `json:"external_minor"`
+	PaidMinor        int64              `json:"paid_minor"`
+	RefundedMinor    int64              `json:"refunded_minor"`
+	IdempotencyKey   string             `json:"idempotency_key"`
+	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	SubscriptionID   pgtype.UUID        `json:"subscription_id"`
+	SelectedSquadIds []pgtype.UUID      `json:"selected_squad_ids"`
+}
+
+type OrderAddonLine struct {
+	ID              pgtype.UUID `json:"id"`
+	OrderID         pgtype.UUID `json:"order_id"`
+	AddonID         pgtype.UUID `json:"addon_id"`
+	AddonVersionID  pgtype.UUID `json:"addon_version_id"`
+	Quantity        int32       `json:"quantity"`
+	UnitAmountMinor int64       `json:"unit_amount_minor"`
+	ChargedMinor    int64       `json:"charged_minor"`
+	Proration       string      `json:"proration"`
+	Snapshot        []byte      `json:"snapshot"`
 }
 
 type OrderLine struct {
@@ -352,13 +522,14 @@ type PaymentIntent struct {
 }
 
 type Plan struct {
-	ID         pgtype.UUID        `json:"id"`
-	Code       string             `json:"code"`
-	Kind       string             `json:"kind"`
-	Visible    bool               `json:"visible"`
-	SortOrder  int32              `json:"sort_order"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	ArchivedAt pgtype.Timestamptz `json:"archived_at"`
+	ID                       pgtype.UUID        `json:"id"`
+	Code                     string             `json:"code"`
+	Kind                     string             `json:"kind"`
+	Visible                  bool               `json:"visible"`
+	SortOrder                int32              `json:"sort_order"`
+	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+	ArchivedAt               pgtype.Timestamptz `json:"archived_at"`
+	MaxConcurrentPerCustomer pgtype.Int4        `json:"max_concurrent_per_customer"`
 }
 
 type PlanLocalization struct {
@@ -391,6 +562,22 @@ type PlanVersion struct {
 	RetiredAt             pgtype.Timestamptz `json:"retired_at"`
 	GracePeriodSeconds    int64              `json:"grace_period_seconds"`
 	TrialEligibility      string             `json:"trial_eligibility"`
+	SquadSelection        string             `json:"squad_selection"`
+	MinSelectableSquads   int32              `json:"min_selectable_squads"`
+	MaxSelectableSquads   pgtype.Int4        `json:"max_selectable_squads"`
+}
+
+type PlanVersionAddon struct {
+	PlanVersionID pgtype.UUID `json:"plan_version_id"`
+	AddonID       pgtype.UUID `json:"addon_id"`
+}
+
+type PlanVersionSquad struct {
+	PlanVersionID pgtype.UUID `json:"plan_version_id"`
+	SquadID       pgtype.UUID `json:"squad_id"`
+	LabelRu       string      `json:"label_ru"`
+	LabelEn       string      `json:"label_en"`
+	SortOrder     int32       `json:"sort_order"`
 }
 
 type PromoCode struct {
@@ -512,6 +699,21 @@ type RemnawaveUser struct {
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 }
 
+type Subscription struct {
+	ID                pgtype.UUID        `json:"id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	Slot              int32              `json:"slot"`
+	Label             string             `json:"label"`
+	Status            string             `json:"status"`
+	RemnawaveUserID   pgtype.Int8        `json:"remnawave_user_id"`
+	RemnawaveUsername pgtype.Text        `json:"remnawave_username"`
+	ObservedState     []byte             `json:"observed_state"`
+	ReconciledAt      pgtype.Timestamptz `json:"reconciled_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	ClosedAt          pgtype.Timestamptz `json:"closed_at"`
+}
+
 type SupportAttachment struct {
 	ID             pgtype.UUID        `json:"id"`
 	MessageID      int64              `json:"message_id"`
@@ -587,4 +789,15 @@ type User struct {
 	DeletedAt      pgtype.Timestamptz `json:"deleted_at"`
 	AnonymizedAt   pgtype.Timestamptz `json:"anonymized_at"`
 	RetentionUntil pgtype.Timestamptz `json:"retention_until"`
+}
+
+type WalletTopup struct {
+	OrderID             pgtype.UUID        `json:"order_id"`
+	UserID              pgtype.UUID        `json:"user_id"`
+	Currency            string             `json:"currency"`
+	RequestedMinor      int64              `json:"requested_minor"`
+	CreditedMinor       int64              `json:"credited_minor"`
+	LedgerTransactionID pgtype.UUID        `json:"ledger_transaction_id"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	CreditedAt          pgtype.Timestamptz `json:"credited_at"`
 }
