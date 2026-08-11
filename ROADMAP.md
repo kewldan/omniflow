@@ -399,7 +399,7 @@ Goal: let operators run day-to-day customer, subscription, and financial operati
 - [x] Dashboard for active/expired customers, traffic, renewals, payment health, open support, and failed jobs
 - [x] Metrics with explicit definitions, timezone, comparison period, and data freshness
 - [x] Remnawave, PostgreSQL, Valkey, Telegram, worker, and provider health
-- [ ] Recent incidents, reconciliation drift, webhook failures, and required actions
+- [x] Recent incidents, reconciliation drift, webhook failures, and required actions
 - [x] Traffic, purchase, refund, and referral anomaly detection with configurable thresholds
 - [x] Anomaly alerts delivered to the operator topic with evidence and no automatic customer punishment
 - [x] Anomaly review with threshold configuration, supporting evidence, acknowledgement, and dismissal
@@ -439,10 +439,10 @@ Goal: let operators run day-to-day customer, subscription, and financial operati
 ### Finance
 
 - [x] Order and payment search, details, timelines, and provider references
-- [ ] Pending/stuck payment reconciliation and safe retry tools
-- [ ] Refund workflow with provider capability checks, reason, confirmation, and audit
+- [x] Pending/stuck payment reconciliation and safe retry tools
+- [x] Refund workflow with provider capability checks, reason, confirmation, and audit
 - [x] Append-only wallet ledger and permission-gated corrective entries
-- [ ] Provider configuration with encrypted secrets, connection test, and webhook status
+- [x] Provider configuration with encrypted secrets, connection test, and webhook status
 - [x] Wallet top-up configuration, limits, preset amounts, and enabled providers
 - [x] Financial CSV export with stable schema and timezone/currency clarity
 - [x] Revenue views separated from payment volume, wallet credits, and refunds
@@ -452,9 +452,9 @@ Goal: let operators run day-to-day customer, subscription, and financial operati
 - [x] Per-provider recurring capability declared through the provider contract
 - [x] Per-merchant override for providers that do not grant card binding to every merchant
 - [x] Saved payment method referenced only by provider token, with no card data stored by Omniflow
-- [ ] Customer-visible saved methods, default selection, and removal
-- [ ] Auto-renew from a saved method or wallet balance with a configurable lead time
-- [ ] Failed-charge retry schedule, dunning notification, and automatic fallback to manual renewal
+- [x] Customer-visible saved methods, default selection, and removal
+- [x] Auto-renew from a saved method or wallet balance with a configurable lead time
+- [x] Failed-charge retry schedule, dunning notification, and automatic fallback to manual renewal
 - [x] Auto-renew disabled by default and enabled only after explicit customer consent
 - [x] Operator enablement per provider and per merchant with an explicit capability test
 - [x] Saved-method, dunning, and auto-renew failure review in the admin panel

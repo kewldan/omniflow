@@ -23,7 +23,9 @@ import {
   type Listing,
   type OrderSummary,
   type Page,
+  useOperatorAction,
 } from "@/lib/operations";
+import { useSession } from "@/lib/session";
 import { usePreferences } from "@/lib/use-preferences";
 import { useUrlFilters } from "@/lib/use-url-filters";
 
@@ -272,10 +274,11 @@ function OrderSearch() {
 function StuckPayments({ active }: { active: boolean }) {
   const translate = useTranslations("admin.finance");
   const locale = useLocale();
-  const { data, isLoading } = useSWR<Listing<StuckPayment & { ageSeconds?: number }>, ApiError>(
-    active ? "/v1/panel/finance/stuck-payments" : null,
-    fetcher,
-  );
+  const { can } = useSession();
+  const { data, isLoading, mutate } = useSWR<
+    Listing<StuckPayment & { ageSeconds?: number }>,
+    ApiError
+  >(active ? "/v1/panel/finance/stuck-payments" : null, fetcher);
 
   if (isLoading) {
     return <Skeleton className="h-32 w-full" />;
@@ -303,6 +306,7 @@ function StuckPayments({ active }: { active: boolean }) {
             <TableHead>{translate("columns.state")}</TableHead>
             <TableHead>{translate("columns.amount")}</TableHead>
             <TableHead>{translate("columns.customer")}</TableHead>
+            <TableHead />
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -326,11 +330,49 @@ function StuckPayments({ active }: { active: boolean }) {
                   {payment.customerId.slice(0, 8)}
                 </Link>
               </TableCell>
+              <TableCell>
+                {can("finance.write") && (
+                  <ReconcilePayment intentId={payment.id} onDone={() => mutate()} />
+                )}
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
     </Card>
+  );
+}
+
+/**
+ * Asks the provider what actually happened to one payment.
+ *
+ * This is the safe half of a retry. It never charges anything and never
+ * rewrites a status by hand: it re-polls the provider and lets the ordinary
+ * settlement path record the answer, so a payment that quietly succeeded is
+ * reconciled and one that quietly failed stops looking stuck. A panel that
+ * could set a payment to "succeeded" directly would be a way to grant an
+ * entitlement nobody paid for.
+ */
+function ReconcilePayment({ intentId, onDone }: { intentId: string; onDone: () => void }) {
+  const translate = useTranslations("admin.finance");
+  const { run, pending } = useOperatorAction();
+  return (
+    <Button
+      disabled={pending}
+      onClick={async () => {
+        const ok = await run(`/v1/panel/finance/payments/${intentId}/reconcile`, {
+          body: { outcome: "requested" },
+          method: "POST",
+        });
+        if (ok) {
+          onDone();
+        }
+      }}
+      size="sm"
+      variant="outline"
+    >
+      {translate("detail.reconcile")}
+    </Button>
   );
 }
 

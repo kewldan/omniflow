@@ -332,19 +332,30 @@ func (store *PostgresStore) AutoRenew(ctx context.Context, customerID string) (A
 // customer, so a customer can always turn it off.
 func (store *PostgresStore) SetAutoRenew(ctx context.Context, customerID string, setting AutoRenew) error {
 	if !setting.Enabled {
+		// Turning it off returns the state to idle so the worker stops looking at
+		// the row, and clears the consent that made it chargeable. Saved methods
+		// are deliberately left alone: withdrawing agreement to automatic
+		// charging is not the same as asking for a card to be forgotten.
 		_, err := store.pool.Exec(ctx, `INSERT INTO auto_renew_settings (user_id, enabled, cancelled_at)
 			VALUES ($1::uuid, false, now())
 			ON CONFLICT (user_id) DO UPDATE SET enabled = false, plan_version_id = NULL, provider = NULL,
-				currency = NULL, cancelled_at = now(), updated_at = now()`, customerID)
+				currency = NULL, cancelled_at = now(), consent_at = NULL, state = 'idle',
+				updated_at = now()`, customerID)
 		return err
 	}
 	if setting.PlanVersionID == "" || setting.Provider == "" || setting.Currency == "" {
 		return errors.New("auto-renew requires a plan, a provider, and a currency")
 	}
-	_, err := store.pool.Exec(ctx, `INSERT INTO auto_renew_settings (user_id, enabled, plan_version_id, provider, currency)
-		VALUES ($1::uuid, true, $2::uuid, $3, $4)
+	// Enabling is the moment the customer agrees, so it is the moment consent is
+	// recorded. The worker checks the timestamp rather than the flag: a row
+	// written by an import or a migration has a true `enabled` and no evidence
+	// that anybody agreed to anything, and it must not produce a charge.
+	_, err := store.pool.Exec(ctx, `INSERT INTO auto_renew_settings
+			(user_id, enabled, plan_version_id, provider, currency, consent_at, state)
+		VALUES ($1::uuid, true, $2::uuid, $3, $4, now(), 'scheduled')
 		ON CONFLICT (user_id) DO UPDATE SET enabled = true, plan_version_id = EXCLUDED.plan_version_id,
-			provider = EXCLUDED.provider, currency = EXCLUDED.currency, cancelled_at = NULL, updated_at = now()`,
+			provider = EXCLUDED.provider, currency = EXCLUDED.currency, cancelled_at = NULL,
+			consent_at = now(), state = 'scheduled', last_failure_code = NULL, updated_at = now()`,
 		customerID, setting.PlanVersionID, setting.Provider, setting.Currency)
 	return err
 }

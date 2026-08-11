@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"strconv"
 	"strings"
+	"time"
 
 	telegram "github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -93,6 +94,8 @@ func (app *App) loadCommerceView(ctx context.Context, session commerceContext, r
 		return app.supportScreen(ctx, session), true
 	case routeAutoRenew:
 		return app.autoRenewScreen(ctx, session), true
+	case routeMethods:
+		return app.savedMethodsScreen(ctx, session), true
 	default:
 		return View{}, false
 	}
@@ -400,9 +403,14 @@ func (app *App) ticketScreen(ctx context.Context, session commerceContext, ticke
 }
 
 func (app *App) autoRenewScreen(ctx context.Context, session commerceContext) View {
-	setting, err := app.customers.AutoRenew(ctx, session.Customer.ID)
+	settings, err := app.customers.RenewalSettings(ctx, session.Customer.ID)
 	if err != nil {
 		app.logger.Error("auto-renew lookup failed", "error", err)
+		return app.errorView(session.Locale, routeSettings)
+	}
+	methods, err := app.customers.SavedMethods(ctx, session.Customer.ID)
+	if err != nil {
+		app.logger.Error("saved payment method lookup failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
 	}
 	entitlement, err := app.customers.Entitlement(ctx, session.Customer.ID, session.Locale, app.settings.Currency)
@@ -411,7 +419,67 @@ func (app *App) autoRenewScreen(ctx context.Context, session commerceContext) Vi
 		return app.errorView(session.Locale, routeSettings)
 	}
 	supported := commerce.SupportsAutoRenew(app.commerce.payments.Options(), app.settings.Currency)
-	return autoRenewView(session.Locale, setting, entitlement.PlanName, supported)
+	return autoRenewSettingsView(session.Locale, settings, methods, entitlement.PlanName, supported)
+}
+
+func (app *App) savedMethodsScreen(ctx context.Context, session commerceContext) View {
+	methods, err := app.customers.SavedMethods(ctx, session.Customer.ID)
+	if err != nil {
+		app.logger.Error("saved payment method lookup failed", "error", err)
+		return app.errorView(session.Locale, routeSettings)
+	}
+	return savedMethodsView(session.Locale, methods)
+}
+
+// setRenewalFunding switches between the wallet and a saved method.
+//
+// Asking to charge a card that is not saved is a normal thing for a customer to
+// try, so it gets its own message rather than a generic failure.
+func (app *App) setRenewalFunding(ctx context.Context, session commerceContext, funding string) View {
+	err := app.customers.SetRenewalFunding(ctx, session.Customer.ID, funding)
+	if errors.Is(err, errNoSavedMethod) {
+		return View{
+			Text:     text(session.Locale, "renew.noMethod"),
+			Keyboard: keyboard(row(callbackButton(text(session.Locale, "action.back"), routeAutoRenew))),
+		}
+	}
+	if err != nil {
+		app.logger.Error("renewal funding update failed", "error", err)
+		return app.errorView(session.Locale, routeSettings)
+	}
+	return app.autoRenewScreen(ctx, session)
+}
+
+func (app *App) setRenewalLeadTime(ctx context.Context, session commerceContext, days string) View {
+	parsed, err := strconv.Atoi(days)
+	if err != nil || parsed <= 0 {
+		return app.autoRenewScreen(ctx, session)
+	}
+	if err := app.customers.SetRenewalLeadTime(
+		ctx, session.Customer.ID, time.Duration(parsed)*24*time.Hour,
+	); err != nil {
+		app.logger.Error("renewal lead time update failed", "error", err)
+		return app.errorView(session.Locale, routeSettings)
+	}
+	return app.autoRenewScreen(ctx, session)
+}
+
+// setDefaultMethod and removeMethod both address a method by an identifier that
+// arrived in callback data. The store re-checks ownership on every write, so a
+// forged identifier changes nothing rather than reaching another customer's
+// card.
+func (app *App) setDefaultMethod(ctx context.Context, session commerceContext, methodID string) View {
+	if err := app.customers.SetDefaultMethod(ctx, session.Customer.ID, methodID); err != nil {
+		app.logger.Warn("default payment method update failed", "error", err)
+	}
+	return app.savedMethodsScreen(ctx, session)
+}
+
+func (app *App) removeMethod(ctx context.Context, session commerceContext, methodID string) View {
+	if err := app.customers.RemoveMethod(ctx, session.Customer.ID, methodID); err != nil {
+		app.logger.Warn("payment method removal failed", "error", err)
+	}
+	return app.savedMethodsScreen(ctx, session)
 }
 
 // handleCommerceAction runs the callback actions the commerce surface owns.
@@ -469,6 +537,14 @@ func (app *App) handleCommerceAction(ctx context.Context, session commerceContex
 		return app.connectPlatform(ctx, session, argument), true
 	case "autorenew":
 		return app.setAutoRenew(ctx, session, argument == "on"), true
+	case "renew-funding":
+		return app.setRenewalFunding(ctx, session, argument), true
+	case "renew-lead":
+		return app.setRenewalLeadTime(ctx, session, argument), true
+	case "method-default":
+		return app.setDefaultMethod(ctx, session, argument), true
+	case "method-remove":
+		return app.removeMethod(ctx, session, argument), true
 	case "quiet":
 		return app.setQuietHours(ctx, session, argument), true
 	default:

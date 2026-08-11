@@ -229,6 +229,34 @@ var catalog = map[string]phrase{
 	"renew.enable":  {ru: "Включить автопродление", en: "Turn auto-renew on"},
 	"renew.disable": {ru: "Выключить автопродление", en: "Turn auto-renew off"},
 
+	// What an automatic charge will be taken from, and when. Both are stated on
+	// the screen rather than left to a default the customer never sees, because
+	// this is money moving while they are not present.
+	"renew.funding":    {ru: "Списываем с: <b>%s</b>", en: "Charged to: <b>%s</b>"},
+	"renew.lead":       {ru: "Списание за <b>%d дн.</b> до окончания", en: "Charged <b>%d day(s)</b> before expiry"},
+	"renew.fromWallet": {ru: "Баланс", en: "Wallet"},
+	"renew.fromMethod": {ru: "Сохранённая карта", en: "Saved card"},
+	"renew.leadDays":   {ru: "%d дн.", en: "%d d"},
+	"renew.methods":    {ru: "💳 Способы оплаты", en: "💳 Payment methods"},
+	"renew.noMethod": {ru: "У вас нет сохранённого способа оплаты. Он появится после оплаты картой с включённым автопродлением.",
+		en: "You have no saved payment method. One appears after you pay by card with auto-renew turned on."},
+	"renew.dunning": {ru: "⚠️ Последнее списание не прошло. Мы попробуем ещё раз автоматически.",
+		en: "⚠️ The last charge did not go through. We will try again automatically."},
+	"renew.suspended": {ru: "⚠️ Автосписание остановлено после нескольких неудачных попыток. Продлите вручную или измените способ оплаты.",
+		en: "⚠️ Automatic charging stopped after several failed attempts. Renew by hand or change your payment method."},
+
+	// Saved methods.
+	"methods.title":       {ru: "💳 <b>Способы оплаты</b>", en: "💳 <b>Payment methods</b>"},
+	"methods.empty":       {ru: "💳 <b>Способы оплаты</b>\n\nСохранённых способов пока нет.", en: "💳 <b>Payment methods</b>\n\nYou have no saved methods yet."},
+	"methods.default":     {ru: "основной", en: "default"},
+	"methods.makeDefault": {ru: "Сделать основным", en: "Make default"},
+	"methods.remove":      {ru: "Удалить", en: "Remove"},
+	"methods.notice": {ru: "Мы храним только ссылку от платёжного провайдера — номер карты и срок действия не сохраняются.",
+		en: "We store only a reference issued by the payment provider — no card number and no expiry date are kept."},
+	"methods.status.expired": {ru: "истёк", en: "expired"},
+	"methods.status.failed":  {ru: "отклонён", en: "declined"},
+	"methods.status.revoked": {ru: "удалён", en: "removed"},
+
 	// Connection instructions.
 	"connect.title":            {ru: "🚀 <b>Подключение</b>\n\nВыберите платформу — покажем приложение и шаги установки.", en: "🚀 <b>Connect</b>\n\nPick your platform for the recommended app and setup steps."},
 	"connect.platform.ios":     {ru: "🍎 iPhone / iPad", en: "🍎 iPhone / iPad"},
@@ -312,10 +340,10 @@ var catalog = map[string]phrase{
 	"settings.marketingNote": {ru: "\n\nРекламные сообщения приходят только с вашего согласия и не чаще %d раз в неделю.", en: "\n\nMarketing messages require your consent and are limited to %d per week."},
 
 	// Push notifications.
-	"alert.subscription":    {ru: "🗂 Подписка: <b>%s</b>", en: "🗂 Subscription: <b>%s</b>"},
-	"alert.expiry":          {ru: "⏳ <b>Подписка закончится через %d дн.</b>\n\nПродлите её, чтобы не потерять доступ.", en: "⏳ <b>Your subscription expires in %d day(s)</b>\n\nRenew it to keep your access."},
-	"alert.traffic":         {ru: "📡 <b>Использовано %d%% доступного трафика</b>\n\nПри исчерпании лимита подключение будет ограничено.", en: "📡 <b>You have used %d%% of your traffic allowance</b>\n\nYour connection is limited once the allowance runs out."},
-	"alert.renewal":         {ru: "♻️ <b>Пора продлить подписку</b>\n\nТариф: <b>%s</b>\nОсталось: <b>%d дн.</b>\nДействует до: <b>%s</b>", en: "♻️ <b>Time to renew</b>\n\nPlan: <b>%s</b>\nRemaining: <b>%d day(s)</b>\nValid until: <b>%s</b>"},
+	"alert.subscription": {ru: "🗂 Подписка: <b>%s</b>", en: "🗂 Subscription: <b>%s</b>"},
+	"alert.expiry":       {ru: "⏳ <b>Подписка закончится через %d дн.</b>\n\nПродлите её, чтобы не потерять доступ.", en: "⏳ <b>Your subscription expires in %d day(s)</b>\n\nRenew it to keep your access."},
+	"alert.traffic":      {ru: "📡 <b>Использовано %d%% доступного трафика</b>\n\nПри исчерпании лимита подключение будет ограничено.", en: "📡 <b>You have used %d%% of your traffic allowance</b>\n\nYour connection is limited once the allowance runs out."},
+	"alert.renewal":      {ru: "♻️ <b>Пора продлить подписку</b>\n\nТариф: <b>%s</b>\nОсталось: <b>%d дн.</b>\nДействует до: <b>%s</b>", en: "♻️ <b>Time to renew</b>\n\nPlan: <b>%s</b>\nRemaining: <b>%d day(s)</b>\nValid until: <b>%s</b>"},
 	// Automatic renewal. The two messages differ because what the customer has
 	// to do differs: the first is a warning that resolves itself if the card
 	// starts working, the second is the end of automatic renewal.
