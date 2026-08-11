@@ -126,7 +126,7 @@ SELECT
   a.*,
   e.id AS entitlement_id,
   e.ends_at AS entitlement_ends_at,
-  (e.id::text || ':' || extract(epoch FROM e.ends_at)::bigint::text) AS cycle_key
+  ((e.id::text || ':' || extract(epoch FROM e.ends_at)::bigint::text))::text AS cycle_key
 FROM auto_renew_settings a
 JOIN entitlements e ON e.subscription_id IS NOT DISTINCT FROM a.subscription_id
   AND e.user_id = a.user_id

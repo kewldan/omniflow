@@ -133,7 +133,7 @@ SELECT
   a.user_id, a.enabled, a.plan_version_id, a.provider, a.currency, a.cancelled_at, a.updated_at, a.subscription_id, a.payment_method_id, a.funding, a.lead_time_seconds, a.consent_at, a.state, a.last_attempt_at, a.last_failure_code,
   e.id AS entitlement_id,
   e.ends_at AS entitlement_ends_at,
-  (e.id::text || ':' || extract(epoch FROM e.ends_at)::bigint::text) AS cycle_key
+  ((e.id::text || ':' || extract(epoch FROM e.ends_at)::bigint::text))::text AS cycle_key
 FROM auto_renew_settings a
 JOIN entitlements e ON e.subscription_id IS NOT DISTINCT FROM a.subscription_id
   AND e.user_id = a.user_id
@@ -169,7 +169,7 @@ type ListAutoRenewDueRow struct {
 	LastFailureCode   pgtype.Text        `json:"last_failure_code"`
 	EntitlementID     pgtype.UUID        `json:"entitlement_id"`
 	EntitlementEndsAt pgtype.Timestamptz `json:"entitlement_ends_at"`
-	CycleKey          interface{}        `json:"cycle_key"`
+	CycleKey          string             `json:"cycle_key"`
 }
 
 // Subscriptions whose entitlement ends inside the configured lead time and that

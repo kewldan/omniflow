@@ -695,25 +695,25 @@ func (q *Queries) ObserveRefundVolume(ctx context.Context, arg ObserveRefundVolu
 
 const observeTrafficUsage = `-- name: ObserveTrafficUsage :many
 SELECT s.id AS subscription_id, s.user_id,
-       COALESCE((s.observed_state->>'usedTrafficBytes')::bigint, 0) AS used_bytes,
+       (COALESCE((s.observed_state->>'usedTrafficBytes')::bigint, 0))::bigint AS used_bytes,
        s.reconciled_at
 FROM subscriptions s
 WHERE s.status = 'active'
   AND s.observed_state ? 'usedTrafficBytes'
-  AND COALESCE((s.observed_state->>'usedTrafficBytes')::bigint, 0) >= $1
+  AND COALESCE((s.observed_state->>'usedTrafficBytes')::bigint, 0) >= $1::bigint
 ORDER BY used_bytes DESC
 LIMIT $2
 `
 
 type ObserveTrafficUsageParams struct {
-	ThresholdBytes []byte `json:"threshold_bytes"`
-	PageSize       int32  `json:"page_size"`
+	ThresholdBytes int64 `json:"threshold_bytes"`
+	PageSize       int32 `json:"page_size"`
 }
 
 type ObserveTrafficUsageRow struct {
 	SubscriptionID pgtype.UUID        `json:"subscription_id"`
 	UserID         pgtype.UUID        `json:"user_id"`
-	UsedBytes      interface{}        `json:"used_bytes"`
+	UsedBytes      int64              `json:"used_bytes"`
 	ReconciledAt   pgtype.Timestamptz `json:"reconciled_at"`
 }
 

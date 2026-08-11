@@ -1172,7 +1172,7 @@ const listCustomerSubscriptionsDetailed = `-- name: ListCustomerSubscriptionsDet
 SELECT
   s.id, s.user_id, s.slot, s.label, s.status, s.remnawave_user_id, s.remnawave_username, s.observed_state, s.reconciled_at, s.created_at, s.updated_at, s.closed_at,
   e.id AS entitlement_id,
-  e.status AS entitlement_status,
+  COALESCE(e.status, '')::text AS entitlement_status,
   e.starts_at AS entitlement_starts_at,
   e.ends_at AS entitlement_ends_at,
   e.traffic_allowance_bytes,

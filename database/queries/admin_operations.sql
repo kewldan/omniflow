@@ -292,7 +292,7 @@ WHERE u.id = $1;
 SELECT
   sqlc.embed(s),
   e.id AS entitlement_id,
-  e.status AS entitlement_status,
+  COALESCE(e.status, '')::text AS entitlement_status,
   e.starts_at AS entitlement_starts_at,
   e.ends_at AS entitlement_ends_at,
   e.traffic_allowance_bytes,

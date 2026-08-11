@@ -286,11 +286,11 @@ HAVING count(*) >= sqlc.arg(minimum_count);
 -- The distinction is why the rule's window only controls how often a signal is
 -- re-raised, and it is documented on the operator page as well.
 SELECT s.id AS subscription_id, s.user_id,
-       COALESCE((s.observed_state->>'usedTrafficBytes')::bigint, 0) AS used_bytes,
+       (COALESCE((s.observed_state->>'usedTrafficBytes')::bigint, 0))::bigint AS used_bytes,
        s.reconciled_at
 FROM subscriptions s
 WHERE s.status = 'active'
   AND s.observed_state ? 'usedTrafficBytes'
-  AND COALESCE((s.observed_state->>'usedTrafficBytes')::bigint, 0) >= sqlc.arg(threshold_bytes)
+  AND COALESCE((s.observed_state->>'usedTrafficBytes')::bigint, 0) >= sqlc.arg(threshold_bytes)::bigint
 ORDER BY used_bytes DESC
 LIMIT sqlc.arg(page_size);
