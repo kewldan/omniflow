@@ -145,6 +145,103 @@ type AdminUserRole struct {
 	GrantedBy   pgtype.UUID        `json:"granted_by"`
 }
 
+type AiDecision struct {
+	ID            pgtype.UUID        `json:"id"`
+	OccurredAt    pgtype.Timestamptz `json:"occurred_at"`
+	SubjectType   string             `json:"subject_type"`
+	SubjectID     string             `json:"subject_id"`
+	Feature       string             `json:"feature"`
+	ProviderSlug  string             `json:"provider_slug"`
+	Model         string             `json:"model"`
+	PolicyVersion pgtype.Text        `json:"policy_version"`
+	OperatorID    pgtype.UUID        `json:"operator_id"`
+	Disposition   string             `json:"disposition"`
+	Consequential bool               `json:"consequential"`
+	Summary       pgtype.Text        `json:"summary"`
+	AuditEventID  pgtype.UUID        `json:"audit_event_id"`
+}
+
+type AiFeature struct {
+	Feature             string             `json:"feature"`
+	Enabled             bool               `json:"enabled"`
+	ProviderSlug        pgtype.Text        `json:"provider_slug"`
+	Model               pgtype.Text        `json:"model"`
+	Temperature         pgtype.Numeric     `json:"temperature"`
+	MaxTokens           pgtype.Int4        `json:"max_tokens"`
+	TimeoutMs           pgtype.Int4        `json:"timeout_ms"`
+	BudgetTokens        pgtype.Int8        `json:"budget_tokens"`
+	BudgetWindowSeconds pgtype.Int4        `json:"budget_window_seconds"`
+	BudgetCostMinor     pgtype.Int8        `json:"budget_cost_minor"`
+	RetainPrompts       bool               `json:"retain_prompts"`
+	RetainOutputs       bool               `json:"retain_outputs"`
+	RetentionDays       int32              `json:"retention_days"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy           pgtype.UUID        `json:"updated_by"`
+}
+
+type AiProvider struct {
+	Slug                  string             `json:"slug"`
+	Kind                  string             `json:"kind"`
+	DisplayName           string             `json:"display_name"`
+	BaseUrl               pgtype.Text        `json:"base_url"`
+	CredentialsCiphertext []byte             `json:"credentials_ciphertext"`
+	Enabled               bool               `json:"enabled"`
+	ZeroRetention         bool               `json:"zero_retention"`
+	TrainsOnData          bool               `json:"trains_on_data"`
+	RetentionNotice       pgtype.Text        `json:"retention_notice"`
+	DataRegion            pgtype.Text        `json:"data_region"`
+	LastCheckedAt         pgtype.Timestamptz `json:"last_checked_at"`
+	LastCheckOk           pgtype.Bool        `json:"last_check_ok"`
+	LastCheckDetail       pgtype.Text        `json:"last_check_detail"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy             pgtype.UUID        `json:"updated_by"`
+}
+
+type AiRetentionHold struct {
+	ID          pgtype.UUID        `json:"id"`
+	SubjectType string             `json:"subject_type"`
+	SubjectID   string             `json:"subject_id"`
+	Reason      string             `json:"reason"`
+	PlacedBy    pgtype.UUID        `json:"placed_by"`
+	PlacedAt    pgtype.Timestamptz `json:"placed_at"`
+	ReleasedAt  pgtype.Timestamptz `json:"released_at"`
+	ReleasedBy  pgtype.UUID        `json:"released_by"`
+}
+
+type AiUsageEvent struct {
+	ID                 pgtype.UUID        `json:"id"`
+	OccurredAt         pgtype.Timestamptz `json:"occurred_at"`
+	Feature            string             `json:"feature"`
+	Task               string             `json:"task"`
+	ProviderSlug       string             `json:"provider_slug"`
+	Model              string             `json:"model"`
+	OperatorID         pgtype.UUID        `json:"operator_id"`
+	OperatorRole       pgtype.Text        `json:"operator_role"`
+	InputTokens        int32              `json:"input_tokens"`
+	OutputTokens       int32              `json:"output_tokens"`
+	LatencyMs          int32              `json:"latency_ms"`
+	EstimatedCostMinor int64              `json:"estimated_cost_minor"`
+	Currency           pgtype.Text        `json:"currency"`
+	Outcome            string             `json:"outcome"`
+	ErrorCode          pgtype.Text        `json:"error_code"`
+	RedactionSummary   []byte             `json:"redaction_summary"`
+}
+
+type AiUsageLimit struct {
+	ID            pgtype.UUID        `json:"id"`
+	Scope         string             `json:"scope"`
+	ScopeRef      pgtype.Text        `json:"scope_ref"`
+	Feature       pgtype.Text        `json:"feature"`
+	WindowSeconds int32              `json:"window_seconds"`
+	MaxRequests   pgtype.Int4        `json:"max_requests"`
+	MaxTokens     pgtype.Int8        `json:"max_tokens"`
+	MaxCostMinor  pgtype.Int8        `json:"max_cost_minor"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy     pgtype.UUID        `json:"updated_by"`
+}
+
 type AnomalyRule struct {
 	Metric         string             `json:"metric"`
 	Enabled        bool               `json:"enabled"`
@@ -762,6 +859,16 @@ type Identity struct {
 	Metadata        []byte             `json:"metadata"`
 }
 
+type InstallationSetting struct {
+	Section  string `json:"section"`
+	Document []byte `json:"document"`
+	// Sealed with APP_DATA_ENCRYPTION_KEY. Never returned to a client, never included in a diagnostics bundle.
+	SecretsCiphertext []byte             `json:"secrets_ciphertext"`
+	Version           int32              `json:"version"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy         pgtype.UUID        `json:"updated_by"`
+}
+
 type LedgerEntry struct {
 	ID            pgtype.UUID        `json:"id"`
 	TransactionID pgtype.UUID        `json:"transaction_id"`
@@ -861,6 +968,66 @@ type ManualPaymentApproval struct {
 	IdempotencyKey  string             `json:"idempotency_key"`
 	RequestID       pgtype.Text        `json:"request_id"`
 	OccurredAt      pgtype.Timestamptz `json:"occurred_at"`
+}
+
+type McpEvent struct {
+	ID            pgtype.UUID        `json:"id"`
+	OccurredAt    pgtype.Timestamptz `json:"occurred_at"`
+	Kind          string             `json:"kind"`
+	ServerSlug    pgtype.Text        `json:"server_slug"`
+	ToolName      pgtype.Text        `json:"tool_name"`
+	OperatorID    pgtype.UUID        `json:"operator_id"`
+	Arguments     []byte             `json:"arguments"`
+	Confirmed     bool               `json:"confirmed"`
+	Reason        pgtype.Text        `json:"reason"`
+	Outcome       string             `json:"outcome"`
+	Detail        pgtype.Text        `json:"detail"`
+	ResponseBytes int64              `json:"response_bytes"`
+	DurationMs    int32              `json:"duration_ms"`
+	Findings      []string           `json:"findings"`
+}
+
+type McpServer struct {
+	Slug                  string             `json:"slug"`
+	DisplayName           string             `json:"display_name"`
+	Endpoint              string             `json:"endpoint"`
+	Enabled               bool               `json:"enabled"`
+	CredentialsCiphertext []byte             `json:"credentials_ciphertext"`
+	AllowedHosts          []string           `json:"allowed_hosts"`
+	AllowPrivateNetwork   bool               `json:"allow_private_network"`
+	TimeoutMs             int32              `json:"timeout_ms"`
+	MaxResponseBytes      int64              `json:"max_response_bytes"`
+	MaxCallsPerRequest    int32              `json:"max_calls_per_request"`
+	MaxDepth              int32              `json:"max_depth"`
+	CostLimitMinor        pgtype.Int8        `json:"cost_limit_minor"`
+	ProtocolVersion       pgtype.Text        `json:"protocol_version"`
+	ServerName            pgtype.Text        `json:"server_name"`
+	ServerVersion         pgtype.Text        `json:"server_version"`
+	Capabilities          []byte             `json:"capabilities"`
+	DiscoveredAt          pgtype.Timestamptz `json:"discovered_at"`
+	LastCheckedAt         pgtype.Timestamptz `json:"last_checked_at"`
+	LastCheckOk           pgtype.Bool        `json:"last_check_ok"`
+	LastCheckDetail       pgtype.Text        `json:"last_check_detail"`
+	ConsecutiveFailures   int32              `json:"consecutive_failures"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy             pgtype.UUID        `json:"updated_by"`
+}
+
+type McpTool struct {
+	ID            pgtype.UUID        `json:"id"`
+	ServerSlug    string             `json:"server_slug"`
+	ToolName      string             `json:"tool_name"`
+	Enabled       bool               `json:"enabled"`
+	Permission    string             `json:"permission"`
+	Writes        bool               `json:"writes"`
+	InputSchema   []byte             `json:"input_schema"`
+	OutputSchema  []byte             `json:"output_schema"`
+	Description   pgtype.Text        `json:"description"`
+	SchemaUsable  bool               `json:"schema_usable"`
+	SchemaProblem pgtype.Text        `json:"schema_problem"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
 type MessageTemplate struct {

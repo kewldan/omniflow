@@ -11,6 +11,11 @@ import (
 )
 
 type Querier interface {
+	// What one scope has spent, for the budget check that runs before a call.
+	AIUsageForWindow(ctx context.Context, arg AIUsageForWindowParams) (AIUsageForWindowRow, error)
+	// Token, request, latency, error, and estimated-cost reporting, grouped by the
+	// dimensions an owner reads. No prompt content appears because none is stored.
+	AIUsageReport(ctx context.Context, arg AIUsageReportParams) ([]AIUsageReportRow, error)
 	AcquirePaymentMutationLock(ctx context.Context, hashtextextended string) error
 	AddBlocklistAllowlistEntry(ctx context.Context, arg AddBlocklistAllowlistEntryParams) (BlocklistAllowlist, error)
 	AddPromotionPlan(ctx context.Context, arg AddPromotionPlanParams) error
@@ -66,6 +71,7 @@ type Querier interface {
 	CompleteGoodsDelivery(ctx context.Context, arg CompleteGoodsDeliveryParams) (GoodsDelivery, error)
 	CompleteOperatorNotification(ctx context.Context, arg CompleteOperatorNotificationParams) (OperatorNotification, error)
 	CompleteWebhookEvent(ctx context.Context, arg CompleteWebhookEventParams) (ProviderWebhookEvent, error)
+	ConfigureAIFeature(ctx context.Context, arg ConfigureAIFeatureParams) (AiFeature, error)
 	ConfirmAdminTOTP(ctx context.Context, adminUserID pgtype.UUID) (AdminUser, error)
 	ConsumeAdminPasswordReset(ctx context.Context, resetID pgtype.UUID) (AdminPasswordReset, error)
 	// Single-use by construction: the `used_at IS NULL` predicate means a replay of
@@ -227,6 +233,8 @@ type Querier interface {
 	// has not answered; recording a failure would be a lie and charging again
 	// would risk taking the money twice, so the attempt keeps its number and waits.
 	DeferDunningAttempt(ctx context.Context, arg DeferDunningAttemptParams) (DunningAttempt, error)
+	DeleteAIProvider(ctx context.Context, slug string) error
+	DeleteAIUsageLimit(ctx context.Context, id pgtype.UUID) error
 	DeleteAdminOIDCProvider(ctx context.Context, slug string) error
 	// ---------------------------------------------------------------------------
 	// Recovery codes
@@ -248,6 +256,7 @@ type Querier interface {
 	DeleteExpiredCheckoutSessions(ctx context.Context) (int64, error)
 	DeleteExpiredSupportAttachments(ctx context.Context) (int64, error)
 	DeleteExpiredWebhookEvents(ctx context.Context) (int64, error)
+	DeleteMCPServer(ctx context.Context, slug string) error
 	DeleteOldTelemetryEvents(ctx context.Context, retentionSeconds float64) (int64, error)
 	DeletePublishedOutboxEvents(ctx context.Context, retentionSeconds float64) (int64, error)
 	DeleteRequiredChannel(ctx context.Context, id pgtype.UUID) error
@@ -264,6 +273,8 @@ type Querier interface {
 	ExpireGifts(ctx context.Context) ([]Gift, error)
 	ExpirePendingOrders(ctx context.Context) ([]Order, error)
 	ExpirePersonalOffers(ctx context.Context) (int64, error)
+	// The export that answers "which of these were shaped by a model?".
+	ExportAIDecisions(ctx context.Context, arg ExportAIDecisionsParams) ([]ExportAIDecisionsRow, error)
 	// The customer export, in a stable column order.
 	//
 	// It carries the identifiers an operator may safely be given and the facts they
@@ -278,6 +289,8 @@ type Querier interface {
 	FailBackup(ctx context.Context, arg FailBackupParams) (Backup, error)
 	FailGoodsDelivery(ctx context.Context, arg FailGoodsDeliveryParams) (GoodsDelivery, error)
 	FailOperatorTopic(ctx context.Context, arg FailOperatorTopicParams) (OperatorTopic, error)
+	GetAIFeature(ctx context.Context, feature string) (AiFeature, error)
+	GetAIProviderCredentials(ctx context.Context, slug string) (GetAIProviderCredentialsRow, error)
 	GetActiveOfferForPromotion(ctx context.Context, arg GetActiveOfferForPromotionParams) (PersonalOffer, error)
 	GetAddonVersionForOrder(ctx context.Context, arg GetAddonVersionForOrderParams) (GetAddonVersionForOrderRow, error)
 	GetAdminOIDCIdentity(ctx context.Context, arg GetAdminOIDCIdentityParams) (GetAdminOIDCIdentityRow, error)
@@ -359,6 +372,8 @@ type Querier interface {
 	GetLatestEntitlementForChange(ctx context.Context, arg GetLatestEntitlementForChangeParams) (Entitlement, error)
 	GetLedgerTransactionByIdempotency(ctx context.Context, idempotencyKey string) (LedgerTransaction, error)
 	GetLoyaltyStanding(ctx context.Context, userID pgtype.UUID) (GetLoyaltyStandingRow, error)
+	GetMCPServer(ctx context.Context, slug string) (GetMCPServerRow, error)
+	GetMCPServerCredentials(ctx context.Context, slug string) ([]byte, error)
 	GetMaintenanceState(ctx context.Context) (MaintenanceState, error)
 	GetMessageTemplate(ctx context.Context, id pgtype.UUID) (MessageTemplate, error)
 	GetOpenCart(ctx context.Context, userID pgtype.UUID) (Cart, error)
@@ -382,6 +397,10 @@ type Querier interface {
 	GetRemnawaveMappingByCustomer(ctx context.Context, userID pgtype.UUID) (RemnawaveUser, error)
 	GetRemnawaveUserIDByTelegramID(ctx context.Context, telegramID pgtype.Int8) (int64, error)
 	GetReservedRefundAmount(ctx context.Context, paymentIntentID pgtype.UUID) (int64, error)
+	// Read by the processes that need the credential, never by a request handler
+	// that answers an operator.
+	GetSettingSecrets(ctx context.Context, section string) ([]byte, error)
+	GetSettingSection(ctx context.Context, section string) (GetSettingSectionRow, error)
 	GetSubscription(ctx context.Context, id pgtype.UUID) (Subscription, error)
 	GetSubscriptionByRemnawaveUser(ctx context.Context, remnawaveUserID pgtype.Int8) (Subscription, error)
 	GetSupportQueue(ctx context.Context, id pgtype.UUID) (SupportQueue, error)
@@ -425,10 +444,14 @@ type Querier interface {
 	LinkAdminOIDCIdentity(ctx context.Context, arg LinkAdminOIDCIdentityParams) (AdminOidcIdentity, error)
 	LinkCustomerIdentity(ctx context.Context, arg LinkCustomerIdentityParams) (Identity, error)
 	LinkTelegramRemnawaveUser(ctx context.Context, arg LinkTelegramRemnawaveUserParams) (int64, error)
+	ListAIFeatures(ctx context.Context) ([]AiFeature, error)
+	ListAIProviders(ctx context.Context) ([]ListAIProvidersRow, error)
+	ListAIUsageLimits(ctx context.Context) ([]AiUsageLimit, error)
 	// What the bot shows. Expired-but-not-yet-swept rows are filtered here rather
 	// than relying on the sweeper having run, so an offer never outlives its window
 	// on screen.
 	ListActiveOffersForCustomer(ctx context.Context, arg ListActiveOffersForCustomerParams) ([]ListActiveOffersForCustomerRow, error)
+	ListActiveRetentionHolds(ctx context.Context) ([]AiRetentionHold, error)
 	ListAddonPrices(ctx context.Context, addonVersionID pgtype.UUID) ([]AddonPrice, error)
 	ListAddonVersions(ctx context.Context, addonID pgtype.UUID) ([]AddonVersion, error)
 	ListAddonsAdmin(ctx context.Context) ([]ListAddonsAdminRow, error)
@@ -526,6 +549,9 @@ type Querier interface {
 	ListDunningAttemptsForCustomer(ctx context.Context, arg ListDunningAttemptsForCustomerParams) ([]DunningAttempt, error)
 	ListEnabledAdminOIDCProviders(ctx context.Context) ([]AdminOidcProvider, error)
 	ListEnabledChannels(ctx context.Context) ([]RequiredChannel, error)
+	// What an installation actually exposes: enabled tools on enabled servers whose
+	// schema this build can enforce.
+	ListEnabledMCPTools(ctx context.Context) ([]McpTool, error)
 	ListEntitlementsForReconciliation(ctx context.Context, limit int32) ([]Entitlement, error)
 	ListExpiredBackups(ctx context.Context, limit int32) ([]Backup, error)
 	ListExpiredWalletCredits(ctx context.Context, limit int32) ([]ListExpiredWalletCreditsRow, error)
@@ -556,6 +582,11 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	ListLoyaltyPrograms(ctx context.Context, pageSize int32) ([]LoyaltyProgram, error)
 	ListLoyaltyTiers(ctx context.Context, programID pgtype.UUID) ([]LoyaltyTier, error)
+	ListMCPEvents(ctx context.Context, arg ListMCPEventsParams) ([]McpEvent, error)
+	// The registry as the panel reads it. The credential column is not selected, so
+	// listing servers cannot leak one.
+	ListMCPServers(ctx context.Context) ([]ListMCPServersRow, error)
+	ListMCPTools(ctx context.Context, serverSlug string) ([]McpTool, error)
 	ListMessageTemplates(ctx context.Context) ([]MessageTemplate, error)
 	ListOpenDriftsDetailed(ctx context.Context, pageSize int32) ([]ListOpenDriftsDetailedRow, error)
 	ListOpenEntitlementDrifts(ctx context.Context, limit int32) ([]EntitlementDrift, error)
@@ -617,6 +648,10 @@ type Querier interface {
 	ListRemnawaveMappings(ctx context.Context) ([]ListRemnawaveMappingsRow, error)
 	// Mandatory channel subscription.
 	ListRequiredChannels(ctx context.Context) ([]RequiredChannel, error)
+	// AI governance, MCP connections, and installation settings.
+	// Every section without its secrets. This is the query the settings screens
+	// read, and it cannot return a credential because the column is not selected.
+	ListSettingSections(ctx context.Context) ([]ListSettingSectionsRow, error)
 	// Intents that have been in flight longer than a provider should take. The
 	// panel offers reconciliation and retry from this list; neither mutates money
 	// directly, both go through the existing idempotent payment service.
@@ -728,9 +763,11 @@ type Querier interface {
 	// retrying could deliver twice and refunding could give money back for goods
 	// the recipient received.
 	ParkGoodsDelivery(ctx context.Context, arg ParkGoodsDeliveryParams) (GoodsDelivery, error)
+	PlaceRetentionHold(ctx context.Context, arg PlaceRetentionHoldParams) (AiRetentionHold, error)
 	// Enabling one programme disables the rest, because the partial unique index
 	// allows exactly one and a customer can only stand in one definition at a time.
 	PublishLoyaltyProgram(ctx context.Context, programID pgtype.UUID) (LoyaltyProgram, error)
+	PurgeAIUsageBefore(ctx context.Context, occurredAt pgtype.Timestamptz) (int64, error)
 	PurgeExpiredAdminSessions(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
 	// The primary key is the deduplication: a paused-and-resumed campaign continues
 	// rather than restarting, and a recipient cannot be queued twice.
@@ -746,6 +783,10 @@ type Querier interface {
 	// A read-only probe used on the hot purchase path. A missing row means
 	// maintenance mode has never been engaged, which is the same as inactive.
 	ReadMaintenanceState(ctx context.Context) (MaintenanceState, error)
+	RecordAIDecision(ctx context.Context, arg RecordAIDecisionParams) (AiDecision, error)
+	RecordAIProviderCheck(ctx context.Context, arg RecordAIProviderCheckParams) error
+	// There is no prompt or output parameter, and there is nowhere to put one.
+	RecordAIUsage(ctx context.Context, arg RecordAIUsageParams) error
 	// The caller computes the lockout deadline from the resulting attempt count, so
 	// the backoff curve stays in Go where it is unit-testable.
 	RecordAdminLoginFailure(ctx context.Context, arg RecordAdminLoginFailureParams) (AdminUser, error)
@@ -753,6 +794,10 @@ type Querier interface {
 	RecordAdminOIDCLogin(ctx context.Context, id pgtype.UUID) error
 	RecordBlocklistRefresh(ctx context.Context, arg RecordBlocklistRefreshParams) (BlocklistSource, error)
 	RecordCartFailure(ctx context.Context, arg RecordCartFailureParams) (Cart, error)
+	// Discovery refreshes the description and schemas and leaves the owner's
+	// decisions alone. A rediscovery that re-enabled a tool an owner switched off
+	// would make discovery a privilege escalation.
+	RecordDiscoveredMCPTool(ctx context.Context, arg RecordDiscoveredMCPToolParams) (McpTool, error)
 	// Counts a failed redemption so a code cannot be brute-forced indefinitely. The
 	// rate limiter in front of the endpoint is the first defence; this is the
 	// durable one that survives a restart.
@@ -760,6 +805,11 @@ type Querier interface {
 	RecordGoodsDeliveryRefund(ctx context.Context, arg RecordGoodsDeliveryRefundParams) (GoodsDelivery, error)
 	RecordGoodsProviderHealth(ctx context.Context, arg RecordGoodsProviderHealthParams) (GoodsProvider, error)
 	RecordLoyaltyChange(ctx context.Context, arg RecordLoyaltyChangeParams) (LoyaltyStandingHistory, error)
+	RecordMCPDiscovery(ctx context.Context, arg RecordMCPDiscoveryParams) error
+	RecordMCPEvent(ctx context.Context, arg RecordMCPEventParams) error
+	// A failure increments; a success resets. The counter is what the panel reads to
+	// explain why a connection is being skipped.
+	RecordMCPHealth(ctx context.Context, arg RecordMCPHealthParams) error
 	// `left_at` is set the first time absence is seen and cleared on return, so the
 	// grace clock measures from when the customer actually left rather than from
 	// when a sweep noticed.
@@ -778,6 +828,7 @@ type Querier interface {
 	RecountCampaign(ctx context.Context, campaignID pgtype.UUID) (Campaign, error)
 	RedeemPersonalOffer(ctx context.Context, arg RedeemPersonalOfferParams) (PersonalOffer, error)
 	ReleasePaymentMutationLock(ctx context.Context, hashtextextended string) error
+	ReleaseRetentionHold(ctx context.Context, arg ReleaseRetentionHoldParams) (AiRetentionHold, error)
 	RemoveBlocklistAllowlistEntry(ctx context.Context, userID pgtype.UUID) error
 	RemovePromotionPlan(ctx context.Context, arg RemovePromotionPlanParams) error
 	RenameSubscription(ctx context.Context, arg RenameSubscriptionParams) (Subscription, error)
@@ -824,6 +875,12 @@ type Querier interface {
 	// holds one binding, so the row is refreshed rather than duplicated. Consent is
 	// re-stamped because the customer just granted it again.
 	SavePaymentMethod(ctx context.Context, arg SavePaymentMethodParams) (PaymentMethod, error)
+	// Secrets are written on their own so a screen that did not change a token does
+	// not have to re-send it, which is what makes a write-only field workable.
+	SaveSettingSecrets(ctx context.Context, arg SaveSettingSecretsParams) error
+	// The version guard turns two panel tabs saving the same screen into a conflict
+	// rather than a silent overwrite. A caller that gets no row re-reads and retries.
+	SaveSettingSection(ctx context.Context, arg SaveSettingSectionParams) (SaveSettingSectionRow, error)
 	// ---------------------------------------------------------------------------
 	// Dunning
 	// ---------------------------------------------------------------------------
@@ -896,6 +953,7 @@ type Querier interface {
 	// installation upgrading from v0.5 therefore keeps the limits its operator
 	// configured, and every later change comes from the panel.
 	SeedCommerceSettings(ctx context.Context, arg SeedCommerceSettingsParams) (CommerceSetting, error)
+	SetAIProviderCredentials(ctx context.Context, arg SetAIProviderCredentialsParams) error
 	// Starts enrolment. `totp_confirmed_at` is deliberately cleared: a secret that
 	// has not been proven by a code cannot satisfy a login challenge.
 	SetAdminTOTPSecret(ctx context.Context, arg SetAdminTOTPSecretParams) (AdminUser, error)
@@ -916,6 +974,10 @@ type Querier interface {
 	// new ticket has nowhere to go.
 	SetDefaultSupportQueue(ctx context.Context, queueID pgtype.UUID) error
 	SetGoodsOrderStatus(ctx context.Context, arg SetGoodsOrderStatusParams) (GoodsOrder, error)
+	SetMCPServerCredentials(ctx context.Context, arg SetMCPServerCredentialsParams) error
+	// The owner's decisions: enablement, the permission it maps to, and whether it
+	// writes. Separate from discovery for the reason above.
+	SetMCPToolPolicy(ctx context.Context, arg SetMCPToolPolicyParams) (McpTool, error)
 	SetMaintenanceState(ctx context.Context, arg SetMaintenanceStateParams) (MaintenanceState, error)
 	// Publication is recorded, not inferred. `published_at` is set once and kept, so
 	// unpublishing and republishing does not rewrite when customers first saw it.
@@ -938,6 +1000,9 @@ type Querier interface {
 	// cleared when it comes back, and `reopened_count` counts the round trips —
 	// which is the signal that an answer did not actually answer the question.
 	SetSupportTicketStatus(ctx context.Context, arg SetSupportTicketStatusParams) (SupportTicket, error)
+	// Whether a secret exists, without returning it. It is what the panel shows in
+	// place of the value: "configured" is the only safe rendering of a secret.
+	SettingSecretsPresent(ctx context.Context) ([]SettingSecretsPresentRow, error)
 	// Only a previewed operation may run. That is what enforces "impact preview
 	// before bulk change" in the database rather than only in the panel.
 	StartBulkOperation(ctx context.Context, operationID pgtype.UUID) (BulkOperation, error)
@@ -989,6 +1054,8 @@ type Querier interface {
 	UpdatePromotion(ctx context.Context, arg UpdatePromotionParams) (Promotion, error)
 	UpdateSubscriptionSettings(ctx context.Context, arg UpdateSubscriptionSettingsParams) (CommerceSetting, error)
 	UpdateTopUpSettings(ctx context.Context, arg UpdateTopUpSettingsParams) (CommerceSetting, error)
+	UpsertAIProvider(ctx context.Context, arg UpsertAIProviderParams) (UpsertAIProviderRow, error)
+	UpsertAIUsageLimit(ctx context.Context, arg UpsertAIUsageLimitParams) (AiUsageLimit, error)
 	UpsertAddon(ctx context.Context, arg UpsertAddonParams) (Addon, error)
 	UpsertAddonLocalization(ctx context.Context, arg UpsertAddonLocalizationParams) (AddonLocalization, error)
 	UpsertAdminOIDCProvider(ctx context.Context, arg UpsertAdminOIDCProviderParams) (AdminOidcProvider, error)
@@ -1020,6 +1087,7 @@ type Querier interface {
 	// panel can render and re-save the form without ever echoing a secret back.
 	UpsertGoodsProvider(ctx context.Context, arg UpsertGoodsProviderParams) (GoodsProvider, error)
 	UpsertLoyaltyStanding(ctx context.Context, arg UpsertLoyaltyStandingParams) (LoyaltyStanding, error)
+	UpsertMCPServer(ctx context.Context, arg UpsertMCPServerParams) (UpsertMCPServerRow, error)
 	UpsertMessageTemplate(ctx context.Context, arg UpsertMessageTemplateParams) (MessageTemplate, error)
 	UpsertNewsPost(ctx context.Context, arg UpsertNewsPostParams) (NewsPost, error)
 	// ---------------------------------------------------------------------------
