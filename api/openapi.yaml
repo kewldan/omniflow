@@ -650,6 +650,1037 @@ paths:
       description: The compiled-in permission catalogue and the built-in role definitions.
       responses:
         "200": {description: Catalogue, content: {application/json: {schema: {$ref: "#/components/schemas/RbacCatalog"}}}}
+  # --- v0.7 operator operations -------------------------------------------
+  # Every path below requires an authenticated panel session and the permission
+  # named in its description. The permission is enforced in the Go API at the
+  # route, not inside the handler, and the panel renders from the same
+  # compiled-in catalogue.
+  /v1/panel/overview/dashboard:
+    get:
+      operationId: getPanelDashboard
+      tags: [panel]
+      description: >-
+        Requires system.read. Each metric carries the identifier of its own
+        definition, every timestamp is UTC, and revenue is reported as three
+        separate figures rather than one that double-counts wallet credit.
+      responses:
+        "200": {description: Operations overview, content: {application/json: {schema: {$ref: "#/components/schemas/PanelDashboard"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/overview/incidents:
+    get:
+      operationId: listPanelIncidents
+      tags: [panel]
+      description: Requires system.read. Recent maintenance activations and recoveries.
+      parameters: [{$ref: "#/components/parameters/PageSize"}]
+      responses:
+        "200": {description: Maintenance history, content: {application/json: {schema: {$ref: "#/components/schemas/PanelIncidentList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/customers:
+    get:
+      operationId: searchPanelCustomers
+      tags: [panel]
+      description: >-
+        Requires customers.read. `q` accepts an Omniflow customer identifier, a
+        Telegram identifier, or a Remnawave username and is resolved by shape.
+        There is deliberately no free-text search over contact values.
+      parameters:
+        - {$ref: "#/components/parameters/Cursor"}
+        - {$ref: "#/components/parameters/PageSize"}
+        - {in: query, name: q, schema: {type: string}}
+        - {in: query, name: status, schema: {type: string, enum: [active, suspended, deleted]}}
+        - {in: query, name: segment, schema: {type: string, enum: [subscribed, lapsed, never_purchased, flagged]}}
+      responses:
+        "200": {description: Customers, content: {application/json: {schema: {$ref: "#/components/schemas/PanelCustomerPage"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/customers/{customerID}:
+    get:
+      operationId: getPanelCustomer
+      tags: [panel]
+      description: Requires customers.read.
+      parameters: [{$ref: "#/components/parameters/CustomerID"}]
+      responses:
+        "200": {description: Customer profile, content: {application/json: {schema: {$ref: "#/components/schemas/PanelCustomerProfile"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/panel/customers/{customerID}/subscriptions:
+    get:
+      operationId: listPanelCustomerSubscriptions
+      tags: [panel]
+      description: Requires customers.read. Every concurrent subscription with its own Remnawave mapping.
+      parameters: [{$ref: "#/components/parameters/CustomerID"}]
+      responses:
+        "200": {description: Subscriptions, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSubscriptionList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/customers/{customerID}/orders:
+    get:
+      operationId: listPanelCustomerOrders
+      tags: [panel]
+      description: Requires customers.read.
+      parameters: [{$ref: "#/components/parameters/CustomerID"}, {$ref: "#/components/parameters/PageSize"}]
+      responses:
+        "200": {description: Orders, content: {application/json: {schema: {$ref: "#/components/schemas/PanelOrderList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/customers/{customerID}/tickets:
+    get:
+      operationId: listPanelCustomerTickets
+      tags: [panel]
+      description: Requires customers.read.
+      parameters: [{$ref: "#/components/parameters/CustomerID"}, {$ref: "#/components/parameters/PageSize"}]
+      responses:
+        "200": {description: Support tickets, content: {application/json: {schema: {$ref: "#/components/schemas/PanelTicketList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/customers/{customerID}/consents:
+    get:
+      operationId: listPanelCustomerConsents
+      tags: [panel]
+      description: Requires customers.read. The latest recorded decision per purpose.
+      parameters: [{$ref: "#/components/parameters/CustomerID"}]
+      responses:
+        "200": {description: Consent records, content: {application/json: {schema: {$ref: "#/components/schemas/PanelConsentList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/customers/{customerID}/wallet:
+    get:
+      operationId: listPanelCustomerWallet
+      tags: [panel]
+      description: >-
+        Requires finance.read rather than customer access: a support operator can
+        see that a customer has a balance without reading every movement that
+        produced it. The ledger is append-only and exposes reads only.
+      parameters: [{$ref: "#/components/parameters/CustomerID"}, {$ref: "#/components/parameters/PageSize"}]
+      responses:
+        "200": {description: Ledger movements, content: {application/json: {schema: {$ref: "#/components/schemas/PanelLedgerList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/customers/{customerID}/payment-methods:
+    get:
+      operationId: listPanelCustomerPaymentMethods
+      tags: [panel]
+      description: >-
+        Requires finance.read. A saved method is a provider token and a masked
+        label the provider supplied; neither the token nor any card data is
+        returned.
+      parameters: [{$ref: "#/components/parameters/CustomerID"}]
+      responses:
+        "200": {description: Saved methods, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSavedMethodList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/customers/{customerID}/payment-methods/{methodID}:
+    delete:
+      operationId: revokePanelPaymentMethod
+      tags: [panel]
+      description: >-
+        Requires finance.write. Marks the method revoked and keeps the row, so a
+        historical charge still resolves to the method that made it.
+      parameters:
+        - {$ref: "#/components/parameters/CustomerID"}
+        - {in: path, name: methodID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "204": {description: Revoked}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+  /v1/panel/customers/{customerID}/charges:
+    get:
+      operationId: listPanelCustomerCharges
+      tags: [panel]
+      description: Requires finance.read. Automatic renewal attempts for this customer.
+      parameters: [{$ref: "#/components/parameters/CustomerID"}, {$ref: "#/components/parameters/PageSize"}]
+      responses:
+        "200": {description: Charge attempts, content: {application/json: {schema: {$ref: "#/components/schemas/PanelDunningList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/customers/{customerID}/risk:
+    get:
+      operationId: listPanelCustomerRisk
+      tags: [panel]
+      description: Requires risk.read. Blocklist matches recorded against this customer.
+      parameters: [{$ref: "#/components/parameters/CustomerID"}]
+      responses:
+        "200": {description: Matches, content: {application/json: {schema: {$ref: "#/components/schemas/PanelMatchList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/customers/{customerID}/status:
+    post:
+      operationId: setPanelCustomerStatus
+      tags: [panel]
+      description: >-
+        Requires customers.write and a reason. Suspension does not disable a
+        Remnawave user directly: the fulfillment pipeline observes customer
+        state, and bypassing it would leave the two disagreeing.
+      parameters:
+        - {$ref: "#/components/parameters/CustomerID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/OperatorReason"}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [status], properties: {status: {type: string, enum: [active, suspended]}}}}}}
+      responses:
+        "200": {description: Updated profile, content: {application/json: {schema: {$ref: "#/components/schemas/PanelCustomerProfile"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}:
+    patch:
+      operationId: renamePanelSubscription
+      tags: [panel]
+      description: >-
+        Requires subscriptions.write. The label is the only subscription
+        attribute the panel edits directly; expiry, traffic, limits, squads, and
+        enabled state belong to Remnawave and change through fulfillment.
+      parameters:
+        - {$ref: "#/components/parameters/CustomerID"}
+        - {in: path, name: subscriptionID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [label], properties: {label: {type: string, minLength: 1, maxLength: 40}}}}}}
+      responses:
+        "204": {description: Renamed}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/panel/customers/{customerID}/allowlist:
+    put:
+      operationId: allowlistPanelCustomer
+      tags: [panel]
+      description: >-
+        Requires risk.write and a reason. Without an override an operator's
+        decision would be undone the moment the source republished the entry.
+      parameters:
+        - {$ref: "#/components/parameters/CustomerID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/OperatorReason"}
+      responses:
+        "204": {description: Allowlisted}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+    delete:
+      operationId: removePanelAllowlist
+      tags: [panel]
+      description: Requires risk.write.
+      parameters: [{$ref: "#/components/parameters/CustomerID"}, {$ref: "#/components/parameters/CSRFToken"}]
+      responses:
+        "204": {description: Removed}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/catalog/plans:
+    get:
+      operationId: listPanelPlans
+      tags: [panel]
+      description: >-
+        Requires catalog.read. Archived plans are included, with how many order
+        lines reference each, so archiving one in active use is a visible
+        decision.
+      responses:
+        "200": {description: Plans, content: {application/json: {schema: {$ref: "#/components/schemas/PanelPlanList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/catalog/plans/{planID}:
+    get:
+      operationId: getPanelPlan
+      tags: [panel]
+      description: Requires catalog.read. The plan with its localisations and priced versions.
+      parameters: [{$ref: "#/components/parameters/PlanID"}]
+      responses:
+        "200": {description: Plan detail, content: {application/json: {schema: {$ref: "#/components/schemas/PanelPlanDetail"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+    patch:
+      operationId: updatePanelPlanPresentation
+      tags: [panel]
+      description: >-
+        Requires catalog.write. Visibility, ordering, and the per-plan
+        concurrency cap are saved together, so two operators editing one plan
+        cannot each drop the other's change.
+      parameters: [{$ref: "#/components/parameters/PlanID"}, {$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelPlanPresentation"}}}}
+      responses:
+        "204": {description: Saved}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/catalog/plans/{planID}/archive:
+    post:
+      operationId: archivePanelPlan
+      tags: [panel]
+      description: >-
+        Requires catalog.write. Archiving stops new purchases and leaves every
+        order that already bought the plan priced against its immutable version.
+      parameters: [{$ref: "#/components/parameters/PlanID"}, {$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [archived], properties: {archived: {type: boolean}}}}}}
+      responses:
+        "204": {description: Saved}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/catalog/plans/{planID}/localizations/{locale}:
+    put:
+      operationId: savePanelPlanLocalization
+      tags: [panel]
+      description: Requires catalog.write.
+      parameters:
+        - {$ref: "#/components/parameters/PlanID"}
+        - {in: path, name: locale, required: true, schema: {type: string, enum: [ru, en]}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelLocalization"}}}}
+      responses:
+        "204": {description: Saved}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/catalog/plan-versions/{planVersionID}/retire:
+    post:
+      operationId: retirePanelPlanVersion
+      tags: [panel]
+      description: >-
+        Requires catalog.write. Retiring is forward-looking: every order that
+        bought the version keeps its price.
+      parameters:
+        - {in: path, name: planVersionID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "204": {description: Retired}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+  /v1/panel/catalog/addons:
+    get:
+      operationId: listPanelAddons
+      tags: [panel]
+      description: Requires catalog.read.
+      responses:
+        "200": {description: Add-ons, content: {application/json: {schema: {$ref: "#/components/schemas/PanelAddonList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/catalog/addons/{addonID}/versions:
+    get:
+      operationId: listPanelAddonVersions
+      tags: [panel]
+      description: Requires catalog.read. Each version carries its documented proration rule.
+      parameters: [{in: path, name: addonID, required: true, schema: {type: string, format: uuid}}]
+      responses:
+        "200": {description: Add-on versions, content: {application/json: {schema: {$ref: "#/components/schemas/PanelAddonVersionList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/catalog/promotions:
+    get:
+      operationId: listPanelPromotions
+      tags: [panel]
+      description: Requires catalog.read. Promotions with their redemption analytics.
+      parameters:
+        - {$ref: "#/components/parameters/PageSize"}
+        - {in: query, name: active, schema: {type: boolean}}
+        - {in: query, name: kind, schema: {$ref: "#/components/schemas/PanelPromotionKind"}}
+      responses:
+        "200": {description: Promotions, content: {application/json: {schema: {$ref: "#/components/schemas/PanelPromotionList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/catalog/promotions/{promotionID}:
+    patch:
+      operationId: updatePanelPromotion
+      tags: [panel]
+      description: >-
+        Requires catalog.write. The reward kind is not editable: changing a live
+        promotion's kind would silently change what every unredeemed code is
+        worth.
+      parameters:
+        - {in: path, name: promotionID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelPromotionUpdate"}}}}
+      responses:
+        "204": {description: Saved}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/catalog/promotions/{promotionID}/codes:
+    get:
+      operationId: listPanelPromoCodes
+      tags: [panel]
+      description: Requires catalog.read.
+      parameters: [{in: path, name: promotionID, required: true, schema: {type: string, format: uuid}}]
+      responses:
+        "200": {description: Promo codes, content: {application/json: {schema: {$ref: "#/components/schemas/PanelPromoCodeList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/catalog/promo-codes/{promoCodeID}/status:
+    post:
+      operationId: setPanelPromoCodeActive
+      tags: [panel]
+      description: >-
+        Requires catalog.write. A code is never deleted: the redemptions that
+        reference it are financial records.
+      parameters:
+        - {in: path, name: promoCodeID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [active], properties: {active: {type: boolean}}}}}}
+      responses:
+        "204": {description: Saved}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/offers:
+    get:
+      operationId: searchPanelOffers
+      tags: [panel]
+      description: Requires marketing.read.
+      parameters:
+        - {$ref: "#/components/parameters/Cursor"}
+        - {$ref: "#/components/parameters/PageSize"}
+        - {in: query, name: status, schema: {type: string, enum: [active, redeemed, dismissed, expired, revoked]}}
+        - {in: query, name: customerId, schema: {type: string, format: uuid}}
+      responses:
+        "200": {description: Personal offers, content: {application/json: {schema: {$ref: "#/components/schemas/PanelOfferPage"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+    post:
+      operationId: createPanelOffer
+      tags: [panel]
+      description: >-
+        Requires marketing.write. Both locales are required: an offer with copy
+        in one language renders as a blank card for half the customer base.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelOfferInput"}}}}
+      responses:
+        "201": {description: Offer created, content: {application/json: {schema: {$ref: "#/components/schemas/PanelOffer"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/offers/{offerID}/revoke:
+    post:
+      operationId: revokePanelOffer
+      tags: [panel]
+      description: Requires marketing.write. Only an offer that has not been redeemed may be withdrawn.
+      parameters:
+        - {in: path, name: offerID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "204": {description: Revoked}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+  /v1/panel/finance/orders:
+    get:
+      operationId: searchPanelOrders
+      tags: [panel]
+      description: Requires finance.read.
+      parameters:
+        - {$ref: "#/components/parameters/Cursor"}
+        - {$ref: "#/components/parameters/PageSize"}
+        - {in: query, name: state, schema: {type: string}}
+        - {in: query, name: operation, schema: {type: string}}
+        - {in: query, name: customerId, schema: {type: string, format: uuid}}
+        - {in: query, name: currency, schema: {type: string}}
+        - {in: query, name: from, schema: {type: string, format: date-time}}
+        - {in: query, name: to, schema: {type: string, format: date-time}}
+      responses:
+        "200": {description: Orders, content: {application/json: {schema: {$ref: "#/components/schemas/PanelOrderPage"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/finance/orders/{orderID}:
+    get:
+      operationId: getPanelOrderDetail
+      tags: [panel]
+      description: >-
+        Requires finance.read. Payment intents with their event timeline and
+        every refund. The raw provider payload is deliberately absent; it is
+        reachable through the webhook diagnostics with its own permission.
+      parameters: [{$ref: "#/components/parameters/OrderID"}]
+      responses:
+        "200": {description: Order timeline, content: {application/json: {schema: {$ref: "#/components/schemas/PanelOrderDetail"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/panel/finance/orders/{orderID}/refund:
+    post:
+      operationId: recordPanelRefund
+      tags: [panel]
+      description: >-
+        Requires finance.write and a reason. The refund itself is executed by
+        the payment service against the provider's own capabilities; this
+        records the decision and its rationale.
+      parameters:
+        - {$ref: "#/components/parameters/OrderID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/OperatorReason"}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelRefundRecord"}}}}
+      responses:
+        "202": {description: Recorded}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/finance/payments/{paymentIntentID}/reconcile:
+    post:
+      operationId: reconcilePanelPayment
+      tags: [panel]
+      description: >-
+        Requires finance.write. Re-polling is performed by the idempotent
+        payment service; the panel never decides how a payment settles.
+      parameters:
+        - {in: path, name: paymentIntentID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, properties: {outcome: {type: string}}}}}}
+      responses:
+        "202": {description: Recorded}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/finance/stuck-payments:
+    get:
+      operationId: listPanelStuckPayments
+      tags: [panel]
+      description: Requires finance.read. Intents in flight longer than any supported provider should take.
+      parameters: [{$ref: "#/components/parameters/PageSize"}]
+      responses:
+        "200": {description: Reconciliation queue, content: {application/json: {schema: {$ref: "#/components/schemas/PanelStuckPaymentList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/finance/failed-charges:
+    get:
+      operationId: listPanelFailedCharges
+      tags: [panel]
+      description: >-
+        Requires finance.read. A review surface: a failed charge retries on its
+        own bounded schedule and nothing here re-triggers one.
+      parameters: [{$ref: "#/components/parameters/Cursor"}, {$ref: "#/components/parameters/PageSize"}]
+      responses:
+        "200": {description: Failed charges, content: {application/json: {schema: {$ref: "#/components/schemas/PanelDunningPage"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/finance/export:
+    get:
+      operationId: exportPanelFinance
+      tags: [panel]
+      description: >-
+        Requires finance.read. Streams the filtered orders as CSV. The schema is
+        stable — a later version appends a column and never inserts one. Amounts
+        are integers in the currency's minor unit and every timestamp is UTC.
+      parameters:
+        - {in: query, name: state, schema: {type: string}}
+        - {in: query, name: from, schema: {type: string, format: date-time}}
+        - {in: query, name: to, schema: {type: string, format: date-time}}
+      responses:
+        "200": {description: CSV export, content: {text/csv: {schema: {type: string}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/system/jobs:
+    get:
+      operationId: searchPanelFulfillment
+      tags: [panel]
+      description: >-
+        Requires system.read. Filtering on the failed status is the dead-letter
+        view. The error code is a classification, never a provider message.
+      parameters:
+        - {$ref: "#/components/parameters/Cursor"}
+        - {$ref: "#/components/parameters/PageSize"}
+        - {in: query, name: status, schema: {type: string}}
+        - {in: query, name: operation, schema: {type: string}}
+        - {in: query, name: entitlementId, schema: {type: string, format: uuid}}
+      responses:
+        "200": {description: Fulfillment operations, content: {application/json: {schema: {$ref: "#/components/schemas/PanelFulfillmentPage"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/system/jobs/{operationID}/history:
+    get:
+      operationId: getPanelFulfillmentHistory
+      tags: [panel]
+      description: >-
+        Requires system.read. Status, correlation, and error classification
+        only: the stored request and response summaries can carry a subscription
+        link and are not returned.
+      parameters: [{in: path, name: operationID, required: true, schema: {type: string, format: uuid}}]
+      responses:
+        "200": {description: Attempts, content: {application/json: {schema: {$ref: "#/components/schemas/PanelFulfillmentAttemptList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/system/jobs/{operationID}/retry:
+    post:
+      operationId: retryPanelFulfillment
+      tags: [panel]
+      description: >-
+        Requires system.write. The retry keeps the operation's idempotency key,
+        so the worker still performs it exactly once. A succeeded operation is
+        not retryable.
+      parameters:
+        - {in: path, name: operationID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "200": {description: Requeued, content: {application/json: {schema: {$ref: "#/components/schemas/PanelFulfillmentOperation"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+  /v1/panel/system/jobs/{operationID}/cancel:
+    post:
+      operationId: cancelPanelFulfillment
+      tags: [panel]
+      description: Requires system.write. A completed provisioning cannot be retracted.
+      parameters:
+        - {in: path, name: operationID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "204": {description: Cancelled}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+  /v1/panel/system/webhooks:
+    get:
+      operationId: searchPanelWebhooks
+      tags: [panel]
+      description: >-
+        Requires system.read. The raw body is not returned: it can contain a
+        provider payload, and "did this arrive and was it accepted" needs only
+        the status.
+      parameters:
+        - {$ref: "#/components/parameters/Cursor"}
+        - {$ref: "#/components/parameters/PageSize"}
+        - {in: query, name: provider, schema: {type: string}}
+        - {in: query, name: status, schema: {type: string}}
+      responses:
+        "200": {description: Webhook events, content: {application/json: {schema: {$ref: "#/components/schemas/PanelWebhookPage"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/system/webhooks/{eventID}/replay:
+    post:
+      operationId: replayPanelWebhook
+      tags: [panel]
+      description: >-
+        Requires system.write. Only a failed or ignored event may be replayed.
+        Reprocessing is keyed on the provider event identifier, so a second pass
+        reaches the same terminal state instead of applying twice.
+      parameters:
+        - {in: path, name: eventID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "202": {description: Queued for reprocessing}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+  /v1/panel/system/drift:
+    get:
+      operationId: listPanelDrift
+      tags: [panel]
+      description: Requires system.read. Unresolved differences between Omniflow and Remnawave.
+      parameters: [{$ref: "#/components/parameters/PageSize"}]
+      responses:
+        "200": {description: Drift records, content: {application/json: {schema: {$ref: "#/components/schemas/PanelDriftList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/system/outbox:
+    get:
+      operationId: listPanelOutbox
+      tags: [panel]
+      description: >-
+        Requires system.read. Topic and age only: an outbox payload is a domain
+        event that can name a customer and an amount.
+      parameters: [{$ref: "#/components/parameters/PageSize"}]
+      responses:
+        "200": {description: Outbox backlog, content: {application/json: {schema: {$ref: "#/components/schemas/PanelOutboxList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/commerce:
+    get:
+      operationId: getPanelCommerceSettings
+      tags: [panel]
+      description: Requires settings.read.
+      responses:
+        "200": {description: Commerce settings, content: {application/json: {schema: {$ref: "#/components/schemas/PanelCommerceSettings"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/commerce/topup:
+    put:
+      operationId: savePanelTopUpSettings
+      tags: [panel]
+      description: Requires settings.write. A preset outside the limits is a button that always fails.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelTopUpSettings"}}}}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelCommerceSettings"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/commerce/subscriptions:
+    put:
+      operationId: savePanelSubscriptionSettings
+      tags: [panel]
+      description: >-
+        Requires settings.write. Turning concurrency off closes nothing:
+        customers who already hold several keep them.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSubscriptionSettings"}}}}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelCommerceSettings"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/providers:
+    get:
+      operationId: listPanelProviderSettings
+      tags: [panel]
+      description: >-
+        Requires settings.read. Reports what the operator configured beside what
+        each compiled-in adapter declares. No secret is ever returned; the
+        `credentialsSet` flags report only whether one is stored.
+      responses:
+        "200": {description: Provider settings, content: {application/json: {schema: {$ref: "#/components/schemas/PanelProviderSettingsList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/providers/{provider}:
+    put:
+      operationId: savePanelProviderSettings
+      tags: [panel]
+      description: >-
+        Requires settings.write. A null credential means "keep what is stored",
+        so the form can be re-saved without echoing a secret. Recurring is not
+        writable here.
+      parameters:
+        - {in: path, name: provider, required: true, schema: {type: string}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelProviderSettingsInput"}}}}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelProviderSettings"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/providers/{provider}/recurring:
+    post:
+      operationId: configurePanelRecurring
+      tags: [panel]
+      description: >-
+        Requires settings.write. Records a capability test and, only on a pass,
+        may enable automatic charging. Refused for an adapter that cannot bind a
+        payment method, whatever the test reported.
+      parameters:
+        - {in: path, name: provider, required: true, schema: {type: string}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelRecurringTest"}}}}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelProviderSettings"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/risk/sources:
+    get:
+      operationId: listPanelBlocklistSources
+      tags: [panel]
+      description: Requires risk.read. The stored authorization header is never returned.
+      responses:
+        "200": {description: Blocklist sources, content: {application/json: {schema: {$ref: "#/components/schemas/PanelBlocklistSourceList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+    put:
+      operationId: savePanelBlocklistSource
+      tags: [panel]
+      description: >-
+        Requires risk.write. The URL must be HTTPS: plain HTTP would let anyone
+        on the path decide who this installation refuses to serve.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelBlocklistSourceInput"}}}}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelBlocklistSource"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/risk/sources/{sourceID}:
+    delete:
+      operationId: deletePanelBlocklistSource
+      tags: [panel]
+      description: Requires risk.write. Removes the source, its entries, and the matches it produced.
+      parameters:
+        - {in: path, name: sourceID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "204": {description: Deleted}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/risk/matches:
+    get:
+      operationId: searchPanelBlocklistMatches
+      tags: [panel]
+      description: Requires risk.read. The review queue.
+      parameters:
+        - {$ref: "#/components/parameters/Cursor"}
+        - {$ref: "#/components/parameters/PageSize"}
+        - {in: query, name: status, schema: {type: string, enum: [open, allowed, blocked, appealed]}}
+        - {in: query, name: customerId, schema: {type: string, format: uuid}}
+      responses:
+        "200": {description: Matches, content: {application/json: {schema: {$ref: "#/components/schemas/PanelMatchPage"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/risk/matches/{matchID}/decision:
+    post:
+      operationId: decidePanelBlocklistMatch
+      tags: [panel]
+      description: >-
+        Requires risk.write and a reason. Recording a decision does not suspend
+        anybody: the adverse action is a separate customer mutation with its own
+        permission and audit event.
+      parameters:
+        - {in: path, name: matchID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/OperatorReason"}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [decision], properties: {decision: {type: string, enum: [allowed, blocked]}}}}}}
+      responses:
+        "200": {description: Decided, content: {application/json: {schema: {$ref: "#/components/schemas/PanelBlocklistMatch"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/risk/matches/{matchID}/appeal:
+    post:
+      operationId: appealPanelBlocklistMatch
+      tags: [panel]
+      description: Requires risk.write and a reason. Returns a blocked match to the review queue.
+      parameters:
+        - {in: path, name: matchID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/OperatorReason"}
+      responses:
+        "204": {description: Reopened}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+  /v1/panel/risk/rules:
+    get:
+      operationId: listPanelAnomalyRules
+      tags: [panel]
+      description: Requires risk.read. Thresholds are in each metric's own unit.
+      responses:
+        "200": {description: Anomaly rules, content: {application/json: {schema: {$ref: "#/components/schemas/PanelAnomalyRuleList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/risk/rules/{metric}:
+    put:
+      operationId: savePanelAnomalyRule
+      tags: [panel]
+      description: >-
+        Requires risk.write. A rule that would be skipped at evaluation time —
+        no window, or an alert threshold below the warning — is refused here
+        instead.
+      parameters:
+        - {in: path, name: metric, required: true, schema: {$ref: "#/components/schemas/PanelAnomalyMetric"}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelAnomalyRuleInput"}}}}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelAnomalyRule"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/risk/anomalies:
+    get:
+      operationId: searchPanelAnomalies
+      tags: [panel]
+      description: >-
+        Requires risk.read. Evidence carries the aggregate numbers that produced
+        the signal and never customer content.
+      parameters:
+        - {$ref: "#/components/parameters/Cursor"}
+        - {$ref: "#/components/parameters/PageSize"}
+        - {in: query, name: status, schema: {type: string, enum: [open, acknowledged, dismissed]}}
+        - {in: query, name: metric, schema: {$ref: "#/components/schemas/PanelAnomalyMetric"}}
+        - {in: query, name: severity, schema: {type: string, enum: [warning, alert]}}
+      responses:
+        "200": {description: Signals, content: {application/json: {schema: {$ref: "#/components/schemas/PanelAnomalyPage"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/risk/anomalies/{signalID}/review:
+    post:
+      operationId: reviewPanelAnomaly
+      tags: [panel]
+      description: >-
+        Requires risk.write. Reviewing a signal changes nothing about the
+        customer it names, which is what makes automated detection safe to run.
+      parameters:
+        - {in: path, name: signalID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/OperatorReason"}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [status], properties: {status: {type: string, enum: [acknowledged, dismissed]}}}}}}
+      responses:
+        "200": {description: Reviewed, content: {application/json: {schema: {$ref: "#/components/schemas/PanelAnomalySignal"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+  /v1/panel/gifts:
+    get:
+      operationId: searchPanelGifts
+      tags: [panel]
+      description: >-
+        Requires gifts.read. Only the digest of a claim code is stored; the four
+        characters returned as a hint identify a gift without redeeming it.
+      parameters:
+        - {$ref: "#/components/parameters/Cursor"}
+        - {$ref: "#/components/parameters/PageSize"}
+        - {in: query, name: status, schema: {$ref: "#/components/schemas/PanelGiftStatus"}}
+        - {in: query, name: kind, schema: {type: string, enum: [subscription, addon, wallet_credit]}}
+        - {in: query, name: senderId, schema: {type: string, format: uuid}}
+      responses:
+        "200": {description: Gift register, content: {application/json: {schema: {$ref: "#/components/schemas/PanelGiftPage"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/gifts/{giftID}/revoke:
+    post:
+      operationId: revokePanelGift
+      tags: [panel]
+      description: >-
+        Requires gifts.write and a reason. A claimed gift is not revocable: the
+        recipient already holds what it bought, and taking that back is a refund
+        decision against their entitlement.
+      parameters:
+        - {in: path, name: giftID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/OperatorReason"}
+      responses:
+        "200": {description: Revoked, content: {application/json: {schema: {$ref: "#/components/schemas/PanelGift"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/gifts/{giftID}/refund:
+    post:
+      operationId: refundPanelGift
+      tags: [panel]
+      description: >-
+        Requires gifts.write. Only a gift that was never redeemed qualifies,
+        which is what stops a sender being refunded while the recipient keeps
+        the entitlement.
+      parameters:
+        - {in: path, name: giftID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "204": {description: Marked refunded}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+  /v1/panel/goods/providers:
+    get:
+      operationId: listPanelGoodsProviders
+      tags: [panel]
+      description: >-
+        Requires goods.read. The credential is never returned; the balance and
+        the low-balance flag are, because a shop that sells past an exhausted
+        balance produces paid orders that can only be refunded.
+      responses:
+        "200": {description: Providers, content: {application/json: {schema: {$ref: "#/components/schemas/PanelGoodsProviderList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/goods/providers/{slug}:
+    put:
+      operationId: savePanelGoodsProvider
+      tags: [panel]
+      description: Requires goods.write. A null credential means "keep what is stored".
+      parameters:
+        - {in: path, name: slug, required: true, schema: {type: string}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelGoodsProviderInput"}}}}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelGoodsProvider"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/goods/products:
+    get:
+      operationId: listPanelGoodsProducts
+      tags: [panel]
+      description: Requires goods.read.
+      parameters: [{in: query, name: includeArchived, schema: {type: boolean, default: false}}]
+      responses:
+        "200": {description: Products, content: {application/json: {schema: {$ref: "#/components/schemas/PanelGoodsProductList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+    post:
+      operationId: createPanelGoodsProduct
+      tags: [panel]
+      description: >-
+        Requires goods.write. Premium is sold by duration and Stars by quantity;
+        each kind carries exactly the one that applies to it.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelGoodsProductInput"}}}}
+      responses:
+        "201": {description: Created, content: {application/json: {schema: {$ref: "#/components/schemas/PanelGoodsProduct"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/goods/products/{productID}:
+    patch:
+      operationId: updatePanelGoodsProduct
+      tags: [panel]
+      description: >-
+        Requires goods.write. The kind, duration, and quantity are immutable
+        once created: an order references the product it bought.
+      parameters:
+        - {in: path, name: productID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelGoodsProductUpdate"}}}}
+      responses:
+        "204": {description: Saved}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/panel/goods/products/{productID}/localizations/{locale}:
+    put:
+      operationId: savePanelGoodsLocalization
+      tags: [panel]
+      description: Requires goods.write.
+      parameters:
+        - {in: path, name: productID, required: true, schema: {type: string, format: uuid}}
+        - {in: path, name: locale, required: true, schema: {type: string, enum: [ru, en]}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelLocalization"}}}}
+      responses:
+        "204": {description: Saved}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/goods/products/{productID}/pricing:
+    put:
+      operationId: savePanelGoodsPricing
+      tags: [panel]
+      description: >-
+        Requires goods.write. Every rounding mode rounds up, and the markup
+        itself rounds up rather than truncating.
+      parameters:
+        - {in: path, name: productID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelGoodsPricing"}}}}
+      responses:
+        "204": {description: Saved}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/goods/orders:
+    get:
+      operationId: searchPanelGoodsOrders
+      tags: [panel]
+      description: >-
+        Requires goods.read. The recipient username is the only recipient detail
+        retained anywhere: delivery needs it and support needs to answer "where
+        did it go".
+      parameters:
+        - {$ref: "#/components/parameters/Cursor"}
+        - {$ref: "#/components/parameters/PageSize"}
+        - {in: query, name: status, schema: {type: string}}
+        - {in: query, name: customerId, schema: {type: string, format: uuid}}
+      responses:
+        "200": {description: Shop orders, content: {application/json: {schema: {$ref: "#/components/schemas/PanelGoodsOrderPage"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/goods/orders/{orderID}/attempts:
+    get:
+      operationId: listPanelGoodsAttempts
+      tags: [panel]
+      description: Requires goods.read. Every provider exchange, with its failure classification.
+      parameters: [{$ref: "#/components/parameters/OrderID"}]
+      responses:
+        "200": {description: Delivery attempts, content: {application/json: {schema: {$ref: "#/components/schemas/PanelGoodsAttemptList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/goods/orders/{orderID}/cancel:
+    post:
+      operationId: cancelPanelGoodsDelivery
+      tags: [panel]
+      description: >-
+        Requires goods.write and a reason. A delivered order cannot be
+        cancelled: the recipient already has what was bought.
+      parameters:
+        - {$ref: "#/components/parameters/OrderID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/OperatorReason"}
+      responses:
+        "204": {description: Cancelled}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+  /v1/panel/bulk:
+    get:
+      operationId: listPanelBulkOperations
+      tags: [panel]
+      description: Requires customers.read.
+      parameters: [{$ref: "#/components/parameters/PageSize"}]
+      responses:
+        "200": {description: Bulk operations, content: {application/json: {schema: {$ref: "#/components/schemas/PanelBulkOperationList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+    post:
+      operationId: previewPanelBulkOperation
+      tags: [panel]
+      description: >-
+        Requires customers.write, a reason, and an idempotency key. This only
+        previews: nothing is applied until the operation is started, and only a
+        previewed operation may start.
+      parameters:
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+        - {$ref: "#/components/parameters/OperatorReason"}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelBulkInput"}}}}
+      responses:
+        "201": {description: Previewed, content: {application/json: {schema: {$ref: "#/components/schemas/PanelBulkOperation"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/bulk/{operationID}/start:
+    post:
+      operationId: startPanelBulkOperation
+      tags: [panel]
+      description: Requires customers.write. Only a previewed operation may start.
+      parameters:
+        - {in: path, name: operationID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "200": {description: Started, content: {application/json: {schema: {$ref: "#/components/schemas/PanelBulkOperation"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+  /v1/panel/bulk/{operationID}/cancel:
+    post:
+      operationId: cancelPanelBulkOperation
+      tags: [panel]
+      description: >-
+        Requires customers.write. A running operation is not cancellable: some
+        of its targets have already changed, and reporting "cancelled" would
+        misrepresent what happened.
+      parameters:
+        - {in: path, name: operationID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "204": {description: Cancelled}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+  /v1/panel/bulk/{operationID}/items:
+    get:
+      operationId: listPanelBulkItems
+      tags: [panel]
+      description: Requires customers.read. The per-item outcome an operator reviews after a run.
+      parameters:
+        - {in: path, name: operationID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/PageSize"}
+      responses:
+        "200": {description: Operation and items, content: {application/json: {schema: {$ref: "#/components/schemas/PanelBulkDetail"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
   /v1/telemetry/events:
     post:
       operationId: collectTelemetryEvent
@@ -683,6 +1714,15 @@ components:
     JobID: {in: path, name: jobID, required: true, schema: {type: integer, format: int64}}
     IdempotencyKey: {in: header, name: Idempotency-Key, required: true, schema: {type: string, minLength: 8, maxLength: 128}}
     PageSize: {in: query, name: pageSize, schema: {type: integer, minimum: 1, maximum: 500, default: 100}}
+    OperatorReason:
+      in: header
+      name: X-Operator-Reason
+      required: true
+      description: >-
+        Why the change is being made. Carried as a header because almost every
+        operations mutation needs one; the API refuses a change that requires a
+        reason and did not get one.
+      schema: {type: string, minLength: 1, maxLength: 400}
   requestBodies:
     Plan: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PlanInput"}}}}
     PlanVersion: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PlanVersionInput"}}}}
@@ -1142,5 +2182,949 @@ components:
             properties:
               role: {$ref: "#/components/schemas/AdminRole"}
               permissions: {type: array, items: {type: string}}
+    # --- v0.7 operator operations -----------------------------------------
+    PanelMetric:
+      type: object
+      required: [key, definition, value]
+      properties:
+        key: {type: string}
+        definition: {type: string, description: "Stable identifier the panel resolves to localised copy explaining exactly what was counted."}
+        value: {type: integer, format: int64}
+    PanelRevenueLine:
+      type: object
+      description: >-
+        Three separate figures. Wallet credit was already counted as revenue when
+        the balance was funded, so adding it to provider money counts it twice.
+      required: [currency, paidMinor, walletMinor, refundedMinor, orderCount]
+      properties:
+        currency: {type: string}
+        paidMinor: {type: integer, format: int64}
+        walletMinor: {type: integer, format: int64}
+        refundedMinor: {type: integer, format: int64}
+        orderCount: {type: integer, format: int64}
+    PanelAttentionItem:
+      type: object
+      required: [key, severity, count, href]
+      properties:
+        key: {type: string}
+        severity: {type: string, enum: [alert, warning]}
+        count: {type: integer, format: int64}
+        href: {type: string, description: "Deep link into the ordinary panel surface that resolves the condition."}
+    PanelDashboard:
+      type: object
+      required: [windowSeconds, generatedAt, timezone, customers, subscriptions, payments, support, operations]
+      properties:
+        windowSeconds: {type: integer, format: int64}
+        generatedAt: {type: string, format: date-time}
+        timezone: {type: string, description: "Always UTC. The panel converts for display."}
+        customers: {type: array, items: {$ref: "#/components/schemas/PanelMetric"}}
+        subscriptions: {type: array, items: {$ref: "#/components/schemas/PanelMetric"}}
+        payments: {type: array, items: {$ref: "#/components/schemas/PanelMetric"}}
+        revenue: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelRevenueLine"}}
+        support: {type: array, items: {$ref: "#/components/schemas/PanelMetric"}}
+        operations: {type: array, items: {$ref: "#/components/schemas/PanelMetric"}}
+        attention: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelAttentionItem"}}
+    PanelIncident:
+      type: object
+      required: [id, action, source, reason, actorType, occurredAt]
+      properties:
+        id: {type: string, format: uuid}
+        action: {type: string, enum: [activated, cleared]}
+        source: {type: string, enum: [manual, remnawave, database, valkey]}
+        reason: {type: string}
+        actorType: {type: string, enum: [operator, system]}
+        actorId: {type: string}
+        occurredAt: {type: string, format: date-time}
+    PanelIncidentList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelIncident"}}}
+    PanelCustomerSummary:
+      type: object
+      required: [id, status, locale, timezone, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        status: {type: string, enum: [active, suspended, deleted]}
+        locale: {type: string}
+        timezone: {type: string}
+        createdAt: {type: string, format: date-time}
+        telegramId: {type: integer, format: int64}
+        suspendedAt: {type: string, format: date-time}
+        deletedAt: {type: string, format: date-time}
+    PanelCustomerPage:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelCustomerSummary"}}
+        nextCursor: {type: string}
+    PanelCustomerProfile:
+      allOf:
+        - {$ref: "#/components/schemas/PanelCustomerSummary"}
+        - type: object
+          required: [activeSubscriptions, orderCount, openTickets, referralCount, openFlags, allowlisted]
+          properties:
+            anonymizedAt: {type: string, format: date-time}
+            retentionUntil: {type: string, format: date-time}
+            activeSubscriptions: {type: integer, format: int64}
+            orderCount: {type: integer, format: int64}
+            openTickets: {type: integer, format: int64}
+            referralCount: {type: integer, format: int64}
+            openFlags: {type: integer, format: int64, description: "Blocklist matches awaiting a decision. A count of things to review, never a verdict."}
+            allowlisted: {type: boolean}
+    PanelSubscription:
+      type: object
+      required: [id, slot, label, status]
+      properties:
+        id: {type: string, format: uuid}
+        slot: {type: integer}
+        label: {type: string}
+        status: {type: string, enum: [active, closed]}
+        remnawaveUserId: {type: integer, format: int64}
+        remnawaveUsername: {type: string}
+        reconciledAt: {type: string, format: date-time}
+        entitlementId: {type: string, format: uuid}
+        entitlementStatus: {type: string}
+        startsAt: {type: string, format: date-time}
+        endsAt: {type: string, format: date-time}
+        trafficAllowanceBytes: {type: integer, format: int64}
+        deviceLimit: {type: integer}
+        squadIds: {type: array, nullable: true, items: {type: string, format: uuid}}
+        planCode: {type: string}
+        planVersion: {type: integer}
+    PanelSubscriptionList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelSubscription"}}}
+    PanelOrderSummary:
+      type: object
+      required: [id, state, operation, currency, subtotalMinor, discountMinor, walletMinor, externalMinor, paidMinor, refundedMinor, customerId, createdAt, updatedAt]
+      properties:
+        id: {type: string, format: uuid}
+        state: {type: string}
+        operation: {type: string}
+        currency: {type: string}
+        subtotalMinor: {type: integer, format: int64}
+        discountMinor: {type: integer, format: int64}
+        walletMinor: {type: integer, format: int64}
+        externalMinor: {type: integer, format: int64}
+        paidMinor: {type: integer, format: int64}
+        refundedMinor: {type: integer, format: int64}
+        customerId: {type: string, format: uuid}
+        subscriptionId: {type: string, format: uuid}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    PanelOrderList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelOrderSummary"}}}
+    PanelOrderPage:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelOrderSummary"}}
+        nextCursor: {type: string}
+    PanelPaymentEvent:
+      type: object
+      required: [type, occurredAt]
+      properties:
+        type: {type: string}
+        previousStatus: {type: string}
+        status: {type: string}
+        amountMinor: {type: integer, format: int64}
+        currency: {type: string}
+        occurredAt: {type: string, format: date-time}
+    PanelPaymentIntent:
+      type: object
+      required: [id, provider, status, amountMinor, currency, createdAt, updatedAt]
+      properties:
+        id: {type: string, format: uuid}
+        provider: {type: string}
+        status: {type: string}
+        amountMinor: {type: integer, format: int64}
+        currency: {type: string}
+        providerReference: {type: string}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+        events: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelPaymentEvent"}}
+    PanelRefund:
+      type: object
+      required: [id, paymentIntentId, status, amountMinor, currency, reason, createdAt, updatedAt]
+      properties:
+        id: {type: string, format: uuid}
+        paymentIntentId: {type: string, format: uuid}
+        status: {type: string}
+        amountMinor: {type: integer, format: int64}
+        currency: {type: string}
+        reason: {type: string}
+        providerReference: {type: string}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    PanelOrderDetail:
+      type: object
+      required: [order, intents, refunds]
+      properties:
+        order: {$ref: "#/components/schemas/PanelOrderSummary"}
+        intents: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelPaymentIntent"}}
+        refunds: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelRefund"}}
+    PanelRefundRecord:
+      type: object
+      required: [amountMinor, currency]
+      properties:
+        refundId: {type: string}
+        amountMinor: {type: integer, format: int64}
+        currency: {type: string}
+    PanelStuckPayment:
+      type: object
+      required: [id, orderId, customerId, operation, provider, status, amountMinor, currency, updatedAt]
+      properties:
+        id: {type: string, format: uuid}
+        orderId: {type: string, format: uuid}
+        customerId: {type: string, format: uuid}
+        operation: {type: string}
+        provider: {type: string}
+        status: {type: string}
+        amountMinor: {type: integer, format: int64}
+        currency: {type: string}
+        updatedAt: {type: string, format: date-time}
+    PanelStuckPaymentList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelStuckPayment"}}}
+    PanelLedgerLine:
+      type: object
+      required: [id, transactionId, type, referenceType, referenceId, currency, amountMinor, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        transactionId: {type: string, format: uuid}
+        type: {type: string}
+        referenceType: {type: string}
+        referenceId: {type: string}
+        reason: {type: string}
+        currency: {type: string}
+        amountMinor: {type: integer, format: int64, description: "Signed. The ledger is append-only; a correction is a compensating entry."}
+        expiresAt: {type: string, format: date-time}
+        createdAt: {type: string, format: date-time}
+    PanelLedgerList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelLedgerLine"}}}
+    PanelTicket:
+      type: object
+      required: [id, status, subject, priority, lastMessageAt, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        status: {type: string}
+        subject: {type: string}
+        priority: {type: string}
+        lastMessageAt: {type: string, format: date-time}
+        createdAt: {type: string, format: date-time}
+    PanelTicketList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelTicket"}}}
+    PanelConsent:
+      type: object
+      required: [purpose, granted, policyVersion, source, occurredAt]
+      properties:
+        purpose: {type: string}
+        granted: {type: boolean}
+        policyVersion: {type: string}
+        source: {type: string}
+        occurredAt: {type: string, format: date-time}
+    PanelConsentList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelConsent"}}}
+    PanelSavedMethod:
+      type: object
+      description: A provider-issued token and the masked label the provider supplied. No card data is stored or returned.
+      required: [id, provider, status, isDefault, consentAt, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        provider: {type: string}
+        merchantId: {type: string}
+        displayLabel: {type: string}
+        status: {type: string, enum: [active, expired, revoked, failed]}
+        isDefault: {type: boolean}
+        consentAt: {type: string, format: date-time}
+        lastUsedAt: {type: string, format: date-time}
+        createdAt: {type: string, format: date-time}
+    PanelSavedMethodList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelSavedMethod"}}}
+    PanelDunningAttempt:
+      type: object
+      required: [id, customerId, cycleKey, attempt, funding, outcome, scheduledFor, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        customerId: {type: string, format: uuid}
+        subscriptionId: {type: string, format: uuid}
+        cycleKey: {type: string}
+        attempt: {type: integer}
+        funding: {type: string, enum: [wallet, saved_method]}
+        outcome: {type: string, enum: [scheduled, succeeded, failed, abandoned]}
+        failureCode: {type: string}
+        orderId: {type: string, format: uuid}
+        scheduledFor: {type: string, format: date-time}
+        occurredAt: {type: string, format: date-time}
+        notifiedAt: {type: string, format: date-time}
+        createdAt: {type: string, format: date-time}
+        customerStatus: {type: string}
+    PanelDunningList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelDunningAttempt"}}}
+    PanelDunningPage:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelDunningAttempt"}}
+        nextCursor: {type: string}
+    PanelLocalization:
+      type: object
+      required: [name]
+      properties:
+        name: {type: string, minLength: 1, maxLength: 120}
+        description: {type: string, maxLength: 2000}
+    PanelPlanSummary:
+      type: object
+      required: [id, code, kind, visible, sortOrder, latestVersion, orderLineCount, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        code: {type: string}
+        kind: {type: string, enum: [trial, one_time, recurring, free, manual]}
+        visible: {type: boolean}
+        sortOrder: {type: integer}
+        maxConcurrentPerCustomer: {type: integer}
+        latestVersion: {type: integer}
+        orderLineCount: {type: integer, format: int64}
+        createdAt: {type: string, format: date-time}
+        archivedAt: {type: string, format: date-time}
+    PanelPlanList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelPlanSummary"}}}
+    PanelPlanVersionSummary:
+      type: object
+      required: [id, version, billingPeriod, durationSeconds, squadSelection, upgradePolicy, downgradePolicy, cancellationPolicy, prices, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        version: {type: integer}
+        billingPeriod: {type: string}
+        durationSeconds: {type: integer, format: int64}
+        trafficAllowanceBytes: {type: integer, format: int64}
+        deviceLimit: {type: integer}
+        squadIds: {type: array, nullable: true, items: {type: string, format: uuid}}
+        squadSelection: {type: string, enum: [automatic, optional, required]}
+        minSelectableSquads: {type: integer}
+        maxSelectableSquads: {type: integer}
+        upgradePolicy: {type: string}
+        downgradePolicy: {type: string}
+        cancellationPolicy: {type: string}
+        gracePeriodSeconds: {type: integer, format: int64}
+        trialEligibility: {type: string}
+        recurringCapable: {type: boolean}
+        prices: {type: object, additionalProperties: {type: integer, format: int64}}
+        createdAt: {type: string, format: date-time}
+        retiredAt: {type: string, format: date-time}
+    PanelPlanDetail:
+      type: object
+      required: [plan, localizations, versions]
+      properties:
+        plan: {$ref: "#/components/schemas/PanelPlanSummary"}
+        localizations: {type: object, additionalProperties: {$ref: "#/components/schemas/PanelLocalization"}}
+        versions: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelPlanVersionSummary"}}
+    PanelPlanPresentation:
+      type: object
+      required: [visible, sortOrder]
+      properties:
+        visible: {type: boolean}
+        sortOrder: {type: integer}
+        maxConcurrentPerCustomer: {type: integer, nullable: true, minimum: 1, description: "Narrows the installation ceiling for this plan; it can never widen it."}
+    PanelAddonSummary:
+      type: object
+      required: [id, code, kind, visible, sortOrder, latestVersion, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        code: {type: string}
+        kind: {type: string, enum: [traffic, devices, squads]}
+        visible: {type: boolean}
+        sortOrder: {type: integer}
+        latestVersion: {type: integer}
+        createdAt: {type: string, format: date-time}
+        archivedAt: {type: string, format: date-time}
+    PanelAddonList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelAddonSummary"}}}
+    PanelAddonVersionSummary:
+      type: object
+      required: [id, version, maxQuantity, proration, prices, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        version: {type: integer}
+        trafficBytes: {type: integer, format: int64}
+        deviceSlots: {type: integer}
+        squadIds: {type: array, nullable: true, items: {type: string, format: uuid}}
+        maxQuantity: {type: integer}
+        proration: {type: string, enum: [full_price, remaining_period, daily_rate]}
+        prices: {type: object, additionalProperties: {type: integer, format: int64}}
+        createdAt: {type: string, format: date-time}
+        retiredAt: {type: string, format: date-time}
+    PanelAddonVersionList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelAddonVersionSummary"}}}
+    PanelPromotionKind:
+      type: string
+      enum: [percent, fixed, wallet_credit, days, trial]
+    PanelPromotion:
+      type: object
+      required: [id, code, kind, value, active, stackable, precedence, perCustomerLimit, redemptionCount, discountMinor, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        code: {type: string}
+        kind: {$ref: "#/components/schemas/PanelPromotionKind"}
+        value: {type: integer, format: int64}
+        currency: {type: string}
+        startsAt: {type: string, format: date-time}
+        endsAt: {type: string, format: date-time}
+        redemptionLimit: {type: integer}
+        perCustomerLimit: {type: integer}
+        eligibility: {type: object, additionalProperties: true}
+        active: {type: boolean}
+        stackable: {type: boolean, description: "Off by default: two promotions combine only when both allow it."}
+        precedence: {type: integer, description: "Evaluation order, highest first, so applying several is deterministic."}
+        redemptionCount: {type: integer, format: int64}
+        discountMinor: {type: integer, format: int64}
+        createdAt: {type: string, format: date-time}
+    PanelPromotionList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelPromotion"}}}
+    PanelPromotionUpdate:
+      type: object
+      required: [value, perCustomerLimit, active, stackable, precedence]
+      properties:
+        value: {type: integer, format: int64, minimum: 1}
+        currency: {type: string}
+        startsAt: {type: string, format: date-time, nullable: true}
+        endsAt: {type: string, format: date-time, nullable: true}
+        redemptionLimit: {type: integer, nullable: true}
+        perCustomerLimit: {type: integer, minimum: 1}
+        eligibility: {type: object, additionalProperties: true}
+        active: {type: boolean}
+        stackable: {type: boolean}
+        precedence: {type: integer}
+    PanelPromoCode:
+      type: object
+      required: [id, code, active, redemptionCount, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        code: {type: string}
+        redemptionLimit: {type: integer}
+        active: {type: boolean}
+        redemptionCount: {type: integer, format: int64}
+        createdAt: {type: string, format: date-time}
+    PanelPromoCodeList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelPromoCode"}}}
+    PanelOffer:
+      type: object
+      required: [id, customerId, promotionId, titleRu, titleEn, status, startsAt, expiresAt, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        customerId: {type: string, format: uuid}
+        promotionId: {type: string, format: uuid}
+        planId: {type: string, format: uuid}
+        titleRu: {type: string}
+        titleEn: {type: string}
+        termsRu: {type: string}
+        termsEn: {type: string}
+        status: {type: string, enum: [active, redeemed, dismissed, expired, revoked]}
+        startsAt: {type: string, format: date-time}
+        expiresAt: {type: string, format: date-time}
+        orderId: {type: string, format: uuid}
+        createdAt: {type: string, format: date-time}
+        resolvedAt: {type: string, format: date-time}
+    PanelOfferPage:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelOffer"}}
+        nextCursor: {type: string}
+    PanelOfferInput:
+      type: object
+      required: [customerId, promotionId, titleRu, titleEn, expiresAt]
+      properties:
+        customerId: {type: string, format: uuid}
+        promotionId: {type: string, format: uuid}
+        planId: {type: string, format: uuid}
+        titleRu: {type: string, minLength: 1, maxLength: 120}
+        titleEn: {type: string, minLength: 1, maxLength: 120}
+        termsRu: {type: string, maxLength: 1000}
+        termsEn: {type: string, maxLength: 1000}
+        startsAt: {type: string, format: date-time}
+        expiresAt: {type: string, format: date-time}
+    PanelFulfillmentOperation:
+      type: object
+      required: [id, entitlementId, operation, status, attemptCount, nextAttemptAt, correlationId, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        entitlementId: {type: string, format: uuid}
+        customerId: {type: string, format: uuid}
+        subscriptionId: {type: string, format: uuid}
+        operation: {type: string}
+        status: {type: string}
+        attemptCount: {type: integer}
+        nextAttemptAt: {type: string, format: date-time}
+        lastErrorCode: {type: string, description: "A classification, never a provider message."}
+        correlationId: {type: string}
+        createdAt: {type: string, format: date-time}
+        completedAt: {type: string, format: date-time}
+    PanelFulfillmentPage:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelFulfillmentOperation"}}
+        nextCursor: {type: string}
+    PanelFulfillmentAttempt:
+      type: object
+      required: [status, correlationId, occurredAt]
+      properties:
+        status: {type: string}
+        correlationId: {type: string}
+        errorCode: {type: string}
+        occurredAt: {type: string, format: date-time}
+    PanelFulfillmentAttemptList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelFulfillmentAttempt"}}}
+    PanelWebhookEvent:
+      type: object
+      required: [id, provider, providerEventId, signatureValid, status, receivedAt, retainUntil]
+      properties:
+        id: {type: string, format: uuid}
+        provider: {type: string}
+        providerEventId: {type: string}
+        signatureValid: {type: boolean}
+        status: {type: string}
+        errorCode: {type: string}
+        receivedAt: {type: string, format: date-time}
+        processedAt: {type: string, format: date-time}
+        retainUntil: {type: string, format: date-time}
+    PanelWebhookPage:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelWebhookEvent"}}
+        nextCursor: {type: string}
+    PanelDrift:
+      type: object
+      required: [id, entitlementId, kind, detectedAt]
+      properties:
+        id: {type: string, format: uuid}
+        entitlementId: {type: string, format: uuid}
+        customerId: {type: string, format: uuid}
+        subscriptionId: {type: string, format: uuid}
+        remnawaveUserId: {type: integer, format: int64}
+        kind: {type: string}
+        expected: {type: object, additionalProperties: true}
+        observed: {type: object, additionalProperties: true}
+        detectedAt: {type: string, format: date-time}
+    PanelDriftList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelDrift"}}}
+    PanelOutboxEntry:
+      type: object
+      required: [id, topic, occurredAt, ageSeconds]
+      properties:
+        id: {type: string, format: uuid}
+        topic: {type: string}
+        occurredAt: {type: string, format: date-time}
+        ageSeconds: {type: integer, format: int64}
+    PanelOutboxList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelOutboxEntry"}}}
+    PanelTopUpSettings:
+      type: object
+      required: [enabled, currency, minimumMinor, maximumMinor, windowSeconds, windowLimitMinor]
+      properties:
+        enabled: {type: boolean}
+        currency: {type: string}
+        presetsMinor: {type: array, nullable: true, items: {type: integer, format: int64}, description: "Offered as buttons. Free entry stays available whatever this contains."}
+        minimumMinor: {type: integer, format: int64, minimum: 1}
+        maximumMinor: {type: integer, format: int64, minimum: 1}
+        windowSeconds: {type: integer, format: int64, minimum: 1}
+        windowLimitMinor: {type: integer, format: int64, minimum: 0}
+    PanelSubscriptionSettings:
+      type: object
+      required: [multiEnabled, maxPerCustomer]
+      properties:
+        multiEnabled: {type: boolean}
+        maxPerCustomer: {type: integer, minimum: 1}
+    PanelCommerceSettings:
+      type: object
+      required: [topUp, subscriptions, updatedAt]
+      properties:
+        topUp: {$ref: "#/components/schemas/PanelTopUpSettings"}
+        subscriptions: {$ref: "#/components/schemas/PanelSubscriptionSettings"}
+        updatedAt: {type: string, format: date-time}
+        updatedBy: {type: string, format: uuid}
+    PanelProviderSettings:
+      type: object
+      required: [provider, merchantId, enabled, displayOrder, credentialsSet, webhookSecretSet, adapterRecurring, recurringEnabled, recurringTestStatus, connectionStatus, webhookStatus, updatedAt]
+      properties:
+        provider: {type: string}
+        merchantId: {type: string}
+        enabled: {type: boolean}
+        displayOrder: {type: integer}
+        credentialsSet: {type: boolean, description: "Whether a credential is stored. The credential itself is never returned."}
+        webhookSecretSet: {type: boolean}
+        adapterRecurring: {type: boolean, description: "What the compiled-in adapter declares. The operator switch can only narrow this."}
+        recurringEnabled: {type: boolean}
+        recurringTestStatus: {type: string, enum: [untested, passed, failed]}
+        recurringTestedAt: {type: string, format: date-time}
+        connectionStatus: {type: string, enum: [unknown, healthy, failing]}
+        connectionCheckedAt: {type: string, format: date-time}
+        connectionErrorCode: {type: string}
+        webhookStatus: {type: string, enum: [unknown, healthy, failing]}
+        webhookLastEventAt: {type: string, format: date-time}
+        webhookLastErrorCode: {type: string}
+        updatedAt: {type: string, format: date-time}
+    PanelProviderSettingsList:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelProviderSettings"}}
+        adapters: {type: object, additionalProperties: {type: boolean}}
+    PanelProviderSettingsInput:
+      type: object
+      required: [enabled, displayOrder]
+      properties:
+        merchantId: {type: string, description: "Empty for an installation with a single merchant account."}
+        enabled: {type: boolean}
+        displayOrder: {type: integer}
+        credentials: {type: string, nullable: true, description: "Omit or send null to keep the stored credential."}
+        webhookSecret: {type: string, nullable: true}
+    PanelRecurringTest:
+      type: object
+      required: [passed, enable]
+      properties:
+        merchantId: {type: string}
+        passed: {type: boolean}
+        enable: {type: boolean, description: "Only honoured alongside a passing test and an adapter that declares the capability."}
+    PanelBlocklistSource:
+      type: object
+      required: [id, slug, displayName, subjectKind, url, authConfigured, enabled, refreshIntervalSeconds, entryCount, status, nextRefreshAt]
+      properties:
+        id: {type: string, format: uuid}
+        slug: {type: string}
+        displayName: {type: string}
+        subjectKind: {type: string, enum: [telegram_id, email, username]}
+        url: {type: string}
+        authConfigured: {type: boolean}
+        enabled: {type: boolean}
+        refreshIntervalSeconds: {type: integer, format: int64}
+        entryCount: {type: integer}
+        status: {type: string, enum: [pending, healthy, failing]}
+        lastErrorCode: {type: string}
+        lastRefreshAt: {type: string, format: date-time}
+        nextRefreshAt: {type: string, format: date-time}
+    PanelBlocklistSourceList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelBlocklistSource"}}}
+    PanelBlocklistSourceInput:
+      type: object
+      required: [slug, displayName, subjectKind, url, enabled, refreshIntervalSeconds]
+      properties:
+        slug: {type: string}
+        displayName: {type: string}
+        subjectKind: {type: string, enum: [telegram_id, email, username]}
+        url: {type: string, pattern: "^https://"}
+        authHeader: {type: string, nullable: true, description: "Omit or send null to keep the stored credential."}
+        enabled: {type: boolean}
+        refreshIntervalSeconds: {type: integer, format: int64, minimum: 300}
+    PanelBlocklistMatch:
+      type: object
+      required: [id, customerId, sourceId, subjectKind, status, detectedAt]
+      properties:
+        id: {type: string, format: uuid}
+        customerId: {type: string, format: uuid}
+        sourceId: {type: string, format: uuid}
+        sourceSlug: {type: string}
+        sourceName: {type: string}
+        subjectKind: {type: string, enum: [telegram_id, email, username]}
+        status: {type: string, enum: [open, allowed, blocked, appealed]}
+        decisionReason: {type: string}
+        decidedBy: {type: string, format: uuid}
+        detectedAt: {type: string, format: date-time}
+        decidedAt: {type: string, format: date-time}
+    PanelMatchList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelBlocklistMatch"}}}
+    PanelMatchPage:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelBlocklistMatch"}}
+        nextCursor: {type: string}
+    PanelAnomalyMetric:
+      type: string
+      enum: [traffic, purchase, refund, referral]
+    PanelAnomalyRule:
+      type: object
+      required: [metric, enabled, windowSeconds, warnThreshold, alertThreshold, minimumSample, updatedAt]
+      properties:
+        metric: {$ref: "#/components/schemas/PanelAnomalyMetric"}
+        enabled: {type: boolean}
+        windowSeconds: {type: integer, format: int64, minimum: 300}
+        warnThreshold: {type: integer, format: int64, minimum: 1, description: "In the metric's own unit: bytes, minor units, or a count."}
+        alertThreshold: {type: integer, format: int64, minimum: 1}
+        minimumSample: {type: integer, minimum: 0}
+        updatedAt: {type: string, format: date-time}
+    PanelAnomalyRuleList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelAnomalyRule"}}}
+    PanelAnomalyRuleInput:
+      type: object
+      required: [enabled, windowSeconds, warnThreshold, alertThreshold, minimumSample]
+      properties:
+        enabled: {type: boolean}
+        windowSeconds: {type: integer, format: int64, minimum: 300}
+        warnThreshold: {type: integer, format: int64, minimum: 1}
+        alertThreshold: {type: integer, format: int64, minimum: 1}
+        minimumSample: {type: integer, minimum: 0}
+    PanelAnomalySignal:
+      type: object
+      required: [id, metric, severity, subjectType, subjectId, observed, threshold, sampleSize, windowStart, windowEnd, status, detectedAt]
+      properties:
+        id: {type: string, format: uuid}
+        metric: {$ref: "#/components/schemas/PanelAnomalyMetric"}
+        severity: {type: string, enum: [warning, alert]}
+        subjectType: {type: string, enum: [installation, customer, plan, provider]}
+        subjectId: {type: string}
+        observed: {type: integer, format: int64}
+        threshold: {type: integer, format: int64}
+        sampleSize: {type: integer}
+        windowStart: {type: string, format: date-time}
+        windowEnd: {type: string, format: date-time}
+        evidence: {type: object, additionalProperties: true, description: "Aggregate numbers only — never a message body, link, token, or address."}
+        status: {type: string, enum: [open, acknowledged, dismissed]}
+        reviewedBy: {type: string, format: uuid}
+        reviewReason: {type: string}
+        detectedAt: {type: string, format: date-time}
+        reviewedAt: {type: string, format: date-time}
+    PanelAnomalyPage:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelAnomalySignal"}}
+        nextCursor: {type: string}
+    PanelGiftStatus:
+      type: string
+      enum: [pending, deliverable, claimed, expired, revoked, refunded]
+    PanelGift:
+      type: object
+      required: [id, orderId, senderId, kind, currency, codeHint, status, claimAttempts, expiresAt, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        orderId: {type: string, format: uuid}
+        senderId: {type: string, format: uuid}
+        recipientId: {type: string, format: uuid}
+        kind: {type: string, enum: [subscription, addon, wallet_credit]}
+        currency: {type: string}
+        creditMinor: {type: integer, format: int64}
+        codeHint: {type: string, description: "The last four characters of the claim code. The code itself is stored only as a digest."}
+        status: {$ref: "#/components/schemas/PanelGiftStatus"}
+        claimAttempts: {type: integer}
+        expiresAt: {type: string, format: date-time}
+        claimedAt: {type: string, format: date-time}
+        revokedAt: {type: string, format: date-time}
+        revokeReason: {type: string}
+        createdAt: {type: string, format: date-time}
+    PanelGiftPage:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelGift"}}
+        nextCursor: {type: string}
+        totals: {type: object, additionalProperties: {type: integer, format: int64}}
+    PanelGoodsProvider:
+      type: object
+      required: [slug, enabled, credentialsSet, spendLimitMinor, spendWindowSeconds, status, lowBalance]
+      properties:
+        slug: {type: string}
+        enabled: {type: boolean}
+        credentialsSet: {type: boolean}
+        balanceMinor: {type: integer, format: int64}
+        balanceCurrency: {type: string}
+        lowBalanceThresholdMinor: {type: integer, format: int64}
+        spendLimitMinor: {type: integer, format: int64, description: "Rolling ceiling in provider cost. Zero means no ceiling."}
+        spendWindowSeconds: {type: integer, format: int64}
+        status: {type: string, enum: [unknown, healthy, failing]}
+        lastErrorCode: {type: string}
+        lastCheckedAt: {type: string, format: date-time}
+        lowBalance: {type: boolean, description: "Derived from the balance and the threshold, so it cannot contradict them."}
+    PanelGoodsProviderList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelGoodsProvider"}}}
+    PanelGoodsProviderInput:
+      type: object
+      required: [enabled, spendLimitMinor, spendWindowSeconds]
+      properties:
+        enabled: {type: boolean}
+        credentials: {type: string, nullable: true, description: "Omit or send null to keep the stored credential."}
+        lowBalanceThresholdMinor: {type: integer, format: int64, nullable: true}
+        spendLimitMinor: {type: integer, format: int64, minimum: 0}
+        spendWindowSeconds: {type: integer, format: int64, minimum: 1}
+    PanelGoodsPricing:
+      type: object
+      required: [currency, markupBps, rounding, quoteTtlSeconds]
+      properties:
+        currency: {type: string}
+        markupBps: {type: integer, minimum: 0, maximum: 100000}
+        rounding: {type: string, enum: [none, up_minor, up_unit, up_ten_units, up_hundred_units]}
+        fixedAmountMinor: {type: integer, format: int64, nullable: true, description: "Opts out of markup derivation entirely."}
+        quoteTtlSeconds: {type: integer, minimum: 30, maximum: 3600}
+        updatedAt: {type: string, format: date-time}
+    PanelGoodsProduct:
+      type: object
+      required: [id, code, providerSlug, kind, visible, sortOrder, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        code: {type: string}
+        providerSlug: {type: string}
+        kind: {type: string, enum: [telegram_premium, telegram_stars]}
+        durationMonths: {type: integer}
+        starQuantity: {type: integer}
+        visible: {type: boolean}
+        sortOrder: {type: integer}
+        createdAt: {type: string, format: date-time}
+        archivedAt: {type: string, format: date-time}
+        localizations: {type: object, additionalProperties: {$ref: "#/components/schemas/PanelLocalization"}}
+        pricing: {$ref: "#/components/schemas/PanelGoodsPricing"}
+    PanelGoodsProductList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelGoodsProduct"}}}
+    PanelGoodsProductInput:
+      type: object
+      required: [code, providerSlug, kind, visible, sortOrder]
+      properties:
+        code: {type: string, pattern: "^[a-z][a-z0-9_-]{1,63}$"}
+        providerSlug: {type: string}
+        kind: {type: string, enum: [telegram_premium, telegram_stars]}
+        durationMonths: {type: integer, enum: [3, 6, 12]}
+        starQuantity: {type: integer, minimum: 1}
+        visible: {type: boolean}
+        sortOrder: {type: integer}
+    PanelGoodsProductUpdate:
+      type: object
+      required: [visible, sortOrder, archived]
+      properties:
+        visible: {type: boolean}
+        sortOrder: {type: integer}
+        archived: {type: boolean}
+    PanelGoodsOrder:
+      type: object
+      required: [orderId, customerId, productId, quantity, recipient, recipientIsSelf, quotedCostMinor, quotedPriceMinor, marginMinor, currency, status, refunded, createdAt]
+      properties:
+        orderId: {type: string, format: uuid}
+        customerId: {type: string, format: uuid}
+        productId: {type: string, format: uuid}
+        quantity: {type: integer}
+        recipient: {type: string, description: "The Telegram username. No other recipient detail is retained."}
+        recipientIsSelf: {type: boolean}
+        quotedCostMinor: {type: integer, format: int64}
+        quotedPriceMinor: {type: integer, format: int64}
+        marginMinor: {type: integer, format: int64}
+        currency: {type: string}
+        status: {type: string, enum: [quoted, paid, delivering, delivered, failed, refunded]}
+        deliveryStatus: {type: string}
+        deliveryAttempts: {type: integer}
+        failureClass: {type: string, enum: [retryable, permanent, recipient_invalid, provider_balance, provider_unavailable]}
+        errorCode: {type: string}
+        refunded: {type: boolean}
+        deliveredAt: {type: string, format: date-time}
+        createdAt: {type: string, format: date-time}
+    PanelGoodsOrderPage:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelGoodsOrder"}}
+        nextCursor: {type: string}
+    PanelGoodsAttempt:
+      type: object
+      required: [attempt, outcome, correlationId, occurredAt]
+      properties:
+        attempt: {type: integer}
+        outcome: {type: string, enum: [submitted, delivered, failed]}
+        failureClass: {type: string}
+        errorCode: {type: string}
+        correlationId: {type: string}
+        occurredAt: {type: string, format: date-time}
+    PanelGoodsAttemptList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelGoodsAttempt"}}}
+    PanelBulkTarget:
+      type: object
+      required: [type, id]
+      properties:
+        type: {type: string, enum: [customer, subscription]}
+        id: {type: string, format: uuid}
+    PanelBulkInput:
+      type: object
+      required: [kind, targets]
+      properties:
+        kind: {type: string, enum: [customer_export, subscription_extend, subscription_disable, subscription_enable, wallet_credit]}
+        targets: {type: array, minItems: 1, maxItems: 1000, items: {$ref: "#/components/schemas/PanelBulkTarget"}}
+        parameters: {type: object, additionalProperties: true}
+    PanelBulkOperation:
+      type: object
+      required: [id, kind, status, requestedBy, reason, total, succeeded, failed, skipped, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        kind: {type: string}
+        status: {type: string, enum: [previewing, ready, running, completed, failed, cancelled]}
+        requestedBy: {type: string, format: uuid}
+        reason: {type: string}
+        parameters: {type: object, additionalProperties: true}
+        total: {type: integer}
+        succeeded: {type: integer}
+        failed: {type: integer}
+        skipped: {type: integer}
+        createdAt: {type: string, format: date-time}
+        completedAt: {type: string, format: date-time}
+    PanelBulkOperationList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelBulkOperation"}}}
+    PanelBulkItem:
+      type: object
+      required: [position, targetType, targetId, status]
+      properties:
+        position: {type: integer}
+        targetType: {type: string}
+        targetId: {type: string, format: uuid}
+        status: {type: string, enum: [pending, succeeded, failed, skipped]}
+        errorCode: {type: string}
+        processedAt: {type: string, format: date-time}
+    PanelBulkDetail:
+      type: object
+      required: [operation, items]
+      properties:
+        operation: {$ref: "#/components/schemas/PanelBulkOperation"}
+        items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelBulkItem"}}
+
   responses:
     Problem: {description: Request failed, content: {application/problem+json: {schema: {$ref: "#/components/schemas/Problem"}}}}

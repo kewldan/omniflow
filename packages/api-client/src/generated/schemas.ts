@@ -1510,6 +1510,2753 @@ export const GetPanelRbacCatalogResponse = zod.object({
   ),
 });
 
+/**
+ * Requires system.read. Each metric carries the identifier of its own definition, every timestamp is UTC, and revenue is reported as three separate figures rather than one that double-counts wallet credit.
+ */
+export const GetPanelDashboardResponse = zod.object({
+  windowSeconds: zod.int(),
+  generatedAt: zod.iso.datetime({ offset: true }),
+  timezone: zod.string().describe("Always UTC. The panel converts for display."),
+  customers: zod.array(
+    zod.object({
+      key: zod.string(),
+      definition: zod
+        .string()
+        .describe(
+          "Stable identifier the panel resolves to localised copy explaining exactly what was counted.",
+        ),
+      value: zod.int(),
+    }),
+  ),
+  subscriptions: zod.array(
+    zod.object({
+      key: zod.string(),
+      definition: zod
+        .string()
+        .describe(
+          "Stable identifier the panel resolves to localised copy explaining exactly what was counted.",
+        ),
+      value: zod.int(),
+    }),
+  ),
+  payments: zod.array(
+    zod.object({
+      key: zod.string(),
+      definition: zod
+        .string()
+        .describe(
+          "Stable identifier the panel resolves to localised copy explaining exactly what was counted.",
+        ),
+      value: zod.int(),
+    }),
+  ),
+  revenue: zod
+    .array(
+      zod
+        .object({
+          currency: zod.string(),
+          paidMinor: zod.int(),
+          walletMinor: zod.int(),
+          refundedMinor: zod.int(),
+          orderCount: zod.int(),
+        })
+        .describe(
+          "Three separate figures. Wallet credit was already counted as revenue when the balance was funded, so adding it to provider money counts it twice.",
+        ),
+    )
+    .nullish(),
+  support: zod.array(
+    zod.object({
+      key: zod.string(),
+      definition: zod
+        .string()
+        .describe(
+          "Stable identifier the panel resolves to localised copy explaining exactly what was counted.",
+        ),
+      value: zod.int(),
+    }),
+  ),
+  operations: zod.array(
+    zod.object({
+      key: zod.string(),
+      definition: zod
+        .string()
+        .describe(
+          "Stable identifier the panel resolves to localised copy explaining exactly what was counted.",
+        ),
+      value: zod.int(),
+    }),
+  ),
+  attention: zod
+    .array(
+      zod.object({
+        key: zod.string(),
+        severity: zod.enum(["alert", "warning"]),
+        count: zod.int(),
+        href: zod
+          .string()
+          .describe("Deep link into the ordinary panel surface that resolves the condition."),
+      }),
+    )
+    .nullish(),
+});
+
+/**
+ * Requires system.read. Recent maintenance activations and recoveries.
+ */
+export const listPanelIncidentsQueryPageSizeDefault = 100;
+export const listPanelIncidentsQueryPageSizeMax = 500;
+
+export const ListPanelIncidentsQueryParams = zod.object({
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(listPanelIncidentsQueryPageSizeMax)
+    .default(listPanelIncidentsQueryPageSizeDefault),
+});
+
+export const ListPanelIncidentsResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        action: zod.enum(["activated", "cleared"]),
+        source: zod.enum(["manual", "remnawave", "database", "valkey"]),
+        reason: zod.string(),
+        actorType: zod.enum(["operator", "system"]),
+        actorId: zod.string().optional(),
+        occurredAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .nullable(),
+});
+
+/**
+ * Requires customers.read. `q` accepts an Omniflow customer identifier, a Telegram identifier, or a Remnawave username and is resolved by shape. There is deliberately no free-text search over contact values.
+ */
+export const searchPanelCustomersQueryPageSizeDefault = 100;
+export const searchPanelCustomersQueryPageSizeMax = 500;
+
+export const SearchPanelCustomersQueryParams = zod.object({
+  cursor: zod.string().optional(),
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(searchPanelCustomersQueryPageSizeMax)
+    .default(searchPanelCustomersQueryPageSizeDefault),
+  q: zod.string().optional(),
+  status: zod.enum(["active", "suspended", "deleted"]).optional(),
+  segment: zod.enum(["subscribed", "lapsed", "never_purchased", "flagged"]).optional(),
+});
+
+export const SearchPanelCustomersResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        status: zod.enum(["active", "suspended", "deleted"]),
+        locale: zod.string(),
+        timezone: zod.string(),
+        createdAt: zod.iso.datetime({ offset: true }),
+        telegramId: zod.int().optional(),
+        suspendedAt: zod.iso.datetime({ offset: true }).optional(),
+        deletedAt: zod.iso.datetime({ offset: true }).optional(),
+      }),
+    )
+    .nullable(),
+  nextCursor: zod.string().optional(),
+});
+
+/**
+ * Requires customers.read.
+ */
+export const GetPanelCustomerParams = zod.object({
+  customerID: zod.uuid(),
+});
+
+export const GetPanelCustomerResponse = zod
+  .object({
+    id: zod.uuid(),
+    status: zod.enum(["active", "suspended", "deleted"]),
+    locale: zod.string(),
+    timezone: zod.string(),
+    createdAt: zod.iso.datetime({ offset: true }),
+    telegramId: zod.int().optional(),
+    suspendedAt: zod.iso.datetime({ offset: true }).optional(),
+    deletedAt: zod.iso.datetime({ offset: true }).optional(),
+  })
+  .and(
+    zod.object({
+      anonymizedAt: zod.iso.datetime({ offset: true }).optional(),
+      retentionUntil: zod.iso.datetime({ offset: true }).optional(),
+      activeSubscriptions: zod.int(),
+      orderCount: zod.int(),
+      openTickets: zod.int(),
+      referralCount: zod.int(),
+      openFlags: zod
+        .int()
+        .describe(
+          "Blocklist matches awaiting a decision. A count of things to review, never a verdict.",
+        ),
+      allowlisted: zod.boolean(),
+    }),
+  );
+
+/**
+ * Requires customers.read. Every concurrent subscription with its own Remnawave mapping.
+ */
+export const ListPanelCustomerSubscriptionsParams = zod.object({
+  customerID: zod.uuid(),
+});
+
+export const ListPanelCustomerSubscriptionsResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        slot: zod.int(),
+        label: zod.string(),
+        status: zod.enum(["active", "closed"]),
+        remnawaveUserId: zod.int().optional(),
+        remnawaveUsername: zod.string().optional(),
+        reconciledAt: zod.iso.datetime({ offset: true }).optional(),
+        entitlementId: zod.uuid().optional(),
+        entitlementStatus: zod.string().optional(),
+        startsAt: zod.iso.datetime({ offset: true }).optional(),
+        endsAt: zod.iso.datetime({ offset: true }).optional(),
+        trafficAllowanceBytes: zod.int().optional(),
+        deviceLimit: zod.int().optional(),
+        squadIds: zod.array(zod.uuid()).nullish(),
+        planCode: zod.string().optional(),
+        planVersion: zod.int().optional(),
+      }),
+    )
+    .nullable(),
+});
+
+/**
+ * Requires customers.read.
+ */
+export const ListPanelCustomerOrdersParams = zod.object({
+  customerID: zod.uuid(),
+});
+
+export const listPanelCustomerOrdersQueryPageSizeDefault = 100;
+export const listPanelCustomerOrdersQueryPageSizeMax = 500;
+
+export const ListPanelCustomerOrdersQueryParams = zod.object({
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(listPanelCustomerOrdersQueryPageSizeMax)
+    .default(listPanelCustomerOrdersQueryPageSizeDefault),
+});
+
+export const ListPanelCustomerOrdersResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        state: zod.string(),
+        operation: zod.string(),
+        currency: zod.string(),
+        subtotalMinor: zod.int(),
+        discountMinor: zod.int(),
+        walletMinor: zod.int(),
+        externalMinor: zod.int(),
+        paidMinor: zod.int(),
+        refundedMinor: zod.int(),
+        customerId: zod.uuid(),
+        subscriptionId: zod.uuid().optional(),
+        createdAt: zod.iso.datetime({ offset: true }),
+        updatedAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .nullable(),
+});
+
+/**
+ * Requires customers.read.
+ */
+export const ListPanelCustomerTicketsParams = zod.object({
+  customerID: zod.uuid(),
+});
+
+export const listPanelCustomerTicketsQueryPageSizeDefault = 100;
+export const listPanelCustomerTicketsQueryPageSizeMax = 500;
+
+export const ListPanelCustomerTicketsQueryParams = zod.object({
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(listPanelCustomerTicketsQueryPageSizeMax)
+    .default(listPanelCustomerTicketsQueryPageSizeDefault),
+});
+
+export const ListPanelCustomerTicketsResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        status: zod.string(),
+        subject: zod.string(),
+        priority: zod.string(),
+        lastMessageAt: zod.iso.datetime({ offset: true }),
+        createdAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .nullable(),
+});
+
+/**
+ * Requires customers.read. The latest recorded decision per purpose.
+ */
+export const ListPanelCustomerConsentsParams = zod.object({
+  customerID: zod.uuid(),
+});
+
+export const ListPanelCustomerConsentsResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        purpose: zod.string(),
+        granted: zod.boolean(),
+        policyVersion: zod.string(),
+        source: zod.string(),
+        occurredAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .nullable(),
+});
+
+/**
+ * Requires finance.read rather than customer access: a support operator can see that a customer has a balance without reading every movement that produced it. The ledger is append-only and exposes reads only.
+ */
+export const ListPanelCustomerWalletParams = zod.object({
+  customerID: zod.uuid(),
+});
+
+export const listPanelCustomerWalletQueryPageSizeDefault = 100;
+export const listPanelCustomerWalletQueryPageSizeMax = 500;
+
+export const ListPanelCustomerWalletQueryParams = zod.object({
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(listPanelCustomerWalletQueryPageSizeMax)
+    .default(listPanelCustomerWalletQueryPageSizeDefault),
+});
+
+export const ListPanelCustomerWalletResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        transactionId: zod.uuid(),
+        type: zod.string(),
+        referenceType: zod.string(),
+        referenceId: zod.string(),
+        reason: zod.string().optional(),
+        currency: zod.string(),
+        amountMinor: zod
+          .int()
+          .describe("Signed. The ledger is append-only; a correction is a compensating entry."),
+        expiresAt: zod.iso.datetime({ offset: true }).optional(),
+        createdAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .nullable(),
+});
+
+/**
+ * Requires finance.read. A saved method is a provider token and a masked label the provider supplied; neither the token nor any card data is returned.
+ */
+export const ListPanelCustomerPaymentMethodsParams = zod.object({
+  customerID: zod.uuid(),
+});
+
+export const ListPanelCustomerPaymentMethodsResponse = zod.object({
+  items: zod
+    .array(
+      zod
+        .object({
+          id: zod.uuid(),
+          provider: zod.string(),
+          merchantId: zod.string().optional(),
+          displayLabel: zod.string().optional(),
+          status: zod.enum(["active", "expired", "revoked", "failed"]),
+          isDefault: zod.boolean(),
+          consentAt: zod.iso.datetime({ offset: true }),
+          lastUsedAt: zod.iso.datetime({ offset: true }).optional(),
+          createdAt: zod.iso.datetime({ offset: true }),
+        })
+        .describe(
+          "A provider-issued token and the masked label the provider supplied. No card data is stored or returned.",
+        ),
+    )
+    .nullable(),
+});
+
+/**
+ * Requires finance.write. Marks the method revoked and keeps the row, so a historical charge still resolves to the method that made it.
+ */
+export const RevokePanelPaymentMethodParams = zod.object({
+  customerID: zod.uuid(),
+  methodID: zod.uuid(),
+});
+
+export const RevokePanelPaymentMethodHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const RevokePanelPaymentMethodResponse = zod.void();
+
+/**
+ * Requires finance.read. Automatic renewal attempts for this customer.
+ */
+export const ListPanelCustomerChargesParams = zod.object({
+  customerID: zod.uuid(),
+});
+
+export const listPanelCustomerChargesQueryPageSizeDefault = 100;
+export const listPanelCustomerChargesQueryPageSizeMax = 500;
+
+export const ListPanelCustomerChargesQueryParams = zod.object({
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(listPanelCustomerChargesQueryPageSizeMax)
+    .default(listPanelCustomerChargesQueryPageSizeDefault),
+});
+
+export const ListPanelCustomerChargesResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        customerId: zod.uuid(),
+        subscriptionId: zod.uuid().optional(),
+        cycleKey: zod.string(),
+        attempt: zod.int(),
+        funding: zod.enum(["wallet", "saved_method"]),
+        outcome: zod.enum(["scheduled", "succeeded", "failed", "abandoned"]),
+        failureCode: zod.string().optional(),
+        orderId: zod.uuid().optional(),
+        scheduledFor: zod.iso.datetime({ offset: true }),
+        occurredAt: zod.iso.datetime({ offset: true }).optional(),
+        notifiedAt: zod.iso.datetime({ offset: true }).optional(),
+        createdAt: zod.iso.datetime({ offset: true }),
+        customerStatus: zod.string().optional(),
+      }),
+    )
+    .nullable(),
+});
+
+/**
+ * Requires risk.read. Blocklist matches recorded against this customer.
+ */
+export const ListPanelCustomerRiskParams = zod.object({
+  customerID: zod.uuid(),
+});
+
+export const ListPanelCustomerRiskResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        customerId: zod.uuid(),
+        sourceId: zod.uuid(),
+        sourceSlug: zod.string().optional(),
+        sourceName: zod.string().optional(),
+        subjectKind: zod.enum(["telegram_id", "email", "username"]),
+        status: zod.enum(["open", "allowed", "blocked", "appealed"]),
+        decisionReason: zod.string().optional(),
+        decidedBy: zod.uuid().optional(),
+        detectedAt: zod.iso.datetime({ offset: true }),
+        decidedAt: zod.iso.datetime({ offset: true }).optional(),
+      }),
+    )
+    .nullable(),
+});
+
+/**
+ * Requires customers.write and a reason. Suspension does not disable a Remnawave user directly: the fulfillment pipeline observes customer state, and bypassing it would leave the two disagreeing.
+ */
+export const SetPanelCustomerStatusParams = zod.object({
+  customerID: zod.uuid(),
+});
+
+export const setPanelCustomerStatusHeaderXOperatorReasonMax = 400;
+
+export const SetPanelCustomerStatusHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "X-Operator-Reason": zod
+    .string()
+    .min(1)
+    .max(setPanelCustomerStatusHeaderXOperatorReasonMax)
+    .describe(
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+    ),
+});
+
+export const SetPanelCustomerStatusBody = zod.object({
+  status: zod.enum(["active", "suspended"]),
+});
+
+export const SetPanelCustomerStatusResponse = zod
+  .object({
+    id: zod.uuid(),
+    status: zod.enum(["active", "suspended", "deleted"]),
+    locale: zod.string(),
+    timezone: zod.string(),
+    createdAt: zod.iso.datetime({ offset: true }),
+    telegramId: zod.int().optional(),
+    suspendedAt: zod.iso.datetime({ offset: true }).optional(),
+    deletedAt: zod.iso.datetime({ offset: true }).optional(),
+  })
+  .and(
+    zod.object({
+      anonymizedAt: zod.iso.datetime({ offset: true }).optional(),
+      retentionUntil: zod.iso.datetime({ offset: true }).optional(),
+      activeSubscriptions: zod.int(),
+      orderCount: zod.int(),
+      openTickets: zod.int(),
+      referralCount: zod.int(),
+      openFlags: zod
+        .int()
+        .describe(
+          "Blocklist matches awaiting a decision. A count of things to review, never a verdict.",
+        ),
+      allowlisted: zod.boolean(),
+    }),
+  );
+
+/**
+ * Requires subscriptions.write. The label is the only subscription attribute the panel edits directly; expiry, traffic, limits, squads, and enabled state belong to Remnawave and change through fulfillment.
+ */
+export const RenamePanelSubscriptionParams = zod.object({
+  customerID: zod.uuid(),
+  subscriptionID: zod.uuid(),
+});
+
+export const RenamePanelSubscriptionHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const renamePanelSubscriptionBodyLabelMax = 40;
+
+export const RenamePanelSubscriptionBody = zod.object({
+  label: zod.string().min(1).max(renamePanelSubscriptionBodyLabelMax),
+});
+
+export const RenamePanelSubscriptionResponse = zod.void();
+
+/**
+ * Requires risk.write and a reason. Without an override an operator's decision would be undone the moment the source republished the entry.
+ */
+export const AllowlistPanelCustomerParams = zod.object({
+  customerID: zod.uuid(),
+});
+
+export const allowlistPanelCustomerHeaderXOperatorReasonMax = 400;
+
+export const AllowlistPanelCustomerHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "X-Operator-Reason": zod
+    .string()
+    .min(1)
+    .max(allowlistPanelCustomerHeaderXOperatorReasonMax)
+    .describe(
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+    ),
+});
+
+export const AllowlistPanelCustomerResponse = zod.void();
+
+/**
+ * Requires risk.write.
+ */
+export const RemovePanelAllowlistParams = zod.object({
+  customerID: zod.uuid(),
+});
+
+export const RemovePanelAllowlistHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const RemovePanelAllowlistResponse = zod.void();
+
+/**
+ * Requires catalog.read. Archived plans are included, with how many order lines reference each, so archiving one in active use is a visible decision.
+ */
+export const ListPanelPlansResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        code: zod.string(),
+        kind: zod.enum(["trial", "one_time", "recurring", "free", "manual"]),
+        visible: zod.boolean(),
+        sortOrder: zod.int(),
+        maxConcurrentPerCustomer: zod.int().optional(),
+        latestVersion: zod.int(),
+        orderLineCount: zod.int(),
+        createdAt: zod.iso.datetime({ offset: true }),
+        archivedAt: zod.iso.datetime({ offset: true }).optional(),
+      }),
+    )
+    .nullable(),
+});
+
+/**
+ * Requires catalog.read. The plan with its localisations and priced versions.
+ */
+export const GetPanelPlanParams = zod.object({
+  planID: zod.uuid(),
+});
+
+export const getPanelPlanResponseLocalizationsNameMax = 120;
+
+export const getPanelPlanResponseLocalizationsDescriptionMax = 2000;
+
+export const GetPanelPlanResponse = zod.object({
+  plan: zod.object({
+    id: zod.uuid(),
+    code: zod.string(),
+    kind: zod.enum(["trial", "one_time", "recurring", "free", "manual"]),
+    visible: zod.boolean(),
+    sortOrder: zod.int(),
+    maxConcurrentPerCustomer: zod.int().optional(),
+    latestVersion: zod.int(),
+    orderLineCount: zod.int(),
+    createdAt: zod.iso.datetime({ offset: true }),
+    archivedAt: zod.iso.datetime({ offset: true }).optional(),
+  }),
+  localizations: zod.record(
+    zod.string(),
+    zod.object({
+      name: zod.string().min(1).max(getPanelPlanResponseLocalizationsNameMax),
+      description: zod.string().max(getPanelPlanResponseLocalizationsDescriptionMax).optional(),
+    }),
+  ),
+  versions: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        version: zod.int(),
+        billingPeriod: zod.string(),
+        durationSeconds: zod.int(),
+        trafficAllowanceBytes: zod.int().optional(),
+        deviceLimit: zod.int().optional(),
+        squadIds: zod.array(zod.uuid()).nullish(),
+        squadSelection: zod.enum(["automatic", "optional", "required"]),
+        minSelectableSquads: zod.int().optional(),
+        maxSelectableSquads: zod.int().optional(),
+        upgradePolicy: zod.string(),
+        downgradePolicy: zod.string(),
+        cancellationPolicy: zod.string(),
+        gracePeriodSeconds: zod.int().optional(),
+        trialEligibility: zod.string().optional(),
+        recurringCapable: zod.boolean().optional(),
+        prices: zod.record(zod.string(), zod.int()),
+        createdAt: zod.iso.datetime({ offset: true }),
+        retiredAt: zod.iso.datetime({ offset: true }).optional(),
+      }),
+    )
+    .nullable(),
+});
+
+/**
+ * Requires catalog.write. Visibility, ordering, and the per-plan concurrency cap are saved together, so two operators editing one plan cannot each drop the other's change.
+ */
+export const UpdatePanelPlanPresentationParams = zod.object({
+  planID: zod.uuid(),
+});
+
+export const UpdatePanelPlanPresentationHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const UpdatePanelPlanPresentationBody = zod.object({
+  visible: zod.boolean(),
+  sortOrder: zod.int(),
+  maxConcurrentPerCustomer: zod
+    .int()
+    .min(1)
+    .nullish()
+    .describe("Narrows the installation ceiling for this plan; it can never widen it."),
+});
+
+export const UpdatePanelPlanPresentationResponse = zod.void();
+
+/**
+ * Requires catalog.write. Archiving stops new purchases and leaves every order that already bought the plan priced against its immutable version.
+ */
+export const ArchivePanelPlanParams = zod.object({
+  planID: zod.uuid(),
+});
+
+export const ArchivePanelPlanHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const ArchivePanelPlanBody = zod.object({
+  archived: zod.boolean(),
+});
+
+export const ArchivePanelPlanResponse = zod.void();
+
+/**
+ * Requires catalog.write.
+ */
+export const SavePanelPlanLocalizationParams = zod.object({
+  planID: zod.uuid(),
+  locale: zod.enum(["ru", "en"]),
+});
+
+export const SavePanelPlanLocalizationHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const savePanelPlanLocalizationBodyNameMax = 120;
+
+export const savePanelPlanLocalizationBodyDescriptionMax = 2000;
+
+export const SavePanelPlanLocalizationBody = zod.object({
+  name: zod.string().min(1).max(savePanelPlanLocalizationBodyNameMax),
+  description: zod.string().max(savePanelPlanLocalizationBodyDescriptionMax).optional(),
+});
+
+export const SavePanelPlanLocalizationResponse = zod.void();
+
+/**
+ * Requires catalog.write. Retiring is forward-looking: every order that bought the version keeps its price.
+ */
+export const RetirePanelPlanVersionParams = zod.object({
+  planVersionID: zod.uuid(),
+});
+
+export const RetirePanelPlanVersionHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const RetirePanelPlanVersionResponse = zod.void();
+
+/**
+ * Requires catalog.read.
+ */
+export const ListPanelAddonsResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        code: zod.string(),
+        kind: zod.enum(["traffic", "devices", "squads"]),
+        visible: zod.boolean(),
+        sortOrder: zod.int(),
+        latestVersion: zod.int(),
+        createdAt: zod.iso.datetime({ offset: true }),
+        archivedAt: zod.iso.datetime({ offset: true }).optional(),
+      }),
+    )
+    .nullable(),
+});
+
+/**
+ * Requires catalog.read. Each version carries its documented proration rule.
+ */
+export const ListPanelAddonVersionsParams = zod.object({
+  addonID: zod.uuid(),
+});
+
+export const ListPanelAddonVersionsResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        version: zod.int(),
+        trafficBytes: zod.int().optional(),
+        deviceSlots: zod.int().optional(),
+        squadIds: zod.array(zod.uuid()).nullish(),
+        maxQuantity: zod.int(),
+        proration: zod.enum(["full_price", "remaining_period", "daily_rate"]),
+        prices: zod.record(zod.string(), zod.int()),
+        createdAt: zod.iso.datetime({ offset: true }),
+        retiredAt: zod.iso.datetime({ offset: true }).optional(),
+      }),
+    )
+    .nullable(),
+});
+
+/**
+ * Requires catalog.read. Promotions with their redemption analytics.
+ */
+export const listPanelPromotionsQueryPageSizeDefault = 100;
+export const listPanelPromotionsQueryPageSizeMax = 500;
+
+export const ListPanelPromotionsQueryParams = zod.object({
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(listPanelPromotionsQueryPageSizeMax)
+    .default(listPanelPromotionsQueryPageSizeDefault),
+  active: zod.boolean().optional(),
+  kind: zod.enum(["percent", "fixed", "wallet_credit", "days", "trial"]).optional(),
+});
+
+export const ListPanelPromotionsResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        code: zod.string(),
+        kind: zod.enum(["percent", "fixed", "wallet_credit", "days", "trial"]),
+        value: zod.int(),
+        currency: zod.string().optional(),
+        startsAt: zod.iso.datetime({ offset: true }).optional(),
+        endsAt: zod.iso.datetime({ offset: true }).optional(),
+        redemptionLimit: zod.int().optional(),
+        perCustomerLimit: zod.int(),
+        eligibility: zod.record(zod.string(), zod.unknown()).optional(),
+        active: zod.boolean(),
+        stackable: zod
+          .boolean()
+          .describe("Off by default: two promotions combine only when both allow it."),
+        precedence: zod
+          .int()
+          .describe("Evaluation order, highest first, so applying several is deterministic."),
+        redemptionCount: zod.int(),
+        discountMinor: zod.int(),
+        createdAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .nullable(),
+});
+
+/**
+ * Requires catalog.write. The reward kind is not editable: changing a live promotion's kind would silently change what every unredeemed code is worth.
+ */
+export const UpdatePanelPromotionParams = zod.object({
+  promotionID: zod.uuid(),
+});
+
+export const UpdatePanelPromotionHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const UpdatePanelPromotionBody = zod.object({
+  value: zod.int().min(1),
+  currency: zod.string().optional(),
+  startsAt: zod.iso.datetime({ offset: true }).nullish(),
+  endsAt: zod.iso.datetime({ offset: true }).nullish(),
+  redemptionLimit: zod.int().nullish(),
+  perCustomerLimit: zod.int().min(1),
+  eligibility: zod.record(zod.string(), zod.unknown()).optional(),
+  active: zod.boolean(),
+  stackable: zod.boolean(),
+  precedence: zod.int(),
+});
+
+export const UpdatePanelPromotionResponse = zod.void();
+
+/**
+ * Requires catalog.read.
+ */
+export const ListPanelPromoCodesParams = zod.object({
+  promotionID: zod.uuid(),
+});
+
+export const ListPanelPromoCodesResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        code: zod.string(),
+        redemptionLimit: zod.int().optional(),
+        active: zod.boolean(),
+        redemptionCount: zod.int(),
+        createdAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .nullable(),
+});
+
+/**
+ * Requires catalog.write. A code is never deleted: the redemptions that reference it are financial records.
+ */
+export const SetPanelPromoCodeActiveParams = zod.object({
+  promoCodeID: zod.uuid(),
+});
+
+export const SetPanelPromoCodeActiveHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const SetPanelPromoCodeActiveBody = zod.object({
+  active: zod.boolean(),
+});
+
+export const SetPanelPromoCodeActiveResponse = zod.void();
+
+/**
+ * Requires marketing.read.
+ */
+export const searchPanelOffersQueryPageSizeDefault = 100;
+export const searchPanelOffersQueryPageSizeMax = 500;
+
+export const SearchPanelOffersQueryParams = zod.object({
+  cursor: zod.string().optional(),
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(searchPanelOffersQueryPageSizeMax)
+    .default(searchPanelOffersQueryPageSizeDefault),
+  status: zod.enum(["active", "redeemed", "dismissed", "expired", "revoked"]).optional(),
+  customerId: zod.uuid().optional(),
+});
+
+export const SearchPanelOffersResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        customerId: zod.uuid(),
+        promotionId: zod.uuid(),
+        planId: zod.uuid().optional(),
+        titleRu: zod.string(),
+        titleEn: zod.string(),
+        termsRu: zod.string().optional(),
+        termsEn: zod.string().optional(),
+        status: zod.enum(["active", "redeemed", "dismissed", "expired", "revoked"]),
+        startsAt: zod.iso.datetime({ offset: true }),
+        expiresAt: zod.iso.datetime({ offset: true }),
+        orderId: zod.uuid().optional(),
+        createdAt: zod.iso.datetime({ offset: true }),
+        resolvedAt: zod.iso.datetime({ offset: true }).optional(),
+      }),
+    )
+    .nullable(),
+  nextCursor: zod.string().optional(),
+});
+
+/**
+ * Requires marketing.write. Both locales are required: an offer with copy in one language renders as a blank card for half the customer base.
+ */
+export const CreatePanelOfferHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const createPanelOfferBodyTitleRuMax = 120;
+
+export const createPanelOfferBodyTitleEnMax = 120;
+
+export const createPanelOfferBodyTermsRuMax = 1000;
+
+export const createPanelOfferBodyTermsEnMax = 1000;
+
+export const CreatePanelOfferBody = zod.object({
+  customerId: zod.uuid(),
+  promotionId: zod.uuid(),
+  planId: zod.uuid().optional(),
+  titleRu: zod.string().min(1).max(createPanelOfferBodyTitleRuMax),
+  titleEn: zod.string().min(1).max(createPanelOfferBodyTitleEnMax),
+  termsRu: zod.string().max(createPanelOfferBodyTermsRuMax).optional(),
+  termsEn: zod.string().max(createPanelOfferBodyTermsEnMax).optional(),
+  startsAt: zod.iso.datetime({ offset: true }).optional(),
+  expiresAt: zod.iso.datetime({ offset: true }),
+});
+
+export const CreatePanelOfferResponse = zod.object({
+  id: zod.uuid(),
+  customerId: zod.uuid(),
+  promotionId: zod.uuid(),
+  planId: zod.uuid().optional(),
+  titleRu: zod.string(),
+  titleEn: zod.string(),
+  termsRu: zod.string().optional(),
+  termsEn: zod.string().optional(),
+  status: zod.enum(["active", "redeemed", "dismissed", "expired", "revoked"]),
+  startsAt: zod.iso.datetime({ offset: true }),
+  expiresAt: zod.iso.datetime({ offset: true }),
+  orderId: zod.uuid().optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+  resolvedAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+/**
+ * Requires marketing.write. Only an offer that has not been redeemed may be withdrawn.
+ */
+export const RevokePanelOfferParams = zod.object({
+  offerID: zod.uuid(),
+});
+
+export const RevokePanelOfferHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const RevokePanelOfferResponse = zod.void();
+
+/**
+ * Requires finance.read.
+ */
+export const searchPanelOrdersQueryPageSizeDefault = 100;
+export const searchPanelOrdersQueryPageSizeMax = 500;
+
+export const SearchPanelOrdersQueryParams = zod.object({
+  cursor: zod.string().optional(),
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(searchPanelOrdersQueryPageSizeMax)
+    .default(searchPanelOrdersQueryPageSizeDefault),
+  state: zod.string().optional(),
+  operation: zod.string().optional(),
+  customerId: zod.uuid().optional(),
+  currency: zod.string().optional(),
+  from: zod.iso.datetime({ offset: true }).optional(),
+  to: zod.iso.datetime({ offset: true }).optional(),
+});
+
+export const SearchPanelOrdersResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        state: zod.string(),
+        operation: zod.string(),
+        currency: zod.string(),
+        subtotalMinor: zod.int(),
+        discountMinor: zod.int(),
+        walletMinor: zod.int(),
+        externalMinor: zod.int(),
+        paidMinor: zod.int(),
+        refundedMinor: zod.int(),
+        customerId: zod.uuid(),
+        subscriptionId: zod.uuid().optional(),
+        createdAt: zod.iso.datetime({ offset: true }),
+        updatedAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .nullable(),
+  nextCursor: zod.string().optional(),
+});
+
+/**
+ * Requires finance.read. Payment intents with their event timeline and every refund. The raw provider payload is deliberately absent; it is reachable through the webhook diagnostics with its own permission.
+ */
+export const GetPanelOrderDetailParams = zod.object({
+  orderID: zod.uuid(),
+});
+
+export const GetPanelOrderDetailResponse = zod.object({
+  order: zod.object({
+    id: zod.uuid(),
+    state: zod.string(),
+    operation: zod.string(),
+    currency: zod.string(),
+    subtotalMinor: zod.int(),
+    discountMinor: zod.int(),
+    walletMinor: zod.int(),
+    externalMinor: zod.int(),
+    paidMinor: zod.int(),
+    refundedMinor: zod.int(),
+    customerId: zod.uuid(),
+    subscriptionId: zod.uuid().optional(),
+    createdAt: zod.iso.datetime({ offset: true }),
+    updatedAt: zod.iso.datetime({ offset: true }),
+  }),
+  intents: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        provider: zod.string(),
+        status: zod.string(),
+        amountMinor: zod.int(),
+        currency: zod.string(),
+        providerReference: zod.string().optional(),
+        createdAt: zod.iso.datetime({ offset: true }),
+        updatedAt: zod.iso.datetime({ offset: true }),
+        events: zod
+          .array(
+            zod.object({
+              type: zod.string(),
+              previousStatus: zod.string().optional(),
+              status: zod.string().optional(),
+              amountMinor: zod.int().optional(),
+              currency: zod.string().optional(),
+              occurredAt: zod.iso.datetime({ offset: true }),
+            }),
+          )
+          .nullish(),
+      }),
+    )
+    .nullable(),
+  refunds: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        paymentIntentId: zod.uuid(),
+        status: zod.string(),
+        amountMinor: zod.int(),
+        currency: zod.string(),
+        reason: zod.string(),
+        providerReference: zod.string().optional(),
+        createdAt: zod.iso.datetime({ offset: true }),
+        updatedAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .nullable(),
+});
+
+/**
+ * Requires finance.write and a reason. The refund itself is executed by the payment service against the provider's own capabilities; this records the decision and its rationale.
+ */
+export const RecordPanelRefundParams = zod.object({
+  orderID: zod.uuid(),
+});
+
+export const recordPanelRefundHeaderXOperatorReasonMax = 400;
+
+export const RecordPanelRefundHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "X-Operator-Reason": zod
+    .string()
+    .min(1)
+    .max(recordPanelRefundHeaderXOperatorReasonMax)
+    .describe(
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+    ),
+});
+
+export const RecordPanelRefundBody = zod.object({
+  refundId: zod.string().optional(),
+  amountMinor: zod.int(),
+  currency: zod.string(),
+});
+
+export const RecordPanelRefundResponse = zod.void();
+
+/**
+ * Requires finance.write. Re-polling is performed by the idempotent payment service; the panel never decides how a payment settles.
+ */
+export const ReconcilePanelPaymentParams = zod.object({
+  paymentIntentID: zod.uuid(),
+});
+
+export const ReconcilePanelPaymentHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const ReconcilePanelPaymentBody = zod.object({
+  outcome: zod.string().optional(),
+});
+
+export const ReconcilePanelPaymentResponse = zod.void();
+
+/**
+ * Requires finance.read. Intents in flight longer than any supported provider should take.
+ */
+export const listPanelStuckPaymentsQueryPageSizeDefault = 100;
+export const listPanelStuckPaymentsQueryPageSizeMax = 500;
+
+export const ListPanelStuckPaymentsQueryParams = zod.object({
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(listPanelStuckPaymentsQueryPageSizeMax)
+    .default(listPanelStuckPaymentsQueryPageSizeDefault),
+});
+
+export const ListPanelStuckPaymentsResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        orderId: zod.uuid(),
+        customerId: zod.uuid(),
+        operation: zod.string(),
+        provider: zod.string(),
+        status: zod.string(),
+        amountMinor: zod.int(),
+        currency: zod.string(),
+        updatedAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .nullable(),
+});
+
+/**
+ * Requires finance.read. A review surface: a failed charge retries on its own bounded schedule and nothing here re-triggers one.
+ */
+export const listPanelFailedChargesQueryPageSizeDefault = 100;
+export const listPanelFailedChargesQueryPageSizeMax = 500;
+
+export const ListPanelFailedChargesQueryParams = zod.object({
+  cursor: zod.string().optional(),
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(listPanelFailedChargesQueryPageSizeMax)
+    .default(listPanelFailedChargesQueryPageSizeDefault),
+});
+
+export const ListPanelFailedChargesResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        customerId: zod.uuid(),
+        subscriptionId: zod.uuid().optional(),
+        cycleKey: zod.string(),
+        attempt: zod.int(),
+        funding: zod.enum(["wallet", "saved_method"]),
+        outcome: zod.enum(["scheduled", "succeeded", "failed", "abandoned"]),
+        failureCode: zod.string().optional(),
+        orderId: zod.uuid().optional(),
+        scheduledFor: zod.iso.datetime({ offset: true }),
+        occurredAt: zod.iso.datetime({ offset: true }).optional(),
+        notifiedAt: zod.iso.datetime({ offset: true }).optional(),
+        createdAt: zod.iso.datetime({ offset: true }),
+        customerStatus: zod.string().optional(),
+      }),
+    )
+    .nullable(),
+  nextCursor: zod.string().optional(),
+});
+
+/**
+ * Requires finance.read. Streams the filtered orders as CSV. The schema is stable — a later version appends a column and never inserts one. Amounts are integers in the currency's minor unit and every timestamp is UTC.
+ */
+export const ExportPanelFinanceQueryParams = zod.object({
+  state: zod.string().optional(),
+  from: zod.iso.datetime({ offset: true }).optional(),
+  to: zod.iso.datetime({ offset: true }).optional(),
+});
+
+export const ExportPanelFinanceResponse = zod.unknown();
+
+/**
+ * Requires system.read. Filtering on the failed status is the dead-letter view. The error code is a classification, never a provider message.
+ */
+export const searchPanelFulfillmentQueryPageSizeDefault = 100;
+export const searchPanelFulfillmentQueryPageSizeMax = 500;
+
+export const SearchPanelFulfillmentQueryParams = zod.object({
+  cursor: zod.string().optional(),
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(searchPanelFulfillmentQueryPageSizeMax)
+    .default(searchPanelFulfillmentQueryPageSizeDefault),
+  status: zod.string().optional(),
+  operation: zod.string().optional(),
+  entitlementId: zod.uuid().optional(),
+});
+
+export const SearchPanelFulfillmentResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        entitlementId: zod.uuid(),
+        customerId: zod.uuid().optional(),
+        subscriptionId: zod.uuid().optional(),
+        operation: zod.string(),
+        status: zod.string(),
+        attemptCount: zod.int(),
+        nextAttemptAt: zod.iso.datetime({ offset: true }),
+        lastErrorCode: zod
+          .string()
+          .optional()
+          .describe("A classification, never a provider message."),
+        correlationId: zod.string(),
+        createdAt: zod.iso.datetime({ offset: true }),
+        completedAt: zod.iso.datetime({ offset: true }).optional(),
+      }),
+    )
+    .nullable(),
+  nextCursor: zod.string().optional(),
+});
+
+/**
+ * Requires system.read. Status, correlation, and error classification only: the stored request and response summaries can carry a subscription link and are not returned.
+ */
+export const GetPanelFulfillmentHistoryParams = zod.object({
+  operationID: zod.uuid(),
+});
+
+export const GetPanelFulfillmentHistoryResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        status: zod.string(),
+        correlationId: zod.string(),
+        errorCode: zod.string().optional(),
+        occurredAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .nullable(),
+});
+
+/**
+ * Requires system.write. The retry keeps the operation's idempotency key, so the worker still performs it exactly once. A succeeded operation is not retryable.
+ */
+export const RetryPanelFulfillmentParams = zod.object({
+  operationID: zod.uuid(),
+});
+
+export const RetryPanelFulfillmentHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const RetryPanelFulfillmentResponse = zod.object({
+  id: zod.uuid(),
+  entitlementId: zod.uuid(),
+  customerId: zod.uuid().optional(),
+  subscriptionId: zod.uuid().optional(),
+  operation: zod.string(),
+  status: zod.string(),
+  attemptCount: zod.int(),
+  nextAttemptAt: zod.iso.datetime({ offset: true }),
+  lastErrorCode: zod.string().optional().describe("A classification, never a provider message."),
+  correlationId: zod.string(),
+  createdAt: zod.iso.datetime({ offset: true }),
+  completedAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+/**
+ * Requires system.write. A completed provisioning cannot be retracted.
+ */
+export const CancelPanelFulfillmentParams = zod.object({
+  operationID: zod.uuid(),
+});
+
+export const CancelPanelFulfillmentHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const CancelPanelFulfillmentResponse = zod.void();
+
+/**
+ * Requires system.read. The raw body is not returned: it can contain a provider payload, and "did this arrive and was it accepted" needs only the status.
+ */
+export const searchPanelWebhooksQueryPageSizeDefault = 100;
+export const searchPanelWebhooksQueryPageSizeMax = 500;
+
+export const SearchPanelWebhooksQueryParams = zod.object({
+  cursor: zod.string().optional(),
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(searchPanelWebhooksQueryPageSizeMax)
+    .default(searchPanelWebhooksQueryPageSizeDefault),
+  provider: zod.string().optional(),
+  status: zod.string().optional(),
+});
+
+export const SearchPanelWebhooksResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        provider: zod.string(),
+        providerEventId: zod.string(),
+        signatureValid: zod.boolean(),
+        status: zod.string(),
+        errorCode: zod.string().optional(),
+        receivedAt: zod.iso.datetime({ offset: true }),
+        processedAt: zod.iso.datetime({ offset: true }).optional(),
+        retainUntil: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .nullable(),
+  nextCursor: zod.string().optional(),
+});
+
+/**
+ * Requires system.write. Only a failed or ignored event may be replayed. Reprocessing is keyed on the provider event identifier, so a second pass reaches the same terminal state instead of applying twice.
+ */
+export const ReplayPanelWebhookParams = zod.object({
+  eventID: zod.uuid(),
+});
+
+export const ReplayPanelWebhookHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const ReplayPanelWebhookResponse = zod.void();
+
+/**
+ * Requires system.read. Unresolved differences between Omniflow and Remnawave.
+ */
+export const listPanelDriftQueryPageSizeDefault = 100;
+export const listPanelDriftQueryPageSizeMax = 500;
+
+export const ListPanelDriftQueryParams = zod.object({
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(listPanelDriftQueryPageSizeMax)
+    .default(listPanelDriftQueryPageSizeDefault),
+});
+
+export const ListPanelDriftResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        entitlementId: zod.uuid(),
+        customerId: zod.uuid().optional(),
+        subscriptionId: zod.uuid().optional(),
+        remnawaveUserId: zod.int().optional(),
+        kind: zod.string(),
+        expected: zod.record(zod.string(), zod.unknown()).optional(),
+        observed: zod.record(zod.string(), zod.unknown()).optional(),
+        detectedAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .nullable(),
+});
+
+/**
+ * Requires system.read. Topic and age only: an outbox payload is a domain event that can name a customer and an amount.
+ */
+export const listPanelOutboxQueryPageSizeDefault = 100;
+export const listPanelOutboxQueryPageSizeMax = 500;
+
+export const ListPanelOutboxQueryParams = zod.object({
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(listPanelOutboxQueryPageSizeMax)
+    .default(listPanelOutboxQueryPageSizeDefault),
+});
+
+export const ListPanelOutboxResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        topic: zod.string(),
+        occurredAt: zod.iso.datetime({ offset: true }),
+        ageSeconds: zod.int(),
+      }),
+    )
+    .nullable(),
+});
+
+/**
+ * Requires settings.read.
+ */
+
+export const getPanelCommerceSettingsResponseTopUpWindowLimitMinorMin = 0;
+
+export const GetPanelCommerceSettingsResponse = zod.object({
+  topUp: zod.object({
+    enabled: zod.boolean(),
+    currency: zod.string(),
+    presetsMinor: zod
+      .array(zod.int())
+      .nullish()
+      .describe("Offered as buttons. Free entry stays available whatever this contains."),
+    minimumMinor: zod.int().min(1),
+    maximumMinor: zod.int().min(1),
+    windowSeconds: zod.int().min(1),
+    windowLimitMinor: zod.int().min(getPanelCommerceSettingsResponseTopUpWindowLimitMinorMin),
+  }),
+  subscriptions: zod.object({
+    multiEnabled: zod.boolean(),
+    maxPerCustomer: zod.int().min(1),
+  }),
+  updatedAt: zod.iso.datetime({ offset: true }),
+  updatedBy: zod.uuid().optional(),
+});
+
+/**
+ * Requires settings.write. A preset outside the limits is a button that always fails.
+ */
+export const SavePanelTopUpSettingsHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const savePanelTopUpSettingsBodyWindowLimitMinorMin = 0;
+
+export const SavePanelTopUpSettingsBody = zod.object({
+  enabled: zod.boolean(),
+  currency: zod.string(),
+  presetsMinor: zod
+    .array(zod.int())
+    .nullish()
+    .describe("Offered as buttons. Free entry stays available whatever this contains."),
+  minimumMinor: zod.int().min(1),
+  maximumMinor: zod.int().min(1),
+  windowSeconds: zod.int().min(1),
+  windowLimitMinor: zod.int().min(savePanelTopUpSettingsBodyWindowLimitMinorMin),
+});
+
+export const savePanelTopUpSettingsResponseTopUpWindowLimitMinorMin = 0;
+
+export const SavePanelTopUpSettingsResponse = zod.object({
+  topUp: zod.object({
+    enabled: zod.boolean(),
+    currency: zod.string(),
+    presetsMinor: zod
+      .array(zod.int())
+      .nullish()
+      .describe("Offered as buttons. Free entry stays available whatever this contains."),
+    minimumMinor: zod.int().min(1),
+    maximumMinor: zod.int().min(1),
+    windowSeconds: zod.int().min(1),
+    windowLimitMinor: zod.int().min(savePanelTopUpSettingsResponseTopUpWindowLimitMinorMin),
+  }),
+  subscriptions: zod.object({
+    multiEnabled: zod.boolean(),
+    maxPerCustomer: zod.int().min(1),
+  }),
+  updatedAt: zod.iso.datetime({ offset: true }),
+  updatedBy: zod.uuid().optional(),
+});
+
+/**
+ * Requires settings.write. Turning concurrency off closes nothing: customers who already hold several keep them.
+ */
+export const SavePanelSubscriptionSettingsHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const SavePanelSubscriptionSettingsBody = zod.object({
+  multiEnabled: zod.boolean(),
+  maxPerCustomer: zod.int().min(1),
+});
+
+export const savePanelSubscriptionSettingsResponseTopUpWindowLimitMinorMin = 0;
+
+export const SavePanelSubscriptionSettingsResponse = zod.object({
+  topUp: zod.object({
+    enabled: zod.boolean(),
+    currency: zod.string(),
+    presetsMinor: zod
+      .array(zod.int())
+      .nullish()
+      .describe("Offered as buttons. Free entry stays available whatever this contains."),
+    minimumMinor: zod.int().min(1),
+    maximumMinor: zod.int().min(1),
+    windowSeconds: zod.int().min(1),
+    windowLimitMinor: zod.int().min(savePanelSubscriptionSettingsResponseTopUpWindowLimitMinorMin),
+  }),
+  subscriptions: zod.object({
+    multiEnabled: zod.boolean(),
+    maxPerCustomer: zod.int().min(1),
+  }),
+  updatedAt: zod.iso.datetime({ offset: true }),
+  updatedBy: zod.uuid().optional(),
+});
+
+/**
+ * Requires settings.read. Reports what the operator configured beside what each compiled-in adapter declares. No secret is ever returned; the `credentialsSet` flags report only whether one is stored.
+ */
+export const ListPanelProviderSettingsResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        provider: zod.string(),
+        merchantId: zod.string(),
+        enabled: zod.boolean(),
+        displayOrder: zod.int(),
+        credentialsSet: zod
+          .boolean()
+          .describe("Whether a credential is stored. The credential itself is never returned."),
+        webhookSecretSet: zod.boolean(),
+        adapterRecurring: zod
+          .boolean()
+          .describe(
+            "What the compiled-in adapter declares. The operator switch can only narrow this.",
+          ),
+        recurringEnabled: zod.boolean(),
+        recurringTestStatus: zod.enum(["untested", "passed", "failed"]),
+        recurringTestedAt: zod.iso.datetime({ offset: true }).optional(),
+        connectionStatus: zod.enum(["unknown", "healthy", "failing"]),
+        connectionCheckedAt: zod.iso.datetime({ offset: true }).optional(),
+        connectionErrorCode: zod.string().optional(),
+        webhookStatus: zod.enum(["unknown", "healthy", "failing"]),
+        webhookLastEventAt: zod.iso.datetime({ offset: true }).optional(),
+        webhookLastErrorCode: zod.string().optional(),
+        updatedAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .nullable(),
+  adapters: zod.record(zod.string(), zod.boolean()).optional(),
+});
+
+/**
+ * Requires settings.write. A null credential means "keep what is stored", so the form can be re-saved without echoing a secret. Recurring is not writable here.
+ */
+export const SavePanelProviderSettingsParams = zod.object({
+  provider: zod.string(),
+});
+
+export const SavePanelProviderSettingsHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const SavePanelProviderSettingsBody = zod.object({
+  merchantId: zod
+    .string()
+    .optional()
+    .describe("Empty for an installation with a single merchant account."),
+  enabled: zod.boolean(),
+  displayOrder: zod.int(),
+  credentials: zod.string().nullish().describe("Omit or send null to keep the stored credential."),
+  webhookSecret: zod.string().nullish(),
+});
+
+export const SavePanelProviderSettingsResponse = zod.object({
+  provider: zod.string(),
+  merchantId: zod.string(),
+  enabled: zod.boolean(),
+  displayOrder: zod.int(),
+  credentialsSet: zod
+    .boolean()
+    .describe("Whether a credential is stored. The credential itself is never returned."),
+  webhookSecretSet: zod.boolean(),
+  adapterRecurring: zod
+    .boolean()
+    .describe("What the compiled-in adapter declares. The operator switch can only narrow this."),
+  recurringEnabled: zod.boolean(),
+  recurringTestStatus: zod.enum(["untested", "passed", "failed"]),
+  recurringTestedAt: zod.iso.datetime({ offset: true }).optional(),
+  connectionStatus: zod.enum(["unknown", "healthy", "failing"]),
+  connectionCheckedAt: zod.iso.datetime({ offset: true }).optional(),
+  connectionErrorCode: zod.string().optional(),
+  webhookStatus: zod.enum(["unknown", "healthy", "failing"]),
+  webhookLastEventAt: zod.iso.datetime({ offset: true }).optional(),
+  webhookLastErrorCode: zod.string().optional(),
+  updatedAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Requires settings.write. Records a capability test and, only on a pass, may enable automatic charging. Refused for an adapter that cannot bind a payment method, whatever the test reported.
+ */
+export const ConfigurePanelRecurringParams = zod.object({
+  provider: zod.string(),
+});
+
+export const ConfigurePanelRecurringHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const ConfigurePanelRecurringBody = zod.object({
+  merchantId: zod.string().optional(),
+  passed: zod.boolean(),
+  enable: zod
+    .boolean()
+    .describe(
+      "Only honoured alongside a passing test and an adapter that declares the capability.",
+    ),
+});
+
+export const ConfigurePanelRecurringResponse = zod.object({
+  provider: zod.string(),
+  merchantId: zod.string(),
+  enabled: zod.boolean(),
+  displayOrder: zod.int(),
+  credentialsSet: zod
+    .boolean()
+    .describe("Whether a credential is stored. The credential itself is never returned."),
+  webhookSecretSet: zod.boolean(),
+  adapterRecurring: zod
+    .boolean()
+    .describe("What the compiled-in adapter declares. The operator switch can only narrow this."),
+  recurringEnabled: zod.boolean(),
+  recurringTestStatus: zod.enum(["untested", "passed", "failed"]),
+  recurringTestedAt: zod.iso.datetime({ offset: true }).optional(),
+  connectionStatus: zod.enum(["unknown", "healthy", "failing"]),
+  connectionCheckedAt: zod.iso.datetime({ offset: true }).optional(),
+  connectionErrorCode: zod.string().optional(),
+  webhookStatus: zod.enum(["unknown", "healthy", "failing"]),
+  webhookLastEventAt: zod.iso.datetime({ offset: true }).optional(),
+  webhookLastErrorCode: zod.string().optional(),
+  updatedAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Requires risk.read. The stored authorization header is never returned.
+ */
+export const ListPanelBlocklistSourcesResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        slug: zod.string(),
+        displayName: zod.string(),
+        subjectKind: zod.enum(["telegram_id", "email", "username"]),
+        url: zod.string(),
+        authConfigured: zod.boolean(),
+        enabled: zod.boolean(),
+        refreshIntervalSeconds: zod.int(),
+        entryCount: zod.int(),
+        status: zod.enum(["pending", "healthy", "failing"]),
+        lastErrorCode: zod.string().optional(),
+        lastRefreshAt: zod.iso.datetime({ offset: true }).optional(),
+        nextRefreshAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .nullable(),
+});
+
+/**
+ * Requires risk.write. The URL must be HTTPS: plain HTTP would let anyone on the path decide who this installation refuses to serve.
+ */
+export const SavePanelBlocklistSourceHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const savePanelBlocklistSourceBodyUrlRegExp = /^https:\//;
+export const savePanelBlocklistSourceBodyRefreshIntervalSecondsMin = 300;
+
+export const SavePanelBlocklistSourceBody = zod.object({
+  slug: zod.string(),
+  displayName: zod.string(),
+  subjectKind: zod.enum(["telegram_id", "email", "username"]),
+  url: zod.string().regex(savePanelBlocklistSourceBodyUrlRegExp),
+  authHeader: zod.string().nullish().describe("Omit or send null to keep the stored credential."),
+  enabled: zod.boolean(),
+  refreshIntervalSeconds: zod.int().min(savePanelBlocklistSourceBodyRefreshIntervalSecondsMin),
+});
+
+export const SavePanelBlocklistSourceResponse = zod.object({
+  id: zod.uuid(),
+  slug: zod.string(),
+  displayName: zod.string(),
+  subjectKind: zod.enum(["telegram_id", "email", "username"]),
+  url: zod.string(),
+  authConfigured: zod.boolean(),
+  enabled: zod.boolean(),
+  refreshIntervalSeconds: zod.int(),
+  entryCount: zod.int(),
+  status: zod.enum(["pending", "healthy", "failing"]),
+  lastErrorCode: zod.string().optional(),
+  lastRefreshAt: zod.iso.datetime({ offset: true }).optional(),
+  nextRefreshAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Requires risk.write. Removes the source, its entries, and the matches it produced.
+ */
+export const DeletePanelBlocklistSourceParams = zod.object({
+  sourceID: zod.uuid(),
+});
+
+export const DeletePanelBlocklistSourceHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const DeletePanelBlocklistSourceResponse = zod.void();
+
+/**
+ * Requires risk.read. The review queue.
+ */
+export const searchPanelBlocklistMatchesQueryPageSizeDefault = 100;
+export const searchPanelBlocklistMatchesQueryPageSizeMax = 500;
+
+export const SearchPanelBlocklistMatchesQueryParams = zod.object({
+  cursor: zod.string().optional(),
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(searchPanelBlocklistMatchesQueryPageSizeMax)
+    .default(searchPanelBlocklistMatchesQueryPageSizeDefault),
+  status: zod.enum(["open", "allowed", "blocked", "appealed"]).optional(),
+  customerId: zod.uuid().optional(),
+});
+
+export const SearchPanelBlocklistMatchesResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        customerId: zod.uuid(),
+        sourceId: zod.uuid(),
+        sourceSlug: zod.string().optional(),
+        sourceName: zod.string().optional(),
+        subjectKind: zod.enum(["telegram_id", "email", "username"]),
+        status: zod.enum(["open", "allowed", "blocked", "appealed"]),
+        decisionReason: zod.string().optional(),
+        decidedBy: zod.uuid().optional(),
+        detectedAt: zod.iso.datetime({ offset: true }),
+        decidedAt: zod.iso.datetime({ offset: true }).optional(),
+      }),
+    )
+    .nullable(),
+  nextCursor: zod.string().optional(),
+});
+
+/**
+ * Requires risk.write and a reason. Recording a decision does not suspend anybody: the adverse action is a separate customer mutation with its own permission and audit event.
+ */
+export const DecidePanelBlocklistMatchParams = zod.object({
+  matchID: zod.uuid(),
+});
+
+export const decidePanelBlocklistMatchHeaderXOperatorReasonMax = 400;
+
+export const DecidePanelBlocklistMatchHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "X-Operator-Reason": zod
+    .string()
+    .min(1)
+    .max(decidePanelBlocklistMatchHeaderXOperatorReasonMax)
+    .describe(
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+    ),
+});
+
+export const DecidePanelBlocklistMatchBody = zod.object({
+  decision: zod.enum(["allowed", "blocked"]),
+});
+
+export const DecidePanelBlocklistMatchResponse = zod.object({
+  id: zod.uuid(),
+  customerId: zod.uuid(),
+  sourceId: zod.uuid(),
+  sourceSlug: zod.string().optional(),
+  sourceName: zod.string().optional(),
+  subjectKind: zod.enum(["telegram_id", "email", "username"]),
+  status: zod.enum(["open", "allowed", "blocked", "appealed"]),
+  decisionReason: zod.string().optional(),
+  decidedBy: zod.uuid().optional(),
+  detectedAt: zod.iso.datetime({ offset: true }),
+  decidedAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+/**
+ * Requires risk.write and a reason. Returns a blocked match to the review queue.
+ */
+export const AppealPanelBlocklistMatchParams = zod.object({
+  matchID: zod.uuid(),
+});
+
+export const appealPanelBlocklistMatchHeaderXOperatorReasonMax = 400;
+
+export const AppealPanelBlocklistMatchHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "X-Operator-Reason": zod
+    .string()
+    .min(1)
+    .max(appealPanelBlocklistMatchHeaderXOperatorReasonMax)
+    .describe(
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+    ),
+});
+
+export const AppealPanelBlocklistMatchResponse = zod.void();
+
+/**
+ * Requires risk.read. Thresholds are in each metric's own unit.
+ */
+export const listPanelAnomalyRulesResponseItemsItemWindowSecondsMin = 300;
+
+export const listPanelAnomalyRulesResponseItemsItemMinimumSampleMin = 0;
+
+export const ListPanelAnomalyRulesResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        metric: zod.enum(["traffic", "purchase", "refund", "referral"]),
+        enabled: zod.boolean(),
+        windowSeconds: zod.int().min(listPanelAnomalyRulesResponseItemsItemWindowSecondsMin),
+        warnThreshold: zod
+          .int()
+          .min(1)
+          .describe("In the metric's own unit: bytes, minor units, or a count."),
+        alertThreshold: zod.int().min(1),
+        minimumSample: zod.int().min(listPanelAnomalyRulesResponseItemsItemMinimumSampleMin),
+        updatedAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .nullable(),
+});
+
+/**
+ * Requires risk.write. A rule that would be skipped at evaluation time — no window, or an alert threshold below the warning — is refused here instead.
+ */
+export const SavePanelAnomalyRuleParams = zod.object({
+  metric: zod.enum(["traffic", "purchase", "refund", "referral"]),
+});
+
+export const SavePanelAnomalyRuleHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const savePanelAnomalyRuleBodyWindowSecondsMin = 300;
+
+export const savePanelAnomalyRuleBodyMinimumSampleMin = 0;
+
+export const SavePanelAnomalyRuleBody = zod.object({
+  enabled: zod.boolean(),
+  windowSeconds: zod.int().min(savePanelAnomalyRuleBodyWindowSecondsMin),
+  warnThreshold: zod.int().min(1),
+  alertThreshold: zod.int().min(1),
+  minimumSample: zod.int().min(savePanelAnomalyRuleBodyMinimumSampleMin),
+});
+
+export const savePanelAnomalyRuleResponseWindowSecondsMin = 300;
+
+export const savePanelAnomalyRuleResponseMinimumSampleMin = 0;
+
+export const SavePanelAnomalyRuleResponse = zod.object({
+  metric: zod.enum(["traffic", "purchase", "refund", "referral"]),
+  enabled: zod.boolean(),
+  windowSeconds: zod.int().min(savePanelAnomalyRuleResponseWindowSecondsMin),
+  warnThreshold: zod
+    .int()
+    .min(1)
+    .describe("In the metric's own unit: bytes, minor units, or a count."),
+  alertThreshold: zod.int().min(1),
+  minimumSample: zod.int().min(savePanelAnomalyRuleResponseMinimumSampleMin),
+  updatedAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Requires risk.read. Evidence carries the aggregate numbers that produced the signal and never customer content.
+ */
+export const searchPanelAnomaliesQueryPageSizeDefault = 100;
+export const searchPanelAnomaliesQueryPageSizeMax = 500;
+
+export const SearchPanelAnomaliesQueryParams = zod.object({
+  cursor: zod.string().optional(),
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(searchPanelAnomaliesQueryPageSizeMax)
+    .default(searchPanelAnomaliesQueryPageSizeDefault),
+  status: zod.enum(["open", "acknowledged", "dismissed"]).optional(),
+  metric: zod.enum(["traffic", "purchase", "refund", "referral"]).optional(),
+  severity: zod.enum(["warning", "alert"]).optional(),
+});
+
+export const SearchPanelAnomaliesResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        metric: zod.enum(["traffic", "purchase", "refund", "referral"]),
+        severity: zod.enum(["warning", "alert"]),
+        subjectType: zod.enum(["installation", "customer", "plan", "provider"]),
+        subjectId: zod.string(),
+        observed: zod.int(),
+        threshold: zod.int(),
+        sampleSize: zod.int(),
+        windowStart: zod.iso.datetime({ offset: true }),
+        windowEnd: zod.iso.datetime({ offset: true }),
+        evidence: zod
+          .record(zod.string(), zod.unknown())
+          .optional()
+          .describe("Aggregate numbers only — never a message body, link, token, or address."),
+        status: zod.enum(["open", "acknowledged", "dismissed"]),
+        reviewedBy: zod.uuid().optional(),
+        reviewReason: zod.string().optional(),
+        detectedAt: zod.iso.datetime({ offset: true }),
+        reviewedAt: zod.iso.datetime({ offset: true }).optional(),
+      }),
+    )
+    .nullable(),
+  nextCursor: zod.string().optional(),
+});
+
+/**
+ * Requires risk.write. Reviewing a signal changes nothing about the customer it names, which is what makes automated detection safe to run.
+ */
+export const ReviewPanelAnomalyParams = zod.object({
+  signalID: zod.uuid(),
+});
+
+export const reviewPanelAnomalyHeaderXOperatorReasonMax = 400;
+
+export const ReviewPanelAnomalyHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "X-Operator-Reason": zod
+    .string()
+    .min(1)
+    .max(reviewPanelAnomalyHeaderXOperatorReasonMax)
+    .describe(
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+    ),
+});
+
+export const ReviewPanelAnomalyBody = zod.object({
+  status: zod.enum(["acknowledged", "dismissed"]),
+});
+
+export const ReviewPanelAnomalyResponse = zod.object({
+  id: zod.uuid(),
+  metric: zod.enum(["traffic", "purchase", "refund", "referral"]),
+  severity: zod.enum(["warning", "alert"]),
+  subjectType: zod.enum(["installation", "customer", "plan", "provider"]),
+  subjectId: zod.string(),
+  observed: zod.int(),
+  threshold: zod.int(),
+  sampleSize: zod.int(),
+  windowStart: zod.iso.datetime({ offset: true }),
+  windowEnd: zod.iso.datetime({ offset: true }),
+  evidence: zod
+    .record(zod.string(), zod.unknown())
+    .optional()
+    .describe("Aggregate numbers only — never a message body, link, token, or address."),
+  status: zod.enum(["open", "acknowledged", "dismissed"]),
+  reviewedBy: zod.uuid().optional(),
+  reviewReason: zod.string().optional(),
+  detectedAt: zod.iso.datetime({ offset: true }),
+  reviewedAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+/**
+ * Requires gifts.read. Only the digest of a claim code is stored; the four characters returned as a hint identify a gift without redeeming it.
+ */
+export const searchPanelGiftsQueryPageSizeDefault = 100;
+export const searchPanelGiftsQueryPageSizeMax = 500;
+
+export const SearchPanelGiftsQueryParams = zod.object({
+  cursor: zod.string().optional(),
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(searchPanelGiftsQueryPageSizeMax)
+    .default(searchPanelGiftsQueryPageSizeDefault),
+  status: zod
+    .enum(["pending", "deliverable", "claimed", "expired", "revoked", "refunded"])
+    .optional(),
+  kind: zod.enum(["subscription", "addon", "wallet_credit"]).optional(),
+  senderId: zod.uuid().optional(),
+});
+
+export const SearchPanelGiftsResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        orderId: zod.uuid(),
+        senderId: zod.uuid(),
+        recipientId: zod.uuid().optional(),
+        kind: zod.enum(["subscription", "addon", "wallet_credit"]),
+        currency: zod.string(),
+        creditMinor: zod.int().optional(),
+        codeHint: zod
+          .string()
+          .describe(
+            "The last four characters of the claim code. The code itself is stored only as a digest.",
+          ),
+        status: zod.enum(["pending", "deliverable", "claimed", "expired", "revoked", "refunded"]),
+        claimAttempts: zod.int(),
+        expiresAt: zod.iso.datetime({ offset: true }),
+        claimedAt: zod.iso.datetime({ offset: true }).optional(),
+        revokedAt: zod.iso.datetime({ offset: true }).optional(),
+        revokeReason: zod.string().optional(),
+        createdAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .nullable(),
+  nextCursor: zod.string().optional(),
+  totals: zod.record(zod.string(), zod.int()).optional(),
+});
+
+/**
+ * Requires gifts.write and a reason. A claimed gift is not revocable: the recipient already holds what it bought, and taking that back is a refund decision against their entitlement.
+ */
+export const RevokePanelGiftParams = zod.object({
+  giftID: zod.uuid(),
+});
+
+export const revokePanelGiftHeaderXOperatorReasonMax = 400;
+
+export const RevokePanelGiftHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "X-Operator-Reason": zod
+    .string()
+    .min(1)
+    .max(revokePanelGiftHeaderXOperatorReasonMax)
+    .describe(
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+    ),
+});
+
+export const RevokePanelGiftResponse = zod.object({
+  id: zod.uuid(),
+  orderId: zod.uuid(),
+  senderId: zod.uuid(),
+  recipientId: zod.uuid().optional(),
+  kind: zod.enum(["subscription", "addon", "wallet_credit"]),
+  currency: zod.string(),
+  creditMinor: zod.int().optional(),
+  codeHint: zod
+    .string()
+    .describe(
+      "The last four characters of the claim code. The code itself is stored only as a digest.",
+    ),
+  status: zod.enum(["pending", "deliverable", "claimed", "expired", "revoked", "refunded"]),
+  claimAttempts: zod.int(),
+  expiresAt: zod.iso.datetime({ offset: true }),
+  claimedAt: zod.iso.datetime({ offset: true }).optional(),
+  revokedAt: zod.iso.datetime({ offset: true }).optional(),
+  revokeReason: zod.string().optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Requires gifts.write. Only a gift that was never redeemed qualifies, which is what stops a sender being refunded while the recipient keeps the entitlement.
+ */
+export const RefundPanelGiftParams = zod.object({
+  giftID: zod.uuid(),
+});
+
+export const RefundPanelGiftHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const RefundPanelGiftResponse = zod.void();
+
+/**
+ * Requires goods.read. The credential is never returned; the balance and the low-balance flag are, because a shop that sells past an exhausted balance produces paid orders that can only be refunded.
+ */
+export const ListPanelGoodsProvidersResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        slug: zod.string(),
+        enabled: zod.boolean(),
+        credentialsSet: zod.boolean(),
+        balanceMinor: zod.int().optional(),
+        balanceCurrency: zod.string().optional(),
+        lowBalanceThresholdMinor: zod.int().optional(),
+        spendLimitMinor: zod
+          .int()
+          .describe("Rolling ceiling in provider cost. Zero means no ceiling."),
+        spendWindowSeconds: zod.int(),
+        status: zod.enum(["unknown", "healthy", "failing"]),
+        lastErrorCode: zod.string().optional(),
+        lastCheckedAt: zod.iso.datetime({ offset: true }).optional(),
+        lowBalance: zod
+          .boolean()
+          .describe("Derived from the balance and the threshold, so it cannot contradict them."),
+      }),
+    )
+    .nullable(),
+});
+
+/**
+ * Requires goods.write. A null credential means "keep what is stored".
+ */
+export const SavePanelGoodsProviderParams = zod.object({
+  slug: zod.string(),
+});
+
+export const SavePanelGoodsProviderHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const savePanelGoodsProviderBodySpendLimitMinorMin = 0;
+
+export const SavePanelGoodsProviderBody = zod.object({
+  enabled: zod.boolean(),
+  credentials: zod.string().nullish().describe("Omit or send null to keep the stored credential."),
+  lowBalanceThresholdMinor: zod.int().nullish(),
+  spendLimitMinor: zod.int().min(savePanelGoodsProviderBodySpendLimitMinorMin),
+  spendWindowSeconds: zod.int().min(1),
+});
+
+export const SavePanelGoodsProviderResponse = zod.object({
+  slug: zod.string(),
+  enabled: zod.boolean(),
+  credentialsSet: zod.boolean(),
+  balanceMinor: zod.int().optional(),
+  balanceCurrency: zod.string().optional(),
+  lowBalanceThresholdMinor: zod.int().optional(),
+  spendLimitMinor: zod.int().describe("Rolling ceiling in provider cost. Zero means no ceiling."),
+  spendWindowSeconds: zod.int(),
+  status: zod.enum(["unknown", "healthy", "failing"]),
+  lastErrorCode: zod.string().optional(),
+  lastCheckedAt: zod.iso.datetime({ offset: true }).optional(),
+  lowBalance: zod
+    .boolean()
+    .describe("Derived from the balance and the threshold, so it cannot contradict them."),
+});
+
+/**
+ * Requires goods.read.
+ */
+export const listPanelGoodsProductsQueryIncludeArchivedDefault = false;
+
+export const ListPanelGoodsProductsQueryParams = zod.object({
+  includeArchived: zod.boolean().default(listPanelGoodsProductsQueryIncludeArchivedDefault),
+});
+
+export const listPanelGoodsProductsResponseItemsItemLocalizationsNameMax = 120;
+
+export const listPanelGoodsProductsResponseItemsItemLocalizationsDescriptionMax = 2000;
+
+export const listPanelGoodsProductsResponseItemsItemPricingMarkupBpsMin = 0;
+export const listPanelGoodsProductsResponseItemsItemPricingMarkupBpsMax = 100000;
+
+export const listPanelGoodsProductsResponseItemsItemPricingQuoteTtlSecondsMin = 30;
+export const listPanelGoodsProductsResponseItemsItemPricingQuoteTtlSecondsMax = 3600;
+
+export const ListPanelGoodsProductsResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        code: zod.string(),
+        providerSlug: zod.string(),
+        kind: zod.enum(["telegram_premium", "telegram_stars"]),
+        durationMonths: zod.int().optional(),
+        starQuantity: zod.int().optional(),
+        visible: zod.boolean(),
+        sortOrder: zod.int(),
+        createdAt: zod.iso.datetime({ offset: true }),
+        archivedAt: zod.iso.datetime({ offset: true }).optional(),
+        localizations: zod
+          .record(
+            zod.string(),
+            zod.object({
+              name: zod
+                .string()
+                .min(1)
+                .max(listPanelGoodsProductsResponseItemsItemLocalizationsNameMax),
+              description: zod
+                .string()
+                .max(listPanelGoodsProductsResponseItemsItemLocalizationsDescriptionMax)
+                .optional(),
+            }),
+          )
+          .optional(),
+        pricing: zod
+          .object({
+            currency: zod.string(),
+            markupBps: zod
+              .int()
+              .min(listPanelGoodsProductsResponseItemsItemPricingMarkupBpsMin)
+              .max(listPanelGoodsProductsResponseItemsItemPricingMarkupBpsMax),
+            rounding: zod.enum(["none", "up_minor", "up_unit", "up_ten_units", "up_hundred_units"]),
+            fixedAmountMinor: zod
+              .int()
+              .nullish()
+              .describe("Opts out of markup derivation entirely."),
+            quoteTtlSeconds: zod
+              .int()
+              .min(listPanelGoodsProductsResponseItemsItemPricingQuoteTtlSecondsMin)
+              .max(listPanelGoodsProductsResponseItemsItemPricingQuoteTtlSecondsMax),
+            updatedAt: zod.iso.datetime({ offset: true }).optional(),
+          })
+          .optional(),
+      }),
+    )
+    .nullable(),
+});
+
+/**
+ * Requires goods.write. Premium is sold by duration and Stars by quantity; each kind carries exactly the one that applies to it.
+ */
+export const CreatePanelGoodsProductHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const createPanelGoodsProductBodyCodeRegExp = /^[a-z][a-z0-9_-]{1,63}$/;
+
+export const CreatePanelGoodsProductBody = zod.object({
+  code: zod.string().regex(createPanelGoodsProductBodyCodeRegExp),
+  providerSlug: zod.string(),
+  kind: zod.enum(["telegram_premium", "telegram_stars"]),
+  durationMonths: zod.union([zod.literal(3), zod.literal(6), zod.literal(12)]).optional(),
+  starQuantity: zod.int().min(1).optional(),
+  visible: zod.boolean(),
+  sortOrder: zod.int(),
+});
+
+export const createPanelGoodsProductResponseLocalizationsNameMax = 120;
+
+export const createPanelGoodsProductResponseLocalizationsDescriptionMax = 2000;
+
+export const createPanelGoodsProductResponsePricingMarkupBpsMin = 0;
+export const createPanelGoodsProductResponsePricingMarkupBpsMax = 100000;
+
+export const createPanelGoodsProductResponsePricingQuoteTtlSecondsMin = 30;
+export const createPanelGoodsProductResponsePricingQuoteTtlSecondsMax = 3600;
+
+export const CreatePanelGoodsProductResponse = zod.object({
+  id: zod.uuid(),
+  code: zod.string(),
+  providerSlug: zod.string(),
+  kind: zod.enum(["telegram_premium", "telegram_stars"]),
+  durationMonths: zod.int().optional(),
+  starQuantity: zod.int().optional(),
+  visible: zod.boolean(),
+  sortOrder: zod.int(),
+  createdAt: zod.iso.datetime({ offset: true }),
+  archivedAt: zod.iso.datetime({ offset: true }).optional(),
+  localizations: zod
+    .record(
+      zod.string(),
+      zod.object({
+        name: zod.string().min(1).max(createPanelGoodsProductResponseLocalizationsNameMax),
+        description: zod
+          .string()
+          .max(createPanelGoodsProductResponseLocalizationsDescriptionMax)
+          .optional(),
+      }),
+    )
+    .optional(),
+  pricing: zod
+    .object({
+      currency: zod.string(),
+      markupBps: zod
+        .int()
+        .min(createPanelGoodsProductResponsePricingMarkupBpsMin)
+        .max(createPanelGoodsProductResponsePricingMarkupBpsMax),
+      rounding: zod.enum(["none", "up_minor", "up_unit", "up_ten_units", "up_hundred_units"]),
+      fixedAmountMinor: zod.int().nullish().describe("Opts out of markup derivation entirely."),
+      quoteTtlSeconds: zod
+        .int()
+        .min(createPanelGoodsProductResponsePricingQuoteTtlSecondsMin)
+        .max(createPanelGoodsProductResponsePricingQuoteTtlSecondsMax),
+      updatedAt: zod.iso.datetime({ offset: true }).optional(),
+    })
+    .optional(),
+});
+
+/**
+ * Requires goods.write. The kind, duration, and quantity are immutable once created: an order references the product it bought.
+ */
+export const UpdatePanelGoodsProductParams = zod.object({
+  productID: zod.uuid(),
+});
+
+export const UpdatePanelGoodsProductHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const UpdatePanelGoodsProductBody = zod.object({
+  visible: zod.boolean(),
+  sortOrder: zod.int(),
+  archived: zod.boolean(),
+});
+
+export const UpdatePanelGoodsProductResponse = zod.void();
+
+/**
+ * Requires goods.write.
+ */
+export const SavePanelGoodsLocalizationParams = zod.object({
+  productID: zod.uuid(),
+  locale: zod.enum(["ru", "en"]),
+});
+
+export const SavePanelGoodsLocalizationHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const savePanelGoodsLocalizationBodyNameMax = 120;
+
+export const savePanelGoodsLocalizationBodyDescriptionMax = 2000;
+
+export const SavePanelGoodsLocalizationBody = zod.object({
+  name: zod.string().min(1).max(savePanelGoodsLocalizationBodyNameMax),
+  description: zod.string().max(savePanelGoodsLocalizationBodyDescriptionMax).optional(),
+});
+
+export const SavePanelGoodsLocalizationResponse = zod.void();
+
+/**
+ * Requires goods.write. Every rounding mode rounds up, and the markup itself rounds up rather than truncating.
+ */
+export const SavePanelGoodsPricingParams = zod.object({
+  productID: zod.uuid(),
+});
+
+export const SavePanelGoodsPricingHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const savePanelGoodsPricingBodyMarkupBpsMin = 0;
+export const savePanelGoodsPricingBodyMarkupBpsMax = 100000;
+
+export const savePanelGoodsPricingBodyQuoteTtlSecondsMin = 30;
+export const savePanelGoodsPricingBodyQuoteTtlSecondsMax = 3600;
+
+export const SavePanelGoodsPricingBody = zod.object({
+  currency: zod.string(),
+  markupBps: zod
+    .int()
+    .min(savePanelGoodsPricingBodyMarkupBpsMin)
+    .max(savePanelGoodsPricingBodyMarkupBpsMax),
+  rounding: zod.enum(["none", "up_minor", "up_unit", "up_ten_units", "up_hundred_units"]),
+  fixedAmountMinor: zod.int().nullish().describe("Opts out of markup derivation entirely."),
+  quoteTtlSeconds: zod
+    .int()
+    .min(savePanelGoodsPricingBodyQuoteTtlSecondsMin)
+    .max(savePanelGoodsPricingBodyQuoteTtlSecondsMax),
+  updatedAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+export const SavePanelGoodsPricingResponse = zod.void();
+
+/**
+ * Requires goods.read. The recipient username is the only recipient detail retained anywhere: delivery needs it and support needs to answer "where did it go".
+ */
+export const searchPanelGoodsOrdersQueryPageSizeDefault = 100;
+export const searchPanelGoodsOrdersQueryPageSizeMax = 500;
+
+export const SearchPanelGoodsOrdersQueryParams = zod.object({
+  cursor: zod.string().optional(),
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(searchPanelGoodsOrdersQueryPageSizeMax)
+    .default(searchPanelGoodsOrdersQueryPageSizeDefault),
+  status: zod.string().optional(),
+  customerId: zod.uuid().optional(),
+});
+
+export const SearchPanelGoodsOrdersResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        orderId: zod.uuid(),
+        customerId: zod.uuid(),
+        productId: zod.uuid(),
+        quantity: zod.int(),
+        recipient: zod
+          .string()
+          .describe("The Telegram username. No other recipient detail is retained."),
+        recipientIsSelf: zod.boolean(),
+        quotedCostMinor: zod.int(),
+        quotedPriceMinor: zod.int(),
+        marginMinor: zod.int(),
+        currency: zod.string(),
+        status: zod.enum(["quoted", "paid", "delivering", "delivered", "failed", "refunded"]),
+        deliveryStatus: zod.string().optional(),
+        deliveryAttempts: zod.int().optional(),
+        failureClass: zod
+          .enum([
+            "retryable",
+            "permanent",
+            "recipient_invalid",
+            "provider_balance",
+            "provider_unavailable",
+          ])
+          .optional(),
+        errorCode: zod.string().optional(),
+        refunded: zod.boolean(),
+        deliveredAt: zod.iso.datetime({ offset: true }).optional(),
+        createdAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .nullable(),
+  nextCursor: zod.string().optional(),
+});
+
+/**
+ * Requires goods.read. Every provider exchange, with its failure classification.
+ */
+export const ListPanelGoodsAttemptsParams = zod.object({
+  orderID: zod.uuid(),
+});
+
+export const ListPanelGoodsAttemptsResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        attempt: zod.int(),
+        outcome: zod.enum(["submitted", "delivered", "failed"]),
+        failureClass: zod.string().optional(),
+        errorCode: zod.string().optional(),
+        correlationId: zod.string(),
+        occurredAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .nullable(),
+});
+
+/**
+ * Requires goods.write and a reason. A delivered order cannot be cancelled: the recipient already has what was bought.
+ */
+export const CancelPanelGoodsDeliveryParams = zod.object({
+  orderID: zod.uuid(),
+});
+
+export const cancelPanelGoodsDeliveryHeaderXOperatorReasonMax = 400;
+
+export const CancelPanelGoodsDeliveryHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "X-Operator-Reason": zod
+    .string()
+    .min(1)
+    .max(cancelPanelGoodsDeliveryHeaderXOperatorReasonMax)
+    .describe(
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+    ),
+});
+
+export const CancelPanelGoodsDeliveryResponse = zod.void();
+
+/**
+ * Requires customers.read.
+ */
+export const listPanelBulkOperationsQueryPageSizeDefault = 100;
+export const listPanelBulkOperationsQueryPageSizeMax = 500;
+
+export const ListPanelBulkOperationsQueryParams = zod.object({
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(listPanelBulkOperationsQueryPageSizeMax)
+    .default(listPanelBulkOperationsQueryPageSizeDefault),
+});
+
+export const ListPanelBulkOperationsResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        kind: zod.string(),
+        status: zod.enum(["previewing", "ready", "running", "completed", "failed", "cancelled"]),
+        requestedBy: zod.uuid(),
+        reason: zod.string(),
+        parameters: zod.record(zod.string(), zod.unknown()).optional(),
+        total: zod.int(),
+        succeeded: zod.int(),
+        failed: zod.int(),
+        skipped: zod.int(),
+        createdAt: zod.iso.datetime({ offset: true }),
+        completedAt: zod.iso.datetime({ offset: true }).optional(),
+      }),
+    )
+    .nullable(),
+});
+
+/**
+ * Requires customers.write, a reason, and an idempotency key. This only previews: nothing is applied until the operation is started, and only a previewed operation may start.
+ */
+export const previewPanelBulkOperationHeaderIdempotencyKeyMin = 8;
+export const previewPanelBulkOperationHeaderIdempotencyKeyMax = 128;
+
+export const previewPanelBulkOperationHeaderXOperatorReasonMax = 400;
+
+export const PreviewPanelBulkOperationHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "Idempotency-Key": zod
+    .string()
+    .min(previewPanelBulkOperationHeaderIdempotencyKeyMin)
+    .max(previewPanelBulkOperationHeaderIdempotencyKeyMax),
+  "X-Operator-Reason": zod
+    .string()
+    .min(1)
+    .max(previewPanelBulkOperationHeaderXOperatorReasonMax)
+    .describe(
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+    ),
+});
+
+export const previewPanelBulkOperationBodyTargetsMax = 1000;
+
+export const PreviewPanelBulkOperationBody = zod.object({
+  kind: zod.enum([
+    "customer_export",
+    "subscription_extend",
+    "subscription_disable",
+    "subscription_enable",
+    "wallet_credit",
+  ]),
+  targets: zod
+    .array(
+      zod.object({
+        type: zod.enum(["customer", "subscription"]),
+        id: zod.uuid(),
+      }),
+    )
+    .min(1)
+    .max(previewPanelBulkOperationBodyTargetsMax),
+  parameters: zod.record(zod.string(), zod.unknown()).optional(),
+});
+
+export const PreviewPanelBulkOperationResponse = zod.object({
+  id: zod.uuid(),
+  kind: zod.string(),
+  status: zod.enum(["previewing", "ready", "running", "completed", "failed", "cancelled"]),
+  requestedBy: zod.uuid(),
+  reason: zod.string(),
+  parameters: zod.record(zod.string(), zod.unknown()).optional(),
+  total: zod.int(),
+  succeeded: zod.int(),
+  failed: zod.int(),
+  skipped: zod.int(),
+  createdAt: zod.iso.datetime({ offset: true }),
+  completedAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+/**
+ * Requires customers.write. Only a previewed operation may start.
+ */
+export const StartPanelBulkOperationParams = zod.object({
+  operationID: zod.uuid(),
+});
+
+export const StartPanelBulkOperationHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const StartPanelBulkOperationResponse = zod.object({
+  id: zod.uuid(),
+  kind: zod.string(),
+  status: zod.enum(["previewing", "ready", "running", "completed", "failed", "cancelled"]),
+  requestedBy: zod.uuid(),
+  reason: zod.string(),
+  parameters: zod.record(zod.string(), zod.unknown()).optional(),
+  total: zod.int(),
+  succeeded: zod.int(),
+  failed: zod.int(),
+  skipped: zod.int(),
+  createdAt: zod.iso.datetime({ offset: true }),
+  completedAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+/**
+ * Requires customers.write. A running operation is not cancellable: some of its targets have already changed, and reporting "cancelled" would misrepresent what happened.
+ */
+export const CancelPanelBulkOperationParams = zod.object({
+  operationID: zod.uuid(),
+});
+
+export const CancelPanelBulkOperationHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const CancelPanelBulkOperationResponse = zod.void();
+
+/**
+ * Requires customers.read. The per-item outcome an operator reviews after a run.
+ */
+export const ListPanelBulkItemsParams = zod.object({
+  operationID: zod.uuid(),
+});
+
+export const listPanelBulkItemsQueryPageSizeDefault = 100;
+export const listPanelBulkItemsQueryPageSizeMax = 500;
+
+export const ListPanelBulkItemsQueryParams = zod.object({
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(listPanelBulkItemsQueryPageSizeMax)
+    .default(listPanelBulkItemsQueryPageSizeDefault),
+});
+
+export const ListPanelBulkItemsResponse = zod.object({
+  operation: zod.object({
+    id: zod.uuid(),
+    kind: zod.string(),
+    status: zod.enum(["previewing", "ready", "running", "completed", "failed", "cancelled"]),
+    requestedBy: zod.uuid(),
+    reason: zod.string(),
+    parameters: zod.record(zod.string(), zod.unknown()).optional(),
+    total: zod.int(),
+    succeeded: zod.int(),
+    failed: zod.int(),
+    skipped: zod.int(),
+    createdAt: zod.iso.datetime({ offset: true }),
+    completedAt: zod.iso.datetime({ offset: true }).optional(),
+  }),
+  items: zod
+    .array(
+      zod.object({
+        position: zod.int(),
+        targetType: zod.string(),
+        targetId: zod.uuid(),
+        status: zod.enum(["pending", "succeeded", "failed", "skipped"]),
+        errorCode: zod.string().optional(),
+        processedAt: zod.iso.datetime({ offset: true }).optional(),
+      }),
+    )
+    .nullable(),
+});
+
 export const collectTelemetryEventBodyInstallationIdMin = 16;
 export const collectTelemetryEventBodyInstallationIdMax = 64;
 

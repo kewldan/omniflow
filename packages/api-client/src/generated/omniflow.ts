@@ -952,6 +952,1414 @@ export interface RbacCatalog {
   roles: RbacCatalogRolesItem[];
 }
 
+export interface PanelMetric {
+  key: string;
+  /** Stable identifier the panel resolves to localised copy explaining exactly what was counted. */
+  definition: string;
+  value: number;
+}
+
+/**
+ * Three separate figures. Wallet credit was already counted as revenue when the balance was funded, so adding it to provider money counts it twice.
+ */
+export interface PanelRevenueLine {
+  currency: string;
+  paidMinor: number;
+  walletMinor: number;
+  refundedMinor: number;
+  orderCount: number;
+}
+
+export type PanelAttentionItemSeverity =
+  (typeof PanelAttentionItemSeverity)[keyof typeof PanelAttentionItemSeverity];
+
+export const PanelAttentionItemSeverity = {
+  alert: "alert",
+  warning: "warning",
+} as const;
+
+export interface PanelAttentionItem {
+  key: string;
+  severity: PanelAttentionItemSeverity;
+  count: number;
+  /** Deep link into the ordinary panel surface that resolves the condition. */
+  href: string;
+}
+
+export interface PanelDashboard {
+  windowSeconds: number;
+  generatedAt: string;
+  /** Always UTC. The panel converts for display. */
+  timezone: string;
+  customers: PanelMetric[];
+  subscriptions: PanelMetric[];
+  payments: PanelMetric[];
+  /** @nullable */
+  revenue?: PanelRevenueLine[] | null;
+  support: PanelMetric[];
+  operations: PanelMetric[];
+  /** @nullable */
+  attention?: PanelAttentionItem[] | null;
+}
+
+export type PanelIncidentAction = (typeof PanelIncidentAction)[keyof typeof PanelIncidentAction];
+
+export const PanelIncidentAction = {
+  activated: "activated",
+  cleared: "cleared",
+} as const;
+
+export type PanelIncidentSource = (typeof PanelIncidentSource)[keyof typeof PanelIncidentSource];
+
+export const PanelIncidentSource = {
+  manual: "manual",
+  remnawave: "remnawave",
+  database: "database",
+  valkey: "valkey",
+} as const;
+
+export type PanelIncidentActorType =
+  (typeof PanelIncidentActorType)[keyof typeof PanelIncidentActorType];
+
+export const PanelIncidentActorType = {
+  operator: "operator",
+  system: "system",
+} as const;
+
+export interface PanelIncident {
+  id: string;
+  action: PanelIncidentAction;
+  source: PanelIncidentSource;
+  reason: string;
+  actorType: PanelIncidentActorType;
+  actorId?: string;
+  occurredAt: string;
+}
+
+export interface PanelIncidentList {
+  /** @nullable */
+  items: PanelIncident[] | null;
+}
+
+export type PanelCustomerSummaryStatus =
+  (typeof PanelCustomerSummaryStatus)[keyof typeof PanelCustomerSummaryStatus];
+
+export const PanelCustomerSummaryStatus = {
+  active: "active",
+  suspended: "suspended",
+  deleted: "deleted",
+} as const;
+
+export interface PanelCustomerSummary {
+  id: string;
+  status: PanelCustomerSummaryStatus;
+  locale: string;
+  timezone: string;
+  createdAt: string;
+  telegramId?: number;
+  suspendedAt?: string;
+  deletedAt?: string;
+}
+
+export interface PanelCustomerPage {
+  /** @nullable */
+  items: PanelCustomerSummary[] | null;
+  nextCursor?: string;
+}
+
+export type PanelCustomerProfile = PanelCustomerSummary & {
+  anonymizedAt?: string;
+  retentionUntil?: string;
+  activeSubscriptions: number;
+  orderCount: number;
+  openTickets: number;
+  referralCount: number;
+  /** Blocklist matches awaiting a decision. A count of things to review, never a verdict. */
+  openFlags: number;
+  allowlisted: boolean;
+};
+
+export type PanelSubscriptionStatus =
+  (typeof PanelSubscriptionStatus)[keyof typeof PanelSubscriptionStatus];
+
+export const PanelSubscriptionStatus = {
+  active: "active",
+  closed: "closed",
+} as const;
+
+export interface PanelSubscription {
+  id: string;
+  slot: number;
+  label: string;
+  status: PanelSubscriptionStatus;
+  remnawaveUserId?: number;
+  remnawaveUsername?: string;
+  reconciledAt?: string;
+  entitlementId?: string;
+  entitlementStatus?: string;
+  startsAt?: string;
+  endsAt?: string;
+  trafficAllowanceBytes?: number;
+  deviceLimit?: number;
+  /** @nullable */
+  squadIds?: string[] | null;
+  planCode?: string;
+  planVersion?: number;
+}
+
+export interface PanelSubscriptionList {
+  /** @nullable */
+  items: PanelSubscription[] | null;
+}
+
+export interface PanelOrderSummary {
+  id: string;
+  state: string;
+  operation: string;
+  currency: string;
+  subtotalMinor: number;
+  discountMinor: number;
+  walletMinor: number;
+  externalMinor: number;
+  paidMinor: number;
+  refundedMinor: number;
+  customerId: string;
+  subscriptionId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PanelOrderList {
+  /** @nullable */
+  items: PanelOrderSummary[] | null;
+}
+
+export interface PanelOrderPage {
+  /** @nullable */
+  items: PanelOrderSummary[] | null;
+  nextCursor?: string;
+}
+
+export interface PanelPaymentEvent {
+  type: string;
+  previousStatus?: string;
+  status?: string;
+  amountMinor?: number;
+  currency?: string;
+  occurredAt: string;
+}
+
+export interface PanelPaymentIntent {
+  id: string;
+  provider: string;
+  status: string;
+  amountMinor: number;
+  currency: string;
+  providerReference?: string;
+  createdAt: string;
+  updatedAt: string;
+  /** @nullable */
+  events?: PanelPaymentEvent[] | null;
+}
+
+export interface PanelRefund {
+  id: string;
+  paymentIntentId: string;
+  status: string;
+  amountMinor: number;
+  currency: string;
+  reason: string;
+  providerReference?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PanelOrderDetail {
+  order: PanelOrderSummary;
+  /** @nullable */
+  intents: PanelPaymentIntent[] | null;
+  /** @nullable */
+  refunds: PanelRefund[] | null;
+}
+
+export interface PanelRefundRecord {
+  refundId?: string;
+  amountMinor: number;
+  currency: string;
+}
+
+export interface PanelStuckPayment {
+  id: string;
+  orderId: string;
+  customerId: string;
+  operation: string;
+  provider: string;
+  status: string;
+  amountMinor: number;
+  currency: string;
+  updatedAt: string;
+}
+
+export interface PanelStuckPaymentList {
+  /** @nullable */
+  items: PanelStuckPayment[] | null;
+}
+
+export interface PanelLedgerLine {
+  id: string;
+  transactionId: string;
+  type: string;
+  referenceType: string;
+  referenceId: string;
+  reason?: string;
+  currency: string;
+  /** Signed. The ledger is append-only; a correction is a compensating entry. */
+  amountMinor: number;
+  expiresAt?: string;
+  createdAt: string;
+}
+
+export interface PanelLedgerList {
+  /** @nullable */
+  items: PanelLedgerLine[] | null;
+}
+
+export interface PanelTicket {
+  id: string;
+  status: string;
+  subject: string;
+  priority: string;
+  lastMessageAt: string;
+  createdAt: string;
+}
+
+export interface PanelTicketList {
+  /** @nullable */
+  items: PanelTicket[] | null;
+}
+
+export interface PanelConsent {
+  purpose: string;
+  granted: boolean;
+  policyVersion: string;
+  source: string;
+  occurredAt: string;
+}
+
+export interface PanelConsentList {
+  /** @nullable */
+  items: PanelConsent[] | null;
+}
+
+export type PanelSavedMethodStatus =
+  (typeof PanelSavedMethodStatus)[keyof typeof PanelSavedMethodStatus];
+
+export const PanelSavedMethodStatus = {
+  active: "active",
+  expired: "expired",
+  revoked: "revoked",
+  failed: "failed",
+} as const;
+
+/**
+ * A provider-issued token and the masked label the provider supplied. No card data is stored or returned.
+ */
+export interface PanelSavedMethod {
+  id: string;
+  provider: string;
+  merchantId?: string;
+  displayLabel?: string;
+  status: PanelSavedMethodStatus;
+  isDefault: boolean;
+  consentAt: string;
+  lastUsedAt?: string;
+  createdAt: string;
+}
+
+export interface PanelSavedMethodList {
+  /** @nullable */
+  items: PanelSavedMethod[] | null;
+}
+
+export type PanelDunningAttemptFunding =
+  (typeof PanelDunningAttemptFunding)[keyof typeof PanelDunningAttemptFunding];
+
+export const PanelDunningAttemptFunding = {
+  wallet: "wallet",
+  saved_method: "saved_method",
+} as const;
+
+export type PanelDunningAttemptOutcome =
+  (typeof PanelDunningAttemptOutcome)[keyof typeof PanelDunningAttemptOutcome];
+
+export const PanelDunningAttemptOutcome = {
+  scheduled: "scheduled",
+  succeeded: "succeeded",
+  failed: "failed",
+  abandoned: "abandoned",
+} as const;
+
+export interface PanelDunningAttempt {
+  id: string;
+  customerId: string;
+  subscriptionId?: string;
+  cycleKey: string;
+  attempt: number;
+  funding: PanelDunningAttemptFunding;
+  outcome: PanelDunningAttemptOutcome;
+  failureCode?: string;
+  orderId?: string;
+  scheduledFor: string;
+  occurredAt?: string;
+  notifiedAt?: string;
+  createdAt: string;
+  customerStatus?: string;
+}
+
+export interface PanelDunningList {
+  /** @nullable */
+  items: PanelDunningAttempt[] | null;
+}
+
+export interface PanelDunningPage {
+  /** @nullable */
+  items: PanelDunningAttempt[] | null;
+  nextCursor?: string;
+}
+
+export interface PanelLocalization {
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
+  name: string;
+  /** @maxLength 2000 */
+  description?: string;
+}
+
+export type PanelPlanSummaryKind = (typeof PanelPlanSummaryKind)[keyof typeof PanelPlanSummaryKind];
+
+export const PanelPlanSummaryKind = {
+  trial: "trial",
+  one_time: "one_time",
+  recurring: "recurring",
+  free: "free",
+  manual: "manual",
+} as const;
+
+export interface PanelPlanSummary {
+  id: string;
+  code: string;
+  kind: PanelPlanSummaryKind;
+  visible: boolean;
+  sortOrder: number;
+  maxConcurrentPerCustomer?: number;
+  latestVersion: number;
+  orderLineCount: number;
+  createdAt: string;
+  archivedAt?: string;
+}
+
+export interface PanelPlanList {
+  /** @nullable */
+  items: PanelPlanSummary[] | null;
+}
+
+export type PanelPlanVersionSummarySquadSelection =
+  (typeof PanelPlanVersionSummarySquadSelection)[keyof typeof PanelPlanVersionSummarySquadSelection];
+
+export const PanelPlanVersionSummarySquadSelection = {
+  automatic: "automatic",
+  optional: "optional",
+  required: "required",
+} as const;
+
+export type PanelPlanVersionSummaryPrices = { [key: string]: number };
+
+export interface PanelPlanVersionSummary {
+  id: string;
+  version: number;
+  billingPeriod: string;
+  durationSeconds: number;
+  trafficAllowanceBytes?: number;
+  deviceLimit?: number;
+  /** @nullable */
+  squadIds?: string[] | null;
+  squadSelection: PanelPlanVersionSummarySquadSelection;
+  minSelectableSquads?: number;
+  maxSelectableSquads?: number;
+  upgradePolicy: string;
+  downgradePolicy: string;
+  cancellationPolicy: string;
+  gracePeriodSeconds?: number;
+  trialEligibility?: string;
+  recurringCapable?: boolean;
+  prices: PanelPlanVersionSummaryPrices;
+  createdAt: string;
+  retiredAt?: string;
+}
+
+export type PanelPlanDetailLocalizations = { [key: string]: PanelLocalization };
+
+export interface PanelPlanDetail {
+  plan: PanelPlanSummary;
+  localizations: PanelPlanDetailLocalizations;
+  /** @nullable */
+  versions: PanelPlanVersionSummary[] | null;
+}
+
+export interface PanelPlanPresentation {
+  visible: boolean;
+  sortOrder: number;
+  /**
+   * Narrows the installation ceiling for this plan; it can never widen it.
+   * @minimum 1
+   * @nullable
+   */
+  maxConcurrentPerCustomer?: number | null;
+}
+
+export type PanelAddonSummaryKind =
+  (typeof PanelAddonSummaryKind)[keyof typeof PanelAddonSummaryKind];
+
+export const PanelAddonSummaryKind = {
+  traffic: "traffic",
+  devices: "devices",
+  squads: "squads",
+} as const;
+
+export interface PanelAddonSummary {
+  id: string;
+  code: string;
+  kind: PanelAddonSummaryKind;
+  visible: boolean;
+  sortOrder: number;
+  latestVersion: number;
+  createdAt: string;
+  archivedAt?: string;
+}
+
+export interface PanelAddonList {
+  /** @nullable */
+  items: PanelAddonSummary[] | null;
+}
+
+export type PanelAddonVersionSummaryProration =
+  (typeof PanelAddonVersionSummaryProration)[keyof typeof PanelAddonVersionSummaryProration];
+
+export const PanelAddonVersionSummaryProration = {
+  full_price: "full_price",
+  remaining_period: "remaining_period",
+  daily_rate: "daily_rate",
+} as const;
+
+export type PanelAddonVersionSummaryPrices = { [key: string]: number };
+
+export interface PanelAddonVersionSummary {
+  id: string;
+  version: number;
+  trafficBytes?: number;
+  deviceSlots?: number;
+  /** @nullable */
+  squadIds?: string[] | null;
+  maxQuantity: number;
+  proration: PanelAddonVersionSummaryProration;
+  prices: PanelAddonVersionSummaryPrices;
+  createdAt: string;
+  retiredAt?: string;
+}
+
+export interface PanelAddonVersionList {
+  /** @nullable */
+  items: PanelAddonVersionSummary[] | null;
+}
+
+export type PanelPromotionKind = (typeof PanelPromotionKind)[keyof typeof PanelPromotionKind];
+
+export const PanelPromotionKind = {
+  percent: "percent",
+  fixed: "fixed",
+  wallet_credit: "wallet_credit",
+  days: "days",
+  trial: "trial",
+} as const;
+
+export type PanelPromotionEligibility = { [key: string]: unknown };
+
+export interface PanelPromotion {
+  id: string;
+  code: string;
+  kind: PanelPromotionKind;
+  value: number;
+  currency?: string;
+  startsAt?: string;
+  endsAt?: string;
+  redemptionLimit?: number;
+  perCustomerLimit: number;
+  eligibility?: PanelPromotionEligibility;
+  active: boolean;
+  /** Off by default: two promotions combine only when both allow it. */
+  stackable: boolean;
+  /** Evaluation order, highest first, so applying several is deterministic. */
+  precedence: number;
+  redemptionCount: number;
+  discountMinor: number;
+  createdAt: string;
+}
+
+export interface PanelPromotionList {
+  /** @nullable */
+  items: PanelPromotion[] | null;
+}
+
+export type PanelPromotionUpdateEligibility = { [key: string]: unknown };
+
+export interface PanelPromotionUpdate {
+  /** @minimum 1 */
+  value: number;
+  currency?: string;
+  /** @nullable */
+  startsAt?: string | null;
+  /** @nullable */
+  endsAt?: string | null;
+  /** @nullable */
+  redemptionLimit?: number | null;
+  /** @minimum 1 */
+  perCustomerLimit: number;
+  eligibility?: PanelPromotionUpdateEligibility;
+  active: boolean;
+  stackable: boolean;
+  precedence: number;
+}
+
+export interface PanelPromoCode {
+  id: string;
+  code: string;
+  redemptionLimit?: number;
+  active: boolean;
+  redemptionCount: number;
+  createdAt: string;
+}
+
+export interface PanelPromoCodeList {
+  /** @nullable */
+  items: PanelPromoCode[] | null;
+}
+
+export type PanelOfferStatus = (typeof PanelOfferStatus)[keyof typeof PanelOfferStatus];
+
+export const PanelOfferStatus = {
+  active: "active",
+  redeemed: "redeemed",
+  dismissed: "dismissed",
+  expired: "expired",
+  revoked: "revoked",
+} as const;
+
+export interface PanelOffer {
+  id: string;
+  customerId: string;
+  promotionId: string;
+  planId?: string;
+  titleRu: string;
+  titleEn: string;
+  termsRu?: string;
+  termsEn?: string;
+  status: PanelOfferStatus;
+  startsAt: string;
+  expiresAt: string;
+  orderId?: string;
+  createdAt: string;
+  resolvedAt?: string;
+}
+
+export interface PanelOfferPage {
+  /** @nullable */
+  items: PanelOffer[] | null;
+  nextCursor?: string;
+}
+
+export interface PanelOfferInput {
+  customerId: string;
+  promotionId: string;
+  planId?: string;
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
+  titleRu: string;
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
+  titleEn: string;
+  /** @maxLength 1000 */
+  termsRu?: string;
+  /** @maxLength 1000 */
+  termsEn?: string;
+  startsAt?: string;
+  expiresAt: string;
+}
+
+export interface PanelFulfillmentOperation {
+  id: string;
+  entitlementId: string;
+  customerId?: string;
+  subscriptionId?: string;
+  operation: string;
+  status: string;
+  attemptCount: number;
+  nextAttemptAt: string;
+  /** A classification, never a provider message. */
+  lastErrorCode?: string;
+  correlationId: string;
+  createdAt: string;
+  completedAt?: string;
+}
+
+export interface PanelFulfillmentPage {
+  /** @nullable */
+  items: PanelFulfillmentOperation[] | null;
+  nextCursor?: string;
+}
+
+export interface PanelFulfillmentAttempt {
+  status: string;
+  correlationId: string;
+  errorCode?: string;
+  occurredAt: string;
+}
+
+export interface PanelFulfillmentAttemptList {
+  /** @nullable */
+  items: PanelFulfillmentAttempt[] | null;
+}
+
+export interface PanelWebhookEvent {
+  id: string;
+  provider: string;
+  providerEventId: string;
+  signatureValid: boolean;
+  status: string;
+  errorCode?: string;
+  receivedAt: string;
+  processedAt?: string;
+  retainUntil: string;
+}
+
+export interface PanelWebhookPage {
+  /** @nullable */
+  items: PanelWebhookEvent[] | null;
+  nextCursor?: string;
+}
+
+export type PanelDriftExpected = { [key: string]: unknown };
+
+export type PanelDriftObserved = { [key: string]: unknown };
+
+export interface PanelDrift {
+  id: string;
+  entitlementId: string;
+  customerId?: string;
+  subscriptionId?: string;
+  remnawaveUserId?: number;
+  kind: string;
+  expected?: PanelDriftExpected;
+  observed?: PanelDriftObserved;
+  detectedAt: string;
+}
+
+export interface PanelDriftList {
+  /** @nullable */
+  items: PanelDrift[] | null;
+}
+
+export interface PanelOutboxEntry {
+  id: string;
+  topic: string;
+  occurredAt: string;
+  ageSeconds: number;
+}
+
+export interface PanelOutboxList {
+  /** @nullable */
+  items: PanelOutboxEntry[] | null;
+}
+
+export interface PanelTopUpSettings {
+  enabled: boolean;
+  currency: string;
+  /**
+   * Offered as buttons. Free entry stays available whatever this contains.
+   * @nullable
+   */
+  presetsMinor?: number[] | null;
+  /** @minimum 1 */
+  minimumMinor: number;
+  /** @minimum 1 */
+  maximumMinor: number;
+  /** @minimum 1 */
+  windowSeconds: number;
+  /** @minimum 0 */
+  windowLimitMinor: number;
+}
+
+export interface PanelSubscriptionSettings {
+  multiEnabled: boolean;
+  /** @minimum 1 */
+  maxPerCustomer: number;
+}
+
+export interface PanelCommerceSettings {
+  topUp: PanelTopUpSettings;
+  subscriptions: PanelSubscriptionSettings;
+  updatedAt: string;
+  updatedBy?: string;
+}
+
+export type PanelProviderSettingsRecurringTestStatus =
+  (typeof PanelProviderSettingsRecurringTestStatus)[keyof typeof PanelProviderSettingsRecurringTestStatus];
+
+export const PanelProviderSettingsRecurringTestStatus = {
+  untested: "untested",
+  passed: "passed",
+  failed: "failed",
+} as const;
+
+export type PanelProviderSettingsConnectionStatus =
+  (typeof PanelProviderSettingsConnectionStatus)[keyof typeof PanelProviderSettingsConnectionStatus];
+
+export const PanelProviderSettingsConnectionStatus = {
+  unknown: "unknown",
+  healthy: "healthy",
+  failing: "failing",
+} as const;
+
+export type PanelProviderSettingsWebhookStatus =
+  (typeof PanelProviderSettingsWebhookStatus)[keyof typeof PanelProviderSettingsWebhookStatus];
+
+export const PanelProviderSettingsWebhookStatus = {
+  unknown: "unknown",
+  healthy: "healthy",
+  failing: "failing",
+} as const;
+
+export interface PanelProviderSettings {
+  provider: string;
+  merchantId: string;
+  enabled: boolean;
+  displayOrder: number;
+  /** Whether a credential is stored. The credential itself is never returned. */
+  credentialsSet: boolean;
+  webhookSecretSet: boolean;
+  /** What the compiled-in adapter declares. The operator switch can only narrow this. */
+  adapterRecurring: boolean;
+  recurringEnabled: boolean;
+  recurringTestStatus: PanelProviderSettingsRecurringTestStatus;
+  recurringTestedAt?: string;
+  connectionStatus: PanelProviderSettingsConnectionStatus;
+  connectionCheckedAt?: string;
+  connectionErrorCode?: string;
+  webhookStatus: PanelProviderSettingsWebhookStatus;
+  webhookLastEventAt?: string;
+  webhookLastErrorCode?: string;
+  updatedAt: string;
+}
+
+export type PanelProviderSettingsListAdapters = { [key: string]: boolean };
+
+export interface PanelProviderSettingsList {
+  /** @nullable */
+  items: PanelProviderSettings[] | null;
+  adapters?: PanelProviderSettingsListAdapters;
+}
+
+export interface PanelProviderSettingsInput {
+  /** Empty for an installation with a single merchant account. */
+  merchantId?: string;
+  enabled: boolean;
+  displayOrder: number;
+  /**
+   * Omit or send null to keep the stored credential.
+   * @nullable
+   */
+  credentials?: string | null;
+  /** @nullable */
+  webhookSecret?: string | null;
+}
+
+export interface PanelRecurringTest {
+  merchantId?: string;
+  passed: boolean;
+  /** Only honoured alongside a passing test and an adapter that declares the capability. */
+  enable: boolean;
+}
+
+export type PanelBlocklistSourceSubjectKind =
+  (typeof PanelBlocklistSourceSubjectKind)[keyof typeof PanelBlocklistSourceSubjectKind];
+
+export const PanelBlocklistSourceSubjectKind = {
+  telegram_id: "telegram_id",
+  email: "email",
+  username: "username",
+} as const;
+
+export type PanelBlocklistSourceStatus =
+  (typeof PanelBlocklistSourceStatus)[keyof typeof PanelBlocklistSourceStatus];
+
+export const PanelBlocklistSourceStatus = {
+  pending: "pending",
+  healthy: "healthy",
+  failing: "failing",
+} as const;
+
+export interface PanelBlocklistSource {
+  id: string;
+  slug: string;
+  displayName: string;
+  subjectKind: PanelBlocklistSourceSubjectKind;
+  url: string;
+  authConfigured: boolean;
+  enabled: boolean;
+  refreshIntervalSeconds: number;
+  entryCount: number;
+  status: PanelBlocklistSourceStatus;
+  lastErrorCode?: string;
+  lastRefreshAt?: string;
+  nextRefreshAt: string;
+}
+
+export interface PanelBlocklistSourceList {
+  /** @nullable */
+  items: PanelBlocklistSource[] | null;
+}
+
+export type PanelBlocklistSourceInputSubjectKind =
+  (typeof PanelBlocklistSourceInputSubjectKind)[keyof typeof PanelBlocklistSourceInputSubjectKind];
+
+export const PanelBlocklistSourceInputSubjectKind = {
+  telegram_id: "telegram_id",
+  email: "email",
+  username: "username",
+} as const;
+
+export interface PanelBlocklistSourceInput {
+  slug: string;
+  displayName: string;
+  subjectKind: PanelBlocklistSourceInputSubjectKind;
+  /** @pattern ^https:// */
+  url: string;
+  /**
+   * Omit or send null to keep the stored credential.
+   * @nullable
+   */
+  authHeader?: string | null;
+  enabled: boolean;
+  /** @minimum 300 */
+  refreshIntervalSeconds: number;
+}
+
+export type PanelBlocklistMatchSubjectKind =
+  (typeof PanelBlocklistMatchSubjectKind)[keyof typeof PanelBlocklistMatchSubjectKind];
+
+export const PanelBlocklistMatchSubjectKind = {
+  telegram_id: "telegram_id",
+  email: "email",
+  username: "username",
+} as const;
+
+export type PanelBlocklistMatchStatus =
+  (typeof PanelBlocklistMatchStatus)[keyof typeof PanelBlocklistMatchStatus];
+
+export const PanelBlocklistMatchStatus = {
+  open: "open",
+  allowed: "allowed",
+  blocked: "blocked",
+  appealed: "appealed",
+} as const;
+
+export interface PanelBlocklistMatch {
+  id: string;
+  customerId: string;
+  sourceId: string;
+  sourceSlug?: string;
+  sourceName?: string;
+  subjectKind: PanelBlocklistMatchSubjectKind;
+  status: PanelBlocklistMatchStatus;
+  decisionReason?: string;
+  decidedBy?: string;
+  detectedAt: string;
+  decidedAt?: string;
+}
+
+export interface PanelMatchList {
+  /** @nullable */
+  items: PanelBlocklistMatch[] | null;
+}
+
+export interface PanelMatchPage {
+  /** @nullable */
+  items: PanelBlocklistMatch[] | null;
+  nextCursor?: string;
+}
+
+export type PanelAnomalyMetric = (typeof PanelAnomalyMetric)[keyof typeof PanelAnomalyMetric];
+
+export const PanelAnomalyMetric = {
+  traffic: "traffic",
+  purchase: "purchase",
+  refund: "refund",
+  referral: "referral",
+} as const;
+
+export interface PanelAnomalyRule {
+  metric: PanelAnomalyMetric;
+  enabled: boolean;
+  /** @minimum 300 */
+  windowSeconds: number;
+  /**
+   * In the metric's own unit: bytes, minor units, or a count.
+   * @minimum 1
+   */
+  warnThreshold: number;
+  /** @minimum 1 */
+  alertThreshold: number;
+  /** @minimum 0 */
+  minimumSample: number;
+  updatedAt: string;
+}
+
+export interface PanelAnomalyRuleList {
+  /** @nullable */
+  items: PanelAnomalyRule[] | null;
+}
+
+export interface PanelAnomalyRuleInput {
+  enabled: boolean;
+  /** @minimum 300 */
+  windowSeconds: number;
+  /** @minimum 1 */
+  warnThreshold: number;
+  /** @minimum 1 */
+  alertThreshold: number;
+  /** @minimum 0 */
+  minimumSample: number;
+}
+
+export type PanelAnomalySignalSeverity =
+  (typeof PanelAnomalySignalSeverity)[keyof typeof PanelAnomalySignalSeverity];
+
+export const PanelAnomalySignalSeverity = {
+  warning: "warning",
+  alert: "alert",
+} as const;
+
+export type PanelAnomalySignalSubjectType =
+  (typeof PanelAnomalySignalSubjectType)[keyof typeof PanelAnomalySignalSubjectType];
+
+export const PanelAnomalySignalSubjectType = {
+  installation: "installation",
+  customer: "customer",
+  plan: "plan",
+  provider: "provider",
+} as const;
+
+/**
+ * Aggregate numbers only — never a message body, link, token, or address.
+ */
+export type PanelAnomalySignalEvidence = { [key: string]: unknown };
+
+export type PanelAnomalySignalStatus =
+  (typeof PanelAnomalySignalStatus)[keyof typeof PanelAnomalySignalStatus];
+
+export const PanelAnomalySignalStatus = {
+  open: "open",
+  acknowledged: "acknowledged",
+  dismissed: "dismissed",
+} as const;
+
+export interface PanelAnomalySignal {
+  id: string;
+  metric: PanelAnomalyMetric;
+  severity: PanelAnomalySignalSeverity;
+  subjectType: PanelAnomalySignalSubjectType;
+  subjectId: string;
+  observed: number;
+  threshold: number;
+  sampleSize: number;
+  windowStart: string;
+  windowEnd: string;
+  /** Aggregate numbers only — never a message body, link, token, or address. */
+  evidence?: PanelAnomalySignalEvidence;
+  status: PanelAnomalySignalStatus;
+  reviewedBy?: string;
+  reviewReason?: string;
+  detectedAt: string;
+  reviewedAt?: string;
+}
+
+export interface PanelAnomalyPage {
+  /** @nullable */
+  items: PanelAnomalySignal[] | null;
+  nextCursor?: string;
+}
+
+export type PanelGiftStatus = (typeof PanelGiftStatus)[keyof typeof PanelGiftStatus];
+
+export const PanelGiftStatus = {
+  pending: "pending",
+  deliverable: "deliverable",
+  claimed: "claimed",
+  expired: "expired",
+  revoked: "revoked",
+  refunded: "refunded",
+} as const;
+
+export type PanelGiftKind = (typeof PanelGiftKind)[keyof typeof PanelGiftKind];
+
+export const PanelGiftKind = {
+  subscription: "subscription",
+  addon: "addon",
+  wallet_credit: "wallet_credit",
+} as const;
+
+export interface PanelGift {
+  id: string;
+  orderId: string;
+  senderId: string;
+  recipientId?: string;
+  kind: PanelGiftKind;
+  currency: string;
+  creditMinor?: number;
+  /** The last four characters of the claim code. The code itself is stored only as a digest. */
+  codeHint: string;
+  status: PanelGiftStatus;
+  claimAttempts: number;
+  expiresAt: string;
+  claimedAt?: string;
+  revokedAt?: string;
+  revokeReason?: string;
+  createdAt: string;
+}
+
+export type PanelGiftPageTotals = { [key: string]: number };
+
+export interface PanelGiftPage {
+  /** @nullable */
+  items: PanelGift[] | null;
+  nextCursor?: string;
+  totals?: PanelGiftPageTotals;
+}
+
+export type PanelGoodsProviderStatus =
+  (typeof PanelGoodsProviderStatus)[keyof typeof PanelGoodsProviderStatus];
+
+export const PanelGoodsProviderStatus = {
+  unknown: "unknown",
+  healthy: "healthy",
+  failing: "failing",
+} as const;
+
+export interface PanelGoodsProvider {
+  slug: string;
+  enabled: boolean;
+  credentialsSet: boolean;
+  balanceMinor?: number;
+  balanceCurrency?: string;
+  lowBalanceThresholdMinor?: number;
+  /** Rolling ceiling in provider cost. Zero means no ceiling. */
+  spendLimitMinor: number;
+  spendWindowSeconds: number;
+  status: PanelGoodsProviderStatus;
+  lastErrorCode?: string;
+  lastCheckedAt?: string;
+  /** Derived from the balance and the threshold, so it cannot contradict them. */
+  lowBalance: boolean;
+}
+
+export interface PanelGoodsProviderList {
+  /** @nullable */
+  items: PanelGoodsProvider[] | null;
+}
+
+export interface PanelGoodsProviderInput {
+  enabled: boolean;
+  /**
+   * Omit or send null to keep the stored credential.
+   * @nullable
+   */
+  credentials?: string | null;
+  /** @nullable */
+  lowBalanceThresholdMinor?: number | null;
+  /** @minimum 0 */
+  spendLimitMinor: number;
+  /** @minimum 1 */
+  spendWindowSeconds: number;
+}
+
+export type PanelGoodsPricingRounding =
+  (typeof PanelGoodsPricingRounding)[keyof typeof PanelGoodsPricingRounding];
+
+export const PanelGoodsPricingRounding = {
+  none: "none",
+  up_minor: "up_minor",
+  up_unit: "up_unit",
+  up_ten_units: "up_ten_units",
+  up_hundred_units: "up_hundred_units",
+} as const;
+
+export interface PanelGoodsPricing {
+  currency: string;
+  /**
+   * @minimum 0
+   * @maximum 100000
+   */
+  markupBps: number;
+  rounding: PanelGoodsPricingRounding;
+  /**
+   * Opts out of markup derivation entirely.
+   * @nullable
+   */
+  fixedAmountMinor?: number | null;
+  /**
+   * @minimum 30
+   * @maximum 3600
+   */
+  quoteTtlSeconds: number;
+  updatedAt?: string;
+}
+
+export type PanelGoodsProductKind =
+  (typeof PanelGoodsProductKind)[keyof typeof PanelGoodsProductKind];
+
+export const PanelGoodsProductKind = {
+  telegram_premium: "telegram_premium",
+  telegram_stars: "telegram_stars",
+} as const;
+
+export type PanelGoodsProductLocalizations = { [key: string]: PanelLocalization };
+
+export interface PanelGoodsProduct {
+  id: string;
+  code: string;
+  providerSlug: string;
+  kind: PanelGoodsProductKind;
+  durationMonths?: number;
+  starQuantity?: number;
+  visible: boolean;
+  sortOrder: number;
+  createdAt: string;
+  archivedAt?: string;
+  localizations?: PanelGoodsProductLocalizations;
+  pricing?: PanelGoodsPricing;
+}
+
+export interface PanelGoodsProductList {
+  /** @nullable */
+  items: PanelGoodsProduct[] | null;
+}
+
+export type PanelGoodsProductInputKind =
+  (typeof PanelGoodsProductInputKind)[keyof typeof PanelGoodsProductInputKind];
+
+export const PanelGoodsProductInputKind = {
+  telegram_premium: "telegram_premium",
+  telegram_stars: "telegram_stars",
+} as const;
+
+export type PanelGoodsProductInputDurationMonths =
+  (typeof PanelGoodsProductInputDurationMonths)[keyof typeof PanelGoodsProductInputDurationMonths];
+
+export const PanelGoodsProductInputDurationMonths = {
+  NUMBER_3: 3,
+  NUMBER_6: 6,
+  NUMBER_12: 12,
+} as const;
+
+export interface PanelGoodsProductInput {
+  /** @pattern ^[a-z][a-z0-9_-]{1,63}$ */
+  code: string;
+  providerSlug: string;
+  kind: PanelGoodsProductInputKind;
+  durationMonths?: PanelGoodsProductInputDurationMonths;
+  /** @minimum 1 */
+  starQuantity?: number;
+  visible: boolean;
+  sortOrder: number;
+}
+
+export interface PanelGoodsProductUpdate {
+  visible: boolean;
+  sortOrder: number;
+  archived: boolean;
+}
+
+export type PanelGoodsOrderStatus =
+  (typeof PanelGoodsOrderStatus)[keyof typeof PanelGoodsOrderStatus];
+
+export const PanelGoodsOrderStatus = {
+  quoted: "quoted",
+  paid: "paid",
+  delivering: "delivering",
+  delivered: "delivered",
+  failed: "failed",
+  refunded: "refunded",
+} as const;
+
+export type PanelGoodsOrderFailureClass =
+  (typeof PanelGoodsOrderFailureClass)[keyof typeof PanelGoodsOrderFailureClass];
+
+export const PanelGoodsOrderFailureClass = {
+  retryable: "retryable",
+  permanent: "permanent",
+  recipient_invalid: "recipient_invalid",
+  provider_balance: "provider_balance",
+  provider_unavailable: "provider_unavailable",
+} as const;
+
+export interface PanelGoodsOrder {
+  orderId: string;
+  customerId: string;
+  productId: string;
+  quantity: number;
+  /** The Telegram username. No other recipient detail is retained. */
+  recipient: string;
+  recipientIsSelf: boolean;
+  quotedCostMinor: number;
+  quotedPriceMinor: number;
+  marginMinor: number;
+  currency: string;
+  status: PanelGoodsOrderStatus;
+  deliveryStatus?: string;
+  deliveryAttempts?: number;
+  failureClass?: PanelGoodsOrderFailureClass;
+  errorCode?: string;
+  refunded: boolean;
+  deliveredAt?: string;
+  createdAt: string;
+}
+
+export interface PanelGoodsOrderPage {
+  /** @nullable */
+  items: PanelGoodsOrder[] | null;
+  nextCursor?: string;
+}
+
+export type PanelGoodsAttemptOutcome =
+  (typeof PanelGoodsAttemptOutcome)[keyof typeof PanelGoodsAttemptOutcome];
+
+export const PanelGoodsAttemptOutcome = {
+  submitted: "submitted",
+  delivered: "delivered",
+  failed: "failed",
+} as const;
+
+export interface PanelGoodsAttempt {
+  attempt: number;
+  outcome: PanelGoodsAttemptOutcome;
+  failureClass?: string;
+  errorCode?: string;
+  correlationId: string;
+  occurredAt: string;
+}
+
+export interface PanelGoodsAttemptList {
+  /** @nullable */
+  items: PanelGoodsAttempt[] | null;
+}
+
+export type PanelBulkTargetType = (typeof PanelBulkTargetType)[keyof typeof PanelBulkTargetType];
+
+export const PanelBulkTargetType = {
+  customer: "customer",
+  subscription: "subscription",
+} as const;
+
+export interface PanelBulkTarget {
+  type: PanelBulkTargetType;
+  id: string;
+}
+
+export type PanelBulkInputKind = (typeof PanelBulkInputKind)[keyof typeof PanelBulkInputKind];
+
+export const PanelBulkInputKind = {
+  customer_export: "customer_export",
+  subscription_extend: "subscription_extend",
+  subscription_disable: "subscription_disable",
+  subscription_enable: "subscription_enable",
+  wallet_credit: "wallet_credit",
+} as const;
+
+export type PanelBulkInputParameters = { [key: string]: unknown };
+
+export interface PanelBulkInput {
+  kind: PanelBulkInputKind;
+  /**
+   * @minItems 1
+   * @maxItems 1000
+   */
+  targets: PanelBulkTarget[];
+  parameters?: PanelBulkInputParameters;
+}
+
+export type PanelBulkOperationStatus =
+  (typeof PanelBulkOperationStatus)[keyof typeof PanelBulkOperationStatus];
+
+export const PanelBulkOperationStatus = {
+  previewing: "previewing",
+  ready: "ready",
+  running: "running",
+  completed: "completed",
+  failed: "failed",
+  cancelled: "cancelled",
+} as const;
+
+export type PanelBulkOperationParameters = { [key: string]: unknown };
+
+export interface PanelBulkOperation {
+  id: string;
+  kind: string;
+  status: PanelBulkOperationStatus;
+  requestedBy: string;
+  reason: string;
+  parameters?: PanelBulkOperationParameters;
+  total: number;
+  succeeded: number;
+  failed: number;
+  skipped: number;
+  createdAt: string;
+  completedAt?: string;
+}
+
+export interface PanelBulkOperationList {
+  /** @nullable */
+  items: PanelBulkOperation[] | null;
+}
+
+export type PanelBulkItemStatus = (typeof PanelBulkItemStatus)[keyof typeof PanelBulkItemStatus];
+
+export const PanelBulkItemStatus = {
+  pending: "pending",
+  succeeded: "succeeded",
+  failed: "failed",
+  skipped: "skipped",
+} as const;
+
+export interface PanelBulkItem {
+  position: number;
+  targetType: string;
+  targetId: string;
+  status: PanelBulkItemStatus;
+  errorCode?: string;
+  processedAt?: string;
+}
+
+export interface PanelBulkDetail {
+  operation: PanelBulkOperation;
+  /** @nullable */
+  items: PanelBulkItem[] | null;
+}
+
 /**
  * Request failed
  */
@@ -971,6 +2379,11 @@ export type CSRFTokenParameter = string;
 export type IdempotencyKeyParameter = string;
 
 export type PageSizeParameter = number;
+
+/**
+ * Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+ */
+export type OperatorReasonParameter = string;
 
 export type ListPlansParams = {
   locale?: ListPlansLocale;
@@ -1110,6 +2523,373 @@ export type SearchPanelAuditParams = {
 
 export type ListPanelAuditActions200 = {
   items: string[];
+};
+
+export type ListPanelIncidentsParams = {
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  pageSize?: PageSizeParameter;
+};
+
+export type SearchPanelCustomersParams = {
+  /**
+   * Opaque keyset cursor from the previous page.
+   */
+  cursor?: CursorParameter;
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  pageSize?: PageSizeParameter;
+  q?: string;
+  status?: SearchPanelCustomersStatus;
+  segment?: SearchPanelCustomersSegment;
+};
+
+export type SearchPanelCustomersStatus =
+  (typeof SearchPanelCustomersStatus)[keyof typeof SearchPanelCustomersStatus];
+
+export const SearchPanelCustomersStatus = {
+  active: "active",
+  suspended: "suspended",
+  deleted: "deleted",
+} as const;
+
+export type SearchPanelCustomersSegment =
+  (typeof SearchPanelCustomersSegment)[keyof typeof SearchPanelCustomersSegment];
+
+export const SearchPanelCustomersSegment = {
+  subscribed: "subscribed",
+  lapsed: "lapsed",
+  never_purchased: "never_purchased",
+  flagged: "flagged",
+} as const;
+
+export type ListPanelCustomerOrdersParams = {
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  pageSize?: PageSizeParameter;
+};
+
+export type ListPanelCustomerTicketsParams = {
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  pageSize?: PageSizeParameter;
+};
+
+export type ListPanelCustomerWalletParams = {
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  pageSize?: PageSizeParameter;
+};
+
+export type ListPanelCustomerChargesParams = {
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  pageSize?: PageSizeParameter;
+};
+
+export type SetPanelCustomerStatusBodyStatus =
+  (typeof SetPanelCustomerStatusBodyStatus)[keyof typeof SetPanelCustomerStatusBodyStatus];
+
+export const SetPanelCustomerStatusBodyStatus = {
+  active: "active",
+  suspended: "suspended",
+} as const;
+
+export type SetPanelCustomerStatusBody = {
+  status: SetPanelCustomerStatusBodyStatus;
+};
+
+export type RenamePanelSubscriptionBody = {
+  /**
+   * @minLength 1
+   * @maxLength 40
+   */
+  label: string;
+};
+
+export type ArchivePanelPlanBody = {
+  archived: boolean;
+};
+
+export type ListPanelPromotionsParams = {
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  pageSize?: PageSizeParameter;
+  active?: boolean;
+  kind?: PanelPromotionKind;
+};
+
+export type SetPanelPromoCodeActiveBody = {
+  active: boolean;
+};
+
+export type SearchPanelOffersParams = {
+  /**
+   * Opaque keyset cursor from the previous page.
+   */
+  cursor?: CursorParameter;
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  pageSize?: PageSizeParameter;
+  status?: SearchPanelOffersStatus;
+  customerId?: string;
+};
+
+export type SearchPanelOffersStatus =
+  (typeof SearchPanelOffersStatus)[keyof typeof SearchPanelOffersStatus];
+
+export const SearchPanelOffersStatus = {
+  active: "active",
+  redeemed: "redeemed",
+  dismissed: "dismissed",
+  expired: "expired",
+  revoked: "revoked",
+} as const;
+
+export type SearchPanelOrdersParams = {
+  /**
+   * Opaque keyset cursor from the previous page.
+   */
+  cursor?: CursorParameter;
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  pageSize?: PageSizeParameter;
+  state?: string;
+  operation?: string;
+  customerId?: string;
+  currency?: string;
+  from?: string;
+  to?: string;
+};
+
+export type ReconcilePanelPaymentBody = {
+  outcome?: string;
+};
+
+export type ListPanelStuckPaymentsParams = {
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  pageSize?: PageSizeParameter;
+};
+
+export type ListPanelFailedChargesParams = {
+  /**
+   * Opaque keyset cursor from the previous page.
+   */
+  cursor?: CursorParameter;
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  pageSize?: PageSizeParameter;
+};
+
+export type ExportPanelFinanceParams = {
+  state?: string;
+  from?: string;
+  to?: string;
+};
+
+export type SearchPanelFulfillmentParams = {
+  /**
+   * Opaque keyset cursor from the previous page.
+   */
+  cursor?: CursorParameter;
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  pageSize?: PageSizeParameter;
+  status?: string;
+  operation?: string;
+  entitlementId?: string;
+};
+
+export type SearchPanelWebhooksParams = {
+  /**
+   * Opaque keyset cursor from the previous page.
+   */
+  cursor?: CursorParameter;
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  pageSize?: PageSizeParameter;
+  provider?: string;
+  status?: string;
+};
+
+export type ListPanelDriftParams = {
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  pageSize?: PageSizeParameter;
+};
+
+export type ListPanelOutboxParams = {
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  pageSize?: PageSizeParameter;
+};
+
+export type SearchPanelBlocklistMatchesParams = {
+  /**
+   * Opaque keyset cursor from the previous page.
+   */
+  cursor?: CursorParameter;
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  pageSize?: PageSizeParameter;
+  status?: SearchPanelBlocklistMatchesStatus;
+  customerId?: string;
+};
+
+export type SearchPanelBlocklistMatchesStatus =
+  (typeof SearchPanelBlocklistMatchesStatus)[keyof typeof SearchPanelBlocklistMatchesStatus];
+
+export const SearchPanelBlocklistMatchesStatus = {
+  open: "open",
+  allowed: "allowed",
+  blocked: "blocked",
+  appealed: "appealed",
+} as const;
+
+export type DecidePanelBlocklistMatchBodyDecision =
+  (typeof DecidePanelBlocklistMatchBodyDecision)[keyof typeof DecidePanelBlocklistMatchBodyDecision];
+
+export const DecidePanelBlocklistMatchBodyDecision = {
+  allowed: "allowed",
+  blocked: "blocked",
+} as const;
+
+export type DecidePanelBlocklistMatchBody = {
+  decision: DecidePanelBlocklistMatchBodyDecision;
+};
+
+export type SearchPanelAnomaliesParams = {
+  /**
+   * Opaque keyset cursor from the previous page.
+   */
+  cursor?: CursorParameter;
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  pageSize?: PageSizeParameter;
+  status?: SearchPanelAnomaliesStatus;
+  metric?: PanelAnomalyMetric;
+  severity?: SearchPanelAnomaliesSeverity;
+};
+
+export type SearchPanelAnomaliesStatus =
+  (typeof SearchPanelAnomaliesStatus)[keyof typeof SearchPanelAnomaliesStatus];
+
+export const SearchPanelAnomaliesStatus = {
+  open: "open",
+  acknowledged: "acknowledged",
+  dismissed: "dismissed",
+} as const;
+
+export type SearchPanelAnomaliesSeverity =
+  (typeof SearchPanelAnomaliesSeverity)[keyof typeof SearchPanelAnomaliesSeverity];
+
+export const SearchPanelAnomaliesSeverity = {
+  warning: "warning",
+  alert: "alert",
+} as const;
+
+export type ReviewPanelAnomalyBodyStatus =
+  (typeof ReviewPanelAnomalyBodyStatus)[keyof typeof ReviewPanelAnomalyBodyStatus];
+
+export const ReviewPanelAnomalyBodyStatus = {
+  acknowledged: "acknowledged",
+  dismissed: "dismissed",
+} as const;
+
+export type ReviewPanelAnomalyBody = {
+  status: ReviewPanelAnomalyBodyStatus;
+};
+
+export type SearchPanelGiftsParams = {
+  /**
+   * Opaque keyset cursor from the previous page.
+   */
+  cursor?: CursorParameter;
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  pageSize?: PageSizeParameter;
+  status?: PanelGiftStatus;
+  kind?: SearchPanelGiftsKind;
+  senderId?: string;
+};
+
+export type SearchPanelGiftsKind = (typeof SearchPanelGiftsKind)[keyof typeof SearchPanelGiftsKind];
+
+export const SearchPanelGiftsKind = {
+  subscription: "subscription",
+  addon: "addon",
+  wallet_credit: "wallet_credit",
+} as const;
+
+export type ListPanelGoodsProductsParams = {
+  includeArchived?: boolean;
+};
+
+export type SearchPanelGoodsOrdersParams = {
+  /**
+   * Opaque keyset cursor from the previous page.
+   */
+  cursor?: CursorParameter;
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  pageSize?: PageSizeParameter;
+  status?: string;
+  customerId?: string;
+};
+
+export type ListPanelBulkOperationsParams = {
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  pageSize?: PageSizeParameter;
+};
+
+export type ListPanelBulkItemsParams = {
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  pageSize?: PageSizeParameter;
 };
 
 export type getHealthResponse200 = {
@@ -5847,6 +7627,7028 @@ export const useGetPanelRbacCatalog = <TError = Promise<unknown>>(options?: {
   const isEnabled = swrOptions?.enabled !== false;
   const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelRbacCatalogKey() : null));
   const swrFn = () => getPanelRbacCatalog(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelDashboardResponse200 = {
+  data: PanelDashboard;
+  status: 200;
+};
+
+export type getPanelDashboardResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelDashboardResponseSuccess = getPanelDashboardResponse200 & {
+  headers: Headers;
+};
+export type getPanelDashboardResponseError = getPanelDashboardResponse403 & {
+  headers: Headers;
+};
+
+export type getPanelDashboardResponse =
+  | getPanelDashboardResponseSuccess
+  | getPanelDashboardResponseError;
+
+export const getGetPanelDashboardUrl = () => {
+  return `/v1/panel/overview/dashboard`;
+};
+
+/**
+ * Requires system.read. Each metric carries the identifier of its own definition, every timestamp is UTC, and revenue is reported as three separate figures rather than one that double-counts wallet credit.
+ */
+export const getPanelDashboard = async (
+  options?: RequestInit,
+): Promise<getPanelDashboardResponse> => {
+  const res = await fetch(getGetPanelDashboardUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelDashboardResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelDashboardResponse;
+};
+
+export const getGetPanelDashboardKey = () => [`/v1/panel/overview/dashboard`] as const;
+
+export type GetPanelDashboardQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelDashboard>>
+>;
+
+export const useGetPanelDashboard = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelDashboard>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelDashboardKey() : null));
+  const swrFn = () => getPanelDashboard(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelIncidentsResponse200 = {
+  data: PanelIncidentList;
+  status: 200;
+};
+
+export type listPanelIncidentsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelIncidentsResponseSuccess = listPanelIncidentsResponse200 & {
+  headers: Headers;
+};
+export type listPanelIncidentsResponseError = listPanelIncidentsResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelIncidentsResponse =
+  | listPanelIncidentsResponseSuccess
+  | listPanelIncidentsResponseError;
+
+export const getListPanelIncidentsUrl = (params?: ListPanelIncidentsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/overview/incidents?${stringifiedParams}`
+    : `/v1/panel/overview/incidents`;
+};
+
+/**
+ * Requires system.read. Recent maintenance activations and recoveries.
+ */
+export const listPanelIncidents = async (
+  params?: ListPanelIncidentsParams,
+  options?: RequestInit,
+): Promise<listPanelIncidentsResponse> => {
+  const res = await fetch(getListPanelIncidentsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelIncidentsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelIncidentsResponse;
+};
+
+export const getListPanelIncidentsKey = (params?: ListPanelIncidentsParams) =>
+  [`/v1/panel/overview/incidents`, ...(params ? [params] : [])] as const;
+
+export type ListPanelIncidentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelIncidents>>
+>;
+
+export const useListPanelIncidents = <TError = Promise<ProblemResponse>>(
+  params?: ListPanelIncidentsParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelIncidents>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelIncidentsKey(params) : null));
+  const swrFn = () => listPanelIncidents(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type searchPanelCustomersResponse200 = {
+  data: PanelCustomerPage;
+  status: 200;
+};
+
+export type searchPanelCustomersResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type searchPanelCustomersResponseSuccess = searchPanelCustomersResponse200 & {
+  headers: Headers;
+};
+export type searchPanelCustomersResponseError = searchPanelCustomersResponse403 & {
+  headers: Headers;
+};
+
+export type searchPanelCustomersResponse =
+  | searchPanelCustomersResponseSuccess
+  | searchPanelCustomersResponseError;
+
+export const getSearchPanelCustomersUrl = (params?: SearchPanelCustomersParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/customers?${stringifiedParams}`
+    : `/v1/panel/customers`;
+};
+
+/**
+ * Requires customers.read. `q` accepts an Omniflow customer identifier, a Telegram identifier, or a Remnawave username and is resolved by shape. There is deliberately no free-text search over contact values.
+ */
+export const searchPanelCustomers = async (
+  params?: SearchPanelCustomersParams,
+  options?: RequestInit,
+): Promise<searchPanelCustomersResponse> => {
+  const res = await fetch(getSearchPanelCustomersUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: searchPanelCustomersResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as searchPanelCustomersResponse;
+};
+
+export const getSearchPanelCustomersKey = (params?: SearchPanelCustomersParams) =>
+  [`/v1/panel/customers`, ...(params ? [params] : [])] as const;
+
+export type SearchPanelCustomersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchPanelCustomers>>
+>;
+
+export const useSearchPanelCustomers = <TError = Promise<ProblemResponse>>(
+  params?: SearchPanelCustomersParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof searchPanelCustomers>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getSearchPanelCustomersKey(params) : null));
+  const swrFn = () => searchPanelCustomers(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelCustomerResponse200 = {
+  data: PanelCustomerProfile;
+  status: 200;
+};
+
+export type getPanelCustomerResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelCustomerResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getPanelCustomerResponseSuccess = getPanelCustomerResponse200 & {
+  headers: Headers;
+};
+export type getPanelCustomerResponseError = (
+  | getPanelCustomerResponse403
+  | getPanelCustomerResponse404
+) & {
+  headers: Headers;
+};
+
+export type getPanelCustomerResponse =
+  | getPanelCustomerResponseSuccess
+  | getPanelCustomerResponseError;
+
+export const getGetPanelCustomerUrl = (customerID: string) => {
+  return `/v1/panel/customers/${customerID}`;
+};
+
+/**
+ * Requires customers.read.
+ */
+export const getPanelCustomer = async (
+  customerID: string,
+  options?: RequestInit,
+): Promise<getPanelCustomerResponse> => {
+  const res = await fetch(getGetPanelCustomerUrl(customerID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelCustomerResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelCustomerResponse;
+};
+
+export const getGetPanelCustomerKey = (customerID: string) =>
+  [`/v1/panel/customers/${customerID}`] as const;
+
+export type GetPanelCustomerQueryResult = NonNullable<Awaited<ReturnType<typeof getPanelCustomer>>>;
+
+export const useGetPanelCustomer = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelCustomer>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && customerID !== null && customerID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelCustomerKey(customerID) : null));
+  const swrFn = () => getPanelCustomer(customerID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelCustomerSubscriptionsResponse200 = {
+  data: PanelSubscriptionList;
+  status: 200;
+};
+
+export type listPanelCustomerSubscriptionsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelCustomerSubscriptionsResponseSuccess =
+  listPanelCustomerSubscriptionsResponse200 & {
+    headers: Headers;
+  };
+export type listPanelCustomerSubscriptionsResponseError =
+  listPanelCustomerSubscriptionsResponse403 & {
+    headers: Headers;
+  };
+
+export type listPanelCustomerSubscriptionsResponse =
+  | listPanelCustomerSubscriptionsResponseSuccess
+  | listPanelCustomerSubscriptionsResponseError;
+
+export const getListPanelCustomerSubscriptionsUrl = (customerID: string) => {
+  return `/v1/panel/customers/${customerID}/subscriptions`;
+};
+
+/**
+ * Requires customers.read. Every concurrent subscription with its own Remnawave mapping.
+ */
+export const listPanelCustomerSubscriptions = async (
+  customerID: string,
+  options?: RequestInit,
+): Promise<listPanelCustomerSubscriptionsResponse> => {
+  const res = await fetch(getListPanelCustomerSubscriptionsUrl(customerID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelCustomerSubscriptionsResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as listPanelCustomerSubscriptionsResponse;
+};
+
+export const getListPanelCustomerSubscriptionsKey = (customerID: string) =>
+  [`/v1/panel/customers/${customerID}/subscriptions`] as const;
+
+export type ListPanelCustomerSubscriptionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelCustomerSubscriptions>>
+>;
+
+export const useListPanelCustomerSubscriptions = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelCustomerSubscriptions>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && customerID !== null && customerID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ??
+    (() => (isEnabled ? getListPanelCustomerSubscriptionsKey(customerID) : null));
+  const swrFn = () => listPanelCustomerSubscriptions(customerID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelCustomerOrdersResponse200 = {
+  data: PanelOrderList;
+  status: 200;
+};
+
+export type listPanelCustomerOrdersResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelCustomerOrdersResponseSuccess = listPanelCustomerOrdersResponse200 & {
+  headers: Headers;
+};
+export type listPanelCustomerOrdersResponseError = listPanelCustomerOrdersResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelCustomerOrdersResponse =
+  | listPanelCustomerOrdersResponseSuccess
+  | listPanelCustomerOrdersResponseError;
+
+export const getListPanelCustomerOrdersUrl = (
+  customerID: string,
+  params?: ListPanelCustomerOrdersParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/customers/${customerID}/orders?${stringifiedParams}`
+    : `/v1/panel/customers/${customerID}/orders`;
+};
+
+/**
+ * Requires customers.read.
+ */
+export const listPanelCustomerOrders = async (
+  customerID: string,
+  params?: ListPanelCustomerOrdersParams,
+  options?: RequestInit,
+): Promise<listPanelCustomerOrdersResponse> => {
+  const res = await fetch(getListPanelCustomerOrdersUrl(customerID, params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelCustomerOrdersResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelCustomerOrdersResponse;
+};
+
+export const getListPanelCustomerOrdersKey = (
+  customerID: string,
+  params?: ListPanelCustomerOrdersParams,
+) => [`/v1/panel/customers/${customerID}/orders`, ...(params ? [params] : [])] as const;
+
+export type ListPanelCustomerOrdersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelCustomerOrders>>
+>;
+
+export const useListPanelCustomerOrders = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  params?: ListPanelCustomerOrdersParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelCustomerOrders>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && customerID !== null && customerID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ??
+    (() => (isEnabled ? getListPanelCustomerOrdersKey(customerID, params) : null));
+  const swrFn = () => listPanelCustomerOrders(customerID, params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelCustomerTicketsResponse200 = {
+  data: PanelTicketList;
+  status: 200;
+};
+
+export type listPanelCustomerTicketsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelCustomerTicketsResponseSuccess = listPanelCustomerTicketsResponse200 & {
+  headers: Headers;
+};
+export type listPanelCustomerTicketsResponseError = listPanelCustomerTicketsResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelCustomerTicketsResponse =
+  | listPanelCustomerTicketsResponseSuccess
+  | listPanelCustomerTicketsResponseError;
+
+export const getListPanelCustomerTicketsUrl = (
+  customerID: string,
+  params?: ListPanelCustomerTicketsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/customers/${customerID}/tickets?${stringifiedParams}`
+    : `/v1/panel/customers/${customerID}/tickets`;
+};
+
+/**
+ * Requires customers.read.
+ */
+export const listPanelCustomerTickets = async (
+  customerID: string,
+  params?: ListPanelCustomerTicketsParams,
+  options?: RequestInit,
+): Promise<listPanelCustomerTicketsResponse> => {
+  const res = await fetch(getListPanelCustomerTicketsUrl(customerID, params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelCustomerTicketsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelCustomerTicketsResponse;
+};
+
+export const getListPanelCustomerTicketsKey = (
+  customerID: string,
+  params?: ListPanelCustomerTicketsParams,
+) => [`/v1/panel/customers/${customerID}/tickets`, ...(params ? [params] : [])] as const;
+
+export type ListPanelCustomerTicketsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelCustomerTickets>>
+>;
+
+export const useListPanelCustomerTickets = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  params?: ListPanelCustomerTicketsParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelCustomerTickets>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && customerID !== null && customerID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ??
+    (() => (isEnabled ? getListPanelCustomerTicketsKey(customerID, params) : null));
+  const swrFn = () => listPanelCustomerTickets(customerID, params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelCustomerConsentsResponse200 = {
+  data: PanelConsentList;
+  status: 200;
+};
+
+export type listPanelCustomerConsentsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelCustomerConsentsResponseSuccess = listPanelCustomerConsentsResponse200 & {
+  headers: Headers;
+};
+export type listPanelCustomerConsentsResponseError = listPanelCustomerConsentsResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelCustomerConsentsResponse =
+  | listPanelCustomerConsentsResponseSuccess
+  | listPanelCustomerConsentsResponseError;
+
+export const getListPanelCustomerConsentsUrl = (customerID: string) => {
+  return `/v1/panel/customers/${customerID}/consents`;
+};
+
+/**
+ * Requires customers.read. The latest recorded decision per purpose.
+ */
+export const listPanelCustomerConsents = async (
+  customerID: string,
+  options?: RequestInit,
+): Promise<listPanelCustomerConsentsResponse> => {
+  const res = await fetch(getListPanelCustomerConsentsUrl(customerID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelCustomerConsentsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelCustomerConsentsResponse;
+};
+
+export const getListPanelCustomerConsentsKey = (customerID: string) =>
+  [`/v1/panel/customers/${customerID}/consents`] as const;
+
+export type ListPanelCustomerConsentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelCustomerConsents>>
+>;
+
+export const useListPanelCustomerConsents = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelCustomerConsents>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && customerID !== null && customerID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelCustomerConsentsKey(customerID) : null));
+  const swrFn = () => listPanelCustomerConsents(customerID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelCustomerWalletResponse200 = {
+  data: PanelLedgerList;
+  status: 200;
+};
+
+export type listPanelCustomerWalletResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelCustomerWalletResponseSuccess = listPanelCustomerWalletResponse200 & {
+  headers: Headers;
+};
+export type listPanelCustomerWalletResponseError = listPanelCustomerWalletResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelCustomerWalletResponse =
+  | listPanelCustomerWalletResponseSuccess
+  | listPanelCustomerWalletResponseError;
+
+export const getListPanelCustomerWalletUrl = (
+  customerID: string,
+  params?: ListPanelCustomerWalletParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/customers/${customerID}/wallet?${stringifiedParams}`
+    : `/v1/panel/customers/${customerID}/wallet`;
+};
+
+/**
+ * Requires finance.read rather than customer access: a support operator can see that a customer has a balance without reading every movement that produced it. The ledger is append-only and exposes reads only.
+ */
+export const listPanelCustomerWallet = async (
+  customerID: string,
+  params?: ListPanelCustomerWalletParams,
+  options?: RequestInit,
+): Promise<listPanelCustomerWalletResponse> => {
+  const res = await fetch(getListPanelCustomerWalletUrl(customerID, params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelCustomerWalletResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelCustomerWalletResponse;
+};
+
+export const getListPanelCustomerWalletKey = (
+  customerID: string,
+  params?: ListPanelCustomerWalletParams,
+) => [`/v1/panel/customers/${customerID}/wallet`, ...(params ? [params] : [])] as const;
+
+export type ListPanelCustomerWalletQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelCustomerWallet>>
+>;
+
+export const useListPanelCustomerWallet = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  params?: ListPanelCustomerWalletParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelCustomerWallet>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && customerID !== null && customerID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ??
+    (() => (isEnabled ? getListPanelCustomerWalletKey(customerID, params) : null));
+  const swrFn = () => listPanelCustomerWallet(customerID, params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelCustomerPaymentMethodsResponse200 = {
+  data: PanelSavedMethodList;
+  status: 200;
+};
+
+export type listPanelCustomerPaymentMethodsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelCustomerPaymentMethodsResponseSuccess =
+  listPanelCustomerPaymentMethodsResponse200 & {
+    headers: Headers;
+  };
+export type listPanelCustomerPaymentMethodsResponseError =
+  listPanelCustomerPaymentMethodsResponse403 & {
+    headers: Headers;
+  };
+
+export type listPanelCustomerPaymentMethodsResponse =
+  | listPanelCustomerPaymentMethodsResponseSuccess
+  | listPanelCustomerPaymentMethodsResponseError;
+
+export const getListPanelCustomerPaymentMethodsUrl = (customerID: string) => {
+  return `/v1/panel/customers/${customerID}/payment-methods`;
+};
+
+/**
+ * Requires finance.read. A saved method is a provider token and a masked label the provider supplied; neither the token nor any card data is returned.
+ */
+export const listPanelCustomerPaymentMethods = async (
+  customerID: string,
+  options?: RequestInit,
+): Promise<listPanelCustomerPaymentMethodsResponse> => {
+  const res = await fetch(getListPanelCustomerPaymentMethodsUrl(customerID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelCustomerPaymentMethodsResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as listPanelCustomerPaymentMethodsResponse;
+};
+
+export const getListPanelCustomerPaymentMethodsKey = (customerID: string) =>
+  [`/v1/panel/customers/${customerID}/payment-methods`] as const;
+
+export type ListPanelCustomerPaymentMethodsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelCustomerPaymentMethods>>
+>;
+
+export const useListPanelCustomerPaymentMethods = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelCustomerPaymentMethods>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && customerID !== null && customerID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ??
+    (() => (isEnabled ? getListPanelCustomerPaymentMethodsKey(customerID) : null));
+  const swrFn = () => listPanelCustomerPaymentMethods(customerID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type revokePanelPaymentMethodResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type revokePanelPaymentMethodResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type revokePanelPaymentMethodResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type revokePanelPaymentMethodResponseSuccess = revokePanelPaymentMethodResponse204 & {
+  headers: Headers;
+};
+export type revokePanelPaymentMethodResponseError = (
+  | revokePanelPaymentMethodResponse403
+  | revokePanelPaymentMethodResponse409
+) & {
+  headers: Headers;
+};
+
+export type revokePanelPaymentMethodResponse =
+  | revokePanelPaymentMethodResponseSuccess
+  | revokePanelPaymentMethodResponseError;
+
+export const getRevokePanelPaymentMethodUrl = (customerID: string, methodID: string) => {
+  return `/v1/panel/customers/${customerID}/payment-methods/${methodID}`;
+};
+
+/**
+ * Requires finance.write. Marks the method revoked and keeps the row, so a historical charge still resolves to the method that made it.
+ */
+export const revokePanelPaymentMethod = async (
+  customerID: string,
+  methodID: string,
+  options?: RequestInit,
+): Promise<revokePanelPaymentMethodResponse> => {
+  const res = await fetch(getRevokePanelPaymentMethodUrl(customerID, methodID), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: revokePanelPaymentMethodResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as revokePanelPaymentMethodResponse;
+};
+
+export const getRevokePanelPaymentMethodMutationFetcher = (
+  customerID: string,
+  methodID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return revokePanelPaymentMethod(customerID, methodID, options);
+  };
+};
+export const getRevokePanelPaymentMethodMutationKey = (customerID: string, methodID: string) =>
+  [`/v1/panel/customers/${customerID}/payment-methods/${methodID}`] as const;
+
+export type RevokePanelPaymentMethodMutationResult = NonNullable<
+  Awaited<ReturnType<typeof revokePanelPaymentMethod>>
+>;
+
+export const useRevokePanelPaymentMethod = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  methodID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof revokePanelPaymentMethod>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof revokePanelPaymentMethod>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRevokePanelPaymentMethodMutationKey(customerID, methodID);
+  const swrFn = getRevokePanelPaymentMethodMutationFetcher(customerID, methodID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelCustomerChargesResponse200 = {
+  data: PanelDunningList;
+  status: 200;
+};
+
+export type listPanelCustomerChargesResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelCustomerChargesResponseSuccess = listPanelCustomerChargesResponse200 & {
+  headers: Headers;
+};
+export type listPanelCustomerChargesResponseError = listPanelCustomerChargesResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelCustomerChargesResponse =
+  | listPanelCustomerChargesResponseSuccess
+  | listPanelCustomerChargesResponseError;
+
+export const getListPanelCustomerChargesUrl = (
+  customerID: string,
+  params?: ListPanelCustomerChargesParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/customers/${customerID}/charges?${stringifiedParams}`
+    : `/v1/panel/customers/${customerID}/charges`;
+};
+
+/**
+ * Requires finance.read. Automatic renewal attempts for this customer.
+ */
+export const listPanelCustomerCharges = async (
+  customerID: string,
+  params?: ListPanelCustomerChargesParams,
+  options?: RequestInit,
+): Promise<listPanelCustomerChargesResponse> => {
+  const res = await fetch(getListPanelCustomerChargesUrl(customerID, params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelCustomerChargesResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelCustomerChargesResponse;
+};
+
+export const getListPanelCustomerChargesKey = (
+  customerID: string,
+  params?: ListPanelCustomerChargesParams,
+) => [`/v1/panel/customers/${customerID}/charges`, ...(params ? [params] : [])] as const;
+
+export type ListPanelCustomerChargesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelCustomerCharges>>
+>;
+
+export const useListPanelCustomerCharges = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  params?: ListPanelCustomerChargesParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelCustomerCharges>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && customerID !== null && customerID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ??
+    (() => (isEnabled ? getListPanelCustomerChargesKey(customerID, params) : null));
+  const swrFn = () => listPanelCustomerCharges(customerID, params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelCustomerRiskResponse200 = {
+  data: PanelMatchList;
+  status: 200;
+};
+
+export type listPanelCustomerRiskResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelCustomerRiskResponseSuccess = listPanelCustomerRiskResponse200 & {
+  headers: Headers;
+};
+export type listPanelCustomerRiskResponseError = listPanelCustomerRiskResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelCustomerRiskResponse =
+  | listPanelCustomerRiskResponseSuccess
+  | listPanelCustomerRiskResponseError;
+
+export const getListPanelCustomerRiskUrl = (customerID: string) => {
+  return `/v1/panel/customers/${customerID}/risk`;
+};
+
+/**
+ * Requires risk.read. Blocklist matches recorded against this customer.
+ */
+export const listPanelCustomerRisk = async (
+  customerID: string,
+  options?: RequestInit,
+): Promise<listPanelCustomerRiskResponse> => {
+  const res = await fetch(getListPanelCustomerRiskUrl(customerID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelCustomerRiskResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelCustomerRiskResponse;
+};
+
+export const getListPanelCustomerRiskKey = (customerID: string) =>
+  [`/v1/panel/customers/${customerID}/risk`] as const;
+
+export type ListPanelCustomerRiskQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelCustomerRisk>>
+>;
+
+export const useListPanelCustomerRisk = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelCustomerRisk>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && customerID !== null && customerID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelCustomerRiskKey(customerID) : null));
+  const swrFn = () => listPanelCustomerRisk(customerID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type setPanelCustomerStatusResponse200 = {
+  data: PanelCustomerProfile;
+  status: 200;
+};
+
+export type setPanelCustomerStatusResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type setPanelCustomerStatusResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type setPanelCustomerStatusResponseSuccess = setPanelCustomerStatusResponse200 & {
+  headers: Headers;
+};
+export type setPanelCustomerStatusResponseError = (
+  | setPanelCustomerStatusResponse403
+  | setPanelCustomerStatusResponse422
+) & {
+  headers: Headers;
+};
+
+export type setPanelCustomerStatusResponse =
+  | setPanelCustomerStatusResponseSuccess
+  | setPanelCustomerStatusResponseError;
+
+export const getSetPanelCustomerStatusUrl = (customerID: string) => {
+  return `/v1/panel/customers/${customerID}/status`;
+};
+
+/**
+ * Requires customers.write and a reason. Suspension does not disable a Remnawave user directly: the fulfillment pipeline observes customer state, and bypassing it would leave the two disagreeing.
+ */
+export const setPanelCustomerStatus = async (
+  customerID: string,
+  setPanelCustomerStatusBody: SetPanelCustomerStatusBody,
+  options?: RequestInit,
+): Promise<setPanelCustomerStatusResponse> => {
+  const res = await fetch(getSetPanelCustomerStatusUrl(customerID), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(setPanelCustomerStatusBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: setPanelCustomerStatusResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as setPanelCustomerStatusResponse;
+};
+
+export const getSetPanelCustomerStatusMutationFetcher = (
+  customerID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: SetPanelCustomerStatusBody }) => {
+    return setPanelCustomerStatus(customerID, arg, options);
+  };
+};
+export const getSetPanelCustomerStatusMutationKey = (customerID: string) =>
+  [`/v1/panel/customers/${customerID}/status`] as const;
+
+export type SetPanelCustomerStatusMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setPanelCustomerStatus>>
+>;
+
+export const useSetPanelCustomerStatus = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof setPanelCustomerStatus>>,
+      TError,
+      Key,
+      SetPanelCustomerStatusBody,
+      Awaited<ReturnType<typeof setPanelCustomerStatus>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSetPanelCustomerStatusMutationKey(customerID);
+  const swrFn = getSetPanelCustomerStatusMutationFetcher(customerID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type renamePanelSubscriptionResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type renamePanelSubscriptionResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type renamePanelSubscriptionResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type renamePanelSubscriptionResponseSuccess = renamePanelSubscriptionResponse204 & {
+  headers: Headers;
+};
+export type renamePanelSubscriptionResponseError = (
+  | renamePanelSubscriptionResponse403
+  | renamePanelSubscriptionResponse404
+) & {
+  headers: Headers;
+};
+
+export type renamePanelSubscriptionResponse =
+  | renamePanelSubscriptionResponseSuccess
+  | renamePanelSubscriptionResponseError;
+
+export const getRenamePanelSubscriptionUrl = (customerID: string, subscriptionID: string) => {
+  return `/v1/panel/customers/${customerID}/subscriptions/${subscriptionID}`;
+};
+
+/**
+ * Requires subscriptions.write. The label is the only subscription attribute the panel edits directly; expiry, traffic, limits, squads, and enabled state belong to Remnawave and change through fulfillment.
+ */
+export const renamePanelSubscription = async (
+  customerID: string,
+  subscriptionID: string,
+  renamePanelSubscriptionBody: RenamePanelSubscriptionBody,
+  options?: RequestInit,
+): Promise<renamePanelSubscriptionResponse> => {
+  const res = await fetch(getRenamePanelSubscriptionUrl(customerID, subscriptionID), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(renamePanelSubscriptionBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: renamePanelSubscriptionResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as renamePanelSubscriptionResponse;
+};
+
+export const getRenamePanelSubscriptionMutationFetcher = (
+  customerID: string,
+  subscriptionID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: RenamePanelSubscriptionBody }) => {
+    return renamePanelSubscription(customerID, subscriptionID, arg, options);
+  };
+};
+export const getRenamePanelSubscriptionMutationKey = (customerID: string, subscriptionID: string) =>
+  [`/v1/panel/customers/${customerID}/subscriptions/${subscriptionID}`] as const;
+
+export type RenamePanelSubscriptionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof renamePanelSubscription>>
+>;
+
+export const useRenamePanelSubscription = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  subscriptionID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof renamePanelSubscription>>,
+      TError,
+      Key,
+      RenamePanelSubscriptionBody,
+      Awaited<ReturnType<typeof renamePanelSubscription>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey =
+    swrOptions?.swrKey ?? getRenamePanelSubscriptionMutationKey(customerID, subscriptionID);
+  const swrFn = getRenamePanelSubscriptionMutationFetcher(customerID, subscriptionID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type allowlistPanelCustomerResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type allowlistPanelCustomerResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type allowlistPanelCustomerResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type allowlistPanelCustomerResponseSuccess = allowlistPanelCustomerResponse204 & {
+  headers: Headers;
+};
+export type allowlistPanelCustomerResponseError = (
+  | allowlistPanelCustomerResponse403
+  | allowlistPanelCustomerResponse422
+) & {
+  headers: Headers;
+};
+
+export type allowlistPanelCustomerResponse =
+  | allowlistPanelCustomerResponseSuccess
+  | allowlistPanelCustomerResponseError;
+
+export const getAllowlistPanelCustomerUrl = (customerID: string) => {
+  return `/v1/panel/customers/${customerID}/allowlist`;
+};
+
+/**
+ * Requires risk.write and a reason. Without an override an operator's decision would be undone the moment the source republished the entry.
+ */
+export const allowlistPanelCustomer = async (
+  customerID: string,
+  options?: RequestInit,
+): Promise<allowlistPanelCustomerResponse> => {
+  const res = await fetch(getAllowlistPanelCustomerUrl(customerID), {
+    ...options,
+    method: "PUT",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: allowlistPanelCustomerResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as allowlistPanelCustomerResponse;
+};
+
+export const getAllowlistPanelCustomerMutationFetcher = (
+  customerID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return allowlistPanelCustomer(customerID, options);
+  };
+};
+export const getAllowlistPanelCustomerMutationKey = (customerID: string) =>
+  [`/v1/panel/customers/${customerID}/allowlist`] as const;
+
+export type AllowlistPanelCustomerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof allowlistPanelCustomer>>
+>;
+
+export const useAllowlistPanelCustomer = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof allowlistPanelCustomer>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof allowlistPanelCustomer>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getAllowlistPanelCustomerMutationKey(customerID);
+  const swrFn = getAllowlistPanelCustomerMutationFetcher(customerID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type removePanelAllowlistResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type removePanelAllowlistResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type removePanelAllowlistResponseSuccess = removePanelAllowlistResponse204 & {
+  headers: Headers;
+};
+export type removePanelAllowlistResponseError = removePanelAllowlistResponse403 & {
+  headers: Headers;
+};
+
+export type removePanelAllowlistResponse =
+  | removePanelAllowlistResponseSuccess
+  | removePanelAllowlistResponseError;
+
+export const getRemovePanelAllowlistUrl = (customerID: string) => {
+  return `/v1/panel/customers/${customerID}/allowlist`;
+};
+
+/**
+ * Requires risk.write.
+ */
+export const removePanelAllowlist = async (
+  customerID: string,
+  options?: RequestInit,
+): Promise<removePanelAllowlistResponse> => {
+  const res = await fetch(getRemovePanelAllowlistUrl(customerID), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: removePanelAllowlistResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as removePanelAllowlistResponse;
+};
+
+export const getRemovePanelAllowlistMutationFetcher = (
+  customerID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return removePanelAllowlist(customerID, options);
+  };
+};
+export const getRemovePanelAllowlistMutationKey = (customerID: string) =>
+  [`/v1/panel/customers/${customerID}/allowlist`] as const;
+
+export type RemovePanelAllowlistMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removePanelAllowlist>>
+>;
+
+export const useRemovePanelAllowlist = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof removePanelAllowlist>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof removePanelAllowlist>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRemovePanelAllowlistMutationKey(customerID);
+  const swrFn = getRemovePanelAllowlistMutationFetcher(customerID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelPlansResponse200 = {
+  data: PanelPlanList;
+  status: 200;
+};
+
+export type listPanelPlansResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelPlansResponseSuccess = listPanelPlansResponse200 & {
+  headers: Headers;
+};
+export type listPanelPlansResponseError = listPanelPlansResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelPlansResponse = listPanelPlansResponseSuccess | listPanelPlansResponseError;
+
+export const getListPanelPlansUrl = () => {
+  return `/v1/panel/catalog/plans`;
+};
+
+/**
+ * Requires catalog.read. Archived plans are included, with how many order lines reference each, so archiving one in active use is a visible decision.
+ */
+export const listPanelPlans = async (options?: RequestInit): Promise<listPanelPlansResponse> => {
+  const res = await fetch(getListPanelPlansUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelPlansResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelPlansResponse;
+};
+
+export const getListPanelPlansKey = () => [`/v1/panel/catalog/plans`] as const;
+
+export type ListPanelPlansQueryResult = NonNullable<Awaited<ReturnType<typeof listPanelPlans>>>;
+
+export const useListPanelPlans = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelPlans>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelPlansKey() : null));
+  const swrFn = () => listPanelPlans(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelPlanResponse200 = {
+  data: PanelPlanDetail;
+  status: 200;
+};
+
+export type getPanelPlanResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelPlanResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getPanelPlanResponseSuccess = getPanelPlanResponse200 & {
+  headers: Headers;
+};
+export type getPanelPlanResponseError = (getPanelPlanResponse403 | getPanelPlanResponse404) & {
+  headers: Headers;
+};
+
+export type getPanelPlanResponse = getPanelPlanResponseSuccess | getPanelPlanResponseError;
+
+export const getGetPanelPlanUrl = (planID: string) => {
+  return `/v1/panel/catalog/plans/${planID}`;
+};
+
+/**
+ * Requires catalog.read. The plan with its localisations and priced versions.
+ */
+export const getPanelPlan = async (
+  planID: string,
+  options?: RequestInit,
+): Promise<getPanelPlanResponse> => {
+  const res = await fetch(getGetPanelPlanUrl(planID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelPlanResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelPlanResponse;
+};
+
+export const getGetPanelPlanKey = (planID: string) =>
+  [`/v1/panel/catalog/plans/${planID}`] as const;
+
+export type GetPanelPlanQueryResult = NonNullable<Awaited<ReturnType<typeof getPanelPlan>>>;
+
+export const useGetPanelPlan = <TError = Promise<ProblemResponse>>(
+  planID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelPlan>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false && planID !== null && planID !== undefined;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelPlanKey(planID) : null));
+  const swrFn = () => getPanelPlan(planID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type updatePanelPlanPresentationResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type updatePanelPlanPresentationResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type updatePanelPlanPresentationResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type updatePanelPlanPresentationResponseSuccess = updatePanelPlanPresentationResponse204 & {
+  headers: Headers;
+};
+export type updatePanelPlanPresentationResponseError = (
+  | updatePanelPlanPresentationResponse403
+  | updatePanelPlanPresentationResponse422
+) & {
+  headers: Headers;
+};
+
+export type updatePanelPlanPresentationResponse =
+  | updatePanelPlanPresentationResponseSuccess
+  | updatePanelPlanPresentationResponseError;
+
+export const getUpdatePanelPlanPresentationUrl = (planID: string) => {
+  return `/v1/panel/catalog/plans/${planID}`;
+};
+
+/**
+ * Requires catalog.write. Visibility, ordering, and the per-plan concurrency cap are saved together, so two operators editing one plan cannot each drop the other's change.
+ */
+export const updatePanelPlanPresentation = async (
+  planID: string,
+  panelPlanPresentation: PanelPlanPresentation,
+  options?: RequestInit,
+): Promise<updatePanelPlanPresentationResponse> => {
+  const res = await fetch(getUpdatePanelPlanPresentationUrl(planID), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(panelPlanPresentation),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: updatePanelPlanPresentationResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as updatePanelPlanPresentationResponse;
+};
+
+export const getUpdatePanelPlanPresentationMutationFetcher = (
+  planID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: PanelPlanPresentation }) => {
+    return updatePanelPlanPresentation(planID, arg, options);
+  };
+};
+export const getUpdatePanelPlanPresentationMutationKey = (planID: string) =>
+  [`/v1/panel/catalog/plans/${planID}`] as const;
+
+export type UpdatePanelPlanPresentationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updatePanelPlanPresentation>>
+>;
+
+export const useUpdatePanelPlanPresentation = <TError = Promise<ProblemResponse>>(
+  planID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof updatePanelPlanPresentation>>,
+      TError,
+      Key,
+      PanelPlanPresentation,
+      Awaited<ReturnType<typeof updatePanelPlanPresentation>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getUpdatePanelPlanPresentationMutationKey(planID);
+  const swrFn = getUpdatePanelPlanPresentationMutationFetcher(planID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type archivePanelPlanResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type archivePanelPlanResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type archivePanelPlanResponseSuccess = archivePanelPlanResponse204 & {
+  headers: Headers;
+};
+export type archivePanelPlanResponseError = archivePanelPlanResponse403 & {
+  headers: Headers;
+};
+
+export type archivePanelPlanResponse =
+  | archivePanelPlanResponseSuccess
+  | archivePanelPlanResponseError;
+
+export const getArchivePanelPlanUrl = (planID: string) => {
+  return `/v1/panel/catalog/plans/${planID}/archive`;
+};
+
+/**
+ * Requires catalog.write. Archiving stops new purchases and leaves every order that already bought the plan priced against its immutable version.
+ */
+export const archivePanelPlan = async (
+  planID: string,
+  archivePanelPlanBody: ArchivePanelPlanBody,
+  options?: RequestInit,
+): Promise<archivePanelPlanResponse> => {
+  const res = await fetch(getArchivePanelPlanUrl(planID), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(archivePanelPlanBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: archivePanelPlanResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as archivePanelPlanResponse;
+};
+
+export const getArchivePanelPlanMutationFetcher = (planID: string, options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: ArchivePanelPlanBody }) => {
+    return archivePanelPlan(planID, arg, options);
+  };
+};
+export const getArchivePanelPlanMutationKey = (planID: string) =>
+  [`/v1/panel/catalog/plans/${planID}/archive`] as const;
+
+export type ArchivePanelPlanMutationResult = NonNullable<
+  Awaited<ReturnType<typeof archivePanelPlan>>
+>;
+
+export const useArchivePanelPlan = <TError = Promise<ProblemResponse>>(
+  planID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof archivePanelPlan>>,
+      TError,
+      Key,
+      ArchivePanelPlanBody,
+      Awaited<ReturnType<typeof archivePanelPlan>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getArchivePanelPlanMutationKey(planID);
+  const swrFn = getArchivePanelPlanMutationFetcher(planID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelPlanLocalizationResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type savePanelPlanLocalizationResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelPlanLocalizationResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelPlanLocalizationResponseSuccess = savePanelPlanLocalizationResponse204 & {
+  headers: Headers;
+};
+export type savePanelPlanLocalizationResponseError = (
+  | savePanelPlanLocalizationResponse403
+  | savePanelPlanLocalizationResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelPlanLocalizationResponse =
+  | savePanelPlanLocalizationResponseSuccess
+  | savePanelPlanLocalizationResponseError;
+
+export const getSavePanelPlanLocalizationUrl = (planID: string, locale: "ru" | "en") => {
+  return `/v1/panel/catalog/plans/${planID}/localizations/${locale}`;
+};
+
+/**
+ * Requires catalog.write.
+ */
+export const savePanelPlanLocalization = async (
+  planID: string,
+  locale: "ru" | "en",
+  panelLocalization: PanelLocalization,
+  options?: RequestInit,
+): Promise<savePanelPlanLocalizationResponse> => {
+  const res = await fetch(getSavePanelPlanLocalizationUrl(planID, locale), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(panelLocalization),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelPlanLocalizationResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as savePanelPlanLocalizationResponse;
+};
+
+export const getSavePanelPlanLocalizationMutationFetcher = (
+  planID: string,
+  locale: "ru" | "en",
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: PanelLocalization }) => {
+    return savePanelPlanLocalization(planID, locale, arg, options);
+  };
+};
+export const getSavePanelPlanLocalizationMutationKey = (planID: string, locale: "ru" | "en") =>
+  [`/v1/panel/catalog/plans/${planID}/localizations/${locale}`] as const;
+
+export type SavePanelPlanLocalizationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelPlanLocalization>>
+>;
+
+export const useSavePanelPlanLocalization = <TError = Promise<ProblemResponse>>(
+  planID: string,
+  locale: "ru" | "en",
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof savePanelPlanLocalization>>,
+      TError,
+      Key,
+      PanelLocalization,
+      Awaited<ReturnType<typeof savePanelPlanLocalization>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelPlanLocalizationMutationKey(planID, locale);
+  const swrFn = getSavePanelPlanLocalizationMutationFetcher(planID, locale, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type retirePanelPlanVersionResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type retirePanelPlanVersionResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type retirePanelPlanVersionResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type retirePanelPlanVersionResponseSuccess = retirePanelPlanVersionResponse204 & {
+  headers: Headers;
+};
+export type retirePanelPlanVersionResponseError = (
+  | retirePanelPlanVersionResponse403
+  | retirePanelPlanVersionResponse409
+) & {
+  headers: Headers;
+};
+
+export type retirePanelPlanVersionResponse =
+  | retirePanelPlanVersionResponseSuccess
+  | retirePanelPlanVersionResponseError;
+
+export const getRetirePanelPlanVersionUrl = (planVersionID: string) => {
+  return `/v1/panel/catalog/plan-versions/${planVersionID}/retire`;
+};
+
+/**
+ * Requires catalog.write. Retiring is forward-looking: every order that bought the version keeps its price.
+ */
+export const retirePanelPlanVersion = async (
+  planVersionID: string,
+  options?: RequestInit,
+): Promise<retirePanelPlanVersionResponse> => {
+  const res = await fetch(getRetirePanelPlanVersionUrl(planVersionID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: retirePanelPlanVersionResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as retirePanelPlanVersionResponse;
+};
+
+export const getRetirePanelPlanVersionMutationFetcher = (
+  planVersionID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return retirePanelPlanVersion(planVersionID, options);
+  };
+};
+export const getRetirePanelPlanVersionMutationKey = (planVersionID: string) =>
+  [`/v1/panel/catalog/plan-versions/${planVersionID}/retire`] as const;
+
+export type RetirePanelPlanVersionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof retirePanelPlanVersion>>
+>;
+
+export const useRetirePanelPlanVersion = <TError = Promise<ProblemResponse>>(
+  planVersionID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof retirePanelPlanVersion>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof retirePanelPlanVersion>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRetirePanelPlanVersionMutationKey(planVersionID);
+  const swrFn = getRetirePanelPlanVersionMutationFetcher(planVersionID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelAddonsResponse200 = {
+  data: PanelAddonList;
+  status: 200;
+};
+
+export type listPanelAddonsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelAddonsResponseSuccess = listPanelAddonsResponse200 & {
+  headers: Headers;
+};
+export type listPanelAddonsResponseError = listPanelAddonsResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelAddonsResponse = listPanelAddonsResponseSuccess | listPanelAddonsResponseError;
+
+export const getListPanelAddonsUrl = () => {
+  return `/v1/panel/catalog/addons`;
+};
+
+/**
+ * Requires catalog.read.
+ */
+export const listPanelAddons = async (options?: RequestInit): Promise<listPanelAddonsResponse> => {
+  const res = await fetch(getListPanelAddonsUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelAddonsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelAddonsResponse;
+};
+
+export const getListPanelAddonsKey = () => [`/v1/panel/catalog/addons`] as const;
+
+export type ListPanelAddonsQueryResult = NonNullable<Awaited<ReturnType<typeof listPanelAddons>>>;
+
+export const useListPanelAddons = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelAddons>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelAddonsKey() : null));
+  const swrFn = () => listPanelAddons(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelAddonVersionsResponse200 = {
+  data: PanelAddonVersionList;
+  status: 200;
+};
+
+export type listPanelAddonVersionsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelAddonVersionsResponseSuccess = listPanelAddonVersionsResponse200 & {
+  headers: Headers;
+};
+export type listPanelAddonVersionsResponseError = listPanelAddonVersionsResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelAddonVersionsResponse =
+  | listPanelAddonVersionsResponseSuccess
+  | listPanelAddonVersionsResponseError;
+
+export const getListPanelAddonVersionsUrl = (addonID: string) => {
+  return `/v1/panel/catalog/addons/${addonID}/versions`;
+};
+
+/**
+ * Requires catalog.read. Each version carries its documented proration rule.
+ */
+export const listPanelAddonVersions = async (
+  addonID: string,
+  options?: RequestInit,
+): Promise<listPanelAddonVersionsResponse> => {
+  const res = await fetch(getListPanelAddonVersionsUrl(addonID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelAddonVersionsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelAddonVersionsResponse;
+};
+
+export const getListPanelAddonVersionsKey = (addonID: string) =>
+  [`/v1/panel/catalog/addons/${addonID}/versions`] as const;
+
+export type ListPanelAddonVersionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelAddonVersions>>
+>;
+
+export const useListPanelAddonVersions = <TError = Promise<ProblemResponse>>(
+  addonID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelAddonVersions>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false && addonID !== null && addonID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelAddonVersionsKey(addonID) : null));
+  const swrFn = () => listPanelAddonVersions(addonID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelPromotionsResponse200 = {
+  data: PanelPromotionList;
+  status: 200;
+};
+
+export type listPanelPromotionsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelPromotionsResponseSuccess = listPanelPromotionsResponse200 & {
+  headers: Headers;
+};
+export type listPanelPromotionsResponseError = listPanelPromotionsResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelPromotionsResponse =
+  | listPanelPromotionsResponseSuccess
+  | listPanelPromotionsResponseError;
+
+export const getListPanelPromotionsUrl = (params?: ListPanelPromotionsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/catalog/promotions?${stringifiedParams}`
+    : `/v1/panel/catalog/promotions`;
+};
+
+/**
+ * Requires catalog.read. Promotions with their redemption analytics.
+ */
+export const listPanelPromotions = async (
+  params?: ListPanelPromotionsParams,
+  options?: RequestInit,
+): Promise<listPanelPromotionsResponse> => {
+  const res = await fetch(getListPanelPromotionsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelPromotionsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelPromotionsResponse;
+};
+
+export const getListPanelPromotionsKey = (params?: ListPanelPromotionsParams) =>
+  [`/v1/panel/catalog/promotions`, ...(params ? [params] : [])] as const;
+
+export type ListPanelPromotionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelPromotions>>
+>;
+
+export const useListPanelPromotions = <TError = Promise<ProblemResponse>>(
+  params?: ListPanelPromotionsParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelPromotions>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelPromotionsKey(params) : null));
+  const swrFn = () => listPanelPromotions(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type updatePanelPromotionResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type updatePanelPromotionResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type updatePanelPromotionResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type updatePanelPromotionResponseSuccess = updatePanelPromotionResponse204 & {
+  headers: Headers;
+};
+export type updatePanelPromotionResponseError = (
+  | updatePanelPromotionResponse403
+  | updatePanelPromotionResponse422
+) & {
+  headers: Headers;
+};
+
+export type updatePanelPromotionResponse =
+  | updatePanelPromotionResponseSuccess
+  | updatePanelPromotionResponseError;
+
+export const getUpdatePanelPromotionUrl = (promotionID: string) => {
+  return `/v1/panel/catalog/promotions/${promotionID}`;
+};
+
+/**
+ * Requires catalog.write. The reward kind is not editable: changing a live promotion's kind would silently change what every unredeemed code is worth.
+ */
+export const updatePanelPromotion = async (
+  promotionID: string,
+  panelPromotionUpdate: PanelPromotionUpdate,
+  options?: RequestInit,
+): Promise<updatePanelPromotionResponse> => {
+  const res = await fetch(getUpdatePanelPromotionUrl(promotionID), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(panelPromotionUpdate),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: updatePanelPromotionResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as updatePanelPromotionResponse;
+};
+
+export const getUpdatePanelPromotionMutationFetcher = (
+  promotionID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: PanelPromotionUpdate }) => {
+    return updatePanelPromotion(promotionID, arg, options);
+  };
+};
+export const getUpdatePanelPromotionMutationKey = (promotionID: string) =>
+  [`/v1/panel/catalog/promotions/${promotionID}`] as const;
+
+export type UpdatePanelPromotionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updatePanelPromotion>>
+>;
+
+export const useUpdatePanelPromotion = <TError = Promise<ProblemResponse>>(
+  promotionID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof updatePanelPromotion>>,
+      TError,
+      Key,
+      PanelPromotionUpdate,
+      Awaited<ReturnType<typeof updatePanelPromotion>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getUpdatePanelPromotionMutationKey(promotionID);
+  const swrFn = getUpdatePanelPromotionMutationFetcher(promotionID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelPromoCodesResponse200 = {
+  data: PanelPromoCodeList;
+  status: 200;
+};
+
+export type listPanelPromoCodesResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelPromoCodesResponseSuccess = listPanelPromoCodesResponse200 & {
+  headers: Headers;
+};
+export type listPanelPromoCodesResponseError = listPanelPromoCodesResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelPromoCodesResponse =
+  | listPanelPromoCodesResponseSuccess
+  | listPanelPromoCodesResponseError;
+
+export const getListPanelPromoCodesUrl = (promotionID: string) => {
+  return `/v1/panel/catalog/promotions/${promotionID}/codes`;
+};
+
+/**
+ * Requires catalog.read.
+ */
+export const listPanelPromoCodes = async (
+  promotionID: string,
+  options?: RequestInit,
+): Promise<listPanelPromoCodesResponse> => {
+  const res = await fetch(getListPanelPromoCodesUrl(promotionID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelPromoCodesResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelPromoCodesResponse;
+};
+
+export const getListPanelPromoCodesKey = (promotionID: string) =>
+  [`/v1/panel/catalog/promotions/${promotionID}/codes`] as const;
+
+export type ListPanelPromoCodesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelPromoCodes>>
+>;
+
+export const useListPanelPromoCodes = <TError = Promise<ProblemResponse>>(
+  promotionID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelPromoCodes>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && promotionID !== null && promotionID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelPromoCodesKey(promotionID) : null));
+  const swrFn = () => listPanelPromoCodes(promotionID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type setPanelPromoCodeActiveResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type setPanelPromoCodeActiveResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type setPanelPromoCodeActiveResponseSuccess = setPanelPromoCodeActiveResponse204 & {
+  headers: Headers;
+};
+export type setPanelPromoCodeActiveResponseError = setPanelPromoCodeActiveResponse403 & {
+  headers: Headers;
+};
+
+export type setPanelPromoCodeActiveResponse =
+  | setPanelPromoCodeActiveResponseSuccess
+  | setPanelPromoCodeActiveResponseError;
+
+export const getSetPanelPromoCodeActiveUrl = (promoCodeID: string) => {
+  return `/v1/panel/catalog/promo-codes/${promoCodeID}/status`;
+};
+
+/**
+ * Requires catalog.write. A code is never deleted: the redemptions that reference it are financial records.
+ */
+export const setPanelPromoCodeActive = async (
+  promoCodeID: string,
+  setPanelPromoCodeActiveBody: SetPanelPromoCodeActiveBody,
+  options?: RequestInit,
+): Promise<setPanelPromoCodeActiveResponse> => {
+  const res = await fetch(getSetPanelPromoCodeActiveUrl(promoCodeID), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(setPanelPromoCodeActiveBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: setPanelPromoCodeActiveResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as setPanelPromoCodeActiveResponse;
+};
+
+export const getSetPanelPromoCodeActiveMutationFetcher = (
+  promoCodeID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: SetPanelPromoCodeActiveBody }) => {
+    return setPanelPromoCodeActive(promoCodeID, arg, options);
+  };
+};
+export const getSetPanelPromoCodeActiveMutationKey = (promoCodeID: string) =>
+  [`/v1/panel/catalog/promo-codes/${promoCodeID}/status`] as const;
+
+export type SetPanelPromoCodeActiveMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setPanelPromoCodeActive>>
+>;
+
+export const useSetPanelPromoCodeActive = <TError = Promise<ProblemResponse>>(
+  promoCodeID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof setPanelPromoCodeActive>>,
+      TError,
+      Key,
+      SetPanelPromoCodeActiveBody,
+      Awaited<ReturnType<typeof setPanelPromoCodeActive>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSetPanelPromoCodeActiveMutationKey(promoCodeID);
+  const swrFn = getSetPanelPromoCodeActiveMutationFetcher(promoCodeID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type searchPanelOffersResponse200 = {
+  data: PanelOfferPage;
+  status: 200;
+};
+
+export type searchPanelOffersResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type searchPanelOffersResponseSuccess = searchPanelOffersResponse200 & {
+  headers: Headers;
+};
+export type searchPanelOffersResponseError = searchPanelOffersResponse403 & {
+  headers: Headers;
+};
+
+export type searchPanelOffersResponse =
+  | searchPanelOffersResponseSuccess
+  | searchPanelOffersResponseError;
+
+export const getSearchPanelOffersUrl = (params?: SearchPanelOffersParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/offers?${stringifiedParams}`
+    : `/v1/panel/offers`;
+};
+
+/**
+ * Requires marketing.read.
+ */
+export const searchPanelOffers = async (
+  params?: SearchPanelOffersParams,
+  options?: RequestInit,
+): Promise<searchPanelOffersResponse> => {
+  const res = await fetch(getSearchPanelOffersUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: searchPanelOffersResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as searchPanelOffersResponse;
+};
+
+export const getSearchPanelOffersKey = (params?: SearchPanelOffersParams) =>
+  [`/v1/panel/offers`, ...(params ? [params] : [])] as const;
+
+export type SearchPanelOffersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchPanelOffers>>
+>;
+
+export const useSearchPanelOffers = <TError = Promise<ProblemResponse>>(
+  params?: SearchPanelOffersParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof searchPanelOffers>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getSearchPanelOffersKey(params) : null));
+  const swrFn = () => searchPanelOffers(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type createPanelOfferResponse201 = {
+  data: PanelOffer;
+  status: 201;
+};
+
+export type createPanelOfferResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type createPanelOfferResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type createPanelOfferResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type createPanelOfferResponseSuccess = createPanelOfferResponse201 & {
+  headers: Headers;
+};
+export type createPanelOfferResponseError = (
+  | createPanelOfferResponse403
+  | createPanelOfferResponse409
+  | createPanelOfferResponse422
+) & {
+  headers: Headers;
+};
+
+export type createPanelOfferResponse =
+  | createPanelOfferResponseSuccess
+  | createPanelOfferResponseError;
+
+export const getCreatePanelOfferUrl = () => {
+  return `/v1/panel/offers`;
+};
+
+/**
+ * Requires marketing.write. Both locales are required: an offer with copy in one language renders as a blank card for half the customer base.
+ */
+export const createPanelOffer = async (
+  panelOfferInput: PanelOfferInput,
+  options?: RequestInit,
+): Promise<createPanelOfferResponse> => {
+  const res = await fetch(getCreatePanelOfferUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(panelOfferInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: createPanelOfferResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as createPanelOfferResponse;
+};
+
+export const getCreatePanelOfferMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PanelOfferInput }) => {
+    return createPanelOffer(arg, options);
+  };
+};
+export const getCreatePanelOfferMutationKey = () => [`/v1/panel/offers`] as const;
+
+export type CreatePanelOfferMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPanelOffer>>
+>;
+
+export const useCreatePanelOffer = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof createPanelOffer>>,
+    TError,
+    Key,
+    PanelOfferInput,
+    Awaited<ReturnType<typeof createPanelOffer>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getCreatePanelOfferMutationKey();
+  const swrFn = getCreatePanelOfferMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type revokePanelOfferResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type revokePanelOfferResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type revokePanelOfferResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type revokePanelOfferResponseSuccess = revokePanelOfferResponse204 & {
+  headers: Headers;
+};
+export type revokePanelOfferResponseError = (
+  | revokePanelOfferResponse403
+  | revokePanelOfferResponse409
+) & {
+  headers: Headers;
+};
+
+export type revokePanelOfferResponse =
+  | revokePanelOfferResponseSuccess
+  | revokePanelOfferResponseError;
+
+export const getRevokePanelOfferUrl = (offerID: string) => {
+  return `/v1/panel/offers/${offerID}/revoke`;
+};
+
+/**
+ * Requires marketing.write. Only an offer that has not been redeemed may be withdrawn.
+ */
+export const revokePanelOffer = async (
+  offerID: string,
+  options?: RequestInit,
+): Promise<revokePanelOfferResponse> => {
+  const res = await fetch(getRevokePanelOfferUrl(offerID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: revokePanelOfferResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as revokePanelOfferResponse;
+};
+
+export const getRevokePanelOfferMutationFetcher = (offerID: string, options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return revokePanelOffer(offerID, options);
+  };
+};
+export const getRevokePanelOfferMutationKey = (offerID: string) =>
+  [`/v1/panel/offers/${offerID}/revoke`] as const;
+
+export type RevokePanelOfferMutationResult = NonNullable<
+  Awaited<ReturnType<typeof revokePanelOffer>>
+>;
+
+export const useRevokePanelOffer = <TError = Promise<ProblemResponse>>(
+  offerID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof revokePanelOffer>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof revokePanelOffer>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRevokePanelOfferMutationKey(offerID);
+  const swrFn = getRevokePanelOfferMutationFetcher(offerID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type searchPanelOrdersResponse200 = {
+  data: PanelOrderPage;
+  status: 200;
+};
+
+export type searchPanelOrdersResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type searchPanelOrdersResponseSuccess = searchPanelOrdersResponse200 & {
+  headers: Headers;
+};
+export type searchPanelOrdersResponseError = searchPanelOrdersResponse403 & {
+  headers: Headers;
+};
+
+export type searchPanelOrdersResponse =
+  | searchPanelOrdersResponseSuccess
+  | searchPanelOrdersResponseError;
+
+export const getSearchPanelOrdersUrl = (params?: SearchPanelOrdersParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/finance/orders?${stringifiedParams}`
+    : `/v1/panel/finance/orders`;
+};
+
+/**
+ * Requires finance.read.
+ */
+export const searchPanelOrders = async (
+  params?: SearchPanelOrdersParams,
+  options?: RequestInit,
+): Promise<searchPanelOrdersResponse> => {
+  const res = await fetch(getSearchPanelOrdersUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: searchPanelOrdersResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as searchPanelOrdersResponse;
+};
+
+export const getSearchPanelOrdersKey = (params?: SearchPanelOrdersParams) =>
+  [`/v1/panel/finance/orders`, ...(params ? [params] : [])] as const;
+
+export type SearchPanelOrdersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchPanelOrders>>
+>;
+
+export const useSearchPanelOrders = <TError = Promise<ProblemResponse>>(
+  params?: SearchPanelOrdersParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof searchPanelOrders>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getSearchPanelOrdersKey(params) : null));
+  const swrFn = () => searchPanelOrders(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelOrderDetailResponse200 = {
+  data: PanelOrderDetail;
+  status: 200;
+};
+
+export type getPanelOrderDetailResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelOrderDetailResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getPanelOrderDetailResponseSuccess = getPanelOrderDetailResponse200 & {
+  headers: Headers;
+};
+export type getPanelOrderDetailResponseError = (
+  | getPanelOrderDetailResponse403
+  | getPanelOrderDetailResponse404
+) & {
+  headers: Headers;
+};
+
+export type getPanelOrderDetailResponse =
+  | getPanelOrderDetailResponseSuccess
+  | getPanelOrderDetailResponseError;
+
+export const getGetPanelOrderDetailUrl = (orderID: string) => {
+  return `/v1/panel/finance/orders/${orderID}`;
+};
+
+/**
+ * Requires finance.read. Payment intents with their event timeline and every refund. The raw provider payload is deliberately absent; it is reachable through the webhook diagnostics with its own permission.
+ */
+export const getPanelOrderDetail = async (
+  orderID: string,
+  options?: RequestInit,
+): Promise<getPanelOrderDetailResponse> => {
+  const res = await fetch(getGetPanelOrderDetailUrl(orderID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelOrderDetailResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelOrderDetailResponse;
+};
+
+export const getGetPanelOrderDetailKey = (orderID: string) =>
+  [`/v1/panel/finance/orders/${orderID}`] as const;
+
+export type GetPanelOrderDetailQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelOrderDetail>>
+>;
+
+export const useGetPanelOrderDetail = <TError = Promise<ProblemResponse>>(
+  orderID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelOrderDetail>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false && orderID !== null && orderID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelOrderDetailKey(orderID) : null));
+  const swrFn = () => getPanelOrderDetail(orderID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type recordPanelRefundResponse202 = {
+  data: void;
+  status: 202;
+};
+
+export type recordPanelRefundResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type recordPanelRefundResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type recordPanelRefundResponseSuccess = recordPanelRefundResponse202 & {
+  headers: Headers;
+};
+export type recordPanelRefundResponseError = (
+  | recordPanelRefundResponse403
+  | recordPanelRefundResponse422
+) & {
+  headers: Headers;
+};
+
+export type recordPanelRefundResponse =
+  | recordPanelRefundResponseSuccess
+  | recordPanelRefundResponseError;
+
+export const getRecordPanelRefundUrl = (orderID: string) => {
+  return `/v1/panel/finance/orders/${orderID}/refund`;
+};
+
+/**
+ * Requires finance.write and a reason. The refund itself is executed by the payment service against the provider's own capabilities; this records the decision and its rationale.
+ */
+export const recordPanelRefund = async (
+  orderID: string,
+  panelRefundRecord: PanelRefundRecord,
+  options?: RequestInit,
+): Promise<recordPanelRefundResponse> => {
+  const res = await fetch(getRecordPanelRefundUrl(orderID), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(panelRefundRecord),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: recordPanelRefundResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as recordPanelRefundResponse;
+};
+
+export const getRecordPanelRefundMutationFetcher = (orderID: string, options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PanelRefundRecord }) => {
+    return recordPanelRefund(orderID, arg, options);
+  };
+};
+export const getRecordPanelRefundMutationKey = (orderID: string) =>
+  [`/v1/panel/finance/orders/${orderID}/refund`] as const;
+
+export type RecordPanelRefundMutationResult = NonNullable<
+  Awaited<ReturnType<typeof recordPanelRefund>>
+>;
+
+export const useRecordPanelRefund = <TError = Promise<ProblemResponse>>(
+  orderID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof recordPanelRefund>>,
+      TError,
+      Key,
+      PanelRefundRecord,
+      Awaited<ReturnType<typeof recordPanelRefund>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRecordPanelRefundMutationKey(orderID);
+  const swrFn = getRecordPanelRefundMutationFetcher(orderID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type reconcilePanelPaymentResponse202 = {
+  data: void;
+  status: 202;
+};
+
+export type reconcilePanelPaymentResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type reconcilePanelPaymentResponseSuccess = reconcilePanelPaymentResponse202 & {
+  headers: Headers;
+};
+export type reconcilePanelPaymentResponseError = reconcilePanelPaymentResponse403 & {
+  headers: Headers;
+};
+
+export type reconcilePanelPaymentResponse =
+  | reconcilePanelPaymentResponseSuccess
+  | reconcilePanelPaymentResponseError;
+
+export const getReconcilePanelPaymentUrl = (paymentIntentID: string) => {
+  return `/v1/panel/finance/payments/${paymentIntentID}/reconcile`;
+};
+
+/**
+ * Requires finance.write. Re-polling is performed by the idempotent payment service; the panel never decides how a payment settles.
+ */
+export const reconcilePanelPayment = async (
+  paymentIntentID: string,
+  reconcilePanelPaymentBody: ReconcilePanelPaymentBody,
+  options?: RequestInit,
+): Promise<reconcilePanelPaymentResponse> => {
+  const res = await fetch(getReconcilePanelPaymentUrl(paymentIntentID), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(reconcilePanelPaymentBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: reconcilePanelPaymentResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as reconcilePanelPaymentResponse;
+};
+
+export const getReconcilePanelPaymentMutationFetcher = (
+  paymentIntentID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: ReconcilePanelPaymentBody }) => {
+    return reconcilePanelPayment(paymentIntentID, arg, options);
+  };
+};
+export const getReconcilePanelPaymentMutationKey = (paymentIntentID: string) =>
+  [`/v1/panel/finance/payments/${paymentIntentID}/reconcile`] as const;
+
+export type ReconcilePanelPaymentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reconcilePanelPayment>>
+>;
+
+export const useReconcilePanelPayment = <TError = Promise<ProblemResponse>>(
+  paymentIntentID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof reconcilePanelPayment>>,
+      TError,
+      Key,
+      ReconcilePanelPaymentBody,
+      Awaited<ReturnType<typeof reconcilePanelPayment>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getReconcilePanelPaymentMutationKey(paymentIntentID);
+  const swrFn = getReconcilePanelPaymentMutationFetcher(paymentIntentID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelStuckPaymentsResponse200 = {
+  data: PanelStuckPaymentList;
+  status: 200;
+};
+
+export type listPanelStuckPaymentsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelStuckPaymentsResponseSuccess = listPanelStuckPaymentsResponse200 & {
+  headers: Headers;
+};
+export type listPanelStuckPaymentsResponseError = listPanelStuckPaymentsResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelStuckPaymentsResponse =
+  | listPanelStuckPaymentsResponseSuccess
+  | listPanelStuckPaymentsResponseError;
+
+export const getListPanelStuckPaymentsUrl = (params?: ListPanelStuckPaymentsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/finance/stuck-payments?${stringifiedParams}`
+    : `/v1/panel/finance/stuck-payments`;
+};
+
+/**
+ * Requires finance.read. Intents in flight longer than any supported provider should take.
+ */
+export const listPanelStuckPayments = async (
+  params?: ListPanelStuckPaymentsParams,
+  options?: RequestInit,
+): Promise<listPanelStuckPaymentsResponse> => {
+  const res = await fetch(getListPanelStuckPaymentsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelStuckPaymentsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelStuckPaymentsResponse;
+};
+
+export const getListPanelStuckPaymentsKey = (params?: ListPanelStuckPaymentsParams) =>
+  [`/v1/panel/finance/stuck-payments`, ...(params ? [params] : [])] as const;
+
+export type ListPanelStuckPaymentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelStuckPayments>>
+>;
+
+export const useListPanelStuckPayments = <TError = Promise<ProblemResponse>>(
+  params?: ListPanelStuckPaymentsParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelStuckPayments>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelStuckPaymentsKey(params) : null));
+  const swrFn = () => listPanelStuckPayments(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelFailedChargesResponse200 = {
+  data: PanelDunningPage;
+  status: 200;
+};
+
+export type listPanelFailedChargesResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelFailedChargesResponseSuccess = listPanelFailedChargesResponse200 & {
+  headers: Headers;
+};
+export type listPanelFailedChargesResponseError = listPanelFailedChargesResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelFailedChargesResponse =
+  | listPanelFailedChargesResponseSuccess
+  | listPanelFailedChargesResponseError;
+
+export const getListPanelFailedChargesUrl = (params?: ListPanelFailedChargesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/finance/failed-charges?${stringifiedParams}`
+    : `/v1/panel/finance/failed-charges`;
+};
+
+/**
+ * Requires finance.read. A review surface: a failed charge retries on its own bounded schedule and nothing here re-triggers one.
+ */
+export const listPanelFailedCharges = async (
+  params?: ListPanelFailedChargesParams,
+  options?: RequestInit,
+): Promise<listPanelFailedChargesResponse> => {
+  const res = await fetch(getListPanelFailedChargesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelFailedChargesResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelFailedChargesResponse;
+};
+
+export const getListPanelFailedChargesKey = (params?: ListPanelFailedChargesParams) =>
+  [`/v1/panel/finance/failed-charges`, ...(params ? [params] : [])] as const;
+
+export type ListPanelFailedChargesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelFailedCharges>>
+>;
+
+export const useListPanelFailedCharges = <TError = Promise<ProblemResponse>>(
+  params?: ListPanelFailedChargesParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelFailedCharges>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelFailedChargesKey(params) : null));
+  const swrFn = () => listPanelFailedCharges(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type exportPanelFinanceResponse200 = {
+  data: string;
+  status: 200;
+};
+
+export type exportPanelFinanceResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type exportPanelFinanceResponseSuccess = exportPanelFinanceResponse200 & {
+  headers: Headers;
+};
+export type exportPanelFinanceResponseError = exportPanelFinanceResponse403 & {
+  headers: Headers;
+};
+
+export type exportPanelFinanceResponse =
+  | exportPanelFinanceResponseSuccess
+  | exportPanelFinanceResponseError;
+
+export const getExportPanelFinanceUrl = (params?: ExportPanelFinanceParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/finance/export?${stringifiedParams}`
+    : `/v1/panel/finance/export`;
+};
+
+/**
+ * Requires finance.read. Streams the filtered orders as CSV. The schema is stable — a later version appends a column and never inserts one. Amounts are integers in the currency's minor unit and every timestamp is UTC.
+ */
+export const exportPanelFinance = async (
+  params?: ExportPanelFinanceParams,
+  options?: RequestInit,
+): Promise<exportPanelFinanceResponse> => {
+  const res = await fetch(getExportPanelFinanceUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const contentType = (res.headers.get("content-type") ?? "").toLowerCase();
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: exportPanelFinanceResponse["data"] = body
+    ? contentType.includes("json")
+      ? JSON.parse(body)
+      : body
+    : {};
+  return { data, status: res.status, headers: res.headers } as exportPanelFinanceResponse;
+};
+
+export const getExportPanelFinanceKey = (params?: ExportPanelFinanceParams) =>
+  [`/v1/panel/finance/export`, ...(params ? [params] : [])] as const;
+
+export type ExportPanelFinanceQueryResult = NonNullable<
+  Awaited<ReturnType<typeof exportPanelFinance>>
+>;
+
+export const useExportPanelFinance = <TError = Promise<ProblemResponse>>(
+  params?: ExportPanelFinanceParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof exportPanelFinance>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getExportPanelFinanceKey(params) : null));
+  const swrFn = () => exportPanelFinance(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type searchPanelFulfillmentResponse200 = {
+  data: PanelFulfillmentPage;
+  status: 200;
+};
+
+export type searchPanelFulfillmentResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type searchPanelFulfillmentResponseSuccess = searchPanelFulfillmentResponse200 & {
+  headers: Headers;
+};
+export type searchPanelFulfillmentResponseError = searchPanelFulfillmentResponse403 & {
+  headers: Headers;
+};
+
+export type searchPanelFulfillmentResponse =
+  | searchPanelFulfillmentResponseSuccess
+  | searchPanelFulfillmentResponseError;
+
+export const getSearchPanelFulfillmentUrl = (params?: SearchPanelFulfillmentParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/system/jobs?${stringifiedParams}`
+    : `/v1/panel/system/jobs`;
+};
+
+/**
+ * Requires system.read. Filtering on the failed status is the dead-letter view. The error code is a classification, never a provider message.
+ */
+export const searchPanelFulfillment = async (
+  params?: SearchPanelFulfillmentParams,
+  options?: RequestInit,
+): Promise<searchPanelFulfillmentResponse> => {
+  const res = await fetch(getSearchPanelFulfillmentUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: searchPanelFulfillmentResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as searchPanelFulfillmentResponse;
+};
+
+export const getSearchPanelFulfillmentKey = (params?: SearchPanelFulfillmentParams) =>
+  [`/v1/panel/system/jobs`, ...(params ? [params] : [])] as const;
+
+export type SearchPanelFulfillmentQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchPanelFulfillment>>
+>;
+
+export const useSearchPanelFulfillment = <TError = Promise<ProblemResponse>>(
+  params?: SearchPanelFulfillmentParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof searchPanelFulfillment>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getSearchPanelFulfillmentKey(params) : null));
+  const swrFn = () => searchPanelFulfillment(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelFulfillmentHistoryResponse200 = {
+  data: PanelFulfillmentAttemptList;
+  status: 200;
+};
+
+export type getPanelFulfillmentHistoryResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelFulfillmentHistoryResponseSuccess = getPanelFulfillmentHistoryResponse200 & {
+  headers: Headers;
+};
+export type getPanelFulfillmentHistoryResponseError = getPanelFulfillmentHistoryResponse403 & {
+  headers: Headers;
+};
+
+export type getPanelFulfillmentHistoryResponse =
+  | getPanelFulfillmentHistoryResponseSuccess
+  | getPanelFulfillmentHistoryResponseError;
+
+export const getGetPanelFulfillmentHistoryUrl = (operationID: string) => {
+  return `/v1/panel/system/jobs/${operationID}/history`;
+};
+
+/**
+ * Requires system.read. Status, correlation, and error classification only: the stored request and response summaries can carry a subscription link and are not returned.
+ */
+export const getPanelFulfillmentHistory = async (
+  operationID: string,
+  options?: RequestInit,
+): Promise<getPanelFulfillmentHistoryResponse> => {
+  const res = await fetch(getGetPanelFulfillmentHistoryUrl(operationID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelFulfillmentHistoryResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelFulfillmentHistoryResponse;
+};
+
+export const getGetPanelFulfillmentHistoryKey = (operationID: string) =>
+  [`/v1/panel/system/jobs/${operationID}/history`] as const;
+
+export type GetPanelFulfillmentHistoryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelFulfillmentHistory>>
+>;
+
+export const useGetPanelFulfillmentHistory = <TError = Promise<ProblemResponse>>(
+  operationID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelFulfillmentHistory>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && operationID !== null && operationID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ??
+    (() => (isEnabled ? getGetPanelFulfillmentHistoryKey(operationID) : null));
+  const swrFn = () => getPanelFulfillmentHistory(operationID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type retryPanelFulfillmentResponse200 = {
+  data: PanelFulfillmentOperation;
+  status: 200;
+};
+
+export type retryPanelFulfillmentResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type retryPanelFulfillmentResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type retryPanelFulfillmentResponseSuccess = retryPanelFulfillmentResponse200 & {
+  headers: Headers;
+};
+export type retryPanelFulfillmentResponseError = (
+  | retryPanelFulfillmentResponse403
+  | retryPanelFulfillmentResponse409
+) & {
+  headers: Headers;
+};
+
+export type retryPanelFulfillmentResponse =
+  | retryPanelFulfillmentResponseSuccess
+  | retryPanelFulfillmentResponseError;
+
+export const getRetryPanelFulfillmentUrl = (operationID: string) => {
+  return `/v1/panel/system/jobs/${operationID}/retry`;
+};
+
+/**
+ * Requires system.write. The retry keeps the operation's idempotency key, so the worker still performs it exactly once. A succeeded operation is not retryable.
+ */
+export const retryPanelFulfillment = async (
+  operationID: string,
+  options?: RequestInit,
+): Promise<retryPanelFulfillmentResponse> => {
+  const res = await fetch(getRetryPanelFulfillmentUrl(operationID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: retryPanelFulfillmentResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as retryPanelFulfillmentResponse;
+};
+
+export const getRetryPanelFulfillmentMutationFetcher = (
+  operationID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return retryPanelFulfillment(operationID, options);
+  };
+};
+export const getRetryPanelFulfillmentMutationKey = (operationID: string) =>
+  [`/v1/panel/system/jobs/${operationID}/retry`] as const;
+
+export type RetryPanelFulfillmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof retryPanelFulfillment>>
+>;
+
+export const useRetryPanelFulfillment = <TError = Promise<ProblemResponse>>(
+  operationID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof retryPanelFulfillment>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof retryPanelFulfillment>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRetryPanelFulfillmentMutationKey(operationID);
+  const swrFn = getRetryPanelFulfillmentMutationFetcher(operationID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type cancelPanelFulfillmentResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type cancelPanelFulfillmentResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type cancelPanelFulfillmentResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type cancelPanelFulfillmentResponseSuccess = cancelPanelFulfillmentResponse204 & {
+  headers: Headers;
+};
+export type cancelPanelFulfillmentResponseError = (
+  | cancelPanelFulfillmentResponse403
+  | cancelPanelFulfillmentResponse409
+) & {
+  headers: Headers;
+};
+
+export type cancelPanelFulfillmentResponse =
+  | cancelPanelFulfillmentResponseSuccess
+  | cancelPanelFulfillmentResponseError;
+
+export const getCancelPanelFulfillmentUrl = (operationID: string) => {
+  return `/v1/panel/system/jobs/${operationID}/cancel`;
+};
+
+/**
+ * Requires system.write. A completed provisioning cannot be retracted.
+ */
+export const cancelPanelFulfillment = async (
+  operationID: string,
+  options?: RequestInit,
+): Promise<cancelPanelFulfillmentResponse> => {
+  const res = await fetch(getCancelPanelFulfillmentUrl(operationID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: cancelPanelFulfillmentResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as cancelPanelFulfillmentResponse;
+};
+
+export const getCancelPanelFulfillmentMutationFetcher = (
+  operationID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return cancelPanelFulfillment(operationID, options);
+  };
+};
+export const getCancelPanelFulfillmentMutationKey = (operationID: string) =>
+  [`/v1/panel/system/jobs/${operationID}/cancel`] as const;
+
+export type CancelPanelFulfillmentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof cancelPanelFulfillment>>
+>;
+
+export const useCancelPanelFulfillment = <TError = Promise<ProblemResponse>>(
+  operationID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof cancelPanelFulfillment>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof cancelPanelFulfillment>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getCancelPanelFulfillmentMutationKey(operationID);
+  const swrFn = getCancelPanelFulfillmentMutationFetcher(operationID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type searchPanelWebhooksResponse200 = {
+  data: PanelWebhookPage;
+  status: 200;
+};
+
+export type searchPanelWebhooksResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type searchPanelWebhooksResponseSuccess = searchPanelWebhooksResponse200 & {
+  headers: Headers;
+};
+export type searchPanelWebhooksResponseError = searchPanelWebhooksResponse403 & {
+  headers: Headers;
+};
+
+export type searchPanelWebhooksResponse =
+  | searchPanelWebhooksResponseSuccess
+  | searchPanelWebhooksResponseError;
+
+export const getSearchPanelWebhooksUrl = (params?: SearchPanelWebhooksParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/system/webhooks?${stringifiedParams}`
+    : `/v1/panel/system/webhooks`;
+};
+
+/**
+ * Requires system.read. The raw body is not returned: it can contain a provider payload, and "did this arrive and was it accepted" needs only the status.
+ */
+export const searchPanelWebhooks = async (
+  params?: SearchPanelWebhooksParams,
+  options?: RequestInit,
+): Promise<searchPanelWebhooksResponse> => {
+  const res = await fetch(getSearchPanelWebhooksUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: searchPanelWebhooksResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as searchPanelWebhooksResponse;
+};
+
+export const getSearchPanelWebhooksKey = (params?: SearchPanelWebhooksParams) =>
+  [`/v1/panel/system/webhooks`, ...(params ? [params] : [])] as const;
+
+export type SearchPanelWebhooksQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchPanelWebhooks>>
+>;
+
+export const useSearchPanelWebhooks = <TError = Promise<ProblemResponse>>(
+  params?: SearchPanelWebhooksParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof searchPanelWebhooks>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getSearchPanelWebhooksKey(params) : null));
+  const swrFn = () => searchPanelWebhooks(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type replayPanelWebhookResponse202 = {
+  data: void;
+  status: 202;
+};
+
+export type replayPanelWebhookResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type replayPanelWebhookResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type replayPanelWebhookResponseSuccess = replayPanelWebhookResponse202 & {
+  headers: Headers;
+};
+export type replayPanelWebhookResponseError = (
+  | replayPanelWebhookResponse403
+  | replayPanelWebhookResponse409
+) & {
+  headers: Headers;
+};
+
+export type replayPanelWebhookResponse =
+  | replayPanelWebhookResponseSuccess
+  | replayPanelWebhookResponseError;
+
+export const getReplayPanelWebhookUrl = (eventID: string) => {
+  return `/v1/panel/system/webhooks/${eventID}/replay`;
+};
+
+/**
+ * Requires system.write. Only a failed or ignored event may be replayed. Reprocessing is keyed on the provider event identifier, so a second pass reaches the same terminal state instead of applying twice.
+ */
+export const replayPanelWebhook = async (
+  eventID: string,
+  options?: RequestInit,
+): Promise<replayPanelWebhookResponse> => {
+  const res = await fetch(getReplayPanelWebhookUrl(eventID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: replayPanelWebhookResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as replayPanelWebhookResponse;
+};
+
+export const getReplayPanelWebhookMutationFetcher = (eventID: string, options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return replayPanelWebhook(eventID, options);
+  };
+};
+export const getReplayPanelWebhookMutationKey = (eventID: string) =>
+  [`/v1/panel/system/webhooks/${eventID}/replay`] as const;
+
+export type ReplayPanelWebhookMutationResult = NonNullable<
+  Awaited<ReturnType<typeof replayPanelWebhook>>
+>;
+
+export const useReplayPanelWebhook = <TError = Promise<ProblemResponse>>(
+  eventID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof replayPanelWebhook>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof replayPanelWebhook>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getReplayPanelWebhookMutationKey(eventID);
+  const swrFn = getReplayPanelWebhookMutationFetcher(eventID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelDriftResponse200 = {
+  data: PanelDriftList;
+  status: 200;
+};
+
+export type listPanelDriftResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelDriftResponseSuccess = listPanelDriftResponse200 & {
+  headers: Headers;
+};
+export type listPanelDriftResponseError = listPanelDriftResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelDriftResponse = listPanelDriftResponseSuccess | listPanelDriftResponseError;
+
+export const getListPanelDriftUrl = (params?: ListPanelDriftParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/system/drift?${stringifiedParams}`
+    : `/v1/panel/system/drift`;
+};
+
+/**
+ * Requires system.read. Unresolved differences between Omniflow and Remnawave.
+ */
+export const listPanelDrift = async (
+  params?: ListPanelDriftParams,
+  options?: RequestInit,
+): Promise<listPanelDriftResponse> => {
+  const res = await fetch(getListPanelDriftUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelDriftResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelDriftResponse;
+};
+
+export const getListPanelDriftKey = (params?: ListPanelDriftParams) =>
+  [`/v1/panel/system/drift`, ...(params ? [params] : [])] as const;
+
+export type ListPanelDriftQueryResult = NonNullable<Awaited<ReturnType<typeof listPanelDrift>>>;
+
+export const useListPanelDrift = <TError = Promise<ProblemResponse>>(
+  params?: ListPanelDriftParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelDrift>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelDriftKey(params) : null));
+  const swrFn = () => listPanelDrift(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelOutboxResponse200 = {
+  data: PanelOutboxList;
+  status: 200;
+};
+
+export type listPanelOutboxResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelOutboxResponseSuccess = listPanelOutboxResponse200 & {
+  headers: Headers;
+};
+export type listPanelOutboxResponseError = listPanelOutboxResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelOutboxResponse = listPanelOutboxResponseSuccess | listPanelOutboxResponseError;
+
+export const getListPanelOutboxUrl = (params?: ListPanelOutboxParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/system/outbox?${stringifiedParams}`
+    : `/v1/panel/system/outbox`;
+};
+
+/**
+ * Requires system.read. Topic and age only: an outbox payload is a domain event that can name a customer and an amount.
+ */
+export const listPanelOutbox = async (
+  params?: ListPanelOutboxParams,
+  options?: RequestInit,
+): Promise<listPanelOutboxResponse> => {
+  const res = await fetch(getListPanelOutboxUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelOutboxResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelOutboxResponse;
+};
+
+export const getListPanelOutboxKey = (params?: ListPanelOutboxParams) =>
+  [`/v1/panel/system/outbox`, ...(params ? [params] : [])] as const;
+
+export type ListPanelOutboxQueryResult = NonNullable<Awaited<ReturnType<typeof listPanelOutbox>>>;
+
+export const useListPanelOutbox = <TError = Promise<ProblemResponse>>(
+  params?: ListPanelOutboxParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelOutbox>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelOutboxKey(params) : null));
+  const swrFn = () => listPanelOutbox(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelCommerceSettingsResponse200 = {
+  data: PanelCommerceSettings;
+  status: 200;
+};
+
+export type getPanelCommerceSettingsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelCommerceSettingsResponseSuccess = getPanelCommerceSettingsResponse200 & {
+  headers: Headers;
+};
+export type getPanelCommerceSettingsResponseError = getPanelCommerceSettingsResponse403 & {
+  headers: Headers;
+};
+
+export type getPanelCommerceSettingsResponse =
+  | getPanelCommerceSettingsResponseSuccess
+  | getPanelCommerceSettingsResponseError;
+
+export const getGetPanelCommerceSettingsUrl = () => {
+  return `/v1/panel/settings/commerce`;
+};
+
+/**
+ * Requires settings.read.
+ */
+export const getPanelCommerceSettings = async (
+  options?: RequestInit,
+): Promise<getPanelCommerceSettingsResponse> => {
+  const res = await fetch(getGetPanelCommerceSettingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelCommerceSettingsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelCommerceSettingsResponse;
+};
+
+export const getGetPanelCommerceSettingsKey = () => [`/v1/panel/settings/commerce`] as const;
+
+export type GetPanelCommerceSettingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelCommerceSettings>>
+>;
+
+export const useGetPanelCommerceSettings = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelCommerceSettings>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelCommerceSettingsKey() : null));
+  const swrFn = () => getPanelCommerceSettings(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelTopUpSettingsResponse200 = {
+  data: PanelCommerceSettings;
+  status: 200;
+};
+
+export type savePanelTopUpSettingsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelTopUpSettingsResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelTopUpSettingsResponseSuccess = savePanelTopUpSettingsResponse200 & {
+  headers: Headers;
+};
+export type savePanelTopUpSettingsResponseError = (
+  | savePanelTopUpSettingsResponse403
+  | savePanelTopUpSettingsResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelTopUpSettingsResponse =
+  | savePanelTopUpSettingsResponseSuccess
+  | savePanelTopUpSettingsResponseError;
+
+export const getSavePanelTopUpSettingsUrl = () => {
+  return `/v1/panel/settings/commerce/topup`;
+};
+
+/**
+ * Requires settings.write. A preset outside the limits is a button that always fails.
+ */
+export const savePanelTopUpSettings = async (
+  panelTopUpSettings: PanelTopUpSettings,
+  options?: RequestInit,
+): Promise<savePanelTopUpSettingsResponse> => {
+  const res = await fetch(getSavePanelTopUpSettingsUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(panelTopUpSettings),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelTopUpSettingsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as savePanelTopUpSettingsResponse;
+};
+
+export const getSavePanelTopUpSettingsMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PanelTopUpSettings }) => {
+    return savePanelTopUpSettings(arg, options);
+  };
+};
+export const getSavePanelTopUpSettingsMutationKey = () =>
+  [`/v1/panel/settings/commerce/topup`] as const;
+
+export type SavePanelTopUpSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelTopUpSettings>>
+>;
+
+export const useSavePanelTopUpSettings = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof savePanelTopUpSettings>>,
+    TError,
+    Key,
+    PanelTopUpSettings,
+    Awaited<ReturnType<typeof savePanelTopUpSettings>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelTopUpSettingsMutationKey();
+  const swrFn = getSavePanelTopUpSettingsMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelSubscriptionSettingsResponse200 = {
+  data: PanelCommerceSettings;
+  status: 200;
+};
+
+export type savePanelSubscriptionSettingsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelSubscriptionSettingsResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelSubscriptionSettingsResponseSuccess =
+  savePanelSubscriptionSettingsResponse200 & {
+    headers: Headers;
+  };
+export type savePanelSubscriptionSettingsResponseError = (
+  | savePanelSubscriptionSettingsResponse403
+  | savePanelSubscriptionSettingsResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelSubscriptionSettingsResponse =
+  | savePanelSubscriptionSettingsResponseSuccess
+  | savePanelSubscriptionSettingsResponseError;
+
+export const getSavePanelSubscriptionSettingsUrl = () => {
+  return `/v1/panel/settings/commerce/subscriptions`;
+};
+
+/**
+ * Requires settings.write. Turning concurrency off closes nothing: customers who already hold several keep them.
+ */
+export const savePanelSubscriptionSettings = async (
+  panelSubscriptionSettings: PanelSubscriptionSettings,
+  options?: RequestInit,
+): Promise<savePanelSubscriptionSettingsResponse> => {
+  const res = await fetch(getSavePanelSubscriptionSettingsUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(panelSubscriptionSettings),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelSubscriptionSettingsResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as savePanelSubscriptionSettingsResponse;
+};
+
+export const getSavePanelSubscriptionSettingsMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PanelSubscriptionSettings }) => {
+    return savePanelSubscriptionSettings(arg, options);
+  };
+};
+export const getSavePanelSubscriptionSettingsMutationKey = () =>
+  [`/v1/panel/settings/commerce/subscriptions`] as const;
+
+export type SavePanelSubscriptionSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelSubscriptionSettings>>
+>;
+
+export const useSavePanelSubscriptionSettings = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof savePanelSubscriptionSettings>>,
+    TError,
+    Key,
+    PanelSubscriptionSettings,
+    Awaited<ReturnType<typeof savePanelSubscriptionSettings>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelSubscriptionSettingsMutationKey();
+  const swrFn = getSavePanelSubscriptionSettingsMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelProviderSettingsResponse200 = {
+  data: PanelProviderSettingsList;
+  status: 200;
+};
+
+export type listPanelProviderSettingsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelProviderSettingsResponseSuccess = listPanelProviderSettingsResponse200 & {
+  headers: Headers;
+};
+export type listPanelProviderSettingsResponseError = listPanelProviderSettingsResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelProviderSettingsResponse =
+  | listPanelProviderSettingsResponseSuccess
+  | listPanelProviderSettingsResponseError;
+
+export const getListPanelProviderSettingsUrl = () => {
+  return `/v1/panel/settings/providers`;
+};
+
+/**
+ * Requires settings.read. Reports what the operator configured beside what each compiled-in adapter declares. No secret is ever returned; the `credentialsSet` flags report only whether one is stored.
+ */
+export const listPanelProviderSettings = async (
+  options?: RequestInit,
+): Promise<listPanelProviderSettingsResponse> => {
+  const res = await fetch(getListPanelProviderSettingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelProviderSettingsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelProviderSettingsResponse;
+};
+
+export const getListPanelProviderSettingsKey = () => [`/v1/panel/settings/providers`] as const;
+
+export type ListPanelProviderSettingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelProviderSettings>>
+>;
+
+export const useListPanelProviderSettings = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelProviderSettings>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelProviderSettingsKey() : null));
+  const swrFn = () => listPanelProviderSettings(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelProviderSettingsResponse200 = {
+  data: PanelProviderSettings;
+  status: 200;
+};
+
+export type savePanelProviderSettingsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelProviderSettingsResponseSuccess = savePanelProviderSettingsResponse200 & {
+  headers: Headers;
+};
+export type savePanelProviderSettingsResponseError = savePanelProviderSettingsResponse403 & {
+  headers: Headers;
+};
+
+export type savePanelProviderSettingsResponse =
+  | savePanelProviderSettingsResponseSuccess
+  | savePanelProviderSettingsResponseError;
+
+export const getSavePanelProviderSettingsUrl = (provider: string) => {
+  return `/v1/panel/settings/providers/${provider}`;
+};
+
+/**
+ * Requires settings.write. A null credential means "keep what is stored", so the form can be re-saved without echoing a secret. Recurring is not writable here.
+ */
+export const savePanelProviderSettings = async (
+  provider: string,
+  panelProviderSettingsInput: PanelProviderSettingsInput,
+  options?: RequestInit,
+): Promise<savePanelProviderSettingsResponse> => {
+  const res = await fetch(getSavePanelProviderSettingsUrl(provider), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(panelProviderSettingsInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelProviderSettingsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as savePanelProviderSettingsResponse;
+};
+
+export const getSavePanelProviderSettingsMutationFetcher = (
+  provider: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: PanelProviderSettingsInput }) => {
+    return savePanelProviderSettings(provider, arg, options);
+  };
+};
+export const getSavePanelProviderSettingsMutationKey = (provider: string) =>
+  [`/v1/panel/settings/providers/${provider}`] as const;
+
+export type SavePanelProviderSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelProviderSettings>>
+>;
+
+export const useSavePanelProviderSettings = <TError = Promise<ProblemResponse>>(
+  provider: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof savePanelProviderSettings>>,
+      TError,
+      Key,
+      PanelProviderSettingsInput,
+      Awaited<ReturnType<typeof savePanelProviderSettings>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelProviderSettingsMutationKey(provider);
+  const swrFn = getSavePanelProviderSettingsMutationFetcher(provider, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type configurePanelRecurringResponse200 = {
+  data: PanelProviderSettings;
+  status: 200;
+};
+
+export type configurePanelRecurringResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type configurePanelRecurringResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type configurePanelRecurringResponseSuccess = configurePanelRecurringResponse200 & {
+  headers: Headers;
+};
+export type configurePanelRecurringResponseError = (
+  | configurePanelRecurringResponse403
+  | configurePanelRecurringResponse422
+) & {
+  headers: Headers;
+};
+
+export type configurePanelRecurringResponse =
+  | configurePanelRecurringResponseSuccess
+  | configurePanelRecurringResponseError;
+
+export const getConfigurePanelRecurringUrl = (provider: string) => {
+  return `/v1/panel/settings/providers/${provider}/recurring`;
+};
+
+/**
+ * Requires settings.write. Records a capability test and, only on a pass, may enable automatic charging. Refused for an adapter that cannot bind a payment method, whatever the test reported.
+ */
+export const configurePanelRecurring = async (
+  provider: string,
+  panelRecurringTest: PanelRecurringTest,
+  options?: RequestInit,
+): Promise<configurePanelRecurringResponse> => {
+  const res = await fetch(getConfigurePanelRecurringUrl(provider), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(panelRecurringTest),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: configurePanelRecurringResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as configurePanelRecurringResponse;
+};
+
+export const getConfigurePanelRecurringMutationFetcher = (
+  provider: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: PanelRecurringTest }) => {
+    return configurePanelRecurring(provider, arg, options);
+  };
+};
+export const getConfigurePanelRecurringMutationKey = (provider: string) =>
+  [`/v1/panel/settings/providers/${provider}/recurring`] as const;
+
+export type ConfigurePanelRecurringMutationResult = NonNullable<
+  Awaited<ReturnType<typeof configurePanelRecurring>>
+>;
+
+export const useConfigurePanelRecurring = <TError = Promise<ProblemResponse>>(
+  provider: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof configurePanelRecurring>>,
+      TError,
+      Key,
+      PanelRecurringTest,
+      Awaited<ReturnType<typeof configurePanelRecurring>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getConfigurePanelRecurringMutationKey(provider);
+  const swrFn = getConfigurePanelRecurringMutationFetcher(provider, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelBlocklistSourcesResponse200 = {
+  data: PanelBlocklistSourceList;
+  status: 200;
+};
+
+export type listPanelBlocklistSourcesResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelBlocklistSourcesResponseSuccess = listPanelBlocklistSourcesResponse200 & {
+  headers: Headers;
+};
+export type listPanelBlocklistSourcesResponseError = listPanelBlocklistSourcesResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelBlocklistSourcesResponse =
+  | listPanelBlocklistSourcesResponseSuccess
+  | listPanelBlocklistSourcesResponseError;
+
+export const getListPanelBlocklistSourcesUrl = () => {
+  return `/v1/panel/risk/sources`;
+};
+
+/**
+ * Requires risk.read. The stored authorization header is never returned.
+ */
+export const listPanelBlocklistSources = async (
+  options?: RequestInit,
+): Promise<listPanelBlocklistSourcesResponse> => {
+  const res = await fetch(getListPanelBlocklistSourcesUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelBlocklistSourcesResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelBlocklistSourcesResponse;
+};
+
+export const getListPanelBlocklistSourcesKey = () => [`/v1/panel/risk/sources`] as const;
+
+export type ListPanelBlocklistSourcesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelBlocklistSources>>
+>;
+
+export const useListPanelBlocklistSources = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelBlocklistSources>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelBlocklistSourcesKey() : null));
+  const swrFn = () => listPanelBlocklistSources(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelBlocklistSourceResponse200 = {
+  data: PanelBlocklistSource;
+  status: 200;
+};
+
+export type savePanelBlocklistSourceResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelBlocklistSourceResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelBlocklistSourceResponseSuccess = savePanelBlocklistSourceResponse200 & {
+  headers: Headers;
+};
+export type savePanelBlocklistSourceResponseError = (
+  | savePanelBlocklistSourceResponse403
+  | savePanelBlocklistSourceResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelBlocklistSourceResponse =
+  | savePanelBlocklistSourceResponseSuccess
+  | savePanelBlocklistSourceResponseError;
+
+export const getSavePanelBlocklistSourceUrl = () => {
+  return `/v1/panel/risk/sources`;
+};
+
+/**
+ * Requires risk.write. The URL must be HTTPS: plain HTTP would let anyone on the path decide who this installation refuses to serve.
+ */
+export const savePanelBlocklistSource = async (
+  panelBlocklistSourceInput: PanelBlocklistSourceInput,
+  options?: RequestInit,
+): Promise<savePanelBlocklistSourceResponse> => {
+  const res = await fetch(getSavePanelBlocklistSourceUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(panelBlocklistSourceInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelBlocklistSourceResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as savePanelBlocklistSourceResponse;
+};
+
+export const getSavePanelBlocklistSourceMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PanelBlocklistSourceInput }) => {
+    return savePanelBlocklistSource(arg, options);
+  };
+};
+export const getSavePanelBlocklistSourceMutationKey = () => [`/v1/panel/risk/sources`] as const;
+
+export type SavePanelBlocklistSourceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelBlocklistSource>>
+>;
+
+export const useSavePanelBlocklistSource = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof savePanelBlocklistSource>>,
+    TError,
+    Key,
+    PanelBlocklistSourceInput,
+    Awaited<ReturnType<typeof savePanelBlocklistSource>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelBlocklistSourceMutationKey();
+  const swrFn = getSavePanelBlocklistSourceMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type deletePanelBlocklistSourceResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type deletePanelBlocklistSourceResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type deletePanelBlocklistSourceResponseSuccess = deletePanelBlocklistSourceResponse204 & {
+  headers: Headers;
+};
+export type deletePanelBlocklistSourceResponseError = deletePanelBlocklistSourceResponse403 & {
+  headers: Headers;
+};
+
+export type deletePanelBlocklistSourceResponse =
+  | deletePanelBlocklistSourceResponseSuccess
+  | deletePanelBlocklistSourceResponseError;
+
+export const getDeletePanelBlocklistSourceUrl = (sourceID: string) => {
+  return `/v1/panel/risk/sources/${sourceID}`;
+};
+
+/**
+ * Requires risk.write. Removes the source, its entries, and the matches it produced.
+ */
+export const deletePanelBlocklistSource = async (
+  sourceID: string,
+  options?: RequestInit,
+): Promise<deletePanelBlocklistSourceResponse> => {
+  const res = await fetch(getDeletePanelBlocklistSourceUrl(sourceID), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: deletePanelBlocklistSourceResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as deletePanelBlocklistSourceResponse;
+};
+
+export const getDeletePanelBlocklistSourceMutationFetcher = (
+  sourceID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return deletePanelBlocklistSource(sourceID, options);
+  };
+};
+export const getDeletePanelBlocklistSourceMutationKey = (sourceID: string) =>
+  [`/v1/panel/risk/sources/${sourceID}`] as const;
+
+export type DeletePanelBlocklistSourceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deletePanelBlocklistSource>>
+>;
+
+export const useDeletePanelBlocklistSource = <TError = Promise<ProblemResponse>>(
+  sourceID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof deletePanelBlocklistSource>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof deletePanelBlocklistSource>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getDeletePanelBlocklistSourceMutationKey(sourceID);
+  const swrFn = getDeletePanelBlocklistSourceMutationFetcher(sourceID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type searchPanelBlocklistMatchesResponse200 = {
+  data: PanelMatchPage;
+  status: 200;
+};
+
+export type searchPanelBlocklistMatchesResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type searchPanelBlocklistMatchesResponseSuccess = searchPanelBlocklistMatchesResponse200 & {
+  headers: Headers;
+};
+export type searchPanelBlocklistMatchesResponseError = searchPanelBlocklistMatchesResponse403 & {
+  headers: Headers;
+};
+
+export type searchPanelBlocklistMatchesResponse =
+  | searchPanelBlocklistMatchesResponseSuccess
+  | searchPanelBlocklistMatchesResponseError;
+
+export const getSearchPanelBlocklistMatchesUrl = (params?: SearchPanelBlocklistMatchesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/risk/matches?${stringifiedParams}`
+    : `/v1/panel/risk/matches`;
+};
+
+/**
+ * Requires risk.read. The review queue.
+ */
+export const searchPanelBlocklistMatches = async (
+  params?: SearchPanelBlocklistMatchesParams,
+  options?: RequestInit,
+): Promise<searchPanelBlocklistMatchesResponse> => {
+  const res = await fetch(getSearchPanelBlocklistMatchesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: searchPanelBlocklistMatchesResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as searchPanelBlocklistMatchesResponse;
+};
+
+export const getSearchPanelBlocklistMatchesKey = (params?: SearchPanelBlocklistMatchesParams) =>
+  [`/v1/panel/risk/matches`, ...(params ? [params] : [])] as const;
+
+export type SearchPanelBlocklistMatchesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchPanelBlocklistMatches>>
+>;
+
+export const useSearchPanelBlocklistMatches = <TError = Promise<ProblemResponse>>(
+  params?: SearchPanelBlocklistMatchesParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof searchPanelBlocklistMatches>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getSearchPanelBlocklistMatchesKey(params) : null));
+  const swrFn = () => searchPanelBlocklistMatches(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type decidePanelBlocklistMatchResponse200 = {
+  data: PanelBlocklistMatch;
+  status: 200;
+};
+
+export type decidePanelBlocklistMatchResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type decidePanelBlocklistMatchResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type decidePanelBlocklistMatchResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type decidePanelBlocklistMatchResponseSuccess = decidePanelBlocklistMatchResponse200 & {
+  headers: Headers;
+};
+export type decidePanelBlocklistMatchResponseError = (
+  | decidePanelBlocklistMatchResponse403
+  | decidePanelBlocklistMatchResponse409
+  | decidePanelBlocklistMatchResponse422
+) & {
+  headers: Headers;
+};
+
+export type decidePanelBlocklistMatchResponse =
+  | decidePanelBlocklistMatchResponseSuccess
+  | decidePanelBlocklistMatchResponseError;
+
+export const getDecidePanelBlocklistMatchUrl = (matchID: string) => {
+  return `/v1/panel/risk/matches/${matchID}/decision`;
+};
+
+/**
+ * Requires risk.write and a reason. Recording a decision does not suspend anybody: the adverse action is a separate customer mutation with its own permission and audit event.
+ */
+export const decidePanelBlocklistMatch = async (
+  matchID: string,
+  decidePanelBlocklistMatchBody: DecidePanelBlocklistMatchBody,
+  options?: RequestInit,
+): Promise<decidePanelBlocklistMatchResponse> => {
+  const res = await fetch(getDecidePanelBlocklistMatchUrl(matchID), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(decidePanelBlocklistMatchBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: decidePanelBlocklistMatchResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as decidePanelBlocklistMatchResponse;
+};
+
+export const getDecidePanelBlocklistMatchMutationFetcher = (
+  matchID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: DecidePanelBlocklistMatchBody }) => {
+    return decidePanelBlocklistMatch(matchID, arg, options);
+  };
+};
+export const getDecidePanelBlocklistMatchMutationKey = (matchID: string) =>
+  [`/v1/panel/risk/matches/${matchID}/decision`] as const;
+
+export type DecidePanelBlocklistMatchMutationResult = NonNullable<
+  Awaited<ReturnType<typeof decidePanelBlocklistMatch>>
+>;
+
+export const useDecidePanelBlocklistMatch = <TError = Promise<ProblemResponse>>(
+  matchID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof decidePanelBlocklistMatch>>,
+      TError,
+      Key,
+      DecidePanelBlocklistMatchBody,
+      Awaited<ReturnType<typeof decidePanelBlocklistMatch>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getDecidePanelBlocklistMatchMutationKey(matchID);
+  const swrFn = getDecidePanelBlocklistMatchMutationFetcher(matchID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type appealPanelBlocklistMatchResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type appealPanelBlocklistMatchResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type appealPanelBlocklistMatchResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type appealPanelBlocklistMatchResponseSuccess = appealPanelBlocklistMatchResponse204 & {
+  headers: Headers;
+};
+export type appealPanelBlocklistMatchResponseError = (
+  | appealPanelBlocklistMatchResponse403
+  | appealPanelBlocklistMatchResponse409
+) & {
+  headers: Headers;
+};
+
+export type appealPanelBlocklistMatchResponse =
+  | appealPanelBlocklistMatchResponseSuccess
+  | appealPanelBlocklistMatchResponseError;
+
+export const getAppealPanelBlocklistMatchUrl = (matchID: string) => {
+  return `/v1/panel/risk/matches/${matchID}/appeal`;
+};
+
+/**
+ * Requires risk.write and a reason. Returns a blocked match to the review queue.
+ */
+export const appealPanelBlocklistMatch = async (
+  matchID: string,
+  options?: RequestInit,
+): Promise<appealPanelBlocklistMatchResponse> => {
+  const res = await fetch(getAppealPanelBlocklistMatchUrl(matchID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: appealPanelBlocklistMatchResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as appealPanelBlocklistMatchResponse;
+};
+
+export const getAppealPanelBlocklistMatchMutationFetcher = (
+  matchID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return appealPanelBlocklistMatch(matchID, options);
+  };
+};
+export const getAppealPanelBlocklistMatchMutationKey = (matchID: string) =>
+  [`/v1/panel/risk/matches/${matchID}/appeal`] as const;
+
+export type AppealPanelBlocklistMatchMutationResult = NonNullable<
+  Awaited<ReturnType<typeof appealPanelBlocklistMatch>>
+>;
+
+export const useAppealPanelBlocklistMatch = <TError = Promise<ProblemResponse>>(
+  matchID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof appealPanelBlocklistMatch>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof appealPanelBlocklistMatch>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getAppealPanelBlocklistMatchMutationKey(matchID);
+  const swrFn = getAppealPanelBlocklistMatchMutationFetcher(matchID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelAnomalyRulesResponse200 = {
+  data: PanelAnomalyRuleList;
+  status: 200;
+};
+
+export type listPanelAnomalyRulesResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelAnomalyRulesResponseSuccess = listPanelAnomalyRulesResponse200 & {
+  headers: Headers;
+};
+export type listPanelAnomalyRulesResponseError = listPanelAnomalyRulesResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelAnomalyRulesResponse =
+  | listPanelAnomalyRulesResponseSuccess
+  | listPanelAnomalyRulesResponseError;
+
+export const getListPanelAnomalyRulesUrl = () => {
+  return `/v1/panel/risk/rules`;
+};
+
+/**
+ * Requires risk.read. Thresholds are in each metric's own unit.
+ */
+export const listPanelAnomalyRules = async (
+  options?: RequestInit,
+): Promise<listPanelAnomalyRulesResponse> => {
+  const res = await fetch(getListPanelAnomalyRulesUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelAnomalyRulesResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelAnomalyRulesResponse;
+};
+
+export const getListPanelAnomalyRulesKey = () => [`/v1/panel/risk/rules`] as const;
+
+export type ListPanelAnomalyRulesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelAnomalyRules>>
+>;
+
+export const useListPanelAnomalyRules = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelAnomalyRules>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelAnomalyRulesKey() : null));
+  const swrFn = () => listPanelAnomalyRules(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelAnomalyRuleResponse200 = {
+  data: PanelAnomalyRule;
+  status: 200;
+};
+
+export type savePanelAnomalyRuleResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelAnomalyRuleResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelAnomalyRuleResponseSuccess = savePanelAnomalyRuleResponse200 & {
+  headers: Headers;
+};
+export type savePanelAnomalyRuleResponseError = (
+  | savePanelAnomalyRuleResponse403
+  | savePanelAnomalyRuleResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelAnomalyRuleResponse =
+  | savePanelAnomalyRuleResponseSuccess
+  | savePanelAnomalyRuleResponseError;
+
+export const getSavePanelAnomalyRuleUrl = (metric: PanelAnomalyMetric) => {
+  return `/v1/panel/risk/rules/${metric}`;
+};
+
+/**
+ * Requires risk.write. A rule that would be skipped at evaluation time — no window, or an alert threshold below the warning — is refused here instead.
+ */
+export const savePanelAnomalyRule = async (
+  metric: PanelAnomalyMetric,
+  panelAnomalyRuleInput: PanelAnomalyRuleInput,
+  options?: RequestInit,
+): Promise<savePanelAnomalyRuleResponse> => {
+  const res = await fetch(getSavePanelAnomalyRuleUrl(metric), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(panelAnomalyRuleInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelAnomalyRuleResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as savePanelAnomalyRuleResponse;
+};
+
+export const getSavePanelAnomalyRuleMutationFetcher = (
+  metric: PanelAnomalyMetric,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: PanelAnomalyRuleInput }) => {
+    return savePanelAnomalyRule(metric, arg, options);
+  };
+};
+export const getSavePanelAnomalyRuleMutationKey = (metric: PanelAnomalyMetric) =>
+  [`/v1/panel/risk/rules/${metric}`] as const;
+
+export type SavePanelAnomalyRuleMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelAnomalyRule>>
+>;
+
+export const useSavePanelAnomalyRule = <TError = Promise<ProblemResponse>>(
+  metric: PanelAnomalyMetric,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof savePanelAnomalyRule>>,
+      TError,
+      Key,
+      PanelAnomalyRuleInput,
+      Awaited<ReturnType<typeof savePanelAnomalyRule>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelAnomalyRuleMutationKey(metric);
+  const swrFn = getSavePanelAnomalyRuleMutationFetcher(metric, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type searchPanelAnomaliesResponse200 = {
+  data: PanelAnomalyPage;
+  status: 200;
+};
+
+export type searchPanelAnomaliesResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type searchPanelAnomaliesResponseSuccess = searchPanelAnomaliesResponse200 & {
+  headers: Headers;
+};
+export type searchPanelAnomaliesResponseError = searchPanelAnomaliesResponse403 & {
+  headers: Headers;
+};
+
+export type searchPanelAnomaliesResponse =
+  | searchPanelAnomaliesResponseSuccess
+  | searchPanelAnomaliesResponseError;
+
+export const getSearchPanelAnomaliesUrl = (params?: SearchPanelAnomaliesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/risk/anomalies?${stringifiedParams}`
+    : `/v1/panel/risk/anomalies`;
+};
+
+/**
+ * Requires risk.read. Evidence carries the aggregate numbers that produced the signal and never customer content.
+ */
+export const searchPanelAnomalies = async (
+  params?: SearchPanelAnomaliesParams,
+  options?: RequestInit,
+): Promise<searchPanelAnomaliesResponse> => {
+  const res = await fetch(getSearchPanelAnomaliesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: searchPanelAnomaliesResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as searchPanelAnomaliesResponse;
+};
+
+export const getSearchPanelAnomaliesKey = (params?: SearchPanelAnomaliesParams) =>
+  [`/v1/panel/risk/anomalies`, ...(params ? [params] : [])] as const;
+
+export type SearchPanelAnomaliesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchPanelAnomalies>>
+>;
+
+export const useSearchPanelAnomalies = <TError = Promise<ProblemResponse>>(
+  params?: SearchPanelAnomaliesParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof searchPanelAnomalies>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getSearchPanelAnomaliesKey(params) : null));
+  const swrFn = () => searchPanelAnomalies(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type reviewPanelAnomalyResponse200 = {
+  data: PanelAnomalySignal;
+  status: 200;
+};
+
+export type reviewPanelAnomalyResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type reviewPanelAnomalyResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type reviewPanelAnomalyResponseSuccess = reviewPanelAnomalyResponse200 & {
+  headers: Headers;
+};
+export type reviewPanelAnomalyResponseError = (
+  | reviewPanelAnomalyResponse403
+  | reviewPanelAnomalyResponse409
+) & {
+  headers: Headers;
+};
+
+export type reviewPanelAnomalyResponse =
+  | reviewPanelAnomalyResponseSuccess
+  | reviewPanelAnomalyResponseError;
+
+export const getReviewPanelAnomalyUrl = (signalID: string) => {
+  return `/v1/panel/risk/anomalies/${signalID}/review`;
+};
+
+/**
+ * Requires risk.write. Reviewing a signal changes nothing about the customer it names, which is what makes automated detection safe to run.
+ */
+export const reviewPanelAnomaly = async (
+  signalID: string,
+  reviewPanelAnomalyBody: ReviewPanelAnomalyBody,
+  options?: RequestInit,
+): Promise<reviewPanelAnomalyResponse> => {
+  const res = await fetch(getReviewPanelAnomalyUrl(signalID), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(reviewPanelAnomalyBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: reviewPanelAnomalyResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as reviewPanelAnomalyResponse;
+};
+
+export const getReviewPanelAnomalyMutationFetcher = (signalID: string, options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: ReviewPanelAnomalyBody }) => {
+    return reviewPanelAnomaly(signalID, arg, options);
+  };
+};
+export const getReviewPanelAnomalyMutationKey = (signalID: string) =>
+  [`/v1/panel/risk/anomalies/${signalID}/review`] as const;
+
+export type ReviewPanelAnomalyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reviewPanelAnomaly>>
+>;
+
+export const useReviewPanelAnomaly = <TError = Promise<ProblemResponse>>(
+  signalID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof reviewPanelAnomaly>>,
+      TError,
+      Key,
+      ReviewPanelAnomalyBody,
+      Awaited<ReturnType<typeof reviewPanelAnomaly>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getReviewPanelAnomalyMutationKey(signalID);
+  const swrFn = getReviewPanelAnomalyMutationFetcher(signalID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type searchPanelGiftsResponse200 = {
+  data: PanelGiftPage;
+  status: 200;
+};
+
+export type searchPanelGiftsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type searchPanelGiftsResponseSuccess = searchPanelGiftsResponse200 & {
+  headers: Headers;
+};
+export type searchPanelGiftsResponseError = searchPanelGiftsResponse403 & {
+  headers: Headers;
+};
+
+export type searchPanelGiftsResponse =
+  | searchPanelGiftsResponseSuccess
+  | searchPanelGiftsResponseError;
+
+export const getSearchPanelGiftsUrl = (params?: SearchPanelGiftsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/v1/panel/gifts?${stringifiedParams}` : `/v1/panel/gifts`;
+};
+
+/**
+ * Requires gifts.read. Only the digest of a claim code is stored; the four characters returned as a hint identify a gift without redeeming it.
+ */
+export const searchPanelGifts = async (
+  params?: SearchPanelGiftsParams,
+  options?: RequestInit,
+): Promise<searchPanelGiftsResponse> => {
+  const res = await fetch(getSearchPanelGiftsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: searchPanelGiftsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as searchPanelGiftsResponse;
+};
+
+export const getSearchPanelGiftsKey = (params?: SearchPanelGiftsParams) =>
+  [`/v1/panel/gifts`, ...(params ? [params] : [])] as const;
+
+export type SearchPanelGiftsQueryResult = NonNullable<Awaited<ReturnType<typeof searchPanelGifts>>>;
+
+export const useSearchPanelGifts = <TError = Promise<ProblemResponse>>(
+  params?: SearchPanelGiftsParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof searchPanelGifts>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getSearchPanelGiftsKey(params) : null));
+  const swrFn = () => searchPanelGifts(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type revokePanelGiftResponse200 = {
+  data: PanelGift;
+  status: 200;
+};
+
+export type revokePanelGiftResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type revokePanelGiftResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type revokePanelGiftResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type revokePanelGiftResponseSuccess = revokePanelGiftResponse200 & {
+  headers: Headers;
+};
+export type revokePanelGiftResponseError = (
+  | revokePanelGiftResponse403
+  | revokePanelGiftResponse409
+  | revokePanelGiftResponse422
+) & {
+  headers: Headers;
+};
+
+export type revokePanelGiftResponse = revokePanelGiftResponseSuccess | revokePanelGiftResponseError;
+
+export const getRevokePanelGiftUrl = (giftID: string) => {
+  return `/v1/panel/gifts/${giftID}/revoke`;
+};
+
+/**
+ * Requires gifts.write and a reason. A claimed gift is not revocable: the recipient already holds what it bought, and taking that back is a refund decision against their entitlement.
+ */
+export const revokePanelGift = async (
+  giftID: string,
+  options?: RequestInit,
+): Promise<revokePanelGiftResponse> => {
+  const res = await fetch(getRevokePanelGiftUrl(giftID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: revokePanelGiftResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as revokePanelGiftResponse;
+};
+
+export const getRevokePanelGiftMutationFetcher = (giftID: string, options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return revokePanelGift(giftID, options);
+  };
+};
+export const getRevokePanelGiftMutationKey = (giftID: string) =>
+  [`/v1/panel/gifts/${giftID}/revoke`] as const;
+
+export type RevokePanelGiftMutationResult = NonNullable<
+  Awaited<ReturnType<typeof revokePanelGift>>
+>;
+
+export const useRevokePanelGift = <TError = Promise<ProblemResponse>>(
+  giftID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof revokePanelGift>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof revokePanelGift>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRevokePanelGiftMutationKey(giftID);
+  const swrFn = getRevokePanelGiftMutationFetcher(giftID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type refundPanelGiftResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type refundPanelGiftResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type refundPanelGiftResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type refundPanelGiftResponseSuccess = refundPanelGiftResponse204 & {
+  headers: Headers;
+};
+export type refundPanelGiftResponseError = (
+  | refundPanelGiftResponse403
+  | refundPanelGiftResponse409
+) & {
+  headers: Headers;
+};
+
+export type refundPanelGiftResponse = refundPanelGiftResponseSuccess | refundPanelGiftResponseError;
+
+export const getRefundPanelGiftUrl = (giftID: string) => {
+  return `/v1/panel/gifts/${giftID}/refund`;
+};
+
+/**
+ * Requires gifts.write. Only a gift that was never redeemed qualifies, which is what stops a sender being refunded while the recipient keeps the entitlement.
+ */
+export const refundPanelGift = async (
+  giftID: string,
+  options?: RequestInit,
+): Promise<refundPanelGiftResponse> => {
+  const res = await fetch(getRefundPanelGiftUrl(giftID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: refundPanelGiftResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as refundPanelGiftResponse;
+};
+
+export const getRefundPanelGiftMutationFetcher = (giftID: string, options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return refundPanelGift(giftID, options);
+  };
+};
+export const getRefundPanelGiftMutationKey = (giftID: string) =>
+  [`/v1/panel/gifts/${giftID}/refund`] as const;
+
+export type RefundPanelGiftMutationResult = NonNullable<
+  Awaited<ReturnType<typeof refundPanelGift>>
+>;
+
+export const useRefundPanelGift = <TError = Promise<ProblemResponse>>(
+  giftID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof refundPanelGift>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof refundPanelGift>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRefundPanelGiftMutationKey(giftID);
+  const swrFn = getRefundPanelGiftMutationFetcher(giftID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelGoodsProvidersResponse200 = {
+  data: PanelGoodsProviderList;
+  status: 200;
+};
+
+export type listPanelGoodsProvidersResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelGoodsProvidersResponseSuccess = listPanelGoodsProvidersResponse200 & {
+  headers: Headers;
+};
+export type listPanelGoodsProvidersResponseError = listPanelGoodsProvidersResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelGoodsProvidersResponse =
+  | listPanelGoodsProvidersResponseSuccess
+  | listPanelGoodsProvidersResponseError;
+
+export const getListPanelGoodsProvidersUrl = () => {
+  return `/v1/panel/goods/providers`;
+};
+
+/**
+ * Requires goods.read. The credential is never returned; the balance and the low-balance flag are, because a shop that sells past an exhausted balance produces paid orders that can only be refunded.
+ */
+export const listPanelGoodsProviders = async (
+  options?: RequestInit,
+): Promise<listPanelGoodsProvidersResponse> => {
+  const res = await fetch(getListPanelGoodsProvidersUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelGoodsProvidersResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelGoodsProvidersResponse;
+};
+
+export const getListPanelGoodsProvidersKey = () => [`/v1/panel/goods/providers`] as const;
+
+export type ListPanelGoodsProvidersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelGoodsProviders>>
+>;
+
+export const useListPanelGoodsProviders = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelGoodsProviders>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelGoodsProvidersKey() : null));
+  const swrFn = () => listPanelGoodsProviders(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelGoodsProviderResponse200 = {
+  data: PanelGoodsProvider;
+  status: 200;
+};
+
+export type savePanelGoodsProviderResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelGoodsProviderResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelGoodsProviderResponseSuccess = savePanelGoodsProviderResponse200 & {
+  headers: Headers;
+};
+export type savePanelGoodsProviderResponseError = (
+  | savePanelGoodsProviderResponse403
+  | savePanelGoodsProviderResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelGoodsProviderResponse =
+  | savePanelGoodsProviderResponseSuccess
+  | savePanelGoodsProviderResponseError;
+
+export const getSavePanelGoodsProviderUrl = (slug: string) => {
+  return `/v1/panel/goods/providers/${slug}`;
+};
+
+/**
+ * Requires goods.write. A null credential means "keep what is stored".
+ */
+export const savePanelGoodsProvider = async (
+  slug: string,
+  panelGoodsProviderInput: PanelGoodsProviderInput,
+  options?: RequestInit,
+): Promise<savePanelGoodsProviderResponse> => {
+  const res = await fetch(getSavePanelGoodsProviderUrl(slug), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(panelGoodsProviderInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelGoodsProviderResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as savePanelGoodsProviderResponse;
+};
+
+export const getSavePanelGoodsProviderMutationFetcher = (slug: string, options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PanelGoodsProviderInput }) => {
+    return savePanelGoodsProvider(slug, arg, options);
+  };
+};
+export const getSavePanelGoodsProviderMutationKey = (slug: string) =>
+  [`/v1/panel/goods/providers/${slug}`] as const;
+
+export type SavePanelGoodsProviderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelGoodsProvider>>
+>;
+
+export const useSavePanelGoodsProvider = <TError = Promise<ProblemResponse>>(
+  slug: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof savePanelGoodsProvider>>,
+      TError,
+      Key,
+      PanelGoodsProviderInput,
+      Awaited<ReturnType<typeof savePanelGoodsProvider>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelGoodsProviderMutationKey(slug);
+  const swrFn = getSavePanelGoodsProviderMutationFetcher(slug, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelGoodsProductsResponse200 = {
+  data: PanelGoodsProductList;
+  status: 200;
+};
+
+export type listPanelGoodsProductsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelGoodsProductsResponseSuccess = listPanelGoodsProductsResponse200 & {
+  headers: Headers;
+};
+export type listPanelGoodsProductsResponseError = listPanelGoodsProductsResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelGoodsProductsResponse =
+  | listPanelGoodsProductsResponseSuccess
+  | listPanelGoodsProductsResponseError;
+
+export const getListPanelGoodsProductsUrl = (params?: ListPanelGoodsProductsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/goods/products?${stringifiedParams}`
+    : `/v1/panel/goods/products`;
+};
+
+/**
+ * Requires goods.read.
+ */
+export const listPanelGoodsProducts = async (
+  params?: ListPanelGoodsProductsParams,
+  options?: RequestInit,
+): Promise<listPanelGoodsProductsResponse> => {
+  const res = await fetch(getListPanelGoodsProductsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelGoodsProductsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelGoodsProductsResponse;
+};
+
+export const getListPanelGoodsProductsKey = (params?: ListPanelGoodsProductsParams) =>
+  [`/v1/panel/goods/products`, ...(params ? [params] : [])] as const;
+
+export type ListPanelGoodsProductsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelGoodsProducts>>
+>;
+
+export const useListPanelGoodsProducts = <TError = Promise<ProblemResponse>>(
+  params?: ListPanelGoodsProductsParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelGoodsProducts>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelGoodsProductsKey(params) : null));
+  const swrFn = () => listPanelGoodsProducts(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type createPanelGoodsProductResponse201 = {
+  data: PanelGoodsProduct;
+  status: 201;
+};
+
+export type createPanelGoodsProductResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type createPanelGoodsProductResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type createPanelGoodsProductResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type createPanelGoodsProductResponseSuccess = createPanelGoodsProductResponse201 & {
+  headers: Headers;
+};
+export type createPanelGoodsProductResponseError = (
+  | createPanelGoodsProductResponse403
+  | createPanelGoodsProductResponse409
+  | createPanelGoodsProductResponse422
+) & {
+  headers: Headers;
+};
+
+export type createPanelGoodsProductResponse =
+  | createPanelGoodsProductResponseSuccess
+  | createPanelGoodsProductResponseError;
+
+export const getCreatePanelGoodsProductUrl = () => {
+  return `/v1/panel/goods/products`;
+};
+
+/**
+ * Requires goods.write. Premium is sold by duration and Stars by quantity; each kind carries exactly the one that applies to it.
+ */
+export const createPanelGoodsProduct = async (
+  panelGoodsProductInput: PanelGoodsProductInput,
+  options?: RequestInit,
+): Promise<createPanelGoodsProductResponse> => {
+  const res = await fetch(getCreatePanelGoodsProductUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(panelGoodsProductInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: createPanelGoodsProductResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as createPanelGoodsProductResponse;
+};
+
+export const getCreatePanelGoodsProductMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PanelGoodsProductInput }) => {
+    return createPanelGoodsProduct(arg, options);
+  };
+};
+export const getCreatePanelGoodsProductMutationKey = () => [`/v1/panel/goods/products`] as const;
+
+export type CreatePanelGoodsProductMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPanelGoodsProduct>>
+>;
+
+export const useCreatePanelGoodsProduct = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof createPanelGoodsProduct>>,
+    TError,
+    Key,
+    PanelGoodsProductInput,
+    Awaited<ReturnType<typeof createPanelGoodsProduct>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getCreatePanelGoodsProductMutationKey();
+  const swrFn = getCreatePanelGoodsProductMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type updatePanelGoodsProductResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type updatePanelGoodsProductResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type updatePanelGoodsProductResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type updatePanelGoodsProductResponseSuccess = updatePanelGoodsProductResponse204 & {
+  headers: Headers;
+};
+export type updatePanelGoodsProductResponseError = (
+  | updatePanelGoodsProductResponse403
+  | updatePanelGoodsProductResponse404
+) & {
+  headers: Headers;
+};
+
+export type updatePanelGoodsProductResponse =
+  | updatePanelGoodsProductResponseSuccess
+  | updatePanelGoodsProductResponseError;
+
+export const getUpdatePanelGoodsProductUrl = (productID: string) => {
+  return `/v1/panel/goods/products/${productID}`;
+};
+
+/**
+ * Requires goods.write. The kind, duration, and quantity are immutable once created: an order references the product it bought.
+ */
+export const updatePanelGoodsProduct = async (
+  productID: string,
+  panelGoodsProductUpdate: PanelGoodsProductUpdate,
+  options?: RequestInit,
+): Promise<updatePanelGoodsProductResponse> => {
+  const res = await fetch(getUpdatePanelGoodsProductUrl(productID), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(panelGoodsProductUpdate),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: updatePanelGoodsProductResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as updatePanelGoodsProductResponse;
+};
+
+export const getUpdatePanelGoodsProductMutationFetcher = (
+  productID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: PanelGoodsProductUpdate }) => {
+    return updatePanelGoodsProduct(productID, arg, options);
+  };
+};
+export const getUpdatePanelGoodsProductMutationKey = (productID: string) =>
+  [`/v1/panel/goods/products/${productID}`] as const;
+
+export type UpdatePanelGoodsProductMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updatePanelGoodsProduct>>
+>;
+
+export const useUpdatePanelGoodsProduct = <TError = Promise<ProblemResponse>>(
+  productID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof updatePanelGoodsProduct>>,
+      TError,
+      Key,
+      PanelGoodsProductUpdate,
+      Awaited<ReturnType<typeof updatePanelGoodsProduct>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getUpdatePanelGoodsProductMutationKey(productID);
+  const swrFn = getUpdatePanelGoodsProductMutationFetcher(productID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelGoodsLocalizationResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type savePanelGoodsLocalizationResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelGoodsLocalizationResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelGoodsLocalizationResponseSuccess = savePanelGoodsLocalizationResponse204 & {
+  headers: Headers;
+};
+export type savePanelGoodsLocalizationResponseError = (
+  | savePanelGoodsLocalizationResponse403
+  | savePanelGoodsLocalizationResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelGoodsLocalizationResponse =
+  | savePanelGoodsLocalizationResponseSuccess
+  | savePanelGoodsLocalizationResponseError;
+
+export const getSavePanelGoodsLocalizationUrl = (productID: string, locale: "ru" | "en") => {
+  return `/v1/panel/goods/products/${productID}/localizations/${locale}`;
+};
+
+/**
+ * Requires goods.write.
+ */
+export const savePanelGoodsLocalization = async (
+  productID: string,
+  locale: "ru" | "en",
+  panelLocalization: PanelLocalization,
+  options?: RequestInit,
+): Promise<savePanelGoodsLocalizationResponse> => {
+  const res = await fetch(getSavePanelGoodsLocalizationUrl(productID, locale), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(panelLocalization),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelGoodsLocalizationResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as savePanelGoodsLocalizationResponse;
+};
+
+export const getSavePanelGoodsLocalizationMutationFetcher = (
+  productID: string,
+  locale: "ru" | "en",
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: PanelLocalization }) => {
+    return savePanelGoodsLocalization(productID, locale, arg, options);
+  };
+};
+export const getSavePanelGoodsLocalizationMutationKey = (productID: string, locale: "ru" | "en") =>
+  [`/v1/panel/goods/products/${productID}/localizations/${locale}`] as const;
+
+export type SavePanelGoodsLocalizationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelGoodsLocalization>>
+>;
+
+export const useSavePanelGoodsLocalization = <TError = Promise<ProblemResponse>>(
+  productID: string,
+  locale: "ru" | "en",
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof savePanelGoodsLocalization>>,
+      TError,
+      Key,
+      PanelLocalization,
+      Awaited<ReturnType<typeof savePanelGoodsLocalization>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelGoodsLocalizationMutationKey(productID, locale);
+  const swrFn = getSavePanelGoodsLocalizationMutationFetcher(productID, locale, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelGoodsPricingResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type savePanelGoodsPricingResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelGoodsPricingResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelGoodsPricingResponseSuccess = savePanelGoodsPricingResponse204 & {
+  headers: Headers;
+};
+export type savePanelGoodsPricingResponseError = (
+  | savePanelGoodsPricingResponse403
+  | savePanelGoodsPricingResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelGoodsPricingResponse =
+  | savePanelGoodsPricingResponseSuccess
+  | savePanelGoodsPricingResponseError;
+
+export const getSavePanelGoodsPricingUrl = (productID: string) => {
+  return `/v1/panel/goods/products/${productID}/pricing`;
+};
+
+/**
+ * Requires goods.write. Every rounding mode rounds up, and the markup itself rounds up rather than truncating.
+ */
+export const savePanelGoodsPricing = async (
+  productID: string,
+  panelGoodsPricing: PanelGoodsPricing,
+  options?: RequestInit,
+): Promise<savePanelGoodsPricingResponse> => {
+  const res = await fetch(getSavePanelGoodsPricingUrl(productID), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(panelGoodsPricing),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelGoodsPricingResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as savePanelGoodsPricingResponse;
+};
+
+export const getSavePanelGoodsPricingMutationFetcher = (
+  productID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: PanelGoodsPricing }) => {
+    return savePanelGoodsPricing(productID, arg, options);
+  };
+};
+export const getSavePanelGoodsPricingMutationKey = (productID: string) =>
+  [`/v1/panel/goods/products/${productID}/pricing`] as const;
+
+export type SavePanelGoodsPricingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelGoodsPricing>>
+>;
+
+export const useSavePanelGoodsPricing = <TError = Promise<ProblemResponse>>(
+  productID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof savePanelGoodsPricing>>,
+      TError,
+      Key,
+      PanelGoodsPricing,
+      Awaited<ReturnType<typeof savePanelGoodsPricing>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelGoodsPricingMutationKey(productID);
+  const swrFn = getSavePanelGoodsPricingMutationFetcher(productID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type searchPanelGoodsOrdersResponse200 = {
+  data: PanelGoodsOrderPage;
+  status: 200;
+};
+
+export type searchPanelGoodsOrdersResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type searchPanelGoodsOrdersResponseSuccess = searchPanelGoodsOrdersResponse200 & {
+  headers: Headers;
+};
+export type searchPanelGoodsOrdersResponseError = searchPanelGoodsOrdersResponse403 & {
+  headers: Headers;
+};
+
+export type searchPanelGoodsOrdersResponse =
+  | searchPanelGoodsOrdersResponseSuccess
+  | searchPanelGoodsOrdersResponseError;
+
+export const getSearchPanelGoodsOrdersUrl = (params?: SearchPanelGoodsOrdersParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/goods/orders?${stringifiedParams}`
+    : `/v1/panel/goods/orders`;
+};
+
+/**
+ * Requires goods.read. The recipient username is the only recipient detail retained anywhere: delivery needs it and support needs to answer "where did it go".
+ */
+export const searchPanelGoodsOrders = async (
+  params?: SearchPanelGoodsOrdersParams,
+  options?: RequestInit,
+): Promise<searchPanelGoodsOrdersResponse> => {
+  const res = await fetch(getSearchPanelGoodsOrdersUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: searchPanelGoodsOrdersResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as searchPanelGoodsOrdersResponse;
+};
+
+export const getSearchPanelGoodsOrdersKey = (params?: SearchPanelGoodsOrdersParams) =>
+  [`/v1/panel/goods/orders`, ...(params ? [params] : [])] as const;
+
+export type SearchPanelGoodsOrdersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchPanelGoodsOrders>>
+>;
+
+export const useSearchPanelGoodsOrders = <TError = Promise<ProblemResponse>>(
+  params?: SearchPanelGoodsOrdersParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof searchPanelGoodsOrders>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getSearchPanelGoodsOrdersKey(params) : null));
+  const swrFn = () => searchPanelGoodsOrders(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelGoodsAttemptsResponse200 = {
+  data: PanelGoodsAttemptList;
+  status: 200;
+};
+
+export type listPanelGoodsAttemptsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelGoodsAttemptsResponseSuccess = listPanelGoodsAttemptsResponse200 & {
+  headers: Headers;
+};
+export type listPanelGoodsAttemptsResponseError = listPanelGoodsAttemptsResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelGoodsAttemptsResponse =
+  | listPanelGoodsAttemptsResponseSuccess
+  | listPanelGoodsAttemptsResponseError;
+
+export const getListPanelGoodsAttemptsUrl = (orderID: string) => {
+  return `/v1/panel/goods/orders/${orderID}/attempts`;
+};
+
+/**
+ * Requires goods.read. Every provider exchange, with its failure classification.
+ */
+export const listPanelGoodsAttempts = async (
+  orderID: string,
+  options?: RequestInit,
+): Promise<listPanelGoodsAttemptsResponse> => {
+  const res = await fetch(getListPanelGoodsAttemptsUrl(orderID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelGoodsAttemptsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelGoodsAttemptsResponse;
+};
+
+export const getListPanelGoodsAttemptsKey = (orderID: string) =>
+  [`/v1/panel/goods/orders/${orderID}/attempts`] as const;
+
+export type ListPanelGoodsAttemptsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelGoodsAttempts>>
+>;
+
+export const useListPanelGoodsAttempts = <TError = Promise<ProblemResponse>>(
+  orderID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelGoodsAttempts>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false && orderID !== null && orderID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelGoodsAttemptsKey(orderID) : null));
+  const swrFn = () => listPanelGoodsAttempts(orderID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type cancelPanelGoodsDeliveryResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type cancelPanelGoodsDeliveryResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type cancelPanelGoodsDeliveryResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type cancelPanelGoodsDeliveryResponseSuccess = cancelPanelGoodsDeliveryResponse204 & {
+  headers: Headers;
+};
+export type cancelPanelGoodsDeliveryResponseError = (
+  | cancelPanelGoodsDeliveryResponse403
+  | cancelPanelGoodsDeliveryResponse409
+) & {
+  headers: Headers;
+};
+
+export type cancelPanelGoodsDeliveryResponse =
+  | cancelPanelGoodsDeliveryResponseSuccess
+  | cancelPanelGoodsDeliveryResponseError;
+
+export const getCancelPanelGoodsDeliveryUrl = (orderID: string) => {
+  return `/v1/panel/goods/orders/${orderID}/cancel`;
+};
+
+/**
+ * Requires goods.write and a reason. A delivered order cannot be cancelled: the recipient already has what was bought.
+ */
+export const cancelPanelGoodsDelivery = async (
+  orderID: string,
+  options?: RequestInit,
+): Promise<cancelPanelGoodsDeliveryResponse> => {
+  const res = await fetch(getCancelPanelGoodsDeliveryUrl(orderID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: cancelPanelGoodsDeliveryResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as cancelPanelGoodsDeliveryResponse;
+};
+
+export const getCancelPanelGoodsDeliveryMutationFetcher = (
+  orderID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return cancelPanelGoodsDelivery(orderID, options);
+  };
+};
+export const getCancelPanelGoodsDeliveryMutationKey = (orderID: string) =>
+  [`/v1/panel/goods/orders/${orderID}/cancel`] as const;
+
+export type CancelPanelGoodsDeliveryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof cancelPanelGoodsDelivery>>
+>;
+
+export const useCancelPanelGoodsDelivery = <TError = Promise<ProblemResponse>>(
+  orderID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof cancelPanelGoodsDelivery>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof cancelPanelGoodsDelivery>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getCancelPanelGoodsDeliveryMutationKey(orderID);
+  const swrFn = getCancelPanelGoodsDeliveryMutationFetcher(orderID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelBulkOperationsResponse200 = {
+  data: PanelBulkOperationList;
+  status: 200;
+};
+
+export type listPanelBulkOperationsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelBulkOperationsResponseSuccess = listPanelBulkOperationsResponse200 & {
+  headers: Headers;
+};
+export type listPanelBulkOperationsResponseError = listPanelBulkOperationsResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelBulkOperationsResponse =
+  | listPanelBulkOperationsResponseSuccess
+  | listPanelBulkOperationsResponseError;
+
+export const getListPanelBulkOperationsUrl = (params?: ListPanelBulkOperationsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/v1/panel/bulk?${stringifiedParams}` : `/v1/panel/bulk`;
+};
+
+/**
+ * Requires customers.read.
+ */
+export const listPanelBulkOperations = async (
+  params?: ListPanelBulkOperationsParams,
+  options?: RequestInit,
+): Promise<listPanelBulkOperationsResponse> => {
+  const res = await fetch(getListPanelBulkOperationsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelBulkOperationsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelBulkOperationsResponse;
+};
+
+export const getListPanelBulkOperationsKey = (params?: ListPanelBulkOperationsParams) =>
+  [`/v1/panel/bulk`, ...(params ? [params] : [])] as const;
+
+export type ListPanelBulkOperationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelBulkOperations>>
+>;
+
+export const useListPanelBulkOperations = <TError = Promise<ProblemResponse>>(
+  params?: ListPanelBulkOperationsParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelBulkOperations>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelBulkOperationsKey(params) : null));
+  const swrFn = () => listPanelBulkOperations(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type previewPanelBulkOperationResponse201 = {
+  data: PanelBulkOperation;
+  status: 201;
+};
+
+export type previewPanelBulkOperationResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type previewPanelBulkOperationResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type previewPanelBulkOperationResponseSuccess = previewPanelBulkOperationResponse201 & {
+  headers: Headers;
+};
+export type previewPanelBulkOperationResponseError = (
+  | previewPanelBulkOperationResponse403
+  | previewPanelBulkOperationResponse422
+) & {
+  headers: Headers;
+};
+
+export type previewPanelBulkOperationResponse =
+  | previewPanelBulkOperationResponseSuccess
+  | previewPanelBulkOperationResponseError;
+
+export const getPreviewPanelBulkOperationUrl = () => {
+  return `/v1/panel/bulk`;
+};
+
+/**
+ * Requires customers.write, a reason, and an idempotency key. This only previews: nothing is applied until the operation is started, and only a previewed operation may start.
+ */
+export const previewPanelBulkOperation = async (
+  panelBulkInput: PanelBulkInput,
+  options?: RequestInit,
+): Promise<previewPanelBulkOperationResponse> => {
+  const res = await fetch(getPreviewPanelBulkOperationUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(panelBulkInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: previewPanelBulkOperationResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as previewPanelBulkOperationResponse;
+};
+
+export const getPreviewPanelBulkOperationMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PanelBulkInput }) => {
+    return previewPanelBulkOperation(arg, options);
+  };
+};
+export const getPreviewPanelBulkOperationMutationKey = () => [`/v1/panel/bulk`] as const;
+
+export type PreviewPanelBulkOperationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof previewPanelBulkOperation>>
+>;
+
+export const usePreviewPanelBulkOperation = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof previewPanelBulkOperation>>,
+    TError,
+    Key,
+    PanelBulkInput,
+    Awaited<ReturnType<typeof previewPanelBulkOperation>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getPreviewPanelBulkOperationMutationKey();
+  const swrFn = getPreviewPanelBulkOperationMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type startPanelBulkOperationResponse200 = {
+  data: PanelBulkOperation;
+  status: 200;
+};
+
+export type startPanelBulkOperationResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type startPanelBulkOperationResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type startPanelBulkOperationResponseSuccess = startPanelBulkOperationResponse200 & {
+  headers: Headers;
+};
+export type startPanelBulkOperationResponseError = (
+  | startPanelBulkOperationResponse403
+  | startPanelBulkOperationResponse409
+) & {
+  headers: Headers;
+};
+
+export type startPanelBulkOperationResponse =
+  | startPanelBulkOperationResponseSuccess
+  | startPanelBulkOperationResponseError;
+
+export const getStartPanelBulkOperationUrl = (operationID: string) => {
+  return `/v1/panel/bulk/${operationID}/start`;
+};
+
+/**
+ * Requires customers.write. Only a previewed operation may start.
+ */
+export const startPanelBulkOperation = async (
+  operationID: string,
+  options?: RequestInit,
+): Promise<startPanelBulkOperationResponse> => {
+  const res = await fetch(getStartPanelBulkOperationUrl(operationID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: startPanelBulkOperationResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as startPanelBulkOperationResponse;
+};
+
+export const getStartPanelBulkOperationMutationFetcher = (
+  operationID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return startPanelBulkOperation(operationID, options);
+  };
+};
+export const getStartPanelBulkOperationMutationKey = (operationID: string) =>
+  [`/v1/panel/bulk/${operationID}/start`] as const;
+
+export type StartPanelBulkOperationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof startPanelBulkOperation>>
+>;
+
+export const useStartPanelBulkOperation = <TError = Promise<ProblemResponse>>(
+  operationID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof startPanelBulkOperation>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof startPanelBulkOperation>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getStartPanelBulkOperationMutationKey(operationID);
+  const swrFn = getStartPanelBulkOperationMutationFetcher(operationID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type cancelPanelBulkOperationResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type cancelPanelBulkOperationResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type cancelPanelBulkOperationResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type cancelPanelBulkOperationResponseSuccess = cancelPanelBulkOperationResponse204 & {
+  headers: Headers;
+};
+export type cancelPanelBulkOperationResponseError = (
+  | cancelPanelBulkOperationResponse403
+  | cancelPanelBulkOperationResponse409
+) & {
+  headers: Headers;
+};
+
+export type cancelPanelBulkOperationResponse =
+  | cancelPanelBulkOperationResponseSuccess
+  | cancelPanelBulkOperationResponseError;
+
+export const getCancelPanelBulkOperationUrl = (operationID: string) => {
+  return `/v1/panel/bulk/${operationID}/cancel`;
+};
+
+/**
+ * Requires customers.write. A running operation is not cancellable: some of its targets have already changed, and reporting "cancelled" would misrepresent what happened.
+ */
+export const cancelPanelBulkOperation = async (
+  operationID: string,
+  options?: RequestInit,
+): Promise<cancelPanelBulkOperationResponse> => {
+  const res = await fetch(getCancelPanelBulkOperationUrl(operationID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: cancelPanelBulkOperationResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as cancelPanelBulkOperationResponse;
+};
+
+export const getCancelPanelBulkOperationMutationFetcher = (
+  operationID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return cancelPanelBulkOperation(operationID, options);
+  };
+};
+export const getCancelPanelBulkOperationMutationKey = (operationID: string) =>
+  [`/v1/panel/bulk/${operationID}/cancel`] as const;
+
+export type CancelPanelBulkOperationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof cancelPanelBulkOperation>>
+>;
+
+export const useCancelPanelBulkOperation = <TError = Promise<ProblemResponse>>(
+  operationID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof cancelPanelBulkOperation>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof cancelPanelBulkOperation>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getCancelPanelBulkOperationMutationKey(operationID);
+  const swrFn = getCancelPanelBulkOperationMutationFetcher(operationID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelBulkItemsResponse200 = {
+  data: PanelBulkDetail;
+  status: 200;
+};
+
+export type listPanelBulkItemsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelBulkItemsResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type listPanelBulkItemsResponseSuccess = listPanelBulkItemsResponse200 & {
+  headers: Headers;
+};
+export type listPanelBulkItemsResponseError = (
+  | listPanelBulkItemsResponse403
+  | listPanelBulkItemsResponse404
+) & {
+  headers: Headers;
+};
+
+export type listPanelBulkItemsResponse =
+  | listPanelBulkItemsResponseSuccess
+  | listPanelBulkItemsResponseError;
+
+export const getListPanelBulkItemsUrl = (
+  operationID: string,
+  params?: ListPanelBulkItemsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/bulk/${operationID}/items?${stringifiedParams}`
+    : `/v1/panel/bulk/${operationID}/items`;
+};
+
+/**
+ * Requires customers.read. The per-item outcome an operator reviews after a run.
+ */
+export const listPanelBulkItems = async (
+  operationID: string,
+  params?: ListPanelBulkItemsParams,
+  options?: RequestInit,
+): Promise<listPanelBulkItemsResponse> => {
+  const res = await fetch(getListPanelBulkItemsUrl(operationID, params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelBulkItemsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelBulkItemsResponse;
+};
+
+export const getListPanelBulkItemsKey = (operationID: string, params?: ListPanelBulkItemsParams) =>
+  [`/v1/panel/bulk/${operationID}/items`, ...(params ? [params] : [])] as const;
+
+export type ListPanelBulkItemsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelBulkItems>>
+>;
+
+export const useListPanelBulkItems = <TError = Promise<ProblemResponse>>(
+  operationID: string,
+  params?: ListPanelBulkItemsParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelBulkItems>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && operationID !== null && operationID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ??
+    (() => (isEnabled ? getListPanelBulkItemsKey(operationID, params) : null));
+  const swrFn = () => listPanelBulkItems(operationID, params, fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 

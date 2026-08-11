@@ -535,10 +535,8 @@ created against them. Each is documented with the same caveat in `docs/`.
       dunning rules
 - [x] Route tests proving every operations endpoint sits behind the session gate
       and that the surfaces are absent when no operations service is attached
-- [ ] `api/openapi.yaml` extended with the v0.7 panel operations, and the Orval
-      bindings regenerated from it. The panel calls the same paths through the
-      shared typed transport, so the surfaces work, but the published contract
-      does not describe them yet
+- [x] `api/openapi.yaml` extended with the v0.7 panel operations, and both the
+      Go server types and the Orval bindings regenerated from it
 - [ ] Testcontainers coverage for customer search, finance export, bulk-action
       preview and application, blocklist adjudication, and anomaly deduplication
 - [ ] Playwright coverage for the operator journeys, which arrives with the v0.8
