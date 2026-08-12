@@ -1,4 +1,22 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Locator, test } from "@playwright/test";
+
+/**
+ * Fills a field and makes sure the value survived.
+ *
+ * A form filled before React has hydrated loses what was typed: the controlled
+ * inputs mount with their default values and overwrite it. The window is narrow
+ * and Chromium usually misses it, but WebKit hydrates on a different schedule
+ * and hit it reliably — the email field came back empty, the form refused to
+ * submit, and the failure looked like a missing error message rather than a lost
+ * keystroke. Retrying the fill together with its assertion closes the race
+ * without any sleep.
+ */
+async function typeInto(field: Locator, value: string): Promise<void> {
+  await expect(async () => {
+    await field.fill(value);
+    await expect(field).toHaveValue(value, { timeout: 1000 });
+  }).toPass({ timeout: 10_000 });
+}
 
 /**
  * Authentication and authorisation, from the browser.
@@ -42,13 +60,17 @@ test.describe("admin access", () => {
 
   test("a wrong password says nothing about which half was wrong", async ({ page }) => {
     await page.goto("/admin/login");
-    await page.getByLabel(/email/i).fill("nobody@example.test");
-    await page.getByLabel(/password/i).fill("not-the-password");
+    await typeInto(page.getByLabel(/email/i), "nobody@example.test");
+    await typeInto(page.getByLabel(/password/i), "not-the-password");
     await page.getByRole("button", { name: /sign in|войти/i }).click();
 
     // A message that distinguishes "no such account" from "wrong password" is
     // an account enumeration oracle.
-    const message = page.getByRole("alert");
+    //
+    // Scoped to the form: Next's route announcer is also an alert, and a bare
+    // role lookup matches both and fails on strict mode rather than on the thing
+    // being asserted.
+    const message = page.locator("main, form").getByRole("alert").first();
     await expect(message).toBeVisible();
     await expect(message).not.toContainText(/no such|not found|unknown user/i);
   });

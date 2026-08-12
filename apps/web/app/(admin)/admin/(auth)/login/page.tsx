@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Alert, AlertDescription } from "@omniflow/ui/alert";
 import { Button } from "@omniflow/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@omniflow/ui/card";
 import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { AlertTriangle } from "lucide-react";
@@ -127,9 +127,17 @@ export default function LoginPage() {
           <p className="font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.16em]">
             Omniflow
           </p>
-          <CardTitle>
+          {/* The card's title is this page's only heading, so it is the level-one
+              heading rather than the level-two a CardTitle renders by default.
+              A document whose outline starts at h2 gives a screen-reader user no
+              top-level landmark to jump to, and on a page that is nothing but a
+              sign-in form that is the whole outline. */}
+          <h1
+            className="font-semibold text-[15px] leading-none tracking-tight"
+            data-slot="card-title"
+          >
             {stage === "credentials" ? translate("title") : translate("challengeTitle")}
-          </CardTitle>
+          </h1>
           <CardDescription>
             {stage === "credentials" ? translate("description") : translate("challengeDescription")}
           </CardDescription>
