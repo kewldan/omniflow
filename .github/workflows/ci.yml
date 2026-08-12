@@ -57,8 +57,12 @@ jobs:
       # Next.js behaves differently in development, and a gate that passes
       # against a build nobody ships is not a gate.
       - run: bun run build
-      - run: bun --filter @omniflow/web run e2e:install
-      - run: bun --filter @omniflow/web run e2e
+      # No `run` between the filter and the script name. Bun treats it as the
+      # script to look for, finds no package defining one called "run", and
+      # reports "No packages matched the filter" — which reads as a bad filter
+      # and is why this job failed silently for several releases.
+      - run: bun --filter @omniflow/web e2e:install
+      - run: bun --filter @omniflow/web e2e
       - uses: actions/upload-artifact@v5
         if: failure()
         with:
