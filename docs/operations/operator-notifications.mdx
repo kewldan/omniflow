@@ -1,51 +1,130 @@
 ---
 title: Operator notifications
-description: A Telegram group, forum topics the bot creates itself, and what those messages deliberately omit.
+description: The Telegram group, the topics the bot creates itself, what those messages deliberately omit, and the caps that keep them readable
 ---
 
-An operator supplies one thing: a Telegram group. The bot creates and binds every topic inside it, keeps them bound, and re-creates one that was deleted.
+An operator supplies one thing: a Telegram group. The bot creates and binds every topic
+inside it, keeps them bound, and re-creates one that was deleted.
+
+The stream is deliberately a signal rather than a data store. A notice names the event,
+the amount class, and identifiers an operator can look up through the admin API — never
+customer text, a subscription link, a token, or a payment payload. A Telegram group is a
+place messages are forwarded from, screenshotted, and kept for years, so the design
+question was never "what would be convenient here" but "what is safe to leave in a chat
+indefinitely".
 
 ## Setup
 
-1. Create a Telegram group and enable **Topics** in its settings.
-2. Add the bot and grant it **Manage Topics** and **Send Messages**.
-3. Set the group ID and restart the bot:
+<Steps>
+  <Step title="Create the group">
+    Create a Telegram group and enable **Topics** in its settings. Topics are a supergroup
+    feature; a plain group cannot hold them.
+  </Step>
+  <Step title="Add the bot">
+    Add the bot and grant it **Manage Topics** and **Send Messages**.
+  </Step>
+  <Step title="Point the bot at it">
+    ```bash
+    APP_OPERATOR_CHAT_ID=-1001234567890
+    ```
 
-```bash
-APP_OPERATOR_CHAT_ID=-1001234567890
-```
+    A supergroup ID is negative and begins with `-100`. Forwarding a message from the
+    group to a bot such as `@userinfobot` is the usual way to read it.
+  </Step>
+  <Step title="Restart the bot">
+    On start the notifier binds every topic, then drains the queue every ten seconds. The
+    start-up log says which of the two happened:
+    `operator notifications are disabled because no group is configured`, or nothing at
+    all if binding succeeded.
+  </Step>
+</Steps>
 
-A supergroup ID is negative and begins with `-100`. Forwarding a message from the group to a bot such as `@userinfobot` is the usual way to read it.
+Only the `bot` process delivers notices. The `api` and `worker` processes write them into
+the queue, so an installation running no bot still accumulates the record of what
+happened — it simply has nobody to tell.
 
-On startup the bot creates one topic per event kind:
+## The topics
 
-| Topic | Carries |
-| --- | --- |
-| 💳 Purchases | Settled subscription orders |
-| ♻️ Renewals | Settled extensions |
-| 👛 Wallet top-ups | Credited top-ups, including over- and underpayments |
-| ↩️ Refunds | Recorded refunds |
-| ⚠️ Fulfillment failures | Provisioning runs that stopped being a blip |
-| 🚨 Incidents | Maintenance transitions |
-| 💾 Backups | Backup outcomes |
-| 🔐 Admin security | Operator sign-ins from a new address, password changes and resets, two-factor removal, and owner grants |
+| Topic | Kind | Carries | Written by |
+| --- | --- | --- | --- |
+| 💳 Purchases | `purchase` | Settled subscription orders | Order settlement |
+| ♻️ Renewals | `renewal` | Settled extensions and renewals | Order settlement |
+| 👛 Wallet top-ups | `topup` | Credited top-ups, including over- and underpayments | Top-up settlement |
+| ↩️ Refunds | `refund` | Recorded refunds | Refund recording |
+| ⚠️ Fulfillment failures | `fulfillment_failure` | Provisioning runs that stopped being a blip, digital-goods delivery failures, and add-ons that settled with no live entitlement | Fulfillment worker, goods worker, settlement |
+| 🚨 Incidents | `incident` | Maintenance transitions | *nothing today* |
+| 💾 Backups | `backup` | Backup outcomes | *nothing today* |
+| 🔐 Admin security | `security` | Operator sign-ins from a new address, password changes and resets, two-factor removal, and owner grants | Operator identity service |
+
+Two topics are created and stay empty. The incident announcer that would post maintenance
+transitions is implemented but not attached — maintenance detection runs in the `api`
+process and the notifier lives in the `bot`, and nothing bridges them — so a maintenance
+change is visible in the panel's Health tab and in `maintenance_events`, not in the group.
+Nothing queues a backup outcome either; backup status lives on the `backups` table, the
+`/ops` panel, and the taking process's log. Watch those places rather than the group. See
+[Maintenance mode](/operations/maintenance-mode) and
+[Backup and restore](/operations/backup-restore).
+
+<Note>
+  The anomaly evaluator writes notices under a ninth kind, `anomaly`, which the database
+  accepts but for which the bot has no named topic. Those notices do not reach the group.
+  Review anomalies at `/admin/risk` instead — see [Risk controls](/operations/risk-controls).
+</Note>
+
+## Configuration
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `APP_OPERATOR_CHAT_ID` | `0` | The group. `0` disables delivery entirely. |
+| `APP_OPERATOR_NOTIFICATION_CAP` | `30` | Messages sent per kind per window before the rest are suppressed. `0` removes the cap. |
+| `APP_OPERATOR_NOTIFICATION_WINDOW_MINUTES` | `5` | The rolling window the cap counts over. A zero or unparseable value falls back to five minutes. |
+
+All three are read once at start-up. The `operator_group` section on `/admin/settings`
+stores the same four numbers and changes nothing — see
+[Installation settings](/operations/installation-settings).
 
 ## When binding fails
 
-A topic that cannot be created is recorded as `failed` with a classified reason rather than silently doing nothing:
+A topic that cannot be created is recorded as `failed` on `operator_topics` with a
+classified reason rather than silently doing nothing. The raw Telegram message is dropped
+because it can echo request content.
 
-| Reason | Fix |
+| `last_error_code` | Fix |
 | --- | --- |
 | `missing_manage_topics_permission` | Grant the bot Manage Topics |
 | `forum_topics_disabled` | Enable Topics in the group settings |
 | `chat_not_found` | Wrong chat ID, or the group was upgraded to a supergroup and its ID changed |
 | `bot_not_in_group` | Re-add the bot |
+| `telegram_error` | Anything else; read the bot log for context |
 
-Fix the cause and restart the bot, or wait for the next notification: delivery re-attempts the binding.
+Fix the cause and restart the bot, or wait for the next notification for that kind:
+delivery re-attempts the binding before it sends.
 
-Changing `APP_OPERATOR_CHAT_ID` rebinds everything. The topic identifiers from the old group are dropped and fresh topics are created in the new one.
+Changing `APP_OPERATOR_CHAT_ID` rebinds everything. Rows whose stored chat no longer
+matches have their topic identifier cleared and their status reset to `pending`, so fresh
+topics are created in the new group rather than messages being sent into a group you have
+left.
 
-A topic deleted in Telegram is re-created on the next message to it, once, and the message is then retried.
+A topic deleted in Telegram is re-created on the next message to it, once, and the message
+is then retried.
+
+## Delivery
+
+The notifier drains up to 50 pending notices every ten seconds, in creation order, inside
+one transaction with `FOR UPDATE SKIP LOCKED` so two bots cannot deliver the same row.
+Each notice ends in exactly one terminal state:
+
+| Status | Meaning |
+| --- | --- |
+| `pending` | Queued, not yet attempted. Rows stay here indefinitely while no group is configured. |
+| `sent` | Delivered, with `sent_at` recorded. |
+| `suppressed` | The volume cap was reached; `error_code = volume_cap`. |
+| `failed` | Telegram refused, with a classified `error_code`. |
+
+A `failed` notice is not retried. The row and its payload remain in the database, so the
+record of the event survives even when the message did not, but the fix for a persistent
+failure is to correct the group and let the next event through rather than to expect a
+replay.
 
 ## Volume control
 
@@ -54,24 +133,51 @@ APP_OPERATOR_NOTIFICATION_CAP=30
 APP_OPERATOR_NOTIFICATION_WINDOW_MINUTES=5
 ```
 
-Past the cap for a topic within the window, further notices are marked `suppressed` with reason `volume_cap` instead of being sent. They stay in the database and are counted in the logs, so nothing is lost — but a Remnawave outage producing thousands of fulfillment failures cannot bury the group.
+Before each send the notifier counts how many notices of that kind were **sent** inside
+the window. At or above the cap, the notice is completed as `suppressed` with reason
+`volume_cap` and a warning is logged with the kind and the number suppressed in that pass.
+
+The cap is per kind, so a Remnawave outage producing thousands of fulfillment failures
+cannot bury the purchase stream, and suppressed notices do not themselves count towards
+the cap. Nothing is lost: the rows stay in the database with their payloads.
 
 Set the cap to `0` to send everything.
 
+<Warning>
+  A group configured for the first time after a long run drains a backlog. The queue keeps
+  every notice written while no group existed, and the drain is bounded to 50 every ten
+  seconds with the volume cap applied on top — so most of a large backlog is delivered as
+  `suppressed` rather than as messages. That is the intended outcome; read the history in
+  the panel rather than expecting it in the chat.
+</Warning>
+
 ## Deduplication
 
-A security notice names the event and the operator account and nothing else. An
-operator address, a session token, and a client IP stay out of the group chat;
-that detail lives in the audit trail, behind the permissions that govern it. See
-[Admin panel](/operations/admin-panel).
+Every notice carries a dedupe key: the order for a purchase, the refund for a refund, the
+fulfillment operation for a failure, the event and account for a security notice.
+`operator_notifications (kind, dedupe_key)` is unique and the insert is
+`ON CONFLICT DO NOTHING`, so a retried webhook, a second reconciliation pass, and a job
+that fails repeatedly all produce one message.
 
-Every notice carries a dedupe key: the order for a purchase, the refund for a refund, the fulfillment operation for a failure. `operator_notifications (kind, dedupe_key)` is unique, so a retried webhook, a second reconciliation pass, and a job that fails repeatedly all produce one message.
-
-The notice is queued inside the same transaction as the event it describes. A notice therefore exists exactly when the thing it reports is durable — never for an event that rolled back, and never missing for one that committed.
+The notice is queued inside the same transaction as the event it describes. A notice
+therefore exists exactly when the thing it reports is durable — never for an event that
+rolled back, and never missing for one that committed. A queue failure is logged and never
+fails the transaction that caused it, because a settled payment must not be undone by a
+chat message.
 
 ## What a notice contains
 
-Only whitelisted, non-personal fields are printed:
+The renderer prints the topic name, then only fields from a fixed allowlist, then the
+timestamp. Anything else a payload happens to hold is dropped rather than filtered, so a
+field added to a payload in future cannot leak by omission:
+
+```text
+orderId · subscriptionId · entitlementId · provider · operation · currency
+amountMinor · creditedMinor · classification · reason · source · errorCode
+fileName · sizeBytes · status · event · adminUserId · method
+```
+
+A purchase notice therefore looks like this:
 
 ```text
 💳 Purchases
@@ -83,12 +189,42 @@ amountMinor: 149900
 at: 2026-08-11T10:15:00Z
 ```
 
-There is no customer name, no Telegram account, no subscription link, no provider token, and no payment payload. Everything else in the payload is dropped by the renderer, and the payload itself is redacted before it is stored.
+There is no customer name, no Telegram account, no subscription link, no provider token,
+and no payment payload. Identifiers are included precisely because they are useless on
+their own: an operator looks them up through the panel or the admin API, where
+authorization and audit apply.
 
-Identifiers are included precisely because they are useless on their own: an operator looks them up through the admin API, where authorization and audit apply. That is the point — the group is a signal, not a data store.
+A security notice names the event, the operator account, and the method, and nothing else.
+An operator's address, a session token, and a client IP stay out of the group chat; that
+detail lives in the audit trail, behind the permissions that govern it. See
+[Admin panel](/operations/admin-panel).
 
 ## Fulfillment failure notices
 
-A failing provisioning run does not notify immediately. Ordinary backoff is expected to recover, so an operator is told only after three failed attempts, or immediately on a permanent failure. The dedupe key is the operation, so one struggling entitlement produces one message however many times it retries.
+A failing provisioning run does not notify immediately. Ordinary backoff is expected to
+recover, so an operator is told only after three failed attempts, or immediately on a
+permanent failure. The dedupe key is the operation, so one struggling entitlement produces
+one message however many times it retries.
 
-The notice carries the entitlement, the operation, and a classified error code such as `remnawave_http_502` or `remnawave_unavailable`. It never carries the panel's response body.
+The notice carries the entitlement, the operation, the current status, and a classified
+error code such as `remnawave_http_502` or `remnawave_unavailable`. It never carries the
+panel's response body.
+
+Two related cases land in the same topic:
+
+- A **digital-goods delivery** that the provider could not complete.
+- An **add-on that settled with no live entitlement** — the order keeps its paid state so
+  the money is never silently lost, and the notice, together with the
+  `addon.no_active_entitlement` audit event, tells an operator exactly what to refund or
+  re-apply.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Telegram" icon="paper-plane" href="/integrations/telegram">
+    BotFather, webhook versus long polling, and the operator group.
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/operations/troubleshooting">
+    What to check when the group has gone quiet.
+  </Card>
+</CardGroup>

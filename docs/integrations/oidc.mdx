@@ -1,0 +1,396 @@
+---
+title: "OIDC sign-in"
+description: "Add an OpenID Connect provider for operators or for customers: the fields, the redirect URI, claim mapping, and the guards that stop an account being taken over"
+---
+
+Omniflow speaks OpenID Connect generically. An operator supplies a discovery
+document and client credentials, and no provider-specific branch exists anywhere
+in the application: `admin_oidc_providers` and `customer_oidc_providers` are
+data, and adding Google or Keycloak or a corporate identity provider is a row,
+not a release. An installation with no row authenticates with passwords
+(operators) and Telegram (customers), which is the default and fully supported
+posture.
+
+There are **two independent registries**, because the two surfaces have
+different threat models and different defaults. An operator account moves money
+and reads other people's records; a customer account is somebody's own
+subscription. The two never share a provider row, a session cookie, or a flow
+cookie.
+
+| | Operator | Customer |
+| --- | --- | --- |
+| Table | `admin_oidc_providers` | `customer_oidc_providers` |
+| Configured at | `PUT /v1/panel/settings/oidc` (API only in this build) | `/admin/settings` → **Customer sign-in providers** |
+| Permission | `settings.read` / `settings.write` | `settings.read` / `settings.write` |
+| Redirect URI | `https://<host>/v1/panel/auth/oidc/<slug>/callback` | `https://<host>/v1/account/auth/oidc/<slug>/callback` |
+| Providers enabled at once | Any number; the sign-in screen has no buttons for them | Any number, rendered as buttons in `sortOrder` |
+| `requireVerifiedEmail` default | `true` | `true` |
+| `allowAutoProvision` default | `false` | `true` |
+| `nonce` in the flow | not issued | issued and verified |
+| Disabling revokes existing sessions | no | yes |
+
+The auto-provisioning defaults differ on purpose. An operator panel that hands
+an account to anyone a provider accepts is a privilege-escalation path, so the
+default is to refuse an unknown subject. A customer panel that refuses everyone
+who has not already used the bot is not a sign-in method, it is a second lock.
+
+<Note>
+  Both registries need `APP_DATA_ENCRYPTION_KEY` — a base64-encoded 32-byte AES
+  key. It seals the stored client secret and the short-lived sign-in flow
+  cookie. Without a valid key the identity services refuse to start.
+</Note>
+
+## Operator OIDC
+
+### What it is and why
+
+Optional OpenID Connect sign-in for `/admin`, using Authorization Code with
+PKCE (S256). The ID token is verified against the provider's published JWKS,
+its issuer, its audience, and its expiry before anything about it is trusted.
+
+PKCE is used even though this is a confidential client, because it binds the
+authorization code to the request that started the flow: a code intercepted at
+the redirect cannot be redeemed by anyone else. The anti-forgery `state` and the
+PKCE verifier travel in a sealed, short-lived cookie rather than a database row,
+so an abandoned sign-in leaves nothing to clean up and a provider that never
+redirects back costs nothing.
+
+The matching policy is the part worth understanding. **An unlinked subject never
+adopts an existing operator account by matching its email address.** If it did,
+anyone who can make a provider assert an address could take over an operator
+account. Only the `(provider, subject)` pair identifies an operator.
+
+### Configuring a provider
+
+There is **no panel screen for operator OIDC in this build**. The endpoints are
+implemented and permission-gated; `/admin/settings` renders commerce settings,
+installation settings, and customer sign-in providers only. Configure the
+provider with an authenticated `/v1/panel` call — you need a session cookie and
+the matching `X-CSRF-Token`, both of which you can read from
+`GET /v1/panel/auth/session`.
+
+```bash
+curl -X PUT https://panel.example.com/v1/panel/settings/oidc \
+  -H "Content-Type: application/json" \
+  -H "X-CSRF-Token: $CSRF" \
+  -b "__Host-omniflow_admin=$SESSION" \
+  -d '{
+    "slug": "corp",
+    "displayName": "Corporate SSO",
+    "issuer": "https://sso.example.com",
+    "discoveryUrl": "https://sso.example.com/.well-known/openid-configuration",
+    "clientId": "omniflow-panel",
+    "clientSecret": "…",
+    "scopes": ["openid", "email", "profile"],
+    "enabled": true,
+    "requireVerifiedEmail": true,
+    "allowAutoProvision": false
+  }'
+```
+
+| Field | Rules | Purpose |
+| --- | --- | --- |
+| `slug` | `^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$`, unique | Appears in the redirect URI and the start URL |
+| `displayName` | 1–80 characters | Shown wherever the provider is named |
+| `issuer` | must start `https://` | Checked against the ID token's `iss` |
+| `discoveryUrl` | must start `https://` | Fetched per flow for endpoints and JWKS |
+| `clientId` | 1–256 characters | Also the expected ID token audience |
+| `clientSecret` | write-only | Sealed on save; an empty value keeps the stored one |
+| `scopes` | defaults to `openid email profile` | Sent on the authorization request |
+| `enabled` | defaults to `false` | Only enabled providers are listed or startable |
+| `requireVerifiedEmail` | defaults to `true` | Refuses a subject whose `email_verified` is false |
+| `allowAutoProvision` | defaults to `false` | Whether an unknown subject may create an account |
+| `autoProvisionRole` | one of `administrator`, `support`, `finance`, `marketing`, `auditor` | Required when auto-provisioning is on |
+
+Plain HTTP is refused for both the issuer and the discovery URL. Auto-provisioning
+into `owner` is refused outright, because it would let anyone the provider
+accepts take full control of the installation.
+
+`DELETE /v1/panel/settings/oidc/{slug}` removes the provider and cascades its
+linked identities. Saving and deleting both write audit rows
+(`admin.oidc.provider_saved`, `admin.oidc.provider_deleted`, category
+`configuration`).
+
+### The redirect URI
+
+Register this with the provider, with `<slug>` replaced by the value you chose:
+
+```
+https://<your-host>/v1/panel/auth/oidc/<slug>/callback
+```
+
+Omniflow rebuilds this URL from the incoming request's `Host` header in one
+place, because it must match byte for byte between the authorization request and
+the token exchange. The scheme is `https` unless `APP_ADMIN_COOKIE_SECURE` is
+`false` **and** the request did not arrive over TLS — the local-development case.
+A deployment behind a reverse proxy must therefore forward the original `Host`;
+see [Reverse proxy](/operations/reverse-proxy).
+
+### Signing in
+
+<Steps>
+  <Step title="List the enabled providers">
+    `GET /v1/panel/auth/oidc` answers `{"items":[{"slug","displayName"}]}` and
+    needs no credential — it runs before anyone is signed in.
+  </Step>
+  <Step title="Start the flow">
+    Navigate the browser to
+    `GET /v1/panel/auth/oidc/{slug}/start?next=/admin/finance`. The API seals
+    `{slug, state, verifier, next}` into the `__Host-omniflow_oidc` cookie
+    (lifetime 10 minutes) and answers `302` to the provider. `next` is accepted
+    only as a same-site absolute path — `/…` but not `//…` — so a crafted value
+    cannot turn the callback into an open redirect.
+  </Step>
+  <Step title="Return through the callback">
+    The provider redirects to `/v1/panel/auth/oidc/{slug}/callback`. The flow
+    cookie is cleared **before** the token exchange, so a replayed callback
+    cannot be processed twice. `state` is compared in constant time. On success
+    the session cookie is set and the browser lands on `next`, defaulting to
+    `/admin`.
+  </Step>
+</Steps>
+
+`/admin/login` does not render OIDC buttons in this build; it never calls
+`GET /v1/panel/auth/oidc`. Reaching the provider means navigating to the `/start`
+URL directly — a bookmark, or a link from your own intranet page.
+
+An OIDC sign-in issues a **complete** session: `pending_totp` is false and the
+session records `auth_methods = {oidc}`. The provider is trusted to have applied
+its own second factor, so Omniflow does not ask for a TOTP code on top of it.
+
+### What happens when it is refused
+
+Every failure lands on `/admin/login?error=<reason>`, so the panel can explain
+the outcome without the API leaking anything to the provider's redirect.
+
+| `error` | Cause |
+| --- | --- |
+| `oidc_expired` | No flow cookie, an unreadable one, or a slug that does not match the cookie |
+| `oidc_denied` | The provider returned an `error` parameter |
+| `oidc_state_mismatch` | The returned `state` is not the one this flow issued |
+| `oidc_unverified_email` | `requireVerifiedEmail` is on and the provider said the address is not verified |
+| `oidc_no_account` | The subject is not linked and auto-provisioning is off |
+| `oidc_account_inactive` | The matched operator account is not `active` |
+| `oidc_failed` | Discovery, token exchange, or ID token verification failed |
+
+With auto-provisioning on, a subject whose address already belongs to an
+operator is still refused — the address is never used to adopt an account.
+An account created this way has **no password** at all (`password_hash` is null)
+and authenticates through the provider only; the creation writes the audit row
+`admin.oidc.auto_provisioned` and posts a notice to the **🔐 Admin security**
+topic in the operator Telegram group.
+
+### Limits of the operator flow in this build
+
+These are properties of the current code, not configuration you can change:
+
+- **No `nonce` is issued or checked.** PKCE binds the code to the flow; the
+  customer flow additionally binds the ID token to the flow with a nonce, and
+  the operator flow does not.
+- **An existing operator cannot link a provider to their account.** The linking
+  routine exists in the service but no route calls it, so the only way to a
+  linked identity is auto-provisioning, which creates a *new* account.
+- **Disabling or deleting a provider does not revoke the sessions it
+  established.** Those sessions survive until their own deadlines — up to the
+  12-hour absolute lifetime. To end them now, suspend the operator accounts
+  concerned, which revokes their live sessions immediately.
+- Discovery is fetched **per flow** and never cached, so a rotated JWKS or a
+  moved endpoint needs no restart.
+
+## Customer OIDC
+
+### What it is and why
+
+The same generic flow for `/account`, with one difference that is data rather
+than code: several providers may be enabled at once and the sign-in screen
+renders them all. The customer flow issues and verifies a `nonce` in addition to
+PKCE — PKCE binds the authorization code to this flow, and the nonce binds the
+resulting ID token to it, which PKCE alone does not do. Without it, a token
+obtained elsewhere for this client could be replayed into this callback.
+
+### Configuring a provider
+
+Open `/admin/settings` → **Customer sign-in providers** (needs `settings.read`
+to see it, `settings.write` to change it).
+
+<Steps>
+  <Step title="Start from a preset, or from an empty form">
+    Three presets ship with the panel. A preset is data that prefills the form —
+    nothing downstream ever asks which preset a provider came from.
+
+    | Slug | Issuer | Scopes | Verified email by default |
+    | --- | --- | --- | --- |
+    | `google` | `https://accounts.google.com` | `openid email profile` | on |
+    | `yandex` | `https://oauth.yandex.ru` | `openid login:email login:info` | off |
+    | `discord` | `https://discord.com` | `openid email identify` | on |
+
+    Yandex defaults to **off** because it does not consistently return
+    `email_verified`; requiring the claim would refuse every sign-in. Discord
+    issues an ID token only when `openid` is requested, and the `email` scope is
+    what carries the address.
+  </Step>
+  <Step title="Fill in the credentials">
+    `slug`, `displayName`, `issuer`, `discoveryUrl`, `clientId`,
+    `clientSecret`, `scopes`, `enabled`, `icon`, `sortOrder`,
+    `requireVerifiedEmail`, `allowAutoProvision`. The `icon` is the **name** of
+    an icon the panel ships, matched against `^[a-z0-9][a-z0-9-]{0,38}$`, never
+    a URL — enabling a provider must not make the sign-in page fetch from a
+    third-party host.
+  </Step>
+  <Step title="Register the redirect URI with the provider">
+    ```
+    https://<your-host>/v1/account/auth/oidc/<slug>/callback
+    ```
+    For Google, add it to the OAuth client's authorised redirect URIs before
+    enabling the provider.
+  </Step>
+  <Step title="Save">
+    The form posts `PUT /v1/panel/settings/customer-oidc`. The client-secret
+    field is always blank when the form loads and an empty field means *keep
+    what is stored*, so an operator can re-save a provider without re-typing the
+    secret.
+  </Step>
+</Steps>
+
+<Warning>
+  Disabling a provider **also ends every customer session it established**, with
+  `revoked_reason = 'provider_disabled'`. An operator who has just turned a
+  provider off during an incident should not still have its customers signed in
+  for up to the 60-day absolute session lifetime. Deleting a provider does the
+  same.
+</Warning>
+
+Removing a provider asks you to type its slug to confirm, and the dialog states
+both consequences before you do: the provider stops being offered, and the
+sessions it established end.
+
+Deleting a provider deliberately **leaves the `identities` rows alone**. They
+are the record that a customer once signed in that way, and removing them would
+silently take a sign-in method away from customers who may have no other one.
+
+### How a customer signs in
+
+`/account/sign-in` calls `GET /v1/account/auth/methods` and renders only what
+the installation actually offers: the Telegram widget, the bot-delivered link if
+it is enabled, and one button per enabled OIDC provider. Each button links to
+`GET /v1/account/auth/oidc/{slug}/start`; the provider returns to
+`/v1/account/auth/oidc/{slug}/callback`, which sets the session cookie and
+redirects to `next`, defaulting to `/account`.
+
+Failures redirect to `/account/sign-in?error=<reason>` with reasons
+`sign_in_expired`, `sign_in_denied`, `unverified_email`, `account_unavailable`,
+and `sign_in_failed`. An unlinked subject at a provider with auto-provisioning
+turned off is `sign_in_failed` — deliberately the same wording as any other
+rejection, so the screen cannot be used to ask whether an identity is
+registered.
+
+### Linking a provider to an existing account
+
+A signed-in customer opens `/account/security` → **Sign-in methods** and starts
+the flow from `GET /v1/account/sign-in-methods/oidc/{slug}/start`. The account
+to link to is sealed **into the flow cookie**, not read from the session on the
+callback, so a link flow can never complete against a different account than the
+one that started it. The callback returns to `/account/security?linked=<slug>`,
+or `?error=identity_taken|unverified_email|link_failed`.
+
+A subject that already belongs to somebody else is `identity_taken` and is
+**never merged**. Two customers are two customers, and quietly joining them
+would move one person's orders, wallet, and subscription into another person's
+account with no way back. Linking a subject that is already linked to this same
+customer is a no-op, so a double submission is harmless.
+
+### The last-sign-in-method guard
+
+`DELETE /v1/account/sign-in-methods/{identityID}` refuses with
+`409 last_sign_in_method` when it would remove the customer's only remaining
+method. A customer who removes their last method has locked themselves out of an
+account holding a paid subscription, and nothing in the operator panel can let
+them back in.
+
+The rule is about the **count of remaining methods**, not which one: a customer
+with Telegram plus Google may drop either, and a customer with only one may drop
+neither. The count is taken inside the same transaction that performs the
+removal, so two tabs unlinking two different methods at once cannot both observe
+"two remain" and both succeed. Only `telegram` and `oidc:*` identities with
+status `active` count.
+
+Removal is a revoke, not a delete: the row stays with `status='revoked'`. It also
+requires a recent sign-in — `401 reauthentication_required` otherwise — and
+writes an `identity_unlinked` row to the customer's own security log with the
+provider slug and nothing else. The panel disables the **Remove** button and says
+why before the attempt rather than after it.
+
+## Claim mapping
+
+Both surfaces map claims the same way, and the mapping is deliberately narrow.
+
+| Claim | Used for |
+| --- | --- |
+| `sub` | The identity. Trimmed; an empty subject is refused |
+| `email` | Lowercased, stored on the profile, and shown back to the person who just proved they own the account |
+| `email_verified` | Checked when `requireVerifiedEmail` is set |
+| `name` | Display name for an auto-provisioned operator account |
+
+**The email is never used to find an account.** Only `(provider, subject)` is.
+Two consequences follow directly, and both are intentional: an unlinked subject
+cannot take over an account by asserting its address, and an email change at the
+provider is not an identity change and needs no recovery path at all.
+
+Customer OIDC subjects join the single `identities` table under
+`provider = "oidc:<slug>"`. Two providers may legitimately issue the same `sub`,
+and the table's `UNIQUE (provider, subject)` has to keep meaning "one external
+account, one customer". Sessions established this way record
+`auth_method = 'oidc'` and `auth_provider = <slug>`; the table enforces that the
+two agree.
+
+Nothing else from the token is retained for authorization. The raw claim payload
+an identity provider returned is listed among the declared redactions of a
+customer's personal-data export — it is not this installation's to redistribute.
+See [Customer privacy](/customer/privacy).
+
+## How the client secret is sealed
+
+A client secret is a credential that spends on the operator's behalf at somebody
+else's service, so it is stored the way every other credential in Omniflow is.
+
+- It is sealed with AES-GCM under `APP_DATA_ENCRYPTION_KEY` before it reaches
+  the database, so a database dump alone yields no usable secret.
+- Each field gets its own **associated-data label** — `admin.oidc.client_secret`
+  for the operator registry, `customer.oidc.client_secret` for the customer one,
+  `admin.flow` and `customer.flow` for the sign-in flow cookies. A ciphertext
+  moved between columns fails to open rather than decrypting somewhere it does
+  not belong.
+- It is **never returned**. Both list endpoints report `hasClientSecret` and
+  nothing more, which is the only safe rendering of a secret.
+- On save, an empty `clientSecret` leaves the stored one untouched. That is what
+  makes the form re-saveable: an operator changing `sortOrder` does not have to
+  produce the secret again, and the screen never has to echo one.
+
+The flow cookie is sealed with the same key and is not readable or forgeable by
+the browser that holds it. It carries `state`, the PKCE verifier, the customer
+flow's `nonce`, the `next` path, and — for a link flow — the account being
+linked to.
+
+<Warning>
+  Rotating `APP_DATA_ENCRYPTION_KEY` makes every sealed value unopenable: OIDC
+  client secrets, operator TOTP secrets, and customer contact values. Treat it
+  as permanent for the life of the installation and back it up separately from
+  the database.
+</Warning>
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="Admin panel" icon="shield-halved" href="/operations/admin-panel">
+    Operator sessions, roles, two-factor, and the audit trail.
+  </Card>
+  <Card title="Security" icon="lock" href="/operations/security">
+    The whole posture: credentials, sessions, secret sealing, and headers.
+  </Card>
+  <Card title="Customer web panel" icon="browser" href="/customer/web-panel">
+    Where a customer manages sign-in methods, sessions, and their own history.
+  </Card>
+  <Card title="Configuration" icon="sliders" href="/getting-started/configuration">
+    `APP_DATA_ENCRYPTION_KEY` and the rest of the environment reference.
+  </Card>
+</CardGroup>

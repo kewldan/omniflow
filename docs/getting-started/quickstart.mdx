@@ -1,54 +1,330 @@
 ---
 title: Quickstart
-description: Run the Omniflow foundation with Docker Compose.
+description: Bring the Compose stack up, create the first owner, enable two-factor authentication, and prove the installation is healthy
 ---
 
-## Requirements
+This page takes a clone of the repository to a running installation with an operator account you
+can sign in to. It does not sell anything yet — that is [Your first sale](/getting-started/first-sale),
+which starts where this page ends.
 
-- Docker with Compose v2
-- A reachable Remnawave v3.2.2 installation
-- A Telegram bot token for bot flows
+Everything below is the local Compose stack that ships in the repository. It publishes ports on
+`localhost`, uses the credentials in `compose.yaml`, and terminates no TLS. For a server that faces
+the internet, read [Deployment](/operations/deployment) and [Reverse proxy](/operations/reverse-proxy)
+before you expose anything.
 
-## Start the core stack
+## Before you start
+
+| You need | Why |
+| --- | --- |
+| Docker with Compose v2 | The whole stack, including the migration runner, is Compose services |
+| A reachable Remnawave 3.2.2 installation and an API token | `api`, `bot`, and `worker` all refuse to start without `APP_REMNAWAVE_URL` and `APP_REMNAWAVE_TOKEN`, and the token is what the readiness probe uses |
+| `openssl`, or any way to produce random bytes | Two secrets have to be generated before the stack starts |
+| A Telegram bot token from [@BotFather](https://t.me/BotFather) | Optional here. With `APP_TELEGRAM_TOKEN` empty the bot process starts, logs `telegram bot disabled because APP_TELEGRAM_TOKEN is empty`, and idles — that is not an error |
+
+## What each service is
+
+`compose.yaml` defines seven services. Only `api` and `web` publish a host port; PostgreSQL and
+Valkey stay on the internal Compose network.
+
+| Service | Image or build | What it does |
+| --- | --- | --- |
+| `postgres` | `postgres:18.4-alpine` | The single source of truth. Volume `postgres-data`, `pg_isready` health check |
+| `valkey` | `valkey/valkey:9.1.1-alpine` | Rate limits, replay guards, locks, and temporary state. Started with `--save "" --appendonly no`, because nothing durable is kept here |
+| `migrate` | `arigaio/atlas:1.3.0` | Applies the committed Atlas migrations, then exits. Every application service waits for it to complete successfully |
+| `api` | `build/go.Dockerfile`, `TARGET=api` | The HTTP API on `:8080`: `/v1/catalog`, `/v1/payments/webhooks/{provider}`, `/v1/admin`, `/v1/panel`, `/v1/account`, the probes, `/metrics`, maintenance detection, the payment reconciler, and the first-run setup token |
+| `bot` | `TARGET=bot`, `RUNTIME=postgres` | Telegram updates, operator notifications, the customer notifier, and the `/ops` backup surface. Carries the PostgreSQL client tools because it can take a backup on demand |
+| `worker` | `TARGET=worker`, `RUNTIME=postgres` | Durable jobs, fulfillment reconciliation, renewals and dunning, sweeps, campaign expansion, retention, and scheduled backups |
+| `web` | `build/web.Dockerfile`, profile `web` | The Next.js application on `:3000` serving both `/account` and `/admin` |
+
+<Note>
+  The `migrate` service has the development DSN
+  `postgres://omniflow:omniflow@postgres:5432/omniflow?sslmode=disable` hard-coded in its command
+  and does not read `.env`. If you change the database credentials, change them in `compose.yaml`
+  as well, or migrations will be applied somewhere other than where the application looks.
+</Note>
+
+## Configure the installation
+
+All project-owned configuration is environment variables with an `APP_` prefix, read once at
+startup. There is no config file and no live reload: changing a value means restarting the process
+that reads it.
+
+<Steps>
+  <Step title="Copy the example file">
+    ```bash
+    cp .env.example .env
+    ```
+
+    The example is a complete, commented file. Every value in it is either a working default or an
+    empty string you are expected to fill in.
+  </Step>
+
+  <Step title="Generate the two secrets">
+    ```bash
+    openssl rand -base64 32   # APP_DATA_ENCRYPTION_KEY
+    openssl rand -hex 32      # APP_OPERATOR_TOKEN
+    ```
+
+    `APP_DATA_ENCRYPTION_KEY` must decode to exactly 32 bytes or startup fails with
+    `APP_DATA_ENCRYPTION_KEY must be base64-encoded 32 bytes`. It seals contact values, TOTP
+    secrets, OIDC client secrets, provider credentials, and the short-lived sign-in flow cookie —
+    losing it means losing access to all of them.
+
+    `APP_OPERATOR_TOKEN` is the bearer credential for the entire `/v1/admin` prefix, compared in
+    constant time. Any random high-entropy string will do.
+  </Step>
+
+  <Step title="Fill in the values the processes require">
+    ```env
+    APP_DATABASE_URL=postgres://omniflow:omniflow@postgres:5432/omniflow?sslmode=disable
+    APP_VALKEY_URL=redis://valkey:6379/0
+    APP_REMNAWAVE_URL=https://panel.example.com
+    APP_REMNAWAVE_TOKEN=<your Remnawave API token>
+    APP_OPERATOR_TOKEN=<generated above>
+    APP_DATA_ENCRYPTION_KEY=<generated above>
+    APP_DEFAULT_CURRENCY=RUB
+    APP_TELEGRAM_TOKEN=<from BotFather, or leave empty>
+    ```
+
+    The refusals are deliberate and happen at startup rather than at the first request:
+
+    | Process | Refuses to start without |
+    | --- | --- |
+    | `api` | Nothing, if `APP_DATABASE_URL` is empty — but then it serves only the probes and `/metrics`. With a database URL set it requires `APP_OPERATOR_TOKEN`, a 32-byte `APP_DATA_ENCRYPTION_KEY`, `APP_REMNAWAVE_URL`, `APP_REMNAWAVE_TOKEN`, and `APP_VALKEY_URL`, or it exits with `commerce requires APP_OPERATOR_TOKEN, APP_DATA_ENCRYPTION_KEY, APP_REMNAWAVE_URL, APP_REMNAWAVE_TOKEN, and APP_VALKEY_URL` |
+    | `bot` | `APP_DATABASE_URL`, `APP_VALKEY_URL`, `APP_REMNAWAVE_URL`, `APP_REMNAWAVE_TOKEN`. Valkey is not optional here: it is what provides rate limits and callback replay protection, and both guard actions that move money |
+    | `worker` | `APP_DATABASE_URL`, `APP_REMNAWAVE_URL`, `APP_REMNAWAVE_TOKEN`. `APP_DATA_ENCRYPTION_KEY` is optional; without it the worker logs `digital goods delivery disabled` and runs everything else |
+
+    Other values are validated the same way: `APP_DEFAULT_CURRENCY` must match `^[A-Z]{3}$` after
+    uppercasing, `APP_TELEGRAM_WEBHOOK_URL` must be HTTPS, and `APP_TELEMETRY_ENDPOINT` must be an
+    HTTPS URL while telemetry is enabled.
+  </Step>
+
+  <Step title="Allow plain-HTTP cookies for a local stack">
+    ```env
+    APP_ADMIN_COOKIE_SECURE=false
+    APP_CUSTOMER_COOKIE_SECURE=false
+    ```
+
+    Both default to `true`, which is correct for anything with TLS in front of it. The API logs
+    `admin session cookie is not marked Secure; use this only for local development` when you turn
+    it off, and that warning is accurate: without `Secure`, the session cookie can be captured from
+    any unencrypted request to the same host. Set both back to `true` before the installation
+    leaves your machine.
+  </Step>
+</Steps>
+
+## Bring the stack up
 
 ```bash
-cp .env.example .env
 docker compose up --build postgres valkey migrate api bot worker
 ```
 
-The bot remains disabled when `APP_TELEGRAM_TOKEN` is empty. To exercise the Telegram flow, configure the Telegram token, Remnawave URL/token, and an optional support URL before starting the bot service.
-
-The API listens on `http://localhost:8080` by default. Check it with:
-
-```bash
-curl http://localhost:8080/healthz
-```
-
-## Start web applications
-
-The customer and admin surfaces share one application behind the optional `web` profile:
+`migrate` runs first and exits; `api`, `bot`, and `worker` start once it has completed successfully
+and Valkey reports healthy. Then start the web application, which serves both the customer account
+and the operator workspace:
 
 ```bash
 docker compose --profile web up --build
 ```
 
-- Customer account: `http://localhost:3000`
-- Admin workspace: `http://localhost:3000/admin`
+Afterwards:
 
-The panel has no operator account yet. On first start the API writes a one-time
-setup token to its log:
+- API — `http://localhost:8080`
+- Customer account — `http://localhost:3000`
+- Operator workspace — `http://localhost:3000/admin`
 
+`make dev` is the first command without `migrate` in the argument list, `make up` is everything
+including the `web` profile, and `make down` stops it all. Run `make help` for the full index of
+targets.
+
+## Create the first owner
+
+A fresh installation has no operator account, so the sign-in page would be a dead end. On start,
+while no operator exists, the API issues a one-time setup token and writes it to its own log at
+warning level. It goes to the log rather than to an HTTP response because at that moment nothing can
+authenticate, and an endpoint that handed the token out would hand it to anyone who asked.
+
+<Steps>
+  <Step title="Read the token from the API log">
+    ```bash
+    docker compose logs api | grep setup
+    ```
+
+    ```
+    level=WARN msg="no administrator exists yet; redeem this one-time setup token at /admin/setup" token=… expires_in=30m0s
+    ```
+
+    The token is valid for 30 minutes and can be redeemed once. Restarting the API while no owner
+    exists issues a new one; once an owner exists, a restart prints nothing and
+    `POST /v1/panel/bootstrap` answers `409 bootstrap_closed` permanently.
+  </Step>
+
+  <Step title="Redeem it at /admin/setup">
+    Open `http://localhost:3000/admin/setup`. The form asks for the setup token, a display name of
+    1–80 characters, an email address, and a password of 12–256 characters. There are no
+    composition rules; length is the only requirement, and the browser form mirrors exactly what the
+    API enforces.
+
+    Opening `/admin/login` on an installation that still needs its first owner redirects here
+    automatically, and this page redirects back to the sign-in screen the moment an account exists,
+    so a stale tab cannot sit on a form that can no longer be submitted.
+
+    A refusal is specific: `422 weak_password` for a password that is too short,
+    `409 email_in_use` for an address already registered, `409 bootstrap_closed` once bootstrap has
+    completed.
+  </Step>
+
+  <Step title="Sign in">
+    You are redirected to `/admin/login`. Enter the address and password. The account has no second
+    factor yet, so you land on the dashboard at `/admin`.
+
+    Sign-in answers identically for a wrong password, an unknown address, and a disabled account —
+    all three are `401 invalid_credentials` — so the endpoint cannot be used to discover which
+    addresses have operator accounts. It is rate limited to 10 attempts per minute per address and
+    30 per minute per client IP, and if Valkey is unreachable the check fails closed.
+  </Step>
+</Steps>
+
+## Enable two-factor authentication
+
+The first owner holds every permission in the installation, including the only role that can create
+other operators. Give the account a second factor before you do anything else with it.
+
+<Steps>
+  <Step title="Start enrolment">
+    Open `/admin/security` and press **Enable**. The response carries a TOTP secret and an
+    `otpauth://` URI. The secret is shown as text as well as in the QR code, because an
+    authenticator running on the same device cannot scan the screen it is on.
+
+    The label your authenticator shows comes from `APP_ADMIN_TOTP_ISSUER`, which defaults to
+    `Omniflow`.
+  </Step>
+
+  <Step title="Confirm the first code">
+    Type the six-digit code and submit. Until a code is verified the secret is stored unconfirmed
+    and satisfies no sign-in challenge, so a half-finished enrolment can never lock you out. A wrong
+    code answers `422 invalid_code`; confirming without starting answers `409 totp_not_started`.
+  </Step>
+
+  <Step title="Store the recovery codes">
+    Confirmation returns ten single-use recovery codes. They are displayed once and never again —
+    regenerating them replaces the whole set and invalidates every unused code. The sign-in
+    challenge field accepts 6–24 characters and is a text input rather than a numeric one, because
+    a recovery code contains letters.
+  </Step>
+</Steps>
+
+Disabling the second factor requires the account password, because removing a factor is exactly what
+an attacker holding a hijacked session would try. Changing the password ends every other session,
+and **Sign out everywhere else** deliberately spares the session you are using to secure the account.
+
+Sessions are governed by three numbers: a 30-minute idle timeout that slides, a 12-hour absolute
+timeout that never moves, and token rotation every 15 minutes.
+
+## Prove that it works
+
+Liveness and readiness answer different questions and are separate endpoints on purpose: a process
+that is running but cannot reach PostgreSQL should be removed from a load balancer, not restarted.
+`/healthz` is the same handler as `/livez`, kept for deployments that already probe it.
+
+```bash
+curl -s http://localhost:8080/livez
+# {"status":"ok","version":"dev"}
+
+curl -s http://localhost:8080/readyz
 ```
-level=WARN msg="no administrator exists yet; redeem this one-time setup token at /admin/setup" token=... expires_in=30m0s
+
+A healthy API answers `200`:
+
+```json
+{
+  "status": "ready",
+  "checks": [
+    {"name": "postgres", "healthy": true, "checkedAt": "2026-08-13T09:12:04Z", "latencyMs": 2},
+    {"name": "valkey", "healthy": true, "checkedAt": "2026-08-13T09:12:04Z", "latencyMs": 1},
+    {"name": "remnawave", "healthy": true, "checkedAt": "2026-08-13T09:12:04Z", "latencyMs": 84}
+  ]
+}
 ```
 
-Open `/admin/setup`, paste the token, and create the first owner. The token is
-valid for 30 minutes, can be used once, and stops working permanently as soon as
-an operator account exists. Then set up two-factor authentication under
-**Security** — see [Admin panel](/operations/admin-panel).
+An unhealthy dependency turns the response into `503` with `"status": "degraded"` and the failing
+check carrying `"error": "timeout"` or `"error": "unavailable"` plus a `consecutiveFailures` count.
+Those two words are the only failure values there are: a pgx or HTTP error routinely contains a DSN,
+a host name, or a credential, so the probe reports a classification instead. The `remnawave` probe
+is an authenticated call, which means a revoked API token shows up here as an unhealthy dependency
+rather than as a mysterious provisioning failure later.
+
+Which probes each process registers differs, and it matters:
+
+| Process | Probes | Listener |
+| --- | --- | --- |
+| `api` with a database configured | `postgres`, `valkey`, `remnawave` | `APP_HTTP_ADDR`, default `:8080` |
+| `api` with `APP_DATABASE_URL` empty | none — `/readyz` answers `200` with an empty `checks` array | same |
+| `worker` | `postgres` | `APP_WORKER_HTTP_ADDR`, default `:8081`; an empty value disables the listener |
+| `bot` | `postgres`, and only when a pool exists | `APP_BOT_METRICS_ADDR`, **empty by default**, so the bot has no HTTP endpoint at all out of the box |
+
+<Warning>
+  An API started without `APP_DATABASE_URL` reports itself ready while serving almost nothing. If
+  `/readyz` is green but `/v1/catalog/plans` is not there, check that the database URL reached the
+  container.
+</Warning>
+
+Signed in as an operator, the same information is on `/admin` under **System → Health**
+(`GET /v1/panel/overview/health`, permission `system.read`), together with payment-provider and
+digital-goods-provider health that the HTTP probe does not cover.
+
+## What does not work on a fresh clone
+
+These are current facts about `main`, not configuration mistakes. Read them before you conclude that
+your installation is broken.
+
+- **The durable job queue has no schema.** Omniflow enqueues background work with River, but no
+  committed migration creates River's own tables and nothing in the stack runs River's migrator. On
+  a database migrated only by `docker compose up migrate`, `worker` therefore exits at startup
+  logging `start River`, and any settlement — which inserts a fulfillment job in the same
+  transaction as the money — rolls back. A purchase cannot complete until that migration exists. See
+  [Your first sale](/getting-started/first-sale) for exactly where a test purchase stops, and
+  [Jobs and queues](/operations/jobs-and-queues) for what the queue is meant to do.
+- **The transactional outbox is written and never published.** Three topics are inserted, nothing
+  ever sets `published_at`, and no dispatcher exists. The outbox counters on the dashboard and at
+  `GET /v1/admin/outbox` therefore grow permanently, `APP_RETENTION_OUTBOX_DAYS` deletes nothing,
+  and the "outbox lag" attention item on `/admin` is expected rather than diagnostic.
+- **There is no tracer provider.** The code opens spans across HTTP, Telegram updates, jobs, and
+  SQL, but no exporter is installed and no `OTEL_*` variable is read anywhere in the repository.
+  Setting the standard OpenTelemetry variables changes nothing; the global provider stays a no-op.
+  Metrics and logs are what an installation actually emits — see [Observability](/operations/observability).
+- **Every binary reports `"version":"dev"`.** Nothing stamps a version at build time, including the
+  released images, so `/livez`, the diagnostics bundle, and the telemetry heartbeat all say `dev`.
+- **The panel's settings sections do not configure the runtime.** Saving a section stores a
+  document; the Remnawave connection, the bot, the operator group, maintenance policy, telemetry,
+  backups, and the payment adapters all come from environment variables read at startup. See
+  [Installation settings](/operations/installation-settings).
+- **Nothing restarts a crashed process.** No core Compose service declares a `restart:` policy, so a
+  process that exits stays down until somebody notices. Add one for anything long-lived.
+- **A browser-uploaded support attachment has no volume.** `APP_SUPPORT_ATTACHMENT_DIR` defaults to
+  `/var/lib/omniflow/support-attachments` and is read by both `api` and `worker`, but `compose.yaml`
+  mounts a volume there for neither. Files live in the container's writable layer until it is
+  rebuilt, and the worker cannot reclaim files it cannot see.
 
 ## Next steps
 
-- Configure Remnawave and Telegram credentials.
-- Choose a [reverse proxy](/operations/reverse-proxy).
-- Review [anonymous telemetry](/operations/telemetry).
+<CardGroup cols={2}>
+  <Card title="Your first sale" icon="cart-shopping" href="/getting-started/first-sale">
+    Create a plan, price a version, configure a provider, connect the bot, and run a test purchase.
+  </Card>
+  <Card title="Configuration reference" icon="sliders" href="/getting-started/configuration">
+    Every variable, its default, which process reads it, and what it changes.
+  </Card>
+  <Card title="Deployment" icon="server" href="/operations/deployment">
+    Volumes, image tags, migrations, upgrades, and the supported topology.
+  </Card>
+  <Card title="Reverse proxy" icon="shield-halved" href="/operations/reverse-proxy">
+    TLS, body limits, and keeping `/metrics` and `/readyz` off the public host.
+  </Card>
+  <Card title="Backup and restore" icon="database" href="/operations/backup-restore">
+    Turn on encrypted backups before there is anything worth losing.
+  </Card>
+  <Card title="Anonymous telemetry" icon="satellite-dish" href="/operations/telemetry">
+    The exact payload, and the one variable that stops every telemetry request.
+  </Card>
+</CardGroup>

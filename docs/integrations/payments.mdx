@@ -1,28 +1,414 @@
 ---
 title: Payment providers
-description: Provider capabilities, verification, and configuration.
+description: Set up Telegram Stars, CryptoBot, YooKassa, or manual payments — credentials, currencies, webhooks, testing, and how refunds behave on each
 ---
 
-Omniflow exposes one capability-based payment contract and currently includes Telegram Stars, CryptoBot, YooKassa, and audited manual payments. An adapter is available only when its required credentials are configured.
+Omniflow settles money through one capability-based contract. Every adapter implements the same six
+methods — name, capabilities, create, poll, refund, verify webhook — and three optional refinements:
+charging a saved method, recovering an invoice by merchant reference, and declaring which currencies
+it settles. Everything downstream of that contract (reconciliation, refunds, receipts, the operator
+timeline) works against Omniflow's own `payment_intents` record rather than any one provider's
+object model.
 
-| Provider | Settlement currencies | Webhook verification | Polling | Refunds | Recurrence |
-| --- | --- | --- | --- | --- | --- |
-| Telegram Stars | `XTR` | Authenticated Bot API update stream | No | Full charge through `refundStarPayment` | No |
-| CryptoBot | CryptoBot fiat set | HMAC-SHA256 over the exact raw body | Yes | No native invoice refund | No |
-| YooKassa | `RUB`, `USD`, `EUR` | Authenticated API fetch of every notification object | Yes | Full and partial | Capability declared |
-| Manual | any | Operator decision and audit event | No | Audited manual workflow | No |
+Declaring capabilities rather than special-casing providers is what lets a screen explain *why*
+something is not offered instead of merely refusing it. A plan priced only in `RUB` will not show
+Telegram Stars, and a CryptoBot payment shows no refund button, because both facts come from the
+adapter itself.
 
-An adapter is offered to a customer only when it is configured **and** the plan carries a price in a currency the adapter settles. Selection never falls back to an incompatible adapter, and an order with nothing left to pay is offered no provider at all.
+This page is the setup guide. The order state machine, the settlement classifications, and what a
+paid order produces are in [orders and payments](/commerce/orders-payments).
 
-Every provider mutation has an Omniflow idempotency key. YooKassa receives the same value through `Idempotence-Key`. Webhook bodies are retained for 30 days with a digest and deduplication key; authorization and signature headers are never retained.
+## The four adapters
 
-## Telegram Stars settlement
+| Adapter | Slug | Currencies | Webhooks | Polling | Refunds | Recurring |
+| --- | --- | --- | --- | --- | --- | --- |
+| Telegram Stars | `telegram_stars` | `XTR` only | No — settles on the bot's authenticated update stream | No | Full charge only, and only with a bot token and a resolvable payer | No |
+| CryptoBot | `cryptobot` | 16 fiat codes | Yes, HMAC-SHA256 over the raw body | Yes | **None** | No |
+| YooKassa | `yookassa` | `RUB`, `USD`, `EUR` | Yes, unsigned — verified by re-fetching | Yes | Full and partial | Declared |
+| Manual | `manual` | Any | No | No | Declared, settles as a pending record | No |
 
-Telegram does not sign Bot API updates for a public webhook route, so the Stars adapter declares no webhook capability and the public `/v1/payments/webhooks/telegram_stars` route cannot settle anything. Settlement enters through the bot's own authenticated update stream:
+### How an adapter becomes available
 
-1. The bot answers `pre_checkout_query` only when the referenced order is still pending and its amount and currency match exactly.
-2. `successful_payment` is recorded as a provider event keyed on `telegram_payment_charge_id`, which makes a redelivered update a no-op.
-3. The charge identifier is written to the payment intent before settlement, so a retry can find the intent again and refunds have the reference they need.
-4. `refundStarPayment` requires the paying Telegram account. It is stored as non-secret receipt metadata on the payment intent when the invoice is created, and is resolved from there at refund time. Stars refunds are full-charge only, so a partial request is refused rather than reported as settled.
+Adapters are built from environment variables at process start, in both the API and the worker, so
+the two processes cannot end up with different provider sets — a renewal the worker cannot charge
+through the provider the customer paid with would be the failure that produces.
 
-Checkout remains disabled in the web application until an operator enables a provider and its sandbox suite passes with project-specific credentials.
+- `manual` and `telegram_stars` are **always** registered.
+- `cryptobot` is registered when `APP_CRYPTOBOT_TOKEN` is set.
+- `yookassa` is registered when `APP_YOOKASSA_SHOP_ID` or `APP_YOOKASSA_SECRET` is set, and then
+  refuses to build unless both are present.
+
+An empty credential leaves the adapter unregistered rather than registering a broken one, which is
+why an installation that does not sell through YooKassa has no YooKassa adapter that fails on first
+use. Asking for an unconfigured provider answers `422 provider_unavailable`.
+
+### Which methods a customer is offered
+
+A method appears only when the installation configured it **and** the plan carries a price in a
+currency that method settles. Selection never falls back to an incompatible adapter, and an order
+that the wallet already covers is offered no provider at all. Wallet top-ups have no plan price
+list, so they offer every enabled adapter that supports the currency.
+
+The list a customer sees is sorted by provider slug — `cryptobot`, `manual`, `telegram_stars`,
+`yookassa` — and both surfaces use the same sort, so a method never appears in one position in the
+bot and another in the browser. The panel's display-order field does not change it.
+
+<Warning>
+  The `manual` adapter is always registered and there is no switch that hides it. It also declares
+  no currency restriction, so it matches every plan price. An installation that never intended to
+  take bank transfers will still show **manual** as a payment method to every customer in both the
+  bot and the web panel, and every intent it creates waits for an operator decision that only the
+  token surface can make. See [Manual payments](#manual-payments).
+</Warning>
+
+<Note>
+  `/admin/settings` has a **Payment providers** card that stores `enabled`, a display order, sealed
+  credentials, and a webhook secret per `(provider, merchantId)`. None of it configures a running
+  adapter: `ConfigureProviders` reads environment variables only, and the customer-facing list uses
+  the compiled-in display order. The stored credentials have no reader. Configure providers in
+  `.env` and restart. [Installation settings](/operations/installation-settings) covers what the
+  settings screens do and do not affect.
+</Note>
+
+## Telegram Stars
+
+Settles in Telegram Stars, a zero-decimal currency with the code `XTR`, through the authenticated
+Bot API. It is the only rail that needs no merchant account and no external onboarding, and the only
+one whose money arrives entirely inside Telegram.
+
+**Why its settlement path is different.** Telegram does not sign Bot API updates for a public HTTP
+route. Accepting a "Stars webhook" on `/v1/payments/webhooks/telegram_stars` would be accepting
+unauthenticated money, so the adapter declares no webhook capability and the public route refuses
+that provider before parsing anything. Settlement enters only through the bot's own authenticated
+update stream.
+
+<Steps>
+  <Step title="Set the bot token">
+    `APP_TELEGRAM_TOKEN` is the same token the bot process uses. On the API it enables the Stars
+    adapter and Telegram sign-in; on the worker it enables Stars for renewals. See
+    [Telegram](/integrations/telegram) for obtaining it.
+  </Step>
+  <Step title="Price a plan version in XTR">
+    A plan with no `XTR` price can never be bought with Stars, because provider selection matches
+    the plan's price currencies. `APP_DEFAULT_CURRENCY=XTR` makes a Stars-only installation
+    consistent everywhere.
+  </Step>
+  <Step title="Buy in the bot">
+    The order screen shows an **invoice** button. The bot re-reads the order, refuses unless the
+    currency is `XTR` and there is an external amount left to pay, and sends a Telegram invoice with
+    the order ID as its payload and forwarding protection on.
+  </Step>
+  <Step title="Watch the pre-checkout answer">
+    Telegram sends `pre_checkout_query`. Omniflow approves only when the referenced order belongs to
+    that customer, the currency matches, the total equals the external amount exactly, and the order
+    is still open. Anything else is answered with a refusal and a "stale" message rather than
+    silently accepted.
+  </Step>
+</Steps>
+
+On `successful_payment` the update is recorded as a provider event keyed on
+`charge:<telegram_payment_charge_id>`, which makes a redelivered update a no-op that classifies as
+`duplicate`. What is stored as the raw body is Omniflow's own projection —
+`{updateId, orderId, chargeId, amountMinor, currency}` — not the Telegram update: no message
+content, no account data. The charge identifier is written to the payment intent *before*
+settlement, so a retry can find the intent again and a refund has the reference it needs. A charge
+whose intent belongs to a different order is refused with `order_mismatch`.
+
+**Refunds.** `refundStarPayment` needs both the charge ID and the Telegram user who paid. The payer
+is stored as non-secret receipt metadata when the payment is started from a surface that knows the
+Telegram account. Refunds are full-charge only: a partial request is refused rather than reported as
+settled.
+
+**Testing.** There is no sandbox. Price a cheap plan version in `XTR` and buy it from your own
+Telegram account; Telegram's own test environment is out of scope here.
+
+<Warning>
+  Two Stars limitations to plan around. `Poll` is unsupported, so a Stars payment cannot be
+  reconciled and the customer's **Refresh** button does nothing for it — the update stream is the
+  only settlement path. And a Stars payment started from the *web* panel records no Telegram user
+  ID, so that charge cannot be refunded through the adapter at all. Stars purchases that may need
+  refunding should be made in the bot.
+</Warning>
+
+## CryptoBot
+
+Creates fiat-denominated crypto invoices through `pay.crypt.bot`. The operator prices in a fiat
+currency and the customer pays in crypto, which is why it is the rail most Telegram-native shops
+already run.
+
+**Currencies:** `USD`, `EUR`, `RUB`, `BYN`, `UAH`, `GBP`, `CNY`, `KZT`, `UZS`, `GEL`, `TRY`, `AMD`,
+`INR`, `AZN`, `AED`, `PLN`. Telegram Stars are deliberately absent — they never settle through
+CryptoBot.
+
+<Steps>
+  <Step title="Create the app in @CryptoBot">
+    Open [@CryptoBot](https://t.me/CryptoBot), go to **Crypto Pay**, create an app, and copy its API
+    token. CryptoBot runs a separate testnet bot with its own tokens; a testnet token only works
+    while `APP_CRYPTOBOT_TESTNET` is true, and a mainnet token only while it is false.
+  </Step>
+  <Step title="Configure Omniflow">
+    ```env
+    APP_CRYPTOBOT_TOKEN=…
+    APP_CRYPTOBOT_TESTNET=true
+    ```
+    `APP_CRYPTOBOT_TESTNET` defaults to **`true`**, which points the adapter at
+    `https://testnet-pay.crypt.bot/api`. Set it to `false` for production; leaving it at the default
+    means real invoices are never created.
+  </Step>
+  <Step title="Point the webhook at Omniflow">
+    In the app's settings, enable webhooks and set the URL to
+    `https://<your-public-host>/v1/payments/webhooks/cryptobot`. The route is unauthenticated by
+    necessity and protected by the signature check below.
+  </Step>
+  <Step title="Buy something small">
+    On testnet, create an order and pay the invoice. The order should settle within seconds; if it
+    does not, check `/admin` → System → Webhooks for the intake record, and remember that the
+    one-minute reconciler will poll the invoice anyway.
+  </Step>
+</Steps>
+
+**Webhook verification.** The `crypto-pay-api-signature` header is hex-decoded and compared with a
+constant-time equality against `HMAC-SHA256(key = SHA256(apiToken), body)` over the exact raw body. A
+tampered body is rejected. The deduplication ID is `{updateType}:{invoiceID}:{updateID}`, which is
+stable across replays of the same body.
+
+**Recovery and polling.** If `CreateIntent` is retried after a lost response, the adapter lists the
+last 100 invoices and adopts the one whose payload matches the order — no second invoice for one
+order. Polling uses `getInvoices?invoice_ids=…` and backs both the background reconciler and the
+customer's **Refresh** button. Invoices are created with `expires_in=3600`.
+
+<Warning>
+  **CryptoBot cannot be refunded.** The adapter returns "unsupported" and the payment service
+  refuses before calling the provider. If you sell through CryptoBot, your refund route is a wallet
+  credit — an operator adjustment against the customer's wallet with a reason and an idempotency key,
+  which is recorded in the ledger and visible to the customer. See
+  [wallet and ledger](/commerce/wallet-ledger).
+</Warning>
+
+## YooKassa
+
+The Russian acquirer, over `https://api.yookassa.ru/v3` with HTTP Basic authentication. It is the
+only adapter that supports partial refunds, and the only one that declares recurring support.
+
+<Steps>
+  <Step title="Get the shop ID and secret key">
+    In the YooKassa merchant account, create a secret key for the API. You need the shop identifier
+    and the key together.
+  </Step>
+  <Step title="Configure Omniflow">
+    ```env
+    APP_YOOKASSA_SHOP_ID=…
+    APP_YOOKASSA_SECRET=…
+    APP_PUBLIC_URL=https://shop.example.com
+    ```
+    Setting one of the first two without the other fails startup. `APP_PUBLIC_URL` is **required**
+    whenever YooKassa is configured, because a hosted checkout needs an absolute link to come back
+    to; the bot refuses to start without it.
+  </Step>
+  <Step title="Set the notification URL">
+    In the merchant account, point HTTP notifications at
+    `https://<your-public-host>/v1/payments/webhooks/yookassa`.
+  </Step>
+  <Step title="Pay a test order">
+    Use a YooKassa test shop and its test cards. After confirmation the customer lands on
+    `{APP_PUBLIC_URL}/account/orders/{orderID}`, which is the return URL Omniflow supplies on every
+    intent it creates.
+  </Step>
+</Steps>
+
+**Create.** `POST /payments` with `capture: true`, a redirect confirmation carrying the return URL,
+`metadata.order_id`, and Omniflow's idempotency key in the `Idempotence-Key` header. YooKassa
+honours that key for 24 hours, which is what makes a retried worker safe.
+
+**Webhook verification — the part that matters.** YooKassa does not sign its notifications. Omniflow
+therefore treats a notification as an untrusted *hint*: verification only parses the envelope and
+requires a notification type with a non-empty object ID, and then `HandleWebhook` immediately
+re-fetches the referenced payment over the authenticated API and replaces the notification's status
+and amount with the polled values before any financial state changes. If that fetch fails, the
+webhook row completes as `failed` with `reconciliation_failed` and nothing is applied. An attacker
+who can post to the webhook route cannot make a payment succeed.
+
+The webhook event ID is `{event}:{objectID}:{first 8 bytes of sha256(body)}`, which is what
+deduplicates a redelivery.
+
+**Refunds.** `POST /refunds` with the payment ID, the amount, and the caller's idempotency key. Both
+full and partial are supported — YooKassa is the only adapter where a partial refund reaches the
+provider.
+
+**Recurring.** `ChargeSaved` posts a payment with a stored `payment_method_id` and `capture: true`
+in one step, because nobody is present to confirm a two-phase authorisation.
+
+<Warning>
+  No code path ever *creates* a saved payment method: `Create` never sets `save_payment_method`, so
+  no method ID is ever returned to bind, and the saved-method list stays empty. Recurring charging is
+  declared and wired but cannot currently be armed. [Recurring payments](/commerce/recurring-payments)
+  states exactly which parts work.
+</Warning>
+
+## Manual payments
+
+An adapter with no external system. `Create` returns an intent whose provider reference is the order
+ID and whose status is `requires_action`; there is nothing to poll and no webhook to verify.
+Settlement happens when an operator approves it, which is what makes it usable for bank transfers,
+cash, and any rail Omniflow does not integrate.
+
+Because the money moved outside the system, the approval carries the accountability: it refuses
+without a named operator, a reason, and a valid idempotency key.
+
+```bash
+curl -X POST https://shop.example.com/v1/admin/payments/$PAYMENT_ID/manual-decision \
+  -H "Authorization: Bearer $APP_OPERATOR_TOKEN" \
+  -H "Idempotency-Key: 2026-08-13-manual-7f3c9a" \
+  -H "Content-Type: application/json" \
+  -d '{"approved": true, "operatorID": "…", "reason": "Bank transfer 4412 received"}'
+```
+
+The decision is written to `manual_payment_approvals`, unique per payment intent, so a second
+decision that contradicts the first is refused with "manual payment already has a different final
+decision". An approval settles the **full** intent amount through the same settlement path every
+other provider uses. A rejection records the decision and settles nothing.
+
+The customer sees the `manual` handoff: the panel tells them an operator will confirm it, and the
+Telegram order screen says the same while the order is pending.
+
+<Warning>
+  There is no operator screen for manual payments. `POST /v1/admin/payments/{paymentID}/manual-decision`
+  exists only on the bearer-token surface — there is no `/v1/panel` route, no button in `/admin`,
+  and nothing in the Telegram operator tools. If you accept manual payments, you need a script or an
+  HTTP client and the operator token. See [the integration API](/integrations/api).
+</Warning>
+
+## Webhook intake
+
+One public route serves every adapter that declares webhook support:
+`POST /v1/payments/webhooks/{provider}`. It carries no credential — authenticity is the adapter's
+signature check, not a token on the URL — and the body is capped at 1 MiB (`413 payload_too_large`
+above that).
+
+What happens to a request, in order:
+
+1. Refuse unless the named adapter is registered and declares webhook support. This is what closes
+   the route for `telegram_stars` and `manual`.
+2. Digest the body and run the adapter's verification. A failure is **still recorded** — a row with
+   `signature_valid = false` and the event ID `invalid:<digest>` — and answered `400 webhook_rejected`.
+   A rejected webhook that left no trace would be indistinguishable from one that never arrived.
+3. Insert the event row. If the stored row is already processed or ignored, answer
+   `{"status": "duplicate"}` and stop. This is the deduplication guard, keyed on the provider's own
+   event ID rather than on any Omniflow header.
+4. For YooKassa only, re-fetch the payment over the authenticated API.
+5. A verified but non-successful event completes as `ignored`, not `failed`. An expired invoice is
+   not an error.
+6. Find the intent, settle through the shared idempotent path, and answer `200` with the
+   classification.
+
+Stored with each event: the provider, its event ID, whether the signature verified, a body digest,
+the raw body, and a **redacted header projection of `content-type` and `user-agent` only**.
+Retaining authorization or signature headers would put a provider credential in the database.
+Rows are deleted 30 days after intake.
+
+Operators read the intake history at `/admin` → System → Webhooks (`system.read`). The raw body is
+never returned there: it is the provider's own payload and can contain payment details, and "did
+this arrive and was it accepted" needs only the status.
+
+<Note>
+  The **Replay** action on a webhook event sets its status back to `received` and writes an audit
+  row, but nothing consumes `received` rows — there is no reprocessing worker. Recovering a missed
+  settlement is done by reconciliation, not by replay.
+</Note>
+
+## Reconciliation: when a webhook never arrives
+
+A webhook can be lost, delayed, or blocked. Reconciliation asks the provider what actually happened
+and applies the answer through the same idempotent settlement, so it can run beside a webhook
+without double-crediting.
+
+- **Automatically.** The API process ticks every minute and polls up to 100 intents that are
+  `pending` or `processing`, belong to `cryptobot` or `yookassa`, have a provider reference, and have
+  not been updated for a minute.
+- **By the customer.** `POST /v1/account/orders/{orderID}/refresh`, and the Telegram order screen on
+  open. It acts only while the order is still awaiting payment and silently does nothing for an
+  adapter that cannot be polled.
+- **By an operator.** `POST /v1/admin/payments/{paymentID}/reconcile` with the operator token.
+
+`/admin/finance` → **Stuck** lists intents in flight longer than any supported provider should take.
+
+<Warning>
+  The **Reconcile** button on `/admin/finance` writes an audit event (`panel.payment.reconciled`)
+  and nothing else — the panel holds no payment service and never re-polls the provider. The same is
+  true of the panel's **Refund** form, which records `panel.refund.issued` without creating a refund,
+  moving the ledger, or changing the order state. The working paths are
+  `POST /v1/admin/payments/{paymentID}/reconcile` and `POST /v1/admin/payments/{paymentID}/refunds`
+  on the operator-token surface.
+</Warning>
+
+## Refunds, by provider
+
+A refund is never a rewrite of payment history: it is a new `refunds` row plus a new balanced ledger
+transaction, so the record of what was charged survives.
+
+```bash
+curl -X POST https://shop.example.com/v1/admin/payments/$PAYMENT_ID/refunds \
+  -H "Authorization: Bearer $APP_OPERATOR_TOKEN" \
+  -H "Idempotency-Key: 2026-08-13-refund-7f3c9a" \
+  -H "Content-Type: application/json" \
+  -d '{"amountMinor": 49900, "currency": "RUB", "reason": "Customer request within 14 days"}'
+```
+
+The request is refused before the provider is called when: the idempotency key or the reason is
+missing, the intent is not `succeeded`, the currency differs, the amount is not positive or exceeds
+the intent, the adapter does not declare refunds, the intent has no provider reference, or the
+already-reserved refunds plus this amount would exceed what the provider took. Refund mutations are
+serialised per intent by an advisory lock, and re-using a key with different parameters is refused.
+
+| Provider | What a refund does |
+| --- | --- |
+| YooKassa | Full or partial, executed against the provider |
+| Telegram Stars | Full charge only, and only when the paying Telegram account was recorded. A partial request is refused, not silently rounded |
+| Manual | Records a `pending` refund; the money movement happened outside Omniflow and so does the return |
+| CryptoBot | Not possible. Refuse at the adapter — use a wallet credit instead |
+
+The wallet portion of an order can never be refunded to a provider: the total is bounded by what the
+provider actually took. A full refund moves the order to `refunded`, a partial one to
+`partially_refunded`, and either queues an operator notice.
+
+## Verifying a provider is really working
+
+There is no reliable in-panel connection test. `POST /v1/panel/settings/providers/{provider}/test`
+does run a real, read-only probe — `getMe` for CryptoBot, one listed payment for YooKassa, `getMe`
+for Stars, nothing for `manual` — with its own 20-second deadline, and the probe cannot create a
+payment. But the outcome it tries to store (`passed`, `failed`, `unsupported`) is outside the values
+the column accepts (`unknown`, `healthy`, `failing`), so the write fails and the request answers
+`500 operation_failed` whether or not the credentials worked. The probe result is in the API server
+log; the panel's webhook column likewise always reads `unknown`, because nothing records webhook
+health.
+
+What to do instead:
+
+1. Put a plan version on sale at the smallest price you can and buy it yourself, on testnet where
+   the provider has one.
+2. Watch `/admin` → System → Webhooks for the intake row and its status.
+3. Watch `/admin/finance/{orderId}` for the payment intent's event timeline — `created`,
+   `status_changed`, and any mismatch classification are all there.
+4. Refund it back through the operator-token surface, which exercises the other half of the
+   integration.
+
+## Money handling that applies to every provider
+
+- **Amounts are integer minor units** everywhere, with the exponent taken from the currency:
+  `XTR`, `JPY`, and `KRW` are zero-decimal; most others are two.
+- **Every provider mutation carries an Omniflow idempotency key.** The customer key is
+  `order-<orderID>-<provider>` — scoped to both, because the order's key alone would bind a second
+  attempt with a different method to the first adapter's intent. Renewals use
+  `renewal:<cycleKey>:<attempt>`. On `/v1/admin` the key is yours, 8 to 128 characters.
+- **A payment that does not match its order still commits an event.** Currency mismatch, duplicate,
+  underpayment, overpayment, and late arrival each have their own classification, and none of them
+  can grant an entitlement. A top-up is the exception: it owes nothing beyond the money, so an over-
+  or underpayment credits exactly what arrived.
+- **`wallet_unavailable`** is worth recognising: the provider took the money but the wallet portion
+  the order relied on is no longer there, so the order stays pending. Nothing resolves it
+  automatically — it appears in the order timeline and needs an operator.
+- **Provider HTTP calls are bounded**: a 15-second client timeout and a 1 MiB response limit.
+
+Configuration reference for all of these variables is in
+[configuration](/getting-started/configuration); the customer's view of paying is in
+[the web panel](/customer/web-panel) and [the Telegram bot](/customer/telegram-bot).

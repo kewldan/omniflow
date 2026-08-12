@@ -34,7 +34,11 @@ atlas-apply: ## Apply committed migrations
 
 docs-check: ## Validate Mintlify documentation
 	cd docs && PUPPETEER_SKIP_DOWNLOAD=true bunx mint@latest validate
-	cd docs && PUPPETEER_SKIP_DOWNLOAD=true bunx mint@latest broken-links --check-anchors
+	cd docs && PUPPETEER_SKIP_DOWNLOAD=true bunx mint@latest broken-links --check-anchors \
+		--files "*.mdx" "architecture/**/*.mdx" "commerce/**/*.mdx" "customer/**/*.mdx" \
+		"getting-started/**/*.mdx" "integrations/**/*.mdx" "operations/**/*.mdx" \
+		"contributing/**/*.mdx"
+	cd docs && sh scripts/check-russian-mirror.sh
 
 security: ## Run local security checks
 	go tool govulncheck ./...

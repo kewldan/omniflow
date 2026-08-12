@@ -1,75 +1,327 @@
 ---
-title: Referrals and communication
-description: Referral qualification, reward grants, notification classification, consent, quiet hours, and frequency caps.
+title: News and customer communication
+description: Publish announcements, understand how every customer notification is classified, and know exactly why one was suppressed or held
 ---
 
-## Referral programme
+Everything Omniflow sends a customer passes through two mechanisms described
+here: the **news inbox**, which is where announcements live durably, and the
+**delivery policy**, which is the single place that decides whether a customer may
+be messaged at all.
 
-`referral_programs` is a single operator-configured row. When it is missing or disabled, attribution still happens but no reward is ever granted.
+Both exist for the same reason. A customer needs to be told their subscription
+ends on Thursday whether or not they want marketing, and an operator needs a
+record of every message that was not sent and why. Folding those into one
+"notifications" switch would make one of the two impossible.
 
-| Field | Meaning |
+This page is the operator and system view. For what a customer sees and controls,
+see [Notifications and consent](/customer/notifications).
+
+## News and announcements
+
+### Categories, and what each one costs
+
+A post carries a `category` and a `class`. Four categories exist, and the category
+is what the delivery machinery treats as the notification kind:
+
+| Category | Class it is delivered under | Consent required | Deferred by quiet hours |
+| --- | --- | --- | --- |
+| `news` | marketing | Yes — marketing consent, and it consumes the frequency cap | Yes |
+| `announcement` | transactional | No | Yes |
+| `incident` | transactional | No | **No** — incidents are urgent |
+| `maintenance` | transactional | No | Yes |
+
+All four are additionally governed by the customer's single **news** preference
+switch, so a customer who turns news off stops receiving announcements and
+incident notices too.
+
+<Note>
+  `news_posts.class` is a separate column carried through to the customer inbox
+  payload, where the panel uses it to tone a badge. It has no effect on delivery
+  — the category decides that.
+</Note>
+
+### The lifecycle, and what can actually move a post through it
+
+`news_posts.status` is one of `draft`, `scheduled`, `published`, `unpublished`, or
+`archived`, with `scheduled_for`, `published_at`, `unpublished_at`, and
+`archived_at` beside it.
+
+A publication timestamp alone cannot express "written but not ready", "scheduled
+for Tuesday", or "taken down because it was wrong" — and the last is the one an
+operator needs most urgently, which is why unpublishing exists as a state rather
+than as a deletion.
+
+`published_at` is set with `COALESCE(published_at, now())`, so republishing does
+not rewrite when customers first saw a post. A `CHECK` requires `scheduled_for`
+whenever the status is `scheduled`.
+
+<Warning>
+  **There is no operator surface for news.** The only state transition any code
+  makes is the worker's `scheduled → published`: the campaign runner ticks every
+  minute, takes up to 50 posts whose `scheduled_for` has passed, and publishes
+  them. Creating a post, writing its Russian and English localisations,
+  scheduling it, unpublishing it, or archiving it can only be done by writing
+  `news_posts` and `news_post_localizations` directly.
+
+  Slugs match `^[a-z0-9][a-z0-9_-]{2,63}$`, titles are capped at 200 characters,
+  bodies at 3500, and locales are `ru` or `en` only.
+</Warning>
+
+### What makes a post visible
+
+A post is visible to a customer when all of the following hold:
+
+```
+status = 'published'
+AND published_at IS NOT NULL
+AND published_at <= now()
+AND (expires_at IS NULL OR expires_at > now())
+```
+
+The status check matters on its own. Unpublishing keeps `published_at` set on
+purpose — that is when customers first saw it — so a timestamp window alone would
+keep showing a post an operator had taken down. Both the web panel and the bot
+apply the identical predicate, so withdrawing a post removes it from both
+surfaces at once.
+
+### Locale resolution
+
+A post exists per locale, and a post with no translation in the customer's
+resolved locale is **absent** rather than shown in the other language.
+
+Resolution runs in order: an explicit `locale` request parameter when it names
+`ru` or `en`, then the customer's bot preference unless it is `auto`, then the
+account's locale, then `en`. The resolved locale is returned in the response, so
+the panel can say it was not given the language it asked for rather than
+pretending.
+
+### The inbox
+
+| Route | Notes |
 | --- | --- |
-| `enabled` | Master switch for reward granting |
-| `currency` | Currency both rewards are denominated in |
-| `inviter_reward_minor` / `invitee_reward_minor` | Reward amounts in integer minor units; `0` disables that side |
-| `qualification` | Currently `first_paid_order` |
-| `inviter_reward_cap` | Maximum rewarded invitations per inviter |
-| `attribution_validity_days` | How long an attribution can still qualify |
-| `reward_expiry_days` | Optional wallet-credit expiry |
-| `terms_url` | Programme terms shown to customers |
+| `GET /v1/account/news?locale&cursor&limit` | Default 20, maximum 50; returns `{items, unreadCount, locale, nextCursor}` |
+| `POST /v1/account/news/{postID}/read` | 204 |
 
-### Attribution
+Items are ordered newest first on `(published_at, id)` on both surfaces, so a
+batch published in the same instant reads in the same order everywhere.
+`unreadCount` counts every visible post with a localisation in the resolved
+locale that has no read row, and is not bounded by the page.
 
-Attribution is immutable and first-write-wins: `referral_attributions` is keyed on the invited customer, and a self-referral is impossible because the row requires two different customers.
+Marking a post read checks visibility first and answers 404 for an invisible one;
+the insert is `ON CONFLICT DO NOTHING`, so reading twice is not an error.
 
-### Qualification and granting
+Customers reach it at `/account/news` in the web panel, or the **News** menu entry
+in the bot, each carrying an unread badge.
 
-Rewards are granted inside the same database transaction that settles the qualifying order. That is what makes them exactly-once: a retried webhook, a replayed Stars update, or a manual re-approval cannot credit a wallet twice.
+### The push
 
-A referral qualifies when all of the following hold:
+The inbox is pull. The push is what makes an outage notice arrive.
 
-- the programme is enabled and uses `first_paid_order`
-- the order reached `paid` or `fulfilled`
-- the order actually settled money (`paid_minor > 0`), so a wallet-funded order cannot mint new referral value
-- the order is the customer's first settled order
-- the attribution is still inside `attribution_validity_days`
-- the inviter is under `inviter_reward_cap`
+The bot's notifier looks for posts published in the last seven days, for active
+customers with a Telegram recipient, that have a localisation in the customer's
+resolved locale and no existing delivery row for that post. It sends one message
+per customer per post, up to 200 per pass.
 
-Each reward writes a balanced double-entry ledger transaction (`customer_wallet` credit against `platform_clearing`), a `referral_rewards` row keyed on `(referred_user_id, role)`, and an audit event. The ledger transaction's idempotency key is `referral:<referred customer>:<role>`.
+A post that is already older than seven days when the worker first sees it is
+never announced. Publishing an old post backdated will populate the inbox and
+send nothing.
 
-Rewards are never revoked by deleting rows. An operator correction is a compensating ledger entry, exactly as with any other wallet adjustment.
+## How every notification is classified
 
-## Notification classification
-
-Every customer notification is classified before it is sent. An unclassified kind is refused rather than delivered, so adding a notification without deciding its class is impossible.
+Every customer notification passes through one decision function. An unclassified
+kind is **refused rather than delivered**, so adding a notification without
+deciding its class is impossible.
 
 | Class | Kinds |
 | --- | --- |
-| Transactional | `expiry`, `traffic`, `renewal`, `grace`, `recovery`, `payment`, `fulfillment`, `support`, `announcement`, `incident`, `maintenance`, `referral`, `trial` |
+| Transactional | `expiry`, `traffic`, `renewal`, `grace`, `recovery`, `payment`, `fulfillment`, `support`, `incident`, `maintenance`, `announcement`, `referral`, `trial` |
 | Marketing | `news`, `marketing` |
 
-Marketing requires explicit consent. Toggling it in the bot writes a `consent_records` row with the policy version and the source, in both directions.
+Urgent kinds are never deferred by quiet hours: `payment`, `fulfillment`,
+`support`, and `incident`. Everything else waits for the window to end.
 
-## Delivery policy
+### Which preference governs which kind
 
-`notification_deliveries` is the durable record of every decision, keyed on `(user_id, kind, dedupe_key)`:
+| Preference | Kinds it governs |
+| --- | --- |
+| `expiry_notifications` | `expiry` |
+| `traffic_notifications` | `traffic` |
+| `renewal_notifications` | `renewal`, `grace`, `recovery`, `trial` |
+| `news_notifications` | `news`, `announcement`, `incident`, `maintenance` |
+| `marketing_enabled` | `marketing` |
+| No opt-out | `payment`, `fulfillment`, `support`, `referral` |
+
+The four kinds with no opt-out carry facts a customer needs whether or not they
+want to hear from the business. A preference model that could silence a payment
+failure would be a way to lose access without warning.
+
+### The decision order
+
+1. The customer blocked the bot — refuse, `bot_blocked`. Their account is
+   deactivated — refuse, `user_deactivated`. Neither is retried.
+2. The kind's preference is off — refuse, `kind_disabled`.
+3. Marketing class with no consent — refuse, `no_marketing_consent`.
+4. Marketing class already over the frequency cap — refuse, `frequency_cap`.
+5. A retry-after in the future — defer until then.
+6. Not urgent and inside quiet hours — defer to the end of the window.
+7. Otherwise, allow.
+
+### Quiet hours
+
+Quiet hours are a whole-hour local-time window evaluated against `users.timezone`.
+The window wraps past midnight when the end hour is at or before the start hour,
+and `start == end` means there is no window at all — which is how turning quiet
+hours off is expressed on both surfaces.
+
+<Note>
+  The timezone the window is evaluated in is the account's, and the customer
+  preferences screen neither shows nor changes it. A customer setting 23:00–08:00
+  in the browser is setting it in whatever timezone their account already carries.
+</Note>
+
+### The frequency cap
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `APP_MARKETING_FREQUENCY_CAP` | `3` | Marketing messages allowed per window; `0` disables the cap |
+| `APP_MARKETING_WINDOW_HOURS` | `168` | Window length in hours — seven days |
+
+Both are read by the bot process. The count is the number of delivery rows with
+class `marketing` and status `sent` inside the window, so a suppressed or
+deferred marketing message does not spend a customer's allowance. The bot's
+`/settings` screen shows the cap to the customer when one is configured.
+
+## The durable record
+
+`notification_deliveries` is the record of every decision, unique on
+`(user_id, kind, subscription_id, dedupe_key)` with `NULLS NOT DISTINCT`.
 
 | Status | Meaning |
 | --- | --- |
 | `pending` | Claimed and being evaluated |
+| `deferred` | Held until quiet hours end or a retry-after expires |
 | `sent` | Accepted by Telegram |
-| `deferred` | Held until quiet hours end or a flood wait expires |
+| `failed` | Telegram rejected it, with a classified error code and a bounded retry count |
 | `suppressed` | Refused by policy, with the reason in `error_code` |
-| `failed` | Telegram rejected it, with the classified error code and a bounded retry count |
 
-The policy is applied in this order: recipient reachability, per-kind preference, marketing consent, marketing frequency cap, then quiet hours.
+A row is re-claimed only when it is `failed` with fewer than three failures, or
+`deferred` with an elapsed deferral. That is what turns a deferral into a delay
+rather than a drop.
 
-- **Reachability** — a customer who blocked the bot or deleted their account is a permanent stop, not a retry.
-- **Quiet hours** — a local-time window that may wrap past midnight. Non-urgent messages are deferred to the end of the window; `payment`, `fulfillment`, `support`, and `incident` are never delayed.
-- **Frequency caps** — marketing is counted per configured window and refused above the cap.
+The key includes the subscription, so lifecycle alerts are per subscription and a
+busy subscription cannot suppress a quiet one's expiry notice.
 
-Deferred messages become claimable again once their window passes, so a deferral delays a message rather than dropping it.
+Telegram failures are classified into a durable delivery state on the account:
+`bot_blocked` becomes `blocked` with no retry, `user_deactivated` and
+`chat_not_found` become `deactivated` with no retry, and flood waits, timeouts,
+and Telegram outages become `failing`, which is retryable.
 
-## Attachment retention
+### Three deliberate exceptions
 
-Support attachments store only the Telegram file reference plus safe metadata (kind, name, MIME type, size). Omniflow never downloads or stores the file. References are removed after their retention window by the bot's periodic cleanup.
+- **Dunning notices bypass the policy entirely.** A customer about to lose access
+  because a card was declined is not served by holding the message until morning,
+  and there is no opt-out for it in the preference model either.
+- **Support replies bypass it too.** The reply delivery pass sends directly and
+  writes no delivery row; deduplication comes from the message's own
+  `delivered_at` instead. A support reply has no suppression record and no retry
+  accounting as a result. It would be classified urgent in any case.
+- **A customer with no Telegram identity receives no push at all.** Recipients are
+  drawn from active Telegram identities and Remnawave Telegram ids. A customer who
+  signed in only by magic link or OIDC sees replies and announcements in the web
+  panel and nothing is pushed anywhere.
+
+## Consent is appended, never edited
+
+Every marketing decision appends a `consent_records` row carrying the purpose,
+whether it was granted, the policy version, the source surface, and the request
+id. The current answer is the newest row. A history that can be rewritten is not
+evidence of anything.
+
+| Writer | Source | Policy version |
+| --- | --- | --- |
+| Customer web preferences and unsubscribe | `customer_web` | `web-v0.10` |
+| Customer web contact-channel changes | `account_web` | `account-web-v0.10` |
+| Telegram bot | `telegram_bot` | The bot's own constant |
+
+A preference update appends only when the value actually changes relative to the
+latest record. An **unsubscribe appends unconditionally**, because "they had
+already opted out" is not a reason for their unsubscribe to leave no trace.
+
+The `marketing_enabled` column on the preferences row is a fallback for
+installations that predate the consent history. Where the two disagree, the record
+wins.
+
+This is also what makes the customer-facing evidence line possible: "you opted in"
+is not a useful thing to tell somebody who does not remember doing so, and "you
+opted in on this date, from this surface, under this policy version" is.
+
+### What unsubscribing does
+
+One button on `/account/preferences` turns off marketing and the news preference,
+clears the marketing flag on every live contact channel, appends a consent
+withdrawal, and writes a `communication_suppressions` row with reason
+`customer_request`.
+
+It deliberately does not touch expiry, traffic, or renewal. Those carry facts a
+customer needs whether or not they want to hear from the business, and an
+unsubscribe that silenced them would turn a marketing preference into a way to
+lose access without warning.
+
+Turning marketing back on later deletes only the `customer_request` suppression —
+see [the suppression list](/commerce/campaigns#the-suppression-list) for why an
+operator-recorded suppression survives that.
+
+## Support attachments and retention
+
+A support attachment is stored one of two ways, and the difference matters
+operationally.
+
+A **Telegram** attachment stores only Telegram's file identifier. Telegram is the
+custodian and Omniflow holds no bytes. A **web** upload has no such custodian, so
+the bytes are written to disk under a content-addressed key and the reference
+column carries a `web:` prefix. That prefix is what keeps the two kinds apart:
+anything sending an attachment back to Telegram must skip a `web:` reference, and
+the download route refuses one that lacks it because it does not hold those bytes.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `APP_SUPPORT_ATTACHMENT_DIR` | `/var/lib/omniflow/support-attachments` | Where web-uploaded bytes are stored |
+| `APP_RETENTION_INTERVAL_HOURS` | `1` | How often the retention sweep runs |
+
+<Warning>
+  **The API and the worker must point at the same directory.** The API writes the
+  bytes and the worker's sweep is what removes them. If they disagree, retention
+  deletes the rows while the files stay, and the disk grows without bound.
+</Warning>
+
+Attachment retention itself is the column default of 90 days and is not
+configurable. The hourly sweep deletes every expired row, then removes only those
+web files that no surviving row still references — two customers who uploaded
+identical bytes share one content-addressed file, so deleting per row would delete
+somebody else's attachment. Files are removed only after the transaction commits,
+and a file that cannot be removed is logged and skipped rather than failing the
+whole sweep.
+
+<Note>
+  The bot additionally purges expired attachment rows at the end of every
+  notification pass. That path deletes rows only and reclaims no web files, which
+  is correct for a Telegram-only installation and is why the worker's sweeper is
+  the one that must be pointed at the right directory.
+</Note>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Audience segments and campaigns" icon="bullhorn" href="/commerce/campaigns">
+    Sending a message to a chosen audience, and the suppression list.
+  </Card>
+  <Card title="Notifications and consent" icon="bell" href="/customer/notifications">
+    The same machinery from the customer's side.
+  </Card>
+  <Card title="Support desk" icon="headset" href="/operations/support-desk">
+    Where attachments arrive and how replies are delivered.
+  </Card>
+  <Card title="Configuration" icon="sliders" href="/getting-started/configuration">
+    Every environment variable named on this page.
+  </Card>
+</CardGroup>

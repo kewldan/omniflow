@@ -1,53 +1,195 @@
 ---
 title: Support desk
-description: Queues, assignment, internal notes, canned replies, merges, and the response-time measures that go with them.
+description: Work a ticket queue, keep internal notes away from customers, and read a response-time report whose definitions travel with the numbers
 ---
 
-v0.4 gave a customer one open ticket and an operator a Telegram topic to answer
-it in. That is enough for one person answering a handful of tickets a day, and
-it stops being enough the moment there are two operators, because nothing says
-who is answering what.
+The support desk lives at `/admin/support` and needs `support.read` to open. It
+has two tabs: **Queue**, the ticket workspace, and **Report**, the workload and
+response-time figures.
 
-## A customer may hold several tickets
+The queue is the primary view because that is the question an operator actually
+arrives with — what is waiting, and who has it. A ticket opens beside the queue
+rather than replacing it, so working through a backlog does not mean navigating
+back after every reply.
 
-The one-open-ticket-per-customer rule is gone. A billing question and a
-connection problem are two conversations: forcing them into one thread makes
-both harder to answer and impossible to route separately.
-
-The bot still continues the customer's most recent open ticket when they simply
-type, because that is what they mean. A second thread is opened deliberately —
-from the ticket list in the bot, or by an operator.
+A customer may hold several conversations at once. A billing question and a
+connection problem are two conversations, and forcing them into one thread makes
+both harder to answer and impossible to route separately. The bot still continues
+the customer's most recent open ticket when they simply type a message, because
+that is what they mean; the web panel always opens a new one from
+`/account/support/new`.
 
 ## Queues carry the promise
 
-A queue is a named bucket with a first-response target and a resolution target.
-The target lives on the queue rather than on the priority because they answer
-different questions: priority is how this ticket compares to the work in front
-of it, and the target is what the operator promised the customer. A billing
-queue may promise four hours for everything in it while a general queue promises
-two days.
+A queue is a named bucket with a first-response target and a resolution target,
+both in seconds. The target lives on the queue rather than on the priority
+because they answer different questions: priority is how this ticket compares to
+the work in front of it, and the target is what the operator promised the
+customer. A billing queue may promise four hours for everything in it while a
+general queue promises two days.
 
 Exactly one queue is the default, enforced by a partial unique index, so a new
-ticket always has somewhere to go. A queue with open tickets in it cannot be
-archived — archiving one would hide work rather than finish it.
+ticket always has somewhere to go. Without one, creating a ticket refuses with
+503 `support_unavailable` and the customer's question would land nowhere — the
+API logs that as an installation fault rather than a customer error.
 
-Every installation starts with a `general` queue. It can be renamed, joined by
-others, or demoted from default, but there is always one.
+Every installation is seeded with a `general` queue named "General" in English and
+"Общие вопросы" in Russian, default, sort order zero.
+
+**A target of zero means the queue makes no promise and never breaches.** The
+breach predicate requires a positive target, which is a legitimate configuration
+for a queue that exists only to route.
+
+### Defining one
+
+There is no form. Send `PUT /v1/panel/support/queues` with:
+
+```json
+{
+  "code": "billing",
+  "nameEn": "Billing",
+  "nameRu": "Оплата",
+  "firstResponseTargetSeconds": 14400,
+  "resolutionTargetSeconds": 86400,
+  "isDefault": false,
+  "sortOrder": 10
+}
+```
+
+`code` is lower-cased and must match `^[a-z][a-z0-9_-]{1,63}$`. The upsert is by
+code. Setting `isDefault: true` clears the previous default in the same
+transaction, so there is never a moment with two defaults or none. A missing name
+in either language, or a negative target, is 422.
+
+This route needs **`settings.write`**, not `support.write`. Queues, tags, and
+canned replies are configuration rather than day-to-day support work: an operator
+answering tickets should not be able to redefine the promises their queue makes.
+
+<Note>
+  **Archiving a queue is not reachable.** The guarded statement exists — it
+  refuses a queue that is the default or still holds open or pending tickets —
+  but no route or service method calls it. Re-saving an archived code clears its
+  archive stamp, so a queue can be brought back but not put away through the API.
+</Note>
+
+## Working the queue
+
+Each queue renders as a card showing its English name, the open count, an amber
+"unassigned" badge, a red "breached" badge, and the first-response target as a
+duration. Those three counts are what an operator reads before choosing what to
+work on: how much is here, how much nobody owns, and how much is already past
+what the queue promised. Clicking a card filters the list to that queue. The cards
+refresh every 30 seconds and the ticket list every 15.
+
+The status filter offers all, `open` (the default), `pending`, `resolved`, and
+`closed`. Tickets are ordered oldest activity first, on a keyset cursor over
+`(last_message_at, id)` — the customer's own inbox sorts the other way, newest
+first, because they are answering a different question.
+
+Each row shows the subject, an unread badge, a priority badge, an "overdue" badge
+when the first-response target was breached, the assignee or "nobody", the last
+message date, and tag chips. The breach flag is computed in SQL, so "overdue"
+means the same thing in the list, in the queue counters, and in the report.
+
+<Note>
+  The API also filters by `priority`, `assigneeId`, `unassigned=true`,
+  `customerId`, and `tag`, and takes a `pageSize` up to 200 (the default is 25;
+  the panel asks for 50). Only the queue and status filters have controls in the
+  panel — the rest are available through
+  `GET /v1/panel/support/tickets` directly.
+</Note>
+
+### Assignment
+
+**Take it** in the conversation header assigns the ticket to the signed-in
+operator; the same button becomes **Release** once it is assigned. Releasing is a
+first-class action rather than an error state: an operator who cannot finish
+something should be able to put it down.
+
+The route is `POST /v1/panel/support/tickets/{ticketID}/assign` with
+`{"assigneeId": "<uuid>"}`; an empty string releases. It stamps `assigned_at` and
+nulls it on release, and audits as `panel.support_ticket.assigned` or
+`panel.support_ticket.released`.
+
+### Priority, queue, and tags
+
+**Priority** is `low`, `normal`, `high`, or `urgent`, defaulting to `normal`, set
+from a select in the header. It deliberately does not change the SLA target,
+which belongs to the queue. Anything outside the four is 422. Customers see a
+ticket's priority but cannot set one.
+
+**Queue** is a select that moves the ticket
+(`POST /v1/panel/support/tickets/{ticketID}/queue`).
+
+**Tags** are bilingual labels, filterable in the queue, which is categorisation an
+operator can act on without inventing a second status vocabulary. The header's tag
+select lists every tag prefixed `+` to attach or `−` to detach, and the panel
+issues `PUT` or `DELETE` on
+`/v1/panel/support/tickets/{ticketID}/tags/{tag}` accordingly. The path parameter
+is the tag **code**, not its id; an unknown code is 404 and attaching twice is a
+no-op. Creating a tag is API-only: `PUT /v1/panel/support/tags` with
+`{code, nameEn, nameRu}`, behind `settings.write`.
+
+Every control above is hidden entirely when the ticket's status is `merged`, and
+every underlying statement carries `AND status <> 'merged'` so a direct API call
+answers 404 rather than mutating an absorbed ticket.
+
+## Status, reopening, and the SLA timestamps
+
+| Status | Set by | Meaning |
+| --- | --- | --- |
+| `open` | Either side | Waiting on an operator |
+| `pending` | Operator | Waiting on the customer |
+| `resolved` | Operator | Answered; still replyable |
+| `closed` | Operator or customer | Finished |
+| `merged` | The merge action only | Folded into another ticket |
+
+`merged` cannot be set through the status route, which is why merging is its own
+action.
+
+Timestamps are recorded as facts rather than computed, so "when was this first
+answered" survives a queue's target being changed afterwards:
+
+- `first_response_at` is written by the first operator reply and **never moved**,
+  so a conversation that goes back and forth for a week keeps its original
+  measure.
+- Setting `resolved` or `closed` stamps `resolved_at` if it was not already set.
+- Moving back to `open` or `pending` when `resolved_at` was set increments
+  `reopened_count` — the signal that an answer did not actually answer the
+  question.
+
+A customer replying on a resolved ticket auto-reopens it and bumps
+`reopened_count`, and the same rule applies in the bot and the web panel.
+Customers get explicit **Close** and **Reopen** controls too
+(`POST /v1/account/support/tickets/{ticketID}/close` and `/reopen`). Closing an
+already-closed ticket succeeds and changes nothing — the customer asked for a
+state, not for a transition. Closing or reopening a merged ticket is 422 with an
+explanation that it was merged into another conversation.
 
 ## Internal notes are not messages
 
 A note is a separate table, not a `visibility` flag on `support_messages`.
 
-That is deliberate and it is the whole safety property. Every path that delivers
-a message to a customer reads `support_messages`; a flag on that table would
-mean every one of those paths has to remember to check it, and the first one
-that forgets sends an operator's private note to the customer it is about. A
-note cannot be delivered because it is not in the table the delivery path reads.
+That is deliberate and it is the whole safety property. Every path that delivers a
+message to a customer reads `support_messages`; a flag on that table would mean
+every one of those paths has to remember to check it, and the first one that
+forgets sends an operator's private note to the customer it is about. A note
+cannot be delivered because it is not in the table the delivery path reads. No
+query in the customer-facing package mentions the notes table at all.
 
-The panel renders notes and messages in one timeline and styles them
-differently, but the reply box and the note box are separate controls with
-separate buttons. A toggle would be a state somebody can be wrong about, and
-being wrong there means sending the customer a note about them.
+The conversation screen has two boxes with two buttons: a reply textarea with
+**Send**, and a dashed, amber-bordered note textarea with **Add note**. They are
+deliberately not one box with a toggle, because a toggle is a state somebody can
+be wrong about, and being wrong here means sending the customer a note about them.
+Notes render inline in the timeline on a dashed warning surface with an "internal
+note" label, and the ticket detail response returns messages and notes as **two
+separate arrays** so no client can mistake one for the other. Each is capped at
+200 entries.
+
+`POST /v1/panel/support/tickets/{ticketID}/notes` takes `{"body": "..."}`, 1–4000
+characters, and requires an author who is a real admin user. It audits as
+`panel.support_ticket.noted` with **no metadata at all** — the note body is never
+copied into the audit trail.
 
 ## Replies are written here and delivered by the bot
 
@@ -55,66 +197,226 @@ The panel writes the reply; the bot's notifier delivers it. That keeps consent,
 quiet hours, Telegram delivery health, and blocked-account handling in one place
 instead of duplicated into the panel.
 
-A reply requires an `Idempotency-Key`, which becomes the message's dedupe key,
-so a resubmitted form reaches the message that already exists rather than
-sending the customer the same answer twice.
+<Steps>
+  <Step title="Insert a canned reply, optionally">
+    The **Insert canned reply** select fills the reply box with the response's
+    body, and using one increments its usage counter.
+  </Step>
+  <Step title="Write and send">
+    `POST /v1/panel/support/tickets/{ticketID}/reply` with `{"body": "…"}` and a
+    **required** `Idempotency-Key` header. A request without one is 422
+    `idempotency_key_required`.
+  </Step>
+  <Step title="Watch it flip from queued to delivered">
+    The message appears immediately labelled `queued`. The bot's delivery pass
+    runs every 15 minutes, claims up to 200 undelivered operator messages, sends
+    them, and only then stamps `delivered_at` — at which point the panel shows
+    `delivered` and the customer's unread counter goes up exactly once.
+  </Step>
+</Steps>
 
-The reply body is deliberately absent from the audit metadata. The message
-itself is the record; copying it into the audit trail would duplicate customer
-content into a second retention regime.
+The idempotency key becomes the message's dedupe key, unique per ticket, so a
+resubmitted form reaches the message that already exists rather than sending the
+customer the same answer twice. A repeated key returns 200 with an empty message
+object rather than an error.
 
-## Canned responses require both languages
+The first response is recorded in the same transaction as the message, so the SLA
+measure and the reply commit together — one cannot exist without the other.
 
-A canned reply that exists in one language is one an operator will send to the
-wrong half of the customer base, because the language of the customer is not the
-language of the operator.
+The audit record, `panel.support_ticket.replied`, carries only the canned response
+id. The body is deliberately absent: the message itself is the record, and copying
+it into the audit trail would duplicate customer content into a second retention
+regime.
 
-Each response declares the permission needed to send it. A response the operator
-may not use is filtered out of the list rather than shown disabled: a list of
-replies somebody cannot send is a list they have to read past every time.
+<Warning>
+  **A customer with no Telegram identity is never pushed a reply.** The delivery
+  pass draws from customers with an active Telegram identity. Someone who signed
+  in by magic link or OIDC sees the reply when they open `/account/support`, and
+  nothing is sent anywhere. Support replies also bypass the delivery-policy
+  machinery entirely — they write no delivery row, so there is no suppression
+  record and no retry accounting for them, and deduplication comes from
+  `delivered_at` instead.
+</Warning>
 
-## Merging keeps both conversations
+### Canned responses
 
-The absorbed ticket keeps its row and points at its survivor, and its messages
-move so the conversation reads as one thread. Deleting it would lose the
-customer's own words and the trail that explains where they went.
+A canned response is a reusable reply in both Russian and English, declaring the
+permission needed to send it, with a usage counter. Refund wording and policy
+statements are written once and reused; an operator rewriting them in the moment
+is how two customers get told different things. Both languages are mandatory
+because the language of the customer is not the language of the operator.
 
-A merge across customers is refused. Putting one customer's words into another's
-conversation is not a mistake worth warning about afterwards.
+A response the signed-in operator may not use is **filtered out of the list
+server-side** rather than shown disabled: a list of replies somebody cannot send
+is a list they have to read past every time. The list is ordered by usage,
+most-used first.
 
-## What the report measures, exactly
+Authoring is API-only: `PUT /v1/panel/support/canned` with
+`{code, titleEn, titleRu, bodyEn, bodyRu, requiresPermission}` behind
+`settings.write`. `DELETE /v1/panel/support/canned/{responseID}` archives rather
+than deletes, so the record of what was sent with it survives; archiving an
+already-archived response is 404.
+
+<Note>
+  Two rough edges to know about. `requiresPermission` defaults to `support.write`
+  and is stored as free text — it is not validated against the real permission
+  list, so a typo silently hides the response from everybody. And the panel
+  inserts the **English** body regardless of the customer's locale, so an operator
+  answering a Russian-speaking customer must paste the Russian body themselves.
+</Note>
+
+## Merging duplicates
+
+Merging folds one ticket into another: the absorbed ticket's messages move to the
+survivor, and the absorbed row survives with status `merged` and a pointer to
+where it went. Deleting it would lose the customer's own words and the trail that
+explains where they went, and the customer's bookmarked link still resolves —
+the response carries the survivor's id so the panel can link on.
+
+Paste the survivor's UUID into **Merge into** in the conversation header and press
+**Merge**, or call
+`POST /v1/panel/support/tickets/{ticketID}/merge` with `{"survivorId": "<uuid>"}`.
+
+Both rows are locked before anything moves. The refusals:
+
+- **A merge across customers is refused** with 422. Putting one customer's words
+  into another's conversation is not a mistake worth warning about afterwards.
+- Merging a ticket into itself is refused, both in Go and by a database `CHECK`.
+- A ticket already `merged` cannot be merged again.
+
+The absorbed ticket is stamped `resolved_at` and accepts no further customer
+reply. The action audits as `panel.support_ticket.merged` with the survivor's id.
+
+## Attachments
+
+A customer can attach a file from either surface, and the two have different
+limits, which is worth knowing when a ticket carries something the web panel would
+have refused.
+
+| | Web panel | Telegram bot |
+| --- | --- | --- |
+| Files per message | 1 | 5 |
+| Maximum size | 5 MiB | 10 MiB |
+| Accepted types | `image/png`, `image/jpeg`, `image/webp`, `application/pdf`, `text/plain` | Photos and documents |
+| Where the bytes live | `APP_SUPPORT_ATTACHMENT_DIR` on disk | Telegram |
+| Downloadable from the panel | Yes | No — 409 `attachment_remote` |
+
+The customer panel reads its limits from `GET /v1/account/support/limits` before
+the form is usable, so the character counters and the size hint match exactly what
+the API refuses at. **None of these limits are configurable** — only the storage
+directory is.
+
+Uploads are refused precisely rather than defensively. An over-size body is 413
+`attachment_too_large`, bounded before parsing rather than after. A declared
+content type outside the allowlist — or missing, or unparsable — is 415
+`attachment_media_type`, with no sniffing, because a guess is precisely what an
+allowlist must not accept. An empty file is 422. Uploading to a closed or merged
+ticket is 409; uploading to a resolved one reopens it, exactly like a reply.
+
+Ownership is checked before any bytes are written and again under a row lock
+inside the transaction, so a stranger cannot spend the installation's disk on a
+ticket they cannot see. Bytes are written before the row, so a row can never point
+at a missing file.
+
+Attachments are retained for 90 days, which is a column default and not
+configurable. The retention sweep and the directory both matter operationally —
+see [News and customer communication](/commerce/referrals-communication) for the
+directory setting and why the API and worker must agree on it.
+
+## The workload and response-time report
+
+`/admin/support` → **Report**. Window buttons offer 7, 30, and 90 days; the default
+is 7 and the API caps it at 90, so one request cannot ask the database to compute
+a median across every ticket ever filed.
 
 The definitions travel with the numbers, because a response-time report whose
 definition is ambiguous is a report people argue about instead of acting on.
+"Average response time" means at least three different things depending on who is
+asked, and none of them is what this measures. The panel renders the definitions
+the server supplies, verbatim:
 
-| Measure | Definition |
+| Measure | Definition, as shipped |
 | --- | --- |
 | Open tickets | Tickets in the open or pending state, whatever their queue |
 | Unassigned | Open or pending tickets nobody has taken |
-| Overdue | Open or pending tickets past their queue's first-response target with no operator reply yet. A queue with a zero target never breaches |
+| Breached | Open or pending tickets past their queue's first-response target with no operator reply yet. A queue with a zero target never breaches |
 | Resolved in window | Tickets that reached resolved or closed inside the window |
-| Median first response | Median time from a ticket being created to its first operator reply, over replies made inside the window |
-| Replies | Operator messages written by that operator inside the window, including replies to tickets assigned to somebody else |
+| Median first response | Median time from a ticket being created to its first operator reply, over replies made inside the window. A median rather than a mean, so one very late answer does not distort the picture |
+| Replies | Operator messages written by this operator inside the window, including replies to tickets assigned to somebody else |
 
-The response measure is a median rather than a mean. One ticket answered a week
-late would otherwise make a good week look bad.
+Below the five headline figures sits a per-operator table: display name, replies,
+open tickets, resolved tickets, and that operator's median first response. Two
+things about it are deliberate. Per-operator **open tickets** are not windowed —
+they are what that person is currently holding, which is a present-tense question.
+And **replies** counts messages the operator wrote regardless of who the ticket
+was assigned to, because helping with somebody else's ticket is work.
 
-`first_response_at` is set by the first operator reply and never moved, so the
-measure survives a conversation that goes back and forth for a week.
-`reopened_count` counts the round trips, which is the signal that an answer did
-not actually answer the question — a customer who writes back on a resolved
-ticket reopens it automatically.
+Operators are listed from the active admin users, ordered by display name, so
+somebody with no activity in the window still appears with zeroes rather than
+vanishing.
+
+## Operator unread counts
+
+`operator_unread_count` rises with every customer message on either surface and
+with every customer reopen, so a queue row can show what has arrived since anybody
+looked. A replayed customer submission carrying the same idempotency key does not
+raise it, because the increment only runs when a row was actually inserted.
+
+<Note>
+  **The badge does not clear when an operator opens the ticket.**
+  `POST /v1/panel/support/tickets/{ticketID}/read` exists and clears the counter,
+  but the panel never calls it, so the count only falls if something outside the
+  panel does.
+</Note>
 
 ## Permissions
 
 | Action | Permission |
 | --- | --- |
-| Read queues, tickets, canned replies, and the report | `support.read` |
-| Assign, reply, note, tag, merge, and change status | `support.write` |
+| Read queues, tickets, tags, canned replies, and the report | `support.read` |
+| Assign, move, prioritise, reply, note, tag, merge, change status, mark read | `support.write` |
 | Define queues, tags, and canned replies | `settings.write` |
 
-Reading a ticket and answering one are separate because they are separate jobs:
-a finance operator investigating a refund needs to read the conversation that led
-to it, and should not be able to reply to the customer in the desk's voice.
-Defining queues is configuration rather than day-to-day support work, so an
-operator answering tickets cannot redefine the promises their queue makes.
+Reading a ticket and answering one are separate because they are separate jobs: a
+finance operator investigating a refund needs to read the conversation that led to
+it, and should not be able to reply to the customer in the desk's voice.
+
+Every mutation is audited: `panel.support_ticket.assigned`, `.released`, `.moved`,
+`.prioritised`, `.status_changed`, `.replied`, `.noted`, `.merged`, plus
+`panel.support_queue.saved`, `panel.support_tag.saved`,
+`panel.canned_response.saved`, and `.archived`.
+
+## What a customer is limited to
+
+| Limit | Value |
+| --- | --- |
+| Open conversations at once | 5, counted over `open` and `pending` |
+| Subject | 120 runes; an empty subject falls back to the first line of the message |
+| Message | 4000 runes |
+
+A sixth open ticket is 409 `too_many_open_tickets` with the number in the detail.
+The quota exists so a loop in a client cannot fill the operator queue faster than
+people can empty it. A **resolved** ticket is not open and does not consume a
+slot, and it can still be replied to — which reopens it.
+
+Counting is in runes rather than bytes, so a Russian-language message is not
+penalised for its encoding. Both `open` and `canReply` are computed server-side
+rather than derived from the status string by the client, so the quota rule and
+the composer rule cannot diverge.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Customer web panel" icon="browser" href="/customer/web-panel">
+    `/account/support` from the customer's side.
+  </Card>
+  <Card title="Telegram bot" icon="paper-plane" href="/customer/telegram-bot">
+    `/support`, the compose flow, and attachment handling in chat.
+  </Card>
+  <Card title="News and customer communication" icon="newspaper" href="/commerce/referrals-communication">
+    Delivery classes, attachment retention, and the storage directory.
+  </Card>
+  <Card title="Admin panel" icon="table-columns" href="/operations/admin-panel">
+    Roles, sessions, and the rest of `/admin`.
+  </Card>
+</CardGroup>

@@ -1,28 +1,273 @@
 ---
 title: Omniflow
-description: Open-source billing, support, marketing, and self-service for Remnawave VPN services.
+description: What Omniflow is, who each of its four surfaces serves, and where every feature is documented
 ---
 
-Omniflow is an open-source platform for operating a VPN service on top of Remnawave. It provides a Telegram-first customer experience, billing, support, marketing, referrals, loyalty, and a complete operator web panel. A dedicated customer web panel is next.
+Omniflow is an open-source commerce, support, and marketing platform for a VPN service that already
+runs on [Remnawave](/integrations/remnawave). Remnawave stays authoritative for VPN users, traffic,
+devices, access links, nodes, squads, and Xray state. Omniflow owns everything a business needs
+around that: customer identity, a versioned catalogue, orders, payments, a double-entry wallet,
+entitlements, durable provisioning, support, campaigns, referrals, loyalty, operator access control,
+and an append-only audit trail. It never connects to Remnawave's database and never manages an Xray
+process.
+
+It is one Go module with three entrypoints — `api`, `bot`, and `worker` — sharing one PostgreSQL
+database and one Valkey instance, plus one Next.js application that serves both the customer account
+and the operator workspace. The split is about failure isolation, not scale: a batch of four hundred
+subscription changes must not be tied to the lifetime of the HTTP request that started it, and
+automatic renewals — the only place money moves with nobody watching — run where no request can
+cancel them.
+
+## Who each surface is for
+
+| Surface | Who uses it | Where it lives | How a caller is authenticated |
+| --- | --- | --- | --- |
+| Telegram bot | A customer | A private chat with your bot | The Telegram account behind the update |
+| Customer web panel | A customer | `/account`, backed by `/v1/account` | Session cookie plus CSRF token |
+| Operator panel | An operator | `/admin`, backed by `/v1/panel` | Session cookie, CSRF, TOTP, and 27 RBAC permissions |
+| Bearer-token API | Your own code, and the bot's `/ops` tooling | `/v1/admin` | `Authorization: Bearer <APP_OPERATOR_TOKEN>` |
+
+The three `/v1` prefixes are kept apart deliberately. `/v1/panel` is a browser surface and therefore
+carries cookie, CSRF, and permission checks; `/v1/admin` is a machine surface with one long-lived
+token and no cookies; `/v1/account` belongs to a customer and can never reach an operator route. Two
+more routes are public by necessity: `GET /v1/catalog/plans`, and
+`POST /v1/payments/webhooks/{provider}`, whose authenticity comes from the provider's signature
+rather than from a credential on the route.
+
+A customer does not choose between the chat and the browser. It is one product with two surfaces: a
+cart started in a chat is the cart the browser shows, and a support reply read on the web stops
+being unread in Telegram.
+
+## Start here
 
 <CardGroup cols={2}>
-  <Card title="Install Omniflow" icon="rocket" href="/getting-started/quickstart">
-    Start the core services with Docker Compose.
+  <Card title="Quickstart" icon="rocket" href="/getting-started/quickstart">
+    Bring the Compose stack up, redeem the one-time setup token, create the first owner, and prove
+    the installation is healthy.
   </Card>
-  <Card title="Understand the architecture" icon="diagram-project" href="/architecture/overview">
-    Learn what Omniflow owns and what remains in Remnawave.
+  <Card title="Your first sale" icon="cart-shopping" href="/getting-started/first-sale">
+    From an empty installation to a paid subscription: a plan, a priced version, a payment provider,
+    the bot, and a test purchase.
   </Card>
-  <Card title="Configure telemetry" icon="chart-simple" href="/operations/telemetry">
-    Review the exact anonymous payload or disable it completely.
+  <Card title="Configuration reference" icon="sliders" href="/getting-started/configuration">
+    Every environment variable, its default, which process reads it, and what it changes.
   </Card>
-  <Card title="Contribute" icon="code-pull-request" href="/contributing/development">
-    Follow the repository contracts and delivery workflow.
-  </Card>
-  <Card title="Compare alternatives" icon="scale-balanced" href="/comparison">
-    See how Omniflow differs from Bedolaga and RemnaCore.
+  <Card title="How it compares" icon="scale-balanced" href="/comparison">
+    Where Omniflow differs from Bedolaga and RemnaCore.
   </Card>
 </CardGroup>
 
+## What a customer can do
+
+<CardGroup cols={2}>
+  <Card title="Telegram bot" icon="paper-plane" href="/customer/telegram-bot">
+    Every command, screen, and flow: plans, checkout, orders, wallet, shop, gifts, support, and
+    settings, in Russian and English.
+  </Card>
+  <Card title="Web panel" icon="browser" href="/customer/web-panel">
+    Sign-in, dashboard, checkout, shop, support, referrals, and a customer's own data at `/account`.
+  </Card>
+  <Card title="Connecting a device" icon="qrcode" href="/customer/connection">
+    Per-platform instructions, client deep links, the QR code, the device list, and link rotation.
+  </Card>
+  <Card title="Notifications and consent" icon="bell" href="/customer/notifications">
+    Notification classes, marketing consent, quiet hours, frequency caps, and the news inbox.
+  </Card>
+  <Card title="Privacy" icon="user-shield" href="/customer/privacy">
+    What a customer can export, how deletion is requested, and what Omniflow never shows or stores.
+  </Card>
+</CardGroup>
+
+## Selling and money
+
+<CardGroup cols={2}>
+  <Card title="Catalogue and promotions" icon="tags" href="/commerce/catalog-promotions">
+    Plans, immutable priced versions, localisation, publishing, trials, promo codes, and personal
+    offers.
+  </Card>
+  <Card title="Add-ons and the configurator" icon="puzzle-piece" href="/commerce/addons-configurator">
+    Extra traffic, device slots, and squads — at checkout and mid-period.
+  </Card>
+  <Card title="Subscriptions" icon="repeat" href="/commerce/subscriptions">
+    Entitlements, concurrency, upgrade and downgrade arithmetic, grace, expiry, and recovery.
+  </Card>
+  <Card title="Orders and payments" icon="receipt" href="/commerce/orders-payments">
+    The order state machine, provider handoff, webhook idempotency, classifications, and refunds.
+  </Card>
+  <Card title="Wallet and ledger" icon="wallet" href="/commerce/wallet-ledger">
+    The double-entry model, account types, expiring credit, and operator adjustments.
+  </Card>
+  <Card title="Top-up and saved carts" icon="piggy-bank" href="/commerce/wallet-topup-cart">
+    Customer-initiated top-up, its limits and rolling window, and a cart that re-prices before it
+    buys.
+  </Card>
+  <Card title="Automatic renewal" icon="rotate" href="/commerce/recurring-payments">
+    Saved payment methods, the consent record, the dunning schedule, and failed charges.
+  </Card>
+  <Card title="Fulfillment" icon="gears" href="/commerce/fulfillment">
+    Provisioning into Remnawave: operations, idempotency keys, retries, drift, and reconciliation.
+  </Card>
+  <Card title="Gifts and digital goods" icon="gift" href="/commerce/gifts-and-goods">
+    Buying for somebody else, and selling Telegram Premium and Stars beside VPN access.
+  </Card>
+  <Card title="Campaigns" icon="bullhorn" href="/commerce/campaigns">
+    Audience segments whose definition is rendered beside their live count, and sends that report
+    suppression honestly.
+  </Card>
+  <Card title="Referrals and loyalty" icon="users" href="/commerce/referrals-loyalty">
+    Attribution, qualification, rewards granted exactly once, and tier evaluation.
+  </Card>
+  <Card title="Referral communication" icon="comments" href="/commerce/referrals-communication">
+    What a referrer is told, what an invitee is told, and what neither is shown about the other.
+  </Card>
+  <Card title="Customers and imports" icon="file-import" href="/commerce/customers-imports">
+    The Remnawave import pipeline — preview, apply, resume — and the CSV export.
+  </Card>
+  <Card title="Financial invariants" icon="scale-balanced" href="/commerce/financial-invariants">
+    The constraints the schema enforces so money cannot be created, lost, or double-counted.
+  </Card>
+</CardGroup>
+
+## Integrations
+
+<CardGroup cols={2}>
+  <Card title="Remnawave" icon="plug" href="/integrations/remnawave">
+    The adapter, the pinned API version, every call Omniflow makes, health, and drift.
+  </Card>
+  <Card title="Payment providers" icon="credit-card" href="/integrations/payments">
+    Telegram Stars, CryptoBot, YooKassa, and manual approval — what each settles and what each
+    cannot do.
+  </Card>
+  <Card title="Telegram" icon="robot" href="/integrations/telegram">
+    BotFather, long polling versus webhook, the Mini App domain, and the operator group.
+  </Card>
+  <Card title="OIDC" icon="key" href="/integrations/oidc">
+    Single sign-on for operators, and sign-in providers for customers.
+  </Card>
+  <Card title="The admin API" icon="code" href="/integrations/api">
+    Integrating with `/v1/admin`: the token, idempotency keys, cursors, problem documents, request
+    IDs, and rate limits.
+  </Card>
+</CardGroup>
+
+## Running it
+
+<CardGroup cols={2}>
+  <Card title="Deployment" icon="server" href="/operations/deployment">
+    Compose topology, volumes, image tags, migrations, upgrades, and rollback.
+  </Card>
+  <Card title="Reverse proxy" icon="shield-halved" href="/operations/reverse-proxy">
+    Caddy and Traefik examples, TLS, body limits, and keeping operational endpoints off the public
+    host.
+  </Card>
+  <Card title="Admin panel" icon="table-columns" href="/operations/admin-panel">
+    The operator workspace screen by screen, the permission catalogue, and the six built-in roles.
+  </Card>
+  <Card title="Admin operations" icon="list-check" href="/operations/admin-operations">
+    The day-to-day runbooks an operator performs from the panel.
+  </Card>
+  <Card title="Installation settings" icon="gear" href="/operations/installation-settings">
+    What the settings screens store, and which of it actually takes effect at runtime.
+  </Card>
+  <Card title="Support desk" icon="life-ring" href="/operations/support-desk">
+    Queues, assignment, priority, tags, internal notes, canned responses, merge, and the workload
+    report.
+  </Card>
+  <Card title="Required channels" icon="lock" href="/operations/required-channels">
+    Requiring Telegram channel membership before a purchase completes.
+  </Card>
+  <Card title="Risk controls" icon="triangle-exclamation" href="/operations/risk-controls">
+    Blocklist sources stored as salted digests, anomaly rules, and decisions a person always makes.
+  </Card>
+  <Card title="Observability" icon="chart-line" href="/operations/observability">
+    The probes, the metrics that are actually written, structured logs, and secret redaction.
+  </Card>
+  <Card title="Maintenance mode" icon="wrench" href="/operations/maintenance-mode">
+    Blocking new purchases and holding provisioning without disturbing money already taken.
+  </Card>
+  <Card title="Jobs and queues" icon="layer-group" href="/operations/jobs-and-queues">
+    The durable queue, the two job kinds, dead letters, retries, ticker loops, and retention sweeps.
+  </Card>
+  <Card title="Operator notifications" icon="bell-concierge" href="/operations/operator-notifications">
+    The Telegram group, one forum topic per event kind, and why every notice is content-free.
+  </Card>
+  <Card title="Backup and restore" icon="database" href="/operations/backup-restore">
+    Encrypted `pg_dump` output, verification on every backup, restore, and the standalone decrypt
+    filter.
+  </Card>
+  <Card title="Security" icon="fingerprint" href="/operations/security">
+    Credentials, sessions, secrets, transport, rate limits, and the privacy boundaries.
+  </Card>
+  <Card title="Troubleshooting" icon="stethoscope" href="/operations/troubleshooting">
+    Symptoms, what to look at first, and what each classification means.
+  </Card>
+  <Card title="Anonymous telemetry" icon="satellite-dish" href="/operations/telemetry">
+    The exact payload that is sent, how to inspect it, and how to switch it off.
+  </Card>
+  <Card title="AI privacy" icon="eye-slash" href="/operations/ai-privacy">
+    What the redaction gateway strips, and the data-use preview shown before anything is enabled.
+  </Card>
+  <Card title="AI governance" icon="scale-unbalanced" href="/operations/ai-governance">
+    Providers, per-feature enablement, budgets at four scopes, and the decision export.
+  </Card>
+  <Card title="MCP" icon="diagram-project" href="/operations/mcp">
+    The server registry, allowlisted tools, and the rules both directions are held to.
+  </Card>
+</CardGroup>
+
+## Architecture and contributing
+
+<CardGroup cols={2}>
+  <Card title="Architecture overview" icon="sitemap" href="/architecture/overview">
+    The three processes, the request paths, and why a modular monolith.
+  </Card>
+  <Card title="Data ownership" icon="scale-balanced" href="/architecture/data-ownership">
+    The Remnawave boundary: what lives where, and what happens when the two disagree.
+  </Card>
+  <Card title="Technology" icon="cubes" href="/architecture/technology">
+    The stack, and the reason each piece is in it.
+  </Card>
+  <Card title="Development" icon="code-branch" href="/contributing/development">
+    Workspace setup, the generators, running the stack, and the checks CI will run anyway.
+  </Card>
+  <Card title="Database" icon="table" href="/contributing/database">
+    The schema, Atlas migrations, sqlc, and the rules a migration must follow.
+  </Card>
+  <Card title="Testing" icon="vial" href="/contributing/testing">
+    Unit, integration, and browser coverage, and what each layer is responsible for proving.
+  </Card>
+  <Card title="Documentation" icon="book" href="/contributing/documentation">
+    Authoring, validating, and keeping the Russian tree in step with the English one.
+  </Card>
+</CardGroup>
+
+## What Omniflow deliberately does not do
+
+- **It does not manage Xray, and it does not read Remnawave's database.** Every VPN-side change is
+  an authenticated call to the Remnawave API, made by the fulfillment pipeline so that it carries an
+  idempotency key, a retry policy, and a history. See [Data ownership](/architecture/data-ownership).
+- **It does not show an operator a subscription link, a hardware identifier, or a raw provider
+  payload.** A device is named by an opaque handle the server resolves back; a fulfillment history
+  returns a status, a classification, and a correlation ID and nothing else.
+- **It does not delete financial, audit, consent, identity, or entitlement history.** Retention
+  sweeps remove disposable operational data only, and a wallet correction is a compensating entry
+  rather than an edit. See [Financial invariants](/commerce/financial-invariants).
+- **It does not reconfigure itself from the panel.** Runtime configuration is environment variables,
+  read once at startup by each process; the panel's installation-settings sections store what an
+  operator types, and no process reads those documents back while running. See
+  [Installation settings](/operations/installation-settings) and
+  [Configuration](/getting-started/configuration).
+- **It does not perform a model call or an MCP tool call.** The AI and MCP surfaces in this build
+  register providers, enable features one at a time, set budgets, and allowlist tools; no process
+  constructs a gateway or an MCP client, so nothing consumes that configuration at runtime. See
+  [AI governance](/operations/ai-governance).
+- **It does not coordinate replicas.** Every scheduled loop — maintenance detection, the payment
+  reconciler, sweeps, renewals, campaigns, retention, backups — is an in-process ticker with no
+  leader election, so the supported topology is one instance of each role. See
+  [Deployment](/operations/deployment).
+
 <Warning>
-Omniflow is under active development. Use tagged releases and review release notes before production upgrades.
+Omniflow is under active development. Pin a tagged release rather than a floating image tag, read
+the release notes before upgrading, and take a backup first — there are no down-migrations, so a
+schema rollback is a restore.
 </Warning>

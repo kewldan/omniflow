@@ -1,13 +1,29 @@
 ---
-title: News, segments, and campaigns
-description: Reviewable audiences, the news lifecycle, and how a campaign is stopped once it is running.
+title: Audience segments and campaigns
+description: Define a reviewable audience, build and schedule a send, and read what a campaign actually reached
 ---
+
+A campaign is one message template sent to one audience segment on a schedule,
+with a row per recipient recording what happened to them. It lives at
+`/admin/marketing`, which needs `marketing.read` to open.
+
+The screen is built around the moment before a send. A campaign is created in
+draft with its estimated audience already visible, scheduling is a second
+action, and the segment's definition is rendered in words beside the count —
+because the mistake this page exists to prevent is sending the right message to
+the wrong people, and nobody catches that by reading a segment code.
+
+<Note>
+  Several parts of this area are API-only today. Segments, templates, and
+  suppression entries can be read in `/admin/marketing` but are created through
+  `/v1/panel` requests, not through a form. Each section below says which.
+</Note>
 
 ## A segment is filters, never stored SQL
 
-An audience segment is a set of named filters compiled to parameterised SQL at
-read time. It is deliberately not a saved query fragment, for two reasons that
-each outweigh the flexibility a stored fragment would buy.
+An audience segment is a named set of filters, stored as JSON and compiled to
+parameterised SQL at read time. It is deliberately not a saved query fragment,
+for two reasons that each outweigh the flexibility a stored fragment would buy.
 
 An operator has to be able to read what a segment selects before sending
 anything to it, and an auditor has to be able to check afterwards what it
@@ -21,122 +37,300 @@ reading a table it has no business reading.
 
 ### The vocabulary
 
-| Filter | Selects |
-| --- | --- |
-| `status` | Account status |
-| `locale` | Interface language |
-| `subscription` | `active`, `expired`, or `none` |
-| `expiringWithinDays` | Live subscriptions ending soon |
-| `inactiveForDays` | No paid order in that many days |
-| `minimumSpendMinor` | Lifetime settled spend |
-| `loyaltyTier` | Current standing |
-| `planCode` | Holding a given plan |
+| Filter | Accepted value | Selects | Reads as |
+| --- | --- | --- | --- |
+| `status` | `active`, `suspended`, `deleted` | Account status | "account status is active" |
+| `locale` | `en`, `ru` | Interface language | "interface language is ru" |
+| `subscription` | `active` | Holds a live entitlement ending in the future | "holds a live subscription" |
+| `subscription` | `expired` | Had an entitlement, has none live | "had a subscription and no longer does" |
+| `subscription` | `none` | Has never had one | "has never had a subscription" |
+| `expiringWithinDays` | Integer above zero | Live entitlement ending within N days | "subscription ends within 7 days" |
+| `inactiveForDays` | Integer above zero | No `paid` or `fulfilled` order in N days | "has not paid for anything in 60 days" |
+| `minimumSpendMinor` | Integer, zero or above | Settled spend at or above the amount | "has spent at least 500000 (minor units)" |
+| `loyaltyTier` | A tier code | Currently standing in that tier | "stands in the gold loyalty tier" |
+| `planCode` | A plan code | Holds an entitlement for that plan | "holds the pro plan" |
 
-A key outside this list is refused on write rather than ignored. Silently
-dropping a filter would send to a wider audience than the operator asked for.
+A key outside this list is refused on write with `unknown audience filter`, and
+a value the filter cannot use with `invalid audience filter value`; both surface
+as 422. Refusing on write rather than at send time is deliberate — silently
+dropping a filter would send to a wider audience than the operator asked for,
+and discovering that when the send begins is discovering it too late.
+
+Numbers arriving as JSON floats must be whole. `expiringWithinDays: 7.5` is a
+refusal, not a rounding.
 
 ### It explains itself
 
-Every segment carries a generated explanation of what it selects, in the same
-order as the filters. It is generated from the filters rather than typed by the
-operator, so it cannot describe something the query does not do.
+Every segment carries a generated explanation of what it selects. It is
+generated from the filters rather than typed by the operator, so it cannot
+describe something the query does not do, and the panel renders it as a bulleted
+list beside the live size.
 
-Compilation is deterministic: the same definition always produces the same SQL
-and the same explanation. A segment whose rendering changes between reviews is
-one nobody can approve.
+Filters are compiled in sorted key order regardless of how the JSON object was
+written, so the same definition always produces the same SQL and the same
+explanation. A segment whose rendering changes between reviews is a segment
+nobody can approve.
 
 <Warning>
-  **An empty segment is every customer.** That is legitimate — an outage notice
-  means everybody — and the segment says so explicitly rather than rendering as
-  a blank definition. Nobody should mail the whole base by forgetting to add a
-  filter.
+  **An empty filter set is every customer.** It compiles to `true` and explains
+  itself as "every customer". That is legitimate — an outage notice means
+  everybody — but it is stated in words rather than rendering as a blank
+  definition, so nobody mails the whole base by forgetting to add a filter.
 </Warning>
 
-## The news lifecycle
+Both the count and the send scope to `users.status = 'active'` before any filter
+is applied, so a `status` filter can only ever narrow that further. A segment
+built from `status: deleted` selects nobody.
 
-A publication timestamp alone cannot express "written but not ready",
-"scheduled for Tuesday", or "taken down because it was wrong" — and the last is
-the one an operator needs most urgently.
+### Saving one
 
-Posts move through `draft` → `scheduled` → `published`, and from published to
-`unpublished` or `archived`. `published_at` is set once and kept, so
-unpublishing and republishing does not rewrite when customers first saw it.
+There is no form. Send:
 
-Scheduled posts are published by the worker on time, rather than depending on
-somebody being at a keyboard.
+```bash
+curl -X PUT https://panel.example.com/v1/panel/marketing/segments \
+  -H 'Content-Type: application/json' \
+  --cookie "$PANEL_SESSION_COOKIE" -H "X-CSRF-Token: $CSRF" \
+  -d '{
+    "code": "lapsed",
+    "nameEn": "Lapsed customers",
+    "nameRu": "Ушедшие клиенты",
+    "filters": {"subscription": "expired", "inactiveForDays": 60}
+  }'
+```
 
-## Templates validate their own variables
+`code` matches `^[a-z][a-z0-9_-]{1,63}$` and names are 1–80 characters. The save
+needs `marketing.write` and writes an audit record, `panel.segment.saved`,
+carrying the whole `filters` object — because "who changed what a campaign meant
+by *lapsed customers*" is exactly what an audit trail exists to answer.
 
-A template declares the variables its body may use. A body referencing an
-undeclared variable is refused on write.
+## Templates declare their own variables
 
-The alternative is a customer receiving "Hello {{name}}" because nobody checked,
-and by then it has gone to everybody.
+A message template is a bilingual subject and body pair with a declared variable
+list and a class. A body or subject referencing a `{{ variable }}` that is not in
+the declared list is refused on write. The alternative is a customer receiving
+`Hello {{name}}` because nobody checked, and by then it has gone to everybody.
 
 Both languages are required, for the same reason canned support replies require
 both: the language of the customer is not the language of the operator.
 
-## How a campaign runs
+Authoring is API-only: `PUT /v1/panel/marketing/templates` with
+`{code, class, subjectEn, subjectRu, bodyEn, bodyRu, variables}`, needing
+`marketing.write`. Bodies are 1–3500 characters, subjects may be empty and are
+capped at 200, and `class` defaults to `marketing`.
 
-Creating a campaign queues nothing. The audience is estimated and stored, and
-the campaign sits in `draft` — a draft that had already queued its recipients
-would make the review step a formality.
+<Warning>
+  **A declared variable renders as nothing.** Campaign delivery substitutes an
+  empty value map and then strips any placeholder that survives, and no part of
+  the campaign model stores per-recipient values. A body written as
+  `Hello {{name}}` is sent as `Hello ` with nothing in place of the placeholder.
+  Write templates without variables until values exist to fill them.
 
-The estimate is counted with the same compiled fragment the send will walk, so
-what an operator approves and what actually receives the message cannot come
-from different definitions.
+  **A `transactional`-class template cannot be delivered.** Delivery classifies
+  the message by passing the template's class string to the notification
+  classifier, which knows notification *kinds*; `marketing` happens to be one and
+  `transactional` is not. A transactional template makes the notifier log
+  "campaign classification failed" and leave every recipient `queued`, which also
+  stops the campaign from ever completing. Use `marketing`, which is the default.
+</Warning>
 
-Once running, the worker expands the audience into per-recipient rows in bounded
-batches. The recipient row's primary key is the deduplication: a
-paused-and-resumed campaign continues rather than restarting, and a customer
-cannot be queued twice.
+## Building and scheduling a send
 
-### Pausing works
+<Steps>
+  <Step title="Open the campaigns card">
+    `/admin/marketing`. With `marketing.write` a dashed composer appears above
+    the campaign table.
+  </Step>
+  <Step title="Name it, pick a segment, pick a template">
+    The segment dropdown shows each segment's English name with its live size.
+    Choosing one renders an alert previewing who this reaches, in the segment's
+    own generated words, before anything is created.
+  </Step>
+  <Step title="Create draft">
+    `POST /v1/panel/marketing/campaigns` with `{name, segmentId, templateId}`.
+    The audience is counted now and stored as `estimatedAudience`. Nothing is
+    queued — a draft that had already queued its recipients would make the
+    review a formality. The estimate is counted with the same compiled fragment
+    the send will walk, so what an operator approves and what receives the
+    message cannot come from different definitions.
+  </Step>
+  <Step title="Schedule it">
+    Press **Schedule**, which reveals a datetime input; the button stays disabled
+    until a date is chosen. That posts
+    `{"state": "scheduled", "scheduledFor": "<ISO 8601>"}` to
+    `/v1/panel/marketing/campaigns/{campaignID}/state`. Scheduling without a date
+    is 422: "send immediately" and "somebody forgot the date" must not be the
+    same request.
+  </Step>
+  <Step title="Watch it, and stop it if it is wrong">
+    The worker moves the campaign to `running` at the appointed time and expands
+    the audience. **Pause** or **Cancel** from the same control.
+  </Step>
+</Steps>
 
-Only `running` campaigns are read for delivery. Pausing stops the send at the
-next batch without cancelling what has already gone and without losing the
-record of who received it.
+### The permitted transitions
 
-The permitted transitions are enforced in the statement rather than in the
-caller. A campaign that could jump from draft to completed would report a reach
-it never had.
+The state machine is enforced in the statement rather than in the caller: the
+update carries `AND status = ANY(allowed_from)`, so a refused transition matches
+no row and the API answers **404**, not a validation error.
 
-A segment that no longer compiles pauses its campaign rather than running
-against an audience nobody can read.
+| Target state | Reachable from |
+| --- | --- |
+| `scheduled` | `draft`, `paused` |
+| `running` | `draft`, `scheduled`, `paused` |
+| `paused` | `running` |
+| `cancelled` | `draft`, `scheduled`, `paused` |
+| `completed` | `running` |
 
-## Who is skipped, and why
+A completed campaign cannot go back to running, and a cancelled one cannot be
+resurrected with a different audience. A running campaign cannot be cancelled
+directly — pause it first.
+
+<Note>
+  The panel offers **Pause** on a scheduled campaign, but `paused` is only
+  reachable from `running`, so that button answers 404. Cancel the campaign
+  instead, or re-schedule it for a later time. Note also that any transition
+  other than scheduling clears `scheduled_for`, so a campaign that is paused and
+  resumed needs its date set again.
+</Note>
+
+### What the worker does
+
+The campaign runner in the worker process ticks every minute and takes up to 20
+due campaigns — those `scheduled` with a time in the past, plus everything
+already `running`.
+
+- A `scheduled` campaign is moved to `running`, which stamps `started_at` once.
+- The segment is recompiled on each pass. **A segment that no longer compiles
+  pauses the campaign** rather than running it against an audience nobody can
+  read.
+- Up to 5000 recipient rows are inserted per pass. The recipient row's composite
+  primary key is the deduplication, so a paused-and-resumed campaign continues
+  rather than restarting, and a customer cannot be queued twice.
+- Counters are recomputed from the recipient rows after each pass rather than
+  incremented, so they cannot drift.
+- When a pass queues nobody new and nothing is left `queued`, the campaign is
+  marked `completed`.
+
+<Warning>
+  **Expansion currently fails for any segment carrying a bound value.** The
+  expansion statement passes the campaign id as `$1` and appends the segment's
+  own arguments after it, while the compiled filter fragment numbers its
+  placeholders from `$1` as well. The two collide and PostgreSQL rejects the
+  bind, so the pass logs "campaign expansion failed" and queues nobody.
+
+  In practice only segments whose compiled fragment binds no values expand
+  today — an empty segment, or one built solely from the `subscription` filter.
+  A campaign to a segment using `locale`, `planCode`, `minimumSpendMinor`,
+  `expiringWithinDays`, `inactiveForDays`, `loyaltyTier`, or `status` will sit in
+  `running` with an empty recipient table.
+</Warning>
+
+## Delivery, and who is skipped
 
 The worker owns the audience. The bot's notifier owns delivery, because consent,
 quiet hours, frequency caps, and Telegram delivery health already live there —
 duplicating them would mean two places that can disagree about whether a
-customer may be messaged.
+customer may be messaged. It drains queued recipients of running campaigns every
+15 minutes, 200 per pass, and records an outcome per recipient.
 
 A recipient the policy refuses is recorded as suppressed with a reason, never
 silently dropped:
 
-| Reason | Meaning |
+| Status | Reason | Meaning |
+| --- | --- | --- |
+| `sent` | — | Telegram accepted the message |
+| `failed` | — | Telegram rejected it; `error_code` is `send_failed` |
+| `suppressed` | `no_telegram` | No reachable Telegram identity |
+| `suppressed` | `suppressed` | On the suppression list when the audience was expanded |
+| `suppressed` | `no_consent` | Marketing consent absent, or the news preference off |
+| `suppressed` | `frequency_cap` | Already had their marketing allowance this window |
+| `suppressed` | `quiet_hours` | Inside their quiet window |
+| `suppressed` | `delivery_blocked` | Blocked the bot, or the account is deactivated |
+
+A campaign **records** a quiet-hours refusal rather than holding the message
+until morning. A marketing send is not urgent enough to arrive late in a batch
+that no longer matches what the operator wrote it for.
+
+The subject, when a template has one, is prepended to the body in bold. Rendered
+bodies are never stored: the template plus the delivery record is the history,
+and copying the body into a campaigns table would duplicate customer-facing
+content into a second retention regime for no operational gain.
+
+Every recipient is evaluated against the customer's marketing switch regardless
+of the template's class, and the resolution statement only matches a row still
+`queued`, so a retried delivery cannot overwrite a recorded outcome.
+
+For the classification rules, quiet-hours arithmetic, and the frequency cap
+settings themselves, see
+[News and customer communication](/commerce/referrals-communication).
+
+## Reading the result
+
+The campaign table shows, per campaign: the name with `segmentCode · templateCode`
+beneath it, a status badge carrying the scheduled time, the estimated audience,
+and a result triple — **sent / failed / suppressed**.
+
+Suppressed is reported beside sent rather than folded into it, because "we did
+not message these people on purpose" is a different fact from a failure. An
+operator reviewing reach needs to see that four hundred people were on the list
+and were not contacted, and why. A campaign that simply reported a smaller
+audience would hide the decision, and a smaller audience with no explanation is
+indistinguishable from a broken send.
+
+The gap between `estimatedAudience` and `queued + sent + failed + suppressed` is
+therefore the honest measure of how far expansion has got, not a discrepancy.
+
+## The suppression list
+
+`communication_suppressions` holds one row per customer with a reason from a
+closed set — `customer_request`, `bounced`, `complaint`, `operator` — an optional
+note, and who added it. Any other reason is 422.
+
+It is deliberately not the marketing consent flag. Consent is a preference the
+customer toggles; a suppression is a standing instruction that survives them
+toggling it back on by accident.
+
+`/admin/marketing` → **Suppressions** lists customer id, reason, note, and a
+**Remove** button for anyone with `marketing.write`. Adding one is API-only:
+`PUT /v1/panel/marketing/suppressions` with `{customerId, reason, note}`, upserted
+by customer, so re-suppressing overwrites the reason and note. Both write audit
+records, `panel.suppression.added` and `panel.suppression.removed`.
+
+A customer who unsubscribes from `/account/preferences` writes their own row with
+reason `customer_request`, and re-consenting later deletes **only** that reason. A
+suppression recorded for a bounce or a complaint is somebody else's finding about
+deliverability, and a customer ticking a box does not overturn it. The customer's
+preferences screen reports an active suppression with its reason and date but
+offers no control to lift one.
+
+There is no expiry column, so a suppression stands until an operator removes it.
+
+## Permissions
+
+| Action | Permission |
 | --- | --- |
-| `no_consent` | Marketing consent not given |
-| `suppressed` | On the suppression list |
-| `frequency_cap` | Already had their marketing allowance this window |
-| `quiet_hours` | Inside their configured quiet window |
-| `delivery_blocked` | Blocked the bot, or the account is deactivated |
-| `no_telegram` | No reachable Telegram identity |
+| Read segments, templates, campaigns, and suppressions | `marketing.read` |
+| Save a segment or template, create or move a campaign, add or remove a suppression | `marketing.write` |
+| Change what the referral programme pays | `settings.write` |
 
-An operator reviewing reach needs to see that four hundred people were on the
-list and not contacted, and why. A campaign that simply reports a smaller
-audience hides the decision.
+Every write here is audited: `panel.segment.saved`, `panel.template.saved`,
+`panel.campaign.created`, `panel.campaign.<state>`, `panel.suppression.added`,
+and `panel.suppression.removed`.
 
-## Suppression is not the consent flag
+## Related
 
-They mean different things. Consent is a preference the customer toggles; a
-suppression is a standing instruction that survives them toggling it back on by
-accident. Suppressions record a reason — customer request, bounce, complaint, or
-an operator decision — and who added them.
-
-## What is not stored
-
-Rendered message bodies. The template and its variables are the record, and the
-delivery the bot made is what the customer received. Copying the body into a
-campaigns table would duplicate customer-facing content into a second retention
-regime for no operational gain.
+<CardGroup cols={2}>
+  <Card title="News and customer communication" icon="newspaper" href="/commerce/referrals-communication">
+    The announcement inbox, notification classes, consent, quiet hours, and the
+    frequency cap.
+  </Card>
+  <Card title="Customer notifications" icon="bell" href="/customer/notifications">
+    What a customer sees and controls on their side.
+  </Card>
+  <Card title="Admin panel" icon="table-columns" href="/operations/admin-panel">
+    Sessions, roles, and the rest of `/admin`.
+  </Card>
+  <Card title="Jobs and queues" icon="gears" href="/operations/jobs-and-queues">
+    The worker loops that expand campaigns and publish scheduled posts.
+  </Card>
+</CardGroup>

@@ -1,0 +1,400 @@
+---
+title: "Personal data and privacy"
+description: "What a customer can see, download, and ask to have removed, what is kept regardless, and what Omniflow deliberately never holds"
+---
+
+`/account/privacy` is one screen because the questions it answers are asked in
+one sitting: what state is my account in, how can you reach me, what have I
+agreed to, what do you actually hold, and how do I leave. Splitting those across
+routes would make the last one — the one people arrive angry looking for — the
+hardest to find. It is reached from the hub on `/account/profile` under
+**Personal data**.
+
+Two of those questions have an answer that is not "everything you asked for".
+A deletion request is a request and not a deletion, and an export leaves several
+categories out on purpose. Both say so on the screen, in the document, and here,
+because a privacy surface that overstates what it did is worse than one that does
+less.
+
+## Account state and retention
+
+The first card is the account's own status — **Active**, **Suspended**, or
+**Deleted** — with the description for that state, followed by whichever of
+these instants are set: suspended on, deleted on, anonymised on, and records kept
+until.
+
+The dated instants are the point of the card. A screen that showed only the
+status would leave somebody with no way to tell whether "deleted" meant gone.
+Each optional instant is a JSON `null` when it never happened rather than the
+zero time, so "never suspended" and "suspended at the beginning of time" cannot
+be confused.
+
+<Note>
+  A deletion recorded from the operator panel today sets the status without
+  writing a retention window, so **Records kept until** stays empty for a
+  customer in that state. The line appears when the window is set.
+</Note>
+
+A suspended or deleted status also ends every live session: customer sessions
+resolve through the account's status, so the change takes effect on the next
+request rather than at the next expiry.
+
+## Contact channels
+
+Under **How we reach you**, one row per address: the kind, the address itself,
+a verified or not-verified badge, and two switches spelling out what may be sent
+there — service messages, and offers and news. Below the list, a form to add one:
+choose Email, Phone, or Telegram, type the value, set the two switches, press
+**Add address**. **Remove** opens a confirmation dialog naming the value.
+
+Adding an address records an intention and nothing more. The panel cannot prove
+an address belongs to the person typing it, so the flags are a permission the
+delivery pipeline reads rather than a claim that the address is verified, and the
+form says so.
+
+**How the value is stored.** The address is sealed with AES-GCM under the
+installation's data key, and the uniqueness constraint is on a keyed HMAC of the
+normalised value rather than a plain digest — so a stolen database cannot be
+tested for a known address by hashing candidates. The channel kind is bound in as
+additional authenticated data, so a value sealed as an email cannot be replayed as
+a phone number. A value that cannot be opened, typically after a key rotation,
+comes back empty rather than failing the whole list.
+
+**Normalisation is not cosmetic.** Email is lower-cased; a phone number loses
+spaces, hyphens, and parentheses; a Telegram username is lower-cased with any `@`
+stripped. Without it, `+7 900 000 00 00` and `+79000000000` would be two channels
+for one phone, because the constraint is on the MAC of the value.
+
+**Refusals.**
+
+| Condition | Answer |
+| --- | --- |
+| Neither switch is on | 422 — an address stored for no reason |
+| The address is already registered anywhere | 409 `contact_unavailable`, naming no account |
+| More than ten contact changes in an hour | 429 `rate_limited` |
+| No `APP_DATA_ENCRYPTION_KEY` configured | 503 `contacts_unavailable`, and the section reads as "not offered here" |
+
+The conflict answer says the address is unavailable and nothing else. Telling a
+caller that an address belongs to another account turns the panel into an oracle
+for whether a given person is a customer here, so the remedy is a support
+handoff. The one exception reveals nothing: a row **this** customer already owns
+is un-revoked and re-flagged instead.
+
+The rate limit fails closed. If the limiter cannot be reached, the request is
+refused, so an outage cannot silently remove the protection.
+
+**Removal revokes rather than deletes**, so an address cannot be quietly moved
+between accounts by removing it from one, and the consent history keeps pointing
+at something that still exists. Adding a channel with offers enabled appends a
+consent record; removing the last channel that had offers enabled appends a
+withdrawal — writing one while another opted-in channel remains would misstate
+what the customer chose. Every add and remove writes an audit row carrying the
+kind and the marketing flag, never the value.
+
+The [preferences screen](/customer/notifications) shows the same channels with
+their flags, but never the addresses: that route does not select the ciphertext
+at all.
+
+## The consent trail
+
+"Am I signed up for offers?" is the first question. "When did I agree to that,
+and under which terms?" is the second, and an installation that can only answer
+the first cannot show a customer why an old choice still stands after the terms
+changed.
+
+`consent_records` is append-only. Each row carries the purpose, whether it was
+granted or withdrawn, the terms version, the surface it came from, and the id of
+the request that wrote it. The current answer for a purpose is simply the newest
+row for it; nothing is edited in place, because a history that can be rewritten
+is not evidence of anything.
+
+The screen lists one row per purpose with an **Agreed** or **Withdrawn** badge
+and its provenance line, and an expandable **Full history** with the dated trail
+behind it, bounded to the 25 most recent decisions.
+
+| Purpose | Meaning |
+| --- | --- |
+| `terms` | The rules accepted at sign-up |
+| `privacy` | How the customer's data is handled |
+| `marketing` | Offers and news |
+| `profiling` | Using history to decide which offers are shown |
+
+An unrecognised purpose renders its raw name with a generic hint rather than
+being hidden.
+
+The trail is read-only here. Marketing consent is changed from the switches on
+the contact channels above it and from the marketing switch on
+`/account/preferences`; those two paths stamp different provenance —
+`account-web-v0.10` / `account_web` from the contacts form, `web-v0.10` /
+`customer_web` from the preferences screen, and `bot-v0.4` / `telegram_bot` from
+the Telegram settings screen. A customer reading their own trail will therefore
+see more than one terms version against the same purpose. Each row is still an
+accurate record of the decision that produced it.
+
+## Exporting your data
+
+The **Download your data** card lists what the export will contain and what it
+deliberately leaves out **before** the button is pressed, then produces the whole
+document synchronously and saves it to the device.
+
+It is synchronous rather than queued on purpose. A queued export needs a delivery
+channel, a retention window, and a link that authenticates on its own — three
+further disclosure decisions to answer a question that fits inside one response.
+Nothing is written to disk, nothing is emailed, and the document exists in that
+one response and nowhere else.
+
+### What is in it
+
+| Section | Contents |
+| --- | --- |
+| `profile` | The account record |
+| `identities` | Linked sign-in methods |
+| `contacts` | Contact channels, with their addresses when a key is configured |
+| `subscriptions` | Subscriptions and their labels |
+| `entitlements` | Plans held, with their windows |
+| `orders` | Order history |
+| `payments` | Payment attempts, without provider credentials |
+| `wallet` | Wallet balances and ledger entries |
+| `support` | Support conversations, customer and operator messages |
+| `referral` | Invites and rewards |
+| `loyalty` | Standing and history |
+| `consents` | The consent trail |
+| `lifecycle` | Account history: suspensions, restorations, deletion requests |
+
+The document declares `version: "omniflow.account.export/1"`, so a customer who
+kept an export from a year ago — and the operator reading it with them — can tell
+which version's field meanings apply.
+
+### What is left out, and why
+
+The redaction list ships **inside** the document rather than only on the screen,
+because an export that quietly omits things reads as complete and a customer
+cannot ask about an absence they cannot see.
+
+| Redaction | Reason |
+| --- | --- |
+| `other_customer_identifiers` | An inviter is entitled to know an invite paid out, not to a roster of who took it |
+| `payment_credentials` | Provider references, checkout URLs, and receipt metadata are the provider's handles, not the customer's data |
+| `provider_secrets` | The raw claim payloads a sign-in provider returned are not this installation's to redistribute |
+| `subscription_links` | A subscription link is a credential that grants access; it stays behind the connection screen, which is never cached |
+| `device_and_network_identifiers` | Including any that belong to somebody else sharing a household or a connection |
+
+Internal operator notes on a support ticket are not in the redaction list because
+they are not in the export path at all: they live in their own table and no
+customer-facing query touches it. Operator identity is omitted from lifecycle
+rows — naming the individual who suspended an account, in a document that account
+holder receives, is a safety question rather than a transparency one.
+
+### Limits and refusals
+
+- **Three exports per hour**, keyed on the customer id, because the thing being
+  bounded is how often one account's data can be pulled out of the database.
+  Over the limit answers 429 `rate_limited`. The limiter fails closed.
+- **Each list is capped at 1000 rows**, and any section that hit the cap is
+  **named** in the document and reported on the screen. A customer told their
+  data is complete when it is not has been misinformed about the one thing the
+  document exists to answer.
+- With no `APP_DATA_ENCRYPTION_KEY` configured, contact channels are still listed
+  — that a channel of a given kind exists is itself a fact the customer is
+  entitled to — but without their addresses, and a warning card says so before
+  the download.
+- If the document's declared redactions differ from what the screen previewed,
+  the panel says so afterwards. That would mean the server changed its mind
+  between the two calls, and it is exactly the case a customer should not have to
+  discover by diffing a file against a page.
+
+The panel never renders the document. Painting it would leave it in a scroll
+position, a screenshot, and the browser's back-forward cache. It is built into a
+blob, saved as `omniflow-personal-data-YYYY-MM-DD.json`, and the object URL is
+revoked immediately.
+
+An audit row `account.data.exported` is written after assembly and before
+hand-off, so a recorded export is always one that actually succeeded, and its
+metadata carries row counts only — an audit row describing what was disclosed
+must not become a second copy of it.
+
+<Note>
+  The export is a `POST` even though it changes nothing the customer can see. A
+  `GET` would be cached, prefetched, logged in a proxy's access line, and
+  reachable by navigation, and this is the most sensitive document the API
+  produces.
+</Note>
+
+## Requesting deletion
+
+<Steps>
+  <Step title="Write a reason">
+    Required, at most 400 characters, with a live counter. It is free text
+    rather than a menu, because a closed list would put the operator's categories
+    in the customer's mouth. The counter enforces the limit in the browser too,
+    so nobody is stopped by a rejected request after writing a paragraph.
+  </Step>
+  <Step title="Confirm">
+    A dialog follows the button. Only then is `{"confirm": true, "reason": "…"}`
+    sent; without the flag the route answers 422 `confirmation_required`.
+  </Step>
+  <Step title="Read the pending panel">
+    The section becomes a warning panel carrying the request date, the sentence
+    naming who carries it out, the customer's own reason, and a **Cancel the
+    request** button behind its own dialog.
+  </Step>
+</Steps>
+
+The route answers **202 Accepted**, not 200, and the payload carries
+`executedBy: "operator_retention_workflow"` explicitly. The difference between
+"requested" and "done" is the entire safety property of this route, and a screen
+that does not say so invites a customer to believe their data is already gone.
+
+Requesting deletion needs a sign-in from within the last 15 minutes; a stale
+session answers 401 `reauthentication_required` and the panel shows the warning,
+with a link back to sign-in, before the button is pressed rather than after.
+Recent authentication is what stops a borrowed laptop from making the request —
+it is not a licence to execute it, which is why the request is still only a
+request. **Cancelling needs no re-authentication**, because cancelling only ever
+prevents the irreversible thing.
+
+| Condition | Answer |
+| --- | --- |
+| `confirm` missing or false | 422 `confirmation_required` |
+| Empty reason, or over 400 characters | 422 `invalid_input` |
+| A request is already open | 409 `deletion_pending` |
+| Cancelling with nothing open | 409 `no_deletion_pending` |
+| Session older than 15 minutes (request only) | 401 `reauthentication_required` |
+
+Repeating the request changes nothing and would only add noise to the record an
+operator reads before acting on it, which is why the second one is refused rather
+than accepted quietly.
+
+**Cancelling does not erase the request.** The lifecycle event stays, because
+identity records are append-only: "this was asked for and then withdrawn" is a
+different fact from "this was never asked for", and an operator reviewing a later
+request deserves to see both. Pending-ness is derived by comparing three instants
+— the newest deletion request, the newest cancellation, and the newest deletion
+or anonymisation — and a request is pending only when it is the most recent of
+the three. A withdrawn or already-executed request keeps its timestamps but drops
+its reason from the response: those words were written for a decision that is no
+longer open, and repeating them on screen implies it still is.
+
+## What deletion does not remove
+
+Deletion is carried out by an operator through the customer lifecycle controls,
+and it is not the same operation as anonymisation. Anonymisation is irreversible,
+runs only against an already-deleted account, and is what actually removes
+identifying data:
+
+- every identity is revoked and its provider subject replaced with
+  `anonymized:<id>`;
+- every contact channel's ciphertext is nulled and its fingerprint re-derived
+  from the row id, with both delivery flags cleared;
+- the Remnawave mapping loses its Telegram id and its observed state;
+- every support message body on the customer's tickets becomes `[anonymized]`;
+- the referral code is deleted.
+
+What survives, deliberately, is the financial and audit record. An order that
+funded a ledger entry cannot be removed without unbalancing the ledger, so an
+anonymised customer keeps their financial history and loses everything that
+identifies who placed it. The same rule governs the retention worker, which
+deletes disposable operational data — expired bot sessions, abandoned checkouts,
+processed webhook events, expired support attachments, old telemetry, resolved
+drift records — and **never touches financial, audit, consent, identity, or
+entitlement history**, which is append-only for the life of the installation.
+
+Support attachments are the one customer-visible thing with its own clock: an
+attachment row expires 90 days after it is created, and the sweep then reclaims
+the stored file once no surviving row still references it.
+
+<Warning>
+  Customer sessions, magic links, and the customer-visible security log declare
+  retention windows in code — 30 days for a dead session row, 180 days for a
+  security event — but no scheduled job applies them today, so those rows are not
+  removed on that schedule. Everything about them is still visible to the
+  customer on `/account/security` and revocable from there.
+</Warning>
+
+## What Omniflow never shows or stores
+
+These are not omissions. Each one is a decision visible in the code, and each one
+costs something — which is why they are worth stating.
+
+**No hardware identifiers in the device list.** `/account/devices` shows a
+platform icon, the model the client reported about itself, and a date. The handle
+used to remove a device is a 128-bit digest of the hardware id, and it is
+resolved by re-hashing the current device list rather than by a stored mapping,
+so the caller never supplies the identifier being acted on. There is no HWID and
+no IP address on that screen: enough for a customer to recognise their own
+laptop, not enough to build a movement log out of.
+
+**No IP addresses outside the customer's own security screen.** The session list
+and the account event log at `/account/security` do carry an IP, deliberately —
+an address the customer does not recognise is the entire reason that screen
+exists. Neither is an export section, and network identifiers are a declared
+redaction, so no IP reaches the export.
+
+**No subscription link anywhere it would linger.** The dashboard response does
+not carry it; it is fetched on demand only by the connection screen, because a
+dashboard payload that always carried it would put a credential into every cache,
+log, and history entry that touches the page. The QR code is generated in the
+browser and rendered from a data URL rather than routed through an image endpoint,
+which would send a credential-bearing payload to a server to be cached. Rotating
+the link records a security event carrying the subscription's label and nothing
+else — putting the link into the customer's own security log would defeat the
+rotation it is recording. See [connecting a device](/customer/connection).
+
+**No free text in the customer's security log.** The event vocabulary is closed
+and enforced by the database: `signed_in`, `signed_out`, `signed_out_all`,
+`session_revoked`, `magic_link_requested`, `identity_linked`,
+`identity_unlinked`, `subscription_key_rotated`, `device_removed`,
+`devices_removed_all`. There is no column for an amount, a link, or another
+party's identifier. It is a separate table from the operator audit trail because
+the audience is different, and deciding per row which fields a customer may see
+would put a disclosure decision into a read path.
+
+**No forwardable Telegram messages.** Every message the bot sends is dispatched
+with Telegram's content protection on and link previews disabled, so a screenshot
+of a subscription link, an order, or a support conversation cannot be forwarded
+or saved out of the chat. The bot-delivered sign-in link is protected by the same
+rule, and its copy says so plainly: the link works once, expires in ten minutes,
+and whoever opens it signs in as the customer.
+
+**No customer content in the operator group.** Notices posted to the operator
+Telegram group name the event, the amount class, and identifiers an operator can
+look up. They never carry customer text, a subscription link, a token, or a
+payment payload; payloads are redacted at enqueue and again at render against a
+field whitelist. See [operator notifications](/operations/operator-notifications).
+
+**No indexing, no caching.** The account panel sets `noindex, nofollow` at the
+layout level, and every `/v1/account` response carries `Cache-Control: no-store`,
+`Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, a
+`default-src 'none'` content security policy, and a permissions policy denying
+camera, microphone, geolocation, and topic-based interest cohorts. The reason
+named in the code is the same one as above: a customer response can contain a
+subscription link, which is a credential.
+
+## Reference
+
+| Route | Method | Notes |
+| --- | --- | --- |
+| `/v1/account/privacy` | `GET` | Retention state, deletion state, consents with history, and the export preview |
+| `/v1/account/privacy/export` | `POST` | The document; `Content-Disposition: attachment`; 3 per hour |
+| `/v1/account/privacy/deletion` | `POST` | `{reason, confirm}` → 202; requires a sign-in within the last 15 minutes |
+| `/v1/account/privacy/deletion` | `DELETE` | Withdraw the request → 200 with the new state |
+| `/v1/account/contacts` | `GET` | Returns the addresses, decrypted, because the customer owns them |
+| `/v1/account/contacts` | `POST` | `{kind, value, transactional, marketing}` → 201; 10 per hour |
+| `/v1/account/contacts/{contactID}` | `DELETE` | 204; revokes rather than deletes |
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Notifications" icon="bell" href="/customer/notifications">
+    Consent, quiet hours, the frequency cap, and the announcement inbox.
+  </Card>
+  <Card title="Customer web panel" icon="browser" href="/customer/web-panel">
+    Sign-in, sessions, and the rest of the account surface.
+  </Card>
+  <Card title="Connecting a device" icon="qrcode" href="/customer/connection">
+    Where a subscription link lives and how it is rotated.
+  </Card>
+  <Card title="Security posture" icon="shield" href="/operations/security">
+    The operator's view: credentials, sessions, secrets, and transport.
+  </Card>
+</CardGroup>

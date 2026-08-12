@@ -1,11 +1,27 @@
 ---
 title: Recurring payments
-description: Saved payment methods, auto-renew consent, and the bounded dunning schedule.
+description: Auto-renew consent, the charge schedule, the bounded dunning retries, and what a customer can turn off
 ---
 
 Automatic charging is the one place in the product where money moves with nobody
 watching. Three rules govern it, and all three are enforced rather than
 documented.
+
+The rules themselves live in `internal/recurring`, a package with no database,
+no transport, and no provider import, so they are unit-tested on their own. The
+worker in `internal/renewal` owns the transaction boundaries and the provider
+calls. That split is why the schedule below can be read as a specification
+rather than as a description of one code path.
+
+<Warning>
+  **Current implementation state.** Auto-renew has one surface — the Telegram
+  bot — and three defects between the bot and the schema mean it cannot
+  currently be armed on a v0.5-or-later installation. The rules, the schedule,
+  and the operator read surfaces described on this page are implemented; the
+  path that creates a chargeable row is not. [What does not work
+  yet](#what-does-not-work-yet) states exactly which parts, so an operator can
+  tell what to expect before enabling a provider for recurring charges.
+</Warning>
 
 ## Auto-renew is opt-in
 
@@ -15,16 +31,34 @@ with no consent record is not chargeable however it came to be enabled — the
 money-moving decision depends on the evidence of agreement, not on a boolean
 that happens to be true.
 
+The database enforces the same thing rather than trusting the application:
+`auto_renew_settings` carries
+`CHECK (enabled = false OR consent_at IS NOT NULL)`, so a row that claims to be
+enabled without evidence of agreement cannot be written at all.
+
 Existing rows from v0.5 were backfilled with the moment the setting was last
 written, because those rows were created by a customer explicitly enabling
 auto-renew in the bot.
+
+### The four states
+
+| State | Meaning |
+| --- | --- |
+| `idle` | Auto-renew is off. The worker does not look at the row. |
+| `scheduled` | Armed, waiting for the lead time before the entitlement's end. |
+| `dunning` | A charge failed and the retry schedule is running. |
+| `suspended` | The retries were exhausted. Consent is kept; the worker stops picking the row up. |
+
+Success returns a cycle to `scheduled` rather than `idle` — the customer's
+consent is unchanged and the next period will be attempted in turn.
 
 ## A provider must be able, and permitted
 
 Two gates, both required:
 
 - The **adapter** declares whether it can bind a payment method at all. This is
-  compiled in, through `payments.Capabilities.Recurring`.
+  compiled in, through `payments.Capabilities.Recurring`. Of the shipped
+  adapters only YooKassa declares it; Telegram Stars and CryptoBot do not.
 - The **operator's own merchant account** must have passed a capability test,
   recorded in `payment_provider_settings`. Several acquirers grant card binding
   per merchant rather than per integration, so the adapter's word alone is not
@@ -35,6 +69,13 @@ The database refuses `recurring_enabled = true` alongside anything but a passing
 test, and the API refuses to enable it for an adapter that does not declare the
 capability — so a row cannot claim a capability the integration does not have.
 
+To record a test result, call
+`POST /v1/panel/settings/providers/{provider}/recurring` with `settings.write`,
+passing `{merchantId, passed, enable}`. Asking to enable an adapter that does not
+declare the capability returns `422 recurring_unsupported` with the message that
+this payment adapter cannot store a payment method. Per-provider setup is in
+[Payment providers](/integrations/payments).
+
 ## Saved methods hold no instrument
 
 A saved method is a provider-issued token and a masked label the provider
@@ -44,7 +85,9 @@ a card number, an expiry, or a verification value.
 Re-presenting the same provider token refreshes the existing row rather than
 creating a second one: the provider still holds one binding. Removing a method
 marks it revoked and keeps the row, so a historical charge still resolves to the
-method that made it.
+method that made it. A partial unique index allows exactly one default per
+customer, and setting a new default clears the old one in the same transaction,
+so no window exists in which a customer has none.
 
 Revoking a method does not cancel auto-renew. The settings row keeps its consent
 record and simply stops being chargeable, which the renewal path reports as a
@@ -55,15 +98,21 @@ source they did not choose.
 
 A renewal is attempted ahead of expiry, three days by default and at most
 fourteen. The default is not arbitrary: the whole retry schedule below spans
-roughly two and a half days, so it finishes before access actually lapses. A
-customer whose card was briefly declined is not cut off while a retry is still
-pending.
+forty hours, so it finishes before access actually lapses. A customer whose card
+was briefly declined is not cut off while a retry is still pending. A lead time
+of zero or less is clamped back to the default, and anything above fourteen days
+is clamped down — a renewal attempted a month early charges for a period the
+customer has not reached and may not want.
+
+The bot offers one, three, or seven days rather than a free-text duration,
+because the only question a customer is really answering is how much warning
+they want if the card fails.
 
 ## Dunning
 
 A failed charge retries a bounded number of times and then stops.
 
-| Attempt | Delay |
+| Attempt | Delay before it |
 | --- | --- |
 | 1 | immediate |
 | 2 | 4 hours |
@@ -72,6 +121,10 @@ A failed charge retries a bounded number of times and then stops.
 
 Hours rather than minutes, because the reasons an automatic charge fails — an
 expired card, a daily limit, a bank hold — are resolved by a person in hours.
+That the four attempts total forty hours and the default lead time is
+seventy-two is asserted by a unit test rather than left as a coincidence, since
+it is the property that keeps a customer from losing access while a retry is
+still outstanding.
 
 Not every failure notifies the customer. The first is usually resolved by the
 retry, and a message per attempt trains a customer to ignore the one that
@@ -91,24 +144,27 @@ query that finds due renewals, so the worker and the uniqueness constraint agree
 on what "this renewal" is. A replayed job inserts nothing and reads back the
 attempt that already exists.
 
-## What the panel shows
+Second precision is enough because an entitlement's end instant does not move
+within a cycle — and if it does, that is a different cycle by definition.
 
-The failed-charge queue under **Finance → Failed charges** is a review surface,
-not a control surface. Nothing there re-triggers a charge: the customer has
-already been told to renew, and charging them again from a panel click would be
-an attempt they did not ask for.
+### Failure codes
 
-A customer's saved methods and charge history appear on their profile, gated on
-`finance.read`. An operator with `finance.write` may revoke a method on the
-customer's behalf.
+The code is stored on the attempt row, where support can read it, rather than
+shown to the customer: `insufficient_wallet_balance` is operator vocabulary.
+
+| Code | What happened |
+| --- | --- |
+| `consent_withdrawn` | Auto-renew was turned off, or suspended, between scheduling and charging |
+| `plan_unavailable` | The stored plan version or currency is missing |
+| `order_failed` | The renewal order could not be created |
+| `insufficient_wallet_balance` | A wallet-funded renewal was created with the balance applied and is still unpaid |
+| `no_payment_method` | The attempt names no method, or the method row is gone |
+| `payment_method_<status>` | The saved method is not `active` |
+| `recurring_not_enabled` | The operator switch or capability test does not permit it |
+| `recurring_unsupported` | The adapter cannot charge a stored method |
+| `provider_unavailable`, `provider_timeout`, `declined`, `charge_failed` | The provider refused or did not complete |
 
 ## What the worker actually does
-
-`internal/renewal` is the only place in Omniflow where money moves with nobody
-watching, and its design follows from that. The rules — whether a charge is
-allowed, when the next attempt falls, when to give up, when to tell the customer
-— live in `internal/recurring`, which has no database in it and is unit-tested
-on its own. The worker owns the transaction boundaries and the provider calls.
 
 One cycle takes the customer's money at most once, and that rests on three
 mechanisms rather than on care.
@@ -116,11 +172,17 @@ mechanisms rather than on care.
 **The schedule is a table.** `dunning_attempts` carries the attempt number, its
 due time, and its outcome, with a unique key on `(cycle_key, attempt)`. A
 restarted worker resumes from it rather than starting over, and a duplicated
-pass inserts nothing.
+pass inserts nothing. Writing the attempt row before charging anything is what
+makes the charge resumable: a worker that dies between scheduling and charging
+leaves a scheduled attempt for the next pass to find, rather than a renewal that
+silently never happened.
 
 **Every attempt on a cycle shares one order.** The order's idempotency key is
-derived from the cycle key, so a retry finds the order the previous attempt
-opened instead of billing for a second period.
+`renewal:<cycleKey>`, so a retry finds the order the previous attempt opened
+instead of billing for a second period. The provider key is
+`renewal:<cycleKey>:<attempt>` instead, so a retry of *this* attempt reaches the
+same provider payment while a later attempt is a genuinely new charge against an
+order that is still unpaid.
 
 **An outstanding payment blocks a new charge.** If the provider has been asked
 and has not answered, the attempt is deferred rather than failed: the honest
@@ -129,25 +191,59 @@ gets billed twice.
 
 Consent is re-checked at the moment of charging rather than at the moment of
 scheduling, because the second is the one that moves money. A customer who
-turned auto-renew off in between is not charged.
+turned auto-renew off in between is resolved as `abandoned` with
+`consent_withdrawn` and is not charged. A customer whose account is not `active`
+is never selected in the first place.
+
+A declined charge does not retire the saved method. Only an adapter that reports
+the capability as unsupported, or an error naming the payment method itself,
+marks a method `failed` — a daily limit or a temporary hold declines a perfectly
+good card, and forgetting it would turn one bad day into a lost subscription.
+
+The pass runs every minute in the worker process, one hundred rows at a time,
+first scheduling what has come due and then charging what is scheduled. Neither
+the interval nor the batch size is exposed as an environment variable. The
+worker builds the same adapter set the API does, because a worker missing an
+adapter could only record failures.
 
 ## What the customer controls
 
-The bot states the three things somebody needs to know before agreeing to a
-charge they will not be present for: what plan, from where, and how long before
-expiry. Enabling auto-renew is what records consent — the worker checks that
-timestamp rather than the flag, so a row written by an import or a migration can
-never produce a charge.
+Everything on this page that a customer can change lives in the Telegram bot,
+under **Settings → Auto-renew** (the `autorenew` route).
 
-Saved methods have their own screen showing the provider's own masked label,
-which is all Omniflow has. Removing the last method falls auto-renew back to the
-wallet and suspends it rather than leaving a customer consented to a charge that
-can no longer be made; the consent record stays, so re-adding a card does not
-mean agreeing again.
+The screen states the three things somebody needs to know before agreeing to a
+charge they will not be present for: what plan, from where, and how long before
+expiry. It also names the current state in words when it is not the ordinary
+one, so a customer whose card just failed does not have to work out from a
+silent screen why nothing happened.
+
+| Control | Callback | Effect |
+| --- | --- | --- |
+| Enable | `autorenew:on` | Picks the first payment choice whose adapter declares recurring support, records the plan, provider, currency, `consent_at`, and state `scheduled` |
+| Disable | `autorenew:off` | Clears consent, sets state `idle`, stamps `cancelled_at`, and leaves saved methods alone |
+| Funding | `renew-funding:wallet`, `renew-funding:saved_method` | Chooses where the charge comes from |
+| Lead time | `renew-lead:1`, `:3`, `:7` | Days of warning before expiry |
+| Payment methods | `methods` route | List, `method-default:<id>`, `method-remove:<id>` |
+
+If no enabled provider declares recurring support for the customer's currency,
+the screen says so and offers nothing to switch on, rather than presenting a
+toggle that would fail.
+
+Enabling auto-renew is what records consent — the worker checks that timestamp
+rather than the flag, so a row written by an import or a migration can never
+produce a charge. Turning it off is deliberately *not* the same as asking for a
+card to be forgotten: the saved methods stay.
+
+Switching funding to a saved method with no active method returns a dedicated
+"no method" message rather than a generic failure. Removing the last active
+method falls auto-renew back to the wallet and suspends it, rather than leaving a
+customer consented to a charge that can no longer be made; the consent record
+stays, so re-adding a card does not mean agreeing again.
 
 A wallet-funded renewal spends the balance and a card-funded one leaves it
 alone. Silently draining a customer's wallet because their card is on file would
-be a different agreement from the one they made.
+be a different agreement from the one they made. See
+[Wallet and ledger](/commerce/wallet-ledger) for how the balance is applied.
 
 ## Which failures the customer hears about
 
@@ -156,7 +252,84 @@ notification per attempt teaches a customer to ignore them. The second failure
 and the final abandonment are the two that change what the customer has to do,
 and those are the two that are sent.
 
-The decision is stored on the attempt rather than recomputed in the notifier's
-query, so the rule lives in one place. The message says whether access
-continues and what to do; the failure code stays on the attempt row where
-support can read it, because "insufficient_funds" is operator vocabulary.
+The decision is stored on the attempt as `notify_required` rather than
+recomputed in the notifier's query, so the rule lives in one place. The message
+says whether access continues and what to do.
+
+Dunning notices deliberately bypass quiet hours and the notification
+preferences. This is a payment notice about the customer's own subscription, in
+the same class as a receipt: a customer about to lose access because a card was
+declined is not served by holding the message until morning, and there is no
+opt-out for it in the preference model either. Everything else a customer
+receives is covered in [Notifications](/customer/notifications).
+
+## What the panel shows
+
+The failed-charge queue under **Finance → Failed charges**
+(`GET /v1/panel/finance/failed-charges`, `finance.read`) is a review surface,
+not a control surface. Nothing there re-triggers a charge: the customer has
+already been told to renew, and charging them again from a panel click would be
+an attempt they did not ask for.
+
+A customer's charge history (`GET /v1/panel/customers/{customerID}/charges`) and
+saved methods (`GET /v1/panel/customers/{customerID}/payment-methods`) appear on
+their profile, both gated on `finance.read`. Neither the provider token nor any
+card data is returned by either. An operator with `finance.write` may revoke a
+method on the customer's behalf with
+`DELETE /v1/panel/customers/{customerID}/payment-methods/{methodID}`.
+
+There is no auto-renew endpoint under `/v1/account` or `/v1/panel`. An operator
+cannot enable, disable, or reconfigure a customer's auto-renew at all, which is
+consistent with consent being the customer's to give.
+
+## What does not work yet
+
+These are properties of the shipped code, not of a configuration.
+
+**No code path creates a saved payment method.** The query that would store one
+exists and has no callers, and the YooKassa adapter never asks the provider to
+save a method, so no token is ever returned to bind. Every customer's saved-method
+list is therefore empty, `funding = 'saved_method'` cannot be selected, and the
+only reachable funding source is the wallet. The removal and revocation logic
+described above is implemented; the creation is not.
+
+**The bot's auto-renew writes target an index that no longer exists.** Both the
+enable and the disable statement use `ON CONFLICT (user_id)`, while the table's
+uniqueness moved to `(user_id, subscription_id)` in the v0.5 migration.
+PostgreSQL will not infer a two-column index from a one-column conflict target,
+so both statements fail at runtime and the bot renders its generic error screen.
+A customer cannot currently arm or disarm auto-renew from the bot.
+
+**The due-renewal query cannot match a bot-written row.** It joins the
+entitlement on `subscription_id IS NOT DISTINCT FROM` the setting's, and the
+bot's insert never sets `subscription_id`. Every entitlement created since v0.5
+carries one, so the join yields nothing and no renewal is scheduled even where a
+row exists.
+
+**Auto-renew has no web or panel surface.** It appears nowhere in the customer
+web panel and nowhere in `/admin` beyond the read-only charge history and the
+provider capability switch.
+
+Taken together: an installation can enable recurring for YooKassa and record a
+passing capability test, and no automatic charge will result. Treat renewal as
+manual — the renewal reminders described in
+[Subscriptions](/commerce/subscriptions) are what currently brings a customer
+back, and they are delivered on the same seven, three, one, and zero-day
+schedule whether or not auto-renew exists.
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="Orders and payments" icon="credit-card" href="/commerce/orders-payments">
+    The order state machine, providers, webhooks, and refunds.
+  </Card>
+  <Card title="Payment providers" icon="building-columns" href="/integrations/payments">
+    Per-provider setup, including the recurring capability switch.
+  </Card>
+  <Card title="Subscriptions" icon="repeat" href="/commerce/subscriptions">
+    Renewal arithmetic, reminders, grace, and recovery.
+  </Card>
+  <Card title="Wallet and ledger" icon="wallet" href="/commerce/wallet-ledger">
+    How a wallet-funded renewal is settled and recorded.
+  </Card>
+</CardGroup>

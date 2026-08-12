@@ -1,23 +1,198 @@
 ---
 title: Data ownership
-description: The contract between Omniflow and Remnawave.
+description: Which system is authoritative for every category of data, how the two are joined, and what goes wrong when the boundary is crossed
 ---
 
-## Remnawave owns
+Omniflow and Remnawave both hold state about the same customers, and exactly one of them is right about
+each thing. Remnawave is authoritative for VPN users, traffic counters, connected devices, access links,
+nodes, hosts, and Internal Squads. Omniflow is authoritative for identity, billing, plans, orders,
+payments, refunds, wallet entries, entitlements, support, marketing, referrals, loyalty, RBAC, and audit
+history.
 
-- VPN users and technical status
-- Traffic and device usage
-- Access links and subscription configuration
-- Nodes, hosts, and squads
+The reason to draw that line and hold it is that two systems which both believe they own VPN state produce
+a class of bug nobody can reconcile: a customer whose subscription is active in one place and disabled in
+the other, with no way to tell which is true. The boundary makes the question answerable. Remnawave's
+answer is the truth about access; Omniflow's answer is the truth about money and intent. It also means an
+operator can upgrade Remnawave without Omniflow having an opinion about its schema.
 
-## Omniflow owns
+The boundary is structural, not aspirational. Omniflow never writes Remnawave's database and never manages
+Xray. Every call goes through the HTTP adapter in `internal/remnawave`, which exposes exactly thirteen
+operations, and everything else in the codebase takes `remnawave.Service`, `remnawave.Provisioner`, or
+`remnawave.Importer` as an interface.
 
-- Customer identities and sessions
-- Plans, orders, payments, refunds, and wallet entries
-- Fulfillment intent and reconciliation history
-- Support tickets
-- Marketing, news, campaigns, promotions, and consent
-- Referrals and loyalty
-- Roles, permissions, sessions, and audit history
+## What Remnawave owns
 
-A successful payment creates one idempotent fulfillment operation. If Remnawave is unavailable, Omniflow preserves the successful payment and retries fulfillment rather than rewriting financial history.
+| Data | Where it lives | How Omniflow sees it |
+| --- | --- | --- |
+| The VPN user and its technical status | Remnawave | Read back after every write and stored as `entitlements.observed_state`; mapped to `active`, `limited`, `disabled`, `expired`, or `failed` |
+| Live traffic counters | Remnawave | Fetched per request for the traffic meter; the page marks the subscription `live: false` and the payload `degraded` when Remnawave did not answer |
+| Connected devices | Remnawave | Listed live through `GET /api/hwid/devices/{id}`; never mirrored |
+| The access (subscription) link | Remnawave | Fetched live on every request; no column for it exists anywhere in Omniflow's schema |
+| Nodes, hosts, and Internal Squads | Remnawave | A plan version stores squad UUIDs and nothing else about them |
+| Xray configuration | Remnawave | Not touched, read, or represented |
+
+## What Omniflow owns
+
+| Data | Table or record | Note |
+| --- | --- | --- |
+| Customer identity, contacts, consents, sessions | `users`, contact and consent records | Contact values are sealed with `APP_DATA_ENCRYPTION_KEY` |
+| Plans, immutable plan versions, prices, localisations, promotions | catalogue tables | A version's price is snapshotted onto the order line, so retiring a version never reprices a past order |
+| Orders, payment intents, refunds, provider webhook intake | commerce tables | Append-only unless a documented lifecycle permits mutation |
+| Wallet balances and every movement | double-entry ledger | See [Wallet and ledger](/commerce/wallet-ledger) |
+| Subscriptions — the customer-visible handle for one Remnawave user | `subscriptions` | Slot, label, and `remnawave_user_id` |
+| Entitlements — what a paid order bought | `entitlements` | `UNIQUE (order_id)`, `CHECK (ends_at > starts_at)` |
+| Provisioning intent and its history | `fulfillment_operations`, `fulfillment_history` | Idempotency key is `UNIQUE` |
+| Observed divergence from Remnawave | `entitlement_drifts` | `expected` and `observed` JSON |
+| Support tickets, replies, attachments | support tables | |
+| Marketing, news, campaigns, audience segments, suppressions | marketing tables | |
+| Referrals, loyalty tiers, gifts, digital-goods orders | commerce tables | |
+| Operators, roles, permissions, sessions, audit trail | admin tables | The permission catalogue itself is compiled in, not stored |
+
+## The single join between the two
+
+One column joins the systems: `subscriptions.remnawave_user_id`, a nullable `bigint` under a unique
+partial index, so two Omniflow subscriptions can never claim the same Remnawave user. Nothing else about
+the remote user is duplicated.
+
+The remote username is derived rather than stored: `omniflow_` plus the first sixteen hex characters of
+the subscription UUID. Because it is deterministic, a `create` that runs after a crash finds the user it
+already made instead of making a second one — the worker looks the candidate up by username before
+creating, and installations upgraded from an earlier version also try the older customer-derived name so
+the existing Remnawave user is adopted rather than duplicated.
+
+Every write to Remnawave is an Omniflow record first: a `fulfillment_operations` row with a desired state,
+an idempotency key, and a correlation ID, applied by a durable job. A panel click that wrote to Remnawave
+itself would be the one change reconciliation could not explain.
+
+## What Omniflow deliberately does not hold
+
+- **The access link.** There is no column for it in `database/schema.sql`. It is fetched from Remnawave on
+  each request, and the responses that carry it are sent with `Cache-Control: no-store` and
+  `Referrer-Policy: no-referrer`, because the link is a bearer credential: whoever holds it has the
+  customer's access. Rotation is the only remedy once one leaks, and it is gated on an explicit
+  `confirm: true` plus a recent sign-in.
+- **Hardware identifiers.** Neither panel ever receives an HWID. A device is addressed by a digest — the
+  operator panel by `sha256(hwid)` truncated to sixteen hex characters, the customer panel by its own
+  handle — and removal resolves the digest back server-side by listing the customer's devices and
+  matching. One extra Remnawave call is bought in exchange for the identifier never travelling to a
+  browser.
+- **Squad identifiers in history.** A `fulfillment_history` row records `endsAt`, whether a traffic limit
+  and a device limit were configured, and a squad *count* — never squad identifiers, links, or provider
+  bodies.
+- **Provider payloads in operator views.** The raw webhook body is not returned by
+  `GET /v1/admin/webhooks` or the panel's webhook screen: it is the provider's own payload and can contain
+  payment details. Job listings summarise arguments and redact the last error.
+- **Anything identifying in telemetry.** The anonymous heartbeat carries a schema number, an installation
+  UUID, the event name, the build version, the service name, `GOOS`, `GOARCH`, and a timestamp. Customer
+  identifiers, Telegram IDs, IP addresses, hostnames, domains, URLs, amounts, currencies, traffic figures,
+  access links, tokens, message contents, plan names, and free text are never collected. See
+  [Telemetry](/operations/telemetry).
+
+## What goes wrong when the boundary is crossed
+
+**Editing Remnawave directly.** Nothing stops an operator opening the Remnawave panel and changing an
+expiry, a device limit, or a squad set by hand. Omniflow does not treat that as authoritative: the next
+`reconcile` pass reads the remote user, compares it with the entitlement, records the difference, and
+pushes Omniflow's intent back. The hand edit is undone, and the reason is that the entitlement is what the
+customer paid for.
+
+**Deleting a Remnawave user.** The reconcile pass records a `missing_remote` drift rather than silently
+recreating state, and the subsequent apply recreates the user under the deterministic username. Nothing is
+billed twice and nothing is lost.
+
+**Treating Omniflow as authoritative about live usage.** Traffic and device counts are read live. When
+Remnawave does not answer, the customer overview degrades — each subscription is marked `live: false` and
+the payload `degraded` — instead of showing a stale figure as though it were current.
+
+**Trusting one system's status for the other's.** Suspending a customer in the operator panel writes an
+Omniflow lifecycle event and an audit row; it does not enqueue a provisioning change. The panel says why:
+suspension is not deletion, and the entitlement lifecycle belongs to the fulfillment pipeline rather than
+to a panel click. To stop access now, run the `disable` subscription operation, which goes through the
+same pipeline as everything else.
+
+## Drift: the record of disagreement
+
+A `reconcile` operation compares the Remnawave user with the entitlement across expiry, traffic allowance,
+device limit, Internal Squad set, and status, and writes each mismatch as an `entitlement_drifts` row with
+`expected` and `observed` JSON. The kinds produced in practice are `missing_remote`, `expiry`, `traffic`,
+`device_limit`, `squads`, and `status`. Drift is always evaluated against the Remnawave user that
+subscription owns, so a customer's second subscription is never judged against the first one's remote
+state.
+
+Operators read it at **System → Drift** in `/admin` (`GET /v1/panel/system/drift`, permission
+`system.read`) or through `GET /v1/admin/fulfillment/drifts?limit=<1..500>` on the token surface.
+
+<Note>
+  Detection and correction happen in the same transaction, so a drift opened by a reconcile pass that then
+  succeeds is closed microseconds later. The drift screen is therefore a view of disagreements that
+  corrective work is currently failing to fix, not a general log of everything ever changed in Remnawave.
+  The `external_edit` kind exists in the table's `CHECK` constraint and in the API enum, but nothing writes
+  it — an externally modified user is recorded as the specific field drift instead.
+</Note>
+
+Resolved drift rows are the only thing retention deletes here, after `APP_RETENTION_DRIFT_DAYS` (default
+90). Entitlements and fulfillment history are never deleted.
+
+## Money and access fail independently
+
+Payment state, entitlement state, and Remnawave state are three different things that fail separately, and
+the schema keeps them separate on purpose. A successful payment survives a Remnawave outage: the money is
+recorded, the entitlement is written, and provisioning is retried. Nothing rewrites financial history to
+match a provisioning failure.
+
+Maintenance mode is drawn on the same line. It blocks new purchases and holds outbound provisioning, and
+it never touches money that has already been taken — settlement, refunds, and order history keep working
+throughout. A held fulfillment job is snoozed rather than failed: the operation stays `retrying` with
+`last_error_code = maintenance_active`, its attempt count is decremented back so the hold costs no retry
+budget, and the job is snoozed for one minute. See [Maintenance mode](/operations/maintenance-mode).
+
+## Inside Omniflow: durable, ephemeral, and append-only
+
+PostgreSQL is the only durable source of truth. Valkey holds rate-limit counters
+(`omniflow:rate:<scope>:<subject>`), single-use replay tokens (`omniflow:once:<scope>:<token>`), locks, and
+cache. Losing Valkey costs those counters and nothing else — which is why the compose stack runs it with
+persistence switched off entirely.
+
+Financial, audit, identity, webhook, and outbox records are append-only unless a documented lifecycle
+explicitly permits mutation. Retention reflects that: the hourly sweep deletes expired bot sessions,
+abandoned checkout sessions, aged webhook intake rows, expired support attachments, published outbox
+events, old telemetry events, and resolved drift rows. It never touches financial, audit, consent,
+identity, or entitlement history, which is kept for the life of the installation.
+
+A promo code is never deleted, only deactivated, because the redemptions that reference it are financial
+records. A revoked payment method keeps its row so a historical charge still resolves to the method that
+made it. Deleting a customer OIDC provider keeps the linked identities, because removing them would
+silently take a sign-in method away from customers who use it.
+
+## Where configuration is authoritative
+
+One boundary worth stating plainly, because it looks like ownership and is not: the operator panel can
+store installation settings, but the running processes do not read them.
+
+`installation_settings` rows are seeded empty and are read by exactly two callers — the settings screen
+itself and the telemetry preview. The Remnawave URL and token, the bot token, the operator group, the
+maintenance policy, telemetry enablement, and the backup schedule are all read from environment variables
+once at process start. Saving a section changes what the panel displays, not what the process does, and
+rotating the Remnawave token means editing the environment and restarting. There is also no Remnawave
+connection test: `POST /v1/panel/settings/providers/{provider}/test` probes payment adapters only and
+answers `422 provider_not_loaded` for any other name.
+
+[Installation settings](/operations/installation-settings) covers which sections exist and what each one
+currently affects.
+
+## Related reading
+
+<CardGroup cols={2}>
+  <Card title="Remnawave integration" icon="plug" href="/integrations/remnawave">
+    The adapter, every call it makes, the supported version, and health.
+  </Card>
+  <Card title="Fulfillment" icon="arrows-rotate" href="/commerce/fulfillment">
+    Provisioning operations, retries, reconciliation, and drift recovery.
+  </Card>
+  <Card title="Subscriptions" icon="id-card" href="/commerce/subscriptions">
+    Entitlements, concurrency, upgrades, grace, and expiry.
+  </Card>
+  <Card title="Security" icon="shield" href="/operations/security">
+    Credentials, sessions, secrets, transport, and privacy boundaries.
+  </Card>
+</CardGroup>

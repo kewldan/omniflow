@@ -1,110 +1,337 @@
 ---
-title: Referral review and loyalty tiers
-description: Reversing a reward without rewriting history, and tier definitions a customer cannot silently fall out of.
+title: Referrals and loyalty
+description: Configure what an invite pays, understand exactly when a referral qualifies, and publish loyalty tiers a customer cannot silently fall out of
 ---
 
-## Referral review
+Two schemes sit side by side here and are deliberately unrelated. A **referral**
+pays a customer wallet credit for bringing somebody who then buys. A **loyalty
+tier** places a customer on a ladder derived from what they have already spent,
+ordered, or how long they have been around. One moves money, the other does not.
 
-v0.4 built the referral programme: attribution, qualification, and a wallet
-reward through the ledger. What it had no answer for is the case an operator
-actually has to handle — somebody gaming it.
+Both are configured under `/admin/marketing`, though only the referral programme
+has a form there; loyalty definitions are published through `/v1/panel`.
+
+## Configuring the referral programme
+
+`referral_programs` is a singleton row — the primary key is a boolean that must
+be true. A second programme would mean two answers to "what does an invite
+earn?", and the customer would already have been told one of them.
+
+Open `/admin/marketing` and scroll to the bottom card. Editing needs
+**`settings.write`**, not a marketing permission: changing what an invite pays is
+a commercial decision with a bill attached, so it sits beside the other things
+that cost the installation money.
+
+| Field | Meaning |
+| --- | --- |
+| `enabled` | Master switch for reward granting. Attribution still happens when it is off |
+| `currency` | Currency both rewards are denominated in; exactly three upper-case letters |
+| `inviterRewardMinor` | What the inviter earns, in integer minor units; `0` disables that side |
+| `inviteeRewardMinor` | What the invited customer earns; `0` disables that side |
+| `qualification` | `first_paid_order`, the only rule implemented |
+| `inviterRewardCap` | Maximum rewarded invitations per inviter; blank means no cap |
+| `attributionValidityDays` | How long an attribution can still qualify |
+| `rewardExpiryDays` | Optional expiry on the wallet credit granted |
+| `termsUrl` | Programme terms shown to customers |
+
+An installation that never configured a programme reads back the disabled
+defaults — `RUB`, `first_paid_order`, 90 days validity, no cap — rather than a
+missing-row error.
+
+Beneath the form sits the programme's record to date: attributed, qualified,
+rejected, and the money rewarded. It is placed there so a change is made against
+evidence rather than against a guess.
+
+### What the API refuses, all with 422
+
+- A `qualification` outside `first_paid_order`. It is a closed set because a
+  free-text field would be a promise nothing enforces.
+- A currency that is not exactly three upper-case letters.
+- A negative reward on either side.
+- **Enabled with both rewards at zero.** That would be a scheme that promises
+  customers something and pays nothing, which is worse than having no scheme:
+  the invites still go out. The panel shows a red "pays nothing" alert and
+  disables Save, so an operator learns this before pressing the button rather
+  than after.
+- `attributionValidityDays` at or below zero, and — when present at all — an
+  `inviterRewardCap` or `rewardExpiryDays` at or below zero.
+
+Saving writes the audit action `referral.program.saved` under the marketing
+category.
+
+## What actually qualifies a referral
+
+### Attribution comes first, and only once
+
+A customer's referral code is ten base-32 characters matching `^[A-Z0-9]{10}$`,
+minted lazily the first time they open their referral screen. The same generator runs in
+the bot and in the web panel, so a code minted on one surface is attributable on
+the other.
+
+`referral_attributions` is keyed on the **invited** customer, inserted with
+`ON CONFLICT DO NOTHING`. Attribution is therefore immutable and first-write-wins:
+whoever invited a customer is settled the moment they arrive, and no later
+`/start` link rewrites it. A self-referral is impossible by construction — the
+table carries a `CHECK` that the two customers differ, and the insert also refuses
+a code owned by the customer using it.
+
+<Warning>
+  **Only the Telegram path attributes today.** Attribution is recorded from a
+  `/start` payload in the bot. The referral link the customer is given points at
+  `<APP_PUBLIC_URL>/account/sign-in?ref=<CODE>`, but the web sign-in page reads
+  only its `error` parameter and no `/v1/account` route accepts a referral code,
+  so a web-originated invite is never attributed. Share the bot link if the
+  programme is meant to pay.
+</Warning>
+
+### Qualification runs inside the settling transaction
+
+Qualification and granting happen in the same database transaction that settles
+the qualifying order. That is what makes them exactly-once: a retried webhook, a
+replayed Stars update, or a manual re-approval cannot credit a wallet twice.
+
+All of the following must hold:
+
+1. The programme is enabled and its `qualification` is `first_paid_order`.
+2. The order reached `paid` or `fulfilled`.
+3. The order actually settled money — `paid_minor > 0` — so a fully
+   wallet-funded order does not mint new value out of a referral.
+4. It is the customer's **first** settled order. Nothing earlier of theirs sits
+   in `paid`, `fulfilled`, `partially_refunded`, or `refunded`.
+5. The attribution is still inside `attributionValidityDays`.
+6. The inviter is under `inviterRewardCap`, counted over the rewards they already
+   hold as an inviter.
+7. That role has not already been granted for this pair.
+
+A disabled programme still records attributions; it simply grants nothing. Turning
+it on later does not retroactively pay for orders that already settled.
+
+### Reward-once, and what a grant writes
+
+`referral_rewards` is unique on `(referred_user_id, role)`, where role is
+`inviter` or `invitee`. Each grant writes, in the same transaction:
+
+- a balanced double-entry ledger transaction — a `customer_wallet` credit against
+  a `platform_clearing` debit — with the idempotency key
+  `referral:<invited customer>:<role>`;
+- the `referral_rewards` row, inserted with `ON CONFLICT DO NOTHING`;
+- an optional `expires_at` derived from `rewardExpiryDays`;
+- an audit event, `referral.reward_granted`;
+- `qualified_at` and `qualifying_order_id` stamped once on the attribution.
+
+Qualification returns an empty result rather than an error when a reward has
+already been granted, so a retried job is a no-op instead of a duplicate credit.
+See [The wallet and the ledger](/commerce/wallet-ledger) for how the credit
+behaves once it exists.
+
+The invitee reward goes to the customer who placed the order; the inviter reward
+goes to whoever invited them.
+
+## Referral review and reversal
+
+Deciding that somebody gamed the programme and taking their reward back is an
+adverse decision about a customer, so the review routes sit behind the **risk**
+permissions rather than marketing ones — the same permissions that govern the
+blocklist.
+
+| Route | Permission |
+| --- | --- |
+| `GET /v1/panel/referrals/review?state=&signalled=true&pageSize=` | `risk.read` |
+| `POST /v1/panel/referrals/review/{customerID}` | `risk.write` |
+
+`customerID` is the **invited** customer, because that is the attribution's key.
+The body is `{state, note}` where state is `clear`, `held`, or `rejected`.
+
+<Note>
+  There is no panel screen for either route. Review is done through `/v1/panel`
+  requests, and there is currently nothing that raises a signal automatically —
+  the `held` state and the `signalled=true` filter are reachable only by an
+  operator setting them.
+</Note>
 
 ### Signals ask for a person; they never punish
 
-An abuse signal holds a referral pair for review and marks it `held`. It cannot
-reject anything on its own.
+A signal holds a referral pair for review and moves it from `clear` to `held`. It
+can never move a pair to `rejected` on its own.
 
-That is the whole policy. An automatic system that punishes customers silently
-is one nobody can explain to the customer it punished, so a heuristic's only
-power here is to ask for a human. Signals record what they saw in terms an
-operator can check — counts and identifiers, never a raw device fingerprint or
-an IP address, because a review surface is not a reason to widen what is
-retained.
+That is the whole policy. An automatic system that punishes customers silently is
+one nobody can explain to the customer it punished, so the heuristic's only power
+is to ask for a human. A signal records what it saw in terms an operator can
+check — counts and identifiers, never a device fingerprint or an IP address,
+because a review surface is not a reason to widen what is retained.
 
 ### Rejecting reverses through the ledger
 
-Rejecting a pair reverses every live reward with a compensating ledger
-transaction. It does not delete the original or edit it to zero.
+Rejecting a pair walks every reward on it that has not already been reversed and
+writes a compensating `correction` ledger transaction — a wallet debit against
+platform clearing — keyed `referral-reversal:<rewardID>`. It then stamps
+`reversed_at`, `reversed_by`, `reversal_reason`, and the reversal's ledger
+transaction id on the reward row. A `CHECK` constraint guarantees a reward cannot
+read as reversed without the money having moved back.
 
-The ledger is append-only, and "this was granted and then taken back, by this
-operator, for this reason" is a different fact from "this was never granted" —
-the customer saw the balance either way, and the record has to say so.
+It does not delete the original or edit it to zero. The ledger is append-only, and
+"this was granted and then taken back, by this operator, for this reason" is a
+different fact from "this was never granted" — the customer saw the balance either
+way, and the record has to say so.
 
-A rejection requires a reason, because it takes money back from a customer and
-the reason is what an operator quotes to them.
+A rejection **requires a non-empty note**, because it takes money back from a
+customer and the reason is what an operator quotes to them.
 
 <Warning>
-  **A reversal can take a balance negative.** That is deliberate. Refusing to
-  reverse because the money has already been spent would make an abusive
+  **A reversal can take a wallet balance negative.** That is deliberate. Refusing
+  to reverse because the money has already been spent would make an abusive
   referral profitable as long as the reward is spent quickly. A negative balance
   is visible, explicable from the ledger, and recoverable.
 </Warning>
 
-Referral review sits behind `risk.write` rather than a marketing permission.
-Deciding that somebody gamed a programme and taking their reward back is an
-adverse decision about a customer, which is what that permission governs
-everywhere else in the product.
+A reversal also returns the inviter's cap slot, because the count that drives the
+cap only sees live rewards. The decision is audited as `panel.referral.reviewed`
+under the risk category, with the state and the note.
 
 ## Loyalty
 
 ### Definitions are versioned and immutable
 
-A published loyalty definition is never edited. Editing publishes the next
-version, and the old one keeps explaining the assignments made under it.
+`loyalty_programs` rows are versioned, and there is no update route at all.
+Publishing a change means publishing the next version; the old one keeps
+explaining the assignments made under it. At most one programme may be enabled,
+enforced by a partial unique index, and publishing with `enable: true` disables
+every other programme in the same statement.
 
 A customer who reached gold under one set of thresholds should not silently fall
-out of it because somebody changed the numbers. The standing stores the metric
-the decision was made on and the version in force, so "why am I silver?" has an
-answer that does not depend on what the thresholds say today.
+out of it because somebody changed the numbers. A standing stores the metric the
+decision was made on and the version in force, so "why am I silver?" has an answer
+that does not depend on what the thresholds say today.
 
-### Demotion is slower than promotion
+Publishing is API-only:
 
-A customer who qualifies is promoted immediately. One who falls below keeps
-their tier for the configured grace period first, and recovering inside that
-window clears the clock rather than leaving them permanently one quiet month
-from demotion.
+```json
+POST /v1/panel/loyalty/programs
+{
+  "metric": "spend",
+  "currency": "RUB",
+  "windowDays": 365,
+  "graceDays": 30,
+  "enable": true,
+  "tiers": [
+    {"code": "bronze", "nameEn": "Bronze", "nameRu": "Бронза", "threshold": 0, "discountBps": 0},
+    {"code": "silver", "nameEn": "Silver", "nameRu": "Серебро", "threshold": 500000, "discountBps": 500},
+    {"code": "gold",   "nameEn": "Gold",   "nameRu": "Золото", "threshold": 2000000, "discountBps": 1000}
+  ]
+}
+```
 
-A loyalty programme that demotes somebody for one slow month punishes exactly
-the customers it was built to keep.
-
-A zero grace period demotes at once. That is a legitimate configuration rather
-than a bug.
+The new version number is one above the highest already published. `POST` needs
+`marketing.write`; `GET /v1/panel/loyalty/programs` needs `marketing.read`.
 
 ### What a tier is measured on
 
-| Metric | Meaning |
+| Metric | Value |
 | --- | --- |
-| `spend` | Settled spend in the configured currency over the window |
-| `orders` | Paid orders over the window |
-| `tenure` | Days since the customer's first entitlement started |
+| `spend` | Sum of `paid_minor` over `paid` and `fulfilled` orders in the programme currency, inside the window |
+| `orders` | Count of those same orders |
+| `tenure` | Days since the customer's earliest entitlement started; the window is irrelevant |
 
-All three are facts Omniflow already records. That is deliberate: a loyalty
-model that needs new tracking is a loyalty model that needs new consent.
+All three are facts Omniflow already records. That is deliberate: a loyalty model
+that needs new tracking is a loyalty model that needs new consent.
 
-### Publication rules
+### Publication rules the domain refuses
 
-Two things a `CHECK` constraint cannot express are refused by the domain:
+Two of these a `CHECK` constraint cannot express, and all of them are 422:
 
-- The lowest tier must start at zero, so every customer reaches one. A
-  programme with no floor would leave a new customer in no tier at all.
-- A higher tier must not be worth less than a lower one. That is representable
-  and is certainly a mistake.
+- No tiers at all.
+- The lowest tier's threshold is not zero, so some customers would reach no tier
+  at all. Every customer must have one.
+- A higher tier worth less than a lower one — representable, and certainly a
+  mistake.
+- An unsupported metric, or a non-positive window for a windowed metric.
 
-### Evaluation is reproducible
+The schema adds its own bounds: `discountBps` between 0 and 10000, tier codes and
+thresholds unique within a programme, `graceDays` at or above zero, `windowDays`
+above zero, and a three-letter upper-case currency.
 
-`Evaluate` takes the clock as an argument and has no database in it, so the same
+### Evaluation is reproducible, and demotion is slower than promotion
+
+`Evaluate` takes the clock as an argument and touches no database, so the same
 inputs always produce the same tier. A loyalty decision nobody can reproduce is
 one nobody can defend when a customer disputes it.
 
-It is also idempotent: history is written only when the standing actually
-changed, so a sweep running hourly does not produce a history entry every hour.
+The rules, in order:
 
-Every change of standing is kept — a customer asking why they were demoted
-deserves an answer, and an operator correcting a mistake needs to see what the
-previous state was.
+1. No current tier — take the earned tier.
+2. The held tier belongs to a superseded version — re-place the customer under
+   the definition in force.
+3. Earned threshold at or above the held one — take the earned tier and clear the
+   grace clock; the customer is not being carried.
+4. Below the held tier with a zero grace period — demote at once. That is a
+   legitimate configuration rather than a bug.
+5. Below, with no clock running — keep the tier and start the clock at
+   `now + graceDays`. Nothing is written to history, because nothing changed.
+6. Below, clock running and not elapsed — keep the tier.
+7. Below, clock elapsed — demote.
 
-### The discount rounds down
+A loyalty programme that demotes somebody for one quiet month punishes exactly the
+customers it was built to keep, which is why the clock exists and why recovering
+inside the window clears it.
 
-Rounding should never favour the operator at the customer's expense, and here
-the operator is the one giving the discount. This is the opposite of the
-markup rule in the digital-goods shop, and for the same reason.
+Evaluation is idempotent: `loyalty_standing_history` is appended only when the
+standing actually changed, so an operator pressing the button twice produces one
+entry rather than two. History entries are written with the reason `evaluation`.
+
+<Warning>
+  **Nothing evaluates automatically.** There is no sweep, no scheduled job, and no
+  hook on order settlement. The only caller is
+  `POST /v1/panel/customers/{customerID}/loyalty/evaluate` (`marketing.write`),
+  one customer at a time, and it has no panel screen. A customer is placed on the
+  ladder only when somebody calls that route for them, and their standing is a
+  snapshot of the moment it was called.
+</Warning>
+
+<Warning>
+  **A tier's `discountBps` is displayed and never charged.** No pricing, checkout,
+  quote, or promotion path reads a loyalty tier. The discount figure is shown to
+  the customer on `/account/referrals` and to operators on the customer record,
+  and that is all it does today. Use a [promotion](/commerce/catalog-promotions)
+  if a discount needs to reach a price.
+</Warning>
+
+### What the customer sees
+
+`/account/referrals` renders the ladder, the customer's rung, the metric the
+decision was made on, the distance to the next rung, and a percentage through the
+current band. It reads the tier the standing **names** rather than recomputing
+one, because a customer inside their grace period holds a tier their current
+metric no longer earns, and recomputing on page load would demote them the moment
+they opened the page.
+
+The payload answers `enabled: false` when no programme is published or the
+programme has no tiers, and `enabled: true, evaluated: false` when the customer's
+standing belongs to a superseded version — the honest answer being that the
+placement is pending re-evaluation, not that they have no tier.
+
+The referral summary on the same screen reports invited, qualified, pending, and
+rejected counts taken from the rows rather than derived by subtraction, because
+an attribution can be qualified and later rejected on review and a subtraction
+would report that pair twice. Money earned and money reversed are reported
+separately, so a customer whose total dropped can see why rather than guess.
+
+Nothing in that projection carries the invited customer's identifier. An inviter
+is entitled to know that an invite paid out, not to a list of who their friends
+are.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="The wallet and the ledger" icon="wallet" href="/commerce/wallet-ledger">
+    Where a referral credit lands and how a reversal reads.
+  </Card>
+  <Card title="Audience segments and campaigns" icon="bullhorn" href="/commerce/campaigns">
+    The `loyaltyTier` filter, and everything else `/admin/marketing` does.
+  </Card>
+  <Card title="Risk controls" icon="shield-halved" href="/operations/risk-controls">
+    The other decisions `risk.read` and `risk.write` govern.
+  </Card>
+  <Card title="Customer web panel" icon="browser" href="/customer/web-panel">
+    `/account/referrals` from the customer's side.
+  </Card>
+</CardGroup>

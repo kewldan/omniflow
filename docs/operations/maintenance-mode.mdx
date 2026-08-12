@@ -1,29 +1,73 @@
 ---
 title: Maintenance mode
-description: Pausing purchases and provisioning without disturbing money that has already been taken.
+description: Pausing purchases and provisioning without disturbing money already taken, from the panel or the bearer API, and what automatic detection actually watches
 ---
 
-Maintenance mode is the switch that stops Omniflow taking new money it cannot yet fulfil. It is deliberately narrow: it blocks new purchases and holds outbound provisioning, and touches nothing else.
+Maintenance mode is the switch that stops Omniflow taking new money it cannot yet fulfil. It is one row in `maintenance_state` and it is deliberately narrow: it blocks new purchases and holds outbound provisioning, and touches nothing else. Settlement, refunds, and order history keep working throughout, because the failure it exists to prevent is charging a customer for access the installation cannot provision — not freezing an installation that is halfway through processing payments it has already accepted.
 
-## What it does and does not block
+It can be moved by an operator, from the panel or the bearer API, and by automatic dependency detection running in the API process.
+
+## What it blocks, and what it deliberately does not
+
+Exactly two actions are refused while a window is open. A third, browsing, is explicitly allowed so a customer can still reach the notice, their orders, and support.
 
 | Blocked | Still working |
 | --- | --- |
-| Creating an order, including a top-up and an add-on | Settling a payment that is already in flight |
-| Starting a provider payment | Recording refunds |
+| Creating an order — plan, add-on, gift, shop item, or wallet top-up | Settling a payment that is already in flight |
+| A saved cart buying itself when the balance covers it | Recording refunds |
 | Pushing entitlement state to Remnawave | Order, wallet, and payment history |
-| Automatic cart purchase | Support tickets and replies |
+| | Support tickets and replies |
 | | Existing VPN access, which lives in Remnawave |
+
+The guard sits on order creation, in all five paths that make one, so a new purchase can never reach a payment provider. It is not a second check inside the payment layer, which is what keeps an already-created order settleable.
 
 An order that was paid before the window opened still settles, still credits the wallet or creates its entitlement, and still qualifies a referral. Only the outbound Remnawave call waits.
 
-A held fulfillment job is snoozed, not failed. It keeps its operation record, its idempotency key, and its retry budget, and runs as soon as the window closes.
+### A held fulfillment job is snoozed, not failed
 
-## Manual activation
+When the worker picks up a fulfillment job during a window, it parks the operation as `retrying` with `last_error_code = maintenance_active`, **decrements the attempt count back**, and snoozes the job for one minute. The hold therefore costs no retry budget however long the window lasts, and the operation keeps its record, its correlation ID and its idempotency key. It runs as soon as the window closes. See [Jobs and queues](/operations/jobs-and-queues#fulfillment-jobs).
+
+## What a customer sees
+
+**In the bot**, the purchase surface is replaced by a maintenance screen at its entry point — before the customer picks anything, not after they tap pay. It shows your notice in their locale, or the built-in localized copy when the notice is empty, plus the expected return time when one is set, with buttons to retry and to open support. A lookup failure never blocks a customer: maintenance is an operator signal, not a fail-closed control, so if the state cannot be read the purchase path stays open.
+
+**In the customer web panel**, the dashboard shows a service notice above everything else, because an incident explains the state of every subscription below it. It uses the Russian notice for a Russian-locale customer when one was supplied and the English one otherwise. A checkout or shop purchase attempted anyway answers `503` with the code `maintenance_active`, which the app renders as "purchases are paused" rather than a generic error. See [Customer web panel](/customer/web-panel).
+
+Read-only screens are never blocked. A customer in a maintenance window can still see their subscription, their orders and their wallet, which is exactly what they will want to check.
+
+## Operating it from the panel
+
+<Steps>
+  <Step title="Open System → Health">
+    Sign in at `/admin` and open **System** (permission `system.read`), Health tab. It refreshes every 30 seconds. The maintenance card shows an on/off badge and, while on, a **source** badge.
+  </Step>
+  <Step title="Read the source before you touch anything">
+    `manual` means somebody switched it on and only somebody can switch it off. Any other source means detection opened it and detection will close it on recovery. Showing which is in force is what stops an operator waiting for a recovery that will never come — and when an automatic window is in force, the card explains that clearing it by hand would re-enable purchases while the dependency is still down.
+  </Step>
+  <Step title="Fill in the reason and both notices">
+    With `system.write` you get a **Reason** field, which is always required, and **Notice RU** and **Notice EN**, both required when engaging. The toggle stays disabled until all three are non-empty. A customer who reads only one language and gets a blank screen is worse served than one who gets a notice they can read.
+  </Step>
+  <Step title="Flip the switch">
+    The panel sends `PUT /v1/panel/overview/maintenance` with the reason in an `X-Operator-Reason` header. Clearing it needs a reason alone.
+  </Step>
+</Steps>
+
+A change made from the panel is **always** recorded with `source: "manual"`, even if a dependency is currently down. A panel change must never masquerade as automatic detection, because the two are cleared by different things.
+
+Every transition writes a `maintenance_events` row with the action, source, reason, actor type and actor ID, and an audit event — `panel.maintenance.activated` or `panel.maintenance.cleared`, category `system`. That is what lets an operator explain the outage afterwards. See [Admin panel](/operations/admin-panel).
+
+<Note>
+  `expectedReturnAt` is accepted by the API and rendered to customers, but the panel has no control for it. Set it over the bearer API if you want a return time on the notice.
+</Note>
+
+## Operating it from the bearer API
+
+The `/v1/admin` surface is authenticated with `APP_OPERATOR_TOKEN` and exists for scripts and runbooks. Its rules are different from the panel's, and the difference matters.
 
 ```http
 PUT /v1/admin/maintenance
 Authorization: Bearer <operator token>
+Content-Type: application/json
 
 {
   "active": true,
@@ -37,13 +81,29 @@ Authorization: Bearer <operator token>
 
 Clearing it is the same call with `"active": false`.
 
-Both the notice fields are optional. An empty notice falls back to the built-in localized copy, which explains that access and paid orders are unaffected. Supplying your own is better when you can say something specific about the cause and the expected return.
+| Field | Bearer API | Panel |
+| --- | --- | --- |
+| `operatorId` | **Required** — `400 missing_operator` without it | Taken from the session |
+| Reason | Optional | Required, in `X-Operator-Reason` |
+| `noticeRu` / `noticeEn` | Optional; an empty notice falls back to the built-in localized copy | Both required when activating |
+| Source | Always forced to `manual` | Always forced to `manual` |
 
-Every activation and clearance is recorded in `maintenance_events` with the actor, so an operator can explain the outage afterwards.
+`GET /v1/admin/maintenance` returns the current state, source, reason, both notices, the activation time and the expected return time.
+
+<Warning>
+  Because the bearer path accepts an empty reason and empty notices, a script can open a window that tells a customer nothing and leaves no explanation in `maintenance_events`. Supply both, and prefer wording that says something specific about the cause and the expected return.
+</Warning>
+
+| Endpoint | Auth |
+| --- | --- |
+| `GET /v1/admin/maintenance` | `APP_OPERATOR_TOKEN` bearer |
+| `PUT /v1/admin/maintenance` | Bearer; `operatorId` required |
+| `GET /v1/panel/overview/maintenance` | Session, permission `system.read` |
+| `PUT /v1/panel/overview/maintenance` | Session, permission `system.write`, `X-Operator-Reason` required |
 
 ## Automatic detection
 
-The API process already probes every dependency for its readiness endpoint, so it also owns automatic detection.
+Detection runs in the **API** process only, because that is the process already probing every dependency for its readiness endpoint. It reuses the same probe registry, so the maintenance switch and `/readyz` can never disagree about whether PostgreSQL is up.
 
 ```bash
 APP_MAINTENANCE_AUTO_DETECT=true
@@ -52,20 +112,55 @@ APP_MAINTENANCE_FAILURE_STREAK=3
 APP_MAINTENANCE_RECOVERY_STREAK=3
 ```
 
-- Maintenance opens after `FAILURE_STREAK` consecutive unhealthy samples. One timeout never closes an installation.
-- It closes after `RECOVERY_STREAK` consecutive healthy samples. A flapping dependency does not reopen purchases the moment it answers once.
-- **A window an operator opened is never closed automatically.** Recovery only clears a window that detection itself opened. An operator who turned it on is the only one who turns it off.
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `APP_MAINTENANCE_AUTO_DETECT` | `true` | Whether detection may move the switch at all. When off, samples still update the metrics; only the transitions stop |
+| `APP_MAINTENANCE_PROBE_SECONDS` | `30` | Sampling interval; a value of zero or less becomes 30 seconds |
+| `APP_MAINTENANCE_FAILURE_STREAK` | `3` | Consecutive unhealthy samples before purchases pause; below 1 is clamped to 1 |
+| `APP_MAINTENANCE_RECOVERY_STREAK` | `3` | Consecutive healthy samples before an automatic window clears |
 
-The recorded `source` says which it was: `manual`, `remnawave`, `database`, or `valkey`. When several dependencies fail at once the database is named first, because it is the one that explains the others.
+- A window opens after `FAILURE_STREAK` consecutive unhealthy samples, so one timeout never closes an installation.
+- It clears after `RECOVERY_STREAK` consecutive healthy samples, so a flapping dependency does not reopen purchases the moment it answers once.
+- **A window an operator opened is never cleared automatically.** Recovery only clears a window detection itself opened.
 
-## What a customer sees
+### What it actually watches
 
-The purchase surface is replaced by a maintenance notice at its entry point — before the customer picks anything, not after they tap pay. The notice carries your wording when you supplied it, the built-in localized copy otherwise, and the expected return time when it is set. Support and order history stay reachable from it.
+Detection watches **`postgres` and `remnawave`**, and nothing else.
 
-Read-only screens are never blocked. A customer in a maintenance window can still see their subscription, their orders, and their wallet, which is exactly what they will want to check.
+`valkey` is registered as a readiness probe and appears in `/readyz` and on the panel's Health card, but it is not in the watch set. A Valkey outage therefore shows as a degraded readiness and never opens a maintenance window on its own. `valkey` remains a legal value of `source` — the column's check constraint allows it — but no code path produces it today.
 
-## Observability
+When more than one watched dependency is failing at once, the source recorded is `database` first, then `remnawave`, then `valkey`. The database is named first because it is the one that explains the others.
 
-`omniflow_maintenance_mode` is `1` while a window is open. Alert on it staying `1` for longer than a planned window: automatic detection opening a window you did not plan is the signal, and it staying open is the incident.
+| Source | Meaning |
+| --- | --- |
+| `manual` | An operator, from either surface. Never cleared automatically |
+| `database` | PostgreSQL failed its probe for the failure streak |
+| `remnawave` | The Remnawave panel failed its probe for the failure streak |
+| `valkey` | Legal in the schema; not produced, because Valkey is not watched |
 
-`GET /v1/admin/maintenance` returns the current state, source, reason, and activation time.
+The Remnawave probe is an authenticated call, so a revoked or expired panel token counts as an unhealthy dependency and will, after the streak, pause purchases. That is usually the behaviour you want — provisioning would fail anyway — but it means a token rotation done carelessly closes the shop. See [Remnawave](/integrations/remnawave).
+
+## Watching it
+
+Each sample sets `omniflow_maintenance_mode` to `1` or `0` and `omniflow_dependency_up` per probe, on the API process only. Alert on the gauge staying `1` for longer than a planned window: detection opening a window you did not plan is the signal, and it staying open is the incident. See [Health, metrics, and logs](/operations/observability#alerts-worth-having).
+
+Every transition also logs at warn level:
+
+```json
+{"level":"WARN","msg":"maintenance mode changed","active":true,"source":"remnawave","reason":"remnawave is unavailable"}
+```
+
+The panel's incident strip on `/admin` reads the `maintenance_events` rows, so a window that opened and closed overnight is still visible in the morning.
+
+<Warning>
+  A maintenance transition posts **no** message to the operator Telegram group. The announcer interface and the notifier method that would implement it both exist, but nothing attaches them — and the controller runs in the `api` process while the notifier lives in the `bot` process. Alert on the metric or the log line; do not wait for an `incident` topic message that will not arrive. See [Operator notifications](/operations/operator-notifications).
+</Warning>
+
+## Refusals and edge cases
+
+- Panel: a missing reason, or activation without both notices, is a validation error and the switch does not move.
+- Bearer: a missing `operatorId` is `400 missing_operator`; a rejected state change is `422 maintenance_rejected`.
+- A purchase attempted during a window fails with `maintenance_active` — `503` on the customer web API, the maintenance screen in the bot.
+- The `maintenance_state` row is created on first read, so a fresh installation reports "inactive" rather than "missing".
+- The table enforces `CHECK (NOT active OR activated_at IS NOT NULL)`: an active window always knows when it started.
+- Clearing a window neither cancels, refunds nor expires anything. Held fulfillment operations simply become due again.

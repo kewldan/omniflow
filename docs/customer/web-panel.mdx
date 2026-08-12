@@ -10,7 +10,11 @@ signs in with Telegram on the web lands on exactly the account the bot has been
 using.
 
 It is served by the same Next.js application as the operator panel, under
-`/account`, and backed by a third API prefix, `/v1/account`.
+`/account`, and backed by a third API prefix, `/v1/account`. The three prefixes
+never share middleware — `/v1/panel` takes an operator session, `/v1/admin` takes
+a bearer token, `/v1/account` takes a customer session — because a customer
+session must never be able to reach an operator route, and the cheapest way to
+guarantee that is for the two never to share a router.
 
 ## What it covers
 
@@ -21,14 +25,14 @@ It is served by the same Next.js application as the operator panel, under
   <Card title="Dashboard" icon="layers">
     Status, expiry, remaining days, traffic, devices, and the active plan.
   </Card>
-  <Card title="Connection" icon="qrcode">
+  <Card title="Connection" icon="qrcode" href="/customer/connection">
     Per-platform instructions, app deep links, a QR code, and the raw link.
   </Card>
   <Card title="Account security" icon="shield">
     Active sessions, the account's own history, and linked sign-in methods.
   </Card>
   <Card title="Plans and checkout" icon="cart-shopping">
-    Comparison, trial, purchase, renewal, upgrade, downgrade, promo codes, and
+    Comparison, trial, purchase, extension, upgrade, downgrade, promo codes, and
     the wallet breakdown.
   </Card>
   <Card title="Wallet" icon="wallet">
@@ -49,26 +53,78 @@ It is served by the same Next.js application as the operator panel, under
   </Card>
 </CardGroup>
 
-Every one of these is the same record the bot reads and writes. A cart started
-in a chat is the cart the browser shows; a support reply read on the web stops
-being unread in Telegram. There is one product with two surfaces.
+Every one of these is the same record the bot reads and writes. A checkout
+started in a chat is the checkout the browser shows; a support reply read on the
+web stops being unread in Telegram. There is one product with two surfaces.
+
+## How the panel is laid out
+
+The layout is a single column that a wider viewport centres, rather than a
+desktop layout that collapses on a phone. That is not a slogan: the customer
+product is opened on a phone, frequently from inside Telegram.
+
+Five tabs sit in a floating bar, chosen by frequency of need rather than by API
+division — the plan store and the digital-goods shop share one tab because from
+the customer's side they are the same errand.
+
+| Tab | Route | What it holds |
+| --- | --- | --- |
+| Subscriptions | `/account` | The dashboard: one card per subscription |
+| Store | `/account/store` | Plans, the resume-checkout banner, order history, the shop |
+| Wallet | `/account/wallet` | Balances, top-up, the ledger |
+| Support | `/account/support` | Tickets, News, notification preferences |
+| Account | `/account/profile` | Theme, language, and the hub |
+
+Anything that is not one of those five is a detail route and gets a **Back**
+control instead. Five tabs cannot also carry devices, sessions, invites,
+notification preferences, and personal data, so those live in a hub on
+`/account/profile`:
+
+| Hub entry | Route |
+| --- | --- |
+| Devices | `/account/devices` |
+| Sessions | `/account/security` |
+| Invites | `/account/referrals` |
+| Notification preferences | `/account/preferences` |
+| Personal data | `/account/privacy` |
+
+News is reached from the Support tab, and each history has its own screen:
+`/account/orders` for plan purchases and `/account/shop/orders` for digital
+goods.
+
+The whole panel renders `robots: noindex, nofollow`, and every `/v1/account`
+response carries `Cache-Control: no-store`, `Referrer-Policy: no-referrer`,
+`Cross-Origin-Opener-Policy: same-origin`, `X-Content-Type-Options: nosniff` and
+a `default-src 'none'` content-security policy — because a customer response can
+contain a subscription link, which is a credential.
 
 ## Enabling it
 
 The panel is on by default and needs `APP_DATA_ENCRYPTION_KEY`, which seals OIDC
-client secrets and the short-lived sign-in flow cookie.
+client secrets, the short-lived sign-in flow cookie, stored contact addresses,
+and goods-gateway credentials.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `APP_CUSTOMER_PANEL_ENABLED` | `true` | Mounts `/v1/account`. A Telegram-only installation can turn it off. |
-| `APP_CUSTOMER_COOKIE_SECURE` | `true` | Marks the session cookie `Secure`. Turn it off only for a plain-HTTP local stack. |
-| `APP_CUSTOMER_MAGIC_LINK_ENABLED` | `false` | Offers the bot-delivered sign-in link. Requires `APP_PUBLIC_URL`. |
+| `APP_CUSTOMER_COOKIE_SECURE` | `true` | Marks the session cookie `Secure`. Turn it off only for a plain-HTTP local stack; the API logs a warning at startup when it is off. |
+| `APP_CUSTOMER_MAGIC_LINK_ENABLED` | `false` | Offers the bot-delivered sign-in link. Requires `APP_PUBLIC_URL` or the API refuses to start. |
 | `APP_SUPPORT_ATTACHMENT_DIR` | `/var/lib/omniflow/support-attachments` | Where a file uploaded through the web panel is kept. Mount a volume at it. |
 
-The checkout reads `APP_TERMS_URL`, `APP_RECOVERY_WINDOW_HOURS`, and
-`APP_TRIAL_MINIMUM_ACCOUNT_AGE_HOURS` — the same variables the bot reads, so one
+The checkout reads `APP_TERMS_URL`, `APP_DEFAULT_CURRENCY`,
+`APP_RECOVERY_WINDOW_HOURS`, `APP_TRIAL_MINIMUM_ACCOUNT_AGE_HOURS`, and
+`APP_MULTI_SUBSCRIPTION_ENABLED` — the same variables the bot reads, so one
 `.env` configures both processes identically. A trial the chat refuses and the
-browser grants would be an abuse control with a hole in it.
+browser grants would be an abuse control with a hole in it. The full list is in
+[Configuration](/getting-started/configuration).
+
+A service that is not attached leaves its routes unmounted rather than answering
+503 on each, so an installation with no commerce configured presents a panel that
+simply has no checkout instead of one whose every purchase control fails when
+pressed. For the same reason an unmounted surface answers `404`, not `503`: a
+`503` would say "this exists and is broken", which is a lie about an installation
+that simply does not sell digital goods, and it would also tell an anonymous
+caller what the operator has configured.
 
 <Note>
   A ticket opened in Telegram stores only a Telegram file reference, because the
@@ -84,6 +140,14 @@ browser grants would be an abuse control with a hole in it.
 
 ## Sign-in
 
+`/account/sign-in` renders from `GET /v1/account/auth/methods`, not from
+build-time knowledge, so an installation with no bot token does not show a
+Telegram button that cannot work and one with three OIDC providers shows three.
+The Telegram flag is derived from whether the bot username resolves, because the
+widget is loaded by username: a token without a resolvable username cannot render
+one. With neither Telegram nor any OIDC provider available the screen says "No
+sign-in method is configured yet. Contact support."
+
 ### Telegram
 
 The primary route. Telegram's login widget signs its fields with HMAC-SHA256
@@ -93,18 +157,35 @@ expires on its own, and without the bound a payload captured from a URL or a
 screenshot would authenticate indefinitely.
 
 The widget is loaded by the bot's username, which Omniflow resolves from the bot
-API on first use. Telegram only renders the widget on a domain bound to the bot,
-so set that domain with `/setdomain` in BotFather before enabling it.
+API on first use and caches for the life of the process. Telegram only renders
+the widget on a domain bound to the bot, so set that domain with `/setdomain` in
+BotFather before enabling it; if the username cannot be resolved the button is
+simply not rendered.
 
 Opened as a Telegram Mini App the panel signs in with no button at all: the
 surrounding client hands the page a signed `initData`, which is verified the same
-way under a different key derivation.
+way under a different key derivation. A Telegram subject that has no identity row
+provisions a new customer — unlike the OIDC rule below, because a Telegram
+subject is not an address somebody else can assert, so there is no account here
+to take over.
+
+Every non-operational failure collapses into a fixed answer set, because the
+installation must not become an oracle for which Telegram accounts it knows:
+
+| Condition | Status | Problem code |
+| --- | --- | --- |
+| No Telegram method configured | 404 | `method_unavailable` |
+| The account is suspended or closed | 403 | `account_unavailable` |
+| The payload did not verify, or sign-up is refused | 401 | `sign_in_rejected` |
+| Anything else | 500 | `sign_in_unavailable` |
 
 ### The sign-in link
 
 An operator-enabled fallback for installations where the widget is not usable.
 The customer sends `/login` to the bot and receives a one-time link, valid for
-ten minutes and single-use.
+ten minutes and single-use, capped at five links per hour per account. That cap
+protects the customer rather than the server: without it, repeatedly asking for a
+link is a way to flood somebody else's Telegram chat with sign-in prompts.
 
 It is requested from the bot rather than from a web form on purpose. A form would
 have to take some identifier and answer whether Omniflow knows it, and every
@@ -112,6 +193,23 @@ version of that answer tells a stranger whether somebody is a customer here.
 Starting inside a chat the customer has already authenticated to removes the
 question, and guarantees the link can only reach somebody who already controls
 the account.
+
+Redemption is `GET /v1/account/auth/link?token=…` — a GET that redirects, because
+the customer arrives by tapping a link in a chat. The token is consumed before
+the redirect is issued, so the URL left behind in history is already spent.
+Unknown, spent, and expired are one error on purpose: telling a caller which of
+them applied would confirm that a token once existed. Failures redirect to
+`/account/sign-in?error=…` with `link_invalid`, `method_unavailable`,
+`account_unavailable`, or `sign_in_failed`, and the sign-in screen renders copy
+for each.
+
+<Warning>
+  The link the bot delivers points at `<APP_PUBLIC_URL>/account/sign-in/link?token=…`,
+  and the shipped web application serves no route at that path — the token is
+  consumed by the API at `GET /v1/account/auth/link`. On the shipped
+  configuration the two do not meet, so verify the flow end to end before
+  offering magic links to customers.
+</Warning>
 
 <Note>
   The link is a bearer credential for ten minutes. The bot says so in the message
@@ -122,11 +220,21 @@ the account.
 
 Any number of providers may be enabled at once, each an ordinary discovery
 document with an operator-chosen label, icon, and ordering. The flow is
-Authorization Code with PKCE, an anti-forgery `state`, and a `nonce` verified
-against the returned ID token.
+Authorization Code with PKCE, an anti-forgery `state`, and a `nonce` compared in
+constant time against the value the flow issued. The nonce is not redundant with
+PKCE: PKCE binds the authorization code to this flow, and the nonce binds the
+resulting ID token to it.
+
+The flow state lives in a short-lived sealed cookie
+(`__Host-omniflow_account_oidc`, `SameSite=Lax`) rather than in the database, so
+an abandoned sign-in leaves nothing to clean up. The cookie is cleared *before*
+the token exchange, so a replayed callback cannot be processed twice.
 
 Presets for Google, Yandex, and Discord prefill the form and produce ordinary
-rows; nothing downstream branches on which provider a row came from.
+rows; nothing downstream branches on which provider a row came from. Customer
+providers default to `allow_auto_provision = true`, unlike the operator panel's
+providers, because a customer panel that refuses everyone who has not already
+used the bot is not a sign-in method, it is a second lock.
 
 <Warning>
   Yandex does not consistently return `email_verified`. Its preset therefore
@@ -140,20 +248,41 @@ Two rules govern how an external identity maps to a customer:
   Matching on an address would let anyone who can make a provider assert somebody
   else's address take over their account. An unlinked subject either provisions a
   fresh customer, when the provider allows it, or is refused.
-- **Linking happens from inside a session.** An existing customer adds a provider
-  from their own security screen. If the subject already belongs to another
-  customer the attempt is refused as a conflict, never merged: joining two
-  customers would move one person's orders, wallet, and subscription into another
-  person's account with no way back.
+- **Linking happens from inside a session.** The link flow starts at
+  `GET /v1/account/sign-in-methods/oidc/{slug}/start`, and the target account is
+  sealed into the flow cookie rather than read from the session at the callback,
+  so a link flow can never be completed against a different account than the one
+  that started it. If the subject already belongs to another customer the attempt
+  is refused as `identity_taken`, never merged: joining two customers would move
+  one person's orders, wallet, and subscription into another person's account
+  with no way back, and the refusal says the identity is in use, never whose
+  account it is on.
+
+<Note>
+  As shipped, no screen in the web panel starts that link flow. `/account/security`
+  lists the linked methods and offers unlinking only, so adding a second provider
+  to an existing account is an API-level capability rather than a button.
+</Note>
 
 Because the subject is the key and the address is only a claim, a customer
 changing their email upstream is a non-event and needs no recovery path.
+Disabling or deleting a customer OIDC provider revokes every session it minted
+(`revoked_reason = 'provider_disabled'`), because a provider that is off while
+the doors it opened stay open is not off.
 
 ## Sessions
 
-Sessions are cookie-backed, `__Host-` prefixed, `HttpOnly`, and `SameSite=Lax`.
-Only the SHA-256 of the token is stored, so a database read never yields a usable
-cookie.
+Sessions are cookie-backed, `HttpOnly`, and `SameSite=Lax`. The cookie is named
+`__Host-omniflow_account`: the `__Host-` prefix binds it to this exact origin, so
+a browser refuses to accept it with a `Domain` attribute or over plain HTTP and a
+sibling subdomain cannot overwrite it. The name differs from the operator panel's
+cookie so both panels can be open in one browser without either replacing the
+other. Only the SHA-256 of the token is stored, so a database read never yields a
+usable cookie.
+
+`Lax` rather than `Strict` is deliberate: a magic link or an OIDC callback both
+arrive as cross-site navigations and would otherwise land signed out. The CSRF
+token, not the cookie policy, is what defends the unsafe methods.
 
 | Property | Customer panel | Operator panel |
 | --- | --- | --- |
@@ -167,36 +296,83 @@ costs seconds of a working day; a customer checking how many days are left does
 not warrant the same friction, and a panel that logs them out over lunch simply
 pushes them back to the bot. The absolute horizon and rotation do the security
 work instead, together with re-authentication on the few actions that warrant it.
+Neither panel's lifetimes are configurable — they are the compiled-in defaults.
 
-**Re-authentication** applies to the actions a stolen but still-live cookie could
-otherwise use to lock the real owner out: rotating the subscription link,
-disconnecting every device at once, and removing a sign-in method. Each is
-destructive, none is reversible from the panel, and all are rare and deliberate.
-A session older than fifteen minutes is refused with
-`reauthentication_required`, and the panel says so before the button is pressed
-rather than after.
+**Re-authentication** applies to the four actions a stolen but still-live cookie
+could otherwise use to lock the real owner out or to make something
+irreversible happen:
+
+| Action | Route |
+| --- | --- |
+| Remove a sign-in method | `DELETE /v1/account/sign-in-methods/{identityID}` |
+| Rotate the subscription link | `POST /v1/account/subscriptions/{id}/rotate-link` |
+| Disconnect every device | `DELETE /v1/account/subscriptions/{id}/devices` |
+| Request account deletion | `POST /v1/account/privacy/deletion` |
+
+A session older than fifteen minutes is refused with **401**
+`reauthentication_required` — 401 rather than 403 because the remedy is something
+the customer can actually do, and the panel needs to tell them that instead of
+showing a flat refusal. Every one of those screens says so before the button is
+pressed rather than after.
 
 Every unsafe request carries a double-submit CSRF token derived from a
 per-session secret, so a token minted for one session cannot be replayed in
 another — and the customer and operator panels derive theirs under different
-labels, so neither can mint a credential for the other.
+labels, so neither can mint a credential for the other. The current token is
+published on the `X-CSRF-Token` response header of every authenticated response
+and captured by the shared transport, so a token rotated mid-session is already
+current by the time the next mutation is submitted. A mismatch is `403
+csrf_failed`.
+
+A missing cookie answers `401 unauthenticated` before the service is even
+checked, because answering 503 there would tell an anonymous caller something
+about the installation's configuration for no benefit. A dead session and a
+suspended account both clear the cookie on the way out, so a browser holding an
+unusable session stops presenting it on every subsequent request.
+
+<Note>
+  There is no single "sign out" button. A customer ends a session from
+  `/account/security` — **End** on a specific row, or **End all sessions**, which
+  deliberately includes the current one.
+</Note>
 
 ## The subscription screens
 
 The dashboard answers the question customers open it with: is my subscription
-working, and how long is left. The subscription switcher appears only when the
-installation allows concurrent subscriptions; a single-subscription installation
-keeps the one-screen experience with no selection step.
+working, and how long is left. Everything else on the page is reachable from
+there rather than competing with it.
+
+Each card carries a coloured phase dot, a phase sentence, the plan name, the
+remaining days as the headline figure, device usage, and a traffic meter. The
+phase vocabulary is the customer-facing one — `active`, `expiring_soon`, `grace`,
+`limited`, `provisioning`, `none`, `disabled`, `expired`, `failed` — and it is
+what both surfaces render, rather than the internal subscription status.
+Remaining days round **up**, because a subscription with eight hours left has a
+day left from the customer's point of view, not zero.
+
+The subscription switcher appears when the installation allows concurrent
+subscriptions, and also whenever the customer actually holds more than one even
+if the setting is off: a customer holding two subscriptions under a
+single-subscription setting is a migration state, and hiding the switcher there
+would strand one of them.
 
 Traffic is shown as a bar and, above it, as a sentence — the textual equivalent
 is visible to everyone rather than hidden for assistive technology, and the bar
 carries that same sentence as its accessible name. The percentage is computed on
-the server so the two can never disagree.
+the server and clamped, so the two can never disagree. "Unlimited" is carried
+explicitly rather than inferred from a zero limit, and an unlimited allowance
+renders no bar at all.
 
 When Remnawave cannot be reached the page still renders what Omniflow itself
 knows — the plan, the period, the expiry — and says which figures are not
 current, rather than presenting a traffic number that has stopped moving as
-though it were live.
+though it were live. A maintenance notice, when the operator has set one, renders
+above everything in the customer's language, with an expected return time when
+one is configured; the operator-facing reason for the maintenance is not shown.
+
+On `/account/subscriptions/{id}` a customer renames the subscription — up to 40
+characters, no control characters, refused rather than silently truncated because
+the label is shown back to them verbatim — and finds the link-rotation control.
 
 ### Connecting a device
 
@@ -222,16 +398,27 @@ the caller to hold the identifier being acted on. Last-seen is a date rather tha
 a precise instant: enough to recognise your own laptop, not enough to build a
 movement log from.
 
-Subscription links are credentials, so every `/v1/account` response is sent with
-`Cache-Control: no-store` and `Referrer-Policy: no-referrer`. The QR code is
-generated in the browser rather than fetched as an image, which would otherwise
-put the link into a request line, a proxy log, and the browser cache.
+Subscription links are credentials, so the connect screen fetches one on demand
+rather than the dashboard carrying it, and the QR code is generated in the
+browser rather than fetched as an image, which would otherwise put the link into
+a request line, a proxy log, and the browser cache.
+
+[Connecting a device](/customer/connection) covers all of this in full: the
+per-platform client table, deep links, the QR, the manual fallback, the device
+list, removal, and link rotation.
 
 ## Account history
 
-The security screen lists live sessions, the linked sign-in methods, and an
-account history the customer can read: sign-ins, sign-outs, link rotations,
-device removals, and changes to sign-in methods.
+The security screen lists live sessions (up to 50), the linked sign-in methods,
+and an account history the customer can read: sign-ins, sign-outs, link
+rotations, device removals, and changes to sign-in methods, 50 at a time.
+
+Each session row shows the sign-in method, the IP address recorded for it, and a
+relative last-seen, with either "Current" or an **End** button. **End all
+sessions** sends `keepCurrent: false` deliberately — the control exists for a
+suspected compromise, and sparing the session that pressed it would leave an
+attacker in if they were the one holding it — and then returns the browser to the
+sign-in screen.
 
 That history is a separate record from the operator audit trail. The audit trail
 is an operator artefact searched under operator permissions, and deciding per row
@@ -240,38 +427,67 @@ read path. The customer-facing log is written to be shown: its vocabulary is
 closed, and it has no column for an amount, a link, or another party's
 identifier.
 
-Removing a sign-in method is refused when it is the last one. A customer who
-removes their only way in has locked themselves out of an account holding a paid
-subscription, and nothing in the panel can let them back in.
+Removing a sign-in method is refused when it is the last one
+(`409 last_sign_in_method`), and the panel disables the control rather than
+letting the request fail, because the reason is worth showing before the attempt.
+A customer who removes their only way in has locked themselves out of an account
+holding a paid subscription, and nothing in the panel can let them back in.
 
 ## Buying and paying
 
 The store screen compares plans on the terms that decide a purchase: period,
-traffic allowance, device limit, price, and currency. Eligibility is decided by
-the server and arrives with the plan, together with the lifecycle operations the
-configured policy allows against the customer's current subscriptions — so the
-panel offers *renew*, *upgrade*, or *downgrade* because the API said so, not
-because React worked the rules out a second time.
+traffic allowance, device limit, price, and currency. It sorts nothing, filters
+nothing, and hides nothing — a plan the customer cannot start still appears with
+the server's reason under it, because a customer who was told about a plan and
+cannot find it assumes the panel is broken rather than that they are ineligible.
+
+Eligibility and the offered operations arrive decided from the API. The operation
+vocabulary on the wire is `purchase`, `extension`, `upgrade`, and `downgrade`;
+`renewal` and `trial` are accepted input aliases that normalise into those four.
+`upgrade` and `downgrade` appear only when the plan version's policy is not
+`forbid`, and a customer with no room left for another subscription is shown
+`subscription_limit_reached` rather than an empty screen.
+
+<Note>
+  The catalogue's eligibility answer is advisory. The plan's concurrency cap and
+  the subscription count are re-checked inside order creation under a lock this
+  read deliberately does not take, and a trial is re-evaluated again at confirm
+  time. Hiding an impossible action in the catalogue is a courtesy; refusing it at
+  creation is the guarantee.
+</Note>
+
+A plan with no price in the settlement currency is omitted from the catalogue
+entirely, because it cannot be bought here at all and an entry nobody can act on
+is only a question the customer cannot answer.
 
 A checkout is a resumable purchase intent, and a customer has at most one. It is
-shared with the bot: opening a checkout in a browser supersedes one left open in
-a chat rather than running beside it, because two half-finished purchases for one
-person is a state neither surface could explain.
+shared with the bot: opening a checkout in a browser deletes one left open in a
+chat in the same transaction, and a partial unique index in the database enforces
+one-at-a-time rather than either surface's code doing it. Two half-finished
+purchases for one person is a state neither surface could explain. A checkout
+expires **one hour** after it is opened, and reading an expired one deletes it
+first, so the customer restarts from a fresh, correctly priced quote rather than
+confirming a price the catalogue has since moved away from.
 
 <Steps>
   <Step title="Choose a plan and a target">
-    When concurrent subscriptions are enabled, every renewal, upgrade, and
-    downgrade names the subscription it changes. A single-subscription
-    installation renders no picker at all.
+    When concurrent subscriptions are enabled, every extension, upgrade, and
+    downgrade names the subscription it changes — with no preselected default,
+    because an upgrade applied to the wrong subscription is not visible until the
+    next renewal. A single-subscription installation renders no picker at all.
   </Step>
   <Step title="Configure it">
-    Squads and add-ons, where the plan offers them, with the proration rule for
-    each add-on stated rather than implied.
+    Squads and add-ons, where the plan offers them. The bounds on a squad
+    selection are stated as guidance and enforced by the server: a second
+    implementation of the counting rule in React is exactly what would eventually
+    let through a set the order then refuses.
   </Step>
   <Step title="Apply a promo code">
     A refused code is answered with a reason — unknown, ineligible, exhausted,
     or malformed — and the quote is repriced without it, so the screen explains
-    the outcome instead of failing.
+    the outcome instead of failing. The plan page lists which campaigns are
+    running but never the codes that redeem them: a code is a bearer value the
+    operator hands to a particular audience.
   </Step>
   <Step title="Read the breakdown">
     Subtotal, add-ons, discount, wallet applied, and the external amount that
@@ -281,66 +497,145 @@ person is a state neither surface could explain.
   </Step>
   <Step title="Pay">
     Only providers that are enabled *and* settle the chosen currency are
-    offered. A hosted provider opens its own checkout; Telegram Stars sends an
-    invoice to the chat; a wallet-covered order needs no handoff at all.
+    offered, each showing the price it would charge — the same plan can cost a
+    different number through a different provider, and hiding that until the
+    provider's own page would be a nasty surprise.
   </Step>
 </Steps>
 
+Confirming a checkout creates an order and charges nothing. Starting the provider
+payment is a separate step, so a customer who closed the tab between the two
+finds an order waiting rather than a payment nobody can account for.
+
 ### When a payment does not land cleanly
 
-Pending, successful, failed, cancelled, duplicate, and delayed-webhook each get a
-screen that says what happened and what to do next. A **refresh** control
-re-reads the provider rather than merely re-fetching Omniflow's own record, so a
-customer who returns before the webhook arrives still sees the settled state.
+The order screen folds three facts — order state, payment intent status, and
+fulfillment status — into one phase, precisely so that neither surface has to
+combine them itself. A late webhook arriving after provisioning already completed
+is the case that makes that worth insisting on. A three-stage progress bar (paid,
+provisioning, ready) is drawn from the phase alone, and the page polls every six
+seconds while the phase can still change and not at all once it cannot.
 
-Provisioning progress is read from the fulfillment operation the order created.
-It therefore survives a page reload, a second tab, and a switch to Telegram — a
-page that remembered "we are setting this up" in its own memory would forget it
-exactly when the customer most wants to know.
+The payment handoff is one of four kinds, each with its own wording, because
+collapsing them into one "complete your payment" message would leave three of the
+four customers waiting for something that is never going to appear:
+
+| Handoff | What the customer does |
+| --- | --- |
+| `hosted` | Opens the provider's own checkout page in a new tab |
+| `telegram_invoice` | Waits for the invoice in the chat — the browser is the wrong place to wait |
+| `manual` | Waits for an operator to confirm the transfer, which can take hours |
+| `none` | Nothing: the wallet already covered it |
+
+A **refresh** control re-reads the provider rather than merely re-fetching
+Omniflow's own record, so a customer who returns before the webhook arrives still
+sees the settled state; it is best-effort, and an adapter that cannot be polled
+leaves the order exactly as the webhook will eventually find it.
+
+Provisioning progress is read from the fulfillment operation the order created,
+with the attempt count shown once it exceeds one — a retrying operation looks
+identical to a stuck one from outside, and the difference is the only thing a
+waiting customer wants to know. The error shown is the worker's own bounded
+classification, never a provider message, because those can carry identifiers.
+
+**Cancel** appears only while the order is still `draft` or `pending`; anything
+later is `409 order_not_cancellable`, because refunds are an operator action, not
+a customer one. Cancelling is idempotent and also deletes the checkout session
+pointing at the order, so the customer is not left holding a checkout that points
+at something cancelled.
 
 <Note>
   Confirming a checkout reuses the checkout's own idempotency key, so a double
-  tap or a retried request resolves to the order already created. The same is
-  true of starting a payment, where the key is scoped to the order and the chosen
-  adapter — switching provider is a new payment, pressing the same button twice
-  is not.
+  tap or a retried request resolves to the order already created. Starting a
+  payment keys on the order *and* the chosen adapter — switching provider is a
+  new payment, pressing the same button twice is not. Both routes still require
+  an `Idempotency-Key` header of 8–128 characters, so a client that retries has
+  said it means to, but that header is not what deduplicates.
 </Note>
+
+`/account/orders` lists plan purchases newest first, cursor-paginated on the pair
+the list is ordered by, so a payment that settles between two pages cannot make a
+row appear twice or drop one out of sight. **Wallet top-ups are not in this
+list** — a top-up moves money into the wallet rather than buying anything, and it
+is accounted for in the wallet's own ledger. A customer looking for a top-up in
+their order history will find it on `/account/wallet` instead.
 
 ## Wallet
 
+Three figures are carried separately because they answer different questions and
+a single "balance" would answer neither honestly: **total** is what the ledger
+holds, **reserved** is what unpaid orders have already claimed, and **available**
+is what a new order may actually spend. A customer who sees only the total and
+then watches a smaller amount apply at checkout has been told the wrong number
+twice.
+
 Balances are per currency and isolated: a balance in one currency never funds an
-order in another. The ledger is append-only, so a correction appears as a
-compensating entry rather than as an edited row.
+order in another. Every currency the customer holds gets a card, but the top-up
+form only ever offers the settlement currency. The ledger is append-only, so a
+correction appears as a compensating entry rather than as an edited row, and each
+row names its movement type — credit, debit, payment, refund, referral reward,
+correction, or expiration — with the operator's note when a correction carried
+one.
 
 Top-up runs through the same order, webhook, and reconciliation pipeline a plan
 purchase uses, with the operator's preset amounts, minimum, maximum, and rolling
-window applied. The caller's idempotency key becomes the order's key, so a
-retried request credits the same top-up rather than a second one.
+window applied. The presets are filtered by the domain against what this customer
+has already credited in the window, so an amount that is offered is one that
+would be accepted. Refusals arrive as `topup_disabled`, `topup_below_minimum`,
+`topup_above_maximum`, `topup_window_exceeded`, or `topup_invalid_amount`.
+
+The caller's idempotency key **becomes the order's key** here, unlike everywhere
+else: a top-up mints real money into the wallet, so a retried request credits the
+same top-up rather than a second. If the order is created but the provider
+refuses the intent, the order is still returned — it exists and is the customer's,
+and a provider that refused an intent is a retryable state, not a reason to hide
+what was created.
 
 ## Digital goods
 
 The shop sells Telegram Premium and Stars under exactly the rules the bot
-follows.
+follows. The catalogue quotes no prices, because a quote is a promise with an
+expiry on it and a screen full of promises would start expiring while it was
+still being read; a product whose gateway cannot currently sell is shown as
+unavailable rather than hidden, so a customer who bookmarked it learns why.
 
 **A price is a quote with an expiry.** It is issued when a product is opened, not
-when the catalogue is listed — a page of promises that begin expiring while it is
-read would be worse than none. The panel shows the countdown, and the purchase
+when the catalogue is listed. The panel shows the countdown, and the purchase
 echoes the displayed quote back. The server re-quotes before charging and refuses
-with a distinct reason when the window has passed or the number moved, so the
-price on screen is always the price charged.
+with a distinct reason when the window has passed (`quote_expired`, re-quoted
+silently) or the number moved (`price_changed`, shown side by side and requiring
+a second deliberate press), so the price on screen is always the price charged.
 
 **The recipient is confirmed on its own.** The handle is normalised by the server
-and shown in the exact form the gateway will be given, and the purchase is
-refused unless the confirmed string is the one submitted. Delivery is
-irreversible once a gateway has sent the goods, and a mistyped username cannot be
-recovered.
+— a pasted link, a leading `@`, a trailing slash all fall away — shown in the
+exact form the gateway will be given, and the purchase is refused unless the
+confirmed string is byte-identical to the one submitted. Editing the field drops
+the agreement. Delivery is irreversible once a gateway has sent the goods, and a
+mistyped username cannot be recovered. Quantity is clamped to ten for the same
+reason.
+
+<Note>
+  The "this is for me" switch annotates the order for the customer's own history
+  and decides nothing about delivery. Delivery is addressed purely by the
+  reviewed handle — Omniflow stores no Telegram username for a web customer.
+</Note>
 
 **An ambiguous delivery parks.** The gateway that fronts Fragment honours no
 idempotency key, so a lost answer is genuinely ambiguous: retrying might deliver
 and charge twice, and refunding might refund goods that arrived. Such a delivery
 moves to the operator review queue and the panel says so, offering support rather
-than a retry button. A delivery that fails permanently is refunded to the wallet
-through the existing pipeline.
+than a retry button — and it is coloured as a warning, not a failure, because
+nobody can yet say the purchase failed and painting it red would tell the
+customer something untrue about their money. The support handoff carries a
+reference of the form `goods-order:<orderId>`, which names the order in a form a
+ticket can carry without repeating the recipient. A delivery that fails
+permanently is refunded to the wallet, and the panel reports the refund only once
+the credit exists.
+
+An unpaid shop order is settled through the ordinary order screen rather than a
+second checkout: a second checkout is how two checkouts start disagreeing about
+what is enabled. When money is owed and no configured provider settles the
+currency, the panel offers support instead of a dead button.
 
 ## Support and news
 
@@ -349,51 +644,143 @@ per record, read from whichever surface the customer opened.
 
 Unread state lives on the message rather than on the surface, so a reply read in
 Telegram is not still bold on the web, and a customer who answers in a browser
-appears in the operator queue exactly as one who answered in a chat.
+appears in the operator queue exactly as one who answered in a chat. A reply to a
+*resolved* ticket reopens it, because a customer who writes back has not had
+their question answered — the same rule the bot applies, so the two surfaces
+cannot leave a ticket in different states.
 
 Internal operator notes are never returned. They live in their own table and no
 customer-facing query touches it, which is a stronger guarantee than filtering
 them out would be.
 
-Attachments are bounded by size and by an allowlist of media types — an unknown
-type is refused rather than guessed at — and the limits are shown before an
-upload rather than only after one is rejected. A file attached in Telegram stays
-with Telegram and is named rather than offered for download, because offering a
-download that cannot work is worse than saying where the file lives.
+The limits are published by `GET /v1/account/support/limits` and loaded before
+the compose form is usable, so the panel counts down to the same number the API
+refuses at instead of guessing:
+
+| Limit | Default |
+| --- | --- |
+| Open conversations per customer | 5 |
+| Subject length | 120 characters |
+| Message length | 4000 characters |
+| Attachment size | 5 MiB (an installation may configure less, never more than 10 MiB) |
+| Attachment media types | `image/png`, `image/jpeg`, `image/webp`, `application/pdf`, `text/plain` |
+
+Lengths are counted in characters rather than bytes, because a Cyrillic subject
+would otherwise be refused at half the length an English one is allowed. Reaching
+the open-conversation quota disables the "new conversation" control and refuses
+creation with `409 too_many_open_tickets`. A conversation returns at most its 200
+most recent messages.
+
+Attachments are an allowlist and nothing sniffs the bytes — sniffing exists to
+guess at an unknown type, and a guess is precisely what an allowlist must not
+accept. A file attached in Telegram stays with Telegram and is named rather than
+offered for download, because offering a download that cannot work is worse than
+saying where the file lives.
+
+### News
+
+`/account/news` lists published announcements with a category badge —
+announcement, incident, maintenance, or news — an unread marker, and an explicit
+**Mark as read** button. Reading is an act the customer takes rather than
+something inferred from a scroll position, and the read row is shared with the
+bot, so a post marked read here stops being unread there.
+
+The panel deliberately sends no locale with the request. The server resolves
+which language a customer reads announcements in — the request, then the bot
+preference, then the account's own locale, then English — because forcing this
+page's locale would make the same customer read the same announcement in two
+languages depending on which surface they opened; when the resolved locale
+differs from the page's, a notice says so. A post with no translation in the
+resolved locale is **absent** rather than shown in another language: an inbox
+that silently switches language mid-list is harder to read than a shorter one.
+
+A post classed as marketing carries an extra badge. The customer consented to
+receive it and is entitled to see which of these is a service notice and which is
+an offer, without having to infer it from the wording.
 
 ### Preferences and consent
 
-Notification choices, quiet hours, and marketing consent are set here and apply
-to both surfaces. Consent is append-only: a change records a new decision with
-the surface and request that made it, so the question "when did this person opt
-in, and where" always has an answer.
+`/account/preferences` holds four notification switches (expiry, traffic,
+renewal, news — all on by default), the message language the bot and mailer write
+in, a quiet-hours window, the browser-notification opt-in, marketing consent with
+its dated evidence, and a read-only list of the contact channels. Every control
+writes one field: the route is a genuine PATCH where an omitted field is left
+untouched, because sending the whole document back would let this page overwrite
+a choice the customer made in Telegram between the fetch and the toggle.
 
-Unsubscribing stops marketing messages. It does not stop transactional ones about
-a payment, an expiry, or a support reply — those are the messages a customer
-needs in order to keep using what they bought.
+Quiet hours are whole hours in the customer's own timezone, and are cleared by
+sending a window whose start and end are equal — omitting the field would mean
+"leave the window alone", which is the opposite of what the customer just asked
+for.
+
+Consent is append-only: a change records a new decision with the surface and
+policy version that made it, so the question "when did this person opt in, and
+where" always has an answer, and a row is written on every unsubscribe even when
+the customer had already opted out — "they had already opted out" is not a reason
+for their unsubscribe to leave no trace. Re-consenting clears only a suppression
+the customer themselves caused; a suppression recorded for a bounce or a
+complaint is somebody else's finding about deliverability and a tick-box does not
+overturn it.
+
+Unsubscribing stops marketing messages and news, clears the marketing flag on
+every live contact channel, and records a suppression. It does not stop
+transactional messages about a payment, an expiry, or a support reply — those
+carry facts a customer needs whether or not they want to hear from the business,
+and an unsubscribe that silenced them would turn a marketing preference into a
+way to lose access without warning.
+
+<Note>
+  Marketing consent can be recorded from two screens — the preferences switch and
+  the contact-channel form on `/account/privacy` — and each stamps its own source
+  and policy version. A customer reading their consent trail may therefore see
+  two different provenances for the same decision.
+</Note>
 
 Browser notifications are offered only behind an explicit opt-in, never requested
 on page load, and they are foreground-only: the panel raises one for a new
-operator reply or announcement it observes while the tab is open. There is no web
-push, no service worker, and no stored subscription.
+operator reply or announcement it observes while the tab is in the background.
+There is no web push, no service worker, and no stored subscription, because
+Omniflow has no server-side push to deliver one — and a subscription the server
+never uses is a permission prompt spent on nothing. When the tab is closed,
+Telegram is what reaches the customer. The opt-in lives in the browser's own
+storage rather than on the account, because an account-level flag would claim a
+setting one device cannot honour; it does not follow the customer to another
+browser and it vanishes with site data.
 
 ## Referrals and loyalty
 
-The referral screen shows the code, its shareable link, the program terms and
-qualification rule, the invited and qualified counts, the remaining slots against
-the operator's cap, and the reward history with each reward's state.
+The referral screen shows the code, the program terms and qualification rule, the
+invited, qualified, pending and rejected counts, the remaining slots against the
+operator's cap, and the reward history with each reward's state. The code is
+created on the first read of the screen, minted the same way the bot mints one,
+so either surface can attribute it.
+
+The history never carries the invited customer's identifier: an inviter is
+entitled to know that an invite paid out, not to a list of who their friends are
+once the friend is a customer of somebody else's service.
 
 A reversed reward is excluded from the earned total and from the cap count. An
 operator reverses one when a referral turns out to be abuse, and the slot it
-consumed comes back with it.
+consumed comes back with it. When no public URL is configured the panel shows the
+code and says no link can be built, rather than rendering a link to nowhere.
 
-When no public URL is configured the panel shows the code and says no link can be
-built, rather than rendering a link to nowhere.
+<Note>
+  The shareable link the panel builds is `<APP_PUBLIC_URL>/account/sign-in?ref=<code>`,
+  but nothing in the panel or under `/v1/account` reads that `ref` parameter
+  today: attribution rows are written only by the bot's `/start` route. A friend
+  who follows a web invite link signs in normally and is not attributed. The code
+  itself is what always works — it is shown large and selectable for exactly that
+  reason.
+</Note>
 
 Loyalty shows the current tier, the progress toward the next, and the rules that
 govern it. Nothing on these screens grants a reward or promotes a tier: the
 reward and evaluation workers already wrote those rows, and doing it on a page
-load would make a customer's balance depend on which screen they opened.
+load would make a customer's balance depend on which screen they opened — and a
+customer inside their grace period would be demoted the moment they opened the
+page. A programme that is not enabled, or one with no tiers, is reported as
+"not enabled" rather than as an empty ladder, because those look identical in a
+list of zero tiers and only one of them is worth showing a screen for.
 
 ## Personal data
 
@@ -407,26 +794,119 @@ events.
 It is produced synchronously rather than queued. A queued export would need a
 delivery channel, a retention window, and a link that authenticates on its own —
 three further disclosure decisions to answer a question that fits in one
-response.
+response. It is a POST despite changing nothing, because a GET would be cached,
+prefetched, logged in a proxy's access line, and reachable by navigation, and
+this is the most sensitive document the API produces. The document is never
+logged and never written to disk, and the panel never renders it — a screen that
+painted it would leave it in a scroll position, a screenshot, and a
+back-forward cache.
 
 The document declares what it left out and why: no other customer's identifier,
 no payment credential, no provider secret, no subscription link, and no device or
-network identifier. It also names any section that hit its row cap, because an
-export that silently omitted something would be worse than one that says so.
+network identifier. Each section is capped at 1000 rows and any section that hit
+the cap is **named** in the document, because a customer told their data is
+complete when it is not has been misinformed about the one thing the document
+exists to answer.
 
 ### Deletion
 
 Requesting deletion records a request. It does not delete.
 
 The retention workflow an operator already governs is what carries it out, so an
-irreversible action never happens on the strength of one browser session. The
-request needs a recent sign-in and a stated reason, it can be withdrawn until it
-is executed, and cancelling it needs no re-authentication — cancelling only ever
-prevents the irreversible thing.
+irreversible action never happens on the strength of one browser session, however
+recently that session authenticated. The request needs a recent sign-in, an
+explicit confirmation, and a stated reason of at most 400 characters — free text
+rather than a menu, because a closed list would put the operator's categories in
+the customer's mouth. It can be withdrawn until it is executed, and cancelling it
+needs no re-authentication: cancelling only ever prevents the irreversible thing.
 
-### Identity conflicts
+A second request while one is open is refused with `409 deletion_pending`. The
+lifecycle event is never removed on cancellation — "this was asked for and then
+withdrawn" is a different fact from "this was never asked for" — but a withdrawn
+request loses its reason, because the customer's words were written for a
+decision that is no longer open.
+
+### Contact channels
+
+The addresses this installation may reach the customer on are listed and managed
+on `/account/privacy`. Adding one records an intention and nothing more: the
+panel cannot prove an address belongs to the person typing it, so the flags are a
+permission the delivery pipeline reads, not a claim that the address is verified.
+A channel that may receive neither transactional nor marketing messages is
+refused, because that is an address stored for no reason.
 
 A contact address already registered elsewhere is refused with nothing more than
 "not available here", and the remedy is contacting support. Saying that another
 account holds it would turn the panel into an oracle for whether a given address
-is a customer.
+is a customer. Removing a channel revokes it rather than deleting it, so an
+address cannot be silently moved between accounts and the consent history keeps
+pointing at something.
+
+Addresses are sealed with the installation's data key and matched on a keyed
+fingerprint, so a stolen database cannot be tested for a known address by hashing
+candidates. Without `APP_DATA_ENCRYPTION_KEY` the whole section reports as not
+offered rather than as an error.
+
+## Rate limits and the transport contract
+
+Only two customer routes are rate-limited, both per customer and both **failing
+closed** — an unreachable limiter refuses, so an outage cannot silently remove
+the protection:
+
+| Route | Limit |
+| --- | --- |
+| `POST /v1/account/contacts` | 10 per hour |
+| `POST /v1/account/privacy/export` | 3 per hour |
+
+Nothing else under `/v1/account` is rate-limited at the HTTP layer, including the
+sign-in routes.
+
+For anyone integrating against the same API:
+
+- **Problems** are RFC 9457 — `application/problem+json` with
+  `{type, title, status, detail, request_id}`, where the code at the end of
+  `type` is the contract. The `detail` string is English prose written for
+  operators; the panel never shows it to a customer, and translates the code
+  instead.
+- **CSRF**: read `X-CSRF-Token` from any authenticated response and echo it on
+  every method other than GET, HEAD, and OPTIONS.
+- **Cursors**: order, wallet, and shop histories page on
+  `?cursor=<timestamp>&cursorId=<uuid>` and answer `400 invalid_cursor` when it
+  is malformed; support, news, and referral histories take one opaque `?cursor=`
+  and silently return the first page instead.
+- **`Idempotency-Key`** is 8–128 characters. It is **required** on
+  `POST /checkout/confirm`, `POST /orders/{id}/payment`, `POST /wallet/top-up`,
+  and `POST /shop/purchase`, and **optional** on the two support-writing routes,
+  because a customer whose browser resubmits a form should not be shown a
+  validation error about a header they have never heard of.
+- **JSON bodies** are decoded with unknown fields rejected and must contain
+  exactly one value; anything else is `400 invalid_request`.
+- Every "not found" is deliberately indistinguishable from "not yours".
+
+The panel's own transport is hand-written rather than generated, because the
+generated SWR hooks emit bare `fetch` calls that honour no mutator: a generated
+hook would send no session cookie and no CSRF token, so every mutation through
+one would be rejected and every read would be anonymous.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Connecting a device" icon="qrcode" href="/customer/connection">
+    Clients, deep links, QR, the device list, and link rotation.
+  </Card>
+  <Card title="Telegram bot" icon="paper-plane" href="/customer/telegram-bot">
+    The same product in chat, and the surface that reaches a closed tab.
+  </Card>
+  <Card title="Notifications" icon="bell" href="/customer/notifications">
+    Notification classes, consent, quiet hours, and the news inbox.
+  </Card>
+  <Card title="Privacy and your data" icon="file-export" href="/customer/privacy">
+    Export contents, redactions, deletion requests, and retention state.
+  </Card>
+  <Card title="Orders and payments" icon="credit-card" href="/commerce/orders-payments">
+    The order state machine behind the screens above.
+  </Card>
+  <Card title="Customer OIDC" icon="key" href="/integrations/oidc">
+    Configuring the sign-in providers this panel offers.
+  </Card>
+</CardGroup>

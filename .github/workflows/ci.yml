@@ -171,10 +171,21 @@ jobs:
         run: bunx mint@latest validate
         env:
           PUPPETEER_SKIP_DOWNLOAD: "true"
+      # Scoped to the English tree. `mint broken-links` resolves every link
+      # against the default language, so a correct `/ru/...` link on a Russian
+      # page is reported as broken even though the page is served at that URL.
+      # The Russian tree is checked by the step below instead.
       - working-directory: docs
-        run: bunx mint@latest broken-links --check-anchors
+        run: >
+          bunx mint@latest broken-links --check-anchors
+          --files "*.mdx" "architecture/**/*.mdx" "commerce/**/*.mdx"
+          "customer/**/*.mdx" "getting-started/**/*.mdx"
+          "integrations/**/*.mdx" "operations/**/*.mdx" "contributing/**/*.mdx"
         env:
           PUPPETEER_SKIP_DOWNLOAD: "true"
+      - name: Russian tree mirrors English and its links resolve
+        working-directory: docs
+        run: sh scripts/check-russian-mirror.sh
 
   conventional-pr:
     name: Conventional PR title

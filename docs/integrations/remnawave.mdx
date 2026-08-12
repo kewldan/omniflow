@@ -1,23 +1,318 @@
 ---
 title: Remnawave
-description: Integration and reconciliation contract for Remnawave v3.2.2.
+description: How Omniflow connects to a Remnawave 3.2.2 panel, every call it makes, and the boundary it never crosses
 ---
 
-Omniflow integrates only through the supported Remnawave API. It never connects to Remnawave storage or manages Xray directly.
+Omniflow does not replace Remnawave. It sits beside it and sells access to it. Remnawave stays
+authoritative for VPN users, traffic counters, connected devices, access links, nodes, hosts, and
+Internal Squads; Omniflow owns identity, catalogue, orders, payments, the wallet ledger,
+entitlements, support, marketing, and the audit trail. The whole relationship runs through one
+hand-written HTTP adapter, `internal/remnawave`, and that adapter is the only code in the
+repository that knows a Remnawave-shaped type exists.
 
-The current adapter targets the official [Remnawave 3.2.2 OpenAPI specification](https://docs.rw/api/). It uses bearer authentication and these read endpoints for the Telegram milestone:
+That is not a stylistic choice. Two systems that both believe they own VPN state produce a class of
+bug nobody can reconcile: a customer whose subscription is active in one place and disabled in the
+other, and no way to say which is right. Keeping the authority split makes the question answerable —
+Remnawave's answer is the truth about access, Omniflow's answer is the truth about money and intent —
+and it lets you upgrade Remnawave without Omniflow holding an opinion about its schema.
 
-| Purpose | Endpoint |
+See [data ownership](/architecture/data-ownership) for the conceptual version of the boundary and
+[fulfillment](/commerce/fulfillment) for what happens after a payment settles.
+
+## Which Remnawave version
+
+The adapter targets **Remnawave 3.2.2** and the paths it calls are hard-coded. There is no version
+negotiation, no capability discovery, and no second adapter: one client, one set of routes.
+
+What pins the version in practice is a contract test, `internal/remnawave/contract_test.go`, which
+asserts the exact method and path of every call, the `{"response": …}` envelope Omniflow expects
+back, and how each failure class is mapped. A Remnawave upgrade that moves a route fails there
+rather than surfacing later as a provisioning error nobody can classify. If you are planning a panel
+upgrade, running `go test ./internal/remnawave/...` against the new surface is the cheapest possible
+check.
+
+<Note>
+  There is no compatibility matrix page. The version is asserted in three places only: the README
+  badge, `AGENTS.md`, and the contract test.
+</Note>
+
+## Credentials and connection
+
+Both processes that provision and both that read need the same two values.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `APP_REMNAWAVE_URL` | none | Base URL of the Remnawave API. Must parse as an absolute `http`/`https` URL with a host; any query string and fragment are stripped. Anything else fails startup with `Remnawave URL must be an absolute HTTP(S) URL` |
+| `APP_REMNAWAVE_TOKEN` | none | Bearer credential, sent as `Authorization: Bearer <token>` on every call. Must be non-empty |
+
+Obtain the token from your Remnawave installation's own API-token facility. It needs to be able to
+read and modify users, read subscriptions, and manage HWID devices — that is the whole surface
+Omniflow touches, and nothing wider is used.
+
+<Steps>
+  <Step title="Create a token in Remnawave">
+    Issue an API token in the Remnawave panel. Give it to Omniflow alone; the token is used from
+    three processes but it is one credential, and rotating it means changing one value.
+  </Step>
+  <Step title="Put both values in `.env`">
+    ```env
+    APP_REMNAWAVE_URL=https://panel.example.com
+    APP_REMNAWAVE_TOKEN=…
+    ```
+    The API, bot, and worker processes all read the same `.env` in the shipped Compose file, which
+    is what stops the three from disagreeing about which panel they are talking to.
+  </Step>
+  <Step title="Restart and check readiness">
+    `curl -s localhost:8080/readyz` should report a `remnawave` entry with `"healthy": true`. A
+    wrong token shows as an unhealthy dependency rather than as a healthy panel — see
+    [Health and readiness](#health-and-readiness).
+  </Step>
+</Steps>
+
+All three processes refuse to start without both values. The API additionally refuses to build its
+commerce runtime without `APP_OPERATOR_TOKEN`, a 32-byte `APP_DATA_ENCRYPTION_KEY`, and
+`APP_VALKEY_URL`. Full list in [configuration](/getting-started/configuration).
+
+<Warning>
+  Rotating the Remnawave token means editing the environment and restarting the three processes.
+  `/admin/settings` has a **Remnawave** section with a base URL, a write-only token field, a
+  reconcile interval, and a compatibility-checked flag — it stores what you type, sealed with the
+  installation key, but **no running process reads it back**. The client is built from
+  `APP_REMNAWAVE_URL` and `APP_REMNAWAVE_TOKEN` at process start and nothing re-reads it. See
+  [installation settings](/operations/installation-settings).
+</Warning>
+
+There is also no "test connection" button for Remnawave. `POST /v1/panel/settings/providers/{provider}/test`
+probes payment adapters only and answers `422 provider_not_loaded` for any other name. The readiness
+probe is the connection test.
+
+## Every call Omniflow makes
+
+Fourteen operations. This is the complete list — nothing else in Remnawave's API is reachable from
+Omniflow, because nothing else is implemented.
+
+| Remnawave call | What uses it |
 | --- | --- |
-| Exact first-run Telegram lookup | `GET /api/users/stream?telegramId=…&size=2` |
-| Account status and limits | `GET /api/users/{userId}` |
-| Subscription status and access URL | `GET /api/subscriptions/by-id/{userId}` |
-| Privacy-safe device summary | `GET /api/hwid/devices/{userId}` |
+| `GET /api/users/?start=&size=` | Import preview and paging; also the readiness probe |
+| `GET /api/users/{id}` | Customer overview, drift detection, read-back after a write |
+| `GET /api/users/stream?size=2&telegramId=…` | First-run Telegram account lookup |
+| `GET /api/users/by-username/{username}` | Adopting an existing user before creating a new one |
+| `POST /api/users/` | Provisioning a subscription for the first time |
+| `PATCH /api/users/` (the body carries `id`) | `create`, `reconcile`, `extend`, `set_limits`, `set_squads` |
+| `POST /api/users/{id}/actions/enable` | The `enable` operation |
+| `POST /api/users/{id}/actions/disable` | The `disable` operation |
+| `POST /api/users/{id}/actions/reset-traffic` | The `reset_traffic` operation |
+| `POST /api/users/{id}/actions/revoke` | Customer-initiated access-link rotation |
+| `GET /api/subscriptions/by-id/{id}` | Reading the current access link and subscription status |
+| `GET /api/hwid/devices/{id}` | Device lists and device counters |
+| `POST /api/hwid/devices/delete` (body `{userId, hwid}`) | Removing one device |
+| `POST /api/hwid/devices/delete-all` (body `{userId}`) | A customer disconnecting everything |
 
-Commerce fulfillment additionally uses the v3.2.2 create/update and user-action endpoints. Remnawave user IDs are numeric in this contract; Internal Squad identifiers are UUIDs and are stored as PostgreSQL `uuid[]` values.
+Three narrow Go interfaces divide that set by who is allowed to hold it: `Service` is the read set
+for customer surfaces, `Provisioner` is the write set the fulfillment worker holds, and `Importer` is
+the single paging read the customer import uses. A read-only surface cannot call a write because it
+was never handed one.
 
-The stream endpoint performs an exact Telegram-ID equality lookup. Omniflow persists the resulting numeric Remnawave user ID under an advisory lock, so later requests use stable ID endpoints and concurrent first-run requests cannot create duplicate local mappings.
+### What the transport itself prevents
 
-Subscription URLs are treated as secrets. They are never logged or stored in Omniflow; the bot only presents the current value returned by Remnawave in a protected Telegram message.
+Four failure modes are designed out below the level of any feature, and each has a test:
 
-Every write is driven by a durable idempotent fulfillment operation. Creation checks the deterministic username before retrying, and a deleted remote user is recreated safely after a `missing_remote` drift is recorded. Scheduled reconciliation compares status, expiry, traffic allowance, device limit, and Internal Squads without fabricating payment history.
+- **Token leakage on a redirect.** `CheckRedirect` returns `http.ErrUseLastResponse`, so a `302` is
+  never followed with the `Authorization` header attached. A misconfigured proxy in front of
+  Remnawave cannot walk away with the credential.
+- **Memory exhaustion.** Every response body is read through a 1 MiB limit reader, so a broken or
+  hostile panel cannot exhaust worker memory.
+- **An expired token reading as "this customer has nothing".** A non-2xx becomes an API error
+  carrying the status code, and a `404` becomes a distinct not-found error. Neither can be mistaken
+  for an empty success — which is the difference between "your subscription is gone" and "the panel
+  said no".
+- **A hung panel.** A fixed 10-second client timeout on every call.
+
+The adapter has **no retry and no backoff of its own**. Retrying is the fulfillment worker's job,
+where a retry is durable and idempotent; a read path simply degrades and says so.
+
+## Writes always go through a fulfillment operation
+
+Nothing in Omniflow calls Remnawave to change state directly — not a paid order, not a panel click,
+not a bulk action. Every change is first written to PostgreSQL as a `fulfillment_operations` row
+carrying an idempotency key and a desired state, and then applied by a durable job.
+
+The reason is stated in the code on the operator route: a panel click that wrote to Remnawave itself
+would be the one change reconciliation could not explain. It would have no idempotency key, no retry
+policy, no drift record, and no history. Committing the operation in the same transaction as the
+state change that requires it also means a crash between "paid" and "provisioned" leaves work to do
+rather than money to reconcile.
+
+The supported operations are `create`, `reconcile`, `extend`, `set_limits`, `set_squads`, `enable`,
+`disable`, and `reset_traffic`.
+
+| Operation | Remnawave call |
+| --- | --- |
+| `create` / `reconcile` with no known remote ID | `GET /api/users/by-username/{candidate}` for each candidate; on `404` for all of them, `POST /api/users/` |
+| `create` / `reconcile` with a known remote ID | `PATCH /api/users/`; a `404` falls back to the create-or-recover path |
+| `extend`, `set_limits`, `set_squads` | `PATCH /api/users/` |
+| `enable` / `disable` / `reset_traffic` | The matching `POST /api/users/{id}/actions/…`, then a re-read of the user |
+
+An operator queues one from `/admin/customers/{customerId}` → the subscription card → the actions
+panel. A reason is mandatory; without it the buttons stay disabled. The panel reports **queued**,
+not done, because the worker is what applies it. The wire call is
+`POST /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/operations` with
+`subscriptions.write`, a CSRF token, and `X-Operator-Reason`; it answers `202` with
+`{operationId, operation, status}`.
+
+Refusals worth knowing:
+
+- A subscription slot with no entitlement answers `409 not_provisioned` — there is nothing to
+  extend, disable, or reset.
+- `create` and `reconcile` are deliberately absent from the operator allowlist and answer
+  `422 unsupported_operation`. Offering them would give an operator a way to mint an entitlement
+  with no order behind it.
+- The idempotency key is derived server-side as `panel:<subscriptionID>:<operation>:<requestID>`, so
+  a double-submitted form reuses the first operation rather than queueing a second.
+
+Retries, backoff, dead letters, and the diagnostics screens are covered in
+[jobs and queues](/operations/jobs-and-queues) and [fulfillment](/commerce/fulfillment).
+
+## Deterministic usernames and remote-user recovery
+
+Each subscription provisions a Remnawave user named `omniflow_` plus the first 16 hex characters of
+the subscription UUID. Installations upgraded from v0.4 keep a customer-derived legacy name for the
+first slot: `omniflow_` plus the first 16 hex characters of the *customer* UUID.
+
+Two failures this prevents. A retried `create` after a lost response must not mint a second
+Remnawave user, so the worker looks the username up before creating one. And an upgraded
+installation must adopt the Remnawave user it already has rather than duplicating it, so the first
+slot accepts both names as candidates. Deriving the name from the subscription rather than the
+customer is exactly what lets one customer own several independent Remnawave users.
+
+A `PATCH` that returns `404` — the panel user was deleted out from under Omniflow — falls back to
+the create-or-recover path and recreates it. A non-`create` operation with no known remote ID fails
+with `remote_user_not_found` and retries: you cannot `enable` something that was never provisioned.
+
+## Drift
+
+A `reconcile` operation reads the Remnawave user and compares it against what Omniflow intends. Each
+mismatch is written as an `entitlement_drifts` row with `expected` and `observed` JSON.
+
+| Kind | Condition |
+| --- | --- |
+| `missing_remote` | No remote ID recorded, or `GET /api/users/{id}` returns `404` |
+| `expiry` | The remote `expireAt` differs from the entitlement's end |
+| `traffic` | A configured allowance differs from the remote traffic limit |
+| `device_limit` | A configured limit differs from the remote HWID device limit, including a null remote value |
+| `squads` | The remote active Internal Squad set differs from the desired set, compared order-insensitively |
+| `status` | The mapped remote status differs from the entitlement status |
+
+The point is that "somebody edited Remnawave by hand" becomes a reviewable record instead of a
+support ticket. Drift is always evaluated against the Remnawave user *that subscription* owns, so a
+customer's second subscription can never be judged against the first one's remote state.
+
+Read it at `/admin` → System → Drift (`GET /v1/panel/system/drift`, `system.read`), or against the
+token surface at `GET /v1/admin/fulfillment/drifts?limit=<1..500>` (default 100).
+
+<Note>
+  An empty drift list is the normal state, not proof that nothing ever drifted. In a successful
+  reconcile pass the drift rows are opened and closed inside the same transaction as the corrective
+  `PATCH`, so a row stays visible only while corrective work is failing or Remnawave is unreachable.
+  That is the intended signal; it is not a general "what changed in Remnawave" log.
+</Note>
+
+`external_edit` appears in the database constraint and in the OpenAPI enum but no code path produces
+it. What an externally modified user actually records is the specific field drift above. Only one
+open drift exists per entitlement and kind — a repeat refreshes the row rather than piling up — and
+resolved rows are deleted after `APP_RETENTION_DRIFT_DAYS` (default 90). Open rows are never swept.
+
+Reconciliation runs in the worker process every 15 minutes for up to 500 entitlements whose
+`reconciled_at` is null or older than 15 minutes. Both numbers are hard-coded. An installation
+running no worker gets no reconciliation and no provisioning at all.
+
+## Health and readiness
+
+The API registers `remnawave` in the same health registry that answers `GET /readyz`, feeds the
+`omniflow_dependency_up{dependency="remnawave"}` gauge, and drives automatic maintenance mode. One
+registry means a load balancer, an operator's dashboard, and the maintenance controller cannot
+disagree about whether the panel is up.
+
+The probe is `ListUsers(0, 1)` — an authenticated read — rather than a request to an unauthenticated
+page, so a revoked token reads as an outage instead of as health.
+
+```bash
+curl -s localhost:8080/readyz
+```
+
+```json
+{
+  "status": "ready",
+  "checks": [
+    { "name": "remnawave", "healthy": true, "checkedAt": "2026-08-13T09:15:04Z", "latencyMs": 41 }
+  ]
+}
+```
+
+A failure carries a stable classification (`timeout`, `unavailable`) and never a driver message, so
+the response cannot leak a URL or a credential. Probe results are cached for 2 seconds and each
+probe is bounded at 3 seconds, so a burst of readiness checks cannot become a burst of Remnawave
+calls. Operators see the same probe at `GET /v1/panel/overview/health` with `system.read`.
+
+Automatic maintenance watches `postgres` and `remnawave`. After `APP_MAINTENANCE_FAILURE_STREAK`
+consecutive unhealthy samples (default 3, sampled every `APP_MAINTENANCE_PROBE_SECONDS`, default 30)
+purchases pause and outbound provisioning is held rather than failed; the worker snoozes the job and
+the operation stays pending. See [maintenance mode](/operations/maintenance-mode).
+
+<Note>
+  `omniflow_remnawave_requests_total` is declared in the metrics registry but no code path ever
+  increments it, and a Prometheus counter emits no series until first use. The only Remnawave signal
+  actually on `/metrics` is `omniflow_dependency_up{dependency="remnawave"}`. Adapter calls are
+  traced as child spans through `otelhttp`, but no tracer provider is installed anywhere in
+  Omniflow and no `OTEL_*` variable is read, so those spans go nowhere unless you add an exporter
+  yourself. [Observability](/operations/observability) covers what exists.
+</Note>
+
+## Importing the customers you already have
+
+An operator adopting Omniflow already has users in Remnawave. The import walks
+`GET /api/users/?start=&size=`, stages every candidate with a fingerprint, classifies it as valid,
+conflicting, or invalid, and only then applies. Conflicts are computed against existing Remnawave
+mappings, existing Telegram identity subjects, and Telegram IDs already staged by other pages of the
+same run — that last check is what stops two remote users sharing one Telegram ID from both being
+imported.
+
+A Remnawave outage during a preview does not abort the run: it is marked `failed` with
+`remnawave_unavailable` in the error summary and can be resumed from its cursor. The full procedure
+is in [customers and imports](/commerce/customers-imports).
+
+## What Omniflow will never do to your panel
+
+- **It never touches Remnawave's database.** Every interaction is one of the fourteen HTTP calls above.
+- **It never manages Xray**, nodes, hosts, or squad definitions. Squads are referenced by UUID; they
+  are created and configured in Remnawave.
+- **It never stores an access link.** There is no subscription-URL column anywhere in the schema;
+  `GET /api/subscriptions/by-id/{id}` is called live per request and the response carries
+  `Cache-Control: no-store` and `Referrer-Policy: no-referrer`. A link is a bearer credential and
+  Omniflow treats it as one.
+- **It never exposes a hardware identifier.** Device lists are addressed by a digest — a truncated
+  SHA-256 in the operator panel, an opaque handle in the customer panel — and removal resolves the
+  digest back server-side. A value that never reaches a browser cannot leak from one.
+- **It never creates a second Remnawave user** for a subscription that already has one; it recovers
+  by username first.
+- **It never silently recreates state** it did not expect to be missing: a deleted remote user is
+  recorded as a `missing_remote` drift before the next pass recreates it.
+- **It never proxies Remnawave.** No Omniflow endpoint forwards a request to the panel; every
+  Remnawave call originates from a named feature.
+
+## When Remnawave is unreachable
+
+| Surface | What happens |
+| --- | --- |
+| Customer overview (`/account`) | Each subscription is marked `live: false` and the payload `degraded`. The page renders from Omniflow's own record rather than failing |
+| Customer device routes | `503 upstream_unavailable` |
+| Operator device routes (`/v1/panel`) | `502 remnawave_unavailable` |
+| Provisioning | The operation stays pending; the job retries with `5s × 2^min(attempt, 8)` backoff up to 12 attempts, and a deduplicated operator notice is queued after three failures |
+| Readiness | The `remnawave` check turns unhealthy; after the failure streak, maintenance opens |
+
+The two different codes for one condition are a real inconsistency in the API: a client library or a
+runbook that treats "Remnawave is down" as a single case has to know both.
+
+The operator notice carries identifiers and a classified error code only — never a Remnawave
+response body. Same for fulfillment history, which records an end date, whether a traffic and device
+limit were configured, and a squad *count*, but never squad identifiers or links.

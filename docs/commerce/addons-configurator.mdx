@@ -1,16 +1,18 @@
 ---
 title: Add-ons and the subscription configurator
-description: Plan-scoped squad sets, mid-period capacity, and the proration rules behind each price.
+description: Plan-scoped squad sets, add-on versions, mid-period capacity, and the proration rules behind each price
 ---
 
 Two things let a customer shape a subscription beyond picking a plan: choosing which squads it uses, and buying extra capacity part-way through a period.
+
+Both are authored on the plan version, both are validated on the server rather than in the interface, and both end up folded into a single entitlement so that Remnawave receives one desired state rather than a plan followed by a correction.
 
 ## Plan-scoped squad sets
 
 A plan version carries two squad collections:
 
 - `remnawave_squad_ids` — always assigned to every subscription on that plan;
-- `plan_version_squads` — the selectable set, each row carrying a Russian and an English label.
+- `plan_version_squads` — the selectable set, each row carrying a Russian and an English label and a sort order.
 
 `squad_selection` decides what the customer may do:
 
@@ -20,18 +22,57 @@ A plan version carries two squad collections:
 | `optional` | The customer may add squads from the offered set, within `max_selectable_squads`. |
 | `required` | The customer must pick at least `min_selectable_squads`, and at least one. |
 
+An empty value behaves as `automatic`, and any value outside the three is refused outright rather than guessed at.
+
 The final squad set for the entitlement is the included squads plus the accepted selection, deduplicated and sorted. Sorting matters: two customers who pick the same squads in a different order must produce byte-identical entitlement state, otherwise drift detection would report a mismatch that is not real.
 
 A selection is validated against the plan on the server. Callback data naming a squad the plan does not offer is refused with `squad_not_offered`, so a crafted callback cannot attach a squad the customer never paid for.
 
 The configurator only appears when a plan actually offers a choice. A plan with `automatic` selection goes straight from the plan screen to payment, exactly as before.
 
+### The refusals in full
+
+| Reason | Raised when |
+| --- | --- |
+| `squad_selection_not_allowed` | The plan assigns squads automatically, or the stored selection mode is unrecognised |
+| `squad_selection_required` | The plan requires a choice and nothing was chosen |
+| `squad_not_offered` | A submitted squad is not in the version's offered set |
+| `squad_selection_too_few` | Fewer than `min_selectable_squads` were chosen |
+| `squad_selection_too_many` | More than `max_selectable_squads` were chosen |
+
+All five wrap one domain error and surface as HTTP 422 with the reason as the RFC 9457 `type`, which both customer surfaces translate into their own copy.
+
+The database backs the bounds up: `min_selectable_squads` at least 0, `max_selectable_squads` above 0 when set, a named cross-column check requiring the maximum to be at least the minimum, and labels of 1–80 characters in each language.
+
+### Choosing squads at checkout
+
+*Web.* On `/account/checkout`, a **Servers** fieldset appears only when the plan reports the selection as configurable. Each checkbox sends `PATCH /v1/account/checkout` with the whole `squadIds` array, and the server re-prices and returns the entire checkout. The bounds the page shows are guidance only: the real check runs at order creation, because a second implementation of the same counting rule in React is exactly what would eventually let through a set the order then refuses.
+
+*Telegram.* Choosing a payment method opens the squad configurator first when the plan is configurable, and each `squad:` callback toggles one squad.
+
+`GET /v1/account/plans/{planVersionID}` returns the whole picture as `squads` with `selection`, `minimum`, `maximum`, `configurable`, and the offered list. The confirmed set is stored on the order in `selected_squad_ids`; if it is empty, settlement falls back to the plan version's own set.
+
+<Warning>
+  A choosable squad set cannot currently be authored from `/admin`. The plan
+  version editor validates `squadSelection` against `automatic`,
+  `customer_choice`, and `fixed`, while the `plan_versions` CHECK constraint
+  allows `automatic`, `optional`, and `required` — the only three values the
+  domain implements. Publishing anything but `automatic` from the panel fails at
+  the database with HTTP 500 `operation_failed`, and `optional` or `required`
+  sent to the panel is refused with 422 before it gets that far.
+
+  Until the two lists agree, publish such a version by calling
+  `POST /v1/panel/catalog/plans/{planID}/versions` directly with the database's
+  values. [Catalog and promotions](/commerce/catalog-promotions) has the full
+  version editor reference.
+</Warning>
+
 ## Add-ons
 
 An add-on adds capacity to a subscription. It can be bought two ways:
 
 - **With the plan**, at checkout or in a saved cart. It is charged on the same order, so one confirmation is one payment, and it covers the whole first period at the catalog price.
-- **Mid-period**, against a live entitlement. It is charged on its own order and priced with its version's proration rule against the time the period has left.
+- **Mid-period**, against a live entitlement. It is charged on its own order, with `operation = 'addon'`, and priced with its version's proration rule against the time the period has left.
 
 Three kinds exist:
 
@@ -41,11 +82,91 @@ Three kinds exist:
 | `devices` | Device slots on top of the entitlement's limit |
 | `squads` | Additional Remnawave squads |
 
-An add-on is offered only for plan versions that list it in `plan_version_addons`. Buying one against a plan that does not offer it is refused with `addon_unavailable`.
+An add-on is offered only for plan versions that list it in `plan_version_addons`. Buying one against a plan that does not offer it is refused with `addon_unavailable`. That join is not only curation: the add-on identifier arrives in customer-controlled callback data or a URL path, so the join is the check that stops a customer attaching an add-on to a plan it was never priced for. An identifier that is not even a UUID is treated the same way rather than as a parse error.
 
 ### Versioned pricing
 
-Add-ons are versioned exactly like plans. `addon_versions` is immutable once an order references it, and `order_addon_lines` stores a snapshot of the version's capacity, price, and proration rule at purchase time. Changing an add-on's price creates a new version; it never rewrites a historical order.
+Add-ons are versioned exactly like plans. The add-on row carries presentation and is mutable; the version carries what the customer gets and what it costs, and is not. `addon_versions` is immutable once an order references it, and `order_addon_lines` stores a snapshot of the version's capacity, price, and proration rule at purchase time. Changing an add-on's price creates a new version; it never rewrites a historical order.
+
+### Authoring an add-on
+
+<Steps>
+  <Step title="Open the catalogue">
+    Go to `/admin/catalog` and switch to the **Add-ons** tab. The list shows the
+    code, a kind badge, the current version as `v{n}`, and a Visible or Hidden
+    badge. It is read-only — there is no edit or retire control on a row.
+  </Step>
+  <Step title="Describe it">
+    Press **New add-on**. Fill Code, Kind, Name (EN), Name (RU), and the
+    kind-dependent payload: Traffic in GB, Device slots, or a comma-separated list
+    of squad IDs. Traffic is converted to bytes in the browser before it is sent.
+  </Step>
+  <Step title="Price it and bound it">
+    Set Maximum quantity, the mid-period pricing rule, and Prices in the same
+    `RUB=19900, USD=299` form the plan editor uses. Flip **Visible** and type a
+    reason.
+  </Step>
+  <Step title="Save">
+    Submitting calls `PUT /v1/panel/catalog/addons` (`catalog.write`) and returns
+    the add-on ID. Audit `panel.addon.saved`.
+  </Step>
+</Steps>
+
+Saving an existing code upserts the add-on row — visibility and sort order only — and **publishes a new version every time**. There is no in-place edit, for the same reason plans have none: a historical order must keep costing what it cost.
+
+What the save refuses, all with 422:
+
+- A missing code, or a code that does not match `^[a-z][a-z0-9_-]{1,63}$`;
+- A proration rule outside the three known ones;
+- A maximum quantity below 1;
+- No prices at all;
+- A `traffic` add-on with no traffic, a `devices` add-on with no slots, a `squads` add-on with no squads, or any other kind;
+- A name missing in either language. A missing translation is refused rather than stored blank, because an add-on with no name in one language is an empty row on the customer's screen.
+
+Retiring a version is `POST /v1/panel/catalog/addon-versions/{addonVersionID}/retire` (`catalog.write`, audit `panel.addon_version.retired`). Retiring one that is already retired matches no row and answers 404. There is no retire control in the panel either.
+
+<Note>
+  The add-on offer set on a plan version is populated only by the `addonIds`
+  array on `POST /v1/panel/catalog/plans/{planID}/versions`, and publishing
+  **replaces** that set rather than merging it. The panel's version editor does
+  not send the field, so every plan version published from `/admin/catalog`
+  offers no add-ons at all. Populating it means calling the versions endpoint
+  directly.
+</Note>
+
+The offer check matches by add-on rather than by add-on version, so any live version of an offered add-on qualifies once the add-on is listed.
+
+### Buying add-ons with the plan
+
+*Web.* `/account/checkout` renders an **Add-ons** section when the plan version offers any. Each entry is a toggle button; tapping it calls `POST /v1/account/checkout/addons/{addonVersionID}`, which toggles the line at quantity one and returns the whole re-priced checkout. The quote breakdown then reports `addonMinor` separately from `subtotalMinor` and `discountMinor`, because a customer told only what they owe cannot tell a promotion from an add-on, and the two have very different consequences if either is wrong.
+
+*Telegram.* The checkout screen grows an add-ons button when the plan offers any; the list toggles one entry per tap.
+
+Toggling an add-on the plan does not offer answers 404 `plan_unavailable` on the web and "that add-on is no longer available" in the bot. An archived add-on, a retired version, or one with no price in the order currency is refused with `addon_unavailable`.
+
+<Note>
+  A promo code discounts the **plan price only**. The subtotal is the plan price
+  plus the add-on total, but the discount is computed against the plan price
+  alone, so a percentage off never eats into add-on capacity.
+</Note>
+
+### Buying add-ons mid-period
+
+*Telegram.* Subscriptions → pick one → **Add-ons** → tap an add-on. The purchase becomes its own order at quantity one; the wallet settles it when the balance covers it, and otherwise the ordinary payment screen appears.
+
+*Web.* **Not available.** There is no route under `/v1/account` for buying an add-on against a live subscription. The customer web panel can select add-ons inside a checkout and nowhere else.
+
+A mid-period purchase refuses with:
+
+| Refusal | Raised when |
+| --- | --- |
+| `no_active_subscription` | The target subscription has no live entitlement — "add-ons can only be bought for an active subscription" |
+| `ErrSubscriptionUnknown` | The subscription is not this customer's |
+| `ErrAddonQuantity` | Quantity is zero or below, or above the version's `max_quantity` |
+| `ErrUnsupportedProration` | The stored proration rule is not one this build knows |
+| `addon_unavailable` | Archived, retired, unpriced in the order currency, or not offered for that plan |
+
+Maintenance blocks the purchase entirely, like any other order. Reusing an idempotency key with different add-on parameters is refused rather than silently resolved to the earlier order. The same add-on twice in one order is refused outright.
 
 ### Proration rules
 
@@ -55,9 +176,9 @@ The proration rule is a property of the add-on version, and it is always explici
 | --- | --- | --- |
 | `full_price` | The catalog price, whatever remains of the period | Capacity that does not decay, such as device slots |
 | `remaining_period` | Catalog price × remaining ÷ total, rounded up to the next minor unit | Traffic, where value scales with time |
-| `daily_rate` | Catalog price ÷ whole period days, rounded up, × remaining days, rounded up | Add-ons an operator prices per day |
+| `daily_rate` | Catalog price ÷ whole period days, rounded up, × remaining days, rounded up, capped at the full price | Add-ons an operator prices per day |
 
-Three properties hold for every rule:
+Three properties hold for every rule, and each has its own unit test:
 
 1. A prorated charge never exceeds the catalog price.
 2. Rounding is always up, so a partial period never rounds to nothing.
@@ -75,16 +196,59 @@ entitlement.device_limit            += Σ slots × quantity
 entitlement.remnawave_squad_ids      = existing ∪ add-on squads
 ```
 
-An entitlement with an unlimited allowance stays unlimited: adding capacity to "no limit" is meaningless, so a null limit is left null.
+<Warning>
+  An entitlement with an unlimited allowance stays unlimited: the update leaves a
+  null traffic allowance or device limit null, because adding capacity to "no
+  limit" is meaningless.
+
+  Nothing on the customer surfaces prevents the purchase or warns about it,
+  though. A traffic add-on offered on an unlimited plan is listed, priced,
+  charged, and recorded, and grants nothing. Do not offer capacity add-ons on
+  plan versions whose corresponding limit is unlimited.
+</Warning>
 
 Squads are a set and are never multiplied by quantity. Buying two of the same squad add-on charges twice and grants the same squads once, which is why `max_quantity` on a squad add-on should be 1.
+
+Every priced line is snapshotted onto `order_addon_lines` with the code, kind, version, traffic, slots, squads, proration rule, and period end, so an order explains itself years later without reading the catalogue.
 
 ### Idempotent fulfillment
 
 `entitlement_addons` is unique on `(order_id, addon_version_id)`. A replayed settlement finds the row already present, skips it, and leaves the entitlement untouched. Only lines that were actually inserted contribute to the totals, so a partial replay cannot double-count.
 
-A mid-period add-on order enqueues its own fulfillment operation keyed `order:<order id>:addon`, so the operation itself is created once however many times settlement is attempted. An add-on bought with the plan needs no separate operation: it is already part of the entitlement the plan's own `create` operation provisions.
+A mid-period add-on order enqueues its own fulfillment operation keyed `order:<order id>:addon`, carrying the `set_limits` operation for the combined result, and the order moves to `fulfilled`. An add-on bought with the plan needs no separate operation: it is already part of the entitlement the plan's own `create` operation provisions. [Fulfillment](/commerce/fulfillment) covers what happens to that operation next.
 
 ### When there is nothing to attach to
 
-If the target subscription has no live entitlement by the time an add-on settles, the money is not lost and nothing is rolled back. The order stays `paid`, an `addon.no_active_entitlement` audit event is written, and an operator notice is queued so a human can refund or re-apply it. Rolling back a recorded payment would be worse than leaving an operator a clear task.
+If the target subscription has no live entitlement by the time an add-on settles, the money is not lost and nothing is rolled back. The order stays `paid`, an `addon.no_active_entitlement` audit event is written in the `financial` category with a failure outcome, and an operator notification of kind `fulfillment_failure` is queued, deduplicated on the order. Rolling back a recorded payment would be worse than leaving an operator a clear task — nothing here may roll back money that has already been taken.
+
+## API reference for this area
+
+| Route | Auth | Purpose |
+| --- | --- | --- |
+| `GET /v1/panel/catalog/addons` | `catalog.read` | List add-ons |
+| `GET /v1/panel/catalog/addons/{addonID}/versions` | `catalog.read` | Version history for one add-on |
+| `PUT /v1/panel/catalog/addons` | `catalog.write` | Create an add-on or publish its next version |
+| `POST /v1/panel/catalog/addon-versions/{addonVersionID}/retire` | `catalog.write` | Retire one version |
+| `POST /v1/panel/catalog/plans/{planID}/versions` | `catalog.write` | Publish a plan version, including its `addonIds` offer set |
+| `GET /v1/account/plans/{planVersionID}` | Customer session | The squad offer and the add-on offer for one version |
+| `PATCH /v1/account/checkout` | Customer session | Submit a squad selection |
+| `POST /v1/account/checkout/addons/{addonVersionID}` | Customer session | Toggle one add-on on the open checkout |
+
+The add-on save and retire routes and the plan versions route are implemented but missing from `api/openapi.yaml`, so they are absent from the generated client and the published API reference. [Integrating with the API](/integrations/api) explains how to call them anyway.
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="Catalog and promotions" icon="tags" href="/commerce/catalog-promotions">
+    Plans, immutable versions, prices, trials, and the promotion rules a discount obeys.
+  </Card>
+  <Card title="Concurrent subscriptions" icon="layer-group" href="/commerce/subscriptions">
+    The entitlement an add-on attaches to, and what happens when its period ends.
+  </Card>
+  <Card title="Fulfillment" icon="tower-broadcast" href="/commerce/fulfillment">
+    How the combined desired state reaches Remnawave, and what a failed operation looks like.
+  </Card>
+  <Card title="Wallet top-ups and saved carts" icon="wallet" href="/commerce/wallet-topup-cart">
+    Add-ons inside a saved cart, and why a cart is always re-priced before it charges.
+  </Card>
+</CardGroup>

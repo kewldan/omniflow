@@ -1,17 +1,244 @@
 ---
 title: Technology stack
-description: Supported foundations and deliberately deferred infrastructure.
+description: Every component Omniflow runs on, why it is there instead of the obvious alternative, and what is deliberately absent
 ---
+
+Omniflow is a Go 1.26 module and one Next.js application, deployed as five containers plus a reverse proxy
+of the operator's choosing. Nothing in the stack requires a broker, an orchestrator, or a plugin runtime,
+because the target deployment is a single Linux server run by one person who also runs the VPN panel.
+
+Each choice below is written with the alternative it displaces, so a contributor can tell which decisions
+are load-bearing and which are merely current.
 
 | Layer | Technology |
 | --- | --- |
-| Backend | Go 1.26, Chi, OpenAPI, pgx, sqlc, River |
+| Backend | Go 1.26, chi v5, pgx v5, sqlc, River v0.43 |
 | Data | PostgreSQL 18, Atlas, Valkey 9 |
-| Frontend | One Next.js 16.3 app, React, TypeScript 7, SWR, Zustand, Tailwind v4, shadcn/ui |
-| Forms | React Hook Form and Zod |
-| Localization | next-intl, Russian and English |
-| Tooling | Bun workspaces, Biome formatting and linting, Orval Fetch/SWR generation |
-| Observability | slog, OpenTelemetry, Prometheus |
-| Deployment | Docker Compose; user-selected reverse proxy |
+| Contract | OpenAPI 3.0.3, oapi-codegen, Orval |
+| Frontend | One Next.js 16.3 app, React 19, TypeScript 7, SWR, Zustand, Tailwind v4, shadcn/ui |
+| Forms and validation | React Hook Form, Zod |
+| Localisation | next-intl, Russian and English |
+| Tooling | Bun workspaces, Biome, Playwright, Testcontainers |
+| Observability | `log/slog`, Prometheus, OpenTelemetry instrumentation |
+| Deployment | Docker Compose, distroless and Alpine images, operator-chosen reverse proxy |
 
-NATS, WASM plugins, Kubernetes, Helm, Pulumi, and a dependency-injection framework are intentionally deferred until demonstrated scale or extension requirements justify them.
+## Go, as one module with three entrypoints
+
+`go.mod` declares `go 1.26.0` and one module, `github.com/omniflow/omniflow`. `cmd/api`, `cmd/bot`, and
+`cmd/worker` compile from the same tree, so a domain change reaches all three at once and there is no
+version skew between an API that writes a row and a worker that reads it.
+
+The alternative — three services with three repositories and three deployment cadences — would buy
+independent scaling that no installation of this size needs, in exchange for a distributed protocol
+between checkout, entitlement, and provisioning. Instead, the boundary that matters is a PostgreSQL
+transaction. See [Architecture overview](/architecture/overview).
+
+Reachability is a real constraint rather than a convention: `go list -deps ./cmd/<name>` shows exactly what
+each process can touch, and the `api` binary genuinely does not contain the campaign runner or the
+retention sweeper.
+
+## chi rather than a framework
+
+`github.com/go-chi/chi/v5` is a router over `net/http`, not a framework. Every handler is an
+`http.HandlerFunc` and every middleware is a plain `func(http.Handler) http.Handler`, which is why the
+three prefixes can carry three genuinely different middleware stacks in one process without any of them
+inheriting another's.
+
+Two chi behaviours are load-bearing. `middleware.RequestID` assigns the identifier that ends up in the
+`X-Request-ID` response header, in every problem body as `request_id`, in audit rows, in fulfillment
+correlation IDs, and in customer security events — one string that ties a customer's complaint to a
+handler log line and a Remnawave call. And `chi.RouteContext(...).RoutePattern()` gives the metrics
+middleware a route **template** to label with, so a path containing a customer identifier never becomes a
+Prometheus label value.
+
+## pgx, sqlc, and Atlas
+
+`pgx/v5` is used directly, with no ORM. Queries live as SQL in `database/queries/` and sqlc generates
+typed Go into `internal/database/dbgen` with `sql_package: pgx/v5`. What that buys is that the SQL a
+reviewer reads is the SQL that runs — including the parts of PostgreSQL an ORM tends to hide, and which
+this codebase leans on heavily: `ON CONFLICT … DO UPDATE … RETURNING` for idempotent inserts,
+`pg_advisory_xact_lock` to make a concurrency ceiling hold under two simultaneous purchases, `SELECT …
+FOR UPDATE` inside serializable transactions, partial unique indexes, and `CHECK` constraints that make
+invalid states unrepresentable.
+
+Schema changes go the other way round from a migration-first tool: edit `database/schema.sql`, generate a
+reviewed Atlas migration with `make atlas-diff`, then regenerate sqlc. Migrations are forward-only —
+there are no down-migrations, and a schema rollback is a restore. `database/migrations/atlas.sum` is
+produced only by `atlas migrate hash` and is never hand-edited: a checksum mismatch means the migration
+changed, not that the file is stale.
+
+CI applies every committed migration from several baselines up to head and proves that re-applying head
+changes nothing, and the integration suite applies them into a Testcontainers PostgreSQL 18.4. See
+[Database](/contributing/database).
+
+## River for durable work
+
+`riverqueue/river v0.43.0` with the `riverpgxv5` driver runs jobs in the same PostgreSQL database as
+everything else. That is the point: a job can be inserted with `InsertTx` inside the transaction that
+made the state change requiring it, which a broker in a separate system cannot offer without a two-phase
+protocol or an outbox dispatcher. `AGENTS.md` makes it a rule and forbids introducing a broker without an
+accepted architecture decision.
+
+Three queues are configured — `critical` (16 workers), `default` (32), and `bulk` (8) — and two job kinds
+exist, `fulfillment` and `goods_delivery`, both `critical` with `MaxAttempts: 12`.
+
+<Note>
+  River's own tables are not created by anything in this repository: no committed migration defines
+  `river_job` and its siblings, nothing imports `rivermigrate`, and the compose `migrate` service applies
+  Atlas over Omniflow's schema only. Provisioning the queue schema is not part of the documented
+  deployment today.
+</Note>
+
+Work that is a whole-table pass with no per-record argument stays on a `time.Ticker` instead, because a
+durable queue would add a row and a retry policy to something a ticker already expresses. Both models are
+inventoried in [Jobs and queues](/operations/jobs-and-queues).
+
+## PostgreSQL 18 and Valkey 9
+
+PostgreSQL is the only durable source of truth. The compose stack pins `postgres:18.4-alpine`, and the
+`bot` and `worker` images carry `postgresql18-client` so `pg_dump` and `pg_restore` match the server's
+major version — the Dockerfile warns against lowering the Alpine base below 3.23, which is the first
+release carrying that package.
+
+Valkey (`valkey/valkey:9.1.1-alpine`) is used for rate-limit counters, single-use replay tokens, locks,
+and cache, and is run with `--save "" --appendonly no`. Persistence is switched off deliberately: nothing
+in Valkey is allowed to be the only copy of anything. Both primitives are one Lua script each — `Allow`
+is `INCR` plus `PEXPIRE`, `Once` is `SET NX PX` — and both return an error rather than a permissive
+default when the client is missing, so an outage cannot silently remove a protection.
+
+Backups shell out to `pg_dump --format=custom` and `pg_restore` rather than reimplementing them, so a
+backup is always restorable with standard PostgreSQL tooling; the encryption is a framed AES-256-GCM
+wrapper around that stream. See [Backup and restore](/operations/backup-restore).
+
+## OpenAPI 3.0.3 and generated bindings
+
+`api/openapi.yaml` is the contract. It is OpenAPI **3.0.3** rather than 3.1 because the selected Go
+generator does not yet have stable 3.1 support, and `AGENTS.md` records that as the condition for moving.
+
+`make generate` runs three generators: `go tool oapi-codegen` for Go server types, `go tool sqlc generate`
+for the database layer, and `bun run generate:api`, which drives Orval twice — once for TypeScript types
+and SWR hooks, once for Zod schemas. CI regenerates all of it and fails on any diff, so a contract change
+committed without regeneration does not merge.
+
+The transport the web app actually uses is hand-written (`packages/api-client/src/fetcher.ts`) rather than
+generated, and this is deliberate and documented in the file itself: Orval 8.24's SWR client emits bare
+`fetch` calls and ignores `override.mutator`, so a generated hook would send neither the session cookie
+nor the CSRF token — every mutation through one would be rejected and every read would be anonymous. The
+wrapper targets the same generated types, so request and response shapes stay checked against the
+contract; only the transport differs. It sets `credentials: "include"`, re-reads the `X-CSRF-Token`
+response header after every call so a long-lived tab survives session rotation, leaves `Content-Type`
+alone for `FormData` because only the browser knows its own multipart boundary, and turns a problem
+response into an `ApiError` whose `code` is the last segment of the problem `type`.
+
+Contributors should know that the generated Go server types in `internal/httpapi/apigen` are currently
+imported by nothing: handlers decode into anonymous structs and write hand-built maps. Nothing validates a
+response against the schema at build or run time, so a schema change needs a test to be enforced.
+
+## The web application
+
+One Next.js 16.3 application (`apps/web`) carries both surfaces: `/account` for customers and `/admin` for
+operators. One app rather than two means one component system, one localisation catalogue, and one build
+to keep green — and the route split is organisational only, since authorization is enforced by the Go API
+on every request.
+
+| Concern | Choice | Why it, specifically |
+| --- | --- | --- |
+| Server state | SWR 2.5 | Revalidation and cache keying against a REST API, without a client-side store pretending to be a database |
+| Complex local state | Zustand 5 | Reserved for state that genuinely spans components; ordinary screens use React state |
+| Forms | React Hook Form 7.85 | Uncontrolled inputs, so a long operator form does not re-render on every keystroke |
+| Validation | Zod 4.4 | Applied at trust boundaries, and generated from the same OpenAPI file as the types |
+| Styling | Tailwind v4 with shadcn/ui in `packages/ui` | Both panels use the same primitives, so an operator screen and a customer screen cannot drift apart visually |
+| Localisation | next-intl 4.13 | All user-facing copy lives in Russian and English message catalogues; no string is inlined in a component |
+
+The production image builds with Bun 1.3.14 and serves Next.js standalone output from `node:26.7-alpine`
+on port 3000.
+
+## Tooling
+
+Bun workspaces (`apps/*`, `packages/*`) handle installation and scripts, with `bun.lock` committed and no
+npm, pnpm, or Yarn lockfile alongside it — one lockfile means one dependency graph. Biome 2.5 is the only
+TypeScript and JavaScript formatter and linter, so formatting is never a review topic. TypeScript is 7.0,
+and generated clients must not depend on TypeScript's removed programmatic APIs.
+
+Testing splits three ways by what each layer can prove. `go test -race -cover ./...` runs with no Docker
+daemon at all, because the Testcontainers suites live in `internal/integrationtest` behind the
+`integration` build tag. Those suites apply every committed migration into a real PostgreSQL and exercise
+the repositories. Playwright runs against a **production** build, on the grounds that a gate passing
+against a build nobody ships is not a gate.
+
+## Observability
+
+`log/slog` writes JSON to stdout on the API and bot and to stderr on the worker, at the handler's default
+level. There is no log-level, log-format, or log-destination environment variable anywhere in the
+repository, so raising verbosity is a code change. A shared redactor strips bot tokens, bearer and
+credential values, card-like digit runs, `hwid` and `charge_id` pairs, and any URL in scheme `http(s)`,
+`vless`, `vmess`, `trojan`, or `ss` — replaced entirely, because even the host identifies the installation
+a customer connects to. The stated trade is that an over-redacted log line is a minor inconvenience while
+a leaked subscription link is a security incident.
+
+Prometheus metrics come from a per-process registry (not the global one), served at `/metrics` with a
+constant `service` label of `api`, `bot`, or `worker`. Every label is a bounded, non-identifying value,
+because label values are retained indefinitely by a scrape target.
+
+OpenTelemetry instrumentation is wired at four hops: `otelhttp` on the inbound router and the outbound
+client, `otelpgx` on the connection pool, a span per Telegram update, and a span per fulfillment job.
+`otelpgx` records statement text and never argument values; the outbound client records method and host
+only.
+
+<Note>
+  Omniflow never installs a tracer provider. `otel.SetTracerProvider` appears nowhere, no OTLP exporter is
+  imported, and no `OTEL_*` variable is read by any process. The global provider is therefore a no-op and
+  the spans described above are not exported anywhere. The instrumentation is in place; the exporter is
+  not.
+</Note>
+
+[Observability](/operations/observability) lists the probes, the metrics that are actually written, and
+the log lines worth alerting on.
+
+## Deployment
+
+`compose.yaml` at the repository root defines the whole single-server stack: `postgres`, `valkey`, a
+one-shot `migrate` service running `arigaio/atlas:1.3.0`, then `api`, `bot`, `worker`, and an optional
+`web` behind the `web` profile. Only `api` and `web` publish host ports; PostgreSQL and Valkey stay on the
+internal network.
+
+Images are built from `build/go.Dockerfile` with `CGO_ENABLED=0 go build -trimpath`. `RUNTIME=static`
+produces a distroless `nonroot` image for the API; `RUNTIME=postgres` produces an Alpine image with the
+PostgreSQL client for the bot and worker, which need it for backups. Released images are pushed to GHCR
+for `linux/amd64` and `linux/arm64` with provenance and an SBOM.
+
+No reverse proxy is bundled and none is required. `deploy/proxies/` carries CI-validated Caddy and Traefik
+examples that terminate TLS, cap request bodies, set security headers, and — the part that matters — keep
+`/metrics` and `/readyz` off the public API host. Traefik's example disables access logs, because a
+request path can be a subscription link. See [Reverse proxy](/operations/reverse-proxy).
+
+## What is deliberately absent
+
+- **A message broker.** Domain events go through the transactional outbox instead, and `AGENTS.md`
+  requires an accepted architecture decision before a broker is introduced.
+- **A dependency-injection framework.** Wiring is explicit in each `main`, which is verbose and readable;
+  it changes when wiring complexity actually demands it.
+- **An ORM.** SQL is written, reviewed, and generated into types.
+- **Kubernetes, Helm, and Pulumi.** The only deployment topology in the repository is Docker Compose plus
+  two proxy examples.
+- **A plugin runtime.** There is no WASM host, no plugin ABI, and no extension point that loads third-party
+  code into a process.
+- **A second place that decides what a role may do.** The permission catalogue and role mapping are
+  compiled into `internal/rbac`, so a database edit cannot widen access.
+
+## Related reading
+
+<CardGroup cols={2}>
+  <Card title="Architecture overview" icon="sitemap" href="/architecture/overview">
+    The processes, the request paths, and the transactional pattern.
+  </Card>
+  <Card title="Development" icon="code" href="/contributing/development">
+    Workspace setup, the generators, running the stack, and the checks.
+  </Card>
+  <Card title="Database" icon="database" href="/contributing/database">
+    Schema, Atlas, sqlc, and the migration rules.
+  </Card>
+  <Card title="Deployment" icon="server" href="/operations/deployment">
+    Compose topology, volumes, upgrades, and rollback.
+  </Card>
+</CardGroup>

@@ -1,0 +1,404 @@
+---
+title: "Notifications and announcements"
+description: "How Omniflow decides whether a customer may be messaged, what a customer can turn off, and where announcements are kept"
+---
+
+Every message Omniflow sends a customer passes through one decision function.
+It reads the notification's kind, the customer's per-kind preferences, their
+marketing consent, their quiet window, the marketing frequency cap, and the
+health of their Telegram delivery, and it answers with one of three outcomes:
+send now, wait until a stated instant, or do not send and record why.
+
+That function is `commerce.EvaluateDelivery`, and it refuses a kind it does not
+recognise rather than defaulting to "send". Adding a notification without
+deciding whether it is transactional or marketing is therefore impossible: the
+new kind would simply never be delivered, which is a visible failure rather than
+a silent disclosure. Delivery itself runs in the bot process once every 15
+minutes; each stage of a pass — support replies, dunning notices, campaign
+recipients, announcements, and lifecycle candidates — is bounded to 200 items, so
+a large installation degrades in throughput rather than in latency for everyone.
+
+## The two classes
+
+A notification is either **transactional** — a fact about something the customer
+bought or asked for — or **marketing**, which requires an explicit, revocable
+opt-in. The classification is a closed table in the code, not a per-message
+choice made by whoever wrote the message.
+
+| Class | Kinds |
+| --- | --- |
+| Transactional | `expiry`, `traffic`, `renewal`, `grace`, `recovery`, `payment`, `fulfillment`, `support`, `incident`, `maintenance`, `announcement`, `referral`, `trial` |
+| Marketing | `news`, `marketing` |
+
+Four kinds are additionally **urgent** and are never held back by quiet hours:
+`payment`, `fulfillment`, `support`, and `incident`. A customer sitting in the
+middle of a payment, or affected by an outage right now, is not served by a
+message that arrives at eight the next morning.
+
+<Note>
+  `news` is a marketing kind. A news post published in the `news` category
+  therefore needs marketing consent and consumes the frequency cap, while
+  `announcement`, `incident`, and `maintenance` posts do not. This matters when
+  an operator writes an outage notice: publish it as an `incident` or an
+  `announcement`, not as `news`, or only the customers who opted into offers
+  will see it pushed.
+</Note>
+
+## What a customer actually receives
+
+| Message | Kind | When |
+| --- | --- | --- |
+| Expiry reminder | `expiry` | 7, 3, 1, and 0 days before the subscription ends |
+| Traffic warning | `traffic` | at 80% and at 100% of the traffic allowance |
+| Renewal reminder | `renewal` | 7, 3, 1, and 0 whole days before the entitlement ends |
+| Grace notice | `grace` | while the subscription is past its end date but inside its grace period |
+| Recovery offer | `recovery` | while the expired subscription is still inside the recovery window |
+| Provisioning result | `fulfillment` | once per entitlement when provisioning succeeded, and once when it failed |
+| Support reply | `support` | when an operator answers a ticket |
+| Failed automatic charge | dunning | when a recurring charge is declined |
+| Announcement push | the post's category | once per customer per newly published post |
+| Campaign | `marketing` | when an operator runs a campaign |
+
+Alerts are keyed per subscription, so a busy subscription cannot suppress a
+quiet one's expiry notice. Each one carries its own dedupe key — the expiry
+notice is keyed on the end date and the day count, the traffic warning on the
+threshold and the allowance — which is what stops a reminder repeating on every
+pass for a week.
+
+Two paths deliberately bypass the policy machinery:
+
+- **Support replies** are sent directly by the delivery pass, without a
+  suppression record and without consulting quiet hours. They would be urgent
+  anyway; deduplication comes from the message's own `delivered_at` timestamp
+  rather than from a delivery row.
+- **Dunning notices** — a failed automatic charge — are sent regardless of
+  preferences and quiet hours. A customer about to lose access because a card
+  was declined is not served by holding the message until morning, and there is
+  no opt-out for it in the preference model.
+
+<Warning>
+  A customer with no Telegram identity — one who signed in only with a
+  bot-delivered link or an OIDC provider — is never in the recipient set for
+  any of this. They see operator replies and announcements in the web panel when
+  they open it, and nothing is pushed to them anywhere. There is no email or SMS
+  sender in Omniflow.
+</Warning>
+
+## Setting preferences
+
+The same `bot_preferences` row backs both surfaces, so a choice made in one
+applies to the other immediately. Both write to the same four switches, the same
+language field, and the same quiet window.
+
+### In the browser
+
+Open `/account/preferences`, reached from **Account** → **Notifications** on the
+hub at `/account/profile`.
+
+<Steps>
+  <Step title="Choose what we send">
+    Four switches, each on by default: **Subscription expiry**, **Traffic
+    warnings**, **Renewals and payments**, and **Announcements**. Flipping one
+    sends a `PATCH` carrying that field alone.
+  </Step>
+  <Step title="Choose the language of messages">
+    **Follow my account**, **Russian**, or **English**. This is the language the
+    bot writes to you in, not the language of the panel — the panel's own
+    language is set on `/account/profile`.
+  </Step>
+  <Step title="Set quiet hours">
+    The master switch turns on a default 23:00–08:00 window; two selects then
+    move the start and end hour. Turning the switch off sends
+    `{"startHour": 0, "endHour": 0}` rather than omitting the field, because
+    omitting it means "leave the window alone", which is the opposite of what
+    was asked for.
+  </Step>
+  <Step title="Decide about offers">
+    The **Offers and promotions** switch is marketing consent. Under it, the
+    date, the surface, and the terms version of the decision that is currently
+    in force.
+  </Step>
+</Steps>
+
+The screen also shows any active suppression (read-only) and one row per contact
+channel with its verified, service-message, and promotions flags. **The
+addresses themselves are never returned by this route** — the API does not
+select the ciphertext at all, which is a stronger guarantee than remembering to
+drop it before writing the response. Addresses are managed on
+[`/account/privacy`](/customer/privacy).
+
+Every field of the update is a pointer on the server, which is what makes it a
+genuine `PATCH`: an absent field is left alone, so a screen that renders one
+switch cannot silently rewrite the others it never showed. The response is the
+full re-read document, so the panel replaces its cache outright instead of
+revalidating.
+
+### In Telegram
+
+Send `/settings`. The screen carries a language row, the same four toggles, a
+marketing toggle, and a **quiet hours** entry that opens a submenu of three
+presets: 22:00–08:00, 23:00–09:00, and off. The presets are an explicit list
+rather than a free-text time field, so there is no time parser to get wrong and
+the callback data stays closed.
+
+When a marketing frequency cap is configured, the Telegram settings screen states
+it. The web screen does not.
+
+### Which switch governs which message
+
+| Preference | Kinds it governs |
+| --- | --- |
+| Subscription expiry | `expiry` |
+| Traffic warnings | `traffic` |
+| Renewals and payments | `renewal`, `grace`, `recovery`, `trial` |
+| Announcements | `news`, `announcement`, `incident`, `maintenance` |
+| Offers and promotions | `marketing` |
+| No opt-out | `payment`, `fulfillment`, `support`, `referral` |
+
+The last row is the point of the whole model. Those kinds are consequences of
+the customer's own actions, and a preference model that let them be switched off
+would let somebody lose access quietly.
+
+A customer who has never opened a settings screen has no preferences row at all;
+the read falls back to the column defaults — all four switches on, marketing off,
+language `auto`.
+
+## Quiet hours
+
+A quiet window is a local-time window during which non-urgent messages wait
+rather than being dropped. A window whose end is not after its start wraps past
+midnight, so 23:00–08:00 is one window and not two. Equal hours means no window,
+which is the convention both surfaces use to clear it.
+
+When a message lands inside the window, the delivery row is marked `deferred`
+with the instant the window ends. The next pass re-claims a deferred row whose
+instant has passed, which is what turns a deferral into a delay instead of a
+drop.
+
+<Warning>
+  The window is evaluated in `users.timezone`, which defaults to `UTC`. Neither
+  the web preferences screen nor the bot settings screen exposes a timezone
+  control, and the preferences payload does not carry the value — so a customer
+  choosing 23:00–08:00 is choosing it in whatever timezone their account already
+  holds. The only route that writes the field is `PATCH /v1/account/me`, and the
+  panel's language select sends the existing value back unchanged.
+</Warning>
+
+## Marketing consent, and what an unsubscribe does
+
+Marketing consent is not a column somebody keeps up to date. Every decision
+appends a row to `consent_records` with the purpose, the granted flag, the terms
+version, the surface, and the request id that carried it, and the current answer
+is the newest row. A history that can be rewritten is not evidence of anything —
+and "you opted in" is not a useful thing to tell somebody who does not remember
+doing so, where "you opted in on this date, from this surface, under these terms"
+is.
+
+| Surface | `source` | `policy_version` |
+| --- | --- | --- |
+| `/account/preferences` and its unsubscribe | `customer_web` | `web-v0.10` |
+| `/account/privacy` contact channels | `account_web` | `account-web-v0.10` |
+| Telegram `/settings` | `telegram_bot` | `bot-v0.4` |
+
+A preference change appends a row only when the value actually changed. An
+unsubscribe appends one unconditionally, because "they had already opted out" is
+not a reason for their unsubscribe to leave no trace.
+
+### Unsubscribe
+
+`/account/preferences` → **Unsubscribe from everything promotional** → confirm.
+The route takes no body at all: an unsubscribe control that needs a form filled
+in correctly is one that can fail for somebody who has already decided.
+
+In one transaction it sets marketing consent off, sets the announcements switch
+off, clears the promotions flag on every live contact channel, appends a consent
+withdrawal, and writes a suppression row with reason `customer_request`.
+
+It deliberately does not touch expiry, traffic, or renewal. Those carry facts a
+customer needs whether or not they want to hear from the business — that their
+subscription ends on Thursday, that a renewal failed — and an unsubscribe that
+silenced them would turn a marketing preference into a way to lose access
+without warning.
+
+### Suppression
+
+A suppression is not the consent flag. Consent is a preference the customer
+toggles; a suppression survives them toggling it back on by accident, and it can
+also be recorded by an operator for a bounce or a complaint. The preferences
+screen reports an active suppression with its reason and the date it took effect
+and offers no control to lift it — a hold placed because messages kept failing
+to arrive is a finding this screen has no standing to reverse. Turning marketing
+back on deletes only a `customer_request` suppression.
+
+Operators see the list under `/admin/marketing` → **Suppressions** and can lift
+an entry there; adding one is an API call rather than a screen. See
+[campaigns](/commerce/campaigns).
+
+### The frequency cap
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `APP_MARKETING_FREQUENCY_CAP` | `3` | Marketing messages allowed per window. `0` disables the cap. |
+| `APP_MARKETING_WINDOW_HOURS` | `168` | Window length in hours; the default is seven days. |
+
+Both are read by the bot process. The count is taken over delivery rows with
+class `marketing` and status `sent` inside the window, so a suppressed or
+deferred message does not spend an allowance. Because `news`-category posts are
+marketing, an announcement published in that category competes for the same
+three slots a campaign does.
+
+## The decision, in order
+
+`EvaluateDelivery` runs these checks in this sequence and stops at the first one
+that answers:
+
+1. Telegram delivery state is `blocked` → refuse, reason `bot_blocked`;
+   `deactivated` → refuse, reason `user_deactivated`.
+2. The per-kind preference is off → refuse, reason `kind_disabled`.
+3. The message is marketing and there is no consent → refuse, reason
+   `no_marketing_consent`.
+4. The message is marketing and the cap is spent → refuse, reason
+   `frequency_cap`.
+5. A Telegram flood wait is still in force → defer to that instant.
+6. The kind is not urgent and the moment falls inside quiet hours → defer to the
+   end of the window.
+7. Otherwise, send.
+
+Every attempt leaves a row in `notification_deliveries`, unique on
+`(user_id, kind, subscription_id, dedupe_key)` with `NULLS NOT DISTINCT`, whose
+status is one of `pending`, `deferred`, `sent`, `failed`, or `suppressed`, and
+which carries the class and the refusal reason. A `failed` row is retried while
+its failure count is below three; a `deferred` row is retried once its instant
+has passed; a `suppressed` row is final.
+
+Telegram's own failures are classified into a durable state so a blocked or
+deleted account stops consuming retries: `bot_blocked` marks the recipient
+`blocked` and `user_deactivated` or `chat_not_found` marks them `deactivated`,
+neither of which is retried, while a flood wait, a timeout, or a Telegram outage
+marks them `failing`, which is.
+
+## The announcement inbox
+
+A push can be missed. The inbox is the durable place a customer can go back to,
+and it is the same record on both surfaces: reading a post in Telegram stops it
+being unread on the web.
+
+**In the browser** — `/account/news`, reached from `/account/support` → News.
+Posts are listed newest first, 20 at a time behind a **Show older announcements**
+control, with an unread count in the header. Each post carries a category badge —
+`announcement` in the informational tone, `incident` in the danger tone,
+`maintenance` in the warning tone, `news` neutral — and a post whose class is
+`marketing` gets a second **Promotion** badge, because a customer who consented
+to offers is entitled to see which of these is a service notice and which is a
+sales message without inferring it from the wording. Bodies render as plain text;
+nothing in a post is interpreted as markup.
+
+Reading is an explicit act: press **Mark as read**. The panel does not infer it
+from a scroll position, because the shared read state is a claim worth making
+only when the customer actually said so.
+
+**In Telegram** — the **News** menu entry, carrying an unread badge, then a list
+and a post view.
+
+### Which posts appear
+
+A post is visible when its status is `published`, its publication instant is set
+and in the past, and it has not expired. The status check is load-bearing:
+unpublishing keeps the publication timestamp set on purpose, so that republishing
+does not rewrite when customers first saw the post — and a timestamp window alone
+would therefore keep showing a post an operator has taken down.
+
+The language is resolved server-side: an explicit request wins, then the bot
+preference (unless it is `auto`), then the account language, then English. **A
+post with no translation in the resolved language is absent rather than shown in
+another language**, because an inbox that switches language mid-list is harder to
+read than a shorter one. The resolved language comes back with the response, and
+the panel shows a notice when it differs from the one the page is rendered in.
+
+The web panel deliberately sends no language of its own, so that the same
+customer does not read the same announcement in two languages depending on which
+surface they opened.
+
+<Note>
+  There is no operator screen for writing announcements. The only state
+  transition any code performs is the worker's `scheduled` → `published` pass,
+  which runs about once a minute and promotes up to 50 posts whose scheduled
+  instant has arrived. Creating a post, writing its translations, unpublishing
+  it, or archiving it is done by writing `news_posts` and
+  `news_post_localizations` directly.
+</Note>
+
+The push that accompanies a post is sent once per customer per post, to
+customers with a Telegram recipient and a translation in their resolved language,
+and only for posts published within the last seven days — a post the delivery
+pass first sees when it is older than that is never announced.
+
+## Browser notifications
+
+`/account/preferences` → **Browser notifications** → **Turn on browser
+notifications**. The browser's permission prompt follows that click and never a
+page load, because a browser gives a site one ungrudging chance to ask and a
+reflexive "Block" is permanent and cannot be undone from the page.
+
+This is the `Notification` API driven by the polls the panel already runs — it is
+explicitly **not** web push. There is no service worker, no VAPID key, and no
+subscription sent anywhere, because Omniflow has no server-side push to deliver
+one, and a subscription the server never uses is a permission prompt spent on
+nothing. When the tab is closed, Telegram is what reaches the customer.
+
+What that means in practice:
+
+- The opt-in lives in `localStorage` under
+  `omniflow.account.browser-notifications`, so it is a setting of one browser
+  rather than of the account, and it disappears with site data. An account-level
+  flag would claim a setting one device cannot honour.
+- Both halves must agree. A permission revoked in the browser's own settings
+  clears the stored opt-in on the next read.
+- Nothing is fetched at all until the customer has opted in; afterwards the
+  ticket list and the news list are polled every 60 seconds.
+- Nothing is raised while the tab is visible and focused. The feature exists for
+  the tab left in the background.
+- The first poll after opting in establishes a baseline only, so opening the
+  panel with three unread replies fires nothing.
+- Repeats collapse per ticket and per post through the notification tag.
+- A denied permission is never re-requested; the card says to change it in the
+  browser's settings.
+- Chrome on Android throws from the `Notification` constructor because
+  notifications there require a service worker. That is caught and reported as
+  unsupported, with an explanation on the card, rather than becoming a silent
+  no-op.
+- Reply detection compares the **server's** unread count, which is computed from
+  the shared message record — so a reply already read in Telegram arrives here
+  with nothing to announce.
+
+## Reference
+
+| Route | Method | Notes |
+| --- | --- | --- |
+| `/v1/account/preferences` | `GET` | The full document: language, four switches, quiet window, marketing with its evidence, contacts, suppression |
+| `/v1/account/preferences` | `PATCH` | `{locale?, notifications{expiry?,traffic?,renewal?,news?}, marketing?, quietHours?{startHour,endHour}}` — every field optional |
+| `/v1/account/preferences/unsubscribe` | `POST` | No body; returns the refreshed document |
+| `/v1/account/news` | `GET` | `?locale&cursor&limit` (default 20, max 50) → `{items, unreadCount, locale, nextCursor?}` |
+| `/v1/account/news/{postID}/read` | `POST` | 204; marking twice is not an error, an invisible post is 404 |
+
+Refusals are RFC 9457 problem documents. `locale` must normalise to `auto`,
+`ru`, or `en` — the value is lower-cased first, so refusing `EN` would be a rule
+about capitalisation rather than about language. Quiet hours must be whole hours
+between 0 and 23. A customer record that does not exist answers 404.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Customer web panel" icon="browser" href="/customer/web-panel">
+    The rest of what a customer can do from a browser.
+  </Card>
+  <Card title="Telegram bot" icon="telegram" href="/customer/telegram-bot">
+    `/settings`, the news menu, and every other command.
+  </Card>
+  <Card title="Personal data" icon="file-shield" href="/customer/privacy">
+    Contact channels, the consent trail, export, and deletion.
+  </Card>
+  <Card title="Campaigns" icon="bullhorn" href="/commerce/campaigns">
+    The operator side: segments, templates, sends, and suppression.
+  </Card>
+</CardGroup>

@@ -1,31 +1,46 @@
 ---
-title: Health, metrics, and tracing
-description: What each process exposes, what it deliberately does not, and how to probe it.
+title: Health, metrics, and logs
+description: The probes each process exposes, the metrics that are actually written, how logging and redaction work, and the real state of tracing
 ---
 
-Every Omniflow process exposes the same three operational endpoints. They are meant for your orchestrator and your monitoring, not for the public internet — see [Reverse proxy](/operations/reverse-proxy) for how to keep them off the public API host.
+Omniflow's operational surface is deliberately small: three unauthenticated HTTP endpoints, one Prometheus registry per process, and structured JSON logs on stdout. Everything on it is designed for your orchestrator and your monitoring, and none of it belongs on the public API host — both bundled proxy examples return 404 for `/metrics` and `/readyz` on the API domain, because those endpoints answer questions about installation internals to anyone who asks. See [Reverse proxy](/operations/reverse-proxy).
+
+This page describes what exists. Where a metric is declared but never written, it says so, because an alert built on a series that is never emitted is an alert that never fires.
+
+## The three endpoints
 
 | Endpoint | Answers | Use it for |
 | --- | --- | --- |
-| `/livez` | As soon as the process is running | Liveness probe and restart policy |
-| `/readyz` | Only when every dependency answers | Readiness probe and load-balancer membership |
-| `/metrics` | Prometheus text exposition | Scraping |
+| `/livez` | `200 {"status":"ok","version":"…"}` as soon as the process is serving | Liveness probe and restart policy |
+| `/healthz` | The same handler, byte for byte | Compatibility with existing deployments |
+| `/readyz` | `200 {"status":"ready",…}` or `503 {"status":"degraded",…}` | Readiness probe and load-balancer membership |
 
-`/healthz` is retained for compatibility with existing deployments and behaves like `/livez`.
+They are separate because they answer different questions. A process that is running but cannot reach PostgreSQL should be taken out of the pool, not killed and restarted — restarting it does not bring the database back, and a restart loop turns one failing dependency into no capacity at all.
 
-## Listeners
+<Note>
+  `version` is always `dev`. All three binaries declare `var version = "dev"` and neither the Dockerfile nor the release workflow overrides it with a linker flag, so released images report `dev` on `/livez`, in the operator diagnostics bundle, and in the anonymous telemetry heartbeat. Identify a running build by its image tag, not by this field.
+</Note>
 
-| Process | Variable | Default |
-| --- | --- | --- |
-| API | `APP_HTTP_ADDR` | `:8080` |
-| Worker | `APP_WORKER_HTTP_ADDR` | `:8081` |
-| Bot | `APP_BOT_METRICS_ADDR` | unset — the bot serves no HTTP unless you set it |
+### Where each process listens
 
-Set `APP_METRICS_ENABLED=false` to drop `/metrics` while keeping the probes.
+| Process | Variable | Default | Notes |
+| --- | --- | --- | --- |
+| `api` | `APP_HTTP_ADDR` | `:8080` | Always serves the probes, even with no database configured |
+| `worker` | `APP_WORKER_HTTP_ADDR` | `:8081` | An empty value disables the listener entirely |
+| `bot` | `APP_BOT_METRICS_ADDR` | *(unset)* | Unset means the bot serves **no** HTTP at all |
+
+The bot has no probe endpoint out of the box. If your runbook says "check `/readyz` on each process", set `APP_BOT_METRICS_ADDR` first. It is ignored when it equals `APP_BOT_HTTP_ADDR`, the webhook listener's address: publishing metrics on the host Telegram reaches is refused rather than quietly allowed.
 
 ## Readiness
 
-Readiness runs one probe per registered dependency and returns 503 while any of them fails:
+Readiness runs one probe per registered dependency and answers 503 while any of them fails.
+
+| Process | Probes registered |
+| --- | --- |
+| `api`, with `APP_DATABASE_URL` set | `postgres` (`Ping`), `valkey` (`PING`), `remnawave` (authenticated call) |
+| `api`, with no `APP_DATABASE_URL` | none |
+| `worker` | `postgres` |
+| `bot` | `postgres`, and only when a pool exists |
 
 ```json
 {
@@ -38,65 +53,147 @@ Readiness runs one probe per registered dependency and returns 503 while any of 
 }
 ```
 
-The `error` field is a stable classification — `timeout` or `unavailable` — and never the underlying driver message. A pgx or HTTP error routinely contains a host name, a role, or a connection string, none of which belongs in a response an orchestrator logs.
+`error` is a stable classification and only ever `timeout` (the probe's context expired) or `unavailable`. The driver's own message is dropped on purpose: a pgx or HTTP error routinely contains a DSN, a host name or a credential, and an orchestrator logs this body verbatim.
 
-Results are cached briefly, so a burst of readiness requests cannot turn into a burst of database round trips.
+`consecutiveFailures` counts unhealthy samples in a row and resets on the first success. It is the same counter automatic [maintenance mode](/operations/maintenance-mode) streaks on, so a readiness body tells you how close a dependency is to pausing purchases.
 
-The Remnawave probe makes an **authenticated** call. An expired or revoked panel token therefore reports as unavailability rather than passing as a healthy panel.
+Results are cached for 2 seconds and each probe is bounded at 3 seconds, both compiled in. The cache exists so a burst of readiness requests cannot become a burst of database round trips.
+
+The Remnawave probe is an **authenticated** call (`ListUsers` for a single record), which means an expired or revoked panel token reports as unavailability rather than passing as a healthy panel. See [Remnawave](/integrations/remnawave).
+
+<Warning>
+  An API started with no `APP_DATABASE_URL` registers no probes at all and answers `200 {"status":"ready","checks":[]}`. That is a green light for a process that serves only the four operational endpoints and nothing else. If a deployment mistake blanks the database URL, readiness will not catch it — check that `/v1/catalog` answers as well.
+</Warning>
+
+### The same picture in the panel
+
+`GET /v1/panel/overview/health` (permission `system.read`) returns the identical `checks` list, so the panel and the load balancer can never disagree about whether PostgreSQL is up, plus payment-provider and digital-goods-provider status read from the database. The **System → Health** tab renders it and refreshes every 30 seconds. See [Admin panel](/operations/admin-panel).
 
 ## Metrics
 
-Every metric carries a `service` label of `api`, `bot`, or `worker`.
+Each process builds its own isolated Prometheus registry, served at `GET /metrics` in the text exposition format alongside the standard Go and process collectors. Every series carries a constant `service` label of `api`, `bot` or `worker`.
 
-| Metric | Type | Labels |
-| --- | --- | --- |
-| `omniflow_http_requests_total` | counter | `route`, `method`, `status` |
-| `omniflow_http_request_duration_seconds` | histogram | `route`, `method` |
-| `omniflow_telegram_updates_total` | counter | `kind`, `outcome` |
-| `omniflow_telegram_sends_total` | counter | `outcome` |
-| `omniflow_jobs_total` | counter | `kind`, `outcome` |
-| `omniflow_job_duration_seconds` | histogram | `kind` |
-| `omniflow_provider_webhooks_total` | counter | `provider`, `outcome` |
-| `omniflow_payments_total` | counter | `provider`, `operation`, `classification` |
-| `omniflow_remnawave_requests_total` | counter | `operation`, `outcome` |
-| `omniflow_outbox_pending_events` | gauge | — |
-| `omniflow_maintenance_mode` | gauge | — |
-| `omniflow_dependency_up` | gauge | `dependency` |
+Cardinality is bounded by construction. Routes are recorded as chi route **templates** such as `/v1/admin/orders/{orderID}`, never as concrete paths; HTTP status is bucketed to `2xx`, `4xx`, `5xx` or `unknown`; an unmatched request is recorded as `route="unmatched"`. No customer, order or payment identifier is ever a label, because a scrape target retains label values indefinitely and a metrics endpoint is rarely as well protected as an API.
 
-Every label is a bounded, non-identifying value: a route **template** such as `/v1/admin/orders/{orderID}`, a provider name, an operation, or an outcome. A customer, order, or payment identifier never becomes a label. Prometheus retains label values indefinitely and a metrics endpoint is rarely as well protected as an API, so a high-cardinality identifier there is both an operational problem and a privacy one.
+### What is written
 
-Status codes are bucketed to `2xx`, `4xx`, `5xx` for the same reason.
+| Metric | Type | Labels | Written by |
+| --- | --- | --- | --- |
+| `omniflow_http_requests_total` | counter | `route`, `method`, `status` | Every HTTP request on any process that has metrics |
+| `omniflow_http_request_duration_seconds` | histogram | `route`, `method` | The same middleware |
+| `omniflow_telegram_updates_total` | counter | `kind`, `outcome` | The bot, once per update. `outcome` is always `handled` |
+| `omniflow_job_duration_seconds` | histogram | `kind` | `kind="fulfillment"` from the worker, and `kind="telegram.update"` from the bot's update middleware |
+| `omniflow_jobs_total` | counter | `kind`, `outcome` | `kind="fulfillment"` only, with `outcome` `succeeded` or `failed` |
+| `omniflow_provider_webhooks_total` | counter | `provider`, `outcome` | Payment webhook intake. `outcome` is `signature_invalid` for a rejected callback, otherwise the settlement classification below |
+| `omniflow_payments_total` | counter | `provider`, `operation`, `classification` | Payment settlement. `classification` is one of `paid`, `late`, `underpayment`, `overpayment`, `currency_mismatch`, `wallet_unavailable`, `duplicate` |
+| `omniflow_maintenance_mode` | gauge | — | The API's maintenance controller, on every sample |
+| `omniflow_dependency_up` | gauge | `dependency` | Every `/readyz` call, and every maintenance sample on the API |
+
+`omniflow_jobs_total` uses the job **kind**, so the fulfillment series is `kind="fulfillment"`. `fulfillment.operation` is the span name, not a label value, and querying for it matches nothing.
+
+### What is declared but never written
+
+Four metrics appear in `/metrics` output with no samples, because nothing in the code ever sets them:
+
+| Metric | State |
+| --- | --- |
+| `omniflow_outbox_pending_events` | Never `Set`. The outbox has no dispatcher — see [Jobs and queues](/operations/jobs-and-queues#the-transactional-outbox) |
+| `omniflow_remnawave_requests_total` | Never incremented; the Remnawave client is not instrumented |
+| `omniflow_remnawave_errors_total` | Never incremented |
+| `omniflow_telegram_sends_total` | Never incremented; only inbound updates are counted |
+
+Two more gaps are worth knowing when you write a dashboard. Digital-goods delivery jobs are uninstrumented — `omniflow_jobs_total{kind="goods_delivery"}` and its duration series never appear, so a stuck delivery is visible in the panel's shop views but not in Prometheus. And `omniflow_job_duration_seconds{kind="telegram.update"}` has no matching counter series, so a rate over the histogram's `_count` is the only way to get Telegram throughput out of that pair.
+
+### Turning metrics off
+
+`APP_METRICS_ENABLED` defaults to `true` and is read by the **api** and the **worker**: setting it to `false` leaves the metrics object unbuilt, which removes both the `/metrics` route and the HTTP instrumentation middleware while the probes keep working. The bot ignores it — it constructs metrics unconditionally and serves `/metrics` whenever `APP_BOT_METRICS_ADDR` is set to something other than the webhook address.
+
+The metrics object is nil-safe throughout: every recording helper returns early on a nil receiver, so disabling metrics removes instrumentation rather than introducing a crash path.
 
 ### Alerts worth having
 
-- `omniflow_dependency_up == 0` for longer than your maintenance failure streak.
-- `omniflow_maintenance_mode == 1` for longer than a planned window.
-- `omniflow_outbox_pending_events` growing without bound, which means events are being written and not dispatched.
-- A rising rate of `omniflow_payments_total{classification="underpayment"}` or `{classification="wallet_unavailable"}`.
-- Any `omniflow_jobs_total{outcome="failed"}` for `fulfillment.operation`, which means a paid customer is waiting.
+Each of these is built on a series something actually writes:
+
+- `omniflow_dependency_up == 0` for longer than `APP_MAINTENANCE_FAILURE_STREAK × APP_MAINTENANCE_PROBE_SECONDS`, which is the point at which detection will pause purchases.
+- `omniflow_maintenance_mode == 1` for longer than a planned window. Detection opening a window you did not plan is the signal; it staying open is the incident.
+- `rate(omniflow_jobs_total{kind="fulfillment",outcome="failed"}[5m])` above zero — a paid customer is waiting on provisioning that is not landing.
+- A rising rate of `omniflow_payments_total{classification="underpayment"}` or `{classification="wallet_unavailable"}` — money arrived and the order did not settle.
+- Any `omniflow_provider_webhooks_total{outcome="signature_invalid"}` — a provider callback the installation is refusing, usually a proxy that re-encodes the body or a rotated secret.
+- `omniflow_http_requests_total{status="5xx"}` on the `api` service.
+
+Because the outbox gauge is never written, the queue backlog has to be watched through `GET /v1/admin/outbox` or the panel's Outbox tab instead. Read [Jobs and queues](/operations/jobs-and-queues#the-transactional-outbox) before you decide what a growing count means here.
+
+## Structured logging
+
+All three processes log JSON through `log/slog` with no handler options set, which means the default Info level: the API and bot write to **stdout**, the worker to **stderr**. There is no log-level, log-format or log-destination environment variable anywhere in the repository, so debug logging requires a code change. Collect the streams with your container runtime.
+
+### Redaction
+
+Anything that can reach a log line, an operator notification or a diagnostics bundle passes through a shared redactor first. It removes:
+
+- Telegram bot tokens, and bearer, basic, token, API-key, secret, password and authorization values
+- 13-to-19-digit runs, which is card-shaped
+- `hwid`, `device_id`, `charge_id` and `invoice_payload` pairs
+- **Any** URL in the `http`, `https`, `vless`, `vmess`, `trojan` or `ss` schemes, replaced entirely — even the host identifies the installation a customer connects to
+
+Structured payloads are additionally redacted by key name, matching `token`, `secret`, `password`, `authorization`, `signature`, `api_key`, `hwid`, `subscription_url`, `checkout_url`, `raw_body`, `payload`, `card`, `pan`, `cvv`, `iban`, `email` and `phone`. It is applied to operator notification payloads before the row is written and to the last error on a job before it leaves the process.
+
+The redactor is deliberately aggressive: an over-redacted log line is a minor inconvenience, while a leaked subscription link or bot token is a security incident.
+
+### Classifications instead of messages
+
+Most operational paths log a stable code rather than an error string, which is what makes them safe to log and searchable at the same time:
+
+| Area | Codes |
+| --- | --- |
+| Health probes | `timeout`, `unavailable` |
+| Remnawave | `remote_user_not_found`, `remnawave_http_<status>`, `remnawave_unavailable` |
+| Backups | `command_exit_N`, `verification_failed`, `file_missing`, `cancelled`, `backup_failed` |
+| Operator topics | `missing_manage_topics_permission`, `chat_not_found`, `forum_topics_disabled`, `bot_not_in_group`, `telegram_error` |
+
+<Note>
+  `/readyz` logs `readiness probe failed` with the number of checks and never which one failed. Read the response body, or scrape `omniflow_dependency_up`, to find out.
+</Note>
+
+### Correlation
+
+`X-Request-ID` is generated by the first middleware in the chain and echoed on every response. Panel mutations store it on the audit event they write, so a support conversation about "what did this operator change" resolves to one request. The bot logs a `correlation_id` on payment paths, and fulfillment operations and their attempt history carry the same identifier, so one customer tap can be followed to the Remnawave call it caused.
 
 ## Tracing
 
-Omniflow emits OpenTelemetry spans across every hop:
+Omniflow's code is instrumented with OpenTelemetry at five hops:
 
-| Hop | Span |
-| --- | --- |
-| Inbound HTTP | `http.server` via `otelhttp` |
-| Telegram updates | `telegram.update`, with the update kind and ID |
-| Durable jobs | `fulfillment.operation`, with the job kind and attempt |
-| PostgreSQL | One span per query via `otelpgx` |
-| Remnawave and payment providers | Outbound `http.client` spans |
+| Hop | Span | Attributes |
+| --- | --- | --- |
+| Inbound HTTP | `http.server` | `otelhttp` defaults |
+| Telegram update | `telegram.update` | `messaging.system=telegram`, update kind, update ID |
+| Fulfillment job | `fulfillment.operation` | `messaging.system=river`, job kind, attempt |
+| PostgreSQL | one span per query | Statement text, trimmed into the span name |
+| Outbound HTTP | `http.client` | Method and host only |
 
-With no exporter configured the global provider is a no-op, so instrumentation costs nothing until you wire one up. Point `OTEL_EXPORTER_OTLP_ENDPOINT` and the standard `OTEL_*` variables at your collector to turn it on.
+Span attributes follow the same rule as metric labels, enforced at a single entry point so no caller has to decide what is safe to record. A Telegram span carries the update ID, which correlates with the logs, but never the Telegram account. Query spans carry statement text and never argument values.
 
-Span attributes follow the same rule as metric labels. A Telegram span carries the update ID, which correlates with the structured logs, but never the Telegram account. Query spans carry statement text and never argument values.
+<Warning>
+  **No trace is ever exported.** Omniflow never installs a tracer provider, imports no OTLP exporter, and reads no `OTEL_*` variable. The global provider is a no-op, so every span above is created and discarded. Setting `OTEL_EXPORTER_OTLP_ENDPOINT` changes nothing, and there is no supported configuration that turns tracing on today.
+</Warning>
 
-## Correlation
+Two further limits apply if that changes in a fork: the Telegram middleware sets an `Ok` status on the span even when the handler failed, so a failing update is not visible as a span error, and the digital-goods delivery worker opens no span at all.
 
-A single correlation identifier ties a Telegram update to the order, payment, job, and Remnawave request it causes. It appears as `correlation_id` in structured logs and as the `CorrelationID` on fulfillment operations and history rows, so an operator can follow one customer action from the tap to the panel call.
+Until then, correlation across processes is done with the request ID and the fulfillment correlation ID in the logs, and with the operator surfaces described in [Admin operations](/operations/admin-operations).
 
-## Log redaction
+## Related
 
-Anything that reaches a log line, an operator notification, or a diagnostics bundle passes through the shared redactor first. It removes Telegram bot tokens, bearer and API-key headers, subscription and proxy links of every scheme, long opaque device identifiers, and card-length digit runs. Structured payloads are additionally redacted by key name.
-
-The redactor is deliberately aggressive. An over-redacted log line is a minor inconvenience; a leaked subscription link is a security incident.
+<CardGroup cols={2}>
+  <Card title="Jobs and queues" icon="list-check" href="/operations/jobs-and-queues">
+    What the worker actually runs, and how to read the dead-letter view.
+  </Card>
+  <Card title="Maintenance mode" icon="wrench" href="/operations/maintenance-mode">
+    What the dependency streaks in `/readyz` eventually trigger.
+  </Card>
+  <Card title="Troubleshooting" icon="stethoscope" href="/operations/troubleshooting">
+    Symptom-first guidance when a probe or a metric points somewhere unhelpful.
+  </Card>
+  <Card title="Anonymous telemetry" icon="chart-simple" href="/operations/telemetry">
+    The separate, optional heartbeat Omniflow sends about itself.
+  </Card>
+</CardGroup>

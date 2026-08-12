@@ -1,0 +1,850 @@
+---
+title: "Telegram bot"
+description: "Every command, screen, and flow a customer can reach in the Omniflow bot — from the first /start to buying, connecting, topping up, gifting, and opening a support ticket"
+---
+
+The Telegram bot is Omniflow's oldest and most complete customer surface. It runs
+as its own process, it talks to PostgreSQL and Remnawave directly rather than
+through the REST API, and it reads and writes the same customer records the
+[customer web panel](/customer/web-panel) does. A cart started in a chat is the
+cart the browser shows; a support reply read on the web stops being unread in
+Telegram.
+
+The bot has no API of its own. Its only HTTP surfaces are the webhook endpoint,
+when an operator enables webhook mode, and the health and metrics listener —
+both described in [Telegram integration](/integrations/telegram). Everything a
+customer does happens inside one chat.
+
+## How the bot behaves
+
+### One message, edited in place
+
+A command sends one message. Every subsequent tap **edits that same message**
+instead of sending a new one, so there is exactly one live screen and it is
+always current. A chat that accumulated one message per tap would be unusable
+within a session, and an old screen still showing last week's price is a support
+ticket waiting to happen.
+
+While a screen loads, the message is replaced with `⏳ Refreshing your data…` and
+then with the result. Re-rendering a screen that has not changed is not treated
+as an error — Telegram's "message is not modified" answer is swallowed, because
+nothing went wrong from the customer's point of view.
+
+Five things send a **new** message rather than editing: `/start` and `/menu`,
+each command that opens a screen, the Telegram Stars invoice, the confirmation
+of any free-text flow, and every push notification.
+
+### Private chats only
+
+`/start`, every command, every button, `/ops`, and `/login` all return silently
+when the chat is not a private one. Account screens carry subscription state,
+expiry dates, and payment amounts, and a group chat is an audience.
+
+### Nothing can be forwarded
+
+Every message the bot sends is marked protect-content and has link previews
+disabled. This applies to all messages, not only account ones, so a screenshot
+is the only way to move a screen out of the chat.
+
+### Russian and English
+
+The interface exists in two languages. The bot follows the Telegram client's
+locale by default: any locale code beginning with `ru` gets Russian, everything
+else gets English. Open `/settings` and tap `● Auto`, `RU`, or `EN` to override
+it — the current choice is marked `●` and the others `○`.
+
+Dates always render in UTC in both languages, in the form
+`02 Jan 2026, 15:04 UTC`. A missing date renders as `—`. Telegram Stars render
+as `⭐ 250`; every other currency uses its own minor-unit exponent and drops the
+fraction when it is zero. Russian durations use proper plural forms.
+
+## Commands
+
+Nine commands are published to Telegram's command menu; a tenth is deliberately
+hidden.
+
+| Command | What it opens |
+| --- | --- |
+| `/start` | A new home message. Accepts one argument, `ref_<code>`, which records referral attribution before anything is rendered |
+| `/menu` | The same home message |
+| `/plans` | The plan catalogue |
+| `/orders` | Order and payment history |
+| `/wallet` | Wallet balance and ledger history |
+| `/settings` | Language, notifications, quiet hours |
+| `/support` | The ticket list |
+| `/login` | A one-time sign-in link for the web panel |
+| `/cancel` | Abandons whatever free-text flow is open and returns home |
+| `/ops` | Operator backup and restore. Unpublished, and silent for everybody else |
+
+Any other message beginning with `/` opens the menu rather than producing an
+error. `/cancel` exists because every free-text step — a promo code, a support
+message, a top-up amount, a subscription name, a gift note, a gift code, a shop
+recipient — is a state a customer has to be able to escape.
+
+<Note>
+  The Russian command list published to Telegram omits `/login`, so a
+  Russian-locale client sees eight entries where an English one sees nine. The
+  command itself works in both languages.
+</Note>
+
+## The first /start
+
+The first `/start` resolves — or creates — the canonical Omniflow customer
+behind the Telegram account. Three identities have to coexist: the Telegram
+account, the Omniflow customer that owns billing, wallet, support, and consent,
+and the Remnawave user that owns VPN access. The Omniflow customer has to exist
+before the first purchase, because plans, wallet, support, and news all belong to
+it, while the Remnawave user does not exist until fulfillment has run.
+
+Resolution takes an advisory lock on the Telegram ID, so two updates arriving at
+once converge on one customer instead of racing to create two. It then looks for
+a linked Telegram identity; failing that it adopts a pre-existing Remnawave
+mapping for the same ID, so an upgraded installation does not gain a second
+customer; failing that it creates one.
+
+The Remnawave link is made lazily and **only by exact Telegram ID**. If no
+Remnawave user carries that ID, the bot says so and stops:
+
+> Your Telegram account is not linked to a subscription yet. Contact support and
+> an operator will link it securely.
+
+with a `💬 Contact support` button pointing at the operator's configured support
+URL. The bot never asks for a username, an email address, or a subscription
+link, and never guesses — every alternative to an exact ID match is a way to
+claim somebody else's subscription. Linking an existing Remnawave account is an
+operator action.
+
+## The main menu
+
+The home screen shows the account status, a traffic bar, the expiry date, and —
+when the subscription is not simply healthy — a lifecycle notice in place of
+"Choose an action".
+
+Status is one of `🟢 Active`, `⚪️ Disabled`, `🟠 Limited`, `🔴 Expired`, or
+`⚪️ Unknown`. Traffic renders as a ten-block bar with a percentage, or as
+`📡 Traffic: <used> · unlimited` when the plan has no limit.
+
+The keyboard is built once, from one round of queries, and a row appears only
+when the screen behind it can actually be used. A button leading to an empty or
+unconfigured screen teaches customers the bot is unreliable.
+
+| Row | Entries | Shown when |
+| --- | --- | --- |
+| 1 | `🛒 Plans` and `📊 Subscription` | Always. `📊 Subscription` becomes `🗂 My subscriptions` when concurrent subscriptions are enabled |
+| 2 | `🚀 Connect` and `📱 Devices` | Always |
+| 3 | `🧾 My orders` and `👛 Wallet` | Always |
+| 4 | `➕ Top up wallet`, `🛍 Saved cart` | Top-up is enabled; an open plan cart exists |
+| 5 | `🛍 Shop`, `🎁 Gifts` | At least one product is published; gifts always |
+| 6 | `✨ Your offer` | At least one personal offer is active |
+| 7 | `💬 Support` and `📰 News` | Always, each with `· N new` only when unread |
+| 8 | `🎁 Invite` and `⚙️ Settings` | Always |
+| 9 | `🔄 Refresh` | Always |
+
+<Note>
+  A customer whose Remnawave user has not been provisioned yet cannot reach the
+  subscription, devices, or referral screens: those routes fall back to the home
+  screen with a lifecycle notice explaining the state. `🚀 Connect` is the one
+  that explains itself directly — it says the subscription link appears once
+  access is active.
+</Note>
+
+## Subscription and traffic
+
+`📊 Subscription` answers the question customers open the bot with. It shows the
+status label, `⏳ Remaining: N days`, `📅 Until: <date>`, and
+`📡 Used: <used> / <limit>`. All four figures come from Remnawave, which stays
+authoritative for traffic, expiry, and the link itself.
+
+The buttons are `🔗 Open subscription`, `📋 Copy link`, `🔐 Rotate private link`,
+`🔄`, and `‹ Back`. The first two appear only when the subscription URL parses,
+has a host, and uses `http` or `https` — a malformed link is omitted rather than
+rendered as a broken button.
+
+### Rotating the link
+
+A subscription link is a bearer credential. A customer who pasted theirs
+somewhere needs to invalidate it without waiting for support, and needs to be
+told what it costs before they confirm. `🔐 Rotate private link` shows:
+
+> The current link will stop working immediately. You will need to re-add the
+> subscription on your devices.
+
+Confirming revokes the link in Remnawave and re-renders the subscription screen
+with the new one. From the per-subscription screen, rotation returns the
+**connect** screen instead, so the new link can be added straight away. Rotation
+is refused while access is still being set up: "Access is still being set up.
+Refresh in a minute."
+
+## Connecting a device
+
+`🚀 Connect` opens a platform picker — iPhone/iPad, Android, Windows, macOS,
+Linux — and each platform leads to a three-step guide: install the recommended
+app, tap the add-profile button, confirm, connect. Every guide ends with "Never
+share your subscription link."
+
+Each documented client is offered as a **copy-text** button carrying its import
+deep link, not as a URL button. Telegram inline buttons accept only `http`,
+`https`, and `tg` URLs, and a desktop browser may have no handler registered for
+`happ://` at all — so a deep link that is copied works everywhere a button would
+not. Below them sit `📋 Copy link` with the raw subscription URL and
+`🔗 Open subscription` as a real URL button.
+
+The client list is shared with the web panel, so the two surfaces cannot
+recommend different apps. When there is no subscription link yet, the screen says
+the link appears once access is active and offers no copy buttons at all. See
+[Connecting a device](/customer/connection) for the full per-platform detail.
+
+## Devices
+
+`📱 Devices` shows `In use: <total> / <limit or ∞>`, then one row per device as
+`• <model or platform> · <last seen date>`, then:
+
+> For your privacy, the bot never displays HWIDs or IP addresses.
+
+That is a hard boundary, not a display preference: a hardware ID identifies a
+person's machine, so it never appears in a screen, in callback data, or in a log,
+and a test guards against one leaking into a button.
+
+Removing a device is two taps — `🗑 <device name>`, then `Remove` on a
+confirmation screen. With more than one device present, `⚠️ Remove all devices`
+appears and is likewise confirmed. Both call Remnawave and then re-render the
+list; a failure shows "Action was not completed — the data may have changed."
+
+<Warning>
+  **At most five devices are listed**, in both the text and the keyboard, and
+  there is no pagination. A customer whose plan allows ten devices cannot see or
+  remove devices six through ten from the chat — the
+  [web panel](/customer/web-panel) lists all of them.
+</Warning>
+
+The bot addresses a device by its position in the list it just rendered. If the
+list changed in between, the removal is refused with "device list changed;
+refresh and try again" rather than acting on whatever now sits at that position.
+
+## Multiple subscriptions
+
+When an operator enables concurrent subscriptions, the first menu row becomes
+`🗂 My subscriptions`. The list shows each subscription's label, phase badge, and
+validity date, plus `➕ Add a subscription` while the limit allows one. Opening
+one gives plan name, phase, valid-until, and — once provisioned — `🚀 Connect`,
+`📱 Devices`, `🔄 Rotate link`, alongside `♻️ Renew`, `🧩 Add-ons` where the plan
+offers any, and `✏️ Rename`.
+
+Phase badges are `No subscription`, `⚙️ Activating`, `🟢 Active`,
+`🟡 Expiring soon`, `🟠 Grace period`, `🟠 Limit reached`, `⚪️ Disabled`,
+`🔴 Expired`, and `⚠️ Activation unfinished`.
+
+`✏️ Rename` opens a free-text step: send a new name of 1 to 40 ordinary
+characters. Anything longer, or containing control characters, is refused with
+"The name must be 1 to 40 ordinary characters." A new subscription's default
+label is `Subscription <slot>`.
+
+`➕ Add a subscription` re-checks the policy before showing the catalogue, so a
+refusal is named rather than generic: concurrency turned off by the operator, the
+account limit reached, or that plan's own limit reached. With a single
+subscription and concurrency off, the switcher route opens the one detail screen
+directly — the mode is invisible to installations that do not use it. See
+[Subscriptions](/commerce/subscriptions).
+
+## Buying a plan
+
+<Steps>
+  <Step title="Open the catalogue">
+    `/plans` or `🛒 Plans`. Each plan renders as a block with the four facts that
+    decide a purchase — period, traffic allowance, device limit, price — and a
+    button labelled `<name> · <price>`. A trial plan carries a `🎁 Free trial`
+    badge. The comparison happens before a plan is opened, so nobody has to open
+    five screens to compare four numbers.
+
+    A plan with no price in the settlement currency, or no text for the chosen
+    language, is omitted entirely rather than shown as unavailable. When nothing
+    remains, the empty state names the currency: "No plans are available in USD
+    right now."
+  </Step>
+  <Step title="Read the plan">
+    The detail screen adds the description, the upgrade, downgrade, and
+    cancellation policies in words, the grace period when there is one, and the
+    sentence "By continuing you accept the terms of service." A
+    `📄 Terms of service` button appears when the operator configured a terms
+    URL.
+
+    Only the operations the policy permits are offered: `🛒 Buy`,
+    `♻️ Extend this plan`, `⬆️ Switch to this plan`, `⬇️ Switch to this plan`, or
+    `🎁 Start free trial`. A forbidden operation is removed rather than left to
+    fail after the tap, and it is the same guard the backend applies when the
+    order is created. A trial the account is not eligible for shows the reason —
+    already used, a subscription is active, the account is too new, and so on —
+    and no button.
+  </Step>
+  <Step title="Choose locations, if the plan offers them">
+    A plan whose version exposes selectable squads asks before it asks for money;
+    a required selection collected after payment is a refund. Each squad is a
+    toggle row, and the instruction line states the rule: pick freely, pick up to
+    N, pick between N and M, or pick at least N. `Continue` re-validates the
+    selection and re-renders the configurator rather than moving on if it does
+    not resolve.
+  </Step>
+  <Step title="Choose a payment method">
+    Only configured adapters that can actually settle this plan's currency are
+    listed, each labelled with the price it would charge:
+    `⭐ Telegram Stars`, `🪙 CryptoBot`, `🏦 YooKassa`, `🧾 Manual payment`.
+    Offering one that cannot settle would move the failure past the point of
+    commitment. If none can, the screen says so and points at support.
+
+    Choosing the method is also what fixes the order currency, which is why it
+    comes before the summary. See [Payments](/integrations/payments).
+  </Step>
+  <Step title="Read the summary and pay">
+    The summary is the exact breakdown the order is created from — plan, period,
+    method, subtotal, discount, add-ons, wallet applied, total due — so a
+    preview and the order cannot disagree. When the wallet covers everything it
+    reads `Total due: 0 — the wallet covers this order in full.`
+
+    Controls: `💳 Pay`, the promo row, `👛 Use wallet` when there is any balance,
+    `🧩 Add-ons` when the plan has any, `🛍 Save and top up` when an external
+    amount remains, `💱 Change method`, and `Cancel`.
+  </Step>
+</Steps>
+
+### Promo codes
+
+`🏷 Enter promo code` opens a free-text step: send the code in one message. The
+code is normalised and then validated against **this exact order** by running a
+real preview, so a code that applies to a different plan is refused here rather
+than at payment. On success the screen confirms `✅ Promo code X applied.` and
+re-sends the summary with the discount line. On refusal the stored code is
+cleared and the reason is named: the code does not exist or is no longer active,
+it does not apply to this plan or account, it has reached its redemption limit,
+or its format is not valid.
+
+A code that stops being valid between screens never breaks the checkout — the
+order is re-priced without it and the reason is reported on the summary. Promo
+entry is limited to five attempts a minute.
+
+### Add-ons
+
+Bought on the checkout summary, an add-on is charged with the plan in one payment
+and lasts the whole period. Bought mid-period from a subscription's `🧩 Add-ons`
+screen, the price depends on how much of the period is left, and the rule is
+printed under each add-on rather than discovered on the receipt: charged in full,
+charged in proportion to the time left, or charged at a daily rate for the days
+left. A mid-period add-on settles from the wallet when the balance covers it and
+otherwise starts a payment. See
+[Add-ons and the configurator](/commerce/addons-configurator).
+
+### The channel gate
+
+If the operator requires membership of one or more Telegram channels before a
+purchase, the check runs when `💳 Pay` is tapped — not when the plan is chosen.
+A customer can leave a channel between browsing and paying, and this is the last
+moment before money moves. The checkout is left intact, so joining and pressing
+the button again resumes exactly where they were:
+
+> 📣 Please subscribe first — To continue with your purchase, subscribe to:
+
+with an `Open <channel>` button per channel and `I have subscribed`, which
+returns to the checkout rather than to the catalogue.
+
+The gate **fails open**. A channel Telegram could not be asked about, or one with
+no invite link the customer could use, does not block the sale — losing a real
+sale to a brief Telegram outage costs more than the marketing requirement is
+worth, and a background worker re-checks membership anyway. A muted member still
+counts as a member. See [Required channels](/operations/required-channels).
+
+### Paying
+
+Tapping `💳 Pay` creates the order and immediately starts the payment. An order
+the wallet covers in full never touches a payment provider and goes straight to
+the order screen. Otherwise the screen offers `💳 Open payment page` for a hosted
+provider, or `⭐ Pay in Telegram` for Stars.
+
+Telegram Stars settle in the chat: `⭐ Pay in Telegram` sends a real invoice, and
+Telegram then asks the bot a pre-checkout question. The bot approves only when
+the order belongs to this customer, the currency matches, the amount matches to
+the minor unit, and the order is still open — otherwise it answers "This order is
+no longer active. Please start again."
+
+Refusals at confirmation each get their own screen: maintenance, a rejected
+additional subscription with its reason, an unresolvable location selection, a
+trial that is no longer eligible, an operation the plan forbids, or a generic
+"The order was not created. Try again or choose another payment method." A
+payment that could not be started keeps the order and offers `🔄 Try again`.
+
+`💳 Pay` is the only action that is both replay-protected and rate-limited — six
+per minute — so a double tap or a redelivered Telegram update cannot become a
+second order.
+
+<Note>
+  The bot creates orders and payment intents. It never enqueues fulfillment: the
+  worker owns provisioning, which is why an order moves to `provisioning` and
+  then to `completed` without the chat doing anything. See
+  [Fulfillment](/commerce/fulfillment).
+</Note>
+
+## Order status and history
+
+`/orders` or `🧾 My orders` lists the **ten** most recent orders as
+`• <date> · <plan> · <amount> · <state>`, one button each. Order identifiers are
+shown as the first block of the UUID — enough to quote to support. There is no
+pagination.
+
+Each phase has its own screen:
+
+| Phase | What it says | Extra actions |
+| --- | --- | --- |
+| Awaiting payment | The amount due, when the payment window closes, and that confirmation can take a few minutes | `💳 Open payment page` or `⭐ Pay in Telegram`, `🚫 Cancel order` |
+| Payment received | The order is paid, the subscription is being prepared | — |
+| Activating | Takes up to a minute, refresh to check | — |
+| Completed | `🎉 All set — Your subscription is active.` | `🚀 Connect` |
+| Failed | Nothing was charged, or the provider will return it | `🛒 Plans` |
+| Cancelled | Nothing was charged | — |
+| Payment window closed | The order was closed and nothing was charged | `🛒 Plans` |
+| Refunded | The refund amount recorded against the order | — |
+
+Every screen ends with `🔄 Refresh`, `🧾 My orders`, and `‹ Menu`. Refresh does
+more than re-read Omniflow's own record: for a pending order with a payment
+intent it **re-polls the provider**, so a customer who comes back before the
+webhook arrives still sees the settled state. A manual payment adds a line saying
+an operator will confirm it by hand. See
+[Orders and payments](/commerce/orders-payments).
+
+Cancelling records the reason "cancelled by the customer in Telegram". A
+cancellation the backend refuses re-renders the order screen unchanged rather
+than showing an error.
+
+## Wallet
+
+`/wallet` or `👛 Wallet` shows the spendable balance, the sentence "Wallet credit
+is applied to an order automatically unless you turn it off", and the last **ten**
+ledger entries in the settlement currency, each as
+`<date> · <type> · <signed amount>`. Entry types read as credit, debit, order
+payment, refund, referral reward, correction, or expiry.
+
+The balance is the ledger total minus whatever is already reserved by a draft or
+pending order, floored at zero, so money committed to an unfinished purchase
+cannot be spent twice. See [Wallet and ledger](/commerce/wallet-ledger).
+
+### Topping up
+
+`➕ Top up wallet` shows the current balance, `Minimum: X · Maximum: Y`, and —
+when the operator configured a rolling window — the remaining allowance for it.
+Presets appear two per row, and `✍️ Custom amount` opens a free-text step. The
+amount is validated **before** the payment-method screen, so a rejection is
+explained early rather than after a payment attempt: below the minimum, above the
+maximum, over the window allowance, or simply unreadable ("That amount could not
+be read. Send a number, for example 500."). Only presets the installation would
+actually accept are rendered.
+
+Free entry accepts `,` or `.` as the decimal separator, strips spaces, and
+refuses negatives. Then a payment method is chosen, the order screen appears, and
+the credit lands when the payment settles. `📜 Top-up history` lists the last ten
+with their states and reopens a pending one. Over- and underpayment are resolved
+in the ledger: Omniflow credits exactly what the provider settled. See
+[Wallet top-up and cart](/commerce/wallet-topup-cart).
+
+## The saved cart
+
+`🛍 Save and top up` on the checkout summary keeps the purchase instead of
+abandoning it, which is what makes an insufficient balance a pause rather than a
+dead end. The cart screen shows the plan, the total, the wallet balance, the
+add-on total, and one of four state lines: covered with automatic purchase on or
+off, or short by an amount with automatic purchase on or off. It also states when
+the cart is kept until — thirty days by default.
+
+The saved price is never reused. A cart is always quoted against the catalogue as
+it is right now, so a plan that changed price is re-priced and a plan that
+disappeared shows "This cart is out of date — clear the cart and build it again."
+
+Buttons are `🛒 Buy now` when the balance covers it, `➕ Top up wallet` when it
+does not, `🤖 Automatic purchase on/off`, `🗑 Clear`, and `‹ Menu`. `Buy now`
+shares the automatic sweep's idempotency key, so tapping it while the sweep is
+running cannot charge twice.
+
+There is **one open cart per customer**, shared with the shop: saving a shop item
+replaces a saved plan. A saved shop selection is never bought automatically,
+because a shop price is a provider quote that expires and charging one unattended
+would mean charging a number the customer last saw days ago.
+
+## The digital-goods shop
+
+`🛍 Shop` appears when an operator has published at least one product. It sells
+Telegram Premium and Telegram Stars, separated into two lists because one is
+answered with a duration and the other with a quantity. These are not VPN
+entitlements: they never create or modify a subscription, and every screen speaks
+about the goods rather than about the payment — a customer asking where their
+Stars are is not asking whether their card was charged.
+
+<Steps>
+  <Step title="Open a product">
+    The price is quoted here, not at confirmation, and the screen states how long
+    it holds. If the provider price could not be taken, the screen says so and
+    offers **no buy button at all**, so nobody is offered a purchase that would
+    fail at the last step.
+  </Step>
+  <Step title="Name the recipient">
+    `Buy for someone else` asks for an `@username`; `Buy for me` skips the prompt
+    when Telegram published a handle for the account. Pasted `t.me/…` links and
+    bare handles are both accepted and normalised, then checked against
+    Telegram's own rule of 5 to 32 characters starting with a letter.
+  </Step>
+  <Step title="Review and pay">
+    The review restates the item, the amount, the price, any discount, the total,
+    and the recipient on its own line immediately above the button that spends
+    the money, followed by "Once sent, the delivery cannot be cancelled or taken
+    back." `Buy for me` still shows this step, because the account the bot knows
+    about and the account the customer wants the Stars on are not always the same
+    one. An order the wallet covers in full never reaches a payment provider.
+  </Step>
+</Steps>
+
+A quote that expired between review and confirmation is re-taken rather than
+honoured. `🧾 My purchases` lists the last ten with each order's **delivery**
+state: awaiting payment, paid, sending, delivered, not delivered, under review,
+or refunded. A delivery under review adds:
+
+> We are checking this delivery by hand: the provider did not confirm the
+> outcome. Your payment is safe — we will either complete the delivery or return
+> the money to your balance.
+
+The recipient's handle is stored on the shop order, where delivery and support
+genuinely need it, and never on the customer record. See
+[Gifts and digital goods](/commerce/gifts-and-goods).
+
+<Note>
+  The `🏷 Promo code` button on the shop review screen does not currently work —
+  the flow state it opens is rejected, and the screen shows the generic load
+  error. Promo codes on digital goods are usable from the
+  [web panel](/customer/web-panel).
+</Note>
+
+## Gifts
+
+`🎁 Gifts` lists the gifts you have sent, each as the last four characters of its
+code with the kind and status beside them, capped at ten. It offers
+`🎁 Gift a subscription`, `👛 Gift wallet credit`, and `🔑 Redeem a gift`. The
+recipient does not need an Omniflow account beforehand.
+
+Gifting a subscription uses the ordinary plan catalogue rather than a separate
+gift catalogue, because two price lists can disagree. Gifting credit uses the
+operator's configured top-up amounts; with none configured the screen says so and
+points at support. Either way the bot then asks for a short note of up to 200
+characters — whatever you send is stored as the note, including the `-` the
+prompt offers as a way to skip it.
+
+The claim code is then shown **once**:
+
+> The code is shown once and not stored — save it and pass it on yourself.
+
+Only the SHA-256 of the code is kept, so a database read never yields a
+redeemable code — and a sender who loses it cannot have it recovered, which is
+the deliberate trade. A gift bought against an unpaid order adds "The gift
+becomes redeemable as soon as the order is paid" and links to that order. Gifts
+are valid for thirty days, so the sender's money is not held against an outcome
+indefinitely.
+
+`🔑 Redeem a gift` takes the code and answers either "`<amount>` was added to
+your wallet" or "Your subscription is being activated — this takes under a
+minute."
+
+Every refusal renders the **same** message: "This code cannot be redeemed. Check
+it, or ask the sender to issue a new one." A recipient learning the difference
+between "no such code", "already claimed", and "expired" would also be an
+attacker learning which codes exist. Claiming is limited to five attempts a
+minute per Telegram account, which together with the code's 80 bits of entropy is
+what bounds guessing. Claiming your own gift is refused.
+
+## Personal offers
+
+`✨ Your offer` appears on the menu only when at least one offer is active. Up to
+five are listed, each with a countdown in whole days — "Expired", "Last day", or
+"N days left" — because an offer measured in hours reads as pressure rather than
+as information. Opening one shows its terms and its promo code, plus "The offer
+can be used once. Enter the promo code at checkout."
+
+The code is shown rather than applied silently, so the customer can see what is
+being taken off and the checkout stays the single place a discount is computed.
+Opening an offer does not consume it: a customer who opens the catalogue and
+changes their mind has not used anything. `Not interested` dismisses an offer
+permanently.
+
+## Support
+
+`/support` or `💬 Support` lists up to ten conversations as
+`• <subject> · <status> · <date> · N new`, with `✍️ New request`, an optional
+direct-contact button when the operator configured a support URL, `🔄 Refresh`,
+and `‹ Back`. The subject is the first line of the first message, truncated.
+
+Composing shows the rules before the message is written:
+
+> Send your text in one message. You may attach a screenshot or a document up to
+> 10 MB. Never send passwords, tokens, or your subscription link. To cancel:
+> /cancel.
+
+A message is 1 to 4000 characters. **Only photos and documents** are accepted, at
+most five per message and each at most 10 MB; a video, voice note, animation, or
+sticker is refused outright rather than silently dropped. A message with an
+attachment and no text is stored with the body `[attachment]`; one with neither
+is refused.
+
+<Note>
+  Omniflow never downloads or stores the file. Only Telegram's file reference and
+  safe metadata — kind, filename, MIME type, size — are kept, and those
+  references are purged after 90 days. A file uploaded through the web panel is
+  held by the installation instead, which is why that surface needs a writable
+  directory and the bot does not.
+</Note>
+
+A thread shows the subject, status, last update, and up to twenty messages
+oldest-first, each prefixed `👤 You`, `🛟 Support`, or `⚙️ System`, with
+attachments listed as `📎 <name> (<size>)`. An open request offers `✍️ Reply` and
+`✅ Close request`; a closed one offers `♻️ Reopen`. Replying to a closed request
+is refused with "This request is closed. Reopen it or create a new one." Writing
+to a request an operator marked resolved reopens it, because a customer who
+writes back has not had their question answered.
+
+`✍️ New request` continues the most recent open conversation rather than opening
+a second one — that is what a customer typing into the chat means. The ticket
+list and the web panel are where a second thread is chosen deliberately.
+
+An operator reply arrives as a push message titled `🛟 Support reply` with the
+subject and body and an `💬 Open request` button. The unread counter is raised
+only after Telegram accepted the message, so a retried delivery cannot
+double-count. See [Support desk](/operations/support-desk).
+
+## News
+
+`📰 News` is a read-tracked inbox of operator posts, categorised as `📰 News`,
+`📢 Announcement`, `🚨 Incident`, or `🛠 Maintenance`. An announcement pushed into
+the chat and then lost in scrollback cannot be re-read; the inbox makes it
+durable, and its read state drives the menu badge.
+
+Up to ten posts are listed newest first, each as `🔵 <title>` with its category
+and date. Opening one marks it read. A newly published post also arrives as a
+push message with a `📰 Read` button, at most once per customer. A post that was
+withdrawn, expired, or has no text in the customer's language is invisible, and
+opening one from an old button answers "That post is no longer available."
+
+## Settings and notifications
+
+`/settings` holds every communication control a customer owns: the language
+switch, five per-kind notification toggles, marketing consent, quiet hours, and a
+shortcut to auto-renew. `✅` means on, `☑️` means off.
+
+| Toggle | Default | Covers |
+| --- | --- | --- |
+| Subscription expiry | on | Remnawave expiry warnings at 7, 3, 1, and 0 days |
+| Traffic limit | on | Crossing 80% and 100% of the allowance |
+| Renewal reminders | on | Entitlement renewal, grace, and recovery notices |
+| Service news | on | Published news posts |
+| Marketing messages | **off** | Campaigns, and service news |
+
+The switches are per kind so that turning off traffic warnings does not also turn
+off renewal reminders. Marketing is off until the customer turns it on, and each
+change appends an immutable consent record naming the purpose, the policy
+version, and the fact that it came from the bot.
+
+<Warning>
+  Service news is classified as marketing. A customer with `Service news` on and
+  `Marketing messages` off receives no news posts. Announcement, incident, and
+  maintenance posts are transactional and arrive regardless.
+</Warning>
+
+**Quiet hours** offers three choices only — `22:00–08:00`, `23:00–09:00`, and
+`off` — because an explicit list keeps callback data closed and avoids a free-text
+time parser. The window is evaluated in the customer's own timezone and may wrap
+past midnight. The screen states the exception plainly: "Non-urgent messages wait
+during this window. Payment, activation, and support replies always arrive."
+
+Everything that reaches the chat unprompted goes through one delivery policy —
+consent, per-kind preference, quiet hours, marketing cap, and Telegram
+reachability — evaluated in one place so two senders cannot disagree about
+whether a customer may be messaged. [Notifications](/customer/notifications)
+covers the full set of messages and the reasons one may be held back.
+
+## Auto-renew and saved payment methods
+
+`⚙️ Settings` → `♻️ Renew` states what will be charged, from where, and when,
+because those are the three things a person needs before agreeing to a charge
+they will not be present for. Nothing here is on by default.
+
+When no configured provider supports recurring charges for the settlement
+currency, the screen says so and offers nothing else: "No configured payment
+method supports recurring charges. We will remind you before expiry instead."
+Today YooKassa is the only adapter that advertises recurring support, so
+auto-renew requires YooKassa to be configured.
+
+Off, the screen reads "♻️ Auto-renew is off — We will remind you 7, 3, and 1 day
+before expiry", with `Turn auto-renew on` and `💳 Payment methods`. On, it shows
+the plan, the method, `Charged to: <wallet or card label>`, the lead time, and
+lead-time buttons for 1, 3, and 7 days, plus a dunning notice when the last
+charge failed: "The last charge did not go through. We will try again
+automatically", or, after several failures, "Automatic charging stopped after
+several failed attempts. Renew by hand or change your payment method." The
+provider's own failure code is deliberately not shown — "insufficient funds" and
+"declined" are operator vocabulary.
+
+`💳 Payment methods` lists each saved method with its provider label, which one
+is the default, and its status, under the notice:
+
+> We store only a reference issued by the payment provider — no card number and
+> no expiry date are kept.
+
+Choosing the saved-card funding source with no saved method is a normal outcome
+with its own message: one appears after paying by card with auto-renew on.
+Removing the last method promotes nothing, falls the funding source back to the
+wallet, and suspends auto-renew while keeping the consent record. Turning
+auto-renew off clears the plan, provider, currency, and consent but deliberately
+leaves saved methods alone — withdrawing agreement to automatic charging is not
+the same as asking for a card to be forgotten. See
+[Recurring payments](/commerce/recurring-payments).
+
+## Referrals
+
+`🎁 Invite` shows your referral code, the number of people invited, and the
+sentence "Rewards are configured by the service administrator." `📨 Share invite`
+opens Telegram's share sheet with a `t.me/<bot>?start=ref_<code>` link, and the
+second button copies the full link rather than the bare code.
+
+Attribution is recorded the moment the invitee sends `/start ref_<code>`, before
+anything is rendered, and it is first-write-wins and permanent: the invited
+customer can only ever have one inviter. Self-referral is impossible by
+construction rather than by a check that could be bypassed. A code is minted once
+and stays stable. If Omniflow could not resolve the bot's own username at
+startup, the share and copy buttons are omitted rather than pointing at a link
+that cannot work.
+
+<Note>
+  The bot's referral screen shows the code and the invited count only. Qualified
+  counts, earned rewards, remaining reward slots, and the programme's terms are
+  on the [web panel](/customer/web-panel). **Loyalty tiers are not in the bot at
+  all** — there is no loyalty screen, badge, or command. See
+  [Referrals and loyalty](/commerce/referrals-loyalty).
+</Note>
+
+## /login — signing in on the web
+
+`/login` mints a single-use link into the customer web panel, valid for ten
+minutes, and sends it as plain text:
+
+> 🔐 Sign in to your account — This link works once and expires in 10 minutes. Do
+> not forward it — whoever opens it signs in as you.
+
+The flow starts in the chat rather than on a web form because a form would have
+to take some identifier and answer whether Omniflow knows it, and every version
+of that answer tells a stranger whether somebody is a customer here. The link is
+sent as text and not as a button because a Telegram inline button opens the
+in-app browser, which on several platforms keeps a separate cookie jar from the
+customer's real browser — they would sign in somewhere they are not going to come
+back to.
+
+Three refusals are kept apart: link sign-in is not available right now (the
+operator has not enabled it, or the encryption key is not configured), too many
+sign-in links requested, and the link could not be created. Two independent
+limits apply — the bot's own per-account budget and the identity service's five
+links per hour per customer.
+
+## When purchases are not configured
+
+The commerce surface is optional. On an installation where it could not be built,
+the bot keeps its original self-service behaviour — subscription, connect,
+devices, support, invite, settings — and every commerce route answers "Purchases
+are not configured yet. Please contact support." Support then stores a single
+plain message with no attachments and no thread, and only the expiry and traffic
+notification toggles exist.
+
+## During maintenance
+
+While an installation is paused, opening `/plans` or attempting any purchase,
+top-up, add-on, gift, or shop purchase shows:
+
+> 🛠 Maintenance — Purchases and activation are paused. Orders you already paid
+> for and active subscriptions are untouched, and your access keeps working.
+
+with the expected return time when the operator supplied one, `🔄 Try again`, and
+`💬 Support`. The notice appears at the entry point rather than at the payment
+step, so a customer is told before they choose anything. Browsing is never
+blocked: order history, support, news, wallet, and existing access all keep
+working, and a maintenance lookup that itself fails never blocks a purchase —
+maintenance is an operator signal, not a fail-closed control. See
+[Maintenance mode](/operations/maintenance-mode).
+
+## Rate limits and double taps
+
+Every interaction is budgeted per Telegram account over a one-minute window.
+Exceeding a budget answers "⏳ Too many requests. Please wait a moment and try
+again."
+
+| Scope | Budget | Applies to |
+| --- | --- | --- |
+| Navigation | 40 | Every button press |
+| Messages | 20 | Every text message and `/start` |
+| Checkout | 6 | `💳 Pay`, and the free-text top-up amount |
+| Promo codes | 5 | Promo-code entry |
+| Gift claims | 5 | Gift redemption |
+| Web sign-in | 40 | `/login` |
+
+A rate-limiter outage fails **closed** for money-moving actions and **open** for
+navigation, so an infrastructure incident degrades browsing instead of allowing
+unbounded checkout attempts.
+
+Separately, every consequential button — paying, cancelling an order, choosing a
+provider, toggling the wallet, sending a Stars invoice, deleting devices,
+rotating a link, closing or reopening a ticket, enabling auto-renew, starting a
+top-up, buying or clearing a cart, buying an add-on — is claimed exactly once. A
+redelivered Telegram update or a second tap resolves to "This action has already
+been completed" rather than to a second order, payment, or deletion. Actions not
+covered by that claim carry their own idempotency keys instead.
+
+## What the bot deliberately will not do
+
+| It will not | Because |
+| --- | --- |
+| Answer in a group or channel | Account screens carry subscription state, and a group is an audience |
+| Let a customer link their own Remnawave account | Matching is by exact Telegram ID; anything else is a way to claim somebody else's subscription |
+| Show a HWID, IP address, token, or secret — on screen, in callback data, or in a log | A hardware ID identifies a person's machine |
+| Store the bytes of a support attachment | Only Telegram's file reference and safe metadata are kept |
+| Accept a video, voice note, animation, or sticker | The accepted set is photos and documents only |
+| Tell a gift claimant why a code failed | The difference between failures tells an attacker which codes exist |
+| Recover a lost gift code | Only the SHA-256 is stored — the deliberate trade |
+| Offer a purchase button when the price could not be quoted | It would fail at confirmation |
+| Charge a saved shop selection automatically | A provider quote expires; charging it unattended charges a stale number |
+| Offer a payment method that cannot settle the plan | It moves the failure past the point of commitment |
+| Offer a plan action the policy forbids | Failing after the tap is worse than not offering |
+| Show a menu entry for a screen that is empty or off | A dead button teaches customers the bot is unreliable |
+| Enforce a channel requirement it could not verify, or one with no invite link | A requirement the customer cannot satisfy is a wall |
+| Send a marketing message without consent or over the cap | Consent is explicit and revocable |
+| Hold a payment, activation, support, or incident message for quiet hours | The customer is mid-transaction or actively affected |
+| Keep retrying a blocked or deleted Telegram account | Wasted retries and a permanently failing queue |
+| Confirm that `/ops` exists to anyone who is not an operator | Silence, not an error message |
+| Send the web sign-in link as a button | The in-app browser has a different cookie jar |
+| Write to Remnawave storage or manage Xray | Remnawave stays authoritative for the VPN user |
+
+## /ops — the one operator command
+
+Telegram carries operator notifications and backup and restore actions only;
+every other administrative control lives in the web panel. `/ops` is here because
+backup and restore are what an operator needs when the web panel is the thing
+that is broken.
+
+Sent from an account named in the operator list, `/ops` shows the last five
+backups with their status, size, and timestamp — and nothing else: no connection
+details, no file paths, and no encryption material. `💾 Back up now` takes a
+manual backup; `♻️ Restore latest…` requires a second confirmation naming the
+backup, and warns that every change made since it was taken is lost. Each action
+writes an audit event whose actor is `telegram:<id>`.
+
+Sent from any other account, `/ops` produces **no reply at all**. Its buttons
+additionally require the commerce surface to be enabled; on an installation
+without it, they answer "Action was not completed". See
+[Backup and restore](/operations/backup-restore).
+
+## Health and metrics
+
+The bot process exposes `/healthz`, `/livez`, `/readyz`, and `/metrics` on a
+separate listener, which stays off unless an operator sets its address — and
+refuses to share the webhook address, so internals are never published on an
+internet-facing host. Each update is counted by kind, and the kinds form a closed
+set so the metric label cannot grow without limit. No Telegram account, message
+body, or callback data ever becomes a metric label. Update spans are created but
+no tracer provider is installed anywhere in Omniflow, so nothing is exported —
+see [Observability](/operations/observability).

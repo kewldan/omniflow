@@ -1,12 +1,533 @@
 ---
 title: Catalog and promotions
-description: Immutable pricing snapshots and atomic promotion limits.
+description: How plans, immutable plan versions, prices, trials, promo codes, and personal offers are authored and what each one refuses
 ---
 
-Plans use stable lowercase codes and Russian/English localizations. Published plan versions are immutable and capture duration, billing period, traffic allowance, device limit, Remnawave squads, recurrence support, and explicit upgrade, downgrade, and cancellation policies.
+The catalogue is split in two on purpose. A **plan** is the stable, customer-facing product: a code, a kind, Russian and English copy, a visibility flag, a sort order, and an optional per-plan concurrency cap. A **plan version** is the priced configuration that product is sold at: duration, billing period, traffic allowance, device limit, squads, grace period, lifecycle policies, and one price per currency. The plan is what an operator renames, reorders, hides, and archives. The version is what an order is priced against, and it is never edited.
 
-Prices are integer minor units paired with an uppercase ISO currency. An order references both the stable plan and exact plan version and also stores a snapshot, so changing the visible catalog cannot change historical purchases.
+Everything else on this page — trials, promotions, promo codes, personal offers — hangs off that split. A discount changes what an order is charged; it never changes the version the order references, and it never changes what somebody already paid.
 
-Promotion and promo-code rows are locked in a serializable transaction before redemption counts are checked. Global, per-code, and per-customer limits are therefore atomic. Promo input is trimmed and uppercased before lookup, and every caller that accepts customer input — the operator API and the Telegram bot — applies a Valkey rate limit before validating a code.
+<Note>
+  Several parts of this area have no control in `/admin` and are reachable only
+  through the API. Each one says so where it appears, and
+  [What the admin panel cannot do](#what-the-admin-panel-cannot-do) collects them
+  in one place.
+</Note>
 
-A code can be validated without creating an order. The preview runs the same reads and locks as order creation and then rolls back, so a rejected code never consumes a redemption and the price the customer confirms is the price the order is created from. Rejections carry a stable reason (`promo_unknown`, `promo_ineligible`, `promo_exhausted`, `promo_invalid`) so a customer surface can explain the outcome instead of failing silently.
+## Plans
+
+A plan row carries no price and no duration. It carries `code`, `kind`, `visible`, `sort_order`, `archived_at`, and `max_concurrent_per_customer`.
+
+`code` must match `^[a-z][a-z0-9_-]{1,63}$` and is globally unique. `kind` is one of `trial`, `one_time`, `recurring`, `free`, or `manual` — but only `trial` changes behaviour anywhere in the code. The other four are stored, validated, and rendered as labels; nothing branches on them.
+
+### Creating a plan
+
+There is no create control in `/admin/catalog`. The only creation path is the operator-token API:
+
+```bash
+curl -X POST https://example.com/v1/admin/plans \
+  -H "Authorization: Bearer $APP_OPERATOR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "code": "pro-monthly",
+        "kind": "recurring",
+        "visible": true,
+        "sortOrder": 10,
+        "localizations": {
+          "ru": {"name": "Про", "description": "…"},
+          "en": {"name": "Pro", "description": "…"}
+        },
+        "version": { "durationSeconds": 2592000, "prices": {"RUB": 49900} }
+      }'
+```
+
+The call creates the plan and its first version in one serializable transaction. It upserts on `code`, so re-posting an existing code returns the existing plan rather than conflicting. A locale other than `ru` or `en` is refused with 422 `plan_rejected`.
+
+### Editing a plan
+
+Open `/admin/catalog` and stay on the **Plans** tab. The table lists every plan, archived ones included, with its code, kind, current version as `v{n}`, the number of order lines that reference it, the max-per-customer cap, and a **Visible** switch.
+
+Flipping **Visible** issues `PATCH /v1/panel/catalog/plans/{planID}` (`catalog.write`) carrying `visible`, `sortOrder`, and `maxConcurrentPerCustomer` together, in one transaction. They travel together so two operators editing one plan cannot each drop the other's field. The panel displays the cap but has no input for it: the current value is echoed back unchanged when the switch is flipped. Changing it means calling the endpoint directly.
+
+`maxConcurrentPerCustomer` below 1 is refused with 422. The switch is disabled for archived plans and for operators without `catalog.write`.
+
+The order-line count sits next to the plan for a reason: archiving a plan that historical orders reference is safe *because* versions are immutable, but it is still a decision worth making while looking at how many orders there are.
+
+## Immutable plan versions
+
+There is no update route for a plan version, and that is deliberate. The comment on the endpoint states it plainly: a version is immutable once an order references it, so an editor that could change one would silently re-price history. Changing a price means publishing version *n+1* and letting version *n* keep pricing the orders that already used it.
+
+The guarantee is doubled at the order. An order line stores `plan_version_id` **and** a JSON snapshot of the version's period, duration, traffic, device limit, squads, and the three lifecycle policies as they were at purchase. Even if a version row were altered by hand, the order carries its own copy.
+
+### Publishing a version
+
+<Steps>
+  <Step title="Open the plan">
+    Go to `/admin/catalog`, find the plan, and press **New version**. The editor
+    opens inline, pre-filled from the current version, because a price change is
+    usually the only difference between one version and the next.
+  </Step>
+  <Step title="Fill the version">
+    Every field below is part of the contract the customer buys.
+  </Step>
+  <Step title="Give a reason and publish">
+    The form requires a reason, sent as `X-Operator-Reason`. Pressing **Publish
+    version** calls `POST /v1/panel/catalog/plans/{planID}/versions`
+    (`catalog.write`) and returns the created version. The screen states the
+    consequence: existing orders keep the version they were bought at, and
+    publishing does not change any price a customer has already paid.
+  </Step>
+</Steps>
+
+| Field | Wire name | Notes |
+| --- | --- | --- |
+| Billing period | `billingPeriod` | `day`, `week`, `month`, `quarter`, `year`, `custom` |
+| Duration (days) | `durationSeconds` | days × 86 400; must be greater than zero |
+| Grace period (days) | `gracePeriodSeconds` | days × 86 400; zero disables grace entirely |
+| Traffic (GB) | `trafficAllowanceBytes` | GB × 1 073 741 824; **empty means unlimited** |
+| Device limit | `deviceLimit` | empty means unlimited |
+| Squad IDs | `squadIds` | comma-separated Remnawave squad UUIDs, always assigned |
+| Squad selection | `squadSelection` | see [Squad sets](#squad-sets-on-a-version) |
+| Minimum / Maximum chosen | `minSelectableSquads`, `maxSelectableSquads` | shown only for a choosable selection |
+| Upgrade | `upgradePolicy` | `forbid`, `replace`, `extend` |
+| Downgrade | `downgradePolicy` | `forbid`, `immediate`, `at_expiry` |
+| Cancellation | `cancellationPolicy` | `immediate`, `at_expiry` |
+| Trial eligibility | `trialEligibility` | see [Trials](#trials-and-trial-abuse-controls) |
+| Can be charged automatically | `recurringCapable` | stored and displayed, never read as a gate |
+| Prices | `prices` | free text such as `RUB=49900, USD=599` |
+
+Nulls and zeroes mean different things here, and the code says so twice: an absent traffic allowance or device limit is *unlimited*, while a zero would mean a plan that permits nothing. A panel that had to guess which a zero meant would eventually advertise the wrong one, so a zero is refused instead.
+
+The grace period exists so that expiry copy is not guesswork: it keeps access alive after `ends_at` so a customer can be told exactly how long they have left to renew. See [Subscriptions](/commerce/subscriptions) for how it is evaluated.
+
+### What publishing refuses
+
+- A version with **no prices at all** is refused. A version nobody can buy is not a version.
+- `durationSeconds` of zero or less, and a negative `gracePeriodSeconds`, are refused.
+- A present `trafficAllowanceBytes` or `deviceLimit` must be greater than zero.
+- Version numbers are allocated under a transaction-scoped advisory lock on the plan, so two operators pressing **Publish version** at the same moment cannot both mint version 4. The database also holds `UNIQUE (plan_id, version)`.
+
+### Two editor fields the database rejects
+
+The panel validates `squadSelection` against `automatic`, `customer_choice`, `fixed` and `trialEligibility` against `new_customer`, `never`, `any_customer`, and the web editor offers exactly those values. The `plan_versions` CHECK constraints allow `automatic`, `optional`, `required` and `new_customer`, `never_trialled`, `any`.
+
+<Warning>
+  Publishing a version with anything other than **Squad selection = automatic**
+  and **Trial eligibility = new customer** fails at the database and surfaces as
+  HTTP 500 `operation_failed`. The values the domain actually implements —
+  `optional`, `required`, `never_trialled`, `any` — are refused by the panel
+  validator with 422 before they reach it.
+
+  Until the two lists agree, a version that offers a squad choice or a non-default
+  trial rule has to be published through
+  `POST /v1/panel/catalog/plans/{planID}/versions` directly with the database's
+  values.
+</Warning>
+
+The database also allows `none` and `half_year` billing periods and a `forbid` cancellation policy; the panel validator does not, so those three are unreachable from `/admin`.
+
+### Add-ons offered by a version
+
+`plan_version_addons` decides which add-ons a plan version offers, and it is populated only by the `addonIds` array on `POST /v1/panel/catalog/plans/{planID}/versions`. Publishing **replaces** the set rather than merging it, so it is exactly what the operator chose rather than the union of every edit.
+
+The panel's version editor does not send `addonIds`. Because publishing clears the set first, every plan version published through `/admin/catalog` offers no add-ons. Populating the offer set means calling the endpoint directly. [Add-ons and the subscription configurator](/commerce/addons-configurator) covers what the join protects against.
+
+## Prices
+
+`plan_prices` is one row per `(plan_version_id, currency)` holding an integer `amount_minor`. There is no decimal anywhere in Omniflow: money is always minor units — kopeks, cents, Stars — and a currency is validated against `^[A-Z]{3}$`.
+
+The version editor's Prices field is free text: `RUB=49900, USD=599`. Decimals are rejected outright, because "4.99" is ambiguous about which minor unit it means.
+
+A version may be priced in as many currencies as an operator wants, and it usually needs more than one, because the chosen payment provider fixes the order currency. The checkout shows the price beside each payment method for that reason: the same plan can cost a different number through a different provider, and hiding that until the provider's own page would be a nasty surprise.
+
+<Warning>
+  A plan with **no price in the settlement currency is omitted from the customer
+  catalogue entirely**, not shown as unavailable. It cannot be bought here at all,
+  and an entry nobody can act on is only a question the customer cannot answer.
+
+  If a plan is missing from `/account/store` and the plan is visible and
+  unarchived, the price row in `APP_DEFAULT_CURRENCY` is the first thing to check.
+</Warning>
+
+At order time, the lookup joins on the requested currency. No row means `ErrPlanUnavailable` and HTTP 404 `plan_unavailable`.
+
+`APP_DEFAULT_CURRENCY` (default `RUB`) is the settlement currency both customer surfaces browse in; use `XTR` for a Telegram-Stars-only installation. It is validated at boot. See [Configuration](/getting-started/configuration).
+
+## Localisation
+
+`plan_localizations` holds `(plan_id, locale, name, description)` with `locale` restricted to `ru` and `en`. `name` is 1–120 characters, `description` at most 2000.
+
+The customer catalogue **joins** localizations rather than left-joining them, so a plan with no copy in a locale vanishes for customers reading in that locale rather than rendering blank. The same rule is enforced explicitly on the add-on save path: a missing translation is refused rather than stored blank, because an add-on with no name in one language is an empty row on the customer's screen.
+
+Copy is written with `PUT /v1/panel/catalog/plans/{planID}/localizations/{locale}` (`catalog.write`), body `name` and `description`, answering 204. A locale other than `ru` or `en` answers 422. There is no localization editor in the panel — the endpoint and the `localizations` map on `POST /v1/admin/plans` are the only two ways in.
+
+On the customer web panel an explicit `?locale=` query wins over the customer's stored preference, so a language switch takes effect before the profile is saved.
+
+## Publishing, hiding, archiving
+
+Three controls with three different meanings:
+
+| Control | Column | Effect |
+| --- | --- | --- |
+| Visible | `plans.visible` | Whether customers see the plan in the catalogue |
+| Order | `plans.sort_order` | Where it appears |
+| Archived | `plans.archived_at` | Soft retirement; also forces `visible = false` |
+
+Archiving hides the plan and stops new purchases from the catalogue. It deliberately does not touch existing entitlements: a customer who bought a plan keeps what they bought, and their order keeps the immutable version snapshot it was priced against.
+
+Archiving is idempotent and reversible — `POST /v1/panel/catalog/plans/{planID}/archive` (`catalog.write`) with `archived` true or false, answering 204. Restoring clears `archived_at` but does **not** set `visible` back to true, so a restored plan stays hidden until an operator says otherwise. The panel renders an "Archived" badge and hides **New version** for archived plans, but offers no control to set or clear the flag; the endpoint is the only route.
+
+Audit actions: `panel.plan.updated`, `panel.plan.archived`, `panel.plan.restored`, all in the `configuration` category.
+
+Both customer catalogue reads filter on `visible AND archived_at IS NULL`. The single-plan read used to open a checkout filters only on `archived_at`, so a hidden-but-unarchived plan stays purchasable by direct plan-version link.
+
+## Retiring a version
+
+`POST /v1/panel/catalog/plan-versions/{planVersionID}/retire` (`catalog.write`, 204, audit `panel.plan_version.retired`) stamps `retired_at`. A retired version stops being the one the catalogue offers without archiving the plan. Retiring an already-retired version matches no row and answers 409 `state_conflict`.
+
+The catalogue picks the highest-numbered version with `retired_at IS NULL`, so retiring the newest falls back to the previous one. Publishing a new version does not retire the old one; the newest simply wins for browsing while older versions remain orderable by ID.
+
+There is no retire control in the panel.
+
+<Warning>
+  **Retirement is not re-checked at order creation.** The query that prices an
+  order filters on the version ID and the currency and on nothing else, and the
+  checkout's own plan read filters only on `archived_at`. A checkout opened
+  before the retirement, a saved cart, a bookmarked plan-version URL, or a stale
+  bot callback can still create an order against a retired version.
+
+  Removing the version's price row in the settlement currency is what actually
+  makes it unorderable.
+</Warning>
+
+## Trials and trial abuse controls
+
+A trial is a plan with `kind = 'trial'` plus a per-version `trial_eligibility` rule. Claiming one writes a row into `trial_claims`, whose primary key is the **customer** — one trial per customer per installation, permanently, and no second trial for a second subscription.
+
+A free plan anyone can take repeatedly is a free VPN, so the guards are layered and each one names a different abuse:
+
+| Reason | What it prevents |
+| --- | --- |
+| `not_a_trial_plan` | Evaluating a trial rule against a paid plan |
+| `trial_already_used` | A second trial by the same customer |
+| `subscription_active` | Stacking a trial on top of a running subscription |
+| `identity_already_trialled` | A new account reusing an identity that already consumed a trial |
+| `account_too_new` | An account created moments ago purely to take a trial |
+| `existing_customer` | Under rule `new_customer` only: a paying customer taking the free plan |
+| `unsupported_trial_rule` | A stored rule value this build does not know |
+
+The rules, as stored: `new_customer` (the default), `never_trialled`, and `any`. `APP_TRIAL_MINIMUM_ACCOUNT_AGE_HOURS` (default `0`) supplies the minimum account age, and the API, the bot, and the worker all read the same variable — a trial that a chat refuses and a browser grants would be an abuse control with a hole in it.
+
+**What a customer sees.** An ineligible trial plan is still listed, with the reason rendered underneath it in their language, in `/account/store` and in the bot's plan list. Hiding the plan would leave a customer wondering where the free month went. `GET /v1/account/plans` carries `eligible` and `ineligibleReason` per plan for exactly that.
+
+Eligibility is checked twice. The catalogue check is a courtesy; refusing at confirmation is the guarantee. Confirming an ineligible trial answers 422 with a `type` of `trial_` followed by the reason.
+
+The claim itself is written **inside the order's transaction** with `ON CONFLICT (user_id) DO NOTHING`. Zero rows affected rolls the whole order back and answers 409 `trial_already_used`, so a duplicate tap or a concurrent request can never mint a second trial.
+
+## The per-plan concurrency cap
+
+`plans.max_concurrent_per_customer` bounds how many active subscriptions of *that plan* one customer may hold. It narrows the installation-wide ceiling and can never widen it: both are checked at purchase time, so a plan configured above the installation limit is bounded by it rather than overriding it.
+
+The checks run in a fixed order after a transaction-scoped advisory lock on the customer, so two concurrent purchases cannot both observe a stale total:
+
+1. `multi_subscription_disabled` — concurrency is off and the customer already has one.
+2. `subscription_limit_reached` — concurrency is on and the installation ceiling is full.
+3. `plan_limit_reached` — the plan's own cap is full.
+
+The installation half is `APP_MULTI_SUBSCRIPTION_ENABLED` and `APP_MAX_SUBSCRIPTIONS_PER_CUSTOMER`; [Concurrent subscriptions](/commerce/subscriptions) covers them.
+
+## Squad sets on a version
+
+A version carries two collections: `plan_versions.remnawave_squad_ids`, always assigned, and `plan_version_squads`, the selectable set with a Russian and an English label per row. `squad_selection` decides whether the customer chooses at all.
+
+| Stored value | Behaviour | Refusals |
+| --- | --- | --- |
+| empty or `automatic` | Plan squads only; any submitted selection is refused | `squad_selection_not_allowed` |
+| `optional` | Selection allowed, bounded by the minimum and maximum | `squad_not_offered`, `squad_selection_too_few`, `squad_selection_too_many` |
+| `required` | Minimum forced to at least 1 | `squad_selection_required`, then as above |
+| anything else | Refused outright | `squad_selection_not_allowed` |
+
+The resolved set is deduplicated and sorted, so two customers who pick the same squads in a different order produce byte-identical entitlement state. Without that, drift reconciliation would report a mismatch that is not real. Selection is validated server-side against the plan, because the identifiers arrive in customer-controlled callback data and request bodies.
+
+The customer-facing half of this — the checkout fieldset, the bot configurator, and what each refusal looks like — is on [Add-ons and the subscription configurator](/commerce/addons-configurator). Note the panel caveat above: a choosable selection cannot currently be authored from `/admin`.
+
+## Promotions
+
+A `promotions` row is the campaign, not the redeemable code. It carries a lowercase code of its own, a reward kind and value, an optional currency, an optional validity window, an optional global redemption limit, a per-customer limit, a JSON eligibility rule, an active flag, `stackable`, `precedence`, and `applies_to`. Grouping the reward kinds under one record is what lets eligibility, redemption limits, and the audit trail be written once rather than once per kind.
+
+### Reward kinds
+
+`promotions_kind_known` allows `percent`, `fixed`, `wallet_credit`, `days`, and `trial`.
+
+| Kind | Value means | Applied at redemption |
+| --- | --- | --- |
+| `percent` | Basis points — `1000` is 10% | Yes |
+| `fixed` | Minor units in the promotion's own currency | Yes |
+| `wallet_credit` | Minor units | **No** |
+| `days` | Days, at most 3650 | **No** |
+| `trial` | Days, at most 3650 | **No** |
+
+<Warning>
+  Only `percent` and `fixed` are ever applied. A promo code belonging to a
+  `wallet_credit`, `days`, or `trial` promotion is refused at redemption with
+  `promo_ineligible`, and no ledger entry of any kind is written for a promotion.
+
+  The plan page compounds it: it lists every active plan-scoped promotion
+  regardless of kind and renders anything that is not `percent` as a fixed money
+  discount. A `wallet_credit` campaign is therefore advertised to customers as
+  money off, and its own code then refuses. Until the reward kinds are
+  implemented, create only `percent` and `fixed` promotions.
+</Warning>
+
+Percent arithmetic is `subtotal × value ÷ 10000` with integer truncation, so rounding falls in the customer's favour. A fixed discount is `min(value, subtotal)`, so it can never exceed the price; the order layer refuses a discount above the subtotal and the database enforces `discount_minor <= subtotal_minor` as well.
+
+### Eligibility
+
+The `eligibility` JSON object is evaluated in SQL. Three keys are understood, and an absent key imposes no constraint:
+
+| Key | Meaning |
+| --- | --- |
+| `locales` | An array; the customer's stored locale must be a member |
+| `newCustomerOnly` | Boolean; the customer must have zero orders in `paid`, `fulfilled`, `partially_refunded`, or `refunded` |
+| `minimumCompletedOrders` | Integer; the customer must have at least that many such orders |
+
+The same query advertises a campaign on the plan page and accepts a code at redemption, so a campaign advertised as available is one the order would accept.
+
+### Creating and editing
+
+Creation is the operator-token API only:
+
+```bash
+curl -X POST https://example.com/v1/admin/promotions \
+  -H "Authorization: Bearer $APP_OPERATOR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "code": "spring",
+        "kind": "percent",
+        "value": 1000,
+        "perCustomerLimit": 1,
+        "active": true,
+        "planIds": [],
+        "codes": ["SPRING25"]
+      }'
+```
+
+One serializable transaction creates the promotion, its plan scope rows, and its promo codes. `code` upserts, so re-posting an existing code attaches to the existing promotion.
+
+`/admin/catalog` → **Promotions** is a read-mostly table: code, the reward rendered in its own unit, a `Stacks`/`Exclusive` badge with the precedence number, redemptions used against the limit, the total discount given, and an **Active** switch. Flipping it issues `PATCH /v1/panel/catalog/promotions/{promotionID}` (`catalog.write`, 204, audit `panel.promotion.updated`, category `marketing`) re-sending every editable field.
+
+`Kind` is deliberately absent from the update payload. Changing a live promotion from a percentage discount into a wallet credit would silently change what every unredeemed code is worth; a different reward is a different promotion.
+
+The service refuses `value` of zero or less, a `perCustomerLimit` below 1, and an end that is not after the start, all with 422. The database adds: `value > 0`; `percent` implies `value <= 10000`; `fixed` and `wallet_credit` imply a currency; `days` and `trial` imply `value <= 3650`, because ten years of granted days is far beyond any legitimate promotion and is the shape a mistyped value takes.
+
+A promotion's plan scope is write-once. It is set at creation and there is no endpoint, screen, or query that reads it back or changes it afterwards.
+
+## Promo codes
+
+`promo_codes` are the redeemable bearer values under a promotion. Several codes may point at one promotion, each with its own optional redemption limit and active flag, which is what lets an operator hand a different code to a different audience while keeping one set of rules.
+
+The plan page lists a promotion's existence but never its codes. A code is a bearer value handed to a particular audience; publishing every code on the plan page would hand all of them to everybody.
+
+### Normalisation
+
+`NormalizePromoCode` trims, uppercases, and requires `^[A-Z0-9_-]{3,64}$`. Anything else is `promo_invalid` before any database read happens. `promo_codes.normalized_code` is globally unique, and creating a code that already exists attaches to whichever promotion already owns it.
+
+### Applying one
+
+*Customer, web.* On `/account/checkout`, type the code into the **Promo code** field and press **Apply**, which calls `POST /v1/account/checkout/promo`. An accepted code renders as a chip with a **Remove** button (`DELETE /v1/account/checkout/promo`). A refusal comes back as **HTTP 200 carrying a reason**, not as an error, and is rendered as a warning under the field, so the checkout survives it and the customer can try another code without losing what they had already configured.
+
+*Customer, Telegram.* On the checkout screen, press **Promo code** and send the code as one message. The bot answers with a confirmation or the refusal reason and re-renders the checkout.
+
+*Operator.* There is no promo-code screen. `GET /v1/panel/catalog/promotions/{promotionID}/codes` (`catalog.read`) returns each code with its redemption count, and `POST /v1/panel/catalog/promo-codes/{promoCodeID}/status` (`catalog.write`) with `active` enables or disables one. Disabling stops new redemptions and leaves every completed one alone. A code is never deleted: the redemptions that reference it are financial records.
+
+### Every refusal a customer can be shown
+
+| Reason | Raised when |
+| --- | --- |
+| `promo_invalid` | The string fails normalisation — wrong characters, shorter than 3, longer than 64 |
+| `promo_unknown` | No code row matches, or the code is inactive, or its promotion is inactive |
+| `promo_ineligible` | The promotion is scoped to goods; or scoped to plans and this is not one of them; or the customer fails the eligibility rule; or the code is outside its validity window; or a `fixed` reward is in a different currency than the order; or the reward kind is one the pricing layer does not implement |
+| `promo_exhausted` | The promotion's global limit, the code's own limit, or the customer's per-customer limit is reached |
+| `promo_below_cost` | **Shop orders only**: the discount would take the price under the provider's cost, or the cost is unknown |
+
+`promo_below_cost` is deliberately its own reason: an ineligible code is the wrong code, and this one is the right code on the wrong product.
+
+Both customer surfaces translate these values themselves rather than showing the server's prose, and both fall back to an honest "the code was refused" sentence for a reason a newer server sends that the build has never heard of.
+
+A code that stops being valid mid-checkout does not break the screen. The quote is recomputed without the code and reports the rejection alongside it.
+
+### Atomic redemption
+
+Redemption is not a separate step. It happens inside the order's own transaction:
+
+1. Order creation runs at `Serializable`.
+2. The code is selected joined to its promotion `FOR UPDATE`, filtering on both being active. Two customers redeeming the last use of a limited code serialise rather than both succeeding.
+3. One query returns three counters: the promotion's total, this customer's, and this code's.
+4. Plan scope, then customer eligibility, are checked.
+5. The limits are compared and the discount is priced.
+6. The redemption row is written in the same transaction as the order.
+
+`promo_redemptions.order_id` is `UNIQUE`, so **at most one promotion is redeemable per order**.
+
+Previewing a price runs the same reads at `ReadCommitted` and then rolls back, so a preview can never consume a redemption or reserve wallet credit. That is what makes the price a customer confirms the price the order is created from.
+
+### Rate limiting
+
+| Surface | Limit | On failure |
+| --- | --- | --- |
+| Telegram bot | 5 attempts per Telegram account per minute | The bot answers "too many promo-code attempts" |
+| `POST /v1/admin/orders` | 10 per customer per minute | A limiter outage answers 503 `rate_limit_unavailable` rather than allowing the request |
+| `POST /v1/account/checkout/promo` | **None** | — |
+
+Bot rate limiting fails closed for every money-moving scope and open only for navigation.
+
+<Warning>
+  The customer web panel's promo endpoint has no rate limit. Nothing in its path
+  consults a limiter, so a signed-in customer can try codes as fast as the API
+  will answer. Guessing a code is still bounded by the 3-to-64-character
+  namespace and by the promotion's own limits, but there is no per-customer
+  attempt budget on this route the way there is in the bot.
+</Warning>
+
+## Scope: plans or goods
+
+`promotions.applies_to` names the catalogue a promotion discounts — `plans` or `goods`, never both. Within a catalogue, scope is `promotion_plans` or `promotion_goods`, and an empty scope means every plan or every visible product.
+
+An unscoped promotion already meant "every plan". Had goods simply joined that set, every promotion an operator has ever written would silently have started discounting shop orders the moment they upgraded. That is the wrong default twice over: nobody agreed to it, and the two prices are not the same kind of number. Existing rows default to `plans`, so nothing widened on upgrade.
+
+The `applies_to` clause is load-bearing rather than belt-and-braces: an unscoped goods promotion has no plan-scope rows, so without it, it would pass the wildcard branch and discount every plan. The domain layer repeats the check inside the discount function itself so the two catalogues cannot drift. A database trigger refuses a goods-scope row on a promotion whose `applies_to` is not `goods`, because a plan promotion accumulating goods scoping rows reads as configured and behaves as absent.
+
+<Note>
+  `applies_to` has no write path in any API. Neither the creation endpoint nor
+  the panel update sets it, so every promotion created through Omniflow is a
+  plans promotion. A goods promotion today requires writing the column and the
+  `promotion_goods` rows with SQL.
+</Note>
+
+### The goods price floor
+
+A promotion applied to a digital-goods order may not take the charged price below what the upstream provider charges for the same thing. A plan price is a number the operator chose, and discounting it costs them margin they set themselves — the floor there is zero, and an operator may give a plan away. A shop price is a provider quote plus a markup, and the provider still charges its cost whatever the customer pays, so a discount past the markup is the installation paying to make a sale.
+
+That is a legitimate thing to choose and an illegitimate thing to arrive at by accident, so it is refused with `promo_below_cost` and belongs in the markup control instead. It is refused rather than quietly capped, because a percentage that silently becomes a different percentage is the mismatch that generates a support ticket.
+
+Two consequences follow: a product sold at an operator-configured fixed price has no provider quote behind it and can be discounted to zero, and a product whose cost the gateway will not disclose cannot be discounted at all. The floor is a database constraint as well as an application check, so a script or a backfill cannot write what the checkout refuses. [Gifts and digital goods](/commerce/gifts-and-goods) covers the shop side in full.
+
+## Stacking and precedence
+
+`promotions.stackable` defaults to false and `promotions.precedence` to 0. As designed, stacking off by default means two promotions apply together only when both say they may, and precedence orders evaluation so the outcome of applying several is deterministic rather than dependent on the order the customer typed them in.
+
+<Note>
+  Neither field is read by any pricing path. They are stored, editable, sent on
+  every promotion update, and rendered as a badge in the panel, and they reach no
+  code in the commerce domain.
+
+  More decisively, one order can carry at most one promotion by construction: the
+  order input takes a single promo code, the bot checkout and the saved cart each
+  hold a single code column, and `promo_redemptions.order_id` is unique. Stacking
+  cannot occur, and precedence has nothing to order.
+</Note>
+
+## Personal offers
+
+A personal offer is a promotion pointed at exactly one named customer, with its own Russian and English title and terms and its own validity window. It is a promotion with an audience of one plus its own presentation, so the redemption path, the limits, and the ledger effects are the ones already tested. The discount is not defined on the offer: it points at an existing promotion, because a second, offer-only discount engine would be a second set of rules to keep consistent.
+
+### Creating one
+
+<Steps>
+  <Step title="Open the register">
+    Go to `/admin/offers`. The register lists offers with the English title over
+    the Russian one, a link to the customer, the window from start to expiry, a
+    status badge, and — when redeemed — a link to the order. Filter chips cover
+    all, active, redeemed, dismissed, expired, and revoked.
+  </Step>
+  <Step title="Compose">
+    Press **New offer**. Fill Customer (a UUID, typed in), Promotion (a select
+    populated from the promotions list), Title EN, Title RU, Terms EN, Terms RU,
+    Starts at, Expires at, and a reason.
+  </Step>
+  <Step title="Check the preview">
+    A two-column preview renders the message as the bot will send it in each
+    language, with the day countdown and the two buttons; a missing title in
+    either language shows in red. It is a mock and says so — the bot is a separate
+    process and the panel cannot ask it to draw a message.
+  </Step>
+  <Step title="Create">
+    Submitting calls `POST /v1/panel/offers` (`marketing.write`) and answers 201
+    with the offer. `startsAt` defaults to now. Audit `panel.offer.created`,
+    category `marketing`.
+  </Step>
+</Steps>
+
+Both locales are required. An offer with copy in only one language is an offer that renders as a blank card for half the customer base, and the bot has no sensible fallback to invent — a missing title or terms answers 422. So does an expiry that is not after the start.
+
+Only one live offer per customer per promotion exists at a time. A partial unique index plus a conflict-do-nothing insert makes a repeat idempotent, and the service maps the empty return to 409, so a conflict reads as "already offered" rather than as a failure.
+
+Offers are created one customer at a time. There is no bulk targeting job, and no import; the composer's UUID field is the only input.
+
+### Revoking
+
+Each active row carries an inline reason box and a **Revoke** button, calling `POST /v1/panel/offers/{offerID}/revoke` (`marketing.write`, 204, audit `panel.offer.revoked`). Revoking anything that is not `active` matches no row and answers 409.
+
+A redeemed offer shows no revoke control. The customer already bought at that price, and the record of what they were offered is what makes the order explicable afterwards.
+
+### What the customer sees
+
+Personal offers exist **in Telegram only**. There is no offers route, screen, or endpoint in the customer web panel, so a customer who only ever signs in to the browser cannot see or take one.
+
+The bot's main menu grows a "Your offer" entry when at least one offer is waiting. Opening it lists each offer's title and a day countdown with **View offer** and **Not interested**. Opening one shows the title, the terms, the countdown, the promo code to use, and a single-use notice.
+
+Taking an offer does not mark it redeemed. A customer who opens the catalogue and changes their mind has not used anything, and burning a single-use offer on a tap would be taking something from them for nothing.
+
+Dismissal is final, and the update predicate includes the customer, so an offer identifier from callback data — which the customer controls — cannot dismiss somebody else's offer. The bot's listing enforces the validity window in its own query rather than trusting the sweeper, so an offer never outlives its expiry on screen even if the sweeper is behind. Expiry itself is swept every five minutes by default.
+
+The offer shows the promotion's first active promo code by creation order. A promotion with no code produces an offer with no code, and there is nothing for the customer to enter.
+
+<Warning>
+  Nothing in the order path knows about personal offers. The status only ever
+  moves from `active` to `dismissed`, `revoked`, or `expired`; `order_id` is
+  always null, which makes the register's "redeemed" filter and its order links
+  dead. "Single use" is imposed only indirectly, by the underlying promotion's
+  `per_customer_limit`.
+</Warning>
+
+## What the admin panel cannot do
+
+`/admin/catalog` can publish plan versions, toggle plan visibility, save add-ons, retire add-on versions, edit a promotion's numbers, and toggle a promo code's active flag. Everything below needs an API call, and the last two need SQL:
+
+| Task | Route |
+| --- | --- |
+| Create a plan | `POST /v1/admin/plans` (operator token) |
+| Create a promotion or a promo code | `POST /v1/admin/promotions` (operator token) |
+| Edit a plan's localizations | `PUT /v1/panel/catalog/plans/{planID}/localizations/{locale}` |
+| Archive or restore a plan | `POST /v1/panel/catalog/plans/{planID}/archive` |
+| Retire a plan version | `POST /v1/panel/catalog/plan-versions/{planVersionID}/retire` |
+| Change a plan's concurrency cap | `PATCH /v1/panel/catalog/plans/{planID}` |
+| Offer add-ons on a plan version | `addonIds` on `POST /v1/panel/catalog/plans/{planID}/versions` |
+| Author a squad choice or a non-default trial rule | The same versions endpoint, with the database's enum values |
+| Scope a promotion to goods | Direct SQL |
+| Inspect or change a promotion's plan scope | Direct SQL |
+
+Three of these panel routes — the versions endpoint, the add-on save, and the add-on version retire — are implemented but absent from `api/openapi.yaml`, so they do not appear in the generated client or the published API reference. See [Integrating with the API](/integrations/api) for how to authenticate against them.
+
+The panel forms all require a reason and send it as `X-Operator-Reason`, but no catalog or offer service actually checks for one. A direct API call publishes a plan version, saves an add-on, edits a promotion, or creates an offer with a null reason on the audit event.
+
+## The unauthenticated catalogue feed
+
+`GET /v1/catalog/plans` takes an optional `locale` and requires no authentication. It is a legacy feed, and it does not deduplicate the price join: a plan priced in two currencies appears twice, once per currency. The customer-facing routes under `/v1/account` are the ones that return one entry per plan with eligibility already decided.
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="Add-ons and the configurator" icon="puzzle-piece" href="/commerce/addons-configurator">
+    Selectable squads, add-on versions, proration, and how capacity reaches an entitlement.
+  </Card>
+  <Card title="Concurrent subscriptions" icon="layer-group" href="/commerce/subscriptions">
+    Entitlements, the concurrency ceiling, upgrade and downgrade arithmetic, grace, and recovery.
+  </Card>
+  <Card title="Orders and payments" icon="receipt" href="/commerce/orders-payments">
+    The order state machine the discount is applied inside, and the refund path.
+  </Card>
+  <Card title="Gifts and digital goods" icon="gift" href="/commerce/gifts-and-goods">
+    The shop catalogue, its markup model, and the cost floor a discount may not breach.
+  </Card>
+</CardGroup>

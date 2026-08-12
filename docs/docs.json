@@ -9,91 +9,224 @@
     "dark": "#0284c7"
   },
   "navigation": {
-    "groups": [
+    "languages": [
       {
-        "group": "Start",
-        "pages": [
-          "index",
-          "comparison",
-          "getting-started/quickstart",
-          "getting-started/configuration"
+        "language": "en",
+        "default": true,
+        "groups": [
+          {
+            "group": "Start",
+            "pages": [
+              "index",
+              "getting-started/quickstart",
+              "getting-started/first-sale",
+              "getting-started/configuration",
+              "comparison"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/data-ownership",
+              "architecture/technology"
+            ]
+          },
+          {
+            "group": "For customers",
+            "pages": [
+              "customer/telegram-bot",
+              "customer/web-panel",
+              "customer/connection",
+              "customer/notifications",
+              "customer/privacy"
+            ]
+          },
+          {
+            "group": "Commerce",
+            "pages": [
+              "commerce/catalog-promotions",
+              "commerce/addons-configurator",
+              "commerce/subscriptions",
+              "commerce/orders-payments",
+              "commerce/wallet-ledger",
+              "commerce/wallet-topup-cart",
+              "commerce/fulfillment",
+              "commerce/recurring-payments",
+              "commerce/gifts-and-goods",
+              "commerce/customers-imports",
+              "commerce/campaigns",
+              "commerce/referrals-loyalty",
+              "commerce/referrals-communication",
+              "commerce/financial-invariants"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "integrations/remnawave",
+              "integrations/payments",
+              "integrations/telegram",
+              "integrations/oidc",
+              "integrations/api"
+            ]
+          },
+          {
+            "group": "API reference",
+            "openapi": "https://raw.githubusercontent.com/kewldan/omniflow/main/api/openapi.yaml"
+          },
+          {
+            "group": "Operator panel",
+            "pages": [
+              "operations/admin-panel",
+              "operations/admin-operations",
+              "operations/installation-settings",
+              "operations/support-desk",
+              "operations/required-channels",
+              "operations/risk-controls",
+              "operations/operator-notifications"
+            ]
+          },
+          {
+            "group": "AI and MCP",
+            "pages": [
+              "operations/ai-privacy",
+              "operations/ai-governance",
+              "operations/mcp"
+            ]
+          },
+          {
+            "group": "Running Omniflow",
+            "pages": [
+              "operations/deployment",
+              "operations/reverse-proxy",
+              "operations/jobs-and-queues",
+              "operations/observability",
+              "operations/maintenance-mode",
+              "operations/backup-restore",
+              "operations/troubleshooting",
+              "operations/telemetry",
+              "operations/security"
+            ]
+          },
+          {
+            "group": "Contributing",
+            "pages": [
+              "contributing/development",
+              "contributing/database",
+              "contributing/testing",
+              "contributing/documentation"
+            ]
+          }
         ]
       },
       {
-        "group": "Architecture",
-        "pages": [
-          "architecture/overview",
-          "architecture/data-ownership",
-          "architecture/technology"
-        ]
-      },
-      {
-        "group": "Integrations",
-        "pages": [
-          "integrations/remnawave",
-          "integrations/payments",
-          "integrations/telegram"
-        ]
-      },
-      {
-        "group": "Commerce",
-        "pages": [
-          "commerce/customers-imports",
-          "commerce/catalog-promotions",
-          "commerce/orders-payments",
-          "commerce/wallet-ledger",
-          "commerce/wallet-topup-cart",
-          "commerce/subscriptions",
-          "commerce/addons-configurator",
-          "commerce/fulfillment",
-          "commerce/recurring-payments",
-          "commerce/gifts-and-goods",
-          "commerce/campaigns",
-          "commerce/referrals-loyalty",
-          "commerce/referrals-communication",
-          "commerce/financial-invariants"
-        ]
-      },
-      {
-        "group": "Customer",
-        "pages": [
-          "customer/web-panel"
-        ]
-      },
-      {
-        "group": "API reference",
-        "openapi": "https://raw.githubusercontent.com/kewldan/omniflow/main/api/openapi.yaml"
-      },
-      {
-        "group": "Operations",
-        "pages": [
-          "operations/deployment",
-          "operations/reverse-proxy",
-          "operations/admin-panel",
-          "operations/admin-operations",
-          "operations/installation-settings",
-          "operations/support-desk",
-          "operations/required-channels",
-          "operations/ai-privacy",
-          "operations/ai-governance",
-          "operations/mcp",
-          "operations/risk-controls",
-          "operations/observability",
-          "operations/maintenance-mode",
-          "operations/operator-notifications",
-          "operations/backup-restore",
-          "operations/troubleshooting",
-          "operations/telemetry",
-          "operations/security"
-        ]
-      },
-      {
-        "group": "Contributing",
-        "pages": [
-          "contributing/development",
-          "contributing/database",
-          "contributing/testing",
-          "contributing/documentation"
+        "language": "ru",
+        "groups": [
+          {
+            "group": "Начало",
+            "pages": [
+              "ru/index",
+              "ru/getting-started/quickstart",
+              "ru/getting-started/first-sale",
+              "ru/getting-started/configuration",
+              "ru/comparison"
+            ]
+          },
+          {
+            "group": "Архитектура",
+            "pages": [
+              "ru/architecture/overview",
+              "ru/architecture/data-ownership",
+              "ru/architecture/technology"
+            ]
+          },
+          {
+            "group": "Для клиентов",
+            "pages": [
+              "ru/customer/telegram-bot",
+              "ru/customer/web-panel",
+              "ru/customer/connection",
+              "ru/customer/notifications",
+              "ru/customer/privacy"
+            ]
+          },
+          {
+            "group": "Коммерция",
+            "pages": [
+              "ru/commerce/catalog-promotions",
+              "ru/commerce/addons-configurator",
+              "ru/commerce/subscriptions",
+              "ru/commerce/orders-payments",
+              "ru/commerce/wallet-ledger",
+              "ru/commerce/wallet-topup-cart",
+              "ru/commerce/fulfillment",
+              "ru/commerce/recurring-payments",
+              "ru/commerce/gifts-and-goods",
+              "ru/commerce/customers-imports",
+              "ru/commerce/campaigns",
+              "ru/commerce/referrals-loyalty",
+              "ru/commerce/referrals-communication",
+              "ru/commerce/financial-invariants"
+            ]
+          },
+          {
+            "group": "Интеграции",
+            "pages": [
+              "ru/integrations/remnawave",
+              "ru/integrations/payments",
+              "ru/integrations/telegram",
+              "ru/integrations/oidc",
+              "ru/integrations/api"
+            ]
+          },
+          {
+            "group": "Справочник API",
+            "openapi": "https://raw.githubusercontent.com/kewldan/omniflow/main/api/openapi.yaml"
+          },
+          {
+            "group": "Панель оператора",
+            "pages": [
+              "ru/operations/admin-panel",
+              "ru/operations/admin-operations",
+              "ru/operations/installation-settings",
+              "ru/operations/support-desk",
+              "ru/operations/required-channels",
+              "ru/operations/risk-controls",
+              "ru/operations/operator-notifications"
+            ]
+          },
+          {
+            "group": "AI и MCP",
+            "pages": [
+              "ru/operations/ai-privacy",
+              "ru/operations/ai-governance",
+              "ru/operations/mcp"
+            ]
+          },
+          {
+            "group": "Эксплуатация",
+            "pages": [
+              "ru/operations/deployment",
+              "ru/operations/reverse-proxy",
+              "ru/operations/jobs-and-queues",
+              "ru/operations/observability",
+              "ru/operations/maintenance-mode",
+              "ru/operations/backup-restore",
+              "ru/operations/troubleshooting",
+              "ru/operations/telemetry",
+              "ru/operations/security"
+            ]
+          },
+          {
+            "group": "Разработка",
+            "pages": [
+              "ru/contributing/development",
+              "ru/contributing/database",
+              "ru/contributing/testing",
+              "ru/contributing/documentation"
+            ]
+          }
         ]
       }
     ]

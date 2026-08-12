@@ -1,14 +1,269 @@
 ---
 title: Documentation
-description: Maintain and validate the Mintlify source.
+description: How the Mintlify source is organised, which components to use, how to validate it locally, and the rule that keeps the Russian tree in step
 ---
 
-Public documentation lives under `docs/`. Keep operational instructions, environment variables, telemetry fields, and API behavior synchronized with code.
+Everything under `docs/` is the public documentation, published with Mintlify. It is not a
+supplement to the code — for an operator deciding whether to trust an installation with money, and
+for a customer deciding whether to trust it with their traffic, it is the product's only description
+of itself. `AGENTS.md` therefore treats a behaviour change and its documentation as one change:
+update the docs with the behaviour, and run the documentation checks before merging.
 
-Validate changes with:
+The tree has two complete language trees, English at the root and Russian under `docs/ru/`, and both
+are navigable from the published site. Keeping them in step is the single most easily broken rule on
+this page, so it has its own section below.
+
+## How the source is organised
+
+| Path | Contains |
+| --- | --- |
+| `docs/docs.json` | Theme, colours, and the entire navigation for both languages |
+| `docs/index.mdx`, `docs/comparison.mdx` | The two root pages |
+| `docs/getting-started/` | Quickstart, first sale, and the environment-variable reference |
+| `docs/architecture/` | The process model, the ownership boundary, and the stack |
+| `docs/customer/` | Everything a customer touches: bot, web panel, connection, notifications, privacy |
+| `docs/commerce/` | Catalogue, orders, wallet, fulfillment, gifts, campaigns, referrals |
+| `docs/integrations/` | Remnawave, payment providers, Telegram, OIDC, and the admin API |
+| `docs/operations/` | Deployment, the operator panel, observability, security, and the runbooks |
+| `docs/contributing/` | This section |
+
+`docs.json` follows the `https://mintlify.com/docs.json` schema. Its `navigation.languages` array
+holds two entries: `en`, marked `default: true`, and `ru`. Each carries its own group names — the
+Russian entry uses Russian group titles (`Начало`, `Коммерция`, `Эксплуатация`) — and each group
+lists page paths without the `.mdx` extension. A page that exists as a file but appears in no group
+is not reachable from the navigation, and a group entry with no file behind it has nothing to serve,
+so files and navigation entries are added and removed together.
+
+The API reference group is not a page. It points Mintlify at
+`https://raw.githubusercontent.com/kewldan/omniflow/main/api/openapi.yaml`, so every endpoint,
+parameter, and schema in the published reference comes from the committed contract on `main`. An
+endpoint is documented by changing `api/openapi.yaml`, never by hand-writing a page that describes
+it — which is the same rule that stops the Go server types and the TypeScript client from drifting.
+See [Development](/contributing/development) for the generators that read the same file.
+
+## Page anatomy
+
+Frontmatter is exactly two keys, on every one of the existing pages:
+
+```mdx
+---
+title: Wallet and ledger
+description: How the double-entry ledger records money and why a balance is never edited
+---
+```
+
+`title` supplies the page's heading, so the body starts at `##` and never contains a `#`. `description`
+is one sentence saying what the reader will be able to do after reading; it is what appears in search
+results and link previews.
+
+Open with one or two paragraphs of orientation before the first `##`. A reader who arrives from a
+search result needs to know what this page covers and what it does not before they meet a procedure.
+
+For each capability a page covers, answer three questions in order:
+
+1. **What it is** — one or two concrete sentences.
+2. **Why it exists** — the failure it prevents, the guard it enforces, or the alternative that was
+   rejected. Ground it in something visible in the code: a refusal path, an invariant, a privacy
+   boundary. Never invent a rationale.
+3. **How to use it** — the exact route, screen, or command; the fields; the button; and what the
+   reader sees on success, while pending, and when it is refused.
+
+A page that lists capabilities without saying how to reach them has failed. A page that gives steps
+without saying why the feature exists has also failed.
+
+## Components in use
+
+Mintlify offers a large component set; this documentation deliberately uses a small part of it, so a
+reader learns one visual vocabulary.
+
+| Component | Used for |
+| --- | --- |
+| `<Note>` | A clarification or a caveat that does not cost anything to get wrong |
+| `<Warning>` | Something that loses data, money, access, or privacy |
+| `<Steps>` with `<Step title="…">` | An ordered procedure the reader performs |
+| `<CardGroup cols={2}>` with `<Card title="…" icon="…" href="…">` | An overview of sub-areas, mainly on index and overview pages |
+
+`icon` takes a Font Awesome name — `database`, `server`, `wallet`, `shield-halved`, `bullhorn` and
+similar are already in use; prefer an icon the tree already uses over a new one. Do not stack three
+callouts in a row: a page where everything is highlighted highlights nothing.
+
+Code blocks always carry a language (`bash`, `env`, `json`, `yaml`, `sql`, `mdx`). Mermaid diagrams
+are allowed for state machines and flows and are used on three pages today; keep them small enough
+to read without zooming.
+
+Tables are the right shape for environment variables, roles, permissions, states, providers, and any
+enumerated matrix. Keep the column set consistent with the pages that already document the same kind
+of thing — the environment-variable tables all use Variable / Default / Purpose, and diverging from
+that makes two references impossible to read side by side.
+
+## Links
+
+Internal links are absolute paths with a leading slash and no extension: `/operations/admin-panel`,
+`/commerce/orders-payments`. Anchors are the target heading, lowercased and hyphenated:
+`/commerce/orders-payments#refunds`.
+
+CI runs `mint broken-links --check-anchors` over the English tree, so an anchor that does not match a
+real heading on the target page fails the build the same way a missing page does. When you rename a
+heading, search the tree for links to its anchor.
+
+A link from one Russian page to an anchor on another Russian page is the one case to avoid: the
+target's headings are translated, so the English anchor no longer exists there. Link to the page
+instead. An anchor pointing at a heading on the same page is fine, because you control both ends.
+
+Cross-link generously. Almost every capability has a customer page, an operator page, and a
+configuration reference, and a reader who lands on one of the three needs the other two.
+
+## Voice
+
+Match the pages that are already at the bar — `docs/customer/web-panel.mdx`,
+`docs/operations/admin-panel.mdx`, `docs/commerce/gifts-and-goods.mdx`.
+
+- Declarative, precise, unhurried. Full sentences. No marketing adjectives, no "simply", no "just",
+  no exclamation marks, no emoji in body text.
+- Explain causality inline: "…which is why…", "…because…", "…rather than…". Name the alternative
+  that was rejected when the code makes it obvious.
+- Second person for instructions ("Open `/admin/catalog`", "Paste the token"); third person for
+  behaviour.
+- Prefer "an operator" and "a customer" over "the user".
+- Exact identifiers in backticks: `APP_BACKUP_ENABLED`, `/v1/panel/orders`, `catalog.write`.
+- UTC for times, minor units for money, ISO dates.
+
+Do not weaken a real limitation into a footnote. Refusals, caps, and the things Omniflow
+deliberately does not do are part of the product and belong on the page.
+
+## The Russian mirror
+
+`docs/ru/**` mirrors the English tree file for file: `docs/index.mdx` has `docs/ru/index.mdx`,
+`docs/commerce/wallet-ledger.mdx` has `docs/ru/commerce/wallet-ledger.mdx`, and so on for every
+entry in `docs.json`.
+
+<Warning>
+  A change to an English page must be made to its Russian counterpart in the same commit. Not the
+  same pull request, not a follow-up issue — the same commit. A partially translated tree does not
+  read as incomplete to a Russian-speaking operator; it reads as correct and is silently out of
+  date, and the pages most likely to be edited are the runbooks where being out of date costs
+  money or access.
+</Warning>
+
+Russian is not a courtesy translation here. A new customer record is created with `locale` defaulting
+to `'ru'`, `APP_DEFAULT_CURRENCY` defaults to `RUB`, and the operator panel refuses to engage
+maintenance unless the operator supplies both a Russian and an English customer notice. The product
+assumes a Russian-speaking audience, so a Russian page that lags is a defect in the primary
+documentation, not in a secondary one.
+
+### What to translate and what to leave alone
+
+Translate the body, the frontmatter `title` and `description`, table headers, callout text, and the
+label text inside components.
+
+Never translate:
+
+- environment variable names (`APP_TELEMETRY_ENABLED`), route and API paths (`/v1/panel/orders`),
+  permission names (`system.write`), database identifiers, CLI commands, log lines, and JSON or YAML
+  keys;
+- component names (`<Note>`, `<Card>`) and `icon` values;
+- product names: Omniflow, Remnawave, Telegram, YooKassa, CryptoBot, Telegram Stars, Xray,
+  PostgreSQL, Valkey, River, Next.js.
+
+Internal links inside a Russian page point at the Russian page: `/ru/operations/admin-panel`, not
+`/operations/admin-panel`. A Russian page that links into the English tree drops the reader out of
+their language for the rest of the session.
+
+Use professional technical Russian, «вы» without capitalisation, and «ё» where the letter belongs
+(кошелёк, счёт). Some settled terms:
+
+| English | Russian |
+| --- | --- |
+| operator / customer | оператор / клиент |
+| plan / plan version | тариф / версия тарифа |
+| wallet / ledger / entry | кошелёк / книга проводок / проводка |
+| refund / top-up | возврат / пополнение |
+| support ticket / canned response | обращение / шаблон ответа |
+| campaign (configured object) / send | кампания / рассылка |
+| permission / role / audit trail | право доступа / роль / журнал аудита |
+| backup / maintenance mode / provisioning | резервная копия / режим обслуживания / выдача доступа |
+| entitlement / drift / idempotency | право на услугу / расхождение / идемпотентность |
+
+Keep sentence length and paragraph breaks close to the English page. The two trees are reviewed as a
+diff against each other, and a Russian page restructured for style makes the next update impossible
+to verify.
+
+## Validating locally
+
+```bash
+make docs-check
+```
+
+That runs all three checks CI runs, from the `docs` directory:
 
 ```bash
 cd docs
 PUPPETEER_SKIP_DOWNLOAD=true bunx mint@latest validate
-PUPPETEER_SKIP_DOWNLOAD=true bunx mint@latest broken-links --check-anchors
+PUPPETEER_SKIP_DOWNLOAD=true bunx mint@latest broken-links --check-anchors \
+  --files "*.mdx" "architecture/**/*.mdx" "commerce/**/*.mdx" "customer/**/*.mdx" \
+  "getting-started/**/*.mdx" "integrations/**/*.mdx" "operations/**/*.mdx" \
+  "contributing/**/*.mdx"
+sh scripts/check-russian-mirror.sh
 ```
+
+`validate` checks `docs.json` against its schema and the pages against Mintlify's MDX rules —
+malformed frontmatter, an unknown component, an unclosed tag. It covers both language trees.
+`PUPPETEER_SKIP_DOWNLOAD=true` stops the CLI from pulling a headless browser it does not need.
+
+`broken-links` is given an explicit file list rather than the whole site because it resolves every
+link against the default language: a `/ru/…` link is reported as broken even though the page is
+served at exactly that URL, as `mint dev` will show you. Rather than lose the check for Russian,
+`scripts/check-russian-mirror.sh` takes it over — it asserts that every English page has a Russian
+counterpart and no orphan exists the other way, that no Russian page links out into the English
+tree, and that every `/ru/…` link resolves to a real file.
+
+<Warning>
+  Do not "fix" a Russian page by removing its `/ru/` prefixes to quiet the link checker. That silently
+  drops a Russian reader into the English tree, and the mirror script will fail on it.
+</Warning>
+
+The `docs` job in `.github/workflows/ci.yml` runs exactly these three commands, so a green local run
+is a green CI run for this area.
+
+## Accuracy obligations
+
+- **Never document something that only exists in `ROADMAP.md`.** A planned capability is either
+  omitted or marked plainly as not yet available, with the version it is targeted at.
+- **Never invent an environment variable, a default, a route, a permission, or a screen.** If you
+  cannot open the file that defines it, leave it out.
+- **A telemetry change carries its documentation.** Any new field or event requires an update to the
+  public telemetry documentation and schema in the same change — see
+  [Anonymous telemetry](/operations/telemetry).
+- **Never paste a real secret, credential, access link, customer identifier, or payment payload into
+  a page,** including inside an example response. Synthesise one.
+- **Architecture decisions with long-term consequences** belong in `docs/architecture/decisions/`
+  rather than inline in a feature page.
+
+## Adding a page
+
+<Steps>
+  <Step title="Write the English page">
+    Create `docs/<section>/<slug>.mdx` with `title` and `description` frontmatter and a body that
+    starts at `##`.
+  </Step>
+  <Step title="Write the Russian page">
+    Create `docs/ru/<section>/<slug>.mdx` at the mirrored path, translated per the rules above, with
+    its internal links pointing into `/ru/`.
+  </Step>
+  <Step title="Register both in the navigation">
+    Add `<section>/<slug>` to the appropriate group in the `en` language block of `docs.json`, and
+    `ru/<section>/<slug>` to the matching group in the `ru` block. A page in one language block and
+    not the other is the most common way this tree goes out of step.
+  </Step>
+  <Step title="Link to it">
+    Add a link from at least one page a reader would plausibly arrive on first. A page nothing links
+    to is found only by search.
+  </Step>
+  <Step title="Validate">
+    Run `make docs-check` and fix every reported link and anchor before opening the pull request.
+  </Step>
+</Steps>
+
+Use a `docs:` Conventional Commit scoped to the area — `docs(telemetry): document the heartbeat
+payload`. The commit conventions and the rest of the contribution flow are on
+[Development](/contributing/development).

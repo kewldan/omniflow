@@ -1,32 +1,160 @@
 ---
 title: Financial invariants
-description: Rules that all commerce code and migrations must preserve.
+description: The rules every commerce change must preserve, where each one is enforced, and what each one prevents
 ---
 
-The following are release-blocking invariants:
+Omniflow's money rules are not conventions that reviewers remember. Most of them are table
+constraints and unique indexes, which means a script, a backfill, a future code path, or a
+mistake in a migration cannot write the state the rules forbid. This page lists them, says where
+each one lives, and says what would go wrong without it.
+
+Read it before changing anything in `internal/commerce`, `internal/commercepg`,
+`internal/paymentservice`, or a `database/migrations` file that touches an order, a payment, or the
+ledger.
+
+## Enforced by the schema
+
+These are checks and unique constraints in PostgreSQL. Violating one raises an error rather than
+producing a wrong number.
+
+| Invariant | Where | What it prevents |
+| --- | --- | --- |
+| `wallet_minor + external_minor = subtotal_minor - discount_minor` | `orders` CHECK | An order whose parts do not add up — money charged that no line accounts for, or a wallet deduction that was never owed |
+| `discount_minor <= subtotal_minor` | `orders` CHECK | A discount larger than the price, which would make the due amount negative |
+| `refunded_minor <= paid_minor` | `orders` CHECK | Refunding more than was ever taken |
+| Every amount is `bigint` in minor units and every currency matches `^[A-Z]{3}$` | `orders`, `ledger_entries`, `payment_intents`, `refunds` | Floating-point drift, and an amount whose currency nobody can resolve |
+| One order per `(user_id, idempotency_key)` | `orders` UNIQUE | A retried confirmation, a duplicate tap, or three concurrent cart triggers creating three orders |
+| One payment intent per `(provider, idempotency_key)` | `payment_intents` UNIQUE | A retried payment start opening a second checkout for the same attempt |
+| One intent per `(provider, provider_reference)` | partial UNIQUE index | Two intents claiming the same provider payment, so a webhook cannot settle the wrong one |
+| One payment event per `(payment_intent_id, provider_event_id, type)` | `payment_events` UNIQUE NULLS NOT DISTINCT | The same provider event appending the same history twice |
+| One webhook row per `(provider, provider_event_id)` | `provider_webhook_events` UNIQUE | A redelivered webhook being processed a second time — this is the deduplication guard itself |
+| One refund per `(payment_intent_id, idempotency_key)` | `refunds` UNIQUE | A retried refund request refunding twice |
+| One manual decision per intent | `manual_payment_approvals` UNIQUE | Two operators approving and rejecting the same transfer |
+| One ledger transaction per `idempotency_key`, **and** one per `(reference_type, reference_id, type)` | `ledger_transactions` UNIQUE ×2 | Double-crediting a top-up, a referral reward, or a gift — from two independent directions |
+| A `customer_wallet` entry always names a customer; a clearing entry never does | `ledger_entries` CHECK | Credit that belongs to nobody, and platform money attributed to a customer |
+| `amount_minor <> 0` on every ledger entry | `ledger_entries` CHECK | Zero-value entries padding a transaction into looking balanced |
+| A top-up is credited exactly when it has a ledger transaction | `wallet_topups` CHECK | A wallet credited without a movement behind it, or a movement the top-up does not know about |
+| One open cart per customer | `carts` partial UNIQUE index | Two saved purchases racing to spend the same balance |
+| `status = 'purchased'` ⟺ `order_id IS NOT NULL` | `carts` CHECK | A cart that claims to have bought something it cannot name |
+| One open checkout per customer | `bot_checkout_sessions` partial UNIQUE index | A browser checkout and a chat checkout confirming two different orders from one intent |
+| One trial per customer | `trial_claims` primary key | A second free trial, claimed in the same transaction as the order it belongs to |
+| Recurring cannot be enabled without a passing capability test | `payment_provider_settings` CHECK | Arming unattended charging against an integration that cannot actually bind a method |
+| Order state, order operation, intent status, refund status, payment event type, ledger transaction type and ledger account type are closed sets | CHECK on each column | An unknown value entering a state machine nothing knows how to read |
+
+## Enforced in the transaction
+
+These cannot be expressed as a constraint, so they are guards inside a serializable transaction —
+and each one is written where the state changes, not in a caller that could be bypassed.
+
+| Invariant | How | What it prevents |
+| --- | --- | --- |
+| Wallet credit claimed by `draft` and `pending` orders is not available to a new one | Available balance subtracts the reservation in SQL | Two checkouts opened side by side each believing the same money is theirs |
+| The wallet is re-checked at settlement | The balance is re-read under the order lock; a shortfall becomes `wallet_unavailable` and the order does not settle | Granting an entitlement partly paid from credit that has since been spent |
+| A wallet balance never goes negative | Operator adjustments re-read the balance and refuse; credit expiry clamps the amount to what is still there | A debit or an expiry driving a customer below zero |
+| Refund mutations serialise per intent, and pending plus succeeded refunds cannot exceed the intent | An advisory lock on the intent, and a reserve check **before** the provider is called | Two concurrent refunds each passing a check the other invalidated |
+| A promotion's remaining uses are decided under a row lock | `FOR UPDATE` on the promotion during quoting | Two customers both redeeming the last use of a limited code |
+| Concurrency limits are evaluated under a per-customer advisory lock | `pg_advisory_xact_lock` on the customer before the count | Two simultaneous purchases both passing a "one subscription" ceiling |
+| Payment success and durable fulfillment intent commit together | Settlement writes the ledger movement, the entitlement, the fulfillment operation, the operator notice and the referral reward in one transaction | Money taken with no record that anything is owed |
+| Duplicate, mismatched, overpaid and underpaid provider events never grant an entitlement | Classification happens before any state change and non-settling classes commit only the event | A malformed or replayed provider callback minting access |
+| An exact late payment settles at most once | The duplicate check inside classification | A payment arriving after expiry being applied twice |
+| A prorated add-on charge never exceeds its catalogue price, never rounds down to nothing, and is computed in 128 bits | Domain arithmetic | An overflow on a long period, or a free add-on from a rounding rule |
+| Add-on capacity is applied at most once per order and add-on version, and a null limit stays null | Unique `entitlement_addons`, and null-preserving arithmetic | Doubling a customer's capacity on a retried settlement, or turning "unlimited" into a number |
+| A saved cart is re-priced against the current catalogue before any charge | The cart quote always re-runs the preview | Charging a price the catalogue no longer offers |
+| Maintenance blocks new orders and outbound provisioning only | The purchase gate is checked at the top of every order creator | An installation that cannot provision continuing to sell — while money already taken still settles, refunds still work, and history stays readable |
+| Retention deletes disposable operational data only | The retention worker's own scope | A sweep removing financial, audit, consent, identity or entitlement history |
+| Secrets, raw authorization headers, subscription links and contact plaintext stay out of logs and operational history | Webhook headers are reduced to `content-type` and `user-agent`; provider credentials are sealed with `APP_DATA_ENCRYPTION_KEY` and never returned by the API | A provider credential ending up in a database dump or a diagnostics view |
+
+## Append-only, precisely
+
+"Append-only" is worth stating exactly, because the three tables it applies to behave differently:
+
+- **Ledger transactions and entries** are never updated and never deleted. There is no code path in
+  the panel, the API or the workers that does either. A correction is a new compensating pair.
+- **Payment events** are only inserted. An intent's history is the ordered list of everything that
+  was ever classified against it, including the classifications that changed nothing.
+- **Provider webhook events** are inserted once per `(provider, provider_event_id)` and then only
+  have their processing status completed. They carry a `retain_until` of 30 days, after which the
+  retention sweep deletes them — the raw body is diagnostic data, not financial history.
+
+## What is deliberately not guaranteed
+
+Documenting the guards without documenting their edges would be misleading.
+
+- **There is no single gate every order transition passes through.** The domain declares a
+  transition table, but nothing in production calls it. What runs is a set of predicates on the
+  individual statements — the cancel statement, the expiry sweep, the classification duplicate
+  check. Adding a new writer of `orders.state` means adding its guard, not relying on an existing
+  one.
+- **`wallet_unavailable` leaves work for a person.** The provider has taken money against an order
+  that stays `pending`, and nothing automatic resolves it. See [When a payment does not
+  settle](/commerce/orders-payments#when-a-payment-does-not-settle).
+- **Wallet-credit expiry converges rather than applying instantly.** A balance is the plain sum of
+  entries; expiry is a compensating entry written by a loop that only the API process runs. Until it
+  has run, an expired credit is still spendable.
+- **The panel's refund and reconcile buttons record a decision.** They write
+  `panel.refund.issued` and `panel.payment.reconciled` and do not move money or poll a provider. The
+  refund that actually refunds is `POST /v1/admin/payments/{paymentID}/refunds`.
+- **The unique constraint on `ledger_entries` cannot deduplicate clearing rows.** It covers
+  `(transaction_id, account_type, user_id, currency)`, and both clearing account types have a null
+  `user_id`, which PostgreSQL treats as distinct in a unique constraint. Clearing rows rely entirely
+  on their transaction being created once under its unique idempotency key — which is why every
+  writer creates the transaction first and inserts entries only under it.
+- **A digital-goods delivery refund credits the quoted price**, without subtracting the promotion
+  discount, and leaves `orders.state` and `orders.refunded_minor` untouched. A customer who used a
+  promo code on a failed shop delivery is credited more than they paid, and the order still reads
+  as paid.
+
+## The release-blocking list
+
+A change that breaks any of these should not ship:
 
 1. Money is an integer minor-unit amount plus one uppercase three-letter currency.
 2. An order satisfies `wallet + external = subtotal - discount`.
 3. Discount cannot exceed subtotal; refunded amount cannot exceed paid amount.
 4. A ledger transaction sums to zero independently for every currency.
-5. A wallet balance is derived from append-only entries and cannot become negative.
-6. Pending-order wallet reservations are subtracted from available balance and rechecked before settlement.
-7. A provider event, order mutation, refund, ledger reference, and fulfillment operation is idempotent.
-8. Duplicate, mismatched, overpaid, and underpaid provider events never grant an entitlement; an exact late payment can grant at most one.
+5. A wallet balance is derived from append-only entries, and no code path writes a movement that
+   would take one below zero.
+6. Pending-order wallet reservations are subtracted from the available balance and re-checked before
+   settlement.
+7. Every provider event, order mutation, refund, ledger reference, and fulfillment operation is
+   idempotent under a stable key.
+8. Duplicate, mismatched, overpaid and underpaid provider events never grant an entitlement; an
+   exact late payment can grant at most one.
 9. Payment success and durable fulfillment intent commit together.
-10. Provider history, consent, audit, ledger, webhook, and fulfillment history is append-only.
-11. Secrets, subscription links, contact plaintext, and raw authorization headers never enter logs or operational history.
-12. Refund mutations are serialized per payment intent, and pending plus successful refunds cannot exceed the provider-paid amount before the provider is called.
-13. A wallet top-up credits exactly the amount the provider settled, exactly once, keyed on its order. A top-up never spends wallet credit.
-14. A prorated add-on charge never exceeds its catalog price, never rounds down to nothing, and is computed in 128 bits so a long period cannot overflow it.
-15. Add-on capacity is applied to an entitlement at most once per order and add-on version, and a null limit stays null.
-16. A saved cart is re-priced against the current catalog before any charge, and is charged under one idempotency key however many paths attempt it at once.
-17. Concurrency limits are evaluated under a per-customer advisory lock, so simultaneous purchases cannot both pass.
-18. Maintenance mode blocks new orders and outbound provisioning only. It never cancels, refunds, expires, or otherwise mutates money already taken.
-19. Retention deletes disposable operational data only. Financial, audit, consent, identity, and entitlement history is never removed by a sweep.
+10. Ledger, payment-event, consent, audit and fulfillment history is append-only; webhook bodies are
+    retained for 30 days and then deleted.
+11. Secrets, subscription links, contact plaintext, and raw authorization headers never enter logs or
+    operational history.
+12. Refund mutations are serialized per payment intent, and pending plus successful refunds cannot
+    exceed the provider-paid amount before the provider is called.
+13. A wallet top-up credits exactly the amount the provider settled, exactly once, keyed on its
+    order. A top-up never spends wallet credit.
+14. A prorated add-on charge never exceeds its catalogue price, never rounds down to nothing, and is
+    computed in 128 bits so a long period cannot overflow it.
+15. Add-on capacity is applied to an entitlement at most once per order and add-on version, and a
+    null limit stays null.
+16. A saved cart is re-priced against the current catalogue before any charge, and is charged under
+    one idempotency key however many paths attempt it at once.
+17. Concurrency limits are evaluated under a per-customer advisory lock, so simultaneous purchases
+    cannot both pass.
+18. Maintenance mode blocks new orders and outbound provisioning only. It never cancels, refunds,
+    expires, or otherwise mutates money already taken.
+19. Retention deletes disposable operational data only. Financial, audit, consent, identity, and
+    entitlement history is never removed by a sweep.
 
 ## Where they are tested
 
-Domain tests cover wallet-first splitting, payment replay, currency mismatch, promotion scope, ledger balancing, webhook signatures, customer lifecycle guards, top-up limits and settlement, add-on proration, cart evaluation, concurrency policy, and squad resolution. They run in the default `go test ./...`.
+Domain tests cover wallet-first splitting, payment replay, currency mismatch, promotion scope,
+ledger balancing, webhook signatures, customer lifecycle guards, top-up limits and settlement,
+add-on proration, cart evaluation, concurrency policy, and squad resolution. They run in the default
+`go test ./...`.
 
-The Testcontainers suite in `internal/integrationtest` proves the transactional invariants against a real PostgreSQL: exactly-once top-up credit across replays, over- and underpayment resolving in the ledger, a cart charging once under concurrency, concurrency limits holding under load, one outbox event and one operator notice per settlement, maintenance blocking new orders while a paid one settles, and add-ons applying once. See [Testing strategy](/contributing/testing).
+The Testcontainers suite in `internal/integrationtest` proves the transactional invariants against a
+real PostgreSQL: exactly-once top-up credit across replays, over- and underpayment resolving in the
+ledger, a cart charging once under concurrency, concurrency limits holding under load, one outbox
+event and one operator notice per settlement, maintenance blocking new orders while a paid one
+settles, and add-ons applying once. See [Testing strategy](/contributing/testing).
+
+Related reading: [Orders, payments and refunds](/commerce/orders-payments), [Wallet and
+ledger](/commerce/wallet-ledger), [Wallet top-up and saved
+carts](/commerce/wallet-topup-cart).

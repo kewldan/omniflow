@@ -1,89 +1,260 @@
 ---
 title: Installation settings
-description: Configuring every backend capability from the panel, and what the panel deliberately will not show you.
+description: What the Settings screen stores, which of it changes behaviour today, and where each running value actually comes from
 ---
 
-Everything an installation needs configuring — branding, the Remnawave
-connection, the Telegram bot, the operator group, required channels, maintenance,
-notification thresholds, telemetry, backups, and session policy — is editable in
-**Settings**. None of it needs SQL or shell access.
+`/admin/settings` is the operator console's configuration screen, and it holds three
+different kinds of thing. Commerce policy — wallet top-up and subscription concurrency —
+is stored in the database. Ten declarative **installation sections** are stored,
+versioned, and audited, with their credentials sealed. Three cards are read-only: the
+telemetry preview, the backup and restore history, and the diagnostics bundle.
+
+The distinction that matters is not visible on the screen, so it is stated here first.
+
+<Warning>
+  Saving an installation section stores a versioned document, seals any secrets you
+  typed, and appends an audit entry. It does **not** change how the `api`, `bot`, or
+  `worker` processes behave. Those processes read their configuration from environment
+  variables once at start-up and never re-read it. To change behaviour, change the
+  variable and restart the process.
+
+  Treat a saved section as a record of intent — useful, auditable, and not yet a control.
+</Warning>
+
+The whole screen needs `settings.read`; every save needs `settings.write`; the
+diagnostics card additionally needs `system.read`. See
+[Admin panel](/operations/admin-panel) for how those permissions are granted.
+
+## Where each value is actually read from
+
+| Settings card | Stored in | Read at runtime | Change behaviour with |
+| --- | --- | --- | --- |
+| Wallet top-up | `commerce_settings` | No — limits, presets, and the rolling window come from the environment | `APP_WALLET_TOPUP_*` |
+| Subscriptions | `commerce_settings` | Partly — the customer web panel reads `multi_subscription_enabled` to decide whether to show the subscription switcher | `APP_MULTI_SUBSCRIPTION_ENABLED`, `APP_MAX_SUBSCRIPTIONS_PER_CUSTOMER` |
+| Branding | `installation_settings` | No | `APP_PUBLIC_URL`, `APP_TERMS_URL`, `APP_SUPPORT_URL`, `APP_DEFAULT_CURRENCY` |
+| Remnawave | `installation_settings` | No | `APP_REMNAWAVE_URL`, `APP_REMNAWAVE_TOKEN` |
+| Telegram | `installation_settings` | No | `APP_TELEGRAM_TOKEN`, `APP_TELEGRAM_WEBHOOK_URL`, `APP_TELEGRAM_WEBHOOK_SECRET` |
+| Operator group | `installation_settings` | No | `APP_OPERATOR_CHAT_ID`, `APP_OPERATOR_NOTIFICATION_CAP`, `APP_OPERATOR_NOTIFICATION_WINDOW_MINUTES` |
+| Required channels | `installation_settings` | No | *(no equivalent; see [Required channels](/operations/required-channels))* |
+| Maintenance | `installation_settings` | No | `APP_MAINTENANCE_AUTO_DETECT`, `APP_MAINTENANCE_FAILURE_STREAK`, `APP_MAINTENANCE_RECOVERY_STREAK` |
+| Notifications | `installation_settings` | No | *(no equivalent; thresholds are compiled in)* |
+| Telemetry | `installation_settings` | Preview only — see below | `APP_TELEMETRY_ENABLED`, `APP_TELEMETRY_ENDPOINT` |
+| Backup | `installation_settings` | No | `APP_BACKUP_ENABLED`, `APP_BACKUP_ENCRYPTION_KEY`, `APP_BACKUP_DIR`, `APP_BACKUP_INTERVAL_HOURS`, `APP_BACKUP_RETENTION_DAYS` |
+| Security | `installation_settings` | No | *(no equivalent; session lifetimes are compiled in)* |
+| Payment providers | `payment_provider_settings` | No — the adapters the API and worker actually call are built from the environment at start-up | `APP_TELEGRAM_TOKEN`, `APP_CRYPTOBOT_TOKEN`, `APP_CRYPTOBOT_TESTNET`, `APP_YOOKASSA_SHOP_ID`, `APP_YOOKASSA_SECRET` |
+| Customer sign-in (OIDC) | `customer_oidc_providers` | Yes | The panel itself |
+
+Customer OIDC is the exception worth remembering: those providers are read from the
+database on every sign-in, so adding, editing, or disabling one takes effect immediately —
+and disabling one ends the sessions it established. Everything else on this page is
+either environment-driven or stored and waiting.
+
+Three sections have no environment equivalent at all, and their fields are inert in both
+directions:
+
+- **Notifications** — `failedPaymentThreshold`, `driftThreshold`, `outboxBacklogThreshold`,
+  `quietHoursStart`, `quietHoursEnd`. Nothing reads them. Fulfillment alerting fires
+  after three failed attempts, a compiled-in constant.
+- **Security** — `sessionIdleMinutes`, `sessionAbsoluteHours`, `requireTotp`,
+  `allowedOrigins`. Operator sessions always use the compiled-in policy: 30-minute idle
+  timeout, 12-hour absolute lifetime, 15-minute token rotation. There is no mechanism
+  anywhere that requires two-factor for an operator account; TOTP is per-account and
+  voluntary.
+- **Required channels** — `recheckIntervalMinutes`, `graceHours`, `warnBeforeSuspend`.
+  The membership re-check runs on a fixed ten-minute loop in the bot.
+
+The complete list of variables that do take effect is in
+[Configuration](/getting-started/configuration).
 
 ## How a section is saved
 
-Each screen is one section, saved atomically. A section is what you edit, and
-saving one atomically is the difference between a half-applied Remnawave
-connection and none at all.
+Each section is one card with its own **Save** button. The card footer shows the version
+it rendered from and when it was last written.
 
-Every save carries the version the screen was rendered from. If somebody else
-saved first, you get a conflict and a prompt to reload rather than silently
-overwriting their change — which is what would otherwise happen when the same
-screen is open in two tabs.
+<Steps>
+  <Step title="Open the section">
+    Go to `/admin/settings`. Every section an installation could have is rendered, not
+    only the ones somebody has already written, so a fresh installation shows ten empty
+    cards rather than none.
+  </Step>
+  <Step title="Edit the document fields">
+    Text, URL, number, boolean, and textarea fields all belong to the section's
+    *document*. The document never contains a credential — that is enforced by the query
+    not selecting the secret column, rather than by a filter somebody has to remember to
+    apply.
+  </Step>
+  <Step title="Type a secret only if you are rotating it">
+    A secret field is always blank, because the API never returns a stored value. Leaving
+    it blank keeps what is stored. The panel strips blank secrets from the payload before
+    sending, so re-saving a card cannot clear a credential by accident.
+  </Step>
+  <Step title="Save">
+    The request is `PUT /v1/panel/settings/{section}` carrying
+    `{"document": {...}, "version": <n>, "secrets": {...}}`. On success the card
+    re-renders with the new version and updated timestamp.
+  </Step>
+</Steps>
 
-## Secrets are write-only
+### What can refuse the save
+
+| Response | Meaning |
+| --- | --- |
+| `409 conflict` | The version you sent is not the current one. Somebody else saved this section while your screen was open; the card shows a conflict alert and asks you to reload. Saving again over it would discard whatever their change was, which is why it is refused rather than merged. |
+| `422` | An unknown section name, or a document that is not valid JSON. |
+| `403` | Your roles do not hold `settings.write`. |
+
+### What the audit trail records
+
+Every save appends `settings.section.saved` in category `configuration`, targeting
+`installation_setting:<section>`. Its metadata carries the resulting version and the
+*names* of the secrets that were rotated — never their values. "Somebody changed the
+Remnawave token on Tuesday" is the auditable fact, and it is the one an incident review
+needs.
+
+Secrets are sealed with `APP_DATA_ENCRYPTION_KEY` under a per-section label, so a
+ciphertext moved from one section's row to another fails to open rather than decrypting
+somewhere it does not belong.
+
+<Note>
+  The response body of a save reports `secretConfigured` from whether *this call* carried
+  a secret, so a save that only edited document fields answers `false` even when a
+  credential is stored. The panel re-reads the section list immediately afterwards, so
+  the badge you see on screen is correct; an integration reading the save response
+  directly should re-read `GET /v1/panel/settings` rather than trust that field.
+</Note>
+
+## The section catalogue
+
+| Section | Document fields | Secrets |
+| --- | --- | --- |
+| `branding` | `serviceName`, `supportContact`, `publicUrl`, `termsUrl`, `defaultLocale`, `timezone` | — |
+| `remnawave` | `baseUrl`, `reconcileIntervalMinutes`, `compatibilityChecked` | `token` |
+| `telegram` | `botUsername`, `webhookUrl`, `webhookEnabled` | `botToken`, `webhookSecret` |
+| `operator_group` | `chatId`, `createTopics`, `notificationCap`, `windowMinutes` | — |
+| `required_channels` | `recheckIntervalMinutes`, `graceHours`, `warnBeforeSuspend` | — |
+| `maintenance` | `autoEnable`, `failureThreshold`, `noticeEn`, `noticeRu` | — |
+| `notifications` | `failedPaymentThreshold`, `driftThreshold`, `outboxBacklogThreshold`, `quietHoursStart`, `quietHoursEnd` | — |
+| `telemetry` | `enabled`, `endpoint` | — |
+| `backup` | `enabled`, `intervalHours`, `retentionDays`, `directory` | `encryptionKey` |
+| `security` | `sessionIdleMinutes`, `sessionAbsoluteHours`, `requireTotp`, `allowedOrigins` | — |
+
+`GET`/`PUT /v1/panel/settings/{section}` additionally accept `ai` and `mcp`, which the
+settings screen does not render — those areas have their own screen at
+`/admin/settings/ai`. See [AI governance](/operations/ai-governance) and
+[MCP](/operations/mcp).
+
+## Commerce settings
+
+The two cards at the top of the screen are backed by a `commerce_settings` row rather
+than by a section document, and they are the one part of this screen with real
+validation.
+
+The row is seeded from the environment the first time the API starts with an empty table,
+so an operator upgrading finds the limits they had already configured rather than schema
+defaults. A seed failure is logged and never blocks start-up.
+
+**Top-up card.** Enabled switch, a read-only currency badge, minimum, maximum, rolling
+window in hours, window limit, and a comma-separated preset list — all amounts in minor
+units. The currency is not editable because the wallet is per-currency: offering several
+top-up currencies would let a customer fund a balance they cannot spend on the plan they
+want. Free entry stays available whatever the presets contain, so an empty preset list
+means "free entry only" rather than "no top-up".
+
+Refusals, all `422`: a minimum or maximum at or below zero, a minimum above the maximum,
+a window at or below zero, and — the one people hit — **a preset outside the limits**,
+because a preset the store would refuse is a button that always fails.
+
+**Subscriptions card.** A multi-subscription switch and a maximum per customer, which
+must be at least 1. Turning concurrency off never closes anything: customers who already
+hold several keep them, and the ceiling applies to new purchases only. A plan may narrow
+the ceiling through its own limit; neither can widen the other. See
+[Subscriptions](/commerce/subscriptions).
+
+Both writes append `panel.settings.topup.updated` / `panel.settings.subscriptions.updated`
+against `settings:commerce`.
+
+## Telemetry preview
+
+The preview card shows the anonymous installation identifier, whether anything has ever
+been sent, the total event count, a rendered JSON payload, and a flattened list of its
+field names.
 
 <Warning>
-  A stored secret is never returned. Not to the panel, not to the API, not to the
-  diagnostics bundle. The field you see is always empty.
+  The card's on/off state and endpoint come from the `telemetry` **section document**,
+  which is empty on a fresh installation — so the card reads `enabled: false`. The
+  sender reads `APP_TELEMETRY_ENABLED`, which **defaults to `true`**. On a default
+  installation the card says off while the API is sending a heartbeat once a day.
+
+  The card also renders a different field set from the wire event. Treat
+  [Anonymous telemetry](/operations/telemetry) as the authority on what leaves the
+  installation, and `APP_TELEMETRY_ENABLED=false` as the way to stop it.
 </Warning>
 
-This is enforced by the queries not selecting the column, rather than by a filter
-somebody has to remember to apply. What the panel shows instead is whether a
-value exists.
-
-Leaving a secret field empty on save **keeps the stored value**. That is what
-makes rotating a token a deliberate act — you type a new one — rather than a side
-effect of editing the base URL next to it.
-
-The audit entry records which secret names were rotated and never their values.
-"Somebody changed the bot token on Tuesday" is the auditable fact.
-
-## Telemetry: the exact payload
-
-The telemetry screen renders the payload that would be sent, built from the same
-values the sender uses. A preview assembled separately would be a promise about a
-different program.
-
-The payload is a heartbeat: an anonymous installation identifier, the version,
-the Go version, the platform, and the time. There is deliberately no customer
-count, no revenue figure, and no domain — a number small enough to identify an
-installation is an identifier.
-
-Telemetry is off unless you turn it on, and the screen shows whether anything has
-ever been sent.
+What the card gets right is the shape of the promise: there is no customer count, no
+revenue figure, and no domain in either the preview or the wire event, because a number
+small enough to identify an installation is an identifier.
 
 ## Backups and restores
 
-Schedule, retention, directory, and the encryption key sit together, and the
-history below shows both backups and restores.
+A read-only table of recent backups — when, kind, status, size, verified — with the
+restore history directly beneath it. A backup nobody has ever restored is a backup nobody
+knows works, which is why the two sit on one card rather than on separate screens.
 
-<Note>
-  A backup nobody has ever restored is a backup nobody knows works. The restore
-  history sits beside the backup list rather than on a separate screen for that
-  reason.
-</Note>
+The panel cannot take or restore a backup. There is no write route for it on `/v1/panel`
+or on `/v1/admin`; the only two ways to make one happen are the worker's schedule and the
+bot's `/ops` surface. See [Backup and restore](/operations/backup-restore).
 
 ## The diagnostics bundle
 
-The bundle is what you send somebody when you need help. It carries the version,
-the Go version and platform, the schema state and applied migration count, which
-sections are configured and which hold a secret, backup status, payment provider
-health, maintenance state, and row counts.
+Press **Generate** and the card fetches `GET /v1/panel/settings/diagnostics`, which needs
+`system.read` rather than `settings.read` — it describes the running installation rather
+than its settings, and the people who need it are the people already looking at system
+health.
 
-It is assembled from an **allowlist** of fields rather than by dumping state and
-filtering it. A filter has to be updated every time a field is added; an
-allowlist fails closed when somebody forgets. So the bundle contains no
-credentials, and no section documents either — a branding document is harmless
-and an operator-group document names a chat, and drawing that line per section is
-exactly the mistake an allowlist avoids.
+The bundle carries:
 
-Generating the bundle needs `system.read`, because it describes the running
-installation rather than its settings.
+- the build version, the Go version, and `GOOS/GOARCH`
+- migration status: applied count, latest version, and whether a migration is marked
+  dirty, read from Atlas's own revision table
+- per section: whether it is configured, whether it holds a secret, and its version
+- backup status: total, last taken, last size, last verified, last restore, restore count
+- payment provider health and the current maintenance state
+- row counts for customers, subscriptions, orders, open tickets, operators, and pending
+  outbox events
 
-## What is not here yet
+It is assembled from an allowlist of fields rather than by dumping state and filtering
+it. A filter has to be updated every time a field is added; an allowlist fails closed
+when somebody forgets. So the bundle contains no credentials and no section documents —
+a branding document is harmless and an operator-group document names a chat, and drawing
+that line per section is exactly the mistake an allowlist avoids.
 
-- **Update availability.** The bundle reports the running version and the schema
-  state. It does not say whether a newer release exists: that needs a release
-  feed the installation would have to reach, which is a network dependency and a
-  disclosure decision an owner should make deliberately.
-- **Notification test delivery.** Thresholds and templates are configurable;
-  sending one test message to a single operator account is not yet wired.
+Two numbers in the bundle need interpreting:
+
+- **Version is always `dev`.** No build stamps a version into the binaries, including the
+  released images, so the bundle, `/livez`, and the telemetry heartbeat all report `dev`.
+  Identify a deployment by its image tag instead.
+- **Pending outbox events only grow.** Events are written into `outbox_events` on
+  `order.paid`, `wallet.credited`, and `addon.purchased`, and nothing marks them
+  published, so the count rises for the life of the installation and the retention sweep
+  never removes any. It is not a backlog signal, and it is not a sign that something has
+  stalled. See [Jobs and queues](/operations/jobs-and-queues).
+
+A migration status that reads as zeros means Atlas's revision table does not exist, which
+is the true answer for an installation whose migrator has not run.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="sliders" href="/getting-started/configuration">
+    Every environment variable that changes behaviour, grouped by concern.
+  </Card>
+  <Card title="Admin panel" icon="shield-halved" href="/operations/admin-panel">
+    Roles, permissions, sessions, and the audit trail behind this screen.
+  </Card>
+  <Card title="Anonymous telemetry" icon="satellite-dish" href="/operations/telemetry">
+    The exact event on the wire and how to switch it off.
+  </Card>
+  <Card title="Backup and restore" icon="database" href="/operations/backup-restore">
+    Taking, verifying, retaining, and replaying an encrypted dump.
+  </Card>
+</CardGroup>

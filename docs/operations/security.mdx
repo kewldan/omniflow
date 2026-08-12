@@ -1,16 +1,559 @@
 ---
-title: Security
-description: Deployment and application security expectations.
+title: "Security"
+description: "The whole security posture: the three credential surfaces, password and TOTP handling, session storage and rotation, CSRF, secret sealing, trusted proxies, headers, and what is never logged"
 ---
 
-- Store secrets outside the repository and rotate them after suspected exposure.
-- Require TOTP two-factor for every operator account. Set it up under **Security** in the panel; see [Admin panel](/operations/admin-panel) for sessions, roles, and the audit trail.
-- Customer sessions are separate from operator ones in every respect — a different cookie, a different CSRF derivation, and a different prefix — so a customer credential can never satisfy an operator route. They are also deliberately longer-lived; see [Customer web panel](/customer/web-panel) for the lifetimes and for the actions that demand a fresh sign-in.
-- Keep PostgreSQL and Valkey off the public network.
-- Verify every payment and Telegram webhook.
-- Restrict upload types and sizes.
-- Keep audit history append-only. Panel actions are recorded automatically, including denied ones.
-- Set `APP_TRUSTED_PROXIES` when the API sits behind a reverse proxy, so rate limiting and the audit trail record the real client address.
-- Run supported patch versions and review automated dependency updates.
+Omniflow holds three things worth attacking: operator access to a panel that
+moves money, customer credentials that unlock a paid subscription, and the
+provider secrets that spend from funded balances. This page describes how each
+is protected, what the application deliberately refuses to do, and where the
+current build's behaviour differs from what an operator might assume.
 
-Report vulnerabilities through GitHub private vulnerability reporting.
+Everything here is a property of the code rather than a recommendation. Where a
+control does not exist, it says so.
+
+## The three credential surfaces
+
+The HTTP API has exactly three prefixes, and they never share middleware.
+
+| Prefix | Credential | Gates | Scope of a compromise |
+| --- | --- | --- | --- |
+| `/v1/panel` | `__Host-omniflow_admin` session cookie | security headers → session → CSRF → an RBAC permission per route | Whatever the operator's roles allow; every action is audited |
+| `/v1/admin` | `Authorization: Bearer <APP_OPERATOR_TOKEN>` | the token, and nothing else | Every endpoint on the prefix, including refunds and wallet adjustments; no authorization audit |
+| `/v1/account` | `__Host-omniflow_account` session cookie | security headers → session → CSRF, plus recent-authentication on four routes | One customer's own account |
+
+Collapsing any two of these onto one prefix would mean one silently inherits the
+other's middleware. Keeping them apart makes "a customer credential cannot reach
+an operator route" a property of the route table rather than a check somebody
+has to remember, and a test asserts it.
+
+`admin_users` is entirely separate from `users`. An administrator is never a VPN
+customer by virtue of holding a panel account, and creating one produces no
+Remnawave entitlement.
+
+<Warning>
+  `APP_OPERATOR_TOKEN` is a third operator credential with no roles, no CSRF, and
+  no per-request authorization audit. It is also a hard startup requirement for
+  the API. Generate it from a cryptographic source, keep it out of the
+  repository and out of chat, and rotate it by editing the environment and
+  restarting. See [Integrating with the API](/integrations/api).
+</Warning>
+
+## Operator passwords
+
+Passwords are hashed with argon2id and stored as PHC-encoded strings that carry
+their own cost parameters. Recording the parameters inside the hash means
+raising the cost later needs no migration and no forced reset: existing hashes
+keep verifying under their own recorded costs, and a hash produced with weaker
+parameters is silently upgraded during the next successful sign-in. A rehash
+failure never blocks the sign-in itself.
+
+| Parameter | Value |
+| --- | --- |
+| Algorithm | argon2id |
+| Memory | 64 MiB |
+| Iterations | 3 |
+| Parallelism | 2 |
+| Salt | 16 bytes |
+| Key | 32 bytes |
+| Minimum length | 12 characters, counted in runes |
+| Maximum length | 256 characters |
+
+There are no composition rules. Length is counted in runes so a non-Latin
+passphrase is not wrongly rejected. These values are compiled in and are not
+environment-configurable.
+
+A malformed or corrupt hash fails **closed**: verification returns an error
+rather than a match, and the hash is treated as needing replacement rather than
+being trusted.
+
+### Sign-in protection
+
+- **Enumeration resistance.** An unknown address is verified against a randomly
+  generated decoy hash built at service construction with the live parameters,
+  so a missing account costs the same as a real one. An OIDC-only operator with
+  no password set spends the same decoy verification.
+- **One shared error.** A wrong password, an unknown address, and a non-`active`
+  account all answer `401 invalid_credentials`. A locked account answers
+  `429 account_locked`.
+- **Lockout.** Five consecutive failures lock the account. The wait doubles on
+  each further failure from a one-minute base and is capped at one hour, so a
+  known operator cannot be locked out permanently. A locked account is not
+  verified against at all, so guessing during a lockout cannot time the password
+  check.
+- **Rate limits.** 10 attempts per minute per normalised email address and 30
+  per minute per client IP — one so a single account cannot be ground down, one
+  so a spray across many accounts from a single origin is bounded too. The limit
+  is applied before any hashing.
+- Successful sign-in resets the failure counter, clears the lock, and records
+  `last_login_at`.
+
+Email normalisation folds case and trims whitespace only. Dots and plus-tags are
+preserved, because some providers treat them as genuinely distinct mailboxes.
+
+### Changing and resetting a password
+
+`POST /v1/panel/auth/password` re-proves the current password, then revokes every
+**other** session, invalidates any outstanding reset token, audits
+`admin.password.changed`, and queues an operator security notice.
+
+`POST /v1/panel/auth/password-reset` always answers `202 Accepted` with no body,
+whether or not the address matched an account and including when the rate limit
+(5 per hour per IP) fires, so the endpoint cannot be used to discover which
+addresses are registered. The token lives one hour, is single-use, and
+requesting a new one retires the previous one. Completing a reset revokes
+**all** sessions, including the one that requested it — a reset is the remedy
+for a suspected compromise, so nothing established beforehand may survive it.
+
+<Warning>
+  There is no email transport in this build. The reset token is written to the
+  API log at warn level — `admin password reset issued; deliver this token out of
+  band` — for an operator with host access to deliver. Neither the request nor
+  the completion endpoint has a screen in `/admin`; both are API-only.
+</Warning>
+
+## Two-factor authentication
+
+TOTP follows RFC 6238: SHA-1, 6 digits, a 30-second step, and one step of drift
+accepted either side. It is implemented in the repository rather than taken as a
+dependency because the specification is small and fully specified, and the tests
+assert against the RFC's own published vectors — stronger assurance for a
+security-critical path than an unaudited module.
+
+Enrolment is two steps. `POST /v1/panel/auth/totp` stores the secret
+immediately but leaves it unconfirmed, and an unconfirmed secret satisfies no
+login challenge, so an abandoned enrolment leaves the account exactly as it was.
+`POST /v1/panel/auth/totp/confirm` activates it and returns ten single-use
+recovery codes — the only time they are ever returned. Only their SHA-256
+digests are stored, which is correct here because the codes have uniform entropy
+and there is no dictionary to defend against.
+
+Recovery codes are two groups of five from a 32-symbol alphabet without the
+ambiguous `I L O U`. Matching normalises case, spacing, and the hyphen, so
+retyping from paper works. Single use is a SQL property: a replayed code updates
+no row. Confirming a new enrolment deletes and re-issues the whole set.
+
+Disabling two-factor requires re-entering the password, because removing a
+second factor is exactly what an attacker on a hijacked session would attempt.
+It also deletes every recovery code and queues a security notice.
+
+Verification compares against every candidate time step in constant time and
+does not stop early, so timing does not reveal which step matched. The challenge
+endpoint is limited to 15 attempts per minute per client IP.
+
+On a successful challenge the session token is **rotated in the same statement**
+that clears the pending state, so the cookie held during the challenge cannot be
+replayed as a fully authenticated one.
+
+`APP_ADMIN_TOTP_ISSUER` (default `Omniflow`) is the label shown in authenticator
+apps. Secrets are sealed with `APP_DATA_ENCRYPTION_KEY`.
+
+<Note>
+  **Two-factor cannot be made mandatory in this build.** It is per-account and
+  voluntary. The panel's settings screen offers a `security` section with
+  `requireTotp`, `sessionIdleMinutes`, `sessionAbsoluteHours`, and
+  `allowedOrigins`; those keys are stored but nothing in the API reads them, so
+  setting them changes no behaviour. Enrolment has to be an operational
+  expectation, checked from the operator list at `/admin/operators`, which shows
+  each account's two-factor state.
+</Note>
+
+## Sessions
+
+Both panels use the same primitive: a 256-bit random token given to the browser,
+and only its SHA-256 digest stored. A stored session must be useless to whoever
+reads the storage, so a database dump or a leaked backup never yields a cookie
+that authenticates anything.
+
+Two deadlines run at once, because each alone is insufficient. The idle window
+stops an unattended browser from being useful; the absolute window bounds a
+stolen cookie even when a background tab keeps the session warm. A request made
+just before the absolute horizon cannot push the idle deadline past it — the
+slide is clamped to the absolute deadline in SQL.
+
+| Property | Operator | Customer |
+| --- | --- | --- |
+| Cookie | `__Host-omniflow_admin` | `__Host-omniflow_account` |
+| Idle timeout | 30 minutes | 14 days |
+| Absolute timeout | 12 hours | 60 days |
+| Token rotation | every 15 minutes | every 24 hours |
+| Pending-challenge window | 5 minutes | — |
+| Re-authentication window | — | 15 minutes |
+| Cookie `Expires` | the idle deadline | the absolute deadline |
+
+The customer policy is deliberately more generous, and the code argues for it:
+the operator panel moves money and reads other people's data, and signing in
+again is a few seconds of a working day. A customer checking how many days are
+left on their subscription is doing neither of those things, and a panel that
+logs them out over lunch simply pushes them back to the bot. The absolute
+horizon does the security work there instead of the idle one, backed by rotation
+and by re-authentication on the few actions that genuinely warrant it.
+
+Neither policy is environment-configurable. The defaults always apply.
+
+### Rotation and revocation
+
+Rotation is invisible to handlers: the session middleware reissues the cookie
+centrally when the token rotates. Revocation is checked **before** expiry so the
+audit trail records the more specific reason when both apply, and a suspended
+operator or a suspended customer is refused at resolution rather than at each
+handler, so no surface can forget the check. The cookie is cleared on refusal so
+a browser stops presenting a dead session on every subsequent request.
+
+`revoked_reason` is a closed vocabulary. Operator sessions use `logout`,
+`logout_all`, `password_change`, `admin_revoked`, `expired`; customer sessions
+add `session_revoked`, `identity_unlinked`, `provider_disabled`,
+`account_suspended`, `account_deleted`.
+
+Both panels expose their live sessions at `/admin/security` and
+`/account/security` with the user agent, IP, and last-seen time, mark the
+current one, and allow ending any other. The two "sign out everywhere" controls
+differ on purpose: the operator one **keeps** the calling session, so an
+operator is not signed out of the browser they are using to secure the account;
+the customer one **does not**, because it exists for a suspected compromise and
+sparing the session that pressed it would leave an attacker in if they were the
+one holding it.
+
+Ending another operator's session is not possible by guessing its identifier:
+revocation verifies ownership by listing the caller's own sessions first.
+
+<Warning>
+  **Expired session rows are never purged.** Both services carry a purge routine
+  and documented retention windows — 30 days for sessions and magic links, 180
+  days for customer security events — but nothing calls either one. The
+  retention worker sweeps bot sessions, webhook events, support attachments,
+  outbox events, telemetry events, and drift records, and does not touch
+  `admin_sessions`, `customer_sessions`, `customer_magic_links`, or
+  `customer_security_events`. Those tables grow without bound. Expired sessions
+  do not authenticate — validation is by deadline, not by row presence — so this
+  is a storage and hygiene problem rather than an access one.
+</Warning>
+
+## CSRF and cookies
+
+`SameSite=Lax` blocks most cross-site posts, but it is a browser-side control
+only, so the server verifies its own token on every unsafe method. `Strict` was
+rejected deliberately: a magic link and an OIDC callback both arrive as
+cross-site navigations and must land signed in. The CSRF token, not the cookie
+policy, is what actually defends the unsafe methods.
+
+- `GET`, `HEAD`, and `OPTIONS` are exempt. Every other method must send
+  `X-CSRF-Token` matching the session's own token, or the request is
+  `403 csrf_failed`.
+- The token is `base64url(HMAC-SHA256(csrf_secret, <label>))`, derived from a
+  secret held with the session. A token minted for one session cannot be
+  replayed in another.
+- The labels differ between panels — `omniflow.admin.csrf` and
+  `omniflow.customer.csrf` — so neither panel can mint a credential for the
+  other.
+- Both panels publish the current token on the **`X-CSRF-Token` response
+  header** of every authenticated request, and the shared browser transport
+  captures it. A long-lived tab therefore never fails its next mutation after a
+  session rotation.
+
+Cookie flags on both session cookies: the `__Host-` prefix, `Path=/`,
+`HttpOnly`, `SameSite=Lax`, and `Secure` per configuration. The `__Host-` prefix
+is the important one — a browser refuses such a cookie if it carries a `Domain`
+attribute or arrives over plain HTTP, so a sibling subdomain cannot set or
+overwrite an operator's session. The two cookie names differ so both panels can
+be open in one browser without either replacing the other.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `APP_ADMIN_COOKIE_SECURE` | `true` | Marks the operator session cookie `Secure` |
+| `APP_CUSTOMER_COOKIE_SECURE` | `true` | Marks the customer session cookie `Secure` |
+
+<Warning>
+  Setting either to `false` is for a plain-HTTP local stack only, where a
+  browser would otherwise refuse the cookie and sign-in could never complete.
+  The API logs a warning at startup when it happens. Without `Secure`, a session
+  cookie can be captured from any unencrypted request to the same host.
+</Warning>
+
+There is no CORS middleware anywhere. The browser transport is same-origin, and
+both panels must be served from the same origin that path-routes `/v1/*` to the
+Go API — see [Reverse proxy](/operations/reverse-proxy).
+
+## Step-up authentication
+
+Four customer actions require a sign-in within the last 15 minutes, or they
+answer `401 reauthentication_required`:
+
+- unlinking a sign-in method
+- rotating a subscription access link
+- removing every device at once
+- requesting account deletion
+
+These are the actions a stolen but still-live cookie could otherwise use to lock
+the real owner out of their own subscription. Each is destructive, none is
+reversible from the panel, and every one is something a customer does rarely and
+deliberately. Cancelling a deletion request needs no re-authentication, because
+cancelling only ever prevents the irreversible thing.
+
+The freshness reference is the session's **creation** time, not its last
+activity: using activity would mean a session open all day counts as freshly
+authenticated. The requirement is computed on every request rather than stored,
+so the answer never goes stale. The refusal is `401` rather than `403` because
+the remedy is something the customer can actually do.
+
+## Secret sealing and the write-only credential design
+
+Every credential Omniflow stores on an operator's behalf is sealed with AES-GCM
+under `APP_DATA_ENCRYPTION_KEY`, a base64-encoded 32-byte AES key. Generate it
+with `openssl rand -base64 32`. A service given a key of any other length
+refuses to start.
+
+Each field is sealed under its own **associated-data label**, so a ciphertext
+moved between columns fails to open rather than decrypting somewhere it does not
+belong:
+
+| Label | Protects |
+| --- | --- |
+| `admin.totp` | Operator TOTP secrets |
+| `admin.oidc.client_secret` | Operator OIDC client secrets |
+| `admin.flow` | The operator OIDC sign-in flow cookie |
+| `customer.oidc.client_secret` | Customer OIDC client secrets |
+| `customer.flow` | The customer OIDC sign-in flow cookie |
+| `panel.settings_section` | Secrets inside an installation settings section |
+| `panel.ai_provider` | AI provider API keys |
+| `panel.mcp_server` | MCP server credentials |
+
+Customer contact values are sealed with the same key. Encrypted database backups
+use a **separate** key, `APP_BACKUP_ENCRYPTION_KEY`, which must be stored
+outside the backup itself.
+
+The design rule above the encryption is that **a credential is write-only**.
+Nothing in the API ever returns one:
+
+- Installation settings return the document and a `secretConfigured` boolean.
+  The secret column is not selected by the query, so returning the document is
+  safe by construction rather than by a filter a refactor could drop.
+- OIDC providers return `hasClientSecret`.
+- Payment and goods provider settings return `credentialsSet` flags.
+- Blocklist sources never return the stored authorization header.
+- Saved payment methods return the provider's masked label, never the token.
+- On every one of these, saving with an empty or null credential means *keep
+  what is stored*, so a form can be re-saved without echoing a secret.
+
+<Warning>
+  Rotating `APP_DATA_ENCRYPTION_KEY` makes every sealed value unopenable at
+  once: TOTP secrets, OIDC client secrets, provider credentials, and customer
+  contact values. There is no re-encryption path. Treat it as permanent for the
+  life of the installation, and back it up separately from the database — a
+  backup that contains both is a single artefact that decrypts itself.
+</Warning>
+
+## Trusted proxies and client-IP resolution
+
+The resolved client address feeds rate limiting, session records, audit rows,
+and customer security events. An `X-Forwarded-For` header is trivially forged,
+so it is honoured only when the immediate peer is a configured proxy.
+
+Set `APP_TRUSTED_PROXIES` to a comma-separated list of IP addresses or CIDR
+blocks. A bare address is accepted and treated as a single-host network. An
+unparseable entry is a startup error.
+
+With the variable empty, the header is **ignored entirely** and the socket
+address is used, which is the correct default for a directly exposed deployment.
+When the peer is trusted, the list is walked right to left and resolution stops
+at the first address that is not itself a trusted proxy — that is the closest
+hop there are still grounds to believe.
+
+Getting this wrong matters in both directions: trust nothing behind a proxy and
+every request shares one address, so one customer's failed sign-ins exhaust the
+per-IP budget for everybody; trust too much and an attacker chooses their own
+address. A client whose address cannot be resolved at all shares the rate-limit
+key `unknown`.
+
+The customer panel is wired with the same list; there is no separate customer
+setting.
+
+## Rate limiting
+
+Limits are Valkey-backed fixed-window counters keyed
+`omniflow:rate:<scope>:<subject>`.
+
+| Scope | Subject | Limit | Window |
+| --- | --- | --- | --- |
+| `admin-login-account` | normalised email | 10 | 1 minute |
+| `admin-login-ip` | client IP | 30 | 1 minute |
+| `admin-challenge` | client IP | 15 | 1 minute |
+| `admin-reset` | client IP | 5 | 1 hour |
+| `promo` | customer ID | 10 | 1 minute |
+| `account_contact` | customer ID | 10 | 1 hour |
+| `account_export` | customer ID | 3 | 1 hour |
+
+Contact addition is limited because the response distinguishes "accepted" from
+"not available", which is enough to test addresses in bulk if it can be repeated
+freely. Personal-data export is limited because it is expensive to produce and
+maximally sensitive to hold.
+
+Limits **fail closed**: if Valkey is unreachable the request is denied and a
+warning is logged, because an outage must not silently remove the protection.
+The practical consequence is that a Valkey outage blocks operator sign-in
+entirely. There is no `Retry-After` header on any `429`.
+
+**Customer sign-in itself is not rate limited.** The Telegram widget, the Mini
+App payload, the magic-link redemption, and both OIDC routes pass through no
+limiter. The Telegram paths are bounded by their signature checks and a
+one-minute freshness window instead, and magic links are bounded to five per
+account per hour at issue time.
+
+## Security headers
+
+Every `/v1/panel` and `/v1/account` response carries a fixed, restrictive set.
+
+| Header | Value |
+| --- | --- |
+| `X-Content-Type-Options` | `nosniff` |
+| `Referrer-Policy` | `no-referrer` |
+| `Cross-Origin-Opener-Policy` | `same-origin` |
+| `Cross-Origin-Resource-Policy` | `same-origin` |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=(), interest-cohort=()` |
+| `Content-Security-Policy` | `default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'` |
+| `Cache-Control` | `no-store` |
+| `X-Frame-Options` | `DENY` — operator responses only |
+
+`frame-ancestors 'none'` and `X-Frame-Options: DENY` exist so the operator panel
+cannot be embedded and clickjacked, applied at the API layer as defence in
+depth. The customer set is the same one without `X-Frame-Options`, and its
+`no-store` and `no-referrer` carry a stronger reason there: a customer response
+can contain a subscription link, which is a credential.
+`no-store` keeps it out of shared caches and the browser's back-forward cache,
+and `no-referrer` keeps a URL carrying one from being handed to whatever the
+customer navigates to next.
+
+Every response on every prefix also carries `X-Request-ID`. A panic recovery
+handler and a 60-second handler timeout apply process-wide, with
+`ReadHeaderTimeout` 5s, `ReadTimeout` 15s, `WriteTimeout` 30s, and `IdleTimeout`
+90s on the server itself.
+
+## What is never logged or returned
+
+The processes log JSON to stdout (stderr for the worker) with no HTTP
+access-logging middleware, so request paths, headers, and bodies do not reach
+the log by default. On top of that:
+
+- **A redactor** replaces subscription links of every scheme (`https`, `vless`,
+  `vmess`, `trojan`, `ss`), Telegram bot tokens, bearer/basic/API-key/password
+  patterns, 13–19 digit runs, and hardware and device identifiers with
+  `[redacted]`. It is deliberately aggressive: an over-redacted log line is a
+  minor inconvenience, a leaked subscription link or bot token is an incident.
+  It is applied to the last error of a job before it leaves the process, and to
+  every operator notification payload.
+- **Operator security notices name the event and the account and nothing else.**
+  An address, a token, or a client IP would end up in a group chat; the audit
+  trail already holds that detail behind the permissions that govern it. Only
+  whitelisted fields are rendered, so anything else in a payload is ignored.
+- **Readiness output is a classification**, `timeout` or `unavailable`, never an
+  underlying driver message, so `/readyz` cannot leak a connection string.
+- **Metric labels are bounded values** — a route template, a provider name, an
+  outcome — never a concrete path with identifiers in it.
+- **Webhook history never returns the raw provider body.** It is the provider's
+  own payload and can contain payment details.
+- **Fulfillment history returns status, correlation, and an error
+  classification only**, because the stored request and response summaries can
+  carry a subscription link.
+- **Subscription links are never persisted.** There is no column for one; the
+  link is fetched live from Remnawave per request.
+- **Device lists never expose a hardware identifier.** Both panels address a
+  device by a digest and resolve it back server-side, buying one extra Remnawave
+  call in exchange for the identifier never travelling.
+- **The audit trail's metadata is operator-facing context, never a secret**, and
+  the CSV export prefixes any field starting with `= + - @ TAB CR` with an
+  apostrophe so a spreadsheet cannot evaluate an exported value as a formula.
+
+The one place a secret is written to a log on purpose is the first-owner setup
+token and the operator password-reset token, both at warn level, because there
+is no other delivery channel in this build and only someone with host access
+sees them. Do not forward those logs to a chat room or a ticket.
+
+## The audit trail
+
+Every authentication, authorization, configuration, customer, financial,
+support, marketing, system, and risk action appends a row to `audit_events`,
+carrying the actor, target, action, category, outcome, reason, request ID,
+timestamp, and bounded metadata. The API exposes **reads only** — nothing can
+modify a row, which is what makes the trail evidence rather than editable state.
+
+A state change and the audit row describing it are written in **one
+transaction**, so the trail can never disagree with what actually happened. A
+permission denial is recorded as well as refused: an operator repeatedly
+reaching for something they cannot do is exactly the signal an audit review
+looks for.
+
+There is no retention step for `audit_events`. Financial, audit, identity,
+webhook, and outbox records are append-only by design.
+
+Browse the trail at `/admin/audit` with `audit.read`; export the filtered view
+as CSV with `audit.export`, bounded at 10 000 rows. Full detail is in
+[Admin panel](/operations/admin-panel).
+
+## Customers see their own security history
+
+Customers read a separate, append-only log at `/account/security`: sign-ins,
+sign-outs, session revocations, magic-link requests, identity changes,
+subscription-link rotations, and device removals. It is a different table from
+`audit_events` because the audience is different — deciding per row which fields
+of an operator record a customer may see would put a disclosure decision in the
+read path. Its event vocabulary is closed and it has no column for free text, an
+amount, a link, or another party's identifier. The IP is included on purpose: an
+address the customer does not recognise is the entire reason the screen exists.
+
+See [Customer privacy](/customer/privacy) for the personal-data export and the
+deletion request.
+
+## Operational expectations
+
+These are the parts an operator has to get right; the application cannot enforce
+them.
+
+- Keep PostgreSQL and Valkey off the public network.
+- Serve both panels over TLS from a single origin that path-routes `/v1/*` to
+  the API, and leave `APP_ADMIN_COOKIE_SECURE` and `APP_CUSTOMER_COOKIE_SECURE`
+  at `true`.
+- Set `APP_TRUSTED_PROXIES` when the API sits behind a reverse proxy, and leave
+  it empty when it does not.
+- Restrict `/metrics` at the reverse proxy; it is unauthenticated whenever
+  `APP_METRICS_ENABLED` is on.
+- Store `APP_DATA_ENCRYPTION_KEY` and `APP_BACKUP_ENCRYPTION_KEY` outside the
+  repository and outside the backups, and rotate `APP_OPERATOR_TOKEN` after any
+  suspected exposure.
+- Enrol every operator in TOTP and check the state on `/admin/operators` —
+  nothing requires it.
+- Grant the narrowest role that does the job. Only an owner may create an
+  operator or change role grants, which is what stops a compromised
+  administrator session minting itself a second account.
+- Run supported patch versions of Omniflow, Remnawave, PostgreSQL, Valkey, and
+  the reverse proxy, and review automated dependency updates.
+
+## Reporting a vulnerability
+
+Do not report security vulnerabilities through public issues, discussions, logs,
+or chat rooms.
+
+Use **GitHub private vulnerability reporting** on the repository. Include the
+affected versions, the impact, reproduction steps, and any suggested mitigation.
+Remove real customer data, tokens, payment payloads, and VPN access links from
+the report before sending it.
+
+Maintainers acknowledge complete reports as soon as practical, validate impact,
+coordinate a fix, and publish an advisory when users can act on it. Security
+fixes are provided for the latest stable release.
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="Admin panel" icon="shield-halved" href="/operations/admin-panel">
+    Roles, permissions, sessions, and the audit trail in detail.
+  </Card>
+  <Card title="OIDC sign-in" icon="key" href="/integrations/oidc">
+    Adding an identity provider for operators or customers.
+  </Card>
+  <Card title="Integrating with the API" icon="plug" href="/integrations/api">
+    The bearer-token surface and what holding that token means.
+  </Card>
+  <Card title="Backup and restore" icon="database" href="/operations/backup-restore">
+    Encrypted backups and where the second key belongs.
+  </Card>
+</CardGroup>

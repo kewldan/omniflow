@@ -1,200 +1,444 @@
 ---
 title: Configuration
-description: Environment variables and secret-handling rules.
+description: Every environment variable Omniflow reads, which process reads it, and what changes when you set it
 ---
 
-Omniflow uses environment variables and Docker secrets. Never commit `.env` or production credentials.
+Omniflow is configured entirely from environment variables. There is no configuration file, no
+command-line flag other than the worker's `--decrypt-backup`, and no live reload. `internal/config`
+exposes three loaders — one for the API, one for the bot, one for the worker — and each process runs
+its loader once, at startup. A value that fails validation is fatal rather than latent: the process
+logs `invalid configuration` and exits with status 1, so an installation never runs half-configured
+with a YooKassa shop ID and no secret, or backups enabled and no key.
 
-| Variable | Required | Default | Purpose |
-| --- | --- | --- | --- |
-| `APP_HTTP_ADDR` | No | `:8080` | API listen address |
-| `APP_DATABASE_URL` | Yes | — | PostgreSQL connection string |
-| `APP_VALKEY_URL` | Yes | — | Valkey connection string |
-| `APP_REMNAWAVE_URL` | Yes | — | Remnawave API base URL |
-| `APP_REMNAWAVE_TOKEN` | Yes | — | Remnawave API credential |
-| `APP_OPERATOR_TOKEN` | For commerce API | — | Bearer token protecting pre-admin operator operations |
-| `APP_DATA_ENCRYPTION_KEY` | For the commerce API; optional for the bot and worker | — | Base64-encoded 32-byte AES-GCM key for contact values, operator secrets, and provider credentials. The bot needs it to quote a shop price and the worker to deliver digital goods; without it each starts with the shop disabled rather than refusing to start |
-| `APP_TELEGRAM_TOKEN` | For bot | — | Telegram Bot API token |
-| `APP_SUPPORT_URL` | No | — | HTTPS support chat or helpdesk URL shown by the bot |
-| `APP_TERMS_URL` | No | — | Terms of service linked from plan and checkout screens |
-| `APP_PUBLIC_URL` | For YooKassa | — | Base URL used for payment-provider return links |
-| `APP_DEFAULT_CURRENCY` | No | `RUB` | Settlement currency the bot compares plans in; use `XTR` for a Stars-only installation |
-| `APP_MARKETING_FREQUENCY_CAP` | No | `3` | Marketing messages allowed per window; `0` disables the cap |
-| `APP_MARKETING_WINDOW_HOURS` | No | `168` | Length of the marketing frequency window |
-| `APP_RECOVERY_WINDOW_HOURS` | No | `336` | How long an expired subscription keeps its recovery offer |
-| `APP_TRIAL_MINIMUM_ACCOUNT_AGE_HOURS` | No | `0` | Refuse trials from accounts newer than this |
-| `APP_TELEMETRY_ENABLED` | No | `true` | Enable anonymous project telemetry |
-| `APP_TELEMETRY_ENDPOINT` | No | Project collector | Override the collector for forks or development |
-| `APP_TELEMETRY_COLLECTOR_ENABLED` | No | `false` | Accept telemetry events; intended only for the project-operated collector |
-| `APP_CRYPTOBOT_TOKEN` | No | — | Enable the CryptoBot adapter |
-| `APP_CRYPTOBOT_TESTNET` | No | `true` | Use CryptoBot testnet |
-| `APP_YOOKASSA_SHOP_ID` | No | — | Enable YooKassa with the matching secret |
-| `APP_YOOKASSA_SECRET` | No | — | YooKassa Basic Auth secret |
-| `APP_METRICS_ENABLED` | No | `true` | Serve `/metrics` in the Prometheus text format |
-| `APP_WORKER_HTTP_ADDR` | No | `:8081` | Worker liveness, readiness, and metrics listener |
-| `APP_BOT_METRICS_ADDR` | No | — | Bot liveness, readiness, and metrics listener; unset keeps the bot off HTTP |
+The consequence of loading once is that **changing a variable requires restarting the process that
+reads it**. Docker Compose passes the same `.env` file to `api`, `bot`, and `worker`, so in practice
+one file configures all three and a change means `docker compose up -d` again. Copy `.env.example`
+to `.env` to start; see [Quickstart](/getting-started/quickstart) for the first run and
+[Deployment](/operations/deployment) for the compose topology.
 
-## Wallet top-up
+The tables below list every variable any Omniflow process reads, including a few that are absent
+from `.env.example`, and one that `.env.example` sets but nothing reads. **Read by** names the
+processes whose loader reads the variable; a variable read by a process that never uses the value is
+called out in the text under its table.
 
-Customer-initiated top-up reuses the existing order, payment, webhook, and reconciliation pipeline. Amounts are minor units of `APP_DEFAULT_CURRENCY`.
+## How values are parsed
 
-| Variable | Required | Default | Purpose |
-| --- | --- | --- | --- |
-| `APP_WALLET_TOPUP_ENABLED` | No | `true` | Offer customer-initiated top-up |
-| `APP_WALLET_TOPUP_PRESETS` | No | `10000,30000,50000,100000` | One-tap amounts in minor units, ascending |
-| `APP_WALLET_TOPUP_MINIMUM_MINOR` | No | `10000` | Smallest single top-up |
-| `APP_WALLET_TOPUP_MAXIMUM_MINOR` | No | `5000000` | Largest single top-up; `0` removes the ceiling |
-| `APP_WALLET_TOPUP_WINDOW_LIMIT_MINOR` | No | `10000000` | Credit allowed inside the rolling window; `0` disables the control |
-| `APP_WALLET_TOPUP_WINDOW_HOURS` | No | `24` | Length of the rolling window |
+Every variable goes through one of a small set of readers, and each has a distinct failure mode
+worth knowing before you debug a setting that appears to be ignored.
 
-<Note>
-  From v0.7 the wallet top-up limits and the subscription concurrency settings
-  live in the database and are edited in the panel under **Settings**. The
-  variables above seed that row **once**, on the first start after upgrading, so
-  an installation coming from v0.5 keeps the limits its operator configured.
-  Changing a variable afterwards has no effect on a database that already holds
-  the row; keep them set so that restoring into a fresh database reproduces the
-  same starting point.
-</Note>
-| `APP_CART_TTL_HOURS` | No | `720` | How long a saved cart waits for the balance to cover it |
-
-A preset that the limits would refuse is never rendered, so a customer cannot tap a button the backend then rejects.
-
-## Concurrent subscriptions
-
-| Variable | Required | Default | Purpose |
-| --- | --- | --- | --- |
-| `APP_MULTI_SUBSCRIPTION_ENABLED` | No | `false` | Allow one customer to hold several subscriptions |
-| `APP_MAX_SUBSCRIPTIONS_PER_CUSTOMER` | No | `3` | Ceiling per customer while the switch is on |
-
-The default keeps exactly one subscription per customer, which is what every installation upgraded from v0.4 already has. See [Concurrent subscriptions](/commerce/subscriptions) before turning it on.
-
-## Telegram webhook mode
-
-Long polling is the default and stays supported as a development and fallback mode. Set both variables to switch to webhooks.
-
-| Variable | Required | Default | Purpose |
-| --- | --- | --- | --- |
-| `APP_TELEGRAM_WEBHOOK_URL` | No | — | HTTPS URL Telegram delivers updates to |
-| `APP_TELEGRAM_WEBHOOK_SECRET` | With the URL | — | 32–256 characters of `A–Z a–z 0–9 _ -`; Telegram sends it back on every update |
-| `APP_BOT_HTTP_ADDR` | No | `:8082` | Webhook listener address |
-
-Generate a secret token with `openssl rand -hex 32`. An update that does not carry it is discarded before it is parsed.
-
-## Operator notifications and backups
-
-| Variable | Required | Default | Purpose |
-| --- | --- | --- | --- |
-| `APP_OPERATOR_CHAT_ID` | No | — | Telegram group that receives operator notices; the bot creates every topic itself |
-| `APP_OPERATOR_TELEGRAM_IDS` | For backups | — | Comma-separated Telegram accounts allowed to run `/ops` |
-| `APP_OPERATOR_NOTIFICATION_CAP` | No | `30` | Messages per topic per window before the rest are suppressed |
-| `APP_OPERATOR_NOTIFICATION_WINDOW_MINUTES` | No | `5` | Length of the volume window |
-| `APP_BACKUP_ENABLED` | No | `false` | Take scheduled PostgreSQL backups |
-| `APP_BACKUP_ENCRYPTION_KEY` | With backups | — | Base64-encoded 32-byte AES-GCM key, separate from the data key |
-| `APP_BACKUP_DIR` | No | `/var/lib/omniflow/backups` | Where encrypted dumps are written |
-| `APP_BACKUP_INTERVAL_HOURS` | No | `24` | Scheduled backup interval |
-| `APP_BACKUP_RETENTION_DAYS` | No | `14` | How long a completed backup is kept |
-| `APP_PG_DUMP_PATH` | No | `pg_dump` | Override when the client tools are not on `PATH` |
-| `APP_PG_RESTORE_PATH` | No | `pg_restore` | Override when the client tools are not on `PATH` |
-
-Store `APP_BACKUP_ENCRYPTION_KEY` somewhere the database backup itself does not reach. A backup encrypted with a key that is only inside that backup cannot be restored.
-
-
-## Admin panel
-
-The operator panel at `/admin`, served by the `/v1/panel` API. It reuses
-`APP_DATA_ENCRYPTION_KEY` to seal TOTP secrets and OIDC client secrets, so that
-key is required when the panel is enabled.
-
-<Note>
-  From v0.7 the **worker** reads `APP_DATA_ENCRYPTION_KEY` too. It is the process
-  that delivers digital goods and refreshes external blocklists, and both need
-  to unseal a provider credential the panel wrote.
-
-  It stays optional there. A worker started without it logs
-  `digital goods delivery disabled` and runs everything else normally, which is
-  what an installation that sells no digital goods and subscribes to no
-  blocklist wants. Set it on the worker as soon as you configure either.
-</Note>
-
-| Variable | Required | Default | Purpose |
-| --- | --- | --- | --- |
-| `APP_ADMIN_PANEL_ENABLED` | No | `true` | Mount `/v1/panel`. Turn off for a bot-only installation |
-| `APP_ADMIN_COOKIE_SECURE` | No | `true` | Mark the session cookie `Secure` |
-| `APP_ADMIN_TOTP_ISSUER` | No | `Omniflow` | Label shown in authenticator apps |
-| `APP_TRUSTED_PROXIES` | No | — | Comma-separated IPs or CIDR blocks whose `X-Forwarded-For` may be believed |
-
-On first start, when no administrator exists, the API writes a one-time setup
-token to its log. Redeem it at `/admin/setup` to create the first owner.
-
-`X-Forwarded-For` is trivially forged, so it is honoured only when the immediate
-peer is listed in `APP_TRUSTED_PROXIES`. Leave it empty when the API is exposed
-directly — the socket address is then used, which is correct. The resolved
-address feeds rate limiting, security notifications, and the audit trail, so
-getting it wrong in either direction matters: trust nothing and every request
-behind a proxy shares one address; trust too much and an attacker picks their own.
+| Kind | Applies to | Behaviour on an unusable value |
+| --- | --- | --- |
+| String | Addresses, URLs, tokens, paths | An empty value is the same as an unset one and falls back to the default |
+| Boolean | Every `*_ENABLED`, `*_SECURE`, `*_TESTNET`, `*_AUTO_DETECT` | Parsed with `strconv.ParseBool`; anything it rejects **silently** falls back to the default |
+| Whole-number duration | `*_HOURS`, `*_DAYS`, `*_MINUTES`, `*_SECONDS` | Only whole numbers are accepted, so operators never encode a Go duration string. `1.5`, `30s`, or a negative number falls back silently |
+| Integer count | `*_CAP`, `*_STREAK`, `APP_MAX_SUBSCRIPTIONS_PER_CUSTOMER` | A negative or unparseable value falls back to the default |
+| Minor-unit amount | `APP_WALLET_TOPUP_*_MINOR`, `APP_OPERATOR_CHAT_ID` | Unparseable falls back; a negative number is accepted as written |
+| Number list | `APP_WALLET_TOPUP_PRESETS`, `APP_OPERATOR_TELEGRAM_IDS` | An entry that is not a positive whole number is a **startup error**, not a silent omission, because a mistyped preset would otherwise disappear from the bot with no explanation |
 
 <Warning>
-  `APP_ADMIN_COOKIE_SECURE=false` is for local plain-HTTP development only.
-  Without `Secure`, the session cookie can be captured from any unencrypted
-  request to the same host.
+  A boolean typo is invisible. `APP_METRICS_ENABLED=yes` and `APP_TELEMETRY_ENABLED=nope` are both
+  rejected by the parser and both fall back to the default, which is `true` in each case. Use
+  `true` and `false`.
 </Warning>
 
-## Customer web panel
+## What each process needs to start
 
-The customer panel is served under `/account` and backed by `/v1/account`. It
-needs `APP_DATA_ENCRYPTION_KEY`, which seals OIDC client secrets and the
-short-lived sign-in flow cookie.
+| Process | Required | If it is missing |
+| --- | --- | --- |
+| `api` | Nothing at all | With `APP_DATABASE_URL` empty the API boots and serves only `/healthz`, `/livez`, `/readyz`, and `/metrics`. No commerce, panel, or account surface is mounted, and `/readyz` answers `200` with an empty `checks` array — a green light for a process that can serve almost nothing |
+| `api` with a database | `APP_OPERATOR_TOKEN`, a 32-byte `APP_DATA_ENCRYPTION_KEY`, `APP_REMNAWAVE_URL`, `APP_REMNAWAVE_TOKEN`, `APP_VALKEY_URL` | Exits 1 with `commerce requires APP_OPERATOR_TOKEN, APP_DATA_ENCRYPTION_KEY, APP_REMNAWAVE_URL, APP_REMNAWAVE_TOKEN, and APP_VALKEY_URL` |
+| `bot` | `APP_TELEGRAM_TOKEN`, `APP_DATABASE_URL`, `APP_VALKEY_URL`, `APP_REMNAWAVE_URL`, `APP_REMNAWAVE_TOKEN` | With `APP_TELEGRAM_TOKEN` empty the process logs `telegram bot disabled because APP_TELEGRAM_TOKEN is empty` and waits for a signal — exit code 0, deliberately not an error. With the token set but another value missing, it exits 1 naming the variable |
+| `worker` | `APP_DATABASE_URL`, `APP_REMNAWAVE_URL`, `APP_REMNAWAVE_TOKEN` | Exits 1 with `APP_DATABASE_URL, APP_REMNAWAVE_URL, and APP_REMNAWAVE_TOKEN are required` |
 
-| Variable | Required | Default | Purpose |
-| --- | --- | --- | --- |
-| `APP_CUSTOMER_PANEL_ENABLED` | No | `true` | Mount `/v1/account`. Turn off for a Telegram-only installation |
-| `APP_CUSTOMER_COOKIE_SECURE` | No | `true` | Mark the customer session cookie `Secure` |
-| `APP_CUSTOMER_MAGIC_LINK_ENABLED` | No | `false` | Offer the bot-delivered sign-in link. Requires `APP_PUBLIC_URL` |
+The bot refuses to start without Valkey rather than running unprotected: Valkey backs its per-user
+rate limits and its callback replay guard, and both stand between a duplicate tap and a duplicate
+charge. The error says so — `APP_VALKEY_URL is required for bot rate limits and callback replay
+protection`.
 
-Telegram sign-in needs no variable of its own: it uses `APP_TELEGRAM_TOKEN` to
-verify the login widget, and resolves the bot's username from the bot API. The
-widget only renders on a domain bound to the bot, so set that domain with
-`/setdomain` in BotFather first.
+## Core
 
-The sign-in link is off by default because it is a second bearer credential
-travelling through a chat. Turn it on when the widget is not usable — typically
-where the domain cannot be bound — and the bot's `/login` command starts working.
-`APP_PUBLIC_URL` has to be set for it, because the bot has to put an absolute URL
-in the message.
+| Variable | Default | Read by | Required | Secret | What it changes |
+| --- | --- | --- | --- | --- | --- |
+| `APP_HTTP_ADDR` | `:8080` | api | no | no | API listen address. Compose also sets it explicitly on the `api` service |
+| `APP_OPERATOR_TOKEN` | — | api | yes when the API has a database | **yes** | Bearer token for the whole `/v1/admin` prefix, compared in constant time. See [Integrating with the API](/integrations/api) |
+| `APP_DATA_ENCRYPTION_KEY` | — | api, bot, worker | api yes with a database; bot and worker optional | **yes** | Base64 32-byte AES key. Must decode to exactly 32 bytes or startup fails with `APP_DATA_ENCRYPTION_KEY must be base64-encoded 32 bytes` |
+| `APP_ENV` | — | nobody | no | no | Present in `.env.example` as `development`. No Go code reads it and setting it changes nothing |
 
-See [Customer web panel](/customer/web-panel) for how sign-in, sessions, and the
-subscription screens behave.
-
-Full behaviour is documented in [Admin panel](/operations/admin-panel).
-
-## Maintenance and retention
-
-| Variable | Required | Default | Purpose |
-| --- | --- | --- | --- |
-| `APP_MAINTENANCE_AUTO_DETECT` | No | `true` | Enter maintenance automatically when a dependency stops answering |
-| `APP_MAINTENANCE_PROBE_SECONDS` | No | `30` | Interval between dependency samples |
-| `APP_MAINTENANCE_FAILURE_STREAK` | No | `3` | Consecutive failures before purchases pause |
-| `APP_MAINTENANCE_RECOVERY_STREAK` | No | `3` | Consecutive healthy samples before purchases resume |
-| `APP_RETENTION_OUTBOX_DAYS` | No | `7` | Keep published outbox events this long |
-| `APP_RETENTION_TELEMETRY_DAYS` | No | `30` | Keep collected telemetry events this long |
-| `APP_RETENTION_DRIFT_DAYS` | No | `90` | Keep resolved entitlement drifts this long |
-| `APP_RETENTION_INTERVAL_HOURS` | No | `1` | Cleanup sweep interval |
-
-Retention only removes disposable operational data. Financial, audit, consent, identity, and entitlement history is append-only and is never deleted by a sweep.
-
-Generate the data-encryption key once and back it up with the database:
+`APP_DATA_ENCRYPTION_KEY` is the key that seals customer contact values, operator TOTP secrets,
+panel-stored settings and OIDC secrets, the customer sign-in flow cookie, digital-goods provider
+credentials, and referral contact fingerprints. Generate it once:
 
 ```bash
 openssl rand -base64 32
 ```
 
-Changing this key makes existing encrypted contact values unreadable.
+<Warning>
+  Back the key up with the database and never rotate it casually. Changing it makes every value
+  already sealed with the old key unreadable, and no process will offer to re-encrypt them.
+</Warning>
 
-Use TLS for external PostgreSQL, Valkey, Remnawave, and payment-provider connections.
+The bot and the worker each start without it and disable one capability rather than refusing to
+run. A worker without the key logs `digital goods delivery disabled` with
+`reason: APP_DATA_ENCRYPTION_KEY is not set`, and additionally runs without the sweeper's blocklist
+refresh and anomaly evaluation and without the bulk-action runner, because all three unseal a
+credential the panel wrote. Set it on the worker as soon as you sell digital goods, subscribe to a
+blocklist, or use bulk actions.
 
-## Bot requirements
+## Database and cache
 
-The bot process requires `APP_VALKEY_URL`. Valkey backs per-user rate limits and callback replay protection, both of which guard money-moving actions; the bot refuses to start without it rather than running unprotected.
+| Variable | Default | Read by | Required | Secret | What it changes |
+| --- | --- | --- | --- | --- | --- |
+| `APP_DATABASE_URL` | — | api, bot, worker | bot and worker yes; api optional | **yes** (carries the password) | pgx connection string. On the API, empty disables the entire commerce, panel, and account surface |
+| `APP_VALKEY_URL` | — | api, bot, worker | api yes with a database; bot yes | no | Backs rate limits, replay guards, locks, and temporary state |
 
-A plan is only purchasable through a payment method that settles one of the currencies the plan is priced in. Price a plan in `XTR` to sell it through Telegram Stars, and in a fiat currency to sell it through CryptoBot or YooKassa. `APP_DEFAULT_CURRENCY` decides which price the catalog compares.
+The backup service parses `APP_DATABASE_URL` a second time, into `PGHOST`, `PGPORT`, `PGDATABASE`,
+`PGUSER`, `PGPASSWORD`, and `PGSSLMODE`, so the password reaches `pg_dump` through the environment
+and never through the child process's argv where any local user could read it.
+
+The worker's loader reads `APP_VALKEY_URL` and the worker then uses nothing from it — no worker code
+path opens a Valkey client. Leaving it set is harmless and keeps one `.env` valid for all three
+processes.
+
+<Warning>
+  The compose `migrate` service hard-codes
+  `postgres://omniflow:omniflow@postgres:5432/omniflow?sslmode=disable` and does not read `.env`.
+  Changing the database credentials means editing `compose.yaml` as well.
+</Warning>
+
+## Remnawave
+
+| Variable | Default | Read by | Required | Secret | What it changes |
+| --- | --- | --- | --- | --- | --- |
+| `APP_REMNAWAVE_URL` | — | api, bot, worker | yes | no | Remnawave API base URL |
+| `APP_REMNAWAVE_TOKEN` | — | api, bot, worker | yes | **yes** | Remnawave API credential |
+
+The API's readiness probe calls Remnawave with an authenticated request that lists one user, so a
+revoked or expired token shows up as an unhealthy `remnawave` dependency in `/readyz` rather than as
+a failed purchase later. Three consecutive unhealthy samples also open maintenance mode by default.
+See [Remnawave integration](/integrations/remnawave).
+
+## Telegram
+
+| Variable | Default | Read by | Required | Secret | What it changes |
+| --- | --- | --- | --- | --- | --- |
+| `APP_TELEGRAM_TOKEN` | — | api, bot, worker | bot yes | **yes** | Bot API token. On the API it enables the Telegram Stars payment adapter and verification of login-widget and Mini App payloads; on the worker it enables the Stars adapter for automatic renewals |
+| `APP_TELEGRAM_WEBHOOK_URL` | — (long polling) | bot | no | no | Switches the bot to webhook mode. Must be an HTTPS URL or startup fails |
+| `APP_TELEGRAM_WEBHOOK_SECRET` | — | bot | with the URL | **yes** | Must match 32–256 characters of `A–Z a–z 0–9 _ -` or startup fails. Telegram sends it back on every update and the library rejects an update without it before parsing |
+| `APP_BOT_HTTP_ADDR` | `:8082` | bot | no | no | Webhook listener address. The endpoint is `POST /telegram/webhook` with a 1 MiB body cap |
+| `APP_SUPPORT_URL` | — | bot | no | no | Support chat or helpdesk link the bot shows. Validated as an `http`/`https` URL when set |
+
+Long polling is the default and stays supported as a development and fallback mode. Setting the
+webhook URL makes the bot call `setWebhook` on start with `allowed_updates` limited to `message`,
+`edited_message`, `callback_query`, `pre_checkout_query`, `my_chat_member`, and `chat_member`.
+Generate the secret with `openssl rand -hex 32`. Full setup, including BotFather and the Mini App
+domain, is in [Telegram integration](/integrations/telegram).
+
+## URLs and currency
+
+| Variable | Default | Read by | Required | Secret | What it changes |
+| --- | --- | --- | --- | --- | --- |
+| `APP_PUBLIC_URL` | — | api, bot | for YooKassa and for the sign-in link | no | Base URL for provider return links, referral links, and the absolute sign-in URL the bot sends |
+| `APP_TERMS_URL` | — | api, bot | no | no | Terms link on plan and checkout screens. Validated as an `http`/`https` URL when set |
+| `APP_DEFAULT_CURRENCY` | `RUB` | api, bot, worker | no | no | Settlement currency the catalogue compares plans in. Uppercased, then matched against `^[A-Z]{3}$`; anything else fails startup |
+
+Two startup refusals depend on `APP_PUBLIC_URL`, and both exist because the alternative is a link
+that leads nowhere: the bot refuses to start with YooKassa configured and no public URL
+(`APP_PUBLIC_URL is required for YooKassa hosted checkout return links`), and both the bot and the
+API refuse when `APP_CUSTOMER_MAGIC_LINK_ENABLED=true` and no public URL is set.
+
+Use `XTR` for a Telegram-Stars-only installation. A plan is only purchasable through a payment
+method that settles one of the currencies the plan is priced in, so price a plan in `XTR` to sell it
+through Stars and in a fiat currency to sell it through CryptoBot or YooKassa. See
+[Catalogue and promotions](/commerce/catalog-promotions).
+
+## Payment providers
+
+| Variable | Default | Read by | Required | Secret | What it changes |
+| --- | --- | --- | --- | --- | --- |
+| `APP_CRYPTOBOT_TOKEN` | — | api, bot, worker | no | **yes** | Enables the CryptoBot adapter when non-empty |
+| `APP_CRYPTOBOT_TESTNET` | `true` | api, bot, worker | no | no | Selects the CryptoBot testnet rather than mainnet |
+| `APP_YOOKASSA_SHOP_ID` | — | api, bot, worker | no | no | Enables YooKassa |
+| `APP_YOOKASSA_SECRET` | — | api, bot, worker | no | **yes** | YooKassa Basic-Auth secret |
+
+An adapter exists only when its credentials are configured, which is why there is no separate
+enable switch. The YooKassa pair must be set together: the bot refuses to start with one without
+the other (`APP_YOOKASSA_SHOP_ID and APP_YOOKASSA_SECRET must be configured together`), because a
+shop ID with no secret is an installation that offers a payment method it cannot complete.
+
+The worker holds the same credentials as the API because it is the process that charges automatic
+renewals — a worker without an adapter could only ever record that a renewal failed. Per-provider
+setup is in [Payment providers](/integrations/payments) and the recurring flow in
+[Recurring payments](/commerce/recurring-payments).
+
+## Wallet top-up and subscription limits
+
+| Variable | Default | Read by | Required | Secret | What it changes |
+| --- | --- | --- | --- | --- | --- |
+| `APP_WALLET_TOPUP_ENABLED` | `true` | api, bot | no | no | Offer customer-initiated top-up |
+| `APP_WALLET_TOPUP_PRESETS` | `10000,30000,50000,100000` | api, bot | no | no | One-tap amounts in minor units. A non-positive or unparseable entry fails startup |
+| `APP_WALLET_TOPUP_MINIMUM_MINOR` | `10000` | api, bot | no | no | Smallest single top-up. Must not exceed the maximum when the maximum is above zero |
+| `APP_WALLET_TOPUP_MAXIMUM_MINOR` | `5000000` | api, bot | no | no | Largest single top-up; `0` removes the ceiling |
+| `APP_WALLET_TOPUP_WINDOW_LIMIT_MINOR` | `10000000` | api, bot | no | no | Credit allowed inside the rolling window |
+| `APP_WALLET_TOPUP_WINDOW_HOURS` | `24` | api, bot | no | no | Length of the rolling window |
+| `APP_MULTI_SUBSCRIPTION_ENABLED` | `false` | api, bot, worker | no | no | Allow one customer to hold several concurrent subscriptions |
+| `APP_MAX_SUBSCRIPTIONS_PER_CUSTOMER` | `3` | api, bot, worker | no | no | Installation ceiling while multi-subscription is on. A value below 1 is clamped to 1 |
+
+Amounts are minor units of `APP_DEFAULT_CURRENCY`. A preset the limits would refuse is never
+rendered, so a customer cannot tap a button the backend then rejects.
+
+<Note>
+  These variables are what the running processes enforce. On its first start against a database with
+  no `commerce_settings` row, the API also seeds that row from these values, so an installation
+  upgrading from an older version keeps the limits its operator configured rather than silently
+  taking schema defaults. Afterwards the row is only written by the panel
+  (`PUT /v1/panel/settings/commerce/topup` and `.../subscriptions`), and the stored row is what the
+  panel and the customer web overview display — but order and wallet enforcement still comes from
+  the environment values loaded at startup. Keep the variables set and in step with the panel, and
+  restart the processes after changing either.
+</Note>
+
+Seeding never blocks startup: a failure is logged as
+`commerce settings could not be seeded; the panel will show none yet` and the API carries on. See
+[Wallet top-up and carts](/commerce/wallet-topup-cart) and
+[Subscriptions](/commerce/subscriptions).
+
+## Customer communication
+
+| Variable | Default | Read by | Required | Secret | What it changes |
+| --- | --- | --- | --- | --- | --- |
+| `APP_MARKETING_FREQUENCY_CAP` | `3` | bot | no | no | Marketing messages allowed per window; `0` disables the cap |
+| `APP_MARKETING_WINDOW_HOURS` | `168` | bot | no | no | Length of the marketing window — seven days by default |
+| `APP_RECOVERY_WINDOW_HOURS` | `336` | api, bot | no | no | How long an expired subscription keeps its one-tap recovery checkout — fourteen days by default |
+| `APP_TRIAL_MINIMUM_ACCOUNT_AGE_HOURS` | `0` | api, bot | no | no | Refuse trials from Telegram accounts newer than this |
+| `APP_CART_TTL_HOURS` | `720` | bot | no | no | How long a saved cart waits for the balance to cover it — thirty days by default |
+
+The recovery window and the trial age control are read by the API as well as the bot on purpose: the
+customer web panel checks out against the same rules the bot does, and a trial a chat refuses while
+a browser grants it would be an abuse control with a hole in it. Set them identically for both
+processes, which one shared `.env` does automatically. Marketing caps and the cart lifetime are read
+only by the bot, because it is the process that sends and the process that holds saved carts.
+Behaviour is described in [Notifications and consent](/customer/notifications).
+
+## Operator panel, customer panel, and sessions
+
+| Variable | Default | Read by | Required | Secret | What it changes |
+| --- | --- | --- | --- | --- | --- |
+| `APP_ADMIN_PANEL_ENABLED` | `true` | api | no | no | Mounts `/v1/panel`. Turn it off for a bot-only installation |
+| `APP_ADMIN_COOKIE_SECURE` | `true` | api | no | no | `Secure` flag on the operator session cookie |
+| `APP_ADMIN_TOTP_ISSUER` | `Omniflow` | api | no | no | Label operator accounts get inside an authenticator app |
+| `APP_CUSTOMER_PANEL_ENABLED` | `true` | api | no | no | Mounts `/v1/account`. Turn it off for a Telegram-only installation |
+| `APP_CUSTOMER_COOKIE_SECURE` | `true` | api | no | no | `Secure` flag on the customer session cookie |
+| `APP_CUSTOMER_MAGIC_LINK_ENABLED` | `false` | api, bot | no | no | Offers the bot-delivered sign-in link and the bot's `/login` command. Requires `APP_PUBLIC_URL` |
+| `APP_TRUSTED_PROXIES` | — | api | no | no | Comma-separated IPs or CIDR blocks whose `X-Forwarded-For` may be believed |
+
+Both cookie flags default to `true` so a deployment that forgets them still gets a cookie a browser
+will only send over TLS. Setting either to `false` logs a warning naming the risk —
+`admin session cookie is not marked Secure; use this only for local development`.
+
+<Warning>
+  `APP_ADMIN_COOKIE_SECURE=false` and `APP_CUSTOMER_COOKIE_SECURE=false` are for a local plain-HTTP
+  stack only. Without `Secure`, the session cookie can be captured from any unencrypted request to
+  the same host.
+</Warning>
+
+The sign-in link is off by default because it is a second bearer credential travelling through a
+chat. Turn it on where the Telegram login widget cannot be used — typically because the domain
+cannot be bound in BotFather — and the bot's `/login` command starts working. Telegram sign-in
+itself needs no variable of its own: it verifies the widget payload with `APP_TELEGRAM_TOKEN`.
+
+`APP_TRUSTED_PROXIES` is parsed once at startup and used by both the operator and the customer
+surfaces. A malformed entry is a startup error (`trusted proxy entry must be an IP address or CIDR
+block`); a bare IP becomes a `/32` or `/128` prefix. An `X-Forwarded-For` header is trivially
+forged, so it is honoured only when the immediate peer is one of the configured proxies, and with
+none configured the header is ignored entirely and the socket address is used — the correct default
+for a directly exposed deployment. The resolved address feeds rate limiting, the customer security
+event log, and the audit trail, so both directions of error matter: trust nothing and every request
+behind a proxy shares one address; trust too much and an attacker picks their own. For a Docker
+bridge behind a reverse proxy, `172.16.0.0/12` is the usual value. See
+[Reverse proxy](/operations/reverse-proxy), [Admin panel](/operations/admin-panel), and
+[Customer web panel](/customer/web-panel).
+
+## Operator notifications and the `/ops` surface
+
+| Variable | Default | Read by | Required | Secret | What it changes |
+| --- | --- | --- | --- | --- | --- |
+| `APP_OPERATOR_CHAT_ID` | `0` (disabled) | bot | no | no | Telegram group, with topics enabled, that receives operator notices. The bot creates and binds every topic itself |
+| `APP_OPERATOR_TELEGRAM_IDS` | — (empty disables `/ops`) | bot | for backup and restore from Telegram | no | Comma-separated Telegram user IDs allowed to run `/ops`. A bad entry fails startup |
+| `APP_OPERATOR_NOTIFICATION_CAP` | `30` | bot | no | no | Messages per kind per window before the rest are recorded as `suppressed` with `error_code = volume_cap` |
+| `APP_OPERATOR_NOTIFICATION_WINDOW_MINUTES` | `5` | bot | no | no | Length of the volume window |
+
+With `APP_OPERATOR_CHAT_ID` left at `0` the notifier logs `operator notifications are disabled
+because no group is configured` and enqueueing becomes a no-op, so notices are not even stored. The
+`/ops` command is registered unconditionally and simply answers nothing to a Telegram account that
+is not listed, so the command's existence is never confirmed to a customer; it also only responds in
+a private chat. See [Operator notifications](/operations/operator-notifications).
+
+## Backups
+
+| Variable | Default | Read by | Required | Secret | What it changes |
+| --- | --- | --- | --- | --- | --- |
+| `APP_BACKUP_ENABLED` | `false` | bot, worker | no | no | Scheduled backups on the worker, and the `/ops` surface's enabled state on the bot |
+| `APP_BACKUP_ENCRYPTION_KEY` | — | bot, worker | with backups enabled | **yes** | Base64 32-byte AES-GCM key, separate from `APP_DATA_ENCRYPTION_KEY`. Startup fails with `APP_BACKUP_ENCRYPTION_KEY is required when APP_BACKUP_ENABLED is true` |
+| `APP_BACKUP_DIR` | `/var/lib/omniflow/backups` | bot, worker | no | no | Where encrypted dumps are written. Created with mode `0700`, files with `0600` |
+| `APP_BACKUP_INTERVAL_HOURS` | `24` | bot, worker | no | no | Scheduled backup interval; only the worker schedules |
+| `APP_BACKUP_RETENTION_DAYS` | `14` | bot, worker | no | no | How long a completed backup file is kept before pruning deletes it |
+| `APP_PG_DUMP_PATH` | `pg_dump` | bot, worker | no | no | Override when the client tools are not on `PATH` |
+| `APP_PG_RESTORE_PATH` | `pg_restore` | bot, worker | no | no | Override for restores |
+
+The bot and worker images are built with the PostgreSQL client tools included and both mount the
+same `backup-data` volume at `/var/lib/omniflow/backups`, so the defaults work unchanged under
+compose. The same key is also read directly — before any configuration loading — by
+`worker --decrypt-backup`, which turns an encrypted dump back into a `pg_restore` input using
+nothing but the binary, the key, and the file.
+
+<Warning>
+  Store `APP_BACKUP_ENCRYPTION_KEY` somewhere the database backup itself does not reach. A backup
+  encrypted with a key that exists only inside that backup cannot be restored.
+</Warning>
+
+See [Backup and restore](/operations/backup-restore).
+
+## Maintenance detection
+
+| Variable | Default | Read by | Required | Secret | What it changes |
+| --- | --- | --- | --- | --- | --- |
+| `APP_MAINTENANCE_AUTO_DETECT` | `true` | api, worker | no | no | Enter and leave maintenance automatically on dependency streaks |
+| `APP_MAINTENANCE_PROBE_SECONDS` | `30` | api, worker | no | no | Interval between dependency samples; a non-positive value becomes 30 seconds |
+| `APP_MAINTENANCE_FAILURE_STREAK` | `3` | api, worker | no | no | Consecutive unhealthy samples before purchases pause; below 1 is clamped to 1 |
+| `APP_MAINTENANCE_RECOVERY_STREAK` | `3` | api, worker | no | no | Consecutive healthy samples before an automatically opened window clears |
+
+Only the API acts on these. It is the process that already probes every dependency for readiness, so
+it is the process that runs the controller; the worker's loader parses the same four values and uses
+none of them. Streaks exist so one timeout cannot close an installation, and a window an operator
+opened by hand is never cleared automatically. Automatic detection watches `postgres` and
+`remnawave` only — a Valkey outage appears in `/readyz` and never opens maintenance on its own. See
+[Maintenance mode](/operations/maintenance-mode).
+
+## Retention and support attachments
+
+| Variable | Default | Read by | Required | Secret | What it changes |
+| --- | --- | --- | --- | --- | --- |
+| `APP_RETENTION_OUTBOX_DAYS` | `7` | worker | no | no | Deletes `outbox_events` rows that have been published and are older than this |
+| `APP_RETENTION_TELEMETRY_DAYS` | `30` | worker | no | no | Deletes collected `telemetry_events` by receipt time |
+| `APP_RETENTION_DRIFT_DAYS` | `90` | worker | no | no | Deletes non-open `entitlement_drifts` by resolution time |
+| `APP_RETENTION_INTERVAL_HOURS` | `1` | worker | no | no | Sweep interval; a non-positive value becomes one hour |
+| `APP_SUPPORT_ATTACHMENT_DIR` | `/var/lib/omniflow/support-attachments` | api, worker | no | no | Where a file uploaded through the customer web panel is stored, and where the worker looks to reclaim it |
+
+Retention only removes disposable operational data. Financial, audit, consent, identity, and
+entitlement history is append-only for the life of the installation and is never deleted by a sweep.
+Only the worker runs retention, so an installation running just the API and the bot never cleans up.
+
+The outbox window currently deletes nothing. Omniflow writes `outbox_events` rows for `order.paid`,
+`wallet.credited`, and `addon.purchased`, but no process marks one as published, and the delete
+statement only matches published rows. Expect the outbox to grow and expect
+`GET /v1/admin/outbox` to report a rising pending count; see
+[Jobs and queues](/operations/jobs-and-queues).
+
+<Warning>
+  `APP_SUPPORT_ATTACHMENT_DIR` is absent from `.env.example`, and `compose.yaml` mounts no volume
+  for it on either the `api` or the `worker` service. A browser-uploaded ticket attachment therefore
+  lives in the API container's writable layer and is lost when the container is recreated, and the
+  worker — pointed at its own empty copy of the same path — deletes the rows at retention while any
+  surviving bytes stay where they are. If you accept web uploads, set the variable to the same path
+  on both processes and mount one shared volume there.
+</Warning>
+
+Attachments uploaded through Telegram are unaffected: their bytes stay with Telegram and Omniflow
+stores only the reference. See [Support desk](/operations/support-desk).
+
+## Anonymous telemetry
+
+| Variable | Default | Read by | Required | Secret | What it changes |
+| --- | --- | --- | --- | --- | --- |
+| `APP_TELEMETRY_ENABLED` | `true` | api | no | no | Whether the once-a-day heartbeat goroutine starts at all |
+| `APP_TELEMETRY_ENDPOINT` | `https://telemetry.omniflw.xyz/v1/telemetry/events` | api | no | no | Collector URL. While telemetry is enabled it must parse and be HTTPS, or startup fails with `APP_TELEMETRY_ENDPOINT must be an HTTPS URL` |
+| `APP_TELEMETRY_COLLECTOR_ENABLED` | `false` | api | no | no | Mounts `POST /v1/telemetry/events` on this installation and starts the 180-day collector retention loop |
+
+Telemetry is on by default and only the API sends it — neither the bot nor the worker constructs a
+client. `APP_TELEMETRY_ENABLED=false` prevents all telemetry network requests, and on start the API
+logs either `anonymous telemetry enabled` with `disable_with=APP_TELEMETRY_ENABLED=false` or
+`anonymous telemetry disabled`.
+
+<Note>
+  The panel's telemetry preview under **Settings** reads a stored settings document rather than the
+  running configuration, so a default installation shows the preview as disabled while the API is in
+  fact sending heartbeats. Treat `APP_TELEMETRY_ENABLED` as the answer to whether telemetry is on.
+</Note>
+
+The exact payload is on [Telemetry](/operations/telemetry).
+
+## Operational endpoints
+
+| Variable | Default | Read by | Required | Secret | What it changes |
+| --- | --- | --- | --- | --- | --- |
+| `APP_METRICS_ENABLED` | `true` | api, worker | no | no | Whether the Prometheus registry is constructed. `false` removes the `/metrics` route and the HTTP metrics middleware on that process |
+| `APP_WORKER_HTTP_ADDR` | `:8081` | worker | no | no | Worker's `/livez`, `/readyz`, `/healthz`, and `/metrics` listener |
+| `APP_BOT_METRICS_ADDR` | — (empty means no HTTP) | bot | no | no | Bot's `/livez`, `/readyz`, `/healthz`, and `/metrics` listener |
+
+Three details differ from what the variable names suggest, and each has caught operators out:
+
+- **The bot ignores `APP_METRICS_ENABLED`.** It builds its metrics registry unconditionally and
+  serves `/metrics` whenever `APP_BOT_METRICS_ADDR` is set.
+- **`APP_BOT_METRICS_ADDR` is ignored when it equals `APP_BOT_HTTP_ADDR`.** Serving metrics and
+  readiness on the internet-facing webhook listener would publish installation internals on a host
+  that must be reachable from anywhere, so the bot declines instead.
+- **Clearing `APP_WORKER_HTTP_ADDR` does not disable the worker's listener.** An empty value is
+  treated as unset and falls back to `:8081`. Keep the port off the public network at the proxy or
+  firewall instead.
+
+The bot has no probe endpoint out of the box, because `APP_BOT_METRICS_ADDR` is unset by default.
+Set it if you want `/readyz` on all three processes. Both bundled reverse-proxy examples return 404
+for `/metrics` and `/readyz` on the public API host. See
+[Observability](/operations/observability).
+
+## Tracing
+
+Omniflow instruments inbound HTTP, Telegram updates, fulfillment jobs, PostgreSQL queries, and
+outbound HTTP with OpenTelemetry spans, but **no Omniflow process installs a tracer provider and no
+`OTEL_*` variable is read anywhere in the code**. With no provider installed the global one is a
+no-op, so setting `OTEL_EXPORTER_OTLP_ENDPOINT` or any other standard SDK variable changes nothing
+today. There is no configuration that turns tracing on. Metrics and structured logs are the
+supported operational signals.
+
+## Web application
+
+The Next.js app in `apps/web` reads its own variables. They are set on the `web` service in
+`compose.yaml`, not in `.env`.
+
+| Variable | Default | Read by | Required | Secret | What it changes |
+| --- | --- | --- | --- | --- | --- |
+| `NEXT_PUBLIC_API_URL` | — (compose sets `http://api:8080`) | web | no | no | Fallback base URL for the server-side panel session check |
+| `API_INTERNAL_URL` | — | web | no | no | Preferred base URL for the server-side session fetch; falls back to `NEXT_PUBLIC_API_URL` and then to an empty string. Absent from `.env.example` |
+| `PLAYWRIGHT_BASE_URL` | — | end-to-end tests only | no | no | Target of the Playwright suite |
+| `CI` | — | end-to-end tests only | no | no | Switches the Playwright config to its CI settings |
+
+Browser-side requests are same-origin by default; a cross-origin deployment sets the client's base
+URL explicitly rather than through an environment variable.
+
+## Settings the panel stores but does not apply
+
+The operator panel writes an `installation_settings` document per section — branding, Remnawave, the
+bot, the operator group, maintenance, notifications, telemetry, backups, session policy. Those
+documents are read back only by the panel's own settings screen and the telemetry preview. **No
+running process reads a section document or its sealed secrets**, so saving one changes no
+behaviour: the Remnawave URL and token, the bot token, the operator group, maintenance policy,
+telemetry enablement, and the backup schedule all come from the environment variables above, read
+once at startup. Treat `.env` as the source of truth and the settings screen as a record of
+intent until that changes. [Installation settings](/operations/installation-settings) documents the
+screen and this boundary.
+
+## Secrets
+
+These values are credentials and should be handled as such: `APP_DATABASE_URL` (it carries the
+password), `APP_REMNAWAVE_TOKEN`, `APP_OPERATOR_TOKEN`, `APP_TELEGRAM_TOKEN`,
+`APP_TELEGRAM_WEBHOOK_SECRET`, `APP_CRYPTOBOT_TOKEN`, `APP_YOOKASSA_SECRET`, and the two AES keys
+`APP_DATA_ENCRYPTION_KEY` and `APP_BACKUP_ENCRYPTION_KEY`. Never commit `.env` or a production
+credential; the repository runs a secret scanner in CI for exactly this.
+
+Omniflow's log redactor removes bot tokens, bearer and basic credentials, card-like digit runs,
+device identifiers, and any URL from anything that could reach a log line, an operator notification,
+or a diagnostics bundle, on the stated trade that an over-redacted log line is a minor inconvenience
+while a leaked subscription link or bot token is a security incident. That protects accidents, not
+configuration: a token pasted into the wrong variable is still a token an operator can read from the
+process environment. Use TLS for external PostgreSQL, Valkey, Remnawave, and payment-provider
+connections. The whole posture is described in [Security](/operations/security).

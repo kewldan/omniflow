@@ -1,10 +1,202 @@
 ---
 title: Wallet and ledger
-description: Append-only balanced entries and deterministic balances.
+description: The double-entry model behind every balance, why entries are append-only, how credit expires, and what an operator must supply to move a customer's money
 ---
 
-Every ledger transaction has at least two entries that sum to zero per currency. Customer wallet, platform clearing, and provider clearing are distinct accounts. Wallet balances are the deterministic sum of non-expired customer entries and never mix currencies.
+Omniflow does not store a wallet balance. It stores movements, and a balance is what you get when
+you add them up. Every movement is a `ledger_transactions` row with at least two `ledger_entries`
+that sum to zero per currency, and no code path anywhere updates or deletes either table.
 
-Wallet credit is applied before external payment, with the exact split saved on the order. Transactions are never updated or deleted. Refunds and corrections use new compensating entries. Operator adjustments require a reason, operator identity, idempotency key, permission at the API boundary, and an audit event.
+That shape is chosen for one reason: a balance has to be explainable. A stored number that somebody
+adjusted is a number with no history; a sum of movements can always answer "why is it this, and
+what changed it". Corrections are new compensating pairs, never edits, so the answer survives the
+correction.
 
-The database stores only integer minor units. Floating-point values are rejected at every domain boundary.
+## The three accounts
+
+| Account type | What it holds | Names a customer? |
+| --- | --- | --- |
+| `customer_wallet` | one customer's credit, per currency | always |
+| `platform_clearing` | the platform's own account — revenue lands here, and credit the platform already holds moves out of it | never |
+| `provider_clearing` | money sitting at a payment provider | never |
+
+The table CHECK makes those rules structural: a `customer_wallet` entry without a customer, or a
+clearing entry with one, cannot be written. Before any transaction is inserted, the domain also
+refuses fewer than two entries, a zero amount, a malformed currency, and any currency whose entries
+do not sum to zero.
+
+Money is an `int64` count of minor units plus an uppercase three-letter ISO code. Floating point
+cannot represent 0.10 exactly, and a drift of one minor unit in a ledger that must sum to zero is
+an unbalanced ledger, so nothing in the schema, the domain or the API ever carries a decimal
+amount. Requests and responses use `amountMinor` with `currency`; the currency exponent comes from
+a fixed table rather than a hard-coded 100, so a zero-decimal currency such as `XTR`, `JPY` or `KRW`
+is never scaled by the wrong factor.
+
+## Transaction types
+
+`ledger_transactions.type` is a closed set: `credit`, `debit`, `payment`, `refund`,
+`referral_reward`, `correction`, `expiration`. Each row also carries a `reference_type` and
+`reference_id` naming what caused it, an `idempotency_key`, and — for anything a person decided — a
+`reason` and an `actor_id`.
+
+Two uniqueness guards make a transaction exactly-once from two directions:
+
+- `idempotency_key` is unique across the whole table;
+- `(reference_type, reference_id, type)` is unique, so the same cause cannot produce a second
+  transaction of the same kind even under a different key.
+
+## Every movement Omniflow writes
+
+| Cause | Type | Reference | Idempotency key | Entries |
+| --- | --- | --- | --- | --- |
+| An order settled | `payment` | `order` / order ID | `payment:{providerEventID}`, or `wallet:{orderKey}` when the wallet covered it | `customer_wallet −wallet`, `provider_clearing −external`, `platform_clearing +(wallet + external)` |
+| A top-up credited | `credit` | `wallet_topup` / order ID | `topup:{orderID}` | `customer_wallet +received`, `provider_clearing −received` |
+| A refund succeeded | `refund` | `refund` / refund ID | the caller's refund key | `platform_clearing −amount`, `provider_clearing +amount` |
+| An operator adjustment | the operator's chosen type | `operator_adjustment` / the caller's reference | the caller's `Idempotency-Key` | `customer_wallet ±amount`, `platform_clearing ∓amount` |
+| A referral reward | `referral_reward` | `referral` / referred customer and role | `referral:{...}` | `customer_wallet +reward` (may carry an expiry), `platform_clearing −reward` |
+| A gift claimed as wallet credit | `credit` | `gift` / gift ID | `gift:{giftID}` | `customer_wallet +credit`, `platform_clearing −credit` |
+| Wallet credit expired | `expiration` | `ledger_entry` / entry ID | `expiration:{entryID}` | `customer_wallet −amount`, `platform_clearing +amount` |
+| A digital-goods delivery failed permanently | `refund` | `goods_order` / order ID | `goods-refund:{orderID}` | `customer_wallet +price`, `platform_clearing −price` |
+
+Two of these are worth reading closely.
+
+A **gift claim** pairs the recipient's credit against `platform_clearing`, not against revenue. The
+sender's money was recognised when their own order settled, and recognising it a second time when
+the recipient claims would double-count it.
+
+A **top-up** credits `customer_wallet` against `provider_clearing`, because the money genuinely came
+from a provider and has not been earned yet. An order settling then moves it from the customer to
+`platform_clearing` as revenue. That is why a customer paying entirely from their wallet still
+produces a balanced movement with no provider leg.
+
+## Balances
+
+A balance is the plain sum of a customer's `customer_wallet` entries in one currency. Nothing is
+filtered out of that sum — not expired credit, not old entries — which is exactly what makes it
+deterministic and what makes the customer's history reconcile against it line by line.
+
+<Warning>
+  Earlier documentation described balances as the sum of *non-expired* entries. That is not how it
+  works, and the difference matters when you are auditing: an expired credit is removed by a
+  compensating negative entry written by a background loop, so a balance converges on the expected
+  figure once that loop has run rather than the instant the expiry timestamp passes.
+</Warning>
+
+The customer-facing screens show three figures per currency, because one number would answer none
+of the questions honestly:
+
+| Figure | Meaning |
+| --- | --- |
+| Total | what the ledger holds |
+| Reserved | what the customer's own `draft` and `pending` orders have already claimed |
+| Available | what a new order may actually spend |
+
+Reserved is subtracted with the same arithmetic the order path uses. Without it, two checkouts
+opened side by side would each believe the same money was theirs. A customer shown only the total
+and then given a smaller amount at checkout has been told the wrong number twice.
+
+## Expiring credit
+
+A ledger entry may carry `expires_at`. Only referral rewards set it, and only when the referral
+program configures `reward_expiry_days` — see [Referrals and
+loyalty](/commerce/referrals-loyalty).
+
+A loop inside the API process's maintenance ticker runs once a minute, takes up to 500 positive
+customer entries whose expiry has passed and which have no `expiration` transaction yet, and writes
+one compensating pair for each.
+
+Two decisions in that loop are deliberate:
+
+- Expiry is a **compensating entry**, not a filter on the balance query. The balance stays a plain
+  sum, and the expiry itself appears in the customer's history where they can see what happened to
+  their credit.
+- The amount is **clamped** to the entry amount, the customer's current balance, and what they
+  received after that entry. A customer who already spent the credit is not driven negative by its
+  expiry.
+
+An entry whose clamped amount comes out at zero still gets its `expiration` transaction, with no
+entries under it, which is what stops the loop from re-examining it forever.
+
+<Note>
+  The maintenance loop is started only by the API process. An installation running just the bot and
+  the worker never expires wallet credit, and expired referral rewards stay spendable.
+</Note>
+
+## What a customer sees
+
+- **Web.** `/account/wallet` shows the three figures per currency, the top-up controls, and a
+  cursor-paginated history of the customer's own entries with the transaction type and, where a
+  correction carried one, the operator's reason. The API is `GET /v1/account/wallet`.
+- **Telegram.** **Wallet** shows the balance and the last ten movements with signed amounts, and
+  **Top up** starts a funding order.
+
+Operator reasons are shown to customers verbatim. A balance that changed without explanation is
+worse than one whose explanation was written for staff, so write adjustment reasons expecting a
+customer to read them.
+
+Funding the wallet is [Wallet top-up and saved carts](/commerce/wallet-topup-cart); spending it is
+described under wallet-first payment in [Orders, payments and
+refunds](/commerce/orders-payments#wallet-credit-is-applied-before-external-payment).
+
+## What an operator sees
+
+`/admin/customers/{customerId}` → **Wallet** reads
+`GET /v1/panel/customers/{customerID}/wallet`, and the permission is **`finance.read`**, not
+`customers.read`. The split is intentional: a support operator can see that a customer has a
+balance without being able to read every movement that produced it.
+
+The panel's wallet tab is read-only. There is no update or delete path for a ledger row anywhere in
+the panel, and no panel route that adjusts a balance.
+
+## Operator adjustments
+
+Goodwill credit after a support case, a correction, a manual referral payout — all of these are one
+API call, and only that call. There is no `/v1/panel` route and no screen in `/admin` for adjusting
+a wallet; the bearer-token API is the whole surface.
+
+```bash
+curl -X POST https://example.com/v1/admin/customers/{customerID}/wallet-adjustments \
+  -H "Authorization: Bearer $APP_OPERATOR_TOKEN" \
+  -H "Idempotency-Key: goodwill-2026-08-13-0007" \
+  -H "Content-Type: application/json" \
+  -d '{"amountMinor": 50000, "currency": "RUB", "type": "credit",
+       "reference": "ticket-4821", "reason": "Outage compensation",
+       "operatorID": "ops@example.com"}'
+```
+
+What is required, and why:
+
+<Steps>
+  <Step title="A reason, an actor, and a non-zero amount">
+    All three are refused if missing. Requiring them is what makes a balance that changed without
+    an explanation impossible, and the reason is shown to the customer.
+  </Step>
+  <Step title="A type, with the right sign">
+    `credit`, `debit`, `referral_reward`, `correction` or `expiration`. `credit` and
+    `referral_reward` must be positive; `debit` and `expiration` must be negative; `correction` may
+    be either. A credit written with a negative amount is a typo, not an intention.
+  </Step>
+  <Step title="An idempotency key">
+    Reusing a key with a different type, reference, actor, customer, currency or amount is refused
+    with "idempotency key was already used with different wallet parameters". Reusing it with the
+    same parameters returns without writing a second transaction, so a retried request is safe.
+  </Step>
+  <Step title="A balance that stays non-negative">
+    A negative adjustment re-reads the balance inside the serializable transaction and refuses with
+    "wallet adjustment would create a negative balance" rather than writing a debit the customer
+    cannot cover.
+  </Step>
+</Steps>
+
+On success the transaction and both entries are written, and an audit event `wallet.adjusted` is
+appended with category `financial`, outcome `success`, the customer as its target, and the amount
+and currency in its metadata. The adjustment then appears in the customer's own wallet history with
+its type and reason.
+
+## Retention and privacy
+
+Financial history is never removed by a retention sweep, and anonymising a customer keeps it: an
+order that funded a ledger entry cannot be deleted without unbalancing the ledger. What
+anonymisation removes is contact and identity data, not the movements that explain a balance. See
+[Customer privacy](/customer/privacy) and [Financial
+invariants](/commerce/financial-invariants).

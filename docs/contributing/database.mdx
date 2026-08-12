@@ -1,19 +1,200 @@
 ---
 title: Database changes
-description: Atlas and sqlc workflow.
+description: The schema-first Atlas and sqlc workflow, how a migration is reviewed and applied, and which tables may never be rewritten
 ---
 
-1. Update `database/schema.sql`.
-2. Run `make atlas-diff` with a development PostgreSQL container.
-3. Review the generated SQL for destructive operations, locks, and rewrites.
-4. Apply it locally with `make atlas-apply`.
-5. Run `make generate` to update sqlc output.
-6. Commit the schema, migration, generated output, and tests together.
+PostgreSQL is the only durable source of truth in Omniflow. Valkey holds cache, rate limits, locks,
+and temporary state, and nothing that matters survives only there. That makes a schema change one of
+the few edits in this repository that is genuinely irreversible once released, which is why the
+workflow below is prescriptive rather than a suggestion.
 
-A migration may also be hand-authored when the desired change is clearer written directly than diffed — for example when a `CHECK` constraint is replaced rather than added. Add the file to `database/migrations/`, import it from `database/schema.sql` so the desired state stays complete, and run `make atlas-hash` to update `atlas.sum`. Review it exactly as you would a generated migration.
+Three artefacts move together and none of them is derived from the others at build time:
 
-Never edit an already-released migration or generate migrations during production startup.
+| Artefact | What it is |
+| --- | --- |
+| `database/schema.sql` | The **desired state**. A short file of `-- atlas:import` lines that compose `database/schema/base.sql` with the migration files, so Atlas can read the intended shape of the database in one place. |
+| `database/migrations/` | The **released history**: one timestamped `.sql` file per change, plus `atlas.sum`. This is what every installation replays, in order, forever. |
+| `database/queries/` | The **query layer** sqlc compiles into `internal/database/dbgen`. |
+
+The order is always the same, and it is fixed by `AGENTS.md`: change the desired schema, generate a
+reviewed Atlas migration, apply it against a real PostgreSQL, then regenerate sqlc.
+
+## The workflow
+
+<Steps>
+  <Step title="Update the desired state">
+    Edit `database/schema.sql` — or a file it imports — so it describes the database you want.
+    Nothing generates a migration from your intent; Atlas diffs this file against the migration
+    history, so an unstated intent produces no migration and a half-stated one produces the wrong
+    migration.
+  </Step>
+  <Step title="Generate the migration">
+    ```bash
+    make atlas-diff   # atlas migrate diff --env local
+    ```
+    The `local` environment in `atlas.hcl` reads `file://database/schema.sql` as the source, spins
+    up `docker://postgres/18/dev` as a scratch database to compute the diff, and writes the result
+    into `file://database/migrations`. It needs Docker running. Output is formatted with two-space
+    indentation so a generated file and a hand-authored one read the same way in review.
+  </Step>
+  <Step title="Review the generated SQL">
+    Read every line before you keep it. What you are looking for is on
+    [what a review is looking for](#what-a-review-is-looking-for) below.
+  </Step>
+  <Step title="Apply it against a real PostgreSQL">
+    ```bash
+    export APP_DATABASE_URL=postgres://omniflow:omniflow@localhost:5432/omniflow?sslmode=disable
+    make atlas-apply   # atlas migrate apply --env local
+    ```
+    A migration that only compiles is unverified. Name collisions, constraint conflicts, and
+    column-order mistakes appear at apply time and nowhere else, which is why `AGENTS.md` requires
+    this step before the file is committed rather than after CI reports it.
+  </Step>
+  <Step title="Regenerate sqlc">
+    ```bash
+    go tool sqlc generate
+    ```
+    Or `make generate`, which also refreshes the OpenAPI-derived Go and TypeScript bindings.
+  </Step>
+  <Step title="Commit the whole set together">
+    The desired schema, the migration, `atlas.sum`, the regenerated `internal/database/dbgen`, the
+    queries, and the tests belong in one commit. Splitting them produces a revision of the
+    repository that cannot be built or migrated.
+  </Step>
+</Steps>
+
+<Warning>
+  `database/schema.sql` currently imports `schema/base.sql` and the migrations only up to
+  `20260814000000_goods_gateway.sql`. Eight later migrations — recurring renewal, the support desk,
+  referrals and loyalty, campaigns, required channels, AI and MCP settings, goods promotions and
+  carts, and the customer web foundation — are not imported, so the desired state describes less
+  than the migration history builds. Running `atlas migrate diff` against it as it stands will
+  propose dropping everything those eight migrations added. Bring `database/schema.sql` back in
+  step with the history before you diff, or hand-author the migration and hash it as described
+  below.
+</Warning>
+
+## Hand-authored migrations
+
+A migration may be written directly when the change is clearer that way than diffed — replacing a
+`CHECK` constraint rather than adding one is the usual case, because a diff expresses it as a drop
+and a create with no statement of intent between them.
+
+1. Add the file to `database/migrations/` using the existing `<UTC timestamp>_<slug>.sql` naming.
+2. Import it from `database/schema.sql` so the desired state stays complete.
+3. Run `make atlas-hash` (`atlas migrate hash --dir file://database/migrations`).
+4. Review it exactly as you would a generated one, and apply it against a real database.
+
+Every migration in the repository opens with a prose header explaining what it adds, what it
+deliberately does not add, and which of its tables are append-only. Follow that convention: the
+header is the only place a future reader learns why a column exists, and it is read far more often
+than the commit message.
+
+## The `atlas.sum` rule
+
+`database/migrations/atlas.sum` is generated **only** by `atlas migrate hash`. Never hand-edit it,
+never recompute an entry by hand, and never paste a checksum from a CI log.
+
+A checksum mismatch is not a stale file. It means a migration's bytes changed after it was hashed —
+which, for a file that has already been released, means an installation somewhere has applied
+different SQL from the one you are holding. Atlas refuses to apply a directory whose sum does not
+match, and that refusal is the whole point.
+
+If Atlas is not available on your machine, stop and say so. Writing the file yourself defeats the
+only mechanism that detects a rewritten migration.
+
+## What a review is looking for
+
+Read a migration — yours or somebody else's — against this list.
+
+- **Destructive operations.** A `DROP COLUMN` or `DROP TABLE` cannot be undone by a later
+  migration, and the data is gone from every installation that applies it.
+- **Locks and rewrites.** A column added with a volatile default, a type change, or an index built
+  without `CONCURRENTLY` takes a lock for the duration on a table that may be large in production.
+- **Constraint names.** Name a table-level constraint explicitly and uniquely. PostgreSQL derives
+  `<table>_<column>_check` from an inline column check, so an explicit constraint reusing that name
+  fails to apply — and it fails at apply time on a populated database, not at diff time.
+- **Backfills.** A migration that adds a `NOT NULL` column to a populated table needs a default or a
+  backfill statement in the same file; the CI matrix applies every migration on top of every
+  supported baseline, so an unbackfilled column fails there rather than in review.
+- **Whether it belongs at all.** A table, query, or handler nothing reaches is unfinished, not
+  staged. Wire the capability end to end in the same change.
+
+Never edit a migration that has been included in a release, and never generate a diff during
+production startup. Production applies committed migrations only.
 
 ## sqlc and direct queries
 
-`database/queries/` holds the sqlc-generated data access used by the domain services. Customer-surface code that reads only its own projections — the bot's catalog, checkout, support, and news screens — uses direct pgx queries in the same package as the surface, which is the pattern established by the bot store. Add a query to `database/queries/` and regenerate whenever the result belongs to a shared domain service rather than to one surface.
+`database/queries/` holds the sqlc-generated data access used by the domain services. Its schema
+input is `database/migrations` — not `database/schema.sql` — so sqlc type-checks every query against
+the history exactly as an installation replays it. A query that references a column no migration
+adds is a generation error rather than a runtime one, and that is deliberate.
+
+Customer-surface code that reads only its own projections — the bot's catalogue, checkout, support,
+and news screens — uses direct pgx queries in the same package as the surface, which is the pattern
+established by the bot store. Add a query to `database/queries/` and regenerate whenever the result
+belongs to a shared domain service rather than to one surface.
+
+Generated output under `internal/database/dbgen` is committed and is never edited by hand. CI
+regenerates it and fails on a diff.
+
+## Append-only tables
+
+Financial, audit, identity, webhook, and outbox records are append-only unless a documented
+lifecycle explicitly permits mutation. In practice:
+
+- **The wallet ledger has no update or delete path anywhere in the codebase.** A correction is a
+  compensating entry, because "this was granted and then taken back, by this operator, for this
+  reason" is a fact worth keeping and an edited row destroys it. See
+  [Financial invariants](/commerce/financial-invariants).
+- **The audit trail** grows for the life of the installation. Retention removes disposable rows and
+  never an audit event.
+- **Entitlement history, consent records, provider events, and fulfillment attempt history** follow
+  the same rule. Where a lifecycle column is allowed to move — a cart's status, a session's revoked
+  timestamp — the migration's header says so on the table.
+
+When you add a table, decide which of these it is and write the decision into the header comment.
+A table whose mutability nobody stated becomes a table somebody edits.
+
+<Note>
+  `outbox_events` is written by three publishers — `order.paid`, `wallet.credited`, and
+  `addon.purchased` — and nothing in the repository ever sets `published_at`. The retention sweep
+  deletes only rows where `published_at IS NOT NULL`, so it removes nothing and the table grows
+  without bound. If you are adding a publisher, this is the state you are adding to.
+</Note>
+
+## River's schema is not in this directory
+
+Nothing under `database/` mentions River, and no Go file imports `rivermigrate`. The durable job
+tables (`river_job`, `river_leader`, `river_queue`, `river_client`, `river_migration`) are therefore
+not created by any committed migration or by any process at startup, and the compose `migrate`
+service applies the Atlas directory only. Do not assume a fresh database has them; see
+[Development](/contributing/development) and [Jobs and queues](/operations/jobs-and-queues).
+
+## How migrations reach an installation
+
+The compose `migrate` service runs `arigaio/atlas:1.3.0` with
+`migrate apply --url postgres://omniflow:omniflow@postgres:5432/omniflow?sslmode=disable --dir file:///migrations`,
+mounting `database/migrations` read-only. The API, bot, and worker all declare
+`depends_on: migrate: service_completed_successfully`, so no process serves traffic against a
+database behind head.
+
+That DSN is hard-coded in `compose.yaml` and ignores `APP_DATABASE_URL`. Changing the database
+credentials means editing `compose.yaml` as well as `.env`, or the services connect somewhere the
+migration step never touched.
+
+Atlas records which revisions have been applied in its own `atlas_schema_revisions` schema. A
+restore into a fresh database has to carry that schema too, or Atlas will try to replay the history
+from the beginning against a database that already has it — worth knowing when you follow
+[Backup and restore](/operations/backup-restore).
+
+## What CI proves
+
+The `migrations` job runs `atlas migrate validate` and then, once per supported baseline, applies
+the baseline, upgrades to head, and applies head a second time to prove it is a no-op. The baselines
+are the empty database plus each released prefix of the history, so the job answers the question a
+review cannot: can an installation running any shipped version upgrade to this change?
+
+The Testcontainers suite under `internal/integrationtest` applies the same committed files in order
+against a real PostgreSQL before exercising the repositories, which makes it a second migration gate.
+Details are on [Testing strategy](/contributing/testing).

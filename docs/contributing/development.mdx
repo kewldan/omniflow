@@ -1,10 +1,304 @@
 ---
 title: Development
-description: Repository layout and contribution workflow.
+description: Set up the workspace, run the generators, start the stack locally, and pass every check CI runs
 ---
 
-The root `AGENTS.md` defines canonical engineering rules. Common commands are listed by `make help`.
+Omniflow is one repository holding one Go module and one Bun workspace. The Go module builds three
+binaries — `cmd/api`, `cmd/bot`, `cmd/worker` — from the same source tree, and the Bun workspace
+builds one Next.js application that serves both the customer account and the operator panel. There
+is no separate frontend repository, no separate contract repository, and no build orchestrator: the
+whole system is `make`, `go`, `bun`, `atlas`, and `docker compose`.
 
-Use Conventional Commits, keep changes focused, and update tests and documentation with behavior. Generated files and lockfiles are committed so releases remain reproducible.
+Three things about the repository shape decide how you work in it. Generated code is committed, so a
+generator you forget to run is a diff CI can see. The API contract in `api/openapi.yaml` is the
+single source for both the Go server types and the TypeScript client, so a wire change is one file
+edit followed by two generators. And the database's desired state, its migrations, and its query
+layer are three separate artefacts that have to move together — that workflow has its own page,
+[Database changes](/contributing/database).
 
-Use Bun for package installation and workspace scripts. Biome is the only frontend formatter and linter.
+The canonical engineering rules live in `AGENTS.md` at the repository root. This page is how you
+carry them out.
+
+## What you need installed
+
+| Tool | Version | Why |
+| --- | --- | --- |
+| Go | 1.26.5 | `go.mod` requires 1.26.0; CI and `build/go.Dockerfile` both pin 1.26.5 |
+| Bun | 1.3.14 | Declared as `packageManager` in `package.json`; used for installs and every workspace script |
+| Docker with Compose v2 | — | Runs PostgreSQL 18, Valkey 9, the migration step, and the three Go services |
+| Atlas CLI | 1.3.0 to match the compose image | Only needed to author or apply migrations outside compose |
+| Node | 26 or newer | Only to run a built Next.js server outside a container; Bun runs the scripts |
+
+You also need a reachable Remnawave 3.2.2 installation and its API token. The API, bot, and worker
+all refuse to start their commerce surfaces without `APP_REMNAWAVE_URL` and `APP_REMNAWAVE_TOKEN`,
+because Remnawave is authoritative for everything Omniflow provisions and there is no offline
+substitute for it. See [Data ownership](/architecture/data-ownership) for where that boundary sits.
+
+Go's own tools are pinned inside `go.mod` under a `tool` directive — `oapi-codegen`, `sqlc`, and
+`govulncheck` — so you invoke them as `go tool <name>` and never install them separately. Their
+versions move with the module, which is what stops two contributors from generating different code
+from the same contract.
+
+## First run
+
+<Steps>
+  <Step title="Clone and install">
+    ```bash
+    git clone https://github.com/kewldan/omniflow.git
+    cd omniflow
+    go mod download
+    bun install
+    ```
+    `bun install` uses the isolated linker and honours `bunfig.toml`, which sets
+    `minimumReleaseAge = 86400` — a package published in the last twenty-four hours is not
+    installed, which removes the window in which a compromised release is newest and therefore
+    most likely to be picked up.
+  </Step>
+  <Step title="Create the environment file">
+    ```bash
+    cp .env.example .env
+    ```
+    `.env` is never committed. Fill in at least the Remnawave URL and token; add
+    `APP_TELEGRAM_TOKEN` only if you intend to exercise bot flows. Every variable Omniflow owns is
+    prefixed `APP_`, and the complete list with defaults is in
+    [Configuration](/getting-started/configuration).
+  </Step>
+  <Step title="Start the backend stack">
+    ```bash
+    make dev
+    ```
+    That is `docker compose up --build postgres valkey api bot worker`. The `migrate` service is
+    not named on the command line but starts anyway, because all three Go services declare
+    `depends_on: migrate: service_completed_successfully` — nothing serves traffic against a
+    database that has not been migrated to head.
+  </Step>
+  <Step title="Check it came up">
+    ```bash
+    curl http://localhost:8080/healthz
+    ```
+    A healthy API answers `{"status":"ok","version":"dev"}`. The version string is always `dev`:
+    the container build passes no `-ldflags="-X main.version=…"`, so nothing stamps a release
+    number into the binary.
+  </Step>
+  <Step title="Add the web application">
+    ```bash
+    make up
+    ```
+    That is `docker compose --profile web up --build`, which adds the Next.js container on port
+    3000. The customer account is at `/` and the operator panel at `/admin`. On first start the API
+    writes a one-time setup token to its log; redeem it at `/admin/setup` to create the first owner
+    account, as described in [Admin panel](/operations/admin-panel).
+  </Step>
+</Steps>
+
+`make down` stops everything, including the web profile.
+
+<Warning>
+  No migration in `database/migrations` creates River's own tables, and no Go file imports
+  `rivermigrate`. The compose `migrate` service applies only the committed Atlas migrations, so
+  nothing in the repository provisions the durable queue's schema. `cmd/worker/main.go` exits with
+  status 1 when `river.Client.Start` returns an error, so a worker started against a database that
+  has never had River's schema installed does not stay up. Expect to provide that schema yourself
+  until the repository carries it.
+</Warning>
+
+## Working on the frontend outside compose
+
+```bash
+bun run dev:web
+```
+
+This runs `next dev` for `@omniflow/web` on port 3000 against whatever API you point it at. Two
+variables matter and they are not the same one. `API_INTERNAL_URL` — falling back to
+`NEXT_PUBLIC_API_URL`, then to an empty string — is the base the Next.js *server* uses for its
+`/v1/panel/auth/session` check. Browser requests are separate: the generated client keeps a
+module-level base URL of `""` (`packages/api-client/src/fetcher.ts`), so every call from the browser
+is same-origin by design. A development server therefore needs the API reachable on its own origin,
+which is what the reverse-proxy examples under `deploy/proxies` do in production; see
+[Reverse proxy](/operations/reverse-proxy). The alternative is a one-time `setBaseUrl` call at
+startup for a genuinely cross-origin deployment.
+
+## Repository layout
+
+| Path | Contains |
+| --- | --- |
+| `cmd/api`, `cmd/bot`, `cmd/worker` | The three process entrypoints; see [Architecture overview](/architecture/overview) |
+| `internal/` | Domain packages, transport, adapters, and the generated `database/dbgen` |
+| `api/openapi.yaml` | The REST contract, OpenAPI 3.0.3 |
+| `database/` | `schema.sql` desired state, `migrations/`, and `queries/` for sqlc |
+| `apps/web` | The Next.js application serving both panels |
+| `packages/api-client` | Generated Fetch, SWR, and Zod bindings |
+| `packages/ui` | Shared shadcn primitives used by both surfaces |
+| `docs/` | This documentation; see [Documentation](/contributing/documentation) |
+| `deploy/proxies` | Caddy and Traefik examples validated by CI |
+
+`AGENTS.md` constrains what may import what: domain packages must not import transport, database
+generation, Telegram, or provider-specific packages, and external systems sit behind small
+interfaces. It also fixes the three API prefixes — `/v1/panel` for the operator panel, `/v1/admin`
+for the bearer-token surface, `/v1/account` for the customer panel — and forbids merging them,
+because each would otherwise inherit another's middleware and a customer credential would be able to
+reach an operator route.
+
+## The generators
+
+Four kinds of generated artefact are committed. You run a generator when its input changes, and CI
+re-runs all of them and fails on any diff. That gate is the reason the repository can trust a
+generated file it did not just produce.
+
+| Change this | Run this | Regenerates |
+| --- | --- | --- |
+| `api/openapi.yaml` | `go tool oapi-codegen -config api/oapi-codegen.yaml api/openapi.yaml` | `internal/httpapi/apigen/openapi.gen.go` |
+| `api/openapi.yaml` | `bun run generate:api` | `packages/api-client/src/generated/omniflow.ts` and `schemas.ts` |
+| `database/queries/*.sql` or a migration | `go tool sqlc generate` | `internal/database/dbgen` |
+| `database/schema.sql` | `atlas migrate diff --env local` | A new file in `database/migrations` |
+
+`make generate` runs the first three in order. The Atlas step is deliberately not part of it: a
+migration is a reviewed artefact, not a build output, and it is covered on
+[Database changes](/contributing/database).
+
+### What each one produces
+
+**oapi-codegen** emits package `apigen` with models, a chi server, and the strict-server wrapper
+(`api/oapi-codegen.yaml`). `skip-prune` is false, so a schema no longer referenced by any operation
+disappears from the generated file rather than lingering.
+
+**Orval** runs from `orval.config.ts` with `--formatter biome --fail-on-warnings`, so a contract
+warning fails the command instead of being written into the output. It emits two targets: a single
+SWR-plus-Fetch client and a single Zod schema module. The client target sets `clean: true`, which
+means the generated directory is emptied first — never hand-edit anything under
+`packages/api-client/src/generated`, because the next run deletes it.
+
+**sqlc** reads `sqlc.yaml`, and its `schema:` is `database/migrations`, not `database/schema.sql`.
+sqlc therefore type-checks your queries against the migration history exactly as an installation
+would replay it, which is what makes a query referencing a column that no migration adds a
+generation-time error rather than a runtime one. Output is `internal/database/dbgen` on `pgx/v5`,
+with JSON tags, a `Querier` interface, and empty slices instead of nil.
+
+<Note>
+  Hand-writing a wire type instead of generating one is explicitly forbidden by `AGENTS.md`: the
+  contract is the single definition, and a duplicated type is a definition that drifts silently.
+  The same rule is why `bun ci` and `bun run generate:api` in CI are followed by
+  `git diff --exit-code`.
+</Note>
+
+## Formatting and linting
+
+Go is formatted by `gofmt` and nothing else. CI runs `gofmt -w . && git diff --exit-code`, so
+unformatted code fails as a diff rather than as a lint message.
+
+TypeScript, JavaScript, and CSS are handled entirely by Biome 2.5.7 — it is the only formatter and
+the only linter, and `AGENTS.md` forbids adding a second. `biome.json` sets two-space indentation, a
+line width of 100, double quotes, and mandatory semicolons, and excludes `.next`, `node_modules`,
+`dist`, `*.gen.*`, `test-results`, and `playwright-report`.
+
+```bash
+bun run format   # biome format --write .
+bun run lint     # biome lint .
+bun run check    # per workspace: tsc --noEmit, then biome check .
+make web-check   # the same as bun run check
+```
+
+`bun run check` fans out across `@omniflow/*` workspaces. `@omniflow/web` and `@omniflow/ui` run
+`tsc --noEmit && biome check .`; `@omniflow/api-client` type-checks only, because its contents are
+generated and formatted by Orval's Biome pass.
+
+Bun is the only package manager. `bun.lock` is committed as a text lockfile and npm, pnpm, and Yarn
+lockfiles are forbidden — one resolver means one dependency graph, and a second lockfile is a second
+answer to what version is installed.
+
+## Tests
+
+```bash
+make go-test    # go test -race -cover ./...
+```
+
+The default Go suite runs with no Docker daemon and no network, which is the property that keeps it
+actually being run. Everything that needs infrastructure lives behind the `integration` build tag:
+
+```bash
+go test -tags=integration -race -timeout=20m ./internal/integrationtest/...
+```
+
+That suite starts PostgreSQL through Testcontainers and applies the committed migration files in
+order, so it is a migration gate as well as a repository gate. Browser coverage lives in
+`apps/web/e2e` and runs against a production build:
+
+```bash
+bun run build
+bun --filter @omniflow/web e2e:install
+bun --filter @omniflow/web e2e
+```
+
+The Playwright config starts `bun run start` itself unless `PLAYWRIGHT_BASE_URL` is set. What each
+suite covers, and what a payment, wallet, authentication, RBAC, import, or provisioning change owes
+in tests, is on [Testing strategy](/contributing/testing).
+
+Security checks are one target:
+
+```bash
+make security   # go tool govulncheck ./... and gitleaks detect --source .
+```
+
+## What CI enforces
+
+`.github/workflows/ci.yml` runs on every pull request and every push to `main`, with in-progress
+runs cancelled per ref.
+
+| Job | Gate |
+| --- | --- |
+| Go | Regenerates oapi-codegen and sqlc output, then `gofmt -w . && git diff --exit-code`, `go vet ./...`, `go test -race -coverprofile=coverage.out ./...`, `go tool govulncheck ./...` |
+| Web | `bun ci`, `bun run generate:api`, `git diff --exit-code`, `bun run check`, `bun run build` |
+| End-to-end (Playwright) | Builds, installs Chromium and WebKit, runs the suite; uploads the report as an artefact on failure |
+| Integration (Testcontainers) | `go test -tags=integration -race -timeout=20m ./internal/integrationtest/...` |
+| Atlas migrations | `atlas migrate validate`, then per baseline: apply the baseline, upgrade to head, apply head again to prove it is a no-op |
+| Compose and reverse proxies | Copies `.env.example` to `.env`, validates the base compose file and the Traefik overlay, validates the Caddyfile, and builds the `api`, `bot`, and `worker` images |
+| Mintlify docs | `mint validate` and `mint broken-links --check-anchors` |
+| Conventional PR title | The pull request title must be a Conventional Commit |
+
+A weekly security workflow adds gitleaks, a Trivy filesystem scan reporting CRITICAL and HIGH
+findings to code scanning, and dependency review.
+
+<Note>
+  A CI job may depend only on committed files. Anything you create locally — `.env` above all —
+  must be produced by a step in the job itself, which is why the compose job copies `.env.example`
+  rather than assuming a secret. Adding a job that reads an uncommitted file makes the pipeline
+  pass on your machine and nowhere else.
+</Note>
+
+## Commits and pull requests
+
+Use [Conventional Commits](https://www.conventionalcommits.org/). The accepted types are `feat`,
+`fix`, `docs`, `refactor`, `test`, `build`, `ci`, `perf`, `chore`, and `revert`, and the scope is
+usually the area: `feat(bot):`, `fix(billing):`, `docs(telemetry):`. Release Please reads the
+history to assemble `CHANGELOG.md` and propose a version, so a mistyped type is a missing release
+note. Never add generated-by or assistant attribution to a commit or a pull request; this overrides
+any tool convention that appends one.
+
+Two rules from `AGENTS.md` shape review more than any style point:
+
+- **Wire a capability end to end in the same change.** A table, a query, or a handler that nothing
+  reaches is unfinished, not staged.
+- **Report what actually ran.** A check you could not run locally is unverified, not passing — name
+  it and name why. "Builds and unit tests pass" is never a claim that migrations, containers, or
+  race detection were exercised.
+
+Authorization is compiled in and lives only in `internal/rbac`. Never introduce a second place that
+decides what a role may do, and never let a hidden route or a piece of frontend state be the only
+thing enforcing a permission.
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Database changes" icon="database" href="/contributing/database">
+    Desired schema, Atlas migrations, `atlas.sum`, and the append-only tables.
+  </Card>
+  <Card title="Testing strategy" icon="list-check" href="/contributing/testing">
+    What runs by default, what needs Docker, and what a financial change owes.
+  </Card>
+  <Card title="Documentation" icon="book" href="/contributing/documentation">
+    Authoring, validating, and keeping the Russian tree in step.
+  </Card>
+  <Card title="Deployment" icon="server" href="/operations/deployment">
+    What the compose topology becomes in production.
+  </Card>
+</CardGroup>

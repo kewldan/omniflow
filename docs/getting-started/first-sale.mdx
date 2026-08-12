@@ -1,0 +1,397 @@
+---
+title: Your first sale
+description: Turn an installed platform into a working shop — a plan, a priced version, a payment provider, the bot, and a test purchase you can follow all the way to Remnawave
+---
+
+[Quickstart](/getting-started/quickstart) leaves you with a running installation and an operator
+account. It has no catalogue, so both customer surfaces show an empty plan list and nothing can be
+bought. This page fills that gap: one plan, one immutable priced version, one payment provider, the
+bot connected, and a real purchase followed from the customer's tap to the Remnawave user it
+creates.
+
+Work through it in order. Each step is verifiable on its own, which matters because the checks that
+decide whether a plan is sellable are spread across four tables.
+
+<Warning>
+  A purchase cannot currently settle on a freshly migrated database. Settlement inserts a
+  fulfillment job in the same transaction as the money, and no committed migration creates the
+  River queue's own tables, so that insert fails and the whole settlement transaction rolls back.
+  Everything up to and including the provider handoff works and is worth setting up; the step where
+  it stops is described under [Where a test purchase stops today](#where-a-test-purchase-stops-today).
+</Warning>
+
+## Decide the settlement currency first
+
+`APP_DEFAULT_CURRENCY` (default `RUB`) is the currency both customer surfaces compare the catalogue
+in, and it is uppercased and validated against `^[A-Z]{3}$` at startup. It matters here because of
+one rule that catches every first installation:
+
+**A plan with no price in the settlement currency is omitted from the customer catalogue entirely.**
+It is not shown as unavailable. A row nobody can act on is only a question the customer cannot
+answer, so it is not rendered at all.
+
+If you intend to sell through Telegram Stars only, set `APP_DEFAULT_CURRENCY=XTR` and price your
+versions in `XTR`. Stars settle in no other currency.
+
+## Create the plan
+
+A plan is the stable, customer-facing product: a lowercase code, a kind, Russian and English copy, a
+visibility flag, and a sort order. It carries no price and no duration — those belong to its
+versions, which is what lets you rename and reorder a product without touching what anyone already
+bought.
+
+The operator panel cannot create a plan. `/admin/catalog` publishes versions, toggles visibility,
+and saves add-ons, but plan creation exists only on the bearer-token API — a gap worth knowing about
+before you go looking for a button.
+
+```bash
+curl -sS -X POST http://localhost:8080/v1/admin/plans \
+  -H "Authorization: Bearer $APP_OPERATOR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "code": "pro",
+    "kind": "one_time",
+    "visible": true,
+    "sortOrder": 10,
+    "localizations": {
+      "en": {"name": "Pro", "description": "100 GiB, three devices, one month."},
+      "ru": {"name": "Pro", "description": "100 ГиБ, три устройства, один месяц."}
+    },
+    "version": {
+      "billingPeriod": "month",
+      "durationSeconds": 2592000,
+      "gracePeriodSeconds": 259200,
+      "trafficAllowanceBytes": 107374182400,
+      "deviceLimit": 3,
+      "squadIDs": ["00000000-0000-0000-0000-000000000000"],
+      "upgradePolicy": "extend",
+      "downgradePolicy": "at_expiry",
+      "cancellationPolicy": "at_expiry",
+      "recurringCapable": true,
+      "trialEligibility": "new_customer",
+      "prices": [{"currency": "RUB", "amountMinor": 49900}]
+    }
+  }'
+```
+
+```json
+{"id":"…","code":"pro","kind":"one_time","visible":true,"versionId":"…","version":1}
+```
+
+One call creates the plan, both localisations, the first version, and its prices in a single
+serializable transaction, so a plan is never visible without the copy and price that make it
+sellable.
+
+| Field | What it must be |
+| --- | --- |
+| `code` | `^[a-z][a-z0-9_-]{1,63}$`, globally unique |
+| `kind` | `trial`, `one_time`, `recurring`, `free`, or `manual`. Only `trial` changes behaviour anywhere — it is what makes the trial claim and the eligibility rules apply. The other four are labels |
+| `localizations` | Keys `ru` and `en` only; anything else is refused with `422 plan_rejected` and the message `unsupported locale`. A name is 1–120 characters, a description up to 2000 |
+| `durationSeconds` | Greater than zero. 2 592 000 is 30 days |
+| `gracePeriodSeconds` | How long access survives expiry so the customer can be told exactly how long they have left to renew. Zero disables it |
+| `trafficAllowanceBytes`, `deviceLimit` | Omit or send `null` for unlimited. Null means unlimited; zero would mean a plan that permits nothing, and the two are deliberately different |
+| `squadIDs` | Remnawave squad UUIDs. This set is copied onto the entitlement and pushed to Remnawave on every operation |
+| `prices` | At least one `{currency, amountMinor}`. Amounts are integers in the currency's minor unit — 49900 is 499.00 RUB. There are no decimals anywhere in Omniflow |
+| `trialEligibility` | `new_customer` (default), `never_trialled`, or `any` |
+
+Refusals to expect: an unknown JSON field is `400 invalid_request`, because the decoder rejects
+unknown fields rather than silently dropping a typo; a missing duration or an empty price list is
+`422 plan_version_rejected` with `duration and prices are required`; a bad bearer token is
+`401 unauthorized`.
+
+<Note>
+  Re-running this call with the same `code` does not fail. The insert upserts on `code`, so you get
+  the existing plan back — and `createVersion` then appends **version 2**. Change the code, or use
+  the panel, if you did not mean to publish another version.
+</Note>
+
+## Publish a priced version from the panel
+
+Every later price change is a new version. There is no update route for a version, on purpose: a
+plan version is immutable once an order references it, and an editor that could change one would
+silently re-price history. An order additionally stores a JSON snapshot of the version's period,
+duration, traffic, device limit, squads, and lifecycle policies at purchase time, so even a
+tampered version row could not change what an existing order cost.
+
+Open `/admin/catalog` (permission `catalog.read`; the controls need `catalog.write`), find the plan
+row, and press **New version**. The editor expands under the row, pre-filled from the current
+version, because a price change is usually the only difference.
+
+| Field | Units and values |
+| --- | --- |
+| Billing period | Daily, Weekly, Monthly, Quarterly, Yearly, Custom |
+| Duration (days) | Sent as `durationSeconds` |
+| Grace period (days) | Sent as `gracePeriodSeconds`. Zero disables it |
+| Traffic (GB) | Multiplied by 1 073 741 824 and sent as bytes. Empty means unlimited, and the hint says so: zero is not the same thing |
+| Device limit | Integer. Empty means unlimited |
+| Squad IDs | Comma-separated Remnawave squad identifiers |
+| Squad selection | Leave on **Assigned automatically** — see the warning below |
+| Upgrade | Not allowed, New period from today, Added to the current period |
+| Downgrade | Not allowed, Immediately, At the end of the period |
+| Cancellation | Immediately, At the end of the period |
+| Trial eligibility | Leave on **New customers only** — see the warning below |
+| Recurring capable | A switch. It is stored and displayed; automatic renewal is actually gated on the payment adapter's own capability |
+| Prices | Free text, `RUB=49900, USD=599`. Integer minor units only — a decimal is rejected, because "4.99" is ambiguous about which currency's minor unit it means |
+| Reason | Required by the form and sent as `X-Operator-Reason`; it lands on the audit event |
+
+**Publish version** stays disabled until the duration is above zero, at least one price parses, and
+a reason is typed. The card is titled "Publish the next version" and explains why:
+a plan version is immutable once an order references it, so this publishes a new one instead of
+changing the current one. Publishing takes an advisory lock while allocating the number, so two operators
+cannot mint version 4 twice. The version editor states the consequence itself: existing orders keep
+the version they were bought at.
+
+<Warning>
+  Two selects in this editor send values the database rejects. **Squad selection** sends
+  `automatic`, `customer_choice`, or `fixed`, while the column's constraint allows `automatic`,
+  `optional`, and `required`. **Trial eligibility** sends `new_customer`, `never`, or
+  `any_customer`, while the column allows `new_customer`, `never_trialled`, and `any`. Anything
+  other than **Assigned automatically** and **New customers only** passes the panel's own validation
+  and then fails the constraint, which surfaces as `500 operation_failed`. To offer customer-chosen
+  locations, or a trial rule other than the default, call
+  `POST /v1/panel/catalog/plans/{planID}/versions` directly with the database's values.
+</Warning>
+
+<Note>
+  A version published from the panel offers no add-ons. The offered set is replaced with exactly
+  the `addonIds` in the request, and the panel's editor does not send that field. Populating it
+  needs a direct API call — see [Add-ons and the configurator](/commerce/addons-configurator).
+</Note>
+
+Two more controls decide what happens to a version later, both API-only:
+`POST /v1/panel/catalog/plans/{planID}/archive` stops new purchases of the whole plan and forces
+`visible = false`, and `POST /v1/panel/catalog/plan-versions/{planVersionID}/retire` stops a single
+version being the one the catalogue offers. Neither touches an existing entitlement: a customer
+keeps what they bought.
+
+## Localise it
+
+Both customer catalogue queries **join** the localisation for the requested locale rather than
+left-joining it. A plan with no copy in a locale does not render blank — it vanishes for customers
+using that language. That is why the create call above sends both `ru` and `en`.
+
+To change copy afterwards:
+
+```bash
+curl -sS -X PUT \
+  http://localhost:8080/v1/panel/catalog/plans/<planID>/localizations/en \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Pro", "description": "100 GiB, three devices, one month."}'
+```
+
+This route needs a panel session with `catalog.write` and a CSRF token rather than the operator
+bearer token, and answers `204`. Any locale other than `ru` or `en` is `422`. There is no
+localisation editor in the panel.
+
+## Confirm the plan is actually sellable
+
+Before involving a payment provider, check the catalogue the way a customer's screen does. The
+public route needs no credentials:
+
+```bash
+curl -s "http://localhost:8080/v1/catalog/plans?locale=en"
+```
+
+An entry appears only when **all** of the following hold:
+
+1. `plans.visible` is true and `archived_at` is null.
+2. A `plan_localizations` row exists for the requested locale.
+3. The plan has at least one version that is not retired — the highest such version wins.
+4. That version has at least one price row.
+
+The customer surfaces add one more condition this route does not: the price must be in the
+settlement currency. This endpoint returns one entry per price row, so a plan priced in two
+currencies appears twice here and once in the bot.
+
+If the list is empty, work down that checklist rather than guessing. `/admin/catalog` shows the
+plan, its latest version number, and how many order lines already reference it.
+
+## Configure a payment provider
+
+Payment adapters are built from environment variables at startup. `manual` and `telegram_stars` are
+**always** registered; the other two appear only when their credentials are present, and an empty
+credential leaves the adapter unregistered rather than registering a broken one.
+
+| Adapter | Enabled by | Currencies | Webhooks | Polling | Refunds |
+| --- | --- | --- | --- | --- | --- |
+| `telegram_stars` | Always. Refunds additionally need `APP_TELEGRAM_TOKEN` | `XTR` only | No — settlement arrives on the bot's authenticated update stream | No | Full charge only |
+| `cryptobot` | `APP_CRYPTOBOT_TOKEN` | 16 fiat codes including `RUB`, `USD`, `EUR` | Yes, HMAC-SHA256 over the exact bytes | Yes | No |
+| `yookassa` | `APP_YOOKASSA_SHOP_ID` **and** `APP_YOOKASSA_SECRET` | `RUB`, `USD`, `EUR` | Yes, unsigned — verified by re-fetching the payment | Yes | Full and partial |
+| `manual` | Always | Any | No | No | Records a pending refund |
+
+For a first sale, the fastest working rail is usually CryptoBot or Telegram Stars, because neither
+needs a public URL:
+
+```env
+APP_CRYPTOBOT_TOKEN=<token from @CryptoBot>
+APP_CRYPTOBOT_TESTNET=true
+```
+
+<Warning>
+  `APP_CRYPTOBOT_TESTNET` defaults to **`true`**. Invoices are created against the testnet host
+  until you set it to `false`, which is exactly what you want for a test purchase and exactly what
+  you must remember to change before taking real money.
+</Warning>
+
+YooKassa additionally requires `APP_PUBLIC_URL`, because a hosted checkout needs an absolute return
+link; the bot refuses to start with a shop ID configured and no public URL. Point your provider's
+webhook at `POST /v1/payments/webhooks/{provider}` on the API host. That route is unauthenticated by
+necessity — authenticity comes from the adapter's signature check over the exact bytes received,
+which is why a proxy that re-encodes JSON bodies breaks every provider webhook.
+
+<Note>
+  `/admin/settings` has a **Payment providers** card that stores an enabled flag, a display order,
+  and sealed credentials per merchant. Those rows do not configure any adapter: the registry is
+  built from environment variables only. The card's connection test also writes a status value the
+  table's own constraint rejects. Configure providers in `.env` and restart, and read
+  [Payment providers](/integrations/payments) for the whole picture.
+</Note>
+
+Because `manual` is always registered, it is offered to every customer in both surfaces with no
+switch to hide it. On an installation that does not take bank transfers, expect to see it and to
+have to explain it.
+
+## Connect the bot
+
+```env
+APP_TELEGRAM_TOKEN=<token from @BotFather>
+```
+
+Restart the `bot` service. With no webhook URL configured the bot long-polls, which needs no inbound
+port and no TLS — the reason it is the default for a first installation. On start it publishes its
+command list to Telegram: nine commands for the default locale and eight for Russian.
+
+The bot answers only in private chats. Every screen carries subscription state, and a group chat is
+an audience, so `/start`, every command, every callback, and the operator `/ops` panel all return
+silently when the chat is not private.
+
+Send `/start`. You should get the main menu; `/plans` should list the plan you just published as a
+block with period, traffic, devices, and price, and a button labelled `Pro · 499 RUB`. If the list
+is empty, the empty state names the currency it looked for — go back to
+[Confirm the plan is actually sellable](#confirm-the-plan-is-actually-sellable).
+
+For webhook mode, the Mini App domain, and the operator group, see
+[Telegram](/integrations/telegram).
+
+## Make the test purchase
+
+Use a Telegram account that has never talked to this bot, so you see what a first-time customer
+sees. A first-time visitor can browse and buy before any Remnawave user exists: the canonical
+Omniflow customer record is created on `/start`, and the Remnawave user is created by provisioning
+after the order is paid.
+
+<Steps>
+  <Step title="Open the plan and choose an action">
+    `/plans` → the plan button. The plan screen shows the description, the period, traffic, devices,
+    price, the upgrade, downgrade, and cancellation policies in words, and the grace period when it
+    is non-zero. A policy of `forbid` removes the action entirely rather than failing after the
+    customer taps it, so the buttons you see are exactly what the backend would accept: `🛒 Buy` for
+    a customer with nothing active, `♻️ Extend this plan` for the same version, or a switch button
+    for an upgrade or downgrade the policy permits.
+  </Step>
+
+  <Step title="Choose a payment method">
+    Only configured adapters that can settle this plan's currency are listed, each labelled with the
+    price it would charge, because the same plan can cost a different number through a different
+    provider. Choosing the method is what fixes the order currency. If nothing is listed, no
+    adapter supports a currency the plan is priced in.
+  </Step>
+
+  <Step title="Review the summary">
+    The checkout screen is the exact breakdown the order will be created from: subtotal, discount,
+    add-ons, wallet, and total due. From here a customer can enter a promo code, toggle whether
+    wallet credit is applied, add offered add-ons, save the cart for later, or change the method.
+  </Step>
+
+  <Step title="Pay">
+    `💳 Pay` creates the order and immediately starts the payment. Two idempotency keys guard it:
+    the checkout's own key is reused for every order attempt, so a double tap resolves to one order,
+    and the payment key is scoped to the order **and** the provider, so a customer who abandons one
+    method and returns with another gets a second payment rather than a confusing reuse of the
+    first. The confirm action is both replay-claimed and rate-limited to six per minute.
+
+    For a hosted provider the status screen offers `💳 Open payment page`. For Telegram Stars it
+    offers `⭐ Pay in Telegram`, which sends a real Telegram invoice; the bot approves the
+    pre-checkout question only when the order belongs to that customer, the currency matches, the
+    total equals the outstanding amount exactly, and the order is still `pending` or `draft`.
+  </Step>
+</Steps>
+
+The customer web panel is the same flow with the same records: `/account/store` → a plan →
+`/account/checkout` → **Confirm**. A checkout opened in one surface is the checkout the other one
+shows.
+
+## Where a test purchase stops today
+
+When the provider reports success, the webhook or the Stars update reaches
+`RecordProviderPayment`, which opens one transaction and does all of the following together: records
+the payment event, moves the order to `paid`, spends any wallet credit through the double-entry
+ledger, creates the entitlement, writes the fulfillment operation, inserts the `order.paid` outbox
+event, grants any referral reward, and enqueues the fulfillment job.
+
+That last insert is the problem. The job goes into River's own tables, no committed migration
+creates them, and nothing in the stack runs River's migrator — so the insert fails and the entire
+transaction rolls back. What you observe:
+
+- The provider has the money.
+- The order stays `pending`. No entitlement, no ledger movement, no Remnawave user.
+- The webhook is recorded on `/admin/system` → **Webhooks** with status `failed`.
+- `worker` is not running either; it exits at startup logging `start River`.
+
+The same applies to an order fully covered by wallet credit, which settles at creation time through
+the same path, and to a free or trial plan, which owes nothing externally and therefore settles
+immediately.
+
+Everything before settlement is real and worth verifying: the catalogue, eligibility, the quote, the
+promo code, the wallet arithmetic, the order, and the provider handoff all work and are all
+recorded. Watch this page and [Jobs and queues](/operations/jobs-and-queues) for the migration that
+closes it.
+
+## Where a completed sale lands
+
+Once the queue exists, this is the trail one purchase leaves, and it is worth knowing which screen
+answers which question.
+
+| Question | Where to look |
+| --- | --- |
+| Did the money arrive? | `/admin/finance` → Orders, filtered by state. The order detail shows the six amounts, every payment intent with its ordered event timeline, and every refund |
+| Did the provider callback arrive and verify? | `/admin/system` → Webhooks: received-at, provider, a signature badge, and a status. The raw body is never returned |
+| Is provisioning done? | `/admin/system` → Jobs is hard-filtered to failed fulfillment operations — the dead-letter view. An empty tab is the good outcome |
+| What did the customer get? | `/admin/customers/<id>` → Subscriptions: the slot, the Remnawave username, the plan code, the entitlement status, the expiry, and the traffic allowance |
+| What does the customer see? | The bot's subscription screen, or `/account` — status, expiry, remaining days, traffic, devices, and the connection instructions |
+
+The worker picks the job up on the `critical` queue and pushes the desired state to Remnawave. The
+Remnawave username is derived from the subscription UUID (`omniflow_` plus sixteen hex characters),
+and the worker looks it up before creating anything, so a retried `create` after a lost response
+adopts the existing user instead of minting a second one. On success the earlier entitlements of
+that subscription are marked superseded and the order moves from `paid` to `fulfilled`. Provider
+failures retry with a backoff of five seconds doubling to a 1280-second ceiling, and after three
+failed attempts an operator notice is queued — once per operation, however many times it retries.
+
+Every operator action on a subscription afterwards goes through the same pipeline rather than
+writing to Remnawave directly, which is why those buttons report **queued** rather than done: a
+panel click that wrote to Remnawave itself would be the one change reconciliation could not explain.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Catalogue and promotions" icon="tags" href="/commerce/catalog-promotions">
+    Trials, promo codes, personal offers, and the rules that decide which version a customer is
+    priced against.
+  </Card>
+  <Card title="Payment providers" icon="credit-card" href="/integrations/payments">
+    Per-provider setup, webhook verification, refunds, and what each adapter cannot do.
+  </Card>
+  <Card title="Fulfillment" icon="gears" href="/commerce/fulfillment">
+    Operations, idempotency keys, retries, drift detection, and scheduled reconciliation.
+  </Card>
+  <Card title="Orders and payments" icon="receipt" href="/commerce/orders-payments">
+    The state machine, the payment classifications, and what each one means for an operator.
+  </Card>
+  <Card title="Telegram" icon="robot" href="/integrations/telegram">
+    Webhook mode, the Mini App domain, and the operator notification group.
+  </Card>
+  <Card title="Admin operations" icon="list-check" href="/operations/admin-operations">
+    The runbooks for refunds, stuck payments, and everything else that follows a sale.
+  </Card>
+</CardGroup>

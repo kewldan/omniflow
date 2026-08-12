@@ -1,15 +1,258 @@
 ---
 title: Customers and imports
-description: Canonical identity, privacy lifecycle, and Remnawave import behavior.
+description: Adopting an existing Remnawave user base into Omniflow, and exporting the customer list
 ---
 
-The Omniflow customer UUID is canonical and independent of Telegram and Remnawave IDs. Verified identities can be linked only once globally, and the final verified login method cannot be unlinked. Contact values are encrypted with AES-256-GCM and indexed only by a keyed HMAC-SHA-256 fingerprint.
+An operator adopting Omniflow already has customers — they are in Remnawave, identified by a
+Remnawave user ID and, usually, a Telegram ID. The import pipeline turns those records into Omniflow
+customers without silently merging or silently skipping the ones that collide with somebody who
+already exists.
 
-Locale, IANA timezone, transactional preferences, marketing preferences, and append-only consent decisions are stored independently. Suspension is reversible. Deletion starts a retention window; anonymization is allowed only after it expires and redacts identity subjects, contacts, Telegram mapping, support text, and referral codes while retaining required financial records.
+The pipeline is deliberately two-phase and resumable. **Preview** pages through the Remnawave user
+list, stages each record with a validation verdict, and counts how many are clean, how many conflict,
+and how many cannot be read — before anything is written. **Apply** then commits the clean ones, one
+customer per transaction. A run of forty thousand records that is interrupted at record thirty
+thousand resumes from a stored cursor rather than starting again.
 
-Remnawave import has two phases:
+<Note>
+  There is exactly one import source. The table constrains it with
+  `CHECK (source = 'remnawave')` and the reader is the Remnawave list endpoint. There is no CSV
+  import, no file upload, and no second provider. The CSV described at the end of this page is an
+  **export** only.
+</Note>
 
-1. **Preview** pages through supported API results and stages privacy-safe fields.
-2. **Apply** commits each valid item atomically.
+## What an import produces
 
-The preview reports invalid and conflicting Remnawave or Telegram identifiers. A cursor makes preview and apply resumable. A failed item transaction creates no partial customer or mapping.
+For each applied record, exactly two rows: a `users` row with status `active`, and a
+`remnawave_users` mapping carrying the Remnawave user ID, the Telegram ID if there was one, an
+observed status, and a reconciliation timestamp.
+
+It does **not** produce a subscription, an entitlement, an order, or a verified identity. Omniflow
+does not know what those customers paid, when, or for what — Remnawave does not record it — and
+inventing an entitlement would put a period and a price into the ledger that nobody agreed to. See
+[Data ownership](/architecture/data-ownership) for the boundary this respects.
+
+What the mapping buys is recognition. When an imported customer next messages the bot, the customer
+resolution path looks for a Telegram identity first, and on finding none falls back to the Remnawave
+mapping keyed on their Telegram ID. It adopts that customer and links the Telegram identity to them
+rather than creating a second customer. That is the whole reason the preview treats an already-linked
+Telegram ID as a conflict: two customers holding one Telegram identity would make that fallback
+ambiguous, and the ambiguity would surface as somebody's subscription appearing on somebody else's
+account.
+
+## Phase one: preview
+
+Preview reads one page of Remnawave users and stages them. It is safe to run repeatedly and writes
+nothing outside the import tables.
+
+Each candidate is staged with four fields only — `remnawaveId`, `username`, `status`, `telegramId`.
+The staged payload is what the conflict checks read and what an operator's counters are computed
+from; nothing else from the Remnawave record is copied into Omniflow.
+
+### How matching works
+
+Before staging a page, the service builds the set of identities that already exist, from three
+sources:
+
+1. Every `remnawave_id` and `telegram_id` in `remnawave_users` — customers Omniflow already knows.
+2. Every active `identities` row with `provider = 'telegram'` — customers who signed in through the
+   bot or the web panel and have no Remnawave mapping yet.
+3. Every Telegram ID already staged **in this run** whose source ID is not on the current page.
+
+The third source is the one that is easy to leave out and expensive to miss: without it, the same
+Telegram ID appearing on page 3 and page 40 of a large panel would pass both times and produce two
+customers who cannot both be resolved.
+
+### Validation codes
+
+| Code | Raised when |
+| --- | --- |
+| `missing_source_id` | The Remnawave user ID is blank |
+| `source_already_linked` | That Remnawave user is already mapped to an Omniflow customer |
+| `duplicate_source_id` | The same Remnawave user ID appears twice on this page |
+| `invalid_telegram_id` | The Telegram ID is zero or negative |
+| `telegram_already_linked` | That Telegram ID is already held by a mapping, an active identity, or an earlier staged page |
+| `duplicate_telegram_id` | The same Telegram ID appears twice on this page |
+
+The item's status follows from the codes: none means `valid`; any code means `conflict`; a code
+beginning `missing_` or `invalid_` makes it `invalid` instead. The distinction is the point of the
+counters — a conflict is a record that belongs to somebody, an invalid record is one that cannot be
+read at all, and the two need different decisions from an operator.
+
+Every item also stores a SHA-256 fingerprint of its staged payload, so a re-preview can tell a
+changed record from an unchanged one. Re-previewing never rewrites an item that has already been
+applied or skipped: the upsert carries
+`WHERE customer_import_items.status NOT IN ('applied', 'skipped')`, which is what makes running
+preview again on a partially applied run harmless.
+
+### Cursor and run status
+
+The cursor is the numeric offset into the Remnawave list, stored as text, starting at zero. Each pass
+advances it by the number of users the page returned and sets the run to `ready` once the cursor
+reaches the reported total; until then it stays `previewing`.
+
+`pageSize` is clamped: anything at or below zero, or above 500, becomes 100.
+
+If Remnawave cannot be reached, the run is not left half-finished and no error is thrown away. It is
+written to status `failed` with `error_summary` set to `{"code":"remnawave_unavailable"}` and
+returned as it stands. Because the resume path only short-circuits on `completed` and `cancelled`, a
+`failed` run can be resumed from its stored cursor once the panel is back.
+
+| Status | Meaning |
+| --- | --- |
+| `previewing` | More pages remain |
+| `ready` | Every page has been staged; apply may begin |
+| `applying` | Apply is part-way through the valid items |
+| `completed` | No valid items remain |
+| `failed` | A Remnawave read failed; resumable from the cursor |
+| `cancelled` | A legal status that no code path writes |
+
+## Phase two: apply
+
+Apply selects up to `limit` items with status `valid`, ordered by source ID, and commits each in its
+own `Serializable` transaction. The `limit` is clamped the same way `pageSize` is.
+
+Each item is one CTE chain in one statement: lock the item `FOR UPDATE` on `status = 'valid'`, insert
+the customer, insert the Remnawave mapping, mark the item `applied` with its new customer ID and
+timestamp. Because it is one statement in one transaction, a failure creates no partial customer and
+no orphan mapping. A concurrent second run cannot apply the same item twice, because the lock only
+matches an item still in `valid`.
+
+Conflicting and invalid items are never selected, so they are never applied. After the batch, if no
+`valid` item remains the run becomes `completed` and `completed_at` is stamped; otherwise it stays
+`applying` and the next call continues.
+
+<Warning>
+  **There is no rollback and no cancel.** "A failed item transaction creates no partial customer"
+  means per-item atomicity, not undo. Nothing in the codebase deletes an applied import's customer or
+  mapping, and nothing writes the `cancelled` status. Conflicting and invalid items simply remain
+  staged; there is no merge, skip, or override action anywhere in the product. Preview on a small
+  page size first and read the counters before applying.
+</Warning>
+
+Two further things to expect:
+
+- **Imported customers are always created with locale `ru`.** The locale is hard-coded in the apply
+  path regardless of anything in the Remnawave record. A customer can change it themselves in the bot
+  or the web panel afterwards.
+- **Imports write no audit event.** The import tables are the record of what happened; the audit
+  trail described in [Admin operations](/operations/admin-operations) does not cover them.
+
+## Running an import
+
+The preview, resume, and apply routes are on the operator-token surface. There is no panel control
+that starts an import — `/admin/customers` lists runs and offers the export, and that is all it does.
+
+<Steps>
+  <Step title="Confirm the panel credentials">
+    The worker and API read `APP_REMNAWAVE_URL` and `APP_REMNAWAVE_TOKEN`; the import reads the same
+    panel through the same adapter. `APP_OPERATOR_TOKEN` authorises `/v1/admin`.
+  </Step>
+  <Step title="Open a run">
+    ```bash
+    curl -X POST "https://example.com/v1/admin/imports/remnawave/preview?pageSize=100" \
+      -H "Authorization: Bearer $APP_OPERATOR_TOKEN"
+    ```
+    The response is the run: `{id, status, cursor, totalCount, validCount, conflictCount,
+    invalidCount, startedAt, updatedAt, completedAt}`.
+  </Step>
+  <Step title="Page until it is ready">
+    ```bash
+    curl -X POST "https://example.com/v1/admin/imports/remnawave/$IMPORT_ID/resume?pageSize=100" \
+      -H "Authorization: Bearer $APP_OPERATOR_TOKEN"
+    ```
+    Repeat until `status` is `ready`. Each call reads one page and advances the cursor.
+  </Step>
+  <Step title="Read the counters before writing anything">
+    `validCount`, `conflictCount`, and `invalidCount` are the whole reason the preview phase exists.
+    A large conflict count usually means the installation already knows those customers, which is a
+    reason to stop rather than a reason to continue.
+  </Step>
+  <Step title="Apply">
+    ```bash
+    curl -X POST "https://example.com/v1/admin/imports/remnawave/$IMPORT_ID/apply?limit=100" \
+      -H "Authorization: Bearer $APP_OPERATOR_TOKEN"
+    ```
+    Repeat until `status` is `completed`.
+  </Step>
+</Steps>
+
+| Method and path | Auth | Permission |
+| --- | --- | --- |
+| `POST /v1/admin/imports/remnawave/preview` | Operator token | — |
+| `POST /v1/admin/imports/remnawave/{importID}/resume` | Operator token | — |
+| `POST /v1/admin/imports/remnawave/{importID}/apply` | Operator token | — |
+| `GET /v1/panel/imports` | Operator session | `customers.read` |
+| `GET /v1/panel/customers/export` | Operator session | `customers.read` |
+
+Refusals to expect:
+
+- Applying a run that is `previewing`, `completed`, `failed`, or `cancelled` returns
+  `422 import_failed` with the detail "import is not ready".
+- A malformed import identifier returns `422 import_failed` with "invalid import ID".
+- Unlike the panel routes, which map every failure onto a fixed message, these three routes place the
+  raw error text in the problem document's `detail`. Treat the response as operator-facing.
+
+## Watching a run in the panel
+
+Open `/admin/customers` and read the **Imports** card. It polls `GET /v1/panel/imports` every five
+seconds, because a run in progress moves while an operator watches it, and shows per run:
+
+- the first eight characters of the run ID and a status badge;
+- a **resumable** badge whenever a cursor is stored — a run interrupted at record forty thousand does
+  not start again at one;
+- the four counters: total, valid, conflicts, invalid;
+- the start time and, once finished, the completion time;
+- an error summary, rendered as class-and-count pairs. An operator needs to know that 812 records had
+  no Telegram identifier, not to scroll past 812 identical lines.
+
+<Note>
+  The error summary is only ever empty or the single entry `{"code":"remnawave_unavailable"}`. The
+  card is built to render per-code counts, but the import service never populates them, so a failed
+  run shows one pair naming the panel failure rather than a breakdown by validation code. The
+  breakdown you can rely on is the three counters.
+</Note>
+
+## Customer CSV export
+
+Beside the import history is an **Export** button, which is a plain link to
+`GET /v1/panel/customers/export` and needs `customers.read`. It streams a CSV of the customer list,
+optionally filtered with `?status=`.
+
+| Column | Contents |
+| --- | --- |
+| `customer_id` | The canonical Omniflow customer UUID |
+| `status` | The customer's lifecycle status |
+| `locale` | Their interface locale |
+| `timezone` | Their IANA timezone |
+| `created_at` | RFC 3339, UTC |
+| `telegram_id` | From the Remnawave mapping, blank when there is none |
+| `subscriptions` | How many subscriptions they hold |
+| `paid_orders` | How many of their orders are `paid` or `fulfilled` |
+
+The column set is the point. An export is a file that leaves the installation, so it carries the
+identifiers an operator may safely be given and the facts they need to reconcile against another
+system — and deliberately no subscription link, no payment token, and no hardware identifier.
+Contact values do not appear either; they are encrypted at rest and are not part of this file.
+
+The handler walks the cursor server-side at 200 rows a page and flushes as it goes, so an export over
+a large installation is never held in memory. It stops after 200 pages, for the same reason the audit
+and finance exports do: one request must not be able to walk an unbounded table forever. An
+installation past forty thousand customers should expect the file to end there.
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="Remnawave integration" icon="plug" href="/integrations/remnawave">
+    The adapter the import reads through, and every call it makes.
+  </Card>
+  <Card title="Customer privacy" icon="shield" href="/customer/privacy">
+    What is stored about a customer, what they can export, and deletion.
+  </Card>
+  <Card title="Admin operations" icon="sliders" href="/operations/admin-operations">
+    Bulk actions, audit trail, and the rest of the customer surface.
+  </Card>
+  <Card title="Fulfillment" icon="gears" href="/commerce/fulfillment">
+    How an imported customer's first purchase becomes an entitlement.
+  </Card>
+</CardGroup>

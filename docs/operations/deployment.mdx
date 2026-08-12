@@ -1,10 +1,192 @@
 ---
 title: Deployment
-description: Compose-first deployment and upgrade model.
+description: The compose topology service by service, what has to persist, how migrations are applied, and how to upgrade and roll back
 ---
 
-Omniflow targets a single Linux server with Docker Compose initially. Stateful services are private to the Compose network, and operators choose their own ingress.
+Omniflow ships as one Docker Compose stack for a single Linux server: PostgreSQL, Valkey, a one-shot migration job, the three Go processes (`api`, `bot`, `worker`), and an optional Next.js `web` container behind a compose profile. `compose.yaml` at the repository root is the whole topology — there is no Helm chart, no operator, and no second supported form.
 
-Production upgrades apply committed Atlas migrations before starting the new application containers. Back up PostgreSQL before upgrading and verify `/readyz` before routing traffic.
+The stateful services stay private to the compose network and Omniflow bundles no reverse proxy, because TLS, body limits and forwarded-header trust are decisions an operator already makes for their own estate. Two maintained ingress examples live under `deploy/proxies/`; see [Reverse proxy](/operations/reverse-proxy).
 
-Do not use floating image tags in production.
+## The topology, service by service
+
+| Service | Image or build | Published ports | Waits for | Volumes |
+| --- | --- | --- | --- | --- |
+| `postgres` | `postgres:18.4-alpine` | none | — | `postgres-data:/var/lib/postgresql/data` |
+| `valkey` | `valkey/valkey:9.1.1-alpine` | none | — | none, deliberately |
+| `migrate` | `arigaio/atlas:1.3.0` | — | `postgres` healthy | `./database/migrations` mounted read-only |
+| `api` | `build/go.Dockerfile`, `TARGET=api` | `8080:8080` | `migrate` completed, `valkey` healthy | none |
+| `bot` | `build/go.Dockerfile`, `TARGET=bot`, `RUNTIME=postgres` | none | same | `backup-data:/var/lib/omniflow/backups` |
+| `worker` | `build/go.Dockerfile`, `TARGET=worker`, `RUNTIME=postgres` | none | same | `backup-data:/var/lib/omniflow/backups` |
+| `web` | `build/web.Dockerfile`, profile `web` | `3000:3000` | `api` | none |
+
+Only `api` and `web` publish a host port. PostgreSQL and Valkey are reachable on the internal network alone, which is why nothing in the stack needs a database password you would be comfortable exposing.
+
+`postgres` has a `pg_isready` healthcheck every 5 seconds with 20 retries and `valkey` a `valkey-cli ping` healthcheck, and the application services depend on `migrate` having *completed successfully* rather than merely started. A schema that failed to apply therefore stops the release instead of producing three processes running against a half-migrated database.
+
+Each of `api`, `bot` and `worker` reads `env_file: [.env]`, so all three see the same configuration. The API additionally gets `APP_HTTP_ADDR: :8080` set explicitly in compose. What each variable does is catalogued in [Configuration](/getting-started/configuration).
+
+### Why `valkey` is configured with no persistence
+
+The command is `valkey-server --save "" --appendonly no`: no snapshots, no append-only file. Valkey holds cache entries, rate-limit counters, locks and single-use replay tokens and nothing else, so losing it costs a window of rate-limit state rather than data. Anything Omniflow cannot afford to lose is in PostgreSQL.
+
+<Warning>
+  The corollary is that a Valkey restart clears the replay guards that protect payment callbacks and destructive Telegram buttons for the length of their retention window. Restart it during a quiet period rather than in the middle of a campaign.
+</Warning>
+
+## What must persist
+
+Two named volumes carry state:
+
+- **`postgres-data`** — everything. Orders, the ledger, entitlements, audit events, sessions, settings, the queue.
+- **`backup-data`** — the encrypted `pg_dump` output, mounted at `/var/lib/omniflow/backups` on both `bot` and `worker` because one takes backups on a schedule and the other on demand. Backups live outside the container filesystem so a rebuild never discards them.
+
+Support-ticket attachments uploaded through the customer web panel are the exception you have to handle yourself. They are written to `APP_SUPPORT_ATTACHMENT_DIR`, which defaults to `/var/lib/omniflow/support-attachments`, and `compose.yaml` declares **no volume for that path on either `api` or `worker`**. As shipped, a browser-uploaded attachment lives in the API container's writable layer and disappears on the next rebuild, and the worker — which is the process that reclaims orphaned attachment files — cannot see the same directory. If your installation accepts web uploads, add a shared volume mounted at the same path on both services and set `APP_SUPPORT_ATTACHMENT_DIR` to it on both. A worker pointed at a different directory deletes the rows and leaves the bytes behind.
+
+## First deployment
+
+<Steps>
+  <Step title="Prepare the environment file">
+    ```bash
+    cp .env.example .env
+    ```
+    Fill in `APP_DATABASE_URL`, `APP_VALKEY_URL`, `APP_REMNAWAVE_URL`, `APP_REMNAWAVE_TOKEN`, `APP_OPERATOR_TOKEN`, a base64 32-byte `APP_DATA_ENCRYPTION_KEY`, and `APP_TELEGRAM_TOKEN` if you are running the bot. The API refuses to start with a database URL and any of the first five missing, exiting with `commerce requires APP_OPERATOR_TOKEN, APP_DATA_ENCRYPTION_KEY, APP_REMNAWAVE_URL, APP_REMNAWAVE_TOKEN, and APP_VALKEY_URL`.
+  </Step>
+  <Step title="Bring the core stack up">
+    ```bash
+    docker compose up --build postgres valkey migrate api bot worker
+    ```
+    `make dev` runs the same set. Add the web application with `docker compose --profile web up --build`, or `make up`.
+  </Step>
+  <Step title="Read the setup token out of the API log">
+    ```
+    level=WARN msg="no administrator exists yet; redeem this one-time setup token at /admin/setup" token=… expires_in=30m0s
+    ```
+    Redeem it at `/admin/setup` within 30 minutes to create the first owner. See [Admin panel](/operations/admin-panel).
+  </Step>
+  <Step title="Verify readiness before routing traffic">
+    ```bash
+    curl -s localhost:8080/readyz
+    ```
+    A `200` with `"status":"ready"` and every check healthy is the gate. What the probes mean, and the one case where a green `/readyz` is misleading, is covered in [Health, metrics, and logs](/operations/observability).
+  </Step>
+</Steps>
+
+After that the API is on `http://localhost:8080`, the customer account app on `http://localhost:3000`, and the operator workspace on `http://localhost:3000/admin`.
+
+## Applying migrations
+
+Migrations are forward-only SQL files in `database/migrations/`, applied by Atlas. The `migrate` service runs `atlas migrate apply` against the database and exits; Atlas records what it has already applied in the `atlas_schema_revisions` schema, so re-running it on an up-to-date database is a no-op and the whole stack can be brought up repeatedly without special handling.
+
+There are no down-migrations. That is a deliberate choice rather than an omission: a schema rollback is a restore from a backup, which is the only path that also restores the data the forward migration reshaped. See [Backup and restore](/operations/backup-restore).
+
+<Note>
+  The `migrate` service hard-codes `postgres://omniflow:omniflow@postgres:5432/omniflow?sslmode=disable` in its command and does **not** read `.env`. Changing the database credentials means editing `compose.yaml` as well as `APP_DATABASE_URL`, or the migration job will keep pointing at the old ones.
+</Note>
+
+Atlas applies Omniflow's own schema only. The durable job queue's tables are a separate concern with a gap you need to know about before the first deploy — see [Jobs and queues](/operations/jobs-and-queues#the-queue-schema-is-not-created-by-any-migration).
+
+For how migrations are authored and reviewed, see [Database](/contributing/database).
+
+## Images
+
+`build/go.Dockerfile` builds all three Go binaries from one multi-stage file. `CGO_ENABLED=0 go build -trimpath -ldflags="-s -w"` produces a static binary, and a `RUNTIME` build argument selects the final base:
+
+| `RUNTIME` | Base | Used for |
+| --- | --- | --- |
+| `static` (default) | `gcr.io/distroless/static-debian13:nonroot` | `api` |
+| `postgres` | `alpine:3.23.5` with `postgresql18-client`, `ca-certificates`, `tzdata` | `bot`, `worker` |
+
+`pg_dump` and `pg_restore` must match the server's major version, which is why the client is pinned to PostgreSQL 18 alongside the `postgres:18.4-alpine` server. Alpine 3.23 is the first release carrying `postgresql18-client`, so lowering that base breaks the backup path.
+
+Both bases run as `nonroot` (uid 65532 on the Alpine one), and `/var/lib/omniflow` is pre-created and owned by that user so the backup directory is writable without a privileged container.
+
+The web image installs and builds with Bun and serves the Next.js standalone output from `node:26.7-alpine` on port 3000.
+
+### Released images
+
+Tagging `v*` builds and pushes `api`, `bot`, `worker` and `web` to `ghcr.io/<repo>/<name>` for `linux/amd64` and `linux/arm64`, tagged `{{version}}` and `{{major}}.{{minor}}`, with full provenance and an SBOM.
+
+Nothing in the repository consumes those images: `compose.yaml` builds from the working tree. Running a pinned release means writing a small override that replaces each `build:` block with an `image:` line. Do not point production at a floating tag — pin the full version, so that what you tested is what restarts.
+
+<Warning>
+  The release workflow passes only `TARGET` to the build, so the published `bot` and `worker` images use the default `static` base and do **not** contain `pg_dump` or `pg_restore`. Scheduled backups and the `/ops` restore surface need images built with `RUNTIME=postgres`, which is what `compose.yaml` does. If you switch to released images, keep building `bot` and `worker` yourself or backups will fail with a command error.
+</Warning>
+
+## Supported topology
+
+Run **one instance of each role**. River elects a leader for the job queues, so a second worker would not double-run queued jobs — but every other background loop in Omniflow is a plain in-process ticker with no lease or advisory lock behind it. Two API containers means two maintenance controllers and two payment reconcilers; two workers means two of every sweep; two bots means two operator-topic binders. The loops are individually idempotent, so duplication is wasteful rather than corrupting, but there is nothing in the code that makes horizontal replication safe to assume. The full inventory is in [Jobs and queues](/operations/jobs-and-queues#scheduled-loops-that-are-not-queue-jobs).
+
+Concurrency within the one worker is what absorbs load instead: the `critical` queue, which is where both job kinds run, is configured for 16 simultaneous workers.
+
+## Exposing the stack
+
+With the base compose file the API answers on host port 8080 and the web app on 3000, which is right for a local run and wrong for the internet. Put a proxy in front:
+
+```bash
+ACME_EMAIL=ops@example.com \
+WEB_DOMAIN=app.example.com \
+API_DOMAIN=api.example.com \
+BOT_WEBHOOK_DOMAIN=bot.example.com \
+docker compose -f compose.yaml -f deploy/proxies/traefik.compose.yaml up -d
+```
+
+The overlay uses `ports: !override []` to stop `api` and `web` publishing on the host at all, which needs Docker Compose 2.24.4 or newer; on an older release, delete those `ports` blocks from `compose.yaml` by hand instead. A Caddy example under the same directory does the equivalent work.
+
+Both examples 404 `/metrics` and `/readyz` on the public API host, cap request bodies, and refuse to trust `X-Forwarded-For` from anywhere but private ranges. Set `APP_TRUSTED_PROXIES` to match, or the audit trail and the rate limiter will see the proxy's address instead of the client's. Details, including why a proxy that re-encodes JSON bodies breaks every provider webhook signature, are in [Reverse proxy](/operations/reverse-proxy).
+
+## Upgrading
+
+<Steps>
+  <Step title="Take a backup and confirm it verified">
+    Every Omniflow backup is decrypted and hashed end to end before it is marked `completed`, so a `completed` row is a backup that has already been proved readable. Do not upgrade on the strength of a `running` one. See [Backup and restore](/operations/backup-restore).
+  </Step>
+  <Step title="Read the release notes for migration weight">
+    Migrations run before the new containers start and the stack waits on them. A migration that rewrites a large table holds the whole release open for its duration.
+  </Step>
+  <Step title="Pause purchases if the upgrade touches provisioning">
+    Turning maintenance mode on stops new orders and holds outbound Remnawave calls without touching money already taken. Held fulfillment jobs are snoozed, not failed, and resume when you clear it. See [Maintenance mode](/operations/maintenance-mode).
+  </Step>
+  <Step title="Update the source or the pinned image tags, then bring the stack up">
+    ```bash
+    docker compose up -d --build migrate api bot worker
+    ```
+    `migrate` runs to completion first; the three processes then start against the new schema.
+  </Step>
+  <Step title="Verify, then clear maintenance">
+    Check `/readyz` on the API and on the worker's `APP_WORKER_HTTP_ADDR`, confirm the worker logged `worker started`, then clear the maintenance window with a reason.
+  </Step>
+</Steps>
+
+Configuration is read once at startup and never re-read, so a changed `.env` needs a restart of the affected process. Nothing in Omniflow watches the environment or a config file, and the operator panel's settings sections do not feed the runtime either — see [Installation settings](/operations/installation-settings).
+
+### Shutdown behaviour during a restart
+
+All three processes install a `SIGINT`/`SIGTERM` handler and drain on a 15-second budget. The API stops accepting connections and lets in-flight requests finish before closing its pools; the worker shuts its operational listener and then calls River's `Stop`, which drains in-flight jobs so a restart never abandons a fulfillment run mid-flight; the bot shuts its webhook and operational servers the same way.
+
+Background ticker loops exit on the same context and are not waited on. A backup that is mid-`pg_dump` is cancelled and its row is recorded as failed with `cancelled` rather than left `running`.
+
+<Note>
+  None of the core compose services declares a `restart:` policy — only the Traefik overlay does. A process that exits stays down until somebody starts it. Add `restart: unless-stopped` in an override if you want the stack to survive a host reboot on its own.
+</Note>
+
+## Rolling back
+
+There is no schema down-path, so a rollback has two shapes depending on what changed.
+
+**No migration ran.** Put the previous image tag or source revision back and bring the stack up. Nothing else is needed.
+
+**A migration ran.** The old binaries do not understand the new schema, so restoring the database is part of the rollback. Restore the pre-upgrade backup, then start the previous version against it. `pg_restore` runs with `--clean --if-exists --single-transaction`, so everything written since the backup point is lost — which is exactly why the backup step precedes the upgrade rather than following it.
+
+<Warning>
+  A restore into an empty database must also carry the `atlas_schema_revisions` schema, or Atlas will try to re-apply every migration on the next start. A full custom-format dump contains it; a selectively filtered one may not.
+</Warning>
+
+The restore path itself — the `/ops` Telegram surface, and the standalone `--decrypt-backup` filter that needs nothing but the worker binary, the key and the file — is documented in [Backup and restore](/operations/backup-restore).
+
+## Where to look when a deploy misbehaves
+
+- The process exited immediately with `invalid configuration` — a required variable is missing or malformed; the message names the rule it broke.
+- `migrate` failed and the application services never started — read its log; the stack is designed to stop here.
+- `/readyz` returns 503 — one dependency is failing; the body names which, with a `timeout` or `unavailable` classification. See [Health, metrics, and logs](/operations/observability).
+- Purchases are refused with `maintenance_active` — automatic detection opened a window. See [Maintenance mode](/operations/maintenance-mode).
+- Broader symptom-first guidance is in [Troubleshooting](/operations/troubleshooting).

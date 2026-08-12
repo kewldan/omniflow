@@ -1,91 +1,271 @@
 ---
-title: Telegram bot
-description: Self-service, purchase, subscription lifecycle, support, and communication in the Telegram bot.
+title: Telegram
+description: Create the bot, choose long polling or a webhook, bind the Mini App domain, and set up the operator group with topics
 ---
 
-The bot is the primary customer surface. It is localized in Russian and English and works before the customer has any Remnawave user at all: a first-time visitor can browse plans, buy, and be provisioned without an operator touching the account.
+One Telegram bot token does four jobs in Omniflow. It runs the customer bot, which is the primary
+sales and self-service surface. It settles Telegram Stars payments, which arrive on the bot's own
+authenticated update stream rather than on any public route. It verifies the Login Widget and Mini
+App payloads that sign a customer into the web panel. And it delivers operator notifications into a
+forum group you control.
 
-## Self-service
+Those four uses are spread across three processes, all reading the same `APP_TELEGRAM_TOKEN` from
+the same `.env`: the bot process runs the chat, the API verifies sign-ins and creates Stars
+invoices, and the worker charges renewals through the Stars adapter. Giving them separate tokens
+would let them disagree about which bot the customer is talking to.
 
-- Automatic account linking through the exact Telegram ID stored in Remnawave
-- Subscription status, remaining days, expiry, and traffic progress
-- Protected open/copy subscription actions and per-platform connection guides
-- Device count, friendly names, per-device removal, and remove-all with confirmation
-- Subscription-link rotation with a warning that existing clients must reconnect
-- Referral deep links, immutable attribution, invited/qualified counts, and reward history
-- Inline refresh, back navigation, retry states, and configurable support handoff
+This page is the setup. What the bot actually does for a customer — every command, screen, and flow —
+is in [the Telegram bot](/customer/telegram-bot).
 
-## Discovery and purchase
+## Creating the bot
 
-- `/plans` lists visible plans with period, traffic allowance, device limit, and price in the settlement currency, so plans can be compared at a glance
-- A plan screen shows eligibility, the configured upgrade, downgrade, cancellation, and grace policies, and links the terms of service
-- Purchase, renewal (extension), upgrade, and downgrade are offered only when the plan policy permits them
-- Payment methods are listed only when the operator configured the adapter **and** the plan carries a price in a currency that adapter settles. Choosing a method fixes the order currency
-- Promo codes are entered as one message, validated against the exact order, and either applied or refused with a specific reason (unknown, ineligible, exhausted, malformed)
-- Wallet credit is applied first by default and can be switched off; the confirmation screen shows subtotal, discount, wallet, and the remaining external amount
-- The confirmation screen is the exact breakdown the order is created from — the quote and the persisted order cannot disagree
+<Steps>
+  <Step title="Talk to BotFather">
+    Open [@BotFather](https://t.me/BotFather), send `/newbot`, and answer with a display name and a
+    username ending in `bot`. BotFather replies with the token.
+  </Step>
+  <Step title="Put the token in `.env`">
+    ```env
+    APP_TELEGRAM_TOKEN=123456789:AA…
+    ```
+    An empty token is not an error: the bot process logs
+    `telegram bot disabled because APP_TELEGRAM_TOKEN is empty` and idles. That is deliberate — an
+    installation selling only through the web panel should not need a bot to start.
+  </Step>
+  <Step title="Start the stack and check the log">
+    The bot logs `telegram bot started` with the update mode it chose. It also calls `getMe` on
+    start to learn its own username, which is what makes referral links and the web Login Widget
+    possible.
+  </Step>
+  <Step title="Bind the web domain, if you run the customer panel">
+    Send `/setdomain` to BotFather and give it the host your customer panel is served from. Telegram
+    renders the Login Widget only on a domain bound to the bot. Without this the sign-in screen
+    reports `telegram: false` and shows no Telegram button — honest, but not what you wanted.
+  </Step>
+</Steps>
 
-### Payment providers
+You do not need to configure the command menu. The bot publishes its own list on every start through
+`setMyCommands`, in English and Russian: `/start`, `/menu`, `/plans`, `/orders`, `/wallet`,
+`/settings`, `/support`, `/login`, and `/cancel`. Editing the list in BotFather would be overwritten
+on the next restart. `/ops` is deliberately absent from the published list — see
+[Operator tooling](#operator-tooling-in-the-chat).
 
-| Adapter | Currencies | Notes |
+## Long polling or a webhook
+
+Long polling is the default and stays supported as an explicit development and fallback mode. The
+bot chooses by whether a webhook URL is set; there is no third setting to keep in step.
+
+| | Long polling | Webhook |
 | --- | --- | --- |
-| Telegram Stars | `XTR` | Invoice sent in-chat. Settlement arrives on the authenticated Bot API update stream, never on the public webhook route. Refunds use `refundStarPayment` |
-| CryptoBot | Fiat set supported by CryptoBot | Hosted invoice link, signed webhook, polling reconciliation |
-| YooKassa | `RUB`, `USD`, `EUR` | Hosted checkout redirect. Notifications are treated as untrusted hints and re-fetched over the authenticated API |
-| Manual | any | Operator approval with a full audit trail |
+| Selected by | Leaving `APP_TELEGRAM_WEBHOOK_URL` empty | Setting it |
+| Inbound port | none | `APP_BOT_HTTP_ADDR`, default `:8082`, path `POST /telegram/webhook` |
+| Needs a public HTTPS host | no | yes |
+| Latency | a poll interval | immediate |
+| Suits | local development, a host with no inbound path | production behind a reverse proxy |
 
-## Payment and provisioning states
+### Turning the webhook on
 
-Every checkout outcome has its own screen and its own copy in both languages: awaiting action, pending, succeeded, provisioning, completed, failed, cancelled, expired, duplicate, and refunded. A pending screen can always be refreshed, which also re-polls the provider so a customer who returns before the webhook still sees the settled state.
+```env
+APP_TELEGRAM_WEBHOOK_URL=https://bot.example.com/telegram/webhook
+APP_TELEGRAM_WEBHOOK_SECRET=a-random-string-of-at-least-32-characters
+APP_BOT_HTTP_ADDR=:8082
+```
 
-A successful payment is never lost when Remnawave is unavailable. The order is marked paid, the entitlement and the durable fulfillment job are committed in the same transaction, and the bot shows a provisioning screen that retries safely.
+Both values are validated at startup and a bad one is fatal rather than latent:
 
-`/orders` lists order history with payment status, receipt link where the provider supplies one, and refund status.
+- `APP_TELEGRAM_WEBHOOK_URL` must parse and use **https**, or the bot exits with
+  `APP_TELEGRAM_WEBHOOK_URL must be an HTTPS URL`.
+- `APP_TELEGRAM_WEBHOOK_SECRET` must match `^[A-Za-z0-9_-]{32,256}$` — the character set Telegram
+  itself accepts — or the bot exits with a message naming the rule.
 
-## Subscription lifecycle
+On start the bot calls `setWebhook` with the URL, the secret token, and an explicit
+`allowed_updates` list of `message`, `edited_message`, `callback_query`, `pre_checkout_query`,
+`my_chat_member`, and `chat_member`. A registration failure is fatal: a bot that silently kept
+polling while an operator believed it was on a webhook would be worse than one that refused to
+start. Naming the update types rather than accepting everything means Telegram does not deliver
+update kinds nothing handles.
 
-- Trial activation with abuse controls: one trial per customer, no stacking on an active subscription, no reuse through a shared identity, an optional minimum account age, and a new-customer or never-trialled rule per plan version
-- Renewal reminders at 7, 3, 1, and 0 days with a direct checkout button that resumes the same idempotent checkout rather than creating a second order
-- Grace-period and traffic-limited states are explained rather than shown as a bare status
-- Expired subscriptions get a one-tap recovery offer inside a configurable window
-- Auto-renew reports its real status. It is offered only when a configured adapter advertises recurring support, and can always be cancelled
-- Connection instructions per platform with client deep links offered as copyable text plus the raw link as a manual fallback
+The secret token is the whole authentication story for that route. Telegram sends it in a header on
+every delivery and the library verifies it **before** an update is parsed, so a request that does
+not carry it never reaches any handler. The endpoint also caps the body at 1 MiB. Point your reverse
+proxy at `APP_BOT_HTTP_ADDR` and terminate TLS there; see [reverse proxy](/operations/reverse-proxy).
 
-## Support, referrals, and communication
+<Warning>
+  The webhook host is reachable from the internet, so the bot refuses to publish its own diagnostics
+  there. `APP_BOT_METRICS_ADDR` serves `/livez`, `/readyz`, `/metrics`, and `/healthz`, and it is
+  **ignored when it equals `APP_BOT_HTTP_ADDR`**. Give the two different addresses, and expose only
+  the webhook one. Leaving `APP_BOT_METRICS_ADDR` empty keeps the bot off HTTP entirely in long
+  polling mode.
+</Warning>
 
-- Ticket list, conversation history, replies, and close/reopen, with unread counts
-- Attachments are limited to photos and documents up to 10 MB. Only the Telegram file reference and safe metadata are stored, under a 90-day retention window
-- Operator replies are delivered exactly once: the unread counter is raised only after Telegram accepts the message
-- News and service-announcement inbox with read state
-- Every notification is classified as transactional or marketing. Marketing requires explicit consent, is capped per window, and is recorded as a consent record when the customer changes it
-- Quiet hours defer non-urgent messages. Payment, fulfillment, support, and incident messages are never delayed
+### Switching back
 
-## Abuse and reliability
+Clear `APP_TELEGRAM_WEBHOOK_URL` and restart. Telegram keeps the previously registered webhook until
+something deletes it, so also delete it through the Bot API (`deleteWebhook`) or the bot will still
+be receiving nothing while polling.
 
-- Per-user and per-action Valkey rate limits for navigation, messages, promo entry, and checkout
-- Consequential callbacks — confirm, cancel, payment-method choice, invoice, device removal, link rotation — are claimed once per callback query, so a redelivered update or a double tap cannot repeat the action
-- Telegram delivery classifies flood waits, blocked bots, and deactivated accounts. A blocked or deleted account stops consuming retries and is excluded from further delivery until it recovers
-- Every update carries a correlation ID that is logged with the order, payment, job, and Remnawave request it causes
+## The Mini App and the Login Widget
 
-## Configuration
+The customer web panel signs a customer in from Telegram two ways, and both verify a payload rather
+than trusting one.
 
-| Variable | Purpose |
+**The Login Widget** is the button on `/account/sign-in`. Telegram signs its fields with HMAC-SHA256
+under SHA-256 of the bot token, so a payload that verifies at all is proof Telegram produced it for
+*this* bot. The widget is loaded by the bot's username, which Omniflow resolves from `getMe` on
+first use and caches — one fewer environment variable to keep in step with the token. If the
+username cannot be resolved, the sign-in screen reports `telegram: false` and omits the button
+rather than rendering one that never appears.
+
+**The Mini App** signs in with no button at all. Opened inside Telegram, the surrounding client
+hands the page a signed `initData` string, which the page posts to
+`POST /v1/account/auth/telegram/miniapp`. The verification differs in exactly one place that
+matters: the HMAC key is `HMAC-SHA256("WebAppData", botToken)` rather than a plain SHA-256 of the
+token. The two paths stay separate in code rather than sharing a helper that guesses which is which,
+because using the widget's key here would verify nothing.
+
+Both checks bound `auth_date` to **one minute** (with 30 seconds of tolerance for a fast client
+clock). The hash never expires on its own, so without that bound a payload captured once — from a
+browser history entry, a referrer, a screenshot of a URL — would authenticate forever.
+
+<Steps>
+  <Step title="Set the widget domain">
+    `/setdomain` in BotFather, with the host serving `/account`. This is what makes the Login Widget
+    render at all.
+  </Step>
+  <Step title="Register the Mini App, if you want one">
+    BotFather's `/newapp` binds a web app URL to the bot. Omniflow's customer panel needs nothing
+    extra: opened inside Telegram it detects `initData` and signs in automatically, and opened in a
+    normal browser it falls back to the widget.
+  </Step>
+  <Step title="Verify">
+    `GET /v1/account/auth/methods` reports what this installation actually offers:
+    `{telegram, telegramBot, magicLink, oidc[]}`. The sign-in screen renders from exactly that, so
+    what you see there is what the API believes is configured.
+  </Step>
+</Steps>
+
+A third, operator-enabled route exists for installations where the widget is not usable: the bot
+delivers a one-time sign-in link in response to `/login`. It stays off by default —
+`APP_CUSTOMER_MAGIC_LINK_ENABLED=false` — because it is a second bearer credential travelling
+through a chat. Enabling it requires `APP_PUBLIC_URL` and, on the bot, a 32-byte
+`APP_DATA_ENCRYPTION_KEY`. [The web panel](/customer/web-panel) covers all three routes from the
+customer's side.
+
+## The operator group
+
+Operator notifications go to one Telegram group with **Topics** enabled. The bot creates and binds
+one forum topic per event kind, and recreates one that was deleted; you supply only the group.
+
+| Topic | Kind |
 | --- | --- |
-| `APP_TELEGRAM_TOKEN` | Bot token. The bot process exits early when it is empty |
-| `APP_VALKEY_URL` | Required. Backs rate limits and callback replay protection |
-| `APP_DEFAULT_CURRENCY` | Settlement currency used to compare plans. Use `XTR` for a Stars-only installation |
-| `APP_PUBLIC_URL` | Base URL for provider return links. Required when YooKassa is configured |
-| `APP_TERMS_URL` | Terms of service linked from plan and checkout screens |
-| `APP_SUPPORT_URL` | Optional operator contact shown alongside in-bot support |
-| `APP_MARKETING_FREQUENCY_CAP` | Marketing messages allowed per window (`0` disables the cap) |
-| `APP_MARKETING_WINDOW_HOURS` | Length of the marketing frequency window |
-| `APP_RECOVERY_WINDOW_HOURS` | How long an expired subscription keeps its recovery offer |
-| `APP_TRIAL_MINIMUM_ACCOUNT_AGE_HOURS` | Abuse control for freshly created accounts |
+| 💳 Purchases | `purchase` |
+| ♻️ Renewals | `renewal` |
+| 👛 Wallet top-ups | `topup` |
+| ↩️ Refunds | `refund` |
+| ⚠️ Fulfillment failures | `fulfillment_failure` |
+| 🚨 Incidents | `incident` |
+| 💾 Backups | `backup` |
+| 🔐 Admin security | `security` |
 
-## Commands and behaviour
+<Steps>
+  <Step title="Create the group and enable Topics">
+    A group, not a channel. Turn on **Topics** in the group settings — the bot cannot create a forum
+    topic in a group that does not have them.
+  </Step>
+  <Step title="Add the bot and grant Manage topics">
+    Promote the bot to administrator with at least the *Manage topics* permission. Without it,
+    topic creation fails and is recorded as `missing_manage_topics_permission`.
+  </Step>
+  <Step title="Set the chat ID">
+    ```env
+    APP_OPERATOR_CHAT_ID=-1001234567890
+    ```
+    Restart the bot. With the value left at `0` the notifier logs
+    `operator notifications are disabled because no group is configured` and enqueueing becomes a
+    no-op — notices are not even stored, so turning the group on later does not replay history.
+  </Step>
+  <Step title="Confirm">
+    Watch for `operator topic could not be created` in the bot log, or read
+    `operator_topics.status` and `last_error_code`. The classified codes are
+    `missing_manage_topics_permission`, `chat_not_found`, `forum_topics_disabled`,
+    `bot_not_in_group`, and `telegram_error` — the raw Telegram message is dropped because it can
+    echo request content.
+  </Step>
+</Steps>
 
-`/start`, `/menu`, `/plans`, `/orders`, `/settings`, `/support`, and `/cancel` are available in private chats only. Messages containing account data are protected against forwarding and disable link previews. Callback queries are acknowledged before backend work so Telegram controls stay responsive. Composition states — promo entry and support messages — expire after 30 minutes.
+Everything the group receives is deliberately content-free. A notice names the event, an amount
+class, and identifiers an operator can look up; it never carries customer text, a subscription link,
+a token, or a payment payload. Rendering uses an explicit field allowlist, so a field somebody adds
+to a payload later is ignored rather than published by accident.
 
-If no matching Remnawave user exists, the bot does not guess or permit an insecure self-link. It creates the canonical Omniflow customer, offers the catalog, and sends account-recovery questions to the configured support contact.
+Volume is bounded: past `APP_OPERATOR_NOTIFICATION_CAP` messages of one kind per
+`APP_OPERATOR_NOTIFICATION_WINDOW_MINUTES` (defaults 30 and 5), further notices complete as
+`suppressed` with `volume_cap` and a warning is logged. A dedupe key collapses repeated triggers for
+one event — a retried webhook, a second reconciliation pass — into a single message.
+[Operator notifications](/operations/operator-notifications) covers the queue itself.
 
-The current bot uses long polling. A secret-token-validated webhook mode will be added before the production deployment milestone.
+## Operator tooling in the chat
+
+Backup and restore are the only administrative actions Telegram carries, and only for explicitly
+named accounts. `APP_OPERATOR_TELEGRAM_IDS` is a comma-separated list of Telegram user IDs allowed
+to run `/ops`; leaving it empty disables the command entirely, and a malformed entry is a fatal
+configuration error rather than a silently dropped operator. The command is not in the published
+command list, so it does not appear in the menu for anyone. See
+[backup and restore](/operations/backup-restore).
+
+## Required channels
+
+If you gate access on membership of a channel, the bot is what answers the question, through
+`getChatMember`. Add the bot to each required channel as an administrator so it can read membership.
+A muted (`restricted`) member still counts as a member, and an error is treated as "could not
+answer" rather than "no": the worker records `unknown` and waits, and the purchase gate lets the
+sale through. Neither guesses. [Required channels](/operations/required-channels) has the policy.
+
+## Configuration reference
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `APP_TELEGRAM_TOKEN` | none | Bot API token. Required by the bot; on the API it enables Telegram sign-in and the Stars adapter, on the worker the Stars adapter for renewals |
+| `APP_TELEGRAM_WEBHOOK_URL` | empty (long polling) | Must be HTTPS. Setting it switches the bot to webhook mode |
+| `APP_TELEGRAM_WEBHOOK_SECRET` | none | Required with the URL. 32–256 characters of `A–Z a–z 0–9 _ -`; verified before an update is parsed |
+| `APP_BOT_HTTP_ADDR` | `:8082` | Webhook listener address |
+| `APP_BOT_METRICS_ADDR` | empty | Probes and metrics listener. Ignored when equal to `APP_BOT_HTTP_ADDR` |
+| `APP_VALKEY_URL` | none | Required by the bot. Backs rate limits and callback replay protection; the bot refuses to start without it |
+| `APP_OPERATOR_CHAT_ID` | `0` | The operator forum group. `0` disables operator notifications |
+| `APP_OPERATOR_TELEGRAM_IDS` | empty | Telegram accounts allowed to run `/ops`. Empty disables the command |
+| `APP_OPERATOR_NOTIFICATION_CAP` | `30` | Messages per kind per window before the rest are suppressed |
+| `APP_OPERATOR_NOTIFICATION_WINDOW_MINUTES` | `5` | Length of that window |
+| `APP_SUPPORT_URL` | none | Optional operator contact shown alongside in-bot support. Validated as http/https |
+| `APP_PUBLIC_URL` | none | Base for provider return links, referral links, and sign-in links. Required with YooKassa and with the sign-in link |
+| `APP_TERMS_URL` | none | Terms of service linked from plan and checkout screens |
+| `APP_DEFAULT_CURRENCY` | `RUB` | Must match `^[A-Z]{3}$`. Use `XTR` for a Telegram-Stars-only installation |
+| `APP_MARKETING_FREQUENCY_CAP` | `3` | Marketing messages per window; `0` disables the cap |
+| `APP_MARKETING_WINDOW_HOURS` | `168` | Length of the marketing window |
+| `APP_RECOVERY_WINDOW_HOURS` | `336` | How long an expired subscription keeps its one-tap recovery offer |
+| `APP_TRIAL_MINIMUM_ACCOUNT_AGE_HOURS` | `0` | Refuse trials from Telegram accounts newer than this |
+| `APP_CART_TTL_HOURS` | `720` | How long a saved cart waits for the balance to cover it. Read by the bot only |
+| `APP_CUSTOMER_MAGIC_LINK_ENABLED` | `false` | Enables `/login` and the bot-delivered web sign-in link |
+
+Nothing re-reads the environment: changing any of these means restarting the process.
+
+<Warning>
+  `/admin/settings` has a **Telegram** section with a bot username, webhook URL, a webhook-enabled
+  switch, and write-only token and webhook-secret fields, and an **Operator group** section with a
+  chat ID, a topics switch, and the notification cap and window. Both store what you type, sealed
+  with the installation key — and **no running process reads either back**. The bot is configured
+  from the environment at start. See [installation settings](/operations/installation-settings).
+</Warning>
+
+## Reliability worth knowing about
+
+- Consequential callbacks — confirm, cancel, payment-method choice, invoice, device removal, link
+  rotation — are claimed exactly once per callback query in Valkey, so a redelivered update or a
+  double tap cannot repeat the action. This is why the bot refuses to start without
+  `APP_VALKEY_URL`.
+- Delivery failures are classified: a flood wait, a blocked bot, and a deactivated account are
+  different problems. A blocked or deleted account stops consuming retries and is excluded from
+  further delivery until it recovers.
+- Every update carries a correlation ID that is logged with the order, payment, job, and Remnawave
+  request it causes, so one string ties a customer's report to everything it touched.
+- `APP_METRICS_ENABLED` does **not** apply to the bot: it builds its metrics registry
+  unconditionally. What decides whether they are reachable is `APP_BOT_METRICS_ADDR`.

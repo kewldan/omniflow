@@ -1,24 +1,51 @@
 ---
 title: Anonymous telemetry
-description: Exact telemetry behavior, payload, retention, and opt-out controls.
+description: The exact event Omniflow sends, why it exists, how to verify it, and how to switch it off
 ---
 
-Anonymous project telemetry is enabled by default so maintainers can understand installation health and prioritize features across the open-source community.
+Once a day the API process sends one HTTPS request to the project's collector. It carries
+an anonymous installation identifier, the build version, the service name, the operating
+system, and the CPU architecture. Nothing else. It is enabled by default, it never blocks
+anything, and one environment variable stops every request.
 
-Disable all telemetry requests:
+Telemetry exists because Omniflow is self-hosted, which means maintainers otherwise have
+no idea which platforms and versions are actually in use. Knowing that a build is running
+on `linux/arm64` decides whether an architecture keeps getting release images. Knowing
+which versions are still live decides how long a migration baseline is supported. Neither
+question needs a customer, an amount, or a domain, which is why none is collected.
 
-```bash
-APP_TELEMETRY_ENABLED=false
+## The exact event
+
+This is the complete JSON body, field for field:
+
+```json
+{
+  "schema": 1,
+  "installation_id": "0195f3c9-2b47-7a10-9f2c-4c1a6c9b2d55",
+  "name": "installation.heartbeat",
+  "version": "dev",
+  "service": "api",
+  "os": "linux",
+  "architecture": "amd64",
+  "occurred_at": "2026-08-13T03:14:07Z"
+}
 ```
 
-## Collected
+| Field | Value | Notes |
+| --- | --- | --- |
+| `schema` | always `1` | The envelope version. A collector rejects anything else. |
+| `installation_id` | a UUID | Resolved once from the singleton `telemetry_installation` row. It identifies an installation to itself over time and to nothing else. |
+| `name` | always `installation.heartbeat` | The only event any Omniflow process constructs. |
+| `version` | the build version | Always `dev`, including in released images — no build stamps a version into the binaries. |
+| `service` | always `api` | Only the API process sends. The bot and worker never construct a telemetry client. |
+| `os` | `GOOS` | `linux`, `darwin`, … |
+| `architecture` | `GOARCH` | `amd64`, `arm64`, … |
+| `occurred_at` | RFC 3339 UTC | The moment the event was built. |
 
-- Random installation identifier
-- Omniflow version and service name
-- Operating system and CPU architecture
-- Boolean indicators for enabled product modules
-- Daily aggregated, non-financial feature counters
-- Event schema version and UTC timestamp
+The wire format also declares optional `features` and `counters` maps. **No Omniflow
+process ever populates them**, so they are omitted from every request. There is no module
+inventory and no usage counter in what is sent today; if that changes, this page and the
+public schema change in the same release.
 
 ## Never collected
 
@@ -26,12 +53,105 @@ APP_TELEMETRY_ENABLED=false
 - IP addresses, hostnames, domains, or URLs
 - Payment amounts, currencies, wallet balances, revenue, or provider payloads
 - VPN traffic, access links, subscription URLs, nodes, or device identifiers
-- Tokens, secrets, message contents, plan names, ticket text, or other free-form data
+- Tokens, secrets, message contents, plan names, ticket text, or any other free-form data
+- Row counts of any kind — a number small enough to identify an installation is an
+  identifier
 
-Telemetry is best effort. Failures never block startup, API requests, background jobs, or shutdown. Changing the payload requires updating this page and the public OpenAPI schema in the same release.
+## Timing and failure behaviour
 
-The project collector stores validated anonymous events for up to 180 days. Maintainers use aggregate installation and feature-usage trends for compatibility decisions and roadmap prioritization. Raw events are not sold or shared for advertising.
+One heartbeat goes out immediately when the API starts, then one every 24 hours. The HTTP
+client has a 5-second timeout and the sender discards the result: a non-2xx answer, a DNS
+failure, and an unreachable collector are all treated identically, which is to say
+ignored. Telemetry can never block start-up, a request, a job, or shutdown, and a
+`sync.Once` guard means it starts at most once per process.
 
-Forks can override `APP_TELEMETRY_ENDPOINT` with an HTTPS collector they control.
+If the API cannot read or create the installation row — no `APP_DATABASE_URL`, or the
+database is unreachable at start — it uses a random UUID for that process lifetime and
+logs `telemetry installation ID is ephemeral`.
 
-The event ingestion route is disabled in normal installations. It is enabled only on a collector deployment with `APP_TELEMETRY_COLLECTOR_ENABLED=true`.
+## Switching it off
+
+```bash
+APP_TELEMETRY_ENABLED=false
+```
+
+Restart the API. Nothing re-reads the environment, so the change takes effect on the next
+start and not before.
+
+Confirm it from the API log. On every start the process logs exactly one of:
+
+```text
+level=INFO msg="anonymous telemetry enabled" disable_with=APP_TELEMETRY_ENABLED=false
+level=INFO msg="anonymous telemetry disabled"
+```
+
+That log line is the authoritative statement of what this installation is doing.
+
+<Warning>
+  The panel's telemetry preview card at `/admin/settings` reads its on/off state from the
+  `telemetry` settings section, which is empty on a fresh installation — so the card
+  shows `enabled: false` while the API is sending heartbeats, because
+  `APP_TELEMETRY_ENABLED` defaults to `true`. The card also renders a different field set
+  from the event above. Trust the start-up log and this page, not the card. See
+  [Installation settings](/operations/installation-settings).
+</Warning>
+
+An unparseable value falls back to the default. `APP_TELEMETRY_ENABLED=nope` means
+enabled, not disabled — spell it `false`.
+
+## Configuration
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `APP_TELEMETRY_ENABLED` | `true` | Whether the heartbeat goroutine starts at all. Read by the API only. |
+| `APP_TELEMETRY_ENDPOINT` | `https://telemetry.omniflw.xyz/v1/telemetry/events` | Where the event is posted. Must parse and must be **HTTPS** when telemetry is enabled, or the API exits at start-up with `APP_TELEMETRY_ENDPOINT must be an HTTPS URL`. |
+| `APP_TELEMETRY_COLLECTOR_ENABLED` | `false` | Turns this installation into a collector. See below. |
+| `APP_RETENTION_TELEMETRY_DAYS` | `30` | How long a **collector** keeps rows in its own `telemetry_events` table before the worker's retention sweep removes them. |
+
+Forks that want their own numbers set `APP_TELEMETRY_ENDPOINT` to an HTTPS collector they
+control. The endpoint is validated at start-up rather than at send time, so a typo is a
+refusal to boot rather than a year of silently lost events.
+
+## Running a collector
+
+`APP_TELEMETRY_COLLECTOR_ENABLED=true` mounts `POST /v1/telemetry/events` on this
+installation and opens a second database pool for writes. The route does not exist on an
+ordinary installation, which is why nothing needs to be firewalled off on one.
+
+Every submission is validated before it is stored, and an event that fails any check is
+rejected whole:
+
+- the body is capped at 64 KiB and unknown JSON fields are refused outright
+- `schema` must be `1`, and `installation_id` must be exactly 36 characters
+- `name` must be `installation.heartbeat` or `feature.usage`
+- `version` ≤ 32, `service` ≤ 16, `os` ≤ 32, `architecture` ≤ 32 characters
+- at most 64 features and 64 counters, each key ≤ 64 characters of `[a-z0-9._]`
+- `occurred_at` must be non-zero, no more than 7 days old, and no more than 1 hour in the
+  future
+
+| Response | Meaning |
+| --- | --- |
+| `202` | Stored. |
+| `400 invalid telemetry event` | Failed any check above. |
+| `503 collector unavailable` | The collector pool could not be opened. |
+
+The strictness is deliberate: a collector accepts submissions from installations it does
+not control, so an unbounded map or a free-form string would be an injection surface
+rather than a data point. `feature.usage` is accepted by the validator and emitted by
+nothing, so a collector will only ever see heartbeats from Omniflow itself.
+
+A collector deletes its own rows older than 180 days on a daily loop, independently of
+the worker's retention sweep. Maintainers use aggregate installation and platform trends
+for compatibility and roadmap decisions. Raw events are not sold or shared for
+advertising.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Installation settings" icon="sliders" href="/operations/installation-settings">
+    Why the panel's telemetry card and the running configuration can disagree.
+  </Card>
+  <Card title="Security" icon="lock" href="/operations/security">
+    The wider privacy posture: redaction, secrets, and what never leaves.
+  </Card>
+</CardGroup>

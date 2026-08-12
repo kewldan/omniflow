@@ -1,0 +1,446 @@
+---
+title: "Integrating with the API"
+description: "How a script or another service drives Omniflow through /v1/admin: the bearer token, idempotency keys, cursors, RFC 9457 problems, request IDs, and rate limits"
+---
+
+Omniflow's HTTP API is split into three prefixes that never share a router, a
+credential, or a middleware stack. This page is about `/v1/admin` — the surface
+an installation automates against with a shared bearer token, from a script, a
+CI job, or another service.
+
+| Prefix | Credential | Extra gates | Who it is for |
+| --- | --- | --- | --- |
+| `/v1/panel` | `__Host-omniflow_admin` session cookie | `X-CSRF-Token` on unsafe methods, an RBAC permission per route, TOTP challenge state | A human operator in the `/admin` browser workspace |
+| `/v1/admin` | `Authorization: Bearer <APP_OPERATOR_TOKEN>` | none — no CSRF, no RBAC, no authorization audit | A machine acting as the installation |
+| `/v1/account` | `__Host-omniflow_account` session cookie | `X-CSRF-Token`, step-up re-authentication on four routes | A customer in the `/account` browser panel |
+
+Merging any two of these would mean one silently inherits the other's
+middleware, and a customer credential must never be able to reach an operator
+route. Keeping them structurally apart makes that a property of the route table
+rather than a check somebody has to remember, and there is a test asserting the
+customer router answers `404` for `/v1/panel/auth/session`, `/v1/admin/orders`,
+and `/v1/panel/admins`.
+
+## When to use `/v1/admin` rather than `/v1/panel`
+
+Use `/v1/admin` when the caller is not a browser. It has no session to
+establish, no CSRF token to keep in step with rotation, and no cookie jar. It is
+the only scripted way to create orders, take payments, record refunds, adjust a
+wallet, drive the Remnawave import, and enqueue a fulfillment operation.
+
+Use `/v1/panel` when the caller is a person, or when you need something
+`/v1/admin` does not expose — the support desk, marketing campaigns, the
+catalogue editor, installation settings, the audit trail, risk review. It is
+also the only surface with per-capability authorization: an integration that
+should be able to read but not refund belongs behind an operator account with a
+narrow role, not behind the shared token.
+
+<Warning>
+  `APP_OPERATOR_TOKEN` reaches **every** `/v1/admin` endpoint, including
+  `POST /v1/admin/payments/{paymentID}/refunds` and
+  `POST /v1/admin/customers/{customerID}/wallet-adjustments`. There is no
+  per-capability scoping, no role, and no authorization audit row on this
+  prefix. Handing the token to a third party hands them the whole surface.
+  Treat it as an installation-level credential and rotate it by editing the
+  environment and restarting the API.
+</Warning>
+
+Nothing inside this repository calls `/v1/admin`: the Telegram bot talks to
+PostgreSQL and Remnawave in process. It exists purely as an external
+integration and automation surface.
+
+## Authentication
+
+Set `APP_OPERATOR_TOKEN` to a long random secret and send it on every request:
+
+```
+Authorization: Bearer <APP_OPERATOR_TOKEN>
+```
+
+The comparison is length-checked and then constant-time, and an empty configured
+token refuses everything. A missing or wrong token is
+`401 unauthorized`.
+
+The API **requires** `APP_OPERATOR_TOKEN` to build its commerce runtime at all,
+alongside a 32-byte `APP_DATA_ENCRYPTION_KEY`, `APP_REMNAWAVE_URL`,
+`APP_REMNAWAVE_TOKEN`, and `APP_VALKEY_URL`. It is not optional even for an
+installation that never calls this prefix — see
+[Configuration](/getting-started/configuration).
+
+Because there is no session, several handlers take the acting operator as
+**data the server cannot verify**: `operatorId` in the body of
+`PUT /v1/admin/maintenance` (`400 missing_operator` when absent), and
+`operatorID` in manual payment decisions and wallet adjustments. Those values
+end up in the record. Supply something meaningful, and do not treat them as
+authentication.
+
+## Request rules
+
+- `Content-Type: application/json` on any request with a body.
+- Bodies are decoded with unknown fields **rejected**, and must contain exactly
+  one JSON value. An extra field "for future use" or trailing content is
+  `400 invalid_request`.
+- Bodies are capped at 1 MiB.
+- `/v1/admin` handlers decode into Go structs without JSON tags, so field names
+  bind case-insensitively: `customerID`, `customerId`, and `CustomerID` all
+  work. The OpenAPI schemas name them in camelCase; both are accepted.
+- A server-side handler timeout of 60 seconds applies to every route.
+
+## Idempotency keys
+
+Every mutation that creates money, provisioning, or a ledger movement takes an
+`Idempotency-Key` request header. These are the operations where a
+double-submitted form, a proxy retry, or a redelivered webhook must not produce
+two orders, two refunds, two wallet credits, or two Remnawave users.
+
+Generate one unique string per logical action and reuse it verbatim on every
+retry of that action. The key is threaded into the domain layer and is what
+makes the underlying SQL idempotent; there is no generic middleware-level replay
+cache, so a key reused across two *different* actions is a bug in the caller.
+
+Validation is purely a length check: 8 to 128 characters, no charset rule.
+A missing or out-of-range key on `/v1/admin` is
+`400 missing_idempotency_key`.
+
+| Endpoint | Key required |
+| --- | --- |
+| `POST /v1/admin/orders` | yes |
+| `POST /v1/admin/orders/{orderID}/cancel` | yes |
+| `POST /v1/admin/orders/{orderID}/payments` | yes |
+| `POST /v1/admin/payments/{paymentID}/refunds` | yes |
+| `POST /v1/admin/payments/{paymentID}/manual-decision` | yes |
+| `POST /v1/admin/customers/{customerID}/wallet-adjustments` | yes |
+| `POST /v1/admin/entitlements/{entitlementID}/operations` | yes |
+| `POST /v1/admin/payments/{paymentID}/reconcile` | **no** |
+
+<Note>
+  The contract marks `Idempotency-Key` required on
+  `POST /v1/admin/payments/{paymentID}/reconcile`, but the handler never reads
+  it. Reconciliation is idempotent on its own — it re-polls the provider through
+  the payment service. Sending the header is harmless.
+</Note>
+
+The other prefixes differ, which matters if you drive them too: `/v1/account`
+answers `400 idempotency_key_required` (except `POST /v1/account/shop/purchase`,
+which answers `422`), and `/v1/panel` answers `422 idempotency_key_required` and
+accepts any non-empty string with no length check. Provider webhooks are
+deduplicated by the provider's own event identifier, not by this header.
+
+## Cursor pagination
+
+Lists that can grow without bound return `{"items":[…], "nextCursor":"…"}` and
+accept `?cursor=<value>&pageSize=<n>`. An empty `nextCursor` means the last
+page. This is keyset pagination on `(timestamp, id)` rather than `OFFSET`:
+encoding the sort key keeps a page boundary stable while rows are being
+inserted, which an offset cannot promise — an integration walking the audit
+trail while new events arrive would otherwise see rows twice or miss them.
+
+Fetch the first page without `cursor`, pass the returned `nextCursor` back
+verbatim, and stop when it is empty. **Treat the value as opaque.** It is
+encoded three different ways across the codebase — base64url, plaintext, and a
+two-parameter `cursor` + `cursorId` pair — and round-tripping it is correct in
+every case while parsing it is not.
+
+Several `/v1/admin` listings are not cursor-paginated at all and take a plain
+`limit`:
+
+| Endpoint | Default | Maximum |
+| --- | --- | --- |
+| `GET /v1/admin/jobs` | 50 | 200 |
+| `GET /v1/admin/webhooks` | 50 | 200 |
+| `GET /v1/admin/backups` | 20 | 100 |
+| `GET /v1/admin/fulfillment/drifts` | 100 | 500 |
+| `POST /v1/admin/imports/remnawave/preview` (`pageSize`) | 100 | 500 |
+| `POST /v1/admin/imports/remnawave/{importID}/apply` (`limit`) | 100 | 500 |
+
+## Problem responses
+
+Every failure across all three prefixes is written by one function and comes
+back as RFC 9457:
+
+```json
+{
+  "type": "https://omniflow.dev/problems/order_rejected",
+  "title": "Unprocessable Entity",
+  "status": 422,
+  "detail": "plan version is retired",
+  "request_id": "omniflow/7f3c9a-000012"
+}
+```
+
+`Content-Type` is `application/problem+json`. **Branch on the last path segment
+of `type`** — that is the stable machine-readable code. The status alone cannot
+distinguish "promo code expired" from "promo code below cost", and `detail` is
+prose that changes when somebody improves the wording. `title` is always the
+HTTP status text, never a bespoke title.
+
+`request_id` is snake_case while every other field in the API is camelCase.
+That is what the code writes and what the schema declares.
+
+Codes worth handling explicitly:
+
+| Code | Status | Meaning |
+| --- | --- | --- |
+| `unauthorized` | 401 | Missing or wrong bearer token |
+| `invalid_request` | 400 | Malformed JSON, an unknown field, or more than one JSON value |
+| `missing_idempotency_key` | 400 | Mutation without a valid 8–128 character key |
+| `missing_operator` | 400 | `operatorId` absent from a maintenance change |
+| `invalid_state` | 400 | Unknown `state` filter on `GET /v1/admin/jobs` |
+| `order_rejected` / `payment_rejected` | 422 | The domain refused the request; `detail` says why |
+| `order_cancellation_rejected` | 409 | The order is not in a cancellable state |
+| `not_provisioned` | 409 | The subscription has no Remnawave user yet |
+| `promo_rate_limited` | 429 | Too many promo-code attempts for that customer |
+| `rate_limit_unavailable` | 503 | Valkey is unreachable and the limit fails closed |
+| `jobs_unavailable` | 500 or 503 | No job client in this process, or the job store did not answer |
+| `maintenance_active` | 503 | Maintenance mode is blocking new purchases |
+
+The same upstream condition can carry two different codes on two prefixes: a
+Remnawave outage during a device listing is `502 remnawave_unavailable` on
+`/v1/panel` and `503 upstream_unavailable` on `/v1/account`. A runbook that
+treats "Remnawave is down" as one condition has to know both.
+
+Two failures escape the problem shape entirely: the telemetry collector answers
+in plain text, and `GET /v1/panel/audit/export` streams CSV after a `200` has
+already been written, so a mid-stream failure truncates the file rather than
+producing a problem body.
+
+## Request IDs
+
+Every request is assigned an identifier and every response carries it as
+`X-Request-ID`. The same value appears as `request_id` in problem bodies, as
+`requestId` on audit rows, in fulfillment correlation identifiers, and in
+customer security events.
+
+Read it off every response and log it. It is the single string that ties "the
+customer says the payment failed" to a handler log line, an audit row, a
+fulfillment operation, and a Remnawave call, without anybody having to quote a
+customer identifier over a support channel.
+
+On `/v1/panel`, the request ID is also the deduplication unit for a
+double-submitted operator form: a subscription operation derives its idempotency
+key as `panel:<subscriptionID>:<operation>:<requestID>`.
+
+## Rate limits
+
+Limits are Valkey-backed fixed-window counters. Only one of them applies to
+`/v1/admin`:
+
+| Scope | Subject | Limit | Window | Route |
+| --- | --- | --- | --- | --- |
+| `promo` | customer ID | 10 | 1 minute | `POST /v1/admin/orders` when `promoCode` is set |
+| `admin-login-account` | normalised email | 10 | 1 minute | `POST /v1/panel/auth/login` |
+| `admin-login-ip` | client IP | 30 | 1 minute | `POST /v1/panel/auth/login` |
+| `admin-challenge` | client IP | 15 | 1 minute | `POST /v1/panel/auth/challenge` |
+| `admin-reset` | client IP | 5 | 1 hour | `POST /v1/panel/auth/password-reset` |
+| `account_contact` | customer ID | 10 | 1 hour | `POST /v1/account/contacts` |
+| `account_export` | customer ID | 3 | 1 hour | `POST /v1/account/privacy/export` |
+
+Nothing else on `/v1/admin` is throttled. There is **no `Retry-After` header**
+and no rate-limit headers on any response, so a client that trips a limit should
+back off on its own schedule.
+
+Limits **fail closed**. If Valkey is unreachable the limiter returns an error
+and the request is refused, because an outage must not silently remove the
+protection. On the promo path that is `503 rate_limit_unavailable`; on the
+operator sign-in paths it means sign-in is blocked entirely while Valkey is
+down.
+
+The client address behind a limit comes from the trusted-proxy resolution
+described in [Security](/operations/security). With `APP_TRUSTED_PROXIES` empty,
+`X-Forwarded-For` is ignored and the socket address is used — which means a
+deployment behind a proxy that forgets to set it rate-limits every caller as one
+subject.
+
+## The `X-Operator-Reason` header
+
+This header belongs to `/v1/panel`, not to `/v1/admin`. It is read on every
+`/v1/panel` request and carries *why* an operator is making a change: the reason
+travels in a header rather than in each body because almost every mutation there
+needs one, and threading it through sixty request structs would guarantee one of
+them forgets. The value lands in the audit trail and, for several records, in
+the record itself.
+
+Send `X-Operator-Reason: <1..400 characters>` on the `/v1/panel` mutations that
+require one — bulk operation preview, gift revocation, customer status and
+lifecycle changes, recording a refund, resolving or cancelling a goods delivery,
+the manual maintenance switch, blocklist decisions and appeals, anomaly review,
+and adding a customer to the risk allowlist. A missing reason surfaces as
+`422 invalid_request` with the detail *"Those details are not valid, or a reason
+is required."*
+
+`/v1/admin` handlers ignore the header. Where they need a rationale they take it
+in the body instead — `reason` on `POST /v1/admin/customers/{customerID}/lifecycle`,
+on `POST /v1/admin/orders/{orderID}/cancel`, and on `PUT /v1/admin/maintenance`.
+
+## A worked example
+
+Create an order for an existing customer and start a payment against it.
+
+```bash
+API=https://api.example.com
+TOKEN=$APP_OPERATOR_TOKEN
+
+# 1. Create the order. The key is yours to choose and must survive a retry.
+curl -sS -D - -X POST "$API/v1/admin/orders" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 2026-08-13-order-7f3c9a" \
+  -d '{
+        "customerID": "6f1d0b6e-4b64-4c1e-9e3f-2b1f0f1a8d21",
+        "planVersionID": "0d9b1f2c-6a44-4f0e-9d7a-11c2f3e4a5b6",
+        "currency": "RUB",
+        "operation": "new",
+        "promoCode": ""
+      }'
+```
+
+```http
+HTTP/1.1 201 Created
+Content-Type: application/json
+X-Request-ID: omniflow/7f3c9a-000012
+
+{"id":"c1a9…","state":"pending","subtotalMinor":49000,"currency":"RUB","expiresAt":"2026-08-13T12:40:00Z"}
+```
+
+```bash
+# 2. Create the payment intent. A different action, so a different key.
+curl -sS -X POST "$API/v1/admin/orders/c1a9…/payments" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 2026-08-13-pay-7f3c9a" \
+  -d '{
+        "provider": "yookassa",
+        "description": "Omniflow subscription",
+        "returnURL": "https://shop.example.com/thanks"
+      }'
+```
+
+```json
+{"id":"9b2e…","provider":"yookassa","status":"pending","checkoutUrl":"https://yoomoney.ru/checkout/…"}
+```
+
+Send the customer to `checkoutUrl`. The provider's webhook settles the payment
+at `POST /v1/payments/webhooks/{provider}`; nothing further is needed from the
+integration. Poll `GET /v1/admin/orders/{orderID}` if you need to observe the
+outcome, and see [Orders and payments](/commerce/orders-payments) for the state
+machine.
+
+Retrying either call with the same `Idempotency-Key` returns the record the
+first attempt created rather than making a second one. Retrying with a new key
+creates a second order.
+
+## What `/v1/admin` covers
+
+Thirty endpoints, grouped by what they do.
+
+| Area | Endpoints |
+| --- | --- |
+| Catalogue | `POST /plans`, `POST /plans/{planID}/versions`, `POST /promotions` |
+| Customers | `PATCH /customers/{customerID}`, `POST /customers/{customerID}/identities`, `DELETE /customers/{customerID}/identities/{identityID}`, `POST /customers/{customerID}/contacts`, `POST /customers/{customerID}/consents`, `POST /customers/{customerID}/lifecycle` |
+| Remnawave import | `POST /imports/remnawave/preview`, `…/{importID}/resume`, `…/{importID}/apply` |
+| Orders and payments | `POST /orders`, `GET /orders/{orderID}`, `POST /orders/{orderID}/cancel`, `POST /orders/{orderID}/payments`, `POST /payments/{paymentID}/reconcile`, `POST /payments/{paymentID}/refunds`, `POST /payments/{paymentID}/manual-decision` |
+| Wallet | `POST /customers/{customerID}/wallet-adjustments` |
+| Fulfillment | `GET /fulfillment/drifts`, `POST /entitlements/{entitlementID}/operations` |
+| Operations | `GET /jobs`, `POST /jobs/{jobID}/retry`, `POST /jobs/{jobID}/cancel`, `GET /webhooks`, `GET /outbox`, `GET /backups`, `GET /maintenance`, `PUT /maintenance` |
+
+Things these deliberately do not return:
+
+- `GET /v1/admin/webhooks` never returns the raw provider body. It is the
+  provider's own payload and can contain payment details; "did this arrive and
+  was it accepted" needs only the status and the verification result.
+- `GET /v1/admin/jobs` summarises job arguments rather than echoing them, and
+  runs the last error through the redactor, so a subscription link or a bearer
+  token in an upstream message never leaves the process.
+- The lifecycle endpoint applies its change under `Serializable` isolation and
+  enforces the customer state machine: `suspend` only from `active`, `restore`
+  only from `suspended`, `anonymize` only from `deleted` and only after the
+  retention window has passed.
+
+Three caveats about the operations group:
+
+- `GET /v1/admin/jobs` and the retry/cancel routes answer
+  `503 jobs_unavailable` in a process with no job client attached. The default
+  `state` filter is `dead_letter`; the other accepted values are `retryable`,
+  `running`, `available`, `scheduled`, and `completed`.
+- The durable job store is River, and **the shipped migrations do not create
+  River's own schema**. Nothing in the repository runs River's migrator, so on a
+  stock installation these endpoints have no tables to read and answer
+  `500 jobs_unavailable`. The `/v1/panel/system/jobs` view of *fulfillment
+  operations* is backed by Omniflow's own tables and is unaffected.
+- `GET /v1/admin/outbox` reports the count of unpublished domain events and the
+  age of the oldest. Nothing in the current build ever marks an outbox row
+  published, so this figure grows and is not a useful backlog signal. See
+  [Observability](/operations/observability).
+
+## Endpoints that need no credential
+
+Five kinds of route answer without any credential, and each is protected by
+something other than authentication:
+
+- `/healthz`, `/livez`, `/readyz` — probes. `/readyz` publishes a stable
+  *classification* (`timeout`, `unavailable`) rather than a driver message, so
+  it cannot leak a connection string.
+- `/metrics` — served only when `APP_METRICS_ENABLED` is true, and expected to
+  be restricted at the reverse proxy. Every label is bounded: the route
+  template, never a concrete path with identifiers in it.
+- `GET /v1/catalog/plans?locale=ru|en` — the anonymous storefront read. Any
+  locale other than `en` falls back to `ru`.
+- `POST /v1/payments/webhooks/{provider}` — unauthenticated by necessity and
+  protected by provider signature verification. A failed verification is still
+  recorded and answered `400 webhook_rejected`; a body over 1 MiB is
+  `413 payload_too_large`; a duplicate provider event resolves to
+  `{"status":"duplicate"}`.
+- `POST /v1/telemetry/events` — present only when
+  `APP_TELEMETRY_COLLECTOR_ENABLED` is true (default false). It is the receiving
+  end an installation would run, not something a normal deployment exposes.
+
+## The OpenAPI contract
+
+`api/openapi.yaml` is the source contract (OpenAPI 3.0.3) and is what the
+published API reference renders. Both the Go server types and the TypeScript
+bindings are generated from it, and CI fails if a contract change is committed
+without regenerating them.
+
+Know these gaps before you generate a client from it:
+
+- **It documents 113 of the 195 `/v1/panel` routes.** Whole areas are absent —
+  installation settings, AI and MCP registries, the support desk, marketing,
+  loyalty, operator OIDC, and the health and maintenance views. The `/v1/admin`
+  and `/v1/account` surfaces are documented in full.
+- **No operation references the `panelSession` or `accountSession` security
+  scheme.** The schemes are defined and there is no root-level `security`, so in
+  OpenAPI terms every `/v1/panel` and `/v1/account` operation reads as
+  unauthenticated. Only the 30 `/v1/admin` operations carry
+  `security: [{operatorToken: []}]`. A generated client will not know the panel
+  calls need credentials.
+- **Required permissions appear only in prose descriptions**, so no tooling can
+  surface them. The authoritative answer is the `requirePermission(...)` at each
+  route's mount point.
+- **Responses are not validated against the contract at runtime.** Handlers
+  decode into anonymous structs and write hand-built maps; the generated Go
+  server types are imported by nothing. A response can drift from its schema
+  without a test failing.
+- `info.version` reads `0.5.0` and is stale relative to the surfaces the file
+  covers.
+- Two operations are documented unconditionally but are conditional in code:
+  `GET /metrics` and `POST /v1/telemetry/events`. More generally, a `/v1/panel`
+  or `/v1/account` route whose service is not attached is **absent (404)**, not
+  `503` — a `503` would tell an anonymous caller what the operator has
+  configured.
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="sliders" href="/getting-started/configuration">
+    `APP_OPERATOR_TOKEN`, `APP_TRUSTED_PROXIES`, and the rest of the environment.
+  </Card>
+  <Card title="Security" icon="lock" href="/operations/security">
+    The credential surfaces, what is never logged, and how secrets are sealed.
+  </Card>
+  <Card title="Orders and payments" icon="credit-card" href="/commerce/orders-payments">
+    The order state machine the worked example drives.
+  </Card>
+  <Card title="Jobs and queues" icon="list-check" href="/operations/jobs-and-queues">
+    What the job endpoints show and what actually retries.
+  </Card>
+</CardGroup>

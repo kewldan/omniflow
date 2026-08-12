@@ -65,5 +65,8 @@ These instructions apply to the entire repository.
 ## Documentation
 
 - User and operator documentation lives in `docs/` and must remain compatible with Mintlify.
-- Update docs with behavior changes. Run `mint validate` or the repository docs CI before merging.
+- Documentation is bilingual. English is the default tree at the root of `docs/`; Russian mirrors it file for file under `docs/ru/`. A change to an English page is made to its Russian counterpart in the same commit, and a new page is added to both language blocks in `docs.json`. A page that exists in one language only is an incomplete change.
+- Internal links inside a Russian page point into the Russian tree (`/ru/operations/admin-panel`). Do not remove a `/ru/` prefix to satisfy `mint broken-links`: that command resolves every link against the default language and reports a correct Russian link as broken, which is why the English tree is checked with an explicit file list and `docs/scripts/check-russian-mirror.sh` covers the Russian one.
+- A documented feature states what it is, why it exists, and how someone uses it. Never document a capability that exists only in `ROADMAP.md`, and never invent an environment variable, route, permission, default, or screen.
+- Update docs with behavior changes. Run `make docs-check` or the repository docs CI before merging.
 - Architecture decisions with long-term consequences belong in `docs/architecture/decisions/`.

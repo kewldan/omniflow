@@ -1,0 +1,325 @@
+---
+title: "Connecting a device"
+description: "What a subscription link is, how it reaches a phone or a laptop, which clients Omniflow documents, how connected devices are listed and removed, and how to rotate a link that leaked"
+---
+
+Everything on this page is about moving one string. A subscription is provisioned
+into Remnawave, Remnawave mints an access link for it, and a device is connected
+when a client application holds that link. Nothing else about connecting is
+interesting: there is no per-device credential, no account to type into an app,
+and no configuration file to edit.
+
+That single string is also a bearer credential. Anyone holding it can connect,
+which is why Omniflow shows it only on the screen whose purpose is to hand it
+over, never stores it, never logs it, and never puts it in the personal-data
+export. The whole design of the connect screen — the QR code drawn in the
+browser, the truncated display, the on-demand fetch — follows from that one
+fact.
+
+Both customer surfaces render this from the same source. The Telegram bot and
+the web panel read the client table from `internal/commerce`, because a customer
+who is told to install one application in the chat and a different one in the
+browser has been handed two products.
+
+## The subscription link
+
+**What it is.** A URL minted and owned by Remnawave for one subscription. A
+client application fetches it, receives the configuration that subscription
+grants, and connects.
+
+**Why Omniflow does not keep a copy.** The link is a credential, and the cheapest
+way to guarantee that a credential never appears in a backup, a log line, or a
+crash report is never to hold it. Omniflow reads it from Remnawave at the moment
+a customer asks for it and passes it straight to the screen. The consequences are
+visible throughout the product:
+
+- `GET /v1/account/overview` — the dashboard payload — deliberately carries no
+  subscription URL. A dashboard response that always carried it would put it in
+  every cache, log, and browser-history entry that touches the page.
+- Every `/v1/account` response is sent with `Cache-Control: no-store`,
+  `Referrer-Policy: no-referrer`, and a `Content-Security-Policy` of
+  `default-src 'none'`. The comment on that middleware names the reason: a
+  customer response can contain a subscription link.
+- The personal-data export declares `subscription_links` among its standing
+  redactions rather than including them. See [Privacy and your data](/customer/privacy).
+- The customer's own security log records a rotation by the subscription's label
+  and nothing else — putting the link in the log would defeat the rotation it is
+  recording.
+
+**Where it comes from.** Only a provisioned subscription has one. Between payment
+and fulfillment there is no Remnawave user yet, so the connect screen answers
+`409 not_provisioned` and shows "Still being set up" rather than an empty box.
+See [Fulfillment](/commerce/fulfillment) for what is happening during that
+window.
+
+## Getting the link onto a device
+
+### From the web panel
+
+<Steps>
+  <Step title="Open the subscription">
+    On `/account`, press **Connect** on the subscription's card. That leads to
+    `/account/subscriptions/{id}/connect`. The screen also accepts a `?platform=`
+    query, so a link into it can preselect a platform.
+  </Step>
+  <Step title="Pick a platform">
+    The picker offers iOS, Android, Windows, macOS and Linux, in that fixed
+    order. An unknown or empty platform falls back to the first one rather than
+    erroring.
+  </Step>
+  <Step title="Follow the three steps">
+    Install the first recommended application for that platform; press the button
+    that adds the subscription; if nothing opens, copy the link and paste it into
+    the application. The steps name the actual application rather than "your VPN
+    app", because the customer has to find it in a store.
+  </Step>
+  <Step title="Hand the link over">
+    Press the **Open in …** button for the client you installed, point a second
+    device's camera at
+    the QR code, or press **Copy** and paste the link manually. All three carry
+    the same string.
+  </Step>
+</Steps>
+
+### From the Telegram bot
+
+The subscription screen has a **Connect** button. It opens the same platform
+picker, and each platform shows the same numbered steps naming the same first
+recommended application.
+
+The difference is the buttons. Telegram inline buttons accept only `http`,
+`https` and `tg` URLs, so an application deep link such as `happ://add/…` cannot
+be a link button at all. The bot therefore renders one **copy-text** button per
+client, plus a copy button for the bare link, plus an "Open subscription" link
+button for the `https` subscription URL itself. Copying is the documented
+fallback everywhere, including on a desktop browser that has no handler
+registered for the scheme.
+
+Every bot screen is sent as protected content, so Telegram will not let a message
+carrying a subscription link be forwarded. The full Telegram flow is described in
+[the Telegram bot](/customer/telegram-bot).
+
+## The clients Omniflow documents
+
+The table is compiled in and identical on both surfaces. Order is recommendation
+order: the first entry is the application the setup steps name.
+
+| Platform | Clients, in order | Import scheme |
+| --- | --- | --- |
+| iOS | Happ, v2RayTun, Streisand | `happ://add/`, `v2raytun://import/`, `streisand://import/` |
+| Android | Happ, v2RayTun, Hiddify | `happ://add/`, `v2raytun://import/`, `hiddify://import/` |
+| Windows | Hiddify, v2RayTun | `hiddify://import/`, `v2raytun://import/` |
+| macOS | Happ, Streisand | `happ://add/`, `streisand://import/` |
+| Linux | Hiddify | `hiddify://import/` |
+
+A deep link is the scheme with the subscription URL appended, and nothing else —
+`happ://add/https://panel.example.com/sub/…`. There is no redirect service in
+between, so a client that supports its scheme imports the subscription without
+any part of Omniflow observing that it happened.
+
+<Note>
+  The list is deliberately short. These are the clients this installation
+  documents and supports, not every client that can read a subscription link — a
+  customer using something else can still paste the link into it, but the steps
+  on screen will not describe their application.
+</Note>
+
+## The three ways the link travels
+
+### Deep links
+
+In the browser each client is an ordinary anchor rather than a router
+navigation, because a deep link leaves the page for an application. On a device
+with the application installed, pressing it opens the client with the
+subscription already filled in. On a device without it, the browser reports that
+it cannot open the address — which is why the third step tells the customer to
+copy the link instead, and why the bot offers the deep link as copyable text.
+
+### The QR code
+
+The QR is generated in the browser. The encoder is imported lazily so it is not
+in the bundle of every other screen, and the result is rendered from a data URL
+in a plain `<img>` element.
+
+It is worth stating why it is not a server-rendered image: an image URL carrying
+a subscription link would put that credential into a request line, a proxy log,
+and the browser cache, and routing it through Next.js's image pipeline would send
+a credential-bearing payload to the server to be cached. If the encoder fails,
+the QR panel is omitted entirely rather than rendered broken.
+
+Point another device's camera at the code and it receives the same string the
+deep link would have carried.
+
+### Copying it by hand
+
+The link is shown truncated in a monospace row with a **Copy** button. It is
+truncated because it is a credential and the customer has no reason to read it,
+only to move it. The button shows "Copied" for about two seconds and then
+reverts.
+
+A browser that refuses clipboard access is a real case — it happens on insecure
+origins and in some in-app browsers — so a failed copy raises a toast telling the
+customer to select and copy the link manually, rather than doing nothing and
+looking like a broken button.
+
+## When the connect screen shows no link
+
+| Situation | Status | What the customer sees |
+| --- | --- | --- |
+| The subscription has no Remnawave user yet | `409 not_provisioned` | "Still being set up — Your subscription is being prepared. This screen works as soon as it is ready." |
+| Remnawave cannot be reached | `503 upstream_unavailable` | "Temporarily unavailable — Live traffic and device figures cannot be read right now. Your subscription is unaffected." |
+| The subscription is not this customer's | `404 not_found` | The same answer as a subscription that does not exist, so an identifier cannot be probed. |
+
+In the bot, a subscription with no link yet shows the line "Your subscription
+link appears once access is active" in place of the buttons.
+
+**API.** `GET /v1/account/subscriptions/{subscriptionID}/connection?platform=`
+returns `{subscriptionUrl, platform, platforms[], clients[{name, deepLink}]}`.
+
+## Connected devices
+
+**What it is.** The devices currently attached to one subscription's Remnawave
+user, with a count against the plan's device limit, a remove control per device,
+and a remove-all control.
+
+**Why it exists.** A device limit is only enforceable if the customer can free a
+slot themselves. Without a device list, hitting the limit means opening a support
+ticket to disconnect a phone that was replaced a year ago.
+
+**How to reach it.** Devices are not on the tab bar — replacing a phone is a
+once-a-year action, and the five tabs are ordered by frequency of need. Open
+`/account/profile` and follow **Devices**, or reach `/account/devices`
+directly. Devices belong to a subscription rather than to an account, so when a
+customer holds more than one the screen shows buttons above the list to switch
+between them.
+
+Each row shows an icon chosen from the platform the client reported (a laptop for
+mac, Windows or Linux, a tablet for a pad, a phone otherwise), the device model
+the client reported about itself — or "Unknown device" when it reported nothing —
+and a date. Below the list: "One link works on every device. Disconnecting frees
+the slot immediately."
+
+### What is deliberately not shown
+
+There is no hardware identifier and no IP address anywhere on this screen or in
+the response behind it. That is a decision, not an omission:
+
+- **The HWID never leaves the server.** It identifies somebody's physical
+  machine. A device is named to the customer by a **handle** —
+  `base64url` of the first 16 bytes of `SHA-256("omniflow.device." + hwid)`,
+  128 bits — which reveals nothing about the device it stands for.
+- **The handle is resolved by re-hashing, not by a stored mapping.** When a
+  removal arrives, the server fetches the current device list, hashes each HWID
+  it holds, and matches. The caller therefore never supplies the identifier being
+  acted on. An array index would not do: the list can change between the read and
+  the removal, so an index can point at a different device by the time it is
+  used.
+- **Last seen is a date, not an instant.** Enough for a customer to recognise
+  their own laptop, not enough to build a movement log out of.
+- **No IP address is returned at all**, including for a household or a connection
+  somebody else shares. The personal-data export declares
+  `device_and_network_identifiers` as a standing redaction for the same reason.
+
+A handle that matches nothing answers `404 not_found` — which is also exactly
+what a device removed from another tab a moment ago looks like.
+
+### Removing devices
+
+<Steps>
+  <Step title="Remove one device">
+    Press **Disconnect** on its row. A confirmation dialog explains that the
+    device stops connecting until the subscription is added again. On success a
+    toast confirms it and the list reloads. The slot is free immediately.
+  </Step>
+  <Step title="Remove every device">
+    When more than one device is listed, a full-width **Disconnect all devices**
+    button appears with its own dialog. It is one Remnawave call rather than a
+    loop, because doing it device by device would leave a partially disconnected
+    subscription behind if the third call failed.
+  </Step>
+</Steps>
+
+Removing every device needs a sign-in from within the last fifteen minutes. A
+stale session is refused with `401 reauthentication_required`, and the panel
+shows "Sign in again to confirm this action." rather than a raw refusal — the
+remedy is something the customer can actually do. Removing a single device has no
+such requirement: it costs one device a reconnection, not the whole setup.
+
+| Action | Route | Gate |
+| --- | --- | --- |
+| List devices | `GET /v1/account/subscriptions/{subscriptionID}/devices` | session |
+| Remove one | `DELETE /v1/account/subscriptions/{subscriptionID}/devices/{handle}` | session |
+| Remove all | `DELETE /v1/account/subscriptions/{subscriptionID}/devices?confirm=true` | session + recent sign-in |
+
+Remove-all without `?confirm=true` is refused with `422 confirmation_required`.
+With zero devices connected it returns `{"removed": 0}` without calling Remnawave
+at all.
+
+Both removals write into the customer's own security log — `device_removed` with
+the subscription label and the device's reported name, `devices_removed_all` with
+the label and the number removed. Neither records a hardware identifier, and the
+log is readable by the customer on `/account/security`.
+
+<Note>
+  An operator can also list and remove devices from a customer's profile in the
+  admin panel, under `subscriptions.read` and `subscriptions.write`. That path
+  writes an audit event carrying its own device reference, never the HWID. See
+  [Admin operations](/operations/admin-operations).
+</Note>
+
+## Rotating the subscription link
+
+**What it is.** Revoking the current access link and reading the new one back
+from Remnawave.
+
+**Why it exists.** It is the only remedy when a link has been shared or leaked.
+It is also the most destructive thing a customer can do to their own working
+setup: every device stops connecting until the new link is imported. Both halves
+of that sentence are why the control exists and why it is guarded the way it is.
+
+<Warning>
+  Rotation breaks every connected device at once. Traffic and expiry are
+  unaffected, but each device must import the new link before it connects again.
+</Warning>
+
+**How to use it.** Open `/account/subscriptions/{id}` and scroll to the **Access
+link** section. A warning card states exactly what breaks. Press **Issue a new
+link**; a dialog requires the customer to type the phrase `NEW LINK` as well as
+press confirm. On success a toast confirms it and a hint points back at the
+connect screen to add the new link to each device.
+
+In Telegram the same action sits on the subscription screen behind a
+confirm/cancel keyboard, and performing it returns the connect screen with the
+fresh link already on it.
+
+**API.** `POST /v1/account/subscriptions/{subscriptionID}/rotate-link`, body
+`{"confirm": true}`, behind a recent sign-in. Responds `{"subscriptionUrl": "…"}`.
+
+| Refusal | Status | Meaning |
+| --- | --- | --- |
+| `confirmation_required` | 422 | `confirm` was not sent. A mis-routed request or a double submission must not be able to trigger a rotation. |
+| `reauthentication_required` | 401 | The session is older than fifteen minutes. The panel warns before the button is pressed, not only after. |
+| `not_provisioned` | 409 | There is no Remnawave user to revoke a link for yet. |
+| `upstream_unavailable` | 503 | Remnawave could not be reached. Nothing was rotated. |
+
+The new link is **read back** from Remnawave rather than assumed: Remnawave mints
+it, and showing the customer the old one after a rotation would be worse than
+showing none. A `subscription_key_rotated` entry is written to the customer's
+security log naming only the subscription's label.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Customer web panel" icon="browser" href="/customer/web-panel">
+    The rest of the browser product: dashboard, checkout, wallet, support.
+  </Card>
+  <Card title="Telegram bot" icon="paper-plane" href="/customer/telegram-bot">
+    The same connection flow in chat, with copy-text buttons.
+  </Card>
+  <Card title="Subscriptions" icon="layers" href="/commerce/subscriptions">
+    Entitlements, device limits, expiry, and what a phase means.
+  </Card>
+  <Card title="Remnawave integration" icon="server" href="/integrations/remnawave">
+    Which panel owns the link, the devices, and the traffic counters.
+  </Card>
+</CardGroup>

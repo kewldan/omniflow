@@ -1,13 +1,17 @@
 ---
 title: Wallet top-up and saved carts
-description: Customer-initiated funding, deferred purchase, and the invariants that keep both safe.
+description: Customer-initiated funding, deferred purchase, the exact limits an operator configures, and the invariants that keep both safe
 ---
 
-A customer who cannot pay the full price right now has two ways forward: fund the wallet and buy later, or save the order and let it buy itself once the balance covers it. Both reuse the commerce pipeline that already exists — nothing about top-up or carts introduces a second way to move money.
+A customer who cannot pay the full price right now has two ways forward: fund the wallet and buy
+later, or save the order and let it buy itself once the balance covers it. Both reuse the commerce
+pipeline that already exists — nothing about top-up or carts introduces a second way to move money.
 
 ## Top-up is an ordinary order
 
-A top-up is an order with `operation = 'topup'`. It gets a payment intent, a provider checkout, webhook intake, reconciliation, and refund handling exactly like a subscription purchase does. What differs is what settlement produces: credit in the customer's wallet instead of an entitlement.
+A top-up is an order with `operation = 'topup'`. It gets a payment intent, a provider checkout,
+webhook intake, reconciliation, and refund handling exactly like a subscription purchase does. What
+differs is what settlement produces: credit in the customer's wallet instead of an entitlement.
 
 ```text
 customer picks an amount
@@ -17,23 +21,52 @@ customer picks an amount
   → ledger: provider_clearing −received, customer_wallet +received
 ```
 
-A top-up never spends wallet credit. Funding a wallet from the same wallet would be circular, so `wallet_minor` is always zero.
+A top-up never spends wallet credit. Funding a wallet from the same wallet would be circular, so
+`wallet_minor` is always zero — and because there is nothing for the wallet to cover, a top-up is
+always created `pending` with a provider to pay.
+
+Alongside the order there is one `wallet_topups` row holding the requested amount, the credited
+amount, and the ledger transaction that credited it. Its own CHECK ties the last two together: a
+top-up is credited exactly when it has a ledger transaction, never one without the other.
+
+### Creating one
+
+The store runs the whole creation in a serializable transaction:
+
+1. **Idempotency.** An existing order under the caller's key with a different operation, currency or
+   amount is refused; the same one is returned.
+2. **Maintenance.** A top-up is a purchase, so it is refused with `503 maintenance_active` while the
+   installation is in a maintenance window. See [Maintenance
+   mode](/operations/maintenance-mode).
+3. **Window allowance.** What the customer has actually been credited inside the rolling window is
+   summed.
+4. **Limits.** The requested amount is validated against the configured bounds.
+5. **The order and the `wallet_topups` row** are written, with a payment window of one hour unless
+   the caller supplied one.
 
 ### Exactly-once credit
 
 The credit is one ledger transaction keyed on the order:
 
 ```text
-reference_type = 'wallet_topup'
-reference_id   = <order id>
+reference_type  = 'wallet_topup'
+reference_id    = <order id>
 idempotency_key = 'topup:<order id>'
 ```
 
-`ledger_transactions.idempotency_key` is unique and `(reference_type, reference_id, type)` is unique, so a redelivered webhook, a reconciliation poll that arrives after the webhook, and a manual approval all converge on the same single transaction. The `wallet_topups.credited_at` timestamp is set in the same transaction, which is the second guard: a settlement that finds it already set returns without writing anything.
+`ledger_transactions.idempotency_key` is unique and `(reference_type, reference_id, type)` is
+unique, so a redelivered webhook, a reconciliation poll that arrives after the webhook, and a manual
+approval all converge on the same single transaction. The `wallet_topups.credited_at` timestamp is
+set in the same transaction, which is the third guard: crediting starts by locking the row
+`FOR UPDATE` and returns without writing anything if that timestamp is already set.
+
+Once the credit commits, an outbox event `wallet.credited` is written and an operator notice of kind
+`topup` is queued, deduplicated on the order.
 
 ### Overpayment and underpayment
 
-A subscription order that receives the wrong amount stays pending, because the thing it buys has a fixed price. A top-up has no such constraint: the customer asked to add money and money arrived.
+A subscription order that receives the wrong amount stays pending, because the thing it buys has a
+fixed price. A top-up has no such constraint: the customer asked to add money and money arrived.
 
 Omniflow therefore credits exactly what the provider settled and marks the order paid:
 
@@ -43,48 +76,121 @@ Omniflow therefore credits exactly what the provider settled and marks the order
 | More than the request | The received amount | `paid` | `overpayment` |
 | Less than the request | The received amount | `paid` | `underpayment` |
 
-The mismatch is recorded as a payment event and reaches the operator top-up topic, so a discrepancy is visible without a customer having to report it.
+The mismatch is recorded as a payment event and reaches the operator top-up topic, so a discrepancy
+is visible without a customer having to report it. See [Payment
+classification](/commerce/orders-payments#payment-classification).
 
 ### Limits
 
 Three operator-configured bounds apply, all in minor units of the settlement currency:
 
-- a minimum, which is never below one minor unit;
-- a maximum for a single top-up;
-- a rolling-window ceiling on how much may be credited within a configured period.
+- a minimum, which is never below one minor unit, so a zero-amount top-up cannot be created;
+- a maximum for a single top-up, which a value of `0` removes entirely;
+- a rolling-window ceiling on how much may be credited within a configured period, which a value of
+  `0` disables.
 
-The window counts what was actually credited, so a failed, expired, or abandoned attempt never consumes a customer's allowance. Every rejection carries a stable reason — `topup_below_minimum`, `topup_above_maximum`, `topup_window_exceeded`, `topup_disabled`, `topup_invalid_amount` — that the bot renders in the customer's language.
+The window counts what was actually credited, so a failed, expired, or abandoned attempt never
+consumes a customer's allowance. Every rejection carries a stable reason — `topup_below_minimum`,
+`topup_above_maximum`, `topup_window_exceeded`, `topup_disabled`, `topup_invalid_amount` — surfaced
+as the `type` slug of an RFC 9457 problem and as a copy key the bot renders in the customer's
+language.
 
-Presets are filtered against the same limits before they are rendered, so the bot never shows an amount the backend would refuse.
+Presets are filtered against the same limits before they are rendered, so neither surface ever shows
+an amount the backend would refuse.
 
-### History
+## Funding a wallet in the browser
 
-The top-up screen lists every attempt with the state it reached: pending, paid, credited, cancelled, expired, or refunded. A pending attempt links to its order, which is the same recovery screen a subscription purchase uses — including refresh, provider re-check, and the duplicate-payment explanation.
+`/account/wallet` shows the balance in each currency the customer holds — total, reserved, and
+available — then the preset buttons, a free-entry field, and the payment methods that can settle the
+currency. What a person types in the major unit is converted to minor units before it is sent.
+
+**Top up** posts to `POST /v1/account/wallet/top-up` with `{amountMinor, currency, provider}` and a
+mandatory `Idempotency-Key` header. The header is mandatory rather than optional because a top-up
+mints real money into the wallet, so the caller's key becomes the order's key and a retried request
+cannot mint it twice.
+
+The response is **201** with `{orderId, currency, amountMinor, state, payment}`, and the page renders
+whichever handoff the provider returned: a hosted checkout link, a Telegram invoice, "an operator
+will confirm this" for a manual transfer, or nothing at all.
+
+`GET /v1/account/wallet` returns the balances, a cursor-paginated page of ledger entries, and the
+top-up policy itself — `enabled`, `minimumMinor`, `maximumMinor`, `presets`,
+`remainingWindowMinor` and the available providers — so the screen never has to guess what the
+server will accept.
+
+<Note>
+  If the order is created and the provider then refuses the payment intent, the API still returns
+  the order. The order exists and it is the customer's; discarding it would leave a row nobody can
+  reach. The customer can start a payment on it again from its order page.
+</Note>
+
+## Funding a wallet in Telegram
+
+**Wallet** → **Top up** offers the same presets, plus **custom** for typing an amount as an ordinary
+message, then a payment method, then the order status screen. Amounts typed in the major unit are
+parsed with the same currency exponents the web panel uses.
+
+**History** lists the last ten attempts with the state each reached — the order's own state, or
+`credited` once the ledger credit is written. An attempt still pending links straight to its order,
+which is the same recovery screen a subscription purchase uses, including refresh and the
+duplicate-payment explanation.
 
 ## Saved carts
 
-A cart is one saved purchase intent per customer: a plan version, a period, an operation, the selected squads, any add-ons, and an applied promo code. It survives an insufficient balance, a lost session, and navigating away from checkout.
+A cart is one saved purchase intent per customer: a plan version, an operation, a currency, the
+selected squads, any add-ons, and an applied promo code. It survives an insufficient balance, a lost
+session, and navigating away from checkout. A rejection is never destructive — the cart stays saved
+so the customer can top up, drop an add-on, or wait for the catalogue to settle.
 
 ### The saved price is never the charged price
 
-A cart stores what the customer chose, not what it cost. Every time the cart is displayed or considered for purchase it is re-priced against the plan version that is current right now, including promotion eligibility and the wallet balance. If the plan changed, the customer sees the new price before anything is charged; if the plan disappeared, the cart reports `cart_plan_unavailable` and stays saved so it can be rebuilt, rather than being charged at a stale price.
+A cart stores what the customer chose, not what it cost. Every time the cart is displayed or
+considered for purchase it is re-priced against the plan version that is current right now,
+including promotion eligibility, add-on prices, and the wallet balance. If the plan changed, the
+customer sees the new price before anything is charged; if the plan disappeared, the cart reports
+`cart_plan_unavailable` and stays saved so it can be rebuilt, rather than being charged at a stale
+price. A promo code that stopped being valid is reported as a rejection and the cart is priced
+without it.
 
 ### Automatic purchase
 
-With automatic purchase on, the cart is charged as soon as the wallet covers it. Two things trigger the attempt:
+With automatic purchase on, the cart is charged as soon as the wallet covers it. The decision is
+evaluated in a fixed order — automatic purchase off, then expired, then maintenance, then
+insufficient balance — so the reason a customer is shown is the first one that actually applies.
+
+Three things trigger an attempt:
 
 1. A settled top-up, immediately after its transaction commits.
-2. A periodic sweep, which catches credit from any other source — a referral reward, an operator correction, a promotional credit.
+2. The one-minute sweep, which retries up to 200 auto-purchase carts belonging to customers who hold
+   wallet history in the cart's currency. This is what makes a referral reward or an operator
+   correction release a cart too.
+3. The customer tapping **Buy now**.
 
-The sweep is what makes the feature honest: "once a top-up covers the outstanding amount" is the common case, but a customer whose balance arrives another way gets the same outcome.
+The sweep is what makes the feature honest: "once a top-up covers the outstanding amount" is the
+common case, but a customer whose balance arrives another way gets the same outcome.
+
+<Warning>
+  The sweep runs inside the maintenance loop that only the API process starts. In a deployment
+  without the API process — a bot and a worker alone — the only remaining triggers are a settled
+  top-up and the customer's own **Buy now**, and carts never expire on their own.
+</Warning>
 
 ### It cannot double-charge
 
-The order is created under the cart's own idempotency key, which is minted once when the cart is saved. `orders (user_id, idempotency_key)` is unique, so every path into the purchase — the settlement hook, the sweep, and a customer tapping **Buy now** — resolves to the same single order even if all three run at once.
+The order is created under the cart's own idempotency key, which is minted once when the cart is
+saved. `orders (user_id, idempotency_key)` is unique, so every path into the purchase — the
+settlement hook, the sweep, and a customer tapping **Buy now** — resolves to the same single order
+even if all three run at once. Marking the cart purchased is itself conditional on the cart still
+being open, which closes the window where a second attempt could see it available.
 
-Editing a cart mints a new key. That is deliberate: a changed plan is a different purchase and must not resolve to the order the previous contents created. The partial unique index `carts (user_id) WHERE status = 'open'` serialises the edit against an in-flight purchase.
+Editing a cart mints a new key. That is deliberate: a changed plan is a different purchase and must
+not resolve to the order the previous contents created. The partial unique index
+`carts (user_id) WHERE status = 'open'` serialises the edit against an in-flight purchase, and the
+CHECK `status = 'purchased'` ⟺ `order_id IS NOT NULL` means a cart can never claim to have bought
+something it cannot name.
 
-A cart's add-ons are charged on the same order as the plan, so a cart is always exactly one order and one payment however much it contains.
+A cart's add-ons are charged on the same order as the plan, so a cart is always exactly one order
+and one payment however much it contains.
 
 ### Refusals
 
@@ -99,8 +205,77 @@ Automatic purchase declines rather than fails, and always says why:
 | `cart_auto_purchase_off` | The customer turned automatic purchase off |
 | `cart_maintenance` | The installation is in maintenance and taking no new orders |
 
-Only the first two need the customer to act. The cart stays saved in every case except an explicit clear.
+Only the first two need the customer to act. Each failure is recorded on the cart with an
+incremented attempt count, and the cart stays saved in every case except an explicit clear.
+
+### Using a cart in Telegram
+
+Saved carts are a Telegram feature; the web panel has no save control today.
+
+- **Save** appears on the payment screen when the balance is short, and saves with automatic
+  purchase on.
+- **Cart** shows the re-validated price, what is still missing, and the time left.
+- **Auto-purchase on/off** toggles unattended charging without discarding the cart.
+- **Buy now** charges it immediately.
+- **Clear** discards it.
+
+A cart whose plan or add-on has vanished renders a "stale" screen with a **Clear** button rather
+than a price it cannot compute.
+
+### Shop carts never buy themselves
+
+A saved digital-goods purchase is stored with automatic purchase off and is skipped by the sweep. A
+shop price is a provider quote that expires in minutes, so charging one unattended would charge a
+number the customer last saw days ago. The full reasoning is on [Gifts and digital
+goods](/commerce/gifts-and-goods).
+
+A customer has one open cart, so saving a shop item replaces a saved plan and vice versa.
+
+<Warning>
+  A settled top-up asks the customer's open cart to buy itself without checking what kind of cart it
+  is. When that cart is a shop cart, the attempt fails with `cart_plan_unavailable` and increments
+  the attempt count on a cart that was never meant to charge unattended. Nothing is bought and
+  nothing is charged; what you see is a failure recorded against a cart that is behaving correctly.
+</Warning>
 
 ## What an operator configures
 
-Everything on this page is configured through environment variables until the admin panel exposes it. See [Configuration](/getting-started/configuration) for the full list.
+Top-up limits and the cart lifetime are environment variables, read at process start.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `APP_WALLET_TOPUP_ENABLED` | `true` | Offer customer-initiated top-up at all |
+| `APP_WALLET_TOPUP_PRESETS` | `10000,30000,50000,100000` | One-tap amounts, in minor units |
+| `APP_WALLET_TOPUP_MINIMUM_MINOR` | `10000` | Smallest single top-up |
+| `APP_WALLET_TOPUP_MAXIMUM_MINOR` | `5000000` | Largest single top-up; `0` removes the ceiling |
+| `APP_WALLET_TOPUP_WINDOW_LIMIT_MINOR` | `10000000` | Credit allowed inside the window; `0` disables it |
+| `APP_WALLET_TOPUP_WINDOW_HOURS` | `24` | Length of the rolling window |
+| `APP_CART_TTL_HOURS` | `720` | How long a saved cart survives (30 days) |
+
+Startup refuses a configuration whose non-zero maximum is below the minimum, because that
+combination can only ever reject every amount. The full variable reference is
+[Configuration](/getting-started/configuration).
+
+<Warning>
+  `/admin/settings` shows a **Wallet top-up** card with the same fields, and saving it writes the
+  `commerce_settings` row and an audit event — but the limits the store actually enforces come from
+  the environment variables above. Nothing reads `commerce_settings` back into the order path, so
+  changing the numbers in the panel changes what that page displays and nothing else. Configure
+  top-up limits in the environment and restart the affected processes.
+</Warning>
+
+## The invariants behind both features
+
+- A top-up credits exactly the amount the provider settled, exactly once, keyed on its order, and
+  never spends wallet credit.
+- A top-up is credited exactly when it carries a ledger transaction — a table CHECK, not a
+  convention.
+- A saved cart is re-priced against the current catalogue before any charge, and is charged under
+  one idempotency key however many paths attempt it at once.
+- One open cart per customer, and one open checkout per customer.
+
+They are listed with everything else on [Financial
+invariants](/commerce/financial-invariants), and the transactional ones are proved against a real
+PostgreSQL in the integration suite: exactly-once top-up credit across replays, over- and
+underpayment resolving in the ledger, and a cart charging exactly once under concurrency. See
+[Testing strategy](/contributing/testing).
