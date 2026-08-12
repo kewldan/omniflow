@@ -71,7 +71,12 @@ const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const method = (init.method ?? "GET").toUpperCase();
   const headers = new Headers(init.headers);
-  if (init.body && !headers.has("Content-Type")) {
+  // A FormData body must set its own Content-Type, because only the browser
+  // knows the multipart boundary it generated. Declaring JSON over one produces
+  // a request the server cannot parse, so the guard is here rather than left for
+  // each upload to remember — the support attachment upload was written against
+  // raw `fetch` for exactly this reason.
+  if (init.body && !headers.has("Content-Type") && !(init.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
   if (UNSAFE_METHODS.has(method) && csrfToken) {
@@ -98,7 +103,23 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   }
 
   const text = await response.text();
-  const payload = text ? JSON.parse(text) : null;
+  // A failed request is not guaranteed to answer in JSON. A reverse proxy can
+  // refuse an oversized upload, or return its own error page, before the
+  // application ever sees the request — and parsing that strictly would throw a
+  // SyntaxError that reaches the screen as "unknown error" with no status
+  // attached, which is precisely when the status was the useful part.
+  let payload: unknown = null;
+  if (text) {
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      // A successful response that is not JSON is still a contract violation, so
+      // it is reported rather than silently becoming null.
+      if (response.ok) {
+        throw new ApiError(response.status, null);
+      }
+    }
+  }
 
   if (!response.ok) {
     throw new ApiError(response.status, payload as ProblemDetail | null);
