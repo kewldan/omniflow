@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"time"
 
@@ -17,6 +18,117 @@ import (
 	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for AccountAddonOfferKind.
+const (
+	AccountAddonOfferKindDevices AccountAddonOfferKind = "devices"
+	AccountAddonOfferKindSquads  AccountAddonOfferKind = "squads"
+	AccountAddonOfferKindTraffic AccountAddonOfferKind = "traffic"
+)
+
+// Valid indicates whether the value is a known member of the AccountAddonOfferKind enum.
+func (e AccountAddonOfferKind) Valid() bool {
+	switch e {
+	case AccountAddonOfferKindDevices:
+		return true
+	case AccountAddonOfferKindSquads:
+		return true
+	case AccountAddonOfferKindTraffic:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountCheckoutOperation.
+const (
+	AccountCheckoutOperationDowngrade AccountCheckoutOperation = "downgrade"
+	AccountCheckoutOperationPurchase  AccountCheckoutOperation = "purchase"
+	AccountCheckoutOperationRenew     AccountCheckoutOperation = "renew"
+	AccountCheckoutOperationUpgrade   AccountCheckoutOperation = "upgrade"
+)
+
+// Valid indicates whether the value is a known member of the AccountCheckoutOperation enum.
+func (e AccountCheckoutOperation) Valid() bool {
+	switch e {
+	case AccountCheckoutOperationDowngrade:
+		return true
+	case AccountCheckoutOperationPurchase:
+		return true
+	case AccountCheckoutOperationRenew:
+		return true
+	case AccountCheckoutOperationUpgrade:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountCheckoutPromoRejection.
+const (
+	PromoExhausted  AccountCheckoutPromoRejection = "promo_exhausted"
+	PromoIneligible AccountCheckoutPromoRejection = "promo_ineligible"
+	PromoInvalid    AccountCheckoutPromoRejection = "promo_invalid"
+	PromoUnknown    AccountCheckoutPromoRejection = "promo_unknown"
+)
+
+// Valid indicates whether the value is a known member of the AccountCheckoutPromoRejection enum.
+func (e AccountCheckoutPromoRejection) Valid() bool {
+	switch e {
+	case PromoExhausted:
+		return true
+	case PromoIneligible:
+		return true
+	case PromoInvalid:
+		return true
+	case PromoUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountContactKind.
+const (
+	AccountContactKindEmail    AccountContactKind = "email"
+	AccountContactKindPhone    AccountContactKind = "phone"
+	AccountContactKindTelegram AccountContactKind = "telegram"
+)
+
+// Valid indicates whether the value is a known member of the AccountContactKind enum.
+func (e AccountContactKind) Valid() bool {
+	switch e {
+	case AccountContactKindEmail:
+		return true
+	case AccountContactKindPhone:
+		return true
+	case AccountContactKindTelegram:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountConversationMessagesAuthor.
+const (
+	AccountConversationMessagesAuthorCustomer AccountConversationMessagesAuthor = "customer"
+	AccountConversationMessagesAuthorOperator AccountConversationMessagesAuthor = "operator"
+	AccountConversationMessagesAuthorSystem   AccountConversationMessagesAuthor = "system"
+)
+
+// Valid indicates whether the value is a known member of the AccountConversationMessagesAuthor enum.
+func (e AccountConversationMessagesAuthor) Valid() bool {
+	switch e {
+	case AccountConversationMessagesAuthorCustomer:
+		return true
+	case AccountConversationMessagesAuthorOperator:
+		return true
+	case AccountConversationMessagesAuthorSystem:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for AccountCustomerLocale.
 const (
@@ -57,6 +169,375 @@ func (e AccountCustomerStatus) Valid() bool {
 	}
 }
 
+// Defines values for AccountExportVersion.
+const (
+	OmniflowAccountExport1 AccountExportVersion = "omniflow.account.export/1"
+)
+
+// Valid indicates whether the value is a known member of the AccountExportVersion enum.
+func (e AccountExportVersion) Valid() bool {
+	switch e {
+	case OmniflowAccountExport1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountNewsPageItemsCategory.
+const (
+	AccountNewsPageItemsCategoryAnnouncement AccountNewsPageItemsCategory = "announcement"
+	AccountNewsPageItemsCategoryIncident     AccountNewsPageItemsCategory = "incident"
+	AccountNewsPageItemsCategoryMaintenance  AccountNewsPageItemsCategory = "maintenance"
+	AccountNewsPageItemsCategoryNews         AccountNewsPageItemsCategory = "news"
+)
+
+// Valid indicates whether the value is a known member of the AccountNewsPageItemsCategory enum.
+func (e AccountNewsPageItemsCategory) Valid() bool {
+	switch e {
+	case AccountNewsPageItemsCategoryAnnouncement:
+		return true
+	case AccountNewsPageItemsCategoryIncident:
+		return true
+	case AccountNewsPageItemsCategoryMaintenance:
+		return true
+	case AccountNewsPageItemsCategoryNews:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountNewsPageLocale.
+const (
+	AccountNewsPageLocaleEn AccountNewsPageLocale = "en"
+	AccountNewsPageLocaleRu AccountNewsPageLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the AccountNewsPageLocale enum.
+func (e AccountNewsPageLocale) Valid() bool {
+	switch e {
+	case AccountNewsPageLocaleEn:
+		return true
+	case AccountNewsPageLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountOrderPaymentHandoff.
+const (
+	AccountOrderPaymentHandoffHosted          AccountOrderPaymentHandoff = "hosted"
+	AccountOrderPaymentHandoffManual          AccountOrderPaymentHandoff = "manual"
+	AccountOrderPaymentHandoffNone            AccountOrderPaymentHandoff = "none"
+	AccountOrderPaymentHandoffTelegramInvoice AccountOrderPaymentHandoff = "telegram_invoice"
+)
+
+// Valid indicates whether the value is a known member of the AccountOrderPaymentHandoff enum.
+func (e AccountOrderPaymentHandoff) Valid() bool {
+	switch e {
+	case AccountOrderPaymentHandoffHosted:
+		return true
+	case AccountOrderPaymentHandoffManual:
+		return true
+	case AccountOrderPaymentHandoffNone:
+		return true
+	case AccountOrderPaymentHandoffTelegramInvoice:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountOrderState.
+const (
+	AccountOrderStateCancelled         AccountOrderState = "cancelled"
+	AccountOrderStateDraft             AccountOrderState = "draft"
+	AccountOrderStateExpired           AccountOrderState = "expired"
+	AccountOrderStateFulfilled         AccountOrderState = "fulfilled"
+	AccountOrderStatePaid              AccountOrderState = "paid"
+	AccountOrderStatePartiallyRefunded AccountOrderState = "partially_refunded"
+	AccountOrderStatePending           AccountOrderState = "pending"
+	AccountOrderStateRefunded          AccountOrderState = "refunded"
+)
+
+// Valid indicates whether the value is a known member of the AccountOrderState enum.
+func (e AccountOrderState) Valid() bool {
+	switch e {
+	case AccountOrderStateCancelled:
+		return true
+	case AccountOrderStateDraft:
+		return true
+	case AccountOrderStateExpired:
+		return true
+	case AccountOrderStateFulfilled:
+		return true
+	case AccountOrderStatePaid:
+		return true
+	case AccountOrderStatePartiallyRefunded:
+		return true
+	case AccountOrderStatePending:
+		return true
+	case AccountOrderStateRefunded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountPaymentHandleHandoff.
+const (
+	AccountPaymentHandleHandoffHosted          AccountPaymentHandleHandoff = "hosted"
+	AccountPaymentHandleHandoffManual          AccountPaymentHandleHandoff = "manual"
+	AccountPaymentHandleHandoffNone            AccountPaymentHandleHandoff = "none"
+	AccountPaymentHandleHandoffTelegramInvoice AccountPaymentHandleHandoff = "telegram_invoice"
+)
+
+// Valid indicates whether the value is a known member of the AccountPaymentHandleHandoff enum.
+func (e AccountPaymentHandleHandoff) Valid() bool {
+	switch e {
+	case AccountPaymentHandleHandoffHosted:
+		return true
+	case AccountPaymentHandleHandoffManual:
+		return true
+	case AccountPaymentHandleHandoffNone:
+		return true
+	case AccountPaymentHandleHandoffTelegramInvoice:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountPlanKind.
+const (
+	AccountPlanKindManual    AccountPlanKind = "manual"
+	AccountPlanKindOneTime   AccountPlanKind = "one_time"
+	AccountPlanKindRecurring AccountPlanKind = "recurring"
+	AccountPlanKindTrial     AccountPlanKind = "trial"
+)
+
+// Valid indicates whether the value is a known member of the AccountPlanKind enum.
+func (e AccountPlanKind) Valid() bool {
+	switch e {
+	case AccountPlanKindManual:
+		return true
+	case AccountPlanKindOneTime:
+		return true
+	case AccountPlanKindRecurring:
+		return true
+	case AccountPlanKindTrial:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountPlanOperations.
+const (
+	AccountPlanOperationsDowngrade AccountPlanOperations = "downgrade"
+	AccountPlanOperationsPurchase  AccountPlanOperations = "purchase"
+	AccountPlanOperationsRenew     AccountPlanOperations = "renew"
+	AccountPlanOperationsUpgrade   AccountPlanOperations = "upgrade"
+)
+
+// Valid indicates whether the value is a known member of the AccountPlanOperations enum.
+func (e AccountPlanOperations) Valid() bool {
+	switch e {
+	case AccountPlanOperationsDowngrade:
+		return true
+	case AccountPlanOperationsPurchase:
+		return true
+	case AccountPlanOperationsRenew:
+		return true
+	case AccountPlanOperationsUpgrade:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountPlanDetailKind.
+const (
+	AccountPlanDetailKindManual    AccountPlanDetailKind = "manual"
+	AccountPlanDetailKindOneTime   AccountPlanDetailKind = "one_time"
+	AccountPlanDetailKindRecurring AccountPlanDetailKind = "recurring"
+	AccountPlanDetailKindTrial     AccountPlanDetailKind = "trial"
+)
+
+// Valid indicates whether the value is a known member of the AccountPlanDetailKind enum.
+func (e AccountPlanDetailKind) Valid() bool {
+	switch e {
+	case AccountPlanDetailKindManual:
+		return true
+	case AccountPlanDetailKindOneTime:
+		return true
+	case AccountPlanDetailKindRecurring:
+		return true
+	case AccountPlanDetailKindTrial:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountPlanDetailOperations.
+const (
+	AccountPlanDetailOperationsDowngrade AccountPlanDetailOperations = "downgrade"
+	AccountPlanDetailOperationsPurchase  AccountPlanDetailOperations = "purchase"
+	AccountPlanDetailOperationsRenew     AccountPlanDetailOperations = "renew"
+	AccountPlanDetailOperationsUpgrade   AccountPlanDetailOperations = "upgrade"
+)
+
+// Valid indicates whether the value is a known member of the AccountPlanDetailOperations enum.
+func (e AccountPlanDetailOperations) Valid() bool {
+	switch e {
+	case AccountPlanDetailOperationsDowngrade:
+		return true
+	case AccountPlanDetailOperationsPurchase:
+		return true
+	case AccountPlanDetailOperationsRenew:
+		return true
+	case AccountPlanDetailOperationsUpgrade:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountPreferencesContactsKind.
+const (
+	AccountPreferencesContactsKindEmail    AccountPreferencesContactsKind = "email"
+	AccountPreferencesContactsKindPhone    AccountPreferencesContactsKind = "phone"
+	AccountPreferencesContactsKindTelegram AccountPreferencesContactsKind = "telegram"
+)
+
+// Valid indicates whether the value is a known member of the AccountPreferencesContactsKind enum.
+func (e AccountPreferencesContactsKind) Valid() bool {
+	switch e {
+	case AccountPreferencesContactsKindEmail:
+		return true
+	case AccountPreferencesContactsKindPhone:
+		return true
+	case AccountPreferencesContactsKindTelegram:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountPreferencesLocale.
+const (
+	AccountPreferencesLocaleAuto AccountPreferencesLocale = "auto"
+	AccountPreferencesLocaleEn   AccountPreferencesLocale = "en"
+	AccountPreferencesLocaleRu   AccountPreferencesLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the AccountPreferencesLocale enum.
+func (e AccountPreferencesLocale) Valid() bool {
+	switch e {
+	case AccountPreferencesLocaleAuto:
+		return true
+	case AccountPreferencesLocaleEn:
+		return true
+	case AccountPreferencesLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountPreferencesSuppressionReason.
+const (
+	AccountPreferencesSuppressionReasonBounced         AccountPreferencesSuppressionReason = "bounced"
+	AccountPreferencesSuppressionReasonComplaint       AccountPreferencesSuppressionReason = "complaint"
+	AccountPreferencesSuppressionReasonCustomerRequest AccountPreferencesSuppressionReason = "customer_request"
+	AccountPreferencesSuppressionReasonOperator        AccountPreferencesSuppressionReason = "operator"
+)
+
+// Valid indicates whether the value is a known member of the AccountPreferencesSuppressionReason enum.
+func (e AccountPreferencesSuppressionReason) Valid() bool {
+	switch e {
+	case AccountPreferencesSuppressionReasonBounced:
+		return true
+	case AccountPreferencesSuppressionReasonComplaint:
+		return true
+	case AccountPreferencesSuppressionReasonCustomerRequest:
+		return true
+	case AccountPreferencesSuppressionReasonOperator:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountPreferencesUpdateLocale.
+const (
+	AccountPreferencesUpdateLocaleAuto AccountPreferencesUpdateLocale = "auto"
+	AccountPreferencesUpdateLocaleEn   AccountPreferencesUpdateLocale = "en"
+	AccountPreferencesUpdateLocaleRu   AccountPreferencesUpdateLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the AccountPreferencesUpdateLocale enum.
+func (e AccountPreferencesUpdateLocale) Valid() bool {
+	switch e {
+	case AccountPreferencesUpdateLocaleAuto:
+		return true
+	case AccountPreferencesUpdateLocaleEn:
+		return true
+	case AccountPreferencesUpdateLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountPrivacyConsentsHistoryPurpose.
+const (
+	AccountPrivacyConsentsHistoryPurposeMarketing AccountPrivacyConsentsHistoryPurpose = "marketing"
+	AccountPrivacyConsentsHistoryPurposePrivacy   AccountPrivacyConsentsHistoryPurpose = "privacy"
+	AccountPrivacyConsentsHistoryPurposeProfiling AccountPrivacyConsentsHistoryPurpose = "profiling"
+	AccountPrivacyConsentsHistoryPurposeTerms     AccountPrivacyConsentsHistoryPurpose = "terms"
+)
+
+// Valid indicates whether the value is a known member of the AccountPrivacyConsentsHistoryPurpose enum.
+func (e AccountPrivacyConsentsHistoryPurpose) Valid() bool {
+	switch e {
+	case AccountPrivacyConsentsHistoryPurposeMarketing:
+		return true
+	case AccountPrivacyConsentsHistoryPurposePrivacy:
+		return true
+	case AccountPrivacyConsentsHistoryPurposeProfiling:
+		return true
+	case AccountPrivacyConsentsHistoryPurposeTerms:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountPrivacyRetentionStatus.
+const (
+	AccountPrivacyRetentionStatusActive    AccountPrivacyRetentionStatus = "active"
+	AccountPrivacyRetentionStatusDeleted   AccountPrivacyRetentionStatus = "deleted"
+	AccountPrivacyRetentionStatusSuspended AccountPrivacyRetentionStatus = "suspended"
+)
+
+// Valid indicates whether the value is a known member of the AccountPrivacyRetentionStatus enum.
+func (e AccountPrivacyRetentionStatus) Valid() bool {
+	switch e {
+	case AccountPrivacyRetentionStatusActive:
+		return true
+	case AccountPrivacyRetentionStatusDeleted:
+		return true
+	case AccountPrivacyRetentionStatusSuspended:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AccountProfileInputLocale.
 const (
 	AccountProfileInputLocaleEn AccountProfileInputLocale = "en"
@@ -69,6 +550,63 @@ func (e AccountProfileInputLocale) Valid() bool {
 	case AccountProfileInputLocaleEn:
 		return true
 	case AccountProfileInputLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountReferralsLinkReason.
+const (
+	NoCode                 AccountReferralsLinkReason = "no_code"
+	PublicUrlNotConfigured AccountReferralsLinkReason = "public_url_not_configured"
+)
+
+// Valid indicates whether the value is a known member of the AccountReferralsLinkReason enum.
+func (e AccountReferralsLinkReason) Valid() bool {
+	switch e {
+	case NoCode:
+		return true
+	case PublicUrlNotConfigured:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountReferralsRewardsItemsRole.
+const (
+	Invitee AccountReferralsRewardsItemsRole = "invitee"
+	Inviter AccountReferralsRewardsItemsRole = "inviter"
+)
+
+// Valid indicates whether the value is a known member of the AccountReferralsRewardsItemsRole enum.
+func (e AccountReferralsRewardsItemsRole) Valid() bool {
+	switch e {
+	case Invitee:
+		return true
+	case Inviter:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountReferralsRewardsItemsState.
+const (
+	AccountReferralsRewardsItemsStatePending   AccountReferralsRewardsItemsState = "pending"
+	AccountReferralsRewardsItemsStateQualified AccountReferralsRewardsItemsState = "qualified"
+	AccountReferralsRewardsItemsStateRejected  AccountReferralsRewardsItemsState = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the AccountReferralsRewardsItemsState enum.
+func (e AccountReferralsRewardsItemsState) Valid() bool {
+	switch e {
+	case AccountReferralsRewardsItemsStatePending:
+		return true
+	case AccountReferralsRewardsItemsStateQualified:
+		return true
+	case AccountReferralsRewardsItemsStateRejected:
 		return true
 	default:
 		return false
@@ -159,6 +697,132 @@ func (e AccountSessionListItemsAuthMethod) Valid() bool {
 	}
 }
 
+// Defines values for AccountShopDeliveryFailureReason.
+const (
+	AccountShopDeliveryFailureReasonAmbiguous           AccountShopDeliveryFailureReason = "ambiguous"
+	AccountShopDeliveryFailureReasonPermanent           AccountShopDeliveryFailureReason = "permanent"
+	AccountShopDeliveryFailureReasonProviderBalance     AccountShopDeliveryFailureReason = "provider_balance"
+	AccountShopDeliveryFailureReasonProviderUnavailable AccountShopDeliveryFailureReason = "provider_unavailable"
+	AccountShopDeliveryFailureReasonRecipientInvalid    AccountShopDeliveryFailureReason = "recipient_invalid"
+	AccountShopDeliveryFailureReasonRetryable           AccountShopDeliveryFailureReason = "retryable"
+)
+
+// Valid indicates whether the value is a known member of the AccountShopDeliveryFailureReason enum.
+func (e AccountShopDeliveryFailureReason) Valid() bool {
+	switch e {
+	case AccountShopDeliveryFailureReasonAmbiguous:
+		return true
+	case AccountShopDeliveryFailureReasonPermanent:
+		return true
+	case AccountShopDeliveryFailureReasonProviderBalance:
+		return true
+	case AccountShopDeliveryFailureReasonProviderUnavailable:
+		return true
+	case AccountShopDeliveryFailureReasonRecipientInvalid:
+		return true
+	case AccountShopDeliveryFailureReasonRetryable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountShopDeliveryState.
+const (
+	AccountShopDeliveryStateAwaitingPayment AccountShopDeliveryState = "awaiting_payment"
+	AccountShopDeliveryStateCancelled       AccountShopDeliveryState = "cancelled"
+	AccountShopDeliveryStateDelayed         AccountShopDeliveryState = "delayed"
+	AccountShopDeliveryStateDelivered       AccountShopDeliveryState = "delivered"
+	AccountShopDeliveryStateFailed          AccountShopDeliveryState = "failed"
+	AccountShopDeliveryStateNeedsReview     AccountShopDeliveryState = "needs_review"
+	AccountShopDeliveryStatePolling         AccountShopDeliveryState = "polling"
+	AccountShopDeliveryStateQueued          AccountShopDeliveryState = "queued"
+	AccountShopDeliveryStateRefunded        AccountShopDeliveryState = "refunded"
+	AccountShopDeliveryStateSubmitted       AccountShopDeliveryState = "submitted"
+)
+
+// Valid indicates whether the value is a known member of the AccountShopDeliveryState enum.
+func (e AccountShopDeliveryState) Valid() bool {
+	switch e {
+	case AccountShopDeliveryStateAwaitingPayment:
+		return true
+	case AccountShopDeliveryStateCancelled:
+		return true
+	case AccountShopDeliveryStateDelayed:
+		return true
+	case AccountShopDeliveryStateDelivered:
+		return true
+	case AccountShopDeliveryStateFailed:
+		return true
+	case AccountShopDeliveryStateNeedsReview:
+		return true
+	case AccountShopDeliveryStatePolling:
+		return true
+	case AccountShopDeliveryStateQueued:
+		return true
+	case AccountShopDeliveryStateRefunded:
+		return true
+	case AccountShopDeliveryStateSubmitted:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountShopOrderKind.
+const (
+	AccountShopOrderKindTelegramPremium AccountShopOrderKind = "telegram_premium"
+	AccountShopOrderKindTelegramStars   AccountShopOrderKind = "telegram_stars"
+)
+
+// Valid indicates whether the value is a known member of the AccountShopOrderKind enum.
+func (e AccountShopOrderKind) Valid() bool {
+	switch e {
+	case AccountShopOrderKindTelegramPremium:
+		return true
+	case AccountShopOrderKindTelegramStars:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountShopProductKind.
+const (
+	AccountShopProductKindTelegramPremium AccountShopProductKind = "telegram_premium"
+	AccountShopProductKindTelegramStars   AccountShopProductKind = "telegram_stars"
+)
+
+// Valid indicates whether the value is a known member of the AccountShopProductKind enum.
+func (e AccountShopProductKind) Valid() bool {
+	switch e {
+	case AccountShopProductKindTelegramPremium:
+		return true
+	case AccountShopProductKindTelegramStars:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountShopProductDetailKind.
+const (
+	AccountShopProductDetailKindTelegramPremium AccountShopProductDetailKind = "telegram_premium"
+	AccountShopProductDetailKindTelegramStars   AccountShopProductDetailKind = "telegram_stars"
+)
+
+// Valid indicates whether the value is a known member of the AccountShopProductDetailKind enum.
+func (e AccountShopProductDetailKind) Valid() bool {
+	switch e {
+	case AccountShopProductDetailKindTelegramPremium:
+		return true
+	case AccountShopProductDetailKindTelegramStars:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AccountSubscriptionPhase.
 const (
 	AccountSubscriptionPhaseActive       AccountSubscriptionPhase = "active"
@@ -192,6 +856,33 @@ func (e AccountSubscriptionPhase) Valid() bool {
 	case AccountSubscriptionPhaseNone:
 		return true
 	case AccountSubscriptionPhaseProvisioning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountTicketStatus.
+const (
+	AccountTicketStatusClosed   AccountTicketStatus = "closed"
+	AccountTicketStatusMerged   AccountTicketStatus = "merged"
+	AccountTicketStatusOpen     AccountTicketStatus = "open"
+	AccountTicketStatusPending  AccountTicketStatus = "pending"
+	AccountTicketStatusResolved AccountTicketStatus = "resolved"
+)
+
+// Valid indicates whether the value is a known member of the AccountTicketStatus enum.
+func (e AccountTicketStatus) Valid() bool {
+	switch e {
+	case AccountTicketStatusClosed:
+		return true
+	case AccountTicketStatusMerged:
+		return true
+	case AccountTicketStatusOpen:
+		return true
+	case AccountTicketStatusPending:
+		return true
+	case AccountTicketStatusResolved:
 		return true
 	default:
 		return false
@@ -1950,6 +2641,123 @@ func (e WebhookEventStatus) Valid() bool {
 	}
 }
 
+// Defines values for GetAccountCheckoutParamsLocale.
+const (
+	GetAccountCheckoutParamsLocaleEn GetAccountCheckoutParamsLocale = "en"
+	GetAccountCheckoutParamsLocaleRu GetAccountCheckoutParamsLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the GetAccountCheckoutParamsLocale enum.
+func (e GetAccountCheckoutParamsLocale) Valid() bool {
+	switch e {
+	case GetAccountCheckoutParamsLocaleEn:
+		return true
+	case GetAccountCheckoutParamsLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OpenAccountCheckoutJSONBodyOperation.
+const (
+	OpenAccountCheckoutJSONBodyOperationDowngrade OpenAccountCheckoutJSONBodyOperation = "downgrade"
+	OpenAccountCheckoutJSONBodyOperationPurchase  OpenAccountCheckoutJSONBodyOperation = "purchase"
+	OpenAccountCheckoutJSONBodyOperationRenew     OpenAccountCheckoutJSONBodyOperation = "renew"
+	OpenAccountCheckoutJSONBodyOperationUpgrade   OpenAccountCheckoutJSONBodyOperation = "upgrade"
+)
+
+// Valid indicates whether the value is a known member of the OpenAccountCheckoutJSONBodyOperation enum.
+func (e OpenAccountCheckoutJSONBodyOperation) Valid() bool {
+	switch e {
+	case OpenAccountCheckoutJSONBodyOperationDowngrade:
+		return true
+	case OpenAccountCheckoutJSONBodyOperationPurchase:
+		return true
+	case OpenAccountCheckoutJSONBodyOperationRenew:
+		return true
+	case OpenAccountCheckoutJSONBodyOperationUpgrade:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AddAccountContactJSONBodyKind.
+const (
+	AddAccountContactJSONBodyKindEmail    AddAccountContactJSONBodyKind = "email"
+	AddAccountContactJSONBodyKindPhone    AddAccountContactJSONBodyKind = "phone"
+	AddAccountContactJSONBodyKindTelegram AddAccountContactJSONBodyKind = "telegram"
+)
+
+// Valid indicates whether the value is a known member of the AddAccountContactJSONBodyKind enum.
+func (e AddAccountContactJSONBodyKind) Valid() bool {
+	switch e {
+	case AddAccountContactJSONBodyKindEmail:
+		return true
+	case AddAccountContactJSONBodyKindPhone:
+		return true
+	case AddAccountContactJSONBodyKindTelegram:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListAccountNewsParamsLocale.
+const (
+	ListAccountNewsParamsLocaleEn ListAccountNewsParamsLocale = "en"
+	ListAccountNewsParamsLocaleRu ListAccountNewsParamsLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the ListAccountNewsParamsLocale enum.
+func (e ListAccountNewsParamsLocale) Valid() bool {
+	switch e {
+	case ListAccountNewsParamsLocaleEn:
+		return true
+	case ListAccountNewsParamsLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListAccountOrdersParamsLocale.
+const (
+	ListAccountOrdersParamsLocaleEn ListAccountOrdersParamsLocale = "en"
+	ListAccountOrdersParamsLocaleRu ListAccountOrdersParamsLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the ListAccountOrdersParamsLocale enum.
+func (e ListAccountOrdersParamsLocale) Valid() bool {
+	switch e {
+	case ListAccountOrdersParamsLocaleEn:
+		return true
+	case ListAccountOrdersParamsLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAccountOrderParamsLocale.
+const (
+	GetAccountOrderParamsLocaleEn GetAccountOrderParamsLocale = "en"
+	GetAccountOrderParamsLocaleRu GetAccountOrderParamsLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the GetAccountOrderParamsLocale enum.
+func (e GetAccountOrderParamsLocale) Valid() bool {
+	switch e {
+	case GetAccountOrderParamsLocaleEn:
+		return true
+	case GetAccountOrderParamsLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetAccountOverviewParamsLocale.
 const (
 	GetAccountOverviewParamsLocaleEn GetAccountOverviewParamsLocale = "en"
@@ -1962,6 +2770,129 @@ func (e GetAccountOverviewParamsLocale) Valid() bool {
 	case GetAccountOverviewParamsLocaleEn:
 		return true
 	case GetAccountOverviewParamsLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListAccountPlansParamsLocale.
+const (
+	ListAccountPlansParamsLocaleEn ListAccountPlansParamsLocale = "en"
+	ListAccountPlansParamsLocaleRu ListAccountPlansParamsLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the ListAccountPlansParamsLocale enum.
+func (e ListAccountPlansParamsLocale) Valid() bool {
+	switch e {
+	case ListAccountPlansParamsLocaleEn:
+		return true
+	case ListAccountPlansParamsLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAccountPlanParamsLocale.
+const (
+	GetAccountPlanParamsLocaleEn GetAccountPlanParamsLocale = "en"
+	GetAccountPlanParamsLocaleRu GetAccountPlanParamsLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the GetAccountPlanParamsLocale enum.
+func (e GetAccountPlanParamsLocale) Valid() bool {
+	switch e {
+	case GetAccountPlanParamsLocaleEn:
+		return true
+	case GetAccountPlanParamsLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RequestAccountDeletionJSONBodyConfirm.
+const (
+	RequestAccountDeletionJSONBodyConfirmTrue RequestAccountDeletionJSONBodyConfirm = true
+)
+
+// Valid indicates whether the value is a known member of the RequestAccountDeletionJSONBodyConfirm enum.
+func (e RequestAccountDeletionJSONBodyConfirm) Valid() bool {
+	switch e {
+	case RequestAccountDeletionJSONBodyConfirmTrue:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListAccountShopOrdersParamsLocale.
+const (
+	ListAccountShopOrdersParamsLocaleEn ListAccountShopOrdersParamsLocale = "en"
+	ListAccountShopOrdersParamsLocaleRu ListAccountShopOrdersParamsLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the ListAccountShopOrdersParamsLocale enum.
+func (e ListAccountShopOrdersParamsLocale) Valid() bool {
+	switch e {
+	case ListAccountShopOrdersParamsLocaleEn:
+		return true
+	case ListAccountShopOrdersParamsLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAccountShopOrderParamsLocale.
+const (
+	GetAccountShopOrderParamsLocaleEn GetAccountShopOrderParamsLocale = "en"
+	GetAccountShopOrderParamsLocaleRu GetAccountShopOrderParamsLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the GetAccountShopOrderParamsLocale enum.
+func (e GetAccountShopOrderParamsLocale) Valid() bool {
+	switch e {
+	case GetAccountShopOrderParamsLocaleEn:
+		return true
+	case GetAccountShopOrderParamsLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListAccountShopProductsParamsLocale.
+const (
+	ListAccountShopProductsParamsLocaleEn ListAccountShopProductsParamsLocale = "en"
+	ListAccountShopProductsParamsLocaleRu ListAccountShopProductsParamsLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the ListAccountShopProductsParamsLocale enum.
+func (e ListAccountShopProductsParamsLocale) Valid() bool {
+	switch e {
+	case ListAccountShopProductsParamsLocaleEn:
+		return true
+	case ListAccountShopProductsParamsLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAccountShopProductParamsLocale.
+const (
+	GetAccountShopProductParamsLocaleEn GetAccountShopProductParamsLocale = "en"
+	GetAccountShopProductParamsLocaleRu GetAccountShopProductParamsLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the GetAccountShopProductParamsLocale enum.
+func (e GetAccountShopProductParamsLocale) Valid() bool {
+	switch e {
+	case GetAccountShopProductParamsLocaleEn:
+		return true
+	case GetAccountShopProductParamsLocaleRu:
 		return true
 	default:
 		return false
@@ -2015,13 +2946,13 @@ func (e GetAccountConnectionParamsPlatform) Valid() bool {
 
 // Defines values for RemoveAllAccountDevicesParamsConfirm.
 const (
-	True RemoveAllAccountDevicesParamsConfirm = "true"
+	RemoveAllAccountDevicesParamsConfirmTrue RemoveAllAccountDevicesParamsConfirm = "true"
 )
 
 // Valid indicates whether the value is a known member of the RemoveAllAccountDevicesParamsConfirm enum.
 func (e RemoveAllAccountDevicesParamsConfirm) Valid() bool {
 	switch e {
-	case True:
+	case RemoveAllAccountDevicesParamsConfirmTrue:
 		return true
 	default:
 		return false
@@ -2343,6 +3274,92 @@ func (e DecidePanelBlocklistMatchJSONBodyDecision) Valid() bool {
 	}
 }
 
+// AccountAddonOffer defines model for AccountAddonOffer.
+type AccountAddonOffer struct {
+	AddonId        openapi_types.UUID    `json:"addonId"`
+	AddonVersionId openapi_types.UUID    `json:"addonVersionId"`
+	Code           string                `json:"code"`
+	Description    *string               `json:"description,omitempty"`
+	DeviceSlots    *int                  `json:"deviceSlots,omitempty"`
+	Kind           AccountAddonOfferKind `json:"kind"`
+	MaxQuantity    int                   `json:"maxQuantity"`
+	Name           string                `json:"name"`
+	Price          AccountMoney          `json:"price"`
+
+	// Proration The documented proration rule for this add-on.
+	Proration    string `json:"proration"`
+	SquadCount   *int   `json:"squadCount,omitempty"`
+	TrafficBytes *int64 `json:"trafficBytes,omitempty"`
+}
+
+// AccountAddonOfferKind defines model for AccountAddonOffer.Kind.
+type AccountAddonOfferKind string
+
+// AccountCheckout defines model for AccountCheckout.
+type AccountCheckout struct {
+	Addons      []AccountAddonOffer `json:"addons"`
+	ApplyWallet bool                `json:"applyWallet"`
+	Currency    string              `json:"currency"`
+	ExpiresAt   *time.Time          `json:"expiresAt,omitempty"`
+	Id          openapi_types.UUID  `json:"id"`
+
+	// MultiSubscription False means the panel renders no picker at all.
+	MultiSubscription bool                     `json:"multiSubscription"`
+	NewSubscription   *bool                    `json:"newSubscription,omitempty"`
+	Operation         AccountCheckoutOperation `json:"operation"`
+	Plan              AccountPlan              `json:"plan"`
+	PlanVersionId     openapi_types.UUID       `json:"planVersionId"`
+	PromoCode         *string                  `json:"promoCode,omitempty"`
+
+	// PromoRejection Why the entered code does not apply. Present on a 200, not an error.
+	PromoRejection *AccountCheckoutPromoRejection `json:"promoRejection,omitempty"`
+	Provider       *string                        `json:"provider,omitempty"`
+	Providers      []AccountPaymentChoice         `json:"providers"`
+
+	// Quote The exact application breakdown. Every figure is computed on the server, so the number a customer is asked to approve and the number they are charged cannot be arrived at two different ways.
+	Quote          AccountCheckoutQuote `json:"quote"`
+	SelectedAddons []struct {
+		AddonVersionId openapi_types.UUID `json:"addonVersionId"`
+		Quantity       int                `json:"quantity"`
+	} `json:"selectedAddons"`
+	SelectedSquadIds []openapi_types.UUID `json:"selectedSquadIds"`
+	Squads           AccountSquadOffer    `json:"squads"`
+	SubscriptionId   *string              `json:"subscriptionId,omitempty"`
+
+	// Subscriptions The subscriptions this checkout could target.
+	Subscriptions []struct {
+		EndsAt *time.Time         `json:"endsAt,omitempty"`
+		Id     openapi_types.UUID `json:"id"`
+		Label  *string            `json:"label,omitempty"`
+		Plan   string             `json:"plan"`
+		Slot   int                `json:"slot"`
+		Status string             `json:"status"`
+	} `json:"subscriptions"`
+
+	// TargetRequired A target must be named before this checkout can be confirmed.
+	TargetRequired bool    `json:"targetRequired"`
+	TermsUrl       *string `json:"termsUrl,omitempty"`
+}
+
+// AccountCheckoutOperation defines model for AccountCheckout.Operation.
+type AccountCheckoutOperation string
+
+// AccountCheckoutPromoRejection Why the entered code does not apply. Present on a 200, not an error.
+type AccountCheckoutPromoRejection string
+
+// AccountCheckoutQuote The exact application breakdown. Every figure is computed on the server, so the number a customer is asked to approve and the number they are charged cannot be arrived at two different ways.
+type AccountCheckoutQuote struct {
+	AddonMinor    int64  `json:"addonMinor"`
+	Currency      string `json:"currency"`
+	DiscountMinor int64  `json:"discountMinor"`
+
+	// ExternalMinor What still has to be settled through a provider.
+	ExternalMinor      int64 `json:"externalMinor"`
+	SubtotalMinor      int64 `json:"subtotalMinor"`
+	WalletAppliedMinor int64 `json:"walletAppliedMinor"`
+	WalletBalanceMinor int64 `json:"walletBalanceMinor"`
+}
+
 // AccountConnection defines model for AccountConnection.
 type AccountConnection struct {
 	Clients []struct {
@@ -2353,6 +3370,47 @@ type AccountConnection struct {
 	Platforms       []string `json:"platforms"`
 	SubscriptionUrl string   `json:"subscriptionUrl"`
 }
+
+// AccountContact Flags only. The stored value is never returned.
+type AccountContact struct {
+	CreatedAt     time.Time          `json:"createdAt"`
+	Id            openapi_types.UUID `json:"id"`
+	Kind          AccountContactKind `json:"kind"`
+	Marketing     bool               `json:"marketing"`
+	Transactional bool               `json:"transactional"`
+	Verified      bool               `json:"verified"`
+}
+
+// AccountContactKind defines model for AccountContact.Kind.
+type AccountContactKind string
+
+// AccountContactList defines model for AccountContactList.
+type AccountContactList struct {
+	Items []AccountContact `json:"items"`
+}
+
+// AccountConversation defines model for AccountConversation.
+type AccountConversation struct {
+	Messages []struct {
+		Attachments *[]struct {
+			// Downloadable False for a file that lives in Telegram rather than here.
+			Downloadable bool               `json:"downloadable"`
+			FileName     string             `json:"fileName"`
+			Id           openapi_types.UUID `json:"id"`
+			MimeType     *string            `json:"mimeType,omitempty"`
+			SizeBytes    int64              `json:"sizeBytes"`
+		} `json:"attachments,omitempty"`
+		Author    AccountConversationMessagesAuthor `json:"author"`
+		Body      string                            `json:"body"`
+		CreatedAt time.Time                         `json:"createdAt"`
+		Id        string                            `json:"id"`
+		Unread    bool                              `json:"unread"`
+	} `json:"messages"`
+	Ticket AccountTicket `json:"ticket"`
+}
+
+// AccountConversationMessagesAuthor defines model for AccountConversation.Messages.Author.
+type AccountConversationMessagesAuthor string
 
 // AccountCustomer defines model for AccountCustomer.
 type AccountCustomer struct {
@@ -2367,6 +3425,17 @@ type AccountCustomerLocale string
 
 // AccountCustomerStatus defines model for AccountCustomer.Status.
 type AccountCustomerStatus string
+
+// AccountDeletion defines model for AccountDeletion.
+type AccountDeletion struct {
+	CancelledAt *time.Time `json:"cancelledAt,omitempty"`
+
+	// ExecutedBy Who actually deletes. The panel records the request; the retention workflow carries it out.
+	ExecutedBy  string     `json:"executedBy"`
+	Pending     bool       `json:"pending"`
+	Reason      *string    `json:"reason,omitempty"`
+	RequestedAt *time.Time `json:"requestedAt,omitempty"`
+}
 
 // AccountDeviceList defines model for AccountDeviceList.
 type AccountDeviceList struct {
@@ -2386,6 +3455,30 @@ type AccountDeviceUsage struct {
 	Used      int  `json:"used"`
 }
 
+// AccountExport The customer's own records. It names what it left out in `redactions` and which sections hit the per-section row cap in `truncated`, because an export that silently omitted something would be worse than one that says so.
+type AccountExport struct {
+	Consents      *[]map[string]interface{} `json:"consents,omitempty"`
+	Contacts      *[]map[string]interface{} `json:"contacts,omitempty"`
+	Entitlements  *[]map[string]interface{} `json:"entitlements,omitempty"`
+	GeneratedAt   time.Time                 `json:"generatedAt"`
+	Identities    *[]map[string]interface{} `json:"identities,omitempty"`
+	Lifecycle     *[]map[string]interface{} `json:"lifecycle,omitempty"`
+	Loyalty       *map[string]interface{}   `json:"loyalty,omitempty"`
+	Orders        *[]map[string]interface{} `json:"orders,omitempty"`
+	Payments      *[]map[string]interface{} `json:"payments,omitempty"`
+	Profile       map[string]interface{}    `json:"profile"`
+	Redactions    []string                  `json:"redactions"`
+	Referral      *map[string]interface{}   `json:"referral,omitempty"`
+	Subscriptions *[]map[string]interface{} `json:"subscriptions,omitempty"`
+	Support       *[]map[string]interface{} `json:"support,omitempty"`
+	Truncated     []string                  `json:"truncated"`
+	Version       AccountExportVersion      `json:"version"`
+	Wallet        *[]map[string]interface{} `json:"wallet,omitempty"`
+}
+
+// AccountExportVersion defines model for AccountExport.Version.
+type AccountExportVersion string
+
 // AccountLinkedMethodList defines model for AccountLinkedMethodList.
 type AccountLinkedMethodList struct {
 	Items []struct {
@@ -2400,6 +3493,62 @@ type AccountLinkedMethodList struct {
 	} `json:"items"`
 }
 
+// AccountLoyalty `enabled: false` is the whole document when no program runs.
+type AccountLoyalty struct {
+	Enabled     bool       `json:"enabled"`
+	Evaluated   *bool      `json:"evaluated,omitempty"`
+	EvaluatedAt *time.Time `json:"evaluatedAt,omitempty"`
+	GraceUntil  *time.Time `json:"graceUntil,omitempty"`
+	Metric      *int64     `json:"metric,omitempty"`
+	Next        *string    `json:"next,omitempty"`
+	Percent     *int       `json:"percent,omitempty"`
+	Remaining   *int64     `json:"remaining,omitempty"`
+	Rules       *struct {
+		Currency   *string `json:"currency,omitempty"`
+		GraceDays  *int    `json:"graceDays,omitempty"`
+		Metric     *string `json:"metric,omitempty"`
+		Version    *string `json:"version,omitempty"`
+		WindowDays *int    `json:"windowDays,omitempty"`
+	} `json:"rules,omitempty"`
+	Tier  *string `json:"tier,omitempty"`
+	Tiers *[]struct {
+		Code        string `json:"code"`
+		Current     bool   `json:"current"`
+		DiscountBps int    `json:"discountBps"`
+		NameEn      string `json:"nameEn"`
+		NameRu      string `json:"nameRu"`
+		Threshold   int64  `json:"threshold"`
+	} `json:"tiers,omitempty"`
+}
+
+// AccountMoney defines model for AccountMoney.
+type AccountMoney struct {
+	AmountMinor int64  `json:"amountMinor"`
+	Currency    string `json:"currency"`
+}
+
+// AccountNewsPage defines model for AccountNewsPage.
+type AccountNewsPage struct {
+	Items []struct {
+		Body        string                       `json:"body"`
+		Category    AccountNewsPageItemsCategory `json:"category"`
+		Id          openapi_types.UUID           `json:"id"`
+		PublishedAt time.Time                    `json:"publishedAt"`
+		Read        bool                         `json:"read"`
+		Slug        *string                      `json:"slug,omitempty"`
+		Title       string                       `json:"title"`
+	} `json:"items"`
+	Locale      AccountNewsPageLocale `json:"locale"`
+	NextCursor  *string               `json:"nextCursor,omitempty"`
+	UnreadCount int                   `json:"unreadCount"`
+}
+
+// AccountNewsPageItemsCategory defines model for AccountNewsPage.Items.Category.
+type AccountNewsPageItemsCategory string
+
+// AccountNewsPageLocale defines model for AccountNewsPage.Locale.
+type AccountNewsPageLocale string
+
 // AccountNotice defines model for AccountNotice.
 type AccountNotice struct {
 	Active bool `json:"active"`
@@ -2409,6 +3558,62 @@ type AccountNotice struct {
 
 	// Message The operator's own customer-facing wording in the customer's language. Empty when none was configured, which the panel renders with its own localized copy.
 	Message string `json:"message"`
+}
+
+// AccountOrder defines model for AccountOrder.
+type AccountOrder struct {
+	CreatedAt     time.Time  `json:"createdAt"`
+	Currency      string     `json:"currency"`
+	DiscountMinor int64      `json:"discountMinor"`
+	ExpiresAt     *time.Time `json:"expiresAt,omitempty"`
+	ExternalMinor int64      `json:"externalMinor"`
+
+	// Fulfillment Provisioning progress, read from the fulfillment operation rather than carried by the client.
+	Fulfillment *struct {
+		Attempts  int        `json:"attempts"`
+		ErrorCode *string    `json:"errorCode,omitempty"`
+		Status    string     `json:"status"`
+		UpdatedAt *time.Time `json:"updatedAt,omitempty"`
+	} `json:"fulfillment,omitempty"`
+	Id        openapi_types.UUID `json:"id"`
+	Operation string             `json:"operation"`
+	PaidMinor int64              `json:"paidMinor"`
+	Payment   *struct {
+		CheckoutUrl *string                    `json:"checkoutUrl,omitempty"`
+		Handoff     AccountOrderPaymentHandoff `json:"handoff"`
+		Id          openapi_types.UUID         `json:"id"`
+		Provider    string                     `json:"provider"`
+		ReceiptUrl  *string                    `json:"receiptUrl,omitempty"`
+		Status      string                     `json:"status"`
+	} `json:"payment,omitempty"`
+
+	// Phase The combined payment and provisioning state the panel renders: what the customer is waiting for, rather than which table changed.
+	Phase         string `json:"phase"`
+	Plan          string `json:"plan"`
+	RefundedMinor int64  `json:"refundedMinor"`
+	Refunds       *[]struct {
+		AmountMinor int64     `json:"amountMinor"`
+		CreatedAt   time.Time `json:"createdAt"`
+		Currency    string    `json:"currency"`
+		Status      string    `json:"status"`
+	} `json:"refunds,omitempty"`
+	State          AccountOrderState `json:"state"`
+	SubscriptionId *string           `json:"subscriptionId,omitempty"`
+	SubtotalMinor  int64             `json:"subtotalMinor"`
+	WalletMinor    int64             `json:"walletMinor"`
+}
+
+// AccountOrderPaymentHandoff defines model for AccountOrder.Payment.Handoff.
+type AccountOrderPaymentHandoff string
+
+// AccountOrderState defines model for AccountOrder.State.
+type AccountOrderState string
+
+// AccountOrderPage defines model for AccountOrderPage.
+type AccountOrderPage struct {
+	Items        []AccountOrder      `json:"items"`
+	NextCursor   *string             `json:"nextCursor,omitempty"`
+	NextCursorId *openapi_types.UUID `json:"nextCursorId,omitempty"`
 }
 
 // AccountOverview defines model for AccountOverview.
@@ -2426,6 +3631,217 @@ type AccountOverview struct {
 	Subscriptions []AccountSubscription `json:"subscriptions"`
 }
 
+// AccountPaymentChoice defines model for AccountPaymentChoice.
+type AccountPaymentChoice struct {
+	AmountMinor *int64 `json:"amountMinor,omitempty"`
+	Currency    string `json:"currency"`
+	Provider    string `json:"provider"`
+	Recurring   bool   `json:"recurring"`
+}
+
+// AccountPaymentHandle defines model for AccountPaymentHandle.
+type AccountPaymentHandle struct {
+	AmountMinor int64   `json:"amountMinor"`
+	CheckoutUrl *string `json:"checkoutUrl,omitempty"`
+	Currency    string  `json:"currency"`
+
+	// Handoff How the customer completes the payment. `none` means nothing further is owed, which is what a wallet-covered order looks like.
+	Handoff  AccountPaymentHandleHandoff `json:"handoff"`
+	Id       openapi_types.UUID          `json:"id"`
+	Provider string                      `json:"provider"`
+	Status   string                      `json:"status"`
+}
+
+// AccountPaymentHandleHandoff How the customer completes the payment. `none` means nothing further is owed, which is what a wallet-covered order looks like.
+type AccountPaymentHandleHandoff string
+
+// AccountPlan defines model for AccountPlan.
+type AccountPlan struct {
+	BillingPeriod      string  `json:"billingPeriod"`
+	Code               string  `json:"code"`
+	ConfigurableSquads *bool   `json:"configurableSquads,omitempty"`
+	Description        *string `json:"description,omitempty"`
+
+	// DeviceLimit Null means unlimited.
+	DeviceLimit        *int            `json:"deviceLimit,omitempty"`
+	DurationSeconds    int64           `json:"durationSeconds"`
+	Eligible           bool            `json:"eligible"`
+	GracePeriodSeconds *int64          `json:"gracePeriodSeconds,omitempty"`
+	IneligibleReason   *string         `json:"ineligibleReason,omitempty"`
+	Kind               AccountPlanKind `json:"kind"`
+	Name               string          `json:"name"`
+
+	// Operations The lifecycle actions the configured plan policy allows for this customer.
+	Operations       []AccountPlanOperations `json:"operations"`
+	PlanId           openapi_types.UUID      `json:"planId"`
+	PlanVersionId    openapi_types.UUID      `json:"planVersionId"`
+	Price            AccountMoney            `json:"price"`
+	RecurringCapable *bool                   `json:"recurringCapable,omitempty"`
+	SortOrder        *int                    `json:"sortOrder,omitempty"`
+
+	// TrafficAllowanceBytes Null means unlimited. Nullable rather than zero because unlimited and none are different offers.
+	TrafficAllowanceBytes *int64 `json:"trafficAllowanceBytes,omitempty"`
+}
+
+// AccountPlanKind defines model for AccountPlan.Kind.
+type AccountPlanKind string
+
+// AccountPlanOperations defines model for AccountPlan.Operations.
+type AccountPlanOperations string
+
+// AccountPlanDetail defines model for AccountPlanDetail.
+type AccountPlanDetail struct {
+	Addons             []AccountAddonOffer `json:"addons"`
+	BillingPeriod      string              `json:"billingPeriod"`
+	Code               string              `json:"code"`
+	ConfigurableSquads *bool               `json:"configurableSquads,omitempty"`
+	Description        *string             `json:"description,omitempty"`
+
+	// DeviceLimit Null means unlimited.
+	DeviceLimit        *int                  `json:"deviceLimit,omitempty"`
+	DurationSeconds    int64                 `json:"durationSeconds"`
+	Eligible           bool                  `json:"eligible"`
+	GracePeriodSeconds *int64                `json:"gracePeriodSeconds,omitempty"`
+	IneligibleReason   *string               `json:"ineligibleReason,omitempty"`
+	Kind               AccountPlanDetailKind `json:"kind"`
+	Name               string                `json:"name"`
+
+	// Operations The lifecycle actions the configured plan policy allows for this customer.
+	Operations    []AccountPlanDetailOperations `json:"operations"`
+	PlanId        openapi_types.UUID            `json:"planId"`
+	PlanVersionId openapi_types.UUID            `json:"planVersionId"`
+	Price         AccountMoney                  `json:"price"`
+	Promotions    []struct {
+		Code     string     `json:"code"`
+		Currency *string    `json:"currency,omitempty"`
+		Eligible bool       `json:"eligible"`
+		EndsAt   *time.Time `json:"endsAt,omitempty"`
+		Kind     string     `json:"kind"`
+		StartsAt *time.Time `json:"startsAt,omitempty"`
+		Value    int64      `json:"value"`
+	} `json:"promotions"`
+	RecurringCapable *bool             `json:"recurringCapable,omitempty"`
+	SortOrder        *int              `json:"sortOrder,omitempty"`
+	Squads           AccountSquadOffer `json:"squads"`
+	TermsUrl         *string           `json:"termsUrl,omitempty"`
+
+	// TrafficAllowanceBytes Null means unlimited. Nullable rather than zero because unlimited and none are different offers.
+	TrafficAllowanceBytes *int64 `json:"trafficAllowanceBytes,omitempty"`
+}
+
+// AccountPlanDetailKind defines model for AccountPlanDetail.Kind.
+type AccountPlanDetailKind string
+
+// AccountPlanDetailOperations defines model for AccountPlanDetail.Operations.
+type AccountPlanDetailOperations string
+
+// AccountPlanList defines model for AccountPlanList.
+type AccountPlanList struct {
+	Currency string        `json:"currency"`
+	Items    []AccountPlan `json:"items"`
+}
+
+// AccountPreferences defines model for AccountPreferences.
+type AccountPreferences struct {
+	// Contacts Flags only. The address itself is never returned.
+	Contacts []struct {
+		CreatedAt     time.Time                      `json:"createdAt"`
+		Id            openapi_types.UUID             `json:"id"`
+		Kind          AccountPreferencesContactsKind `json:"kind"`
+		Marketing     bool                           `json:"marketing"`
+		Transactional bool                           `json:"transactional"`
+		Verified      bool                           `json:"verified"`
+	} `json:"contacts"`
+	Locale    AccountPreferencesLocale `json:"locale"`
+	Marketing struct {
+		DecidedAt     *time.Time `json:"decidedAt,omitempty"`
+		Enabled       bool       `json:"enabled"`
+		PolicyVersion *string    `json:"policyVersion,omitempty"`
+
+		// Source Which surface recorded the decision.
+		Source *string `json:"source,omitempty"`
+	} `json:"marketing"`
+	Notifications struct {
+		Expiry  bool `json:"expiry"`
+		News    bool `json:"news"`
+		Renewal bool `json:"renewal"`
+		Traffic bool `json:"traffic"`
+	} `json:"notifications"`
+
+	// QuietHours Absent when unset.
+	QuietHours *struct {
+		EndHour   int `json:"endHour"`
+		StartHour int `json:"startHour"`
+	} `json:"quietHours,omitempty"`
+	Suppression *struct {
+		CreatedAt time.Time                           `json:"createdAt"`
+		Reason    AccountPreferencesSuppressionReason `json:"reason"`
+	} `json:"suppression,omitempty"`
+}
+
+// AccountPreferencesContactsKind defines model for AccountPreferences.Contacts.Kind.
+type AccountPreferencesContactsKind string
+
+// AccountPreferencesLocale defines model for AccountPreferences.Locale.
+type AccountPreferencesLocale string
+
+// AccountPreferencesSuppressionReason defines model for AccountPreferences.Suppression.Reason.
+type AccountPreferencesSuppressionReason string
+
+// AccountPreferencesUpdate Every field is optional and an absent field is left unchanged, so a screen that renders one toggle never sends back a document it did not read. Equal quiet-hours bounds clear the window.
+type AccountPreferencesUpdate struct {
+	Locale *AccountPreferencesUpdateLocale `json:"locale,omitempty"`
+
+	// Marketing Appends a consent record; it never rewrites one.
+	Marketing     *bool `json:"marketing,omitempty"`
+	Notifications *struct {
+		Expiry  *bool `json:"expiry,omitempty"`
+		News    *bool `json:"news,omitempty"`
+		Renewal *bool `json:"renewal,omitempty"`
+		Traffic *bool `json:"traffic,omitempty"`
+	} `json:"notifications,omitempty"`
+	QuietHours *struct {
+		EndHour   int `json:"endHour"`
+		StartHour int `json:"startHour"`
+	} `json:"quietHours,omitempty"`
+}
+
+// AccountPreferencesUpdateLocale defines model for AccountPreferencesUpdate.Locale.
+type AccountPreferencesUpdateLocale string
+
+// AccountPrivacy defines model for AccountPrivacy.
+type AccountPrivacy struct {
+	Consents struct {
+		Current map[string]bool `json:"current"`
+		History []struct {
+			Granted       bool                                 `json:"granted"`
+			OccurredAt    time.Time                            `json:"occurredAt"`
+			PolicyVersion *string                              `json:"policyVersion,omitempty"`
+			Purpose       AccountPrivacyConsentsHistoryPurpose `json:"purpose"`
+			Source        *string                              `json:"source,omitempty"`
+		} `json:"history"`
+	} `json:"consents"`
+	Deletion AccountDeletion `json:"deletion"`
+	Export   struct {
+		ContactValuesAvailable bool     `json:"contactValuesAvailable"`
+		Redactions             []string `json:"redactions"`
+		Sections               []string `json:"sections"`
+	} `json:"export"`
+	Retention struct {
+		AnonymizedAt   *time.Time                    `json:"anonymizedAt,omitempty"`
+		DeletedAt      *time.Time                    `json:"deletedAt,omitempty"`
+		RetentionUntil *time.Time                    `json:"retentionUntil,omitempty"`
+		Status         AccountPrivacyRetentionStatus `json:"status"`
+		SuspendedAt    *time.Time                    `json:"suspendedAt,omitempty"`
+	} `json:"retention"`
+}
+
+// AccountPrivacyConsentsHistoryPurpose defines model for AccountPrivacy.Consents.History.Purpose.
+type AccountPrivacyConsentsHistoryPurpose string
+
+// AccountPrivacyRetentionStatus defines model for AccountPrivacy.Retention.Status.
+type AccountPrivacyRetentionStatus string
+
 // AccountProfileInput defines model for AccountProfileInput.
 type AccountProfileInput struct {
 	Locale   AccountProfileInputLocale `json:"locale"`
@@ -2434,6 +3850,59 @@ type AccountProfileInput struct {
 
 // AccountProfileInputLocale defines model for AccountProfileInput.Locale.
 type AccountProfileInputLocale string
+
+// AccountReferrals defines model for AccountReferrals.
+type AccountReferrals struct {
+	Code          string `json:"code"`
+	Currency      string `json:"currency"`
+	Invited       int64  `json:"invited"`
+	Link          string `json:"link"`
+	LinkAvailable bool   `json:"linkAvailable"`
+
+	// LinkReason Why no link could be built. The code is still shown; a link to nowhere is not.
+	LinkReason *AccountReferralsLinkReason `json:"linkReason,omitempty"`
+	Pending    int64                       `json:"pending"`
+	Program    struct {
+		AttributionValidityDays *int    `json:"attributionValidityDays,omitempty"`
+		Currency                string  `json:"currency"`
+		Enabled                 bool    `json:"enabled"`
+		InviteeRewardMinor      int64   `json:"inviteeRewardMinor"`
+		InviterRewardCap        *int    `json:"inviterRewardCap,omitempty"`
+		InviterRewardMinor      int64   `json:"inviterRewardMinor"`
+		Qualification           string  `json:"qualification"`
+		RewardExpiryDays        *int    `json:"rewardExpiryDays,omitempty"`
+		TermsUrl                *string `json:"termsUrl,omitempty"`
+	} `json:"program"`
+	Qualified      int64 `json:"qualified"`
+	Rejected       int64 `json:"rejected"`
+	RemainingSlots *int  `json:"remainingSlots,omitempty"`
+	ReversedMinor  int64 `json:"reversedMinor"`
+	RewardCount    int   `json:"rewardCount"`
+
+	// RewardedMinor Excludes reversed rewards.
+	RewardedMinor int64 `json:"rewardedMinor"`
+	Rewards       struct {
+		Items []struct {
+			AmountMinor int64                             `json:"amountMinor"`
+			Currency    string                            `json:"currency"`
+			GrantedAt   time.Time                         `json:"grantedAt"`
+			Id          openapi_types.UUID                `json:"id"`
+			ReversedAt  *time.Time                        `json:"reversedAt,omitempty"`
+			Role        AccountReferralsRewardsItemsRole  `json:"role"`
+			State       AccountReferralsRewardsItemsState `json:"state"`
+		} `json:"items"`
+		NextCursor *string `json:"nextCursor,omitempty"`
+	} `json:"rewards"`
+}
+
+// AccountReferralsLinkReason Why no link could be built. The code is still shown; a link to nowhere is not.
+type AccountReferralsLinkReason string
+
+// AccountReferralsRewardsItemsRole defines model for AccountReferrals.Rewards.Items.Role.
+type AccountReferralsRewardsItemsRole string
+
+// AccountReferralsRewardsItemsState defines model for AccountReferrals.Rewards.Items.State.
+type AccountReferralsRewardsItemsState string
 
 // AccountSecurityEventList defines model for AccountSecurityEventList.
 type AccountSecurityEventList struct {
@@ -2485,6 +3954,138 @@ type AccountSessionList struct {
 // AccountSessionListItemsAuthMethod defines model for AccountSessionList.Items.AuthMethod.
 type AccountSessionListItemsAuthMethod string
 
+// AccountShopDelivery defines model for AccountShopDelivery.
+type AccountShopDelivery struct {
+	Attempts      int                               `json:"attempts"`
+	DeliveredAt   *time.Time                        `json:"deliveredAt,omitempty"`
+	FailureReason *AccountShopDeliveryFailureReason `json:"failureReason,omitempty"`
+	Refund        *struct {
+		AmountMinor int64  `json:"amountMinor"`
+		Currency    string `json:"currency"`
+	} `json:"refund,omitempty"`
+
+	// State `needs_review` is an ambiguous delivery parked for an operator. There is no retry route for it: the gateway honours no idempotency key, so retrying could deliver and charge twice.
+	State AccountShopDeliveryState `json:"state"`
+
+	// SupportHandoff True only for needs_review and failed.
+	SupportHandoff   bool       `json:"supportHandoff"`
+	SupportReference string     `json:"supportReference"`
+	UpdatedAt        *time.Time `json:"updatedAt,omitempty"`
+}
+
+// AccountShopDeliveryFailureReason defines model for AccountShopDelivery.FailureReason.
+type AccountShopDeliveryFailureReason string
+
+// AccountShopDeliveryState `needs_review` is an ambiguous delivery parked for an operator. There is no retry route for it: the gateway honours no idempotency key, so retrying could deliver and charge twice.
+type AccountShopDeliveryState string
+
+// AccountShopOrder defines model for AccountShopOrder.
+type AccountShopOrder struct {
+	Amounts struct {
+		DiscountMinor int64 `json:"discountMinor"`
+		ExternalMinor int64 `json:"externalMinor"`
+		PaidMinor     int64 `json:"paidMinor"`
+		PriceMinor    int64 `json:"priceMinor"`
+		WalletMinor   int64 `json:"walletMinor"`
+	} `json:"amounts"`
+	CreatedAt *time.Time           `json:"createdAt,omitempty"`
+	Currency  string               `json:"currency"`
+	Delivery  AccountShopDelivery  `json:"delivery"`
+	ForSelf   bool                 `json:"forSelf"`
+	Id        openapi_types.UUID   `json:"id"`
+	Kind      AccountShopOrderKind `json:"kind"`
+	Payment   struct {
+		// Possible An enabled provider settles this currency. False is stated rather than dead-ended.
+		Possible bool   `json:"possible"`
+		Required bool   `json:"required"`
+		State    string `json:"state"`
+	} `json:"payment"`
+	ProductName string `json:"productName"`
+	Quantity    int    `json:"quantity"`
+	Recipient   string `json:"recipient"`
+}
+
+// AccountShopOrderKind defines model for AccountShopOrder.Kind.
+type AccountShopOrderKind string
+
+// AccountShopOrderPage defines model for AccountShopOrderPage.
+type AccountShopOrderPage struct {
+	Items        []AccountShopOrder  `json:"items"`
+	NextCursor   *string             `json:"nextCursor,omitempty"`
+	NextCursorId *openapi_types.UUID `json:"nextCursorId,omitempty"`
+}
+
+// AccountShopProduct defines model for AccountShopProduct.
+type AccountShopProduct struct {
+	Available   bool    `json:"available"`
+	Code        string  `json:"code"`
+	Currency    string  `json:"currency"`
+	Description *string `json:"description,omitempty"`
+
+	// DurationMonths Telegram Premium only.
+	DurationMonths *int                   `json:"durationMonths,omitempty"`
+	Id             openapi_types.UUID     `json:"id"`
+	Kind           AccountShopProductKind `json:"kind"`
+	Name           string                 `json:"name"`
+
+	// PriceKnown Whether `priceMinor` is a published number. False means the product is priced when it is opened, so a screen never has to read a missing price as zero.
+	PriceKnown bool   `json:"priceKnown"`
+	PriceMinor *int64 `json:"priceMinor,omitempty"`
+
+	// StarQuantity Telegram Stars only.
+	StarQuantity *int `json:"starQuantity,omitempty"`
+}
+
+// AccountShopProductKind defines model for AccountShopProduct.Kind.
+type AccountShopProductKind string
+
+// AccountShopProductDetail defines model for AccountShopProductDetail.
+type AccountShopProductDetail struct {
+	Available   bool    `json:"available"`
+	Code        string  `json:"code"`
+	Currency    string  `json:"currency"`
+	Description *string `json:"description,omitempty"`
+
+	// DurationMonths Telegram Premium only.
+	DurationMonths *int                         `json:"durationMonths,omitempty"`
+	Id             openapi_types.UUID           `json:"id"`
+	Kind           AccountShopProductDetailKind `json:"kind"`
+	Name           string                       `json:"name"`
+
+	// PriceKnown Whether `priceMinor` is a published number. False means the product is priced when it is opened, so a screen never has to read a missing price as zero.
+	PriceKnown bool   `json:"priceKnown"`
+	PriceMinor *int64 `json:"priceMinor,omitempty"`
+	Promo      *struct {
+		Code          string `json:"code"`
+		DiscountMinor int64  `json:"discountMinor"`
+
+		// Rejection Why the code does not apply. Previewed only; nothing is redeemed here.
+		Rejection *string `json:"rejection,omitempty"`
+	} `json:"promo,omitempty"`
+	Quantity int `json:"quantity"`
+
+	// Quote A price and the moment it stops applying. The two travel together so a client cannot hold one without the other.
+	Quote AccountShopQuote `json:"quote"`
+
+	// StarQuantity Telegram Stars only.
+	StarQuantity *int `json:"starQuantity,omitempty"`
+}
+
+// AccountShopProductDetailKind defines model for AccountShopProductDetail.Kind.
+type AccountShopProductDetailKind string
+
+// AccountShopProductList defines model for AccountShopProductList.
+type AccountShopProductList struct {
+	Items []AccountShopProduct `json:"items"`
+}
+
+// AccountShopQuote A price and the moment it stops applying. The two travel together so a client cannot hold one without the other.
+type AccountShopQuote struct {
+	Currency   string    `json:"currency"`
+	ExpiresAt  time.Time `json:"expiresAt"`
+	PriceMinor int64     `json:"priceMinor"`
+}
+
 // AccountSignIn defines model for AccountSignIn.
 type AccountSignIn struct {
 	Customer  AccountCustomer `json:"customer"`
@@ -2507,6 +4108,20 @@ type AccountSignInMethods struct {
 	Telegram bool `json:"telegram"`
 }
 
+// AccountSquadOffer defines model for AccountSquadOffer.
+type AccountSquadOffer struct {
+	Configurable bool `json:"configurable"`
+	Maximum      *int `json:"maximum,omitempty"`
+	Minimum      int  `json:"minimum"`
+	Offered      []struct {
+		Label   string             `json:"label"`
+		SquadId openapi_types.UUID `json:"squadId"`
+	} `json:"offered"`
+
+	// Selection Whether squads are assigned automatically or chosen by the customer.
+	Selection string `json:"selection"`
+}
+
 // AccountSubscription defines model for AccountSubscription.
 type AccountSubscription struct {
 	DaysLeft int                `json:"daysLeft"`
@@ -2527,6 +4142,39 @@ type AccountSubscription struct {
 // AccountSubscriptionPhase defines model for AccountSubscription.Phase.
 type AccountSubscriptionPhase string
 
+// AccountSupportLimits defines model for AccountSupportLimits.
+type AccountSupportLimits struct {
+	AllowedMediaTypes  []string `json:"allowedMediaTypes"`
+	MaxAttachmentBytes int64    `json:"maxAttachmentBytes"`
+	MaxMessageLength   int      `json:"maxMessageLength"`
+	MaxOpenTickets     int      `json:"maxOpenTickets"`
+	MaxSubjectLength   int      `json:"maxSubjectLength"`
+}
+
+// AccountTicket defines model for AccountTicket.
+type AccountTicket struct {
+	CanReply           bool                `json:"canReply"`
+	CreatedAt          time.Time           `json:"createdAt"`
+	Id                 openapi_types.UUID  `json:"id"`
+	MergedIntoTicketId *openapi_types.UUID `json:"mergedIntoTicketId,omitempty"`
+
+	// Open Counts against the open-conversation quota.
+	Open        bool                `json:"open"`
+	Status      AccountTicketStatus `json:"status"`
+	Subject     string              `json:"subject"`
+	UnreadCount int                 `json:"unreadCount"`
+	UpdatedAt   time.Time           `json:"updatedAt"`
+}
+
+// AccountTicketStatus defines model for AccountTicket.Status.
+type AccountTicketStatus string
+
+// AccountTicketPage defines model for AccountTicketPage.
+type AccountTicketPage struct {
+	Items      []AccountTicket `json:"items"`
+	NextCursor *string         `json:"nextCursor,omitempty"`
+}
+
 // AccountTraffic defines model for AccountTraffic.
 type AccountTraffic struct {
 	LimitBytes *int64 `json:"limitBytes,omitempty"`
@@ -2535,6 +4183,38 @@ type AccountTraffic struct {
 	Percent   int   `json:"percent"`
 	Unlimited bool  `json:"unlimited"`
 	UsedBytes int64 `json:"usedBytes"`
+}
+
+// AccountWallet defines model for AccountWallet.
+type AccountWallet struct {
+	// Balances One entry per currency. Currencies are isolated; a balance in one never funds an order in another.
+	Balances []struct {
+		AvailableMinor int64  `json:"availableMinor"`
+		Currency       string `json:"currency"`
+		ReservedMinor  int64  `json:"reservedMinor"`
+		TotalMinor     int64  `json:"totalMinor"`
+	} `json:"balances"`
+	Currency string `json:"currency"`
+	Entries  []struct {
+		AmountMinor int64              `json:"amountMinor"`
+		Currency    string             `json:"currency"`
+		Id          openapi_types.UUID `json:"id"`
+		OccurredAt  time.Time          `json:"occurredAt"`
+		Reason      *string            `json:"reason,omitempty"`
+		Type        string             `json:"type"`
+	} `json:"entries"`
+	NextCursor   *string             `json:"nextCursor,omitempty"`
+	NextCursorId *openapi_types.UUID `json:"nextCursorId,omitempty"`
+	TopUp        struct {
+		Enabled      bool                   `json:"enabled"`
+		MaximumMinor int64                  `json:"maximumMinor"`
+		MinimumMinor int64                  `json:"minimumMinor"`
+		Presets      []int64                `json:"presets"`
+		Providers    []AccountPaymentChoice `json:"providers"`
+
+		// RemainingWindowMinor What the rolling-window limit still allows.
+		RemainingWindowMinor *int64 `json:"remainingWindowMinor,omitempty"`
+	} `json:"topUp"`
 }
 
 // AdminAccount defines model for AdminAccount.
@@ -4420,8 +6100,14 @@ type WebhookEventList struct {
 	Items []WebhookEvent `json:"items"`
 }
 
+// AccountProductID defines model for AccountProductID.
+type AccountProductID = openapi_types.UUID
+
 // AccountSubscriptionID defines model for AccountSubscriptionID.
 type AccountSubscriptionID = openapi_types.UUID
+
+// AccountTicketID defines model for AccountTicketID.
+type AccountTicketID = openapi_types.UUID
 
 // AdminID defines model for AdminID.
 type AdminID = openapi_types.UUID
@@ -4440,6 +6126,9 @@ type EntitlementID = openapi_types.UUID
 
 // IdempotencyKey defines model for IdempotencyKey.
 type IdempotencyKey = string
+
+// IdempotencyKeyOptional defines model for IdempotencyKeyOptional.
+type IdempotencyKeyOptional = string
 
 // ImportID defines model for ImportID.
 type ImportID = openapi_types.UUID
@@ -4513,8 +6202,168 @@ type AccountSignInWithMiniAppJSONBody struct {
 	InitData string `json:"initData"`
 }
 
+// CancelAccountCheckoutParams defines parameters for CancelAccountCheckout.
+type CancelAccountCheckoutParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// GetAccountCheckoutParams defines parameters for GetAccountCheckout.
+type GetAccountCheckoutParams struct {
+	Locale *GetAccountCheckoutParamsLocale `form:"locale,omitempty" json:"locale,omitempty"`
+}
+
+// GetAccountCheckoutParamsLocale defines parameters for GetAccountCheckout.
+type GetAccountCheckoutParamsLocale string
+
+// UpdateAccountCheckoutJSONBody defines parameters for UpdateAccountCheckout.
+type UpdateAccountCheckoutJSONBody struct {
+	ApplyWallet    *bool                 `json:"applyWallet,omitempty"`
+	Currency       *string               `json:"currency,omitempty"`
+	Provider       *string               `json:"provider,omitempty"`
+	SquadIds       *[]openapi_types.UUID `json:"squadIds,omitempty"`
+	SubscriptionId *string               `json:"subscriptionId,omitempty"`
+}
+
+// UpdateAccountCheckoutParams defines parameters for UpdateAccountCheckout.
+type UpdateAccountCheckoutParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// OpenAccountCheckoutJSONBody defines parameters for OpenAccountCheckout.
+type OpenAccountCheckoutJSONBody struct {
+	NewSubscription *bool                                `json:"newSubscription,omitempty"`
+	Operation       OpenAccountCheckoutJSONBodyOperation `json:"operation"`
+	PlanVersionId   openapi_types.UUID                   `json:"planVersionId"`
+
+	// SubscriptionId Required for renew, upgrade, and downgrade when concurrent subscriptions are enabled.
+	SubscriptionId *openapi_types.UUID `json:"subscriptionId,omitempty"`
+}
+
+// OpenAccountCheckoutParams defines parameters for OpenAccountCheckout.
+type OpenAccountCheckoutParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// OpenAccountCheckoutJSONBodyOperation defines parameters for OpenAccountCheckout.
+type OpenAccountCheckoutJSONBodyOperation string
+
+// ToggleAccountCheckoutAddonParams defines parameters for ToggleAccountCheckoutAddon.
+type ToggleAccountCheckoutAddonParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// ConfirmAccountCheckoutParams defines parameters for ConfirmAccountCheckout.
+type ConfirmAccountCheckoutParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// RemoveAccountPromoCodeParams defines parameters for RemoveAccountPromoCode.
+type RemoveAccountPromoCodeParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// ApplyAccountPromoCodeJSONBody defines parameters for ApplyAccountPromoCode.
+type ApplyAccountPromoCodeJSONBody struct {
+	Code string `json:"code"`
+}
+
+// ApplyAccountPromoCodeParams defines parameters for ApplyAccountPromoCode.
+type ApplyAccountPromoCodeParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// AddAccountContactJSONBody defines parameters for AddAccountContact.
+type AddAccountContactJSONBody struct {
+	Kind          AddAccountContactJSONBodyKind `json:"kind"`
+	Marketing     *bool                         `json:"marketing,omitempty"`
+	Transactional *bool                         `json:"transactional,omitempty"`
+	Value         string                        `json:"value"`
+}
+
+// AddAccountContactParams defines parameters for AddAccountContact.
+type AddAccountContactParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// AddAccountContactJSONBodyKind defines parameters for AddAccountContact.
+type AddAccountContactJSONBodyKind string
+
+// RemoveAccountContactParams defines parameters for RemoveAccountContact.
+type RemoveAccountContactParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // UpdateAccountProfileParams defines parameters for UpdateAccountProfile.
 type UpdateAccountProfileParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// ListAccountNewsParams defines parameters for ListAccountNews.
+type ListAccountNewsParams struct {
+	Locale *ListAccountNewsParamsLocale `form:"locale,omitempty" json:"locale,omitempty"`
+	Cursor *Cursor                      `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int                         `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListAccountNewsParamsLocale defines parameters for ListAccountNews.
+type ListAccountNewsParamsLocale string
+
+// MarkAccountNewsReadParams defines parameters for MarkAccountNewsRead.
+type MarkAccountNewsReadParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// ListAccountOrdersParams defines parameters for ListAccountOrders.
+type ListAccountOrdersParams struct {
+	Cursor   *Cursor                        `form:"cursor,omitempty" json:"cursor,omitempty"`
+	CursorId *openapi_types.UUID            `form:"cursorId,omitempty" json:"cursorId,omitempty"`
+	Limit    *int                           `form:"limit,omitempty" json:"limit,omitempty"`
+	Locale   *ListAccountOrdersParamsLocale `form:"locale,omitempty" json:"locale,omitempty"`
+}
+
+// ListAccountOrdersParamsLocale defines parameters for ListAccountOrders.
+type ListAccountOrdersParamsLocale string
+
+// GetAccountOrderParams defines parameters for GetAccountOrder.
+type GetAccountOrderParams struct {
+	Locale *GetAccountOrderParamsLocale `form:"locale,omitempty" json:"locale,omitempty"`
+}
+
+// GetAccountOrderParamsLocale defines parameters for GetAccountOrder.
+type GetAccountOrderParamsLocale string
+
+// CancelAccountOrderParams defines parameters for CancelAccountOrder.
+type CancelAccountOrderParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// StartAccountOrderPaymentJSONBody defines parameters for StartAccountOrderPayment.
+type StartAccountOrderPaymentJSONBody struct {
+	Provider *string `json:"provider,omitempty"`
+}
+
+// StartAccountOrderPaymentParams defines parameters for StartAccountOrderPayment.
+type StartAccountOrderPaymentParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// RefreshAccountOrderParams defines parameters for RefreshAccountOrder.
+type RefreshAccountOrderParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
@@ -4527,6 +6376,67 @@ type GetAccountOverviewParams struct {
 // GetAccountOverviewParamsLocale defines parameters for GetAccountOverview.
 type GetAccountOverviewParamsLocale string
 
+// ListAccountPlansParams defines parameters for ListAccountPlans.
+type ListAccountPlansParams struct {
+	Locale *ListAccountPlansParamsLocale `form:"locale,omitempty" json:"locale,omitempty"`
+}
+
+// ListAccountPlansParamsLocale defines parameters for ListAccountPlans.
+type ListAccountPlansParamsLocale string
+
+// GetAccountPlanParams defines parameters for GetAccountPlan.
+type GetAccountPlanParams struct {
+	Locale *GetAccountPlanParamsLocale `form:"locale,omitempty" json:"locale,omitempty"`
+}
+
+// GetAccountPlanParamsLocale defines parameters for GetAccountPlan.
+type GetAccountPlanParamsLocale string
+
+// UpdateAccountPreferencesParams defines parameters for UpdateAccountPreferences.
+type UpdateAccountPreferencesParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// UnsubscribeAccountParams defines parameters for UnsubscribeAccount.
+type UnsubscribeAccountParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// CancelAccountDeletionParams defines parameters for CancelAccountDeletion.
+type CancelAccountDeletionParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// RequestAccountDeletionJSONBody defines parameters for RequestAccountDeletion.
+type RequestAccountDeletionJSONBody struct {
+	Confirm RequestAccountDeletionJSONBodyConfirm `json:"confirm"`
+	Reason  string                                `json:"reason"`
+}
+
+// RequestAccountDeletionParams defines parameters for RequestAccountDeletion.
+type RequestAccountDeletionParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// RequestAccountDeletionJSONBodyConfirm defines parameters for RequestAccountDeletion.
+type RequestAccountDeletionJSONBodyConfirm bool
+
+// ExportAccountPersonalDataParams defines parameters for ExportAccountPersonalData.
+type ExportAccountPersonalDataParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// GetAccountReferralsParams defines parameters for GetAccountReferrals.
+type GetAccountReferralsParams struct {
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // ListAccountSecurityEventsParams defines parameters for ListAccountSecurityEvents.
 type ListAccountSecurityEventsParams struct {
 	Cursor   *time.Time          `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -4535,6 +6445,78 @@ type ListAccountSecurityEventsParams struct {
 
 // RevokeAccountSessionParams defines parameters for RevokeAccountSession.
 type RevokeAccountSessionParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// ListAccountShopOrdersParams defines parameters for ListAccountShopOrders.
+type ListAccountShopOrdersParams struct {
+	Cursor   *Cursor                            `form:"cursor,omitempty" json:"cursor,omitempty"`
+	CursorId *openapi_types.UUID                `form:"cursorId,omitempty" json:"cursorId,omitempty"`
+	Limit    *int                               `form:"limit,omitempty" json:"limit,omitempty"`
+	Locale   *ListAccountShopOrdersParamsLocale `form:"locale,omitempty" json:"locale,omitempty"`
+}
+
+// ListAccountShopOrdersParamsLocale defines parameters for ListAccountShopOrders.
+type ListAccountShopOrdersParamsLocale string
+
+// GetAccountShopOrderParams defines parameters for GetAccountShopOrder.
+type GetAccountShopOrderParams struct {
+	Locale *GetAccountShopOrderParamsLocale `form:"locale,omitempty" json:"locale,omitempty"`
+}
+
+// GetAccountShopOrderParamsLocale defines parameters for GetAccountShopOrder.
+type GetAccountShopOrderParamsLocale string
+
+// ListAccountShopProductsParams defines parameters for ListAccountShopProducts.
+type ListAccountShopProductsParams struct {
+	Locale *ListAccountShopProductsParamsLocale `form:"locale,omitempty" json:"locale,omitempty"`
+}
+
+// ListAccountShopProductsParamsLocale defines parameters for ListAccountShopProducts.
+type ListAccountShopProductsParamsLocale string
+
+// GetAccountShopProductParams defines parameters for GetAccountShopProduct.
+type GetAccountShopProductParams struct {
+	Locale    *GetAccountShopProductParamsLocale `form:"locale,omitempty" json:"locale,omitempty"`
+	Quantity  *int                               `form:"quantity,omitempty" json:"quantity,omitempty"`
+	PromoCode *string                            `form:"promoCode,omitempty" json:"promoCode,omitempty"`
+}
+
+// GetAccountShopProductParamsLocale defines parameters for GetAccountShopProduct.
+type GetAccountShopProductParamsLocale string
+
+// PurchaseAccountShopProductJSONBody defines parameters for PurchaseAccountShopProduct.
+type PurchaseAccountShopProductJSONBody struct {
+	// ForSelf Presentation only. Omniflow stores no Telegram username for a web customer, so this never decides delivery or authorisation.
+	ForSelf   *bool              `json:"forSelf,omitempty"`
+	ProductId openapi_types.UUID `json:"productId"`
+	PromoCode *string            `json:"promoCode,omitempty"`
+	Quantity  int                `json:"quantity"`
+
+	// Quote A price and the moment it stops applying. The two travel together so a client cannot hold one without the other.
+	Quote     AccountShopQuote `json:"quote"`
+	Recipient string           `json:"recipient"`
+
+	// UseWallet Stated explicitly, so a balance is never spent by omission.
+	UseWallet *bool `json:"useWallet,omitempty"`
+}
+
+// PurchaseAccountShopProductParams defines parameters for PurchaseAccountShopProduct.
+type PurchaseAccountShopProductParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// ReviewAccountShopRecipientJSONBody defines parameters for ReviewAccountShopRecipient.
+type ReviewAccountShopRecipientJSONBody struct {
+	ProductId *openapi_types.UUID `json:"productId,omitempty"`
+	Recipient string              `json:"recipient"`
+}
+
+// ReviewAccountShopRecipientParams defines parameters for ReviewAccountShopRecipient.
+type ReviewAccountShopRecipientParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
@@ -4598,6 +6580,93 @@ type RotateAccountSubscriptionLinkJSONBody struct {
 type RotateAccountSubscriptionLinkParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// ListAccountSupportTicketsParams defines parameters for ListAccountSupportTickets.
+type ListAccountSupportTicketsParams struct {
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// CreateAccountSupportTicketJSONBody defines parameters for CreateAccountSupportTicket.
+type CreateAccountSupportTicketJSONBody struct {
+	Message string `json:"message"`
+	Subject string `json:"subject"`
+}
+
+// CreateAccountSupportTicketParams defines parameters for CreateAccountSupportTicket.
+type CreateAccountSupportTicketParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+
+	// IdempotencyKey Optional here. Supplying one makes a repeated submission resolve to the record already created instead of a second one.
+	IdempotencyKey *IdempotencyKeyOptional `json:"Idempotency-Key,omitempty"`
+}
+
+// AttachToAccountSupportTicketMultipartBody defines parameters for AttachToAccountSupportTicket.
+type AttachToAccountSupportTicketMultipartBody struct {
+	File    openapi_types.File `json:"file"`
+	Message *string            `json:"message,omitempty"`
+}
+
+// AttachToAccountSupportTicketParams defines parameters for AttachToAccountSupportTicket.
+type AttachToAccountSupportTicketParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// CloseAccountSupportTicketParams defines parameters for CloseAccountSupportTicket.
+type CloseAccountSupportTicketParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// ReplyToAccountSupportTicketJSONBody defines parameters for ReplyToAccountSupportTicket.
+type ReplyToAccountSupportTicketJSONBody struct {
+	Message string `json:"message"`
+}
+
+// ReplyToAccountSupportTicketParams defines parameters for ReplyToAccountSupportTicket.
+type ReplyToAccountSupportTicketParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+
+	// IdempotencyKey Optional here. Supplying one makes a repeated submission resolve to the record already created instead of a second one.
+	IdempotencyKey *IdempotencyKeyOptional `json:"Idempotency-Key,omitempty"`
+}
+
+// MarkAccountSupportTicketReadParams defines parameters for MarkAccountSupportTicketRead.
+type MarkAccountSupportTicketReadParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// ReopenAccountSupportTicketParams defines parameters for ReopenAccountSupportTicket.
+type ReopenAccountSupportTicketParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// GetAccountWalletParams defines parameters for GetAccountWallet.
+type GetAccountWalletParams struct {
+	Currency *string             `form:"currency,omitempty" json:"currency,omitempty"`
+	Cursor   *Cursor             `form:"cursor,omitempty" json:"cursor,omitempty"`
+	CursorId *openapi_types.UUID `form:"cursorId,omitempty" json:"cursorId,omitempty"`
+	Limit    *int                `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// StartAccountTopUpJSONBody defines parameters for StartAccountTopUp.
+type StartAccountTopUpJSONBody struct {
+	AmountMinor int64   `json:"amountMinor"`
+	Currency    *string `json:"currency,omitempty"`
+	Provider    *string `json:"provider,omitempty"`
+}
+
+// StartAccountTopUpParams defines parameters for StartAccountTopUp.
+type StartAccountTopUpParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
 // ListBackupsParams defines parameters for ListBackups.
@@ -5320,14 +7389,53 @@ type AccountSignInWithTelegramJSONRequestBody AccountSignInWithTelegramJSONBody
 // AccountSignInWithMiniAppJSONRequestBody defines body for AccountSignInWithMiniApp for application/json ContentType.
 type AccountSignInWithMiniAppJSONRequestBody AccountSignInWithMiniAppJSONBody
 
+// UpdateAccountCheckoutJSONRequestBody defines body for UpdateAccountCheckout for application/json ContentType.
+type UpdateAccountCheckoutJSONRequestBody UpdateAccountCheckoutJSONBody
+
+// OpenAccountCheckoutJSONRequestBody defines body for OpenAccountCheckout for application/json ContentType.
+type OpenAccountCheckoutJSONRequestBody OpenAccountCheckoutJSONBody
+
+// ApplyAccountPromoCodeJSONRequestBody defines body for ApplyAccountPromoCode for application/json ContentType.
+type ApplyAccountPromoCodeJSONRequestBody ApplyAccountPromoCodeJSONBody
+
+// AddAccountContactJSONRequestBody defines body for AddAccountContact for application/json ContentType.
+type AddAccountContactJSONRequestBody AddAccountContactJSONBody
+
 // UpdateAccountProfileJSONRequestBody defines body for UpdateAccountProfile for application/json ContentType.
 type UpdateAccountProfileJSONRequestBody = AccountProfileInput
+
+// StartAccountOrderPaymentJSONRequestBody defines body for StartAccountOrderPayment for application/json ContentType.
+type StartAccountOrderPaymentJSONRequestBody StartAccountOrderPaymentJSONBody
+
+// UpdateAccountPreferencesJSONRequestBody defines body for UpdateAccountPreferences for application/json ContentType.
+type UpdateAccountPreferencesJSONRequestBody = AccountPreferencesUpdate
+
+// RequestAccountDeletionJSONRequestBody defines body for RequestAccountDeletion for application/json ContentType.
+type RequestAccountDeletionJSONRequestBody RequestAccountDeletionJSONBody
+
+// PurchaseAccountShopProductJSONRequestBody defines body for PurchaseAccountShopProduct for application/json ContentType.
+type PurchaseAccountShopProductJSONRequestBody PurchaseAccountShopProductJSONBody
+
+// ReviewAccountShopRecipientJSONRequestBody defines body for ReviewAccountShopRecipient for application/json ContentType.
+type ReviewAccountShopRecipientJSONRequestBody ReviewAccountShopRecipientJSONBody
 
 // RenameAccountSubscriptionJSONRequestBody defines body for RenameAccountSubscription for application/json ContentType.
 type RenameAccountSubscriptionJSONRequestBody RenameAccountSubscriptionJSONBody
 
 // RotateAccountSubscriptionLinkJSONRequestBody defines body for RotateAccountSubscriptionLink for application/json ContentType.
 type RotateAccountSubscriptionLinkJSONRequestBody RotateAccountSubscriptionLinkJSONBody
+
+// CreateAccountSupportTicketJSONRequestBody defines body for CreateAccountSupportTicket for application/json ContentType.
+type CreateAccountSupportTicketJSONRequestBody CreateAccountSupportTicketJSONBody
+
+// AttachToAccountSupportTicketMultipartRequestBody defines body for AttachToAccountSupportTicket for multipart/form-data ContentType.
+type AttachToAccountSupportTicketMultipartRequestBody AttachToAccountSupportTicketMultipartBody
+
+// ReplyToAccountSupportTicketJSONRequestBody defines body for ReplyToAccountSupportTicket for application/json ContentType.
+type ReplyToAccountSupportTicketJSONRequestBody ReplyToAccountSupportTicketJSONBody
+
+// StartAccountTopUpJSONRequestBody defines body for StartAccountTopUp for application/json ContentType.
+type StartAccountTopUpJSONRequestBody StartAccountTopUpJSONBody
 
 // UpdateCustomerJSONRequestBody defines body for UpdateCustomer for application/json ContentType.
 type UpdateCustomerJSONRequestBody = CustomerPreferences
@@ -5536,14 +7644,101 @@ type ServerInterface interface {
 	// (POST /v1/account/auth/telegram/miniapp)
 	AccountSignInWithMiniApp(w http.ResponseWriter, r *http.Request)
 
+	// (DELETE /v1/account/checkout)
+	CancelAccountCheckout(w http.ResponseWriter, r *http.Request, params CancelAccountCheckoutParams)
+
+	// (GET /v1/account/checkout)
+	GetAccountCheckout(w http.ResponseWriter, r *http.Request, params GetAccountCheckoutParams)
+
+	// (PATCH /v1/account/checkout)
+	UpdateAccountCheckout(w http.ResponseWriter, r *http.Request, params UpdateAccountCheckoutParams)
+
+	// (POST /v1/account/checkout)
+	OpenAccountCheckout(w http.ResponseWriter, r *http.Request, params OpenAccountCheckoutParams)
+
+	// (POST /v1/account/checkout/addons/{addonVersionID})
+	ToggleAccountCheckoutAddon(w http.ResponseWriter, r *http.Request, addonVersionID openapi_types.UUID, params ToggleAccountCheckoutAddonParams)
+
+	// (POST /v1/account/checkout/confirm)
+	ConfirmAccountCheckout(w http.ResponseWriter, r *http.Request, params ConfirmAccountCheckoutParams)
+
+	// (DELETE /v1/account/checkout/promo)
+	RemoveAccountPromoCode(w http.ResponseWriter, r *http.Request, params RemoveAccountPromoCodeParams)
+
+	// (POST /v1/account/checkout/promo)
+	ApplyAccountPromoCode(w http.ResponseWriter, r *http.Request, params ApplyAccountPromoCodeParams)
+
+	// (GET /v1/account/contacts)
+	ListAccountContacts(w http.ResponseWriter, r *http.Request)
+
+	// (POST /v1/account/contacts)
+	AddAccountContact(w http.ResponseWriter, r *http.Request, params AddAccountContactParams)
+
+	// (DELETE /v1/account/contacts/{contactID})
+	RemoveAccountContact(w http.ResponseWriter, r *http.Request, contactID openapi_types.UUID, params RemoveAccountContactParams)
+
+	// (GET /v1/account/loyalty)
+	GetAccountLoyalty(w http.ResponseWriter, r *http.Request)
+
 	// (GET /v1/account/me)
 	GetAccountSession(w http.ResponseWriter, r *http.Request)
 
 	// (PATCH /v1/account/me)
 	UpdateAccountProfile(w http.ResponseWriter, r *http.Request, params UpdateAccountProfileParams)
 
+	// (GET /v1/account/news)
+	ListAccountNews(w http.ResponseWriter, r *http.Request, params ListAccountNewsParams)
+
+	// (POST /v1/account/news/{postID}/read)
+	MarkAccountNewsRead(w http.ResponseWriter, r *http.Request, postID openapi_types.UUID, params MarkAccountNewsReadParams)
+
+	// (GET /v1/account/orders)
+	ListAccountOrders(w http.ResponseWriter, r *http.Request, params ListAccountOrdersParams)
+
+	// (GET /v1/account/orders/{orderID})
+	GetAccountOrder(w http.ResponseWriter, r *http.Request, orderID OrderID, params GetAccountOrderParams)
+
+	// (POST /v1/account/orders/{orderID}/cancel)
+	CancelAccountOrder(w http.ResponseWriter, r *http.Request, orderID OrderID, params CancelAccountOrderParams)
+
+	// (POST /v1/account/orders/{orderID}/payment)
+	StartAccountOrderPayment(w http.ResponseWriter, r *http.Request, orderID OrderID, params StartAccountOrderPaymentParams)
+
+	// (POST /v1/account/orders/{orderID}/refresh)
+	RefreshAccountOrder(w http.ResponseWriter, r *http.Request, orderID OrderID, params RefreshAccountOrderParams)
+
 	// (GET /v1/account/overview)
 	GetAccountOverview(w http.ResponseWriter, r *http.Request, params GetAccountOverviewParams)
+
+	// (GET /v1/account/plans)
+	ListAccountPlans(w http.ResponseWriter, r *http.Request, params ListAccountPlansParams)
+
+	// (GET /v1/account/plans/{planVersionID})
+	GetAccountPlan(w http.ResponseWriter, r *http.Request, planVersionID openapi_types.UUID, params GetAccountPlanParams)
+
+	// (GET /v1/account/preferences)
+	GetAccountPreferences(w http.ResponseWriter, r *http.Request)
+
+	// (PATCH /v1/account/preferences)
+	UpdateAccountPreferences(w http.ResponseWriter, r *http.Request, params UpdateAccountPreferencesParams)
+
+	// (POST /v1/account/preferences/unsubscribe)
+	UnsubscribeAccount(w http.ResponseWriter, r *http.Request, params UnsubscribeAccountParams)
+
+	// (GET /v1/account/privacy)
+	GetAccountPrivacy(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /v1/account/privacy/deletion)
+	CancelAccountDeletion(w http.ResponseWriter, r *http.Request, params CancelAccountDeletionParams)
+
+	// (POST /v1/account/privacy/deletion)
+	RequestAccountDeletion(w http.ResponseWriter, r *http.Request, params RequestAccountDeletionParams)
+
+	// (POST /v1/account/privacy/export)
+	ExportAccountPersonalData(w http.ResponseWriter, r *http.Request, params ExportAccountPersonalDataParams)
+
+	// (GET /v1/account/referrals)
+	GetAccountReferrals(w http.ResponseWriter, r *http.Request, params GetAccountReferralsParams)
 
 	// (GET /v1/account/security-events)
 	ListAccountSecurityEvents(w http.ResponseWriter, r *http.Request, params ListAccountSecurityEventsParams)
@@ -5553,6 +7748,24 @@ type ServerInterface interface {
 
 	// (DELETE /v1/account/sessions/{sessionID})
 	RevokeAccountSession(w http.ResponseWriter, r *http.Request, sessionID openapi_types.UUID, params RevokeAccountSessionParams)
+
+	// (GET /v1/account/shop/orders)
+	ListAccountShopOrders(w http.ResponseWriter, r *http.Request, params ListAccountShopOrdersParams)
+
+	// (GET /v1/account/shop/orders/{orderID})
+	GetAccountShopOrder(w http.ResponseWriter, r *http.Request, orderID OrderID, params GetAccountShopOrderParams)
+
+	// (GET /v1/account/shop/products)
+	ListAccountShopProducts(w http.ResponseWriter, r *http.Request, params ListAccountShopProductsParams)
+
+	// (GET /v1/account/shop/products/{productID})
+	GetAccountShopProduct(w http.ResponseWriter, r *http.Request, productID AccountProductID, params GetAccountShopProductParams)
+
+	// (POST /v1/account/shop/purchase)
+	PurchaseAccountShopProduct(w http.ResponseWriter, r *http.Request, params PurchaseAccountShopProductParams)
+
+	// (POST /v1/account/shop/recipient)
+	ReviewAccountShopRecipient(w http.ResponseWriter, r *http.Request, params ReviewAccountShopRecipientParams)
 
 	// (GET /v1/account/sign-in-methods)
 	ListAccountLinkedMethods(w http.ResponseWriter, r *http.Request)
@@ -5583,6 +7796,42 @@ type ServerInterface interface {
 
 	// (POST /v1/account/subscriptions/{subscriptionID}/rotate-link)
 	RotateAccountSubscriptionLink(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params RotateAccountSubscriptionLinkParams)
+
+	// (GET /v1/account/support/attachments/{attachmentID})
+	DownloadAccountSupportAttachment(w http.ResponseWriter, r *http.Request, attachmentID openapi_types.UUID)
+
+	// (GET /v1/account/support/limits)
+	GetAccountSupportLimits(w http.ResponseWriter, r *http.Request)
+
+	// (GET /v1/account/support/tickets)
+	ListAccountSupportTickets(w http.ResponseWriter, r *http.Request, params ListAccountSupportTicketsParams)
+
+	// (POST /v1/account/support/tickets)
+	CreateAccountSupportTicket(w http.ResponseWriter, r *http.Request, params CreateAccountSupportTicketParams)
+
+	// (GET /v1/account/support/tickets/{ticketID})
+	GetAccountSupportTicket(w http.ResponseWriter, r *http.Request, ticketID AccountTicketID)
+
+	// (POST /v1/account/support/tickets/{ticketID}/attachments)
+	AttachToAccountSupportTicket(w http.ResponseWriter, r *http.Request, ticketID AccountTicketID, params AttachToAccountSupportTicketParams)
+
+	// (POST /v1/account/support/tickets/{ticketID}/close)
+	CloseAccountSupportTicket(w http.ResponseWriter, r *http.Request, ticketID AccountTicketID, params CloseAccountSupportTicketParams)
+
+	// (POST /v1/account/support/tickets/{ticketID}/messages)
+	ReplyToAccountSupportTicket(w http.ResponseWriter, r *http.Request, ticketID AccountTicketID, params ReplyToAccountSupportTicketParams)
+
+	// (POST /v1/account/support/tickets/{ticketID}/read)
+	MarkAccountSupportTicketRead(w http.ResponseWriter, r *http.Request, ticketID AccountTicketID, params MarkAccountSupportTicketReadParams)
+
+	// (POST /v1/account/support/tickets/{ticketID}/reopen)
+	ReopenAccountSupportTicket(w http.ResponseWriter, r *http.Request, ticketID AccountTicketID, params ReopenAccountSupportTicketParams)
+
+	// (GET /v1/account/wallet)
+	GetAccountWallet(w http.ResponseWriter, r *http.Request, params GetAccountWalletParams)
+
+	// (POST /v1/account/wallet/top-up)
+	StartAccountTopUp(w http.ResponseWriter, r *http.Request, params StartAccountTopUpParams)
 
 	// (GET /v1/admin/backups)
 	ListBackups(w http.ResponseWriter, r *http.Request, params ListBackupsParams)
@@ -6087,6 +8336,66 @@ func (_ Unimplemented) AccountSignInWithMiniApp(w http.ResponseWriter, r *http.R
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (DELETE /v1/account/checkout)
+func (_ Unimplemented) CancelAccountCheckout(w http.ResponseWriter, r *http.Request, params CancelAccountCheckoutParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/checkout)
+func (_ Unimplemented) GetAccountCheckout(w http.ResponseWriter, r *http.Request, params GetAccountCheckoutParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /v1/account/checkout)
+func (_ Unimplemented) UpdateAccountCheckout(w http.ResponseWriter, r *http.Request, params UpdateAccountCheckoutParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/checkout)
+func (_ Unimplemented) OpenAccountCheckout(w http.ResponseWriter, r *http.Request, params OpenAccountCheckoutParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/checkout/addons/{addonVersionID})
+func (_ Unimplemented) ToggleAccountCheckoutAddon(w http.ResponseWriter, r *http.Request, addonVersionID openapi_types.UUID, params ToggleAccountCheckoutAddonParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/checkout/confirm)
+func (_ Unimplemented) ConfirmAccountCheckout(w http.ResponseWriter, r *http.Request, params ConfirmAccountCheckoutParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /v1/account/checkout/promo)
+func (_ Unimplemented) RemoveAccountPromoCode(w http.ResponseWriter, r *http.Request, params RemoveAccountPromoCodeParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/checkout/promo)
+func (_ Unimplemented) ApplyAccountPromoCode(w http.ResponseWriter, r *http.Request, params ApplyAccountPromoCodeParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/contacts)
+func (_ Unimplemented) ListAccountContacts(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/contacts)
+func (_ Unimplemented) AddAccountContact(w http.ResponseWriter, r *http.Request, params AddAccountContactParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /v1/account/contacts/{contactID})
+func (_ Unimplemented) RemoveAccountContact(w http.ResponseWriter, r *http.Request, contactID openapi_types.UUID, params RemoveAccountContactParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/loyalty)
+func (_ Unimplemented) GetAccountLoyalty(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /v1/account/me)
 func (_ Unimplemented) GetAccountSession(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -6097,8 +8406,93 @@ func (_ Unimplemented) UpdateAccountProfile(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /v1/account/news)
+func (_ Unimplemented) ListAccountNews(w http.ResponseWriter, r *http.Request, params ListAccountNewsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/news/{postID}/read)
+func (_ Unimplemented) MarkAccountNewsRead(w http.ResponseWriter, r *http.Request, postID openapi_types.UUID, params MarkAccountNewsReadParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/orders)
+func (_ Unimplemented) ListAccountOrders(w http.ResponseWriter, r *http.Request, params ListAccountOrdersParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/orders/{orderID})
+func (_ Unimplemented) GetAccountOrder(w http.ResponseWriter, r *http.Request, orderID OrderID, params GetAccountOrderParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/orders/{orderID}/cancel)
+func (_ Unimplemented) CancelAccountOrder(w http.ResponseWriter, r *http.Request, orderID OrderID, params CancelAccountOrderParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/orders/{orderID}/payment)
+func (_ Unimplemented) StartAccountOrderPayment(w http.ResponseWriter, r *http.Request, orderID OrderID, params StartAccountOrderPaymentParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/orders/{orderID}/refresh)
+func (_ Unimplemented) RefreshAccountOrder(w http.ResponseWriter, r *http.Request, orderID OrderID, params RefreshAccountOrderParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /v1/account/overview)
 func (_ Unimplemented) GetAccountOverview(w http.ResponseWriter, r *http.Request, params GetAccountOverviewParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/plans)
+func (_ Unimplemented) ListAccountPlans(w http.ResponseWriter, r *http.Request, params ListAccountPlansParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/plans/{planVersionID})
+func (_ Unimplemented) GetAccountPlan(w http.ResponseWriter, r *http.Request, planVersionID openapi_types.UUID, params GetAccountPlanParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/preferences)
+func (_ Unimplemented) GetAccountPreferences(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /v1/account/preferences)
+func (_ Unimplemented) UpdateAccountPreferences(w http.ResponseWriter, r *http.Request, params UpdateAccountPreferencesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/preferences/unsubscribe)
+func (_ Unimplemented) UnsubscribeAccount(w http.ResponseWriter, r *http.Request, params UnsubscribeAccountParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/privacy)
+func (_ Unimplemented) GetAccountPrivacy(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /v1/account/privacy/deletion)
+func (_ Unimplemented) CancelAccountDeletion(w http.ResponseWriter, r *http.Request, params CancelAccountDeletionParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/privacy/deletion)
+func (_ Unimplemented) RequestAccountDeletion(w http.ResponseWriter, r *http.Request, params RequestAccountDeletionParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/privacy/export)
+func (_ Unimplemented) ExportAccountPersonalData(w http.ResponseWriter, r *http.Request, params ExportAccountPersonalDataParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/referrals)
+func (_ Unimplemented) GetAccountReferrals(w http.ResponseWriter, r *http.Request, params GetAccountReferralsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -6114,6 +8508,36 @@ func (_ Unimplemented) ListAccountSessions(w http.ResponseWriter, r *http.Reques
 
 // (DELETE /v1/account/sessions/{sessionID})
 func (_ Unimplemented) RevokeAccountSession(w http.ResponseWriter, r *http.Request, sessionID openapi_types.UUID, params RevokeAccountSessionParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/shop/orders)
+func (_ Unimplemented) ListAccountShopOrders(w http.ResponseWriter, r *http.Request, params ListAccountShopOrdersParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/shop/orders/{orderID})
+func (_ Unimplemented) GetAccountShopOrder(w http.ResponseWriter, r *http.Request, orderID OrderID, params GetAccountShopOrderParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/shop/products)
+func (_ Unimplemented) ListAccountShopProducts(w http.ResponseWriter, r *http.Request, params ListAccountShopProductsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/shop/products/{productID})
+func (_ Unimplemented) GetAccountShopProduct(w http.ResponseWriter, r *http.Request, productID AccountProductID, params GetAccountShopProductParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/shop/purchase)
+func (_ Unimplemented) PurchaseAccountShopProduct(w http.ResponseWriter, r *http.Request, params PurchaseAccountShopProductParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/shop/recipient)
+func (_ Unimplemented) ReviewAccountShopRecipient(w http.ResponseWriter, r *http.Request, params ReviewAccountShopRecipientParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -6164,6 +8588,66 @@ func (_ Unimplemented) RemoveAccountDevice(w http.ResponseWriter, r *http.Reques
 
 // (POST /v1/account/subscriptions/{subscriptionID}/rotate-link)
 func (_ Unimplemented) RotateAccountSubscriptionLink(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params RotateAccountSubscriptionLinkParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/support/attachments/{attachmentID})
+func (_ Unimplemented) DownloadAccountSupportAttachment(w http.ResponseWriter, r *http.Request, attachmentID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/support/limits)
+func (_ Unimplemented) GetAccountSupportLimits(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/support/tickets)
+func (_ Unimplemented) ListAccountSupportTickets(w http.ResponseWriter, r *http.Request, params ListAccountSupportTicketsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/support/tickets)
+func (_ Unimplemented) CreateAccountSupportTicket(w http.ResponseWriter, r *http.Request, params CreateAccountSupportTicketParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/support/tickets/{ticketID})
+func (_ Unimplemented) GetAccountSupportTicket(w http.ResponseWriter, r *http.Request, ticketID AccountTicketID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/support/tickets/{ticketID}/attachments)
+func (_ Unimplemented) AttachToAccountSupportTicket(w http.ResponseWriter, r *http.Request, ticketID AccountTicketID, params AttachToAccountSupportTicketParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/support/tickets/{ticketID}/close)
+func (_ Unimplemented) CloseAccountSupportTicket(w http.ResponseWriter, r *http.Request, ticketID AccountTicketID, params CloseAccountSupportTicketParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/support/tickets/{ticketID}/messages)
+func (_ Unimplemented) ReplyToAccountSupportTicket(w http.ResponseWriter, r *http.Request, ticketID AccountTicketID, params ReplyToAccountSupportTicketParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/support/tickets/{ticketID}/read)
+func (_ Unimplemented) MarkAccountSupportTicketRead(w http.ResponseWriter, r *http.Request, ticketID AccountTicketID, params MarkAccountSupportTicketReadParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/support/tickets/{ticketID}/reopen)
+func (_ Unimplemented) ReopenAccountSupportTicket(w http.ResponseWriter, r *http.Request, ticketID AccountTicketID, params ReopenAccountSupportTicketParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/wallet)
+func (_ Unimplemented) GetAccountWallet(w http.ResponseWriter, r *http.Request, params GetAccountWalletParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/wallet/top-up)
+func (_ Unimplemented) StartAccountTopUp(w http.ResponseWriter, r *http.Request, params StartAccountTopUpParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -7237,6 +9721,513 @@ func (siw *ServerInterfaceWrapper) AccountSignInWithMiniApp(w http.ResponseWrite
 	handler.ServeHTTP(w, r)
 }
 
+// CancelAccountCheckout operation middleware
+func (siw *ServerInterfaceWrapper) CancelAccountCheckout(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CancelAccountCheckoutParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CancelAccountCheckout(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountCheckout operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountCheckout(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAccountCheckoutParams
+
+	// ------------- Optional query parameter "locale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "locale", r.URL.Query(), &params.Locale, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "locale"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locale", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountCheckout(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateAccountCheckout operation middleware
+func (siw *ServerInterfaceWrapper) UpdateAccountCheckout(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateAccountCheckoutParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateAccountCheckout(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// OpenAccountCheckout operation middleware
+func (siw *ServerInterfaceWrapper) OpenAccountCheckout(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params OpenAccountCheckoutParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.OpenAccountCheckout(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ToggleAccountCheckoutAddon operation middleware
+func (siw *ServerInterfaceWrapper) ToggleAccountCheckoutAddon(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "addonVersionID" -------------
+	var addonVersionID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "addonVersionID", chi.URLParam(r, "addonVersionID"), &addonVersionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "addonVersionID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ToggleAccountCheckoutAddonParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ToggleAccountCheckoutAddon(w, r, addonVersionID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ConfirmAccountCheckout operation middleware
+func (siw *ServerInterfaceWrapper) ConfirmAccountCheckout(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ConfirmAccountCheckoutParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ConfirmAccountCheckout(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemoveAccountPromoCode operation middleware
+func (siw *ServerInterfaceWrapper) RemoveAccountPromoCode(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RemoveAccountPromoCodeParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemoveAccountPromoCode(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApplyAccountPromoCode operation middleware
+func (siw *ServerInterfaceWrapper) ApplyAccountPromoCode(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ApplyAccountPromoCodeParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApplyAccountPromoCode(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAccountContacts operation middleware
+func (siw *ServerInterfaceWrapper) ListAccountContacts(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAccountContacts(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AddAccountContact operation middleware
+func (siw *ServerInterfaceWrapper) AddAccountContact(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AddAccountContactParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddAccountContact(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemoveAccountContact operation middleware
+func (siw *ServerInterfaceWrapper) RemoveAccountContact(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "contactID" -------------
+	var contactID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "contactID", chi.URLParam(r, "contactID"), &contactID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "contactID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RemoveAccountContactParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemoveAccountContact(w, r, contactID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountLoyalty operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountLoyalty(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountLoyalty(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetAccountSession operation middleware
 func (siw *ServerInterfaceWrapper) GetAccountSession(w http.ResponseWriter, r *http.Request) {
 
@@ -7296,6 +10287,418 @@ func (siw *ServerInterfaceWrapper) UpdateAccountProfile(w http.ResponseWriter, r
 	handler.ServeHTTP(w, r)
 }
 
+// ListAccountNews operation middleware
+func (siw *ServerInterfaceWrapper) ListAccountNews(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAccountNewsParams
+
+	// ------------- Optional query parameter "locale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "locale", r.URL.Query(), &params.Locale, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "locale"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locale", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAccountNews(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// MarkAccountNewsRead operation middleware
+func (siw *ServerInterfaceWrapper) MarkAccountNewsRead(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "postID" -------------
+	var postID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "postID", chi.URLParam(r, "postID"), &postID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "postID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params MarkAccountNewsReadParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.MarkAccountNewsRead(w, r, postID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAccountOrders operation middleware
+func (siw *ServerInterfaceWrapper) ListAccountOrders(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAccountOrdersParams
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursorId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursorId", r.URL.Query(), &params.CursorId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursorId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursorId", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "locale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "locale", r.URL.Query(), &params.Locale, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "locale"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locale", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAccountOrders(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountOrder operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountOrder(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "orderID" -------------
+	var orderID OrderID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "orderID", chi.URLParam(r, "orderID"), &orderID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orderID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAccountOrderParams
+
+	// ------------- Optional query parameter "locale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "locale", r.URL.Query(), &params.Locale, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "locale"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locale", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountOrder(w, r, orderID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CancelAccountOrder operation middleware
+func (siw *ServerInterfaceWrapper) CancelAccountOrder(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "orderID" -------------
+	var orderID OrderID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "orderID", chi.URLParam(r, "orderID"), &orderID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orderID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CancelAccountOrderParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CancelAccountOrder(w, r, orderID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartAccountOrderPayment operation middleware
+func (siw *ServerInterfaceWrapper) StartAccountOrderPayment(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "orderID" -------------
+	var orderID OrderID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "orderID", chi.URLParam(r, "orderID"), &orderID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orderID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params StartAccountOrderPaymentParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartAccountOrderPayment(w, r, orderID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RefreshAccountOrder operation middleware
+func (siw *ServerInterfaceWrapper) RefreshAccountOrder(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "orderID" -------------
+	var orderID OrderID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "orderID", chi.URLParam(r, "orderID"), &orderID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orderID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RefreshAccountOrderParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RefreshAccountOrder(w, r, orderID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetAccountOverview operation middleware
 func (siw *ServerInterfaceWrapper) GetAccountOverview(w http.ResponseWriter, r *http.Request) {
 
@@ -7320,6 +10723,380 @@ func (siw *ServerInterfaceWrapper) GetAccountOverview(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAccountOverview(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAccountPlans operation middleware
+func (siw *ServerInterfaceWrapper) ListAccountPlans(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAccountPlansParams
+
+	// ------------- Optional query parameter "locale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "locale", r.URL.Query(), &params.Locale, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "locale"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locale", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAccountPlans(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountPlan operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountPlan(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "planVersionID" -------------
+	var planVersionID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "planVersionID", chi.URLParam(r, "planVersionID"), &planVersionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "planVersionID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAccountPlanParams
+
+	// ------------- Optional query parameter "locale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "locale", r.URL.Query(), &params.Locale, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "locale"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locale", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountPlan(w, r, planVersionID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountPreferences operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountPreferences(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountPreferences(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateAccountPreferences operation middleware
+func (siw *ServerInterfaceWrapper) UpdateAccountPreferences(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateAccountPreferencesParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateAccountPreferences(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UnsubscribeAccount operation middleware
+func (siw *ServerInterfaceWrapper) UnsubscribeAccount(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UnsubscribeAccountParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnsubscribeAccount(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountPrivacy operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountPrivacy(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountPrivacy(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CancelAccountDeletion operation middleware
+func (siw *ServerInterfaceWrapper) CancelAccountDeletion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CancelAccountDeletionParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CancelAccountDeletion(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RequestAccountDeletion operation middleware
+func (siw *ServerInterfaceWrapper) RequestAccountDeletion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RequestAccountDeletionParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RequestAccountDeletion(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ExportAccountPersonalData operation middleware
+func (siw *ServerInterfaceWrapper) ExportAccountPersonalData(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ExportAccountPersonalDataParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ExportAccountPersonalData(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountReferrals operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountReferrals(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAccountReferralsParams
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountReferrals(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7434,6 +11211,334 @@ func (siw *ServerInterfaceWrapper) RevokeAccountSession(w http.ResponseWriter, r
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RevokeAccountSession(w, r, sessionID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAccountShopOrders operation middleware
+func (siw *ServerInterfaceWrapper) ListAccountShopOrders(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAccountShopOrdersParams
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursorId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursorId", r.URL.Query(), &params.CursorId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursorId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursorId", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "locale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "locale", r.URL.Query(), &params.Locale, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "locale"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locale", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAccountShopOrders(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountShopOrder operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountShopOrder(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "orderID" -------------
+	var orderID OrderID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "orderID", chi.URLParam(r, "orderID"), &orderID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orderID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAccountShopOrderParams
+
+	// ------------- Optional query parameter "locale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "locale", r.URL.Query(), &params.Locale, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "locale"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locale", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountShopOrder(w, r, orderID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAccountShopProducts operation middleware
+func (siw *ServerInterfaceWrapper) ListAccountShopProducts(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAccountShopProductsParams
+
+	// ------------- Optional query parameter "locale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "locale", r.URL.Query(), &params.Locale, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "locale"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locale", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAccountShopProducts(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountShopProduct operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountShopProduct(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "productID" -------------
+	var productID AccountProductID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "productID", chi.URLParam(r, "productID"), &productID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "productID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAccountShopProductParams
+
+	// ------------- Optional query parameter "locale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "locale", r.URL.Query(), &params.Locale, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "locale"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locale", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "quantity" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "quantity", r.URL.Query(), &params.Quantity, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "quantity"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "quantity", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "promoCode" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "promoCode", r.URL.Query(), &params.PromoCode, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "promoCode"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "promoCode", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountShopProduct(w, r, productID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PurchaseAccountShopProduct operation middleware
+func (siw *ServerInterfaceWrapper) PurchaseAccountShopProduct(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PurchaseAccountShopProductParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PurchaseAccountShopProduct(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReviewAccountShopRecipient operation middleware
+func (siw *ServerInterfaceWrapper) ReviewAccountShopRecipient(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ReviewAccountShopRecipientParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReviewAccountShopRecipient(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7876,6 +11981,611 @@ func (siw *ServerInterfaceWrapper) RotateAccountSubscriptionLink(w http.Response
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RotateAccountSubscriptionLink(w, r, subscriptionID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DownloadAccountSupportAttachment operation middleware
+func (siw *ServerInterfaceWrapper) DownloadAccountSupportAttachment(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "attachmentID" -------------
+	var attachmentID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "attachmentID", chi.URLParam(r, "attachmentID"), &attachmentID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "attachmentID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadAccountSupportAttachment(w, r, attachmentID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountSupportLimits operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountSupportLimits(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountSupportLimits(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAccountSupportTickets operation middleware
+func (siw *ServerInterfaceWrapper) ListAccountSupportTickets(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAccountSupportTicketsParams
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAccountSupportTickets(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateAccountSupportTicket operation middleware
+func (siw *ServerInterfaceWrapper) CreateAccountSupportTicket(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateAccountSupportTicketParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKeyOptional
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateAccountSupportTicket(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountSupportTicket operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountSupportTicket(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "ticketID" -------------
+	var ticketID AccountTicketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ticketID", chi.URLParam(r, "ticketID"), &ticketID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ticketID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountSupportTicket(w, r, ticketID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AttachToAccountSupportTicket operation middleware
+func (siw *ServerInterfaceWrapper) AttachToAccountSupportTicket(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "ticketID" -------------
+	var ticketID AccountTicketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ticketID", chi.URLParam(r, "ticketID"), &ticketID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ticketID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AttachToAccountSupportTicketParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AttachToAccountSupportTicket(w, r, ticketID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CloseAccountSupportTicket operation middleware
+func (siw *ServerInterfaceWrapper) CloseAccountSupportTicket(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "ticketID" -------------
+	var ticketID AccountTicketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ticketID", chi.URLParam(r, "ticketID"), &ticketID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ticketID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CloseAccountSupportTicketParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CloseAccountSupportTicket(w, r, ticketID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReplyToAccountSupportTicket operation middleware
+func (siw *ServerInterfaceWrapper) ReplyToAccountSupportTicket(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "ticketID" -------------
+	var ticketID AccountTicketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ticketID", chi.URLParam(r, "ticketID"), &ticketID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ticketID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ReplyToAccountSupportTicketParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKeyOptional
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReplyToAccountSupportTicket(w, r, ticketID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// MarkAccountSupportTicketRead operation middleware
+func (siw *ServerInterfaceWrapper) MarkAccountSupportTicketRead(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "ticketID" -------------
+	var ticketID AccountTicketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ticketID", chi.URLParam(r, "ticketID"), &ticketID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ticketID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params MarkAccountSupportTicketReadParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.MarkAccountSupportTicketRead(w, r, ticketID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReopenAccountSupportTicket operation middleware
+func (siw *ServerInterfaceWrapper) ReopenAccountSupportTicket(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "ticketID" -------------
+	var ticketID AccountTicketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ticketID", chi.URLParam(r, "ticketID"), &ticketID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ticketID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ReopenAccountSupportTicketParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReopenAccountSupportTicket(w, r, ticketID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountWallet operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountWallet(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAccountWalletParams
+
+	// ------------- Optional query parameter "currency" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "currency", r.URL.Query(), &params.Currency, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "currency"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "currency", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursorId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursorId", r.URL.Query(), &params.CursorId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursorId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursorId", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountWallet(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartAccountTopUp operation middleware
+func (siw *ServerInterfaceWrapper) StartAccountTopUp(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params StartAccountTopUpParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartAccountTopUp(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -14849,6 +19559,147 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Delete(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/devices/{handle}", wrapper.RemoveAccountDevice)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/plans", wrapper.ListAccountPlans)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/plans/{planVersionID}", wrapper.GetAccountPlan)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/account/checkout", wrapper.CancelAccountCheckout)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/checkout", wrapper.GetAccountCheckout)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/v1/account/checkout", wrapper.UpdateAccountCheckout)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/checkout", wrapper.OpenAccountCheckout)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/account/checkout/promo", wrapper.RemoveAccountPromoCode)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/checkout/promo", wrapper.ApplyAccountPromoCode)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/checkout/addons/{addonVersionID}", wrapper.ToggleAccountCheckoutAddon)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/checkout/confirm", wrapper.ConfirmAccountCheckout)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/orders", wrapper.ListAccountOrders)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/orders/{orderID}", wrapper.GetAccountOrder)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/orders/{orderID}/payment", wrapper.StartAccountOrderPayment)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/orders/{orderID}/refresh", wrapper.RefreshAccountOrder)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/orders/{orderID}/cancel", wrapper.CancelAccountOrder)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/wallet", wrapper.GetAccountWallet)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/wallet/top-up", wrapper.StartAccountTopUp)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/referrals", wrapper.GetAccountReferrals)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/loyalty", wrapper.GetAccountLoyalty)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/contacts", wrapper.ListAccountContacts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/contacts", wrapper.AddAccountContact)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/account/contacts/{contactID}", wrapper.RemoveAccountContact)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/privacy", wrapper.GetAccountPrivacy)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/privacy/export", wrapper.ExportAccountPersonalData)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/account/privacy/deletion", wrapper.CancelAccountDeletion)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/privacy/deletion", wrapper.RequestAccountDeletion)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/shop/products", wrapper.ListAccountShopProducts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/shop/products/{productID}", wrapper.GetAccountShopProduct)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/shop/recipient", wrapper.ReviewAccountShopRecipient)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/shop/purchase", wrapper.PurchaseAccountShopProduct)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/shop/orders", wrapper.ListAccountShopOrders)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/shop/orders/{orderID}", wrapper.GetAccountShopOrder)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/support/limits", wrapper.GetAccountSupportLimits)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/support/tickets", wrapper.ListAccountSupportTickets)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/support/tickets", wrapper.CreateAccountSupportTicket)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/support/tickets/{ticketID}", wrapper.GetAccountSupportTicket)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/support/tickets/{ticketID}/messages", wrapper.ReplyToAccountSupportTicket)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/support/tickets/{ticketID}/read", wrapper.MarkAccountSupportTicketRead)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/support/tickets/{ticketID}/close", wrapper.CloseAccountSupportTicket)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/support/tickets/{ticketID}/reopen", wrapper.ReopenAccountSupportTicket)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/support/tickets/{ticketID}/attachments", wrapper.AttachToAccountSupportTicket)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/support/attachments/{attachmentID}", wrapper.DownloadAccountSupportAttachment)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/news", wrapper.ListAccountNews)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/news/{postID}/read", wrapper.MarkAccountNewsRead)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/preferences", wrapper.GetAccountPreferences)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/v1/account/preferences", wrapper.UpdateAccountPreferences)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/preferences/unsubscribe", wrapper.UnsubscribeAccount)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/settings/customer-oidc", wrapper.ListPanelCustomerOidcProviders)
 	})
 	r.Group(func(r chi.Router) {
@@ -15238,6 +20089,534 @@ func (response AccountSignInWithMiniApp404ApplicationProblemPlusJSONResponse) Vi
 	return err
 }
 
+type CancelAccountCheckoutRequestObject struct {
+	Params CancelAccountCheckoutParams
+}
+
+type CancelAccountCheckoutResponseObject interface {
+	VisitCancelAccountCheckoutResponse(w http.ResponseWriter) error
+}
+
+type CancelAccountCheckout204Response struct {
+}
+
+func (response CancelAccountCheckout204Response) VisitCancelAccountCheckoutResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type GetAccountCheckoutRequestObject struct {
+	Params GetAccountCheckoutParams
+}
+
+type GetAccountCheckoutResponseObject interface {
+	VisitGetAccountCheckoutResponse(w http.ResponseWriter) error
+}
+
+type GetAccountCheckout200JSONResponse AccountCheckout
+
+func (response GetAccountCheckout200JSONResponse) VisitGetAccountCheckoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountCheckout404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetAccountCheckout404ApplicationProblemPlusJSONResponse) VisitGetAccountCheckoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateAccountCheckoutRequestObject struct {
+	Params UpdateAccountCheckoutParams
+	Body   *UpdateAccountCheckoutJSONRequestBody
+}
+
+type UpdateAccountCheckoutResponseObject interface {
+	VisitUpdateAccountCheckoutResponse(w http.ResponseWriter) error
+}
+
+type UpdateAccountCheckout200JSONResponse AccountCheckout
+
+func (response UpdateAccountCheckout200JSONResponse) VisitUpdateAccountCheckoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateAccountCheckout404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateAccountCheckout404ApplicationProblemPlusJSONResponse) VisitUpdateAccountCheckoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateAccountCheckout422ApplicationProblemPlusJSONResponse Problem
+
+func (response UpdateAccountCheckout422ApplicationProblemPlusJSONResponse) VisitUpdateAccountCheckoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type OpenAccountCheckoutRequestObject struct {
+	Params OpenAccountCheckoutParams
+	Body   *OpenAccountCheckoutJSONRequestBody
+}
+
+type OpenAccountCheckoutResponseObject interface {
+	VisitOpenAccountCheckoutResponse(w http.ResponseWriter) error
+}
+
+type OpenAccountCheckout201JSONResponse AccountCheckout
+
+func (response OpenAccountCheckout201JSONResponse) VisitOpenAccountCheckoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type OpenAccountCheckout404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response OpenAccountCheckout404ApplicationProblemPlusJSONResponse) VisitOpenAccountCheckoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type OpenAccountCheckout422ApplicationProblemPlusJSONResponse Problem
+
+func (response OpenAccountCheckout422ApplicationProblemPlusJSONResponse) VisitOpenAccountCheckoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ToggleAccountCheckoutAddonRequestObject struct {
+	AddonVersionID openapi_types.UUID `json:"addonVersionID"`
+	Params         ToggleAccountCheckoutAddonParams
+}
+
+type ToggleAccountCheckoutAddonResponseObject interface {
+	VisitToggleAccountCheckoutAddonResponse(w http.ResponseWriter) error
+}
+
+type ToggleAccountCheckoutAddon200JSONResponse AccountCheckout
+
+func (response ToggleAccountCheckoutAddon200JSONResponse) VisitToggleAccountCheckoutAddonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ToggleAccountCheckoutAddon404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ToggleAccountCheckoutAddon404ApplicationProblemPlusJSONResponse) VisitToggleAccountCheckoutAddonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ToggleAccountCheckoutAddon422ApplicationProblemPlusJSONResponse Problem
+
+func (response ToggleAccountCheckoutAddon422ApplicationProblemPlusJSONResponse) VisitToggleAccountCheckoutAddonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmAccountCheckoutRequestObject struct {
+	Params ConfirmAccountCheckoutParams
+}
+
+type ConfirmAccountCheckoutResponseObject interface {
+	VisitConfirmAccountCheckoutResponse(w http.ResponseWriter) error
+}
+
+type ConfirmAccountCheckout201JSONResponse AccountOrder
+
+func (response ConfirmAccountCheckout201JSONResponse) VisitConfirmAccountCheckoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmAccountCheckout404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ConfirmAccountCheckout404ApplicationProblemPlusJSONResponse) VisitConfirmAccountCheckoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmAccountCheckout409ApplicationProblemPlusJSONResponse Problem
+
+func (response ConfirmAccountCheckout409ApplicationProblemPlusJSONResponse) VisitConfirmAccountCheckoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmAccountCheckout422ApplicationProblemPlusJSONResponse Problem
+
+func (response ConfirmAccountCheckout422ApplicationProblemPlusJSONResponse) VisitConfirmAccountCheckoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveAccountPromoCodeRequestObject struct {
+	Params RemoveAccountPromoCodeParams
+}
+
+type RemoveAccountPromoCodeResponseObject interface {
+	VisitRemoveAccountPromoCodeResponse(w http.ResponseWriter) error
+}
+
+type RemoveAccountPromoCode200JSONResponse AccountCheckout
+
+func (response RemoveAccountPromoCode200JSONResponse) VisitRemoveAccountPromoCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveAccountPromoCode404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RemoveAccountPromoCode404ApplicationProblemPlusJSONResponse) VisitRemoveAccountPromoCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplyAccountPromoCodeRequestObject struct {
+	Params ApplyAccountPromoCodeParams
+	Body   *ApplyAccountPromoCodeJSONRequestBody
+}
+
+type ApplyAccountPromoCodeResponseObject interface {
+	VisitApplyAccountPromoCodeResponse(w http.ResponseWriter) error
+}
+
+type ApplyAccountPromoCode200JSONResponse AccountCheckout
+
+func (response ApplyAccountPromoCode200JSONResponse) VisitApplyAccountPromoCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplyAccountPromoCode404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ApplyAccountPromoCode404ApplicationProblemPlusJSONResponse) VisitApplyAccountPromoCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountContactsRequestObject struct {
+}
+
+type ListAccountContactsResponseObject interface {
+	VisitListAccountContactsResponse(w http.ResponseWriter) error
+}
+
+type ListAccountContacts200JSONResponse AccountContactList
+
+func (response ListAccountContacts200JSONResponse) VisitListAccountContactsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountContacts503ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListAccountContacts503ApplicationProblemPlusJSONResponse) VisitListAccountContactsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddAccountContactRequestObject struct {
+	Params AddAccountContactParams
+	Body   *AddAccountContactJSONRequestBody
+}
+
+type AddAccountContactResponseObject interface {
+	VisitAddAccountContactResponse(w http.ResponseWriter) error
+}
+
+type AddAccountContact201JSONResponse AccountContact
+
+func (response AddAccountContact201JSONResponse) VisitAddAccountContactResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddAccountContact409ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response AddAccountContact409ApplicationProblemPlusJSONResponse) VisitAddAccountContactResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddAccountContact422ApplicationProblemPlusJSONResponse Problem
+
+func (response AddAccountContact422ApplicationProblemPlusJSONResponse) VisitAddAccountContactResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddAccountContact429ApplicationProblemPlusJSONResponse Problem
+
+func (response AddAccountContact429ApplicationProblemPlusJSONResponse) VisitAddAccountContactResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddAccountContact503ApplicationProblemPlusJSONResponse Problem
+
+func (response AddAccountContact503ApplicationProblemPlusJSONResponse) VisitAddAccountContactResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveAccountContactRequestObject struct {
+	ContactID openapi_types.UUID `json:"contactID"`
+	Params    RemoveAccountContactParams
+}
+
+type RemoveAccountContactResponseObject interface {
+	VisitRemoveAccountContactResponse(w http.ResponseWriter) error
+}
+
+type RemoveAccountContact204Response struct {
+}
+
+func (response RemoveAccountContact204Response) VisitRemoveAccountContactResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type RemoveAccountContact404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RemoveAccountContact404ApplicationProblemPlusJSONResponse) VisitRemoveAccountContactResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountLoyaltyRequestObject struct {
+}
+
+type GetAccountLoyaltyResponseObject interface {
+	VisitGetAccountLoyaltyResponse(w http.ResponseWriter) error
+}
+
+type GetAccountLoyalty200JSONResponse AccountLoyalty
+
+func (response GetAccountLoyalty200JSONResponse) VisitGetAccountLoyaltyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetAccountSessionRequestObject struct {
 }
 
@@ -15314,6 +20693,308 @@ func (response UpdateAccountProfile422ApplicationProblemPlusJSONResponse) VisitU
 	return err
 }
 
+type ListAccountNewsRequestObject struct {
+	Params ListAccountNewsParams
+}
+
+type ListAccountNewsResponseObject interface {
+	VisitListAccountNewsResponse(w http.ResponseWriter) error
+}
+
+type ListAccountNews200JSONResponse AccountNewsPage
+
+func (response ListAccountNews200JSONResponse) VisitListAccountNewsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountNews400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListAccountNews400ApplicationProblemPlusJSONResponse) VisitListAccountNewsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type MarkAccountNewsReadRequestObject struct {
+	PostID openapi_types.UUID `json:"postID"`
+	Params MarkAccountNewsReadParams
+}
+
+type MarkAccountNewsReadResponseObject interface {
+	VisitMarkAccountNewsReadResponse(w http.ResponseWriter) error
+}
+
+type MarkAccountNewsRead204Response struct {
+}
+
+func (response MarkAccountNewsRead204Response) VisitMarkAccountNewsReadResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type MarkAccountNewsRead404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response MarkAccountNewsRead404ApplicationProblemPlusJSONResponse) VisitMarkAccountNewsReadResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountOrdersRequestObject struct {
+	Params ListAccountOrdersParams
+}
+
+type ListAccountOrdersResponseObject interface {
+	VisitListAccountOrdersResponse(w http.ResponseWriter) error
+}
+
+type ListAccountOrders200JSONResponse AccountOrderPage
+
+func (response ListAccountOrders200JSONResponse) VisitListAccountOrdersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountOrders400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListAccountOrders400ApplicationProblemPlusJSONResponse) VisitListAccountOrdersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountOrderRequestObject struct {
+	OrderID OrderID `json:"orderID"`
+	Params  GetAccountOrderParams
+}
+
+type GetAccountOrderResponseObject interface {
+	VisitGetAccountOrderResponse(w http.ResponseWriter) error
+}
+
+type GetAccountOrder200JSONResponse AccountOrder
+
+func (response GetAccountOrder200JSONResponse) VisitGetAccountOrderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountOrder404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetAccountOrder404ApplicationProblemPlusJSONResponse) VisitGetAccountOrderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CancelAccountOrderRequestObject struct {
+	OrderID OrderID `json:"orderID"`
+	Params  CancelAccountOrderParams
+}
+
+type CancelAccountOrderResponseObject interface {
+	VisitCancelAccountOrderResponse(w http.ResponseWriter) error
+}
+
+type CancelAccountOrder204Response struct {
+}
+
+func (response CancelAccountOrder204Response) VisitCancelAccountOrderResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type CancelAccountOrder404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CancelAccountOrder404ApplicationProblemPlusJSONResponse) VisitCancelAccountOrderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CancelAccountOrder409ApplicationProblemPlusJSONResponse Problem
+
+func (response CancelAccountOrder409ApplicationProblemPlusJSONResponse) VisitCancelAccountOrderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartAccountOrderPaymentRequestObject struct {
+	OrderID OrderID `json:"orderID"`
+	Params  StartAccountOrderPaymentParams
+	Body    *StartAccountOrderPaymentJSONRequestBody
+}
+
+type StartAccountOrderPaymentResponseObject interface {
+	VisitStartAccountOrderPaymentResponse(w http.ResponseWriter) error
+}
+
+type StartAccountOrderPayment200JSONResponse AccountPaymentHandle
+
+func (response StartAccountOrderPayment200JSONResponse) VisitStartAccountOrderPaymentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartAccountOrderPayment404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response StartAccountOrderPayment404ApplicationProblemPlusJSONResponse) VisitStartAccountOrderPaymentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartAccountOrderPayment409ApplicationProblemPlusJSONResponse Problem
+
+func (response StartAccountOrderPayment409ApplicationProblemPlusJSONResponse) VisitStartAccountOrderPaymentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartAccountOrderPayment422ApplicationProblemPlusJSONResponse Problem
+
+func (response StartAccountOrderPayment422ApplicationProblemPlusJSONResponse) VisitStartAccountOrderPaymentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefreshAccountOrderRequestObject struct {
+	OrderID OrderID `json:"orderID"`
+	Params  RefreshAccountOrderParams
+}
+
+type RefreshAccountOrderResponseObject interface {
+	VisitRefreshAccountOrderResponse(w http.ResponseWriter) error
+}
+
+type RefreshAccountOrder200JSONResponse AccountOrder
+
+func (response RefreshAccountOrder200JSONResponse) VisitRefreshAccountOrderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefreshAccountOrder404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RefreshAccountOrder404ApplicationProblemPlusJSONResponse) VisitRefreshAccountOrderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetAccountOverviewRequestObject struct {
 	Params GetAccountOverviewParams
 }
@@ -15325,6 +21006,335 @@ type GetAccountOverviewResponseObject interface {
 type GetAccountOverview200JSONResponse AccountOverview
 
 func (response GetAccountOverview200JSONResponse) VisitGetAccountOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountPlansRequestObject struct {
+	Params ListAccountPlansParams
+}
+
+type ListAccountPlansResponseObject interface {
+	VisitListAccountPlansResponse(w http.ResponseWriter) error
+}
+
+type ListAccountPlans200JSONResponse AccountPlanList
+
+func (response ListAccountPlans200JSONResponse) VisitListAccountPlansResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountPlanRequestObject struct {
+	PlanVersionID openapi_types.UUID `json:"planVersionID"`
+	Params        GetAccountPlanParams
+}
+
+type GetAccountPlanResponseObject interface {
+	VisitGetAccountPlanResponse(w http.ResponseWriter) error
+}
+
+type GetAccountPlan200JSONResponse AccountPlanDetail
+
+func (response GetAccountPlan200JSONResponse) VisitGetAccountPlanResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountPlan404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetAccountPlan404ApplicationProblemPlusJSONResponse) VisitGetAccountPlanResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountPreferencesRequestObject struct {
+}
+
+type GetAccountPreferencesResponseObject interface {
+	VisitGetAccountPreferencesResponse(w http.ResponseWriter) error
+}
+
+type GetAccountPreferences200JSONResponse AccountPreferences
+
+func (response GetAccountPreferences200JSONResponse) VisitGetAccountPreferencesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateAccountPreferencesRequestObject struct {
+	Params UpdateAccountPreferencesParams
+	Body   *UpdateAccountPreferencesJSONRequestBody
+}
+
+type UpdateAccountPreferencesResponseObject interface {
+	VisitUpdateAccountPreferencesResponse(w http.ResponseWriter) error
+}
+
+type UpdateAccountPreferences200JSONResponse AccountPreferences
+
+func (response UpdateAccountPreferences200JSONResponse) VisitUpdateAccountPreferencesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateAccountPreferences422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateAccountPreferences422ApplicationProblemPlusJSONResponse) VisitUpdateAccountPreferencesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnsubscribeAccountRequestObject struct {
+	Params UnsubscribeAccountParams
+}
+
+type UnsubscribeAccountResponseObject interface {
+	VisitUnsubscribeAccountResponse(w http.ResponseWriter) error
+}
+
+type UnsubscribeAccount200JSONResponse AccountPreferences
+
+func (response UnsubscribeAccount200JSONResponse) VisitUnsubscribeAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountPrivacyRequestObject struct {
+}
+
+type GetAccountPrivacyResponseObject interface {
+	VisitGetAccountPrivacyResponse(w http.ResponseWriter) error
+}
+
+type GetAccountPrivacy200JSONResponse AccountPrivacy
+
+func (response GetAccountPrivacy200JSONResponse) VisitGetAccountPrivacyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CancelAccountDeletionRequestObject struct {
+	Params CancelAccountDeletionParams
+}
+
+type CancelAccountDeletionResponseObject interface {
+	VisitCancelAccountDeletionResponse(w http.ResponseWriter) error
+}
+
+type CancelAccountDeletion200JSONResponse AccountDeletion
+
+func (response CancelAccountDeletion200JSONResponse) VisitCancelAccountDeletionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CancelAccountDeletion409ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CancelAccountDeletion409ApplicationProblemPlusJSONResponse) VisitCancelAccountDeletionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestAccountDeletionRequestObject struct {
+	Params RequestAccountDeletionParams
+	Body   *RequestAccountDeletionJSONRequestBody
+}
+
+type RequestAccountDeletionResponseObject interface {
+	VisitRequestAccountDeletionResponse(w http.ResponseWriter) error
+}
+
+type RequestAccountDeletion202JSONResponse AccountDeletion
+
+func (response RequestAccountDeletion202JSONResponse) VisitRequestAccountDeletionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestAccountDeletion401ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RequestAccountDeletion401ApplicationProblemPlusJSONResponse) VisitRequestAccountDeletionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestAccountDeletion409ApplicationProblemPlusJSONResponse Problem
+
+func (response RequestAccountDeletion409ApplicationProblemPlusJSONResponse) VisitRequestAccountDeletionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestAccountDeletion422ApplicationProblemPlusJSONResponse Problem
+
+func (response RequestAccountDeletion422ApplicationProblemPlusJSONResponse) VisitRequestAccountDeletionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ExportAccountPersonalDataRequestObject struct {
+	Params ExportAccountPersonalDataParams
+}
+
+type ExportAccountPersonalDataResponseObject interface {
+	VisitExportAccountPersonalDataResponse(w http.ResponseWriter) error
+}
+
+type ExportAccountPersonalData200JSONResponse AccountExport
+
+func (response ExportAccountPersonalData200JSONResponse) VisitExportAccountPersonalDataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ExportAccountPersonalData429ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ExportAccountPersonalData429ApplicationProblemPlusJSONResponse) VisitExportAccountPersonalDataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountReferralsRequestObject struct {
+	Params GetAccountReferralsParams
+}
+
+type GetAccountReferralsResponseObject interface {
+	VisitGetAccountReferralsResponse(w http.ResponseWriter) error
+}
+
+type GetAccountReferrals200JSONResponse AccountReferrals
+
+func (response GetAccountReferrals200JSONResponse) VisitGetAccountReferralsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -15408,6 +21418,370 @@ func (response RevokeAccountSession404ApplicationProblemPlusJSONResponse) VisitR
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountShopOrdersRequestObject struct {
+	Params ListAccountShopOrdersParams
+}
+
+type ListAccountShopOrdersResponseObject interface {
+	VisitListAccountShopOrdersResponse(w http.ResponseWriter) error
+}
+
+type ListAccountShopOrders200JSONResponse AccountShopOrderPage
+
+func (response ListAccountShopOrders200JSONResponse) VisitListAccountShopOrdersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountShopOrders400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListAccountShopOrders400ApplicationProblemPlusJSONResponse) VisitListAccountShopOrdersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountShopOrders503ApplicationProblemPlusJSONResponse Problem
+
+func (response ListAccountShopOrders503ApplicationProblemPlusJSONResponse) VisitListAccountShopOrdersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountShopOrderRequestObject struct {
+	OrderID OrderID `json:"orderID"`
+	Params  GetAccountShopOrderParams
+}
+
+type GetAccountShopOrderResponseObject interface {
+	VisitGetAccountShopOrderResponse(w http.ResponseWriter) error
+}
+
+type GetAccountShopOrder200JSONResponse AccountShopOrder
+
+func (response GetAccountShopOrder200JSONResponse) VisitGetAccountShopOrderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountShopOrder404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetAccountShopOrder404ApplicationProblemPlusJSONResponse) VisitGetAccountShopOrderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountShopOrder503ApplicationProblemPlusJSONResponse Problem
+
+func (response GetAccountShopOrder503ApplicationProblemPlusJSONResponse) VisitGetAccountShopOrderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountShopProductsRequestObject struct {
+	Params ListAccountShopProductsParams
+}
+
+type ListAccountShopProductsResponseObject interface {
+	VisitListAccountShopProductsResponse(w http.ResponseWriter) error
+}
+
+type ListAccountShopProducts200JSONResponse AccountShopProductList
+
+func (response ListAccountShopProducts200JSONResponse) VisitListAccountShopProductsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountShopProducts503ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListAccountShopProducts503ApplicationProblemPlusJSONResponse) VisitListAccountShopProductsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountShopProductRequestObject struct {
+	ProductID AccountProductID `json:"productID"`
+	Params    GetAccountShopProductParams
+}
+
+type GetAccountShopProductResponseObject interface {
+	VisitGetAccountShopProductResponse(w http.ResponseWriter) error
+}
+
+type GetAccountShopProduct200JSONResponse AccountShopProductDetail
+
+func (response GetAccountShopProduct200JSONResponse) VisitGetAccountShopProductResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountShopProduct404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetAccountShopProduct404ApplicationProblemPlusJSONResponse) VisitGetAccountShopProductResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountShopProduct422ApplicationProblemPlusJSONResponse Problem
+
+func (response GetAccountShopProduct422ApplicationProblemPlusJSONResponse) VisitGetAccountShopProductResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountShopProduct503ApplicationProblemPlusJSONResponse Problem
+
+func (response GetAccountShopProduct503ApplicationProblemPlusJSONResponse) VisitGetAccountShopProductResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PurchaseAccountShopProductRequestObject struct {
+	Params PurchaseAccountShopProductParams
+	Body   *PurchaseAccountShopProductJSONRequestBody
+}
+
+type PurchaseAccountShopProductResponseObject interface {
+	VisitPurchaseAccountShopProductResponse(w http.ResponseWriter) error
+}
+
+type PurchaseAccountShopProduct201JSONResponse AccountShopOrder
+
+func (response PurchaseAccountShopProduct201JSONResponse) VisitPurchaseAccountShopProductResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PurchaseAccountShopProduct400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response PurchaseAccountShopProduct400ApplicationProblemPlusJSONResponse) VisitPurchaseAccountShopProductResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PurchaseAccountShopProduct404ApplicationProblemPlusJSONResponse Problem
+
+func (response PurchaseAccountShopProduct404ApplicationProblemPlusJSONResponse) VisitPurchaseAccountShopProductResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PurchaseAccountShopProduct409ApplicationProblemPlusJSONResponse Problem
+
+func (response PurchaseAccountShopProduct409ApplicationProblemPlusJSONResponse) VisitPurchaseAccountShopProductResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PurchaseAccountShopProduct422ApplicationProblemPlusJSONResponse Problem
+
+func (response PurchaseAccountShopProduct422ApplicationProblemPlusJSONResponse) VisitPurchaseAccountShopProductResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PurchaseAccountShopProduct503ApplicationProblemPlusJSONResponse Problem
+
+func (response PurchaseAccountShopProduct503ApplicationProblemPlusJSONResponse) VisitPurchaseAccountShopProductResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewAccountShopRecipientRequestObject struct {
+	Params ReviewAccountShopRecipientParams
+	Body   *ReviewAccountShopRecipientJSONRequestBody
+}
+
+type ReviewAccountShopRecipientResponseObject interface {
+	VisitReviewAccountShopRecipientResponse(w http.ResponseWriter) error
+}
+
+type ReviewAccountShopRecipient200JSONResponse struct {
+	// Checked The provider confirmed the handle exists. False when the adapter cannot check.
+	Checked bool `json:"checked"`
+
+	// Recipient The exact handle the gateway will be given.
+	Recipient string `json:"recipient"`
+}
+
+func (response ReviewAccountShopRecipient200JSONResponse) VisitReviewAccountShopRecipientResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewAccountShopRecipient422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ReviewAccountShopRecipient422ApplicationProblemPlusJSONResponse) VisitReviewAccountShopRecipientResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewAccountShopRecipient503ApplicationProblemPlusJSONResponse Problem
+
+func (response ReviewAccountShopRecipient503ApplicationProblemPlusJSONResponse) VisitReviewAccountShopRecipientResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -15929,6 +22303,586 @@ func (response RotateAccountSubscriptionLink503ApplicationProblemPlusJSONRespons
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DownloadAccountSupportAttachmentRequestObject struct {
+	AttachmentID openapi_types.UUID `json:"attachmentID"`
+}
+
+type DownloadAccountSupportAttachmentResponseObject interface {
+	VisitDownloadAccountSupportAttachmentResponse(w http.ResponseWriter) error
+}
+
+type DownloadAccountSupportAttachment200ApplicationoctetStreamResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response DownloadAccountSupportAttachment200ApplicationoctetStreamResponse) VisitDownloadAccountSupportAttachmentResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type DownloadAccountSupportAttachment404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DownloadAccountSupportAttachment404ApplicationProblemPlusJSONResponse) VisitDownloadAccountSupportAttachmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DownloadAccountSupportAttachment409ApplicationProblemPlusJSONResponse Problem
+
+func (response DownloadAccountSupportAttachment409ApplicationProblemPlusJSONResponse) VisitDownloadAccountSupportAttachmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DownloadAccountSupportAttachment503ApplicationProblemPlusJSONResponse Problem
+
+func (response DownloadAccountSupportAttachment503ApplicationProblemPlusJSONResponse) VisitDownloadAccountSupportAttachmentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountSupportLimitsRequestObject struct {
+}
+
+type GetAccountSupportLimitsResponseObject interface {
+	VisitGetAccountSupportLimitsResponse(w http.ResponseWriter) error
+}
+
+type GetAccountSupportLimits200JSONResponse AccountSupportLimits
+
+func (response GetAccountSupportLimits200JSONResponse) VisitGetAccountSupportLimitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountSupportTicketsRequestObject struct {
+	Params ListAccountSupportTicketsParams
+}
+
+type ListAccountSupportTicketsResponseObject interface {
+	VisitListAccountSupportTicketsResponse(w http.ResponseWriter) error
+}
+
+type ListAccountSupportTickets200JSONResponse AccountTicketPage
+
+func (response ListAccountSupportTickets200JSONResponse) VisitListAccountSupportTicketsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountSupportTickets400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListAccountSupportTickets400ApplicationProblemPlusJSONResponse) VisitListAccountSupportTicketsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateAccountSupportTicketRequestObject struct {
+	Params CreateAccountSupportTicketParams
+	Body   *CreateAccountSupportTicketJSONRequestBody
+}
+
+type CreateAccountSupportTicketResponseObject interface {
+	VisitCreateAccountSupportTicketResponse(w http.ResponseWriter) error
+}
+
+type CreateAccountSupportTicket201JSONResponse AccountTicket
+
+func (response CreateAccountSupportTicket201JSONResponse) VisitCreateAccountSupportTicketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateAccountSupportTicket409ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreateAccountSupportTicket409ApplicationProblemPlusJSONResponse) VisitCreateAccountSupportTicketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateAccountSupportTicket422ApplicationProblemPlusJSONResponse Problem
+
+func (response CreateAccountSupportTicket422ApplicationProblemPlusJSONResponse) VisitCreateAccountSupportTicketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountSupportTicketRequestObject struct {
+	TicketID AccountTicketID `json:"ticketID"`
+}
+
+type GetAccountSupportTicketResponseObject interface {
+	VisitGetAccountSupportTicketResponse(w http.ResponseWriter) error
+}
+
+type GetAccountSupportTicket200JSONResponse AccountConversation
+
+func (response GetAccountSupportTicket200JSONResponse) VisitGetAccountSupportTicketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountSupportTicket404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetAccountSupportTicket404ApplicationProblemPlusJSONResponse) VisitGetAccountSupportTicketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AttachToAccountSupportTicketRequestObject struct {
+	TicketID AccountTicketID `json:"ticketID"`
+	Params   AttachToAccountSupportTicketParams
+	Body     *multipart.Reader
+}
+
+type AttachToAccountSupportTicketResponseObject interface {
+	VisitAttachToAccountSupportTicketResponse(w http.ResponseWriter) error
+}
+
+type AttachToAccountSupportTicket201JSONResponse AccountConversation
+
+func (response AttachToAccountSupportTicket201JSONResponse) VisitAttachToAccountSupportTicketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AttachToAccountSupportTicket404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response AttachToAccountSupportTicket404ApplicationProblemPlusJSONResponse) VisitAttachToAccountSupportTicketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AttachToAccountSupportTicket409ApplicationProblemPlusJSONResponse Problem
+
+func (response AttachToAccountSupportTicket409ApplicationProblemPlusJSONResponse) VisitAttachToAccountSupportTicketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AttachToAccountSupportTicket413ApplicationProblemPlusJSONResponse Problem
+
+func (response AttachToAccountSupportTicket413ApplicationProblemPlusJSONResponse) VisitAttachToAccountSupportTicketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(413)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AttachToAccountSupportTicket415ApplicationProblemPlusJSONResponse Problem
+
+func (response AttachToAccountSupportTicket415ApplicationProblemPlusJSONResponse) VisitAttachToAccountSupportTicketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(415)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AttachToAccountSupportTicket503ApplicationProblemPlusJSONResponse Problem
+
+func (response AttachToAccountSupportTicket503ApplicationProblemPlusJSONResponse) VisitAttachToAccountSupportTicketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CloseAccountSupportTicketRequestObject struct {
+	TicketID AccountTicketID `json:"ticketID"`
+	Params   CloseAccountSupportTicketParams
+}
+
+type CloseAccountSupportTicketResponseObject interface {
+	VisitCloseAccountSupportTicketResponse(w http.ResponseWriter) error
+}
+
+type CloseAccountSupportTicket200JSONResponse AccountTicket
+
+func (response CloseAccountSupportTicket200JSONResponse) VisitCloseAccountSupportTicketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CloseAccountSupportTicket404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CloseAccountSupportTicket404ApplicationProblemPlusJSONResponse) VisitCloseAccountSupportTicketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplyToAccountSupportTicketRequestObject struct {
+	TicketID AccountTicketID `json:"ticketID"`
+	Params   ReplyToAccountSupportTicketParams
+	Body     *ReplyToAccountSupportTicketJSONRequestBody
+}
+
+type ReplyToAccountSupportTicketResponseObject interface {
+	VisitReplyToAccountSupportTicketResponse(w http.ResponseWriter) error
+}
+
+type ReplyToAccountSupportTicket201JSONResponse AccountConversation
+
+func (response ReplyToAccountSupportTicket201JSONResponse) VisitReplyToAccountSupportTicketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplyToAccountSupportTicket404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ReplyToAccountSupportTicket404ApplicationProblemPlusJSONResponse) VisitReplyToAccountSupportTicketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplyToAccountSupportTicket409ApplicationProblemPlusJSONResponse Problem
+
+func (response ReplyToAccountSupportTicket409ApplicationProblemPlusJSONResponse) VisitReplyToAccountSupportTicketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplyToAccountSupportTicket422ApplicationProblemPlusJSONResponse Problem
+
+func (response ReplyToAccountSupportTicket422ApplicationProblemPlusJSONResponse) VisitReplyToAccountSupportTicketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type MarkAccountSupportTicketReadRequestObject struct {
+	TicketID AccountTicketID `json:"ticketID"`
+	Params   MarkAccountSupportTicketReadParams
+}
+
+type MarkAccountSupportTicketReadResponseObject interface {
+	VisitMarkAccountSupportTicketReadResponse(w http.ResponseWriter) error
+}
+
+type MarkAccountSupportTicketRead200JSONResponse AccountTicket
+
+func (response MarkAccountSupportTicketRead200JSONResponse) VisitMarkAccountSupportTicketReadResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type MarkAccountSupportTicketRead404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response MarkAccountSupportTicketRead404ApplicationProblemPlusJSONResponse) VisitMarkAccountSupportTicketReadResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReopenAccountSupportTicketRequestObject struct {
+	TicketID AccountTicketID `json:"ticketID"`
+	Params   ReopenAccountSupportTicketParams
+}
+
+type ReopenAccountSupportTicketResponseObject interface {
+	VisitReopenAccountSupportTicketResponse(w http.ResponseWriter) error
+}
+
+type ReopenAccountSupportTicket200JSONResponse AccountTicket
+
+func (response ReopenAccountSupportTicket200JSONResponse) VisitReopenAccountSupportTicketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReopenAccountSupportTicket404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ReopenAccountSupportTicket404ApplicationProblemPlusJSONResponse) VisitReopenAccountSupportTicketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountWalletRequestObject struct {
+	Params GetAccountWalletParams
+}
+
+type GetAccountWalletResponseObject interface {
+	VisitGetAccountWalletResponse(w http.ResponseWriter) error
+}
+
+type GetAccountWallet200JSONResponse AccountWallet
+
+func (response GetAccountWallet200JSONResponse) VisitGetAccountWalletResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountWallet400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetAccountWallet400ApplicationProblemPlusJSONResponse) VisitGetAccountWalletResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartAccountTopUpRequestObject struct {
+	Params StartAccountTopUpParams
+	Body   *StartAccountTopUpJSONRequestBody
+}
+
+type StartAccountTopUpResponseObject interface {
+	VisitStartAccountTopUpResponse(w http.ResponseWriter) error
+}
+
+type StartAccountTopUp201JSONResponse AccountOrder
+
+func (response StartAccountTopUp201JSONResponse) VisitStartAccountTopUpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartAccountTopUp422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response StartAccountTopUp422ApplicationProblemPlusJSONResponse) VisitStartAccountTopUpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -22044,14 +28998,101 @@ type StrictServerInterface interface {
 	// (POST /v1/account/auth/telegram/miniapp)
 	AccountSignInWithMiniApp(ctx context.Context, request AccountSignInWithMiniAppRequestObject) (AccountSignInWithMiniAppResponseObject, error)
 
+	// (DELETE /v1/account/checkout)
+	CancelAccountCheckout(ctx context.Context, request CancelAccountCheckoutRequestObject) (CancelAccountCheckoutResponseObject, error)
+
+	// (GET /v1/account/checkout)
+	GetAccountCheckout(ctx context.Context, request GetAccountCheckoutRequestObject) (GetAccountCheckoutResponseObject, error)
+
+	// (PATCH /v1/account/checkout)
+	UpdateAccountCheckout(ctx context.Context, request UpdateAccountCheckoutRequestObject) (UpdateAccountCheckoutResponseObject, error)
+
+	// (POST /v1/account/checkout)
+	OpenAccountCheckout(ctx context.Context, request OpenAccountCheckoutRequestObject) (OpenAccountCheckoutResponseObject, error)
+
+	// (POST /v1/account/checkout/addons/{addonVersionID})
+	ToggleAccountCheckoutAddon(ctx context.Context, request ToggleAccountCheckoutAddonRequestObject) (ToggleAccountCheckoutAddonResponseObject, error)
+
+	// (POST /v1/account/checkout/confirm)
+	ConfirmAccountCheckout(ctx context.Context, request ConfirmAccountCheckoutRequestObject) (ConfirmAccountCheckoutResponseObject, error)
+
+	// (DELETE /v1/account/checkout/promo)
+	RemoveAccountPromoCode(ctx context.Context, request RemoveAccountPromoCodeRequestObject) (RemoveAccountPromoCodeResponseObject, error)
+
+	// (POST /v1/account/checkout/promo)
+	ApplyAccountPromoCode(ctx context.Context, request ApplyAccountPromoCodeRequestObject) (ApplyAccountPromoCodeResponseObject, error)
+
+	// (GET /v1/account/contacts)
+	ListAccountContacts(ctx context.Context, request ListAccountContactsRequestObject) (ListAccountContactsResponseObject, error)
+
+	// (POST /v1/account/contacts)
+	AddAccountContact(ctx context.Context, request AddAccountContactRequestObject) (AddAccountContactResponseObject, error)
+
+	// (DELETE /v1/account/contacts/{contactID})
+	RemoveAccountContact(ctx context.Context, request RemoveAccountContactRequestObject) (RemoveAccountContactResponseObject, error)
+
+	// (GET /v1/account/loyalty)
+	GetAccountLoyalty(ctx context.Context, request GetAccountLoyaltyRequestObject) (GetAccountLoyaltyResponseObject, error)
+
 	// (GET /v1/account/me)
 	GetAccountSession(ctx context.Context, request GetAccountSessionRequestObject) (GetAccountSessionResponseObject, error)
 
 	// (PATCH /v1/account/me)
 	UpdateAccountProfile(ctx context.Context, request UpdateAccountProfileRequestObject) (UpdateAccountProfileResponseObject, error)
 
+	// (GET /v1/account/news)
+	ListAccountNews(ctx context.Context, request ListAccountNewsRequestObject) (ListAccountNewsResponseObject, error)
+
+	// (POST /v1/account/news/{postID}/read)
+	MarkAccountNewsRead(ctx context.Context, request MarkAccountNewsReadRequestObject) (MarkAccountNewsReadResponseObject, error)
+
+	// (GET /v1/account/orders)
+	ListAccountOrders(ctx context.Context, request ListAccountOrdersRequestObject) (ListAccountOrdersResponseObject, error)
+
+	// (GET /v1/account/orders/{orderID})
+	GetAccountOrder(ctx context.Context, request GetAccountOrderRequestObject) (GetAccountOrderResponseObject, error)
+
+	// (POST /v1/account/orders/{orderID}/cancel)
+	CancelAccountOrder(ctx context.Context, request CancelAccountOrderRequestObject) (CancelAccountOrderResponseObject, error)
+
+	// (POST /v1/account/orders/{orderID}/payment)
+	StartAccountOrderPayment(ctx context.Context, request StartAccountOrderPaymentRequestObject) (StartAccountOrderPaymentResponseObject, error)
+
+	// (POST /v1/account/orders/{orderID}/refresh)
+	RefreshAccountOrder(ctx context.Context, request RefreshAccountOrderRequestObject) (RefreshAccountOrderResponseObject, error)
+
 	// (GET /v1/account/overview)
 	GetAccountOverview(ctx context.Context, request GetAccountOverviewRequestObject) (GetAccountOverviewResponseObject, error)
+
+	// (GET /v1/account/plans)
+	ListAccountPlans(ctx context.Context, request ListAccountPlansRequestObject) (ListAccountPlansResponseObject, error)
+
+	// (GET /v1/account/plans/{planVersionID})
+	GetAccountPlan(ctx context.Context, request GetAccountPlanRequestObject) (GetAccountPlanResponseObject, error)
+
+	// (GET /v1/account/preferences)
+	GetAccountPreferences(ctx context.Context, request GetAccountPreferencesRequestObject) (GetAccountPreferencesResponseObject, error)
+
+	// (PATCH /v1/account/preferences)
+	UpdateAccountPreferences(ctx context.Context, request UpdateAccountPreferencesRequestObject) (UpdateAccountPreferencesResponseObject, error)
+
+	// (POST /v1/account/preferences/unsubscribe)
+	UnsubscribeAccount(ctx context.Context, request UnsubscribeAccountRequestObject) (UnsubscribeAccountResponseObject, error)
+
+	// (GET /v1/account/privacy)
+	GetAccountPrivacy(ctx context.Context, request GetAccountPrivacyRequestObject) (GetAccountPrivacyResponseObject, error)
+
+	// (DELETE /v1/account/privacy/deletion)
+	CancelAccountDeletion(ctx context.Context, request CancelAccountDeletionRequestObject) (CancelAccountDeletionResponseObject, error)
+
+	// (POST /v1/account/privacy/deletion)
+	RequestAccountDeletion(ctx context.Context, request RequestAccountDeletionRequestObject) (RequestAccountDeletionResponseObject, error)
+
+	// (POST /v1/account/privacy/export)
+	ExportAccountPersonalData(ctx context.Context, request ExportAccountPersonalDataRequestObject) (ExportAccountPersonalDataResponseObject, error)
+
+	// (GET /v1/account/referrals)
+	GetAccountReferrals(ctx context.Context, request GetAccountReferralsRequestObject) (GetAccountReferralsResponseObject, error)
 
 	// (GET /v1/account/security-events)
 	ListAccountSecurityEvents(ctx context.Context, request ListAccountSecurityEventsRequestObject) (ListAccountSecurityEventsResponseObject, error)
@@ -22061,6 +29102,24 @@ type StrictServerInterface interface {
 
 	// (DELETE /v1/account/sessions/{sessionID})
 	RevokeAccountSession(ctx context.Context, request RevokeAccountSessionRequestObject) (RevokeAccountSessionResponseObject, error)
+
+	// (GET /v1/account/shop/orders)
+	ListAccountShopOrders(ctx context.Context, request ListAccountShopOrdersRequestObject) (ListAccountShopOrdersResponseObject, error)
+
+	// (GET /v1/account/shop/orders/{orderID})
+	GetAccountShopOrder(ctx context.Context, request GetAccountShopOrderRequestObject) (GetAccountShopOrderResponseObject, error)
+
+	// (GET /v1/account/shop/products)
+	ListAccountShopProducts(ctx context.Context, request ListAccountShopProductsRequestObject) (ListAccountShopProductsResponseObject, error)
+
+	// (GET /v1/account/shop/products/{productID})
+	GetAccountShopProduct(ctx context.Context, request GetAccountShopProductRequestObject) (GetAccountShopProductResponseObject, error)
+
+	// (POST /v1/account/shop/purchase)
+	PurchaseAccountShopProduct(ctx context.Context, request PurchaseAccountShopProductRequestObject) (PurchaseAccountShopProductResponseObject, error)
+
+	// (POST /v1/account/shop/recipient)
+	ReviewAccountShopRecipient(ctx context.Context, request ReviewAccountShopRecipientRequestObject) (ReviewAccountShopRecipientResponseObject, error)
 
 	// (GET /v1/account/sign-in-methods)
 	ListAccountLinkedMethods(ctx context.Context, request ListAccountLinkedMethodsRequestObject) (ListAccountLinkedMethodsResponseObject, error)
@@ -22091,6 +29150,42 @@ type StrictServerInterface interface {
 
 	// (POST /v1/account/subscriptions/{subscriptionID}/rotate-link)
 	RotateAccountSubscriptionLink(ctx context.Context, request RotateAccountSubscriptionLinkRequestObject) (RotateAccountSubscriptionLinkResponseObject, error)
+
+	// (GET /v1/account/support/attachments/{attachmentID})
+	DownloadAccountSupportAttachment(ctx context.Context, request DownloadAccountSupportAttachmentRequestObject) (DownloadAccountSupportAttachmentResponseObject, error)
+
+	// (GET /v1/account/support/limits)
+	GetAccountSupportLimits(ctx context.Context, request GetAccountSupportLimitsRequestObject) (GetAccountSupportLimitsResponseObject, error)
+
+	// (GET /v1/account/support/tickets)
+	ListAccountSupportTickets(ctx context.Context, request ListAccountSupportTicketsRequestObject) (ListAccountSupportTicketsResponseObject, error)
+
+	// (POST /v1/account/support/tickets)
+	CreateAccountSupportTicket(ctx context.Context, request CreateAccountSupportTicketRequestObject) (CreateAccountSupportTicketResponseObject, error)
+
+	// (GET /v1/account/support/tickets/{ticketID})
+	GetAccountSupportTicket(ctx context.Context, request GetAccountSupportTicketRequestObject) (GetAccountSupportTicketResponseObject, error)
+
+	// (POST /v1/account/support/tickets/{ticketID}/attachments)
+	AttachToAccountSupportTicket(ctx context.Context, request AttachToAccountSupportTicketRequestObject) (AttachToAccountSupportTicketResponseObject, error)
+
+	// (POST /v1/account/support/tickets/{ticketID}/close)
+	CloseAccountSupportTicket(ctx context.Context, request CloseAccountSupportTicketRequestObject) (CloseAccountSupportTicketResponseObject, error)
+
+	// (POST /v1/account/support/tickets/{ticketID}/messages)
+	ReplyToAccountSupportTicket(ctx context.Context, request ReplyToAccountSupportTicketRequestObject) (ReplyToAccountSupportTicketResponseObject, error)
+
+	// (POST /v1/account/support/tickets/{ticketID}/read)
+	MarkAccountSupportTicketRead(ctx context.Context, request MarkAccountSupportTicketReadRequestObject) (MarkAccountSupportTicketReadResponseObject, error)
+
+	// (POST /v1/account/support/tickets/{ticketID}/reopen)
+	ReopenAccountSupportTicket(ctx context.Context, request ReopenAccountSupportTicketRequestObject) (ReopenAccountSupportTicketResponseObject, error)
+
+	// (GET /v1/account/wallet)
+	GetAccountWallet(ctx context.Context, request GetAccountWalletRequestObject) (GetAccountWalletResponseObject, error)
+
+	// (POST /v1/account/wallet/top-up)
+	StartAccountTopUp(ctx context.Context, request StartAccountTopUpRequestObject) (StartAccountTopUpResponseObject, error)
 
 	// (GET /v1/admin/backups)
 	ListBackups(ctx context.Context, request ListBackupsRequestObject) (ListBackupsResponseObject, error)
@@ -22891,6 +29986,344 @@ func (sh *strictHandler) AccountSignInWithMiniApp(w http.ResponseWriter, r *http
 	}
 }
 
+// CancelAccountCheckout operation middleware
+func (sh *strictHandler) CancelAccountCheckout(w http.ResponseWriter, r *http.Request, params CancelAccountCheckoutParams) {
+	var request CancelAccountCheckoutRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CancelAccountCheckout(ctx, request.(CancelAccountCheckoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CancelAccountCheckout")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CancelAccountCheckoutResponseObject); ok {
+		if err := validResponse.VisitCancelAccountCheckoutResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountCheckout operation middleware
+func (sh *strictHandler) GetAccountCheckout(w http.ResponseWriter, r *http.Request, params GetAccountCheckoutParams) {
+	var request GetAccountCheckoutRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountCheckout(ctx, request.(GetAccountCheckoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountCheckout")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountCheckoutResponseObject); ok {
+		if err := validResponse.VisitGetAccountCheckoutResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateAccountCheckout operation middleware
+func (sh *strictHandler) UpdateAccountCheckout(w http.ResponseWriter, r *http.Request, params UpdateAccountCheckoutParams) {
+	var request UpdateAccountCheckoutRequestObject
+
+	request.Params = params
+
+	var body UpdateAccountCheckoutJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateAccountCheckout(ctx, request.(UpdateAccountCheckoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateAccountCheckout")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateAccountCheckoutResponseObject); ok {
+		if err := validResponse.VisitUpdateAccountCheckoutResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// OpenAccountCheckout operation middleware
+func (sh *strictHandler) OpenAccountCheckout(w http.ResponseWriter, r *http.Request, params OpenAccountCheckoutParams) {
+	var request OpenAccountCheckoutRequestObject
+
+	request.Params = params
+
+	var body OpenAccountCheckoutJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.OpenAccountCheckout(ctx, request.(OpenAccountCheckoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "OpenAccountCheckout")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(OpenAccountCheckoutResponseObject); ok {
+		if err := validResponse.VisitOpenAccountCheckoutResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ToggleAccountCheckoutAddon operation middleware
+func (sh *strictHandler) ToggleAccountCheckoutAddon(w http.ResponseWriter, r *http.Request, addonVersionID openapi_types.UUID, params ToggleAccountCheckoutAddonParams) {
+	var request ToggleAccountCheckoutAddonRequestObject
+
+	request.AddonVersionID = addonVersionID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ToggleAccountCheckoutAddon(ctx, request.(ToggleAccountCheckoutAddonRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ToggleAccountCheckoutAddon")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ToggleAccountCheckoutAddonResponseObject); ok {
+		if err := validResponse.VisitToggleAccountCheckoutAddonResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ConfirmAccountCheckout operation middleware
+func (sh *strictHandler) ConfirmAccountCheckout(w http.ResponseWriter, r *http.Request, params ConfirmAccountCheckoutParams) {
+	var request ConfirmAccountCheckoutRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ConfirmAccountCheckout(ctx, request.(ConfirmAccountCheckoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ConfirmAccountCheckout")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ConfirmAccountCheckoutResponseObject); ok {
+		if err := validResponse.VisitConfirmAccountCheckoutResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RemoveAccountPromoCode operation middleware
+func (sh *strictHandler) RemoveAccountPromoCode(w http.ResponseWriter, r *http.Request, params RemoveAccountPromoCodeParams) {
+	var request RemoveAccountPromoCodeRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RemoveAccountPromoCode(ctx, request.(RemoveAccountPromoCodeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RemoveAccountPromoCode")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RemoveAccountPromoCodeResponseObject); ok {
+		if err := validResponse.VisitRemoveAccountPromoCodeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ApplyAccountPromoCode operation middleware
+func (sh *strictHandler) ApplyAccountPromoCode(w http.ResponseWriter, r *http.Request, params ApplyAccountPromoCodeParams) {
+	var request ApplyAccountPromoCodeRequestObject
+
+	request.Params = params
+
+	var body ApplyAccountPromoCodeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ApplyAccountPromoCode(ctx, request.(ApplyAccountPromoCodeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApplyAccountPromoCode")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ApplyAccountPromoCodeResponseObject); ok {
+		if err := validResponse.VisitApplyAccountPromoCodeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAccountContacts operation middleware
+func (sh *strictHandler) ListAccountContacts(w http.ResponseWriter, r *http.Request) {
+	var request ListAccountContactsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAccountContacts(ctx, request.(ListAccountContactsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAccountContacts")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAccountContactsResponseObject); ok {
+		if err := validResponse.VisitListAccountContactsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AddAccountContact operation middleware
+func (sh *strictHandler) AddAccountContact(w http.ResponseWriter, r *http.Request, params AddAccountContactParams) {
+	var request AddAccountContactRequestObject
+
+	request.Params = params
+
+	var body AddAccountContactJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AddAccountContact(ctx, request.(AddAccountContactRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AddAccountContact")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AddAccountContactResponseObject); ok {
+		if err := validResponse.VisitAddAccountContactResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RemoveAccountContact operation middleware
+func (sh *strictHandler) RemoveAccountContact(w http.ResponseWriter, r *http.Request, contactID openapi_types.UUID, params RemoveAccountContactParams) {
+	var request RemoveAccountContactRequestObject
+
+	request.ContactID = contactID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RemoveAccountContact(ctx, request.(RemoveAccountContactRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RemoveAccountContact")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RemoveAccountContactResponseObject); ok {
+		if err := validResponse.VisitRemoveAccountContactResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountLoyalty operation middleware
+func (sh *strictHandler) GetAccountLoyalty(w http.ResponseWriter, r *http.Request) {
+	var request GetAccountLoyaltyRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountLoyalty(ctx, request.(GetAccountLoyaltyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountLoyalty")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountLoyaltyResponseObject); ok {
+		if err := validResponse.VisitGetAccountLoyaltyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetAccountSession operation middleware
 func (sh *strictHandler) GetAccountSession(w http.ResponseWriter, r *http.Request) {
 	var request GetAccountSessionRequestObject
@@ -22948,6 +30381,200 @@ func (sh *strictHandler) UpdateAccountProfile(w http.ResponseWriter, r *http.Req
 	}
 }
 
+// ListAccountNews operation middleware
+func (sh *strictHandler) ListAccountNews(w http.ResponseWriter, r *http.Request, params ListAccountNewsParams) {
+	var request ListAccountNewsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAccountNews(ctx, request.(ListAccountNewsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAccountNews")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAccountNewsResponseObject); ok {
+		if err := validResponse.VisitListAccountNewsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// MarkAccountNewsRead operation middleware
+func (sh *strictHandler) MarkAccountNewsRead(w http.ResponseWriter, r *http.Request, postID openapi_types.UUID, params MarkAccountNewsReadParams) {
+	var request MarkAccountNewsReadRequestObject
+
+	request.PostID = postID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.MarkAccountNewsRead(ctx, request.(MarkAccountNewsReadRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "MarkAccountNewsRead")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(MarkAccountNewsReadResponseObject); ok {
+		if err := validResponse.VisitMarkAccountNewsReadResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAccountOrders operation middleware
+func (sh *strictHandler) ListAccountOrders(w http.ResponseWriter, r *http.Request, params ListAccountOrdersParams) {
+	var request ListAccountOrdersRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAccountOrders(ctx, request.(ListAccountOrdersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAccountOrders")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAccountOrdersResponseObject); ok {
+		if err := validResponse.VisitListAccountOrdersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountOrder operation middleware
+func (sh *strictHandler) GetAccountOrder(w http.ResponseWriter, r *http.Request, orderID OrderID, params GetAccountOrderParams) {
+	var request GetAccountOrderRequestObject
+
+	request.OrderID = orderID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountOrder(ctx, request.(GetAccountOrderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountOrder")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountOrderResponseObject); ok {
+		if err := validResponse.VisitGetAccountOrderResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CancelAccountOrder operation middleware
+func (sh *strictHandler) CancelAccountOrder(w http.ResponseWriter, r *http.Request, orderID OrderID, params CancelAccountOrderParams) {
+	var request CancelAccountOrderRequestObject
+
+	request.OrderID = orderID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CancelAccountOrder(ctx, request.(CancelAccountOrderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CancelAccountOrder")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CancelAccountOrderResponseObject); ok {
+		if err := validResponse.VisitCancelAccountOrderResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StartAccountOrderPayment operation middleware
+func (sh *strictHandler) StartAccountOrderPayment(w http.ResponseWriter, r *http.Request, orderID OrderID, params StartAccountOrderPaymentParams) {
+	var request StartAccountOrderPaymentRequestObject
+
+	request.OrderID = orderID
+	request.Params = params
+
+	var body StartAccountOrderPaymentJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StartAccountOrderPayment(ctx, request.(StartAccountOrderPaymentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartAccountOrderPayment")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StartAccountOrderPaymentResponseObject); ok {
+		if err := validResponse.VisitStartAccountOrderPaymentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RefreshAccountOrder operation middleware
+func (sh *strictHandler) RefreshAccountOrder(w http.ResponseWriter, r *http.Request, orderID OrderID, params RefreshAccountOrderParams) {
+	var request RefreshAccountOrderRequestObject
+
+	request.OrderID = orderID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RefreshAccountOrder(ctx, request.(RefreshAccountOrderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RefreshAccountOrder")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RefreshAccountOrderResponseObject); ok {
+		if err := validResponse.VisitRefreshAccountOrderResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetAccountOverview operation middleware
 func (sh *strictHandler) GetAccountOverview(w http.ResponseWriter, r *http.Request, params GetAccountOverviewParams) {
 	var request GetAccountOverviewRequestObject
@@ -22967,6 +30594,277 @@ func (sh *strictHandler) GetAccountOverview(w http.ResponseWriter, r *http.Reque
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetAccountOverviewResponseObject); ok {
 		if err := validResponse.VisitGetAccountOverviewResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAccountPlans operation middleware
+func (sh *strictHandler) ListAccountPlans(w http.ResponseWriter, r *http.Request, params ListAccountPlansParams) {
+	var request ListAccountPlansRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAccountPlans(ctx, request.(ListAccountPlansRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAccountPlans")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAccountPlansResponseObject); ok {
+		if err := validResponse.VisitListAccountPlansResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountPlan operation middleware
+func (sh *strictHandler) GetAccountPlan(w http.ResponseWriter, r *http.Request, planVersionID openapi_types.UUID, params GetAccountPlanParams) {
+	var request GetAccountPlanRequestObject
+
+	request.PlanVersionID = planVersionID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountPlan(ctx, request.(GetAccountPlanRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountPlan")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountPlanResponseObject); ok {
+		if err := validResponse.VisitGetAccountPlanResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountPreferences operation middleware
+func (sh *strictHandler) GetAccountPreferences(w http.ResponseWriter, r *http.Request) {
+	var request GetAccountPreferencesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountPreferences(ctx, request.(GetAccountPreferencesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountPreferences")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountPreferencesResponseObject); ok {
+		if err := validResponse.VisitGetAccountPreferencesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateAccountPreferences operation middleware
+func (sh *strictHandler) UpdateAccountPreferences(w http.ResponseWriter, r *http.Request, params UpdateAccountPreferencesParams) {
+	var request UpdateAccountPreferencesRequestObject
+
+	request.Params = params
+
+	var body UpdateAccountPreferencesJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateAccountPreferences(ctx, request.(UpdateAccountPreferencesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateAccountPreferences")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateAccountPreferencesResponseObject); ok {
+		if err := validResponse.VisitUpdateAccountPreferencesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UnsubscribeAccount operation middleware
+func (sh *strictHandler) UnsubscribeAccount(w http.ResponseWriter, r *http.Request, params UnsubscribeAccountParams) {
+	var request UnsubscribeAccountRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UnsubscribeAccount(ctx, request.(UnsubscribeAccountRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UnsubscribeAccount")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UnsubscribeAccountResponseObject); ok {
+		if err := validResponse.VisitUnsubscribeAccountResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountPrivacy operation middleware
+func (sh *strictHandler) GetAccountPrivacy(w http.ResponseWriter, r *http.Request) {
+	var request GetAccountPrivacyRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountPrivacy(ctx, request.(GetAccountPrivacyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountPrivacy")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountPrivacyResponseObject); ok {
+		if err := validResponse.VisitGetAccountPrivacyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CancelAccountDeletion operation middleware
+func (sh *strictHandler) CancelAccountDeletion(w http.ResponseWriter, r *http.Request, params CancelAccountDeletionParams) {
+	var request CancelAccountDeletionRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CancelAccountDeletion(ctx, request.(CancelAccountDeletionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CancelAccountDeletion")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CancelAccountDeletionResponseObject); ok {
+		if err := validResponse.VisitCancelAccountDeletionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RequestAccountDeletion operation middleware
+func (sh *strictHandler) RequestAccountDeletion(w http.ResponseWriter, r *http.Request, params RequestAccountDeletionParams) {
+	var request RequestAccountDeletionRequestObject
+
+	request.Params = params
+
+	var body RequestAccountDeletionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RequestAccountDeletion(ctx, request.(RequestAccountDeletionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RequestAccountDeletion")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RequestAccountDeletionResponseObject); ok {
+		if err := validResponse.VisitRequestAccountDeletionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ExportAccountPersonalData operation middleware
+func (sh *strictHandler) ExportAccountPersonalData(w http.ResponseWriter, r *http.Request, params ExportAccountPersonalDataParams) {
+	var request ExportAccountPersonalDataRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ExportAccountPersonalData(ctx, request.(ExportAccountPersonalDataRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ExportAccountPersonalData")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ExportAccountPersonalDataResponseObject); ok {
+		if err := validResponse.VisitExportAccountPersonalDataResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountReferrals operation middleware
+func (sh *strictHandler) GetAccountReferrals(w http.ResponseWriter, r *http.Request, params GetAccountReferralsParams) {
+	var request GetAccountReferralsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountReferrals(ctx, request.(GetAccountReferralsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountReferrals")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountReferralsResponseObject); ok {
+		if err := validResponse.VisitGetAccountReferralsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -23044,6 +30942,178 @@ func (sh *strictHandler) RevokeAccountSession(w http.ResponseWriter, r *http.Req
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(RevokeAccountSessionResponseObject); ok {
 		if err := validResponse.VisitRevokeAccountSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAccountShopOrders operation middleware
+func (sh *strictHandler) ListAccountShopOrders(w http.ResponseWriter, r *http.Request, params ListAccountShopOrdersParams) {
+	var request ListAccountShopOrdersRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAccountShopOrders(ctx, request.(ListAccountShopOrdersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAccountShopOrders")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAccountShopOrdersResponseObject); ok {
+		if err := validResponse.VisitListAccountShopOrdersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountShopOrder operation middleware
+func (sh *strictHandler) GetAccountShopOrder(w http.ResponseWriter, r *http.Request, orderID OrderID, params GetAccountShopOrderParams) {
+	var request GetAccountShopOrderRequestObject
+
+	request.OrderID = orderID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountShopOrder(ctx, request.(GetAccountShopOrderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountShopOrder")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountShopOrderResponseObject); ok {
+		if err := validResponse.VisitGetAccountShopOrderResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAccountShopProducts operation middleware
+func (sh *strictHandler) ListAccountShopProducts(w http.ResponseWriter, r *http.Request, params ListAccountShopProductsParams) {
+	var request ListAccountShopProductsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAccountShopProducts(ctx, request.(ListAccountShopProductsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAccountShopProducts")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAccountShopProductsResponseObject); ok {
+		if err := validResponse.VisitListAccountShopProductsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountShopProduct operation middleware
+func (sh *strictHandler) GetAccountShopProduct(w http.ResponseWriter, r *http.Request, productID AccountProductID, params GetAccountShopProductParams) {
+	var request GetAccountShopProductRequestObject
+
+	request.ProductID = productID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountShopProduct(ctx, request.(GetAccountShopProductRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountShopProduct")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountShopProductResponseObject); ok {
+		if err := validResponse.VisitGetAccountShopProductResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PurchaseAccountShopProduct operation middleware
+func (sh *strictHandler) PurchaseAccountShopProduct(w http.ResponseWriter, r *http.Request, params PurchaseAccountShopProductParams) {
+	var request PurchaseAccountShopProductRequestObject
+
+	request.Params = params
+
+	var body PurchaseAccountShopProductJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PurchaseAccountShopProduct(ctx, request.(PurchaseAccountShopProductRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PurchaseAccountShopProduct")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PurchaseAccountShopProductResponseObject); ok {
+		if err := validResponse.VisitPurchaseAccountShopProductResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ReviewAccountShopRecipient operation middleware
+func (sh *strictHandler) ReviewAccountShopRecipient(w http.ResponseWriter, r *http.Request, params ReviewAccountShopRecipientParams) {
+	var request ReviewAccountShopRecipientRequestObject
+
+	request.Params = params
+
+	var body ReviewAccountShopRecipientJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ReviewAccountShopRecipient(ctx, request.(ReviewAccountShopRecipientRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReviewAccountShopRecipient")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ReviewAccountShopRecipientResponseObject); ok {
+		if err := validResponse.VisitReviewAccountShopRecipientResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -23324,6 +31394,349 @@ func (sh *strictHandler) RotateAccountSubscriptionLink(w http.ResponseWriter, r 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(RotateAccountSubscriptionLinkResponseObject); ok {
 		if err := validResponse.VisitRotateAccountSubscriptionLinkResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DownloadAccountSupportAttachment operation middleware
+func (sh *strictHandler) DownloadAccountSupportAttachment(w http.ResponseWriter, r *http.Request, attachmentID openapi_types.UUID) {
+	var request DownloadAccountSupportAttachmentRequestObject
+
+	request.AttachmentID = attachmentID
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DownloadAccountSupportAttachment(ctx, request.(DownloadAccountSupportAttachmentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DownloadAccountSupportAttachment")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DownloadAccountSupportAttachmentResponseObject); ok {
+		if err := validResponse.VisitDownloadAccountSupportAttachmentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountSupportLimits operation middleware
+func (sh *strictHandler) GetAccountSupportLimits(w http.ResponseWriter, r *http.Request) {
+	var request GetAccountSupportLimitsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountSupportLimits(ctx, request.(GetAccountSupportLimitsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountSupportLimits")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountSupportLimitsResponseObject); ok {
+		if err := validResponse.VisitGetAccountSupportLimitsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAccountSupportTickets operation middleware
+func (sh *strictHandler) ListAccountSupportTickets(w http.ResponseWriter, r *http.Request, params ListAccountSupportTicketsParams) {
+	var request ListAccountSupportTicketsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAccountSupportTickets(ctx, request.(ListAccountSupportTicketsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAccountSupportTickets")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAccountSupportTicketsResponseObject); ok {
+		if err := validResponse.VisitListAccountSupportTicketsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateAccountSupportTicket operation middleware
+func (sh *strictHandler) CreateAccountSupportTicket(w http.ResponseWriter, r *http.Request, params CreateAccountSupportTicketParams) {
+	var request CreateAccountSupportTicketRequestObject
+
+	request.Params = params
+
+	var body CreateAccountSupportTicketJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateAccountSupportTicket(ctx, request.(CreateAccountSupportTicketRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateAccountSupportTicket")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateAccountSupportTicketResponseObject); ok {
+		if err := validResponse.VisitCreateAccountSupportTicketResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountSupportTicket operation middleware
+func (sh *strictHandler) GetAccountSupportTicket(w http.ResponseWriter, r *http.Request, ticketID AccountTicketID) {
+	var request GetAccountSupportTicketRequestObject
+
+	request.TicketID = ticketID
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountSupportTicket(ctx, request.(GetAccountSupportTicketRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountSupportTicket")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountSupportTicketResponseObject); ok {
+		if err := validResponse.VisitGetAccountSupportTicketResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AttachToAccountSupportTicket operation middleware
+func (sh *strictHandler) AttachToAccountSupportTicket(w http.ResponseWriter, r *http.Request, ticketID AccountTicketID, params AttachToAccountSupportTicketParams) {
+	var request AttachToAccountSupportTicketRequestObject
+
+	request.TicketID = ticketID
+	request.Params = params
+
+	if reader, err := r.MultipartReader(); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode multipart body: %w", err))
+		return
+	} else {
+		request.Body = reader
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AttachToAccountSupportTicket(ctx, request.(AttachToAccountSupportTicketRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AttachToAccountSupportTicket")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AttachToAccountSupportTicketResponseObject); ok {
+		if err := validResponse.VisitAttachToAccountSupportTicketResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CloseAccountSupportTicket operation middleware
+func (sh *strictHandler) CloseAccountSupportTicket(w http.ResponseWriter, r *http.Request, ticketID AccountTicketID, params CloseAccountSupportTicketParams) {
+	var request CloseAccountSupportTicketRequestObject
+
+	request.TicketID = ticketID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CloseAccountSupportTicket(ctx, request.(CloseAccountSupportTicketRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CloseAccountSupportTicket")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CloseAccountSupportTicketResponseObject); ok {
+		if err := validResponse.VisitCloseAccountSupportTicketResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ReplyToAccountSupportTicket operation middleware
+func (sh *strictHandler) ReplyToAccountSupportTicket(w http.ResponseWriter, r *http.Request, ticketID AccountTicketID, params ReplyToAccountSupportTicketParams) {
+	var request ReplyToAccountSupportTicketRequestObject
+
+	request.TicketID = ticketID
+	request.Params = params
+
+	var body ReplyToAccountSupportTicketJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ReplyToAccountSupportTicket(ctx, request.(ReplyToAccountSupportTicketRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReplyToAccountSupportTicket")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ReplyToAccountSupportTicketResponseObject); ok {
+		if err := validResponse.VisitReplyToAccountSupportTicketResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// MarkAccountSupportTicketRead operation middleware
+func (sh *strictHandler) MarkAccountSupportTicketRead(w http.ResponseWriter, r *http.Request, ticketID AccountTicketID, params MarkAccountSupportTicketReadParams) {
+	var request MarkAccountSupportTicketReadRequestObject
+
+	request.TicketID = ticketID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.MarkAccountSupportTicketRead(ctx, request.(MarkAccountSupportTicketReadRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "MarkAccountSupportTicketRead")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(MarkAccountSupportTicketReadResponseObject); ok {
+		if err := validResponse.VisitMarkAccountSupportTicketReadResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ReopenAccountSupportTicket operation middleware
+func (sh *strictHandler) ReopenAccountSupportTicket(w http.ResponseWriter, r *http.Request, ticketID AccountTicketID, params ReopenAccountSupportTicketParams) {
+	var request ReopenAccountSupportTicketRequestObject
+
+	request.TicketID = ticketID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ReopenAccountSupportTicket(ctx, request.(ReopenAccountSupportTicketRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReopenAccountSupportTicket")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ReopenAccountSupportTicketResponseObject); ok {
+		if err := validResponse.VisitReopenAccountSupportTicketResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountWallet operation middleware
+func (sh *strictHandler) GetAccountWallet(w http.ResponseWriter, r *http.Request, params GetAccountWalletParams) {
+	var request GetAccountWalletRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountWallet(ctx, request.(GetAccountWalletRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountWallet")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountWalletResponseObject); ok {
+		if err := validResponse.VisitGetAccountWalletResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StartAccountTopUp operation middleware
+func (sh *strictHandler) StartAccountTopUp(w http.ResponseWriter, r *http.Request, params StartAccountTopUpParams) {
+	var request StartAccountTopUpRequestObject
+
+	request.Params = params
+
+	var body StartAccountTopUpJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StartAccountTopUp(ctx, request.(StartAccountTopUpRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartAccountTopUp")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StartAccountTopUpResponseObject); ok {
+		if err := validResponse.VisitStartAccountTopUpResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
