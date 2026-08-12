@@ -1079,11 +1079,11 @@ Goal: publish a stable release suitable for public single-server production use.
 
 ### Compatibility and upgrades
 
-- [ ] Published compatibility matrix for Omniflow, Remnawave, PostgreSQL, Valkey, Go, Bun, and browsers
-- [ ] Semantic versioning, changelog, signed release artifacts, container images, SBOM, and provenance
-- [ ] Automated upgrade tests and documented backup/restore/rollback procedure
-- [ ] Migration policy and supported upgrade window
-- [ ] Deprecation policy for API, environment variables, database behavior, and integrations
+- [x] Published compatibility matrix for Omniflow, Remnawave, PostgreSQL, Valkey, Go, Bun, and browsers
+- [x] Semantic versioning, changelog, signed release artifacts, container images, SBOM, and provenance
+- [x] Automated upgrade tests and documented backup/restore/rollback procedure
+- [x] Migration policy and supported upgrade window
+- [x] Deprecation policy for API, environment variables, database behavior, and integrations
 
 ### Security and privacy
 

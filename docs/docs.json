@@ -99,6 +99,7 @@
             "group": "Running Omniflow",
             "pages": [
               "operations/deployment",
+              "operations/compatibility",
               "operations/reverse-proxy",
               "operations/jobs-and-queues",
               "operations/observability",
@@ -208,6 +209,7 @@
             "group": "Эксплуатация",
             "pages": [
               "ru/operations/deployment",
+              "ru/operations/compatibility",
               "ru/operations/reverse-proxy",
               "ru/operations/jobs-and-queues",
               "ru/operations/observability",

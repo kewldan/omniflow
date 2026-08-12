@@ -94,7 +94,7 @@ Omniflow never connects to Remnawave storage and never manages Xray processes di
 | UI and forms | Tailwind CSS v4, shadcn/ui, React Hook Form, Zod |
 | API generation | `oapi-codegen`, Orval Fetch/SWR clients and Zod schemas |
 | Tooling | Bun workspaces, Biome, Mintlify, Docker Compose |
-| Delivery | GitHub Actions, Renovate, Release Please, Trivy, Gitleaks |
+| Delivery | GitHub Actions, Renovate, Release Please, Trivy, Gitleaks, Cosign |
 
 ## 🚀 Quick start
 
