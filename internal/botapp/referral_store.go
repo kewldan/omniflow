@@ -78,8 +78,19 @@ func (store *PostgresStore) ReferralSummary(ctx context.Context, customerID stri
 		SELECT mine.code,
 			(SELECT count(*) FROM referral_attributions a WHERE a.referrer_user_id = mine.user_id),
 			(SELECT count(*) FROM referral_attributions a WHERE a.referrer_user_id = mine.user_id AND a.qualified_at IS NOT NULL),
-			(SELECT COALESCE(sum(w.amount_minor), 0) FROM referral_rewards w WHERE w.beneficiary_user_id = mine.user_id),
-			(SELECT count(*)::integer FROM referral_rewards w WHERE w.beneficiary_user_id = mine.user_id AND w.role = 'inviter')
+			-- Reversed rewards are excluded from both the total and the count.
+			-- An operator reverses one when the referral turns out to be abuse,
+			-- and it is compensated in the ledger rather than deleted, so the row
+			-- stays. Counting it would tell the customer they had earned money
+			-- that was taken back, and — because the count feeds the inviter
+			-- reward cap through Progress below — it would also keep a slot
+			-- consumed by a referral the operator has already rejected. The
+			-- reversal columns arrived in v0.8 and this aggregate predates them.
+			(SELECT COALESCE(sum(w.amount_minor), 0) FROM referral_rewards w
+				WHERE w.beneficiary_user_id = mine.user_id AND w.reversed_at IS NULL),
+			(SELECT count(*)::integer FROM referral_rewards w
+				WHERE w.beneficiary_user_id = mine.user_id AND w.role = 'inviter'
+				  AND w.reversed_at IS NULL)
 		FROM mine`, customerID, code).
 		Scan(&summary.Code, &summary.Invited, &summary.Qualified, &summary.RewardedMinor, &summary.RewardCount)
 	if err != nil {

@@ -27,16 +27,32 @@ var ErrNewsNotFound = errors.New("news post not found")
 const newsColumns = `n.id::text, n.slug, n.category, n.class, l.title, l.body, n.published_at,
 	EXISTS (SELECT 1 FROM news_reads r WHERE r.post_id = n.id AND r.user_id = $1::uuid)`
 
-const newsVisible = `n.published_at IS NOT NULL AND n.published_at <= now()
+// newsVisible is what a customer may read.
+//
+// `status` is checked as well as `published_at` because unpublishing a post does
+// not clear the date it went out on: an operator who takes a post down leaves
+// `published_at` set and moves `status` to 'unpublished' or 'archived'. Reading
+// only the date would keep showing a withdrawn post in Telegram while the web
+// panel, which does check the status, had already stopped — and the two surfaces
+// must not disagree about what an operator has taken down.
+const newsVisible = `n.status = 'published'
+	AND n.published_at IS NOT NULL AND n.published_at <= now()
 	AND (n.expires_at IS NULL OR n.expires_at > now())`
 
 // News lists the posts a customer can read, newest first.
+//
+// The identifier breaks the tie on the timestamp. Two posts published in the
+// same instant — a batch an operator released together, or a scheduled run —
+// otherwise come back in whatever order the scan produced, and the web panel
+// orders the same rows deterministically. One customer reading their
+// announcements in a chat and in a browser must not see them in two different
+// orders.
 func (store *PostgresStore) News(ctx context.Context, customerID string, locale Locale, limit int) ([]NewsItem, error) {
 	rows, err := store.pool.Query(ctx, `SELECT `+newsColumns+`
 		FROM news_posts n
 		JOIN news_post_localizations l ON l.post_id = n.id AND l.locale = $2
 		WHERE `+newsVisible+`
-		ORDER BY n.published_at DESC LIMIT $3`, customerID, string(locale), limit)
+		ORDER BY n.published_at DESC, n.id DESC LIMIT $3`, customerID, string(locale), limit)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +124,8 @@ func (store *PostgresStore) PendingNewsAnnouncements(ctx context.Context, since 
 		LEFT JOIN bot_preferences p ON p.user_id = u.id
 		JOIN news_post_localizations l ON l.post_id = n.id
 			AND l.locale = CASE WHEN COALESCE(p.locale, 'auto') = 'auto' THEN u.locale ELSE p.locale END
-		WHERE n.published_at IS NOT NULL AND n.published_at <= now()
+		WHERE n.status = 'published'
+		  AND n.published_at IS NOT NULL AND n.published_at <= now()
 		  AND n.published_at > now() - $1::interval
 		  AND (n.expires_at IS NULL OR n.expires_at > now())
 		  AND NOT EXISTS (
