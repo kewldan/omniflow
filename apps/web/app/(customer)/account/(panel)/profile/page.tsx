@@ -4,27 +4,37 @@ import { Button } from "@omniflow/ui/button";
 import { Label } from "@omniflow/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
 import { toast } from "@omniflow/ui/toast";
-import { ChevronRight, Moon, Shield, Sun } from "lucide-react";
-import Link from "next/link";
+import { BellRing, Gift, MonitorSmartphone, Moon, Shield, ShieldCheck, Sun } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { useState } from "react";
 
+import { HubNav } from "@/components/account/account/hub-nav";
 import { SectionLabel } from "@/components/account/state";
 import { useAccount } from "@/lib/account-session";
 import { type ApiError, apiFetch } from "@/lib/api";
 
 /**
- * The account screen: who you are, and the two preferences that follow you
- * between devices.
+ * The account screen: who you are, the two preferences that follow you between
+ * devices, and the way into everything that is not a tab.
  *
  * Theme and language live here rather than in a header control, exactly as the
  * source design places them — they are set once, and a persistent toggle in the
  * chrome would spend space on something nobody changes twice.
+ *
+ * The link groups below them are the hub. Five tabs cannot carry devices,
+ * sessions, invites, notification preferences, and personal data as well, and
+ * each of those is opened rarely enough that a menu entry is the right cost. The
+ * groups are ordered by how often they are actually needed rather than by which
+ * subsystem owns them.
  */
 export default function ProfilePage() {
   const translate = useTranslations("account");
+  // A second namespace, not a duplicate: v0.10's copy lives in its own fragment
+  // so the screens shipping it can be merged independently of the v0.9 catalogue
+  // this page was written against.
+  const hub = useTranslations("account.account");
   const { refresh, session } = useAccount();
   const customer = session?.customer;
 
@@ -52,16 +62,62 @@ export default function ProfilePage() {
       />
 
       <SectionLabel>{translate("profile.security")}</SectionLabel>
-      <nav className="overflow-hidden rounded-xl border border-border bg-card">
-        <Link
-          className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-accent"
-          href="/account/security"
-        >
-          <Shield aria-hidden className="size-4 text-muted-foreground" />
-          <span className="flex-1 font-semibold text-[15px]">{translate("profile.sessions")}</span>
-          <ChevronRight aria-hidden className="size-4 text-subtle-foreground" />
-        </Link>
-      </nav>
+      {/* Devices reached the tab bar in v0.9 and left it in v0.10, because
+          disconnecting a replaced phone is something a person does once rather
+          than something they come back to. It is reachable from here and from
+          the subscription it belongs to, so nothing lost a way in. */}
+      <HubNav
+        items={[
+          {
+            description: hub("hub.devicesHint"),
+            href: "/account/devices",
+            icon: MonitorSmartphone,
+            label: translate("nav.devices"),
+          },
+          {
+            description: hub("hub.sessionsHint"),
+            href: "/account/security",
+            icon: Shield,
+            label: translate("profile.sessions"),
+          },
+        ]}
+        label={translate("profile.security")}
+      />
+
+      <SectionLabel>{hub("hub.rewards")}</SectionLabel>
+      <HubNav
+        items={[
+          {
+            description: hub("hub.referralsHint"),
+            href: "/account/referrals",
+            icon: Gift,
+            label: hub("hub.referrals"),
+          },
+        ]}
+        label={hub("hub.rewards")}
+      />
+
+      <SectionLabel>{hub("hub.data")}</SectionLabel>
+      {/* Notification preferences and personal data are one group because they
+          are the same decision seen from two sides: what may be sent to you, and
+          what is held about you. */}
+      <HubNav
+        items={[
+          {
+            description: hub("hub.preferencesHint"),
+            href: "/account/preferences",
+            icon: BellRing,
+            label: hub("hub.preferences"),
+          },
+          {
+            description: hub("hub.privacyHint"),
+            href: "/account/privacy",
+            icon: ShieldCheck,
+            label: hub("hub.privacy"),
+          },
+        ]}
+        label={hub("hub.data")}
+      />
     </div>
   );
 }

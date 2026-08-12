@@ -8,7 +8,8 @@
     "start": "next start",
     "check": "tsc --noEmit && biome check .",
     "e2e": "playwright test",
-    "e2e:install": "playwright install --with-deps chromium webkit"
+    "e2e:install": "playwright install --with-deps chromium webkit",
+    "perf:budget": "node scripts/perf-budget.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "5.7.1",

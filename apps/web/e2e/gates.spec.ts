@@ -24,7 +24,10 @@ test.describe("accessibility", () => {
     test(`${path} has no serious or critical violations`, async ({ page }) => {
       await page.goto(path);
       const results = await new AxeBuilder({ page })
-        .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+        // 2.2 AA is what the v0.10 release gate asks for, and it is a superset:
+        // the 2.2 tags add the criteria introduced in that revision rather than
+        // replacing the earlier ones, so all four levels are named.
+        .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22a", "wcag22aa"])
         .analyze();
 
       // Serious and critical only. Gating on every advisory rule produces a

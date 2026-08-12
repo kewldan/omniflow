@@ -13,13 +13,39 @@ import { expect, test } from "@playwright/test";
  * is tracked as verification debt rather than quietly skipped.
  */
 
+const SUBSCRIPTION = "/account/subscriptions/2f1c0c2e-0000-4000-8000-000000000000";
+const ID = "2f1c0c2e-0000-4000-8000-000000000000";
+
 const ACCOUNT_ROUTES = [
   "/account",
   "/account/devices",
   "/account/profile",
   "/account/security",
-  "/account/subscriptions/2f1c0c2e-0000-4000-8000-000000000000",
-  "/account/subscriptions/2f1c0c2e-0000-4000-8000-000000000000/connect",
+  SUBSCRIPTION,
+  `${SUBSCRIPTION}/connect`,
+
+  // v0.10. Each of these can show what somebody bought, what they asked
+  // support, who they invited, or what they are owed, so every one of them has
+  // to refuse an anonymous visitor exactly as the v0.9 routes do. They are
+  // enumerated rather than sampled because they are mounted by four separate
+  // functions, and a group that lost its gate would be a whole area exposed.
+  "/account/store",
+  `/account/store/${ID}`,
+  "/account/checkout",
+  "/account/orders",
+  `/account/orders/${ID}`,
+  "/account/wallet",
+  "/account/shop",
+  `/account/shop/${ID}`,
+  "/account/shop/orders",
+  `/account/shop/orders/${ID}`,
+  "/account/support",
+  "/account/support/new",
+  `/account/support/${ID}`,
+  "/account/news",
+  "/account/preferences",
+  "/account/referrals",
+  "/account/privacy",
 ];
 
 test.describe("customer account access", () => {

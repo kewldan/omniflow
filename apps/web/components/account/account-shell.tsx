@@ -2,7 +2,7 @@
 
 import { Button } from "@omniflow/ui/button";
 import { cn } from "@omniflow/ui/lib/utils";
-import { ChevronLeft, Layers, MonitorSmartphone, UserRound } from "lucide-react";
+import { ChevronLeft, Layers, LifeBuoy, Store, UserRound, Wallet } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -14,14 +14,22 @@ import { useAccount } from "@/lib/account-session";
 /**
  * The tabs that carry the product.
  *
- * The source design has four, the fourth being the wallet. Wallet, checkout, and
- * order history are v0.10 work, and a tab that leads nowhere is worse than a tab
- * that is not there yet — so this ships three and the bar sizes its indicator
- * from the count rather than from a hard-coded quarter.
+ * Five destinations, chosen by how often a customer needs each rather than by
+ * how the API is divided. Buying a plan and buying digital goods are one
+ * destination because from the customer's side they are the same errand, and
+ * splitting them would spend a scarce tab on a catalogue many installations do
+ * not sell at all. Devices moved off the bar and under the account tab: it is
+ * something a person does once when a phone is replaced, not something they
+ * come back to, and the subscription it belongs to links to it directly.
+ *
+ * The bar sizes its indicator from the count, so this list is the only place
+ * that has to change when a destination is added or removed.
  */
 const TABS: { href: string; icon: ComponentType<{ className?: string }>; key: string }[] = [
   { href: "/account", icon: Layers, key: "subscriptions" },
-  { href: "/account/devices", icon: MonitorSmartphone, key: "devices" },
+  { href: "/account/store", icon: Store, key: "store" },
+  { href: "/account/wallet", icon: Wallet, key: "wallet" },
+  { href: "/account/support", icon: LifeBuoy, key: "support" },
   { href: "/account/profile", icon: UserRound, key: "profile" },
 ];
 

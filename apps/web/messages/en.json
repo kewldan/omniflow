@@ -1665,6 +1665,46 @@
         "description": "Version, schema state, configuration status, and counts — assembled from an allowlist, so it contains no secrets and no customer data.",
         "generate": "Generate bundle"
       }
+    },
+    "customerOidc": {
+      "title": "Customer sign-in providers",
+      "description": "Where customers may sign in to the account panel from. Telegram sign-in always works and needs nothing configured here; these are the optional OIDC providers alongside it.",
+      "empty": "No provider is configured",
+      "emptyDescription": "Customers sign in with Telegram. Add a provider to offer another route onto the same account.",
+      "addTitle": "Add a provider",
+      "addDescription": "A preset fills in the issuer, discovery document, and scopes for a well-known provider. It is a starting point for the form, not a separate code path — you still supply the client ID and secret from that provider.",
+      "addBlank": "Empty form",
+      "untitled": "New provider",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "secretStored": "Secret stored",
+      "save": "Save provider",
+      "cancel": "Cancel",
+      "remove": "Remove",
+      "removeTitle": "Remove {name}?",
+      "removeDescription": "The provider stops being offered and the sessions it established end. Identities already linked to customers are kept, because deleting them could leave someone with no way to sign in.",
+      "removePrompt": "Type {slug} to confirm.",
+      "fields": {
+        "slug": "Slug",
+        "displayName": "Display name",
+        "issuer": "Issuer",
+        "discoveryUrl": "Discovery document",
+        "clientId": "Client ID",
+        "clientSecret": "Client secret",
+        "secretHint": "Stored encrypted and never shown again.",
+        "secretKept": "A secret is stored. Leave this empty to keep it.",
+        "scopes": "Scopes",
+        "scopesHint": "Space-separated. openid is required; email is required when a verified address is.",
+        "icon": "Icon",
+        "iconHint": "The name of a shipped icon. A third-party URL is not accepted.",
+        "sortOrder": "Order",
+        "enabled": "Offer this provider",
+        "enabledHint": "Turning it off also ends the sessions it established — a provider that is off while its access stays open is not off.",
+        "requireVerifiedEmail": "Require a verified email",
+        "verifiedHint": "Refuses a sign-in whose email claim the provider has not verified.",
+        "allowAutoProvision": "Allow new accounts",
+        "provisionHint": "A subject nobody has linked may create a customer. It never adopts an existing customer by email address — matching on an address would let anyone who can make a provider assert it take over that account."
+      }
     }
   },
   "account": {
@@ -1673,9 +1713,12 @@
       "subtitle": "your account",
       "tabs": "Sections",
       "back": "Back",
-      "subscriptions": "Plans",
+      "subscriptions": "Subscriptions",
       "devices": "Devices",
-      "profile": "Account"
+      "profile": "Account",
+      "store": "Store",
+      "wallet": "Wallet",
+      "support": "Support"
     },
     "actions": {
       "cancel": "Cancel",
@@ -1836,6 +1879,1054 @@
         "subscription_key_rotated": "A new access link was issued",
         "device_removed": "A device was disconnected",
         "devices_removed_all": "Every device was disconnected"
+      }
+    },
+    "account": {
+      "actions": {
+        "cancel": "Cancel",
+        "loadMore": "Load more",
+        "loading": "Loading…"
+      },
+      "states": {
+        "loadError": "This didn't load",
+        "loadErrorDescription": "Something went wrong fetching this. Reload the page to try again."
+      },
+      "errors": {
+        "invalid_input": "Something in that isn't right. Check what you entered and try again.",
+        "not_found": "That record is no longer here. Reload the page to see what's current.",
+        "contact_unavailable": "This address can't be added here. Contact support and they'll sort it out with you.",
+        "deletion_pending": "A deletion request is already open. Cancel it first if you want to send a different one.",
+        "no_deletion_pending": "There's no deletion request to cancel. Reload the page to see where things stand.",
+        "contacts_unavailable": "Contact channels aren't set up on this service, so nothing can be added here. Reach us through support instead.",
+        "rate_limited": "That's been tried a few times already. Wait an hour and try again.",
+        "confirmation_required": "This has to be confirmed before it can be sent. Confirm it and try again.",
+        "reauthentication_required": "Your sign-in is too old for this action. Sign in again and it will go through.",
+        "unknown": "Something went wrong at our end. Try again in a moment, and contact support if it keeps happening."
+      },
+      "hub": {
+        "devicesHint": "Disconnect a phone or laptop you no longer use.",
+        "sessionsHint": "See where you're signed in and end anything you don't recognise.",
+        "rewards": "Rewards",
+        "referrals": "Invite a friend",
+        "referralsHint": "Your code, what it has earned, and your loyalty tier.",
+        "data": "Messages and data",
+        "preferences": "Notifications",
+        "preferencesHint": "Choose what we tell you about, and where.",
+        "privacy": "Personal data",
+        "privacyHint": "Contact addresses, consents, your export, and account deletion."
+      },
+      "referrals": {
+        "title": "Invite a friend",
+        "disabled": "Invites aren't running here",
+        "disabledDescription": "This service doesn't have a referral programme at the moment. If one starts, it will appear on this screen.",
+        "code": "Your code",
+        "share": "Share",
+        "copy": "Copy the link",
+        "copied": "Link copied",
+        "shared": "Link shared",
+        "copyFailed": "The link couldn't be copied. Select it and copy it by hand.",
+        "shareTitle": "Join me here",
+        "shareText": "Sign up with my link and you'll get {reward} to start with.",
+        "linkReason": {
+          "public_url_not_configured": "No public address is set up for this service yet, so there's no link to share. Give your friend the code above — it works just as well.",
+          "no_code": "Your code hasn't been created yet. Reload the page and it will appear."
+        },
+        "earned": "Earned from invites",
+        "reversedTotal": "{amount} was granted and later taken back, so it isn't counted above.",
+        "slotsLeft": "{remaining} of {cap} rewarded invites left.",
+        "slotsSpent": "You've used all {cap} rewarded invites. Friends can still join with your code, but no further reward is paid.",
+        "invited": "Invited",
+        "qualified": "Qualified",
+        "pending": "Being checked",
+        "rejected": "Rejected",
+        "terms": "How it works",
+        "inviterReward": "You get",
+        "inviteeReward": "Your friend gets",
+        "qualification": {
+          "first_paid_order": "The reward is paid once your friend's first order has been paid for."
+        },
+        "attribution": "Your link stays attached to a friend for {days} days after they follow it.",
+        "rewardExpiry": "A reward expires {days} days after it is granted if it hasn't been used.",
+        "readTerms": "Read the full terms (opens in a new tab)",
+        "history": "Reward history",
+        "historyEmpty": "Nothing earned yet",
+        "historyEmptyDescription": "Rewards appear here once a friend joins with your code and their first order goes through.",
+        "role": {
+          "inviter": "For an invite you sent",
+          "invitee": "For joining with a code"
+        },
+        "state": {
+          "pending": "Being checked",
+          "qualified": "Yours",
+          "rejected": "Not paid"
+        },
+        "reversedOn": "Taken back on {date}"
+      },
+      "loyalty": {
+        "title": "Loyalty",
+        "disabled": "There's no loyalty programme here",
+        "disabledDescription": "This service doesn't run tiers at the moment. If it starts, your standing will show up on this screen.",
+        "pending": "Your tier hasn't been worked out yet",
+        "pendingDescription": "Standings are recalculated on a schedule. Yours will appear here after the next run.",
+        "currentTier": "Your tier",
+        "discount": "{percent} off",
+        "measured": "Measured at {value}",
+        "toNext": "{remaining} more to reach {tier}",
+        "topTier": "You're on the top tier. There is nothing above this one.",
+        "grace": "You keep this tier until {date} while your figures are below its threshold.",
+        "evaluatedAt": "Last worked out {date}",
+        "threshold": "From {value}",
+        "you": "You",
+        "rules": "How tiers are decided",
+        "metricRule": {
+          "spend": "Your tier follows what you have spent over the last {days} days.",
+          "tenure": "Your tier follows how long you have been with us. The {days}-day window does not apply to it.",
+          "orders": "Your tier follows how many orders you have placed in the last {days} days."
+        },
+        "graceRule": "If you drop below a threshold, you keep the tier for another {days} days.",
+        "noGraceRule": "If you drop below a threshold, the tier changes at the next recalculation.",
+        "days": "{count, plural, one {# day} other {# days}}",
+        "orders": "{count, plural, one {# order} other {# orders}}"
+      },
+      "retention": {
+        "title": "Your account",
+        "status": "Status",
+        "state": {
+          "active": "Active",
+          "suspended": "Suspended",
+          "deleted": "Deleted",
+          "unknown": "Unknown"
+        },
+        "description": {
+          "active": "Your account is in normal use. Nothing is scheduled against it.",
+          "suspended": "Your account is suspended, so the services attached to it are paused. Support can tell you why and what happens next.",
+          "deleted": "Your account has been deleted. What is left is kept only for as long as the law requires, and is removed after that.",
+          "unknown": "This service reports a state this screen doesn't recognise. Support can tell you what it means."
+        },
+        "suspendedAt": "Suspended on",
+        "deletedAt": "Deleted on",
+        "anonymizedAt": "Anonymised on",
+        "retentionUntil": "Records kept until"
+      },
+      "contacts": {
+        "title": "How we reach you",
+        "unavailable": "Contact channels aren't available here",
+        "empty": "No addresses yet",
+        "emptyDescription": "Add an email address, a phone number, or a Telegram username and we'll use it for the messages you allow below.",
+        "valueUnavailable": "Address unavailable",
+        "verified": "Verified",
+        "unverified": "Not verified",
+        "transactional": "Service messages",
+        "marketing": "Offers and news",
+        "transactionalHint": "Receipts, expiry warnings, and anything about an order you placed.",
+        "marketingHint": "Discounts and announcements. Off by default, and you can turn it off again at any time.",
+        "remove": "Remove",
+        "removeTitle": "Remove {value}?",
+        "removeDescription": "We'll stop sending anything to this address. You can add it back later.",
+        "removed": "Address removed",
+        "addTitle": "Add an address",
+        "add": "Add address",
+        "added": "Address added",
+        "kind": "Kind",
+        "kinds": {
+          "email": "Email",
+          "phone": "Phone",
+          "telegram": "Telegram"
+        },
+        "value": "Address",
+        "placeholder": {
+          "email": "name@example.com",
+          "phone": "+7 900 000 00 00",
+          "telegram": "@username"
+        },
+        "hint": {
+          "email": "Service messages will be sent to this mailbox.",
+          "phone": "In international format, starting with the country code.",
+          "telegram": "Your Telegram username, with or without the @."
+        },
+        "invalid": {
+          "email": "That doesn't look like an email address. Check for a missing @ or a typo in the domain.",
+          "phone": "That doesn't look like a phone number. Use the international format, for example +79000000000.",
+          "telegram": "That doesn't look like a Telegram username. It is 5 to 32 characters: letters, digits, and underscores."
+        },
+        "flags": "What may be sent here",
+        "flagsRequired": "Choose at least one. An address we may send nothing to isn't worth storing.",
+        "verificationHint": "Adding an address records your permission; it doesn't prove the address is yours. Until it is verified, some messages may not be sent to it."
+      },
+      "consents": {
+        "title": "What you've agreed to",
+        "empty": "No decisions recorded yet",
+        "emptyDescription": "Choices you make about messages and terms are listed here with the date they were made.",
+        "granted": "Agreed",
+        "withdrawn": "Withdrawn",
+        "grantedOn": "Agreed to {purpose}",
+        "withdrawnOn": "Withdrew {purpose}",
+        "provenance": "Version {version} · via {source}",
+        "history": "Full history ({count})",
+        "purpose": {
+          "terms": "Terms of service",
+          "privacy": "Privacy notice",
+          "marketing": "Offers and news",
+          "profiling": "Personalised offers"
+        },
+        "purposeHint": {
+          "terms": "The rules you accepted when you signed up.",
+          "privacy": "How your data is handled.",
+          "marketing": "Set by the contact addresses above — turn the flag off on each one to withdraw it.",
+          "profiling": "Using your history to decide which offers you are shown."
+        },
+        "purposeHintUnknown": "Recorded by another part of this service."
+      },
+      "export": {
+        "title": "Download your data",
+        "description": "A single JSON file with everything this service holds about you. It is put together when you ask for it and saved straight to your device — it is never shown on this page and is not kept anywhere afterwards.",
+        "includes": "What's in it",
+        "excludes": "What's deliberately left out",
+        "section": {
+          "profile": "Profile",
+          "identities": "Sign-in methods",
+          "contacts": "Contact addresses",
+          "subscriptions": "Subscriptions",
+          "entitlements": "Plans",
+          "orders": "Orders",
+          "payments": "Payments",
+          "wallet": "Wallet",
+          "support": "Support conversations",
+          "referral": "Invites",
+          "loyalty": "Loyalty",
+          "consents": "Consents",
+          "lifecycle": "Account history"
+        },
+        "redaction": {
+          "other_customer_identifiers": "Other people's identifiers. You can see that an invite paid out, not who took it.",
+          "payment_credentials": "Payment provider references and checkout links, which are credentials rather than your data.",
+          "provider_secrets": "Raw material returned by a sign-in provider. The link itself is included; the provider's own data isn't ours to pass on.",
+          "subscription_links": "Subscription links. They grant access, so they stay on the connection screen instead.",
+          "device_and_network_identifiers": "Device and network identifiers, which can also belong to other people sharing your connection."
+        },
+        "contactValuesUnavailable": "This service has no key for contact addresses, so the file will list your channels without the addresses themselves.",
+        "download": "Download my data",
+        "preparing": "Putting the file together…",
+        "saved": "Your file has been saved",
+        "savedAt": "Prepared at {time} and saved to your device.",
+        "redactionsChanged": "The file leaves out more than this page listed. What it actually excludes: {items}",
+        "truncated": "These sections were long and were cut short: {sections}. Ask support if you need them in full.",
+        "rateHint": "Up to three exports an hour."
+      },
+      "deletion": {
+        "title": "Delete my account",
+        "description": "Sending this does not delete anything straight away. It records a request, and your account keeps working until the request is carried out.",
+        "executedBy": "Requests are reviewed and carried out by the operator's retention process, not by this page. Until that happens you can cancel at any time.",
+        "reason": "Why are you leaving?",
+        "reasonPlaceholder": "In your own words",
+        "reasonHint": "{remaining} characters left. This goes to the person who reviews the request.",
+        "reasonRequired": "Please write a short reason — the request can't be sent without one.",
+        "request": "Request deletion",
+        "confirm": "Send the request",
+        "confirmTitle": "Request account deletion?",
+        "confirmDescription": "This sends a request. Nothing is deleted yet, your account keeps working, and you can cancel until the retention process carries it out.",
+        "requested": "Your request has been recorded",
+        "pendingTitle": "Deletion requested",
+        "pendingDescription": "You asked for your account to be deleted on {date}. It has not been deleted yet.",
+        "yourReason": "Your reason: {reason}",
+        "cancel": "Cancel the request",
+        "cancelDescription": "Your account stays exactly as it is and nothing further happens. You can ask again later.",
+        "cancelled": "Your request has been withdrawn",
+        "previouslyCancelled": "An earlier request was withdrawn on {date}.",
+        "signInAgain": "Sign in again"
+      }
+    },
+    "shop": {
+      "title": "Digital goods",
+      "subtitle": "Telegram Premium and Stars, delivered to a username you choose.",
+      "actions": {
+        "back": "Back to the shop",
+        "cancel": "Cancel",
+        "retry": "Try again"
+      },
+      "catalogue": {
+        "orders": "Your orders",
+        "priceOnOpen": "Price shown when you open it",
+        "priceOnOpenHint": "This one is priced live, so the amount appears with a short hold on the product page.",
+        "unavailable": "Not deliverable now"
+      },
+      "kinds": {
+        "telegram_premium": "Telegram Premium",
+        "telegram_stars": "Telegram Stars",
+        "other": "Other goods"
+      },
+      "measure": {
+        "months": "{count, plural, one {# month} other {# months}}",
+        "stars": "{count, plural, one {# Star} other {# Stars}}",
+        "quantity": "×{count}"
+      },
+      "product": {
+        "unavailable": "This product cannot be delivered right now",
+        "unavailableDescription": "Its gateway is switched off, so nothing can be bought here at the moment. Nothing has been charged.",
+        "quantity": "How many",
+        "quantityHint": "Up to {max} per order, all delivered to the same username.",
+        "decrease": "One fewer",
+        "increase": "One more",
+        "price": "Price",
+        "discount": "Discount",
+        "total": "Total",
+        "promo": {
+          "label": "Promo code",
+          "placeholder": "Enter a code",
+          "apply": "Apply",
+          "remove": "Remove",
+          "applied": "{code} applied — {amount} off",
+          "rejected": {
+            "unknown": "That code is not recognised. Check the spelling, or buy without it.",
+            "exhausted": "That code has been used up. Buy without it, or ask support whether another applies.",
+            "below_cost": "That code cannot be applied to this product. Try it on another one.",
+            "ineligible": "That code does not apply to this purchase. Buy without it.",
+            "invalid": "That code cannot be used here. Buy without it."
+          }
+        },
+        "wallet": {
+          "label": "Use my wallet balance",
+          "hint": "Off unless you turn it on. With it on, your balance is spent first and only the remainder goes to payment."
+        }
+      },
+      "recipient": {
+        "title": "Who receives this",
+        "label": "Telegram username",
+        "placeholder": "@username or t.me link",
+        "check": "Check this username",
+        "checking": "Checking…",
+        "change": "Change",
+        "reviewed": "This will be sent to",
+        "warning": "Delivery cannot be undone. Once the goods reach this username they cannot be moved to another account or refunded, so read it through letter by letter.",
+        "unchecked": "Telegram cannot confirm the handle for us, so you are the only one who can catch a typo.",
+        "checked": "The provider confirmed this username exists.",
+        "confirm": "I have checked it: send to @{handle}",
+        "forSelf": "This is my own account",
+        "pending": "Confirm the recipient before buying."
+      },
+      "quote": {
+        "holdFor": "Price held for {time}",
+        "holdNotice": "This price is held for a few minutes. When the hold runs out a fresh price is fetched automatically, and nothing is charged before you confirm.",
+        "refreshing": "Fetching a fresh price…",
+        "refreshed": "The price hold ran out, so a fresh price was fetched. Check the amount and confirm again.",
+        "unavailable": "This product cannot be priced right now",
+        "unavailableDescription": "The provider did not return a price, so nothing can be bought yet. Try again in a few minutes.",
+        "changed": {
+          "title": "The price changed",
+          "description": "The provider moved the price while this page was open. Nothing has been charged. Compare the two amounts and buy only if the new one suits you.",
+          "before": "You saw",
+          "after": "Now",
+          "accept": "Buy at the new price"
+        }
+      },
+      "purchase": {
+        "confirm": "Buy for {amount}",
+        "pending": "Opening the order…",
+        "success": "Order opened"
+      },
+      "orders": {
+        "title": "Your orders",
+        "empty": "No orders yet",
+        "emptyDescription": "Anything you buy here shows up in this list together with its delivery status.",
+        "browse": "Open the shop",
+        "loadMore": "Load more",
+        "loading": "Loading…",
+        "recipient": "To @{handle}",
+        "self": "Your own account"
+      },
+      "order": {
+        "reference": "Reference",
+        "placed": "Placed {date}",
+        "updated": "Updated {date}",
+        "deliveredAt": "Delivered {date}",
+        "attempts": "{count, plural, one {# attempt} other {# attempts}}",
+        "recipientTitle": "Recipient",
+        "amountsTitle": "What this cost",
+        "amounts": {
+          "price": "Price",
+          "discount": "Discount",
+          "wallet": "Paid from your wallet",
+          "external": "Due outside the wallet",
+          "paid": "Received"
+        },
+        "payment": {
+          "required": "This order still needs payment",
+          "requiredDescription": "Nothing is sent to the provider until the order is settled. Your order stays exactly as it is until then.",
+          "pay": "Go to payment",
+          "impossible": "No payment method can take {currency}",
+          "impossibleDescription": "The amount still owed cannot be settled with anything configured here. Support can arrange it or close the order."
+        },
+        "support": {
+          "title": "An operator has to settle this",
+          "noRetry": "There is no retry, on purpose. The provider honours no safety key, so asking a second time could send the goods twice — an operator checks with them instead.",
+          "reference": "Quote this reference:",
+          "action": "Contact support"
+        },
+        "refund": {
+          "title": "Refunded to your wallet",
+          "amount": "{amount} is back on your balance and can be spent on anything here."
+        }
+      },
+      "delivery": {
+        "state": {
+          "awaiting_payment": "Awaiting payment",
+          "queued": "Queued",
+          "submitted": "Sent to the provider",
+          "polling": "Awaiting confirmation",
+          "delayed": "Delayed",
+          "delivered": "Delivered",
+          "needs_review": "Being checked",
+          "refunded": "Refunded",
+          "failed": "Failed",
+          "cancelled": "Cancelled",
+          "unknown": "In progress"
+        },
+        "description": {
+          "awaiting_payment": "Nothing has been sent yet. The goods go to the provider only once the order is paid.",
+          "queued": "Paid. Waiting for the first delivery attempt, which is usually a matter of minutes.",
+          "submitted": "The provider has the purchase and has not answered yet.",
+          "polling": "The provider took the purchase and we are asking what became of it. It is never submitted a second time.",
+          "delayed": "A temporary fault at the provider. It is being retried on its own schedule and the purchase is still expected to go through.",
+          "delivered": "The goods reached the username below.",
+          "needs_review": "Whether the goods were sent cannot be told for certain, so an operator is checking with the provider before anything else happens.",
+          "refunded": "The purchase could not be completed, and the money is back on your wallet balance.",
+          "failed": "The purchase could not be completed and the money has not been returned yet.",
+          "cancelled": "The order was closed without payment, so nothing was sent and nothing was charged.",
+          "unknown": "This order is being worked on. Its status appears here as soon as it is known."
+        }
+      },
+      "failure": {
+        "retryable": "A temporary fault at the provider.",
+        "permanent": "The provider refused the purchase.",
+        "recipient_invalid": "The provider did not accept that username.",
+        "provider_balance": "The provider ran out of balance.",
+        "provider_unavailable": "The provider could not be reached.",
+        "ambiguous": "The provider's answer was lost, so whether the goods were sent is genuinely unknown.",
+        "unknown": "The cause was not recorded."
+      },
+      "problems": {
+        "quote_expired": "The price hold ran out, so a fresh price was fetched. Check the amount and confirm again.",
+        "price_changed": "The price changed before the order was opened. Compare the two amounts below and confirm the new one if it suits you.",
+        "recipient_not_reviewed": "The recipient has to be confirmed again in the step above before this can be bought.",
+        "recipient_invalid": "That is not a usable Telegram username. Use the @name from the profile, not a display name or a phone number.",
+        "shop_unavailable": "Digital goods cannot be bought right now. Nothing was charged — try again later or ask support.",
+        "price_unavailable": "This product cannot be priced right now, so it cannot be bought. Try again in a few minutes.",
+        "promo_unknown": "That code is not recognised. Check the spelling, or buy without it.",
+        "promo_exhausted": "That code has been used up. Buy without it, or ask support whether another applies.",
+        "promo_below_cost": "That code cannot be applied to this product. Buy without it, or try it on another one.",
+        "promo_ineligible": "That code does not apply to this purchase. Buy without it.",
+        "maintenance_active": "Purchases are paused for maintenance. Nothing was charged — come back shortly.",
+        "idempotency_key_required": "The order could not be sent safely, so nothing was charged. Reload the page and try once more.",
+        "not_found": "This is no longer available. Go back to the shop and choose again.",
+        "invalid_input": "This request cannot be filled. Check the quantity and the recipient, then try again.",
+        "unknown": "Something went wrong and nothing was charged. Try again in a moment."
+      },
+      "states": {
+        "notOffered": "Digital goods are not sold here",
+        "notOfferedDescription": "Nothing is out of stock — Telegram Premium and Stars simply are not part of what this service offers. Your subscription is unaffected.",
+        "maintenance": "Purchases are paused",
+        "maintenanceDescription": "The shop is closed for maintenance for a short while. Your subscription and any order already placed are unaffected.",
+        "empty": "Nothing on offer yet",
+        "emptyDescription": "This shop has no products right now. Check back later.",
+        "error": "The shop could not be loaded",
+        "errorDescription": "Nothing was charged. Try again in a moment.",
+        "notFound": "This is no longer available",
+        "notFoundDescription": "The product or order behind this link does not exist, or is no longer yours to see.",
+        "orderError": "This order could not be loaded",
+        "orderErrorDescription": "Your order is safe — only this page failed. Try again in a moment."
+      }
+    },
+    "support": {
+      "nav": {
+        "news": "Announcements",
+        "newsDescription": "Service news, incidents, and maintenance",
+        "preferences": "Notifications",
+        "preferencesDescription": "What we send you, and when"
+      },
+      "status": {
+        "open": "Open",
+        "pending": "Waiting for us",
+        "resolved": "Resolved",
+        "closed": "Closed",
+        "merged": "Merged"
+      },
+      "author": {
+        "customer": "You",
+        "operator": "Support",
+        "system": "System"
+      },
+      "actions": {
+        "cancel": "Cancel",
+        "retry": "Try again"
+      },
+      "tickets": {
+        "title": "Your conversations",
+        "subtitle": "Answered here and in Telegram — whichever you open first.",
+        "new": "New conversation",
+        "empty": "No conversations yet",
+        "emptyDescription": "Ask us anything. The reply arrives here and in Telegram, and reading it in one place clears it in the other.",
+        "unread": "{count, plural, =1 {1 new reply} other {# new replies}}",
+        "messages": "{count, plural, =1 {1 message} other {# messages}}",
+        "loadMore": "Show older conversations",
+        "loading": "Loading",
+        "quota": "You have as many open conversations as we allow",
+        "quotaDescription": "This installation allows {limit} at a time. Continue one of the conversations below, or close one you no longer need.",
+        "error": "Conversations could not be loaded",
+        "errorDescription": "The list could not be read just now. Try again in a moment."
+      },
+      "new": {
+        "title": "Start a conversation",
+        "description": "Describe what is happening in your own words. Screenshots and files can be added once the conversation exists.",
+        "subject": "Subject",
+        "subjectPlaceholder": "What is this about?",
+        "message": "Message",
+        "messagePlaceholder": "What happened, and what you already tried",
+        "remaining": "{count} characters left",
+        "submit": "Send",
+        "submitting": "Sending",
+        "created": "Conversation started",
+        "subjectRequired": "A subject is needed so we can tell your conversations apart.",
+        "messageRequired": "Tell us what is happening — even one sentence is enough."
+      },
+      "ticket": {
+        "conversation": "Conversation",
+        "error": "This conversation could not be loaded",
+        "errorDescription": "It could not be read just now. Try again in a moment.",
+        "newDivider": "New since you opened this",
+        "opened": "Opened {date}",
+        "reply": "Your reply",
+        "replyPlaceholder": "Write a reply",
+        "send": "Send",
+        "sending": "Sending",
+        "sent": "Reply sent",
+        "cannotReply": "This conversation no longer accepts replies",
+        "cannotReplyDescription": "Reopen it to continue, or start a new conversation.",
+        "close": "Close conversation",
+        "closeConfirm": "Close this conversation?",
+        "closeConfirmDescription": "It stops taking replies and frees one of your open slots. You can reopen it whenever you need to.",
+        "closed": "Conversation closed",
+        "reopen": "Reopen",
+        "reopened": "Conversation reopened",
+        "resolvedHint": "We consider this answered. Reply below if it is not — that reopens the conversation.",
+        "merged": "This conversation was merged",
+        "mergedDescription": "Everything you wrote was moved into another conversation, and that is where the answer will arrive.",
+        "mergedLink": "Open the conversation it moved to",
+        "empty": "Nothing here yet",
+        "emptyDescription": "The first message will appear as soon as it is stored."
+      },
+      "attachments": {
+        "title": "Attach a file",
+        "hint": "Up to {size} each. Accepted: {types}.",
+        "choose": "Choose a file",
+        "selected": "{name} · {size}",
+        "note": "Message to send with the file (optional)",
+        "upload": "Send file",
+        "uploading": "Sending",
+        "uploaded": "File sent",
+        "unnamed": "Attachment",
+        "download": "Download",
+        "remote": "Sent through Telegram",
+        "remoteDescription": "This file lives in the Telegram chat and can only be opened there.",
+        "tooLargeLocal": "That file is {size}, which is over the {limit} limit here.",
+        "mediaTypeLocal": "Files of type {type} are not accepted. Accepted: {types}."
+      },
+      "news": {
+        "title": "Announcements",
+        "subtitle": "Service news, incidents, and planned maintenance.",
+        "empty": "Nothing announced yet",
+        "emptyDescription": "Service news and maintenance notices will appear here.",
+        "unread": "{count, plural, =0 {Everything read} =1 {1 unread} other {# unread}}",
+        "markRead": "Mark as read",
+        "marking": "Marking",
+        "marked": "Marked as read",
+        "read": "Read",
+        "new": "New",
+        "loadMore": "Show older announcements",
+        "localeNotice": "Announcements are shown in {language}, because that is the language they are published in for you.",
+        "language": {
+          "en": "English",
+          "ru": "Russian"
+        },
+        "error": "Announcements could not be loaded",
+        "errorDescription": "The inbox could not be read just now. Try again in a moment.",
+        "category": {
+          "news": "News",
+          "announcement": "Announcement",
+          "incident": "Incident",
+          "maintenance": "Maintenance"
+        },
+        "class": {
+          "marketing": "Promotion"
+        }
+      },
+      "preferences": {
+        "title": "Notifications",
+        "error": "Preferences could not be loaded",
+        "errorDescription": "They could not be read just now. Try again in a moment.",
+        "saved": "Saved",
+        "notifications": {
+          "title": "What we send",
+          "expiry": "Subscription expiry",
+          "expiryDescription": "A reminder before your subscription runs out.",
+          "traffic": "Traffic warnings",
+          "trafficDescription": "A warning as you approach your traffic allowance.",
+          "renewal": "Renewals and payments",
+          "renewalDescription": "Confirmation when a subscription renews or a payment is taken.",
+          "news": "Announcements",
+          "newsDescription": "Service news, incidents, and planned maintenance."
+        },
+        "locale": {
+          "title": "Language of messages",
+          "description": "The language we write to you in. It does not change the language of this page.",
+          "auto": "Follow my account",
+          "ru": "Russian",
+          "en": "English"
+        },
+        "quietHours": {
+          "title": "Quiet hours",
+          "description": "Messages that are not urgent wait until the window ends. Times are in your own timezone.",
+          "enable": "Hold non-urgent messages overnight",
+          "start": "From",
+          "end": "Until",
+          "hour": "{hour}:00",
+          "active": "Held between {start} and {end}.",
+          "inactive": "Messages are delivered at any hour."
+        },
+        "marketing": {
+          "title": "Offers and promotions",
+          "enable": "Send me offers and promotions",
+          "description": "Discounts, new plans, and referral campaigns. Turning this off never stops service messages about your subscription, payments, or an incident.",
+          "decided": "You chose this on {date} from {source}.",
+          "policyVersion": "Recorded under terms {version}.",
+          "undecided": "You have not been asked yet, so nothing promotional is sent.",
+          "source": {
+            "customer_web": "this website",
+            "telegram_bot": "Telegram",
+            "unknown": "an earlier session"
+          },
+          "unsubscribe": "Unsubscribe from everything promotional",
+          "unsubscribeConfirm": "Stop all promotional messages?",
+          "unsubscribeConfirmDescription": "You will stop receiving offers and campaigns on every channel. Service messages about your subscription, your payments, and any incident still reach you.",
+          "unsubscribed": "You are unsubscribed from promotional messages"
+        },
+        "suppression": {
+          "title": "Promotional messages are on hold",
+          "since": "In effect since {date}.",
+          "reason": {
+            "customer_request": "You asked us to stop sending them.",
+            "bounced": "Messages to your address kept failing to arrive.",
+            "complaint": "A message was reported as unwanted.",
+            "operator": "Support placed this hold on your account."
+          },
+          "note": "Service messages about your subscription, payments, and incidents are unaffected."
+        },
+        "contacts": {
+          "title": "Where we reach you",
+          "description": "Addresses are never shown here, and never sent back to this page. Contact support to change one.",
+          "empty": "No contact channel is on file",
+          "emptyDescription": "We currently reach you through Telegram only.",
+          "kind": {
+            "email": "Email",
+            "phone": "Phone",
+            "telegram": "Telegram"
+          },
+          "verified": "Verified",
+          "unverified": "Not verified",
+          "transactional": "Service messages",
+          "marketing": "Promotions",
+          "on": "on",
+          "off": "off",
+          "added": "Added {date}"
+        }
+      },
+      "browser": {
+        "title": "Browser notifications",
+        "description": "A desktop notification when support replies or an announcement arrives, raised only while this page is open in a tab. It is a setting of this browser, not of your account, so it does not follow you to another device.",
+        "enable": "Turn on browser notifications",
+        "disable": "Turn off",
+        "enabled": "On for this browser. Notifications appear when a reply or an announcement arrives while this tab is open in the background.",
+        "off": "Off. Nothing is requested from your browser until you turn it on.",
+        "granted": "Browser notifications are on",
+        "dismissed": "Browser notifications are off",
+        "denied": "Your browser is blocking notifications",
+        "deniedDescription": "This page cannot ask again — the block is held by the browser. Allow notifications for this site in your browser settings, then come back here.",
+        "unsupported": "This browser does not support notifications",
+        "unsupportedDescription": "Nothing is lost: replies and announcements still appear in the panel and in Telegram.",
+        "replyTitle": "New reply from support",
+        "newsTitle": "New announcement"
+      },
+      "problem": {
+        "not_found": "That conversation is no longer available. It may have been merged or removed.",
+        "ticket_closed": "This conversation is closed. Reopen it to reply.",
+        "too_many_open_tickets": "You already have as many open conversations as this installation allows. Continue one of them, or close one you no longer need.",
+        "attachment_too_large": "That file is larger than this installation accepts. Send a smaller one.",
+        "attachment_media_type": "That kind of file is not accepted. Send an image, a PDF, or a text file.",
+        "attachment_remote": "That file was sent through Telegram and can only be opened there.",
+        "attachment_storage_unavailable": "Files cannot be stored right now. Send the message without one, and try the file again later.",
+        "support_unavailable": "Support is not reachable right now. Try again shortly, or write to us in Telegram.",
+        "file_required": "Choose a file before sending.",
+        "upload_failed": "The upload did not finish. Check your connection and try again.",
+        "invalid_input": "Something in the form was not accepted. Check the fields and try again.",
+        "unknown": "That did not work. Try again in a moment."
+      }
+    },
+    "commerce": {
+      "actions": {
+        "cancel": "Cancel",
+        "loadMore": "Show more"
+      },
+      "period": {
+        "days": "{count, plural, one {# day} other {# days}}",
+        "day": "Daily",
+        "week": "Weekly",
+        "month": "Monthly",
+        "quarter": "Every 3 months",
+        "half_year": "Every 6 months",
+        "year": "Yearly"
+      },
+      "operations": {
+        "purchase": "Buy",
+        "extension": "Extend",
+        "upgrade": "Upgrade",
+        "downgrade": "Move down",
+        "unknown": "Change"
+      },
+      "kind": {
+        "trial": "Trial",
+        "recurring": "Can renew itself",
+        "squads": "Choose your servers"
+      },
+      "specs": {
+        "period": "Period",
+        "traffic": "Traffic",
+        "devices": "Devices",
+        "grace": "Grace period",
+        "unlimited": "Unlimited",
+        "deviceCount": "{count, plural, one {# device} other {# devices}}"
+      },
+      "eligibility": {
+        "account_too_new": "This account is too new for a trial. Come back a little later, or pick a paid plan.",
+        "existing_customer": "Trials are for first-time customers, and this account has already ordered before.",
+        "identity_already_trialled": "A trial has already been used from this Telegram account.",
+        "not_a_trial_plan": "This plan is not available as a trial.",
+        "subscription_active": "A trial cannot be started while a subscription is running.",
+        "subscription_limit_reached": "You already hold as many subscriptions as this service allows. Extend or upgrade one of them instead.",
+        "trial_already_used": "The trial on this account has already been used.",
+        "unsupported_trial_rule": "This trial cannot be started right now. Support can tell you why.",
+        "unknown": "This plan cannot be started on your account at the moment."
+      },
+      "promoRejection": {
+        "promo_unknown": "That code is not recognised. Check the spelling, or continue without it.",
+        "promo_ineligible": "That code does not apply to this purchase. You can continue without it.",
+        "promo_exhausted": "That code has been used up. Continue without it, or ask support whether another applies.",
+        "promo_invalid": "That code cannot be used here. Continue without it.",
+        "unknown": "That code was not applied. You can continue without it."
+      },
+      "problems": {
+        "addon_unavailable": "That extra is not offered with this plan.",
+        "checkout_settled": "This checkout has already become an order. Open it from your orders.",
+        "idempotency_key_required": "That action could not be sent safely. Try again.",
+        "invalid_cursor": "That page of history could not be loaded. Reload the page.",
+        "invalid_input": "Something in that request was not accepted. Check the details and try again.",
+        "maintenance_active": "Purchases are paused while maintenance is in progress. Your subscription is unaffected.",
+        "multi_subscription_disabled": "This service runs one subscription per account, so another cannot be opened. Extend or upgrade the one you have.",
+        "no_active_subscription": "There is no active subscription to change.",
+        "no_checkout": "You have no purchase in progress.",
+        "not_found": "That was not found.",
+        "not_provisioned": "This subscription is still being set up. Try again in a moment.",
+        "operation_forbidden": "This plan does not allow that change.",
+        "order_not_cancellable": "Only an unpaid order can be cancelled. Contact support about a refund.",
+        "payment_not_required": "Nothing more is owed on this order.",
+        "plan_limit_reached": "You already hold as many subscriptions on this plan as it allows.",
+        "plan_unavailable": "That plan is no longer available. Pick another from the store.",
+        "promo_exhausted": "That code has been used up.",
+        "promo_ineligible": "That code does not apply to this purchase.",
+        "promo_invalid": "That code cannot be used here.",
+        "promo_unknown": "That code is not recognised.",
+        "provider_unavailable": "That payment method is not available right now. Choose another.",
+        "request_failed": "Something went wrong on our side. Try again in a moment.",
+        "squad_not_offered": "One of the servers you chose is not offered with this plan.",
+        "squad_selection_not_allowed": "The servers for this plan are assigned automatically.",
+        "squad_selection_required": "Choose at least one server before continuing.",
+        "squad_selection_too_few": "Choose more servers before continuing.",
+        "squad_selection_too_many": "You have chosen more servers than this plan allows.",
+        "subscription_limit_reached": "You already hold as many subscriptions as this service allows.",
+        "subscription_target_required": "Choose which subscription this applies to.",
+        "topup_above_maximum": "That is more than a single top-up may add.",
+        "topup_below_minimum": "That is less than the smallest top-up allowed.",
+        "topup_disabled": "Topping up is switched off on this service.",
+        "topup_invalid_amount": "Enter an amount greater than zero.",
+        "topup_window_exceeded": "You have reached the top-up limit for this period. Try again later.",
+        "trial_account_too_new": "This account is too new for a trial.",
+        "trial_already_used": "The trial on this account has already been used.",
+        "trial_existing_customer": "Trials are for first-time customers only.",
+        "trial_identity_already_trialled": "A trial has already been used from this Telegram account.",
+        "trial_not_eligible": "This trial is not available for your account.",
+        "trial_subscription_active": "A trial cannot be started while a subscription is running.",
+        "trial_trial_already_used": "The trial on this account has already been used.",
+        "upstream_unavailable": "The service is temporarily unavailable. Nothing has been charged.",
+        "unknown": "That did not go through. Try again, or contact support if it keeps happening.",
+        "offline": "That request did not reach us. Check your connection and try again."
+      },
+      "breakdown": {
+        "subtotal": "Plan",
+        "addons": "Extras",
+        "discount": "Discount",
+        "wallet": "From your wallet",
+        "external": "To pay",
+        "nothingDue": "Your wallet covers this in full, so there is nothing left to pay."
+      },
+      "store": {
+        "plans": "Plans",
+        "orders": "My orders",
+        "empty": "No plans are on sale",
+        "emptyDescription": "Nothing is available for purchase right now. Support can tell you when that changes.",
+        "error": "The store could not be loaded",
+        "errorDescription": "Try again in a moment. Nothing has been charged.",
+        "resume": {
+          "title": "You have a purchase in progress",
+          "description": "{plan} is waiting at the confirmation step.",
+          "action": "Continue"
+        },
+        "shop": {
+          "section": "Also on sale",
+          "title": "Digital goods",
+          "description": "Telegram Premium and Stars, delivered to a username you choose."
+        }
+      },
+      "plan": {
+        "gone": "This plan is no longer available",
+        "goneDescription": "It was withdrawn or replaced. The store shows what is on sale now.",
+        "squads": "Servers",
+        "squadsConfigurable": "You choose the servers for this plan at the next step — at least {minimum}.",
+        "squadsAutomatic": "Servers are assigned automatically on this plan.",
+        "addons": "Extras",
+        "addonsHint": "Extras are added at the confirmation step, where each one is priced.",
+        "addonTraffic": "+{amount} traffic",
+        "addonDevices": "{count, plural, one {+# device} other {+# devices}}",
+        "addonSquads": "{count, plural, one {+# server} other {+# servers}}",
+        "promotions": "Offers",
+        "promotionPercent": "{value}% off",
+        "promotionFixed": "{amount} off",
+        "promotionOpen": "Available to you",
+        "promotionClosed": "Not for this account",
+        "operation": "What this does",
+        "target": "Which subscription",
+        "targetHint": "You hold more than one subscription, so say which this applies to. Nothing is changed until you confirm.",
+        "targetNew": "Open a new subscription",
+        "replaces": "Starting this will discard the purchase of {plan} you left unfinished.",
+        "start": "Continue",
+        "terms": "Terms of service"
+      },
+      "checkout": {
+        "none": "No purchase in progress",
+        "noneDescription": "Pick a plan from the store to start one.",
+        "browse": "Open the store",
+        "expiresIn": "This price is held for {minutes, plural, one {# more minute} other {# more minutes}}",
+        "expired": "This price has lapsed. Start again from the store to get a current one.",
+        "total": "Total",
+        "confirm": "Confirm and pay",
+        "confirmFree": "Confirm",
+        "discard": "Discard this purchase",
+        "discardDescription": "The plan, the extras, and the code you entered are forgotten. Nothing has been charged.",
+        "target": {
+          "title": "Which subscription",
+          "new": "A new subscription",
+          "required": "Choose which subscription this applies to before confirming."
+        },
+        "squads": {
+          "title": "Servers",
+          "minimum": "Choose at least {minimum}.",
+          "range": "Choose between {minimum} and {maximum}."
+        },
+        "addons": {
+          "title": "Extras",
+          "hint": "Tap one to add or remove it. The total updates each time."
+        },
+        "promo": {
+          "title": "Promo code",
+          "label": "Promo code",
+          "placeholder": "Enter a code",
+          "apply": "Apply",
+          "remove": "Remove",
+          "applied": "Applied to this purchase"
+        },
+        "wallet": {
+          "title": "Wallet",
+          "label": "Spend my wallet balance first",
+          "available": "{amount} available"
+        },
+        "provider": {
+          "title": "How you pay",
+          "empty": "No payment method is configured on this service yet, so only a wallet-funded purchase can be completed.",
+          "recurring": "Can renew automatically",
+          "required": "Choose how you will pay before confirming.",
+          "names": {
+            "telegram_stars": "Telegram Stars",
+            "cryptobot": "Crypto",
+            "yookassa": "Card",
+            "manual": "Bank transfer, approved by an operator",
+            "unknown": "Another method"
+          }
+        }
+      },
+      "orders": {
+        "title": "Orders",
+        "empty": "No orders yet",
+        "emptyDescription": "Everything you buy appears here with its receipt and its state.",
+        "paid": "paid {amount}",
+        "refunded": "refunded {amount}",
+        "hasReceipt": "receipt"
+      },
+      "order": {
+        "notFound": "This order was not found",
+        "notFoundDescription": "It may belong to another account, or it may never have existed.",
+        "backToOrders": "All orders",
+        "receipt": "Open the receipt",
+        "refresh": "Check for an update",
+        "refreshHint": "This asks the payment provider directly, which is worth doing if a payment you completed has not shown up here yet.",
+        "refunds": "Refunds",
+        "viewSubscription": "Open the subscription",
+        "cancel": "Cancel this order",
+        "cancelDescription": "The order is closed and nothing is charged. You can order again at any time.",
+        "cancelled": "The order was cancelled.",
+        "phase": {
+          "awaiting_action": {
+            "label": "Waiting for you",
+            "description": "The payment has been prepared and is waiting for you to complete it."
+          },
+          "pending": {
+            "label": "Waiting for payment",
+            "description": "We are waiting for the payment to arrive. This usually takes a moment; card and crypto payments can take longer."
+          },
+          "succeeded": {
+            "label": "Paid",
+            "description": "The payment arrived. Your subscription is being set up now."
+          },
+          "provisioning": {
+            "label": "Setting up",
+            "description": "Your subscription is being set up. You can leave this page — it carries on without you."
+          },
+          "completed": {
+            "label": "Done",
+            "description": "Everything is paid for and set up. Your subscription is ready to use."
+          },
+          "failed": {
+            "label": "Failed",
+            "description": "This did not go through. If money left your account, it is returned automatically — contact support if it does not."
+          },
+          "cancelled": {
+            "label": "Cancelled",
+            "description": "This order was cancelled and nothing was charged."
+          },
+          "expired": {
+            "label": "Expired",
+            "description": "The payment window closed before this was paid. Nothing was charged; order again when you are ready."
+          },
+          "refunded": {
+            "label": "Refunded",
+            "description": "This order was refunded. The money is on its way back by the route it arrived."
+          },
+          "unknown": {
+            "label": "In progress",
+            "description": "This order is being processed. Check again in a moment."
+          }
+        },
+        "progress": {
+          "paid": "Paid",
+          "provisioning": "Setting up",
+          "ready": "Ready",
+          "summary": "Step {done} of {total}"
+        },
+        "fulfillment": {
+          "title": "Setting up your subscription",
+          "attempts": "{count, plural, one {# attempt so far} other {# attempts so far}}",
+          "updated": "Last change at {time}",
+          "status": {
+            "pending": "Queued and about to start.",
+            "running": "In progress right now.",
+            "succeeded": "Finished. Your subscription is ready.",
+            "retrying": "Being retried after a hitch. This normally resolves itself.",
+            "failed": "This could not be completed. Support has been notified and can put it right.",
+            "cancelled": "This was stopped before it finished.",
+            "unknown": "In progress."
+          }
+        },
+        "handoff": {
+          "hosted": {
+            "title": "Finish on the payment page",
+            "description": "The payment opens on the provider's own page. Come back here afterwards — this page shows the result either way.",
+            "action": "Open the payment page"
+          },
+          "telegram_invoice": {
+            "title": "The invoice is in your chat",
+            "description": "An invoice has been sent to you in Telegram. Pay it there, then come back — this page updates on its own.",
+            "action": "Open the invoice"
+          },
+          "manual": {
+            "title": "Waiting for an operator",
+            "description": "Your transfer is checked by a person, so this can take a few hours. You do not need to do anything else.",
+            "action": "Open the payment details"
+          },
+          "none": {
+            "title": "Nothing left to pay",
+            "description": "Your wallet covered this order in full.",
+            "action": "Continue"
+          }
+        },
+        "payment": {
+          "title": "Payment",
+          "description": "The amount above is still outstanding. Start the payment when you are ready.",
+          "noMethod": "No payment method was chosen for this order, so it cannot be paid as it stands. Cancel it and order again from the store.",
+          "start": "Pay now",
+          "retry": "Try the payment again",
+          "nothingDue": "Nothing more was owed on this order."
+        },
+        "amounts": {
+          "title": "Amounts",
+          "paid": "Paid",
+          "refunded": "Refunded"
+        },
+        "refundStatus": {
+          "pending": "Refund requested",
+          "processing": "Refund on its way",
+          "succeeded": "Refunded",
+          "failed": "Refund failed",
+          "cancelled": "Refund cancelled",
+          "unknown": "Refund"
+        }
+      },
+      "wallet": {
+        "available": "Available",
+        "total": "Balance",
+        "reserved": "Held for unpaid orders",
+        "reservedHint": "An order you have not paid for yet has claimed part of your balance. Paying or cancelling it releases the amount.",
+        "ledger": {
+          "title": "History",
+          "empty": "Nothing here yet",
+          "emptyDescription": "Top-ups, purchases, and refunds all appear here as they happen."
+        },
+        "entryType": {
+          "credit": "Added",
+          "debit": "Spent",
+          "payment": "Payment",
+          "refund": "Refund",
+          "referral_reward": "Referral reward",
+          "correction": "Correction by an operator",
+          "expiration": "Expired",
+          "unknown": "Movement"
+        },
+        "topUp": {
+          "title": "Add to wallet",
+          "disabled": "Topping up is switched off on this service. Your balance can still be spent on a purchase.",
+          "amount": "Amount in {currency}",
+          "limits": "From {minimum} to {maximum} at a time.",
+          "remaining": "You may still add {amount} in this period.",
+          "submit": "Add to wallet",
+          "started": "Payment started",
+          "startedDescription": "{amount} lands in your wallet as soon as the payment is confirmed. This page does not need to stay open.",
+          "another": "Add another amount"
+        }
       }
     }
   }

@@ -13,6 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/omniflow/omniflow/internal/accountsupport"
 	"github.com/omniflow/omniflow/internal/backup"
 	"github.com/omniflow/omniflow/internal/bulkrunner"
 	"github.com/omniflow/omniflow/internal/campaigns"
@@ -158,10 +159,23 @@ func main() {
 		pool, operations, fulfillmentService, commerceStore, logger, bulkrunner.Config{},
 	).Run(ctx)
 
-	go retention.New(pool, logger, retention.Config{
+	retentionWorker := retention.New(pool, logger, retention.Config{
 		Outbox: cfg.Retention.Outbox, Telemetry: cfg.Retention.Telemetry,
 		Drift: cfg.Retention.Drift, Interval: cfg.Retention.Interval,
-	}).Run(ctx)
+	})
+	// Retention deletes the attachment row; only the support service knows which
+	// file behind it nothing references any more. Attachment files are named by
+	// their content digest, so one file can back several rows, and deleting bytes
+	// on the strength of a single expired row would break another customer's
+	// download.
+	if attachments, attachErr := accountsupport.New(pool, accountsupport.Options{
+		Logger: logger, AttachmentDirectory: cfg.SupportAttachmentDir,
+	}); attachErr != nil {
+		logger.Warn("attachment files will not be reclaimed", "error", attachErr)
+	} else {
+		retentionWorker = retentionWorker.WithAttachments(attachments)
+	}
+	go retentionWorker.Run(ctx)
 
 	backupService := backup.New(pool, logger, backup.Config{
 		Enabled: cfg.Backup.Enabled, Directory: cfg.Backup.Directory, Interval: cfg.Backup.Interval,

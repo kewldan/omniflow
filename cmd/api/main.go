@@ -13,7 +13,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/omniflow/omniflow/internal/accountcheckout"
 	"github.com/omniflow/omniflow/internal/accountpg"
+	"github.com/omniflow/omniflow/internal/accountreferral"
+	"github.com/omniflow/omniflow/internal/accountshop"
+	"github.com/omniflow/omniflow/internal/accountsupport"
 	"github.com/omniflow/omniflow/internal/adminauthpg"
 	"github.com/omniflow/omniflow/internal/catalogpg"
 	"github.com/omniflow/omniflow/internal/commercepg"
@@ -22,6 +26,7 @@ import (
 	"github.com/omniflow/omniflow/internal/customerpg"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 	"github.com/omniflow/omniflow/internal/fulfillment"
+	"github.com/omniflow/omniflow/internal/goodsdelivery"
 	apihttp "github.com/omniflow/omniflow/internal/httpapi"
 	"github.com/omniflow/omniflow/internal/importservice"
 	"github.com/omniflow/omniflow/internal/jobs"
@@ -76,6 +81,7 @@ func main() {
 		Addr: cfg.HTTPAddr,
 		Handler: apihttp.NewRouter(logger, apihttp.RouterOptions{
 			Health: health, Metrics: metrics, Commerce: runtime.handlers, Admin: runtime.admin,
+			Account:          runtime.account,
 			CollectorEnabled: cfg.TelemetryCollectorEnabled, Telemetry: telemetryClient, Version: version,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
@@ -204,6 +210,7 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 	if cfg.CustomerPanel.Enabled {
 		accountHandlers, identity, accountErr := buildCustomerPanel(
 			logger, cfg, pool, platform.NewRateLimiter(valkeyClient), remnawaveClient,
+			commerceStore, paymentService,
 		)
 		if accountErr != nil {
 			valkeyClient.Close()
@@ -266,6 +273,7 @@ func buildAdminPanel(
 func buildCustomerPanel(
 	logger *slog.Logger, cfg config.Config, pool *pgxpool.Pool,
 	limiter *platform.RateLimiter, remnawaveClient *remnawave.Client,
+	commerceStore *commercepg.Store, paymentService *paymentservice.Service,
 ) (*apihttp.AccountHandlers, *customerauthpg.Service, error) {
 	identity, err := customerauthpg.New(pool, cfg.DataEncryptionKey, customerauthpg.Options{
 		TelegramBotToken: cfg.TelegramToken,
@@ -302,8 +310,54 @@ func buildCustomerPanel(
 	if cfg.CustomerPanel.MagicLinkEnabled && cfg.PublicURL == "" {
 		return nil, nil, errors.New("APP_PUBLIC_URL is required when the customer magic-link fallback is enabled")
 	}
+
+	checkout, err := accountcheckout.New(pool, commerceStore, paymentService, accountcheckout.Options{
+		Logger: logger,
+		Settings: accountcheckout.Settings{
+			Currency: cfg.DefaultCurrency, PublicURL: cfg.PublicURL, TermsURL: cfg.TermsURL,
+			RecoveryWindow: cfg.RecoveryWindow, MinimumTrialAccountAge: cfg.MinimumTrialAccountAge,
+			MultiSubscription: cfg.Subscriptions.MultiEnabled,
+		},
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	support, err := accountsupport.New(pool, accountsupport.Options{
+		Logger: logger, AttachmentDirectory: cfg.SupportAttachmentDir,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	// The contact key is the installation's own data key, already validated as 32
+	// bytes by the commerce precondition. It has to be the same one customerpg
+	// uses: a contact added from the panel must collide with one added through
+	// the operator API under UNIQUE (kind, value_fingerprint), and that only
+	// happens when both derive the fingerprint from the same key.
+	referral, err := accountreferral.New(pool, accountreferral.Options{
+		PublicURL: cfg.PublicURL, EncryptionKey: cfg.DataEncryptionKey, Logger: logger,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	// The shop needs the encryption key to unseal a gateway credential before it
+	// can quote a price. The key is already validated as 32 bytes by the commerce
+	// precondition, so the registry is always available here; the bot's
+	// conditional exists because the bot may run without a key at all.
+	goodsRegistry, err := goodsdelivery.NewRegistry(pool, cfg.DataEncryptionKey, cfg.DefaultCurrency)
+	if err != nil {
+		return nil, nil, err
+	}
+	shop, err := accountshop.New(pool, commerceStore, paymentService, goodsRegistry, accountshop.Options{
+		Logger:   logger,
+		Settings: accountshop.Settings{Currency: cfg.DefaultCurrency, PublicURL: cfg.PublicURL},
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
 	return apihttp.NewAccountHandlers(apihttp.AccountOptions{
 		Auth: identity, Account: account, Limiter: limiter, Logger: logger, Proxies: proxies,
+		Checkout: checkout, Shop: shop, Support: support, Referral: referral,
 		CookieSecure: cfg.CustomerPanel.CookieSecure,
 	}), identity, nil
 }

@@ -6,7 +6,11 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/omniflow/omniflow/internal/accountcheckout"
 	"github.com/omniflow/omniflow/internal/accountpg"
+	"github.com/omniflow/omniflow/internal/accountreferral"
+	"github.com/omniflow/omniflow/internal/accountshop"
+	"github.com/omniflow/omniflow/internal/accountsupport"
 	"github.com/omniflow/omniflow/internal/customerauthpg"
 	"github.com/omniflow/omniflow/internal/platform"
 )
@@ -26,6 +30,15 @@ type AccountHandlers struct {
 	logger  *slog.Logger
 	proxies *TrustedProxies
 
+	// The four v0.10 surfaces. Each is optional: an installation that sells no
+	// digital goods, or runs with no payment provider configured, presents a
+	// panel without those screens rather than one whose controls fail when
+	// pressed.
+	checkout *accountcheckout.Service
+	shop     *accountshop.Service
+	support  *accountsupport.Service
+	referral *accountreferral.Service
+
 	cookieName   string
 	cookieSecure bool
 	cookiePath   string
@@ -33,11 +46,15 @@ type AccountHandlers struct {
 
 // AccountOptions configures the customer API.
 type AccountOptions struct {
-	Auth    *customerauthpg.Service
-	Account *accountpg.Service
-	Limiter *platform.RateLimiter
-	Logger  *slog.Logger
-	Proxies *TrustedProxies
+	Auth     *customerauthpg.Service
+	Account  *accountpg.Service
+	Checkout *accountcheckout.Service
+	Shop     *accountshop.Service
+	Support  *accountsupport.Service
+	Referral *accountreferral.Service
+	Limiter  *platform.RateLimiter
+	Logger   *slog.Logger
+	Proxies  *TrustedProxies
 	// CookieSecure must be true in production. It is separately configurable
 	// only so a plain-HTTP local development stack can sign in at all.
 	CookieSecure bool
@@ -56,6 +73,8 @@ func NewAccountHandlers(options AccountOptions) *AccountHandlers {
 	return &AccountHandlers{
 		auth: options.Auth, account: options.Account, limiter: options.Limiter,
 		logger: logger, proxies: proxies,
+		checkout: options.Checkout, shop: options.Shop,
+		support: options.Support, referral: options.Referral,
 		// The __Host- prefix binds the cookie to this exact origin: a browser
 		// refuses to accept it with a Domain attribute or over plain HTTP, so a
 		// sibling subdomain cannot set or overwrite a customer's session. The
@@ -112,6 +131,14 @@ func (handlers *AccountHandlers) Mount(router chi.Router) {
 			secure.Delete("/subscriptions/{subscriptionID}/devices/{handle}", handlers.removeDevice)
 			secure.With(handlers.requireRecentAuthentication).
 				Delete("/subscriptions/{subscriptionID}/devices", handlers.removeAllDevices)
+
+			// The v0.10 surfaces. Each mounts itself only when its service is
+			// attached, so the route table describes what this installation can
+			// actually do rather than what the binary was compiled with.
+			handlers.mountCheckout(secure)
+			handlers.mountShop(secure)
+			handlers.mountSupport(secure)
+			handlers.mountReferral(secure)
 		})
 	})
 }

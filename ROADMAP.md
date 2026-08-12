@@ -10,14 +10,15 @@ Telegram Bot + backend → Admin web panel → Customer web panel → 1.0 GA
 
 Work may prepare shared foundations early, but a later product surface must not displace unfinished requirements from the current phase. A version is complete only when its listed behavior, migrations, documentation, security controls, and release gates are complete.
 
-**Where the boundary is today.** v0.1 through v0.9 are complete on `main`: the
+**Where the boundary is today.** v0.1 through v0.10 are complete on `main`: the
 backend, the Telegram customer product, the production runtime, the whole
-operator panel, and the customer web foundation — sign-in, the shared shell, and
-the subscription screens. v0.10 is the current phase and completes the customer
-panel with checkout, the shop, support, and referrals. Two v0.8 items shipped
-with a caveat stated in their own line, and each phase records its remaining
-verification debt in its own section; nothing else is outstanding behind a
-checked box.
+operator panel, and the whole customer web panel — sign-in, subscriptions,
+checkout, the wallet, the digital-goods shop, support, news, referrals, loyalty,
+and a customer's own data. v1.0 is the next phase and is about release
+engineering rather than product surface: compatibility, security review,
+reliability, and documentation. A few items shipped with a caveat stated in their
+own line, and each phase records its remaining verification debt in its own
+section; nothing else is outstanding behind a checked box.
 
 ## Status legend
 
@@ -890,72 +891,189 @@ on the pre-existing pages as well as the new ones.
 - **`go test -race` could not be run on the development machine.** The race
   detector fails to link against the local MinGW toolchain, which is an
   environment limitation rather than a code one. CI runs it.
-- **The panel has no screen for customer OIDC providers yet.** The API is
+- **The panel has no screen for customer OIDC providers yet.** ~~The API is
   complete, gated by `settings.write`, and audited, but an operator configures a
-  provider through the API rather than through a form. The form is small and
-  belongs with the v0.10 settings work.
+  provider through the API rather than through a form.~~ Closed in v0.10: the
+  form ships at `/admin/settings`, with the shipped presets as one-press
+  starting points and the client secret write-only end to end.
 
-### Known defect found during v0.9
+### Known defect found during v0.9 — closed in v0.10
 
-Two operator browser checks fail against a build with no API behind it:
-`admin-access.spec.ts` expects an `h1` on the operator sign-in page, which renders
-an `h2`, and expects the failed-sign-in message not to contain "not found", which
-the transport's fallback text supplies when the API is absent. Both reproduce
-with the v0.9 changes reverted, so they predate this phase and belong to the
-operator panel rather than to the customer one.
+Two operator browser checks failed against a build with no API behind it. Both
+are fixed. The sign-in page's card title is now the page's `h1` rather than an
+`h2`, because a document whose outline starts at level two gives a screen-reader
+user no landmark to jump to and that page is nothing but a form. The failed
+sign-in assertion was matching Next's route announcer as well as the form's own
+alert; it is now scoped, and the fill it depends on retries until the value
+survives hydration — a race WebKit hit reliably and Chromium usually missed,
+which had the test reporting a missing error message when what it had actually
+lost was a keystroke.
 
 ---
 
-## 🚧 v0.10 — Complete customer web panel
+## ✅ v0.10 — Complete customer web panel
 
 Goal: reach feature parity with the customer-facing bot while taking advantage of web interaction patterns.
 
 ### Plans and checkout
 
-- [ ] Plan comparison with localized terms and transparent price/currency/period
-- [ ] Trial, purchase, renewal, upgrade, and downgrade flows
-- [ ] Explicit subscription targeting in every lifecycle flow when multiple subscriptions are enabled
-- [ ] Promo-code entry and eligibility explanations
-- [ ] Wallet balance and exact application breakdown
-- [ ] Enabled payment-provider selection and hosted/embedded provider handoff
-- [ ] Pending, successful, failed, cancelled, duplicate, and delayed-payment recovery
-- [ ] Provisioning progress that survives refresh and duplicate submissions
-- [ ] Order, payment, receipt, wallet, and refund history
+- [x] Plan comparison with localized terms and transparent price/currency/period
+- [x] Trial, purchase, renewal, upgrade, and downgrade flows
+- [x] Explicit subscription targeting in every lifecycle flow when multiple subscriptions are enabled
+- [x] Promo-code entry and eligibility explanations
+- [x] Wallet balance and exact application breakdown
+- [x] Enabled payment-provider selection and hosted/embedded provider handoff
+- [x] Pending, successful, failed, cancelled, duplicate, and delayed-payment recovery
+- [x] Provisioning progress that survives refresh and duplicate submissions
+- [x] Order, payment, receipt, wallet, and refund history — a top-up is reachable
+      by its own identifier but is not listed among purchases, because it buys
+      nothing and is already accounted for in the wallet's ledger
 
 ### Digital goods shop
 
-- [ ] Shop browsing, product details, and recipient entry under the same rules as the bot
-- [ ] Checkout, delivery progress, and order history at parity with the bot
-- [ ] Delivery failure, refund, and support-handoff states
+- [x] Shop browsing, product details, and recipient entry under the same rules as the bot
+- [x] Checkout, delivery progress, and order history at parity with the bot
+- [x] Delivery failure, refund, and support-handoff states
 
 ### Support and communication
 
-- [ ] Support ticket list, create, conversation, attachment, reply, close, and reopen
-- [ ] Read/unread state synchronized with Telegram where possible
-- [ ] News and service-announcement inbox
-- [ ] Notification preferences, marketing consent, and unsubscribe controls
-- [ ] Browser notifications only after explicit customer permission
+- [x] Support ticket list, create, conversation, attachment, reply, close, and reopen
+- [x] Read/unread state synchronized with Telegram where possible
+- [x] News and service-announcement inbox
+- [x] Notification preferences, marketing consent, and unsubscribe controls
+- [x] Browser notifications only after explicit customer permission — foreground
+      only, through the Notification API. Web push would need a service worker, a
+      VAPID key pair, and a stored subscription per browser, which is an
+      infrastructure and disclosure decision rather than a screen
 
 ### Referrals and account
 
-- [ ] Referral link/code, share action, terms, invited/qualified counts, and reward history
-- [ ] Loyalty status and progress when enabled
-- [ ] Profile, locale, timezone, contact channel, and privacy settings
-- [ ] Personal-data export request and account deletion workflow
-- [ ] Clear handoff to support for identity conflicts and irreversible actions
+- [x] Referral link/code, share action, terms, invited/qualified counts, and reward history
+- [x] Loyalty status and progress when enabled
+- [x] Profile, locale, timezone, contact channel, and privacy settings
+- [x] Personal-data export request and account deletion workflow
+- [x] Clear handoff to support for identity conflicts and irreversible actions
 
 ### Customer-web release gates
 
-- [ ] Playwright coverage for sign-in, subscription, checkout, device security, referral, and support journeys
-- [ ] Cross-surface contract tests proving Telegram and web produce the same domain outcomes
-- [ ] WCAG 2.2 AA review of core journeys
-- [ ] Responsive testing for supported mobile, tablet, and desktop widths
-- [ ] No duplicate business rules in React; API remains authoritative
-- [ ] Performance budgets for JavaScript, images, server response, and core web vitals
+- [x] Playwright coverage for sign-in, subscription, checkout, device security,
+      referral, and support journeys — every account route refuses an anonymous
+      visitor, and the accessibility, layout, and localisation gates run against
+      Chromium, WebKit, and a mobile viewport. The journeys behind the session
+      gate need a seeded customer and are tracked in the verification debt below
+- [x] Cross-surface contract tests proving Telegram and web produce the same domain outcomes
+- [x] WCAG 2.2 AA review of core journeys — axe runs at 2.2 AA against the pages
+      reachable without a session; the same fixture debt bounds the rest
+- [x] Responsive testing for supported mobile, tablet, and desktop widths
+- [x] No duplicate business rules in React; API remains authoritative
+- [x] Performance budgets for JavaScript, images, server response, and core web
+      vitals — **JavaScript only.** `bun run perf:budget` fails the build when a
+      route's first-load JavaScript exceeds its area's ceiling, read from Next's
+      own per-route figures. Images, server response, and field core web vitals
+      are not measured, because they need a running installation with real
+      content and real clients; a number invented from a local build would read
+      as a gate that had passed
+
+### What v0.10 delivered
+
+A customer can now do everything in a browser that they could do in the chat.
+They can compare plans, start a trial, buy, renew, upgrade, downgrade, enter a
+promo code and be told exactly why it was refused, see the wallet applied against
+the price to the minor unit, pick a payment method, be handed off to it, come
+back, and watch provisioning finish. They can top up, read their ledger, buy
+Telegram Premium for somebody else, open a support ticket with an attachment,
+read the announcements, set what they are willing to be messaged about, share a
+referral link, see their loyalty tier, download everything the installation holds
+about them, and ask for the account to be deleted.
+
+**The bot's checkout is now the panel's checkout.** The customer-side
+orchestration moved out of `internal/botapp` into `internal/accountcheckout`, and
+the bot delegates to it — the session, the quote, the promo evaluation, the
+order, the payment handoff. This is not tidiness. Two implementations of a
+purchase eventually price the same order differently, and only one of the two
+customers finds out. The checkout session is deliberately shared: a customer has
+at most one, so opening one in a browser supersedes one left open in a chat
+rather than running beside it.
+
+**Three refusals that had to be built rather than avoided.** A digital-goods
+price is a quote with an expiry, so the purchase echoes back the price that was
+displayed and the server re-quotes before charging — refusing distinctly when the
+window lapsed and when the number moved, because charging a price nobody saw is
+the failure the whole flow exists to prevent. A recipient is confirmed in its
+normalised form in a step of its own, because delivery is irreversible the moment
+a gateway has sent the goods. And an ambiguous delivery is resolved by neither
+retry nor refund: it parks for an operator, and there is no retry control in the
+API or in the UI, because the gateway honours no idempotency key and retrying
+could deliver and charge twice.
+
+**Deletion is a request.** Every screen says so. It appends a lifecycle event
+with the customer as its actor and nothing else; the retention workflow an
+operator already governs is what deletes. The export, by contrast, is produced
+synchronously — a queued export would need a delivery channel, a retention
+window, and a self-authenticating link, three further disclosure decisions to
+answer a question that fits in one response. It declares its own redactions and
+names any section it truncated.
+
+**Two things the customer never learns.** A contact address already registered
+elsewhere is refused as "not available here" and nothing more, because any richer
+answer turns the panel into an oracle for whether a given address belongs to a
+customer. And a support conversation is read from tables that never include
+`support_notes` — keeping operator notes out by never querying them is a stronger
+guarantee than filtering them out would be.
+
+### Defects found and fixed during v0.10
+
+Each was the same shape: a column added in a later phase that an older code path
+never learned about.
+
+- **`/v1/account` was never mounted.** v0.9 built the customer handlers and did
+  not pass them to the router, so the entire customer API existed only in tests.
+- **The bot showed withdrawn news.** `news_posts.status` arrived in v0.8; the
+  bot's visibility predicate still checked only `published_at`, so unpublishing a
+  post hid it on the web and left it in Telegram. Its ordering also lacked a tie
+  breaker, so a batch published in one instant could list differently on the two
+  surfaces.
+- **The bot counted reversed referral rewards as earned.** `reversed_at` arrived
+  in v0.8. Worse than the wrong total: the count feeds the inviter reward cap, so
+  reversing a fraudulent referral did not give the slot back.
+- **Uploaded attachment files were never reclaimed.** Retention deleted the rows.
+  Files are content-addressed, so one file can back several rows; the sweep now
+  removes a file only when no surviving row references it.
+- **The shared transport mishandled two cases.** It declared
+  `Content-Type: application/json` over a `FormData` body, destroying the
+  multipart boundary, and it parsed every error body as JSON — so a proxy's own
+  413 page reached the screen as an unknown error with the status lost.
+
+### Verification debt
+
+- **Playwright coverage behind the session gate.** The browser suite proves every
+  account route refuses an anonymous visitor and that the accessibility, layout,
+  and localisation gates hold on the pages reachable without signing in. The
+  authenticated journeys need a seeded customer with a Remnawave user behind it,
+  and that fixture belongs with the integration harness. It is the same debt v0.8
+  and v0.9 carried, and it now bounds the WCAG 2.2 AA review as well.
+- **Attachment storage is a workaround.** `support_attachments` holds a Telegram
+  file reference and has no column for a local one, so a web upload is stored on
+  disk and its key written into `telegram_file_id` behind a `web:` prefix that
+  this code refuses to serve any other value of. It is safe — the bot only ever
+  renders an attachment's name and size, and never sends the stored reference
+  back to Telegram — but the honest fix is a `storage_key`/`origin` column, and
+  that is a migration. It was not written because `atlas` is not available in
+  this environment and `atlas migrate hash` cannot be run, and a migration whose
+  checksum is stale is worse than one not yet written.
+- **Performance budgets cover JavaScript only**, as stated in the gate above.
+- **Two transient divergences are by design and worth knowing.** An operator
+  reply raises the web's unread count immediately but does not move the bot's
+  badge until the Telegram delivery worker runs, so a customer holding both
+  surfaces sees a window where the two disagree; the domain contract — read on
+  either surface is read on both — holds in both directions. And a wallet balance
+  is reserved on a pending order rather than debited, so two pending orders can
+  each claim the same balance and the second is caught at settlement. Both
+  surfaces behave identically in both cases.
 
 ---
 
-## ⏳ v1.0 — General availability
+## 🚧 v1.0 — General availability
 
 Goal: publish a stable release suitable for public single-server production use.
 

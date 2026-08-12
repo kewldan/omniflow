@@ -1,6 +1,7 @@
 import { requirePermissions } from "@/lib/server-session";
 
 import { CommerceSettingsForm } from "./commerce-settings";
+import { CustomerOidcSettings } from "./customer-oidc";
 import { InstallationSettings } from "./installation-settings";
 
 export default async function SettingsPage() {
@@ -9,6 +10,7 @@ export default async function SettingsPage() {
     <div className="flex flex-col gap-5">
       <CommerceSettingsForm />
       <InstallationSettings />
+      <CustomerOidcSettings />
     </div>
   );
 }

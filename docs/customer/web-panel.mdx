@@ -1,6 +1,6 @@
 ---
 title: "Customer web panel"
-description: "Sign-in, sessions, and the subscription screens customers reach from a browser."
+description: "Everything a customer can do from a browser: sign-in, subscriptions, checkout, the shop, support, referrals, and their own data."
 ---
 
 The customer web panel is the browser half of the product the Telegram bot has
@@ -27,10 +27,31 @@ It is served by the same Next.js application as the operator panel, under
   <Card title="Account security" icon="shield">
     Active sessions, the account's own history, and linked sign-in methods.
   </Card>
+  <Card title="Plans and checkout" icon="cart-shopping">
+    Comparison, trial, purchase, renewal, upgrade, downgrade, promo codes, and
+    the wallet breakdown.
+  </Card>
+  <Card title="Wallet" icon="wallet">
+    Balance per currency, the ledger, and top-up through any enabled provider.
+  </Card>
+  <Card title="Digital goods" icon="star">
+    Telegram Premium and Stars, with the recipient review step and delivery
+    progress.
+  </Card>
+  <Card title="Support and news" icon="life-ring">
+    Tickets, attachments, announcements, and communication preferences.
+  </Card>
+  <Card title="Referrals and loyalty" icon="users">
+    Code, link, invited and qualified counts, rewards, and tier progress.
+  </Card>
+  <Card title="Your own data" icon="file-export">
+    A personal-data export and an account-deletion request.
+  </Card>
 </CardGroup>
 
-Buying, renewing, topping up, orders, support, and referrals stay in the bot for
-now; they arrive on the web in v0.10.
+Every one of these is the same record the bot reads and writes. A cart started
+in a chat is the cart the browser shows; a support reply read on the web stops
+being unread in Telegram. There is one product with two surfaces.
 
 ## Enabling it
 
@@ -42,6 +63,19 @@ client secrets and the short-lived sign-in flow cookie.
 | `APP_CUSTOMER_PANEL_ENABLED` | `true` | Mounts `/v1/account`. A Telegram-only installation can turn it off. |
 | `APP_CUSTOMER_COOKIE_SECURE` | `true` | Marks the session cookie `Secure`. Turn it off only for a plain-HTTP local stack. |
 | `APP_CUSTOMER_MAGIC_LINK_ENABLED` | `false` | Offers the bot-delivered sign-in link. Requires `APP_PUBLIC_URL`. |
+| `APP_SUPPORT_ATTACHMENT_DIR` | `/var/lib/omniflow/support-attachments` | Where a file uploaded through the web panel is kept. Mount a volume at it. |
+
+The checkout reads `APP_TERMS_URL`, `APP_RECOVERY_WINDOW_HOURS`, and
+`APP_TRIAL_MINIMUM_ACCOUNT_AGE_HOURS` — the same variables the bot reads, so one
+`.env` configures both processes identically. A trial the chat refuses and the
+browser grants would be an abuse control with a hole in it.
+
+<Note>
+  A ticket opened in Telegram stores only a Telegram file reference, because the
+  bytes stay with Telegram. A browser upload has no such custodian, so the
+  installation holds it — which is why the panel needs a writable directory and
+  the bot does not.
+</Note>
 
 <Warning>
   Leaving `APP_CUSTOMER_COOKIE_SECURE` off in production means the session cookie
@@ -209,3 +243,190 @@ identifier.
 Removing a sign-in method is refused when it is the last one. A customer who
 removes their only way in has locked themselves out of an account holding a paid
 subscription, and nothing in the panel can let them back in.
+
+## Buying and paying
+
+The store screen compares plans on the terms that decide a purchase: period,
+traffic allowance, device limit, price, and currency. Eligibility is decided by
+the server and arrives with the plan, together with the lifecycle operations the
+configured policy allows against the customer's current subscriptions — so the
+panel offers *renew*, *upgrade*, or *downgrade* because the API said so, not
+because React worked the rules out a second time.
+
+A checkout is a resumable purchase intent, and a customer has at most one. It is
+shared with the bot: opening a checkout in a browser supersedes one left open in
+a chat rather than running beside it, because two half-finished purchases for one
+person is a state neither surface could explain.
+
+<Steps>
+  <Step title="Choose a plan and a target">
+    When concurrent subscriptions are enabled, every renewal, upgrade, and
+    downgrade names the subscription it changes. A single-subscription
+    installation renders no picker at all.
+  </Step>
+  <Step title="Configure it">
+    Squads and add-ons, where the plan offers them, with the proration rule for
+    each add-on stated rather than implied.
+  </Step>
+  <Step title="Apply a promo code">
+    A refused code is answered with a reason — unknown, ineligible, exhausted,
+    or malformed — and the quote is repriced without it, so the screen explains
+    the outcome instead of failing.
+  </Step>
+  <Step title="Read the breakdown">
+    Subtotal, add-ons, discount, wallet applied, and the external amount that
+    still has to be settled. Every figure is computed by the server, so the
+    number a customer approves and the number they are charged cannot be arrived
+    at two different ways.
+  </Step>
+  <Step title="Pay">
+    Only providers that are enabled *and* settle the chosen currency are
+    offered. A hosted provider opens its own checkout; Telegram Stars sends an
+    invoice to the chat; a wallet-covered order needs no handoff at all.
+  </Step>
+</Steps>
+
+### When a payment does not land cleanly
+
+Pending, successful, failed, cancelled, duplicate, and delayed-webhook each get a
+screen that says what happened and what to do next. A **refresh** control
+re-reads the provider rather than merely re-fetching Omniflow's own record, so a
+customer who returns before the webhook arrives still sees the settled state.
+
+Provisioning progress is read from the fulfillment operation the order created.
+It therefore survives a page reload, a second tab, and a switch to Telegram — a
+page that remembered "we are setting this up" in its own memory would forget it
+exactly when the customer most wants to know.
+
+<Note>
+  Confirming a checkout reuses the checkout's own idempotency key, so a double
+  tap or a retried request resolves to the order already created. The same is
+  true of starting a payment, where the key is scoped to the order and the chosen
+  adapter — switching provider is a new payment, pressing the same button twice
+  is not.
+</Note>
+
+## Wallet
+
+Balances are per currency and isolated: a balance in one currency never funds an
+order in another. The ledger is append-only, so a correction appears as a
+compensating entry rather than as an edited row.
+
+Top-up runs through the same order, webhook, and reconciliation pipeline a plan
+purchase uses, with the operator's preset amounts, minimum, maximum, and rolling
+window applied. The caller's idempotency key becomes the order's key, so a
+retried request credits the same top-up rather than a second one.
+
+## Digital goods
+
+The shop sells Telegram Premium and Stars under exactly the rules the bot
+follows.
+
+**A price is a quote with an expiry.** It is issued when a product is opened, not
+when the catalogue is listed — a page of promises that begin expiring while it is
+read would be worse than none. The panel shows the countdown, and the purchase
+echoes the displayed quote back. The server re-quotes before charging and refuses
+with a distinct reason when the window has passed or the number moved, so the
+price on screen is always the price charged.
+
+**The recipient is confirmed on its own.** The handle is normalised by the server
+and shown in the exact form the gateway will be given, and the purchase is
+refused unless the confirmed string is the one submitted. Delivery is
+irreversible once a gateway has sent the goods, and a mistyped username cannot be
+recovered.
+
+**An ambiguous delivery parks.** The gateway that fronts Fragment honours no
+idempotency key, so a lost answer is genuinely ambiguous: retrying might deliver
+and charge twice, and refunding might refund goods that arrived. Such a delivery
+moves to the operator review queue and the panel says so, offering support rather
+than a retry button. A delivery that fails permanently is refunded to the wallet
+through the existing pipeline.
+
+## Support and news
+
+Tickets are the operator desk's tickets and the bot's tickets — one conversation
+per record, read from whichever surface the customer opened.
+
+Unread state lives on the message rather than on the surface, so a reply read in
+Telegram is not still bold on the web, and a customer who answers in a browser
+appears in the operator queue exactly as one who answered in a chat.
+
+Internal operator notes are never returned. They live in their own table and no
+customer-facing query touches it, which is a stronger guarantee than filtering
+them out would be.
+
+Attachments are bounded by size and by an allowlist of media types — an unknown
+type is refused rather than guessed at — and the limits are shown before an
+upload rather than only after one is rejected. A file attached in Telegram stays
+with Telegram and is named rather than offered for download, because offering a
+download that cannot work is worse than saying where the file lives.
+
+### Preferences and consent
+
+Notification choices, quiet hours, and marketing consent are set here and apply
+to both surfaces. Consent is append-only: a change records a new decision with
+the surface and request that made it, so the question "when did this person opt
+in, and where" always has an answer.
+
+Unsubscribing stops marketing messages. It does not stop transactional ones about
+a payment, an expiry, or a support reply — those are the messages a customer
+needs in order to keep using what they bought.
+
+Browser notifications are offered only behind an explicit opt-in, never requested
+on page load, and they are foreground-only: the panel raises one for a new
+operator reply or announcement it observes while the tab is open. There is no web
+push, no service worker, and no stored subscription.
+
+## Referrals and loyalty
+
+The referral screen shows the code, its shareable link, the program terms and
+qualification rule, the invited and qualified counts, the remaining slots against
+the operator's cap, and the reward history with each reward's state.
+
+A reversed reward is excluded from the earned total and from the cap count. An
+operator reverses one when a referral turns out to be abuse, and the slot it
+consumed comes back with it.
+
+When no public URL is configured the panel shows the code and says no link can be
+built, rather than rendering a link to nowhere.
+
+Loyalty shows the current tier, the progress toward the next, and the rules that
+govern it. Nothing on these screens grants a reward or promotes a tier: the
+reward and evaluation workers already wrote those rows, and doing it on a page
+load would make a customer's balance depend on which screen they opened.
+
+## Personal data
+
+### Export
+
+A customer can download their own records: profile, identities, contacts,
+subscriptions, entitlements, orders, payments, wallet ledger, support
+conversations, referral and loyalty standing, consent history, and lifecycle
+events.
+
+It is produced synchronously rather than queued. A queued export would need a
+delivery channel, a retention window, and a link that authenticates on its own —
+three further disclosure decisions to answer a question that fits in one
+response.
+
+The document declares what it left out and why: no other customer's identifier,
+no payment credential, no provider secret, no subscription link, and no device or
+network identifier. It also names any section that hit its row cap, because an
+export that silently omitted something would be worse than one that says so.
+
+### Deletion
+
+Requesting deletion records a request. It does not delete.
+
+The retention workflow an operator already governs is what carries it out, so an
+irreversible action never happens on the strength of one browser session. The
+request needs a recent sign-in and a stated reason, it can be withdrawn until it
+is executed, and cancelling it needs no re-authentication — cancelling only ever
+prevents the irreversible thing.
+
+### Identity conflicts
+
+A contact address already registered elsewhere is refused with nothing more than
+"not available here", and the remedy is contacting support. Saying that another
+account holds it would turn the panel into an oracle for whether a given address
+is a customer.

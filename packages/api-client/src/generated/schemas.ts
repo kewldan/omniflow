@@ -4834,6 +4834,2667 @@ export const RemoveAccountDeviceHeader = zod.object({
 export const RemoveAccountDeviceResponse = zod.void();
 
 /**
+ * The comparable catalogue, with this customer's eligibility already decided. `operations` names the lifecycle actions the configured plan policy allows against their current subscriptions, so the panel offers renew, upgrade, or downgrade because the server said so rather than because React worked it out a second time.
+ */
+export const ListAccountPlansQueryParams = zod.object({
+  locale: zod.enum(["ru", "en"]).optional(),
+});
+
+export const ListAccountPlansResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      planId: zod.uuid(),
+      planVersionId: zod.uuid(),
+      code: zod.string(),
+      kind: zod.enum(["trial", "one_time", "recurring", "manual"]),
+      name: zod.string(),
+      description: zod.string().optional(),
+      sortOrder: zod.int().optional(),
+      billingPeriod: zod.string(),
+      durationSeconds: zod.int(),
+      gracePeriodSeconds: zod.int().optional(),
+      price: zod.object({
+        amountMinor: zod.int(),
+        currency: zod.string(),
+      }),
+      recurringCapable: zod.boolean().optional(),
+      configurableSquads: zod.boolean().optional(),
+      operations: zod
+        .array(zod.enum(["purchase", "renew", "upgrade", "downgrade"]))
+        .describe("The lifecycle actions the configured plan policy allows for this customer."),
+      eligible: zod.boolean(),
+      ineligibleReason: zod.string().optional(),
+      trafficAllowanceBytes: zod
+        .int()
+        .nullish()
+        .describe(
+          "Null means unlimited. Nullable rather than zero because unlimited and none are different offers.",
+        ),
+      deviceLimit: zod.int().nullish().describe("Null means unlimited."),
+    }),
+  ),
+  currency: zod.string(),
+});
+
+export const GetAccountPlanParams = zod.object({
+  planVersionID: zod.uuid(),
+});
+
+export const GetAccountPlanQueryParams = zod.object({
+  locale: zod.enum(["ru", "en"]).optional(),
+});
+
+export const GetAccountPlanResponse = zod
+  .object({
+    planId: zod.uuid(),
+    planVersionId: zod.uuid(),
+    code: zod.string(),
+    kind: zod.enum(["trial", "one_time", "recurring", "manual"]),
+    name: zod.string(),
+    description: zod.string().optional(),
+    sortOrder: zod.int().optional(),
+    billingPeriod: zod.string(),
+    durationSeconds: zod.int(),
+    gracePeriodSeconds: zod.int().optional(),
+    price: zod.object({
+      amountMinor: zod.int(),
+      currency: zod.string(),
+    }),
+    recurringCapable: zod.boolean().optional(),
+    configurableSquads: zod.boolean().optional(),
+    operations: zod
+      .array(zod.enum(["purchase", "renew", "upgrade", "downgrade"]))
+      .describe("The lifecycle actions the configured plan policy allows for this customer."),
+    eligible: zod.boolean(),
+    ineligibleReason: zod.string().optional(),
+    trafficAllowanceBytes: zod
+      .int()
+      .nullish()
+      .describe(
+        "Null means unlimited. Nullable rather than zero because unlimited and none are different offers.",
+      ),
+    deviceLimit: zod.int().nullish().describe("Null means unlimited."),
+  })
+  .and(
+    zod.object({
+      squads: zod.object({
+        selection: zod
+          .string()
+          .describe("Whether squads are assigned automatically or chosen by the customer."),
+        minimum: zod.int(),
+        maximum: zod.int().nullish(),
+        configurable: zod.boolean(),
+        offered: zod.array(
+          zod.object({
+            squadId: zod.uuid(),
+            label: zod.string(),
+          }),
+        ),
+      }),
+      addons: zod.array(
+        zod.object({
+          addonId: zod.uuid(),
+          addonVersionId: zod.uuid(),
+          code: zod.string(),
+          kind: zod.enum(["traffic", "devices", "squads"]),
+          name: zod.string(),
+          description: zod.string().optional(),
+          maxQuantity: zod.int(),
+          proration: zod.string().describe("The documented proration rule for this add-on."),
+          squadCount: zod.int().optional(),
+          price: zod.object({
+            amountMinor: zod.int(),
+            currency: zod.string(),
+          }),
+          trafficBytes: zod.int().nullish(),
+          deviceSlots: zod.int().nullish(),
+        }),
+      ),
+      promotions: zod.array(
+        zod.object({
+          code: zod.string(),
+          kind: zod.string(),
+          value: zod.int(),
+          currency: zod.string().optional(),
+          eligible: zod.boolean(),
+          startsAt: zod.iso.datetime({ offset: true }).optional(),
+          endsAt: zod.iso.datetime({ offset: true }).optional(),
+        }),
+      ),
+      termsUrl: zod.string().optional(),
+    }),
+  );
+
+/**
+ * The open checkout with a live quote. A customer has at most one, shared with the Telegram bot, so opening one in a browser supersedes one left open in a chat. `404` means none is open, which is an ordinary state rather than a failure.
+ */
+export const GetAccountCheckoutQueryParams = zod.object({
+  locale: zod.enum(["ru", "en"]).optional(),
+});
+
+export const GetAccountCheckoutResponse = zod.object({
+  id: zod.uuid(),
+  planVersionId: zod.uuid(),
+  plan: zod.object({
+    planId: zod.uuid(),
+    planVersionId: zod.uuid(),
+    code: zod.string(),
+    kind: zod.enum(["trial", "one_time", "recurring", "manual"]),
+    name: zod.string(),
+    description: zod.string().optional(),
+    sortOrder: zod.int().optional(),
+    billingPeriod: zod.string(),
+    durationSeconds: zod.int(),
+    gracePeriodSeconds: zod.int().optional(),
+    price: zod.object({
+      amountMinor: zod.int(),
+      currency: zod.string(),
+    }),
+    recurringCapable: zod.boolean().optional(),
+    configurableSquads: zod.boolean().optional(),
+    operations: zod
+      .array(zod.enum(["purchase", "renew", "upgrade", "downgrade"]))
+      .describe("The lifecycle actions the configured plan policy allows for this customer."),
+    eligible: zod.boolean(),
+    ineligibleReason: zod.string().optional(),
+    trafficAllowanceBytes: zod
+      .int()
+      .nullish()
+      .describe(
+        "Null means unlimited. Nullable rather than zero because unlimited and none are different offers.",
+      ),
+    deviceLimit: zod.int().nullish().describe("Null means unlimited."),
+  }),
+  operation: zod.enum(["purchase", "renew", "upgrade", "downgrade"]),
+  currency: zod.string(),
+  provider: zod.string().optional(),
+  providers: zod.array(
+    zod.object({
+      provider: zod.string(),
+      currency: zod.string(),
+      amountMinor: zod.int().optional(),
+      recurring: zod.boolean(),
+    }),
+  ),
+  applyWallet: zod.boolean(),
+  quote: zod
+    .object({
+      currency: zod.string(),
+      subtotalMinor: zod.int(),
+      addonMinor: zod.int(),
+      discountMinor: zod.int(),
+      walletBalanceMinor: zod.int(),
+      walletAppliedMinor: zod.int(),
+      externalMinor: zod.int().describe("What still has to be settled through a provider."),
+    })
+    .describe(
+      "The exact application breakdown. Every figure is computed on the server, so the number a customer is asked to approve and the number they are charged cannot be arrived at two different ways.",
+    ),
+  promoCode: zod.string().optional(),
+  promoRejection: zod
+    .enum(["promo_unknown", "promo_ineligible", "promo_exhausted", "promo_invalid"])
+    .optional()
+    .describe("Why the entered code does not apply. Present on a 200, not an error."),
+  subscriptionId: zod.string().optional(),
+  newSubscription: zod.boolean().optional(),
+  subscriptions: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        slot: zod.int(),
+        label: zod.string().optional(),
+        plan: zod.string(),
+        status: zod.string(),
+        endsAt: zod.iso.datetime({ offset: true }).optional(),
+      }),
+    )
+    .describe("The subscriptions this checkout could target."),
+  targetRequired: zod
+    .boolean()
+    .describe("A target must be named before this checkout can be confirmed."),
+  multiSubscription: zod.boolean().describe("False means the panel renders no picker at all."),
+  squads: zod.object({
+    selection: zod
+      .string()
+      .describe("Whether squads are assigned automatically or chosen by the customer."),
+    minimum: zod.int(),
+    maximum: zod.int().nullish(),
+    configurable: zod.boolean(),
+    offered: zod.array(
+      zod.object({
+        squadId: zod.uuid(),
+        label: zod.string(),
+      }),
+    ),
+  }),
+  selectedSquadIds: zod.array(zod.uuid()),
+  addons: zod.array(
+    zod.object({
+      addonId: zod.uuid(),
+      addonVersionId: zod.uuid(),
+      code: zod.string(),
+      kind: zod.enum(["traffic", "devices", "squads"]),
+      name: zod.string(),
+      description: zod.string().optional(),
+      maxQuantity: zod.int(),
+      proration: zod.string().describe("The documented proration rule for this add-on."),
+      squadCount: zod.int().optional(),
+      price: zod.object({
+        amountMinor: zod.int(),
+        currency: zod.string(),
+      }),
+      trafficBytes: zod.int().nullish(),
+      deviceSlots: zod.int().nullish(),
+    }),
+  ),
+  selectedAddons: zod.array(
+    zod.object({
+      addonVersionId: zod.uuid(),
+      quantity: zod.int(),
+    }),
+  ),
+  termsUrl: zod.string().optional(),
+  expiresAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+export const OpenAccountCheckoutHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const OpenAccountCheckoutBody = zod.object({
+  planVersionId: zod.uuid(),
+  operation: zod.enum(["purchase", "renew", "upgrade", "downgrade"]),
+  subscriptionId: zod
+    .uuid()
+    .optional()
+    .describe(
+      "Required for renew, upgrade, and downgrade when concurrent subscriptions are enabled.",
+    ),
+  newSubscription: zod.boolean().optional(),
+});
+
+export const OpenAccountCheckoutResponse = zod.object({
+  id: zod.uuid(),
+  planVersionId: zod.uuid(),
+  plan: zod.object({
+    planId: zod.uuid(),
+    planVersionId: zod.uuid(),
+    code: zod.string(),
+    kind: zod.enum(["trial", "one_time", "recurring", "manual"]),
+    name: zod.string(),
+    description: zod.string().optional(),
+    sortOrder: zod.int().optional(),
+    billingPeriod: zod.string(),
+    durationSeconds: zod.int(),
+    gracePeriodSeconds: zod.int().optional(),
+    price: zod.object({
+      amountMinor: zod.int(),
+      currency: zod.string(),
+    }),
+    recurringCapable: zod.boolean().optional(),
+    configurableSquads: zod.boolean().optional(),
+    operations: zod
+      .array(zod.enum(["purchase", "renew", "upgrade", "downgrade"]))
+      .describe("The lifecycle actions the configured plan policy allows for this customer."),
+    eligible: zod.boolean(),
+    ineligibleReason: zod.string().optional(),
+    trafficAllowanceBytes: zod
+      .int()
+      .nullish()
+      .describe(
+        "Null means unlimited. Nullable rather than zero because unlimited and none are different offers.",
+      ),
+    deviceLimit: zod.int().nullish().describe("Null means unlimited."),
+  }),
+  operation: zod.enum(["purchase", "renew", "upgrade", "downgrade"]),
+  currency: zod.string(),
+  provider: zod.string().optional(),
+  providers: zod.array(
+    zod.object({
+      provider: zod.string(),
+      currency: zod.string(),
+      amountMinor: zod.int().optional(),
+      recurring: zod.boolean(),
+    }),
+  ),
+  applyWallet: zod.boolean(),
+  quote: zod
+    .object({
+      currency: zod.string(),
+      subtotalMinor: zod.int(),
+      addonMinor: zod.int(),
+      discountMinor: zod.int(),
+      walletBalanceMinor: zod.int(),
+      walletAppliedMinor: zod.int(),
+      externalMinor: zod.int().describe("What still has to be settled through a provider."),
+    })
+    .describe(
+      "The exact application breakdown. Every figure is computed on the server, so the number a customer is asked to approve and the number they are charged cannot be arrived at two different ways.",
+    ),
+  promoCode: zod.string().optional(),
+  promoRejection: zod
+    .enum(["promo_unknown", "promo_ineligible", "promo_exhausted", "promo_invalid"])
+    .optional()
+    .describe("Why the entered code does not apply. Present on a 200, not an error."),
+  subscriptionId: zod.string().optional(),
+  newSubscription: zod.boolean().optional(),
+  subscriptions: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        slot: zod.int(),
+        label: zod.string().optional(),
+        plan: zod.string(),
+        status: zod.string(),
+        endsAt: zod.iso.datetime({ offset: true }).optional(),
+      }),
+    )
+    .describe("The subscriptions this checkout could target."),
+  targetRequired: zod
+    .boolean()
+    .describe("A target must be named before this checkout can be confirmed."),
+  multiSubscription: zod.boolean().describe("False means the panel renders no picker at all."),
+  squads: zod.object({
+    selection: zod
+      .string()
+      .describe("Whether squads are assigned automatically or chosen by the customer."),
+    minimum: zod.int(),
+    maximum: zod.int().nullish(),
+    configurable: zod.boolean(),
+    offered: zod.array(
+      zod.object({
+        squadId: zod.uuid(),
+        label: zod.string(),
+      }),
+    ),
+  }),
+  selectedSquadIds: zod.array(zod.uuid()),
+  addons: zod.array(
+    zod.object({
+      addonId: zod.uuid(),
+      addonVersionId: zod.uuid(),
+      code: zod.string(),
+      kind: zod.enum(["traffic", "devices", "squads"]),
+      name: zod.string(),
+      description: zod.string().optional(),
+      maxQuantity: zod.int(),
+      proration: zod.string().describe("The documented proration rule for this add-on."),
+      squadCount: zod.int().optional(),
+      price: zod.object({
+        amountMinor: zod.int(),
+        currency: zod.string(),
+      }),
+      trafficBytes: zod.int().nullish(),
+      deviceSlots: zod.int().nullish(),
+    }),
+  ),
+  selectedAddons: zod.array(
+    zod.object({
+      addonVersionId: zod.uuid(),
+      quantity: zod.int(),
+    }),
+  ),
+  termsUrl: zod.string().optional(),
+  expiresAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+/**
+ * Every field is optional and an absent field is left unchanged, so a screen that changes the provider never has to resend the squad selection it did not touch.
+ */
+export const UpdateAccountCheckoutHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const UpdateAccountCheckoutBody = zod.object({
+  provider: zod.string().optional(),
+  currency: zod.string().optional(),
+  applyWallet: zod.boolean().optional(),
+  subscriptionId: zod.string().optional(),
+  squadIds: zod.array(zod.uuid()).optional(),
+});
+
+export const UpdateAccountCheckoutResponse = zod.object({
+  id: zod.uuid(),
+  planVersionId: zod.uuid(),
+  plan: zod.object({
+    planId: zod.uuid(),
+    planVersionId: zod.uuid(),
+    code: zod.string(),
+    kind: zod.enum(["trial", "one_time", "recurring", "manual"]),
+    name: zod.string(),
+    description: zod.string().optional(),
+    sortOrder: zod.int().optional(),
+    billingPeriod: zod.string(),
+    durationSeconds: zod.int(),
+    gracePeriodSeconds: zod.int().optional(),
+    price: zod.object({
+      amountMinor: zod.int(),
+      currency: zod.string(),
+    }),
+    recurringCapable: zod.boolean().optional(),
+    configurableSquads: zod.boolean().optional(),
+    operations: zod
+      .array(zod.enum(["purchase", "renew", "upgrade", "downgrade"]))
+      .describe("The lifecycle actions the configured plan policy allows for this customer."),
+    eligible: zod.boolean(),
+    ineligibleReason: zod.string().optional(),
+    trafficAllowanceBytes: zod
+      .int()
+      .nullish()
+      .describe(
+        "Null means unlimited. Nullable rather than zero because unlimited and none are different offers.",
+      ),
+    deviceLimit: zod.int().nullish().describe("Null means unlimited."),
+  }),
+  operation: zod.enum(["purchase", "renew", "upgrade", "downgrade"]),
+  currency: zod.string(),
+  provider: zod.string().optional(),
+  providers: zod.array(
+    zod.object({
+      provider: zod.string(),
+      currency: zod.string(),
+      amountMinor: zod.int().optional(),
+      recurring: zod.boolean(),
+    }),
+  ),
+  applyWallet: zod.boolean(),
+  quote: zod
+    .object({
+      currency: zod.string(),
+      subtotalMinor: zod.int(),
+      addonMinor: zod.int(),
+      discountMinor: zod.int(),
+      walletBalanceMinor: zod.int(),
+      walletAppliedMinor: zod.int(),
+      externalMinor: zod.int().describe("What still has to be settled through a provider."),
+    })
+    .describe(
+      "The exact application breakdown. Every figure is computed on the server, so the number a customer is asked to approve and the number they are charged cannot be arrived at two different ways.",
+    ),
+  promoCode: zod.string().optional(),
+  promoRejection: zod
+    .enum(["promo_unknown", "promo_ineligible", "promo_exhausted", "promo_invalid"])
+    .optional()
+    .describe("Why the entered code does not apply. Present on a 200, not an error."),
+  subscriptionId: zod.string().optional(),
+  newSubscription: zod.boolean().optional(),
+  subscriptions: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        slot: zod.int(),
+        label: zod.string().optional(),
+        plan: zod.string(),
+        status: zod.string(),
+        endsAt: zod.iso.datetime({ offset: true }).optional(),
+      }),
+    )
+    .describe("The subscriptions this checkout could target."),
+  targetRequired: zod
+    .boolean()
+    .describe("A target must be named before this checkout can be confirmed."),
+  multiSubscription: zod.boolean().describe("False means the panel renders no picker at all."),
+  squads: zod.object({
+    selection: zod
+      .string()
+      .describe("Whether squads are assigned automatically or chosen by the customer."),
+    minimum: zod.int(),
+    maximum: zod.int().nullish(),
+    configurable: zod.boolean(),
+    offered: zod.array(
+      zod.object({
+        squadId: zod.uuid(),
+        label: zod.string(),
+      }),
+    ),
+  }),
+  selectedSquadIds: zod.array(zod.uuid()),
+  addons: zod.array(
+    zod.object({
+      addonId: zod.uuid(),
+      addonVersionId: zod.uuid(),
+      code: zod.string(),
+      kind: zod.enum(["traffic", "devices", "squads"]),
+      name: zod.string(),
+      description: zod.string().optional(),
+      maxQuantity: zod.int(),
+      proration: zod.string().describe("The documented proration rule for this add-on."),
+      squadCount: zod.int().optional(),
+      price: zod.object({
+        amountMinor: zod.int(),
+        currency: zod.string(),
+      }),
+      trafficBytes: zod.int().nullish(),
+      deviceSlots: zod.int().nullish(),
+    }),
+  ),
+  selectedAddons: zod.array(
+    zod.object({
+      addonVersionId: zod.uuid(),
+      quantity: zod.int(),
+    }),
+  ),
+  termsUrl: zod.string().optional(),
+  expiresAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+export const CancelAccountCheckoutHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const CancelAccountCheckoutResponse = zod.void();
+
+/**
+ * A refused code answers 200 carrying `promoRejection`, not an error status. The customer asked a legitimate question and the answer is "not this one, because…"; failing the request would leave the screen with nothing to say.
+ */
+export const ApplyAccountPromoCodeHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const ApplyAccountPromoCodeBody = zod.object({
+  code: zod.string(),
+});
+
+export const ApplyAccountPromoCodeResponse = zod.object({
+  id: zod.uuid(),
+  planVersionId: zod.uuid(),
+  plan: zod.object({
+    planId: zod.uuid(),
+    planVersionId: zod.uuid(),
+    code: zod.string(),
+    kind: zod.enum(["trial", "one_time", "recurring", "manual"]),
+    name: zod.string(),
+    description: zod.string().optional(),
+    sortOrder: zod.int().optional(),
+    billingPeriod: zod.string(),
+    durationSeconds: zod.int(),
+    gracePeriodSeconds: zod.int().optional(),
+    price: zod.object({
+      amountMinor: zod.int(),
+      currency: zod.string(),
+    }),
+    recurringCapable: zod.boolean().optional(),
+    configurableSquads: zod.boolean().optional(),
+    operations: zod
+      .array(zod.enum(["purchase", "renew", "upgrade", "downgrade"]))
+      .describe("The lifecycle actions the configured plan policy allows for this customer."),
+    eligible: zod.boolean(),
+    ineligibleReason: zod.string().optional(),
+    trafficAllowanceBytes: zod
+      .int()
+      .nullish()
+      .describe(
+        "Null means unlimited. Nullable rather than zero because unlimited and none are different offers.",
+      ),
+    deviceLimit: zod.int().nullish().describe("Null means unlimited."),
+  }),
+  operation: zod.enum(["purchase", "renew", "upgrade", "downgrade"]),
+  currency: zod.string(),
+  provider: zod.string().optional(),
+  providers: zod.array(
+    zod.object({
+      provider: zod.string(),
+      currency: zod.string(),
+      amountMinor: zod.int().optional(),
+      recurring: zod.boolean(),
+    }),
+  ),
+  applyWallet: zod.boolean(),
+  quote: zod
+    .object({
+      currency: zod.string(),
+      subtotalMinor: zod.int(),
+      addonMinor: zod.int(),
+      discountMinor: zod.int(),
+      walletBalanceMinor: zod.int(),
+      walletAppliedMinor: zod.int(),
+      externalMinor: zod.int().describe("What still has to be settled through a provider."),
+    })
+    .describe(
+      "The exact application breakdown. Every figure is computed on the server, so the number a customer is asked to approve and the number they are charged cannot be arrived at two different ways.",
+    ),
+  promoCode: zod.string().optional(),
+  promoRejection: zod
+    .enum(["promo_unknown", "promo_ineligible", "promo_exhausted", "promo_invalid"])
+    .optional()
+    .describe("Why the entered code does not apply. Present on a 200, not an error."),
+  subscriptionId: zod.string().optional(),
+  newSubscription: zod.boolean().optional(),
+  subscriptions: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        slot: zod.int(),
+        label: zod.string().optional(),
+        plan: zod.string(),
+        status: zod.string(),
+        endsAt: zod.iso.datetime({ offset: true }).optional(),
+      }),
+    )
+    .describe("The subscriptions this checkout could target."),
+  targetRequired: zod
+    .boolean()
+    .describe("A target must be named before this checkout can be confirmed."),
+  multiSubscription: zod.boolean().describe("False means the panel renders no picker at all."),
+  squads: zod.object({
+    selection: zod
+      .string()
+      .describe("Whether squads are assigned automatically or chosen by the customer."),
+    minimum: zod.int(),
+    maximum: zod.int().nullish(),
+    configurable: zod.boolean(),
+    offered: zod.array(
+      zod.object({
+        squadId: zod.uuid(),
+        label: zod.string(),
+      }),
+    ),
+  }),
+  selectedSquadIds: zod.array(zod.uuid()),
+  addons: zod.array(
+    zod.object({
+      addonId: zod.uuid(),
+      addonVersionId: zod.uuid(),
+      code: zod.string(),
+      kind: zod.enum(["traffic", "devices", "squads"]),
+      name: zod.string(),
+      description: zod.string().optional(),
+      maxQuantity: zod.int(),
+      proration: zod.string().describe("The documented proration rule for this add-on."),
+      squadCount: zod.int().optional(),
+      price: zod.object({
+        amountMinor: zod.int(),
+        currency: zod.string(),
+      }),
+      trafficBytes: zod.int().nullish(),
+      deviceSlots: zod.int().nullish(),
+    }),
+  ),
+  selectedAddons: zod.array(
+    zod.object({
+      addonVersionId: zod.uuid(),
+      quantity: zod.int(),
+    }),
+  ),
+  termsUrl: zod.string().optional(),
+  expiresAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+export const RemoveAccountPromoCodeHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const RemoveAccountPromoCodeResponse = zod.object({
+  id: zod.uuid(),
+  planVersionId: zod.uuid(),
+  plan: zod.object({
+    planId: zod.uuid(),
+    planVersionId: zod.uuid(),
+    code: zod.string(),
+    kind: zod.enum(["trial", "one_time", "recurring", "manual"]),
+    name: zod.string(),
+    description: zod.string().optional(),
+    sortOrder: zod.int().optional(),
+    billingPeriod: zod.string(),
+    durationSeconds: zod.int(),
+    gracePeriodSeconds: zod.int().optional(),
+    price: zod.object({
+      amountMinor: zod.int(),
+      currency: zod.string(),
+    }),
+    recurringCapable: zod.boolean().optional(),
+    configurableSquads: zod.boolean().optional(),
+    operations: zod
+      .array(zod.enum(["purchase", "renew", "upgrade", "downgrade"]))
+      .describe("The lifecycle actions the configured plan policy allows for this customer."),
+    eligible: zod.boolean(),
+    ineligibleReason: zod.string().optional(),
+    trafficAllowanceBytes: zod
+      .int()
+      .nullish()
+      .describe(
+        "Null means unlimited. Nullable rather than zero because unlimited and none are different offers.",
+      ),
+    deviceLimit: zod.int().nullish().describe("Null means unlimited."),
+  }),
+  operation: zod.enum(["purchase", "renew", "upgrade", "downgrade"]),
+  currency: zod.string(),
+  provider: zod.string().optional(),
+  providers: zod.array(
+    zod.object({
+      provider: zod.string(),
+      currency: zod.string(),
+      amountMinor: zod.int().optional(),
+      recurring: zod.boolean(),
+    }),
+  ),
+  applyWallet: zod.boolean(),
+  quote: zod
+    .object({
+      currency: zod.string(),
+      subtotalMinor: zod.int(),
+      addonMinor: zod.int(),
+      discountMinor: zod.int(),
+      walletBalanceMinor: zod.int(),
+      walletAppliedMinor: zod.int(),
+      externalMinor: zod.int().describe("What still has to be settled through a provider."),
+    })
+    .describe(
+      "The exact application breakdown. Every figure is computed on the server, so the number a customer is asked to approve and the number they are charged cannot be arrived at two different ways.",
+    ),
+  promoCode: zod.string().optional(),
+  promoRejection: zod
+    .enum(["promo_unknown", "promo_ineligible", "promo_exhausted", "promo_invalid"])
+    .optional()
+    .describe("Why the entered code does not apply. Present on a 200, not an error."),
+  subscriptionId: zod.string().optional(),
+  newSubscription: zod.boolean().optional(),
+  subscriptions: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        slot: zod.int(),
+        label: zod.string().optional(),
+        plan: zod.string(),
+        status: zod.string(),
+        endsAt: zod.iso.datetime({ offset: true }).optional(),
+      }),
+    )
+    .describe("The subscriptions this checkout could target."),
+  targetRequired: zod
+    .boolean()
+    .describe("A target must be named before this checkout can be confirmed."),
+  multiSubscription: zod.boolean().describe("False means the panel renders no picker at all."),
+  squads: zod.object({
+    selection: zod
+      .string()
+      .describe("Whether squads are assigned automatically or chosen by the customer."),
+    minimum: zod.int(),
+    maximum: zod.int().nullish(),
+    configurable: zod.boolean(),
+    offered: zod.array(
+      zod.object({
+        squadId: zod.uuid(),
+        label: zod.string(),
+      }),
+    ),
+  }),
+  selectedSquadIds: zod.array(zod.uuid()),
+  addons: zod.array(
+    zod.object({
+      addonId: zod.uuid(),
+      addonVersionId: zod.uuid(),
+      code: zod.string(),
+      kind: zod.enum(["traffic", "devices", "squads"]),
+      name: zod.string(),
+      description: zod.string().optional(),
+      maxQuantity: zod.int(),
+      proration: zod.string().describe("The documented proration rule for this add-on."),
+      squadCount: zod.int().optional(),
+      price: zod.object({
+        amountMinor: zod.int(),
+        currency: zod.string(),
+      }),
+      trafficBytes: zod.int().nullish(),
+      deviceSlots: zod.int().nullish(),
+    }),
+  ),
+  selectedAddons: zod.array(
+    zod.object({
+      addonVersionId: zod.uuid(),
+      quantity: zod.int(),
+    }),
+  ),
+  termsUrl: zod.string().optional(),
+  expiresAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+export const ToggleAccountCheckoutAddonParams = zod.object({
+  addonVersionID: zod.uuid(),
+});
+
+export const ToggleAccountCheckoutAddonHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const ToggleAccountCheckoutAddonResponse = zod.object({
+  id: zod.uuid(),
+  planVersionId: zod.uuid(),
+  plan: zod.object({
+    planId: zod.uuid(),
+    planVersionId: zod.uuid(),
+    code: zod.string(),
+    kind: zod.enum(["trial", "one_time", "recurring", "manual"]),
+    name: zod.string(),
+    description: zod.string().optional(),
+    sortOrder: zod.int().optional(),
+    billingPeriod: zod.string(),
+    durationSeconds: zod.int(),
+    gracePeriodSeconds: zod.int().optional(),
+    price: zod.object({
+      amountMinor: zod.int(),
+      currency: zod.string(),
+    }),
+    recurringCapable: zod.boolean().optional(),
+    configurableSquads: zod.boolean().optional(),
+    operations: zod
+      .array(zod.enum(["purchase", "renew", "upgrade", "downgrade"]))
+      .describe("The lifecycle actions the configured plan policy allows for this customer."),
+    eligible: zod.boolean(),
+    ineligibleReason: zod.string().optional(),
+    trafficAllowanceBytes: zod
+      .int()
+      .nullish()
+      .describe(
+        "Null means unlimited. Nullable rather than zero because unlimited and none are different offers.",
+      ),
+    deviceLimit: zod.int().nullish().describe("Null means unlimited."),
+  }),
+  operation: zod.enum(["purchase", "renew", "upgrade", "downgrade"]),
+  currency: zod.string(),
+  provider: zod.string().optional(),
+  providers: zod.array(
+    zod.object({
+      provider: zod.string(),
+      currency: zod.string(),
+      amountMinor: zod.int().optional(),
+      recurring: zod.boolean(),
+    }),
+  ),
+  applyWallet: zod.boolean(),
+  quote: zod
+    .object({
+      currency: zod.string(),
+      subtotalMinor: zod.int(),
+      addonMinor: zod.int(),
+      discountMinor: zod.int(),
+      walletBalanceMinor: zod.int(),
+      walletAppliedMinor: zod.int(),
+      externalMinor: zod.int().describe("What still has to be settled through a provider."),
+    })
+    .describe(
+      "The exact application breakdown. Every figure is computed on the server, so the number a customer is asked to approve and the number they are charged cannot be arrived at two different ways.",
+    ),
+  promoCode: zod.string().optional(),
+  promoRejection: zod
+    .enum(["promo_unknown", "promo_ineligible", "promo_exhausted", "promo_invalid"])
+    .optional()
+    .describe("Why the entered code does not apply. Present on a 200, not an error."),
+  subscriptionId: zod.string().optional(),
+  newSubscription: zod.boolean().optional(),
+  subscriptions: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        slot: zod.int(),
+        label: zod.string().optional(),
+        plan: zod.string(),
+        status: zod.string(),
+        endsAt: zod.iso.datetime({ offset: true }).optional(),
+      }),
+    )
+    .describe("The subscriptions this checkout could target."),
+  targetRequired: zod
+    .boolean()
+    .describe("A target must be named before this checkout can be confirmed."),
+  multiSubscription: zod.boolean().describe("False means the panel renders no picker at all."),
+  squads: zod.object({
+    selection: zod
+      .string()
+      .describe("Whether squads are assigned automatically or chosen by the customer."),
+    minimum: zod.int(),
+    maximum: zod.int().nullish(),
+    configurable: zod.boolean(),
+    offered: zod.array(
+      zod.object({
+        squadId: zod.uuid(),
+        label: zod.string(),
+      }),
+    ),
+  }),
+  selectedSquadIds: zod.array(zod.uuid()),
+  addons: zod.array(
+    zod.object({
+      addonId: zod.uuid(),
+      addonVersionId: zod.uuid(),
+      code: zod.string(),
+      kind: zod.enum(["traffic", "devices", "squads"]),
+      name: zod.string(),
+      description: zod.string().optional(),
+      maxQuantity: zod.int(),
+      proration: zod.string().describe("The documented proration rule for this add-on."),
+      squadCount: zod.int().optional(),
+      price: zod.object({
+        amountMinor: zod.int(),
+        currency: zod.string(),
+      }),
+      trafficBytes: zod.int().nullish(),
+      deviceSlots: zod.int().nullish(),
+    }),
+  ),
+  selectedAddons: zod.array(
+    zod.object({
+      addonVersionId: zod.uuid(),
+      quantity: zod.int(),
+    }),
+  ),
+  termsUrl: zod.string().optional(),
+  expiresAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+/**
+ * Turns the open checkout into an order. The checkout's own idempotency key is reused for the order, so a duplicate confirmation resolves to the order already created rather than a second one.
+ */
+export const confirmAccountCheckoutHeaderIdempotencyKeyMin = 8;
+export const confirmAccountCheckoutHeaderIdempotencyKeyMax = 128;
+
+export const ConfirmAccountCheckoutHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "Idempotency-Key": zod
+    .string()
+    .min(confirmAccountCheckoutHeaderIdempotencyKeyMin)
+    .max(confirmAccountCheckoutHeaderIdempotencyKeyMax),
+});
+
+export const ConfirmAccountCheckoutResponse = zod.object({
+  id: zod.uuid(),
+  state: zod.enum([
+    "draft",
+    "pending",
+    "paid",
+    "fulfilled",
+    "cancelled",
+    "expired",
+    "partially_refunded",
+    "refunded",
+  ]),
+  operation: zod.string(),
+  phase: zod
+    .string()
+    .describe(
+      "The combined payment and provisioning state the panel renders: what the customer is waiting for, rather than which table changed.",
+    ),
+  currency: zod.string(),
+  subtotalMinor: zod.int(),
+  discountMinor: zod.int(),
+  walletMinor: zod.int(),
+  externalMinor: zod.int(),
+  paidMinor: zod.int(),
+  refundedMinor: zod.int(),
+  plan: zod.string(),
+  subscriptionId: zod.string().optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+  expiresAt: zod.iso.datetime({ offset: true }).optional(),
+  payment: zod
+    .object({
+      id: zod.uuid(),
+      provider: zod.string(),
+      status: zod.string(),
+      handoff: zod.enum(["hosted", "telegram_invoice", "manual", "none"]),
+      checkoutUrl: zod.string().optional(),
+      receiptUrl: zod.string().optional(),
+    })
+    .optional(),
+  fulfillment: zod
+    .object({
+      status: zod.string(),
+      attempts: zod.int(),
+      errorCode: zod.string().optional(),
+      updatedAt: zod.iso.datetime({ offset: true }).optional(),
+    })
+    .optional()
+    .describe(
+      "Provisioning progress, read from the fulfillment operation rather than carried by the client.",
+    ),
+  refunds: zod
+    .array(
+      zod.object({
+        status: zod.string(),
+        amountMinor: zod.int(),
+        currency: zod.string(),
+        createdAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .optional(),
+});
+
+export const listAccountOrdersQueryLimitMax = 100;
+
+export const ListAccountOrdersQueryParams = zod.object({
+  cursor: zod.string().optional(),
+  cursorId: zod.uuid().optional(),
+  limit: zod.int().min(1).max(listAccountOrdersQueryLimitMax).optional(),
+  locale: zod.enum(["ru", "en"]).optional(),
+});
+
+export const ListAccountOrdersResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      state: zod.enum([
+        "draft",
+        "pending",
+        "paid",
+        "fulfilled",
+        "cancelled",
+        "expired",
+        "partially_refunded",
+        "refunded",
+      ]),
+      operation: zod.string(),
+      phase: zod
+        .string()
+        .describe(
+          "The combined payment and provisioning state the panel renders: what the customer is waiting for, rather than which table changed.",
+        ),
+      currency: zod.string(),
+      subtotalMinor: zod.int(),
+      discountMinor: zod.int(),
+      walletMinor: zod.int(),
+      externalMinor: zod.int(),
+      paidMinor: zod.int(),
+      refundedMinor: zod.int(),
+      plan: zod.string(),
+      subscriptionId: zod.string().optional(),
+      createdAt: zod.iso.datetime({ offset: true }),
+      expiresAt: zod.iso.datetime({ offset: true }).optional(),
+      payment: zod
+        .object({
+          id: zod.uuid(),
+          provider: zod.string(),
+          status: zod.string(),
+          handoff: zod.enum(["hosted", "telegram_invoice", "manual", "none"]),
+          checkoutUrl: zod.string().optional(),
+          receiptUrl: zod.string().optional(),
+        })
+        .optional(),
+      fulfillment: zod
+        .object({
+          status: zod.string(),
+          attempts: zod.int(),
+          errorCode: zod.string().optional(),
+          updatedAt: zod.iso.datetime({ offset: true }).optional(),
+        })
+        .optional()
+        .describe(
+          "Provisioning progress, read from the fulfillment operation rather than carried by the client.",
+        ),
+      refunds: zod
+        .array(
+          zod.object({
+            status: zod.string(),
+            amountMinor: zod.int(),
+            currency: zod.string(),
+            createdAt: zod.iso.datetime({ offset: true }),
+          }),
+        )
+        .optional(),
+    }),
+  ),
+  nextCursor: zod.string().optional(),
+  nextCursorId: zod.uuid().optional(),
+});
+
+/**
+ * One order with its payment, provisioning progress, and refunds. Provisioning comes from the fulfillment operation the order created, so a refresh, a second tab, or a switch to Telegram all show the same state.
+ */
+export const GetAccountOrderParams = zod.object({
+  orderID: zod.uuid(),
+});
+
+export const GetAccountOrderQueryParams = zod.object({
+  locale: zod.enum(["ru", "en"]).optional(),
+});
+
+export const GetAccountOrderResponse = zod.object({
+  id: zod.uuid(),
+  state: zod.enum([
+    "draft",
+    "pending",
+    "paid",
+    "fulfilled",
+    "cancelled",
+    "expired",
+    "partially_refunded",
+    "refunded",
+  ]),
+  operation: zod.string(),
+  phase: zod
+    .string()
+    .describe(
+      "The combined payment and provisioning state the panel renders: what the customer is waiting for, rather than which table changed.",
+    ),
+  currency: zod.string(),
+  subtotalMinor: zod.int(),
+  discountMinor: zod.int(),
+  walletMinor: zod.int(),
+  externalMinor: zod.int(),
+  paidMinor: zod.int(),
+  refundedMinor: zod.int(),
+  plan: zod.string(),
+  subscriptionId: zod.string().optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+  expiresAt: zod.iso.datetime({ offset: true }).optional(),
+  payment: zod
+    .object({
+      id: zod.uuid(),
+      provider: zod.string(),
+      status: zod.string(),
+      handoff: zod.enum(["hosted", "telegram_invoice", "manual", "none"]),
+      checkoutUrl: zod.string().optional(),
+      receiptUrl: zod.string().optional(),
+    })
+    .optional(),
+  fulfillment: zod
+    .object({
+      status: zod.string(),
+      attempts: zod.int(),
+      errorCode: zod.string().optional(),
+      updatedAt: zod.iso.datetime({ offset: true }).optional(),
+    })
+    .optional()
+    .describe(
+      "Provisioning progress, read from the fulfillment operation rather than carried by the client.",
+    ),
+  refunds: zod
+    .array(
+      zod.object({
+        status: zod.string(),
+        amountMinor: zod.int(),
+        currency: zod.string(),
+        createdAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * Creates or resumes the provider payment. The key is scoped to the order and the chosen adapter, so switching provider is a new payment while pressing the same button twice is not.
+ */
+export const StartAccountOrderPaymentParams = zod.object({
+  orderID: zod.uuid(),
+});
+
+export const startAccountOrderPaymentHeaderIdempotencyKeyMin = 8;
+export const startAccountOrderPaymentHeaderIdempotencyKeyMax = 128;
+
+export const StartAccountOrderPaymentHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "Idempotency-Key": zod
+    .string()
+    .min(startAccountOrderPaymentHeaderIdempotencyKeyMin)
+    .max(startAccountOrderPaymentHeaderIdempotencyKeyMax),
+});
+
+export const StartAccountOrderPaymentBody = zod.object({
+  provider: zod.string().optional(),
+});
+
+export const StartAccountOrderPaymentResponse = zod.object({
+  id: zod.uuid(),
+  provider: zod.string(),
+  status: zod.string(),
+  amountMinor: zod.int(),
+  currency: zod.string(),
+  handoff: zod
+    .enum(["hosted", "telegram_invoice", "manual", "none"])
+    .describe(
+      "How the customer completes the payment. `none` means nothing further is owed, which is what a wallet-covered order looks like.",
+    ),
+  checkoutUrl: zod.string().optional(),
+});
+
+/**
+ * Re-reads the provider so a customer who returns before the webhook arrives still sees the settled state.
+ */
+export const RefreshAccountOrderParams = zod.object({
+  orderID: zod.uuid(),
+});
+
+export const RefreshAccountOrderHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const RefreshAccountOrderResponse = zod.object({
+  id: zod.uuid(),
+  state: zod.enum([
+    "draft",
+    "pending",
+    "paid",
+    "fulfilled",
+    "cancelled",
+    "expired",
+    "partially_refunded",
+    "refunded",
+  ]),
+  operation: zod.string(),
+  phase: zod
+    .string()
+    .describe(
+      "The combined payment and provisioning state the panel renders: what the customer is waiting for, rather than which table changed.",
+    ),
+  currency: zod.string(),
+  subtotalMinor: zod.int(),
+  discountMinor: zod.int(),
+  walletMinor: zod.int(),
+  externalMinor: zod.int(),
+  paidMinor: zod.int(),
+  refundedMinor: zod.int(),
+  plan: zod.string(),
+  subscriptionId: zod.string().optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+  expiresAt: zod.iso.datetime({ offset: true }).optional(),
+  payment: zod
+    .object({
+      id: zod.uuid(),
+      provider: zod.string(),
+      status: zod.string(),
+      handoff: zod.enum(["hosted", "telegram_invoice", "manual", "none"]),
+      checkoutUrl: zod.string().optional(),
+      receiptUrl: zod.string().optional(),
+    })
+    .optional(),
+  fulfillment: zod
+    .object({
+      status: zod.string(),
+      attempts: zod.int(),
+      errorCode: zod.string().optional(),
+      updatedAt: zod.iso.datetime({ offset: true }).optional(),
+    })
+    .optional()
+    .describe(
+      "Provisioning progress, read from the fulfillment operation rather than carried by the client.",
+    ),
+  refunds: zod
+    .array(
+      zod.object({
+        status: zod.string(),
+        amountMinor: zod.int(),
+        currency: zod.string(),
+        createdAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .optional(),
+});
+
+export const CancelAccountOrderParams = zod.object({
+  orderID: zod.uuid(),
+});
+
+export const CancelAccountOrderHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const CancelAccountOrderResponse = zod.void();
+
+/**
+ * Balances per currency with the top-up policy and the ledger. Currencies are isolated: a balance in one never funds an order in another.
+ */
+export const getAccountWalletQueryLimitMax = 100;
+
+export const GetAccountWalletQueryParams = zod.object({
+  currency: zod.string().optional(),
+  cursor: zod.string().optional(),
+  cursorId: zod.uuid().optional(),
+  limit: zod.int().min(1).max(getAccountWalletQueryLimitMax).optional(),
+});
+
+export const GetAccountWalletResponse = zod.object({
+  balances: zod
+    .array(
+      zod.object({
+        currency: zod.string(),
+        totalMinor: zod.int(),
+        reservedMinor: zod.int(),
+        availableMinor: zod.int(),
+      }),
+    )
+    .describe(
+      "One entry per currency. Currencies are isolated; a balance in one never funds an order in another.",
+    ),
+  currency: zod.string(),
+  topUp: zod.object({
+    enabled: zod.boolean(),
+    minimumMinor: zod.int(),
+    maximumMinor: zod.int(),
+    presets: zod.array(zod.int()),
+    remainingWindowMinor: zod
+      .int()
+      .optional()
+      .describe("What the rolling-window limit still allows."),
+    providers: zod.array(
+      zod.object({
+        provider: zod.string(),
+        currency: zod.string(),
+        amountMinor: zod.int().optional(),
+        recurring: zod.boolean(),
+      }),
+    ),
+  }),
+  entries: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      type: zod.string(),
+      amountMinor: zod.int(),
+      currency: zod.string(),
+      reason: zod.string().optional(),
+      occurredAt: zod.iso.datetime({ offset: true }),
+    }),
+  ),
+  nextCursor: zod.string().optional(),
+  nextCursorId: zod.uuid().optional(),
+});
+
+/**
+ * Opens a top-up order through the same order, webhook, and reconciliation pipeline a plan uses. The caller's key becomes the order's key, so a retried request credits the same top-up rather than a second one.
+ */
+export const startAccountTopUpHeaderIdempotencyKeyMin = 8;
+export const startAccountTopUpHeaderIdempotencyKeyMax = 128;
+
+export const StartAccountTopUpHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "Idempotency-Key": zod
+    .string()
+    .min(startAccountTopUpHeaderIdempotencyKeyMin)
+    .max(startAccountTopUpHeaderIdempotencyKeyMax),
+});
+
+export const StartAccountTopUpBody = zod.object({
+  amountMinor: zod.int().min(1),
+  currency: zod.string().optional(),
+  provider: zod.string().optional(),
+});
+
+export const StartAccountTopUpResponse = zod.object({
+  id: zod.uuid(),
+  state: zod.enum([
+    "draft",
+    "pending",
+    "paid",
+    "fulfilled",
+    "cancelled",
+    "expired",
+    "partially_refunded",
+    "refunded",
+  ]),
+  operation: zod.string(),
+  phase: zod
+    .string()
+    .describe(
+      "The combined payment and provisioning state the panel renders: what the customer is waiting for, rather than which table changed.",
+    ),
+  currency: zod.string(),
+  subtotalMinor: zod.int(),
+  discountMinor: zod.int(),
+  walletMinor: zod.int(),
+  externalMinor: zod.int(),
+  paidMinor: zod.int(),
+  refundedMinor: zod.int(),
+  plan: zod.string(),
+  subscriptionId: zod.string().optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+  expiresAt: zod.iso.datetime({ offset: true }).optional(),
+  payment: zod
+    .object({
+      id: zod.uuid(),
+      provider: zod.string(),
+      status: zod.string(),
+      handoff: zod.enum(["hosted", "telegram_invoice", "manual", "none"]),
+      checkoutUrl: zod.string().optional(),
+      receiptUrl: zod.string().optional(),
+    })
+    .optional(),
+  fulfillment: zod
+    .object({
+      status: zod.string(),
+      attempts: zod.int(),
+      errorCode: zod.string().optional(),
+      updatedAt: zod.iso.datetime({ offset: true }).optional(),
+    })
+    .optional()
+    .describe(
+      "Provisioning progress, read from the fulfillment operation rather than carried by the client.",
+    ),
+  refunds: zod
+    .array(
+      zod.object({
+        status: zod.string(),
+        amountMinor: zod.int(),
+        currency: zod.string(),
+        createdAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * The customer's code, its shareable link, the program's terms, and the reward history. A reversed reward is excluded from the earned total and from the cap count, because an operator reverses one when the referral turns out to be abuse and the slot it consumed should come back.
+ */
+export const getAccountReferralsQueryLimitMax = 100;
+
+export const GetAccountReferralsQueryParams = zod.object({
+  cursor: zod.string().optional(),
+  limit: zod.int().min(1).max(getAccountReferralsQueryLimitMax).optional(),
+});
+
+export const GetAccountReferralsResponse = zod.object({
+  program: zod.object({
+    enabled: zod.boolean(),
+    currency: zod.string(),
+    inviterRewardMinor: zod.int(),
+    inviteeRewardMinor: zod.int(),
+    qualification: zod.string(),
+    attributionValidityDays: zod.int().optional(),
+    inviterRewardCap: zod.int().nullish(),
+    rewardExpiryDays: zod.int().nullish(),
+    termsUrl: zod.string().optional(),
+  }),
+  code: zod.string(),
+  link: zod.string(),
+  linkAvailable: zod.boolean(),
+  linkReason: zod
+    .enum(["public_url_not_configured", "no_code"])
+    .optional()
+    .describe("Why no link could be built. The code is still shown; a link to nowhere is not."),
+  invited: zod.int(),
+  qualified: zod.int(),
+  pending: zod.int(),
+  rejected: zod.int(),
+  rewardedMinor: zod.int().describe("Excludes reversed rewards."),
+  reversedMinor: zod.int(),
+  rewardCount: zod.int(),
+  currency: zod.string(),
+  remainingSlots: zod.int().nullish(),
+  rewards: zod.object({
+    items: zod.array(
+      zod.object({
+        id: zod.uuid(),
+        role: zod.enum(["inviter", "invitee"]),
+        state: zod.enum(["pending", "qualified", "rejected"]),
+        amountMinor: zod.int(),
+        currency: zod.string(),
+        grantedAt: zod.iso.datetime({ offset: true }),
+        reversedAt: zod.iso.datetime({ offset: true }).optional(),
+      }),
+    ),
+    nextCursor: zod.string().optional(),
+  }),
+});
+
+export const GetAccountLoyaltyResponse = zod
+  .object({
+    enabled: zod.boolean(),
+    rules: zod
+      .object({
+        metric: zod.string().optional(),
+        currency: zod.string().optional(),
+        windowDays: zod.int().optional(),
+        graceDays: zod.int().optional(),
+        version: zod.string().optional(),
+      })
+      .optional(),
+    tiers: zod
+      .array(
+        zod.object({
+          code: zod.string(),
+          nameEn: zod.string(),
+          nameRu: zod.string(),
+          threshold: zod.int(),
+          discountBps: zod.int(),
+          current: zod.boolean(),
+        }),
+      )
+      .optional(),
+    evaluated: zod.boolean().optional(),
+    tier: zod.string().optional(),
+    next: zod.string().optional(),
+    metric: zod.int().optional(),
+    remaining: zod.int().optional(),
+    percent: zod.int().optional(),
+    evaluatedAt: zod.iso.datetime({ offset: true }).optional(),
+    graceUntil: zod.iso.datetime({ offset: true }).optional(),
+  })
+  .describe("`enabled: false` is the whole document when no program runs.");
+
+/**
+ * Flags only. A stored contact value is never returned to the browser.
+ */
+export const ListAccountContactsResponse = zod.object({
+  items: zod.array(
+    zod
+      .object({
+        id: zod.uuid(),
+        kind: zod.enum(["email", "phone", "telegram"]),
+        verified: zod.boolean(),
+        transactional: zod.boolean(),
+        marketing: zod.boolean(),
+        createdAt: zod.iso.datetime({ offset: true }),
+      })
+      .describe("Flags only. The stored value is never returned."),
+  ),
+});
+
+/**
+ * A value already registered elsewhere answers `contact_unavailable` and nothing more. Saying that another account holds it would turn the panel into an account-existence oracle, so the remedy is a support handoff.
+ */
+export const AddAccountContactHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const AddAccountContactBody = zod.object({
+  kind: zod.enum(["email", "phone", "telegram"]),
+  value: zod.string(),
+  transactional: zod.boolean().optional(),
+  marketing: zod.boolean().optional(),
+});
+
+export const AddAccountContactResponse = zod
+  .object({
+    id: zod.uuid(),
+    kind: zod.enum(["email", "phone", "telegram"]),
+    verified: zod.boolean(),
+    transactional: zod.boolean(),
+    marketing: zod.boolean(),
+    createdAt: zod.iso.datetime({ offset: true }),
+  })
+  .describe("Flags only. The stored value is never returned.");
+
+export const RemoveAccountContactParams = zod.object({
+  contactID: zod.uuid(),
+});
+
+export const RemoveAccountContactHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const RemoveAccountContactResponse = zod.void();
+
+export const GetAccountPrivacyResponse = zod.object({
+  retention: zod.object({
+    status: zod.enum(["active", "suspended", "deleted"]),
+    suspendedAt: zod.iso.datetime({ offset: true }).optional(),
+    deletedAt: zod.iso.datetime({ offset: true }).optional(),
+    anonymizedAt: zod.iso.datetime({ offset: true }).optional(),
+    retentionUntil: zod.iso.datetime({ offset: true }).optional(),
+  }),
+  deletion: zod.object({
+    pending: zod.boolean(),
+    requestedAt: zod.iso.datetime({ offset: true }).optional(),
+    cancelledAt: zod.iso.datetime({ offset: true }).optional(),
+    reason: zod.string().optional(),
+    executedBy: zod
+      .string()
+      .describe(
+        "Who actually deletes. The panel records the request; the retention workflow carries it out.",
+      ),
+  }),
+  consents: zod.object({
+    current: zod.record(zod.string(), zod.boolean()),
+    history: zod.array(
+      zod.object({
+        purpose: zod.enum(["terms", "privacy", "marketing", "profiling"]),
+        granted: zod.boolean(),
+        policyVersion: zod.string().optional(),
+        source: zod.string().optional(),
+        occurredAt: zod.iso.datetime({ offset: true }),
+      }),
+    ),
+  }),
+  export: zod.object({
+    sections: zod.array(zod.string()),
+    redactions: zod.array(zod.string()),
+    contactValuesAvailable: zod.boolean(),
+  }),
+});
+
+/**
+ * Produces the customer's own records synchronously as a download. It is not queued because a queued export would need a delivery channel, a retention window, and a link that authenticates on its own — three further disclosure decisions to answer a question that fits in one response. The document declares its own redactions and names any section it truncated.
+ */
+export const ExportAccountPersonalDataHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const ExportAccountPersonalDataResponse = zod
+  .object({
+    version: zod.enum(["omniflow.account.export/1"]),
+    generatedAt: zod.iso.datetime({ offset: true }),
+    profile: zod.looseObject({}),
+    identities: zod.array(zod.looseObject({})).optional(),
+    contacts: zod.array(zod.looseObject({})).optional(),
+    subscriptions: zod.array(zod.looseObject({})).optional(),
+    entitlements: zod.array(zod.looseObject({})).optional(),
+    orders: zod.array(zod.looseObject({})).optional(),
+    payments: zod.array(zod.looseObject({})).optional(),
+    wallet: zod.array(zod.looseObject({})).optional(),
+    support: zod.array(zod.looseObject({})).optional(),
+    referral: zod.looseObject({}).optional(),
+    loyalty: zod.looseObject({}).optional(),
+    consents: zod.array(zod.looseObject({})).optional(),
+    lifecycle: zod.array(zod.looseObject({})).optional(),
+    redactions: zod.array(zod.string()),
+    truncated: zod.array(zod.string()),
+  })
+  .describe(
+    "The customer's own records. It names what it left out in `redactions` and which sections hit the per-section row cap in `truncated`, because an export that silently omitted something would be worse than one that says so.",
+  );
+
+/**
+ * Records a deletion request and nothing else. The retention workflow an operator already governs is what deletes, so an irreversible action never happens on the strength of one browser session. It needs a recent sign-in, and answers 202 because the work has been accepted rather than done.
+ */
+export const RequestAccountDeletionHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const RequestAccountDeletionBody = zod.object({
+  confirm: zod.literal(true),
+  reason: zod.string().min(1),
+});
+
+export const RequestAccountDeletionResponse = zod.object({
+  pending: zod.boolean(),
+  requestedAt: zod.iso.datetime({ offset: true }).optional(),
+  cancelledAt: zod.iso.datetime({ offset: true }).optional(),
+  reason: zod.string().optional(),
+  executedBy: zod
+    .string()
+    .describe(
+      "Who actually deletes. The panel records the request; the retention workflow carries it out.",
+    ),
+});
+
+/**
+ * Withdraws a pending request. It carries no recent-sign-in gate, because it only ever prevents an irreversible action.
+ */
+export const CancelAccountDeletionHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const CancelAccountDeletionResponse = zod.object({
+  pending: zod.boolean(),
+  requestedAt: zod.iso.datetime({ offset: true }).optional(),
+  cancelledAt: zod.iso.datetime({ offset: true }).optional(),
+  reason: zod.string().optional(),
+  executedBy: zod
+    .string()
+    .describe(
+      "Who actually deletes. The panel records the request; the retention workflow carries it out.",
+    ),
+});
+
+/**
+ * The digital-goods catalogue. No price is quoted here: a quote is a promise with an expiry attached, and issuing one per row would fill a page with promises that start expiring while it is being read. A product with `priceKnown: false` has no published price and is priced when it is opened.
+ */
+export const ListAccountShopProductsQueryParams = zod.object({
+  locale: zod.enum(["ru", "en"]).optional(),
+});
+
+export const ListAccountShopProductsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      code: zod.string(),
+      kind: zod.enum(["telegram_premium", "telegram_stars"]),
+      name: zod.string(),
+      description: zod.string().optional(),
+      currency: zod.string(),
+      available: zod.boolean(),
+      priceKnown: zod
+        .boolean()
+        .describe(
+          "Whether `priceMinor` is a published number. False means the product is priced when it is opened, so a screen never has to read a missing price as zero.",
+        ),
+      priceMinor: zod.int().optional(),
+      durationMonths: zod.int().optional().describe("Telegram Premium only."),
+      starQuantity: zod.int().optional().describe("Telegram Stars only."),
+    }),
+  ),
+});
+
+/**
+ * One product with a live quote. The quote and its expiry are one object, so a client cannot read the price without also being handed the moment it stops applying.
+ */
+export const GetAccountShopProductParams = zod.object({
+  productID: zod.uuid(),
+});
+
+export const getAccountShopProductQueryQuantityMax = 10;
+
+export const GetAccountShopProductQueryParams = zod.object({
+  locale: zod.enum(["ru", "en"]).optional(),
+  quantity: zod.int().min(1).max(getAccountShopProductQueryQuantityMax).optional(),
+  promoCode: zod.string().optional(),
+});
+
+export const GetAccountShopProductResponse = zod
+  .object({
+    id: zod.uuid(),
+    code: zod.string(),
+    kind: zod.enum(["telegram_premium", "telegram_stars"]),
+    name: zod.string(),
+    description: zod.string().optional(),
+    currency: zod.string(),
+    available: zod.boolean(),
+    priceKnown: zod
+      .boolean()
+      .describe(
+        "Whether `priceMinor` is a published number. False means the product is priced when it is opened, so a screen never has to read a missing price as zero.",
+      ),
+    priceMinor: zod.int().optional(),
+    durationMonths: zod.int().optional().describe("Telegram Premium only."),
+    starQuantity: zod.int().optional().describe("Telegram Stars only."),
+  })
+  .and(
+    zod.object({
+      quantity: zod.int(),
+      quote: zod
+        .object({
+          priceMinor: zod.int(),
+          currency: zod.string(),
+          expiresAt: zod.iso.datetime({ offset: true }),
+        })
+        .describe(
+          "A price and the moment it stops applying. The two travel together so a client cannot hold one without the other.",
+        ),
+      promo: zod
+        .object({
+          code: zod.string(),
+          discountMinor: zod.int(),
+          rejection: zod
+            .string()
+            .optional()
+            .describe("Why the code does not apply. Previewed only; nothing is redeemed here."),
+        })
+        .optional(),
+    }),
+  );
+
+/**
+ * Normalises a recipient handle and hands it back for confirmation. It changes nothing: the review step exists so the customer sees the exact string the gateway will be given before anybody is charged, and a step that also acted would defeat that. A mistyped username is unrecoverable once a gateway has sent the goods.
+ */
+export const ReviewAccountShopRecipientHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const ReviewAccountShopRecipientBody = zod.object({
+  recipient: zod.string(),
+  productId: zod.uuid().optional(),
+});
+
+export const ReviewAccountShopRecipientResponse = zod.object({
+  recipient: zod.string().describe("The exact handle the gateway will be given."),
+  checked: zod
+    .boolean()
+    .describe("The provider confirmed the handle exists. False when the adapter cannot check."),
+});
+
+/**
+ * Opens the order for a reviewed recipient against a live quote. The displayed quote is echoed back and the server re-quotes before charging, refusing with `quote_expired` when the window has passed and `price_changed` when the number moved. The recipient must be byte-identical to the reviewed form, so a raw `@name` or a pasted link is refused rather than silently normalised after confirmation.
+ */
+export const purchaseAccountShopProductHeaderIdempotencyKeyMin = 8;
+export const purchaseAccountShopProductHeaderIdempotencyKeyMax = 128;
+
+export const PurchaseAccountShopProductHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "Idempotency-Key": zod
+    .string()
+    .min(purchaseAccountShopProductHeaderIdempotencyKeyMin)
+    .max(purchaseAccountShopProductHeaderIdempotencyKeyMax),
+});
+
+export const purchaseAccountShopProductBodyQuantityMax = 10;
+
+export const purchaseAccountShopProductBodyUseWalletDefault = false;
+
+export const PurchaseAccountShopProductBody = zod.object({
+  productId: zod.uuid(),
+  quantity: zod.int().min(1).max(purchaseAccountShopProductBodyQuantityMax),
+  recipient: zod.string(),
+  forSelf: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Presentation only. Omniflow stores no Telegram username for a web customer, so this never decides delivery or authorisation.",
+    ),
+  quote: zod
+    .object({
+      priceMinor: zod.int(),
+      currency: zod.string(),
+      expiresAt: zod.iso.datetime({ offset: true }),
+    })
+    .describe(
+      "A price and the moment it stops applying. The two travel together so a client cannot hold one without the other.",
+    ),
+  promoCode: zod.string().optional(),
+  useWallet: zod
+    .boolean()
+    .default(purchaseAccountShopProductBodyUseWalletDefault)
+    .describe("Stated explicitly, so a balance is never spent by omission."),
+});
+
+export const PurchaseAccountShopProductResponse = zod.object({
+  id: zod.uuid(),
+  productName: zod.string(),
+  kind: zod.enum(["telegram_premium", "telegram_stars"]),
+  quantity: zod.int(),
+  recipient: zod.string(),
+  forSelf: zod.boolean(),
+  currency: zod.string(),
+  amounts: zod.object({
+    priceMinor: zod.int(),
+    discountMinor: zod.int(),
+    walletMinor: zod.int(),
+    externalMinor: zod.int(),
+    paidMinor: zod.int(),
+  }),
+  payment: zod.object({
+    state: zod.string(),
+    required: zod.boolean(),
+    possible: zod
+      .boolean()
+      .describe(
+        "An enabled provider settles this currency. False is stated rather than dead-ended.",
+      ),
+  }),
+  delivery: zod.object({
+    state: zod
+      .enum([
+        "awaiting_payment",
+        "queued",
+        "submitted",
+        "polling",
+        "delayed",
+        "delivered",
+        "needs_review",
+        "refunded",
+        "failed",
+        "cancelled",
+      ])
+      .describe(
+        "`needs_review` is an ambiguous delivery parked for an operator. There is no retry route for it: the gateway honours no idempotency key, so retrying could deliver and charge twice.",
+      ),
+    attempts: zod.int(),
+    supportHandoff: zod.boolean().describe("True only for needs_review and failed."),
+    supportReference: zod.string(),
+    failureReason: zod
+      .enum([
+        "retryable",
+        "permanent",
+        "recipient_invalid",
+        "provider_balance",
+        "provider_unavailable",
+        "ambiguous",
+      ])
+      .optional(),
+    deliveredAt: zod.iso.datetime({ offset: true }).optional(),
+    updatedAt: zod.iso.datetime({ offset: true }).optional(),
+    refund: zod
+      .object({
+        amountMinor: zod.int(),
+        currency: zod.string(),
+      })
+      .optional(),
+  }),
+  createdAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+export const listAccountShopOrdersQueryLimitMax = 100;
+
+export const ListAccountShopOrdersQueryParams = zod.object({
+  cursor: zod.string().optional(),
+  cursorId: zod.uuid().optional(),
+  limit: zod.int().min(1).max(listAccountShopOrdersQueryLimitMax).optional(),
+  locale: zod.enum(["ru", "en"]).optional(),
+});
+
+export const ListAccountShopOrdersResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      productName: zod.string(),
+      kind: zod.enum(["telegram_premium", "telegram_stars"]),
+      quantity: zod.int(),
+      recipient: zod.string(),
+      forSelf: zod.boolean(),
+      currency: zod.string(),
+      amounts: zod.object({
+        priceMinor: zod.int(),
+        discountMinor: zod.int(),
+        walletMinor: zod.int(),
+        externalMinor: zod.int(),
+        paidMinor: zod.int(),
+      }),
+      payment: zod.object({
+        state: zod.string(),
+        required: zod.boolean(),
+        possible: zod
+          .boolean()
+          .describe(
+            "An enabled provider settles this currency. False is stated rather than dead-ended.",
+          ),
+      }),
+      delivery: zod.object({
+        state: zod
+          .enum([
+            "awaiting_payment",
+            "queued",
+            "submitted",
+            "polling",
+            "delayed",
+            "delivered",
+            "needs_review",
+            "refunded",
+            "failed",
+            "cancelled",
+          ])
+          .describe(
+            "`needs_review` is an ambiguous delivery parked for an operator. There is no retry route for it: the gateway honours no idempotency key, so retrying could deliver and charge twice.",
+          ),
+        attempts: zod.int(),
+        supportHandoff: zod.boolean().describe("True only for needs_review and failed."),
+        supportReference: zod.string(),
+        failureReason: zod
+          .enum([
+            "retryable",
+            "permanent",
+            "recipient_invalid",
+            "provider_balance",
+            "provider_unavailable",
+            "ambiguous",
+          ])
+          .optional(),
+        deliveredAt: zod.iso.datetime({ offset: true }).optional(),
+        updatedAt: zod.iso.datetime({ offset: true }).optional(),
+        refund: zod
+          .object({
+            amountMinor: zod.int(),
+            currency: zod.string(),
+          })
+          .optional(),
+      }),
+      createdAt: zod.iso.datetime({ offset: true }).optional(),
+    }),
+  ),
+  nextCursor: zod.string().optional(),
+  nextCursorId: zod.uuid().optional(),
+});
+
+/**
+ * One purchase and its delivery. There is deliberately no retry route: the gateway that fronts Fragment honours no idempotency key, so an ambiguous delivery is genuinely ambiguous and parks in the operator review queue rather than being retried or refunded automatically.
+ */
+export const GetAccountShopOrderParams = zod.object({
+  orderID: zod.uuid(),
+});
+
+export const GetAccountShopOrderQueryParams = zod.object({
+  locale: zod.enum(["ru", "en"]).optional(),
+});
+
+export const GetAccountShopOrderResponse = zod.object({
+  id: zod.uuid(),
+  productName: zod.string(),
+  kind: zod.enum(["telegram_premium", "telegram_stars"]),
+  quantity: zod.int(),
+  recipient: zod.string(),
+  forSelf: zod.boolean(),
+  currency: zod.string(),
+  amounts: zod.object({
+    priceMinor: zod.int(),
+    discountMinor: zod.int(),
+    walletMinor: zod.int(),
+    externalMinor: zod.int(),
+    paidMinor: zod.int(),
+  }),
+  payment: zod.object({
+    state: zod.string(),
+    required: zod.boolean(),
+    possible: zod
+      .boolean()
+      .describe(
+        "An enabled provider settles this currency. False is stated rather than dead-ended.",
+      ),
+  }),
+  delivery: zod.object({
+    state: zod
+      .enum([
+        "awaiting_payment",
+        "queued",
+        "submitted",
+        "polling",
+        "delayed",
+        "delivered",
+        "needs_review",
+        "refunded",
+        "failed",
+        "cancelled",
+      ])
+      .describe(
+        "`needs_review` is an ambiguous delivery parked for an operator. There is no retry route for it: the gateway honours no idempotency key, so retrying could deliver and charge twice.",
+      ),
+    attempts: zod.int(),
+    supportHandoff: zod.boolean().describe("True only for needs_review and failed."),
+    supportReference: zod.string(),
+    failureReason: zod
+      .enum([
+        "retryable",
+        "permanent",
+        "recipient_invalid",
+        "provider_balance",
+        "provider_unavailable",
+        "ambiguous",
+      ])
+      .optional(),
+    deliveredAt: zod.iso.datetime({ offset: true }).optional(),
+    updatedAt: zod.iso.datetime({ offset: true }).optional(),
+    refund: zod
+      .object({
+        amountMinor: zod.int(),
+        currency: zod.string(),
+      })
+      .optional(),
+  }),
+  createdAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+/**
+ * The attachment rules and the open-conversation quota, so the panel can state them before an upload rather than only after one is refused.
+ */
+export const GetAccountSupportLimitsResponse = zod.object({
+  maxAttachmentBytes: zod.int(),
+  allowedMediaTypes: zod.array(zod.string()),
+  maxOpenTickets: zod.int(),
+  maxSubjectLength: zod.int(),
+  maxMessageLength: zod.int(),
+});
+
+export const listAccountSupportTicketsQueryLimitMax = 100;
+
+export const ListAccountSupportTicketsQueryParams = zod.object({
+  cursor: zod.string().optional(),
+  limit: zod.int().min(1).max(listAccountSupportTicketsQueryLimitMax).optional(),
+});
+
+export const ListAccountSupportTicketsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      subject: zod.string(),
+      status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+      open: zod.boolean().describe("Counts against the open-conversation quota."),
+      canReply: zod.boolean(),
+      unreadCount: zod.int(),
+      mergedIntoTicketId: zod.uuid().optional(),
+      createdAt: zod.iso.datetime({ offset: true }),
+      updatedAt: zod.iso.datetime({ offset: true }),
+    }),
+  ),
+  nextCursor: zod.string().optional(),
+});
+
+/**
+ * Opens a conversation. The number a customer may hold open at once is bounded, so a loop in a client cannot fill the operator queue faster than people can empty it.
+ */
+export const createAccountSupportTicketHeaderIdempotencyKeyMin = 8;
+export const createAccountSupportTicketHeaderIdempotencyKeyMax = 128;
+
+export const CreateAccountSupportTicketHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "Idempotency-Key": zod
+    .string()
+    .min(createAccountSupportTicketHeaderIdempotencyKeyMin)
+    .max(createAccountSupportTicketHeaderIdempotencyKeyMax)
+    .optional()
+    .describe(
+      "Optional here. Supplying one makes a repeated submission resolve to the record already created instead of a second one.",
+    ),
+});
+
+export const CreateAccountSupportTicketBody = zod.object({
+  subject: zod.string().min(1),
+  message: zod.string().min(1),
+});
+
+export const CreateAccountSupportTicketResponse = zod.object({
+  id: zod.uuid(),
+  subject: zod.string(),
+  status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+  open: zod.boolean().describe("Counts against the open-conversation quota."),
+  canReply: zod.boolean(),
+  unreadCount: zod.int(),
+  mergedIntoTicketId: zod.uuid().optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+  updatedAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * The conversation as the customer sees it. Internal operator notes live in their own table and no query on this surface touches it.
+ */
+export const GetAccountSupportTicketParams = zod.object({
+  ticketID: zod.uuid(),
+});
+
+export const GetAccountSupportTicketResponse = zod.object({
+  ticket: zod.object({
+    id: zod.uuid(),
+    subject: zod.string(),
+    status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+    open: zod.boolean().describe("Counts against the open-conversation quota."),
+    canReply: zod.boolean(),
+    unreadCount: zod.int(),
+    mergedIntoTicketId: zod.uuid().optional(),
+    createdAt: zod.iso.datetime({ offset: true }),
+    updatedAt: zod.iso.datetime({ offset: true }),
+  }),
+  messages: zod.array(
+    zod.object({
+      id: zod.string(),
+      author: zod.enum(["customer", "operator", "system"]),
+      body: zod.string(),
+      unread: zod.boolean(),
+      createdAt: zod.iso.datetime({ offset: true }),
+      attachments: zod
+        .array(
+          zod.object({
+            id: zod.uuid(),
+            fileName: zod.string(),
+            mimeType: zod.string().optional(),
+            sizeBytes: zod.int(),
+            downloadable: zod
+              .boolean()
+              .describe("False for a file that lives in Telegram rather than here."),
+          }),
+        )
+        .optional(),
+    }),
+  ),
+});
+
+export const ReplyToAccountSupportTicketParams = zod.object({
+  ticketID: zod.uuid(),
+});
+
+export const replyToAccountSupportTicketHeaderIdempotencyKeyMin = 8;
+export const replyToAccountSupportTicketHeaderIdempotencyKeyMax = 128;
+
+export const ReplyToAccountSupportTicketHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "Idempotency-Key": zod
+    .string()
+    .min(replyToAccountSupportTicketHeaderIdempotencyKeyMin)
+    .max(replyToAccountSupportTicketHeaderIdempotencyKeyMax)
+    .optional()
+    .describe(
+      "Optional here. Supplying one makes a repeated submission resolve to the record already created instead of a second one.",
+    ),
+});
+
+export const ReplyToAccountSupportTicketBody = zod.object({
+  message: zod.string().min(1),
+});
+
+export const ReplyToAccountSupportTicketResponse = zod.object({
+  ticket: zod.object({
+    id: zod.uuid(),
+    subject: zod.string(),
+    status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+    open: zod.boolean().describe("Counts against the open-conversation quota."),
+    canReply: zod.boolean(),
+    unreadCount: zod.int(),
+    mergedIntoTicketId: zod.uuid().optional(),
+    createdAt: zod.iso.datetime({ offset: true }),
+    updatedAt: zod.iso.datetime({ offset: true }),
+  }),
+  messages: zod.array(
+    zod.object({
+      id: zod.string(),
+      author: zod.enum(["customer", "operator", "system"]),
+      body: zod.string(),
+      unread: zod.boolean(),
+      createdAt: zod.iso.datetime({ offset: true }),
+      attachments: zod
+        .array(
+          zod.object({
+            id: zod.uuid(),
+            fileName: zod.string(),
+            mimeType: zod.string().optional(),
+            sizeBytes: zod.int(),
+            downloadable: zod
+              .boolean()
+              .describe("False for a file that lives in Telegram rather than here."),
+          }),
+        )
+        .optional(),
+    }),
+  ),
+});
+
+/**
+ * Read state is a property of the message, not of the surface it was read on. A reply opened here stops being unread in Telegram too, because both surfaces stamp the same column.
+ */
+export const MarkAccountSupportTicketReadParams = zod.object({
+  ticketID: zod.uuid(),
+});
+
+export const MarkAccountSupportTicketReadHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const MarkAccountSupportTicketReadResponse = zod.object({
+  id: zod.uuid(),
+  subject: zod.string(),
+  status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+  open: zod.boolean().describe("Counts against the open-conversation quota."),
+  canReply: zod.boolean(),
+  unreadCount: zod.int(),
+  mergedIntoTicketId: zod.uuid().optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+  updatedAt: zod.iso.datetime({ offset: true }),
+});
+
+export const CloseAccountSupportTicketParams = zod.object({
+  ticketID: zod.uuid(),
+});
+
+export const CloseAccountSupportTicketHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const CloseAccountSupportTicketResponse = zod.object({
+  id: zod.uuid(),
+  subject: zod.string(),
+  status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+  open: zod.boolean().describe("Counts against the open-conversation quota."),
+  canReply: zod.boolean(),
+  unreadCount: zod.int(),
+  mergedIntoTicketId: zod.uuid().optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+  updatedAt: zod.iso.datetime({ offset: true }),
+});
+
+export const ReopenAccountSupportTicketParams = zod.object({
+  ticketID: zod.uuid(),
+});
+
+export const ReopenAccountSupportTicketHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const ReopenAccountSupportTicketResponse = zod.object({
+  id: zod.uuid(),
+  subject: zod.string(),
+  status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+  open: zod.boolean().describe("Counts against the open-conversation quota."),
+  canReply: zod.boolean(),
+  unreadCount: zod.int(),
+  mergedIntoTicketId: zod.uuid().optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+  updatedAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Uploads one file. The accepted media types are an allowlist, so an unknown type is refused rather than guessed at.
+ */
+export const AttachToAccountSupportTicketParams = zod.object({
+  ticketID: zod.uuid(),
+});
+
+export const AttachToAccountSupportTicketHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const AttachToAccountSupportTicketBody = zod.object({
+  file: zod.instanceof(File),
+  message: zod.string().optional(),
+});
+
+export const AttachToAccountSupportTicketResponse = zod.object({
+  ticket: zod.object({
+    id: zod.uuid(),
+    subject: zod.string(),
+    status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+    open: zod.boolean().describe("Counts against the open-conversation quota."),
+    canReply: zod.boolean(),
+    unreadCount: zod.int(),
+    mergedIntoTicketId: zod.uuid().optional(),
+    createdAt: zod.iso.datetime({ offset: true }),
+    updatedAt: zod.iso.datetime({ offset: true }),
+  }),
+  messages: zod.array(
+    zod.object({
+      id: zod.string(),
+      author: zod.enum(["customer", "operator", "system"]),
+      body: zod.string(),
+      unread: zod.boolean(),
+      createdAt: zod.iso.datetime({ offset: true }),
+      attachments: zod
+        .array(
+          zod.object({
+            id: zod.uuid(),
+            fileName: zod.string(),
+            mimeType: zod.string().optional(),
+            sizeBytes: zod.int(),
+            downloadable: zod
+              .boolean()
+              .describe("False for a file that lives in Telegram rather than here."),
+          }),
+        )
+        .optional(),
+    }),
+  ),
+});
+
+/**
+ * Serves a file the calling customer's own conversation carries. A file attached in Telegram is not stored here and answers `attachment_remote` instead, because offering a download that cannot work is worse than saying where the file actually lives.
+ */
+export const DownloadAccountSupportAttachmentParams = zod.object({
+  attachmentID: zod.uuid(),
+});
+
+export const DownloadAccountSupportAttachmentResponse = zod.unknown();
+
+export const listAccountNewsQueryLimitMax = 50;
+
+export const ListAccountNewsQueryParams = zod.object({
+  locale: zod.enum(["ru", "en"]).optional(),
+  cursor: zod.string().optional(),
+  limit: zod.int().min(1).max(listAccountNewsQueryLimitMax).optional(),
+});
+
+export const ListAccountNewsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      slug: zod.string().optional(),
+      category: zod.enum(["news", "announcement", "incident", "maintenance"]),
+      title: zod.string(),
+      body: zod.string(),
+      read: zod.boolean(),
+      publishedAt: zod.iso.datetime({ offset: true }),
+    }),
+  ),
+  unreadCount: zod.int(),
+  locale: zod.enum(["ru", "en"]),
+  nextCursor: zod.string().optional(),
+});
+
+export const MarkAccountNewsReadParams = zod.object({
+  postID: zod.uuid(),
+});
+
+export const MarkAccountNewsReadHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const MarkAccountNewsReadResponse = zod.void();
+
+/**
+ * Notification choices, marketing consent, contact-channel flags, and any suppression. A contact's address is never returned — only whether it is verified and what it is used for.
+ */
+export const getAccountPreferencesResponseQuietHoursStartHourMin = 0;
+export const getAccountPreferencesResponseQuietHoursStartHourMax = 23;
+
+export const getAccountPreferencesResponseQuietHoursEndHourMin = 0;
+export const getAccountPreferencesResponseQuietHoursEndHourMax = 23;
+
+export const GetAccountPreferencesResponse = zod.object({
+  locale: zod.enum(["auto", "ru", "en"]),
+  notifications: zod.object({
+    expiry: zod.boolean(),
+    traffic: zod.boolean(),
+    renewal: zod.boolean(),
+    news: zod.boolean(),
+  }),
+  quietHours: zod
+    .object({
+      startHour: zod
+        .int()
+        .min(getAccountPreferencesResponseQuietHoursStartHourMin)
+        .max(getAccountPreferencesResponseQuietHoursStartHourMax),
+      endHour: zod
+        .int()
+        .min(getAccountPreferencesResponseQuietHoursEndHourMin)
+        .max(getAccountPreferencesResponseQuietHoursEndHourMax),
+    })
+    .optional()
+    .describe("Absent when unset."),
+  marketing: zod.object({
+    enabled: zod.boolean(),
+    decidedAt: zod.iso.datetime({ offset: true }).optional(),
+    source: zod.string().optional().describe("Which surface recorded the decision."),
+    policyVersion: zod.string().optional(),
+  }),
+  contacts: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        kind: zod.enum(["email", "phone", "telegram"]),
+        verified: zod.boolean(),
+        transactional: zod.boolean(),
+        marketing: zod.boolean(),
+        createdAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .describe("Flags only. The address itself is never returned."),
+  suppression: zod
+    .object({
+      reason: zod.enum(["customer_request", "bounced", "complaint", "operator"]),
+      createdAt: zod.iso.datetime({ offset: true }),
+    })
+    .optional(),
+});
+
+/**
+ * Each field is optional and an absent field is left unchanged, so a screen that renders one toggle never has to send back a document it did not read. A marketing decision appends a consent record rather than overwriting one, because the history of who opted in and when is the thing that has to survive.
+ */
+export const UpdateAccountPreferencesHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const updateAccountPreferencesBodyQuietHoursStartHourMin = 0;
+export const updateAccountPreferencesBodyQuietHoursStartHourMax = 23;
+
+export const updateAccountPreferencesBodyQuietHoursEndHourMin = 0;
+export const updateAccountPreferencesBodyQuietHoursEndHourMax = 23;
+
+export const UpdateAccountPreferencesBody = zod
+  .object({
+    locale: zod.enum(["auto", "ru", "en"]).optional(),
+    notifications: zod
+      .object({
+        expiry: zod.boolean().optional(),
+        traffic: zod.boolean().optional(),
+        renewal: zod.boolean().optional(),
+        news: zod.boolean().optional(),
+      })
+      .optional(),
+    quietHours: zod
+      .object({
+        startHour: zod
+          .int()
+          .min(updateAccountPreferencesBodyQuietHoursStartHourMin)
+          .max(updateAccountPreferencesBodyQuietHoursStartHourMax),
+        endHour: zod
+          .int()
+          .min(updateAccountPreferencesBodyQuietHoursEndHourMin)
+          .max(updateAccountPreferencesBodyQuietHoursEndHourMax),
+      })
+      .optional(),
+    marketing: zod
+      .boolean()
+      .optional()
+      .describe("Appends a consent record; it never rewrites one."),
+  })
+  .describe(
+    "Every field is optional and an absent field is left unchanged, so a screen that renders one toggle never sends back a document it did not read. Equal quiet-hours bounds clear the window.",
+  );
+
+export const updateAccountPreferencesResponseQuietHoursStartHourMin = 0;
+export const updateAccountPreferencesResponseQuietHoursStartHourMax = 23;
+
+export const updateAccountPreferencesResponseQuietHoursEndHourMin = 0;
+export const updateAccountPreferencesResponseQuietHoursEndHourMax = 23;
+
+export const UpdateAccountPreferencesResponse = zod.object({
+  locale: zod.enum(["auto", "ru", "en"]),
+  notifications: zod.object({
+    expiry: zod.boolean(),
+    traffic: zod.boolean(),
+    renewal: zod.boolean(),
+    news: zod.boolean(),
+  }),
+  quietHours: zod
+    .object({
+      startHour: zod
+        .int()
+        .min(updateAccountPreferencesResponseQuietHoursStartHourMin)
+        .max(updateAccountPreferencesResponseQuietHoursStartHourMax),
+      endHour: zod
+        .int()
+        .min(updateAccountPreferencesResponseQuietHoursEndHourMin)
+        .max(updateAccountPreferencesResponseQuietHoursEndHourMax),
+    })
+    .optional()
+    .describe("Absent when unset."),
+  marketing: zod.object({
+    enabled: zod.boolean(),
+    decidedAt: zod.iso.datetime({ offset: true }).optional(),
+    source: zod.string().optional().describe("Which surface recorded the decision."),
+    policyVersion: zod.string().optional(),
+  }),
+  contacts: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        kind: zod.enum(["email", "phone", "telegram"]),
+        verified: zod.boolean(),
+        transactional: zod.boolean(),
+        marketing: zod.boolean(),
+        createdAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .describe("Flags only. The address itself is never returned."),
+  suppression: zod
+    .object({
+      reason: zod.enum(["customer_request", "bounced", "complaint", "operator"]),
+      createdAt: zod.iso.datetime({ offset: true }),
+    })
+    .optional(),
+});
+
+/**
+ * Stops marketing messages. Transactional messages about a payment, an expiry, or a support reply continue, because they are the ones a customer needs in order to keep using what they bought.
+ */
+export const UnsubscribeAccountHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const unsubscribeAccountResponseQuietHoursStartHourMin = 0;
+export const unsubscribeAccountResponseQuietHoursStartHourMax = 23;
+
+export const unsubscribeAccountResponseQuietHoursEndHourMin = 0;
+export const unsubscribeAccountResponseQuietHoursEndHourMax = 23;
+
+export const UnsubscribeAccountResponse = zod.object({
+  locale: zod.enum(["auto", "ru", "en"]),
+  notifications: zod.object({
+    expiry: zod.boolean(),
+    traffic: zod.boolean(),
+    renewal: zod.boolean(),
+    news: zod.boolean(),
+  }),
+  quietHours: zod
+    .object({
+      startHour: zod
+        .int()
+        .min(unsubscribeAccountResponseQuietHoursStartHourMin)
+        .max(unsubscribeAccountResponseQuietHoursStartHourMax),
+      endHour: zod
+        .int()
+        .min(unsubscribeAccountResponseQuietHoursEndHourMin)
+        .max(unsubscribeAccountResponseQuietHoursEndHourMax),
+    })
+    .optional()
+    .describe("Absent when unset."),
+  marketing: zod.object({
+    enabled: zod.boolean(),
+    decidedAt: zod.iso.datetime({ offset: true }).optional(),
+    source: zod.string().optional().describe("Which surface recorded the decision."),
+    policyVersion: zod.string().optional(),
+  }),
+  contacts: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        kind: zod.enum(["email", "phone", "telegram"]),
+        verified: zod.boolean(),
+        transactional: zod.boolean(),
+        marketing: zod.boolean(),
+        createdAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .describe("Flags only. The address itself is never returned."),
+  suppression: zod
+    .object({
+      reason: zod.enum(["customer_request", "bounced", "complaint", "operator"]),
+      createdAt: zod.iso.datetime({ offset: true }),
+    })
+    .optional(),
+});
+
+/**
  * Requires settings.read. The customer panel's sign-in providers. The client secret is never returned; `hasClientSecret` says whether one is held.
  */
 export const ListPanelCustomerOidcProvidersResponse = zod.object({

@@ -2,17 +2,13 @@ package botapp
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"log/slog"
-	"sort"
-	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/omniflow/omniflow/internal/accountcheckout"
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/commercepg"
-	databaseutil "github.com/omniflow/omniflow/internal/database"
 	"github.com/omniflow/omniflow/internal/paymentservice"
 )
 
@@ -37,15 +33,23 @@ type CommerceSettings struct {
 	MultiSubscription bool
 }
 
-// Commerce ties the bot to the v0.3 commerce backend. Every method is safe to
-// call again with the same inputs: order creation reuses the checkout's
-// idempotency key and payment creation reuses the order's.
+// Commerce ties the bot to the commerce backend.
+//
+// The purchase flow itself — pricing a checkout, validating a promo code,
+// creating the order, starting the payment — lives in internal/accountcheckout,
+// which the web panel calls too. What remains here is the bot's own vocabulary
+// around it: Telegram identifiers, Stars receipts, saved carts, and the screens
+// that read them. Every method is still safe to call again with the same inputs.
 type Commerce struct {
 	logger   *slog.Logger
 	store    *PostgresStore
 	orders   *commercepg.Store
 	payments *paymentservice.Service
 	settings CommerceSettings
+	// checkout is the shared customer checkout. Both surfaces price and confirm
+	// through it, so a quote shown in a chat and one shown in a browser are the
+	// same call against the same catalogue row.
+	checkout *accountcheckout.Service
 	// goods holds the digital-goods adapters. A nil value leaves the shop
 	// unavailable, which is what an installation that sells none gets.
 	goods GoodsProviders
@@ -54,253 +58,76 @@ type Commerce struct {
 
 // NewCommerce wires the bot's commerce surface.
 func NewCommerce(logger *slog.Logger, store *PostgresStore, orders *commercepg.Store, payments *paymentservice.Service, settings CommerceSettings) *Commerce {
-	return &Commerce{logger: logger, store: store, orders: orders, payments: payments, settings: settings, clock: time.Now}
+	checkout, err := accountcheckout.New(store.pool, orders, payments, accountcheckout.Options{
+		Logger: logger,
+		Settings: accountcheckout.Settings{
+			Currency: settings.Currency, PublicURL: settings.PublicURL, TermsURL: settings.TermsURL,
+			RecoveryWindow: settings.RecoveryWindow, MinimumTrialAccountAge: settings.MinimumTrialAccountAge,
+			MultiSubscription: settings.MultiSubscription,
+		},
+	})
+	if err != nil {
+		// The shared checkout only refuses a nil pool or a nil commerce store, and
+		// this constructor has already dereferenced the first and is handed the
+		// second. Recording it keeps the failure visible if that ever stops being
+		// true, rather than letting it surface as a crash mid-purchase.
+		logger.Error("shared checkout could not be built", "error", err)
+	}
+	return &Commerce{
+		logger: logger, store: store, orders: orders, payments: payments,
+		settings: settings, checkout: checkout, clock: time.Now,
+	}
 }
 
 // PaymentChoice is one offered payment method together with the currency and
 // price that method would charge.
-type PaymentChoice struct {
-	Provider    string
-	Currency    string
-	AmountMinor int64
-	Recurring   bool
-}
+type PaymentChoice = accountcheckout.PaymentChoice
 
-// PaymentChoices lists the methods that can actually settle a plan. A method is
-// offered only when the operator configured it and the plan carries a price in
-// a currency the method supports.
+// PaymentHandle is the customer-facing result of starting a payment.
+type PaymentHandle = accountcheckout.PaymentHandle
+
+// PaymentChoices lists the methods that can actually settle a plan.
 func (service *Commerce) PaymentChoices(ctx context.Context, planVersionID string) ([]PaymentChoice, error) {
-	prices, err := service.store.PlanPrices(ctx, planVersionID)
-	if err != nil {
-		return nil, err
-	}
-	currencies := make([]string, 0, len(prices))
-	for currency := range prices {
-		currencies = append(currencies, currency)
-	}
-	sort.Strings(currencies)
-	choices := make([]PaymentChoice, 0, len(currencies))
-	for _, option := range service.payments.Options() {
-		currency := preferredCurrency(option, currencies, service.settings.Currency)
-		if currency == "" {
-			continue
-		}
-		choices = append(choices, PaymentChoice{Provider: option.Provider, Currency: currency, AmountMinor: prices[currency], Recurring: option.Recurring})
-	}
-	sort.SliceStable(choices, func(left, right int) bool { return choices[left].Provider < choices[right].Provider })
-	return choices, nil
-}
-
-// preferredCurrency picks the settlement currency for one adapter, favouring the
-// installation default so prices stay comparable across payment methods.
-func preferredCurrency(option commerce.PaymentOption, available []string, preferred string) string {
-	if option.Enabled && option.Supports(preferred) {
-		for _, currency := range available {
-			if currency == preferred {
-				return currency
-			}
-		}
-	}
-	if !option.Enabled {
-		return ""
-	}
-	for _, currency := range available {
-		if option.Supports(currency) {
-			return currency
-		}
-	}
-	return ""
-}
-
-// orderInputFor projects an open checkout onto the store's order input. It is
-// the single place the bot decides what a checkout means, so a preview, a promo
-// re-validation, and the order that follows can never disagree.
-func (service *Commerce) orderInputFor(ctx context.Context, session CheckoutSession) (commercepg.CreateOrderInput, error) {
-	addons, err := service.store.CheckoutAddons(ctx, session.ID)
-	if err != nil {
-		return commercepg.CreateOrderInput{}, err
-	}
-	selections := make([]commercepg.AddonSelection, 0, len(addons))
-	for _, addon := range addons {
-		selections = append(selections, commercepg.AddonSelection{AddonVersionID: addon.AddonVersionID, Quantity: addon.Quantity})
-	}
-	return commercepg.CreateOrderInput{
-		CustomerID: session.CustomerID, PlanVersionID: session.PlanVersionID,
-		Currency: session.Currency, Operation: session.Operation,
-		PromoCode: session.PromoCode, SkipWallet: !session.ApplyWallet,
-		IdempotencyKey: session.IdempotencyKey, SubscriptionID: session.SubscriptionID,
-		NewSubscription: session.NewSubscription, SelectedSquadIDs: session.SelectedSquadIDs,
-		Addons: selections,
-	}, nil
+	return service.checkout.PaymentChoices(ctx, planVersionID)
 }
 
 // Quote prices the open checkout. A refused promotion is reported through the
 // quote instead of failing the screen, so the customer can remove or replace it.
 func (service *Commerce) Quote(ctx context.Context, session CheckoutSession) (commerce.CheckoutQuote, error) {
-	input, err := service.orderInputFor(ctx, session)
-	if err != nil {
-		return commerce.CheckoutQuote{}, err
-	}
-	preview, err := service.orders.PreviewOrder(ctx, input)
-	if rejection := promoRejection(err); rejection != "" {
-		// A code that stopped being valid must not break the screen: price the
-		// order without it and report why it no longer applies.
-		input.PromoCode = ""
-		preview, err = service.orders.PreviewOrder(ctx, input)
-		if err != nil {
-			return commerce.CheckoutQuote{}, err
-		}
-		quote := quoteFrom(preview, session)
-		quote.PromoCode, quote.PromoRejection = "", rejection
-		return quote, nil
-	}
-	if err != nil {
-		return commerce.CheckoutQuote{}, err
-	}
-	return quoteFrom(preview, session), nil
-}
-
-func quoteFrom(preview commercepg.OrderQuote, session CheckoutSession) commerce.CheckoutQuote {
-	return commerce.CheckoutQuote{
-		Subtotal:           commerce.Money{Amount: preview.Plan.AmountMinor, Currency: preview.Plan.Currency},
-		DiscountMinor:      preview.DiscountMinor,
-		WalletBalanceMinor: preview.WalletBalance,
-		WalletAppliedMinor: preview.WalletMinor,
-		ExternalMinor:      preview.ExternalMinor,
-		PromoCode:          session.PromoCode,
-		PromoRejection:     session.PromoRejection,
-		AddonMinor:         preview.AddonMinor,
-	}
+	return service.checkout.Quote(ctx, session)
 }
 
 // ApplyPromo validates a promo code against the open checkout and stores either
 // the accepted code or the reason it was refused.
 func (service *Commerce) ApplyPromo(ctx context.Context, session CheckoutSession, code string) (CheckoutSession, error) {
-	normalized, err := commerce.NormalizePromoCode(code)
-	if err != nil {
-		return service.store.SetCheckoutPromo(ctx, session.ID, "", "promo_invalid")
-	}
-	candidate := session
-	candidate.PromoCode = normalized
-	input, err := service.orderInputFor(ctx, candidate)
-	if err != nil {
-		return CheckoutSession{}, err
-	}
-	if _, err = service.orders.PreviewOrder(ctx, input); err != nil {
-		reason := promoRejection(err)
-		if reason == "" {
-			return CheckoutSession{}, err
-		}
-		return service.store.SetCheckoutPromo(ctx, session.ID, "", reason)
-	}
-	return service.store.SetCheckoutPromo(ctx, session.ID, normalized, "")
-}
-
-// promoRejection maps a store error onto the stable reason shown to a customer,
-// or an empty string when the failure was not about the promotion.
-func promoRejection(err error) string {
-	switch {
-	case err == nil:
-		return ""
-	case errors.Is(err, commercepg.ErrPromoUnknown):
-		return "promo_unknown"
-	case errors.Is(err, commercepg.ErrPromoIneligible):
-		return "promo_ineligible"
-	case errors.Is(err, commercepg.ErrPromoExhausted):
-		return "promo_exhausted"
-	case errors.Is(err, commercepg.ErrPromoInvalid):
-		return "promo_invalid"
-	default:
-		return ""
-	}
+	return service.checkout.ApplyPromo(ctx, session, code)
 }
 
 // Confirm turns the open checkout into an order. The checkout's idempotency key
 // is reused, so a duplicate confirmation resolves to the order already created.
+//
+// The plan and the customer are no longer read from the caller: the trial gate
+// and the order input are both derived from the checkout itself, so the bot and
+// the web cannot confirm the same session on different terms.
 func (service *Commerce) Confirm(ctx context.Context, session CheckoutSession, plan Plan, customer Customer) (string, error) {
-	if plan.Kind == "trial" {
-		request, err := service.store.TrialContext(ctx, session.CustomerID)
-		if err != nil {
-			return "", err
-		}
-		request.PlanKind, request.Rule = plan.Kind, plan.TrialRule
-		request.MinimumAccountAge = service.settings.MinimumTrialAccountAge
-		if reason, trialErr := commerce.EvaluateTrial(request); trialErr != nil {
-			return "", fmt.Errorf("%w: %s", commerce.ErrTrialNotEligible, reason)
-		}
-	}
-	input, err := service.orderInputFor(ctx, session)
-	if err != nil {
-		return "", err
-	}
-	order, err := service.orders.CreateOrder(ctx, input)
-	if err != nil {
-		return "", err
-	}
-	orderID := uuidText(order.ID)
-	if err = service.store.AttachCheckoutOrder(ctx, session.ID, orderID); err != nil {
-		return "", err
-	}
-	_ = customer
-	return orderID, nil
+	_, _ = plan, customer
+	return service.checkout.Confirm(ctx, session)
 }
 
 // StartPayment creates or resumes the provider payment for an order. Stars
 // invoices carry the paying Telegram account as receipt metadata because
 // refundStarPayment cannot be issued without it.
 func (service *Commerce) StartPayment(ctx context.Context, order OrderSummary, provider string, telegramID int64, description string) (PaymentHandle, error) {
-	if !service.payments.Enabled(provider) {
-		return PaymentHandle{}, errors.New("payment provider is not enabled")
-	}
-	receipt := map[string]any{"channel": "telegram_bot"}
-	if provider == "telegram_stars" {
-		receipt["telegramUserId"] = telegramID
-	}
-	intent, err := service.payments.CreateIntent(ctx, paymentservice.CreateIntentInput{
-		OrderID: order.ID, Provider: provider,
-		// The order's own idempotency key would not distinguish two providers,
-		// so the payment key is scoped to the order and the chosen adapter.
-		IdempotencyKey:  "order-" + order.ID + "-" + provider,
-		Description:     description,
-		ReturnURL:       service.returnURL(order.ID),
-		ReceiptMetadata: receipt,
+	return service.checkout.StartPayment(ctx, accountcheckout.PaymentRequest{
+		OrderID: order.ID, Provider: provider, Description: description,
+		Channel: "telegram_bot", TelegramID: telegramID,
 	})
-	if err != nil {
-		return PaymentHandle{}, err
-	}
-	return PaymentHandle{
-		ID: uuidText(intent.ID), Provider: intent.Provider, Status: intent.Status,
-		AmountMinor: intent.AmountMinor, Currency: intent.Currency,
-		CheckoutURL: intent.CheckoutUrl.String,
-	}, nil
-}
-
-// PaymentHandle is the customer-facing result of starting a payment.
-type PaymentHandle struct {
-	ID          string
-	Provider    string
-	Status      string
-	AmountMinor int64
-	Currency    string
-	CheckoutURL string
-}
-
-func (service *Commerce) returnURL(orderID string) string {
-	if service.settings.PublicURL == "" {
-		return ""
-	}
-	return strings.TrimRight(service.settings.PublicURL, "/") + "/orders/" + orderID
 }
 
 // Refresh re-reads a provider payment so a customer who returns before the
 // webhook arrives still sees the settled state.
 func (service *Commerce) Refresh(ctx context.Context, order OrderSummary) {
-	if order.PaymentIntentID == "" || order.Phase != commerce.PaymentPhasePending && order.Phase != commerce.PaymentPhaseAwaitingAction {
-		return
-	}
-	if _, err := service.payments.Reconcile(ctx, order.PaymentIntentID); err != nil {
-		service.logger.Debug("payment reconciliation is unavailable", "provider", order.Provider, "error", err)
-	}
+	service.checkout.Refresh(ctx, order)
 }
 
 // SettleStars applies a Telegram Stars payment received on the authenticated
@@ -314,10 +141,11 @@ func (service *Commerce) SettleStars(ctx context.Context, orderID, chargeID stri
 }
 
 // uuidText renders a database UUID as the canonical lowercase string form.
-func uuidText(value pgtype.UUID) string {
-	rendered := databaseutil.UUIDStrings([]pgtype.UUID{value})
-	if len(rendered) == 0 {
-		return ""
-	}
-	return rendered[0]
+func uuidText(value pgtype.UUID) string { return accountcheckout.UUIDText(value) }
+
+// preferredCurrency picks the settlement currency for one adapter. The rule
+// itself is shared, so the currency shown beside a method in a chat is the one
+// the browser shows beside the same method.
+func preferredCurrency(option commerce.PaymentOption, available []string, preferred string) string {
+	return accountcheckout.PreferredCurrency(option, available, preferred)
 }

@@ -1993,6 +1993,702 @@ paths:
         "204": {description: Disconnected}
         "404": {$ref: "#/components/responses/Problem"}
         "503": {$ref: "#/components/responses/Problem"}
+  /v1/account/plans:
+    get:
+      operationId: listAccountPlans
+      tags: [account]
+      description: >-
+        The comparable catalogue, with this customer's eligibility already
+        decided. `operations` names the lifecycle actions the configured plan
+        policy allows against their current subscriptions, so the panel offers
+        renew, upgrade, or downgrade because the server said so rather than
+        because React worked it out a second time.
+      parameters: [{in: query, name: locale, schema: {type: string, enum: [ru, en]}}]
+      responses:
+        "200": {description: Catalogue, content: {application/json: {schema: {$ref: "#/components/schemas/AccountPlanList"}}}}
+  /v1/account/plans/{planVersionID}:
+    get:
+      operationId: getAccountPlan
+      tags: [account]
+      parameters:
+        - {in: path, name: planVersionID, required: true, schema: {type: string, format: uuid}}
+        - {in: query, name: locale, schema: {type: string, enum: [ru, en]}}
+      responses:
+        "200": {description: Plan, content: {application/json: {schema: {$ref: "#/components/schemas/AccountPlanDetail"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/account/checkout:
+    get:
+      operationId: getAccountCheckout
+      tags: [account]
+      description: >-
+        The open checkout with a live quote. A customer has at most one, shared
+        with the Telegram bot, so opening one in a browser supersedes one left
+        open in a chat. `404` means none is open, which is an ordinary state
+        rather than a failure.
+      parameters: [{in: query, name: locale, schema: {type: string, enum: [ru, en]}}]
+      responses:
+        "200": {description: Checkout, content: {application/json: {schema: {$ref: "#/components/schemas/AccountCheckout"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+    post:
+      operationId: openAccountCheckout
+      tags: [account]
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [planVersionId, operation]
+              properties:
+                planVersionId: {type: string, format: uuid}
+                operation: {type: string, enum: [purchase, renew, upgrade, downgrade]}
+                subscriptionId: {type: string, format: uuid, description: "Required for renew, upgrade, and downgrade when concurrent subscriptions are enabled."}
+                newSubscription: {type: boolean}
+      responses:
+        "201": {description: Opened, content: {application/json: {schema: {$ref: "#/components/schemas/AccountCheckout"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+    patch:
+      operationId: updateAccountCheckout
+      tags: [account]
+      description: >-
+        Every field is optional and an absent field is left unchanged, so a
+        screen that changes the provider never has to resend the squad selection
+        it did not touch.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                provider: {type: string}
+                currency: {type: string}
+                applyWallet: {type: boolean}
+                subscriptionId: {type: string}
+                squadIds: {type: array, items: {type: string, format: uuid}}
+      responses:
+        "200": {description: Updated, content: {application/json: {schema: {$ref: "#/components/schemas/AccountCheckout"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+    delete:
+      operationId: cancelAccountCheckout
+      tags: [account]
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      responses:
+        "204": {description: Discarded}
+  /v1/account/checkout/promo:
+    post:
+      operationId: applyAccountPromoCode
+      tags: [account]
+      description: >-
+        A refused code answers 200 carrying `promoRejection`, not an error
+        status. The customer asked a legitimate question and the answer is "not
+        this one, because…"; failing the request would leave the screen with
+        nothing to say.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [code], properties: {code: {type: string}}}}}}
+      responses:
+        "200": {description: Checkout, content: {application/json: {schema: {$ref: "#/components/schemas/AccountCheckout"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+    delete:
+      operationId: removeAccountPromoCode
+      tags: [account]
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      responses:
+        "200": {description: Checkout, content: {application/json: {schema: {$ref: "#/components/schemas/AccountCheckout"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/account/checkout/addons/{addonVersionID}:
+    post:
+      operationId: toggleAccountCheckoutAddon
+      tags: [account]
+      parameters:
+        - {in: path, name: addonVersionID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "200": {description: Checkout, content: {application/json: {schema: {$ref: "#/components/schemas/AccountCheckout"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/account/checkout/confirm:
+    post:
+      operationId: confirmAccountCheckout
+      tags: [account]
+      description: >-
+        Turns the open checkout into an order. The checkout's own idempotency
+        key is reused for the order, so a duplicate confirmation resolves to the
+        order already created rather than a second one.
+      parameters:
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      responses:
+        "201": {description: Order created, content: {application/json: {schema: {$ref: "#/components/schemas/AccountOrder"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/account/orders:
+    get:
+      operationId: listAccountOrders
+      tags: [account]
+      parameters:
+        - {$ref: "#/components/parameters/Cursor"}
+        - {in: query, name: cursorId, schema: {type: string, format: uuid}}
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 100}}
+        - {in: query, name: locale, schema: {type: string, enum: [ru, en]}}
+      responses:
+        "200": {description: Orders, content: {application/json: {schema: {$ref: "#/components/schemas/AccountOrderPage"}}}}
+        "400": {$ref: "#/components/responses/Problem"}
+  /v1/account/orders/{orderID}:
+    get:
+      operationId: getAccountOrder
+      tags: [account]
+      description: >-
+        One order with its payment, provisioning progress, and refunds.
+        Provisioning comes from the fulfillment operation the order created, so a
+        refresh, a second tab, or a switch to Telegram all show the same state.
+      parameters:
+        - {$ref: "#/components/parameters/OrderID"}
+        - {in: query, name: locale, schema: {type: string, enum: [ru, en]}}
+      responses:
+        "200": {description: Order, content: {application/json: {schema: {$ref: "#/components/schemas/AccountOrder"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/account/orders/{orderID}/payment:
+    post:
+      operationId: startAccountOrderPayment
+      tags: [account]
+      description: >-
+        Creates or resumes the provider payment. The key is scoped to the order
+        and the chosen adapter, so switching provider is a new payment while
+        pressing the same button twice is not.
+      parameters:
+        - {$ref: "#/components/parameters/OrderID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, properties: {provider: {type: string}}}}}}
+      responses:
+        "200": {description: Payment handoff, content: {application/json: {schema: {$ref: "#/components/schemas/AccountPaymentHandle"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/account/orders/{orderID}/refresh:
+    post:
+      operationId: refreshAccountOrder
+      tags: [account]
+      description: >-
+        Re-reads the provider so a customer who returns before the webhook
+        arrives still sees the settled state.
+      parameters:
+        - {$ref: "#/components/parameters/OrderID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "200": {description: Order, content: {application/json: {schema: {$ref: "#/components/schemas/AccountOrder"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/account/orders/{orderID}/cancel:
+    post:
+      operationId: cancelAccountOrder
+      tags: [account]
+      parameters:
+        - {$ref: "#/components/parameters/OrderID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "204": {description: Cancelled}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+  /v1/account/wallet:
+    get:
+      operationId: getAccountWallet
+      tags: [account]
+      description: >-
+        Balances per currency with the top-up policy and the ledger. Currencies
+        are isolated: a balance in one never funds an order in another.
+      parameters:
+        - {in: query, name: currency, schema: {type: string}}
+        - {$ref: "#/components/parameters/Cursor"}
+        - {in: query, name: cursorId, schema: {type: string, format: uuid}}
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 100}}
+      responses:
+        "200": {description: Wallet, content: {application/json: {schema: {$ref: "#/components/schemas/AccountWallet"}}}}
+        "400": {$ref: "#/components/responses/Problem"}
+  /v1/account/wallet/top-up:
+    post:
+      operationId: startAccountTopUp
+      tags: [account]
+      description: >-
+        Opens a top-up order through the same order, webhook, and reconciliation
+        pipeline a plan uses. The caller's key becomes the order's key, so a
+        retried request credits the same top-up rather than a second one.
+      parameters:
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amountMinor]
+              properties:
+                amountMinor: {type: integer, format: int64, minimum: 1}
+                currency: {type: string}
+                provider: {type: string}
+      responses:
+        "201": {description: Top-up opened, content: {application/json: {schema: {$ref: "#/components/schemas/AccountOrder"}}}}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/account/referrals:
+    get:
+      operationId: getAccountReferrals
+      tags: [account]
+      description: >-
+        The customer's code, its shareable link, the program's terms, and the
+        reward history. A reversed reward is excluded from the earned total and
+        from the cap count, because an operator reverses one when the referral
+        turns out to be abuse and the slot it consumed should come back.
+      parameters:
+        - {$ref: "#/components/parameters/Cursor"}
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 100}}
+      responses:
+        "200": {description: Referrals, content: {application/json: {schema: {$ref: "#/components/schemas/AccountReferrals"}}}}
+  /v1/account/loyalty:
+    get:
+      operationId: getAccountLoyalty
+      tags: [account]
+      responses:
+        "200": {description: Loyalty standing, content: {application/json: {schema: {$ref: "#/components/schemas/AccountLoyalty"}}}}
+  /v1/account/contacts:
+    get:
+      operationId: listAccountContacts
+      tags: [account]
+      description: "Flags only. A stored contact value is never returned to the browser."
+      responses:
+        "200": {description: Contacts, content: {application/json: {schema: {$ref: "#/components/schemas/AccountContactList"}}}}
+        "503": {$ref: "#/components/responses/Problem"}
+    post:
+      operationId: addAccountContact
+      tags: [account]
+      description: >-
+        A value already registered elsewhere answers `contact_unavailable` and
+        nothing more. Saying that another account holds it would turn the panel
+        into an account-existence oracle, so the remedy is a support handoff.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind, value]
+              properties:
+                kind: {type: string, enum: [email, phone, telegram]}
+                value: {type: string}
+                transactional: {type: boolean}
+                marketing: {type: boolean}
+      responses:
+        "201": {description: Added, content: {application/json: {schema: {$ref: "#/components/schemas/AccountContact"}}}}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+        "429": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
+  /v1/account/contacts/{contactID}:
+    delete:
+      operationId: removeAccountContact
+      tags: [account]
+      parameters:
+        - {in: path, name: contactID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "204": {description: Removed}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/account/privacy:
+    get:
+      operationId: getAccountPrivacy
+      tags: [account]
+      responses:
+        "200": {description: Privacy state, content: {application/json: {schema: {$ref: "#/components/schemas/AccountPrivacy"}}}}
+  /v1/account/privacy/export:
+    post:
+      operationId: exportAccountPersonalData
+      tags: [account]
+      description: >-
+        Produces the customer's own records synchronously as a download. It is
+        not queued because a queued export would need a delivery channel, a
+        retention window, and a link that authenticates on its own — three
+        further disclosure decisions to answer a question that fits in one
+        response. The document declares its own redactions and names any section
+        it truncated.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      responses:
+        "200": {description: Export document, content: {application/json: {schema: {$ref: "#/components/schemas/AccountExport"}}}}
+        "429": {$ref: "#/components/responses/Problem"}
+  /v1/account/privacy/deletion:
+    post:
+      operationId: requestAccountDeletion
+      tags: [account]
+      description: >-
+        Records a deletion request and nothing else. The retention workflow an
+        operator already governs is what deletes, so an irreversible action never
+        happens on the strength of one browser session. It needs a recent
+        sign-in, and answers 202 because the work has been accepted rather than
+        done.
+      parameters:
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm, reason]
+              properties:
+                confirm: {type: boolean, enum: [true]}
+                reason: {type: string, minLength: 1}
+      responses:
+        "202": {description: Requested, content: {application/json: {schema: {$ref: "#/components/schemas/AccountDeletion"}}}}
+        "401": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+    delete:
+      operationId: cancelAccountDeletion
+      tags: [account]
+      description: >-
+        Withdraws a pending request. It carries no recent-sign-in gate, because
+        it only ever prevents an irreversible action.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      responses:
+        "200": {description: Cancelled, content: {application/json: {schema: {$ref: "#/components/schemas/AccountDeletion"}}}}
+        "409": {$ref: "#/components/responses/Problem"}
+  /v1/account/shop/products:
+    get:
+      operationId: listAccountShopProducts
+      tags: [account]
+      description: >-
+        The digital-goods catalogue. No price is quoted here: a quote is a
+        promise with an expiry attached, and issuing one per row would fill a
+        page with promises that start expiring while it is being read. A product
+        with `priceKnown: false` has no published price and is priced when it is
+        opened.
+      parameters:
+        - {in: query, name: locale, schema: {type: string, enum: [ru, en]}}
+      responses:
+        "200": {description: Catalogue, content: {application/json: {schema: {$ref: "#/components/schemas/AccountShopProductList"}}}}
+        "503": {$ref: "#/components/responses/Problem"}
+  /v1/account/shop/products/{productID}:
+    get:
+      operationId: getAccountShopProduct
+      tags: [account]
+      description: >-
+        One product with a live quote. The quote and its expiry are one object,
+        so a client cannot read the price without also being handed the moment
+        it stops applying.
+      parameters:
+        - {$ref: "#/components/parameters/AccountProductID"}
+        - {in: query, name: locale, schema: {type: string, enum: [ru, en]}}
+        - {in: query, name: quantity, schema: {type: integer, minimum: 1, maximum: 10}}
+        - {in: query, name: promoCode, schema: {type: string}}
+      responses:
+        "200": {description: Product and quote, content: {application/json: {schema: {$ref: "#/components/schemas/AccountShopProductDetail"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
+  /v1/account/shop/recipient:
+    post:
+      operationId: reviewAccountShopRecipient
+      tags: [account]
+      description: >-
+        Normalises a recipient handle and hands it back for confirmation. It
+        changes nothing: the review step exists so the customer sees the exact
+        string the gateway will be given before anybody is charged, and a step
+        that also acted would defeat that. A mistyped username is unrecoverable
+        once a gateway has sent the goods.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [recipient]
+              properties:
+                recipient: {type: string}
+                productId: {type: string, format: uuid}
+      responses:
+        "200":
+          description: Normalised recipient
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [recipient, checked]
+                properties:
+                  recipient: {type: string, description: "The exact handle the gateway will be given."}
+                  checked: {type: boolean, description: "The provider confirmed the handle exists. False when the adapter cannot check."}
+        "422": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
+  /v1/account/shop/purchase:
+    post:
+      operationId: purchaseAccountShopProduct
+      tags: [account]
+      description: >-
+        Opens the order for a reviewed recipient against a live quote. The
+        displayed quote is echoed back and the server re-quotes before charging,
+        refusing with `quote_expired` when the window has passed and
+        `price_changed` when the number moved. The recipient must be
+        byte-identical to the reviewed form, so a raw `@name` or a pasted link is
+        refused rather than silently normalised after confirmation.
+      parameters:
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [productId, quantity, recipient, quote]
+              properties:
+                productId: {type: string, format: uuid}
+                quantity: {type: integer, minimum: 1, maximum: 10}
+                recipient: {type: string}
+                forSelf: {type: boolean, description: "Presentation only. Omniflow stores no Telegram username for a web customer, so this never decides delivery or authorisation."}
+                quote: {$ref: "#/components/schemas/AccountShopQuote"}
+                promoCode: {type: string}
+                useWallet: {type: boolean, default: false, description: "Stated explicitly, so a balance is never spent by omission."}
+      responses:
+        "201": {description: Order opened, content: {application/json: {schema: {$ref: "#/components/schemas/AccountShopOrder"}}}}
+        "400": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
+  /v1/account/shop/orders:
+    get:
+      operationId: listAccountShopOrders
+      tags: [account]
+      parameters:
+        - {$ref: "#/components/parameters/Cursor"}
+        - {in: query, name: cursorId, schema: {type: string, format: uuid}}
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 100}}
+        - {in: query, name: locale, schema: {type: string, enum: [ru, en]}}
+      responses:
+        "200": {description: Orders, content: {application/json: {schema: {$ref: "#/components/schemas/AccountShopOrderPage"}}}}
+        "400": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
+  /v1/account/shop/orders/{orderID}:
+    get:
+      operationId: getAccountShopOrder
+      tags: [account]
+      description: >-
+        One purchase and its delivery. There is deliberately no retry route: the
+        gateway that fronts Fragment honours no idempotency key, so an ambiguous
+        delivery is genuinely ambiguous and parks in the operator review queue
+        rather than being retried or refunded automatically.
+      parameters:
+        - {$ref: "#/components/parameters/OrderID"}
+        - {in: query, name: locale, schema: {type: string, enum: [ru, en]}}
+      responses:
+        "200": {description: Order, content: {application/json: {schema: {$ref: "#/components/schemas/AccountShopOrder"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
+  /v1/account/support/limits:
+    get:
+      operationId: getAccountSupportLimits
+      tags: [account]
+      description: >-
+        The attachment rules and the open-conversation quota, so the panel can
+        state them before an upload rather than only after one is refused.
+      responses:
+        "200": {description: Limits, content: {application/json: {schema: {$ref: "#/components/schemas/AccountSupportLimits"}}}}
+  /v1/account/support/tickets:
+    get:
+      operationId: listAccountSupportTickets
+      tags: [account]
+      parameters:
+        - {$ref: "#/components/parameters/Cursor"}
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 100}}
+      responses:
+        "200": {description: Conversations, content: {application/json: {schema: {$ref: "#/components/schemas/AccountTicketPage"}}}}
+        "400": {$ref: "#/components/responses/Problem"}
+    post:
+      operationId: createAccountSupportTicket
+      tags: [account]
+      description: >-
+        Opens a conversation. The number a customer may hold open at once is
+        bounded, so a loop in a client cannot fill the operator queue faster
+        than people can empty it.
+      parameters:
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/IdempotencyKeyOptional"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [subject, message]
+              properties:
+                subject: {type: string, minLength: 1}
+                message: {type: string, minLength: 1}
+      responses:
+        "201": {description: Opened, content: {application/json: {schema: {$ref: "#/components/schemas/AccountTicket"}}}}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/account/support/tickets/{ticketID}:
+    get:
+      operationId: getAccountSupportTicket
+      tags: [account]
+      description: >-
+        The conversation as the customer sees it. Internal operator notes live
+        in their own table and no query on this surface touches it.
+      parameters: [{$ref: "#/components/parameters/AccountTicketID"}]
+      responses:
+        "200": {description: Conversation, content: {application/json: {schema: {$ref: "#/components/schemas/AccountConversation"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/account/support/tickets/{ticketID}/messages:
+    post:
+      operationId: replyToAccountSupportTicket
+      tags: [account]
+      parameters:
+        - {$ref: "#/components/parameters/AccountTicketID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/IdempotencyKeyOptional"}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [message], properties: {message: {type: string, minLength: 1}}}}}}
+      responses:
+        "201": {description: Sent, content: {application/json: {schema: {$ref: "#/components/schemas/AccountConversation"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/account/support/tickets/{ticketID}/read:
+    post:
+      operationId: markAccountSupportTicketRead
+      tags: [account]
+      description: >-
+        Read state is a property of the message, not of the surface it was read
+        on. A reply opened here stops being unread in Telegram too, because both
+        surfaces stamp the same column.
+      parameters:
+        - {$ref: "#/components/parameters/AccountTicketID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "200": {description: Marked read, content: {application/json: {schema: {$ref: "#/components/schemas/AccountTicket"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/account/support/tickets/{ticketID}/close:
+    post:
+      operationId: closeAccountSupportTicket
+      tags: [account]
+      parameters:
+        - {$ref: "#/components/parameters/AccountTicketID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "200": {description: Closed, content: {application/json: {schema: {$ref: "#/components/schemas/AccountTicket"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/account/support/tickets/{ticketID}/reopen:
+    post:
+      operationId: reopenAccountSupportTicket
+      tags: [account]
+      parameters:
+        - {$ref: "#/components/parameters/AccountTicketID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "200": {description: Reopened, content: {application/json: {schema: {$ref: "#/components/schemas/AccountTicket"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/account/support/tickets/{ticketID}/attachments:
+    post:
+      operationId: attachToAccountSupportTicket
+      tags: [account]
+      description: >-
+        Uploads one file. The accepted media types are an allowlist, so an
+        unknown type is refused rather than guessed at.
+      parameters:
+        - {$ref: "#/components/parameters/AccountTicketID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: {type: string, format: binary}
+                message: {type: string}
+      responses:
+        "201": {description: Attached, content: {application/json: {schema: {$ref: "#/components/schemas/AccountConversation"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "413": {$ref: "#/components/responses/Problem"}
+        "415": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
+  /v1/account/support/attachments/{attachmentID}:
+    get:
+      operationId: downloadAccountSupportAttachment
+      tags: [account]
+      description: >-
+        Serves a file the calling customer's own conversation carries. A file
+        attached in Telegram is not stored here and answers `attachment_remote`
+        instead, because offering a download that cannot work is worse than
+        saying where the file actually lives.
+      parameters: [{in: path, name: attachmentID, required: true, schema: {type: string, format: uuid}}]
+      responses:
+        "200": {description: File, content: {application/octet-stream: {schema: {type: string, format: binary}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
+  /v1/account/news:
+    get:
+      operationId: listAccountNews
+      tags: [account]
+      parameters:
+        - {in: query, name: locale, schema: {type: string, enum: [ru, en]}}
+        - {$ref: "#/components/parameters/Cursor"}
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 50}}
+      responses:
+        "200": {description: Announcements, content: {application/json: {schema: {$ref: "#/components/schemas/AccountNewsPage"}}}}
+        "400": {$ref: "#/components/responses/Problem"}
+  /v1/account/news/{postID}/read:
+    post:
+      operationId: markAccountNewsRead
+      tags: [account]
+      parameters:
+        - {in: path, name: postID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "204": {description: Marked read}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/account/preferences:
+    get:
+      operationId: getAccountPreferences
+      tags: [account]
+      description: >-
+        Notification choices, marketing consent, contact-channel flags, and any
+        suppression. A contact's address is never returned — only whether it is
+        verified and what it is used for.
+      responses:
+        "200": {description: Preferences, content: {application/json: {schema: {$ref: "#/components/schemas/AccountPreferences"}}}}
+    patch:
+      operationId: updateAccountPreferences
+      tags: [account]
+      description: >-
+        Each field is optional and an absent field is left unchanged, so a
+        screen that renders one toggle never has to send back a document it did
+        not read. A marketing decision appends a consent record rather than
+        overwriting one, because the history of who opted in and when is the
+        thing that has to survive.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/AccountPreferencesUpdate"}}}}
+      responses:
+        "200": {description: Updated, content: {application/json: {schema: {$ref: "#/components/schemas/AccountPreferences"}}}}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/account/preferences/unsubscribe:
+    post:
+      operationId: unsubscribeAccount
+      tags: [account]
+      description: >-
+        Stops marketing messages. Transactional messages about a payment, an
+        expiry, or a support reply continue, because they are the ones a
+        customer needs in order to keep using what they bought.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      responses:
+        "200": {description: Unsubscribed, content: {application/json: {schema: {$ref: "#/components/schemas/AccountPreferences"}}}}
   /v1/panel/settings/customer-oidc:
     get:
       operationId: listPanelCustomerOidcProviders
@@ -2081,6 +2777,16 @@ components:
     EntitlementID: {in: path, name: entitlementID, required: true, schema: {type: string, format: uuid}}
     JobID: {in: path, name: jobID, required: true, schema: {type: integer, format: int64}}
     IdempotencyKey: {in: header, name: Idempotency-Key, required: true, schema: {type: string, minLength: 8, maxLength: 128}}
+    IdempotencyKeyOptional:
+      in: header
+      name: Idempotency-Key
+      required: false
+      description: >-
+        Optional here. Supplying one makes a repeated submission resolve to the
+        record already created instead of a second one.
+      schema: {type: string, minLength: 8, maxLength: 128}
+    AccountProductID: {in: path, name: productID, required: true, schema: {type: string, format: uuid}}
+    AccountTicketID: {in: path, name: ticketID, required: true, schema: {type: string, format: uuid}}
     PageSize: {in: query, name: pageSize, schema: {type: integer, minimum: 1, maximum: 500, default: 100}}
     OperatorReason:
       in: header
@@ -3731,6 +4437,721 @@ components:
               name: {type: string}
               platform: {type: string}
               lastSeen: {type: string, format: date-time}
+    AccountMoney:
+      type: object
+      required: [amountMinor, currency]
+      properties:
+        amountMinor: {type: integer, format: int64}
+        currency: {type: string}
+    AccountPlan:
+      type: object
+      required: [planId, planVersionId, code, kind, name, billingPeriod, durationSeconds, price, operations, eligible]
+      properties:
+        planId: {type: string, format: uuid}
+        planVersionId: {type: string, format: uuid}
+        code: {type: string}
+        kind: {type: string, enum: [trial, one_time, recurring, manual]}
+        name: {type: string}
+        description: {type: string}
+        sortOrder: {type: integer}
+        billingPeriod: {type: string}
+        durationSeconds: {type: integer, format: int64}
+        gracePeriodSeconds: {type: integer, format: int64}
+        price: {$ref: "#/components/schemas/AccountMoney"}
+        recurringCapable: {type: boolean}
+        configurableSquads: {type: boolean}
+        operations:
+          type: array
+          description: "The lifecycle actions the configured plan policy allows for this customer."
+          items: {type: string, enum: [purchase, renew, upgrade, downgrade]}
+        eligible: {type: boolean}
+        ineligibleReason: {type: string}
+        trafficAllowanceBytes:
+          type: integer
+          format: int64
+          nullable: true
+          description: "Null means unlimited. Nullable rather than zero because unlimited and none are different offers."
+        deviceLimit: {type: integer, nullable: true, description: "Null means unlimited."}
+    AccountPlanList:
+      type: object
+      required: [items, currency]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/AccountPlan"}}
+        currency: {type: string}
+    AccountSquadOffer:
+      type: object
+      required: [selection, minimum, configurable, offered]
+      properties:
+        selection: {type: string, description: "Whether squads are assigned automatically or chosen by the customer."}
+        minimum: {type: integer}
+        maximum: {type: integer, nullable: true}
+        configurable: {type: boolean}
+        offered:
+          type: array
+          items:
+            type: object
+            required: [squadId, label]
+            properties:
+              squadId: {type: string, format: uuid}
+              label: {type: string}
+    AccountAddonOffer:
+      type: object
+      required: [addonId, addonVersionId, code, kind, name, maxQuantity, proration, price]
+      properties:
+        addonId: {type: string, format: uuid}
+        addonVersionId: {type: string, format: uuid}
+        code: {type: string}
+        kind: {type: string, enum: [traffic, devices, squads]}
+        name: {type: string}
+        description: {type: string}
+        maxQuantity: {type: integer}
+        proration: {type: string, description: "The documented proration rule for this add-on."}
+        squadCount: {type: integer}
+        price: {$ref: "#/components/schemas/AccountMoney"}
+        trafficBytes: {type: integer, format: int64, nullable: true}
+        deviceSlots: {type: integer, nullable: true}
+    AccountPlanDetail:
+      allOf:
+        - {$ref: "#/components/schemas/AccountPlan"}
+        - type: object
+          required: [squads, addons, promotions]
+          properties:
+            squads: {$ref: "#/components/schemas/AccountSquadOffer"}
+            addons: {type: array, items: {$ref: "#/components/schemas/AccountAddonOffer"}}
+            promotions:
+              type: array
+              items:
+                type: object
+                required: [code, kind, value, eligible]
+                properties:
+                  code: {type: string}
+                  kind: {type: string}
+                  value: {type: integer, format: int64}
+                  currency: {type: string}
+                  eligible: {type: boolean}
+                  startsAt: {type: string, format: date-time}
+                  endsAt: {type: string, format: date-time}
+            termsUrl: {type: string}
+    AccountCheckoutQuote:
+      type: object
+      required: [currency, subtotalMinor, addonMinor, discountMinor, walletBalanceMinor, walletAppliedMinor, externalMinor]
+      description: >-
+        The exact application breakdown. Every figure is computed on the server,
+        so the number a customer is asked to approve and the number they are
+        charged cannot be arrived at two different ways.
+      properties:
+        currency: {type: string}
+        subtotalMinor: {type: integer, format: int64}
+        addonMinor: {type: integer, format: int64}
+        discountMinor: {type: integer, format: int64}
+        walletBalanceMinor: {type: integer, format: int64}
+        walletAppliedMinor: {type: integer, format: int64}
+        externalMinor: {type: integer, format: int64, description: "What still has to be settled through a provider."}
+    AccountPaymentChoice:
+      type: object
+      required: [provider, currency, recurring]
+      properties:
+        provider: {type: string}
+        currency: {type: string}
+        amountMinor: {type: integer, format: int64}
+        recurring: {type: boolean}
+    AccountCheckout:
+      type: object
+      required: [id, planVersionId, plan, operation, currency, providers, applyWallet, quote, subscriptions, targetRequired, multiSubscription, squads, selectedSquadIds, addons, selectedAddons]
+      properties:
+        id: {type: string, format: uuid}
+        planVersionId: {type: string, format: uuid}
+        plan: {$ref: "#/components/schemas/AccountPlan"}
+        operation: {type: string, enum: [purchase, renew, upgrade, downgrade]}
+        currency: {type: string}
+        provider: {type: string}
+        providers: {type: array, items: {$ref: "#/components/schemas/AccountPaymentChoice"}}
+        applyWallet: {type: boolean}
+        quote: {$ref: "#/components/schemas/AccountCheckoutQuote"}
+        promoCode: {type: string}
+        promoRejection:
+          type: string
+          enum: [promo_unknown, promo_ineligible, promo_exhausted, promo_invalid]
+          description: "Why the entered code does not apply. Present on a 200, not an error."
+        subscriptionId: {type: string}
+        newSubscription: {type: boolean}
+        subscriptions:
+          type: array
+          description: "The subscriptions this checkout could target."
+          items:
+            type: object
+            required: [id, slot, plan, status]
+            properties:
+              id: {type: string, format: uuid}
+              slot: {type: integer}
+              label: {type: string}
+              plan: {type: string}
+              status: {type: string}
+              endsAt: {type: string, format: date-time}
+        targetRequired: {type: boolean, description: "A target must be named before this checkout can be confirmed."}
+        multiSubscription: {type: boolean, description: "False means the panel renders no picker at all."}
+        squads: {$ref: "#/components/schemas/AccountSquadOffer"}
+        selectedSquadIds: {type: array, items: {type: string, format: uuid}}
+        addons: {type: array, items: {$ref: "#/components/schemas/AccountAddonOffer"}}
+        selectedAddons:
+          type: array
+          items:
+            type: object
+            required: [addonVersionId, quantity]
+            properties:
+              addonVersionId: {type: string, format: uuid}
+              quantity: {type: integer}
+        termsUrl: {type: string}
+        expiresAt: {type: string, format: date-time}
+    AccountPaymentHandle:
+      type: object
+      required: [id, provider, status, amountMinor, currency, handoff]
+      properties:
+        id: {type: string, format: uuid}
+        provider: {type: string}
+        status: {type: string}
+        amountMinor: {type: integer, format: int64}
+        currency: {type: string}
+        handoff:
+          type: string
+          enum: [hosted, telegram_invoice, manual, none]
+          description: >-
+            How the customer completes the payment. `none` means nothing further
+            is owed, which is what a wallet-covered order looks like.
+        checkoutUrl: {type: string}
+    AccountOrder:
+      type: object
+      required: [id, state, operation, phase, currency, subtotalMinor, discountMinor, walletMinor, externalMinor, paidMinor, refundedMinor, plan, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        state: {type: string, enum: [draft, pending, paid, fulfilled, cancelled, expired, partially_refunded, refunded]}
+        operation: {type: string}
+        phase:
+          type: string
+          description: >-
+            The combined payment and provisioning state the panel renders: what
+            the customer is waiting for, rather than which table changed.
+        currency: {type: string}
+        subtotalMinor: {type: integer, format: int64}
+        discountMinor: {type: integer, format: int64}
+        walletMinor: {type: integer, format: int64}
+        externalMinor: {type: integer, format: int64}
+        paidMinor: {type: integer, format: int64}
+        refundedMinor: {type: integer, format: int64}
+        plan: {type: string}
+        subscriptionId: {type: string}
+        createdAt: {type: string, format: date-time}
+        expiresAt: {type: string, format: date-time}
+        payment:
+          type: object
+          required: [id, provider, status, handoff]
+          properties:
+            id: {type: string, format: uuid}
+            provider: {type: string}
+            status: {type: string}
+            handoff: {type: string, enum: [hosted, telegram_invoice, manual, none]}
+            checkoutUrl: {type: string}
+            receiptUrl: {type: string}
+        fulfillment:
+          type: object
+          description: "Provisioning progress, read from the fulfillment operation rather than carried by the client."
+          required: [status, attempts]
+          properties:
+            status: {type: string}
+            attempts: {type: integer}
+            errorCode: {type: string}
+            updatedAt: {type: string, format: date-time}
+        refunds:
+          type: array
+          items:
+            type: object
+            required: [status, amountMinor, currency, createdAt]
+            properties:
+              status: {type: string}
+              amountMinor: {type: integer, format: int64}
+              currency: {type: string}
+              createdAt: {type: string, format: date-time}
+    AccountOrderPage:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/AccountOrder"}}
+        nextCursor: {type: string}
+        nextCursorId: {type: string, format: uuid}
+    AccountWallet:
+      type: object
+      required: [balances, currency, topUp, entries]
+      properties:
+        balances:
+          type: array
+          description: "One entry per currency. Currencies are isolated; a balance in one never funds an order in another."
+          items:
+            type: object
+            required: [currency, totalMinor, reservedMinor, availableMinor]
+            properties:
+              currency: {type: string}
+              totalMinor: {type: integer, format: int64}
+              reservedMinor: {type: integer, format: int64}
+              availableMinor: {type: integer, format: int64}
+        currency: {type: string}
+        topUp:
+          type: object
+          required: [enabled, minimumMinor, maximumMinor, presets, providers]
+          properties:
+            enabled: {type: boolean}
+            minimumMinor: {type: integer, format: int64}
+            maximumMinor: {type: integer, format: int64}
+            presets: {type: array, items: {type: integer, format: int64}}
+            remainingWindowMinor: {type: integer, format: int64, description: "What the rolling-window limit still allows."}
+            providers: {type: array, items: {$ref: "#/components/schemas/AccountPaymentChoice"}}
+        entries:
+          type: array
+          items:
+            type: object
+            required: [id, type, amountMinor, currency, occurredAt]
+            properties:
+              id: {type: string, format: uuid}
+              type: {type: string}
+              amountMinor: {type: integer, format: int64}
+              currency: {type: string}
+              reason: {type: string}
+              occurredAt: {type: string, format: date-time}
+        nextCursor: {type: string}
+        nextCursorId: {type: string, format: uuid}
+    AccountReferrals:
+      type: object
+      required: [program, code, link, linkAvailable, invited, qualified, pending, rejected, rewardedMinor, reversedMinor, rewardCount, currency, rewards]
+      properties:
+        program:
+          type: object
+          required: [enabled, currency, inviterRewardMinor, inviteeRewardMinor, qualification]
+          properties:
+            enabled: {type: boolean}
+            currency: {type: string}
+            inviterRewardMinor: {type: integer, format: int64}
+            inviteeRewardMinor: {type: integer, format: int64}
+            qualification: {type: string}
+            attributionValidityDays: {type: integer}
+            inviterRewardCap: {type: integer, nullable: true}
+            rewardExpiryDays: {type: integer, nullable: true}
+            termsUrl: {type: string}
+        code: {type: string}
+        link: {type: string}
+        linkAvailable: {type: boolean}
+        linkReason:
+          type: string
+          enum: [public_url_not_configured, no_code]
+          description: "Why no link could be built. The code is still shown; a link to nowhere is not."
+        invited: {type: integer, format: int64}
+        qualified: {type: integer, format: int64}
+        pending: {type: integer, format: int64}
+        rejected: {type: integer, format: int64}
+        rewardedMinor: {type: integer, format: int64, description: "Excludes reversed rewards."}
+        reversedMinor: {type: integer, format: int64}
+        rewardCount: {type: integer}
+        currency: {type: string}
+        remainingSlots: {type: integer, nullable: true}
+        rewards:
+          type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                type: object
+                required: [id, role, state, amountMinor, currency, grantedAt]
+                properties:
+                  id: {type: string, format: uuid}
+                  role: {type: string, enum: [inviter, invitee]}
+                  state: {type: string, enum: [pending, qualified, rejected]}
+                  amountMinor: {type: integer, format: int64}
+                  currency: {type: string}
+                  grantedAt: {type: string, format: date-time}
+                  reversedAt: {type: string, format: date-time}
+            nextCursor: {type: string}
+    AccountLoyalty:
+      type: object
+      required: [enabled]
+      description: "`enabled: false` is the whole document when no program runs."
+      properties:
+        enabled: {type: boolean}
+        rules:
+          type: object
+          properties:
+            metric: {type: string}
+            currency: {type: string}
+            windowDays: {type: integer}
+            graceDays: {type: integer}
+            version: {type: string}
+        tiers:
+          type: array
+          items:
+            type: object
+            required: [code, nameEn, nameRu, threshold, discountBps, current]
+            properties:
+              code: {type: string}
+              nameEn: {type: string}
+              nameRu: {type: string}
+              threshold: {type: integer, format: int64}
+              discountBps: {type: integer}
+              current: {type: boolean}
+        evaluated: {type: boolean}
+        tier: {type: string}
+        next: {type: string}
+        metric: {type: integer, format: int64}
+        remaining: {type: integer, format: int64}
+        percent: {type: integer}
+        evaluatedAt: {type: string, format: date-time}
+        graceUntil: {type: string, format: date-time}
+    AccountContact:
+      type: object
+      required: [id, kind, verified, transactional, marketing, createdAt]
+      description: "Flags only. The stored value is never returned."
+      properties:
+        id: {type: string, format: uuid}
+        kind: {type: string, enum: [email, phone, telegram]}
+        verified: {type: boolean}
+        transactional: {type: boolean}
+        marketing: {type: boolean}
+        createdAt: {type: string, format: date-time}
+    AccountContactList:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/AccountContact"}}
+    AccountDeletion:
+      type: object
+      required: [pending, executedBy]
+      properties:
+        pending: {type: boolean}
+        requestedAt: {type: string, format: date-time}
+        cancelledAt: {type: string, format: date-time}
+        reason: {type: string}
+        executedBy:
+          type: string
+          description: "Who actually deletes. The panel records the request; the retention workflow carries it out."
+    AccountPrivacy:
+      type: object
+      required: [retention, deletion, consents, export]
+      properties:
+        retention:
+          type: object
+          required: [status]
+          properties:
+            status: {type: string, enum: [active, suspended, deleted]}
+            suspendedAt: {type: string, format: date-time}
+            deletedAt: {type: string, format: date-time}
+            anonymizedAt: {type: string, format: date-time}
+            retentionUntil: {type: string, format: date-time}
+        deletion: {$ref: "#/components/schemas/AccountDeletion"}
+        consents:
+          type: object
+          required: [current, history]
+          properties:
+            current: {type: object, additionalProperties: {type: boolean}}
+            history:
+              type: array
+              items:
+                type: object
+                required: [purpose, granted, occurredAt]
+                properties:
+                  purpose: {type: string, enum: [terms, privacy, marketing, profiling]}
+                  granted: {type: boolean}
+                  policyVersion: {type: string}
+                  source: {type: string}
+                  occurredAt: {type: string, format: date-time}
+        export:
+          type: object
+          required: [sections, redactions, contactValuesAvailable]
+          properties:
+            sections: {type: array, items: {type: string}}
+            redactions: {type: array, items: {type: string}}
+            contactValuesAvailable: {type: boolean}
+    AccountExport:
+      type: object
+      required: [version, generatedAt, profile, redactions, truncated]
+      description: >-
+        The customer's own records. It names what it left out in `redactions`
+        and which sections hit the per-section row cap in `truncated`, because an
+        export that silently omitted something would be worse than one that says
+        so.
+      properties:
+        version: {type: string, enum: ["omniflow.account.export/1"]}
+        generatedAt: {type: string, format: date-time}
+        profile: {type: object}
+        identities: {type: array, items: {type: object}}
+        contacts: {type: array, items: {type: object}}
+        subscriptions: {type: array, items: {type: object}}
+        entitlements: {type: array, items: {type: object}}
+        orders: {type: array, items: {type: object}}
+        payments: {type: array, items: {type: object}}
+        wallet: {type: array, items: {type: object}}
+        support: {type: array, items: {type: object}}
+        referral: {type: object}
+        loyalty: {type: object}
+        consents: {type: array, items: {type: object}}
+        lifecycle: {type: array, items: {type: object}}
+        redactions: {type: array, items: {type: string}}
+        truncated: {type: array, items: {type: string}}
+    AccountShopProduct:
+      type: object
+      required: [id, code, kind, name, currency, available, priceKnown]
+      properties:
+        id: {type: string, format: uuid}
+        code: {type: string}
+        kind: {type: string, enum: [telegram_premium, telegram_stars]}
+        name: {type: string}
+        description: {type: string}
+        currency: {type: string}
+        available: {type: boolean}
+        priceKnown:
+          type: boolean
+          description: >-
+            Whether `priceMinor` is a published number. False means the product
+            is priced when it is opened, so a screen never has to read a missing
+            price as zero.
+        priceMinor: {type: integer, format: int64}
+        durationMonths: {type: integer, description: "Telegram Premium only."}
+        starQuantity: {type: integer, description: "Telegram Stars only."}
+    AccountShopProductList:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/AccountShopProduct"}}
+    AccountShopQuote:
+      type: object
+      required: [priceMinor, currency, expiresAt]
+      description: >-
+        A price and the moment it stops applying. The two travel together so a
+        client cannot hold one without the other.
+      properties:
+        priceMinor: {type: integer, format: int64}
+        currency: {type: string}
+        expiresAt: {type: string, format: date-time}
+    AccountShopProductDetail:
+      allOf:
+        - {$ref: "#/components/schemas/AccountShopProduct"}
+        - type: object
+          required: [quantity, quote]
+          properties:
+            quantity: {type: integer}
+            quote: {$ref: "#/components/schemas/AccountShopQuote"}
+            promo:
+              type: object
+              required: [code, discountMinor]
+              properties:
+                code: {type: string}
+                discountMinor: {type: integer, format: int64}
+                rejection:
+                  type: string
+                  description: "Why the code does not apply. Previewed only; nothing is redeemed here."
+    AccountShopDelivery:
+      type: object
+      required: [state, attempts, supportHandoff, supportReference]
+      properties:
+        state:
+          type: string
+          enum: [awaiting_payment, queued, submitted, polling, delayed, delivered, needs_review, refunded, failed, cancelled]
+          description: >-
+            `needs_review` is an ambiguous delivery parked for an operator. There
+            is no retry route for it: the gateway honours no idempotency key, so
+            retrying could deliver and charge twice.
+        attempts: {type: integer}
+        supportHandoff: {type: boolean, description: "True only for needs_review and failed."}
+        supportReference: {type: string}
+        failureReason:
+          type: string
+          enum: [retryable, permanent, recipient_invalid, provider_balance, provider_unavailable, ambiguous]
+        deliveredAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+        refund:
+          type: object
+          required: [amountMinor, currency]
+          properties:
+            amountMinor: {type: integer, format: int64}
+            currency: {type: string}
+    AccountShopOrder:
+      type: object
+      required: [id, productName, kind, quantity, recipient, forSelf, currency, amounts, payment, delivery]
+      properties:
+        id: {type: string, format: uuid}
+        productName: {type: string}
+        kind: {type: string, enum: [telegram_premium, telegram_stars]}
+        quantity: {type: integer}
+        recipient: {type: string}
+        forSelf: {type: boolean}
+        currency: {type: string}
+        amounts:
+          type: object
+          required: [priceMinor, discountMinor, walletMinor, externalMinor, paidMinor]
+          properties:
+            priceMinor: {type: integer, format: int64}
+            discountMinor: {type: integer, format: int64}
+            walletMinor: {type: integer, format: int64}
+            externalMinor: {type: integer, format: int64}
+            paidMinor: {type: integer, format: int64}
+        payment:
+          type: object
+          required: [state, required, possible]
+          properties:
+            state: {type: string}
+            required: {type: boolean}
+            possible: {type: boolean, description: "An enabled provider settles this currency. False is stated rather than dead-ended."}
+        delivery: {$ref: "#/components/schemas/AccountShopDelivery"}
+        createdAt: {type: string, format: date-time}
+    AccountShopOrderPage:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/AccountShopOrder"}}
+        nextCursor: {type: string}
+        nextCursorId: {type: string, format: uuid}
+    AccountSupportLimits:
+      type: object
+      required: [maxAttachmentBytes, allowedMediaTypes, maxOpenTickets, maxSubjectLength, maxMessageLength]
+      properties:
+        maxAttachmentBytes: {type: integer, format: int64}
+        allowedMediaTypes: {type: array, items: {type: string}}
+        maxOpenTickets: {type: integer}
+        maxSubjectLength: {type: integer}
+        maxMessageLength: {type: integer}
+    AccountTicket:
+      type: object
+      required: [id, subject, status, open, canReply, unreadCount, createdAt, updatedAt]
+      properties:
+        id: {type: string, format: uuid}
+        subject: {type: string}
+        status: {type: string, enum: [open, pending, resolved, closed, merged]}
+        open: {type: boolean, description: "Counts against the open-conversation quota."}
+        canReply: {type: boolean}
+        unreadCount: {type: integer}
+        mergedIntoTicketId: {type: string, format: uuid}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    AccountTicketPage:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/AccountTicket"}}
+        nextCursor: {type: string}
+    AccountConversation:
+      type: object
+      required: [ticket, messages]
+      properties:
+        ticket: {$ref: "#/components/schemas/AccountTicket"}
+        messages:
+          type: array
+          items:
+            type: object
+            required: [id, author, body, unread, createdAt]
+            properties:
+              id: {type: string}
+              author: {type: string, enum: [customer, operator, system]}
+              body: {type: string}
+              unread: {type: boolean}
+              createdAt: {type: string, format: date-time}
+              attachments:
+                type: array
+                items:
+                  type: object
+                  required: [id, fileName, sizeBytes, downloadable]
+                  properties:
+                    id: {type: string, format: uuid}
+                    fileName: {type: string}
+                    mimeType: {type: string}
+                    sizeBytes: {type: integer, format: int64}
+                    downloadable:
+                      type: boolean
+                      description: "False for a file that lives in Telegram rather than here."
+    AccountNewsPage:
+      type: object
+      required: [items, unreadCount, locale]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [id, category, title, body, read, publishedAt]
+            properties:
+              id: {type: string, format: uuid}
+              slug: {type: string}
+              category: {type: string, enum: [news, announcement, incident, maintenance]}
+              title: {type: string}
+              body: {type: string}
+              read: {type: boolean}
+              publishedAt: {type: string, format: date-time}
+        unreadCount: {type: integer}
+        locale: {type: string, enum: [ru, en]}
+        nextCursor: {type: string}
+    AccountPreferences:
+      type: object
+      required: [locale, notifications, marketing, contacts]
+      properties:
+        locale: {type: string, enum: [auto, ru, en]}
+        notifications:
+          type: object
+          required: [expiry, traffic, renewal, news]
+          properties:
+            expiry: {type: boolean}
+            traffic: {type: boolean}
+            renewal: {type: boolean}
+            news: {type: boolean}
+        quietHours:
+          type: object
+          description: "Absent when unset."
+          required: [startHour, endHour]
+          properties:
+            startHour: {type: integer, minimum: 0, maximum: 23}
+            endHour: {type: integer, minimum: 0, maximum: 23}
+        marketing:
+          type: object
+          required: [enabled]
+          properties:
+            enabled: {type: boolean}
+            decidedAt: {type: string, format: date-time}
+            source: {type: string, description: "Which surface recorded the decision."}
+            policyVersion: {type: string}
+        contacts:
+          type: array
+          description: "Flags only. The address itself is never returned."
+          items:
+            type: object
+            required: [id, kind, verified, transactional, marketing, createdAt]
+            properties:
+              id: {type: string, format: uuid}
+              kind: {type: string, enum: [email, phone, telegram]}
+              verified: {type: boolean}
+              transactional: {type: boolean}
+              marketing: {type: boolean}
+              createdAt: {type: string, format: date-time}
+        suppression:
+          type: object
+          required: [reason, createdAt]
+          properties:
+            reason: {type: string, enum: [customer_request, bounced, complaint, operator]}
+            createdAt: {type: string, format: date-time}
+    AccountPreferencesUpdate:
+      type: object
+      description: >-
+        Every field is optional and an absent field is left unchanged, so a
+        screen that renders one toggle never sends back a document it did not
+        read. Equal quiet-hours bounds clear the window.
+      properties:
+        locale: {type: string, enum: [auto, ru, en]}
+        notifications:
+          type: object
+          properties:
+            expiry: {type: boolean}
+            traffic: {type: boolean}
+            renewal: {type: boolean}
+            news: {type: boolean}
+        quietHours:
+          type: object
+          required: [startHour, endHour]
+          properties:
+            startHour: {type: integer, minimum: 0, maximum: 23}
+            endHour: {type: integer, minimum: 0, maximum: 23}
+        marketing: {type: boolean, description: "Appends a consent record; it never rewrites one."}
     CustomerOidcProvider:
       type: object
       required: [slug, displayName, issuer, discoveryUrl, clientId, scopes, enabled, requireVerifiedEmail, allowAutoProvision, hasClientSecret]

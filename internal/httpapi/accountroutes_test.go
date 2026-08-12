@@ -1,6 +1,8 @@
 package httpapi
 
 import (
+	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -8,6 +10,13 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/omniflow/omniflow/internal/accountcheckout"
+	"github.com/omniflow/omniflow/internal/accountreferral"
+	"github.com/omniflow/omniflow/internal/accountshop"
+	"github.com/omniflow/omniflow/internal/accountsupport"
+	"github.com/omniflow/omniflow/internal/commercepg"
+	"github.com/omniflow/omniflow/internal/goods"
 )
 
 // newAccountRouter mounts the customer surface with no services attached. Every
@@ -73,6 +82,181 @@ func TestAccountRoutesRequireASession(t *testing.T) {
 		router.ServeHTTP(recorder, httptest.NewRequest(testCase.method, testCase.path, nil))
 		if recorder.Code != http.StatusUnauthorized {
 			t.Fatalf("%s %s answered %d, want 401", testCase.method, testCase.path, recorder.Code)
+		}
+	}
+}
+
+// stubGoodsProviders stands in for the digital-goods registry. It resolves
+// nothing, which is all these tests need: the session gate refuses every request
+// before a provider would be asked for a quote.
+type stubGoodsProviders struct{}
+
+func (stubGoodsProviders) Provider(context.Context, string) (goods.Provider, error) {
+	return nil, errors.New("no provider in tests")
+}
+
+// newMountedAccountRouter mounts the customer surface with every v0.10 service
+// attached, so the routes those services own are actually registered.
+//
+// The pool is never dialled. pgxpool defers connecting until a query needs a
+// connection, and every route below is refused by the session gate long before
+// one does — which is the point: these tests are about routing and the gates in
+// front of it, and a test that needed a database to prove a route answers 401
+// would be testing the database.
+func newMountedAccountRouter(t *testing.T) http.Handler {
+	t.Helper()
+	pool, err := pgxpool.New(context.Background(), "postgres://omniflow:omniflow@127.0.0.1:1/omniflow")
+	if err != nil {
+		t.Fatalf("build pool: %v", err)
+	}
+	t.Cleanup(pool.Close)
+
+	logger := slog.New(slog.DiscardHandler)
+	checkout, err := accountcheckout.New(pool, &commercepg.Store{}, nil, accountcheckout.Options{Logger: logger})
+	if err != nil {
+		t.Fatalf("build checkout: %v", err)
+	}
+	// A registry has to be present for the shop to mount at all: an installation
+	// that sells no digital goods has no shop routes rather than empty ones.
+	shop, err := accountshop.New(
+		pool, &commercepg.Store{}, nil, stubGoodsProviders{}, accountshop.Options{Logger: logger},
+	)
+	if err != nil {
+		t.Fatalf("build shop: %v", err)
+	}
+	support, err := accountsupport.New(pool, accountsupport.Options{Logger: logger})
+	if err != nil {
+		t.Fatalf("build support: %v", err)
+	}
+	referral, err := accountreferral.New(pool, accountreferral.Options{Logger: logger})
+	if err != nil {
+		t.Fatalf("build referral: %v", err)
+	}
+
+	handlers := NewAccountHandlers(AccountOptions{
+		Logger: logger, Checkout: checkout, Shop: shop, Support: support, Referral: referral,
+	})
+	router := chi.NewRouter()
+	handlers.Mount(router)
+	return router
+}
+
+// Every v0.10 route sits behind the session gate.
+//
+// The surfaces are mounted by four separate functions, so a Mount call placed
+// outside the authenticated group would expose a whole area — an order history,
+// a support conversation, a personal-data export — to anyone who asked. That is
+// the failure this test exists to catch, and it is cheap enough to enumerate
+// every route rather than a sample.
+func TestAccountCommerceRoutesRequireASession(t *testing.T) {
+	router := newMountedAccountRouter(t)
+	const uuid = "2f1c0c2e-0000-4000-8000-000000000000"
+	cases := []struct{ method, path string }{
+		{http.MethodGet, "/v1/account/plans"},
+		{http.MethodGet, "/v1/account/plans/" + uuid},
+		{http.MethodGet, "/v1/account/checkout"},
+		{http.MethodPost, "/v1/account/checkout"},
+		{http.MethodPatch, "/v1/account/checkout"},
+		{http.MethodDelete, "/v1/account/checkout"},
+		{http.MethodPost, "/v1/account/checkout/promo"},
+		{http.MethodDelete, "/v1/account/checkout/promo"},
+		{http.MethodPost, "/v1/account/checkout/addons/" + uuid},
+		{http.MethodPost, "/v1/account/checkout/confirm"},
+		{http.MethodGet, "/v1/account/orders"},
+		{http.MethodGet, "/v1/account/orders/" + uuid},
+		{http.MethodPost, "/v1/account/orders/" + uuid + "/payment"},
+		{http.MethodPost, "/v1/account/orders/" + uuid + "/refresh"},
+		{http.MethodPost, "/v1/account/orders/" + uuid + "/cancel"},
+		{http.MethodGet, "/v1/account/wallet"},
+		{http.MethodPost, "/v1/account/wallet/top-up"},
+
+		{http.MethodGet, "/v1/account/shop/products"},
+		{http.MethodGet, "/v1/account/shop/products/" + uuid},
+		{http.MethodPost, "/v1/account/shop/recipient"},
+		{http.MethodPost, "/v1/account/shop/purchase"},
+		{http.MethodGet, "/v1/account/shop/orders"},
+		{http.MethodGet, "/v1/account/shop/orders/" + uuid},
+
+		{http.MethodGet, "/v1/account/support/limits"},
+		{http.MethodGet, "/v1/account/support/tickets"},
+		{http.MethodPost, "/v1/account/support/tickets"},
+		{http.MethodGet, "/v1/account/support/tickets/" + uuid},
+		{http.MethodPost, "/v1/account/support/tickets/" + uuid + "/messages"},
+		{http.MethodPost, "/v1/account/support/tickets/" + uuid + "/read"},
+		{http.MethodPost, "/v1/account/support/tickets/" + uuid + "/close"},
+		{http.MethodPost, "/v1/account/support/tickets/" + uuid + "/reopen"},
+		{http.MethodPost, "/v1/account/support/tickets/" + uuid + "/attachments"},
+		{http.MethodGet, "/v1/account/support/attachments/" + uuid},
+		{http.MethodGet, "/v1/account/news"},
+		{http.MethodPost, "/v1/account/news/" + uuid + "/read"},
+		{http.MethodGet, "/v1/account/preferences"},
+		{http.MethodPatch, "/v1/account/preferences"},
+		{http.MethodPost, "/v1/account/preferences/unsubscribe"},
+
+		{http.MethodGet, "/v1/account/referrals"},
+		{http.MethodGet, "/v1/account/loyalty"},
+		{http.MethodGet, "/v1/account/contacts"},
+		{http.MethodPost, "/v1/account/contacts"},
+		{http.MethodDelete, "/v1/account/contacts/" + uuid},
+		{http.MethodGet, "/v1/account/privacy"},
+		{http.MethodPost, "/v1/account/privacy/export"},
+		{http.MethodPost, "/v1/account/privacy/deletion"},
+		{http.MethodDelete, "/v1/account/privacy/deletion"},
+	}
+	for _, testCase := range cases {
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, httptest.NewRequest(testCase.method, testCase.path, nil))
+		if recorder.Code == http.StatusNotFound {
+			t.Fatalf("%s %s is not routed", testCase.method, testCase.path)
+		}
+		if recorder.Code != http.StatusUnauthorized {
+			t.Fatalf("%s %s answered %d, want 401", testCase.method, testCase.path, recorder.Code)
+		}
+	}
+}
+
+// An installation that attaches no commerce, shop, support, or referral service
+// has no such routes at all.
+//
+// It answers 404 rather than 503 deliberately. 503 says "this exists and is
+// broken", which would be a lie about an installation that simply does not sell
+// digital goods, and it would also tell an anonymous caller what the operator
+// has configured.
+func TestAccountV010SurfacesAreAbsentWithoutTheirServices(t *testing.T) {
+	router := newAccountRouter()
+	for _, path := range []string{
+		"/v1/account/plans", "/v1/account/checkout", "/v1/account/orders", "/v1/account/wallet",
+		"/v1/account/shop/products", "/v1/account/support/tickets", "/v1/account/news",
+		"/v1/account/preferences", "/v1/account/referrals", "/v1/account/loyalty",
+		"/v1/account/contacts", "/v1/account/privacy",
+	} {
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path, nil))
+		if recorder.Code != http.StatusNotFound {
+			t.Fatalf("%s answered %d with no service attached, want 404", path, recorder.Code)
+		}
+	}
+}
+
+// The two actions a customer cannot undo need a recent sign-in, not merely a
+// session. A session left open on a shared machine must not be enough to strip
+// somebody's way back into their account or to start deleting it.
+func TestIrreversibleAccountActionsRequireRecentAuthentication(t *testing.T) {
+	router := newMountedAccountRouter(t)
+	for _, path := range []string{
+		"/v1/account/sign-in-methods/2f1c0c2e-0000-4000-8000-000000000000",
+		"/v1/account/privacy/deletion",
+	} {
+		recorder := httptest.NewRecorder()
+		method := http.MethodDelete
+		if strings.HasSuffix(path, "deletion") {
+			method = http.MethodPost
+		}
+		router.ServeHTTP(recorder, httptest.NewRequest(method, path, nil))
+		// Without any session at all the session gate answers first, which is the
+		// correct order: the reauthentication gate runs inside it.
+		if recorder.Code != http.StatusUnauthorized {
+			t.Fatalf("%s %s answered %d, want 401", method, path, recorder.Code)
 		}
 	}
 }

@@ -128,6 +128,21 @@ type Config struct {
 	AdminPanel                AdminPanelConfig
 	CustomerPanel             CustomerPanelConfig
 	PublicURL                 string
+	// TermsURL, RecoveryWindow, and MinimumTrialAccountAge read the same
+	// variables the bot reads. The customer web panel checks out against the
+	// same rules the bot does, so one .env has to configure both processes
+	// identically — a trial that a chat refuses and a browser grants would be an
+	// abuse control with a hole in it.
+	TermsURL               string
+	RecoveryWindow         time.Duration
+	MinimumTrialAccountAge time.Duration
+	// SupportAttachmentDir is where a file uploaded through the customer web
+	// panel is kept. A ticket opened in Telegram stores only a Telegram file
+	// reference, because the bytes stay with Telegram; a browser upload has no
+	// such custodian, so the installation holds it. Empty means the default
+	// under /var/lib/omniflow, following the same convention as the backup
+	// directory: a fixed path a deployment mounts a volume at.
+	SupportAttachmentDir string
 }
 
 // CustomerPanelConfig configures the customer web panel API introduced in v0.9.
@@ -222,6 +237,11 @@ type WorkerConfig struct {
 	// digital goods, not because it stores anything of its own.
 	DataEncryptionKey []byte
 	DefaultCurrency   string
+	// SupportAttachmentDir is the directory the API writes web uploads to. The
+	// worker reads the same value because it is the process that reclaims a file
+	// once its row passes retention, and a worker pointed at a different
+	// directory would delete rows while leaving every byte on disk.
+	SupportAttachmentDir string
 	// Payment credentials. The worker holds them because it is the process that
 	// charges automatic renewals: a renewal is a charge against a provider, and
 	// a worker without the adapter could only ever record that it failed.
@@ -255,6 +275,10 @@ func Load() (Config, error) {
 		AdminPanel:                loadAdminPanel(),
 		CustomerPanel:             loadCustomerPanel(),
 		PublicURL:                 os.Getenv("APP_PUBLIC_URL"),
+		TermsURL:                  os.Getenv("APP_TERMS_URL"),
+		RecoveryWindow:            hourEnvOr("APP_RECOVERY_WINDOW_HOURS", 14*24*time.Hour),
+		MinimumTrialAccountAge:    hourEnvOr("APP_TRIAL_MINIMUM_ACCOUNT_AGE_HOURS", 0),
+		SupportAttachmentDir:      os.Getenv("APP_SUPPORT_ATTACHMENT_DIR"),
 	}
 	if encodedKey := os.Getenv("APP_DATA_ENCRYPTION_KEY"); encodedKey != "" {
 		key, err := decodeKey(encodedKey)
@@ -376,6 +400,8 @@ func LoadWorker() (WorkerConfig, error) {
 		CryptoBotTestnet: boolEnvOr("APP_CRYPTOBOT_TESTNET", true),
 		YooKassaShopID:   os.Getenv("APP_YOOKASSA_SHOP_ID"),
 		YooKassaSecret:   os.Getenv("APP_YOOKASSA_SECRET"),
+
+		SupportAttachmentDir: os.Getenv("APP_SUPPORT_ATTACHMENT_DIR"),
 		Retention: RetentionConfig{
 			Outbox:    dayEnvOr("APP_RETENTION_OUTBOX_DAYS", 7*24*time.Hour),
 			Telemetry: dayEnvOr("APP_RETENTION_TELEMETRY_DAYS", 30*24*time.Hour),

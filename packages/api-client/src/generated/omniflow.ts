@@ -2623,6 +2623,973 @@ export interface AccountDeviceList {
   items: AccountDeviceListItemsItem[];
 }
 
+export interface AccountMoney {
+  amountMinor: number;
+  currency: string;
+}
+
+export type AccountPlanKind = (typeof AccountPlanKind)[keyof typeof AccountPlanKind];
+
+export const AccountPlanKind = {
+  trial: "trial",
+  one_time: "one_time",
+  recurring: "recurring",
+  manual: "manual",
+} as const;
+
+export type AccountPlanOperationsItem =
+  (typeof AccountPlanOperationsItem)[keyof typeof AccountPlanOperationsItem];
+
+export const AccountPlanOperationsItem = {
+  purchase: "purchase",
+  renew: "renew",
+  upgrade: "upgrade",
+  downgrade: "downgrade",
+} as const;
+
+export interface AccountPlan {
+  planId: string;
+  planVersionId: string;
+  code: string;
+  kind: AccountPlanKind;
+  name: string;
+  description?: string;
+  sortOrder?: number;
+  billingPeriod: string;
+  durationSeconds: number;
+  gracePeriodSeconds?: number;
+  price: AccountMoney;
+  recurringCapable?: boolean;
+  configurableSquads?: boolean;
+  /** The lifecycle actions the configured plan policy allows for this customer. */
+  operations: AccountPlanOperationsItem[];
+  eligible: boolean;
+  ineligibleReason?: string;
+  /**
+   * Null means unlimited. Nullable rather than zero because unlimited and none are different offers.
+   * @nullable
+   */
+  trafficAllowanceBytes?: number | null;
+  /**
+   * Null means unlimited.
+   * @nullable
+   */
+  deviceLimit?: number | null;
+}
+
+export interface AccountPlanList {
+  items: AccountPlan[];
+  currency: string;
+}
+
+export type AccountSquadOfferOfferedItem = {
+  squadId: string;
+  label: string;
+};
+
+export interface AccountSquadOffer {
+  /** Whether squads are assigned automatically or chosen by the customer. */
+  selection: string;
+  minimum: number;
+  /** @nullable */
+  maximum?: number | null;
+  configurable: boolean;
+  offered: AccountSquadOfferOfferedItem[];
+}
+
+export type AccountAddonOfferKind =
+  (typeof AccountAddonOfferKind)[keyof typeof AccountAddonOfferKind];
+
+export const AccountAddonOfferKind = {
+  traffic: "traffic",
+  devices: "devices",
+  squads: "squads",
+} as const;
+
+export interface AccountAddonOffer {
+  addonId: string;
+  addonVersionId: string;
+  code: string;
+  kind: AccountAddonOfferKind;
+  name: string;
+  description?: string;
+  maxQuantity: number;
+  /** The documented proration rule for this add-on. */
+  proration: string;
+  squadCount?: number;
+  price: AccountMoney;
+  /** @nullable */
+  trafficBytes?: number | null;
+  /** @nullable */
+  deviceSlots?: number | null;
+}
+
+export type AccountPlanDetailPromotionsItem = {
+  code: string;
+  kind: string;
+  value: number;
+  currency?: string;
+  eligible: boolean;
+  startsAt?: string;
+  endsAt?: string;
+};
+
+export type AccountPlanDetail = AccountPlan & {
+  squads: AccountSquadOffer;
+  addons: AccountAddonOffer[];
+  promotions: AccountPlanDetailPromotionsItem[];
+  termsUrl?: string;
+};
+
+/**
+ * The exact application breakdown. Every figure is computed on the server, so the number a customer is asked to approve and the number they are charged cannot be arrived at two different ways.
+ */
+export interface AccountCheckoutQuote {
+  currency: string;
+  subtotalMinor: number;
+  addonMinor: number;
+  discountMinor: number;
+  walletBalanceMinor: number;
+  walletAppliedMinor: number;
+  /** What still has to be settled through a provider. */
+  externalMinor: number;
+}
+
+export interface AccountPaymentChoice {
+  provider: string;
+  currency: string;
+  amountMinor?: number;
+  recurring: boolean;
+}
+
+export type AccountCheckoutOperation =
+  (typeof AccountCheckoutOperation)[keyof typeof AccountCheckoutOperation];
+
+export const AccountCheckoutOperation = {
+  purchase: "purchase",
+  renew: "renew",
+  upgrade: "upgrade",
+  downgrade: "downgrade",
+} as const;
+
+/**
+ * Why the entered code does not apply. Present on a 200, not an error.
+ */
+export type AccountCheckoutPromoRejection =
+  (typeof AccountCheckoutPromoRejection)[keyof typeof AccountCheckoutPromoRejection];
+
+export const AccountCheckoutPromoRejection = {
+  promo_unknown: "promo_unknown",
+  promo_ineligible: "promo_ineligible",
+  promo_exhausted: "promo_exhausted",
+  promo_invalid: "promo_invalid",
+} as const;
+
+export type AccountCheckoutSubscriptionsItem = {
+  id: string;
+  slot: number;
+  label?: string;
+  plan: string;
+  status: string;
+  endsAt?: string;
+};
+
+export type AccountCheckoutSelectedAddonsItem = {
+  addonVersionId: string;
+  quantity: number;
+};
+
+export interface AccountCheckout {
+  id: string;
+  planVersionId: string;
+  plan: AccountPlan;
+  operation: AccountCheckoutOperation;
+  currency: string;
+  provider?: string;
+  providers: AccountPaymentChoice[];
+  applyWallet: boolean;
+  quote: AccountCheckoutQuote;
+  promoCode?: string;
+  /** Why the entered code does not apply. Present on a 200, not an error. */
+  promoRejection?: AccountCheckoutPromoRejection;
+  subscriptionId?: string;
+  newSubscription?: boolean;
+  /** The subscriptions this checkout could target. */
+  subscriptions: AccountCheckoutSubscriptionsItem[];
+  /** A target must be named before this checkout can be confirmed. */
+  targetRequired: boolean;
+  /** False means the panel renders no picker at all. */
+  multiSubscription: boolean;
+  squads: AccountSquadOffer;
+  selectedSquadIds: string[];
+  addons: AccountAddonOffer[];
+  selectedAddons: AccountCheckoutSelectedAddonsItem[];
+  termsUrl?: string;
+  expiresAt?: string;
+}
+
+/**
+ * How the customer completes the payment. `none` means nothing further is owed, which is what a wallet-covered order looks like.
+ */
+export type AccountPaymentHandleHandoff =
+  (typeof AccountPaymentHandleHandoff)[keyof typeof AccountPaymentHandleHandoff];
+
+export const AccountPaymentHandleHandoff = {
+  hosted: "hosted",
+  telegram_invoice: "telegram_invoice",
+  manual: "manual",
+  none: "none",
+} as const;
+
+export interface AccountPaymentHandle {
+  id: string;
+  provider: string;
+  status: string;
+  amountMinor: number;
+  currency: string;
+  /** How the customer completes the payment. `none` means nothing further is owed, which is what a wallet-covered order looks like. */
+  handoff: AccountPaymentHandleHandoff;
+  checkoutUrl?: string;
+}
+
+export type AccountOrderState = (typeof AccountOrderState)[keyof typeof AccountOrderState];
+
+export const AccountOrderState = {
+  draft: "draft",
+  pending: "pending",
+  paid: "paid",
+  fulfilled: "fulfilled",
+  cancelled: "cancelled",
+  expired: "expired",
+  partially_refunded: "partially_refunded",
+  refunded: "refunded",
+} as const;
+
+export type AccountOrderPaymentHandoff =
+  (typeof AccountOrderPaymentHandoff)[keyof typeof AccountOrderPaymentHandoff];
+
+export const AccountOrderPaymentHandoff = {
+  hosted: "hosted",
+  telegram_invoice: "telegram_invoice",
+  manual: "manual",
+  none: "none",
+} as const;
+
+export type AccountOrderPayment = {
+  id: string;
+  provider: string;
+  status: string;
+  handoff: AccountOrderPaymentHandoff;
+  checkoutUrl?: string;
+  receiptUrl?: string;
+};
+
+/**
+ * Provisioning progress, read from the fulfillment operation rather than carried by the client.
+ */
+export type AccountOrderFulfillment = {
+  status: string;
+  attempts: number;
+  errorCode?: string;
+  updatedAt?: string;
+};
+
+export type AccountOrderRefundsItem = {
+  status: string;
+  amountMinor: number;
+  currency: string;
+  createdAt: string;
+};
+
+export interface AccountOrder {
+  id: string;
+  state: AccountOrderState;
+  operation: string;
+  /** The combined payment and provisioning state the panel renders: what the customer is waiting for, rather than which table changed. */
+  phase: string;
+  currency: string;
+  subtotalMinor: number;
+  discountMinor: number;
+  walletMinor: number;
+  externalMinor: number;
+  paidMinor: number;
+  refundedMinor: number;
+  plan: string;
+  subscriptionId?: string;
+  createdAt: string;
+  expiresAt?: string;
+  payment?: AccountOrderPayment;
+  /** Provisioning progress, read from the fulfillment operation rather than carried by the client. */
+  fulfillment?: AccountOrderFulfillment;
+  refunds?: AccountOrderRefundsItem[];
+}
+
+export interface AccountOrderPage {
+  items: AccountOrder[];
+  nextCursor?: string;
+  nextCursorId?: string;
+}
+
+export type AccountWalletBalancesItem = {
+  currency: string;
+  totalMinor: number;
+  reservedMinor: number;
+  availableMinor: number;
+};
+
+export type AccountWalletTopUp = {
+  enabled: boolean;
+  minimumMinor: number;
+  maximumMinor: number;
+  presets: number[];
+  /** What the rolling-window limit still allows. */
+  remainingWindowMinor?: number;
+  providers: AccountPaymentChoice[];
+};
+
+export type AccountWalletEntriesItem = {
+  id: string;
+  type: string;
+  amountMinor: number;
+  currency: string;
+  reason?: string;
+  occurredAt: string;
+};
+
+export interface AccountWallet {
+  /** One entry per currency. Currencies are isolated; a balance in one never funds an order in another. */
+  balances: AccountWalletBalancesItem[];
+  currency: string;
+  topUp: AccountWalletTopUp;
+  entries: AccountWalletEntriesItem[];
+  nextCursor?: string;
+  nextCursorId?: string;
+}
+
+export type AccountReferralsProgram = {
+  enabled: boolean;
+  currency: string;
+  inviterRewardMinor: number;
+  inviteeRewardMinor: number;
+  qualification: string;
+  attributionValidityDays?: number;
+  /** @nullable */
+  inviterRewardCap?: number | null;
+  /** @nullable */
+  rewardExpiryDays?: number | null;
+  termsUrl?: string;
+};
+
+/**
+ * Why no link could be built. The code is still shown; a link to nowhere is not.
+ */
+export type AccountReferralsLinkReason =
+  (typeof AccountReferralsLinkReason)[keyof typeof AccountReferralsLinkReason];
+
+export const AccountReferralsLinkReason = {
+  public_url_not_configured: "public_url_not_configured",
+  no_code: "no_code",
+} as const;
+
+export type AccountReferralsRewardsItemsItemRole =
+  (typeof AccountReferralsRewardsItemsItemRole)[keyof typeof AccountReferralsRewardsItemsItemRole];
+
+export const AccountReferralsRewardsItemsItemRole = {
+  inviter: "inviter",
+  invitee: "invitee",
+} as const;
+
+export type AccountReferralsRewardsItemsItemState =
+  (typeof AccountReferralsRewardsItemsItemState)[keyof typeof AccountReferralsRewardsItemsItemState];
+
+export const AccountReferralsRewardsItemsItemState = {
+  pending: "pending",
+  qualified: "qualified",
+  rejected: "rejected",
+} as const;
+
+export type AccountReferralsRewardsItemsItem = {
+  id: string;
+  role: AccountReferralsRewardsItemsItemRole;
+  state: AccountReferralsRewardsItemsItemState;
+  amountMinor: number;
+  currency: string;
+  grantedAt: string;
+  reversedAt?: string;
+};
+
+export type AccountReferralsRewards = {
+  items: AccountReferralsRewardsItemsItem[];
+  nextCursor?: string;
+};
+
+export interface AccountReferrals {
+  program: AccountReferralsProgram;
+  code: string;
+  link: string;
+  linkAvailable: boolean;
+  /** Why no link could be built. The code is still shown; a link to nowhere is not. */
+  linkReason?: AccountReferralsLinkReason;
+  invited: number;
+  qualified: number;
+  pending: number;
+  rejected: number;
+  /** Excludes reversed rewards. */
+  rewardedMinor: number;
+  reversedMinor: number;
+  rewardCount: number;
+  currency: string;
+  /** @nullable */
+  remainingSlots?: number | null;
+  rewards: AccountReferralsRewards;
+}
+
+export type AccountLoyaltyRules = {
+  metric?: string;
+  currency?: string;
+  windowDays?: number;
+  graceDays?: number;
+  version?: string;
+};
+
+export type AccountLoyaltyTiersItem = {
+  code: string;
+  nameEn: string;
+  nameRu: string;
+  threshold: number;
+  discountBps: number;
+  current: boolean;
+};
+
+/**
+ * `enabled: false` is the whole document when no program runs.
+ */
+export interface AccountLoyalty {
+  enabled: boolean;
+  rules?: AccountLoyaltyRules;
+  tiers?: AccountLoyaltyTiersItem[];
+  evaluated?: boolean;
+  tier?: string;
+  next?: string;
+  metric?: number;
+  remaining?: number;
+  percent?: number;
+  evaluatedAt?: string;
+  graceUntil?: string;
+}
+
+export type AccountContactKind = (typeof AccountContactKind)[keyof typeof AccountContactKind];
+
+export const AccountContactKind = {
+  email: "email",
+  phone: "phone",
+  telegram: "telegram",
+} as const;
+
+/**
+ * Flags only. The stored value is never returned.
+ */
+export interface AccountContact {
+  id: string;
+  kind: AccountContactKind;
+  verified: boolean;
+  transactional: boolean;
+  marketing: boolean;
+  createdAt: string;
+}
+
+export interface AccountContactList {
+  items: AccountContact[];
+}
+
+export interface AccountDeletion {
+  pending: boolean;
+  requestedAt?: string;
+  cancelledAt?: string;
+  reason?: string;
+  /** Who actually deletes. The panel records the request; the retention workflow carries it out. */
+  executedBy: string;
+}
+
+export type AccountPrivacyRetentionStatus =
+  (typeof AccountPrivacyRetentionStatus)[keyof typeof AccountPrivacyRetentionStatus];
+
+export const AccountPrivacyRetentionStatus = {
+  active: "active",
+  suspended: "suspended",
+  deleted: "deleted",
+} as const;
+
+export type AccountPrivacyRetention = {
+  status: AccountPrivacyRetentionStatus;
+  suspendedAt?: string;
+  deletedAt?: string;
+  anonymizedAt?: string;
+  retentionUntil?: string;
+};
+
+export type AccountPrivacyConsentsCurrent = { [key: string]: boolean };
+
+export type AccountPrivacyConsentsHistoryItemPurpose =
+  (typeof AccountPrivacyConsentsHistoryItemPurpose)[keyof typeof AccountPrivacyConsentsHistoryItemPurpose];
+
+export const AccountPrivacyConsentsHistoryItemPurpose = {
+  terms: "terms",
+  privacy: "privacy",
+  marketing: "marketing",
+  profiling: "profiling",
+} as const;
+
+export type AccountPrivacyConsentsHistoryItem = {
+  purpose: AccountPrivacyConsentsHistoryItemPurpose;
+  granted: boolean;
+  policyVersion?: string;
+  source?: string;
+  occurredAt: string;
+};
+
+export type AccountPrivacyConsents = {
+  current: AccountPrivacyConsentsCurrent;
+  history: AccountPrivacyConsentsHistoryItem[];
+};
+
+export type AccountPrivacyExport = {
+  sections: string[];
+  redactions: string[];
+  contactValuesAvailable: boolean;
+};
+
+export interface AccountPrivacy {
+  retention: AccountPrivacyRetention;
+  deletion: AccountDeletion;
+  consents: AccountPrivacyConsents;
+  export: AccountPrivacyExport;
+}
+
+export type AccountExportVersion = (typeof AccountExportVersion)[keyof typeof AccountExportVersion];
+
+export const AccountExportVersion = {
+  "omniflowaccountexport/1": "omniflow.account.export/1",
+} as const;
+
+export type AccountExportProfile = { [key: string]: unknown };
+
+export type AccountExportIdentitiesItem = { [key: string]: unknown };
+
+export type AccountExportContactsItem = { [key: string]: unknown };
+
+export type AccountExportSubscriptionsItem = { [key: string]: unknown };
+
+export type AccountExportEntitlementsItem = { [key: string]: unknown };
+
+export type AccountExportOrdersItem = { [key: string]: unknown };
+
+export type AccountExportPaymentsItem = { [key: string]: unknown };
+
+export type AccountExportWalletItem = { [key: string]: unknown };
+
+export type AccountExportSupportItem = { [key: string]: unknown };
+
+export type AccountExportReferral = { [key: string]: unknown };
+
+export type AccountExportLoyalty = { [key: string]: unknown };
+
+export type AccountExportConsentsItem = { [key: string]: unknown };
+
+export type AccountExportLifecycleItem = { [key: string]: unknown };
+
+/**
+ * The customer's own records. It names what it left out in `redactions` and which sections hit the per-section row cap in `truncated`, because an export that silently omitted something would be worse than one that says so.
+ */
+export interface AccountExport {
+  version: AccountExportVersion;
+  generatedAt: string;
+  profile: AccountExportProfile;
+  identities?: AccountExportIdentitiesItem[];
+  contacts?: AccountExportContactsItem[];
+  subscriptions?: AccountExportSubscriptionsItem[];
+  entitlements?: AccountExportEntitlementsItem[];
+  orders?: AccountExportOrdersItem[];
+  payments?: AccountExportPaymentsItem[];
+  wallet?: AccountExportWalletItem[];
+  support?: AccountExportSupportItem[];
+  referral?: AccountExportReferral;
+  loyalty?: AccountExportLoyalty;
+  consents?: AccountExportConsentsItem[];
+  lifecycle?: AccountExportLifecycleItem[];
+  redactions: string[];
+  truncated: string[];
+}
+
+export type AccountShopProductKind =
+  (typeof AccountShopProductKind)[keyof typeof AccountShopProductKind];
+
+export const AccountShopProductKind = {
+  telegram_premium: "telegram_premium",
+  telegram_stars: "telegram_stars",
+} as const;
+
+export interface AccountShopProduct {
+  id: string;
+  code: string;
+  kind: AccountShopProductKind;
+  name: string;
+  description?: string;
+  currency: string;
+  available: boolean;
+  /** Whether `priceMinor` is a published number. False means the product is priced when it is opened, so a screen never has to read a missing price as zero. */
+  priceKnown: boolean;
+  priceMinor?: number;
+  /** Telegram Premium only. */
+  durationMonths?: number;
+  /** Telegram Stars only. */
+  starQuantity?: number;
+}
+
+export interface AccountShopProductList {
+  items: AccountShopProduct[];
+}
+
+/**
+ * A price and the moment it stops applying. The two travel together so a client cannot hold one without the other.
+ */
+export interface AccountShopQuote {
+  priceMinor: number;
+  currency: string;
+  expiresAt: string;
+}
+
+export type AccountShopProductDetailPromo = {
+  code: string;
+  discountMinor: number;
+  /** Why the code does not apply. Previewed only; nothing is redeemed here. */
+  rejection?: string;
+};
+
+export type AccountShopProductDetail = AccountShopProduct & {
+  quantity: number;
+  quote: AccountShopQuote;
+  promo?: AccountShopProductDetailPromo;
+};
+
+/**
+ * `needs_review` is an ambiguous delivery parked for an operator. There is no retry route for it: the gateway honours no idempotency key, so retrying could deliver and charge twice.
+ */
+export type AccountShopDeliveryState =
+  (typeof AccountShopDeliveryState)[keyof typeof AccountShopDeliveryState];
+
+export const AccountShopDeliveryState = {
+  awaiting_payment: "awaiting_payment",
+  queued: "queued",
+  submitted: "submitted",
+  polling: "polling",
+  delayed: "delayed",
+  delivered: "delivered",
+  needs_review: "needs_review",
+  refunded: "refunded",
+  failed: "failed",
+  cancelled: "cancelled",
+} as const;
+
+export type AccountShopDeliveryFailureReason =
+  (typeof AccountShopDeliveryFailureReason)[keyof typeof AccountShopDeliveryFailureReason];
+
+export const AccountShopDeliveryFailureReason = {
+  retryable: "retryable",
+  permanent: "permanent",
+  recipient_invalid: "recipient_invalid",
+  provider_balance: "provider_balance",
+  provider_unavailable: "provider_unavailable",
+  ambiguous: "ambiguous",
+} as const;
+
+export type AccountShopDeliveryRefund = {
+  amountMinor: number;
+  currency: string;
+};
+
+export interface AccountShopDelivery {
+  /** `needs_review` is an ambiguous delivery parked for an operator. There is no retry route for it: the gateway honours no idempotency key, so retrying could deliver and charge twice. */
+  state: AccountShopDeliveryState;
+  attempts: number;
+  /** True only for needs_review and failed. */
+  supportHandoff: boolean;
+  supportReference: string;
+  failureReason?: AccountShopDeliveryFailureReason;
+  deliveredAt?: string;
+  updatedAt?: string;
+  refund?: AccountShopDeliveryRefund;
+}
+
+export type AccountShopOrderKind = (typeof AccountShopOrderKind)[keyof typeof AccountShopOrderKind];
+
+export const AccountShopOrderKind = {
+  telegram_premium: "telegram_premium",
+  telegram_stars: "telegram_stars",
+} as const;
+
+export type AccountShopOrderAmounts = {
+  priceMinor: number;
+  discountMinor: number;
+  walletMinor: number;
+  externalMinor: number;
+  paidMinor: number;
+};
+
+export type AccountShopOrderPayment = {
+  state: string;
+  required: boolean;
+  /** An enabled provider settles this currency. False is stated rather than dead-ended. */
+  possible: boolean;
+};
+
+export interface AccountShopOrder {
+  id: string;
+  productName: string;
+  kind: AccountShopOrderKind;
+  quantity: number;
+  recipient: string;
+  forSelf: boolean;
+  currency: string;
+  amounts: AccountShopOrderAmounts;
+  payment: AccountShopOrderPayment;
+  delivery: AccountShopDelivery;
+  createdAt?: string;
+}
+
+export interface AccountShopOrderPage {
+  items: AccountShopOrder[];
+  nextCursor?: string;
+  nextCursorId?: string;
+}
+
+export interface AccountSupportLimits {
+  maxAttachmentBytes: number;
+  allowedMediaTypes: string[];
+  maxOpenTickets: number;
+  maxSubjectLength: number;
+  maxMessageLength: number;
+}
+
+export type AccountTicketStatus = (typeof AccountTicketStatus)[keyof typeof AccountTicketStatus];
+
+export const AccountTicketStatus = {
+  open: "open",
+  pending: "pending",
+  resolved: "resolved",
+  closed: "closed",
+  merged: "merged",
+} as const;
+
+export interface AccountTicket {
+  id: string;
+  subject: string;
+  status: AccountTicketStatus;
+  /** Counts against the open-conversation quota. */
+  open: boolean;
+  canReply: boolean;
+  unreadCount: number;
+  mergedIntoTicketId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AccountTicketPage {
+  items: AccountTicket[];
+  nextCursor?: string;
+}
+
+export type AccountConversationMessagesItemAuthor =
+  (typeof AccountConversationMessagesItemAuthor)[keyof typeof AccountConversationMessagesItemAuthor];
+
+export const AccountConversationMessagesItemAuthor = {
+  customer: "customer",
+  operator: "operator",
+  system: "system",
+} as const;
+
+export type AccountConversationMessagesItemAttachmentsItem = {
+  id: string;
+  fileName: string;
+  mimeType?: string;
+  sizeBytes: number;
+  /** False for a file that lives in Telegram rather than here. */
+  downloadable: boolean;
+};
+
+export type AccountConversationMessagesItem = {
+  id: string;
+  author: AccountConversationMessagesItemAuthor;
+  body: string;
+  unread: boolean;
+  createdAt: string;
+  attachments?: AccountConversationMessagesItemAttachmentsItem[];
+};
+
+export interface AccountConversation {
+  ticket: AccountTicket;
+  messages: AccountConversationMessagesItem[];
+}
+
+export type AccountNewsPageItemsItemCategory =
+  (typeof AccountNewsPageItemsItemCategory)[keyof typeof AccountNewsPageItemsItemCategory];
+
+export const AccountNewsPageItemsItemCategory = {
+  news: "news",
+  announcement: "announcement",
+  incident: "incident",
+  maintenance: "maintenance",
+} as const;
+
+export type AccountNewsPageItemsItem = {
+  id: string;
+  slug?: string;
+  category: AccountNewsPageItemsItemCategory;
+  title: string;
+  body: string;
+  read: boolean;
+  publishedAt: string;
+};
+
+export type AccountNewsPageLocale =
+  (typeof AccountNewsPageLocale)[keyof typeof AccountNewsPageLocale];
+
+export const AccountNewsPageLocale = {
+  ru: "ru",
+  en: "en",
+} as const;
+
+export interface AccountNewsPage {
+  items: AccountNewsPageItemsItem[];
+  unreadCount: number;
+  locale: AccountNewsPageLocale;
+  nextCursor?: string;
+}
+
+export type AccountPreferencesLocale =
+  (typeof AccountPreferencesLocale)[keyof typeof AccountPreferencesLocale];
+
+export const AccountPreferencesLocale = {
+  auto: "auto",
+  ru: "ru",
+  en: "en",
+} as const;
+
+export type AccountPreferencesNotifications = {
+  expiry: boolean;
+  traffic: boolean;
+  renewal: boolean;
+  news: boolean;
+};
+
+/**
+ * Absent when unset.
+ */
+export type AccountPreferencesQuietHours = {
+  /**
+   * @minimum 0
+   * @maximum 23
+   */
+  startHour: number;
+  /**
+   * @minimum 0
+   * @maximum 23
+   */
+  endHour: number;
+};
+
+export type AccountPreferencesMarketing = {
+  enabled: boolean;
+  decidedAt?: string;
+  /** Which surface recorded the decision. */
+  source?: string;
+  policyVersion?: string;
+};
+
+export type AccountPreferencesContactsItemKind =
+  (typeof AccountPreferencesContactsItemKind)[keyof typeof AccountPreferencesContactsItemKind];
+
+export const AccountPreferencesContactsItemKind = {
+  email: "email",
+  phone: "phone",
+  telegram: "telegram",
+} as const;
+
+export type AccountPreferencesContactsItem = {
+  id: string;
+  kind: AccountPreferencesContactsItemKind;
+  verified: boolean;
+  transactional: boolean;
+  marketing: boolean;
+  createdAt: string;
+};
+
+export type AccountPreferencesSuppressionReason =
+  (typeof AccountPreferencesSuppressionReason)[keyof typeof AccountPreferencesSuppressionReason];
+
+export const AccountPreferencesSuppressionReason = {
+  customer_request: "customer_request",
+  bounced: "bounced",
+  complaint: "complaint",
+  operator: "operator",
+} as const;
+
+export type AccountPreferencesSuppression = {
+  reason: AccountPreferencesSuppressionReason;
+  createdAt: string;
+};
+
+export interface AccountPreferences {
+  locale: AccountPreferencesLocale;
+  notifications: AccountPreferencesNotifications;
+  /** Absent when unset. */
+  quietHours?: AccountPreferencesQuietHours;
+  marketing: AccountPreferencesMarketing;
+  /** Flags only. The address itself is never returned. */
+  contacts: AccountPreferencesContactsItem[];
+  suppression?: AccountPreferencesSuppression;
+}
+
+export type AccountPreferencesUpdateLocale =
+  (typeof AccountPreferencesUpdateLocale)[keyof typeof AccountPreferencesUpdateLocale];
+
+export const AccountPreferencesUpdateLocale = {
+  auto: "auto",
+  ru: "ru",
+  en: "en",
+} as const;
+
+export type AccountPreferencesUpdateNotifications = {
+  expiry?: boolean;
+  traffic?: boolean;
+  renewal?: boolean;
+  news?: boolean;
+};
+
+export type AccountPreferencesUpdateQuietHours = {
+  /**
+   * @minimum 0
+   * @maximum 23
+   */
+  startHour: number;
+  /**
+   * @minimum 0
+   * @maximum 23
+   */
+  endHour: number;
+};
+
+/**
+ * Every field is optional and an absent field is left unchanged, so a screen that renders one toggle never sends back a document it did not read. Equal quiet-hours bounds clear the window.
+ */
+export interface AccountPreferencesUpdate {
+  locale?: AccountPreferencesUpdateLocale;
+  notifications?: AccountPreferencesUpdateNotifications;
+  quietHours?: AccountPreferencesUpdateQuietHours;
+  /** Appends a consent record; it never rewrites one. */
+  marketing?: boolean;
+}
+
 export interface CustomerOidcProvider {
   slug: string;
   displayName: string;
@@ -2698,6 +3665,11 @@ export type CursorParameter = string;
 export type CSRFTokenParameter = string;
 
 export type IdempotencyKeyParameter = string;
+
+/**
+ * Optional here. Supplying one makes a repeated submission resolve to the record already created instead of a second one.
+ */
+export type IdempotencyKeyOptionalParameter = string;
 
 export type PageSizeParameter = number;
 
@@ -3330,6 +4302,306 @@ export const RemoveAllAccountDevicesConfirm = {
 export type RemoveAllAccountDevices200 = {
   removed: number;
 };
+
+export type ListAccountPlansParams = {
+  locale?: ListAccountPlansLocale;
+};
+
+export type ListAccountPlansLocale =
+  (typeof ListAccountPlansLocale)[keyof typeof ListAccountPlansLocale];
+
+export const ListAccountPlansLocale = {
+  ru: "ru",
+  en: "en",
+} as const;
+
+export type GetAccountPlanParams = {
+  locale?: GetAccountPlanLocale;
+};
+
+export type GetAccountPlanLocale = (typeof GetAccountPlanLocale)[keyof typeof GetAccountPlanLocale];
+
+export const GetAccountPlanLocale = {
+  ru: "ru",
+  en: "en",
+} as const;
+
+export type GetAccountCheckoutParams = {
+  locale?: GetAccountCheckoutLocale;
+};
+
+export type GetAccountCheckoutLocale =
+  (typeof GetAccountCheckoutLocale)[keyof typeof GetAccountCheckoutLocale];
+
+export const GetAccountCheckoutLocale = {
+  ru: "ru",
+  en: "en",
+} as const;
+
+export type OpenAccountCheckoutBodyOperation =
+  (typeof OpenAccountCheckoutBodyOperation)[keyof typeof OpenAccountCheckoutBodyOperation];
+
+export const OpenAccountCheckoutBodyOperation = {
+  purchase: "purchase",
+  renew: "renew",
+  upgrade: "upgrade",
+  downgrade: "downgrade",
+} as const;
+
+export type OpenAccountCheckoutBody = {
+  planVersionId: string;
+  operation: OpenAccountCheckoutBodyOperation;
+  /** Required for renew, upgrade, and downgrade when concurrent subscriptions are enabled. */
+  subscriptionId?: string;
+  newSubscription?: boolean;
+};
+
+export type UpdateAccountCheckoutBody = {
+  provider?: string;
+  currency?: string;
+  applyWallet?: boolean;
+  subscriptionId?: string;
+  squadIds?: string[];
+};
+
+export type ApplyAccountPromoCodeBody = {
+  code: string;
+};
+
+export type ListAccountOrdersParams = {
+  /**
+   * Opaque keyset cursor from the previous page.
+   */
+  cursor?: CursorParameter;
+  cursorId?: string;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: number;
+  locale?: ListAccountOrdersLocale;
+};
+
+export type ListAccountOrdersLocale =
+  (typeof ListAccountOrdersLocale)[keyof typeof ListAccountOrdersLocale];
+
+export const ListAccountOrdersLocale = {
+  ru: "ru",
+  en: "en",
+} as const;
+
+export type GetAccountOrderParams = {
+  locale?: GetAccountOrderLocale;
+};
+
+export type GetAccountOrderLocale =
+  (typeof GetAccountOrderLocale)[keyof typeof GetAccountOrderLocale];
+
+export const GetAccountOrderLocale = {
+  ru: "ru",
+  en: "en",
+} as const;
+
+export type StartAccountOrderPaymentBody = {
+  provider?: string;
+};
+
+export type GetAccountWalletParams = {
+  currency?: string;
+  /**
+   * Opaque keyset cursor from the previous page.
+   */
+  cursor?: CursorParameter;
+  cursorId?: string;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: number;
+};
+
+export type StartAccountTopUpBody = {
+  /** @minimum 1 */
+  amountMinor: number;
+  currency?: string;
+  provider?: string;
+};
+
+export type GetAccountReferralsParams = {
+  /**
+   * Opaque keyset cursor from the previous page.
+   */
+  cursor?: CursorParameter;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: number;
+};
+
+export type AddAccountContactBodyKind =
+  (typeof AddAccountContactBodyKind)[keyof typeof AddAccountContactBodyKind];
+
+export const AddAccountContactBodyKind = {
+  email: "email",
+  phone: "phone",
+  telegram: "telegram",
+} as const;
+
+export type AddAccountContactBody = {
+  kind: AddAccountContactBodyKind;
+  value: string;
+  transactional?: boolean;
+  marketing?: boolean;
+};
+
+export type RequestAccountDeletionBody = {
+  confirm: true;
+  /** @minLength 1 */
+  reason: string;
+};
+
+export type ListAccountShopProductsParams = {
+  locale?: ListAccountShopProductsLocale;
+};
+
+export type ListAccountShopProductsLocale =
+  (typeof ListAccountShopProductsLocale)[keyof typeof ListAccountShopProductsLocale];
+
+export const ListAccountShopProductsLocale = {
+  ru: "ru",
+  en: "en",
+} as const;
+
+export type GetAccountShopProductParams = {
+  locale?: GetAccountShopProductLocale;
+  /**
+   * @minimum 1
+   * @maximum 10
+   */
+  quantity?: number;
+  promoCode?: string;
+};
+
+export type GetAccountShopProductLocale =
+  (typeof GetAccountShopProductLocale)[keyof typeof GetAccountShopProductLocale];
+
+export const GetAccountShopProductLocale = {
+  ru: "ru",
+  en: "en",
+} as const;
+
+export type ReviewAccountShopRecipientBody = {
+  recipient: string;
+  productId?: string;
+};
+
+export type ReviewAccountShopRecipient200 = {
+  /** The exact handle the gateway will be given. */
+  recipient: string;
+  /** The provider confirmed the handle exists. False when the adapter cannot check. */
+  checked: boolean;
+};
+
+export type PurchaseAccountShopProductBody = {
+  productId: string;
+  /**
+   * @minimum 1
+   * @maximum 10
+   */
+  quantity: number;
+  recipient: string;
+  /** Presentation only. Omniflow stores no Telegram username for a web customer, so this never decides delivery or authorisation. */
+  forSelf?: boolean;
+  quote: AccountShopQuote;
+  promoCode?: string;
+  /** Stated explicitly, so a balance is never spent by omission. */
+  useWallet?: boolean;
+};
+
+export type ListAccountShopOrdersParams = {
+  /**
+   * Opaque keyset cursor from the previous page.
+   */
+  cursor?: CursorParameter;
+  cursorId?: string;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: number;
+  locale?: ListAccountShopOrdersLocale;
+};
+
+export type ListAccountShopOrdersLocale =
+  (typeof ListAccountShopOrdersLocale)[keyof typeof ListAccountShopOrdersLocale];
+
+export const ListAccountShopOrdersLocale = {
+  ru: "ru",
+  en: "en",
+} as const;
+
+export type GetAccountShopOrderParams = {
+  locale?: GetAccountShopOrderLocale;
+};
+
+export type GetAccountShopOrderLocale =
+  (typeof GetAccountShopOrderLocale)[keyof typeof GetAccountShopOrderLocale];
+
+export const GetAccountShopOrderLocale = {
+  ru: "ru",
+  en: "en",
+} as const;
+
+export type ListAccountSupportTicketsParams = {
+  /**
+   * Opaque keyset cursor from the previous page.
+   */
+  cursor?: CursorParameter;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: number;
+};
+
+export type CreateAccountSupportTicketBody = {
+  /** @minLength 1 */
+  subject: string;
+  /** @minLength 1 */
+  message: string;
+};
+
+export type ReplyToAccountSupportTicketBody = {
+  /** @minLength 1 */
+  message: string;
+};
+
+export type AttachToAccountSupportTicketBody = {
+  file: Blob;
+  message?: string;
+};
+
+export type ListAccountNewsParams = {
+  locale?: ListAccountNewsLocale;
+  /**
+   * Opaque keyset cursor from the previous page.
+   */
+  cursor?: CursorParameter;
+  /**
+   * @minimum 1
+   * @maximum 50
+   */
+  limit?: number;
+};
+
+export type ListAccountNewsLocale =
+  (typeof ListAccountNewsLocale)[keyof typeof ListAccountNewsLocale];
+
+export const ListAccountNewsLocale = {
+  ru: "ru",
+  en: "en",
+} as const;
 
 export type getHealthResponse200 = {
   data: Health;
@@ -17255,6 +18527,3905 @@ export const useRemoveAccountDevice = <TError = Promise<ProblemResponse>>(
 
   const swrKey = swrOptions?.swrKey ?? getRemoveAccountDeviceMutationKey(subscriptionID, handle);
   const swrFn = getRemoveAccountDeviceMutationFetcher(subscriptionID, handle, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listAccountPlansResponse200 = {
+  data: AccountPlanList;
+  status: 200;
+};
+
+export type listAccountPlansResponseSuccess = listAccountPlansResponse200 & {
+  headers: Headers;
+};
+
+export type listAccountPlansResponse = listAccountPlansResponseSuccess;
+
+export const getListAccountPlansUrl = (params?: ListAccountPlansParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/account/plans?${stringifiedParams}`
+    : `/v1/account/plans`;
+};
+
+/**
+ * The comparable catalogue, with this customer's eligibility already decided. `operations` names the lifecycle actions the configured plan policy allows against their current subscriptions, so the panel offers renew, upgrade, or downgrade because the server said so rather than because React worked it out a second time.
+ */
+export const listAccountPlans = async (
+  params?: ListAccountPlansParams,
+  options?: RequestInit,
+): Promise<listAccountPlansResponse> => {
+  const res = await fetch(getListAccountPlansUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listAccountPlansResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listAccountPlansResponse;
+};
+
+export const getListAccountPlansKey = (params?: ListAccountPlansParams) =>
+  [`/v1/account/plans`, ...(params ? [params] : [])] as const;
+
+export type ListAccountPlansQueryResult = NonNullable<Awaited<ReturnType<typeof listAccountPlans>>>;
+
+export const useListAccountPlans = <TError = Promise<unknown>>(
+  params?: ListAccountPlansParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listAccountPlans>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListAccountPlansKey(params) : null));
+  const swrFn = () => listAccountPlans(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountPlanResponse200 = {
+  data: AccountPlanDetail;
+  status: 200;
+};
+
+export type getAccountPlanResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getAccountPlanResponseSuccess = getAccountPlanResponse200 & {
+  headers: Headers;
+};
+export type getAccountPlanResponseError = getAccountPlanResponse404 & {
+  headers: Headers;
+};
+
+export type getAccountPlanResponse = getAccountPlanResponseSuccess | getAccountPlanResponseError;
+
+export const getGetAccountPlanUrl = (planVersionID: string, params?: GetAccountPlanParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/account/plans/${planVersionID}?${stringifiedParams}`
+    : `/v1/account/plans/${planVersionID}`;
+};
+
+export const getAccountPlan = async (
+  planVersionID: string,
+  params?: GetAccountPlanParams,
+  options?: RequestInit,
+): Promise<getAccountPlanResponse> => {
+  const res = await fetch(getGetAccountPlanUrl(planVersionID, params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountPlanResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountPlanResponse;
+};
+
+export const getGetAccountPlanKey = (planVersionID: string, params?: GetAccountPlanParams) =>
+  [`/v1/account/plans/${planVersionID}`, ...(params ? [params] : [])] as const;
+
+export type GetAccountPlanQueryResult = NonNullable<Awaited<ReturnType<typeof getAccountPlan>>>;
+
+export const useGetAccountPlan = <TError = Promise<ProblemResponse>>(
+  planVersionID: string,
+  params?: GetAccountPlanParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountPlan>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && planVersionID !== null && planVersionID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetAccountPlanKey(planVersionID, params) : null));
+  const swrFn = () => getAccountPlan(planVersionID, params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountCheckoutResponse200 = {
+  data: AccountCheckout;
+  status: 200;
+};
+
+export type getAccountCheckoutResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getAccountCheckoutResponseSuccess = getAccountCheckoutResponse200 & {
+  headers: Headers;
+};
+export type getAccountCheckoutResponseError = getAccountCheckoutResponse404 & {
+  headers: Headers;
+};
+
+export type getAccountCheckoutResponse =
+  | getAccountCheckoutResponseSuccess
+  | getAccountCheckoutResponseError;
+
+export const getGetAccountCheckoutUrl = (params?: GetAccountCheckoutParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/account/checkout?${stringifiedParams}`
+    : `/v1/account/checkout`;
+};
+
+/**
+ * The open checkout with a live quote. A customer has at most one, shared with the Telegram bot, so opening one in a browser supersedes one left open in a chat. `404` means none is open, which is an ordinary state rather than a failure.
+ */
+export const getAccountCheckout = async (
+  params?: GetAccountCheckoutParams,
+  options?: RequestInit,
+): Promise<getAccountCheckoutResponse> => {
+  const res = await fetch(getGetAccountCheckoutUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountCheckoutResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountCheckoutResponse;
+};
+
+export const getGetAccountCheckoutKey = (params?: GetAccountCheckoutParams) =>
+  [`/v1/account/checkout`, ...(params ? [params] : [])] as const;
+
+export type GetAccountCheckoutQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountCheckout>>
+>;
+
+export const useGetAccountCheckout = <TError = Promise<ProblemResponse>>(
+  params?: GetAccountCheckoutParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountCheckout>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetAccountCheckoutKey(params) : null));
+  const swrFn = () => getAccountCheckout(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type openAccountCheckoutResponse201 = {
+  data: AccountCheckout;
+  status: 201;
+};
+
+export type openAccountCheckoutResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type openAccountCheckoutResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type openAccountCheckoutResponseSuccess = openAccountCheckoutResponse201 & {
+  headers: Headers;
+};
+export type openAccountCheckoutResponseError = (
+  | openAccountCheckoutResponse404
+  | openAccountCheckoutResponse422
+) & {
+  headers: Headers;
+};
+
+export type openAccountCheckoutResponse =
+  | openAccountCheckoutResponseSuccess
+  | openAccountCheckoutResponseError;
+
+export const getOpenAccountCheckoutUrl = () => {
+  return `/v1/account/checkout`;
+};
+
+export const openAccountCheckout = async (
+  openAccountCheckoutBody: OpenAccountCheckoutBody,
+  options?: RequestInit,
+): Promise<openAccountCheckoutResponse> => {
+  const res = await fetch(getOpenAccountCheckoutUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(openAccountCheckoutBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: openAccountCheckoutResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as openAccountCheckoutResponse;
+};
+
+export const getOpenAccountCheckoutMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: OpenAccountCheckoutBody }) => {
+    return openAccountCheckout(arg, options);
+  };
+};
+export const getOpenAccountCheckoutMutationKey = () => [`/v1/account/checkout`] as const;
+
+export type OpenAccountCheckoutMutationResult = NonNullable<
+  Awaited<ReturnType<typeof openAccountCheckout>>
+>;
+
+export const useOpenAccountCheckout = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof openAccountCheckout>>,
+    TError,
+    Key,
+    OpenAccountCheckoutBody,
+    Awaited<ReturnType<typeof openAccountCheckout>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getOpenAccountCheckoutMutationKey();
+  const swrFn = getOpenAccountCheckoutMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type updateAccountCheckoutResponse200 = {
+  data: AccountCheckout;
+  status: 200;
+};
+
+export type updateAccountCheckoutResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type updateAccountCheckoutResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type updateAccountCheckoutResponseSuccess = updateAccountCheckoutResponse200 & {
+  headers: Headers;
+};
+export type updateAccountCheckoutResponseError = (
+  | updateAccountCheckoutResponse404
+  | updateAccountCheckoutResponse422
+) & {
+  headers: Headers;
+};
+
+export type updateAccountCheckoutResponse =
+  | updateAccountCheckoutResponseSuccess
+  | updateAccountCheckoutResponseError;
+
+export const getUpdateAccountCheckoutUrl = () => {
+  return `/v1/account/checkout`;
+};
+
+/**
+ * Every field is optional and an absent field is left unchanged, so a screen that changes the provider never has to resend the squad selection it did not touch.
+ */
+export const updateAccountCheckout = async (
+  updateAccountCheckoutBody: UpdateAccountCheckoutBody,
+  options?: RequestInit,
+): Promise<updateAccountCheckoutResponse> => {
+  const res = await fetch(getUpdateAccountCheckoutUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateAccountCheckoutBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: updateAccountCheckoutResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as updateAccountCheckoutResponse;
+};
+
+export const getUpdateAccountCheckoutMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: UpdateAccountCheckoutBody }) => {
+    return updateAccountCheckout(arg, options);
+  };
+};
+export const getUpdateAccountCheckoutMutationKey = () => [`/v1/account/checkout`] as const;
+
+export type UpdateAccountCheckoutMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAccountCheckout>>
+>;
+
+export const useUpdateAccountCheckout = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof updateAccountCheckout>>,
+    TError,
+    Key,
+    UpdateAccountCheckoutBody,
+    Awaited<ReturnType<typeof updateAccountCheckout>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getUpdateAccountCheckoutMutationKey();
+  const swrFn = getUpdateAccountCheckoutMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type cancelAccountCheckoutResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type cancelAccountCheckoutResponseSuccess = cancelAccountCheckoutResponse204 & {
+  headers: Headers;
+};
+
+export type cancelAccountCheckoutResponse = cancelAccountCheckoutResponseSuccess;
+
+export const getCancelAccountCheckoutUrl = () => {
+  return `/v1/account/checkout`;
+};
+
+export const cancelAccountCheckout = async (
+  options?: RequestInit,
+): Promise<cancelAccountCheckoutResponse> => {
+  const res = await fetch(getCancelAccountCheckoutUrl(), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: cancelAccountCheckoutResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as cancelAccountCheckoutResponse;
+};
+
+export const getCancelAccountCheckoutMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return cancelAccountCheckout(options);
+  };
+};
+export const getCancelAccountCheckoutMutationKey = () => [`/v1/account/checkout`] as const;
+
+export type CancelAccountCheckoutMutationResult = NonNullable<
+  Awaited<ReturnType<typeof cancelAccountCheckout>>
+>;
+
+export const useCancelAccountCheckout = <TError = Promise<unknown>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof cancelAccountCheckout>>,
+    TError,
+    Key,
+    Arguments,
+    Awaited<ReturnType<typeof cancelAccountCheckout>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getCancelAccountCheckoutMutationKey();
+  const swrFn = getCancelAccountCheckoutMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type applyAccountPromoCodeResponse200 = {
+  data: AccountCheckout;
+  status: 200;
+};
+
+export type applyAccountPromoCodeResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type applyAccountPromoCodeResponseSuccess = applyAccountPromoCodeResponse200 & {
+  headers: Headers;
+};
+export type applyAccountPromoCodeResponseError = applyAccountPromoCodeResponse404 & {
+  headers: Headers;
+};
+
+export type applyAccountPromoCodeResponse =
+  | applyAccountPromoCodeResponseSuccess
+  | applyAccountPromoCodeResponseError;
+
+export const getApplyAccountPromoCodeUrl = () => {
+  return `/v1/account/checkout/promo`;
+};
+
+/**
+ * A refused code answers 200 carrying `promoRejection`, not an error status. The customer asked a legitimate question and the answer is "not this one, because…"; failing the request would leave the screen with nothing to say.
+ */
+export const applyAccountPromoCode = async (
+  applyAccountPromoCodeBody: ApplyAccountPromoCodeBody,
+  options?: RequestInit,
+): Promise<applyAccountPromoCodeResponse> => {
+  const res = await fetch(getApplyAccountPromoCodeUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(applyAccountPromoCodeBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: applyAccountPromoCodeResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as applyAccountPromoCodeResponse;
+};
+
+export const getApplyAccountPromoCodeMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: ApplyAccountPromoCodeBody }) => {
+    return applyAccountPromoCode(arg, options);
+  };
+};
+export const getApplyAccountPromoCodeMutationKey = () => [`/v1/account/checkout/promo`] as const;
+
+export type ApplyAccountPromoCodeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof applyAccountPromoCode>>
+>;
+
+export const useApplyAccountPromoCode = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof applyAccountPromoCode>>,
+    TError,
+    Key,
+    ApplyAccountPromoCodeBody,
+    Awaited<ReturnType<typeof applyAccountPromoCode>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getApplyAccountPromoCodeMutationKey();
+  const swrFn = getApplyAccountPromoCodeMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type removeAccountPromoCodeResponse200 = {
+  data: AccountCheckout;
+  status: 200;
+};
+
+export type removeAccountPromoCodeResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type removeAccountPromoCodeResponseSuccess = removeAccountPromoCodeResponse200 & {
+  headers: Headers;
+};
+export type removeAccountPromoCodeResponseError = removeAccountPromoCodeResponse404 & {
+  headers: Headers;
+};
+
+export type removeAccountPromoCodeResponse =
+  | removeAccountPromoCodeResponseSuccess
+  | removeAccountPromoCodeResponseError;
+
+export const getRemoveAccountPromoCodeUrl = () => {
+  return `/v1/account/checkout/promo`;
+};
+
+export const removeAccountPromoCode = async (
+  options?: RequestInit,
+): Promise<removeAccountPromoCodeResponse> => {
+  const res = await fetch(getRemoveAccountPromoCodeUrl(), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: removeAccountPromoCodeResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as removeAccountPromoCodeResponse;
+};
+
+export const getRemoveAccountPromoCodeMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return removeAccountPromoCode(options);
+  };
+};
+export const getRemoveAccountPromoCodeMutationKey = () => [`/v1/account/checkout/promo`] as const;
+
+export type RemoveAccountPromoCodeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeAccountPromoCode>>
+>;
+
+export const useRemoveAccountPromoCode = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof removeAccountPromoCode>>,
+    TError,
+    Key,
+    Arguments,
+    Awaited<ReturnType<typeof removeAccountPromoCode>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRemoveAccountPromoCodeMutationKey();
+  const swrFn = getRemoveAccountPromoCodeMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type toggleAccountCheckoutAddonResponse200 = {
+  data: AccountCheckout;
+  status: 200;
+};
+
+export type toggleAccountCheckoutAddonResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type toggleAccountCheckoutAddonResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type toggleAccountCheckoutAddonResponseSuccess = toggleAccountCheckoutAddonResponse200 & {
+  headers: Headers;
+};
+export type toggleAccountCheckoutAddonResponseError = (
+  | toggleAccountCheckoutAddonResponse404
+  | toggleAccountCheckoutAddonResponse422
+) & {
+  headers: Headers;
+};
+
+export type toggleAccountCheckoutAddonResponse =
+  | toggleAccountCheckoutAddonResponseSuccess
+  | toggleAccountCheckoutAddonResponseError;
+
+export const getToggleAccountCheckoutAddonUrl = (addonVersionID: string) => {
+  return `/v1/account/checkout/addons/${addonVersionID}`;
+};
+
+export const toggleAccountCheckoutAddon = async (
+  addonVersionID: string,
+  options?: RequestInit,
+): Promise<toggleAccountCheckoutAddonResponse> => {
+  const res = await fetch(getToggleAccountCheckoutAddonUrl(addonVersionID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: toggleAccountCheckoutAddonResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as toggleAccountCheckoutAddonResponse;
+};
+
+export const getToggleAccountCheckoutAddonMutationFetcher = (
+  addonVersionID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return toggleAccountCheckoutAddon(addonVersionID, options);
+  };
+};
+export const getToggleAccountCheckoutAddonMutationKey = (addonVersionID: string) =>
+  [`/v1/account/checkout/addons/${addonVersionID}`] as const;
+
+export type ToggleAccountCheckoutAddonMutationResult = NonNullable<
+  Awaited<ReturnType<typeof toggleAccountCheckoutAddon>>
+>;
+
+export const useToggleAccountCheckoutAddon = <TError = Promise<ProblemResponse>>(
+  addonVersionID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof toggleAccountCheckoutAddon>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof toggleAccountCheckoutAddon>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getToggleAccountCheckoutAddonMutationKey(addonVersionID);
+  const swrFn = getToggleAccountCheckoutAddonMutationFetcher(addonVersionID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type confirmAccountCheckoutResponse201 = {
+  data: AccountOrder;
+  status: 201;
+};
+
+export type confirmAccountCheckoutResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type confirmAccountCheckoutResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type confirmAccountCheckoutResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type confirmAccountCheckoutResponseSuccess = confirmAccountCheckoutResponse201 & {
+  headers: Headers;
+};
+export type confirmAccountCheckoutResponseError = (
+  | confirmAccountCheckoutResponse404
+  | confirmAccountCheckoutResponse409
+  | confirmAccountCheckoutResponse422
+) & {
+  headers: Headers;
+};
+
+export type confirmAccountCheckoutResponse =
+  | confirmAccountCheckoutResponseSuccess
+  | confirmAccountCheckoutResponseError;
+
+export const getConfirmAccountCheckoutUrl = () => {
+  return `/v1/account/checkout/confirm`;
+};
+
+/**
+ * Turns the open checkout into an order. The checkout's own idempotency key is reused for the order, so a duplicate confirmation resolves to the order already created rather than a second one.
+ */
+export const confirmAccountCheckout = async (
+  options?: RequestInit,
+): Promise<confirmAccountCheckoutResponse> => {
+  const res = await fetch(getConfirmAccountCheckoutUrl(), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: confirmAccountCheckoutResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as confirmAccountCheckoutResponse;
+};
+
+export const getConfirmAccountCheckoutMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return confirmAccountCheckout(options);
+  };
+};
+export const getConfirmAccountCheckoutMutationKey = () => [`/v1/account/checkout/confirm`] as const;
+
+export type ConfirmAccountCheckoutMutationResult = NonNullable<
+  Awaited<ReturnType<typeof confirmAccountCheckout>>
+>;
+
+export const useConfirmAccountCheckout = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof confirmAccountCheckout>>,
+    TError,
+    Key,
+    Arguments,
+    Awaited<ReturnType<typeof confirmAccountCheckout>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getConfirmAccountCheckoutMutationKey();
+  const swrFn = getConfirmAccountCheckoutMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listAccountOrdersResponse200 = {
+  data: AccountOrderPage;
+  status: 200;
+};
+
+export type listAccountOrdersResponse400 = {
+  data: ProblemResponse;
+  status: 400;
+};
+
+export type listAccountOrdersResponseSuccess = listAccountOrdersResponse200 & {
+  headers: Headers;
+};
+export type listAccountOrdersResponseError = listAccountOrdersResponse400 & {
+  headers: Headers;
+};
+
+export type listAccountOrdersResponse =
+  | listAccountOrdersResponseSuccess
+  | listAccountOrdersResponseError;
+
+export const getListAccountOrdersUrl = (params?: ListAccountOrdersParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/account/orders?${stringifiedParams}`
+    : `/v1/account/orders`;
+};
+
+export const listAccountOrders = async (
+  params?: ListAccountOrdersParams,
+  options?: RequestInit,
+): Promise<listAccountOrdersResponse> => {
+  const res = await fetch(getListAccountOrdersUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listAccountOrdersResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listAccountOrdersResponse;
+};
+
+export const getListAccountOrdersKey = (params?: ListAccountOrdersParams) =>
+  [`/v1/account/orders`, ...(params ? [params] : [])] as const;
+
+export type ListAccountOrdersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAccountOrders>>
+>;
+
+export const useListAccountOrders = <TError = Promise<ProblemResponse>>(
+  params?: ListAccountOrdersParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listAccountOrders>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListAccountOrdersKey(params) : null));
+  const swrFn = () => listAccountOrders(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountOrderResponse200 = {
+  data: AccountOrder;
+  status: 200;
+};
+
+export type getAccountOrderResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getAccountOrderResponseSuccess = getAccountOrderResponse200 & {
+  headers: Headers;
+};
+export type getAccountOrderResponseError = getAccountOrderResponse404 & {
+  headers: Headers;
+};
+
+export type getAccountOrderResponse = getAccountOrderResponseSuccess | getAccountOrderResponseError;
+
+export const getGetAccountOrderUrl = (orderID: string, params?: GetAccountOrderParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/account/orders/${orderID}?${stringifiedParams}`
+    : `/v1/account/orders/${orderID}`;
+};
+
+/**
+ * One order with its payment, provisioning progress, and refunds. Provisioning comes from the fulfillment operation the order created, so a refresh, a second tab, or a switch to Telegram all show the same state.
+ */
+export const getAccountOrder = async (
+  orderID: string,
+  params?: GetAccountOrderParams,
+  options?: RequestInit,
+): Promise<getAccountOrderResponse> => {
+  const res = await fetch(getGetAccountOrderUrl(orderID, params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountOrderResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountOrderResponse;
+};
+
+export const getGetAccountOrderKey = (orderID: string, params?: GetAccountOrderParams) =>
+  [`/v1/account/orders/${orderID}`, ...(params ? [params] : [])] as const;
+
+export type GetAccountOrderQueryResult = NonNullable<Awaited<ReturnType<typeof getAccountOrder>>>;
+
+export const useGetAccountOrder = <TError = Promise<ProblemResponse>>(
+  orderID: string,
+  params?: GetAccountOrderParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountOrder>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false && orderID !== null && orderID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetAccountOrderKey(orderID, params) : null));
+  const swrFn = () => getAccountOrder(orderID, params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type startAccountOrderPaymentResponse200 = {
+  data: AccountPaymentHandle;
+  status: 200;
+};
+
+export type startAccountOrderPaymentResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type startAccountOrderPaymentResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type startAccountOrderPaymentResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type startAccountOrderPaymentResponseSuccess = startAccountOrderPaymentResponse200 & {
+  headers: Headers;
+};
+export type startAccountOrderPaymentResponseError = (
+  | startAccountOrderPaymentResponse404
+  | startAccountOrderPaymentResponse409
+  | startAccountOrderPaymentResponse422
+) & {
+  headers: Headers;
+};
+
+export type startAccountOrderPaymentResponse =
+  | startAccountOrderPaymentResponseSuccess
+  | startAccountOrderPaymentResponseError;
+
+export const getStartAccountOrderPaymentUrl = (orderID: string) => {
+  return `/v1/account/orders/${orderID}/payment`;
+};
+
+/**
+ * Creates or resumes the provider payment. The key is scoped to the order and the chosen adapter, so switching provider is a new payment while pressing the same button twice is not.
+ */
+export const startAccountOrderPayment = async (
+  orderID: string,
+  startAccountOrderPaymentBody: StartAccountOrderPaymentBody,
+  options?: RequestInit,
+): Promise<startAccountOrderPaymentResponse> => {
+  const res = await fetch(getStartAccountOrderPaymentUrl(orderID), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(startAccountOrderPaymentBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: startAccountOrderPaymentResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as startAccountOrderPaymentResponse;
+};
+
+export const getStartAccountOrderPaymentMutationFetcher = (
+  orderID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: StartAccountOrderPaymentBody }) => {
+    return startAccountOrderPayment(orderID, arg, options);
+  };
+};
+export const getStartAccountOrderPaymentMutationKey = (orderID: string) =>
+  [`/v1/account/orders/${orderID}/payment`] as const;
+
+export type StartAccountOrderPaymentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof startAccountOrderPayment>>
+>;
+
+export const useStartAccountOrderPayment = <TError = Promise<ProblemResponse>>(
+  orderID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof startAccountOrderPayment>>,
+      TError,
+      Key,
+      StartAccountOrderPaymentBody,
+      Awaited<ReturnType<typeof startAccountOrderPayment>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getStartAccountOrderPaymentMutationKey(orderID);
+  const swrFn = getStartAccountOrderPaymentMutationFetcher(orderID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type refreshAccountOrderResponse200 = {
+  data: AccountOrder;
+  status: 200;
+};
+
+export type refreshAccountOrderResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type refreshAccountOrderResponseSuccess = refreshAccountOrderResponse200 & {
+  headers: Headers;
+};
+export type refreshAccountOrderResponseError = refreshAccountOrderResponse404 & {
+  headers: Headers;
+};
+
+export type refreshAccountOrderResponse =
+  | refreshAccountOrderResponseSuccess
+  | refreshAccountOrderResponseError;
+
+export const getRefreshAccountOrderUrl = (orderID: string) => {
+  return `/v1/account/orders/${orderID}/refresh`;
+};
+
+/**
+ * Re-reads the provider so a customer who returns before the webhook arrives still sees the settled state.
+ */
+export const refreshAccountOrder = async (
+  orderID: string,
+  options?: RequestInit,
+): Promise<refreshAccountOrderResponse> => {
+  const res = await fetch(getRefreshAccountOrderUrl(orderID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: refreshAccountOrderResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as refreshAccountOrderResponse;
+};
+
+export const getRefreshAccountOrderMutationFetcher = (orderID: string, options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return refreshAccountOrder(orderID, options);
+  };
+};
+export const getRefreshAccountOrderMutationKey = (orderID: string) =>
+  [`/v1/account/orders/${orderID}/refresh`] as const;
+
+export type RefreshAccountOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof refreshAccountOrder>>
+>;
+
+export const useRefreshAccountOrder = <TError = Promise<ProblemResponse>>(
+  orderID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof refreshAccountOrder>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof refreshAccountOrder>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRefreshAccountOrderMutationKey(orderID);
+  const swrFn = getRefreshAccountOrderMutationFetcher(orderID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type cancelAccountOrderResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type cancelAccountOrderResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type cancelAccountOrderResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type cancelAccountOrderResponseSuccess = cancelAccountOrderResponse204 & {
+  headers: Headers;
+};
+export type cancelAccountOrderResponseError = (
+  | cancelAccountOrderResponse404
+  | cancelAccountOrderResponse409
+) & {
+  headers: Headers;
+};
+
+export type cancelAccountOrderResponse =
+  | cancelAccountOrderResponseSuccess
+  | cancelAccountOrderResponseError;
+
+export const getCancelAccountOrderUrl = (orderID: string) => {
+  return `/v1/account/orders/${orderID}/cancel`;
+};
+
+export const cancelAccountOrder = async (
+  orderID: string,
+  options?: RequestInit,
+): Promise<cancelAccountOrderResponse> => {
+  const res = await fetch(getCancelAccountOrderUrl(orderID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: cancelAccountOrderResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as cancelAccountOrderResponse;
+};
+
+export const getCancelAccountOrderMutationFetcher = (orderID: string, options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return cancelAccountOrder(orderID, options);
+  };
+};
+export const getCancelAccountOrderMutationKey = (orderID: string) =>
+  [`/v1/account/orders/${orderID}/cancel`] as const;
+
+export type CancelAccountOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof cancelAccountOrder>>
+>;
+
+export const useCancelAccountOrder = <TError = Promise<ProblemResponse>>(
+  orderID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof cancelAccountOrder>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof cancelAccountOrder>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getCancelAccountOrderMutationKey(orderID);
+  const swrFn = getCancelAccountOrderMutationFetcher(orderID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountWalletResponse200 = {
+  data: AccountWallet;
+  status: 200;
+};
+
+export type getAccountWalletResponse400 = {
+  data: ProblemResponse;
+  status: 400;
+};
+
+export type getAccountWalletResponseSuccess = getAccountWalletResponse200 & {
+  headers: Headers;
+};
+export type getAccountWalletResponseError = getAccountWalletResponse400 & {
+  headers: Headers;
+};
+
+export type getAccountWalletResponse =
+  | getAccountWalletResponseSuccess
+  | getAccountWalletResponseError;
+
+export const getGetAccountWalletUrl = (params?: GetAccountWalletParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/account/wallet?${stringifiedParams}`
+    : `/v1/account/wallet`;
+};
+
+/**
+ * Balances per currency with the top-up policy and the ledger. Currencies are isolated: a balance in one never funds an order in another.
+ */
+export const getAccountWallet = async (
+  params?: GetAccountWalletParams,
+  options?: RequestInit,
+): Promise<getAccountWalletResponse> => {
+  const res = await fetch(getGetAccountWalletUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountWalletResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountWalletResponse;
+};
+
+export const getGetAccountWalletKey = (params?: GetAccountWalletParams) =>
+  [`/v1/account/wallet`, ...(params ? [params] : [])] as const;
+
+export type GetAccountWalletQueryResult = NonNullable<Awaited<ReturnType<typeof getAccountWallet>>>;
+
+export const useGetAccountWallet = <TError = Promise<ProblemResponse>>(
+  params?: GetAccountWalletParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountWallet>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetAccountWalletKey(params) : null));
+  const swrFn = () => getAccountWallet(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type startAccountTopUpResponse201 = {
+  data: AccountOrder;
+  status: 201;
+};
+
+export type startAccountTopUpResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type startAccountTopUpResponseSuccess = startAccountTopUpResponse201 & {
+  headers: Headers;
+};
+export type startAccountTopUpResponseError = startAccountTopUpResponse422 & {
+  headers: Headers;
+};
+
+export type startAccountTopUpResponse =
+  | startAccountTopUpResponseSuccess
+  | startAccountTopUpResponseError;
+
+export const getStartAccountTopUpUrl = () => {
+  return `/v1/account/wallet/top-up`;
+};
+
+/**
+ * Opens a top-up order through the same order, webhook, and reconciliation pipeline a plan uses. The caller's key becomes the order's key, so a retried request credits the same top-up rather than a second one.
+ */
+export const startAccountTopUp = async (
+  startAccountTopUpBody: StartAccountTopUpBody,
+  options?: RequestInit,
+): Promise<startAccountTopUpResponse> => {
+  const res = await fetch(getStartAccountTopUpUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(startAccountTopUpBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: startAccountTopUpResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as startAccountTopUpResponse;
+};
+
+export const getStartAccountTopUpMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: StartAccountTopUpBody }) => {
+    return startAccountTopUp(arg, options);
+  };
+};
+export const getStartAccountTopUpMutationKey = () => [`/v1/account/wallet/top-up`] as const;
+
+export type StartAccountTopUpMutationResult = NonNullable<
+  Awaited<ReturnType<typeof startAccountTopUp>>
+>;
+
+export const useStartAccountTopUp = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof startAccountTopUp>>,
+    TError,
+    Key,
+    StartAccountTopUpBody,
+    Awaited<ReturnType<typeof startAccountTopUp>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getStartAccountTopUpMutationKey();
+  const swrFn = getStartAccountTopUpMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountReferralsResponse200 = {
+  data: AccountReferrals;
+  status: 200;
+};
+
+export type getAccountReferralsResponseSuccess = getAccountReferralsResponse200 & {
+  headers: Headers;
+};
+
+export type getAccountReferralsResponse = getAccountReferralsResponseSuccess;
+
+export const getGetAccountReferralsUrl = (params?: GetAccountReferralsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/account/referrals?${stringifiedParams}`
+    : `/v1/account/referrals`;
+};
+
+/**
+ * The customer's code, its shareable link, the program's terms, and the reward history. A reversed reward is excluded from the earned total and from the cap count, because an operator reverses one when the referral turns out to be abuse and the slot it consumed should come back.
+ */
+export const getAccountReferrals = async (
+  params?: GetAccountReferralsParams,
+  options?: RequestInit,
+): Promise<getAccountReferralsResponse> => {
+  const res = await fetch(getGetAccountReferralsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountReferralsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountReferralsResponse;
+};
+
+export const getGetAccountReferralsKey = (params?: GetAccountReferralsParams) =>
+  [`/v1/account/referrals`, ...(params ? [params] : [])] as const;
+
+export type GetAccountReferralsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountReferrals>>
+>;
+
+export const useGetAccountReferrals = <TError = Promise<unknown>>(
+  params?: GetAccountReferralsParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountReferrals>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetAccountReferralsKey(params) : null));
+  const swrFn = () => getAccountReferrals(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountLoyaltyResponse200 = {
+  data: AccountLoyalty;
+  status: 200;
+};
+
+export type getAccountLoyaltyResponseSuccess = getAccountLoyaltyResponse200 & {
+  headers: Headers;
+};
+
+export type getAccountLoyaltyResponse = getAccountLoyaltyResponseSuccess;
+
+export const getGetAccountLoyaltyUrl = () => {
+  return `/v1/account/loyalty`;
+};
+
+export const getAccountLoyalty = async (
+  options?: RequestInit,
+): Promise<getAccountLoyaltyResponse> => {
+  const res = await fetch(getGetAccountLoyaltyUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountLoyaltyResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountLoyaltyResponse;
+};
+
+export const getGetAccountLoyaltyKey = () => [`/v1/account/loyalty`] as const;
+
+export type GetAccountLoyaltyQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountLoyalty>>
+>;
+
+export const useGetAccountLoyalty = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountLoyalty>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetAccountLoyaltyKey() : null));
+  const swrFn = () => getAccountLoyalty(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listAccountContactsResponse200 = {
+  data: AccountContactList;
+  status: 200;
+};
+
+export type listAccountContactsResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
+export type listAccountContactsResponseSuccess = listAccountContactsResponse200 & {
+  headers: Headers;
+};
+export type listAccountContactsResponseError = listAccountContactsResponse503 & {
+  headers: Headers;
+};
+
+export type listAccountContactsResponse =
+  | listAccountContactsResponseSuccess
+  | listAccountContactsResponseError;
+
+export const getListAccountContactsUrl = () => {
+  return `/v1/account/contacts`;
+};
+
+/**
+ * Flags only. A stored contact value is never returned to the browser.
+ */
+export const listAccountContacts = async (
+  options?: RequestInit,
+): Promise<listAccountContactsResponse> => {
+  const res = await fetch(getListAccountContactsUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listAccountContactsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listAccountContactsResponse;
+};
+
+export const getListAccountContactsKey = () => [`/v1/account/contacts`] as const;
+
+export type ListAccountContactsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAccountContacts>>
+>;
+
+export const useListAccountContacts = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listAccountContacts>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListAccountContactsKey() : null));
+  const swrFn = () => listAccountContacts(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type addAccountContactResponse201 = {
+  data: AccountContact;
+  status: 201;
+};
+
+export type addAccountContactResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type addAccountContactResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type addAccountContactResponse429 = {
+  data: ProblemResponse;
+  status: 429;
+};
+
+export type addAccountContactResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
+export type addAccountContactResponseSuccess = addAccountContactResponse201 & {
+  headers: Headers;
+};
+export type addAccountContactResponseError = (
+  | addAccountContactResponse409
+  | addAccountContactResponse422
+  | addAccountContactResponse429
+  | addAccountContactResponse503
+) & {
+  headers: Headers;
+};
+
+export type addAccountContactResponse =
+  | addAccountContactResponseSuccess
+  | addAccountContactResponseError;
+
+export const getAddAccountContactUrl = () => {
+  return `/v1/account/contacts`;
+};
+
+/**
+ * A value already registered elsewhere answers `contact_unavailable` and nothing more. Saying that another account holds it would turn the panel into an account-existence oracle, so the remedy is a support handoff.
+ */
+export const addAccountContact = async (
+  addAccountContactBody: AddAccountContactBody,
+  options?: RequestInit,
+): Promise<addAccountContactResponse> => {
+  const res = await fetch(getAddAccountContactUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(addAccountContactBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: addAccountContactResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as addAccountContactResponse;
+};
+
+export const getAddAccountContactMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: AddAccountContactBody }) => {
+    return addAccountContact(arg, options);
+  };
+};
+export const getAddAccountContactMutationKey = () => [`/v1/account/contacts`] as const;
+
+export type AddAccountContactMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addAccountContact>>
+>;
+
+export const useAddAccountContact = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof addAccountContact>>,
+    TError,
+    Key,
+    AddAccountContactBody,
+    Awaited<ReturnType<typeof addAccountContact>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getAddAccountContactMutationKey();
+  const swrFn = getAddAccountContactMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type removeAccountContactResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type removeAccountContactResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type removeAccountContactResponseSuccess = removeAccountContactResponse204 & {
+  headers: Headers;
+};
+export type removeAccountContactResponseError = removeAccountContactResponse404 & {
+  headers: Headers;
+};
+
+export type removeAccountContactResponse =
+  | removeAccountContactResponseSuccess
+  | removeAccountContactResponseError;
+
+export const getRemoveAccountContactUrl = (contactID: string) => {
+  return `/v1/account/contacts/${contactID}`;
+};
+
+export const removeAccountContact = async (
+  contactID: string,
+  options?: RequestInit,
+): Promise<removeAccountContactResponse> => {
+  const res = await fetch(getRemoveAccountContactUrl(contactID), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: removeAccountContactResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as removeAccountContactResponse;
+};
+
+export const getRemoveAccountContactMutationFetcher = (
+  contactID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return removeAccountContact(contactID, options);
+  };
+};
+export const getRemoveAccountContactMutationKey = (contactID: string) =>
+  [`/v1/account/contacts/${contactID}`] as const;
+
+export type RemoveAccountContactMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeAccountContact>>
+>;
+
+export const useRemoveAccountContact = <TError = Promise<ProblemResponse>>(
+  contactID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof removeAccountContact>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof removeAccountContact>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRemoveAccountContactMutationKey(contactID);
+  const swrFn = getRemoveAccountContactMutationFetcher(contactID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountPrivacyResponse200 = {
+  data: AccountPrivacy;
+  status: 200;
+};
+
+export type getAccountPrivacyResponseSuccess = getAccountPrivacyResponse200 & {
+  headers: Headers;
+};
+
+export type getAccountPrivacyResponse = getAccountPrivacyResponseSuccess;
+
+export const getGetAccountPrivacyUrl = () => {
+  return `/v1/account/privacy`;
+};
+
+export const getAccountPrivacy = async (
+  options?: RequestInit,
+): Promise<getAccountPrivacyResponse> => {
+  const res = await fetch(getGetAccountPrivacyUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountPrivacyResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountPrivacyResponse;
+};
+
+export const getGetAccountPrivacyKey = () => [`/v1/account/privacy`] as const;
+
+export type GetAccountPrivacyQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountPrivacy>>
+>;
+
+export const useGetAccountPrivacy = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountPrivacy>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetAccountPrivacyKey() : null));
+  const swrFn = () => getAccountPrivacy(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type exportAccountPersonalDataResponse200 = {
+  data: AccountExport;
+  status: 200;
+};
+
+export type exportAccountPersonalDataResponse429 = {
+  data: ProblemResponse;
+  status: 429;
+};
+
+export type exportAccountPersonalDataResponseSuccess = exportAccountPersonalDataResponse200 & {
+  headers: Headers;
+};
+export type exportAccountPersonalDataResponseError = exportAccountPersonalDataResponse429 & {
+  headers: Headers;
+};
+
+export type exportAccountPersonalDataResponse =
+  | exportAccountPersonalDataResponseSuccess
+  | exportAccountPersonalDataResponseError;
+
+export const getExportAccountPersonalDataUrl = () => {
+  return `/v1/account/privacy/export`;
+};
+
+/**
+ * Produces the customer's own records synchronously as a download. It is not queued because a queued export would need a delivery channel, a retention window, and a link that authenticates on its own — three further disclosure decisions to answer a question that fits in one response. The document declares its own redactions and names any section it truncated.
+ */
+export const exportAccountPersonalData = async (
+  options?: RequestInit,
+): Promise<exportAccountPersonalDataResponse> => {
+  const res = await fetch(getExportAccountPersonalDataUrl(), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: exportAccountPersonalDataResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as exportAccountPersonalDataResponse;
+};
+
+export const getExportAccountPersonalDataMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return exportAccountPersonalData(options);
+  };
+};
+export const getExportAccountPersonalDataMutationKey = () =>
+  [`/v1/account/privacy/export`] as const;
+
+export type ExportAccountPersonalDataMutationResult = NonNullable<
+  Awaited<ReturnType<typeof exportAccountPersonalData>>
+>;
+
+export const useExportAccountPersonalData = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof exportAccountPersonalData>>,
+    TError,
+    Key,
+    Arguments,
+    Awaited<ReturnType<typeof exportAccountPersonalData>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getExportAccountPersonalDataMutationKey();
+  const swrFn = getExportAccountPersonalDataMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type requestAccountDeletionResponse202 = {
+  data: AccountDeletion;
+  status: 202;
+};
+
+export type requestAccountDeletionResponse401 = {
+  data: ProblemResponse;
+  status: 401;
+};
+
+export type requestAccountDeletionResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type requestAccountDeletionResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type requestAccountDeletionResponseSuccess = requestAccountDeletionResponse202 & {
+  headers: Headers;
+};
+export type requestAccountDeletionResponseError = (
+  | requestAccountDeletionResponse401
+  | requestAccountDeletionResponse409
+  | requestAccountDeletionResponse422
+) & {
+  headers: Headers;
+};
+
+export type requestAccountDeletionResponse =
+  | requestAccountDeletionResponseSuccess
+  | requestAccountDeletionResponseError;
+
+export const getRequestAccountDeletionUrl = () => {
+  return `/v1/account/privacy/deletion`;
+};
+
+/**
+ * Records a deletion request and nothing else. The retention workflow an operator already governs is what deletes, so an irreversible action never happens on the strength of one browser session. It needs a recent sign-in, and answers 202 because the work has been accepted rather than done.
+ */
+export const requestAccountDeletion = async (
+  requestAccountDeletionBody: RequestAccountDeletionBody,
+  options?: RequestInit,
+): Promise<requestAccountDeletionResponse> => {
+  const res = await fetch(getRequestAccountDeletionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(requestAccountDeletionBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: requestAccountDeletionResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as requestAccountDeletionResponse;
+};
+
+export const getRequestAccountDeletionMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: RequestAccountDeletionBody }) => {
+    return requestAccountDeletion(arg, options);
+  };
+};
+export const getRequestAccountDeletionMutationKey = () => [`/v1/account/privacy/deletion`] as const;
+
+export type RequestAccountDeletionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof requestAccountDeletion>>
+>;
+
+export const useRequestAccountDeletion = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof requestAccountDeletion>>,
+    TError,
+    Key,
+    RequestAccountDeletionBody,
+    Awaited<ReturnType<typeof requestAccountDeletion>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRequestAccountDeletionMutationKey();
+  const swrFn = getRequestAccountDeletionMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type cancelAccountDeletionResponse200 = {
+  data: AccountDeletion;
+  status: 200;
+};
+
+export type cancelAccountDeletionResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type cancelAccountDeletionResponseSuccess = cancelAccountDeletionResponse200 & {
+  headers: Headers;
+};
+export type cancelAccountDeletionResponseError = cancelAccountDeletionResponse409 & {
+  headers: Headers;
+};
+
+export type cancelAccountDeletionResponse =
+  | cancelAccountDeletionResponseSuccess
+  | cancelAccountDeletionResponseError;
+
+export const getCancelAccountDeletionUrl = () => {
+  return `/v1/account/privacy/deletion`;
+};
+
+/**
+ * Withdraws a pending request. It carries no recent-sign-in gate, because it only ever prevents an irreversible action.
+ */
+export const cancelAccountDeletion = async (
+  options?: RequestInit,
+): Promise<cancelAccountDeletionResponse> => {
+  const res = await fetch(getCancelAccountDeletionUrl(), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: cancelAccountDeletionResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as cancelAccountDeletionResponse;
+};
+
+export const getCancelAccountDeletionMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return cancelAccountDeletion(options);
+  };
+};
+export const getCancelAccountDeletionMutationKey = () => [`/v1/account/privacy/deletion`] as const;
+
+export type CancelAccountDeletionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof cancelAccountDeletion>>
+>;
+
+export const useCancelAccountDeletion = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof cancelAccountDeletion>>,
+    TError,
+    Key,
+    Arguments,
+    Awaited<ReturnType<typeof cancelAccountDeletion>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getCancelAccountDeletionMutationKey();
+  const swrFn = getCancelAccountDeletionMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listAccountShopProductsResponse200 = {
+  data: AccountShopProductList;
+  status: 200;
+};
+
+export type listAccountShopProductsResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
+export type listAccountShopProductsResponseSuccess = listAccountShopProductsResponse200 & {
+  headers: Headers;
+};
+export type listAccountShopProductsResponseError = listAccountShopProductsResponse503 & {
+  headers: Headers;
+};
+
+export type listAccountShopProductsResponse =
+  | listAccountShopProductsResponseSuccess
+  | listAccountShopProductsResponseError;
+
+export const getListAccountShopProductsUrl = (params?: ListAccountShopProductsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/account/shop/products?${stringifiedParams}`
+    : `/v1/account/shop/products`;
+};
+
+/**
+ * The digital-goods catalogue. No price is quoted here: a quote is a promise with an expiry attached, and issuing one per row would fill a page with promises that start expiring while it is being read. A product with `priceKnown: false` has no published price and is priced when it is opened.
+ */
+export const listAccountShopProducts = async (
+  params?: ListAccountShopProductsParams,
+  options?: RequestInit,
+): Promise<listAccountShopProductsResponse> => {
+  const res = await fetch(getListAccountShopProductsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listAccountShopProductsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listAccountShopProductsResponse;
+};
+
+export const getListAccountShopProductsKey = (params?: ListAccountShopProductsParams) =>
+  [`/v1/account/shop/products`, ...(params ? [params] : [])] as const;
+
+export type ListAccountShopProductsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAccountShopProducts>>
+>;
+
+export const useListAccountShopProducts = <TError = Promise<ProblemResponse>>(
+  params?: ListAccountShopProductsParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listAccountShopProducts>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListAccountShopProductsKey(params) : null));
+  const swrFn = () => listAccountShopProducts(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountShopProductResponse200 = {
+  data: AccountShopProductDetail;
+  status: 200;
+};
+
+export type getAccountShopProductResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getAccountShopProductResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type getAccountShopProductResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
+export type getAccountShopProductResponseSuccess = getAccountShopProductResponse200 & {
+  headers: Headers;
+};
+export type getAccountShopProductResponseError = (
+  | getAccountShopProductResponse404
+  | getAccountShopProductResponse422
+  | getAccountShopProductResponse503
+) & {
+  headers: Headers;
+};
+
+export type getAccountShopProductResponse =
+  | getAccountShopProductResponseSuccess
+  | getAccountShopProductResponseError;
+
+export const getGetAccountShopProductUrl = (
+  productID: string,
+  params?: GetAccountShopProductParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/account/shop/products/${productID}?${stringifiedParams}`
+    : `/v1/account/shop/products/${productID}`;
+};
+
+/**
+ * One product with a live quote. The quote and its expiry are one object, so a client cannot read the price without also being handed the moment it stops applying.
+ */
+export const getAccountShopProduct = async (
+  productID: string,
+  params?: GetAccountShopProductParams,
+  options?: RequestInit,
+): Promise<getAccountShopProductResponse> => {
+  const res = await fetch(getGetAccountShopProductUrl(productID, params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountShopProductResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountShopProductResponse;
+};
+
+export const getGetAccountShopProductKey = (
+  productID: string,
+  params?: GetAccountShopProductParams,
+) => [`/v1/account/shop/products/${productID}`, ...(params ? [params] : [])] as const;
+
+export type GetAccountShopProductQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountShopProduct>>
+>;
+
+export const useGetAccountShopProduct = <TError = Promise<ProblemResponse>>(
+  productID: string,
+  params?: GetAccountShopProductParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountShopProduct>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false && productID !== null && productID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ??
+    (() => (isEnabled ? getGetAccountShopProductKey(productID, params) : null));
+  const swrFn = () => getAccountShopProduct(productID, params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type reviewAccountShopRecipientResponse200 = {
+  data: ReviewAccountShopRecipient200;
+  status: 200;
+};
+
+export type reviewAccountShopRecipientResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type reviewAccountShopRecipientResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
+export type reviewAccountShopRecipientResponseSuccess = reviewAccountShopRecipientResponse200 & {
+  headers: Headers;
+};
+export type reviewAccountShopRecipientResponseError = (
+  | reviewAccountShopRecipientResponse422
+  | reviewAccountShopRecipientResponse503
+) & {
+  headers: Headers;
+};
+
+export type reviewAccountShopRecipientResponse =
+  | reviewAccountShopRecipientResponseSuccess
+  | reviewAccountShopRecipientResponseError;
+
+export const getReviewAccountShopRecipientUrl = () => {
+  return `/v1/account/shop/recipient`;
+};
+
+/**
+ * Normalises a recipient handle and hands it back for confirmation. It changes nothing: the review step exists so the customer sees the exact string the gateway will be given before anybody is charged, and a step that also acted would defeat that. A mistyped username is unrecoverable once a gateway has sent the goods.
+ */
+export const reviewAccountShopRecipient = async (
+  reviewAccountShopRecipientBody: ReviewAccountShopRecipientBody,
+  options?: RequestInit,
+): Promise<reviewAccountShopRecipientResponse> => {
+  const res = await fetch(getReviewAccountShopRecipientUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(reviewAccountShopRecipientBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: reviewAccountShopRecipientResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as reviewAccountShopRecipientResponse;
+};
+
+export const getReviewAccountShopRecipientMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: ReviewAccountShopRecipientBody }) => {
+    return reviewAccountShopRecipient(arg, options);
+  };
+};
+export const getReviewAccountShopRecipientMutationKey = () =>
+  [`/v1/account/shop/recipient`] as const;
+
+export type ReviewAccountShopRecipientMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reviewAccountShopRecipient>>
+>;
+
+export const useReviewAccountShopRecipient = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof reviewAccountShopRecipient>>,
+    TError,
+    Key,
+    ReviewAccountShopRecipientBody,
+    Awaited<ReturnType<typeof reviewAccountShopRecipient>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getReviewAccountShopRecipientMutationKey();
+  const swrFn = getReviewAccountShopRecipientMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type purchaseAccountShopProductResponse201 = {
+  data: AccountShopOrder;
+  status: 201;
+};
+
+export type purchaseAccountShopProductResponse400 = {
+  data: ProblemResponse;
+  status: 400;
+};
+
+export type purchaseAccountShopProductResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type purchaseAccountShopProductResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type purchaseAccountShopProductResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type purchaseAccountShopProductResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
+export type purchaseAccountShopProductResponseSuccess = purchaseAccountShopProductResponse201 & {
+  headers: Headers;
+};
+export type purchaseAccountShopProductResponseError = (
+  | purchaseAccountShopProductResponse400
+  | purchaseAccountShopProductResponse404
+  | purchaseAccountShopProductResponse409
+  | purchaseAccountShopProductResponse422
+  | purchaseAccountShopProductResponse503
+) & {
+  headers: Headers;
+};
+
+export type purchaseAccountShopProductResponse =
+  | purchaseAccountShopProductResponseSuccess
+  | purchaseAccountShopProductResponseError;
+
+export const getPurchaseAccountShopProductUrl = () => {
+  return `/v1/account/shop/purchase`;
+};
+
+/**
+ * Opens the order for a reviewed recipient against a live quote. The displayed quote is echoed back and the server re-quotes before charging, refusing with `quote_expired` when the window has passed and `price_changed` when the number moved. The recipient must be byte-identical to the reviewed form, so a raw `@name` or a pasted link is refused rather than silently normalised after confirmation.
+ */
+export const purchaseAccountShopProduct = async (
+  purchaseAccountShopProductBody: PurchaseAccountShopProductBody,
+  options?: RequestInit,
+): Promise<purchaseAccountShopProductResponse> => {
+  const res = await fetch(getPurchaseAccountShopProductUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(purchaseAccountShopProductBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: purchaseAccountShopProductResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as purchaseAccountShopProductResponse;
+};
+
+export const getPurchaseAccountShopProductMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PurchaseAccountShopProductBody }) => {
+    return purchaseAccountShopProduct(arg, options);
+  };
+};
+export const getPurchaseAccountShopProductMutationKey = () =>
+  [`/v1/account/shop/purchase`] as const;
+
+export type PurchaseAccountShopProductMutationResult = NonNullable<
+  Awaited<ReturnType<typeof purchaseAccountShopProduct>>
+>;
+
+export const usePurchaseAccountShopProduct = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof purchaseAccountShopProduct>>,
+    TError,
+    Key,
+    PurchaseAccountShopProductBody,
+    Awaited<ReturnType<typeof purchaseAccountShopProduct>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getPurchaseAccountShopProductMutationKey();
+  const swrFn = getPurchaseAccountShopProductMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listAccountShopOrdersResponse200 = {
+  data: AccountShopOrderPage;
+  status: 200;
+};
+
+export type listAccountShopOrdersResponse400 = {
+  data: ProblemResponse;
+  status: 400;
+};
+
+export type listAccountShopOrdersResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
+export type listAccountShopOrdersResponseSuccess = listAccountShopOrdersResponse200 & {
+  headers: Headers;
+};
+export type listAccountShopOrdersResponseError = (
+  | listAccountShopOrdersResponse400
+  | listAccountShopOrdersResponse503
+) & {
+  headers: Headers;
+};
+
+export type listAccountShopOrdersResponse =
+  | listAccountShopOrdersResponseSuccess
+  | listAccountShopOrdersResponseError;
+
+export const getListAccountShopOrdersUrl = (params?: ListAccountShopOrdersParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/account/shop/orders?${stringifiedParams}`
+    : `/v1/account/shop/orders`;
+};
+
+export const listAccountShopOrders = async (
+  params?: ListAccountShopOrdersParams,
+  options?: RequestInit,
+): Promise<listAccountShopOrdersResponse> => {
+  const res = await fetch(getListAccountShopOrdersUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listAccountShopOrdersResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listAccountShopOrdersResponse;
+};
+
+export const getListAccountShopOrdersKey = (params?: ListAccountShopOrdersParams) =>
+  [`/v1/account/shop/orders`, ...(params ? [params] : [])] as const;
+
+export type ListAccountShopOrdersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAccountShopOrders>>
+>;
+
+export const useListAccountShopOrders = <TError = Promise<ProblemResponse>>(
+  params?: ListAccountShopOrdersParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listAccountShopOrders>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListAccountShopOrdersKey(params) : null));
+  const swrFn = () => listAccountShopOrders(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountShopOrderResponse200 = {
+  data: AccountShopOrder;
+  status: 200;
+};
+
+export type getAccountShopOrderResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getAccountShopOrderResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
+export type getAccountShopOrderResponseSuccess = getAccountShopOrderResponse200 & {
+  headers: Headers;
+};
+export type getAccountShopOrderResponseError = (
+  | getAccountShopOrderResponse404
+  | getAccountShopOrderResponse503
+) & {
+  headers: Headers;
+};
+
+export type getAccountShopOrderResponse =
+  | getAccountShopOrderResponseSuccess
+  | getAccountShopOrderResponseError;
+
+export const getGetAccountShopOrderUrl = (orderID: string, params?: GetAccountShopOrderParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/account/shop/orders/${orderID}?${stringifiedParams}`
+    : `/v1/account/shop/orders/${orderID}`;
+};
+
+/**
+ * One purchase and its delivery. There is deliberately no retry route: the gateway that fronts Fragment honours no idempotency key, so an ambiguous delivery is genuinely ambiguous and parks in the operator review queue rather than being retried or refunded automatically.
+ */
+export const getAccountShopOrder = async (
+  orderID: string,
+  params?: GetAccountShopOrderParams,
+  options?: RequestInit,
+): Promise<getAccountShopOrderResponse> => {
+  const res = await fetch(getGetAccountShopOrderUrl(orderID, params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountShopOrderResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountShopOrderResponse;
+};
+
+export const getGetAccountShopOrderKey = (orderID: string, params?: GetAccountShopOrderParams) =>
+  [`/v1/account/shop/orders/${orderID}`, ...(params ? [params] : [])] as const;
+
+export type GetAccountShopOrderQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountShopOrder>>
+>;
+
+export const useGetAccountShopOrder = <TError = Promise<ProblemResponse>>(
+  orderID: string,
+  params?: GetAccountShopOrderParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountShopOrder>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false && orderID !== null && orderID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetAccountShopOrderKey(orderID, params) : null));
+  const swrFn = () => getAccountShopOrder(orderID, params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountSupportLimitsResponse200 = {
+  data: AccountSupportLimits;
+  status: 200;
+};
+
+export type getAccountSupportLimitsResponseSuccess = getAccountSupportLimitsResponse200 & {
+  headers: Headers;
+};
+
+export type getAccountSupportLimitsResponse = getAccountSupportLimitsResponseSuccess;
+
+export const getGetAccountSupportLimitsUrl = () => {
+  return `/v1/account/support/limits`;
+};
+
+/**
+ * The attachment rules and the open-conversation quota, so the panel can state them before an upload rather than only after one is refused.
+ */
+export const getAccountSupportLimits = async (
+  options?: RequestInit,
+): Promise<getAccountSupportLimitsResponse> => {
+  const res = await fetch(getGetAccountSupportLimitsUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountSupportLimitsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountSupportLimitsResponse;
+};
+
+export const getGetAccountSupportLimitsKey = () => [`/v1/account/support/limits`] as const;
+
+export type GetAccountSupportLimitsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountSupportLimits>>
+>;
+
+export const useGetAccountSupportLimits = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountSupportLimits>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetAccountSupportLimitsKey() : null));
+  const swrFn = () => getAccountSupportLimits(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listAccountSupportTicketsResponse200 = {
+  data: AccountTicketPage;
+  status: 200;
+};
+
+export type listAccountSupportTicketsResponse400 = {
+  data: ProblemResponse;
+  status: 400;
+};
+
+export type listAccountSupportTicketsResponseSuccess = listAccountSupportTicketsResponse200 & {
+  headers: Headers;
+};
+export type listAccountSupportTicketsResponseError = listAccountSupportTicketsResponse400 & {
+  headers: Headers;
+};
+
+export type listAccountSupportTicketsResponse =
+  | listAccountSupportTicketsResponseSuccess
+  | listAccountSupportTicketsResponseError;
+
+export const getListAccountSupportTicketsUrl = (params?: ListAccountSupportTicketsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/account/support/tickets?${stringifiedParams}`
+    : `/v1/account/support/tickets`;
+};
+
+export const listAccountSupportTickets = async (
+  params?: ListAccountSupportTicketsParams,
+  options?: RequestInit,
+): Promise<listAccountSupportTicketsResponse> => {
+  const res = await fetch(getListAccountSupportTicketsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listAccountSupportTicketsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listAccountSupportTicketsResponse;
+};
+
+export const getListAccountSupportTicketsKey = (params?: ListAccountSupportTicketsParams) =>
+  [`/v1/account/support/tickets`, ...(params ? [params] : [])] as const;
+
+export type ListAccountSupportTicketsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAccountSupportTickets>>
+>;
+
+export const useListAccountSupportTickets = <TError = Promise<ProblemResponse>>(
+  params?: ListAccountSupportTicketsParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listAccountSupportTickets>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListAccountSupportTicketsKey(params) : null));
+  const swrFn = () => listAccountSupportTickets(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type createAccountSupportTicketResponse201 = {
+  data: AccountTicket;
+  status: 201;
+};
+
+export type createAccountSupportTicketResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type createAccountSupportTicketResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type createAccountSupportTicketResponseSuccess = createAccountSupportTicketResponse201 & {
+  headers: Headers;
+};
+export type createAccountSupportTicketResponseError = (
+  | createAccountSupportTicketResponse409
+  | createAccountSupportTicketResponse422
+) & {
+  headers: Headers;
+};
+
+export type createAccountSupportTicketResponse =
+  | createAccountSupportTicketResponseSuccess
+  | createAccountSupportTicketResponseError;
+
+export const getCreateAccountSupportTicketUrl = () => {
+  return `/v1/account/support/tickets`;
+};
+
+/**
+ * Opens a conversation. The number a customer may hold open at once is bounded, so a loop in a client cannot fill the operator queue faster than people can empty it.
+ */
+export const createAccountSupportTicket = async (
+  createAccountSupportTicketBody: CreateAccountSupportTicketBody,
+  options?: RequestInit,
+): Promise<createAccountSupportTicketResponse> => {
+  const res = await fetch(getCreateAccountSupportTicketUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createAccountSupportTicketBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: createAccountSupportTicketResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as createAccountSupportTicketResponse;
+};
+
+export const getCreateAccountSupportTicketMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: CreateAccountSupportTicketBody }) => {
+    return createAccountSupportTicket(arg, options);
+  };
+};
+export const getCreateAccountSupportTicketMutationKey = () =>
+  [`/v1/account/support/tickets`] as const;
+
+export type CreateAccountSupportTicketMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAccountSupportTicket>>
+>;
+
+export const useCreateAccountSupportTicket = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof createAccountSupportTicket>>,
+    TError,
+    Key,
+    CreateAccountSupportTicketBody,
+    Awaited<ReturnType<typeof createAccountSupportTicket>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getCreateAccountSupportTicketMutationKey();
+  const swrFn = getCreateAccountSupportTicketMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountSupportTicketResponse200 = {
+  data: AccountConversation;
+  status: 200;
+};
+
+export type getAccountSupportTicketResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getAccountSupportTicketResponseSuccess = getAccountSupportTicketResponse200 & {
+  headers: Headers;
+};
+export type getAccountSupportTicketResponseError = getAccountSupportTicketResponse404 & {
+  headers: Headers;
+};
+
+export type getAccountSupportTicketResponse =
+  | getAccountSupportTicketResponseSuccess
+  | getAccountSupportTicketResponseError;
+
+export const getGetAccountSupportTicketUrl = (ticketID: string) => {
+  return `/v1/account/support/tickets/${ticketID}`;
+};
+
+/**
+ * The conversation as the customer sees it. Internal operator notes live in their own table and no query on this surface touches it.
+ */
+export const getAccountSupportTicket = async (
+  ticketID: string,
+  options?: RequestInit,
+): Promise<getAccountSupportTicketResponse> => {
+  const res = await fetch(getGetAccountSupportTicketUrl(ticketID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountSupportTicketResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountSupportTicketResponse;
+};
+
+export const getGetAccountSupportTicketKey = (ticketID: string) =>
+  [`/v1/account/support/tickets/${ticketID}`] as const;
+
+export type GetAccountSupportTicketQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountSupportTicket>>
+>;
+
+export const useGetAccountSupportTicket = <TError = Promise<ProblemResponse>>(
+  ticketID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountSupportTicket>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false && ticketID !== null && ticketID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetAccountSupportTicketKey(ticketID) : null));
+  const swrFn = () => getAccountSupportTicket(ticketID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type replyToAccountSupportTicketResponse201 = {
+  data: AccountConversation;
+  status: 201;
+};
+
+export type replyToAccountSupportTicketResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type replyToAccountSupportTicketResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type replyToAccountSupportTicketResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type replyToAccountSupportTicketResponseSuccess = replyToAccountSupportTicketResponse201 & {
+  headers: Headers;
+};
+export type replyToAccountSupportTicketResponseError = (
+  | replyToAccountSupportTicketResponse404
+  | replyToAccountSupportTicketResponse409
+  | replyToAccountSupportTicketResponse422
+) & {
+  headers: Headers;
+};
+
+export type replyToAccountSupportTicketResponse =
+  | replyToAccountSupportTicketResponseSuccess
+  | replyToAccountSupportTicketResponseError;
+
+export const getReplyToAccountSupportTicketUrl = (ticketID: string) => {
+  return `/v1/account/support/tickets/${ticketID}/messages`;
+};
+
+export const replyToAccountSupportTicket = async (
+  ticketID: string,
+  replyToAccountSupportTicketBody: ReplyToAccountSupportTicketBody,
+  options?: RequestInit,
+): Promise<replyToAccountSupportTicketResponse> => {
+  const res = await fetch(getReplyToAccountSupportTicketUrl(ticketID), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(replyToAccountSupportTicketBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: replyToAccountSupportTicketResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as replyToAccountSupportTicketResponse;
+};
+
+export const getReplyToAccountSupportTicketMutationFetcher = (
+  ticketID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: ReplyToAccountSupportTicketBody }) => {
+    return replyToAccountSupportTicket(ticketID, arg, options);
+  };
+};
+export const getReplyToAccountSupportTicketMutationKey = (ticketID: string) =>
+  [`/v1/account/support/tickets/${ticketID}/messages`] as const;
+
+export type ReplyToAccountSupportTicketMutationResult = NonNullable<
+  Awaited<ReturnType<typeof replyToAccountSupportTicket>>
+>;
+
+export const useReplyToAccountSupportTicket = <TError = Promise<ProblemResponse>>(
+  ticketID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof replyToAccountSupportTicket>>,
+      TError,
+      Key,
+      ReplyToAccountSupportTicketBody,
+      Awaited<ReturnType<typeof replyToAccountSupportTicket>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getReplyToAccountSupportTicketMutationKey(ticketID);
+  const swrFn = getReplyToAccountSupportTicketMutationFetcher(ticketID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type markAccountSupportTicketReadResponse200 = {
+  data: AccountTicket;
+  status: 200;
+};
+
+export type markAccountSupportTicketReadResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type markAccountSupportTicketReadResponseSuccess =
+  markAccountSupportTicketReadResponse200 & {
+    headers: Headers;
+  };
+export type markAccountSupportTicketReadResponseError = markAccountSupportTicketReadResponse404 & {
+  headers: Headers;
+};
+
+export type markAccountSupportTicketReadResponse =
+  | markAccountSupportTicketReadResponseSuccess
+  | markAccountSupportTicketReadResponseError;
+
+export const getMarkAccountSupportTicketReadUrl = (ticketID: string) => {
+  return `/v1/account/support/tickets/${ticketID}/read`;
+};
+
+/**
+ * Read state is a property of the message, not of the surface it was read on. A reply opened here stops being unread in Telegram too, because both surfaces stamp the same column.
+ */
+export const markAccountSupportTicketRead = async (
+  ticketID: string,
+  options?: RequestInit,
+): Promise<markAccountSupportTicketReadResponse> => {
+  const res = await fetch(getMarkAccountSupportTicketReadUrl(ticketID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: markAccountSupportTicketReadResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as markAccountSupportTicketReadResponse;
+};
+
+export const getMarkAccountSupportTicketReadMutationFetcher = (
+  ticketID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return markAccountSupportTicketRead(ticketID, options);
+  };
+};
+export const getMarkAccountSupportTicketReadMutationKey = (ticketID: string) =>
+  [`/v1/account/support/tickets/${ticketID}/read`] as const;
+
+export type MarkAccountSupportTicketReadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof markAccountSupportTicketRead>>
+>;
+
+export const useMarkAccountSupportTicketRead = <TError = Promise<ProblemResponse>>(
+  ticketID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof markAccountSupportTicketRead>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof markAccountSupportTicketRead>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getMarkAccountSupportTicketReadMutationKey(ticketID);
+  const swrFn = getMarkAccountSupportTicketReadMutationFetcher(ticketID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type closeAccountSupportTicketResponse200 = {
+  data: AccountTicket;
+  status: 200;
+};
+
+export type closeAccountSupportTicketResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type closeAccountSupportTicketResponseSuccess = closeAccountSupportTicketResponse200 & {
+  headers: Headers;
+};
+export type closeAccountSupportTicketResponseError = closeAccountSupportTicketResponse404 & {
+  headers: Headers;
+};
+
+export type closeAccountSupportTicketResponse =
+  | closeAccountSupportTicketResponseSuccess
+  | closeAccountSupportTicketResponseError;
+
+export const getCloseAccountSupportTicketUrl = (ticketID: string) => {
+  return `/v1/account/support/tickets/${ticketID}/close`;
+};
+
+export const closeAccountSupportTicket = async (
+  ticketID: string,
+  options?: RequestInit,
+): Promise<closeAccountSupportTicketResponse> => {
+  const res = await fetch(getCloseAccountSupportTicketUrl(ticketID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: closeAccountSupportTicketResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as closeAccountSupportTicketResponse;
+};
+
+export const getCloseAccountSupportTicketMutationFetcher = (
+  ticketID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return closeAccountSupportTicket(ticketID, options);
+  };
+};
+export const getCloseAccountSupportTicketMutationKey = (ticketID: string) =>
+  [`/v1/account/support/tickets/${ticketID}/close`] as const;
+
+export type CloseAccountSupportTicketMutationResult = NonNullable<
+  Awaited<ReturnType<typeof closeAccountSupportTicket>>
+>;
+
+export const useCloseAccountSupportTicket = <TError = Promise<ProblemResponse>>(
+  ticketID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof closeAccountSupportTicket>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof closeAccountSupportTicket>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getCloseAccountSupportTicketMutationKey(ticketID);
+  const swrFn = getCloseAccountSupportTicketMutationFetcher(ticketID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type reopenAccountSupportTicketResponse200 = {
+  data: AccountTicket;
+  status: 200;
+};
+
+export type reopenAccountSupportTicketResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type reopenAccountSupportTicketResponseSuccess = reopenAccountSupportTicketResponse200 & {
+  headers: Headers;
+};
+export type reopenAccountSupportTicketResponseError = reopenAccountSupportTicketResponse404 & {
+  headers: Headers;
+};
+
+export type reopenAccountSupportTicketResponse =
+  | reopenAccountSupportTicketResponseSuccess
+  | reopenAccountSupportTicketResponseError;
+
+export const getReopenAccountSupportTicketUrl = (ticketID: string) => {
+  return `/v1/account/support/tickets/${ticketID}/reopen`;
+};
+
+export const reopenAccountSupportTicket = async (
+  ticketID: string,
+  options?: RequestInit,
+): Promise<reopenAccountSupportTicketResponse> => {
+  const res = await fetch(getReopenAccountSupportTicketUrl(ticketID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: reopenAccountSupportTicketResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as reopenAccountSupportTicketResponse;
+};
+
+export const getReopenAccountSupportTicketMutationFetcher = (
+  ticketID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return reopenAccountSupportTicket(ticketID, options);
+  };
+};
+export const getReopenAccountSupportTicketMutationKey = (ticketID: string) =>
+  [`/v1/account/support/tickets/${ticketID}/reopen`] as const;
+
+export type ReopenAccountSupportTicketMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reopenAccountSupportTicket>>
+>;
+
+export const useReopenAccountSupportTicket = <TError = Promise<ProblemResponse>>(
+  ticketID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof reopenAccountSupportTicket>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof reopenAccountSupportTicket>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getReopenAccountSupportTicketMutationKey(ticketID);
+  const swrFn = getReopenAccountSupportTicketMutationFetcher(ticketID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type attachToAccountSupportTicketResponse201 = {
+  data: AccountConversation;
+  status: 201;
+};
+
+export type attachToAccountSupportTicketResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type attachToAccountSupportTicketResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type attachToAccountSupportTicketResponse413 = {
+  data: ProblemResponse;
+  status: 413;
+};
+
+export type attachToAccountSupportTicketResponse415 = {
+  data: ProblemResponse;
+  status: 415;
+};
+
+export type attachToAccountSupportTicketResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
+export type attachToAccountSupportTicketResponseSuccess =
+  attachToAccountSupportTicketResponse201 & {
+    headers: Headers;
+  };
+export type attachToAccountSupportTicketResponseError = (
+  | attachToAccountSupportTicketResponse404
+  | attachToAccountSupportTicketResponse409
+  | attachToAccountSupportTicketResponse413
+  | attachToAccountSupportTicketResponse415
+  | attachToAccountSupportTicketResponse503
+) & {
+  headers: Headers;
+};
+
+export type attachToAccountSupportTicketResponse =
+  | attachToAccountSupportTicketResponseSuccess
+  | attachToAccountSupportTicketResponseError;
+
+export const getAttachToAccountSupportTicketUrl = (ticketID: string) => {
+  return `/v1/account/support/tickets/${ticketID}/attachments`;
+};
+
+/**
+ * Uploads one file. The accepted media types are an allowlist, so an unknown type is refused rather than guessed at.
+ */
+export const attachToAccountSupportTicket = async (
+  ticketID: string,
+  attachToAccountSupportTicketBody: AttachToAccountSupportTicketBody,
+  options?: RequestInit,
+): Promise<attachToAccountSupportTicketResponse> => {
+  const formData = new FormData();
+  formData.append(`file`, attachToAccountSupportTicketBody.file);
+  if (attachToAccountSupportTicketBody.message !== undefined) {
+    formData.append(`message`, attachToAccountSupportTicketBody.message);
+  }
+
+  const res = await fetch(getAttachToAccountSupportTicketUrl(ticketID), {
+    ...options,
+    method: "POST",
+    body: formData,
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: attachToAccountSupportTicketResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as attachToAccountSupportTicketResponse;
+};
+
+export const getAttachToAccountSupportTicketMutationFetcher = (
+  ticketID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: AttachToAccountSupportTicketBody }) => {
+    return attachToAccountSupportTicket(ticketID, arg, options);
+  };
+};
+export const getAttachToAccountSupportTicketMutationKey = (ticketID: string) =>
+  [`/v1/account/support/tickets/${ticketID}/attachments`] as const;
+
+export type AttachToAccountSupportTicketMutationResult = NonNullable<
+  Awaited<ReturnType<typeof attachToAccountSupportTicket>>
+>;
+
+export const useAttachToAccountSupportTicket = <TError = Promise<ProblemResponse>>(
+  ticketID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof attachToAccountSupportTicket>>,
+      TError,
+      Key,
+      AttachToAccountSupportTicketBody,
+      Awaited<ReturnType<typeof attachToAccountSupportTicket>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getAttachToAccountSupportTicketMutationKey(ticketID);
+  const swrFn = getAttachToAccountSupportTicketMutationFetcher(ticketID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type downloadAccountSupportAttachmentResponse200 = {
+  data: Blob;
+  status: 200;
+};
+
+export type downloadAccountSupportAttachmentResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type downloadAccountSupportAttachmentResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type downloadAccountSupportAttachmentResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
+export type downloadAccountSupportAttachmentResponseSuccess =
+  downloadAccountSupportAttachmentResponse200 & {
+    headers: Headers;
+  };
+export type downloadAccountSupportAttachmentResponseError = (
+  | downloadAccountSupportAttachmentResponse404
+  | downloadAccountSupportAttachmentResponse409
+  | downloadAccountSupportAttachmentResponse503
+) & {
+  headers: Headers;
+};
+
+export type downloadAccountSupportAttachmentResponse =
+  | downloadAccountSupportAttachmentResponseSuccess
+  | downloadAccountSupportAttachmentResponseError;
+
+export const getDownloadAccountSupportAttachmentUrl = (attachmentID: string) => {
+  return `/v1/account/support/attachments/${attachmentID}`;
+};
+
+/**
+ * Serves a file the calling customer's own conversation carries. A file attached in Telegram is not stored here and answers `attachment_remote` instead, because offering a download that cannot work is worse than saying where the file actually lives.
+ */
+export const downloadAccountSupportAttachment = async (
+  attachmentID: string,
+  options?: RequestInit,
+): Promise<downloadAccountSupportAttachmentResponse> => {
+  const res = await fetch(getDownloadAccountSupportAttachmentUrl(attachmentID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.blob();
+  const data: downloadAccountSupportAttachmentResponse["data"] =
+    body as downloadAccountSupportAttachmentResponse["data"];
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as downloadAccountSupportAttachmentResponse;
+};
+
+export const getDownloadAccountSupportAttachmentKey = (attachmentID: string) =>
+  [`/v1/account/support/attachments/${attachmentID}`] as const;
+
+export type DownloadAccountSupportAttachmentQueryResult = NonNullable<
+  Awaited<ReturnType<typeof downloadAccountSupportAttachment>>
+>;
+
+export const useDownloadAccountSupportAttachment = <TError = Promise<ProblemResponse>>(
+  attachmentID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof downloadAccountSupportAttachment>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && attachmentID !== null && attachmentID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ??
+    (() => (isEnabled ? getDownloadAccountSupportAttachmentKey(attachmentID) : null));
+  const swrFn = () => downloadAccountSupportAttachment(attachmentID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listAccountNewsResponse200 = {
+  data: AccountNewsPage;
+  status: 200;
+};
+
+export type listAccountNewsResponse400 = {
+  data: ProblemResponse;
+  status: 400;
+};
+
+export type listAccountNewsResponseSuccess = listAccountNewsResponse200 & {
+  headers: Headers;
+};
+export type listAccountNewsResponseError = listAccountNewsResponse400 & {
+  headers: Headers;
+};
+
+export type listAccountNewsResponse = listAccountNewsResponseSuccess | listAccountNewsResponseError;
+
+export const getListAccountNewsUrl = (params?: ListAccountNewsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/account/news?${stringifiedParams}`
+    : `/v1/account/news`;
+};
+
+export const listAccountNews = async (
+  params?: ListAccountNewsParams,
+  options?: RequestInit,
+): Promise<listAccountNewsResponse> => {
+  const res = await fetch(getListAccountNewsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listAccountNewsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listAccountNewsResponse;
+};
+
+export const getListAccountNewsKey = (params?: ListAccountNewsParams) =>
+  [`/v1/account/news`, ...(params ? [params] : [])] as const;
+
+export type ListAccountNewsQueryResult = NonNullable<Awaited<ReturnType<typeof listAccountNews>>>;
+
+export const useListAccountNews = <TError = Promise<ProblemResponse>>(
+  params?: ListAccountNewsParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listAccountNews>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListAccountNewsKey(params) : null));
+  const swrFn = () => listAccountNews(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type markAccountNewsReadResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type markAccountNewsReadResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type markAccountNewsReadResponseSuccess = markAccountNewsReadResponse204 & {
+  headers: Headers;
+};
+export type markAccountNewsReadResponseError = markAccountNewsReadResponse404 & {
+  headers: Headers;
+};
+
+export type markAccountNewsReadResponse =
+  | markAccountNewsReadResponseSuccess
+  | markAccountNewsReadResponseError;
+
+export const getMarkAccountNewsReadUrl = (postID: string) => {
+  return `/v1/account/news/${postID}/read`;
+};
+
+export const markAccountNewsRead = async (
+  postID: string,
+  options?: RequestInit,
+): Promise<markAccountNewsReadResponse> => {
+  const res = await fetch(getMarkAccountNewsReadUrl(postID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: markAccountNewsReadResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as markAccountNewsReadResponse;
+};
+
+export const getMarkAccountNewsReadMutationFetcher = (postID: string, options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return markAccountNewsRead(postID, options);
+  };
+};
+export const getMarkAccountNewsReadMutationKey = (postID: string) =>
+  [`/v1/account/news/${postID}/read`] as const;
+
+export type MarkAccountNewsReadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof markAccountNewsRead>>
+>;
+
+export const useMarkAccountNewsRead = <TError = Promise<ProblemResponse>>(
+  postID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof markAccountNewsRead>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof markAccountNewsRead>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getMarkAccountNewsReadMutationKey(postID);
+  const swrFn = getMarkAccountNewsReadMutationFetcher(postID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountPreferencesResponse200 = {
+  data: AccountPreferences;
+  status: 200;
+};
+
+export type getAccountPreferencesResponseSuccess = getAccountPreferencesResponse200 & {
+  headers: Headers;
+};
+
+export type getAccountPreferencesResponse = getAccountPreferencesResponseSuccess;
+
+export const getGetAccountPreferencesUrl = () => {
+  return `/v1/account/preferences`;
+};
+
+/**
+ * Notification choices, marketing consent, contact-channel flags, and any suppression. A contact's address is never returned — only whether it is verified and what it is used for.
+ */
+export const getAccountPreferences = async (
+  options?: RequestInit,
+): Promise<getAccountPreferencesResponse> => {
+  const res = await fetch(getGetAccountPreferencesUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountPreferencesResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountPreferencesResponse;
+};
+
+export const getGetAccountPreferencesKey = () => [`/v1/account/preferences`] as const;
+
+export type GetAccountPreferencesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountPreferences>>
+>;
+
+export const useGetAccountPreferences = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountPreferences>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetAccountPreferencesKey() : null));
+  const swrFn = () => getAccountPreferences(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type updateAccountPreferencesResponse200 = {
+  data: AccountPreferences;
+  status: 200;
+};
+
+export type updateAccountPreferencesResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type updateAccountPreferencesResponseSuccess = updateAccountPreferencesResponse200 & {
+  headers: Headers;
+};
+export type updateAccountPreferencesResponseError = updateAccountPreferencesResponse422 & {
+  headers: Headers;
+};
+
+export type updateAccountPreferencesResponse =
+  | updateAccountPreferencesResponseSuccess
+  | updateAccountPreferencesResponseError;
+
+export const getUpdateAccountPreferencesUrl = () => {
+  return `/v1/account/preferences`;
+};
+
+/**
+ * Each field is optional and an absent field is left unchanged, so a screen that renders one toggle never has to send back a document it did not read. A marketing decision appends a consent record rather than overwriting one, because the history of who opted in and when is the thing that has to survive.
+ */
+export const updateAccountPreferences = async (
+  accountPreferencesUpdate: AccountPreferencesUpdate,
+  options?: RequestInit,
+): Promise<updateAccountPreferencesResponse> => {
+  const res = await fetch(getUpdateAccountPreferencesUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(accountPreferencesUpdate),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: updateAccountPreferencesResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as updateAccountPreferencesResponse;
+};
+
+export const getUpdateAccountPreferencesMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: AccountPreferencesUpdate }) => {
+    return updateAccountPreferences(arg, options);
+  };
+};
+export const getUpdateAccountPreferencesMutationKey = () => [`/v1/account/preferences`] as const;
+
+export type UpdateAccountPreferencesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAccountPreferences>>
+>;
+
+export const useUpdateAccountPreferences = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof updateAccountPreferences>>,
+    TError,
+    Key,
+    AccountPreferencesUpdate,
+    Awaited<ReturnType<typeof updateAccountPreferences>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getUpdateAccountPreferencesMutationKey();
+  const swrFn = getUpdateAccountPreferencesMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type unsubscribeAccountResponse200 = {
+  data: AccountPreferences;
+  status: 200;
+};
+
+export type unsubscribeAccountResponseSuccess = unsubscribeAccountResponse200 & {
+  headers: Headers;
+};
+
+export type unsubscribeAccountResponse = unsubscribeAccountResponseSuccess;
+
+export const getUnsubscribeAccountUrl = () => {
+  return `/v1/account/preferences/unsubscribe`;
+};
+
+/**
+ * Stops marketing messages. Transactional messages about a payment, an expiry, or a support reply continue, because they are the ones a customer needs in order to keep using what they bought.
+ */
+export const unsubscribeAccount = async (
+  options?: RequestInit,
+): Promise<unsubscribeAccountResponse> => {
+  const res = await fetch(getUnsubscribeAccountUrl(), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: unsubscribeAccountResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as unsubscribeAccountResponse;
+};
+
+export const getUnsubscribeAccountMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return unsubscribeAccount(options);
+  };
+};
+export const getUnsubscribeAccountMutationKey = () =>
+  [`/v1/account/preferences/unsubscribe`] as const;
+
+export type UnsubscribeAccountMutationResult = NonNullable<
+  Awaited<ReturnType<typeof unsubscribeAccount>>
+>;
+
+export const useUnsubscribeAccount = <TError = Promise<unknown>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof unsubscribeAccount>>,
+    TError,
+    Key,
+    Arguments,
+    Awaited<ReturnType<typeof unsubscribeAccount>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getUnsubscribeAccountMutationKey();
+  const swrFn = getUnsubscribeAccountMutationFetcher(fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 
