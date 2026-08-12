@@ -13,7 +13,7 @@ The other projects were compared on 11 August 2026 against their public `main` b
 
 | Project | What it is | License | Stack |
 | --- | --- | --- | --- |
-| **Omniflow** | Telegram-first commerce and support platform for Remnawave, with a complete operator web panel and a customer panel arriving later | Apache-2.0 | Go 1.26, PostgreSQL 18, Valkey 9, River, Next.js 16 / React 19 |
+| **Omniflow** | Telegram-first commerce and support platform for Remnawave, with complete operator and customer web panels | Apache-2.0 | Go 1.26, PostgreSQL 18, Valkey 9, River, Next.js 16 / React 19 |
 | **[Bedolaga Bot](https://github.com/BEDOLAGA-DEV/remnawave-bedolaga-telegram-bot)** | Mature Telegram sales bot for Remnawave, administered from inside Telegram | MIT | Python 3.13, aiogram 3.x, FastAPI, PostgreSQL + SQLAlchemy, Redis |
 | **[Bedolaga Cabinet](https://github.com/BEDOLAGA-DEV/bedolaga-cabinet)** | Customer web cabinet for Bedolaga Bot; requires the bot's Cabinet API | AGPL-3.0 | React, Vite, TypeScript, Tailwind, Nginx |
 | **[RemnaCore](https://github.com/BEDOLAGA-DEV/RemnaCore)** | Modular DDD platform wrapping Remnawave, with reseller and plugin support; marked in development | AGPL-3.0 | Go 1.26, PostgreSQL 18, Valkey 9, NATS JetStream, Extism/wazero WASM, React 19 |
@@ -32,7 +32,7 @@ License differences are worth reading carefully. Omniflow is Apache-2.0, which p
 
 A dash means the capability is absent from the project's own public documentation. Internal implementation details such as ledger design or idempotency handling may exist in code without appearing in a README, so treat a dash as "unverified", not as a proven gap.
 
-Omniflow's shipped surface today is v0.1–v0.8: the complete backend commerce model, a feature-complete Telegram bot, wallet top-up with deferred carts, add-ons, optional concurrent subscriptions, a production runtime with health probes, metrics, tracing, encrypted backups, and maintenance mode, and a complete operator panel — sign-in with two-factor, optional OIDC, granular RBAC, an append-only audit trail, and the day-to-day screens for customers, finance, catalogue, support, marketing, risk, and every installation setting. The customer web panel is what remains.
+Omniflow's shipped surface today is v0.1–v0.10: the complete backend commerce model, a feature-complete Telegram bot, wallet top-up with deferred carts, add-ons, optional concurrent subscriptions, a production runtime with health probes, metrics, tracing, encrypted backups, and maintenance mode, and a complete operator panel — sign-in with two-factor, optional OIDC, granular RBAC, an append-only audit trail, and the day-to-day screens for customers, finance, catalogue, support, marketing, risk, and every installation setting, and a complete customer web panel — sign-in, subscriptions, checkout, wallet, the digital-goods shop, support, news, referrals, loyalty, and a customer's own data export and deletion request. What remains is v1.0: release engineering rather than product surface.
 
 ## Subscriptions and plans
 
@@ -121,13 +121,13 @@ That is a real trade-off. Bedolaga operators are productive on day one with no r
 
 | Capability | Omniflow | Bedolaga Cabinet | RemnaCore |
 | --- | --- | --- | --- |
-| Customer web panel | 🚧 v0.9–v0.10 | ✅ | ✅ |
-| Telegram sign-in | 🚧 v0.9 | ✅ | ✅ |
-| Sign-in through any OIDC provider (Google, Yandex, Discord, …) | 🚧 v0.9 | ✅ | ✅ (email + OAuth) |
-| Magic-link fallback | 🚧 v0.9 | — | — |
-| Shared component system with the admin panel | 🚧 v0.9 | — | ✅ |
-| Checkout parity with the bot | 🚧 v0.10 | ✅ | ✅ |
-| WCAG 2.2 AA review of core journeys | 🚧 v0.10 | — | — |
+| Customer web panel | ✅ | ✅ | ✅ |
+| Telegram sign-in | ✅ | ✅ | ✅ |
+| Sign-in through any OIDC provider (Google, Yandex, Discord, …) | ✅ | ✅ | ✅ (email + OAuth) |
+| Magic-link fallback | ✅ | — | — |
+| Shared component system with the admin panel | ✅ | — | ✅ |
+| Checkout parity with the bot | ✅ | ✅ | ✅ |
+| WCAG 2.2 AA review of core journeys | ✅ | — | — |
 
 ## Architecture and operations
 
@@ -158,6 +158,8 @@ RemnaCore also reaches into node health monitoring, smart routing, and speed tes
 
 Since v0.5 it is additionally the option that takes production operation seriously on a single server: readiness probes that classify each dependency without leaking it, Prometheus metrics whose labels can never carry a customer identifier, encrypted backups verified by read-back before they are trusted, and a maintenance mode that pauses new purchases without disturbing money already taken.
 
-<Warning>
-Omniflow's operator panel is complete as of v0.8. The **customer** web panel is not: it arrives in v0.9 and v0.10, and until then customers self-serve through the Telegram bot, which is feature-complete. If a customer-facing web interface is a requirement right now, Bedolaga Cabinet or RemnaCore ships one and Omniflow does not yet.
-</Warning>
+<Note>
+Both panels are complete as of v0.10: the operator panel since v0.8, and the customer panel — sign-in, subscriptions, checkout, wallet, shop, support, referrals, and personal data — since v0.10. Customers can self-serve in a browser or in Telegram, against the same records: a cart started in a chat is the cart the browser shows, and a support reply read on the web stops being unread in Telegram.
+
+What is not yet done is v1.0, which is release engineering rather than product surface: a published compatibility matrix, an independent security review, signed artifacts, and the reliability and documentation gates. Treat the current state as feature-complete but pre-GA.
+</Note>
