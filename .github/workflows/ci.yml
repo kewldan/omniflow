@@ -84,6 +84,16 @@ jobs:
       # Anything else exits the API with "APP_DATA_ENCRYPTION_KEY must be
       # base64-encoded 32 bytes" before it ever binds a port.
       APP_DATA_ENCRYPTION_KEY: ${{ vars.CI_DATA_ENCRYPTION_KEY || 'b21uaWZsb3ctY2ktZGV2ZWxvcG1lbnQtb25seS1rZXk=' }}
+      # The commerce runtime refuses to start without all five of these, so a
+      # panel gate cannot be run without them either. No Remnawave runs in CI:
+      # the address is syntactically valid and answers nothing, which is enough
+      # because the client makes no call while it is being constructed. The
+      # readiness probe reports Remnawave down, and the panel pages backed by it
+      # render their own error state — which is what this suite is checking they
+      # do, rather than checking Remnawave.
+      APP_OPERATOR_TOKEN: e2e-operator-token
+      APP_REMNAWAVE_URL: http://127.0.0.1:3999
+      APP_REMNAWAVE_TOKEN: e2e-remnawave-token
       APP_ADMIN_PANEL_ENABLED: "true"
       APP_CUSTOMER_PANEL_ENABLED: "true"
       APP_ADMIN_COOKIE_SECURE: "false"
