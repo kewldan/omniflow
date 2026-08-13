@@ -1117,15 +1117,24 @@ never learned about.
   the WCAG 2.2 AA review the same way. The panel pages an operator sees are now
   swept for untranslated keys, which is how two missing translations that had
   been shipping since v0.7 were found.
-- **Attachment storage is a workaround.** `support_attachments` holds a Telegram
-  file reference and has no column for a local one, so a web upload is stored on
-  disk and its key written into `telegram_file_id` behind a `web:` prefix that
-  this code refuses to serve any other value of. It is safe — the bot only ever
-  renders an attachment's name and size, and never sends the stored reference
-  back to Telegram — but the honest fix is a `storage_key`/`origin` column, and
-  that is a migration. It was not written because `atlas` is not available in
-  this environment and `atlas migrate hash` cannot be run, and a migration whose
-  checksum is stale is worse than one not yet written.
+- ~~**Attachment storage is a workaround.**~~ Closed.
+  `20260823000000_attachment_storage.sql` gives `support_attachments` the
+  `origin` and `storage_key` columns the web upload always needed, backfills the
+  rows that carried their key in `telegram_file_id` behind a `web:` prefix, and
+  constrains the pairing so a row cannot name one origin and carry the other's
+  reference. The blocker was stated as `atlas` being unavailable in this
+  environment; it was the same limitation as `go test -race` and `sqlc generate`
+  and has the same answer, through `arigaio/atlas:1.3.0`. The migration was
+  applied against a real PostgreSQL 18.4 both as an upgrade — proving the
+  backfill converts a legacy row and leaves a Telegram one alone — and from a
+  bare database to head.
+
+  Removing the prefix surfaced a defect the prefix had been hiding. Two things
+  deleted expired attachment rows: the worker's sweep, which reclaims the files
+  no surviving row references, and a purge at the end of every bot notification
+  pass, which reclaimed nothing. Whichever ran first won, so the file leak v0.10
+  believed it had fixed was still reachable whenever the bot got there first. The
+  bot's purge is gone; retention has one owner.
 - **Performance budgets cover JavaScript only**, as stated in the gate above.
 - **Two transient divergences are by design and worth knowing.** An operator
   reply raises the web's unread count immediately but does not move the bot's
@@ -1345,13 +1354,21 @@ panel pages for untranslated keys. The last of those needed CI to run a real API
 rather than the web application alone, which is the change that closes the
 seeded-operator debt v0.8, v0.9, and v0.10 each carried forward.
 
-The volume defect has no gate yet, and the honest reason is that asserting it
-properly means writing a row, recreating the container, and reading it back —
-which is a different shape of test from anything the `compose` job does today. It
-is worth adding. The pattern across all five is worth stating plainly, because it
-will produce the sixth: a test that builds the system under test out of the same
-assumptions as the code cannot see a wrong assumption. Only running the thing an
-operator actually runs can.
+The volume defect now has one too. `tools/volume-drill.sh` starts the shipped
+stack under a compose project of its own, asserts the running `data_directory`
+sits under the named volume's mount and that the container has no anonymous
+volumes, then writes a row, recreates the container, and reads it back. The
+`compose` job runs it. Against the pre-fix mount it fails, and it prints the
+image's own refusal — which is the second thing running it found: on the pinned
+`postgres:18.4-alpine`, a mount at the old `/var/lib/postgresql/data` no longer
+misplaces the database silently, it stops the container from starting at all. The
+defect described above was the quieter form of the same mistake, and the drill
+catches both.
+
+The pattern across all five is worth stating plainly, because it will produce the
+sixth: a test that builds the system under test out of the same assumptions as
+the code cannot see a wrong assumption. Only running the thing an operator
+actually runs can.
 
 ---
 

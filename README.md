@@ -191,9 +191,11 @@ The complete versioned delivery contract is maintained in [ROADMAP.md](./ROADMAP
 - [x] Customer web checkout, shop, support, and referrals
 - [x] 1.0: compatibility matrix, signed release artifacts, reliability runbooks, and the complete public documentation set
 
-Three items remain outstanding for 1.0, and none of them is something a change to
-this repository produces: an independent security review, a restore drill run
-against a real database, and a green CI run on the release commit.
+Two items remain outstanding for 1.0, and neither is something a change to this
+repository produces: an independent security review, and a green CI run on the
+release commit. The third — a restore drill against a real database — was closed
+by running one: the procedure is `tools/restore-drill.sh`, and it passes against
+a live installation.
 
 ## 📡 Anonymous telemetry
 
