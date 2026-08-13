@@ -3,6 +3,7 @@
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { Card } from "@omniflow/ui/card";
+import { DateTimeField } from "@omniflow/ui/date-time-field";
 import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { Skeleton } from "@omniflow/ui/skeleton";
@@ -108,10 +109,12 @@ export function SubscriptionActions({
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={endsAtId}>{translate("actions.endsAt")}</Label>
-          <Input
+          <DateTimeField
+            hourLabel={translate("actions.hour")}
             id={endsAtId}
-            onChange={(event) => setEndsAt(event.target.value)}
-            type="datetime-local"
+            minuteLabel={translate("actions.minute")}
+            onChange={setEndsAt}
+            placeholder={translate("actions.pickMoment")}
             value={endsAt}
           />
           <Button

@@ -4,8 +4,10 @@ import { Alert, AlertDescription, AlertTitle } from "@omniflow/ui/alert";
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
+import { DateTimeField } from "@omniflow/ui/date-time-field";
 import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Switch } from "@omniflow/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
@@ -166,35 +168,42 @@ function CampaignCard({ editable }: { editable: boolean }) {
               </div>
               <div className="flex flex-col gap-1">
                 <Label htmlFor={`${nameId}-segment`}>{translate("campaigns.segment")}</Label>
-                <select
-                  className="h-9 rounded-md border border-border bg-transparent px-2 text-sm"
-                  id={`${nameId}-segment`}
-                  onChange={(event) => setForm({ ...form, segmentId: event.target.value })}
+                {/* The live size sits in the option itself: choosing an audience
+                    without seeing how many people are in it is the mistake this
+                    whole screen is arranged to prevent. */}
+                <Select
+                  onValueChange={(segmentId) => setForm({ ...form, segmentId })}
                   value={form.segmentId}
                 >
-                  <option value="">—</option>
-                  {availableSegments.map((segment) => (
-                    <option key={segment.id} value={segment.id}>
-                      {segment.nameEn} ({segment.size})
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger id={`${nameId}-segment`}>
+                    <SelectValue placeholder={translate("campaigns.choose")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableSegments.map((segment) => (
+                      <SelectItem key={segment.id} value={segment.id}>
+                        {segment.nameEn} ({segment.size})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex flex-col gap-1">
                 <Label htmlFor={`${nameId}-template`}>{translate("campaigns.template")}</Label>
-                <select
-                  className="h-9 rounded-md border border-border bg-transparent px-2 text-sm"
-                  id={`${nameId}-template`}
-                  onChange={(event) => setForm({ ...form, templateId: event.target.value })}
+                <Select
+                  onValueChange={(templateId) => setForm({ ...form, templateId })}
                   value={form.templateId}
                 >
-                  <option value="">—</option>
-                  {availableTemplates.map((template) => (
-                    <option key={template.id} value={template.id}>
-                      {template.code}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger id={`${nameId}-template`}>
+                    <SelectValue placeholder={translate("campaigns.choose")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableTemplates.map((template) => (
+                      <SelectItem key={template.id} value={template.id}>
+                        {template.code}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -272,14 +281,17 @@ function CampaignCard({ editable }: { editable: boolean }) {
                     {editable ? (
                       <div className="flex flex-wrap items-center justify-end gap-2">
                         {(TRANSITIONS[campaign.status] ?? []).includes("scheduled") ? (
-                          <Input
-                            aria-label={translate("campaigns.scheduleFor")}
-                            className="w-48"
+                          <DateTimeField
+                            className="w-56"
+                            // A campaign cannot be scheduled into the past, and
+                            // the calendar refuses it rather than letting the
+                            // API do so after the operator has committed.
+                            fromDate={new Date()}
+                            hourLabel={translate("campaigns.scheduleHour")}
                             id={`${scheduleId}-${campaign.id}`}
-                            onChange={(event) =>
-                              setSchedule({ ...schedule, [campaign.id]: event.target.value })
-                            }
-                            type="datetime-local"
+                            minuteLabel={translate("campaigns.scheduleMinute")}
+                            onChange={(value) => setSchedule({ ...schedule, [campaign.id]: value })}
+                            placeholder={translate("campaigns.scheduleFor")}
                             value={schedule[campaign.id] ?? ""}
                           />
                         ) : null}

@@ -134,7 +134,7 @@ somebody tries to sign in. `apps/web/e2e/api-reachability.spec.ts` is the gate t
 | `database/` | `schema.sql` desired state, `migrations/`, and `queries/` for sqlc |
 | `apps/web` | The Next.js application serving both panels |
 | `packages/api-client` | Generated Fetch, SWR, and Zod bindings |
-| `packages/ui` | Shared shadcn primitives used by both surfaces |
+| `packages/ui` | Shared shadcn primitives used by both surfaces. No native `<select>`, date, or time input: use `Select`, a `Command`-based combobox, or `DateTimeField` |
 | `docs/` | This documentation; see [Documentation](/contributing/documentation) |
 | `deploy/proxies` | Caddy and Traefik examples validated by CI |
 

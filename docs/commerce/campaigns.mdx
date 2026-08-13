@@ -160,8 +160,9 @@ capped at 200, and `class` defaults to `marketing`.
     [Previewing a campaign](#previewing-a-campaign).
   </Step>
   <Step title="Schedule it">
-    Press **Schedule**, which reveals a datetime input; the button stays disabled
-    until a date is chosen. That posts
+    Press **Schedule**, which reveals a date and time picker — a calendar for
+    the day, then hour and minute from two lists. Days in the past are not
+    offered, and the button stays disabled until a moment is chosen. That posts
     `{"state": "scheduled", "scheduledFor": "<ISO 8601>"}` to
     `/v1/panel/marketing/campaigns/{campaignID}/state`. Scheduling without a date
     is 422: "send immediately" and "somebody forgot the date" must not be the

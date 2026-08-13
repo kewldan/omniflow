@@ -2,8 +2,10 @@
 
 import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
+import { DateTimeField } from "@omniflow/ui/date-time-field";
 import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
@@ -82,19 +84,18 @@ export function OfferComposer({ onCreated }: { onCreated: () => void }) {
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={promotionFieldId}>{translate("composer.promotion")}</Label>
-            <select
-              className="h-9 rounded-md border border-border bg-transparent px-2 text-sm"
-              id={promotionFieldId}
-              onChange={(event) => setPromotionId(event.target.value)}
-              value={promotionId}
-            >
-              <option value="">{translate("composer.promotionHint")}</option>
-              {(promotions?.items ?? []).map((promotion) => (
-                <option key={promotion.id} value={promotion.id}>
-                  {promotion.code}
-                </option>
-              ))}
-            </select>
+            <Select onValueChange={setPromotionId} value={promotionId}>
+              <SelectTrigger id={promotionFieldId}>
+                <SelectValue placeholder={translate("composer.promotionHint")} />
+              </SelectTrigger>
+              <SelectContent>
+                {(promotions?.items ?? []).map((promotion) => (
+                  <SelectItem key={promotion.id} value={promotion.id}>
+                    {promotion.code}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -140,19 +141,27 @@ export function OfferComposer({ onCreated }: { onCreated: () => void }) {
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={startsFieldId}>{translate("composer.startsAt")}</Label>
-            <Input
+            <DateTimeField
+              hourLabel={translate("composer.hour")}
               id={startsFieldId}
-              onChange={(event) => setStartsAt(event.target.value)}
-              type="datetime-local"
+              minuteLabel={translate("composer.minute")}
+              onChange={setStartsAt}
+              placeholder={translate("composer.pickMoment")}
               value={startsAt}
             />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={expiresFieldId}>{translate("composer.expiresAt")}</Label>
-            <Input
+            <DateTimeField
+              // An offer cannot expire before it starts, so the calendar refuses
+              // the days that would; leaving it to the API would mean the
+              // operator finds out after filling the rest of the form.
+              fromDate={startsAt ? new Date(startsAt) : undefined}
+              hourLabel={translate("composer.hour")}
               id={expiresFieldId}
-              onChange={(event) => setExpiresAt(event.target.value)}
-              type="datetime-local"
+              minuteLabel={translate("composer.minute")}
+              onChange={setExpiresAt}
+              placeholder={translate("composer.pickMoment")}
               value={expiresAt}
             />
           </div>

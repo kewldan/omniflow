@@ -138,7 +138,7 @@ middleware не участвует; см. [Обратный прокси](/ru/op
 | `database/` | Желаемое состояние `schema.sql`, `migrations/` и `queries/` для sqlc |
 | `apps/web` | Приложение Next.js, обслуживающее обе панели |
 | `packages/api-client` | Сгенерированные привязки Fetch, SWR и Zod |
-| `packages/ui` | Общие примитивы shadcn, используемые обеими поверхностями |
+| `packages/ui` | Общие примитивы shadcn, используемые обеими поверхностями. Никаких нативных `<select>`, полей даты и времени: используйте `Select`, комбобокс на `Command` или `DateTimeField` |
 | `docs/` | Эта документация; см. [Документация](/ru/contributing/documentation) |
 | `deploy/proxies` | Примеры Caddy и Traefik, проверяемые в CI |
 
