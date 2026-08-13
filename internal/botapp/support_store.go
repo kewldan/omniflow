@@ -157,8 +157,13 @@ func (store *PostgresStore) attachMessageFiles(ctx context.Context, messages []T
 	for _, message := range messages {
 		ids = append(ids, message.ID)
 	}
-	rows, err := store.pool.Query(ctx, `SELECT message_id, kind, telegram_file_id, COALESCE(file_name, ''),
-		COALESCE(mime_type, ''), size_bytes FROM support_attachments
+	// A web upload has no Telegram identifier, and the conversation view needs
+	// none: it renders a name and a size. Coalescing rather than selecting the
+	// column away keeps the field meaning what it says — empty for a file
+	// Telegram has never seen — instead of carrying a value that would fail on
+	// its way back there.
+	rows, err := store.pool.Query(ctx, `SELECT message_id, kind, COALESCE(telegram_file_id, ''),
+		COALESCE(file_name, ''), COALESCE(mime_type, ''), size_bytes FROM support_attachments
 		WHERE message_id = ANY($1) AND retain_until > now() ORDER BY created_at`, ids)
 	if err != nil {
 		return err
@@ -257,8 +262,8 @@ func (store *PostgresStore) AppendCustomerMessage(ctx context.Context, customerI
 	}
 	for _, attachment := range attachments {
 		if _, err = tx.Exec(ctx, `INSERT INTO support_attachments
-			(message_id, kind, telegram_file_id, file_name, mime_type, size_bytes)
-			VALUES ($1, $2, $3, NULLIF($4, ''), NULLIF($5, ''), $6)
+			(message_id, kind, origin, telegram_file_id, file_name, mime_type, size_bytes)
+			VALUES ($1, $2, 'telegram', $3, NULLIF($4, ''), NULLIF($5, ''), $6)
 			ON CONFLICT (message_id, telegram_file_id) DO NOTHING`,
 			messageID, attachment.Kind, attachment.TelegramFileID, attachment.FileName,
 			attachment.MimeType, attachment.SizeBytes); err != nil {
@@ -394,12 +399,15 @@ func (store *PostgresStore) MarkOperatorReplyDelivered(ctx context.Context, mess
 	return tx.Commit(ctx)
 }
 
-// PurgeExpiredAttachments removes attachment references past their retention
-// window. Only the reference is stored, so this is the whole retention policy.
-func (store *PostgresStore) PurgeExpiredAttachments(ctx context.Context) error {
-	_, err := store.pool.Exec(ctx, `DELETE FROM support_attachments WHERE retain_until <= now()`)
-	return err
-}
+// Attachment retention is not here. It was, back when only the reference was
+// stored and deleting the row was the whole policy; a web upload broke that,
+// because this installation holds those bytes and a row deleted without them
+// leaves a file nothing will ever reclaim.
+//
+// `retention.Worker` owns it now, through `accountsupport.SweepExpiredAttachments`,
+// which deletes on the same schedule and then removes the files no surviving row
+// still references. Two deleters would race for no benefit, and the one that
+// won would decide whether the disk was reclaimed.
 
 func firstLine(body string) string {
 	line := body

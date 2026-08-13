@@ -1563,12 +1563,14 @@ type SupportAttachment struct {
 	ID             pgtype.UUID        `json:"id"`
 	MessageID      int64              `json:"message_id"`
 	Kind           string             `json:"kind"`
-	TelegramFileID string             `json:"telegram_file_id"`
+	TelegramFileID pgtype.Text        `json:"telegram_file_id"`
 	FileName       pgtype.Text        `json:"file_name"`
 	MimeType       pgtype.Text        `json:"mime_type"`
 	SizeBytes      int64              `json:"size_bytes"`
 	RetainUntil    pgtype.Timestamptz `json:"retain_until"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	Origin         string             `json:"origin"`
+	StorageKey     pgtype.Text        `json:"storage_key"`
 }
 
 type SupportCannedResponse struct {

@@ -65,13 +65,21 @@ reviewed Atlas migration, apply it against a real PostgreSQL, then regenerate sq
 
 <Warning>
   `database/schema.sql` currently imports `schema/base.sql` and the migrations only up to
-  `20260814000000_goods_gateway.sql`. Eight later migrations — recurring renewal, the support desk,
+  `20260814000000_goods_gateway.sql`. Nine later migrations — recurring renewal, the support desk,
   referrals and loyalty, campaigns, required channels, AI and MCP settings, goods promotions and
-  carts, and the customer web foundation — are not imported, so the desired state describes less
-  than the migration history builds. Running `atlas migrate diff` against it as it stands will
-  propose dropping everything those eight migrations added. Bring `database/schema.sql` back in
-  step with the history before you diff, or hand-author the migration and hash it as described
-  below.
+  carts, the customer web foundation, and attachment storage — are not imported, so the desired
+  state describes less than the migration history builds. Running `atlas migrate diff` against it
+  as it stands will propose dropping everything those nine migrations added. Bring
+  `database/schema.sql` back in step with the history before you diff, or hand-author the migration
+  and hash it as described below.
+
+  Two things stand in the way of simply importing them, and both are worth knowing before you try.
+  A migration that backfills cannot be a desired state: several of these carry `UPDATE` or `INSERT`
+  statements, which describe a transition rather than a shape. And the desired-state loader itself
+  is gated — `atlas schema inspect --url file://database/schema.sql` on 1.3.0 answers
+  `extensions are available to logged-in users only`, because `schema/base.sql` opens with
+  `CREATE EXTENSION`, so `atlas migrate diff` needs `atlas login` before it will run at all. Hashing
+  and applying need neither.
 </Warning>
 
 ## Hand-authored migrations
@@ -81,9 +89,19 @@ A migration may be written directly when the change is clearer that way than dif
 and a create with no statement of intent between them.
 
 1. Add the file to `database/migrations/` using the existing `<UTC timestamp>_<slug>.sql` naming.
-2. Import it from `database/schema.sql` so the desired state stays complete.
+2. Import it from `database/schema.sql` so the desired state stays complete — unless it backfills,
+   in which case it cannot be a desired state and belongs with the exceptions named in the warning
+   above.
 3. Run `make atlas-hash` (`atlas migrate hash --dir file://database/migrations`).
 4. Review it exactly as you would a generated one, and apply it against a real database.
+
+Neither step needs the Atlas CLI on your machine. Both run from the same image the compose `migrate`
+service uses, which is also how the race detector and sqlc are run when a local toolchain cannot:
+
+```bash
+docker run --rm -v "$PWD/database/migrations:/migrations" arigaio/atlas:1.3.0 \
+  migrate hash --dir file:///migrations
+```
 
 Every migration in the repository opens with a prose header explaining what it adds, what it
 deliberately does not add, and which of its tables are append-only. Follow that convention: the

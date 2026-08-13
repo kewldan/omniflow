@@ -278,10 +278,14 @@ operationally.
 
 A **Telegram** attachment stores only Telegram's file identifier. Telegram is the
 custodian and Omniflow holds no bytes. A **web** upload has no such custodian, so
-the bytes are written to disk under a content-addressed key and the reference
-column carries a `web:` prefix. That prefix is what keeps the two kinds apart:
-anything sending an attachment back to Telegram must skip a `web:` reference, and
-the download route refuses one that lacks it because it does not hold those bytes.
+the bytes are written to disk under a content-addressed key.
+
+Which of the two a row is, is a column: `origin` is `telegram` or `local`, and
+the reference sits in `telegram_file_id` or in `storage_key` accordingly. The
+table enforces that pairing, so a row cannot claim one origin and carry the
+other's reference. Anything sending an attachment back to Telegram skips a
+`local` row — a content digest means nothing to Telegram — and the download route
+refuses a `telegram` row, because it does not hold those bytes.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -303,10 +307,11 @@ and a file that cannot be removed is logged and skipped rather than failing the
 whole sweep.
 
 <Note>
-  The bot additionally purges expired attachment rows at the end of every
-  notification pass. That path deletes rows only and reclaims no web files, which
-  is correct for a Telegram-only installation and is why the worker's sweeper is
-  the one that must be pointed at the right directory.
+  The worker's sweep is the only thing that deletes an expired attachment. The
+  bot used to purge rows at the end of every notification pass as well, and that
+  path reclaimed no files — so whenever it ran first, the row was gone, the sweep
+  found nothing to reclaim, and the bytes stayed on disk for good. It has been
+  removed: one deleter, and it is the one that also frees the disk.
 </Note>
 
 ## Related

@@ -116,9 +116,6 @@ func (notifier *Notifier) RunOnce(ctx context.Context) {
 		}
 		notifier.deliverLifecycle(ctx, candidate)
 	}
-	if err := notifier.store.PurgeExpiredAttachments(ctx); err != nil {
-		notifier.logger.Warn("attachment retention cleanup failed", "error", err)
-	}
 }
 
 // deliverLifecycle walks every subscription a customer owns. Alerts are keyed

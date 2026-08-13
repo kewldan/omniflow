@@ -20,21 +20,21 @@ import (
 // restart for as long as the ticket that carries it.
 const defaultAttachmentDirectory = "/var/lib/omniflow/support-attachments"
 
-// webAttachmentPrefix marks a reference whose bytes this installation holds.
+// originLocal marks an attachment whose bytes this installation holds.
 //
 // `support_attachments` was designed for Telegram, where the file lives in
 // Telegram and Omniflow stores only the identifier that fetches it. A browser
 // upload has no such custodian, so the bytes are written to the attachment
-// directory and the reference column carries a content-addressed key under this
-// prefix instead of a Telegram file identifier.
+// directory and `storage_key` carries the content-addressed key that finds them.
 //
-// The prefix is what keeps the two kinds apart. Anything sending a stored
-// attachment back to Telegram must skip a reference that carries it — a `web:`
-// key means nothing to Telegram — and this package refuses to serve a reference
-// that does not, because it does not hold those bytes. The bot only ever
+// `origin` is what keeps the two kinds apart, and the table enforces it:
+// exactly one of the two references is present, and it is the one the origin
+// names. Anything sending a stored attachment back to Telegram must skip a local
+// row — a content digest means nothing to Telegram — and this package refuses to
+// serve a Telegram row, because it does not hold those bytes. The bot only ever
 // describes an attachment by name and size, so a web upload renders correctly in
 // a chat without either side special-casing the other.
-const webAttachmentPrefix = "web:"
+const originLocal = "local"
 
 // Attachment is the metadata a customer may see about one file.
 //
@@ -218,10 +218,10 @@ func (service *Service) Attach(ctx context.Context, input NewAttachment) (Attach
 		MediaType: accepted.MediaType, SizeBytes: accepted.SizeBytes, Downloadable: true,
 	}
 	if err = tx.QueryRow(ctx, `INSERT INTO support_attachments
-		(message_id, kind, telegram_file_id, file_name, mime_type, size_bytes)
-		VALUES ($1, $2, $3, NULLIF($4, ''), NULLIF($5, ''), $6)
+		(message_id, kind, origin, storage_key, file_name, mime_type, size_bytes)
+		VALUES ($1, $2, 'local', $3, NULLIF($4, ''), NULLIF($5, ''), $6)
 		RETURNING id::text, created_at`,
-		messageID, accepted.Kind, webAttachmentPrefix+key, accepted.FileName,
+		messageID, accepted.Kind, key, accepted.FileName,
 		accepted.MediaType, accepted.SizeBytes).
 		Scan(&attachment.ID, &attachment.CreatedAt); err != nil {
 		return Attachment{}, err
@@ -241,17 +241,17 @@ func (service *Service) Attachment(
 		return Attachment{}, nil, ErrNotFound
 	}
 	var attachment Attachment
-	var reference string
+	var origin, key string
 	err := service.pool.QueryRow(ctx, `SELECT a.id::text, a.message_id, a.kind,
 		COALESCE(a.file_name, ''), COALESCE(a.mime_type, ''), a.size_bytes,
-		a.created_at, a.telegram_file_id
+		a.created_at, a.origin, COALESCE(a.storage_key, '')
 		FROM support_attachments a
 		JOIN support_messages m ON m.id = a.message_id
 		JOIN support_tickets t ON t.id = m.ticket_id
 		WHERE a.id = $2::uuid AND t.user_id = $1::uuid AND a.retain_until > now()`,
 		customerID, attachmentID).
 		Scan(&attachment.ID, &attachment.MessageID, &attachment.Kind, &attachment.FileName,
-			&attachment.MediaType, &attachment.SizeBytes, &attachment.CreatedAt, &reference)
+			&attachment.MediaType, &attachment.SizeBytes, &attachment.CreatedAt, &origin, &key)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Attachment{}, nil, ErrNotFound
 	}
@@ -259,8 +259,7 @@ func (service *Service) Attachment(
 		return Attachment{}, nil, err
 	}
 	attachment.CreatedAt = attachment.CreatedAt.UTC()
-	key, held := strings.CutPrefix(reference, webAttachmentPrefix)
-	if !held {
+	if origin != originLocal {
 		return attachment, nil, ErrAttachmentRemote
 	}
 	attachment.Downloadable = true
@@ -291,7 +290,7 @@ func (service *Service) attachMessageFiles(ctx context.Context, messages []Messa
 	}
 	rows, err := service.pool.Query(ctx, `SELECT a.id::text, a.message_id, a.kind,
 		COALESCE(a.file_name, ''), COALESCE(a.mime_type, ''), a.size_bytes,
-		a.created_at, a.telegram_file_id
+		a.created_at, a.origin
 		FROM support_attachments a
 		WHERE a.message_id = ANY($1) AND a.retain_until > now()
 		ORDER BY a.created_at, a.id`, ids)
@@ -302,14 +301,14 @@ func (service *Service) attachMessageFiles(ctx context.Context, messages []Messa
 	byMessage := make(map[int64][]Attachment, len(messages))
 	for rows.Next() {
 		var attachment Attachment
-		var reference string
+		var origin string
 		if err = rows.Scan(&attachment.ID, &attachment.MessageID, &attachment.Kind,
 			&attachment.FileName, &attachment.MediaType, &attachment.SizeBytes,
-			&attachment.CreatedAt, &reference); err != nil {
+			&attachment.CreatedAt, &origin); err != nil {
 			return err
 		}
 		attachment.CreatedAt = attachment.CreatedAt.UTC()
-		attachment.Downloadable = strings.HasPrefix(reference, webAttachmentPrefix)
+		attachment.Downloadable = origin == originLocal
 		byMessage[attachment.MessageID] = append(byMessage[attachment.MessageID], attachment)
 	}
 	if err = rows.Err(); err != nil {

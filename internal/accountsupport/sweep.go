@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -63,9 +62,9 @@ func (service *Service) SweepExpiredAttachments(ctx context.Context) (rows int64
 
 	// The keys are read inside the transaction that deletes the rows, so a row
 	// written between the read and the delete is not silently orphaned.
-	candidates, err := collectKeys(ctx, transaction, `SELECT DISTINCT telegram_file_id
+	candidates, err := collectKeys(ctx, transaction, `SELECT DISTINCT storage_key
 		FROM support_attachments
-		WHERE retain_until <= now() AND telegram_file_id LIKE 'web:%'`)
+		WHERE retain_until <= now() AND storage_key IS NOT NULL`)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -79,8 +78,8 @@ func (service *Service) SweepExpiredAttachments(ctx context.Context) (rows int64
 	// Whatever is still referenced after the delete must keep its bytes.
 	var orphans []string
 	if canRemove && len(candidates) > 0 {
-		survivors, keysErr := collectKeys(ctx, transaction, `SELECT DISTINCT telegram_file_id
-			FROM support_attachments WHERE telegram_file_id = ANY($1)`, candidates)
+		survivors, keysErr := collectKeys(ctx, transaction, `SELECT DISTINCT storage_key
+			FROM support_attachments WHERE storage_key = ANY($1)`, candidates)
 		if keysErr != nil {
 			return 0, 0, keysErr
 		}
@@ -103,8 +102,7 @@ func (service *Service) SweepExpiredAttachments(ctx context.Context) (rows int64
 	// would delete bytes a rollback then decided to keep, and a file is the one
 	// thing a rollback cannot restore.
 	for _, key := range orphans {
-		digest := strings.TrimPrefix(key, webAttachmentPrefix)
-		if removeErr := remover.Remove(ctx, digest); removeErr != nil {
+		if removeErr := remover.Remove(ctx, key); removeErr != nil {
 			service.logger.Warn(
 				"a retained support attachment file could not be removed", "error", removeErr,
 			)
@@ -116,6 +114,10 @@ func (service *Service) SweepExpiredAttachments(ctx context.Context) (rows int64
 }
 
 // collectKeys reads a single text column into a slice.
+//
+// Every query it serves restricts to rows with a storage key, so nothing here
+// has to filter out a Telegram reference — the column only ever holds a key to
+// something this installation is actually holding.
 func collectKeys(ctx context.Context, transaction pgx.Tx, query string, args ...any) ([]string, error) {
 	result, err := transaction.Query(ctx, query, args...)
 	if err != nil {
@@ -128,9 +130,7 @@ func collectKeys(ctx context.Context, transaction pgx.Tx, query string, args ...
 		if err = result.Scan(&key); err != nil {
 			return nil, err
 		}
-		if strings.HasPrefix(key, webAttachmentPrefix) {
-			keys = append(keys, key)
-		}
+		keys = append(keys, key)
 	}
 	return keys, result.Err()
 }

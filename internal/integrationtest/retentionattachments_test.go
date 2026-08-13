@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/omniflow/omniflow/internal/accountsupport"
@@ -89,6 +90,124 @@ func TestRetentionStillDeletesAttachmentRowsWithoutASweeper(t *testing.T) {
 	assertAttachmentRow(t, ctx, harness, expired, false)
 }
 
+// An attachment's origin and its reference have to agree, and the table is what
+// makes them. Before `origin` and `storage_key` existed, a local upload wrote its
+// key into `telegram_file_id` behind a `web:` prefix, and "is this file ours" was
+// a string test every reader had to remember to perform. A reader that forgot
+// would have handed a Telegram identifier to a file reader, or a content digest
+// to Telegram.
+//
+// These are the four rows the schema must refuse. None of them is reachable
+// through the Go paths today, which is the point: the guarantee should not
+// depend on every future caller getting it right.
+func TestSupportAttachmentsRefuseAMismatchedReference(t *testing.T) {
+	ctx := context.Background()
+	harness := newHarness(t)
+	messageID := seedAttachmentMessage(t, ctx, harness)
+	digest := accountsupport.ContentKey([]byte("some bytes"))
+
+	cases := []struct {
+		name       string
+		columns    string
+		values     string
+		args       []any
+		constraint string
+	}{
+		{
+			name:       "local row carrying a Telegram identifier",
+			columns:    "origin, storage_key, telegram_file_id",
+			values:     "'local', $2, 'AgACAgIAAxkBAAI'",
+			args:       []any{digest},
+			constraint: "support_attachments_reference_matches_origin",
+		},
+		{
+			name:       "telegram row with nothing to fetch",
+			columns:    "origin",
+			values:     "'telegram'",
+			constraint: "support_attachments_reference_matches_origin",
+		},
+		{
+			name:       "local row with no bytes to point at",
+			columns:    "origin",
+			values:     "'local'",
+			constraint: "support_attachments_reference_matches_origin",
+		},
+		{
+			// The key names a file on disk, so a value that is not a digest is a
+			// value that could name something else entirely.
+			name:       "storage key that is not a content digest",
+			columns:    "origin, storage_key",
+			values:     "'local', $2",
+			args:       []any{"../../etc/passwd"},
+			constraint: "support_attachments_storage_key_shape",
+		},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			args := append([]any{messageID}, testCase.args...)
+			_, err := harness.pool.Exec(ctx, `INSERT INTO support_attachments
+				(message_id, kind, size_bytes, `+testCase.columns+`)
+				VALUES ($1, 'document', 12, `+testCase.values+`)`, args...)
+			if err == nil {
+				t.Fatal("the row was accepted")
+			}
+			if !strings.Contains(err.Error(), testCase.constraint) {
+				t.Fatalf("refused by something other than %s: %v", testCase.constraint, err)
+			}
+		})
+	}
+}
+
+// One message never carries the same stored file twice. `UNIQUE (message_id,
+// telegram_file_id)` gave Telegram attachments that property and stops applying
+// to local rows once their reference moves to a nullable column of its own,
+// because NULLs are distinct.
+func TestSupportAttachmentsRefuseTheSameStoredFileTwice(t *testing.T) {
+	ctx := context.Background()
+	harness := newHarness(t)
+	messageID := seedAttachmentMessage(t, ctx, harness)
+	digest := accountsupport.ContentKey([]byte("identical bytes"))
+
+	insert := func() error {
+		_, err := harness.pool.Exec(ctx, `INSERT INTO support_attachments
+			(message_id, kind, origin, storage_key, size_bytes)
+			VALUES ($1, 'document', 'local', $2, 12)`, messageID, digest)
+		return err
+	}
+	if err := insert(); err != nil {
+		t.Fatalf("first insert: %v", err)
+	}
+	err := insert()
+	if err == nil {
+		t.Fatal("the same stored file was accepted twice on one message")
+	}
+	if !strings.Contains(err.Error(), "support_attachments_local_file_idx") {
+		t.Fatalf("refused by something other than the local-file index: %v", err)
+	}
+}
+
+// seedAttachmentMessage writes a customer, a ticket, and a message, and returns
+// the message an attachment can hang on.
+func seedAttachmentMessage(t *testing.T, ctx context.Context, harness *harness) int64 {
+	t.Helper()
+	customerID := seedAttachmentCustomer(t, ctx, harness)
+	var ticketID string
+	err := harness.pool.QueryRow(ctx, `INSERT INTO support_tickets (user_id, queue_id, subject, status)
+		VALUES ($1::uuid, (SELECT id FROM support_queues WHERE code = 'general'), 'constraints', 'open')
+		RETURNING id::text`, customerID).Scan(&ticketID)
+	if err != nil {
+		t.Fatalf("seed ticket: %v", err)
+	}
+	var messageID int64
+	err = harness.pool.QueryRow(ctx, `INSERT INTO support_messages (ticket_id, sender, body)
+		VALUES ($1::uuid, 'customer', '[attachment]') RETURNING id`, ticketID).Scan(&messageID)
+	if err != nil {
+		t.Fatalf("seed message: %v", err)
+	}
+	return messageID
+}
+
 // writeAttachmentFile stores content through a DirectoryStore and returns the
 // digest key the row will carry.
 func writeAttachmentFile(t *testing.T, root string, content []byte) string {
@@ -159,9 +278,9 @@ func seedAttachmentRow(
 	}
 	var attachmentID string
 	err = harness.pool.QueryRow(ctx, `INSERT INTO support_attachments
-		(message_id, kind, telegram_file_id, file_name, mime_type, size_bytes, retain_until)
-		VALUES ($1, 'document', $2, 'note.txt', 'text/plain', 12, `+retain+`)
-		RETURNING id::text`, messageID, "web:"+digest).Scan(&attachmentID)
+		(message_id, kind, origin, storage_key, file_name, mime_type, size_bytes, retain_until)
+		VALUES ($1, 'document', 'local', $2, 'note.txt', 'text/plain', 12, `+retain+`)
+		RETURNING id::text`, messageID, digest).Scan(&attachmentID)
 	if err != nil {
 		t.Fatalf("seed attachment: %v", err)
 	}
