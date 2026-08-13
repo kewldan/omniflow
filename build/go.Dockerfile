@@ -6,7 +6,7 @@
 #              to pg_dump and pg_restore (bot, worker).
 ARG RUNTIME=static
 
-FROM golang:1.26.5-alpine AS build
+FROM golang:1.26.6-alpine AS build
 ARG TARGET
 WORKDIR /src
 COPY go.mod go.sum* ./

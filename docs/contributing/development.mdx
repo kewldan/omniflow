@@ -23,7 +23,7 @@ carry them out.
 
 | Tool | Version | Why |
 | --- | --- | --- |
-| Go | 1.26.5 | `go.mod` requires 1.26.0; CI and `build/go.Dockerfile` both pin 1.26.5 |
+| Go | 1.26.6 | `go.mod` requires 1.26.0; CI and `build/go.Dockerfile` both pin 1.26.6 |
 | Bun | 1.3.14 | Declared as `packageManager` in `package.json`; used for installs and every workspace script |
 | Docker with Compose v2 | — | Runs PostgreSQL 18, Valkey 9, the migration step, and the three Go services |
 | Atlas CLI | 1.3.0 to match the compose image | Only needed to author or apply migrations outside compose |
