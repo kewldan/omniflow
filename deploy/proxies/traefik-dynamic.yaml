@@ -37,6 +37,25 @@ http:
       tls:
         certResolver: letsencrypt
 
+    # Both panels call the API same-origin: the shared browser client keeps a
+    # base URL of "" and nothing calls setBaseUrl, so a request goes to the web
+    # host and expects to reach the API. This router is what makes that true.
+    # Without it the call falls through to Next.js, which has no /v1 route, and
+    # the panel fails on its first request — while the session cookie stays
+    # first-party and SameSite=Lax, which is why this is preferred over
+    # publishing the panel API cross-origin with CORS.
+    #
+    # The priority is explicit because the `web` rule above also matches this
+    # host, and Traefik would otherwise order the two by rule length.
+    web-api:
+      rule: "Host(`${WEB_DOMAIN}`) && PathPrefix(`/v1`)"
+      priority: 100
+      entryPoints: [websecure]
+      middlewares: [security-headers, api-body-limit, block-internal-endpoints]
+      service: api
+      tls:
+        certResolver: letsencrypt
+
     api:
       rule: "Host(`${API_DOMAIN}`)"
       entryPoints: [websecure]

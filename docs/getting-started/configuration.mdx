@@ -408,7 +408,7 @@ The Next.js app in `apps/web` reads its own variables. They are set on the `web`
 | Variable | Default | Read by | Required | Secret | What it changes |
 | --- | --- | --- | --- | --- | --- |
 | `NEXT_PUBLIC_API_URL` | — (compose sets `http://api:8080`) | web | no | no | Fallback base URL for the server-side panel session check |
-| `API_INTERNAL_URL` | — | web | no | no | Preferred base URL for the server-side session fetch; falls back to `NEXT_PUBLIC_API_URL` and then to an empty string. Absent from `.env.example` |
+| `API_INTERNAL_URL` | — | web | no | no | Where the web application reaches the API: the server-side session fetch, and the `/v1` requests the browser makes same-origin, which `middleware.ts` forwards there when no reverse proxy answers them first. Falls back to `NEXT_PUBLIC_API_URL` and then to an empty string, in which case `/v1` answers 502 with a problem document naming this variable. Absent from `.env.example` |
 | `PLAYWRIGHT_BASE_URL` | — | end-to-end tests only | no | no | Target of the Playwright suite |
 | `CI` | — | end-to-end tests only | no | no | Switches the Playwright config to its CI settings |
 

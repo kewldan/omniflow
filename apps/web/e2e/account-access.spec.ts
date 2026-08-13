@@ -100,10 +100,21 @@ test.describe("customer account access", () => {
   test("no customer cookie is readable from script", async ({ context, page }) => {
     await page.goto("/account/sign-in");
     for (const cookie of await context.cookies()) {
-      if (cookie.name.startsWith("__Host-omniflow_account")) {
-        expect(cookie.httpOnly, `${cookie.name} is readable from script`).toBe(true);
-        expect(cookie.sameSite, `${cookie.name} has no SameSite policy`).not.toBe("None");
+      // Both spellings: the API drops the `__Host-` prefix when the cookie is
+      // not `Secure`, because a browser rejects that combination outright.
+      // Matching only the prefixed name would quietly assert nothing on the
+      // plain-HTTP stack this suite runs against.
+      if (!/^(__Host-)?omniflow_account/.test(cookie.name)) {
+        continue;
       }
+      expect(cookie.httpOnly, `${cookie.name} is readable from script`).toBe(true);
+      expect(cookie.sameSite, `${cookie.name} has no SameSite policy`).not.toBe("None");
+      // A `__Host-` name is a promise about the attributes beside it. If the two
+      // ever drift apart the cookie stops being delivered at all.
+      expect(
+        cookie.name.startsWith("__Host-"),
+        `${cookie.name} must carry the __Host- prefix only when Secure`,
+      ).toBe(cookie.secure);
     }
   });
 

@@ -108,15 +108,21 @@ from the same contract.
 bun run dev:web
 ```
 
-This runs `next dev` for `@omniflow/web` on port 3000 against whatever API you point it at. Two
-variables matter and they are not the same one. `API_INTERNAL_URL` — falling back to
-`NEXT_PUBLIC_API_URL`, then to an empty string — is the base the Next.js *server* uses for its
-`/v1/panel/auth/session` check. Browser requests are separate: the generated client keeps a
-module-level base URL of `""` (`packages/api-client/src/fetcher.ts`), so every call from the browser
-is same-origin by design. A development server therefore needs the API reachable on its own origin,
-which is what the reverse-proxy examples under `deploy/proxies` do in production; see
-[Reverse proxy](/operations/reverse-proxy). The alternative is a one-time `setBaseUrl` call at
-startup for a genuinely cross-origin deployment.
+This runs `next dev` for `@omniflow/web` on port 3000 against whatever API you point it at.
+`API_INTERNAL_URL` — falling back to `NEXT_PUBLIC_API_URL`, then to an empty string — is where that
+API lives, and it now does two jobs rather than one.
+
+The first is the Next.js *server*'s own `/v1/panel/auth/session` check. The second is the browser's:
+the generated client keeps a module-level base URL of `""`
+(`packages/api-client/src/fetcher.ts`) and nothing calls `setBaseUrl`, so every call from the browser
+is same-origin by design, and `apps/web/middleware.ts` forwards `/v1` to `API_INTERNAL_URL` so that
+those calls land somewhere. Without it they reach Next.js, which has no `/v1` route, and the panel
+renders perfectly while failing every request it makes.
+
+In production the reverse proxy answers `/v1` on the web host before Next.js sees it, and the
+middleware is inert; see [Reverse proxy](/operations/reverse-proxy). Both paths exist because the
+same-origin rule has to hold in every topology, and it is the sort of thing that is invisible until
+somebody tries to sign in. `apps/web/e2e/api-reachability.spec.ts` is the gate that keeps it honest.
 
 ## Repository layout
 

@@ -75,12 +75,13 @@ func NewAccountHandlers(options AccountOptions) *AccountHandlers {
 		logger: logger, proxies: proxies,
 		checkout: options.Checkout, shop: options.Shop,
 		support: options.Support, referral: options.Referral,
-		// The __Host- prefix binds the cookie to this exact origin: a browser
-		// refuses to accept it with a Domain attribute or over plain HTTP, so a
-		// sibling subdomain cannot set or overwrite a customer's session. The
-		// name differs from the operator cookie so the two panels can be open in
-		// one browser without either replacing the other.
-		cookieName:   "__Host-omniflow_account",
+		// The __Host- prefix binds the cookie to this exact origin, so a sibling
+		// subdomain cannot set or overwrite a customer's session. It applies
+		// only when the cookie is Secure, because a browser rejects a __Host-
+		// cookie that is not — see cookiename.go. The name differs from the
+		// operator cookie so the two panels can be open in one browser without
+		// either replacing the other.
+		cookieName:   cookieName(accountSessionCookieBase, options.CookieSecure),
 		cookieSecure: options.CookieSecure,
 		cookiePath:   "/",
 	}

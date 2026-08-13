@@ -129,10 +129,11 @@ func NewAdminHandlers(options AdminOptions) *AdminHandlers {
 		fulfillment:      options.Fulfillment,
 		remnawave:        options.Remnawave,
 		version:          versionOrUnknown(options.Version),
-		// The __Host- prefix binds the cookie to this exact origin: a browser
-		// refuses to accept it with a Domain attribute or over plain HTTP, so
-		// a sibling subdomain cannot set or overwrite the operator's session.
-		cookieName:   "__Host-omniflow_admin",
+		// The __Host- prefix binds the cookie to this exact origin, so a sibling
+		// subdomain cannot set or overwrite the operator's session. It applies
+		// only when the cookie is Secure, because a browser rejects a __Host-
+		// cookie that is not — see cookiename.go.
+		cookieName:   cookieName(adminSessionCookieBase, options.CookieSecure),
 		cookieSecure: options.CookieSecure,
 		cookiePath:   "/",
 		issuer:       issuer,

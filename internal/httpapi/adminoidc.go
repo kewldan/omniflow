@@ -22,7 +22,12 @@ import (
 // that never redirects back costs nothing. SameSite=Lax is required rather than
 // Strict: the callback arrives as a cross-site navigation from the provider,
 // and Strict would withhold the cookie exactly when it is needed.
-const oidcFlowCookie = "__Host-omniflow_oidc"
+//
+// It is named like the session cookie beside it, so the __Host- prefix appears
+// only when the cookie is Secure — see cookiename.go.
+func (handlers *AdminHandlers) oidcFlowCookie() string {
+	return cookieName(adminOIDCCookieBase, handlers.cookieSecure)
+}
 
 type oidcFlowState struct {
 	Slug     string `json:"slug"`
@@ -92,7 +97,7 @@ func (handlers *AdminHandlers) startOIDC(writer http.ResponseWriter, request *ht
 		return
 	}
 	http.SetCookie(writer, &http.Cookie{
-		Name: oidcFlowCookie, Value: sealed, Path: "/",
+		Name: handlers.oidcFlowCookie(), Value: sealed, Path: "/",
 		Expires:  time.Now().Add(adminauthpg.OIDCFlowTTL).UTC(),
 		HttpOnly: true, Secure: handlers.cookieSecure, SameSite: http.SameSiteLaxMode,
 	})
@@ -104,7 +109,7 @@ func (handlers *AdminHandlers) callbackOIDC(writer http.ResponseWriter, request 
 		return
 	}
 	slug := chi.URLParam(request, "slug")
-	cookie, err := request.Cookie(oidcFlowCookie)
+	cookie, err := request.Cookie(handlers.oidcFlowCookie())
 	if err != nil || cookie.Value == "" {
 		handlers.redirectToLogin(writer, request, "oidc_expired")
 		return
@@ -248,7 +253,7 @@ func (handlers *AdminHandlers) openFlow(value string) (oidcFlowState, error) {
 
 func (handlers *AdminHandlers) clearFlowCookie(writer http.ResponseWriter) {
 	http.SetCookie(writer, &http.Cookie{
-		Name: oidcFlowCookie, Value: "", Path: "/", MaxAge: -1,
+		Name: handlers.oidcFlowCookie(), Value: "", Path: "/", MaxAge: -1,
 		HttpOnly: true, Secure: handlers.cookieSecure, SameSite: http.SameSiteLaxMode,
 	})
 }

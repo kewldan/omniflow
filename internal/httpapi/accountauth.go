@@ -21,7 +21,12 @@ import (
 // database, so an abandoned sign-in leaves nothing to clean up. Lax is required
 // rather than Strict: the callback arrives as a cross-site navigation from the
 // provider, and Strict would withhold the cookie exactly when it is needed.
-const accountFlowCookie = "__Host-omniflow_account_oidc"
+//
+// It is named like the session cookie beside it, so the __Host- prefix appears
+// only when the cookie is Secure — see cookiename.go.
+func (handlers *AccountHandlers) accountFlowCookie() string {
+	return cookieName(accountOIDCCookieBase, handlers.cookieSecure)
+}
 
 type accountFlowState struct {
 	Slug     string `json:"slug"`
@@ -223,7 +228,7 @@ func (handlers *AccountHandlers) beginOIDCFlow(
 		return
 	}
 	http.SetCookie(writer, &http.Cookie{
-		Name: accountFlowCookie, Value: sealed, Path: "/",
+		Name: handlers.accountFlowCookie(), Value: sealed, Path: "/",
 		Expires:  time.Now().Add(customerauthpg.OIDCFlowTTL).UTC(),
 		HttpOnly: true, Secure: handlers.cookieSecure, SameSite: http.SameSiteLaxMode,
 	})
@@ -235,7 +240,7 @@ func (handlers *AccountHandlers) callbackOIDC(writer http.ResponseWriter, reques
 		return
 	}
 	slug := chi.URLParam(request, "slug")
-	cookie, err := request.Cookie(accountFlowCookie)
+	cookie, err := request.Cookie(handlers.accountFlowCookie())
 	if err != nil || cookie.Value == "" {
 		handlers.redirectToSignIn(writer, request, "sign_in_expired")
 		return
@@ -353,7 +358,7 @@ func (handlers *AccountHandlers) openAccountFlow(value string) (accountFlowState
 
 func (handlers *AccountHandlers) clearAccountFlowCookie(writer http.ResponseWriter) {
 	http.SetCookie(writer, &http.Cookie{
-		Name: accountFlowCookie, Value: "", Path: "/", MaxAge: -1,
+		Name: handlers.accountFlowCookie(), Value: "", Path: "/", MaxAge: -1,
 		HttpOnly: true, Secure: handlers.cookieSecure, SameSite: http.SameSiteLaxMode,
 	})
 }

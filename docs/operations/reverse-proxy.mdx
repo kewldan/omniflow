@@ -32,11 +32,37 @@ The overlay also stops publishing the API and web ports on the host, since the p
 
 | Host | Serves |
 | --- | --- |
-| `WEB_DOMAIN` | The unified customer and admin application; the admin workspace stays under `/admin` |
+| `WEB_DOMAIN` | The unified customer and admin application; the admin workspace stays under `/admin`. **Also `/v1`**, routed to the API — see below |
 | `API_DOMAIN` | The Go API, including provider webhooks at `/v1/payments/webhooks/{provider}` |
 | `BOT_WEBHOOK_DOMAIN` | `POST /telegram/webhook` only, when the bot runs in webhook mode |
 
 `BOT_WEBHOOK_DOMAIN` may be the same host as the API. Keeping it separate is tidier but not required.
+
+## `/v1` must be served on the web host
+
+Both panels call the API **same-origin**. The shared browser client keeps a base URL of `""`
+(`packages/api-client/src/fetcher.ts`) and nothing calls `setBaseUrl`, so a request from the panel
+goes to the web host and expects the API to answer it. Both examples therefore route `/v1` on
+`WEB_DOMAIN` to the API container, with the same body limit and the same block on the operational
+endpoints as the public API host.
+
+This is not a convenience. It is what keeps the session cookie first-party, which is what lets it
+stay `SameSite=Lax` and `HttpOnly` with no CORS anywhere in the stack. Serving the panel API
+cross-origin instead would require `SameSite=None`, a `Secure` cookie sent on cross-site requests,
+and an allow-list of origins with credentials — three moving parts protecting an operator session,
+in place of one.
+
+<Warning>
+  A proxy that serves `WEB_DOMAIN` without routing `/v1` produces a panel that looks entirely
+  healthy and cannot do anything. Pages render, an anonymous visitor is still redirected to sign
+  in, and the sign-in form reports *"Sign-in failed. Try again."* — because the request reached
+  Next.js, which has no `/v1` route, rather than the API. If you write your own proxy
+  configuration, this is the rule to carry across.
+</Warning>
+
+`API_DOMAIN` is still worth publishing: provider webhooks, the `/v1/admin` bearer surface, and the
+Telegram webhook are called by systems that are not the browser. A single-host installation that
+serves only `WEB_DOMAIN` works for both panels, but has nowhere to point a payment provider.
 
 ## Do not publish the operational endpoints
 

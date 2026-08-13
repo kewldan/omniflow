@@ -15,7 +15,16 @@ import type { PanelSession } from "./session";
  */
 
 const PANEL_BASE = process.env.API_INTERNAL_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "";
-const SESSION_COOKIE = "__Host-omniflow_admin";
+/**
+ * Both spellings of the session cookie, most-bound first.
+ *
+ * The API names it `__Host-omniflow_admin` when it carries `Secure` and
+ * `omniflow_admin` when it does not, because a browser rejects a `__Host-`
+ * cookie without `Secure` outright — which is the documented plain-HTTP local
+ * stack. Only one of the two is ever present, and it is forwarded under the
+ * name it arrived with so the API matches it against its own configuration.
+ */
+const SESSION_COOKIES = ["__Host-omniflow_admin", "omniflow_admin"] as const;
 
 /**
  * Reads the session using the caller's own cookie.
@@ -25,13 +34,13 @@ const SESSION_COOKIE = "__Host-omniflow_admin";
  */
 export async function readServerSession(): Promise<PanelSession | null> {
   const store = await cookies();
-  const session = store.get(SESSION_COOKIE);
+  const session = SESSION_COOKIES.map((name) => store.get(name)).find((cookie) => cookie?.value);
   if (!session?.value) {
     return null;
   }
 
   const response = await fetch(`${PANEL_BASE}/v1/panel/auth/session`, {
-    headers: { cookie: `${SESSION_COOKIE}=${session.value}` },
+    headers: { cookie: `${session.name}=${session.value}` },
     // Session state must never be served from a cache: a revoked session would
     // keep appearing valid for as long as the entry lived.
     cache: "no-store",
