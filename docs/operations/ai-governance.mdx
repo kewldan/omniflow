@@ -35,6 +35,50 @@ on rather than after data has left.
 The warnings render beside the feature's own switch. A warning in a separate
 panel is one you read after deciding.
 
+## Data-flow inventory
+
+Every path data can take from an Omniflow record to an external AI provider
+goes through the same chokepoint, described in full in
+[AI privacy](/operations/ai-privacy). This table is that story as an
+inventory rather than a narrative — one row per source, so a data-flow
+question can be answered by looking rather than by reading the whole page.
+
+| Source | Passes through | Destination | What leaves | Retained where |
+| --- | --- | --- | --- | --- |
+| Support ticket thread (summary, suggested reply) | Redaction gateway | The feature's configured provider | Ticket text with secrets, tokens, subscription links, payment data, and unnecessary PII stripped | Prompts not kept by default; outputs kept per the feature's own retention setting |
+| Rewrite / translate input | Redaction gateway | The feature's configured provider | The text being rewritten, redacted the same way | Same as above |
+| Campaign / marketing draft input | Redaction gateway | The feature's configured provider | Draft copy and the segment definition in words, never a raw customer list | Same as above |
+| Abuse / scam analysis signals | Redaction gateway | The feature's configured provider | Minimized, permission-safe structured signals — not raw ticket content by default | Same as above; output is a recommendation, never an automatic action |
+| Admin copilot question and tool results | Redaction gateway | The feature's configured provider | The question plus results from authorized, schema-validated tool calls | Same as above |
+| MCP tool arguments and results (Omniflow as client) | JSON Schema validation, then prompt-injection fencing/scanning | The connected MCP server, then back into the model as fenced data | Only what the calling operator's own RBAC permission allows the tool to receive | Logged in the MCP activity trail — [MCP connections](/operations/mcp#what-is-recorded) |
+| MCP tool calls (Omniflow as server) | RBAC check against the calling operator's own grant | Whatever client is connected | Only what that operator could already reach in the panel | Same activity trail |
+
+Every row funnels through the redaction gateway or an RBAC check before
+anything leaves the installation — there is no path from a data source to a
+provider that skips both.
+
+## Permission review
+
+An MCP tool call is authorized the same way a panel click is: against the
+calling operator's own RBAC grant, never a service identity with its own
+authority — see
+[Every tool maps to a permission you already have](/operations/mcp#every-tool-maps-to-a-permission-you-already-have).
+That property is what makes a periodic permission review meaningful rather
+than a formality:
+
+- Every server/tool-to-permission mapping is visible and editable from
+  **Settings → AI and MCP** — there is no mapping that exists only in
+  configuration a reviewer cannot see in the panel.
+- A mutating tool needs both `AllowMutations` on the server and the specific
+  tool named in the allowlist; enabling a connection does not implicitly
+  grant write access.
+- Every mapping change is itself an audited configuration action, so a
+  review can start from "what changed since the last review" rather than
+  re-auditing the whole registry each time.
+- The first-party Omniflow MCP server follows the same rule in the other
+  direction: a connected client cannot list, let alone call, a tool the
+  authenticated operator could not already use in the panel.
+
 ## Usage limits
 
 Ceilings apply at four scopes: one operator, one role, one feature, or the whole

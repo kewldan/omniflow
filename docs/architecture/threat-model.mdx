@@ -1,0 +1,122 @@
+---
+title: Threat model
+description: What Omniflow defends against on each surface, the mitigation actually in the code, and the residual risk stated plainly where one exists
+---
+
+This page ties together the controls documented across the rest of the site
+into one artifact: what's at risk on each surface, the realistic attack, and
+the mitigation that actually exists — not a recommendation, a property of
+the code. Where a control has a known gap, it says so instead of implying
+coverage it doesn't have.
+
+Every mitigation here links to the page that documents it in full. This page
+does not restate those controls; it only shows how they compose into a
+system-wide picture.
+
+<Note>
+  This is Omniflow's own threat model, written by the maintainers. It is not
+  a substitute for the independent security review tracked separately in
+  [ROADMAP.md](https://github.com/kewldan/omniflow/blob/main/ROADMAP.md) —
+  see the note at the end of this page.
+</Note>
+
+## Identity
+
+| Risk | Mitigation | Residual risk |
+| --- | --- | --- |
+| Credential stuffing / brute force against operator sign-in | Enumeration-resistant errors, a decoy hash for unknown accounts, doubling lockout, and per-account/per-IP rate limits — [Security](/operations/security#sign-in-protection) | None known |
+| Stolen or replayed session cookie | 256-bit tokens stored only as a SHA-256 digest, dual idle/absolute expiry, rotation, and step-up re-authentication on four destructive customer actions — [Security](/operations/security#sessions) | Expired `admin_sessions`/`customer_sessions`/`customer_magic_links`/`customer_security_events` rows are never purged by any job today — a storage/hygiene gap, not an access one, since expired sessions cannot authenticate regardless of row presence |
+| Cross-site request forgery | Per-session HMAC token required on every unsafe method, checked server-side rather than relying on cookie policy alone — [Security](/operations/security#csrf-and-cookies) | None known |
+| Two-factor not enforced | TOTP (RFC 6238) with recovery codes, required to disable | Two-factor is voluntary per account in this build; enforcement is an operational check on `/admin/operators`, not something the API can require — [Security](/operations/security#two-factor-authentication) |
+| A stolen `APP_OPERATOR_TOKEN` | Startup requires it; write-only credential design elsewhere in the API | The token itself carries no roles, no CSRF, and produces no per-request authorization audit — treat it like root and rotate on any suspected exposure — [Security](/operations/security#the-three-credential-surfaces) |
+
+## Telegram
+
+| Risk | Mitigation | Residual risk |
+| --- | --- | --- |
+| Forged login-widget payload | Verified against the bot token with a one-minute freshness bound, since the hash itself never expires | None known |
+| Replayed Mini App session | `initData` verified under its own key derivation per request | None known |
+| Forged webhook delivery | Secret-token-validated webhook mode; long polling is the explicit fallback | None known |
+| Callback replay on a payment or destructive action | The `Once` replay guard (below) claims a single-use token per callback | None known |
+
+## Payments and webhooks
+
+| Risk | Mitigation | Residual risk |
+| --- | --- | --- |
+| Forged provider webhook | Per-provider signature verification — for example CryptoBot's `crypto-pay-api-signature`, hex-decoded and compared constant-time against `HMAC-SHA256(SHA256(apiToken), body)` — [Payment providers](/integrations/payments) | An adapter without signature support is documented per-provider rather than assumed |
+| Retried/duplicated webhook delivery | Every payment mutation carries an idempotency key; a burst of concurrent redeliveries credits exactly once, proven under concurrent load in `internal/integrationtest/load_test.go` | None known |
+| Oversized or malformed webhook body | 1 MiB body cap (`413 payload_too_large`), rejected with a body digest and no signature-validity leak on malformed input | None known |
+| A leaked stored webhook payload | Authorization and signature headers are never stored; the raw body is retained for reconciliation but never returned to operators through the API, and event rows are deleted 30 days after intake — [Payment providers](/integrations/payments#webhook-intake) | None known |
+
+## Admin RBAC
+
+| Risk | Mitigation | Residual risk |
+| --- | --- | --- |
+| A customer credential reaching an operator route | Three API prefixes never share middleware — `/v1/panel`, `/v1/admin`, `/v1/account` — asserted by a test, not just convention — [Security](/operations/security#the-three-credential-surfaces) | None known |
+| A hidden route or frontend state being the only permission check | Authorization lives in `internal/rbac`, compiled in, enforced identically at the Next.js server boundary and the Go API — [AGENTS.md](https://github.com/kewldan/omniflow/blob/main/AGENTS.md) | None known |
+| Privilege escalation via role self-grant | Only an owner may create an operator or change role grants | A compromised owner session remains the ceiling — no control is designed to survive that, by definition |
+| Undetected misuse | Every authentication, authorization, and configuration action is append-only audited in the same transaction as the state change, including permission denials | The `/v1/admin` bearer-token surface produces no per-request authorization audit — see Identity above |
+
+## SSRF
+
+| Risk | Mitigation | Residual risk |
+| --- | --- | --- |
+| An MCP server redirecting a request at cloud metadata or an internal host | Egress checked before **every** request, not once at registration; loopback, private, and link-local addresses refused unless explicitly allowed — [MCP connections](/operations/mcp#limits-and-egress) | An operator who explicitly enables private-network access for a self-hosted server accepts that a compromised server can port-scan that network |
+| A plaintext MCP endpoint | Refused by both Go validation and a database constraint, so no code path can bypass it | None known |
+| Response-driven resource exhaustion | 20s timeout, 256 KB response cap, 8 calls/request, recursion depth 3 — [MCP connections](/operations/mcp#limits-and-egress) | None known |
+
+## AI
+
+| Risk | Mitigation | Residual risk |
+| --- | --- | --- |
+| Customer/payment data reaching an AI provider unnecessarily | A single redaction gateway strips secrets, tokens, subscription links, payment data, and unnecessary PII before any model request — [AI privacy](/operations/ai-privacy) | Provider retention/training terms are recorded from what each provider states; Omniflow cannot independently verify a provider's own compliance — [AI governance](/operations/ai-governance#what-the-provider-does-with-your-data) |
+| An AI feature taking an irreversible action | No feature can suspend, refund, adjust wallet balances, or otherwise mutate financial/adverse state on its own; abuse-analysis output requires human review — [AI privacy](/operations/ai-privacy) | None known |
+| Unbounded spend | Per-operator, per-role, per-feature, and installation-wide usage ceilings — [AI governance](/operations/ai-governance#usage-limits) | An installation with no limits configured has no ceiling; that is a deliberate default, not an oversight |
+
+## MCP
+
+| Risk | Mitigation | Residual risk |
+| --- | --- | --- |
+| An MCP tool call exceeding what the calling operator may do | Every call is authorized against the calling operator's own RBAC grant, never a service identity — [MCP connections](/operations/mcp#every-tool-maps-to-a-permission-you-already-have) | None known |
+| An external write nobody agreed to | A tool marked as a write requires an explicit confirmation and reason on every call; the write flag is owner-set, never read from the server's own annotation | None known |
+| A duplicated mutation from a retried call | Every mutating tool call requires an idempotency key; a repeat with the same key returns the first result rather than running again | None known |
+| A malicious or compromised server returning a schema-violating result | Both arguments and results are validated against the declared JSON Schema; a mismatched result is refused, not passed on | None known |
+
+## Prompt injection
+
+| Risk | Mitigation | Residual risk |
+| --- | --- | --- |
+| An MCP tool result, ticket, or attachment carrying hidden instructions | Every external result is fenced and presented to the model as a quotation, not an instruction; scanned for override/role-claim/tool-directive/exfiltration/hidden-text patterns; zero-width characters stripped — [MCP connections](/operations/mcp#everything-a-server-returns-is-data) | The scan is a secondary defence on top of the structural fencing; a novel injection shape may not match a known pattern until the scan is updated |
+| A server's own `instructions` field hijacking the assistant's behavior | Captured for display only, never forwarded to a model | None known |
+
+## Supply chain
+
+| Risk | Mitigation | Residual risk |
+| --- | --- | --- |
+| A compromised or tampered release image | Every image is signed keylessly with cosign using the release workflow's own GitHub OIDC identity, verifiable against the public Rekor log — [Compatibility and upgrades](/operations/compatibility#versioning-and-release-artifacts) | None known |
+| A vulnerable dependency, secret, or non-compliant license shipping in a release | `govulncheck`, Gitleaks, and a Trivy dependency/license scan gate the release workflow itself — a failing scan stops images from being built at all | None known |
+| A logic-level vulnerability that dependency scanning cannot see | CodeQL semantic analysis (Go and JavaScript/TypeScript) gates the release workflow | SAST finds classes of bugs, not all of them; it complements the other scans rather than replacing manual review |
+| A vulnerability introduced by a base image layer | Every published image is scanned by digest immediately after push | This runs after the image reaches the registry rather than before — a true pre-publish gate would need a build-then-scan-then-push restructure for multi-arch builds, which hasn't been done. A failing scan still fails the release workflow and flags the digest for removal |
+| An unreviewed dependency update | Renovate automates updates with a dashboard-approval gate for major/platform dependencies | None known |
+
+## What this page does not cover
+
+<Warning>
+  **Independent security review has not happened yet.** Everything on this
+  page is the maintainers' own analysis of their own code. It has not been
+  reviewed by anyone without that context, which is exactly the review most
+  likely to find what the authors of a control cannot see in it. This is
+  tracked as an open item in `ROADMAP.md`'s v1.0 "Security and privacy"
+  section rather than implied to be complete.
+</Warning>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Security" icon="fingerprint" href="/operations/security">
+    Credentials, sessions, secrets, transport, and headers in full detail.
+  </Card>
+  <Card title="Privacy" icon="user-shield" href="/operations/privacy">
+    What Omniflow holds, why, and for how long.
+  </Card>
+</CardGroup>

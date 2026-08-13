@@ -1087,13 +1087,25 @@ Goal: publish a stable release suitable for public single-server production use.
 
 ### Security and privacy
 
-- [ ] Threat model covering identity, Telegram, payments, webhooks, admin RBAC, SSRF, AI, MCP, prompt injection, and supply chain
+- [x] Threat model covering identity, Telegram, payments, webhooks, admin RBAC, SSRF, AI, MCP, prompt injection, and supply chain
 - [ ] Independent security review of authentication, authorization, payments, and secret handling
-- [ ] Dependency, secret, SAST, container, and license scans enforced in release CI
-- [ ] Rate limits and abuse controls verified under load
-- [ ] Public privacy documentation, retention defaults, telemetry contract, and complete opt-out verification
-- [ ] AI/MCP data-flow inventory, provider disclosures, retention controls, and permission review
-- [ ] Security reporting and supported-version policy
+- [x] Dependency, secret, SAST, container, and license scans enforced in release CI
+- [x] Rate limits and abuse controls verified under load
+- [x] Public privacy documentation, retention defaults, telemetry contract, and complete opt-out verification
+- [x] AI/MCP data-flow inventory, provider disclosures, retention controls, and permission review
+- [x] Security reporting and supported-version policy
+
+The independent review is the one item here that isn't something a change to
+this repository can produce: it names an external reviewer engagement, not
+code or documentation. Everything else — the maintainers' own threat model at
+[`docs/architecture/threat-model.mdx`](./docs/architecture/threat-model.mdx),
+release-CI scanning, a load-verified rate limiter, the public
+[`docs/operations/privacy.mdx`](./docs/operations/privacy.mdx) page, and the
+AI/MCP data-flow inventory in `docs/operations/ai-governance.mdx` — is in
+place and stays honest about the one place a documented control isn't
+enforced yet: several session and security-event retention windows are
+documented but not swept by any job, called out in both `security.mdx` and
+the new privacy page rather than left implied.
 
 ### Reliability and operations
 

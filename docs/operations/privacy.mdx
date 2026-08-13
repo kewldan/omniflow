@@ -1,0 +1,92 @@
+---
+title: Privacy
+description: What Omniflow holds, why, for how long, and how to verify what actually leaves the installation
+---
+
+This page is the single public answer to "what does Omniflow do with data?" —
+customer records, operator records, anonymous telemetry, and anything that
+reaches an AI provider or MCP server. Each section links to the page that
+documents its subject in full; this page exists so the retention picture
+doesn't have to be assembled by reading five pages at once, and it names the
+one place where documented retention isn't yet enforced rather than leaving
+that to be discovered.
+
+## What Omniflow holds and why
+
+**Customer data.** Identity, contact channels, orders, wallet, referrals,
+support history, and consent — owned by the customer, exportable and
+deletable from their own account. See
+[Personal data and privacy](/customer/privacy) for exactly what a customer
+can see, download, and request removed, and what's kept regardless.
+
+**Operator and audit data.** Every authentication, authorization,
+configuration, and financial action an operator takes is append-only audited
+with the actor, target, reason, and timestamp. See
+[Security](/operations/security#the-audit-trail) for what the trail records
+and who can read it.
+
+**Anonymous telemetry.** One daily heartbeat: an installation identifier,
+build version, service name, OS, and CPU architecture. Nothing that could
+identify a customer, an amount, or a domain. See
+[Anonymous telemetry](/operations/telemetry) for the exact event and how to
+verify what's sent.
+
+**AI and MCP data.** Nothing reaches a configured AI provider or MCP server
+without passing through a single redaction gateway first. See
+[AI privacy](/operations/ai-privacy) for what's stripped and
+[AI governance](/operations/ai-governance#data-flow-inventory) for the
+data-flow inventory — a table of every source, what leaves, and where it's
+retained.
+
+## Retention defaults
+
+| Data | Window | Enforced by a job? |
+| --- | --- | --- |
+| Bot sessions, checkout sessions | Row-level `expires_at` | Yes — hourly retention sweep |
+| Payment webhook intake rows | 30 days after intake | Yes |
+| Support attachments (rows and files) | Row-level, policy-defined | Yes |
+| Outbox events | `APP_RETENTION_OUTBOX_DAYS`, default 7 days | Yes |
+| Collected telemetry (collector side) | `APP_RETENTION_TELEMETRY_DAYS`, default 30 days | Yes |
+| Entitlement drift records | `APP_RETENTION_DRIFT_DAYS`, default 90 days | Yes |
+| Database backups | `APP_BACKUP_RETENTION_DAYS`, default 14 days | Yes — pruned after every scheduled backup |
+| AI prompts | Not kept by default | N/A — never written |
+| AI outputs | Per-feature, operator-configured | Yes, per feature's own setting |
+| Audit events | Kept for the life of the installation | No — append-only by design, not a retention gap |
+| Operator sessions, customer sessions, magic links | Documented as 30 days | **No** |
+| Customer security events | Documented as 180 days | **No** |
+
+<Warning>
+  **Operator sessions, customer sessions, magic links, and customer security
+  events are not swept by the retention worker.** The windows above are the
+  documented design; nothing calls the purge routine that would enforce them,
+  so these tables grow without bound today. This does not create an access
+  risk — an expired session cannot authenticate regardless of whether its row
+  still exists, because validation is by deadline, not by row presence — but
+  it is a real storage and hygiene gap, stated here rather than implied to be
+  handled. See [Security](/operations/security#sessions) for the underlying
+  detail.
+</Warning>
+
+Retention only runs on the `worker` process. An installation running only
+`api` and `bot` accumulates all of the above with no cleanup at all — see
+[Jobs and queues](/operations/jobs-and-queues#retention-sweeps).
+
+## Telemetry contract and opt-out verification
+
+The exact JSON body, the complete "never collected" list, and the collector's
+own validation rules are documented in full at
+[Anonymous telemetry](/operations/telemetry). In short: set
+`APP_TELEMETRY_ENABLED=false` and every telemetry request stops — the page
+documents the exact log line that confirms it, so the opt-out is something
+you can verify rather than something you have to trust.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Threat model" icon="shield-halved" href="/architecture/threat-model">
+    What's at risk on each surface and the mitigation that actually exists.
+  </Card>
+  <Card title="Personal data and privacy" icon="user-shield" href="/customer/privacy">
+    The customer-facing export and deletion screen.
+  </Card>
+</CardGroup>

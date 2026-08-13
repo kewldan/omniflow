@@ -29,7 +29,8 @@
             "pages": [
               "architecture/overview",
               "architecture/data-ownership",
-              "architecture/technology"
+              "architecture/technology",
+              "architecture/threat-model"
             ]
           },
           {
@@ -107,6 +108,7 @@
               "operations/backup-restore",
               "operations/troubleshooting",
               "operations/telemetry",
+              "operations/privacy",
               "operations/security"
             ]
           },
@@ -139,7 +141,8 @@
             "pages": [
               "ru/architecture/overview",
               "ru/architecture/data-ownership",
-              "ru/architecture/technology"
+              "ru/architecture/technology",
+              "ru/architecture/threat-model"
             ]
           },
           {
@@ -217,6 +220,7 @@
               "ru/operations/backup-restore",
               "ru/operations/troubleshooting",
               "ru/operations/telemetry",
+              "ru/operations/privacy",
               "ru/operations/security"
             ]
           },
