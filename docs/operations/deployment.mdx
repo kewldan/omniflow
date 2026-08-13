@@ -40,6 +40,14 @@ Two named volumes carry state:
 - **`postgres-data`** — everything. Orders, the ledger, entitlements, audit events, sessions, settings, the queue. It is mounted at `/var/lib/postgresql`, the directory the image declares, rather than at the `/var/lib/postgresql/data` that was `PGDATA` up to PostgreSQL 17. Version 18 moved it to `/var/lib/postgresql/18/docker` so a major upgrade can hold two data directories side by side, and mounting the old path leaves this volume empty while the database goes to an anonymous volume that `docker volume prune` eventually removes. If you are upgrading an installation that ran the earlier mount, your data is in that anonymous volume: find it with `docker volume ls -f dangling=true`, or take a backup before changing the mount and restore it afterwards.
 - **`backup-data`** — the encrypted `pg_dump` output, mounted at `/var/lib/omniflow/backups` on both `bot` and `worker` because one takes backups on a schedule and the other on demand. Backups live outside the container filesystem so a rebuild never discards them.
 
+If you change where PostgreSQL is mounted — a different compose file, a bind mount, a managed database moved back in-house — check the result rather than assuming it:
+
+```bash
+sh tools/volume-drill.sh
+```
+
+It runs under a compose project of its own, so it never touches a stack already on the host. It asserts that the running `data_directory` is inside the named volume and that the container has no anonymous volumes, then writes a row, recreates the container, and reads it back. CI runs it against the shipped `compose.yaml` on every change.
+
 Support-ticket attachments uploaded through the customer web panel are the exception you have to handle yourself. They are written to `APP_SUPPORT_ATTACHMENT_DIR`, which defaults to `/var/lib/omniflow/support-attachments`, and `compose.yaml` declares **no volume for that path on either `api` or `worker`**. As shipped, a browser-uploaded attachment lives in the API container's writable layer and disappears on the next rebuild, and the worker — which is the process that reclaims orphaned attachment files — cannot see the same directory. If your installation accepts web uploads, add a shared volume mounted at the same path on both services and set `APP_SUPPORT_ATTACHMENT_DIR` to it on both. A worker pointed at a different directory deletes the rows and leaves the bytes behind.
 
 ## First deployment

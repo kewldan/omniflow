@@ -234,6 +234,14 @@ jobs:
             -e ACME_EMAIL=ci@example.com -e WEB_DOMAIN=web.example.com \
             -e API_DOMAIN=api.example.com -e BOT_WEBHOOK_DOMAIN=bot.example.com \
             caddy:2.10-alpine caddy validate --config /etc/caddy/Caddyfile
+      # Validating that the file parses and that the images build cannot see
+      # where a byte written to the database ends up, which is how the stack
+      # shipped with the database in an anonymous volume rather than in the
+      # named one operators are told to back up. This writes a row, recreates
+      # the container, and reads it back.
+      - name: The database lands in the volume operators back up
+        run: sh tools/volume-drill.sh
+
       - name: Build the images the stack runs
         run: |
           docker compose -f compose.yaml build api bot worker
