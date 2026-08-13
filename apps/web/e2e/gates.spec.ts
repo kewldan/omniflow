@@ -1,6 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
+import { MISSING_MESSAGE_MARKER } from "../i18n/missing-message";
+
 /**
  * The accessibility, layout, and localisation gates.
  *
@@ -72,9 +74,12 @@ test.describe("localisation", () => {
     for (const path of PUBLIC_PAGES) {
       await page.goto(path);
       const body = (await page.locator("body").innerText()) ?? "";
-      // next-intl renders the key itself when a message is missing, which looks
-      // like copy nobody wrote and reads as `admin.login.title`.
-      expect(body).not.toMatch(/\b(admin|home)\.[a-z][A-Za-z]*\.[a-z][A-Za-z]*\b/);
+      // A missing message renders as the marker configured in i18n/request.ts,
+      // which cannot collide with content and covers every namespace rather
+      // than the two this pattern used to name.
+      expect(body, `${path} rendered an untranslated message key`).not.toContain(
+        MISSING_MESSAGE_MARKER,
+      );
     }
   });
 

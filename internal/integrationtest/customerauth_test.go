@@ -47,8 +47,13 @@ func newCustomerService(t *testing.T, harness *harness, now func() time.Time) *c
 // the session lookup, the CSRF check, the security headers — is the production
 // one.
 func newAccountHandlersForTest(service *customerauthpg.Service) *apihttp.AccountHandlers {
+	// Secure, because the __Host- prefix and the Secure attribute travel
+	// together: a browser rejects the prefix without it, so the API reads the
+	// unprefixed name when the cookie is not Secure. Building the handlers
+	// insecure and then presenting a __Host- cookie describes a pairing that
+	// cannot exist, and the request arrives with no session the API can see.
 	return apihttp.NewAccountHandlers(apihttp.AccountOptions{
-		Auth: service, Logger: slog.New(slog.DiscardHandler), CookieSecure: false,
+		Auth: service, Logger: slog.New(slog.DiscardHandler), CookieSecure: true,
 	})
 }
 

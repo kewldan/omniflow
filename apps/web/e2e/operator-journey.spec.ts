@@ -1,5 +1,7 @@
 import { expect, type Locator, test } from "@playwright/test";
 
+import { MISSING_MESSAGE_MARKER } from "../i18n/missing-message";
+
 /**
  * Fills a field and makes sure the value survived.
  *
@@ -128,10 +130,14 @@ test.describe("operator journey", () => {
       await page.goto(path);
       await expect(page.locator("main")).toBeVisible();
       const body = (await page.locator("body").innerText()) ?? "";
-      // next-intl renders the key itself when a message is missing, which looks
-      // like copy nobody wrote and reads as `admin.navigation.items.offers`.
-      expect(body, `${path} rendered an untranslated message key`).not.toMatch(
-        /\badmin\.[a-z][A-Za-z]*\.[a-z][A-Za-z_.]*\b/,
+      // A missing message renders as the marker configured in i18n/request.ts.
+      // This used to search for a dotted key instead, which cannot tell a
+      // missing message from data: the audit page lists action names like
+      // `admin.bootstrap.completed`, and the check failed there the first time
+      // it ran against an API with rows in it. The marker cannot collide with
+      // content, and it catches every namespace rather than `admin.` alone.
+      expect(body, `${path} rendered an untranslated message key`).not.toContain(
+        MISSING_MESSAGE_MARKER,
       );
     }
   });
