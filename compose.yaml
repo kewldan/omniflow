@@ -13,7 +13,14 @@ services:
       timeout: 3s
       retries: 20
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      # /var/lib/postgresql, not /var/lib/postgresql/data. PostgreSQL 18's image
+      # sets PGDATA to /var/lib/postgresql/18/docker — a versioned directory, so
+      # a major upgrade can hold two of them side by side — and declares its
+      # VOLUME at the parent. Mounting the old 17-and-earlier path leaves this
+      # named volume empty and puts the database in the anonymous volume Docker
+      # creates for the declared one, where `docker volume prune` will eventually
+      # find it unreferenced and delete it.
+      - postgres-data:/var/lib/postgresql
     networks: [internal]
 
   valkey:
@@ -98,6 +105,11 @@ services:
       dockerfile: build/web.Dockerfile
     environment:
       NEXT_PUBLIC_API_URL: http://api:8080
+      # Where the web application reaches the API, for its own server-side
+      # session check and for the /v1 calls the browser makes same-origin.
+      # Without a reverse proxy in front of this stack nothing else answers
+      # them, and both panels would render and then fail every request.
+      API_INTERNAL_URL: http://api:8080
     ports:
       - "3000:3000"
     depends_on: [api]
