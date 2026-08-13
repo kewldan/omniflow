@@ -28,10 +28,20 @@ executed once since it was written.
 Running the product found five defects no test in the repository could have
 seen, two of them serious enough that neither web panel worked in a browser in
 any shipped configuration. Making the gates green found four more, all of them
-in the gates themselves. Both are worth reading before trusting a checked box in
-an earlier phase — [what running it found](#what-running-it-found) and [what the
-green run cost](#what-the-green-run-cost) — because the boxes were accurate
-about the code and silent about whether anyone had run it.
+in the gates themselves. Closing the verification debt found four more again:
+creating a campaign had never worked against a real database, audience expansion
+queued nobody for almost every segment, the AI settings screen rendered its
+warnings as untranslated keys and never blocked on a blocking one, and the
+performance budget was wired to a script no job ran. All three accounts are worth
+reading before trusting a checked box in an earlier phase — [what running it
+found](#what-running-it-found), [what the green run
+cost](#what-the-green-run-cost), and the closed items in each phase's
+verification debt — because the boxes were accurate about the code and silent
+about whether anyone had run it.
+
+The pattern is the same every time, and it is the one thing to take from this
+document: code that nothing calls is indistinguishable from code that works, and
+only a caller tells them apart.
 
 A few items shipped with a caveat stated in their own line, and each phase
 records its remaining verification debt in its own section; nothing else is
