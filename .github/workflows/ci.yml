@@ -80,7 +80,10 @@ jobs:
       APP_VALKEY_URL: redis://localhost:6379/0
       # Test-only values. The panels refuse to run without them, and the cookie
       # flags are off because the suite speaks plain HTTP to localhost.
-      APP_DATA_ENCRYPTION_KEY: ${{ vars.CI_DATA_ENCRYPTION_KEY || 'ZGV2ZWxvcG1lbnQtb25seS0zMi1ieXRlLWtleS0xMjM0NQ==' }}
+      # The fallback decodes to exactly 32 bytes — "omniflow-ci-development-only-key".
+      # Anything else exits the API with "APP_DATA_ENCRYPTION_KEY must be
+      # base64-encoded 32 bytes" before it ever binds a port.
+      APP_DATA_ENCRYPTION_KEY: ${{ vars.CI_DATA_ENCRYPTION_KEY || 'b21uaWZsb3ctY2ktZGV2ZWxvcG1lbnQtb25seS1rZXk=' }}
       APP_ADMIN_PANEL_ENABLED: "true"
       APP_CUSTOMER_PANEL_ENABLED: "true"
       APP_ADMIN_COOKIE_SECURE: "false"
@@ -105,8 +108,17 @@ jobs:
         run: |
           go build -o /tmp/omniflow-api ./cmd/api
           /tmp/omniflow-api > /tmp/api.log 2>&1 &
+          API_PID=$!
           for _ in $(seq 1 60); do
             curl -fsS http://127.0.0.1:8080/livez >/dev/null 2>&1 && break
+            # A configuration error kills the process immediately. Without this
+            # the loop waits out its full minute and reports a refused
+            # connection, which hides the line the API actually printed.
+            if ! kill -0 "$API_PID" 2>/dev/null; then
+              echo "the API exited before it served /livez:"
+              cat /tmp/api.log
+              exit 1
+            fi
             sleep 1
           done
           curl -fsS http://127.0.0.1:8080/livez
