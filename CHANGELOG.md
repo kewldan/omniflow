@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.1](https://github.com/kewldan/omniflow/compare/omniflow-v1.0.0...omniflow-v1.0.1) (2026-08-13)
+
+
+### Bug Fixes
+
+* **release:** build images for the tag release-please actually creates ([1130eb4](https://github.com/kewldan/omniflow/commit/1130eb45d83dde9b002e2112eb02f03e4bef9b93))
+* **release:** tell the secret scan what is public by design ([1f9362e](https://github.com/kewldan/omniflow/commit/1f9362e29b438b29cf25684a0cbd585d968fe3d3))
+
 ## 1.0.0 (2026-08-13)
 
 
