@@ -290,17 +290,40 @@ exactly this reason.
 
 Run this quarterly. An untested backup is an assumption.
 
-1. Take a manual backup from `/ops`.
-2. Start a throwaway PostgreSQL instance.
-3. Decrypt and restore the backup into it.
-4. Confirm row counts for `orders`, `ledger_entries`, `entitlements`, and `subscriptions`
-   match the live database at the backup point.
-5. Confirm `APP_DATA_ENCRYPTION_KEY` still decrypts a contact channel in the restored copy.
-6. Destroy the throwaway instance.
+```bash
+sh tools/restore-drill.sh
+```
 
-Record the date and the outcome. Step 5 is the one most often skipped and the one that most
-often fails: a database restored without its data-encryption key has unreadable contact
-values.
+The script is the procedure rather than a description of it. It takes the most recent
+`completed` backup, decrypts it through `worker --decrypt-backup`, restores it into a
+throwaway PostgreSQL instance on the stack's own network, compares row counts, opens a
+sealed value with `APP_DATA_ENCRYPTION_KEY`, and removes the instance again. It never
+writes to the live database, and it exits non-zero when the drill fails, so a scheduled run
+means something.
+
+Pass `COMPOSE` when the stack uses override files, and `TABLES` to compare a different set:
+
+```bash
+COMPOSE="docker compose -f compose.yaml -f compose.prod.yaml" sh tools/restore-drill.sh
+```
+
+What it reports, and how to read it:
+
+| Verdict | Meaning |
+| --- | --- |
+| `same` | The restored table matches the live one. |
+| `live moved on` | The live table has more rows than the backup. Expected on a running installation: the database kept working after the backup was taken. For an exact comparison, run the drill immediately after taking a backup. |
+| `MORE THAN LIVE` | The copy has rows the live database does not. This cannot happen by drift; the backup is not of this database. Fails the drill. |
+| `MISSING` | The table is absent from the copy. The schema did not come across. Fails the drill. |
+
+The sealed-value step is the one most often skipped and the one that most often fails: a
+database restored without its data-encryption key loads perfectly and has unreadable
+secrets. The script opens a sealed customer-OIDC client secret in a throwaway container, so
+it needs nothing installed on the host. An installation with no OIDC provider configured has
+no sealed value for it to check, and it says so rather than passing quietly — check a TOTP
+secret or a provider credential by hand before trusting that backup.
+
+Record the date and the outcome.
 
 ## Beyond the database: full disaster recovery
 

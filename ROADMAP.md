@@ -16,12 +16,25 @@ operator panel, and the whole customer web panel — sign-in, subscriptions,
 checkout, the wallet, the digital-goods shop, support, news, referrals, loyalty,
 and a customer's own data. v1.0 is release engineering rather than product
 surface — compatibility, security review, reliability, and documentation — and
-its documentation and community work is done. Three items remain, and none of
-them is something a change to this repository can produce: an external security
-reviewer, a restore drill run against a real database, and a green CI run on the
-release commit. A few items shipped with a caveat stated in their own line, and
-each phase records its remaining verification debt in its own section; nothing
-else is outstanding behind a checked box.
+its documentation and community work is done.
+
+Two items remain, and neither is something a change to this repository can
+produce: an external security reviewer, and a green CI run on the release commit.
+The third — a restore drill against a real database — was closed by running one:
+the procedure is `tools/restore-drill.sh` and it passes against a live
+installation.
+
+Running the product also found five defects that no test in the repository could
+have seen, two of them serious enough that neither web panel worked in a browser
+in any shipped configuration. They are fixed, and the gates that would have
+caught them now run in CI. [What running it
+found](#what-running-it-found) is the account of it, and it is worth reading
+before trusting a checked box in an earlier phase: the boxes were accurate about
+the code and silent about whether anyone had used it.
+
+A few items shipped with a caveat stated in their own line, and each phase
+records its remaining verification debt in its own section; nothing else is
+outstanding behind a checked box.
 
 ## Status legend
 
@@ -797,11 +810,14 @@ Carried into v0.9 and tracked here rather than left implied.
   release exists, because that needs a release feed the installation would have
   to reach, which is a network dependency and a disclosure decision an owner
   should make deliberately rather than inherit.
-- **Playwright coverage behind the session gate.** The browser suite proves that
-  every panel route refuses an anonymous visitor and that the accessibility,
-  layout, and localisation gates hold on the pages reachable without signing in.
-  The authenticated journeys need a seeded operator, and that fixture belongs
-  with the integration harness rather than with the browser suite.
+- ~~**Playwright coverage behind the session gate.**~~ Closed in v1.0. CI's
+  `e2e` job now applies the migrations, starts a real API, and redeems the
+  one-time setup token to seed an operator, so `operator-journey.spec.ts` signs
+  in for real, proves the session survives a navigation, and sweeps every panel
+  page for untranslated message keys. Leaving it undone had hidden three defects
+  at once; see [What running it found](#what-running-it-found). The customer half
+  still needs a seeded customer with a Remnawave user behind it and remains open
+  under v0.10.
 - **Evaluation runs are manual.** The sets ship with the binary and the
   thresholds are enforced by `Report.Regressions`, but nothing schedules a run
   against an installation's own configured provider. That is deliberate for now:
@@ -920,20 +936,26 @@ on the pre-existing pages as well as the new ones.
 
 ### Verification debt
 
-- **Playwright coverage behind the session gate.** The browser suite proves every
-  account route refuses an anonymous visitor, that a failed sign-in explains
-  itself, and that the accessibility, layout, and localisation gates hold on the
-  pages reachable without signing in. The authenticated journeys need a seeded
-  customer with a Remnawave user behind it, and that fixture belongs with the
-  integration harness. It is the same debt v0.8 carried for the operator panel.
+- **Playwright coverage behind the session gate — the customer half.** The
+  browser suite proves every account route refuses an anonymous visitor, that a
+  failed sign-in explains itself, and that the accessibility, layout, and
+  localisation gates hold on the pages reachable without signing in. The
+  operator half of this debt was closed in v1.0 by having CI run a real API and
+  seed an operator; the customer half is harder and is still open, because a
+  customer session needs a Remnawave user behind it and CI has no panel to point
+  at. A stub adapter is the likely answer rather than a live instance.
 - **The OIDC round trip is not exercised end to end.** Claim mapping, the unlink
   guard, provider-scoped revocation, and the conflict rule are covered against a
   real database, but the authorization round trip itself needs a live provider or
   a stub issuer serving a discovery document and a JWKS. That stub belongs with
   the integration harness rather than in a unit test.
-- **`go test -race` could not be run on the development machine.** The race
-  detector fails to link against the local MinGW toolchain, which is an
-  environment limitation rather than a code one. CI runs it.
+- ~~**`go test -race` could not be run on the development machine.**~~ The race
+  detector still fails to link against the local MinGW toolchain, but that is an
+  argument for changing where it runs rather than for leaving it unverified:
+  `go test -race ./...` passes in a `golang:1.26.5-alpine` container against the
+  same working tree, which is the same thing CI does and needs no toolchain on
+  the host. `sqlc generate` has the same limitation and the same answer, through
+  `sqlc/sqlc:1.31.1`.
 - **The panel has no screen for customer OIDC providers yet.** ~~The API is
   complete, gated by `settings.write`, and audited, but an operator configures a
   provider through the API rather than through a form.~~ Closed in v0.10: the
@@ -1089,12 +1111,12 @@ never learned about.
 
 ### Verification debt
 
-- **Playwright coverage behind the session gate.** The browser suite proves every
-  account route refuses an anonymous visitor and that the accessibility, layout,
-  and localisation gates hold on the pages reachable without signing in. The
-  authenticated journeys need a seeded customer with a Remnawave user behind it,
-  and that fixture belongs with the integration harness. It is the same debt v0.8
-  and v0.9 carried, and it now bounds the WCAG 2.2 AA review as well.
+- **Playwright coverage behind the session gate — the customer half**, as set
+  out in v0.9's section. The operator half was closed in v1.0; the customer half
+  still needs a seeded customer with a Remnawave user behind it, and it bounds
+  the WCAG 2.2 AA review the same way. The panel pages an operator sees are now
+  swept for untranslated keys, which is how two missing translations that had
+  been shipping since v0.7 were found.
 - **Attachment storage is a workaround.** `support_attachments` holds a Telegram
   file reference and has no column for a local one, so a web upload is stored on
   disk and its key written into `telegram_file_id` behind a `web:` prefix that
@@ -1154,7 +1176,10 @@ the new privacy page rather than left implied.
 
 - [x] Defined service-level indicators for API, bot, jobs, payments, fulfillment, and notifications
 - [x] Dashboards and alerts for actionable failure modes
-- [x] Backup restoration drill and disaster-recovery runbook
+- [x] Backup restoration drill and disaster-recovery runbook — the runbook is
+      [`docs/operations/backup-restore.mdx`](./docs/operations/backup-restore.mdx)
+      and the drill is `tools/restore-drill.sh`, which performs it rather than
+      describing it and exits non-zero when it fails
 - [x] Bounded retries, dead-letter handling, and reconciliation for every external side effect
 - [x] Graceful degradation when Valkey, Remnawave, Telegram, or a payment provider is unavailable
 - [x] Capacity guidance for small, medium, and large single-server installations
@@ -1187,11 +1212,15 @@ benchmark ships with the repository.
 - [x] Telegram bot, admin panel, and customer panel cover their complete required journeys
 - [x] Real payments and Remnawave fulfillment are idempotent and recoverable
 - [x] Roles prevent unauthorized operator access and every sensitive operation is audited
-- [ ] Backup restore and supported-version upgrade have been exercised successfully —
+- [x] Backup restore and supported-version upgrade have been exercised successfully —
       the upgrade half is exercised on every change by CI's `migrations` matrix
       against a real PostgreSQL, from the empty database through every prefix of
-      the migration history to head. The restore half is a documented drill and
-      nothing in the repository runs it
+      the migration history to head. The restore half was a documented drill that
+      nothing in the repository ran; it is now `tools/restore-drill.sh`, and it
+      has been run against a real installation: a 455 KB encrypted backup
+      decrypted through `worker --decrypt-backup`, restored into a throwaway
+      PostgreSQL 18.4 instance, every table matched, and the sealed OIDC client
+      secret opened under `APP_DATA_ENCRYPTION_KEY` while a wrong key was refused
 - [ ] CI, security, migration, documentation, accessibility, and end-to-end gates are green —
       evaluated by the CI run on the release commit, which is not something a
       development machine can assert on its behalf
@@ -1251,6 +1280,78 @@ carried from v0.5 had been fixed in v0.7 and the section describing it was never
 updated. And v0.8's AI and MCP boxes describe implemented, tested code that no
 process reaches, which is now stated in that phase's own section rather than left
 for a reader to discover by grepping for an import.
+
+### What running it found
+
+Five defects, all in the same blind spot. Everything in this repository is
+tested from the inside — unit tests, route tests against a mounted router,
+Testcontainers against a real database, and a browser suite that stops at the
+sign-in screen because the journeys past it needed a seeded operator that three
+phases in a row deferred. Nothing had ever started the shipped stack and used the
+product through it. All five are invisible from inside and obvious within a
+minute of trying.
+
+**The database was not on the volume that was supposed to hold it.** This is the
+one to fix first in any existing installation. `compose.yaml` mounted
+`postgres-data` at `/var/lib/postgresql/data`, which was `PGDATA` up to
+PostgreSQL 17. Version 18 moved it to `/var/lib/postgresql/18/docker` and
+declares its `VOLUME` at the parent, so the named volume an operator sees, backs
+up, and is told in `docs/operations/deployment.mdx` carries "everything" was
+empty, and the database was in an anonymous volume created to satisfy the
+declaration. It survives a restart, which is why nothing looked wrong. It does
+not survive `docker volume prune`, which removes it as unreferenced, and it is
+not what gets copied when somebody migrates hosts by moving named volumes. The
+CI `compose` job validates that the file parses and that the images build; it
+never asserted where a byte written to the database ends up.
+
+**Neither panel could reach its API from a browser, in any shipped topology.**
+The browser client is same-origin by design: `packages/api-client/src/fetcher.ts`
+keeps a base URL of `""`, `setBaseUrl` exists and is called from nowhere, and
+there is no CORS anywhere in the Go API. Something therefore has to serve `/v1`
+on the web origin — and nothing did. Both reverse-proxy examples put the API on a
+separate host, and the compose stack puts it on a separate port, so every call
+the panel made landed on Next.js, which has no `/v1` route, and returned 404.
+`docs/contributing/development.mdx` asserted that the proxy examples provided the
+same origin, which is the sentence that made the gap invisible: it was written as
+a description of the examples and was never true of them. The panels rendered,
+refused anonymous visitors correctly, and passed every accessibility, layout, and
+localisation gate while being unable to complete a single request. Sign-in
+reported *"Sign-in failed. Try again."* — the message for a rejected credential.
+Fixed at the edge in both proxy examples, and in `apps/web/middleware.ts` for
+stacks with nothing in front of them, which is what makes the quickstart work.
+
+**The session cookie was named for a guarantee it did not carry.** Both session
+cookies and both OIDC flow cookies were named `__Host-…` unconditionally, while
+`Secure` followed `APP_ADMIN_COOKIE_SECURE` and `APP_CUSTOMER_COOKIE_SECURE`. A
+browser accepts a `__Host-` cookie only with `Secure`, so on the plain-HTTP local
+stack — the configuration the quickstart tells operators to use — the cookie was
+discarded on arrival. From the server's side this is silent: it sets a cookie and
+never sees it again. The prefix now follows the attribute it depends on, so the
+production name is unchanged and the documented local stack works.
+
+**Two translations were missing behind the session gate**, where the localisation
+gate could not see them: the sidebar rendered `admin.navigation.items.offers`
+because the catalogue had a label at `admin.nav.offers` that nothing reads, and
+every dashboard metric rendered its own definition key, because those keys were
+stored flat with dots in them while next-intl resolves a dot as a nesting
+separator.
+
+The gates that would have caught each of them now exist and run:
+`apps/web/e2e/api-reachability.spec.ts` asserts the browser can reach the API on
+its own origin, `internal/httpapi/cookiename_test.go` asserts the `__Host-`
+prefix appears exactly when `Secure` does across all six cookies, and
+`apps/web/e2e/operator-journey.spec.ts` signs in for real and sweeps fifteen
+panel pages for untranslated keys. The last of those needed CI to run a real API
+rather than the web application alone, which is the change that closes the
+seeded-operator debt v0.8, v0.9, and v0.10 each carried forward.
+
+The volume defect has no gate yet, and the honest reason is that asserting it
+properly means writing a row, recreating the container, and reading it back —
+which is a different shape of test from anything the `compose` job does today. It
+is worth adding. The pattern across all five is worth stating plainly, because it
+will produce the sixth: a test that builds the system under test out of the same
+assumptions as the code cannot see a wrong assumption. Only running the thing an
+operator actually runs can.
 
 ---
 
