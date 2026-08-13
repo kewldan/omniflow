@@ -126,12 +126,25 @@ curl http://localhost:8080/healthz
 
 ### 3. Start the unified web application
 
+A local stack speaks plain HTTP, and a session cookie marked `Secure` is one a
+browser will not send back over it. Both panels would render and refuse every
+sign-in. Turn the flag off for local use only:
+
+```env
+APP_ADMIN_COOKIE_SECURE=false
+APP_CUSTOMER_COOKIE_SECURE=false
+```
+
 ```bash
 docker compose --profile web up --build
 ```
 
 - 👤 Customer account: [http://localhost:3000](http://localhost:3000)
 - 🧑‍💻 Admin workspace: [http://localhost:3000/admin](http://localhost:3000/admin)
+
+Both panels call the API on their own origin, and the web service forwards `/v1`
+to it. Behind a reverse proxy, route `/v1` on the web host as the examples in
+`deploy/proxies` do; see [Reverse proxy](./docs/operations/reverse-proxy.mdx).
 
 On first start the API writes a one-time setup token to its log. Redeem it at
 `/admin/setup` to create the first owner; see [Admin panel](./docs/operations/admin-panel.mdx).

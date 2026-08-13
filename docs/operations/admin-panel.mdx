@@ -217,8 +217,22 @@ Every panel response carries `nosniff`, `X-Frame-Options: DENY`, a strict
 `Content-Security-Policy` with `frame-ancestors 'none'`, `Referrer-Policy:
 no-referrer`, and `Cache-Control: no-store`.
 
-The session cookie uses the `__Host-` prefix, so a browser refuses it with a
-`Domain` attribute or over plain HTTP and a sibling subdomain cannot overwrite
-it. Every unsafe method additionally requires a per-session CSRF token echoed in
+The session cookie is named `__Host-omniflow_admin` when it carries `Secure`,
+which binds it to this exact origin: a browser refuses such a cookie with a
+`Domain` attribute, so a sibling subdomain cannot set or overwrite the
+operator's session.
+
+That refusal is unconditional, and it includes the cookie's own arrival. A
+browser rejects a `__Host-` cookie sent without `Secure` outright rather than
+merely treating it as weaker, so with `APP_ADMIN_COOKIE_SECURE=false` the name
+would make sign-in impossible instead of insecure — the cookie would be
+discarded on arrival and every attempt would come back to the sign-in screen. The
+prefix therefore follows the attribute it depends on: the cookie is
+`__Host-omniflow_admin` when it is `Secure` and `omniflow_admin` when it is not.
+The production name is the same as it has always been; only the plain-HTTP local
+stack differs, and there the prefix would have been a claim the cookie could not
+support anyway.
+
+Every unsafe method additionally requires a per-session CSRF token echoed in
 `X-CSRF-Token`; it is derived from a secret held with the session, so a token
 minted for one session cannot be replayed in another.

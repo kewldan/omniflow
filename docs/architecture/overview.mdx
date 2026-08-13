@@ -110,9 +110,9 @@ The HTTP API is split into three prefixes that never share a router.
 
 | Prefix | Credential | Extra gates | Mounted when |
 | --- | --- | --- | --- |
-| `/v1/panel` | `__Host-omniflow_admin` session cookie | `X-CSRF-Token` on unsafe methods, an RBAC permission declared at each route mount, TOTP challenge state, `X-Operator-Reason` on the mutations that require it | `APP_ADMIN_PANEL_ENABLED=true` and an admin service is attached |
+| `/v1/panel` | `__Host-omniflow_admin` session cookie (`omniflow_admin` without TLS) | `X-CSRF-Token` on unsafe methods, an RBAC permission declared at each route mount, TOTP challenge state, `X-Operator-Reason` on the mutations that require it | `APP_ADMIN_PANEL_ENABLED=true` and an admin service is attached |
 | `/v1/admin` | `Authorization: Bearer <APP_OPERATOR_TOKEN>` | None: no CSRF, no RBAC, no authorization audit | Always, once the commerce runtime is built |
-| `/v1/account` | `__Host-omniflow_account` session cookie | `X-CSRF-Token` on unsafe methods, step-up re-authentication on the irreversible actions | `APP_CUSTOMER_PANEL_ENABLED=true` |
+| `/v1/account` | `__Host-omniflow_account` session cookie (`omniflow_account` without TLS) | `X-CSRF-Token` on unsafe methods, step-up re-authentication on the irreversible actions | `APP_CUSTOMER_PANEL_ENABLED=true` |
 
 Merging any two would mean one silently inheriting the other's middleware, and a customer credential must
 never be able to reach an operator route. Keeping them structurally apart makes that a property of the

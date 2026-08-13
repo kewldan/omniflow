@@ -10,9 +10,9 @@ CI job, or another service.
 
 | Prefix | Credential | Extra gates | Who it is for |
 | --- | --- | --- | --- |
-| `/v1/panel` | `__Host-omniflow_admin` session cookie | `X-CSRF-Token` on unsafe methods, an RBAC permission per route, TOTP challenge state | A human operator in the `/admin` browser workspace |
+| `/v1/panel` | `__Host-omniflow_admin` session cookie (`omniflow_admin` without TLS) | `X-CSRF-Token` on unsafe methods, an RBAC permission per route, TOTP challenge state | A human operator in the `/admin` browser workspace |
 | `/v1/admin` | `Authorization: Bearer <APP_OPERATOR_TOKEN>` | none — no CSRF, no RBAC, no authorization audit | A machine acting as the installation |
-| `/v1/account` | `__Host-omniflow_account` session cookie | `X-CSRF-Token`, step-up re-authentication on four routes | A customer in the `/account` browser panel |
+| `/v1/account` | `__Host-omniflow_account` session cookie (`omniflow_account` without TLS) | `X-CSRF-Token`, step-up re-authentication on four routes | A customer in the `/account` browser panel |
 
 Merging any two of these would mean one silently inherits the other's
 middleware, and a customer credential must never be able to reach an operator

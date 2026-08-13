@@ -18,9 +18,9 @@ The HTTP API has exactly three prefixes, and they never share middleware.
 
 | Prefix | Credential | Gates | Scope of a compromise |
 | --- | --- | --- | --- |
-| `/v1/panel` | `__Host-omniflow_admin` session cookie | security headers → session → CSRF → an RBAC permission per route | Whatever the operator's roles allow; every action is audited |
+| `/v1/panel` | `__Host-omniflow_admin` session cookie (`omniflow_admin` without TLS) | security headers → session → CSRF → an RBAC permission per route | Whatever the operator's roles allow; every action is audited |
 | `/v1/admin` | `Authorization: Bearer <APP_OPERATOR_TOKEN>` | the token, and nothing else | Every endpoint on the prefix, including refunds and wallet adjustments; no authorization audit |
-| `/v1/account` | `__Host-omniflow_account` session cookie | security headers → session → CSRF, plus recent-authentication on four routes | One customer's own account |
+| `/v1/account` | `__Host-omniflow_account` session cookie (`omniflow_account` without TLS) | security headers → session → CSRF, plus recent-authentication on four routes | One customer's own account |
 
 Collapsing any two of these onto one prefix would mean one silently inherits the
 other's middleware. Keeping them apart makes "a customer credential cannot reach
@@ -174,6 +174,7 @@ slide is clamped to the absolute deadline in SQL.
 | Property | Operator | Customer |
 | --- | --- | --- |
 | Cookie | `__Host-omniflow_admin` | `__Host-omniflow_account` |
+| Cookie without `Secure` | `omniflow_admin` | `omniflow_account` |
 | Idle timeout | 30 minutes | 14 days |
 | Absolute timeout | 12 hours | 60 days |
 | Token rotation | every 15 minutes | every 24 hours |
@@ -251,12 +252,21 @@ policy, is what actually defends the unsafe methods.
   captures it. A long-lived tab therefore never fails its next mutation after a
   session rotation.
 
-Cookie flags on both session cookies: the `__Host-` prefix, `Path=/`,
-`HttpOnly`, `SameSite=Lax`, and `Secure` per configuration. The `__Host-` prefix
-is the important one — a browser refuses such a cookie if it carries a `Domain`
-attribute or arrives over plain HTTP, so a sibling subdomain cannot set or
-overwrite an operator's session. The two cookie names differ so both panels can
-be open in one browser without either replacing the other.
+Cookie flags on both session cookies: `Path=/`, `HttpOnly`, `SameSite=Lax`,
+`Secure` per configuration, and the `__Host-` prefix whenever `Secure` is set.
+The prefix is the important one — a browser refuses such a cookie if it carries a
+`Domain` attribute, so a sibling subdomain cannot set or overwrite an operator's
+session.
+
+It is applied with `Secure` rather than independently of it, because the same
+rule that rejects a `Domain` attribute also rejects the cookie outright when
+`Secure` is absent. Naming a plain-HTTP cookie `__Host-` would not weaken it; it
+would stop the browser accepting it at all, so `APP_ADMIN_COOKIE_SECURE=false`
+and `APP_CUSTOMER_COOKIE_SECURE=false` would make sign-in impossible rather than
+merely less safe. A cookie without `Secure` is therefore `omniflow_admin` or
+`omniflow_account`, unprefixed and honest about what it guarantees. The two names
+differ so both panels can be open in one browser without either replacing the
+other.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |

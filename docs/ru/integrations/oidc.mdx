@@ -140,7 +140,9 @@ Omniflow пересобирает этот URL из заголовка `Host` в
   <Step title="Запустите поток">
     Переведите браузер на
     `GET /v1/panel/auth/oidc/{slug}/start?next=/admin/finance`. API запечатывает
-    `{slug, state, verifier, next}` в cookie `__Host-omniflow_oidc` (время жизни
+    `{slug, state, verifier, next}` в cookie `__Host-omniflow_oidc` — на стеке
+    без TLS это `omniflow_oidc`, поскольку cookie с префиксом `__Host-` без
+    `Secure` браузер отбрасывает — (время жизни
     10 минут) и отвечает `302` на провайдера. `next` принимается только как
     абсолютный путь того же сайта — `/…`, но не `//…`, — поэтому подложенное
     значение не может превратить обратный вызов в открытый редирект.

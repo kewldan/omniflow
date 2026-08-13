@@ -273,12 +273,18 @@ the doors it opened stay open is not off.
 ## Sessions
 
 Sessions are cookie-backed, `HttpOnly`, and `SameSite=Lax`. The cookie is named
-`__Host-omniflow_account`: the `__Host-` prefix binds it to this exact origin, so
-a browser refuses to accept it with a `Domain` attribute or over plain HTTP and a
-sibling subdomain cannot overwrite it. The name differs from the operator panel's
-cookie so both panels can be open in one browser without either replacing the
-other. Only the SHA-256 of the token is stored, so a database read never yields a
-usable cookie.
+`__Host-omniflow_account` when it carries `Secure`: the `__Host-` prefix binds it
+to this exact origin, so a browser refuses to accept it with a `Domain` attribute
+and a sibling subdomain cannot overwrite it.
+
+The prefix requires `Secure`, and a browser discards a `__Host-` cookie that
+lacks it rather than accepting a weaker one — so under
+`APP_CUSTOMER_COOKIE_SECURE=false`, the plain-HTTP local stack, the name would
+prevent sign-in altogether. It follows the attribute instead: `omniflow_account`
+without `Secure`, `__Host-omniflow_account` with it. Either way the name differs
+from the operator panel's cookie, so both panels can be open in one browser
+without either replacing the other. Only the SHA-256 of the token is stored, so a
+database read never yields a usable cookie.
 
 `Lax` rather than `Strict` is deliberate: a magic link or an OIDC callback both
 arrive as cross-site navigations and would otherwise land signed out. The CSRF

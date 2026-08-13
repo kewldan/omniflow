@@ -136,8 +136,10 @@ see [Reverse proxy](/operations/reverse-proxy).
   <Step title="Start the flow">
     Navigate the browser to
     `GET /v1/panel/auth/oidc/{slug}/start?next=/admin/finance`. The API seals
-    `{slug, state, verifier, next}` into the `__Host-omniflow_oidc` cookie
-    (lifetime 10 minutes) and answers `302` to the provider. `next` is accepted
+    `{slug, state, verifier, next}` into the `__Host-omniflow_oidc` cookie —
+    `omniflow_oidc` on a stack without TLS, since a browser discards a `__Host-`
+    cookie that is not `Secure` — (lifetime 10 minutes) and answers `302` to the
+    provider. `next` is accepted
     only as a same-site absolute path — `/…` but not `//…` — so a crafted value
     cannot turn the callback into an open redirect.
   </Step>
