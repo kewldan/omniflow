@@ -413,7 +413,19 @@ func (handlers *AdminHandlers) mcpEvents(writer http.ResponseWriter, request *ht
 
 func (handlers *AdminHandlers) diagnostics(writer http.ResponseWriter, request *http.Request) {
 	bundle, err := handlers.operations.Diagnostics(request.Context(), handlers.version)
-	handlers.respond(writer, request, bundle, err)
+	if err != nil {
+		handlers.operationsError(writer, request, err)
+		return
+	}
+	// The update line is attached here rather than assembled in panelpg, which
+	// makes no network requests. The checker answers from cache most of the
+	// time and reports its own failures, so a feed that is down slows this
+	// response by at most one bounded attempt and never fails it.
+	if handlers.updates != nil {
+		status := handlers.updates.Status(request.Context())
+		bundle.Update = &status
+	}
+	writeJSON(writer, http.StatusOK, bundle)
 }
 
 func (handlers *AdminHandlers) telemetryPreview(writer http.ResponseWriter, request *http.Request) {

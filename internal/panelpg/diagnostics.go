@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/omniflow/omniflow/internal/database/dbgen"
+	"github.com/omniflow/omniflow/internal/updatecheck"
 )
 
 // Diagnostics, the telemetry payload preview, and backup status.
@@ -52,6 +53,13 @@ type Diagnostics struct {
 	// Counts are row counts for the tables an operator's question usually
 	// concerns. They are counts rather than samples for the obvious reason.
 	Counts map[string]int64 `json:"counts"`
+
+	// Update reports whether a newer release exists. It is filled in by the
+	// caller rather than assembled here, because answering it means a network
+	// request and this package makes none. A nil value means the process that
+	// built the bundle has no checker, which is not the same as "no update":
+	// the status carries its own Enabled flag for that.
+	Update *updatecheck.Status `json:"update,omitempty"`
 }
 
 // MigrationStatus is what schema version the database is on.

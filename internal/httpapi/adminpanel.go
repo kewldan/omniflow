@@ -19,6 +19,7 @@ import (
 	"github.com/omniflow/omniflow/internal/platform"
 	"github.com/omniflow/omniflow/internal/rbac"
 	"github.com/omniflow/omniflow/internal/remnawave"
+	"github.com/omniflow/omniflow/internal/updatecheck"
 )
 
 // AdminHandlers serves the operator panel API.
@@ -68,6 +69,11 @@ type AdminHandlers struct {
 	// version is the running build, published in diagnostics and in the
 	// telemetry preview so an operator can see what would be sent.
 	version string
+	// updates answers whether a newer release exists. A nil value leaves the
+	// line out of the diagnostics bundle entirely, which is what an
+	// installation that has configured no release feed gets — and it has
+	// configured none by default, because reading one is a disclosure.
+	updates *updatecheck.Checker
 
 	cookieName   string
 	cookieSecure bool
@@ -103,6 +109,11 @@ type AdminOptions struct {
 	// the telemetry preview, so an empty value renders as "unknown" rather than
 	// as a version somebody might quote back.
 	Version string
+	// UpdateFeedURL is the release feed to compare that version against. Empty
+	// leaves the update line out of diagnostics, which is the default: an
+	// installation should not reach a third party because somebody opened a
+	// support screen.
+	UpdateFeedURL string
 }
 
 // versionOrUnknown renders an unset build version as something an operator will
@@ -132,6 +143,12 @@ func NewAdminHandlers(options AdminOptions) *AdminHandlers {
 	if options.Operations != nil {
 		aiRuntime = airuntime.New(options.Operations)
 	}
+	var updates *updatecheck.Checker
+	if strings.TrimSpace(options.UpdateFeedURL) != "" {
+		updates = updatecheck.New(updatecheck.Options{
+			FeedURL: options.UpdateFeedURL, Current: versionOrUnknown(options.Version),
+		})
+	}
 	return &AdminHandlers{
 		service:          options.Service,
 		limiter:          options.Limiter,
@@ -145,6 +162,7 @@ func NewAdminHandlers(options AdminOptions) *AdminHandlers {
 		fulfillment:      options.Fulfillment,
 		remnawave:        options.Remnawave,
 		version:          versionOrUnknown(options.Version),
+		updates:          updates,
 		// The __Host- prefix binds the cookie to this exact origin, so a sibling
 		// subdomain cannot set or overwrite the operator's session. It applies
 		// only when the cookie is Secure, because a browser rejects a __Host-

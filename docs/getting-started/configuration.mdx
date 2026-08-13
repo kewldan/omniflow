@@ -139,6 +139,22 @@ domain, is in [Telegram integration](/integrations/telegram).
 | --- | --- | --- | --- | --- | --- |
 | `APP_PUBLIC_URL` | — | api, bot | for YooKassa and for the sign-in link | no | Base URL for provider return links, referral links, and the absolute sign-in URL the bot sends |
 | `APP_TERMS_URL` | — | api, bot | no | no | Terms link on plan and checkout screens. Validated as an `http`/`https` URL when set |
+| `APP_UPDATE_FEED_URL` | — | api | no | no | Release feed the diagnostics bundle compares the running version against. Empty means no check and no request. Validated as an `http`/`https` URL when set |
+
+`APP_UPDATE_FEED_URL` has no default, and that is the point. Reading a feed tells whoever serves it
+that this installation exists, roughly where it is, and which version it runs, so the check is
+something an owner turns on rather than something they discover they have been doing. Omniflow ships
+no address to compare against either: the documentation names no repository, and a URL baked into the
+binary would be a fact nothing else in the installation could corroborate.
+
+Set it to any JSON document naming a version — a GitHub releases endpoint answers `tag_name`, and an
+owner publishing their own file can answer `version`. Both shapes are read. The result appears in the
+diagnostics bundle as `update`, and the feed is read at most once every six hours however often the
+bundle is generated.
+
+A feed that refuses, times out, or answers with something unreadable reports `unreachable` rather
+than "up to date". The detail is a category and never the address, because a feed URL can carry a
+token.
 | `APP_DEFAULT_CURRENCY` | `RUB` | api, bot, worker | no | no | Settlement currency the catalogue compares plans in. Uppercased, then matched against `^[A-Z]{3}$`; anything else fails startup |
 
 Two startup refusals depend on `APP_PUBLIC_URL`, and both exist because the alternative is a link

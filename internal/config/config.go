@@ -128,6 +128,12 @@ type Config struct {
 	AdminPanel                AdminPanelConfig
 	CustomerPanel             CustomerPanelConfig
 	PublicURL                 string
+	// UpdateFeedURL turns on the "is there a newer release?" line in the
+	// diagnostics bundle. It is empty by default and has no built-in address,
+	// because reading a feed tells whoever serves it that this installation
+	// exists and which version it runs — a disclosure the owner should choose
+	// rather than inherit. See internal/updatecheck.
+	UpdateFeedURL string
 	// TermsURL, RecoveryWindow, and MinimumTrialAccountAge read the same
 	// variables the bot reads. The customer web panel checks out against the
 	// same rules the bot does, so one .env has to configure both processes
@@ -279,6 +285,13 @@ func Load() (Config, error) {
 		RecoveryWindow:            hourEnvOr("APP_RECOVERY_WINDOW_HOURS", 14*24*time.Hour),
 		MinimumTrialAccountAge:    hourEnvOr("APP_TRIAL_MINIMUM_ACCOUNT_AGE_HOURS", 0),
 		SupportAttachmentDir:      os.Getenv("APP_SUPPORT_ATTACHMENT_DIR"),
+		UpdateFeedURL:             strings.TrimSpace(os.Getenv("APP_UPDATE_FEED_URL")),
+	}
+	if cfg.UpdateFeedURL != "" {
+		parsed, err := url.ParseRequestURI(cfg.UpdateFeedURL)
+		if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") {
+			return Config{}, errors.New("APP_UPDATE_FEED_URL must be an absolute HTTP(S) URL")
+		}
 	}
 	if encodedKey := os.Getenv("APP_DATA_ENCRYPTION_KEY"); encodedKey != "" {
 		key, err := decodeKey(encodedKey)

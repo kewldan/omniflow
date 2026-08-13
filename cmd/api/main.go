@@ -260,7 +260,7 @@ func buildAdminPanel(
 		Operations: operations, Providers: paymentservice.Index(providers), Health: health,
 		Fulfillment: fulfillmentService, Remnawave: remnawaveClient,
 		CookieSecure: cfg.AdminPanel.CookieSecure, Issuer: cfg.AdminPanel.Issuer,
-		Version: version,
+		Version: version, UpdateFeedURL: cfg.UpdateFeedURL,
 	}), nil
 }
 

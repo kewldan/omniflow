@@ -836,11 +836,20 @@ Carried into v0.9 and tracked here rather than left implied.
   not. It needs a delivery path that reaches the outbox without creating
   recipients, so the test send cannot be mistaken for the campaign in the
   counters.
-- **Update availability.** The diagnostics bundle reports the running version,
+- ~~**Update availability.** The diagnostics bundle reports the running version,
   the schema state, and every applied migration. It does not say whether a newer
   release exists, because that needs a release feed the installation would have
   to reach, which is a network dependency and a disclosure decision an owner
-  should make deliberately rather than inherit.
+  should make deliberately rather than inherit.~~ Closed, on exactly those
+  terms. `internal/updatecheck` reads a feed named by `APP_UPDATE_FEED_URL` and
+  adds an `update` line to the bundle. There is no default address: a built-in
+  one would make the disclosure decision for the owner, and it would also be an
+  address the documentation cannot corroborate, because these docs name no
+  repository. A feed that refuses, times out, or answers with nothing usable
+  reports `unreachable` rather than "up to date", the detail is a category
+  rather than the transport's message — a feed URL can carry a token — and the
+  feed is read at most once every six hours however often the bundle is
+  generated.
 - ~~**Playwright coverage behind the session gate.**~~ Closed in v1.0. CI's
   `e2e` job now applies the migrations, starts a real API, and redeems the
   one-time setup token to seed an operator, so `operator-journey.spec.ts` signs
