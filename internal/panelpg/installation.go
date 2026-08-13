@@ -338,11 +338,27 @@ func (service *Service) AIProviderCredential(
 
 // RecordAIProviderCheck stores the outcome of a connection test, so "is this
 // configured correctly?" is answerable without spending a real request.
+//
+// It audits, because a test is an operator action that opens a sealed credential
+// and spends the installation's money. A provider that starts failing its checks
+// the day after somebody rotated a key is a sequence worth being able to read
+// back, and that needs the test in the same history as the rotation.
 func (service *Service) RecordAIProviderCheck(
-	ctx context.Context, slug string, ok bool, detail string,
+	ctx context.Context, slug string, ok bool, detail string, actor Actor,
 ) error {
-	return service.queries().RecordAIProviderCheck(ctx, dbgen.RecordAIProviderCheckParams{
-		Ok: pgtype.Bool{Bool: ok, Valid: true}, Detail: optionalText(detail), Slug: slug,
+	return service.inTx(ctx, func(queries *dbgen.Queries) error {
+		if err := queries.RecordAIProviderCheck(ctx, dbgen.RecordAIProviderCheckParams{
+			Ok: pgtype.Bool{Bool: ok, Valid: true}, Detail: optionalText(detail), Slug: slug,
+		}); err != nil {
+			return err
+		}
+		// The detail is recorded in the audit as well as on the row. The row
+		// holds only the latest outcome, and "it failed, then somebody changed
+		// the key, then it passed" is the shape of the question people ask.
+		return appendAudit(ctx, queries, actor.audit(
+			"ai.provider.tested", "configuration", "ai_provider", slug,
+			map[string]any{"ok": ok, "detail": detail},
+		))
 	})
 }
 

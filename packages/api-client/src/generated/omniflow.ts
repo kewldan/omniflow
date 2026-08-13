@@ -3648,6 +3648,66 @@ export interface CustomerOidcPresetList {
   items: CustomerOidcPresetListItemsItem[];
 }
 
+export interface PanelDeleted {
+  deleted: boolean;
+}
+
+export type PanelAIProviderKind = (typeof PanelAIProviderKind)[keyof typeof PanelAIProviderKind];
+
+export const PanelAIProviderKind = {
+  openai_compatible: "openai_compatible",
+  anthropic: "anthropic",
+  gemini: "gemini",
+} as const;
+
+export interface PanelAIProvider {
+  /** @pattern ^[a-z0-9][a-z0-9_-]{1,40}$ */
+  slug: string;
+  kind: PanelAIProviderKind;
+  /**
+   * @minLength 1
+   * @maxLength 120
+   */
+  displayName: string;
+  /** Where the provider is reached. Required for the OpenAI-compatible adapter, which is how an owner points at a model they host themselves. It is an address rather than a secret and is returned. */
+  baseUrl?: string;
+  enabled: boolean;
+  /** The owner's answer from the provider's own terms. Omniflow cannot verify it and does not pretend to; it is recorded so the panel can warn before a feature is switched on rather than after data left. */
+  zeroRetention: boolean;
+  trainsOnData: boolean;
+  /** @maxLength 2000 */
+  retentionNote?: string;
+  /** @maxLength 60 */
+  dataRegion?: string;
+  /** Whether a credential is stored. The credential itself is never returned. */
+  keyConfigured: boolean;
+  lastCheckedAt?: string;
+  lastCheckOk: boolean;
+  /**
+   * Why the last test failed, or how the last one passed. It never carries the provider's own message, which can echo the prompt, and never a transport error, which can carry a key held in a query string.
+   * @maxLength 500
+   */
+  lastCheckError?: string;
+  updatedAt: string;
+}
+
+export interface PanelAIProviderList {
+  items: PanelAIProvider[];
+}
+
+export type PanelAIProviderInput = PanelAIProvider & {
+  /** Write-only and never returned. Omitting it leaves the stored credential alone, so a display name can be corrected without re-pasting a secret. */
+  apiKey?: string;
+};
+
+export interface PanelAIProviderTestInput {
+  /**
+   * Which model to test with. Omit it to use whatever model a feature already points at this provider — that is the configuration worth proving. A provider nothing points at yet has none to infer, and the request is refused rather than guessed.
+   * @maxLength 120
+   */
+  model?: string;
+}
+
 /**
  * Request failed
  */
@@ -13893,6 +13953,359 @@ export const useConfigurePanelRecurring = <TError = Promise<ProblemResponse>>(
 
   const swrKey = swrOptions?.swrKey ?? getConfigurePanelRecurringMutationKey(provider);
   const swrFn = getConfigurePanelRecurringMutationFetcher(provider, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelAIProvidersResponse200 = {
+  data: PanelAIProviderList;
+  status: 200;
+};
+
+export type listPanelAIProvidersResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelAIProvidersResponseSuccess = listPanelAIProvidersResponse200 & {
+  headers: Headers;
+};
+export type listPanelAIProvidersResponseError = listPanelAIProvidersResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelAIProvidersResponse =
+  | listPanelAIProvidersResponseSuccess
+  | listPanelAIProvidersResponseError;
+
+export const getListPanelAIProvidersUrl = () => {
+  return `/v1/panel/settings/ai/providers`;
+};
+
+/**
+ * Requires settings.read. The model backends an owner has approved. The API key is never returned; `keyConfigured` reports only whether one is held. What a provider does with the data is recorded from its own terms, which Omniflow cannot verify.
+ */
+export const listPanelAIProviders = async (
+  options?: RequestInit,
+): Promise<listPanelAIProvidersResponse> => {
+  const res = await fetch(getListPanelAIProvidersUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelAIProvidersResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelAIProvidersResponse;
+};
+
+export const getListPanelAIProvidersKey = () => [`/v1/panel/settings/ai/providers`] as const;
+
+export type ListPanelAIProvidersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelAIProviders>>
+>;
+
+export const useListPanelAIProviders = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelAIProviders>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelAIProvidersKey() : null));
+  const swrFn = () => listPanelAIProviders(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelAIProviderResponse200 = {
+  data: PanelAIProvider;
+  status: 200;
+};
+
+export type savePanelAIProviderResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelAIProviderResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelAIProviderResponseSuccess = savePanelAIProviderResponse200 & {
+  headers: Headers;
+};
+export type savePanelAIProviderResponseError = (
+  | savePanelAIProviderResponse403
+  | savePanelAIProviderResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelAIProviderResponse =
+  | savePanelAIProviderResponseSuccess
+  | savePanelAIProviderResponseError;
+
+export const getSavePanelAIProviderUrl = () => {
+  return `/v1/panel/settings/ai/providers`;
+};
+
+/**
+ * Requires settings.write. An omitted `apiKey` leaves the stored credential alone, so a display name can be corrected without re-pasting a secret.
+ */
+export const savePanelAIProvider = async (
+  panelAIProviderInput: PanelAIProviderInput,
+  options?: RequestInit,
+): Promise<savePanelAIProviderResponse> => {
+  const res = await fetch(getSavePanelAIProviderUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(panelAIProviderInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelAIProviderResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as savePanelAIProviderResponse;
+};
+
+export const getSavePanelAIProviderMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PanelAIProviderInput }) => {
+    return savePanelAIProvider(arg, options);
+  };
+};
+export const getSavePanelAIProviderMutationKey = () => [`/v1/panel/settings/ai/providers`] as const;
+
+export type SavePanelAIProviderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelAIProvider>>
+>;
+
+export const useSavePanelAIProvider = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof savePanelAIProvider>>,
+    TError,
+    Key,
+    PanelAIProviderInput,
+    Awaited<ReturnType<typeof savePanelAIProvider>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelAIProviderMutationKey();
+  const swrFn = getSavePanelAIProviderMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type deletePanelAIProviderResponse200 = {
+  data: PanelDeleted;
+  status: 200;
+};
+
+export type deletePanelAIProviderResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type deletePanelAIProviderResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type deletePanelAIProviderResponseSuccess = deletePanelAIProviderResponse200 & {
+  headers: Headers;
+};
+export type deletePanelAIProviderResponseError = (
+  | deletePanelAIProviderResponse403
+  | deletePanelAIProviderResponse409
+) & {
+  headers: Headers;
+};
+
+export type deletePanelAIProviderResponse =
+  | deletePanelAIProviderResponseSuccess
+  | deletePanelAIProviderResponseError;
+
+export const getDeletePanelAIProviderUrl = (slug: string) => {
+  return `/v1/panel/settings/ai/providers/${slug}`;
+};
+
+/**
+ * Requires settings.write. Refused while a feature still points at the provider: removing it would switch that feature off without saying so.
+ */
+export const deletePanelAIProvider = async (
+  slug: string,
+  options?: RequestInit,
+): Promise<deletePanelAIProviderResponse> => {
+  const res = await fetch(getDeletePanelAIProviderUrl(slug), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: deletePanelAIProviderResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as deletePanelAIProviderResponse;
+};
+
+export const getDeletePanelAIProviderMutationFetcher = (slug: string, options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return deletePanelAIProvider(slug, options);
+  };
+};
+export const getDeletePanelAIProviderMutationKey = (slug: string) =>
+  [`/v1/panel/settings/ai/providers/${slug}`] as const;
+
+export type DeletePanelAIProviderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deletePanelAIProvider>>
+>;
+
+export const useDeletePanelAIProvider = <TError = Promise<ProblemResponse>>(
+  slug: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof deletePanelAIProvider>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof deletePanelAIProvider>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getDeletePanelAIProviderMutationKey(slug);
+  const swrFn = getDeletePanelAIProviderMutationFetcher(slug, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type testPanelAIProviderResponse200 = {
+  data: PanelAIProvider;
+  status: 200;
+};
+
+export type testPanelAIProviderResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type testPanelAIProviderResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type testPanelAIProviderResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type testPanelAIProviderResponse429 = {
+  data: ProblemResponse;
+  status: 429;
+};
+
+export type testPanelAIProviderResponseSuccess = testPanelAIProviderResponse200 & {
+  headers: Headers;
+};
+export type testPanelAIProviderResponseError = (
+  | testPanelAIProviderResponse403
+  | testPanelAIProviderResponse404
+  | testPanelAIProviderResponse422
+  | testPanelAIProviderResponse429
+) & {
+  headers: Headers;
+};
+
+export type testPanelAIProviderResponse =
+  | testPanelAIProviderResponseSuccess
+  | testPanelAIProviderResponseError;
+
+export const getTestPanelAIProviderUrl = (slug: string) => {
+  return `/v1/panel/settings/ai/providers/${slug}/test`;
+};
+
+/**
+ * Requires settings.write. Makes one small completion against the stored credential and records the outcome on the provider, so "is this configured correctly?" is answerable without spending a real request later. The prompt is Omniflow's own text; no customer content is involved.
+ *
+ * A test that ran and failed answers 200 with `lastCheckOk` false, because the outcome is what was asked for. A test that could not be attempted — no key stored, no model to test with, an unregistered provider — answers 4xx and stores nothing, because recording a failure would claim something was tried.
+ *
+ * It sits behind settings.write rather than settings.read: it opens a sealed credential and spends the installation's money. It is rate limited per operator.
+ */
+export const testPanelAIProvider = async (
+  slug: string,
+  panelAIProviderTestInput?: PanelAIProviderTestInput,
+  options?: RequestInit,
+): Promise<testPanelAIProviderResponse> => {
+  const res = await fetch(getTestPanelAIProviderUrl(slug), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(panelAIProviderTestInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: testPanelAIProviderResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as testPanelAIProviderResponse;
+};
+
+export const getTestPanelAIProviderMutationFetcher = (slug: string, options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PanelAIProviderTestInput | undefined }) => {
+    return testPanelAIProvider(slug, arg, options);
+  };
+};
+export const getTestPanelAIProviderMutationKey = (slug: string) =>
+  [`/v1/panel/settings/ai/providers/${slug}/test`] as const;
+
+export type TestPanelAIProviderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof testPanelAIProvider>>
+>;
+
+export const useTestPanelAIProvider = <TError = Promise<ProblemResponse>>(
+  slug: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof testPanelAIProvider>>,
+      TError,
+      Key,
+      PanelAIProviderTestInput | undefined,
+      Awaited<ReturnType<typeof testPanelAIProvider>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getTestPanelAIProviderMutationKey(slug);
+  const swrFn = getTestPanelAIProviderMutationFetcher(slug, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

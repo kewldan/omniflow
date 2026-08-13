@@ -1384,6 +1384,48 @@ func (e OrderInputOperation) Valid() bool {
 	}
 }
 
+// Defines values for PanelAIProviderKind.
+const (
+	PanelAIProviderKindAnthropic        PanelAIProviderKind = "anthropic"
+	PanelAIProviderKindGemini           PanelAIProviderKind = "gemini"
+	PanelAIProviderKindOpenaiCompatible PanelAIProviderKind = "openai_compatible"
+)
+
+// Valid indicates whether the value is a known member of the PanelAIProviderKind enum.
+func (e PanelAIProviderKind) Valid() bool {
+	switch e {
+	case PanelAIProviderKindAnthropic:
+		return true
+	case PanelAIProviderKindGemini:
+		return true
+	case PanelAIProviderKindOpenaiCompatible:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelAIProviderInputKind.
+const (
+	PanelAIProviderInputKindAnthropic        PanelAIProviderInputKind = "anthropic"
+	PanelAIProviderInputKindGemini           PanelAIProviderInputKind = "gemini"
+	PanelAIProviderInputKindOpenaiCompatible PanelAIProviderInputKind = "openai_compatible"
+)
+
+// Valid indicates whether the value is a known member of the PanelAIProviderInputKind enum.
+func (e PanelAIProviderInputKind) Valid() bool {
+	switch e {
+	case PanelAIProviderInputKindAnthropic:
+		return true
+	case PanelAIProviderInputKindGemini:
+		return true
+	case PanelAIProviderInputKindOpenaiCompatible:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PanelAddonSummaryKind.
 const (
 	PanelAddonSummaryKindDevices PanelAddonSummaryKind = "devices"
@@ -4677,6 +4719,76 @@ type OutboxStatus struct {
 	PendingCount     int   `json:"pendingCount"`
 }
 
+// PanelAIProvider defines model for PanelAIProvider.
+type PanelAIProvider struct {
+	// BaseUrl Where the provider is reached. Required for the OpenAI-compatible adapter, which is how an owner points at a model they host themselves. It is an address rather than a secret and is returned.
+	BaseUrl     *string `json:"baseUrl,omitempty"`
+	DataRegion  *string `json:"dataRegion,omitempty"`
+	DisplayName string  `json:"displayName"`
+	Enabled     bool    `json:"enabled"`
+
+	// KeyConfigured Whether a credential is stored. The credential itself is never returned.
+	KeyConfigured bool                `json:"keyConfigured"`
+	Kind          PanelAIProviderKind `json:"kind"`
+
+	// LastCheckError Why the last test failed, or how the last one passed. It never carries the provider's own message, which can echo the prompt, and never a transport error, which can carry a key held in a query string.
+	LastCheckError *string    `json:"lastCheckError,omitempty"`
+	LastCheckOk    bool       `json:"lastCheckOk"`
+	LastCheckedAt  *time.Time `json:"lastCheckedAt,omitempty"`
+	RetentionNote  *string    `json:"retentionNote,omitempty"`
+	Slug           string     `json:"slug"`
+	TrainsOnData   bool       `json:"trainsOnData"`
+	UpdatedAt      time.Time  `json:"updatedAt"`
+
+	// ZeroRetention The owner's answer from the provider's own terms. Omniflow cannot verify it and does not pretend to; it is recorded so the panel can warn before a feature is switched on rather than after data left.
+	ZeroRetention bool `json:"zeroRetention"`
+}
+
+// PanelAIProviderKind defines model for PanelAIProvider.Kind.
+type PanelAIProviderKind string
+
+// PanelAIProviderInput defines model for PanelAIProviderInput.
+type PanelAIProviderInput struct {
+	// ApiKey Write-only and never returned. Omitting it leaves the stored credential alone, so a display name can be corrected without re-pasting a secret.
+	ApiKey *string `json:"apiKey,omitempty"`
+
+	// BaseUrl Where the provider is reached. Required for the OpenAI-compatible adapter, which is how an owner points at a model they host themselves. It is an address rather than a secret and is returned.
+	BaseUrl     *string `json:"baseUrl,omitempty"`
+	DataRegion  *string `json:"dataRegion,omitempty"`
+	DisplayName string  `json:"displayName"`
+	Enabled     bool    `json:"enabled"`
+
+	// KeyConfigured Whether a credential is stored. The credential itself is never returned.
+	KeyConfigured bool                     `json:"keyConfigured"`
+	Kind          PanelAIProviderInputKind `json:"kind"`
+
+	// LastCheckError Why the last test failed, or how the last one passed. It never carries the provider's own message, which can echo the prompt, and never a transport error, which can carry a key held in a query string.
+	LastCheckError *string    `json:"lastCheckError,omitempty"`
+	LastCheckOk    bool       `json:"lastCheckOk"`
+	LastCheckedAt  *time.Time `json:"lastCheckedAt,omitempty"`
+	RetentionNote  *string    `json:"retentionNote,omitempty"`
+	Slug           string     `json:"slug"`
+	TrainsOnData   bool       `json:"trainsOnData"`
+	UpdatedAt      time.Time  `json:"updatedAt"`
+
+	// ZeroRetention The owner's answer from the provider's own terms. Omniflow cannot verify it and does not pretend to; it is recorded so the panel can warn before a feature is switched on rather than after data left.
+	ZeroRetention bool `json:"zeroRetention"`
+}
+
+// PanelAIProviderInputKind defines model for PanelAIProviderInput.Kind.
+type PanelAIProviderInputKind string
+
+// PanelAIProviderList defines model for PanelAIProviderList.
+type PanelAIProviderList struct {
+	Items []PanelAIProvider `json:"items"`
+}
+
+// PanelAIProviderTestInput defines model for PanelAIProviderTestInput.
+type PanelAIProviderTestInput struct {
+	// Model Which model to test with. Omit it to use whatever model a feature already points at this provider — that is the configuration worth proving. A provider nothing points at yet has none to infer, and the request is refused rather than guessed.
+	Model *string `json:"model,omitempty"`
+}
+
 // PanelAddonList defines model for PanelAddonList.
 type PanelAddonList struct {
 	Items *[]PanelAddonSummary `json:"items"`
@@ -5007,6 +5119,11 @@ type PanelDashboard struct {
 	// Timezone Always UTC. The panel converts for display.
 	Timezone      string `json:"timezone"`
 	WindowSeconds int64  `json:"windowSeconds"`
+}
+
+// PanelDeleted defines model for PanelDeleted.
+type PanelDeleted struct {
+	Deleted bool `json:"deleted"`
 }
 
 // PanelDrift defines model for PanelDrift.
@@ -6099,6 +6216,9 @@ type WebhookEventStatus string
 type WebhookEventList struct {
 	Items []WebhookEvent `json:"items"`
 }
+
+// AIProviderSlug defines model for AIProviderSlug.
+type AIProviderSlug = string
 
 // AccountProductID defines model for AccountProductID.
 type AccountProductID = openapi_types.UUID
@@ -7296,6 +7416,24 @@ type DeletePanelBlocklistSourceParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// SavePanelAIProviderParams defines parameters for SavePanelAIProvider.
+type SavePanelAIProviderParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// DeletePanelAIProviderParams defines parameters for DeletePanelAIProvider.
+type DeletePanelAIProviderParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// TestPanelAIProviderParams defines parameters for TestPanelAIProvider.
+type TestPanelAIProviderParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // SavePanelSubscriptionSettingsParams defines parameters for SavePanelSubscriptionSettings.
 type SavePanelSubscriptionSettingsParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
@@ -7583,6 +7721,12 @@ type SavePanelAnomalyRuleJSONRequestBody = PanelAnomalyRuleInput
 
 // SavePanelBlocklistSourceJSONRequestBody defines body for SavePanelBlocklistSource for application/json ContentType.
 type SavePanelBlocklistSourceJSONRequestBody = PanelBlocklistSourceInput
+
+// SavePanelAIProviderJSONRequestBody defines body for SavePanelAIProvider for application/json ContentType.
+type SavePanelAIProviderJSONRequestBody = PanelAIProviderInput
+
+// TestPanelAIProviderJSONRequestBody defines body for TestPanelAIProvider for application/json ContentType.
+type TestPanelAIProviderJSONRequestBody = PanelAIProviderTestInput
 
 // SavePanelSubscriptionSettingsJSONRequestBody defines body for SavePanelSubscriptionSettings for application/json ContentType.
 type SavePanelSubscriptionSettingsJSONRequestBody = PanelSubscriptionSettings
@@ -8210,6 +8354,18 @@ type ServerInterface interface {
 
 	// (DELETE /v1/panel/risk/sources/{sourceID})
 	DeletePanelBlocklistSource(w http.ResponseWriter, r *http.Request, sourceID openapi_types.UUID, params DeletePanelBlocklistSourceParams)
+
+	// (GET /v1/panel/settings/ai/providers)
+	ListPanelAIProviders(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /v1/panel/settings/ai/providers)
+	SavePanelAIProvider(w http.ResponseWriter, r *http.Request, params SavePanelAIProviderParams)
+
+	// (DELETE /v1/panel/settings/ai/providers/{slug})
+	DeletePanelAIProvider(w http.ResponseWriter, r *http.Request, slug AIProviderSlug, params DeletePanelAIProviderParams)
+
+	// (POST /v1/panel/settings/ai/providers/{slug}/test)
+	TestPanelAIProvider(w http.ResponseWriter, r *http.Request, slug AIProviderSlug, params TestPanelAIProviderParams)
 
 	// (GET /v1/panel/settings/commerce)
 	GetPanelCommerceSettings(w http.ResponseWriter, r *http.Request)
@@ -9278,6 +9434,26 @@ func (_ Unimplemented) SavePanelBlocklistSource(w http.ResponseWriter, r *http.R
 
 // (DELETE /v1/panel/risk/sources/{sourceID})
 func (_ Unimplemented) DeletePanelBlocklistSource(w http.ResponseWriter, r *http.Request, sourceID openapi_types.UUID, params DeletePanelBlocklistSourceParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/settings/ai/providers)
+func (_ Unimplemented) ListPanelAIProviders(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /v1/panel/settings/ai/providers)
+func (_ Unimplemented) SavePanelAIProvider(w http.ResponseWriter, r *http.Request, params SavePanelAIProviderParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /v1/panel/settings/ai/providers/{slug})
+func (_ Unimplemented) DeletePanelAIProvider(w http.ResponseWriter, r *http.Request, slug AIProviderSlug, params DeletePanelAIProviderParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/settings/ai/providers/{slug}/test)
+func (_ Unimplemented) TestPanelAIProvider(w http.ResponseWriter, r *http.Request, slug AIProviderSlug, params TestPanelAIProviderParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -18134,6 +18310,173 @@ func (siw *ServerInterfaceWrapper) DeletePanelBlocklistSource(w http.ResponseWri
 	handler.ServeHTTP(w, r)
 }
 
+// ListPanelAIProviders operation middleware
+func (siw *ServerInterfaceWrapper) ListPanelAIProviders(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPanelAIProviders(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SavePanelAIProvider operation middleware
+func (siw *ServerInterfaceWrapper) SavePanelAIProvider(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SavePanelAIProviderParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SavePanelAIProvider(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeletePanelAIProvider operation middleware
+func (siw *ServerInterfaceWrapper) DeletePanelAIProvider(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug AIProviderSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", chi.URLParam(r, "slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slug", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeletePanelAIProviderParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeletePanelAIProvider(w, r, slug, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TestPanelAIProvider operation middleware
+func (siw *ServerInterfaceWrapper) TestPanelAIProvider(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug AIProviderSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", chi.URLParam(r, "slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slug", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params TestPanelAIProviderParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TestPanelAIProvider(w, r, slug, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetPanelCommerceSettings operation middleware
 func (siw *ServerInterfaceWrapper) GetPanelCommerceSettings(w http.ResponseWriter, r *http.Request) {
 
@@ -19395,6 +19738,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/panel/settings/providers/{provider}/recurring", wrapper.ConfigurePanelRecurring)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/settings/ai/providers", wrapper.ListPanelAIProviders)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/panel/settings/ai/providers", wrapper.SavePanelAIProvider)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/panel/settings/ai/providers/{slug}", wrapper.DeletePanelAIProvider)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/settings/ai/providers/{slug}/test", wrapper.TestPanelAIProvider)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/risk/sources", wrapper.ListPanelBlocklistSources)
@@ -28095,6 +28450,231 @@ func (response DeletePanelBlocklistSource403ApplicationProblemPlusJSONResponse) 
 	return err
 }
 
+type ListPanelAIProvidersRequestObject struct {
+}
+
+type ListPanelAIProvidersResponseObject interface {
+	VisitListPanelAIProvidersResponse(w http.ResponseWriter) error
+}
+
+type ListPanelAIProviders200JSONResponse PanelAIProviderList
+
+func (response ListPanelAIProviders200JSONResponse) VisitListPanelAIProvidersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelAIProviders403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListPanelAIProviders403ApplicationProblemPlusJSONResponse) VisitListPanelAIProvidersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelAIProviderRequestObject struct {
+	Params SavePanelAIProviderParams
+	Body   *SavePanelAIProviderJSONRequestBody
+}
+
+type SavePanelAIProviderResponseObject interface {
+	VisitSavePanelAIProviderResponse(w http.ResponseWriter) error
+}
+
+type SavePanelAIProvider200JSONResponse PanelAIProvider
+
+func (response SavePanelAIProvider200JSONResponse) VisitSavePanelAIProviderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelAIProvider403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SavePanelAIProvider403ApplicationProblemPlusJSONResponse) VisitSavePanelAIProviderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelAIProvider422ApplicationProblemPlusJSONResponse Problem
+
+func (response SavePanelAIProvider422ApplicationProblemPlusJSONResponse) VisitSavePanelAIProviderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelAIProviderRequestObject struct {
+	Slug   AIProviderSlug `json:"slug"`
+	Params DeletePanelAIProviderParams
+}
+
+type DeletePanelAIProviderResponseObject interface {
+	VisitDeletePanelAIProviderResponse(w http.ResponseWriter) error
+}
+
+type DeletePanelAIProvider200JSONResponse PanelDeleted
+
+func (response DeletePanelAIProvider200JSONResponse) VisitDeletePanelAIProviderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelAIProvider403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DeletePanelAIProvider403ApplicationProblemPlusJSONResponse) VisitDeletePanelAIProviderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelAIProvider409ApplicationProblemPlusJSONResponse Problem
+
+func (response DeletePanelAIProvider409ApplicationProblemPlusJSONResponse) VisitDeletePanelAIProviderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestPanelAIProviderRequestObject struct {
+	Slug   AIProviderSlug `json:"slug"`
+	Params TestPanelAIProviderParams
+	Body   *TestPanelAIProviderJSONRequestBody
+}
+
+type TestPanelAIProviderResponseObject interface {
+	VisitTestPanelAIProviderResponse(w http.ResponseWriter) error
+}
+
+type TestPanelAIProvider200JSONResponse PanelAIProvider
+
+func (response TestPanelAIProvider200JSONResponse) VisitTestPanelAIProviderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestPanelAIProvider403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response TestPanelAIProvider403ApplicationProblemPlusJSONResponse) VisitTestPanelAIProviderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestPanelAIProvider404ApplicationProblemPlusJSONResponse Problem
+
+func (response TestPanelAIProvider404ApplicationProblemPlusJSONResponse) VisitTestPanelAIProviderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestPanelAIProvider422ApplicationProblemPlusJSONResponse Problem
+
+func (response TestPanelAIProvider422ApplicationProblemPlusJSONResponse) VisitTestPanelAIProviderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestPanelAIProvider429ApplicationProblemPlusJSONResponse Problem
+
+func (response TestPanelAIProvider429ApplicationProblemPlusJSONResponse) VisitTestPanelAIProviderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetPanelCommerceSettingsRequestObject struct {
 }
 
@@ -29564,6 +30144,18 @@ type StrictServerInterface interface {
 
 	// (DELETE /v1/panel/risk/sources/{sourceID})
 	DeletePanelBlocklistSource(ctx context.Context, request DeletePanelBlocklistSourceRequestObject) (DeletePanelBlocklistSourceResponseObject, error)
+
+	// (GET /v1/panel/settings/ai/providers)
+	ListPanelAIProviders(ctx context.Context, request ListPanelAIProvidersRequestObject) (ListPanelAIProvidersResponseObject, error)
+
+	// (PUT /v1/panel/settings/ai/providers)
+	SavePanelAIProvider(ctx context.Context, request SavePanelAIProviderRequestObject) (SavePanelAIProviderResponseObject, error)
+
+	// (DELETE /v1/panel/settings/ai/providers/{slug})
+	DeletePanelAIProvider(ctx context.Context, request DeletePanelAIProviderRequestObject) (DeletePanelAIProviderResponseObject, error)
+
+	// (POST /v1/panel/settings/ai/providers/{slug}/test)
+	TestPanelAIProvider(ctx context.Context, request TestPanelAIProviderRequestObject) (TestPanelAIProviderResponseObject, error)
 
 	// (GET /v1/panel/settings/commerce)
 	GetPanelCommerceSettings(ctx context.Context, request GetPanelCommerceSettingsRequestObject) (GetPanelCommerceSettingsResponseObject, error)
@@ -35363,6 +35955,127 @@ func (sh *strictHandler) DeletePanelBlocklistSource(w http.ResponseWriter, r *ht
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(DeletePanelBlocklistSourceResponseObject); ok {
 		if err := validResponse.VisitDeletePanelBlocklistSourceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPanelAIProviders operation middleware
+func (sh *strictHandler) ListPanelAIProviders(w http.ResponseWriter, r *http.Request) {
+	var request ListPanelAIProvidersRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPanelAIProviders(ctx, request.(ListPanelAIProvidersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPanelAIProviders")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPanelAIProvidersResponseObject); ok {
+		if err := validResponse.VisitListPanelAIProvidersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SavePanelAIProvider operation middleware
+func (sh *strictHandler) SavePanelAIProvider(w http.ResponseWriter, r *http.Request, params SavePanelAIProviderParams) {
+	var request SavePanelAIProviderRequestObject
+
+	request.Params = params
+
+	var body SavePanelAIProviderJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SavePanelAIProvider(ctx, request.(SavePanelAIProviderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SavePanelAIProvider")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SavePanelAIProviderResponseObject); ok {
+		if err := validResponse.VisitSavePanelAIProviderResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeletePanelAIProvider operation middleware
+func (sh *strictHandler) DeletePanelAIProvider(w http.ResponseWriter, r *http.Request, slug AIProviderSlug, params DeletePanelAIProviderParams) {
+	var request DeletePanelAIProviderRequestObject
+
+	request.Slug = slug
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeletePanelAIProvider(ctx, request.(DeletePanelAIProviderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeletePanelAIProvider")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeletePanelAIProviderResponseObject); ok {
+		if err := validResponse.VisitDeletePanelAIProviderResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// TestPanelAIProvider operation middleware
+func (sh *strictHandler) TestPanelAIProvider(w http.ResponseWriter, r *http.Request, slug AIProviderSlug, params TestPanelAIProviderParams) {
+	var request TestPanelAIProviderRequestObject
+
+	request.Slug = slug
+	request.Params = params
+
+	var body TestPanelAIProviderJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.TestPanelAIProvider(ctx, request.(TestPanelAIProviderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "TestPanelAIProvider")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(TestPanelAIProviderResponseObject); ok {
+		if err := validResponse.VisitTestPanelAIProviderResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

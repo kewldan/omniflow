@@ -283,10 +283,12 @@ being unread in Telegram.
   operator types, and no process reads those documents back while running. See
   [Installation settings](/operations/installation-settings) and
   [Configuration](/getting-started/configuration).
-- **It does not perform a model call or an MCP tool call.** The AI and MCP surfaces in this build
-  register providers, enable features one at a time, set budgets, and allowlist tools; no process
-  constructs a gateway or an MCP client, so nothing consumes that configuration at runtime. See
-  [AI governance](/operations/ai-governance).
+- **It performs a model call only when an operator presses "test connection".** That button is the
+  whole of the AI runtime in this build: it opens the stored credential, asks the provider for one
+  word, and records whether it answered. Everything else the AI and MCP surfaces do — registering
+  providers, enabling features one at a time, setting budgets, allowlisting tools — is stored and
+  not yet consumed: no feature makes a call, and no process constructs an MCP client. See
+  [AI providers](/operations/ai-providers) and [AI governance](/operations/ai-governance).
 - **It does not coordinate replicas.** Every scheduled loop — maintenance detection, the payment
   reconciler, sweeps, renewals, campaigns, retention, backups — is an in-process ticker with no
   leader election, so the supported topology is one instance of each role. See

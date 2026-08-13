@@ -3224,6 +3224,258 @@ export const ConfigurePanelRecurringResponse = zod.object({
 });
 
 /**
+ * Requires settings.read. The model backends an owner has approved. The API key is never returned; `keyConfigured` reports only whether one is held. What a provider does with the data is recorded from its own terms, which Omniflow cannot verify.
+ */
+export const listPanelAIProvidersResponseItemsItemSlugRegExp = /^[a-z0-9][a-z0-9_-]{1,40}$/;
+export const listPanelAIProvidersResponseItemsItemDisplayNameMax = 120;
+
+export const listPanelAIProvidersResponseItemsItemRetentionNoteMax = 2000;
+
+export const listPanelAIProvidersResponseItemsItemDataRegionMax = 60;
+
+export const listPanelAIProvidersResponseItemsItemLastCheckErrorMax = 500;
+
+export const ListPanelAIProvidersResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      slug: zod.string().regex(listPanelAIProvidersResponseItemsItemSlugRegExp),
+      kind: zod.enum(["openai_compatible", "anthropic", "gemini"]),
+      displayName: zod.string().min(1).max(listPanelAIProvidersResponseItemsItemDisplayNameMax),
+      baseUrl: zod
+        .string()
+        .optional()
+        .describe(
+          "Where the provider is reached. Required for the OpenAI-compatible adapter, which is how an owner points at a model they host themselves. It is an address rather than a secret and is returned.",
+        ),
+      enabled: zod.boolean(),
+      zeroRetention: zod
+        .boolean()
+        .describe(
+          "The owner's answer from the provider's own terms. Omniflow cannot verify it and does not pretend to; it is recorded so the panel can warn before a feature is switched on rather than after data left.",
+        ),
+      trainsOnData: zod.boolean(),
+      retentionNote: zod
+        .string()
+        .max(listPanelAIProvidersResponseItemsItemRetentionNoteMax)
+        .optional(),
+      dataRegion: zod.string().max(listPanelAIProvidersResponseItemsItemDataRegionMax).optional(),
+      keyConfigured: zod
+        .boolean()
+        .describe("Whether a credential is stored. The credential itself is never returned."),
+      lastCheckedAt: zod.iso.datetime({ offset: true }).optional(),
+      lastCheckOk: zod.boolean(),
+      lastCheckError: zod
+        .string()
+        .max(listPanelAIProvidersResponseItemsItemLastCheckErrorMax)
+        .optional()
+        .describe(
+          "Why the last test failed, or how the last one passed. It never carries the provider's own message, which can echo the prompt, and never a transport error, which can carry a key held in a query string.",
+        ),
+      updatedAt: zod.iso.datetime({ offset: true }),
+    }),
+  ),
+});
+
+/**
+ * Requires settings.write. An omitted `apiKey` leaves the stored credential alone, so a display name can be corrected without re-pasting a secret.
+ */
+export const SavePanelAIProviderHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const savePanelAIProviderBodyOneSlugRegExp = /^[a-z0-9][a-z0-9_-]{1,40}$/;
+export const savePanelAIProviderBodyOneDisplayNameMax = 120;
+
+export const savePanelAIProviderBodyOneRetentionNoteMax = 2000;
+
+export const savePanelAIProviderBodyOneDataRegionMax = 60;
+
+export const savePanelAIProviderBodyOneLastCheckErrorMax = 500;
+
+export const SavePanelAIProviderBody = zod
+  .object({
+    slug: zod.string().regex(savePanelAIProviderBodyOneSlugRegExp),
+    kind: zod.enum(["openai_compatible", "anthropic", "gemini"]),
+    displayName: zod.string().min(1).max(savePanelAIProviderBodyOneDisplayNameMax),
+    baseUrl: zod
+      .string()
+      .optional()
+      .describe(
+        "Where the provider is reached. Required for the OpenAI-compatible adapter, which is how an owner points at a model they host themselves. It is an address rather than a secret and is returned.",
+      ),
+    enabled: zod.boolean(),
+    zeroRetention: zod
+      .boolean()
+      .describe(
+        "The owner's answer from the provider's own terms. Omniflow cannot verify it and does not pretend to; it is recorded so the panel can warn before a feature is switched on rather than after data left.",
+      ),
+    trainsOnData: zod.boolean(),
+    retentionNote: zod.string().max(savePanelAIProviderBodyOneRetentionNoteMax).optional(),
+    dataRegion: zod.string().max(savePanelAIProviderBodyOneDataRegionMax).optional(),
+    keyConfigured: zod
+      .boolean()
+      .describe("Whether a credential is stored. The credential itself is never returned."),
+    lastCheckedAt: zod.iso.datetime({ offset: true }).optional(),
+    lastCheckOk: zod.boolean(),
+    lastCheckError: zod
+      .string()
+      .max(savePanelAIProviderBodyOneLastCheckErrorMax)
+      .optional()
+      .describe(
+        "Why the last test failed, or how the last one passed. It never carries the provider's own message, which can echo the prompt, and never a transport error, which can carry a key held in a query string.",
+      ),
+    updatedAt: zod.iso.datetime({ offset: true }),
+  })
+  .and(
+    zod.object({
+      apiKey: zod
+        .string()
+        .optional()
+        .describe(
+          "Write-only and never returned. Omitting it leaves the stored credential alone, so a display name can be corrected without re-pasting a secret.",
+        ),
+    }),
+  );
+
+export const savePanelAIProviderResponseSlugRegExp = /^[a-z0-9][a-z0-9_-]{1,40}$/;
+export const savePanelAIProviderResponseDisplayNameMax = 120;
+
+export const savePanelAIProviderResponseRetentionNoteMax = 2000;
+
+export const savePanelAIProviderResponseDataRegionMax = 60;
+
+export const savePanelAIProviderResponseLastCheckErrorMax = 500;
+
+export const SavePanelAIProviderResponse = zod.object({
+  slug: zod.string().regex(savePanelAIProviderResponseSlugRegExp),
+  kind: zod.enum(["openai_compatible", "anthropic", "gemini"]),
+  displayName: zod.string().min(1).max(savePanelAIProviderResponseDisplayNameMax),
+  baseUrl: zod
+    .string()
+    .optional()
+    .describe(
+      "Where the provider is reached. Required for the OpenAI-compatible adapter, which is how an owner points at a model they host themselves. It is an address rather than a secret and is returned.",
+    ),
+  enabled: zod.boolean(),
+  zeroRetention: zod
+    .boolean()
+    .describe(
+      "The owner's answer from the provider's own terms. Omniflow cannot verify it and does not pretend to; it is recorded so the panel can warn before a feature is switched on rather than after data left.",
+    ),
+  trainsOnData: zod.boolean(),
+  retentionNote: zod.string().max(savePanelAIProviderResponseRetentionNoteMax).optional(),
+  dataRegion: zod.string().max(savePanelAIProviderResponseDataRegionMax).optional(),
+  keyConfigured: zod
+    .boolean()
+    .describe("Whether a credential is stored. The credential itself is never returned."),
+  lastCheckedAt: zod.iso.datetime({ offset: true }).optional(),
+  lastCheckOk: zod.boolean(),
+  lastCheckError: zod
+    .string()
+    .max(savePanelAIProviderResponseLastCheckErrorMax)
+    .optional()
+    .describe(
+      "Why the last test failed, or how the last one passed. It never carries the provider's own message, which can echo the prompt, and never a transport error, which can carry a key held in a query string.",
+    ),
+  updatedAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Requires settings.write. Refused while a feature still points at the provider: removing it would switch that feature off without saying so.
+ */
+export const deletePanelAIProviderPathSlugRegExp = /^[a-z0-9][a-z0-9_-]{1,40}$/;
+
+export const DeletePanelAIProviderParams = zod.object({
+  slug: zod.string().regex(deletePanelAIProviderPathSlugRegExp),
+});
+
+export const DeletePanelAIProviderHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const DeletePanelAIProviderResponse = zod.object({
+  deleted: zod.boolean(),
+});
+
+/**
+ * Requires settings.write. Makes one small completion against the stored credential and records the outcome on the provider, so "is this configured correctly?" is answerable without spending a real request later. The prompt is Omniflow's own text; no customer content is involved.
+ *
+ * A test that ran and failed answers 200 with `lastCheckOk` false, because the outcome is what was asked for. A test that could not be attempted — no key stored, no model to test with, an unregistered provider — answers 4xx and stores nothing, because recording a failure would claim something was tried.
+ *
+ * It sits behind settings.write rather than settings.read: it opens a sealed credential and spends the installation's money. It is rate limited per operator.
+ */
+export const testPanelAIProviderPathSlugRegExp = /^[a-z0-9][a-z0-9_-]{1,40}$/;
+
+export const TestPanelAIProviderParams = zod.object({
+  slug: zod.string().regex(testPanelAIProviderPathSlugRegExp),
+});
+
+export const TestPanelAIProviderHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const testPanelAIProviderBodyModelMax = 120;
+
+export const TestPanelAIProviderBody = zod.object({
+  model: zod
+    .string()
+    .max(testPanelAIProviderBodyModelMax)
+    .optional()
+    .describe(
+      "Which model to test with. Omit it to use whatever model a feature already points at this provider — that is the configuration worth proving. A provider nothing points at yet has none to infer, and the request is refused rather than guessed.",
+    ),
+});
+
+export const testPanelAIProviderResponseSlugRegExp = /^[a-z0-9][a-z0-9_-]{1,40}$/;
+export const testPanelAIProviderResponseDisplayNameMax = 120;
+
+export const testPanelAIProviderResponseRetentionNoteMax = 2000;
+
+export const testPanelAIProviderResponseDataRegionMax = 60;
+
+export const testPanelAIProviderResponseLastCheckErrorMax = 500;
+
+export const TestPanelAIProviderResponse = zod.object({
+  slug: zod.string().regex(testPanelAIProviderResponseSlugRegExp),
+  kind: zod.enum(["openai_compatible", "anthropic", "gemini"]),
+  displayName: zod.string().min(1).max(testPanelAIProviderResponseDisplayNameMax),
+  baseUrl: zod
+    .string()
+    .optional()
+    .describe(
+      "Where the provider is reached. Required for the OpenAI-compatible adapter, which is how an owner points at a model they host themselves. It is an address rather than a secret and is returned.",
+    ),
+  enabled: zod.boolean(),
+  zeroRetention: zod
+    .boolean()
+    .describe(
+      "The owner's answer from the provider's own terms. Omniflow cannot verify it and does not pretend to; it is recorded so the panel can warn before a feature is switched on rather than after data left.",
+    ),
+  trainsOnData: zod.boolean(),
+  retentionNote: zod.string().max(testPanelAIProviderResponseRetentionNoteMax).optional(),
+  dataRegion: zod.string().max(testPanelAIProviderResponseDataRegionMax).optional(),
+  keyConfigured: zod
+    .boolean()
+    .describe("Whether a credential is stored. The credential itself is never returned."),
+  lastCheckedAt: zod.iso.datetime({ offset: true }).optional(),
+  lastCheckOk: zod.boolean(),
+  lastCheckError: zod
+    .string()
+    .max(testPanelAIProviderResponseLastCheckErrorMax)
+    .optional()
+    .describe(
+      "Why the last test failed, or how the last one passed. It never carries the provider's own message, which can echo the prompt, and never a transport error, which can carry a key held in a query string.",
+    ),
+  updatedAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
  * Requires risk.read. The stored authorization header is never returned.
  */
 export const ListPanelBlocklistSourcesResponse = zod.object({

@@ -211,17 +211,54 @@ an opinion:
 | This provider may train on your data | The provider row is marked as training |
 | This provider is not zero-retention | Zero retention is not set on the provider |
 | No data region recorded | The provider row has no region |
-| Never connection-tested | No connection test result has ever been recorded |
+| Never connection-tested | No connection test result has ever been recorded. Press **Test connection** to record one |
 | The last connection test failed | The stored result is a failure, with its detail |
 | Prompts are kept in Omniflow | This feature retains prompts |
 | No provider and model chosen | The feature cannot run as configured |
 
+## Testing a provider
+
+**Test connection** makes one real request. It opens the stored credential,
+sends Omniflow's own prompt — *Reply with the single word OK* — with a ceiling
+of sixteen output tokens, and records what happened on the provider row. The
+result is what the screen shows on the next load, so a verdict never disagrees
+with itself after a refresh.
+
+It is a real completion rather than a reachability check because the two fail
+differently and only the first answers the question. An address that resolves
+and a key the provider accepts are separate facts, and a test that proved only
+the first would report a revoked key as healthy.
+
+Leave **Model to test with** empty and the test uses whatever model a feature
+already points at this provider — the configuration actually worth proving. A
+provider nothing points at yet has no model to infer, and the request is refused
+rather than guessed.
+
 <Note>
-  **Never connection-tested** is the state every provider is in today. The
-  outcome of a test is storable and is what the card renders, but nothing in
-  this build performs one — for the same reason nothing else contacts a
-  provider yet.
+  Testing a provider you have not switched on yet is allowed, and is the order
+  the work happens in: paste the key, test it, then approve it. Everything that
+  can send customer content still requires **Approved for use**.
 </Note>
+
+Three details are deliberate:
+
+- **It needs `settings.write`, not `settings.read`.** The test opens a sealed
+  credential and spends your money. Neither is something reading a settings
+  screen should be able to do.
+- **It is rate limited** to thirty tests an hour per operator, which is generous
+  for the paste-test-fix loop and small enough that a stuck retry cannot spend
+  an afternoon's budget.
+- **A test that could not be attempted stores nothing.** No key, no model, an
+  unregistered slug: each is refused and the stored result is left alone,
+  because recording a failure would claim something was tried. A test that ran
+  and failed *is* stored, with a category rather than the provider's own words —
+  a provider message can echo the prompt back, and a transport error can carry a
+  key held in a query string.
+
+Every test is written to the audit trail as `ai.provider.tested`, beside the
+`ai.provider.saved` entry from the rotation before it. The row holds only the
+latest outcome, and "it failed, somebody changed the key, then it passed" is the
+shape of the question people ask.
 
 ## Troubleshooting
 
@@ -232,6 +269,8 @@ an opinion:
 | A feature will not save as enabled | Enabling requires both a provider and a model. Choose both, then enable. |
 | A provider will not delete | A feature still points at it. Deleting it would turn that feature off without saying so, so the foreign key refuses. Repoint or disable the feature first. |
 | Rotating the key appears to do nothing | The **Rotate key** button is disabled until the field has a value, because saving an empty field is how you *keep* the current key. |
+| **Test connection** says the test could not be run | Nothing was sent and the stored result is unchanged. The message says which: no key is stored, no model was given and none could be inferred, or the provider kind has no adapter in this build. |
+| A test reports the provider could not be reached, with no detail | The failure was in the transport rather than in the provider's answer. The address is never quoted back, because for one adapter it carries the API key in its query string. Check the base URL and the network path from the API container. |
 | The screen is not in the navigation at all | The signed-in operator lacks `settings.read`, or this process has no operations service attached — in which case the route is absent rather than forbidden, so a caller learns nothing about what is configured. |
 
 ## Related

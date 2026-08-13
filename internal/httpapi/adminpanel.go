@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/omniflow/omniflow/internal/adminauth"
 	"github.com/omniflow/omniflow/internal/adminauthpg"
+	"github.com/omniflow/omniflow/internal/airuntime"
 	"github.com/omniflow/omniflow/internal/customerauthpg"
 	"github.com/omniflow/omniflow/internal/fulfillment"
 	"github.com/omniflow/omniflow/internal/panelpg"
@@ -36,6 +37,12 @@ type AdminHandlers struct {
 	// operations serves the v0.7 surfaces. A nil value leaves them unmounted,
 	// which is what a panel running only the v0.6 foundation gets.
 	operations *panelpg.Service
+	// ai builds a gateway from what an owner configured, so an AI feature can
+	// make a call. It is derived from operations rather than passed in
+	// separately: they read the same rows, and allowing them to be supplied
+	// apart would allow a build where the settings screens save a configuration
+	// nothing is able to act on — which is the state this field exists to end.
+	ai *airuntime.Runtime
 	// adapterRecurring is what each compiled-in payment adapter declares about
 	// storing a payment method. It is computed at construction so the panel and
 	// the enforcement path read the same fact.
@@ -117,12 +124,21 @@ func NewAdminHandlers(options AdminOptions) *AdminHandlers {
 	if proxies == nil {
 		proxies = &TrustedProxies{}
 	}
+	// The AI runtime exists exactly when the configuration it reads does. An
+	// installation with no operations service has no settings to read and gets a
+	// nil runtime, which leaves every AI route unmounted rather than mounted and
+	// answering with a panic.
+	var aiRuntime *airuntime.Runtime
+	if options.Operations != nil {
+		aiRuntime = airuntime.New(options.Operations)
+	}
 	return &AdminHandlers{
 		service:          options.Service,
 		limiter:          options.Limiter,
 		logger:           options.Logger,
 		proxies:          proxies,
 		operations:       options.Operations,
+		ai:               aiRuntime,
 		adapterRecurring: adapterCapabilities(options.Providers),
 		providers:        options.Providers,
 		health:           options.Health,

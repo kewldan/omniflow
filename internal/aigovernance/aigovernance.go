@@ -113,13 +113,20 @@ type Provider struct {
 }
 
 // Warning is something an owner should read before enabling a feature.
+//
+// The tags are not decoration. This type is serialised straight into the
+// settings response, and without them it went out as `Code`, `Text`, and
+// `Blocking` while the panel read `code`, `text`, and `blocking`. Every warning
+// therefore rendered as an untranslated key, and `blocking` read as undefined —
+// so the guard that refuses to switch on a feature with no provider was
+// present, rendered, and inert.
 type Warning struct {
-	Code string
+	Code string `json:"code"`
 	// Text is written for an owner rather than a developer, because the person
 	// reading it is deciding whether their customers' messages may leave.
-	Text string
+	Text string `json:"text"`
 	// Blocking separates "you should know this" from "this will not work".
-	Blocking bool
+	Blocking bool `json:"blocking"`
 }
 
 // Warning codes.

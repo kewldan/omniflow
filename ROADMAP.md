@@ -18,19 +18,20 @@ and a customer's own data. v1.0 is release engineering rather than product
 surface — compatibility, security review, reliability, and documentation — and
 its documentation and community work is done.
 
-Two items remain, and neither is something a change to this repository can
-produce: an external security reviewer, and a green CI run on the release commit.
-The third — a restore drill against a real database — was closed by running one:
-the procedure is `tools/restore-drill.sh` and it passes against a live
-installation.
+One item remains, and it is not something a change to this repository can
+produce: an external security reviewer. The other two were closed by doing them
+rather than describing them. A restore drill against a real database is
+`tools/restore-drill.sh`, and it passes against a live installation. The green
+CI run is on `main`: every job, including the browser gate that had never
+executed once since it was written.
 
-Running the product also found five defects that no test in the repository could
-have seen, two of them serious enough that neither web panel worked in a browser
-in any shipped configuration. They are fixed, and the gates that would have
-caught them now run in CI. [What running it
-found](#what-running-it-found) is the account of it, and it is worth reading
-before trusting a checked box in an earlier phase: the boxes were accurate about
-the code and silent about whether anyone had used it.
+Running the product found five defects no test in the repository could have
+seen, two of them serious enough that neither web panel worked in a browser in
+any shipped configuration. Making the gates green found four more, all of them
+in the gates themselves. Both are worth reading before trusting a checked box in
+an earlier phase — [what running it found](#what-running-it-found) and [what the
+green run cost](#what-the-green-run-cost) — because the boxes were accurate
+about the code and silent about whether anyone had run it.
 
 A few items shipped with a caveat stated in their own line, and each phase
 records its remaining verification debt in its own section; nothing else is
@@ -773,19 +774,46 @@ Everything ticked in the four AI sections and the MCP section above is
 implemented and unit-tested — the gateway, the redactor, the support, marketing,
 risk, copilot, and evaluation packages, the MCP client and the first-party MCP
 server, and the settings screens that register a provider, enable a feature,
-route it to a model, and bound what it may spend. What does not exist is the
-wiring between them: no process constructs a gateway or an MCP client, nothing
-mounts an AI route on `/v1/panel`, and no screen outside `/admin/settings/ai`
-calls one. `internal/aigateway` is imported by the feature packages and by
-nothing else; `internal/mcpserver` is imported by nothing at all.
+route it to a model, and bound what it may spend. What did not exist was the
+wiring between them: no process constructed a gateway or an MCP client, nothing
+mounted an AI route on `/v1/panel`, and no screen outside `/admin/settings/ai`
+called one. `internal/aigateway` was imported by the feature packages and by
+nothing else; `internal/mcpserver` is still imported by nothing at all.
 
-So an owner can configure AI completely and correctly, and no request will ever
-be made. `docs/index.mdx` has said this since the surfaces shipped — *it does not
-perform a model call or an MCP tool call* — and v1.0 adds the same statement to
-the AI and MCP pages themselves, plus
-[`docs/operations/ai-providers.mdx`](./docs/operations/ai-providers.mdx), which
-documents the registry an owner does use. Mounting the features is a phase of its
-own and is not folded into v1.0, which is release engineering.
+**The join now exists, and one thing uses it.** `internal/airuntime` builds an
+`*aigateway.Gateway` for a named feature out of what an owner configured: the
+approved provider, its unsealed credential, the model, the temperature, the
+timeout, and the budget, resolved on every call so a rotated key takes effect on
+the next click rather than at the next restart. A gateway is built per feature
+rather than one holding every task, because two features share the
+`reply_suggest` task and a task-keyed map could hold only one of their
+configurations. The budget is read against the feature and enforced before the
+request; the meter deliberately records nothing, because the caller is the only
+party that knows the operator, the latency, and whether the call was refused,
+and two writers would double every figure in the cost report.
+
+The first caller is the connection test — the smallest instance of the gap, and
+the one the debt below named. `POST /v1/panel/settings/ai/providers/{slug}/test`
+opens the credential, asks the provider for one word, and records the outcome
+through `RecordAIProviderCheck`, so *Never connection-tested* is a state an owner
+can leave. It is a real completion rather than a reachability probe, because an
+address that resolves and a key that is accepted are separate facts and only the
+second is the question. It sits behind `settings.write`, is rate limited per
+operator, audits as `ai.provider.tested`, and distinguishes a test that ran and
+failed — 200, recorded — from one that could not be attempted — 4xx, nothing
+stored, because recording a failure would claim something was tried.
+
+Reading that screen to wire the button found a defect in it.
+`aigovernance.Warning` carried no JSON tags, so it went out as `Code`, `Text`,
+and `Blocking` while the panel read `code`, `text`, and `blocking`. Every
+warning rendered as an untranslated key, and `blocking` read as `undefined` —
+which means the guard that refuses to switch on a feature with no provider was
+present, rendered, and inert for as long as the screen has existed.
+
+What remains unwired is the rest: no support, marketing, risk, or copilot feature
+reaches a model, and no MCP client is constructed. That is still a phase of its
+own. `docs/index.mdx` now states the boundary exactly — a model call happens when
+an operator presses *test connection*, and at no other time.
 
 The one consequence worth naming for the release gates: "AI features degrade to
 normal manual admin workflows without blocking support or operations" holds
@@ -795,10 +823,13 @@ trivially rather than by design, because there is nothing to degrade from.
 
 Carried into v0.9 and tracked here rather than left implied.
 
-- **AI and MCP have no runtime surface**, as set out above. The connection test
-  is the smallest instance of it: `RecordAIProviderCheck` and
-  `AIProviderCredential` exist and the panel renders their result, but nothing
-  calls either, so every provider reads *Never connection-tested* forever.
+- **AI features have no runtime surface**, as set out above, and MCP has none at
+  all. ~~The connection test is the smallest instance of it: `RecordAIProviderCheck`
+  and `AIProviderCredential` exist and the panel renders their result, but
+  nothing calls either, so every provider reads *Never connection-tested*
+  forever.~~ Closed. `internal/airuntime` builds a gateway from stored
+  configuration and the panel's test button uses it. The support, marketing,
+  risk, and copilot features, and every MCP path, remain unwired.
 - **Campaign and notification test delivery.** Scheduling, pausing, cancelling,
   audience estimation, and result counters are implemented and enforced; sending
   one message to a single operator account before committing to the audience is
@@ -1230,9 +1261,12 @@ benchmark ships with the repository.
       decrypted through `worker --decrypt-backup`, restored into a throwaway
       PostgreSQL 18.4 instance, every table matched, and the sealed OIDC client
       secret opened under `APP_DATA_ENCRYPTION_KEY` while a wrong key was refused
-- [ ] CI, security, migration, documentation, accessibility, and end-to-end gates are green —
-      evaluated by the CI run on the release commit, which is not something a
-      development machine can assert on its behalf
+- [x] CI, security, migration, documentation, accessibility, and end-to-end gates are green —
+      every job on `main` passes: Go, Web, Integration (Testcontainers), the
+      Atlas migration matrix, Compose and reverse proxies, Mintlify docs, and
+      End-to-end (Playwright). Getting there took four defects out of the box
+      the phase above had already ticked, and none of them was visible from a
+      development machine: see [What the green run cost](#what-the-green-run-cost)
 
 ### What v1.0 delivered
 
@@ -1369,6 +1403,49 @@ The pattern across all five is worth stating plainly, because it will produce th
 sixth: a test that builds the system under test out of the same assumptions as
 the code cannot see a wrong assumption. Only running the thing an operator
 actually runs can.
+
+### What the green run cost
+
+The last unchecked box in this phase was "the gates are green", and it stayed
+unchecked because they were not. The browser gate had never once executed since
+it was introduced, and four separate defects sat behind it, each hidden by the
+one in front.
+
+**The end-to-end job's encryption key was not a key.** Its fallback decoded to
+`development-only-32-byte-key-12345` — thirty-four bytes, not thirty-two — so
+the API refused its configuration and exited before binding a port. The wait
+loop then polled `/livez` for a full minute against a process that was already
+gone and reported a refused connection, so the one line naming the fault sat in
+a log nobody opened. The loop now notices the process is dead and prints it.
+
+**The job never configured the commerce runtime at all.** With the key accepted,
+the API got one step further and refused for the next reason: no
+`APP_OPERATOR_TOKEN`, no `APP_REMNAWAVE_URL`, no `APP_REMNAWAVE_TOKEN`. Three
+variables the API has always required, in a job that had never reached the point
+of needing them.
+
+**The localisation gate could not tell a missing translation from data.** It
+searched the page for a dotted key, because that is what next-intl renders for a
+missing message. The audit log stores action names in exactly that shape —
+`admin.login`, `admin.bootstrap.completed` — so the first run against an API
+with rows in it failed on `/admin/audit`, and the page was fully translated.
+Every installation with an audit trail would have failed it. A missing message
+now renders a marker no content can contain, defined once and read by both the
+application and the suite, which also widens the gate from the two namespaces it
+named to all of them.
+
+**An integration test had been asserting a pairing browsers cannot produce.** It
+built the customer API with insecure cookies and then presented a `__Host-`
+cookie. The prefix and the `Secure` attribute travel together, so the API was
+reading the unprefixed name, the session was invisible, and
+`TestAccountSurfaceAcceptsARealSessionAndEnforcesCSRF` had been failing since
+the prefix shipped — in a job whose other failures kept it from being the thing
+anybody looked at.
+
+None of the four is exotic. All four were in the space between "the code is
+right" and "the thing runs", which is the same space the five defects above came
+from, and the reason that space keeps producing them is that it is the only one
+no test written from the inside can see.
 
 ---
 

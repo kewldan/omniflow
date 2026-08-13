@@ -102,8 +102,11 @@ function ProviderRow({
 }) {
   const translate = useTranslations("admin.aiSettings");
   const { run, pending } = useOperatorAction();
+  const { run: test, pending: testing, error: testError } = useOperatorAction();
   const [key, setKey] = useState("");
+  const [model, setModel] = useState("");
   const keyId = useId();
+  const modelId = useId();
 
   async function save(patch: Partial<AiProvider>) {
     const saved = await run("/v1/panel/settings/ai/providers", {
@@ -113,6 +116,26 @@ function ProviderRow({
     });
     if (saved) {
       setKey("");
+      onSaved();
+    }
+  }
+
+  /**
+   * Makes one real request against the stored credential.
+   *
+   * The result is not held in local state: the API stores it on the provider
+   * row and the list is revalidated, so what the screen shows after a test is
+   * the same thing it will show on the next load. A local verdict that
+   * disagreed with the stored one after a refresh would be worse than no
+   * verdict at all.
+   */
+  async function testConnection() {
+    const tested = await test(`/v1/panel/settings/ai/providers/${provider.slug}/test`, {
+      method: "POST",
+      body: { model: model.trim() || undefined },
+      reason: translate("providers.testReason"),
+    });
+    if (tested) {
       onSaved();
     }
   }
@@ -156,7 +179,7 @@ function ProviderRow({
         <span className="text-muted-foreground text-xs">
           {provider.lastCheckedAt
             ? provider.lastCheckOk
-              ? translate("providers.checkOk")
+              ? translate("providers.checkOk", { detail: provider.lastCheckError ?? "" })
               : translate("providers.checkFailed", { detail: provider.lastCheckError ?? "" })
             : translate("providers.neverChecked")}
         </span>
@@ -182,6 +205,39 @@ function ProviderRow({
             {translate("providers.rotate")}
           </Button>
         </div>
+      ) : null}
+
+      {editable ? (
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="flex flex-1 flex-col gap-1">
+            <Label htmlFor={modelId}>{translate("providers.testModel")}</Label>
+            {/* Optional. Left empty, the API tests with whatever model a
+                feature already points at this provider — which is the
+                configuration an owner actually wants proven. */}
+            <Input
+              autoComplete="off"
+              id={modelId}
+              onChange={(event) => setModel(event.target.value)}
+              placeholder={translate("providers.testModelPlaceholder")}
+              value={model}
+            />
+          </div>
+          <Button disabled={testing} onClick={testConnection} type="button" variant="outline">
+            {testing ? translate("providers.testing") : translate("providers.test")}
+          </Button>
+        </div>
+      ) : null}
+
+      {/* A test that could not be attempted is not a failed test, and it does
+          not touch the stored result, so it is reported here rather than in the
+          line above. */}
+      {testError ? (
+        <Alert variant="danger">
+          <AlertTitle>{translate("providers.testUnavailable")}</AlertTitle>
+          <AlertDescription>
+            {testError.problem?.detail ?? translate("providers.testUnavailableDescription")}
+          </AlertDescription>
+        </Alert>
       ) : null}
     </div>
   );

@@ -1,13 +1,17 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/omniflow/omniflow/internal/aigateway"
 	"github.com/omniflow/omniflow/internal/aigovernance"
+	"github.com/omniflow/omniflow/internal/airuntime"
 	"github.com/omniflow/omniflow/internal/panelpg"
 	"github.com/omniflow/omniflow/internal/rbac"
 )
@@ -48,6 +52,11 @@ func (handlers *AdminHandlers) mountSettings(secure chi.Router) {
 
 		write.Put("/settings/ai/providers", handlers.saveAIProvider)
 		write.Delete("/settings/ai/providers/{slug}", handlers.deleteAIProvider)
+		// Testing a provider sits behind the write permission rather than the
+		// read one. It opens a sealed credential and spends the installation's
+		// money, and neither is something a read of the settings screen should
+		// be able to do.
+		write.Post("/settings/ai/providers/{slug}/test", handlers.testAIProvider)
 		write.Put("/settings/ai/features/{feature}", handlers.configureAIFeature)
 		write.Put("/settings/ai/limits", handlers.saveAILimit)
 		write.Delete("/settings/ai/limits/{limitID}", handlers.deleteAILimit)
@@ -123,6 +132,123 @@ func (handlers *AdminHandlers) saveAIProvider(writer http.ResponseWriter, reques
 		request.Context(), body.AIProvider, body.APIKey, actorFrom(request))
 	handlers.respond(writer, request, provider, err)
 }
+
+// testAIProvider makes one real request against a stored credential.
+//
+// It exists because "is this configured correctly?" had no answer. The column
+// that holds the result, the query that writes it, and the panel line that
+// renders it all shipped together, and nothing ever called them, so every
+// provider read *Never connection-tested* for as long as it was configured.
+//
+// A test that could not be attempted and a test that ran and failed are
+// different answers. The first is a 4xx and stores nothing — recording a check
+// against a provider with no key would put a failure on the row when the truth
+// is that nothing was tried. The second is a 200 carrying `ok: false`, because
+// the test did happen and its outcome is exactly what the operator asked for.
+func (handlers *AdminHandlers) testAIProvider(writer http.ResponseWriter, request *http.Request) {
+	if handlers.ai == nil {
+		writeProblem(writer, request, http.StatusNotFound, "not_found", "That record does not exist")
+		return
+	}
+	slug := chi.URLParam(request, "slug")
+
+	// A model call costs money, so the button is bounded per operator. The limit
+	// is generous enough for the paste-test-fix loop an owner actually runs and
+	// small enough that a stuck retry cannot spend an afternoon's budget.
+	if !handlers.allow(request, "ai-provider-test", actorFrom(request).AdminID, 30, time.Hour) {
+		writeProblem(
+			writer, request, http.StatusTooManyRequests,
+			"rate_limited", "Too many connection tests. Try again shortly",
+		)
+		return
+	}
+
+	var body struct {
+		// Model is optional. An owner testing a provider some feature already
+		// points at should not have to repeat what that feature named.
+		Model string `json:"model"`
+	}
+	if request.ContentLength > 0 && !decodeJSON(writer, request, &body) {
+		return
+	}
+
+	detail, err := handlers.ai.Probe(request.Context(), slug, body.Model)
+	switch {
+	case errors.Is(err, panelpg.ErrNotFound):
+		writeProblem(writer, request, http.StatusNotFound, "not_found", "That provider is not registered")
+		return
+	case errors.Is(err, airuntime.ErrProviderUnconfigured):
+		writeProblem(
+			writer, request, http.StatusUnprocessableEntity,
+			"provider_unconfigured", "Store an API key for this provider before testing it",
+		)
+		return
+	case errors.Is(err, airuntime.ErrModelUnknown):
+		writeProblem(
+			writer, request, http.StatusUnprocessableEntity,
+			"model_required", "No feature names a model for this provider yet. Name one to test with",
+		)
+		return
+	case errors.Is(err, airuntime.ErrProviderKindUnknown):
+		writeProblem(
+			writer, request, http.StatusUnprocessableEntity,
+			"provider_kind_unknown", "This build has no adapter for that provider kind",
+		)
+		return
+	}
+
+	succeeded := err == nil
+	if !succeeded {
+		detail = probeFailure(err)
+		handlers.logger.Warn("ai provider connection test failed", "provider", slug, "error", err)
+	}
+	if recordErr := handlers.operations.RecordAIProviderCheck(
+		request.Context(), slug, succeeded, detail, actorFrom(request),
+	); recordErr != nil {
+		handlers.operationsError(writer, request, recordErr)
+		return
+	}
+
+	provider, err := handlers.operations.AIProviders(request.Context())
+	if err != nil {
+		handlers.operationsError(writer, request, err)
+		return
+	}
+	// The whole row goes back rather than a bare verdict, so the screen renders
+	// the stored timestamp it will show on the next load instead of a local one
+	// that could disagree with it.
+	for _, candidate := range provider {
+		if candidate.Slug == slug {
+			writeJSON(writer, http.StatusOK, candidate)
+			return
+		}
+	}
+	writeProblem(writer, request, http.StatusNotFound, "not_found", "That provider is not registered")
+}
+
+// probeFailure turns a failed test into a sentence safe to store and show.
+//
+// The provider's own message is never used, for the reason the adapters already
+// refuse to propagate it: it can echo the prompt back. Neither is the transport
+// error, and that one is less obvious — a URL error carries the address it
+// dialled, and the Gemini adapter carries the API key in the query string, so
+// storing a raw dial failure would write a live credential into the audit and
+// onto a screen.
+func probeFailure(err error) string {
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return "the provider did not answer within " + probeTimeoutText
+	case errors.Is(err, aigateway.ErrProviderRejected):
+		// Constructed by the adapter and carries a status code and nothing else.
+		return err.Error()
+	default:
+		return "the provider could not be reached"
+	}
+}
+
+// probeTimeoutText renders the probe's own bound for an operator. It is written
+// out rather than derived so the sentence reads as English.
+const probeTimeoutText = "15 seconds"
 
 func (handlers *AdminHandlers) deleteAIProvider(writer http.ResponseWriter, request *http.Request) {
 	err := handlers.operations.DeleteAIProvider(

@@ -1308,6 +1308,77 @@ paths:
         "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelProviderSettings"}}}}
         "403": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/ai/providers:
+    get:
+      operationId: listPanelAIProviders
+      tags: [panel]
+      description: >-
+        Requires settings.read. The model backends an owner has approved. The
+        API key is never returned; `keyConfigured` reports only whether one is
+        held. What a provider does with the data is recorded from its own terms,
+        which Omniflow cannot verify.
+      responses:
+        "200": {description: Providers, content: {application/json: {schema: {$ref: "#/components/schemas/PanelAIProviderList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+    put:
+      operationId: savePanelAIProvider
+      tags: [panel]
+      description: >-
+        Requires settings.write. An omitted `apiKey` leaves the stored
+        credential alone, so a display name can be corrected without re-pasting
+        a secret.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelAIProviderInput"}}}}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelAIProvider"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/ai/providers/{slug}:
+    delete:
+      operationId: deletePanelAIProvider
+      tags: [panel]
+      description: >-
+        Requires settings.write. Refused while a feature still points at the
+        provider: removing it would switch that feature off without saying so.
+      parameters:
+        - {$ref: "#/components/parameters/AIProviderSlug"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "200": {description: Removed, content: {application/json: {schema: {$ref: "#/components/schemas/PanelDeleted"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/ai/providers/{slug}/test:
+    post:
+      operationId: testPanelAIProvider
+      tags: [panel]
+      description: >-
+        Requires settings.write. Makes one small completion against the stored
+        credential and records the outcome on the provider, so "is this
+        configured correctly?" is answerable without spending a real request
+        later. The prompt is Omniflow's own text; no customer content is
+        involved.
+
+
+        A test that ran and failed answers 200 with `lastCheckOk` false, because
+        the outcome is what was asked for. A test that could not be attempted —
+        no key stored, no model to test with, an unregistered provider — answers
+        4xx and stores nothing, because recording a failure would claim
+        something was tried.
+
+
+        It sits behind settings.write rather than settings.read: it opens a
+        sealed credential and spends the installation's money. It is rate
+        limited per operator.
+      parameters:
+        - {$ref: "#/components/parameters/AIProviderSlug"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody: {required: false, content: {application/json: {schema: {$ref: "#/components/schemas/PanelAIProviderTestInput"}}}}
+      responses:
+        "200": {description: The test ran; the provider carries its outcome, content: {application/json: {schema: {$ref: "#/components/schemas/PanelAIProvider"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+        "429": {$ref: "#/components/responses/Problem"}
   /v1/panel/risk/sources:
     get:
       operationId: listPanelBlocklistSources
@@ -2770,6 +2841,7 @@ components:
     CustomerID: {in: path, name: customerID, required: true, schema: {type: string, format: uuid}}
     AccountSubscriptionID: {in: path, name: subscriptionID, required: true, schema: {type: string, format: uuid}}
     OidcSlug: {in: path, name: slug, required: true, schema: {type: string, pattern: "^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$"}}
+    AIProviderSlug: {in: path, name: slug, required: true, schema: {type: string, pattern: "^[a-z0-9][a-z0-9_-]{1,40}$"}}
     PlanID: {in: path, name: planID, required: true, schema: {type: string, format: uuid}}
     OrderID: {in: path, name: orderID, required: true, schema: {type: string, format: uuid}}
     PaymentID: {in: path, name: paymentID, required: true, schema: {type: string, format: uuid}}
@@ -5214,5 +5286,74 @@ components:
               icon: {type: string}
               requireVerifiedEmail: {type: boolean}
               note: {type: string, description: "What the operator has to know that the form does not show."}
+    PanelDeleted:
+      type: object
+      required: [deleted]
+      properties:
+        deleted: {type: boolean}
+    PanelAIProvider:
+      type: object
+      required: [slug, kind, displayName, enabled, zeroRetention, trainsOnData, keyConfigured, lastCheckOk, updatedAt]
+      properties:
+        slug: {type: string, pattern: "^[a-z0-9][a-z0-9_-]{1,40}$"}
+        kind: {type: string, enum: [openai_compatible, anthropic, gemini]}
+        displayName: {type: string, minLength: 1, maxLength: 120}
+        baseUrl:
+          type: string
+          description: >-
+            Where the provider is reached. Required for the OpenAI-compatible
+            adapter, which is how an owner points at a model they host
+            themselves. It is an address rather than a secret and is returned.
+        enabled: {type: boolean}
+        zeroRetention:
+          type: boolean
+          description: >-
+            The owner's answer from the provider's own terms. Omniflow cannot
+            verify it and does not pretend to; it is recorded so the panel can
+            warn before a feature is switched on rather than after data left.
+        trainsOnData: {type: boolean}
+        retentionNote: {type: string, maxLength: 2000}
+        dataRegion: {type: string, maxLength: 60}
+        keyConfigured:
+          type: boolean
+          description: Whether a credential is stored. The credential itself is never returned.
+        lastCheckedAt: {type: string, format: date-time}
+        lastCheckOk: {type: boolean}
+        lastCheckError:
+          type: string
+          maxLength: 500
+          description: >-
+            Why the last test failed, or how the last one passed. It never
+            carries the provider's own message, which can echo the prompt, and
+            never a transport error, which can carry a key held in a query
+            string.
+        updatedAt: {type: string, format: date-time}
+    PanelAIProviderList:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/PanelAIProvider"}}
+    PanelAIProviderInput:
+      allOf:
+        - {$ref: "#/components/schemas/PanelAIProvider"}
+        - type: object
+          properties:
+            apiKey:
+              type: string
+              description: >-
+                Write-only and never returned. Omitting it leaves the stored
+                credential alone, so a display name can be corrected without
+                re-pasting a secret.
+    PanelAIProviderTestInput:
+      type: object
+      properties:
+        model:
+          type: string
+          maxLength: 120
+          description: >-
+            Which model to test with. Omit it to use whatever model a feature
+            already points at this provider — that is the configuration worth
+            proving. A provider nothing points at yet has none to infer, and the
+            request is refused rather than guessed.
   responses:
     Problem: {description: Request failed, content: {application/problem+json: {schema: {$ref: "#/components/schemas/Problem"}}}}

@@ -124,6 +124,10 @@ func TestTheNewSurfacesAreInsideTheAuthenticatedGroup(t *testing.T) {
 		{http.MethodPut, "/v1/panel/settings/branding"},
 		{http.MethodGet, "/v1/panel/settings/ai/providers"},
 		{http.MethodPut, "/v1/panel/settings/ai/providers"},
+		// The one AI route that reaches a provider. It opens a sealed credential
+		// and spends money, so being outside the session gate would be the worst
+		// place in this list to be wrong.
+		{http.MethodPost, "/v1/panel/settings/ai/providers/acme/test"},
 		{http.MethodGet, "/v1/panel/settings/ai/features"},
 		{http.MethodGet, "/v1/panel/settings/ai/usage"},
 		{http.MethodGet, "/v1/panel/settings/ai/decisions"},
@@ -159,6 +163,7 @@ func TestTheNewSurfacesAreAbsentWithoutTheService(t *testing.T) {
 
 	for _, path := range []string{
 		"/v1/panel/settings/ai/providers",
+		"/v1/panel/settings/ai/providers/acme/test",
 		"/v1/panel/settings/mcp/servers",
 		"/v1/panel/marketing/campaigns",
 	} {
