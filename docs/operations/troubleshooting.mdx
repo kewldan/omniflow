@@ -149,6 +149,31 @@ entries under one transaction are the two sides of one movement, not two charges
    refunds, fulfillment failures, and admin security all have producers. The 🚨 Incidents
    and 💾 Backups topics are created but nothing currently queues into them.
 
+## Sign-in says "Sign-in failed. Try again." with correct credentials
+
+That message is what the panel shows when the request did not come back with a
+session, and there are two reasons that have nothing to do with the password.
+Both look identical on screen, and both are configuration rather than
+credentials. Open the browser's network tab: it tells you which one you have.
+
+**The call returned 404.** The request reached the web application instead of the
+API. Both panels call the API on their own origin — the browser client has no
+base URL and there is no CORS — so something has to serve `/v1` on the web host.
+Behind a reverse proxy, that is the proxy's job, and the examples in
+`deploy/proxies` do it; a hand-written configuration that routes only the
+application will produce exactly this. Without a proxy, the web service needs
+`API_INTERNAL_URL`, and answers `502` with a problem document naming it when it
+is unset. See [Reverse proxy](/operations/reverse-proxy).
+
+**The call returned 200 and the next request is anonymous.** The browser
+discarded the cookie. Over plain HTTP that means `Secure` is still on: a browser
+does not return a `Secure` cookie over an unencrypted connection, so set
+`APP_ADMIN_COOKIE_SECURE=false` and `APP_CUSTOMER_COOKIE_SECURE=false` for a
+local stack, and leave them on everywhere with TLS. Check the cookie's name in
+the response as well — it is `__Host-omniflow_admin` with `Secure` and
+`omniflow_admin` without, and a `__Host-` name arriving without `Secure` is
+rejected outright rather than merely weakened.
+
 ## An operator cannot sign in and the page says "rate limited"
 
 Sign-in rate limiting is backed by Valkey and **fails closed**: when Valkey is
