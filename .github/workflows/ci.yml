@@ -43,6 +43,11 @@ jobs:
       - run: git diff --exit-code
       - run: bun run check
       - run: bun run build
+      # The budget reads the build that just happened. It had never run
+      # anywhere: the script was written, committed, and wired to a package
+      # script no job invoked, so every figure it guards had been free to drift
+      # since it was added.
+      - run: bun --filter @omniflow/web perf:budget
 
   e2e:
     name: End-to-end (Playwright)

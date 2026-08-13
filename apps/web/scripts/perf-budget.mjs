@@ -1,5 +1,5 @@
 /**
- * The JavaScript performance budget.
+ * The front-end performance budget.
  *
  * It runs against a completed `next build` and fails when a route's first-load
  * JavaScript exceeds its budget. First-load is the number that matters on a
@@ -24,12 +24,26 @@
  * amortises over a long session. One global budget would be either too loose to
  * catch a customer-side regression or too tight to be honest about the admin one.
  *
- * Images, server response time, and field core web vitals are deliberately not
- * measured here. They need a running installation with real content and real
+ * JavaScript is not the whole download, so it is not the whole budget. Two other
+ * things ship from this build and sit on the critical path of every route, and
+ * neither was measured until they were added here:
+ *
+ * - **The stylesheet.** One Tailwind file is loaded by every page and blocks
+ *   rendering until it arrives. A careless `@import`, an unpurged utility set, or
+ *   a component library pulled in for one screen moves it for all of them.
+ * - **The self-hosted fonts.** They block text from painting in its real face,
+ *   and adding a weight nobody asked for is a change nobody sees in review — the
+ *   page looks identical and costs another download on every cold visit.
+ *
+ * Images, server response time, and field core web vitals are still deliberately
+ * not measured here. They need a running installation with real content and real
  * clients, and a number invented from a local build would be worse than no
- * number — it would read as a gate that had passed.
+ * number — it would read as a gate that had passed. That is a stated limit
+ * rather than an oversight: what this file gates is everything the build itself
+ * can tell the truth about.
  */
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const statsPath = fileURLToPath(
@@ -97,3 +111,73 @@ if (failures.length > 0) {
   process.exit(1);
 }
 console.log(`\nAll ${report.length} routes are within the JavaScript budget.`);
+
+/**
+ * Budgets for the assets every route loads regardless of which one it is.
+ *
+ * These are whole-payload ceilings rather than per-route ones, because a
+ * stylesheet and a font are not split per route: every page pays for all of
+ * them. The headroom is set from where the build sits today plus room for a
+ * legitimate addition — a genuinely new screen's worth of utilities, or one more
+ * font weight — and not more, because a ceiling nothing can reach is not a
+ * ceiling.
+ */
+const ASSET_BUDGETS = [
+  { extensions: [".css"], label: "stylesheets", limitKb: 90 },
+  { extensions: [".woff", ".woff2"], label: "fonts", limitKb: 200 },
+];
+
+const staticRoot = fileURLToPath(new URL("../.next/static", import.meta.url));
+
+/** Every file under a directory, recursively, as absolute paths. */
+function filesUnder(directory) {
+  const found = [];
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      found.push(...filesUnder(path));
+    } else if (entry.isFile()) {
+      found.push(path);
+    }
+  }
+  return found;
+}
+
+let staticFiles;
+try {
+  staticFiles = filesUnder(staticRoot);
+} catch (error) {
+  console.error("Cannot read .next/static. Run `bun run build` first.");
+  console.error(String(error));
+  process.exit(2);
+}
+
+const assetFailures = [];
+console.log("");
+for (const budget of ASSET_BUDGETS) {
+  const matching = staticFiles.filter((path) =>
+    budget.extensions.some((extension) => path.endsWith(extension)),
+  );
+  const kb = matching.reduce((total, path) => total + statSync(path).size, 0) / 1024;
+  const over = kb > budget.limitKb;
+  console.log(
+    `${over ? "FAIL" : "ok  "} ${kb.toFixed(0).padStart(6)} kB / ${budget.limitKb} kB  ` +
+      `${budget.label} (${matching.length} file${matching.length === 1 ? "" : "s"})`,
+  );
+  if (over) {
+    assetFailures.push({ kb, ...budget });
+  }
+  // A budget that silently passes because the files moved is not a budget. Fonts
+  // are the likely case: a change to how they are loaded could leave none in the
+  // build, and "0 kB, within budget" would read as an improvement.
+  if (matching.length === 0) {
+    console.error(`  no ${budget.label} were found in the build; the budget measured nothing`);
+    assetFailures.push({ kb, ...budget });
+  }
+}
+
+if (assetFailures.length > 0) {
+  console.error(`\n${assetFailures.length} asset budget(s) failed.`);
+  process.exit(1);
+}
+console.log("\nStylesheets and fonts are within budget.");

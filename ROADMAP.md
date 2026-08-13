@@ -1147,7 +1147,9 @@ never learned about.
   still needs a seeded customer with a Remnawave user behind it, and it bounds
   the WCAG 2.2 AA review the same way. The panel pages an operator sees are now
   swept for untranslated keys, which is how two missing translations that had
-  been shipping since v0.7 were found.
+  been shipping since v0.7 were found — and, once the sweep first ran against a
+  real API, how the sweep's own inability to tell a missing message from an
+  audit action name was found.
 - ~~**Attachment storage is a workaround.**~~ Closed.
   `20260823000000_attachment_storage.sql` gives `support_attachments` the
   `origin` and `storage_key` columns the web upload always needed, backfills the
@@ -1166,7 +1168,15 @@ never learned about.
   pass, which reclaimed nothing. Whichever ran first won, so the file leak v0.10
   believed it had fixed was still reachable whenever the bot got there first. The
   bot's purge is gone; retention has one owner.
-- **Performance budgets cover JavaScript only**, as stated in the gate above.
+- ~~**Performance budgets cover JavaScript only**, as stated in the gate above.~~
+  Partly closed, and the debt was worse than the line said: `perf-budget.mjs`
+  was wired to a package script no job invoked, so the budgets gated nothing at
+  all. CI now runs it in the `web` job, and it covers the stylesheet payload and
+  the self-hosted fonts as well as first-load JavaScript — the two other things
+  the build ships on every route's critical path. Images, server response time,
+  and field core web vitals remain unmeasured, and that stays deliberate: they
+  need a running installation with real clients, and a figure invented from a
+  local build would read as a gate that had passed.
 - **Two transient divergences are by design and worth knowing.** An operator
   reply raises the web's unread count immediately but does not move the bot's
   badge until the Telegram delivery worker runs, so a customer holding both

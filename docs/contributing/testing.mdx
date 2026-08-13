@@ -64,10 +64,38 @@ New payment, wallet, authentication, RBAC, import, and Remnawave fulfillment beh
 
 The suites cover what a component test cannot see, because it is a property of a rendered page rather than of a component — the accessibility, layout, and localisation gates — plus the access boundary of both panels: every operator and customer route refuses an anonymous visitor, and nothing behind a session gate paints before the session is known.
 
+The operator journey behind the session gate is covered. CI applies the
+migrations, starts a real API, redeems the one-time setup token to seed an
+owner, and `operator-journey.spec.ts` signs in for real, proves the session
+survives a navigation, and sweeps every panel page. Locally, set `PANEL_EMAIL`
+and `PANEL_PASSWORD` against a running stack; without them that spec skips and
+says so rather than pretending to pass.
+
+A missing translation renders as a marker rather than as its own key — see
+`apps/web/i18n/missing-message.ts` — and the sweep looks for exactly that. The
+previous check searched for a dotted key, which cannot tell a missing message
+from data: the audit log stores action names in the same shape, and the check
+failed on a fully translated page the first time it ran against an API with rows
+in it.
+
 <Note>
-  The journeys behind a session gate are not covered yet. They need a seeded
-  operator and a seeded customer with a Remnawave user behind them, and that
-  fixture belongs with the Testcontainers harness rather than with the browser
-  suite. It is tracked in the roadmap's verification debt for v0.8 and v0.9, and
-  it is the first of v0.10's release gates.
+  The customer journey behind its own session gate is still not covered. It
+  needs a seeded customer with a Remnawave user behind it, which is a fixture
+  the operator half did not require. It is tracked in the roadmap's verification
+  debt for v0.10.
 </Note>
+
+## Performance budgets
+
+`bun --filter @omniflow/web perf:budget` runs against a finished `next build`
+and fails when a route's first-load JavaScript, the stylesheet payload, or the
+self-hosted fonts exceed their ceilings. CI runs it in the `web` job, straight
+after the build it measures.
+
+Sizes are uncompressed, which is what Next's own `route-bundle-stats.json`
+reports and the more honest figure to gate on: compression hides a regression
+that still costs a phone its parse and execute time.
+
+Images, server response time, and field core web vitals are deliberately not
+measured. They need a running installation with real content and real clients,
+and a number invented from a local build would read as a gate that had passed.
