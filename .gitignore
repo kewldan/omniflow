@@ -27,6 +27,12 @@ pnpm-debug.log*
 # Atlas and local data
 .data/
 
+# A local Compose override, for a machine that needs one. `docker compose -f
+# compose.yaml -f compose.local.yaml` is the way to use it; nothing an
+# installation needs belongs here, because CI and operators never see it.
+compose.local.yaml
+compose.*.local.yaml
+
 # Mintlify
 docs/.mintlify/
 docs/openapi.yaml
