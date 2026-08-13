@@ -17,6 +17,17 @@ threat model is inverted between the two, and the conclusions are not symmetric.
   or is refused.
 </Note>
 
+<Warning>
+  **Neither side is mounted in this build.** The registry, the allowlists, the
+  schema validation, the limits, and the audit surface are real and are what a
+  connection will be driven through, and the client and server packages are
+  implemented and unit-tested — but no process serves the first-party MCP server
+  and no feature calls a registered tool, because the AI features that would do
+  so are not mounted either. See
+  [AI providers and local models](/operations/ai-providers) for the same account
+  of the model side.
+</Warning>
+
 ## Omniflow as a client
 
 ### Discovery is not authorisation

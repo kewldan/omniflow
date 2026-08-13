@@ -34,8 +34,8 @@ Build Telegram-first self-service, subscriptions, billing, support, marketing, a
 | 🧱 | **Production-oriented foundation** | PostgreSQL migrations, durable River jobs, transactional outbox, Valkey, generated contracts, structured logs, observability, and security automation. |
 | 🎫 | **A support desk that is a desk** | Queues, assignment, priority, tags, SLA timestamps, internal notes distinct from customer-visible messages, canned responses, merge and reopen, and workload reporting with the definitions published beside the numbers. |
 | 📣 | **Campaigns you can check before you send** | A segment's definition is rendered in words beside its live count, generated from the filters themselves so it cannot describe something the query does not do. Suppressed is reported beside sent, because not messaging somebody on purpose is not a failure. |
-| 🧠 | **AI that is optional, grounded, and never in charge** | Off until an owner configures it, enabled per feature, redacted inside the gateway so a feature cannot forget. Answers cite records an operator can open, drafts stay drafts until a person accepts them, and abuse analysis recommends a look rather than taking an action. |
-| 🔌 | **MCP on both sides, with the same rules** | Connections are off until enabled and reach only allowlisted tools on named hosts; arguments and results are schema-validated, external writes need a confirmation and a reason, and everything a server returns is fenced as data. The first-party server authorises as the operator whose token was presented and makes every mutation idempotent. |
+| 🧠 | **AI that is optional, grounded, and never in charge** | Off until an owner configures it, enabled per feature, redacted inside the gateway so a feature cannot forget. Answers cite records an operator can open, drafts stay drafts until a person accepts them, and abuse analysis recommends a look rather than taking an action. **No feature invokes a provider in this build** — the registry and the budgets are real, the surfaces that would use them are not mounted. |
+| 🔌 | **MCP on both sides, with the same rules** | Connections are off until enabled and reach only allowlisted tools on named hosts; arguments and results are schema-validated, external writes need a confirmation and a reason, and everything a server returns is fenced as data. The first-party server authorises as the operator whose token was presented and makes every mutation idempotent. **Neither side is mounted in this build**, for the same reason. |
 | 🔑 | **Secrets that are write-only by construction** | The listing queries do not select the ciphertext column, an omitted credential keeps the stored one, and the diagnostics bundle is built from an allowlist rather than by filtering a dump. |
 | 🧰 | **Contributor-friendly tooling** | Bun workspaces, Biome, TypeScript 7, Orval, sqlc, Atlas, Mintlify, Renovate, Release Please, and Conventional Commits. |
 
@@ -175,8 +175,12 @@ The complete versioned delivery contract is maintained in [ROADMAP.md](./ROADMAP
 - [x] Optional AI features and MCP connections, off until an owner configures them
 - [x] End-to-end browser coverage with accessibility, layout, and localization gates
 - [x] Customer web panel: sign-in, dashboard, and subscription management
-- [ ] Customer web checkout, shop, support, and referrals
-- [ ] 1.0: upgrade compatibility, security review, and community documentation
+- [x] Customer web checkout, shop, support, and referrals
+- [x] 1.0: compatibility matrix, signed release artifacts, reliability runbooks, and the complete public documentation set
+
+Three items remain outstanding for 1.0, and none of them is something a change to
+this repository produces: an independent security review, a restore drill run
+against a real database, and a green CI run on the release commit.
 
 ## 📡 Anonymous telemetry
 
@@ -195,9 +199,13 @@ The exact payload, retention policy, and opt-out behavior are documented in [Ano
 Contributions are welcome. Before opening a pull request:
 
 1. Read [CONTRIBUTING.md](./CONTRIBUTING.md) and [AGENTS.md](./AGENTS.md).
-2. Review the [architecture](./docs/architecture/overview.mdx) and ownership boundaries.
+2. Review the [architecture](./docs/architecture/overview.mdx), the ownership boundaries, and the [decision records](./docs/architecture/decisions.mdx) that constrain what a change may do.
 3. Run the relevant commands from `make help`.
-4. Use a focused [Conventional Commit](https://www.conventionalcommits.org/).
+4. Use a focused [Conventional Commit](https://www.conventionalcommits.org/) — the type decides the next version, as described in the [release process](./docs/contributing/releases.mdx).
+
+Building against Omniflow rather than on it? [Extension policy](./docs/integrations/extending.mdx) says which surfaces are public and stable, what you can plug in with configuration alone, and what deliberately cannot be extended.
+
+Questions, bug reports, and feature proposals each have their own route — see [SUPPORT.md](./SUPPORT.md).
 
 Please report security vulnerabilities privately using [SECURITY.md](./SECURITY.md), not public issues.
 

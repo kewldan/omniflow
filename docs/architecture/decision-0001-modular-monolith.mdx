@@ -1,0 +1,86 @@
+---
+title: "0001 — One module, three entrypoints, no broker"
+description: Why Omniflow is a modular monolith with separate api, bot, and worker processes, and the condition under which that would stop being right
+---
+
+**Status:** Accepted.
+
+## Context
+
+Omniflow is installed by one operator on one server to run one VPN service. The
+work it does spans surfaces that are conventionally split apart: an HTTP API, a
+Telegram bot, and background jobs. Splitting them into separately deployed
+services is the reflex, and it was rejected.
+
+The deciding constraint is that a purchase is one transaction. Taking money,
+recording the order, claiming a trial, redeeming a promo code, and committing
+the fulfillment job that will provision Remnawave access are a single atomic
+change or they are a class of bug an operator discovers by reading complaints.
+Split across services, that atomicity has to be rebuilt out of sagas,
+compensations, and a broker — machinery whose failure modes are strictly worse
+than the ones it replaces, bought with an operational cost every installation
+pays whether or not it has the scale that justifies it.
+
+The second constraint is who runs this. The target installation has no platform
+team. Three containers, one database, and one `.env` is a system a single person
+can reason about at three in the morning.
+
+## Decision
+
+One Go module. Three entrypoints — `cmd/api`, `cmd/bot`, `cmd/worker` — sharing
+the same domain packages, the same database, and the same configuration, built
+into the same binary layout and deployed as three containers.
+
+Four rules keep the modularity real rather than aspirational, and a pull request
+that breaks one of them is wrong regardless of what it achieves:
+
+- Domain packages do not import transport, database-generation, Telegram, or
+  provider-specific packages. The dependency arrows point one way.
+- External systems sit behind small interfaces, so provider-shaped types exist
+  in exactly one package.
+- Domain events go through the transactional outbox. No message broker is
+  introduced without a record superseding this one.
+- Dependency construction is explicit in each `main`. No dependency-injection
+  framework.
+
+The processes are separate because their failure and scaling characteristics
+differ, not because their code does. A Telegram flood-wait must not stall
+checkout; a long reconciliation sweep must not hold an HTTP worker.
+
+## Consequences
+
+Restarting one process for a code change means shipping the same image version
+to all three, because they are one artifact. Deploying an API fix redeploys the
+bot.
+
+Horizontal scale is bounded by what one PostgreSQL instance serves. Several
+`api` replicas behind a proxy are fine and the sweeps are written to be
+idempotent under concurrent runs, but there is no sharding story and none is
+planned.
+
+A contributor cannot enforce a module boundary with a network call, so the
+boundary is enforced by review and by import discipline. That is weaker than a
+process boundary and it is the price of the atomicity above.
+
+In exchange, a change spanning checkout, entitlement, and provisioning is one
+transaction and one test rather than a distributed protocol, and an operator
+upgrade is `docker compose pull` rather than an ordered rollout.
+
+## Revisit when
+
+- A single PostgreSQL instance is demonstrably the bottleneck for a real
+  installation, rather than for a projected one.
+- Omniflow has to run as a control plane across installations it does not own,
+  at which point the outbox has a consumer that is not in this repository — see
+  the fleet-management and NATS JetStream entries under post-1.0 candidates in
+  `ROADMAP.md`.
+- A capability arrives that genuinely cannot commit in the same transaction as
+  the state change that requires it. None has so far; the digital-goods gateway
+  came closest and was resolved by parking an ambiguous delivery for a human
+  instead.
+
+## Related
+
+- [Architecture overview](/architecture/overview) — the processes and the request path.
+- [Technology stack](/architecture/technology#what-is-deliberately-absent) — what is absent and why.
+- [Record 0002](/architecture/decision-0002-postgresql-only-durability) — the durability rule this one leans on.

@@ -1,0 +1,13 @@
+# A blank issue is almost always a question, and a question in the issue tracker
+# gets a slower answer than the same question in Discussions.
+blank_issues_enabled: false
+contact_links:
+  - name: Question about setup, configuration, or operation
+    url: https://github.com/kewldan/omniflow/discussions
+    about: Ask in Discussions. Include your Omniflow version, how it is deployed, and sanitized logs.
+  - name: Security vulnerability
+    url: https://github.com/kewldan/omniflow/security/advisories/new
+    about: Report privately. Never open a public issue for a vulnerability.
+  - name: Documentation
+    url: https://github.com/kewldan/omniflow/tree/main/docs
+    about: Installation, configuration, runbooks, and troubleshooting for both operator and customer surfaces.

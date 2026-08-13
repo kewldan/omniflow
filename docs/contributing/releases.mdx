@@ -1,0 +1,172 @@
+---
+title: Release process
+description: How a merged commit becomes a version, what the release workflow gates and publishes, and what a maintainer and an operator each check afterwards
+---
+
+Nothing about a release is decided by hand. The version comes from the commit
+messages, the changelog comes from the same place, and the artifacts are built,
+scanned, signed, and attested by a workflow that a tag starts. A maintainer's
+job is to merge the right things and to check the result, not to choose a number
+or to write release notes after the fact.
+
+This page is the maintainer's view. An operator reading a published release —
+the version matrix, how to verify a signature, and how far behind an
+installation may fall — wants
+[Compatibility and upgrades](/operations/compatibility) instead.
+
+## What a version means
+
+Releases follow [Semantic Versioning](https://semver.org/), and from 1.0.0
+onwards the promise is the ordinary one: a major version may break a public
+surface, a minor adds capability compatibly, a patch fixes behaviour. What
+counts as public is enumerated on [Extension policy](/integrations/extending) —
+`/v1/admin`, the OpenAPI contract, the webhook and catalogue routes, the probes,
+the environment variables, and the published images. `/v1/panel` and
+`/v1/account` are not on that list and change with the panels.
+
+The first generally available release is `1.0.0`. Everything before it was
+development on `main` with no published tag, which is why
+`release-please-config.json` names `1.0.0` as the initial version rather than
+letting the tooling start a `0.x` line that would immediately be wrong.
+
+## Conventional Commits are the input
+
+The version is derived from the commits merged since the last release, so a
+commit message is a release decision rather than a note.
+
+| Prefix | Effect on the next version |
+| --- | --- |
+| `fix:` | Patch |
+| `feat:` | Minor |
+| `feat!:`, or any type with a `BREAKING CHANGE:` footer | Major |
+| `docs:`, `test:`, `chore:`, `refactor:`, `ci:` | None, and absent from the changelog |
+
+A scope goes in parentheses and names the area: `feat(wallet):`,
+`fix(bot):`, `docs(ops):`. CI's `conventional-pr` job checks the pull request
+title, because a squash merge makes the title the commit message.
+
+Never add a generated-by or co-author trailer, whatever a tool's default
+template says. `AGENTS.md` states this and it overrides the tool.
+
+<Warning>
+  A breaking change needs the `!` or the footer even when the code change looks
+  small. Removing an environment variable, renaming a field in an `/v1/admin`
+  response, or changing a webhook route's behaviour is a major version — and a
+  deprecation announced at least one minor release earlier, per the
+  [deprecation policy](/operations/compatibility#deprecation-policy).
+</Warning>
+
+## Before anything is releasable
+
+Every pull request runs the full `CI` workflow, and all of it must be green
+before a merge. The jobs and what each one proves are on
+[Development](/contributing/development#what-ci-enforces); the release-relevant
+point is that the gates a release depends on have already run by the time a tag
+exists:
+
+- the migration job applied every supported upgrade path against a real
+  PostgreSQL, so a released schema is one an installation can actually reach;
+- the compose job validated the shipped stack and both proxy examples against
+  the committed `.env.example`, so the documented starting point still starts;
+- the docs job validated both language trees and their links.
+
+## Cutting a release
+
+<Steps>
+  <Step title="Merge to main">
+    Release Please runs on every push to `main`. It reads the commits since the
+    last release and opens — or updates — a release pull request.
+  </Step>
+  <Step title="Review the release pull request">
+    It contains exactly two kinds of change: the new version in
+    `.release-please-manifest.json`, and the generated `CHANGELOG.md` entries.
+    Read the changelog as a user would. A `feat:` whose description says nothing
+    an operator can act on is worth fixing in the commit history's next entry
+    rather than by editing the generated file.
+  </Step>
+  <Step title="Merge it">
+    Merging the release pull request creates the `vX.Y.Z` tag and the GitHub
+    release. Nothing else creates a tag; a hand-pushed tag would publish images
+    from a commit no changelog describes.
+  </Step>
+  <Step title="Watch the release workflow">
+    The tag starts `Release images`. It gates, builds, publishes, and signs
+    without further input — see below for what can stop it.
+  </Step>
+  <Step title="Verify what was published">
+    Pull one image by digest and verify its signature with the `cosign verify`
+    command on
+    [Compatibility and upgrades](/operations/compatibility#sbom-provenance-and-signatures).
+    Verifying the artifact rather than trusting the workflow is the whole point
+    of signing it.
+  </Step>
+</Steps>
+
+## What the release workflow does
+
+Two gates run before anything is built, and a finding in either stops the
+release rather than annotating it:
+
+- **Source scan.** `govulncheck` for Go dependency vulnerabilities, Gitleaks for
+  secrets across the full history, and Trivy for filesystem vulnerabilities and
+  licences at `CRITICAL` and `HIGH`, ignoring unfixed findings.
+- **CodeQL.** Semantic analysis of the Go and TypeScript sources, which is a
+  different question from whether a dependency has a known advisory.
+
+Only then are the four images — `api`, `bot`, `worker`, `web` — built for
+`linux/amd64` and `linux/arm64`, published to GitHub Container Registry with an
+SBOM and build provenance attached, and signed keyless with cosign using the
+workflow's own GitHub Actions OIDC identity. There is no signing key to manage,
+rotate, or leak, and the signature is recorded in the public Rekor transparency
+log.
+
+The published image is then scanned again. That step is **detection, not a
+gate**: a multi-arch image cannot be scanned before `build-push-action` pushes
+it without a much more invasive two-stage build, so a finding there fails the
+workflow after the image is already at the registry. Treat that failure as a
+reason to publish a patch, not as a reason to assume nothing shipped.
+
+## The scheduled scan is not the release gate
+
+`Security` runs on pull requests and weekly, and it uploads SARIF for the
+security tab. It is informational: it reports rather than blocks. The release
+workflow runs the same tools with `exit-code: 1`. Both exist because a finding
+that appears between releases should be visible without waiting for one.
+
+## Fixing a released version
+
+There is no maintenance branch. A fix lands on `main` as a `fix:` commit,
+Release Please cuts the next patch, and an installation upgrades forward.
+Migrations are forward-only, so a rollback is a restore from the backup taken
+immediately before the upgrade — the procedure is on
+[Backup, restore, and disaster recovery](/operations/backup-restore#rolling-back).
+
+If a release must be withdrawn, delete the release and its tag before any
+installation upgrades, and cut the next patch with the fix. Do not re-tag: the
+signature and provenance are bound to a digest, and moving a tag makes both
+describe something else.
+
+## Documentation ships with the change
+
+Documentation is not a release step because it is a merge step. A behaviour
+change carries its English page, its Russian counterpart, and its navigation
+entry in the same commit, and CI's `docs` job enforces that the trees are in
+step. By the time a tag exists, the documentation for what it contains is
+already published — see [Documentation](/contributing/documentation).
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Development" icon="wrench" href="/contributing/development">
+    Setting up the workspace, the generators, and every check CI runs.
+  </Card>
+  <Card title="Compatibility and upgrades" icon="arrows-rotate" href="/operations/compatibility">
+    The version matrix, artifact verification, the upgrade window, and deprecations.
+  </Card>
+  <Card title="Testing strategy" icon="vial" href="/contributing/testing">
+    What runs by default, what needs Docker, and what a financial change owes.
+  </Card>
+  <Card title="Extension policy" icon="puzzle-piece" href="/integrations/extending">
+    Which surfaces the version promise actually covers.
+  </Card>
+</CardGroup>

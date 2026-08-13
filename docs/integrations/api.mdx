@@ -420,8 +420,9 @@ Know these gaps before you generate a client from it:
   decode into anonymous structs and write hand-built maps; the generated Go
   server types are imported by nothing. A response can drift from its schema
   without a test failing.
-- `info.version` reads `0.5.0` and is stale relative to the surfaces the file
-  covers.
+- `info.version` reads `1.0.0`. It tracks the release line rather than a
+  separate contract version, so it does not tell you which of the gaps above
+  have since been closed.
 - Two operations are documented unconditionally but are conditional in code:
   `GET /metrics` and `POST /v1/telemetry/events`. More generally, a `/v1/panel`
   or `/v1/account` route whose service is not attached is **absent (404)**, not

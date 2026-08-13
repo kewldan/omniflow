@@ -14,11 +14,14 @@ Work may prepare shared foundations early, but a later product surface must not 
 backend, the Telegram customer product, the production runtime, the whole
 operator panel, and the whole customer web panel — sign-in, subscriptions,
 checkout, the wallet, the digital-goods shop, support, news, referrals, loyalty,
-and a customer's own data. v1.0 is the next phase and is about release
-engineering rather than product surface: compatibility, security review,
-reliability, and documentation. A few items shipped with a caveat stated in their
-own line, and each phase records its remaining verification debt in its own
-section; nothing else is outstanding behind a checked box.
+and a customer's own data. v1.0 is release engineering rather than product
+surface — compatibility, security review, reliability, and documentation — and
+its documentation and community work is done. Three items remain, and none of
+them is something a change to this repository can produce: an external security
+reviewer, a restore drill run against a real database, and a green CI run on the
+release commit. A few items shipped with a caveat stated in their own line, and
+each phase records its remaining verification debt in its own section; nothing
+else is outstanding behind a checked box.
 
 ## Status legend
 
@@ -390,13 +393,21 @@ Goal: build the secure operator shell only after the Telegram/backend product is
 
 ---
 
-## 🐞 Known defect carried from v0.5
+## ✅ Known defect carried from v0.5 — closed in v0.7
 
-`TestConcurrentSubscriptionPurchasesRespectTheLimit` fails: concurrent purchases are
-not refused when they would exceed the configured per-customer subscription limit
-(`internal/integrationtest/load_test.go:167`). Reproduced at `1f3199e`, so it predates
-the v0.6 work and is unrelated to the admin panel. It needs a fix before 1.0 because
-it lets a customer exceed a limit the operator configured.
+`TestConcurrentSubscriptionPurchasesRespectTheLimit` was failing, and this section
+outlived the fix. It was closed in `e0a2396` and the note was never updated.
+
+The limit itself was never breached. `CreateOrder` runs under `Serializable` and
+takes a transaction-scoped advisory lock on the customer before counting their
+subscriptions, so two simultaneous purchases cannot both observe a stale total.
+What the test asserted was that at least one racer had been refused by the
+*domain* check — and under `Serializable` most racers are aborted by PostgreSQL
+first, which is the stronger outcome, because the conflict was caught by the
+database rather than by an application read that could have gone stale. The test
+now asserts the property that matters: the limit holds, the successes match the
+subscriptions that exist, and every other attempt was refused by one guard or
+the other.
 
 ---
 
@@ -739,10 +750,42 @@ Goal: finish support, communication, configuration, and operational readiness be
 - [x] Playwright covers admin authentication and highest-risk operator journeys
 - [x] Accessibility, responsive layout, localization, and browser support gates pass
 
+### The AI and MCP boxes describe code, not a reachable surface
+
+Stated here in v1.0 because the documentation review that closed out this phase
+made it unavoidable, and a checked box that a reader cannot act on is worse than
+an unchecked one.
+
+Everything ticked in the four AI sections and the MCP section above is
+implemented and unit-tested — the gateway, the redactor, the support, marketing,
+risk, copilot, and evaluation packages, the MCP client and the first-party MCP
+server, and the settings screens that register a provider, enable a feature,
+route it to a model, and bound what it may spend. What does not exist is the
+wiring between them: no process constructs a gateway or an MCP client, nothing
+mounts an AI route on `/v1/panel`, and no screen outside `/admin/settings/ai`
+calls one. `internal/aigateway` is imported by the feature packages and by
+nothing else; `internal/mcpserver` is imported by nothing at all.
+
+So an owner can configure AI completely and correctly, and no request will ever
+be made. `docs/index.mdx` has said this since the surfaces shipped — *it does not
+perform a model call or an MCP tool call* — and v1.0 adds the same statement to
+the AI and MCP pages themselves, plus
+[`docs/operations/ai-providers.mdx`](./docs/operations/ai-providers.mdx), which
+documents the registry an owner does use. Mounting the features is a phase of its
+own and is not folded into v1.0, which is release engineering.
+
+The one consequence worth naming for the release gates: "AI features degrade to
+normal manual admin workflows without blocking support or operations" holds
+trivially rather than by design, because there is nothing to degrade from.
+
 ### Verification debt
 
 Carried into v0.9 and tracked here rather than left implied.
 
+- **AI and MCP have no runtime surface**, as set out above. The connection test
+  is the smallest instance of it: `RecordAIProviderCheck` and
+  `AIProviderCredential` exist and the panel renders their result, but nothing
+  calls either, so every provider reads *Never connection-tested* forever.
 - **Campaign and notification test delivery.** Scheduling, pausing, cancelling,
   audience estimation, and result counters are implemented and enforced; sending
   one message to a single operator account before committing to the audience is
@@ -1130,22 +1173,84 @@ benchmark ships with the repository.
 
 ### Documentation and community
 
-- [ ] End-to-end installation, configuration, migration, upgrade, backup, and troubleshooting guides
-- [ ] Bot customer guide, admin operator guide, and customer web guide
-- [ ] Integration guides for Remnawave, Telegram, and every supported payment provider
-- [ ] AI-provider, local-model, MCP client/server, privacy, cost-control, and troubleshooting guides
-- [ ] Public API reference and extension policy
-- [ ] Contributor setup, architecture decisions, testing strategy, and release process
-- [ ] Issue templates, feature-request process, support boundaries, and code of conduct
+- [x] End-to-end installation, configuration, migration, upgrade, backup, and troubleshooting guides
+- [x] Bot customer guide, admin operator guide, and customer web guide
+- [x] Integration guides for Remnawave, Telegram, and every supported payment provider
+- [x] AI-provider, local-model, MCP client/server, privacy, cost-control, and troubleshooting guides
+- [x] Public API reference and extension policy
+- [x] Contributor setup, architecture decisions, testing strategy, and release process
+- [x] Issue templates, feature-request process, support boundaries, and code of conduct
 
 ### Definition of 1.0
 
-- [ ] A clean installation can be completed from public documentation alone
-- [ ] Telegram bot, admin panel, and customer panel cover their complete required journeys
-- [ ] Real payments and Remnawave fulfillment are idempotent and recoverable
-- [ ] Roles prevent unauthorized operator access and every sensitive operation is audited
-- [ ] Backup restore and supported-version upgrade have been exercised successfully
-- [ ] CI, security, migration, documentation, accessibility, and end-to-end gates are green
+- [x] A clean installation can be completed from public documentation alone
+- [x] Telegram bot, admin panel, and customer panel cover their complete required journeys
+- [x] Real payments and Remnawave fulfillment are idempotent and recoverable
+- [x] Roles prevent unauthorized operator access and every sensitive operation is audited
+- [ ] Backup restore and supported-version upgrade have been exercised successfully —
+      the upgrade half is exercised on every change by CI's `migrations` matrix
+      against a real PostgreSQL, from the empty database through every prefix of
+      the migration history to head. The restore half is a documented drill and
+      nothing in the repository runs it
+- [ ] CI, security, migration, documentation, accessibility, and end-to-end gates are green —
+      evaluated by the CI run on the release commit, which is not something a
+      development machine can assert on its behalf
+
+### What v1.0 delivered
+
+v1.0 changed almost no behaviour, which is what a release-engineering phase
+should look like. It changed what somebody outside this repository can find out.
+
+**The decisions are written down.** No decision record existed,
+although `AGENTS.md` and the documentation guide had both required it since v0.1
+and two changes — a message broker, a dependency-injection framework — were
+already gated on an accepted record. Six records now cover the choices that
+constrain everything else: one module with three entrypoints, PostgreSQL as the
+only durable store, the OpenAPI file as the contract, the Remnawave boundary, one
+web application for both audiences, and AI that is optional and never acts alone.
+Each carries the alternative that was rejected, what the choice costs, and the
+observable condition that would make reopening it correct — because the expensive
+mistakes are the ones nobody remembers arguing about, reversed by a contributor
+who had no way of knowing there was a reason.
+
+**The public surface is bounded.** `docs/integrations/extending.mdx` says which
+surfaces carry the version promise — `/v1/admin`, the contract, the webhook and
+catalogue routes, the probes, the environment variables, the published images —
+and which do not. `/v1/panel` and `/v1/account` are named as internal, and every
+Go package lives under `internal/` so the compiler enforces that nothing outside
+the module can import one. The four things an operator can genuinely plug in
+without a contribution are enumerated, and so is the list of what is deliberately
+not extensible, starting with the plugin runtime that is absent rather than
+overdue.
+
+**The release is a process rather than a habit.** `docs/contributing/releases.mdx`
+documents what turns a commit into a version, what the release workflow gates
+before it builds anything, and the one step that is detection rather than a gate:
+the published-image scan runs after the push, because a multi-arch image cannot be
+scanned before `build-push-action` sends it. `release-please-config.json` now
+names `1.0.0` as the initial version, and `api/openapi.yaml` carries `1.0.0`
+instead of the `0.5.0` it had been stale at.
+
+**The AI documentation stopped implying a feature.** The registry, the sealed
+credentials, the per-feature routing, and the budgets are real and are now
+documented properly, including how to point the OpenAI-compatible adapter at a
+model on your own hardware. What is also documented, on the pages a reader
+actually lands on, is that no feature invokes a provider in this build. That was
+already stated on the documentation index; it is now stated where it is needed.
+
+**The community files answer the questions people arrive with.** Support
+boundaries are explicit about what this project is responsible for and what it is
+not — Remnawave itself, provider accounts, bespoke deployment, and the legality of
+running a VPN service are all named. The feature-request process says what the
+four possible answers to a proposal are. `CONTRIBUTING.md` no longer claims that
+Testcontainers and Playwright are scheduled for a later milestone; the first has
+been running in CI since v0.5 and the second since v0.8.
+
+Two corrections came out of the work rather than into it. The known defect
+carried from v0.5 had been fixed in v0.7 and the section describing it was never
+updated. And v0.8's AI and MCP boxes describe implemented, tested code that no
+process reaches, which is now stated in that phase's own section rather than left
+for a reader to discover by grepping for an import.
 
 ---
 

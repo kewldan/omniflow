@@ -1,0 +1,252 @@
+---
+title: AI providers and local models
+description: Registering a model provider, pointing one at a local model, routing each feature to its own model and budget, and reading the state the screen shows you
+---
+
+Everything AI in Omniflow starts with a provider an owner has registered and
+approved. This page is how that registry works: the three adapters, the fields
+on the screen, how to point one at a model running on your own hardware, how a
+feature is routed to a model and given a ceiling, and what each state on the
+screen means.
+
+The decisions behind the design — why nothing talks to a provider directly, why
+approval is a database row, and why a model can never act on its own — are on
+[AI privacy and the gateway](/operations/ai-privacy) and
+[record 0006](/architecture/decision-0006-ai-is-optional). Read this page for
+the mechanics.
+
+<Warning>
+  **No feature invokes a provider in this build.** The registry, the credential
+  sealing, the per-feature routing, the budgets, and the usage report are real
+  and are what a provider will be driven through. The gateway and the feature
+  packages are implemented and unit-tested, but no process mounts them: there is
+  no AI endpoint on `/v1/panel`, and no screen outside these settings calls one.
+  A provider registered today is configuration waiting for the surfaces, and
+  registering one sends nothing anywhere.
+</Warning>
+
+## Where it lives
+
+`/admin/settings/ai`. Viewing needs `settings.read`; changing anything needs
+`settings.write`, which in practice means an owner. Every change is written to
+the audit trail with the actor and the reason the panel collected.
+
+## The three adapters
+
+A provider row has a **kind**, and the kind decides which request shape
+Omniflow speaks. There are three, and they are deliberately thin — each maps a
+request onto that provider's completion endpoint and maps the answer back.
+Redaction, budgets, retries, and limits belong to the gateway, never to an
+adapter.
+
+| Kind | Endpoint it calls | Base URL when you leave the field empty |
+| --- | --- | --- |
+| `openai_compatible` | `POST {base}/chat/completions` | `https://api.openai.com/v1` |
+| `anthropic` | `POST {base}/messages` | `https://api.anthropic.com/v1` |
+| `gemini` | `POST {base}/models/{model}:generateContent` | `https://generativelanguage.googleapis.com/v1beta` |
+
+Three behaviours are shared by all of them and are worth knowing before you
+diagnose anything:
+
+- **A provider's own error message is never propagated.** A non-2xx answer
+  becomes `HTTP <status>` and nothing more, because a provider's error text can
+  echo the prompt back and the prompt contains customer content that has no
+  business in an operator's browser. The detail goes to the log.
+- **The response body is bounded at 4 MiB and the request times out after 60
+  seconds.** An endpoint that streams without end fails rather than exhausting
+  memory.
+- **A task with no token limit gets 1024.** A feature that has not been given a
+  ceiling should produce a short answer rather than an expensive one; raising it
+  is a deliberate act on the feature.
+
+The Anthropic adapter pins `anthropic-version: 2023-06-01` rather than tracking
+the latest version, because a provider that changes its response shape under a
+running installation is a failure nobody deployed.
+
+<Note>
+  The Gemini endpoint takes its API key as a query parameter, which is that
+  API's design rather than a choice made here. The key therefore reaches request
+  logs at the provider. If that matters for your installation, prefer one of the
+  other two kinds.
+</Note>
+
+## Registering a provider
+
+<Steps>
+  <Step title="Open the registry">
+    Go to `/admin/settings/ai`. The **Providers** card lists what is registered;
+    on a fresh installation it says that no provider is configured and every AI
+    feature is therefore unavailable.
+  </Step>
+  <Step title="Fill in the identity">
+    **Identifier** is the stable slug a feature will name — lowercase letters,
+    digits, `-` and `_`, 2 to 41 characters. It is never shown to a customer and
+    never changes, so pick something durable (`openai-main`, `local-llama`).
+    **Name** is what operators read.
+  </Step>
+  <Step title="Choose the kind and the base URL">
+    Select `openai_compatible`, `anthropic`, or `gemini`. Leave **Base URL**
+    empty to use that kind's default from the table above, or set it to reach a
+    different endpoint — a regional host, a gateway of your own, or a local
+    model.
+  </Step>
+  <Step title="Record what the provider does with your data">
+    **Zero retention** and **May train on your data** are your answers, taken
+    from the provider's own terms. Omniflow cannot verify them and does not try.
+    They are shown on the card above the switch that would send data to the
+    provider, and they raise warnings on any feature routed to it.
+  </Step>
+  <Step title="Add the key and approve it">
+    A new provider is created **disabled**, whatever else you set. Paste the API
+    key, save, then turn on **Approved for use** on the provider's card. A task
+    routed at a provider with no enabled row is refused rather than falling back
+    to another one.
+  </Step>
+</Steps>
+
+The API key is write-only end to end. It is sealed with
+`APP_DATA_ENCRYPTION_KEY` before it reaches the database, bound to that
+provider's slug so a ciphertext moved between rows will not open, and never
+returned by the API. The field is therefore always empty when the screen loads,
+and leaving it empty keeps the stored key — the **Rotate key** button is how you
+replace one.
+
+## Pointing at a local model
+
+There is no separate adapter for a local model, and that is the point: anything
+that implements the OpenAI `/chat/completions` shape is registered as
+`openai_compatible` with its own base URL. Ollama, vLLM, LM Studio,
+llama.cpp's server, and most self-hosted gateways all do.
+
+- Set **Base URL** to the server's OpenAI-compatible root, including any path
+  prefix it serves under. The adapter appends `/chat/completions` to exactly
+  what you give it, and a trailing slash is trimmed.
+- The **API key field is required** even when your server ignores it, because a
+  provider with no key cannot be constructed. Put any non-empty placeholder
+  there for a server that does not authenticate.
+- Reach the server by a hostname the API container can resolve. `localhost`
+  inside a container is the container, not the host — use the Compose service
+  name for a model running in the same stack, or the host's LAN address.
+- The **model** is named per feature, not on the provider, and it must be the
+  name your server exposes rather than a hosted vendor's.
+
+<Warning>
+  A local model is still a network destination the API process will connect to
+  on an owner's instruction. Keep it on a network you control: there is no
+  egress allowlist on AI providers, unlike the MCP registry, which has one.
+</Warning>
+
+## Routing a feature to a model
+
+The **Features** card lists every feature an installation could have. Each is
+off until you enable it and choose a provider and a model, and a feature that is
+enabled without both cannot be saved — an enabled feature that would fail on
+first use looks like a bug rather than a missing setting.
+
+| Feature | What it is for |
+| --- | --- |
+| `support_summary` | Ticket-thread summaries |
+| `support_reply` | Suggested replies for an operator to edit |
+| `support_rewrite` | Shorter, clearer, friendlier, more formal, more technical |
+| `support_translate` | Russian and English, preserving names and variables |
+| `support_classify` | Suggested category, priority, tags, and sentiment |
+| `marketing_draft` | News, announcement, and campaign copy |
+| `risk_analysis` | Explainable abuse and fraud assessment |
+| `copilot` | The permission-aware admin assistant |
+| `mcp_tools` | Tool calls through registered MCP servers |
+
+Each feature carries its own settings, because summarising a ticket and judging
+whether somebody is committing fraud are not the same risk and should not share
+a configuration:
+
+| Setting | Accepted range | What it does |
+| --- | --- | --- |
+| Provider and model | An approved provider; any model string | Where this feature's requests go |
+| Temperature | 0 to 2 | Passed to the provider |
+| Max tokens | 1 to 200000 | Ceiling on the answer; 1024 when unset |
+| Timeout | 1000 to 600000 ms | How long a single request may take |
+| Budget tokens / window / cost | Any non-negative value | Checked **before** the call, not measured after it |
+| Keep prompts / Keep outputs | On or off | Whether the material is stored in Omniflow |
+| Retention | 0 to 3650 days | How long stored material survives |
+
+Retention is per feature because the material differs: a marketing draft is the
+operator's own copy, and a support summary is somebody's complaint. Prompts are
+not kept by default; outputs are.
+
+## Ceilings, and who they stop
+
+Budgets on a feature bound that feature. The **Usage limits** card bounds
+people, which is a different question — "the installation spent its budget" and
+"one operator looped the copilot" need different answers, and only the second
+should stop that operator.
+
+A limit has a scope, a window in seconds, and any combination of a request
+count, a token count, and a cost ceiling in minor units:
+
+| Scope | Bounds |
+| --- | --- |
+| `installation` | Everything, everywhere |
+| `role` | Every operator holding that role |
+| `operator` | One named operator |
+| `feature` | One feature, regardless of who invokes it |
+
+When several apply, the narrowest one is what the operator is told about,
+because the remedy differs: waiting will not fix a limit that names you.
+
+An unreadable meter fails closed. Spending against a budget nobody can measure
+is how an installation learns its limit from an invoice.
+
+## Reading the state on the screen
+
+The **Spend and performance** card reports requests, tokens, mean and p95
+latency, failures, and estimated cost per feature and model over a window it
+prints beside the numbers. No prompt or output content is stored in that report,
+so none appears in it.
+
+Each feature shows the warnings that apply to it, and each is a fact rather than
+an opinion:
+
+| Warning | What it means |
+| --- | --- |
+| This provider may train on your data | The provider row is marked as training |
+| This provider is not zero-retention | Zero retention is not set on the provider |
+| No data region recorded | The provider row has no region |
+| Never connection-tested | No connection test result has ever been recorded |
+| The last connection test failed | The stored result is a failure, with its detail |
+| Prompts are kept in Omniflow | This feature retains prompts |
+| No provider and model chosen | The feature cannot run as configured |
+
+<Note>
+  **Never connection-tested** is the state every provider is in today. The
+  outcome of a test is storable and is what the card renders, but nothing in
+  this build performs one — for the same reason nothing else contacts a
+  provider yet.
+</Note>
+
+## Troubleshooting
+
+| Symptom | Cause |
+| --- | --- |
+| The Providers card says no provider is configured | Nothing is registered, or nothing registered is approved. A row exists but **Approved for use** is off. |
+| A provider was saved but shows **No key** | The key field was empty on save. It is write-only, so an empty field means "keep what is stored", and on a new row there is nothing stored. |
+| A feature will not save as enabled | Enabling requires both a provider and a model. Choose both, then enable. |
+| A provider will not delete | A feature still points at it. Deleting it would turn that feature off without saying so, so the foreign key refuses. Repoint or disable the feature first. |
+| Rotating the key appears to do nothing | The **Rotate key** button is disabled until the field has a value, because saving an empty field is how you *keep* the current key. |
+| The screen is not in the navigation at all | The signed-in operator lacks `settings.read`, or this process has no operations service attached — in which case the route is absent rather than forbidden, so a caller learns nothing about what is configured. |
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="AI privacy and the gateway" icon="shield-halved" href="/operations/ai-privacy">
+    What is removed before anything is sent, and what AI is never allowed to do.
+  </Card>
+  <Card title="AI governance and evaluation" icon="scale-balanced" href="/operations/ai-governance">
+    Per-feature enablement, the data-flow inventory, retention, and the evaluation thresholds.
+  </Card>
+  <Card title="MCP connections" icon="plug" href="/operations/mcp">
+    Registering an MCP server, its allowlists, and its egress restrictions.
+  </Card>
+  <Card title="Installation settings" icon="sliders" href="/operations/installation-settings">
+    The rest of the configuration screens and how secrets are sealed.
+  </Card>
+</CardGroup>

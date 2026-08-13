@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Omniflow API
  * Customer, commerce, payment, wallet, fulfillment, and operations API for Omniflow.
- * OpenAPI spec version: 0.5.0
+ * OpenAPI spec version: 1.0.0
  */
 
 import type { Arguments, Key, SWRConfiguration } from "swr";

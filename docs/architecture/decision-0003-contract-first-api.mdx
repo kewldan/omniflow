@@ -1,0 +1,79 @@
+---
+title: "0003 — The OpenAPI file is the contract"
+description: Why api/openapi.yaml is written first and both sides are generated from it, why it is 3.0.3 rather than 3.1, and where the generated code stops
+---
+
+**Status:** Accepted.
+
+## Context
+
+There are two ends of every call in this repository: a Go handler and a
+TypeScript caller in the same monorepo. Hand-maintaining wire types at both ends
+means the drift is invisible until a customer sees it, and a monorepo makes the
+drift *more* likely rather than less, because a contributor changing a handler
+can change its caller in the same commit and never write the change down.
+
+The other pressure is that the API is public. An operator scripting against
+`/v1/admin` has no access to the handler, so whatever the contract says is what
+they build against.
+
+## Decision
+
+`api/openapi.yaml` is the source contract. Go server types are generated from it
+with `oapi-codegen`, and the TypeScript Fetch/SWR bindings and Zod schemas with
+Orval. Neither side hand-maintains a duplicate wire type, and CI fails when a
+contract change is committed without regenerating both.
+
+The contract is **OpenAPI 3.0.3**, not 3.1, because the selected Go generator
+does not have stable 3.1 support. This is a tooling constraint recorded so the
+next person does not spend an afternoon discovering it.
+
+Three prefixes exist and stay separate: `/v1/panel` (operator session cookie,
+CSRF, RBAC), `/v1/admin` (bearer token, for scripts and Telegram operator
+tooling), and `/v1/account` (customer session cookie, CSRF, no RBAC). They are
+not merged, because merging them would let each inherit another's middleware and
+a customer credential must never reach an operator route.
+
+Conventions that apply across all three: RFC 9457 problem responses, cursor
+pagination, UTC timestamps, integer minor-unit money, request IDs, and
+idempotency keys on mutations.
+
+## Consequences
+
+Generation is a build step with teeth: `bun run generate:api` followed by
+`git diff --exit-code` in CI means an unregenerated contract change cannot
+merge.
+
+The generated code stops short of two places, and both are stated here rather
+than discovered:
+
+- **The generated Go server types are imported by nothing.** Handlers decode
+  into anonymous structs and write hand-built maps, so a response can drift from
+  its schema without a test failing. The contract is authoritative for callers,
+  not enforced at runtime against responses.
+- **The panels call a shared typed transport rather than the generated SWR
+  hooks.** Orval's `client: "swr"` generator emits bare `fetch` calls and ignores
+  `override.mutator`, so a generated hook would carry neither the session cookie
+  nor the CSRF token. Both target the same generated contract; only the
+  transport differs.
+
+The contract also does not yet cover every `/v1/panel` route, and no panel or
+account operation references its security scheme. Those gaps are enumerated on
+[Integrating with the API](/integrations/api#the-openapi-contract) so that
+anybody generating a client meets them before their code does.
+
+## Revisit when
+
+- The Go generator ships stable OpenAPI 3.1 support, at which point the contract
+  can move and gain the JSON Schema features 3.0.3 lacks.
+- Orval supports a mutator for its SWR client, at which point the panels can use
+  generated hooks and the shared transport becomes redundant.
+- Response validation against the contract is worth its runtime cost — most
+  plausibly as a test-time check that exercises handlers against the schema,
+  rather than as middleware in the request path.
+
+## Related
+
+- [Integrating with the API](/integrations/api) — the public surface, its rules, and its gaps.
+- [Technology stack](/architecture/technology) — the generators themselves.
+- [Extension policy](/integrations/extending) — which parts of this contract are stable to build on.

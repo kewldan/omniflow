@@ -1,0 +1,78 @@
+---
+title: "0002 — PostgreSQL is the only durable store"
+description: Why Valkey holds nothing that cannot be lost, and why the job queue and the event outbox live in the same database as the money
+---
+
+**Status:** Accepted.
+
+## Context
+
+Omniflow runs two data stores. The temptation with any second store is to let it
+creep: a session here, a pending order there, a job queue because the database
+"is not a queue". Each step is individually defensible and the result is a
+system where recovering from a Valkey restart means reconstructing state nobody
+wrote down.
+
+The specific pressure is the queue. Durable background work — provisioning
+Remnawave access after a payment, retrying a failed charge, expiring a cart —
+has an obvious home in a dedicated broker. But the job that provisions access
+must commit with the payment that justifies it. If the payment lands in
+PostgreSQL and the job lands somewhere else, there is a window in which the
+customer has paid and nothing will ever act on it, and that window is not
+theoretical: it is exactly what a broker outage looks like.
+
+## Decision
+
+PostgreSQL is the only durable application store. Every record an operator would
+be upset to lose lives there: customers, orders, payments, the wallet ledger,
+entitlements, support, audit history, the durable job queue (River), and the
+transactional outbox.
+
+Valkey holds cache, rate-limit counters, locks, and disposable session-adjacent
+state, and nothing else. The test for whether something may live in Valkey is
+whether flushing the whole instance during business hours would cost anything
+beyond a slow minute and some re-authentication. If the answer is anything else,
+it belongs in PostgreSQL.
+
+A durable job is enqueued in the same transaction as the state change that
+requires it. This is a rule about writing code, not a property that emerges: a
+handler that commits an order and then enqueues a job has introduced the window
+above and is wrong even when it passes its tests.
+
+## Consequences
+
+The database carries load a broker would have absorbed — queue polling,
+outbox scanning, and rate-limit fallbacks when Valkey is down. That is a real
+cost and it is bounded by the single-server topology in
+[record 0001](/architecture/decision-0001-modular-monolith).
+
+Losing Valkey degrades rather than stops the platform: rate limits and caches
+fail toward the safe answer and the surfaces keep working. Losing PostgreSQL
+stops everything, which is why backup, verified restore, and the recovery drill
+are release gates rather than nice-to-haves.
+
+The outbox is a table with no consumer today. That is deliberate — nothing
+external depends on it yet, so shipping a speculative dispatcher would mean
+maintaining an integration nobody uses. The consequence is that its unpublished
+count grows and is not a backlog signal, which is stated where an operator would
+otherwise misread it.
+
+River's own schema is not created by the shipped migrations. On a stock
+installation the job-inspection endpoints therefore have no tables to read.
+That gap is documented rather than papered over.
+
+## Revisit when
+
+- Queue throughput on a real installation is measurably limited by PostgreSQL
+  rather than by the work the jobs do.
+- An external consumer for domain events exists, at which point the outbox needs
+  a dispatcher and that dispatcher needs a delivery guarantee this record does
+  not describe.
+- A capability requires durable state that genuinely cannot be modelled
+  relationally. None has.
+
+## Related
+
+- [Data ownership](/architecture/data-ownership#inside-omniflow-durable-ephemeral-and-append-only) — the durable, ephemeral, and append-only split.
+- [Jobs and queues](/operations/jobs-and-queues) — what retries, what dead-letters, and what the endpoints show.
+- [Backup, restore, and disaster recovery](/operations/backup-restore) — what losing the one durable store costs.

@@ -3,6 +3,13 @@ description: Propose a product or operator capability.
 title: "feat: "
 labels: [enhancement]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Read the proposal process in `CONTRIBUTING.md` first, and check `ROADMAP.md` — it lists
+        what is already planned and what is explicitly a non-goal before 1.0. A proposal is
+        answered as accepted, accepted as a contribution you may write, deferred with the
+        condition that would change the answer, or declined with the reason.
   - type: textarea
     id: problem
     attributes:

@@ -1,0 +1,137 @@
+---
+title: Extension policy
+description: Which surfaces are public and safe to build on, which are internal and will change, what can be extended without touching the code, and what deliberately cannot be extended at all
+---
+
+Omniflow is extended in two ways, and only two. Configuration reaches endpoints
+the maintainers never see — a model server on your own hardware, an identity
+provider, an MCP server. Everything else is a contribution to this repository,
+reviewed and compiled in. There is no plugin runtime, no ABI, and no way to load
+third-party code into a running process.
+
+This page is the contract that comes with that: what you may build against and
+expect to keep working, what will move under you, and how a new adapter gets in.
+
+## What is public
+
+These surfaces are covered by [Semantic Versioning](/operations/compatibility)
+and by the deprecation policy on that page. A breaking change to any of them is
+a major version and a `CHANGELOG.md` entry, never a silent behaviour change.
+
+| Surface | What it is | Guarantee |
+| --- | --- | --- |
+| `/v1/admin` | The bearer-token API for scripts and other services | Documented in full in `api/openapi.yaml`. A deprecated operation or field keeps working for at least one further minor release. |
+| `api/openapi.yaml` | The source contract | What the published [API reference](/integrations/api) renders and what a generated client is built from. |
+| `POST /v1/payments/webhooks/{provider}` | Provider webhook intake | The route shape and its verification behaviour are stable; the bodies belong to the providers. |
+| `GET /v1/catalog/plans` | The anonymous storefront read | Stable and credential-free, for a landing page or a price list. |
+| `/healthz`, `/livez`, `/readyz`, `/metrics` | Probes and metrics | Stable names and stable metric labels. |
+| Environment variables | Everything in [Configuration](/getting-started/configuration) | A deprecated variable keeps working alongside its replacement for at least one minor release. |
+| Container images and their tags | `ghcr.io/kewldan/omniflow/*` | Versioned, signed, and carrying an SBOM and provenance. |
+
+## What is internal
+
+Building on any of these is allowed — it is your installation — but nothing here
+carries a compatibility promise, and no deprecation notice is owed.
+
+- **`/v1/panel` and `/v1/account`.** They exist to serve the two panels and they
+  change whenever a screen does. They are session-bound with CSRF, so a script
+  cannot use them conveniently in any case. Use `/v1/admin`.
+- **The database schema.** Migrations are forward-only and tables are reshaped
+  when a feature needs it. Read from a replica if you must; write only through
+  the API. A direct write bypasses idempotency, audit, and the append-only rules
+  that make the financial records trustworthy.
+- **Go packages.** Every package lives under `internal/`, so the compiler
+  enforces that nothing outside this module can import them. That is
+  deliberate: it keeps the maintainers free to change internals, and it means
+  "extension" never turns into "somebody depends on this function's signature".
+- **Message catalogues, component internals, and generated clients.** These
+  regenerate.
+- **River's schema and job payloads.** Job arguments are an implementation
+  detail of the process that enqueues them.
+
+## Extending without touching the code
+
+Four integration points take an endpoint you choose, with no contribution
+required. They are the reason the plugin runtime is missing rather than
+overdue: the things people actually want to plug in are external services, and
+an external service needs a URL and a credential, not a code-loading mechanism.
+
+| Point | What you supply | Where |
+| --- | --- | --- |
+| AI model provider | Any OpenAI-compatible, Anthropic, or Gemini endpoint, including a model on your own hardware | [AI providers and local models](/operations/ai-providers) |
+| OIDC identity provider | A discovery document; several providers run at once for operators and for customers | [OIDC sign-in](/integrations/oidc) |
+| MCP server | A Streamable HTTP endpoint, allowlisted per tool, with egress restrictions and RBAC mapping | [MCP connections](/operations/mcp) |
+| Reverse proxy | Caddy, Traefik, or anything else; two examples ship and neither is required | [Reverse proxy](/operations/reverse-proxy) |
+
+Three more are configuration of adapters that are already compiled in: payment
+providers, the digital-goods gateway, and the Remnawave connection. You choose
+which are enabled, with which credentials and which capabilities, but not what
+protocol they speak.
+
+## Adding an adapter
+
+A payment provider, a digital-goods gateway, or a model provider that speaks a
+fourth shape is a contribution. The interfaces are small on purpose, and an
+adapter that stays inside them is a contained review.
+
+A payment adapter implements six methods — `Name`, `Capabilities`, `Create`,
+`Poll`, `Refund`, and `VerifyWebhook` — and declares what it can actually do
+through `Capabilities` rather than through a configuration flag. Three optional
+interfaces are picked up when implemented: charging a saved method without the
+customer present, recovering an intent whose reference was lost, and declaring
+which currencies it settles. An adapter that does not declare currencies accepts
+whatever the order carries.
+
+What a review will insist on, in every case:
+
+- **Idempotency is the adapter's problem too.** Every mutating call carries an
+  idempotency key, and a retried call must not move money twice. An adapter that
+  cannot honour one has to say so, and the pipeline treats an ambiguous outcome
+  as a case for a human rather than retrying — which is exactly what the
+  digital-goods gateway does today.
+- **Capabilities are declared, not assumed.** A refund control that appears for
+  a provider that cannot refund is a support ticket in waiting.
+- **Webhook verification happens before anything else**, on the raw body, with a
+  size bound, and a failed verification is still recorded.
+- **No secret reaches a log, an error surfaced to a browser, or a diagnostics
+  bundle.** A provider's own error text can echo the request back, which is why
+  the model adapters return a status and nothing more.
+- **Failure-path and idempotency tests ship with it**, along with replay
+  fixtures for the webhook shapes.
+
+Open a feature proposal first — see [Support](https://github.com/kewldan/omniflow/blob/main/SUPPORT.md)
+— because whether a provider is worth carrying is a maintenance decision rather
+than a code-quality one. `ROADMAP.md` is explicit that additional payment
+providers are added when an operator asks for one, not for provider-count parity.
+
+## What is deliberately not extensible
+
+- **No plugin runtime.** There is no WASM host, no dynamic loading, and no
+  extension point that runs third-party code in an Omniflow process. A capability
+  sandbox is a post-1.0 candidate and it needs a security design, not a library.
+- **No second place that decides what a role may do.** The permission catalogue
+  and the role mapping are compiled into `internal/rbac`, so no configuration
+  file, database row, or integration can widen access.
+- **No writes to Remnawave storage and no Xray management**, by anything,
+  including an adapter. See
+  [record 0004](/architecture/decision-0004-remnawave-boundary).
+- **No way for AI or MCP to bypass RBAC, a confirmation, idempotency, or the
+  audit trail.** A tool is mapped to a permission the operator already holds,
+  and a consequential mutation needs a person.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Integrating with the API" icon="code" href="/integrations/api">
+    The bearer token, idempotency keys, cursors, problem responses, and the contract's known gaps.
+  </Card>
+  <Card title="Compatibility and upgrades" icon="arrows-rotate" href="/operations/compatibility">
+    The version matrix, the upgrade window, and the deprecation policy this page relies on.
+  </Card>
+  <Card title="Release process" icon="tag" href="/contributing/releases">
+    How a change becomes a version, and what a release publishes.
+  </Card>
+  <Card title="Architecture decisions" icon="sitemap" href="/architecture/decisions">
+    The records that constrain what an extension is allowed to be.
+  </Card>
+</CardGroup>

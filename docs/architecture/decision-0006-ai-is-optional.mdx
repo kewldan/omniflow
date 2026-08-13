@@ -1,0 +1,81 @@
+---
+title: "0006 — AI and MCP are optional and can never act alone"
+description: Why every AI feature is off until an owner turns it on, why one gateway is the only path to a provider, and why a model may recommend but never execute
+---
+
+**Status:** Accepted.
+
+## Context
+
+AI reaches into the parts of Omniflow with the least margin for error. A support
+thread is somebody's complaint about a payment. A risk assessment is an
+accusation. A campaign draft goes to an audience. And the material these
+features are best at — free text written by strangers — is exactly the material
+an attacker controls.
+
+Two failure modes had to be designed out rather than mitigated. The first is
+data leaving an installation that its operator never agreed to send. The second
+is a model taking an action: suspending a customer, denying a refund, adjusting
+a wallet, sending to a list.
+
+## Decision
+
+**Off by default, per feature.** AI and MCP are globally optional and disabled
+until an owner configures them, and enablement is per feature rather than
+global. A feature that is enabled with no approved provider and model cannot be
+saved, so an enabled feature that would fail on first use does not exist.
+
+**One gateway.** No feature talks to a provider directly. Every request goes
+through the gateway, which is where redaction, budgets, limits, retention, and
+audit live. An adapter maps one provider's request and response shape and does
+nothing else, because an adapter that redacted or retried would be a second
+place the rules live — which is how one provider quietly starts behaving
+differently from another.
+
+**Approval is a row.** A provider a task names must exist and be enabled in the
+installation's own registry, which is what makes "fallback cannot widen where
+data goes" enforceable rather than aspirational.
+
+**Recommend, never execute.** Generated replies are editable drafts an
+authorized operator sends. A risk assessment recommends a look and carries its
+evidence, confidence, and matched signals; it cannot suspend an account, deny a
+refund, or move money. A copilot is read-only by default, and every mutation it
+proposes needs a preview, a permission check, a reason, and a confirmation. Tool
+output, ticket text, attachments, and MCP resources are treated as untrusted
+data, never as instructions.
+
+**Every AI feature has a manual path.** If a provider is down, over budget, or
+returning nonsense, the operator workflow it assists still works.
+
+## Consequences
+
+Turning AI on is several deliberate steps rather than a switch, and that is the
+intended friction. The data-use preview exists so an owner sees exactly which
+fields would leave before anything does.
+
+Redaction runs on every request, so a model sometimes sees less context than it
+could use and answers less well. That trade is made in one direction on purpose.
+
+Nothing schedules an evaluation run against an installation's own configured
+provider, because doing so would spend an owner's budget without being asked.
+The sets and thresholds ship; running them is a decision.
+
+An ambiguous outcome from an external tool is resolved by a person. That costs
+operator time and is why the review queue exists.
+
+## Revisit when
+
+- A capability genuinely requires autonomous multi-step action. `ROADMAP.md`
+  places that behind a separate safety and authorization design review, and this
+  record is what that review would have to supersede.
+- A provider offers a verifiable zero-retention guarantee that changes what the
+  data-use preview should say. Today those answers are the owner's, recorded
+  from the provider's own terms, because Omniflow cannot verify them and does
+  not pretend to.
+
+## Related
+
+- [AI privacy and the gateway](/operations/ai-privacy) — what leaves and what stops it leaving.
+- [AI governance and evaluation](/operations/ai-governance) — enablement, budgets, retention, and thresholds.
+- [MCP connections](/operations/mcp) — Omniflow as a client and as a server.
+- [AI providers and local models](/operations/ai-providers) — configuring the adapters.

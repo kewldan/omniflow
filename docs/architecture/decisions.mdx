@@ -1,0 +1,83 @@
+---
+title: Architecture decisions
+description: The decision records that constrain how Omniflow is built, what each one costs, and the conditions under which it would be reopened
+---
+
+An architecture decision record is not documentation of a feature. It records a
+choice that constrains later work, the alternative that was rejected, what the
+choice costs, and the condition under which somebody would be right to reopen
+it. The descriptive pages —
+[Architecture overview](/architecture/overview) and
+[Technology stack](/architecture/technology) — say what Omniflow is today. These
+records say why it is allowed to be that and nothing else.
+
+They exist because the expensive mistakes in a platform that moves money are not
+the ones somebody argued about. They are the ones nobody remembers arguing
+about, reversed by a contributor who had no way of knowing there was a reason.
+
+## The records
+
+| Record | Decision |
+| --- | --- |
+| [0001](/architecture/decision-0001-modular-monolith) | One Go module with three entrypoints, and no message broker |
+| [0002](/architecture/decision-0002-postgresql-only-durability) | PostgreSQL is the only durable store; Valkey holds nothing that cannot be lost |
+| [0003](/architecture/decision-0003-contract-first-api) | `api/openapi.yaml` is the source contract, and both sides are generated from it |
+| [0004](/architecture/decision-0004-remnawave-boundary) | Remnawave owns VPN state; Omniflow records intent and never writes to its storage |
+| [0005](/architecture/decision-0005-one-web-application) | Customer and operator surfaces are one Next.js application |
+| [0006](/architecture/decision-0006-ai-is-optional) | AI and MCP are off until an owner turns them on, and can never act alone |
+
+## The format
+
+Each record has the same four sections, and they are short on purpose. A record
+nobody finishes reading constrains nothing.
+
+- **Context** — the situation that forced a choice, in terms that were true at
+  the time.
+- **Decision** — what was chosen, stated so that a reviewer can tell whether a
+  pull request violates it.
+- **Consequences** — what this costs, including the things that are now harder.
+  A record listing only benefits is advocacy, not a decision.
+- **Revisit when** — the observable condition that would make reopening this
+  correct. "When it becomes a problem" is not one; "when a second installation
+  has to share the job queue" is.
+
+Every record carries a status. `Accepted` means it constrains current work.
+`Superseded by NNNN` means a later record replaced it — the original text is
+never edited to match the new decision, because the reasoning that was wrong is
+the part worth keeping.
+
+## When to add one
+
+Add a record when a change would be expensive to reverse and its reasoning is
+not visible in the code that results from it. In practice that means: a new
+durable store, a new external dependency in the request path, a change to who
+owns a category of data, a new trust boundary, or the removal of a guard that
+something else assumed.
+
+Do not add one for a library swap, a refactor, or a decision whose rationale a
+reader can recover from the diff. `AGENTS.md` names two changes that require an
+accepted record before they can be made at all: introducing a message broker,
+and adding a dependency-injection framework.
+
+The mechanics — file location, the Russian mirror, and the navigation entry —
+are the same as any other page and are described in
+[Documentation](/contributing/documentation#adding-a-page). Number the file with
+the next unused four-digit prefix; numbers are never reused, including by a
+record that was superseded.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Architecture overview" icon="sitemap" href="/architecture/overview">
+    The processes, the request path, and how a state change and its durable job commit together.
+  </Card>
+  <Card title="Technology stack" icon="layer-group" href="/architecture/technology">
+    Every component, why it is there instead of the obvious alternative, and what is deliberately absent.
+  </Card>
+  <Card title="Data ownership" icon="scale-balanced" href="/architecture/data-ownership">
+    Which system is authoritative for each category of data.
+  </Card>
+  <Card title="Documentation" icon="book" href="/contributing/documentation">
+    How to add a page and keep the Russian tree in step.
+  </Card>
+</CardGroup>

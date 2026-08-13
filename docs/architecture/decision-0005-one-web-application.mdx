@@ -1,0 +1,76 @@
+---
+title: "0005 — Customer and operator surfaces are one application"
+description: Why /admin and the customer panel share a Next.js project and a component system, and how they stay separate where it matters
+---
+
+**Status:** Accepted.
+
+## Context
+
+Omniflow has two web audiences with almost nothing in common. A customer checks
+remaining days and buys a renewal. An operator refunds a payment, adjudicates a
+blocklist match, and edits a plan version. The obvious structure is two
+front-end projects, and it was rejected.
+
+Two projects means two build pipelines, two dependency sets to keep on the same
+React version, two accessibility gates, two localisation setups, and — the part
+that actually costs — two component systems that start identical and diverge. A
+button that is not quite the same button is a small thing; a confirmation dialog
+that is not quite the same confirmation dialog is how a destructive action ends
+up with a weaker guard on one surface than the other.
+
+## Decision
+
+One Next.js application in `apps/web` holds the customer routes and `/admin`.
+Both surfaces use the same shadcn primitives from `packages/ui`, the same
+`next-intl` catalogues in Russian and English, the same SWR data layer, and the
+same form and validation stack.
+
+They are separate exactly where separation is a security property and nowhere
+else:
+
+- **Different API prefixes.** The customer panel calls `/v1/account`, the
+  operator panel calls `/v1/panel`. Neither can reach the other's routes, as
+  [record 0003](/architecture/decision-0003-contract-first-api) requires.
+- **Different sessions with different lifetimes.** Operator sessions expire
+  after minutes of inactivity and hours in absolute terms; customer sessions run
+  for days, because an operator signing in again costs seconds of a working day
+  and a customer being logged out over lunch just pushes them back to the bot.
+  The token construction is shared so there is one implementation and one
+  storage discipline; the policy applied to it is not.
+- **Different authorization models.** The operator surface is RBAC-gated at the
+  server boundary, so an operator without a permission never receives the page.
+  The customer surface has no roles at all — a customer's own data is the only
+  thing it serves.
+
+## Consequences
+
+A design change lands on both surfaces at once, which is the point, and it also
+means a careless change lands on both surfaces at once. Shared primitives are
+reviewed as shared: the contrast fix that darkened the subtle, success, and
+warning tokens had to pass the accessibility gate on pre-existing operator pages
+as well as the new customer ones.
+
+The bundle is not shared between the two audiences in any way a customer pays
+for — route-level code splitting keeps operator screens out of a customer's
+first load, and the JavaScript performance budget is enforced per route with a
+ceiling per area rather than one global number.
+
+Both surfaces are behind one deployment. There is no way to ship a customer
+panel fix without shipping the operator panel at the same version, which follows
+from [record 0001](/architecture/decision-0001-modular-monolith) and is the
+same trade made there.
+
+## Revisit when
+
+- A surface needs a framework, rendering model, or release cadence the other
+  cannot use. Wanting a different *look* is not that; the component system is
+  already parameterised.
+- The operator panel grows a genuinely offline or desktop mode, which is a
+  different product rather than a different route.
+
+## Related
+
+- [Operator panel](/operations/admin-panel) — the operator surface and its RBAC boundary.
+- [Customer web panel](/customer/web-panel) — what a customer can do in a browser.
+- [Record 0003](/architecture/decision-0003-contract-first-api) — the three prefixes and the shared transport.

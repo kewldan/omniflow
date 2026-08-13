@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Omniflow API
-  version: 0.5.0
+  version: 1.0.0
   description: Customer, commerce, payment, wallet, fulfillment, and operations API for Omniflow.
 paths:
   /healthz:

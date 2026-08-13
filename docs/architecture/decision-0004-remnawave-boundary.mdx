@@ -1,0 +1,75 @@
+---
+title: "0004 — Remnawave owns VPN state; Omniflow records intent"
+description: Why entitlement is stored separately from observed Remnawave state, why nothing writes to Remnawave storage, and what that costs
+---
+
+**Status:** Accepted.
+
+## Context
+
+Omniflow sells access that Remnawave delivers. Two systems therefore hold
+overlapping-looking facts about the same customer: Omniflow knows what was paid
+for, and Remnawave knows what is currently true of the VPN user — traffic used,
+devices connected, expiry, squad membership, whether an operator edited it by
+hand this morning.
+
+There are two ways to make that one system. Omniflow could treat Remnawave's
+database as its own and write to it directly, which is fast, or it could mirror
+Remnawave's state into its own tables and treat the mirror as truth, which is
+tidy. Both fail the same way: the moment somebody changes something in the
+Remnawave panel, the two systems disagree and nothing in the design says which
+one is wrong.
+
+## Decision
+
+Remnawave is authoritative for VPN users, traffic, devices, access links, nodes,
+hosts, squads, and Xray state. Omniflow never writes to Remnawave storage, never
+manages Xray, and reaches the panel only through the versioned adapter over its
+supported API.
+
+Omniflow stores an **entitlement**: what a paid order entitles a customer to.
+That is a separate record from observed Remnawave state, and the two are joined
+by exactly one link. When they disagree, the disagreement is recorded as drift
+with a reason an operator can read, rather than silently resolved in either
+direction.
+
+Every write is a fulfillment operation: idempotent, retried with backoff when
+Remnawave is unavailable, and correlated to the order that justified it.
+
+## Consequences
+
+Money and access fail independently, which is the property the whole design
+exists to produce. A successful payment is never lost because Remnawave is down;
+it commits, and the fulfillment job keeps trying. An operator editing a user in
+the Remnawave panel produces drift for review rather than a silent overwrite on
+the next sync.
+
+The cost is a whole reconciliation surface that a single-database design would
+not need: drift detection, mismatch reasons, an operator view, and safe handling
+of Remnawave users that were edited or deleted outside Omniflow. That machinery
+is not incidental complexity — it is the visible form of the fact that two
+systems own different halves of one product.
+
+It also means Omniflow cannot answer some questions without asking Remnawave.
+Device lists and live traffic are fetched, not stored, which is why they are
+subject to Remnawave's availability and why the customer surfaces have explicit
+stale and unavailable states.
+
+Compatibility is bounded to what the contract tests actually exercise, currently
+the Remnawave 3.2.x API surface. A version outside that is unsupported rather
+than untested-but-probably-fine.
+
+## Revisit when
+
+- Remnawave's supported API stops offering an operation Omniflow needs, and the
+  only alternatives are writing to its storage or dropping the capability. The
+  correct outcome is still not to write to its storage.
+- A future Remnawave major version changes the ownership split itself — for
+  example by owning billing — at which point this record is superseded rather
+  than amended.
+
+## Related
+
+- [Data ownership](/architecture/data-ownership) — the full split, and what goes wrong when it is crossed.
+- [Remnawave](/integrations/remnawave) — every call Omniflow makes and the boundary it never crosses.
+- [Fulfillment](/commerce/fulfillment) — how intent becomes provisioned access.

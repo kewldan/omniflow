@@ -30,7 +30,14 @@
               "architecture/overview",
               "architecture/data-ownership",
               "architecture/technology",
-              "architecture/threat-model"
+              "architecture/threat-model",
+              "architecture/decisions",
+              "architecture/decision-0001-modular-monolith",
+              "architecture/decision-0002-postgresql-only-durability",
+              "architecture/decision-0003-contract-first-api",
+              "architecture/decision-0004-remnawave-boundary",
+              "architecture/decision-0005-one-web-application",
+              "architecture/decision-0006-ai-is-optional"
             ]
           },
           {
@@ -69,7 +76,8 @@
               "integrations/payments",
               "integrations/telegram",
               "integrations/oidc",
-              "integrations/api"
+              "integrations/api",
+              "integrations/extending"
             ]
           },
           {
@@ -92,6 +100,7 @@
             "group": "AI and MCP",
             "pages": [
               "operations/ai-privacy",
+              "operations/ai-providers",
               "operations/ai-governance",
               "operations/mcp"
             ]
@@ -119,7 +128,8 @@
               "contributing/development",
               "contributing/database",
               "contributing/testing",
-              "contributing/documentation"
+              "contributing/documentation",
+              "contributing/releases"
             ]
           }
         ]
@@ -143,7 +153,14 @@
               "ru/architecture/overview",
               "ru/architecture/data-ownership",
               "ru/architecture/technology",
-              "ru/architecture/threat-model"
+              "ru/architecture/threat-model",
+              "ru/architecture/decisions",
+              "ru/architecture/decision-0001-modular-monolith",
+              "ru/architecture/decision-0002-postgresql-only-durability",
+              "ru/architecture/decision-0003-contract-first-api",
+              "ru/architecture/decision-0004-remnawave-boundary",
+              "ru/architecture/decision-0005-one-web-application",
+              "ru/architecture/decision-0006-ai-is-optional"
             ]
           },
           {
@@ -182,7 +199,8 @@
               "ru/integrations/payments",
               "ru/integrations/telegram",
               "ru/integrations/oidc",
-              "ru/integrations/api"
+              "ru/integrations/api",
+              "ru/integrations/extending"
             ]
           },
           {
@@ -205,6 +223,7 @@
             "group": "AI и MCP",
             "pages": [
               "ru/operations/ai-privacy",
+              "ru/operations/ai-providers",
               "ru/operations/ai-governance",
               "ru/operations/mcp"
             ]
@@ -232,7 +251,8 @@
               "ru/contributing/development",
               "ru/contributing/database",
               "ru/contributing/testing",
-              "ru/contributing/documentation"
+              "ru/contributing/documentation",
+              "ru/contributing/releases"
             ]
           }
         ]

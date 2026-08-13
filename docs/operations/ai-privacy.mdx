@@ -13,6 +13,16 @@ Omniflow does about that.
   default, and no provider is contacted to find that out.
 </Note>
 
+<Warning>
+  **In this build, nothing invokes a provider at all.** The gateway, the
+  redactor, and the feature packages are implemented and unit-tested, and the
+  configuration screens are real — but no process mounts them, so there is no AI
+  endpoint and no screen that calls one. Everything below describes what a
+  request goes through when the features are mounted; today the honest summary
+  is that no request is made. See
+  [AI providers and local models](/operations/ai-providers).
+</Warning>
+
 ## Nothing talks to a model directly
 
 `internal/aigateway` is the only route to a provider. Three properties follow

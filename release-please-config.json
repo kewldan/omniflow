@@ -5,8 +5,7 @@
       "release-type": "simple",
       "package-name": "omniflow",
       "changelog-path": "CHANGELOG.md",
-      "initial-version": "0.1.0",
-      "bump-minor-pre-major": true
+      "initial-version": "1.0.0"
     }
   }
 }

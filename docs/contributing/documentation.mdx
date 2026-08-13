@@ -236,8 +236,11 @@ is a green CI run for this area.
   [Anonymous telemetry](/operations/telemetry).
 - **Never paste a real secret, credential, access link, customer identifier, or payment payload into
   a page,** including inside an example response. Synthesise one.
-- **Architecture decisions with long-term consequences** belong in `docs/architecture/decisions/`
-  rather than inline in a feature page.
+- **Architecture decisions with long-term consequences** belong in a numbered
+  `docs/architecture/decision-NNNN-<slug>.mdx` listed on
+  [Architecture decisions](/architecture/decisions), rather than inline in a feature page. Keep them
+  flat: `mint broken-links` does not resolve a link to a page nested two directories deep, so a
+  `docs/architecture/decisions/` folder fails the docs job even though the pages build.
 
 ## Adding a page
 
