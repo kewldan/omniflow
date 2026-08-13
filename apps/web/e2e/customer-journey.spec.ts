@@ -65,7 +65,15 @@ test.describe("customer journey", () => {
     context,
   }) => {
     await page.goto("/account");
-    await expect(page, "an anonymous visitor is sent to sign in").toHaveURL(/\/account\/sign-in/);
+    // The customer panel refuses in place rather than redirecting: the shell
+    // resolves the session before rendering and shows the sign-in prompt at the
+    // same URL. That differs from the operator panel, which sends an anonymous
+    // visitor to /admin/login, and `account-access.spec.ts` asserts the same
+    // contract from the other side.
+    await expect(
+      page.getByRole("link", { name: /sign in|войти/i }),
+      "an anonymous visitor is offered sign-in",
+    ).toBeVisible();
 
     // Through the same origin the browser uses, so the web server's /v1 proxy is
     // exercised rather than bypassed, and the cookie lands in the context the
@@ -88,18 +96,23 @@ test.describe("customer journey", () => {
     // signs the other out whenever both are open.
     expect(session?.name).not.toMatch(/omniflow_admin/);
 
+    // A fresh navigation exercises the shell's own session read, which is not
+    // involved in the sign-in response. The tab bar into the rest of the panel
+    // is what only ever paints behind the gate.
     await page.goto("/account");
-    await expect(page, "the session survives a fresh page load").not.toHaveURL(
-      /\/account\/sign-in/,
-    );
-    await expect(page.locator("main")).toBeVisible();
+    await expect(
+      page.getByRole("navigation", { name: /sections|разделы/i }),
+      "the session survives a fresh page load",
+    ).toBeVisible();
     await expect(page.locator("main")).not.toContainText(/failed to load|не удалось загрузить/i);
 
     await context.clearCookies();
     await page.goto("/account");
-    await expect(page, "losing the session returns the customer to sign-in").toHaveURL(
-      /\/account\/sign-in/,
-    );
+    await expect(
+      page.getByRole("link", { name: /sign in|войти/i }),
+      "losing the session returns the customer to the sign-in prompt",
+    ).toBeVisible();
+    await expect(page.getByRole("navigation", { name: /sections|разделы/i })).toHaveCount(0);
   });
 
   test("no customer page renders a raw message key", async ({ page, context }) => {
