@@ -57,7 +57,7 @@ func NewController(store Store, health *platform.Health, metrics *platform.Metri
 		config.ProbeInterval = 30 * time.Second
 	}
 	if len(config.Watch) == 0 {
-		config.Watch = []string{"postgres", "remnawave"}
+		config.Watch = []string{"postgres", "remnawave", "valkey"}
 	}
 	return &Controller{store: store, health: health, metrics: metrics, logger: logger, config: config}
 }

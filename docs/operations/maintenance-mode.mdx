@@ -125,9 +125,9 @@ APP_MAINTENANCE_RECOVERY_STREAK=3
 
 ### What it actually watches
 
-Detection watches **`postgres` and `remnawave`**, and nothing else.
+Detection watches **`postgres`, `remnawave`, and `valkey`**.
 
-`valkey` is registered as a readiness probe and appears in `/readyz` and on the panel's Health card, but it is not in the watch set. A Valkey outage therefore shows as a degraded readiness and never opens a maintenance window on its own. `valkey` remains a legal value of `source` — the column's check constraint allows it — but no code path produces it today.
+A Valkey outage already breaks rate limiting and the single-use replay guard fail-closed — see [Security](/operations/security#rate-limiting) — so a customer mid-checkout would otherwise hit inconsistent failures rather than a clear maintenance notice. Watching it closes that gap: after the same failure streak as any other dependency, a Valkey outage pauses new purchases the same way a PostgreSQL or Remnawave outage does.
 
 When more than one watched dependency is failing at once, the source recorded is `database` first, then `remnawave`, then `valkey`. The database is named first because it is the one that explains the others.
 
@@ -136,7 +136,7 @@ When more than one watched dependency is failing at once, the source recorded is
 | `manual` | An operator, from either surface. Never cleared automatically |
 | `database` | PostgreSQL failed its probe for the failure streak |
 | `remnawave` | The Remnawave panel failed its probe for the failure streak |
-| `valkey` | Legal in the schema; not produced, because Valkey is not watched |
+| `valkey` | Valkey failed its probe for the failure streak |
 
 The Remnawave probe is an authenticated call, so a revoked or expired panel token counts as an unhealthy dependency and will, after the streak, pause purchases. That is usually the behaviour you want — provisioning would fail anyway — but it means a token rotation done carelessly closes the shop. See [Remnawave](/integrations/remnawave).
 
