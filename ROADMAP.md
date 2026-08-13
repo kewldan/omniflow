@@ -1170,14 +1170,29 @@ never learned about.
 
 ### Verification debt
 
-- **Playwright coverage behind the session gate — the customer half**, as set
-  out in v0.9's section. The operator half was closed in v1.0; the customer half
-  still needs a seeded customer with a Remnawave user behind it, and it bounds
-  the WCAG 2.2 AA review the same way. The panel pages an operator sees are now
-  swept for untranslated keys, which is how two missing translations that had
-  been shipping since v0.7 were found — and, once the sweep first ran against a
-  real API, how the sweep's own inability to tell a missing message from an
-  audit action name was found.
+- ~~**Playwright coverage behind the session gate — the customer half**, as set
+  out in v0.9's section.~~ Closed, and the fixture turned out to be cheaper than
+  three phases of deferral assumed. It does not need a seeded customer with a
+  Remnawave user: the customer panel provisions an account on first sign-in, so
+  `customer-journey.spec.ts` signs a Telegram login-widget payload with the same
+  bot token CI configures the API with, posts it through the web server's own
+  `/v1` proxy, and gets a real session in the browser's cookie jar. That
+  exercises the two things a session fixture would have skipped — the signature
+  check and the cookie the browser has to keep — and both are where the operator
+  half's defects were. `internal/customerauth` carries an interop test asserting
+  that the TypeScript signing and the Go verification agree, so a mismatch fails
+  as a mismatch rather than being "fixed" by weakening the check.
+
+  What stays open is narrower than the original line: nothing behind a Remnawave
+  entitlement is covered. The customer the suite creates has signed in and bought
+  nothing, which is a real state — it is every customer's first minute — and the
+  screens needing a subscription render their empty state. The WCAG 2.2 AA review
+  is bounded the same way.
+
+  The panel pages an operator sees are also swept for untranslated keys, which is
+  how two missing translations that had been shipping since v0.7 were found —
+  and, once the sweep first ran against a real API, how the sweep's own inability
+  to tell a missing message from an audit action name was found.
 - ~~**Attachment storage is a workaround.**~~ Closed.
   `20260823000000_attachment_storage.sql` gives `support_attachments` the
   `origin` and `storage_key` columns the web upload always needed, backfills the

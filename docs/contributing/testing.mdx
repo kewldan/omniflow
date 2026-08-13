@@ -78,11 +78,20 @@ from data: the audit log stores action names in the same shape, and the check
 failed on a fully translated page the first time it ran against an API with rows
 in it.
 
+The customer journey is covered too, and needs no seeding at all: the panel
+provisions an account on first sign-in, so `customer-journey.spec.ts` signs a
+Telegram login-widget payload with the same bot token the API is configured with
+and posts it through the web server's `/v1` proxy. Set `CUSTOMER_BOT_TOKEN` to
+that token to run it locally. `internal/customerauth` carries an interop test
+asserting the TypeScript signing and the Go verification agree — without it, a
+mismatch would fail every run and get "fixed" by weakening the signature check
+the suite exists to exercise.
+
 <Note>
-  The customer journey behind its own session gate is still not covered. It
-  needs a seeded customer with a Remnawave user behind it, which is a fixture
-  the operator half did not require. It is tracked in the roadmap's verification
-  debt for v0.10.
+  Nothing behind a Remnawave entitlement is covered. The customer the suite
+  creates has signed in and bought nothing, so the screens that need a
+  subscription render their empty state rather than their populated one. That is
+  tracked in the roadmap's verification debt for v0.10.
 </Note>
 
 ## Performance budgets

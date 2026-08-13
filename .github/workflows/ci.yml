@@ -99,6 +99,11 @@ jobs:
       APP_OPERATOR_TOKEN: e2e-operator-token
       APP_REMNAWAVE_URL: http://127.0.0.1:3999
       APP_REMNAWAVE_TOKEN: e2e-remnawave-token
+      # The customer suite signs in the way a customer's browser does: a signed
+      # Telegram login-widget payload. Both sides need the same token — the API
+      # to verify the signature, the suite to produce one — and nothing here
+      # ever contacts Telegram, because verification is local arithmetic.
+      APP_TELEGRAM_TOKEN: 000000:e2e-telegram-token
       APP_ADMIN_PANEL_ENABLED: "true"
       APP_CUSTOMER_PANEL_ENABLED: "true"
       APP_ADMIN_COOKIE_SECURE: "false"
@@ -166,6 +171,7 @@ jobs:
         env:
           PANEL_EMAIL: e2e@omniflow.test
           PANEL_PASSWORD: e2e-operator-passphrase-2026
+          CUSTOMER_BOT_TOKEN: 000000:e2e-telegram-token
       - name: The API log, when something failed
         if: failure()
         run: tail -100 /tmp/api.log
