@@ -1109,12 +1109,24 @@ the new privacy page rather than left implied.
 
 ### Reliability and operations
 
-- [ ] Defined service-level indicators for API, bot, jobs, payments, fulfillment, and notifications
-- [ ] Dashboards and alerts for actionable failure modes
-- [ ] Backup restoration drill and disaster-recovery runbook
-- [ ] Bounded retries, dead-letter handling, and reconciliation for every external side effect
-- [ ] Graceful degradation when Valkey, Remnawave, Telegram, or a payment provider is unavailable
-- [ ] Capacity guidance for small, medium, and large single-server installations
+- [x] Defined service-level indicators for API, bot, jobs, payments, fulfillment, and notifications
+- [x] Dashboards and alerts for actionable failure modes
+- [x] Backup restoration drill and disaster-recovery runbook
+- [x] Bounded retries, dead-letter handling, and reconciliation for every external side effect
+- [x] Graceful degradation when Valkey, Remnawave, Telegram, or a payment provider is unavailable
+- [x] Capacity guidance for small, medium, and large single-server installations
+
+Automatic maintenance detection now watches Valkey alongside PostgreSQL and
+Remnawave — `internal/maintenance/controller.go`'s default `Watch` list was
+the only thing missing; `EvaluateMaintenance` and the `valkey` source already
+supported it. Notifications is the one surface with no service-level
+indicator: there is no delivery metric to build one from, stated as a gap in
+[`docs/operations/reliability.mdx`](./docs/operations/reliability.mdx) rather
+than invented. The transactional outbox remains unconsumed by design — no
+external side effect depends on it yet — and is called out the same way
+rather than built into a speculative dispatcher. Capacity guidance is
+starting points for host sizing, not a load-tested ceiling: no throughput
+benchmark ships with the repository.
 
 ### Documentation and community
 

@@ -1,0 +1,139 @@
+{
+  "title": "Omniflow",
+  "description": "Built only from metrics docs/operations/observability.mdx confirms are actually written. Optional artifact — import into your own Grafana pointed at a Prometheus that scrapes /metrics on the api and worker processes.",
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "tags": ["omniflow"],
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "HTTP request rate by status",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(omniflow_http_requests_total{service=\"api\"}[5m])) by (status)",
+          "legendFormat": "{{status}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "API 5xx rate",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(omniflow_http_requests_total{service=\"api\",status=\"5xx\"}[5m]))",
+          "legendFormat": "5xx/s"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "API request duration (p95)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(omniflow_http_request_duration_seconds_bucket[5m])) by (le, route))",
+          "legendFormat": "{{route}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Fulfillment job outcomes",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(omniflow_jobs_total{kind=\"fulfillment\"}[5m])) by (outcome)",
+          "legendFormat": "{{outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Fulfillment job duration (p95)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(omniflow_job_duration_seconds_bucket{kind=\"fulfillment\"}[5m])) by (le))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Payment settlement classifications",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "expr": "sum(rate(omniflow_payments_total[15m])) by (classification)",
+          "legendFormat": "{{classification}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Webhook signature rejections",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "targets": [
+        {
+          "expr": "sum(rate(omniflow_provider_webhooks_total{outcome=\"signature_invalid\"}[15m])) by (provider)",
+          "legendFormat": "{{provider}}"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Dependency health",
+      "type": "state-timeline",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "targets": [
+        {
+          "expr": "omniflow_dependency_up",
+          "legendFormat": "{{dependency}}"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Maintenance mode",
+      "type": "state-timeline",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 32 },
+      "targets": [
+        {
+          "expr": "omniflow_maintenance_mode",
+          "legendFormat": "maintenance"
+        }
+      ]
+    }
+  ]
+}

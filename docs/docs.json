@@ -109,6 +109,7 @@
               "operations/troubleshooting",
               "operations/telemetry",
               "operations/privacy",
+              "operations/reliability",
               "operations/security"
             ]
           },
@@ -221,6 +222,7 @@
               "ru/operations/troubleshooting",
               "ru/operations/telemetry",
               "ru/operations/privacy",
+              "ru/operations/reliability",
               "ru/operations/security"
             ]
           },

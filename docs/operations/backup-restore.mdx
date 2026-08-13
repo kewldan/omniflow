@@ -302,6 +302,59 @@ Record the date and the outcome. Step 5 is the one most often skipped and the on
 often fails: a database restored without its data-encryption key has unreadable contact
 values.
 
+## Beyond the database: full disaster recovery
+
+Everything above answers "PostgreSQL is lost or corrupted." A host-level disaster is a
+wider question, and the answer to most of it is: nothing here needs a special procedure,
+because PostgreSQL is the only durable store — but two things outside it still need a plan.
+
+### Losing the whole host
+
+A `pg_dump` restore brings back every row. It does not bring back what only ever lived
+outside the database:
+
+- **`.env`**, or whatever holds it in your secrets manager.
+- **`APP_DATA_ENCRYPTION_KEY`.** This is the one to get right before anything else. Every
+  sealed value — TOTP secrets, OIDC client secrets, provider credentials, customer contact
+  values — is permanently unopenable without it, and there is no re-encryption path. See
+  [Security](/operations/security#secret-sealing-and-the-write-only-credential-design).
+- **`APP_BACKUP_ENCRYPTION_KEY`**, stored separately from the backups it decrypts — a backup
+  that carries both is a single artefact that opens itself.
+- **`APP_OPERATOR_TOKEN`**, since nothing issues a new one; a lost token means re-bootstrapping
+  the bearer surface.
+- **The reverse-proxy configuration and TLS material** in front of the stack, which lives in
+  your own estate rather than in Omniflow. See [Reverse proxy](/operations/reverse-proxy).
+- **DNS**, pointed at whatever host replaces the lost one.
+
+None of these are backed up by the backup format on this page, because none of them are rows
+in PostgreSQL. Keep them wherever you keep secrets that must outlive the thing they protect —
+never inside the database backup itself.
+
+### Losing Valkey
+
+This needs no restore at all. Valkey holds cache entries, rate-limit counters, locks, and
+single-use replay tokens — nothing durable — so a lost Valkey instance is a fresh one started
+empty. See [Deployment](/operations/deployment#why-valkey-is-configured-with-no-persistence).
+
+Automatic [maintenance mode](/operations/maintenance-mode#what-it-actually-watches) detection
+watches Valkey along with PostgreSQL and Remnawave, so an outage pauses new purchases after the
+same failure streak as any other dependency, rather than customers hitting rate-limit and
+replay-guard failures inconsistently mid-checkout.
+
+### RPO and RTO
+
+Stated from what is actually configurable, not a promised figure this page cannot keep:
+
+- **Recovery point objective** is governed by `APP_BACKUP_INTERVAL_HOURS` — the default is 24
+  hours between scheduled backups, so up to that much recent activity can be lost in the worst
+  case. Shrink the interval for a tighter RPO; a manual backup from `/ops` before a risky
+  operation shrinks it to zero for that moment.
+- **Recovery time objective** is dominated by restore time, which scales with database size,
+  plus the reconciliation window after the stack comes back — Remnawave drift resolves within
+  fifteen minutes of the scheduled reconcile pass, and in-flight payments settle on the next
+  reconciler tick. There is no fixed number to promise here; size your own drill's duration as
+  the baseline for your installation.
+
 ## Related
 
 <CardGroup cols={2}>

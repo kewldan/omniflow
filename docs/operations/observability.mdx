@@ -69,6 +69,34 @@ The Remnawave probe is an **authenticated** call (`ListUsers` for a single recor
 
 `GET /v1/panel/overview/health` (permission `system.read`) returns the identical `checks` list, so the panel and the load balancer can never disagree about whether PostgreSQL is up, plus payment-provider and digital-goods-provider status read from the database. The **System → Health** tab renders it and refreshes every 30 seconds. See [Admin panel](/operations/admin-panel).
 
+## Service-level indicators
+
+Every SLI below is grounded in a metric confirmed live in the table further
+down this page. Where a surface has no metric to build one from, that's
+stated plainly rather than papered over with an invented number.
+
+| Surface | Indicator | Built from |
+| --- | --- | --- |
+| API | Availability: share of requests not answering `5xx` | `omniflow_http_requests_total{status="5xx"}` against the same series' total |
+| API | Latency: request duration distribution | `omniflow_http_request_duration_seconds` |
+| Bot | Update throughput | `rate(omniflow_job_duration_seconds_count{kind="telegram.update"}[5m])` — see the note below on this pair |
+| Jobs (fulfillment) | Success rate | `omniflow_jobs_total{kind="fulfillment",outcome="succeeded"}` against the same series' total |
+| Jobs (fulfillment) | Duration distribution | `omniflow_job_duration_seconds{kind="fulfillment"}` |
+| Payments | Settlement health | `omniflow_payments_total` by `classification` — a rising `underpayment` or `wallet_unavailable` share is the signal, not a single threshold |
+| Payments | Webhook trust | `omniflow_provider_webhooks_total{outcome="signature_invalid"}` — any non-zero rate is worth looking at |
+| Fulfillment | Drift | Not a Prometheus series today; read from the panel's fulfillment drift view — see [Jobs and queues](/operations/jobs-and-queues#fulfillment-jobs) |
+| Notifications | *(no SLI)* | No delivery metric exists. `omniflow_telegram_sends_total` is declared and never incremented — only inbound updates are counted. Watch delivery through the bot's own failure classification and logs until this is instrumented, not through Prometheus |
+
+<Note>
+  The bot's `omniflow_job_duration_seconds{kind="telegram.update"}` histogram
+  has no matching `omniflow_jobs_total` counter series, so a rate over the
+  histogram's own `_count` is the only way to get Telegram throughput out of
+  it — see [What is declared but never written](#what-is-declared-but-never-written).
+</Note>
+
+Machine-readable alert rules and a starting Grafana dashboard built on these
+same metrics are in [Reliability and operations](/operations/reliability#dashboards-and-alerts).
+
 ## Metrics
 
 Each process builds its own isolated Prometheus registry, served at `GET /metrics` in the text exposition format alongside the standard Go and process collectors. Every series carries a constant `service` label of `api`, `bot` or `worker`.

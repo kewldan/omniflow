@@ -1,0 +1,90 @@
+# Prometheus alerting rules for Omniflow, built only on metrics
+# docs/operations/observability.mdx confirms are actually written.
+#
+# This is an optional, maintained artifact — Omniflow bundles no Prometheus
+# or Grafana of its own, the same stance it takes on a reverse proxy. Point
+# your own Prometheus at this file (`rule_files:`) after scraping `/metrics`
+# on the `api` and `worker` processes.
+#
+# The `for:` durations below assume the documented defaults of
+# APP_MAINTENANCE_FAILURE_STREAK=3 and APP_MAINTENANCE_PROBE_SECONDS=30
+# (a 90s detection window). Tune them if your installation changed those.
+
+groups:
+  - name: omniflow.dependencies
+    rules:
+      - alert: OmniflowDependencyDown
+        expr: omniflow_dependency_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Omniflow dependency {{ $labels.dependency }} is down"
+          description: >
+            omniflow_dependency_up has been 0 for {{ $labels.dependency }} for
+            2 minutes or more — around the point automatic maintenance
+            detection pauses new purchases. See
+            docs/operations/maintenance-mode.mdx.
+
+      - alert: OmniflowMaintenanceModeOpen
+        expr: omniflow_maintenance_mode == 1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Omniflow has been in maintenance mode for 15+ minutes"
+          description: >
+            Detection opening a window you did not plan is the signal; it
+            staying open is the incident. Check /admin System → Health for
+            the source and reason.
+
+  - name: omniflow.fulfillment
+    rules:
+      - alert: OmniflowFulfillmentJobsFailing
+        expr: rate(omniflow_jobs_total{kind="fulfillment",outcome="failed"}[5m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Fulfillment jobs are failing on Omniflow"
+          description: >
+            A paid customer is waiting on Remnawave provisioning that is not
+            landing. Check /admin System → Jobs for the dead-letter queue.
+
+  - name: omniflow.payments
+    rules:
+      - alert: OmniflowPaymentsNotSettling
+        expr: >
+          rate(omniflow_payments_total{classification=~"underpayment|wallet_unavailable"}[15m]) > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Omniflow payments are arriving but not settling"
+          description: >
+            Money arrived and the order did not settle. Check /admin
+            Finance for the affected orders.
+
+      - alert: OmniflowWebhookSignatureRejections
+        expr: rate(omniflow_provider_webhooks_total{outcome="signature_invalid"}[15m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Omniflow is rejecting a payment provider webhook signature"
+          description: >
+            Usually a reverse proxy re-encoding the body, or a rotated
+            provider secret. See docs/operations/reverse-proxy.mdx.
+
+  - name: omniflow.api
+    rules:
+      - alert: OmniflowHTTP5xxRate
+        expr: rate(omniflow_http_requests_total{service="api",status="5xx"}[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Omniflow API is returning 5xx responses"
+          description: >
+            Sustained 5xx on the api service for 5 minutes or more. Check the
+            api process logs and /readyz.

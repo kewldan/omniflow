@@ -1,0 +1,95 @@
+---
+title: Reliability and operations
+description: Service-level indicators, dashboards and alerts, what's bounded and reconciled, graceful degradation, and capacity guidance for a single-server installation
+---
+
+This page is the hub for running Omniflow reliably: what to measure, what to
+alert on, what already degrades gracefully when a dependency fails, and how
+to size the host it runs on. Each section links to the page that documents
+its subject in full rather than repeating it.
+
+## Service-level indicators
+
+Defined per surface in [Health, metrics, and logs](/operations/observability#service-level-indicators),
+grounded only in metrics confirmed to actually be written. Notifications has
+no indicator today — there is no delivery metric to build one from, stated
+there rather than invented here.
+
+## Dashboards and alerts
+
+Omniflow bundles no Prometheus or Grafana of its own, the same stance it
+takes on a reverse proxy: two maintained, optional artifacts live under
+`deploy/observability/` for you to import into your own monitoring stack.
+
+- **`deploy/observability/prometheus-alerts.yml`** — every bullet from
+  [Alerts worth having](/operations/observability#alerts-worth-having) as a
+  real `alert:`/`expr:`/`for:` rule. The `for:` durations are sensible
+  defaults derived from `APP_MAINTENANCE_FAILURE_STREAK` and
+  `APP_MAINTENANCE_PROBE_SECONDS`'s own defaults — tune them to match your
+  installation's actual configuration if you've changed those.
+- **`deploy/observability/grafana-dashboard.json`** — HTTP request rate,
+  error rate, and latency; fulfillment job outcomes; payment settlement
+  classifications; webhook signature failures; dependency health; and
+  maintenance-mode state. Every panel is built from a metric
+  [Health, metrics, and logs](/operations/observability#what-is-written)
+  confirms is actually written — nothing here queries a dead series.
+
+Import both with `promtool` / Grafana's dashboard import, pointed at
+whatever scrapes `/metrics` on `api` and `worker` in your deployment.
+
+## External side effects: retries, dead letters, reconciliation
+
+| Side effect | Retry / backoff | Dead-letter visibility | Reconciliation |
+| --- | --- | --- | --- |
+| Remnawave fulfillment | Up to 12 attempts, exponential backoff | `GET /v1/admin/jobs?state=dead_letter`, panel Jobs screen | Scheduled `reconcile` operations compare local vs. Remnawave state and record drift — [Jobs and queues](/operations/jobs-and-queues#fulfillment-jobs) |
+| Digital-goods delivery | Same River-backed retry policy as fulfillment | Same dead-letter view | Idempotent by the `goods_deliveries` row; a gateway with no idempotency key parks for operator review rather than retrying blind — [Jobs and queues](/operations/jobs-and-queues#digital-goods-delivery-jobs) |
+| Payment webhooks | Provider signature verified, deduplicated by event ID | `/admin` → System → Webhooks | A 1-minute reconciler polls up to 100 in-flight intents so a missed or delayed webhook still settles — [Payment providers](/integrations/payments#reconciliation-when-a-webhook-never-arrives) |
+| Telegram sends | Retry, flood-wait handling, and delivery-failure classification (shipped in v0.4) | Not a Prometheus series — `omniflow_telegram_sends_total` is declared but never incremented | None beyond per-send retry; there is no queue to reconcile |
+| Transactional outbox (`order.paid`, `wallet.credited`, `addon.purchased`) | N/A | `GET /v1/admin/outbox`, panel Outbox tab | **No consumer exists today** — [Jobs and queues](/operations/jobs-and-queues#the-transactional-outbox). This is the honest exception: nothing currently reads these events, so there is no external side effect for retry/DLQ/reconciliation to bound yet. Rows are swept by the retention worker regardless of whether anything consumed them, so this is a missing integration point, not an unbounded-growth risk |
+
+## Graceful degradation
+
+| Dependency | What happens when it's unavailable |
+| --- | --- |
+| PostgreSQL | Watched by automatic [maintenance detection](/operations/maintenance-mode#what-it-actually-watches); after a failure streak, new purchases pause while settlement, refunds, and read paths keep working |
+| Remnawave | Same maintenance detection; a revoked or expired panel token counts as unavailable too, since provisioning would fail anyway |
+| Valkey | Same maintenance detection. Until this failure streak is reached, rate limits and the single-use replay guard fail closed on their own — see [Rate limiting](/operations/security#rate-limiting) |
+| Telegram | Retry, flood-wait handling, and bot-blocked/deactivated classification (v0.4) — but no circuit breaker and no maintenance-triggering probe. An extended Telegram outage is visible through delivery failures in the bot's own logs, not through a dashboard series |
+| Payment providers | Signature-verified webhook intake plus the 1-minute reconciler cover a provider that's slow or drops a webhook — but there's no circuit breaker or provider-down detection beyond that. A fully down provider just accumulates failed checkout attempts against it, visible in `omniflow_payments_total` |
+| MCP / AI tool servers | The one surface with an actual circuit breaker — [MCP connections](/operations/mcp#when-a-server-misbehaves) — scoped to that surface only, not reused elsewhere |
+
+## Capacity guidance
+
+Omniflow ships as a single Docker Compose stack — see
+[Deployment](/operations/deployment#supported-topology) — and job
+concurrency (the `critical` queue's 16 workers) is compiled into
+`internal/jobs/client.go` today, not an environment-configurable knob.
+Capacity planning on a single host is therefore about giving PostgreSQL and
+Valkey enough resources, not about tuning queue concurrency.
+
+| Tier | Rough scale | Guidance |
+| --- | --- | --- |
+| Small | A few hundred customers, low purchase volume | 2 vCPU / 4 GB RAM is enough for PostgreSQL, Valkey, and all three Go processes together. Disk headroom matters more than CPU here: budget for backup retention (`APP_BACKUP_RETENTION_DAYS`) on top of the database's own growth |
+| Medium | Low thousands of customers, regular campaigns | 4 vCPU / 8 GB RAM, with PostgreSQL given most of the memory (`shared_buffers` tuned to roughly a quarter of host RAM is a reasonable starting point — see PostgreSQL's own tuning guidance). Watch `omniflow_job_duration_seconds{kind="fulfillment"}` — if it climbs, the `critical` queue's fixed 16-worker concurrency is the ceiling until that's made configurable |
+| Large | Tens of thousands of customers, frequent bulk actions and campaigns | 8 vCPU / 16 GB RAM as a starting point, and treat PostgreSQL connection limits as the thing to watch first — `pool_max_conns` and PostgreSQL's own `max_connections` need headroom for `api`, `bot`, `worker`, and the bulk-action runner at once. Consider moving PostgreSQL to dedicated, faster disk before anything else, since it is the only durable store and every write goes through it |
+
+These are starting points for capacity planning, not a load-tested ceiling —
+no throughput benchmark ships with the repository today. Watch the SLIs
+above under your own traffic and adjust from there.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Health, metrics, and logs" icon="chart-line" href="/operations/observability">
+    The probes, metrics, and alerts these SLIs and dashboards are built from.
+  </Card>
+  <Card title="Jobs and queues" icon="list-check" href="/operations/jobs-and-queues">
+    Retry policy, the dead-letter view, and the transactional outbox in full.
+  </Card>
+  <Card title="Maintenance mode" icon="wrench" href="/operations/maintenance-mode">
+    What automatic detection watches and what it does when a window opens.
+  </Card>
+  <Card title="Backup, restore, and disaster recovery" icon="database" href="/operations/backup-restore">
+    The restore drill, and what a host-level disaster needs beyond it.
+  </Card>
+</CardGroup>
