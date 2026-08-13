@@ -176,6 +176,47 @@ WHERE c.id = sqlc.arg(campaign_id)
 RETURNING c.*;
 
 -- ---------------------------------------------------------------------------
+-- Test sends
+--
+-- One copy of a campaign's message, to the operator group, before the audience
+-- is committed to. None of these queries touches campaign_recipients, which is
+-- what keeps a test out of the counters an operator judges the campaign by.
+-- ---------------------------------------------------------------------------
+
+-- name: EnqueueCampaignTestSend :one
+INSERT INTO campaign_test_sends (campaign_id, locale, requested_by)
+VALUES (sqlc.arg(campaign_id), sqlc.arg(locale), sqlc.narg(requested_by))
+RETURNING *;
+
+-- name: ListPendingCampaignTestSends :many
+-- The template is joined rather than stored on the row, so a test send always
+-- renders whatever the template says now — which is the point of asking for one
+-- after editing it.
+SELECT t.id, t.campaign_id, t.locale, c.name AS campaign_name,
+       m.subject_en, m.subject_ru, m.body_en, m.body_ru
+FROM campaign_test_sends t
+JOIN campaigns c ON c.id = t.campaign_id
+JOIN message_templates m ON m.id = c.template_id
+WHERE t.status = 'queued'
+ORDER BY t.requested_at
+LIMIT sqlc.arg(page_size);
+
+-- name: CompleteCampaignTestSend :exec
+-- The status guard makes this safe to call twice: a retried delivery updates
+-- nothing rather than overwriting the outcome already recorded.
+UPDATE campaign_test_sends
+SET status = sqlc.arg(status),
+    error_code = sqlc.narg(error_code),
+    resolved_at = now()
+WHERE id = sqlc.arg(test_send_id) AND status = 'queued';
+
+-- name: ListCampaignTestSends :many
+SELECT * FROM campaign_test_sends
+WHERE campaign_id = sqlc.arg(campaign_id)
+ORDER BY requested_at DESC
+LIMIT sqlc.arg(page_size);
+
+-- ---------------------------------------------------------------------------
 -- Suppression
 -- ---------------------------------------------------------------------------
 

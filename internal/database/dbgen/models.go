@@ -502,6 +502,17 @@ type CampaignRecipient struct {
 	ResolvedAt        pgtype.Timestamptz `json:"resolved_at"`
 }
 
+type CampaignTestSend struct {
+	ID          pgtype.UUID        `json:"id"`
+	CampaignID  pgtype.UUID        `json:"campaign_id"`
+	Locale      string             `json:"locale"`
+	Status      string             `json:"status"`
+	ErrorCode   pgtype.Text        `json:"error_code"`
+	RequestedBy pgtype.UUID        `json:"requested_by"`
+	RequestedAt pgtype.Timestamptz `json:"requested_at"`
+	ResolvedAt  pgtype.Timestamptz `json:"resolved_at"`
+}
+
 type Cart struct {
 	ID               pgtype.UUID        `json:"id"`
 	UserID           pgtype.UUID        `json:"user_id"`

@@ -2,8 +2,33 @@ package commerce
 
 import (
 	"errors"
+	"regexp"
+	"strings"
 	"time"
 )
+
+// RenderTemplate substitutes a message template's declared variables.
+//
+// A variable with no value renders as an empty string rather than leaving the
+// placeholder visible: a customer seeing nothing is better than a customer
+// seeing `{{name}}`, and the validation performed when a template is saved is
+// what stops an undeclared variable reaching here at all.
+//
+// It lives in the domain rather than beside one of its callers because there
+// are two, and they must agree. The bot renders what a customer receives; the
+// operator preview renders what the operator is shown before committing to the
+// audience. A preview that substituted differently would be a preview of a
+// different message, which is the one thing it must never be.
+func RenderTemplate(body string, values map[string]string) string {
+	for name, value := range values {
+		body = strings.ReplaceAll(body, "{{"+name+"}}", value)
+		body = strings.ReplaceAll(body, "{{ "+name+" }}", value)
+	}
+	return templateVariablePattern.ReplaceAllString(body, "")
+}
+
+// templateVariablePattern matches any placeholder left after substitution.
+var templateVariablePattern = regexp.MustCompile(`\{\{\s*[a-zA-Z][a-zA-Z0-9_]*\s*\}\}`)
 
 // MessageClass separates messages a customer must always receive from messages
 // that require explicit marketing consent.

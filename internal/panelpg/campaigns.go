@@ -263,7 +263,7 @@ func (service *Service) CreateCampaign(
 		}
 		campaign = campaignFrom(row)
 		return appendAudit(ctx, queries, actor.audit(
-			"panel.campaign.created", "communication", "campaign", campaign.ID,
+			"panel.campaign.created", "marketing", "campaign", campaign.ID,
 			map[string]any{
 				"name": name, "segment": described.Code,
 				"estimatedAudience": described.Size, "explain": described.Explain,
@@ -318,11 +318,102 @@ func (service *Service) SetCampaignState(
 		}
 		campaign = campaignFrom(row)
 		return appendAudit(ctx, queries, actor.audit(
-			"panel.campaign."+status, "communication", "campaign", campaignID,
+			"panel.campaign."+status, "marketing", "campaign", campaignID,
 			map[string]any{"status": status},
 		))
 	})
 	return campaign, err
+}
+
+// CampaignTest is one copy of a campaign's message, sent to the operators.
+type CampaignTest struct {
+	ID        string    `json:"id"`
+	Locale    string    `json:"locale"`
+	Status    string    `json:"status"`
+	ErrorCode string    `json:"errorCode,omitempty"`
+	Requested time.Time `json:"requestedAt"`
+	Resolved  time.Time `json:"resolvedAt,omitzero"`
+}
+
+// campaignTestStates are the campaign states a test send is allowed from.
+//
+// A test exists to be read before the audience is committed to, so the states
+// that permit one are the states where that decision is still open. A completed
+// or cancelled campaign is not going to be sent again, and a test that rendered
+// its copy into the operator group would read as though it might be.
+var campaignTestStates = map[string]bool{"draft": true, "scheduled": true, "paused": true}
+
+// SendCampaignTest queues one copy of a campaign's message for the operators.
+//
+// It writes to `campaign_test_sends` and never to `campaign_recipients`, which
+// is the whole reason the second table exists: every counter an operator judges
+// a campaign by is derived from the recipients, and the audience expansion skips
+// anybody who already has a row there. A test recorded as a recipient would both
+// move the numbers and remove a real customer from the send.
+func (service *Service) SendCampaignTest(
+	ctx context.Context, campaignID, locale string, actor Actor,
+) (CampaignTest, error) {
+	if locale != "en" && locale != "ru" {
+		return CampaignTest{}, ErrValidaton
+	}
+	id, err := parseUUID(campaignID)
+	if err != nil {
+		return CampaignTest{}, err
+	}
+
+	var test CampaignTest
+	err = service.inTx(ctx, func(queries *dbgen.Queries) error {
+		campaign, txErr := queries.GetCampaign(ctx, id)
+		if txErr != nil {
+			return notFound(txErr)
+		}
+		if !campaignTestStates[campaign.Campaign.Status] {
+			return ErrRejected
+		}
+		row, txErr := queries.EnqueueCampaignTestSend(ctx, dbgen.EnqueueCampaignTestSendParams{
+			CampaignID: id, Locale: locale, RequestedBy: optionalUUID(actor.AdminID),
+		})
+		if txErr != nil {
+			return txErr
+		}
+		test = campaignTestFrom(row)
+		return appendAudit(ctx, queries, actor.audit(
+			"panel.campaign.tested", "marketing", "campaign", campaignID,
+			map[string]any{"locale": locale, "testSendId": test.ID},
+		))
+	})
+	return test, err
+}
+
+// CampaignTests lists what has been sent to the operators for one campaign, so
+// the screen can show that a test is still in flight rather than looking as
+// though the button did nothing.
+func (service *Service) CampaignTests(
+	ctx context.Context, campaignID string, limit int32,
+) ([]CampaignTest, error) {
+	id, err := parseUUID(campaignID)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := service.queries().ListCampaignTestSends(ctx, dbgen.ListCampaignTestSendsParams{
+		CampaignID: id, PageSize: pageSize(limit),
+	})
+	if err != nil {
+		return nil, err
+	}
+	tests := make([]CampaignTest, 0, len(rows))
+	for _, row := range rows {
+		tests = append(tests, campaignTestFrom(row))
+	}
+	return tests, nil
+}
+
+func campaignTestFrom(row dbgen.CampaignTestSend) CampaignTest {
+	return CampaignTest{
+		ID: uuidString(row.ID), Locale: row.Locale, Status: row.Status,
+		ErrorCode: textValue(row.ErrorCode),
+		Requested: timeValue(row.RequestedAt), Resolved: timeValue(row.ResolvedAt),
+	}
 }
 
 // Suppression is one customer the operator must not contact.
@@ -374,7 +465,7 @@ func (service *Service) Suppress(
 			return txErr
 		}
 		return appendAudit(ctx, queries, actor.audit(
-			"panel.suppression.added", "communication", "customer", customerID,
+			"panel.suppression.added", "marketing", "customer", customerID,
 			map[string]any{"reason": reason},
 		))
 	})
@@ -391,7 +482,7 @@ func (service *Service) Unsuppress(ctx context.Context, customerID string, actor
 			return txErr
 		}
 		return appendAudit(ctx, queries, actor.audit(
-			"panel.suppression.removed", "communication", "customer", customerID, nil,
+			"panel.suppression.removed", "marketing", "customer", customerID, nil,
 		))
 	})
 }

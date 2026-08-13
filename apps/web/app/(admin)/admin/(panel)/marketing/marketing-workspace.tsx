@@ -57,6 +57,15 @@ const TRANSITIONS: Record<string, string[]> = {
   paused: ["scheduled", "cancelled"],
 };
 
+/**
+ * The campaign states a preview can be asked for from.
+ *
+ * It mirrors the API's own rule rather than replacing it — the server refuses
+ * the rest regardless — and exists so the button is absent where it would only
+ * ever produce a refusal.
+ */
+const TESTABLE = ["draft", "scheduled", "paused"];
+
 function CampaignCard({ editable }: { editable: boolean }) {
   const translate = useTranslations("admin.marketing");
   const { data, isLoading, mutate } = useSWR<Listing<Campaign>, ApiError>(
@@ -75,6 +84,9 @@ function CampaignCard({ editable }: { editable: boolean }) {
 
   const [form, setForm] = useState({ name: "", segmentId: "", templateId: "" });
   const [schedule, setSchedule] = useState<Record<string, string>>({});
+  // Which language was last previewed, per campaign. It confirms the button did
+  // something, because what it did happens in another application.
+  const [tested, setTested] = useState<Record<string, string>>({});
   const nameId = useId();
   const scheduleId = useId();
 
@@ -92,6 +104,25 @@ function CampaignCard({ editable }: { editable: boolean }) {
     if (created) {
       setForm({ name: "", segmentId: "", templateId: "" });
       mutate();
+    }
+  }
+
+  /**
+   * Queues one copy of the campaign's message for the operator group.
+   *
+   * It goes nowhere near the audience: the API records it in its own table, so
+   * the counters beside the campaign do not move and nobody is removed from the
+   * send by having already "received" it. Delivery is the bot's, so the button
+   * reports that the preview was queued rather than that it arrived.
+   */
+  async function sendTest(campaign: Campaign, locale: "en" | "ru") {
+    const queued = await run(`/v1/panel/marketing/campaigns/${campaign.id}/test`, {
+      method: "POST",
+      body: { locale },
+      reason: translate("campaigns.testReason"),
+    });
+    if (queued) {
+      setTested({ ...tested, [campaign.id]: locale });
     }
   }
 
@@ -251,6 +282,33 @@ function CampaignCard({ editable }: { editable: boolean }) {
                             type="datetime-local"
                             value={schedule[campaign.id] ?? ""}
                           />
+                        ) : null}
+                        {/* A preview is only offered while the decision to send
+                            is still open. Once a campaign has completed or been
+                            cancelled its copy in the operator group would read
+                            as though it might still go out. */}
+                        {TESTABLE.includes(campaign.status)
+                          ? (["en", "ru"] as const).map((locale) => (
+                              <Button
+                                disabled={pending}
+                                key={locale}
+                                onClick={() => sendTest(campaign, locale)}
+                                size="sm"
+                                type="button"
+                                variant="outline"
+                              >
+                                {translate("campaigns.actions.test", {
+                                  locale: locale.toUpperCase(),
+                                })}
+                              </Button>
+                            ))
+                          : null}
+                        {tested[campaign.id] ? (
+                          <span className="text-muted-foreground text-xs">
+                            {translate("campaigns.testQueued", {
+                              locale: tested[campaign.id].toUpperCase(),
+                            })}
+                          </span>
                         ) : null}
                         {(TRANSITIONS[campaign.status] ?? []).map((state) => (
                           <Button

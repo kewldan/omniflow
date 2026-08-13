@@ -78,6 +78,9 @@ type Querier interface {
 	CompleteBackup(ctx context.Context, arg CompleteBackupParams) (Backup, error)
 	CompleteBackupRestore(ctx context.Context, arg CompleteBackupRestoreParams) (BackupRestore, error)
 	CompleteBulkOperationItem(ctx context.Context, arg CompleteBulkOperationItemParams) (BulkOperationItem, error)
+	// The status guard makes this safe to call twice: a retried delivery updates
+	// nothing rather than overwriting the outcome already recorded.
+	CompleteCampaignTestSend(ctx context.Context, arg CompleteCampaignTestSendParams) error
 	CompleteGoodsDelivery(ctx context.Context, arg CompleteGoodsDeliveryParams) (GoodsDelivery, error)
 	CompleteOperatorNotification(ctx context.Context, arg CompleteOperatorNotificationParams) (OperatorNotification, error)
 	CompleteWebhookEvent(ctx context.Context, arg CompleteWebhookEventParams) (ProviderWebhookEvent, error)
@@ -300,6 +303,14 @@ type Querier interface {
 	DiagnosticCounts(ctx context.Context) (DiagnosticCountsRow, error)
 	DisableAdminTOTP(ctx context.Context, adminUserID pgtype.UUID) (AdminUser, error)
 	DismissPersonalOffer(ctx context.Context, arg DismissPersonalOfferParams) (PersonalOffer, error)
+	// ---------------------------------------------------------------------------
+	// Test sends
+	//
+	// One copy of a campaign's message, to the operator group, before the audience
+	// is committed to. None of these queries touches campaign_recipients, which is
+	// what keeps a test out of the counters an operator judges the campaign by.
+	// ---------------------------------------------------------------------------
+	EnqueueCampaignTestSend(ctx context.Context, arg EnqueueCampaignTestSendParams) (CampaignTestSend, error)
 	EnqueueOperatorNotification(ctx context.Context, arg EnqueueOperatorNotificationParams) (OperatorNotification, error)
 	// Retires outstanding tokens by moving their expiry into the past rather than
 	// marking them consumed: `admin_setup_tokens_consumption_complete` requires a
@@ -580,6 +591,7 @@ type Querier interface {
 	ListBlocklistSources(ctx context.Context) ([]BlocklistSource, error)
 	ListBulkOperationItems(ctx context.Context, arg ListBulkOperationItemsParams) ([]BulkOperationItem, error)
 	ListBulkOperations(ctx context.Context, pageSize int32) ([]BulkOperation, error)
+	ListCampaignTestSends(ctx context.Context, arg ListCampaignTestSendsParams) ([]CampaignTestSend, error)
 	// ---------------------------------------------------------------------------
 	// Campaigns
 	// ---------------------------------------------------------------------------
@@ -712,6 +724,10 @@ type Querier interface {
 	ListPaymentProviderSettings(ctx context.Context) ([]PaymentProviderSetting, error)
 	ListPendingBulkOperationItems(ctx context.Context, arg ListPendingBulkOperationItemsParams) ([]BulkOperationItem, error)
 	ListPendingCampaignRecipients(ctx context.Context, arg ListPendingCampaignRecipientsParams) ([]ListPendingCampaignRecipientsRow, error)
+	// The template is joined rather than stored on the row, so a test send always
+	// renders whatever the template says now — which is the point of asking for one
+	// after editing it.
+	ListPendingCampaignTestSends(ctx context.Context, pageSize int32) ([]ListPendingCampaignTestSendsRow, error)
 	// Failures the customer has not been told about, oldest first.
 	//
 	// The filter is deliberately a plain read of a stored decision. Which failures

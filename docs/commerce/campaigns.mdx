@@ -153,6 +153,12 @@ capped at 200, and `class` defaults to `marketing`.
     the send will walk, so what an operator approves and what receives the
     message cannot come from different definitions.
   </Step>
+  <Step title="Send yourself a preview">
+    **Preview EN** and **Preview RU** each queue one copy of the message for the
+    operator group, rendered exactly as a customer would receive it. Nothing else
+    receives it and nothing about the campaign changes. See
+    [Previewing a campaign](#previewing-a-campaign).
+  </Step>
   <Step title="Schedule it">
     Press **Schedule**, which reveals a datetime input; the button stays disabled
     until a date is chosen. That posts
@@ -166,6 +172,48 @@ capped at 200, and `class` defaults to `marketing`.
     the audience. **Pause** or **Cancel** from the same control.
   </Step>
 </Steps>
+
+## Previewing a campaign
+
+`POST /v1/panel/marketing/campaigns/{campaignID}/test` with `{"locale": "en"}`
+or `{"locale": "ru"}` queues one copy of the campaign's message for the operator
+group. It requires `marketing.write`, because reading a campaign should not be
+able to put anything into a chat.
+
+What arrives is the campaign's own message, rendered by the same code that
+renders a real send: template variables become nothing, because that is what a
+customer receives — a preview that filled in sample values would be a preview of
+copy nobody will ever get. It goes to a forum topic of its own, **📣 Campaign
+previews**, under a header naming the campaign, the language, and the fact that
+nobody else received it.
+
+Two things it deliberately does not touch:
+
+- **The recipients.** The record lives in `campaign_test_sends`, a table of its
+  own. Every counter beside the campaign — queued, sent, failed, suppressed — is
+  derived from `campaign_recipients`, and the audience expansion skips anybody
+  who already has a row there. A preview recorded as a recipient would both move
+  the numbers an operator is about to judge the campaign by and remove a real
+  customer from the send. Neither is recoverable once the campaign has run.
+- **The campaign.** No state changes, no counter moves, and the audit entry is
+  `panel.campaign.tested` rather than anything that reads like a send.
+
+It is refused for a `completed` or `cancelled` campaign. A preview is for a
+decision that is still open, and copy in the operator group for a campaign that
+will never run again reads as though it might.
+
+Delivery is the bot's, so the panel reports that the preview was **queued**. It
+arrives on the notifier's next pass, within about ten seconds. A preview that
+cannot be delivered — no operator group configured, the bot lacking permission
+to create a topic — is recorded as `failed` with a category, and is not retried:
+asking for another one is a click, and a retry loop against a chat that is
+refusing messages fills the queue rather than the chat.
+
+<Note>
+  It needs an operator group. With none configured the bot's notifier does not
+  run, and previews stay `queued`. See
+  [Telegram](/integrations/telegram) for binding one.
+</Note>
 
 ### The permitted transitions
 
@@ -211,19 +259,17 @@ already `running`.
 - When a pass queues nobody new and nothing is left `queued`, the campaign is
   marked `completed`.
 
-<Warning>
-  **Expansion currently fails for any segment carrying a bound value.** The
-  expansion statement passes the campaign id as `$1` and appends the segment's
-  own arguments after it, while the compiled filter fragment numbers its
-  placeholders from `$1` as well. The two collide and PostgreSQL rejects the
-  bind, so the pass logs "campaign expansion failed" and queues nobody.
-
-  In practice only segments whose compiled fragment binds no values expand
-  today — an empty segment, or one built solely from the `subscription` filter.
-  A campaign to a segment using `locale`, `planCode`, `minimumSpendMinor`,
-  `expiringWithinDays`, `inactiveForDays`, `loyaltyTier`, or `status` will sit in
-  `running` with an empty recipient table.
-</Warning>
+<Note>
+  Expansion used to fail for any segment carrying a bound value, which is nearly
+  all of them. The statement passed the campaign id as `$1` and appended the
+  segment's own arguments after it, while the compiled filter numbers its
+  placeholders from `$1` as well; the two collided, PostgreSQL rejected the
+  bind, and the pass logged "campaign expansion failed" and queued nobody —
+  indistinguishable from the panel from a segment that matches nobody. The
+  segment's arguments now come first and the campaign id last. An integration
+  test expands a `locale` segment and asserts the one customer it names is
+  queued.
+</Note>
 
 ## Delivery, and who is skipped
 

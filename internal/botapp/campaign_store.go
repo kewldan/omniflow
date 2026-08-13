@@ -2,8 +2,8 @@ package botapp
 
 import (
 	"context"
-	"regexp"
-	"strings"
+
+	"github.com/omniflow/omniflow/internal/commerce"
 )
 
 // PendingCampaignMessage is one campaign message waiting to be delivered.
@@ -94,17 +94,9 @@ func (store *PostgresStore) ResolveCampaignRecipient(
 
 // renderTemplate substitutes the declared variables.
 //
-// A variable with no value renders as an empty string rather than leaving the
-// placeholder visible: the customer seeing nothing is better than the customer
-// seeing "{{name}}", and the template validation at save time is what stops an
-// undeclared variable reaching here at all.
+// The rule itself lives in `internal/commerce`, because the operator preview
+// has to render a campaign exactly as this does. A preview that substituted
+// differently would be a preview of a different message.
 func renderTemplate(body string, values map[string]string) string {
-	for name, value := range values {
-		body = strings.ReplaceAll(body, "{{"+name+"}}", value)
-		body = strings.ReplaceAll(body, "{{ "+name+" }}", value)
-	}
-	return templateVariablePattern.ReplaceAllString(body, "")
+	return commerce.RenderTemplate(body, values)
 }
-
-// templateVariablePattern matches any placeholder left after substitution.
-var templateVariablePattern = regexp.MustCompile(`\{\{\s*[a-zA-Z][a-zA-Z0-9_]*\s*\}\}`)

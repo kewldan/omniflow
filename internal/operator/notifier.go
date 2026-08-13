@@ -28,7 +28,16 @@ import (
 )
 
 // Kinds are the event streams that each get their own forum topic.
-var Kinds = []string{"purchase", "renewal", "topup", "refund", "fulfillment_failure", "incident", "backup", "security"}
+var Kinds = []string{"purchase", "renewal", "topup", "refund", "fulfillment_failure", "incident", "backup", "security", "campaign_test"}
+
+// KindCampaignTest is the topic campaign previews go to.
+//
+// It is a topic rather than a message in the general chat because a marketing
+// preview is not an incident, and it is not an operator notification either:
+// everything else here is a set of allowlisted, non-personal fields, and this
+// one is a rendered message body. Its queue is `campaign_test_sends`, not
+// `operator_notifications`, for exactly that reason.
+const KindCampaignTest = "campaign_test"
 
 // topicNames are the forum topics the bot creates for the operator. The operator
 // supplies only a group; the bot owns every topic in it.
@@ -41,6 +50,7 @@ var topicNames = map[string]string{
 	"incident":            "🚨 Incidents",
 	"backup":              "💾 Backups",
 	"security":            "🔐 Admin security",
+	"campaign_test":       "📣 Campaign previews",
 }
 
 // Config binds the operator group and bounds notification volume.
@@ -84,12 +94,121 @@ func (notifier *Notifier) Run(ctx context.Context) {
 	defer ticker.Stop()
 	for {
 		notifier.Dispatch(ctx)
+		notifier.DispatchCampaignTests(ctx)
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
 		}
 	}
+}
+
+// DispatchCampaignTests delivers the campaign previews an operator asked for.
+//
+// It is a separate pass from Dispatch rather than another kind inside it,
+// because the two carry different things. An operator notification is a set of
+// allowlisted fields with no content in them; a preview is the campaign's own
+// message, rendered exactly as a customer would receive it — which is the only
+// version worth reviewing, and the reason the rendering is shared with the
+// customer delivery path rather than reimplemented here.
+//
+// Each row is resolved individually. A preview that fails is recorded as failed
+// and not retried: the operator can ask for another one, and a retry loop
+// against a chat that is refusing messages would fill the queue rather than the
+// chat.
+func (notifier *Notifier) DispatchCampaignTests(ctx context.Context) {
+	if !notifier.Configured() {
+		return
+	}
+	queries := dbgen.New(notifier.pool)
+	pending, err := queries.ListPendingCampaignTestSends(ctx, campaignTestBatch)
+	if err != nil {
+		notifier.logger.Warn("campaign preview lookup failed", "error", err)
+		return
+	}
+	for _, test := range pending {
+		if ctx.Err() != nil {
+			return
+		}
+		status, errorCode := "sent", pgtype.Text{}
+		if deliverErr := notifier.deliverCampaignTest(ctx, queries, test); deliverErr != nil {
+			status = "failed"
+			errorCode = pgtype.Text{String: classifyTopicError(deliverErr), Valid: true}
+			notifier.logger.Warn("campaign preview delivery failed",
+				"campaign_id", uuidText(test.CampaignID), "code", errorCode.String)
+		}
+		if err = queries.CompleteCampaignTestSend(ctx, dbgen.CompleteCampaignTestSendParams{
+			TestSendID: test.ID, Status: status, ErrorCode: errorCode,
+		}); err != nil {
+			notifier.logger.Warn("campaign preview bookkeeping failed", "error", err)
+			return
+		}
+	}
+}
+
+// campaignTestBatch bounds one pass. Previews are asked for one at a time by a
+// person, so this only ever matters after an outage.
+const campaignTestBatch = 20
+
+// deliverCampaignTest sends one preview into the campaign topic.
+func (notifier *Notifier) deliverCampaignTest(
+	ctx context.Context, queries *dbgen.Queries, test dbgen.ListPendingCampaignTestSendsRow,
+) error {
+	topic, err := queries.GetOperatorTopic(ctx, KindCampaignTest)
+	if errors.Is(err, pgx.ErrNoRows) || err == nil && !topic.TopicID.Valid {
+		if topic, err = notifier.createTopic(ctx, queries, KindCampaignTest); err != nil {
+			return err
+		}
+	}
+	if err != nil {
+		return err
+	}
+
+	subject, body := test.SubjectEn, test.BodyEn
+	if test.Locale == "ru" {
+		subject, body = test.SubjectRu, test.BodyRu
+	}
+	_, sendErr := notifier.client.SendMessage(ctx, &telegram.SendMessageParams{
+		ChatID:          notifier.config.ChatID,
+		MessageThreadID: int(topic.TopicID.Int64),
+		Text:            renderCampaignTest(test.CampaignName, test.Locale, subject, body),
+		ParseMode:       models.ParseModeHTML,
+	})
+	return sendErr
+}
+
+// renderCampaignTest builds the preview message.
+//
+// The header names the campaign and the language, because a preview with
+// neither is indistinguishable from a campaign that has actually gone out — and
+// somebody will eventually see one of these in the group and reach for the
+// pause button.
+//
+// The body is rendered with no variable values, which is what the customer
+// delivery path does too: a template variable with nothing behind it becomes an
+// empty string there, so a preview that filled in sample values would show copy
+// no customer will receive.
+func renderCampaignTest(campaign, locale, subject, body string) string {
+	builder := &strings.Builder{}
+	fmt.Fprintf(builder, "<b>%s</b>\n", html.EscapeString(topicNames[KindCampaignTest]))
+	fmt.Fprintf(builder, "campaign: <code>%s</code>\n", html.EscapeString(campaign))
+	fmt.Fprintf(builder, "locale: <code>%s</code>\n", html.EscapeString(locale))
+	builder.WriteString("This is a preview. Nobody else received it.\n\n")
+	if subject != "" {
+		fmt.Fprintf(builder, "<b>%s</b>\n\n",
+			html.EscapeString(commerce.RenderTemplate(subject, nil)))
+	}
+	builder.WriteString(html.EscapeString(commerce.RenderTemplate(body, nil)))
+	return builder.String()
+}
+
+// uuidText renders an identifier for a log line.
+func uuidText(id pgtype.UUID) string {
+	if !id.Valid {
+		return ""
+	}
+	return fmt.Sprintf("%x-%x-%x-%x-%x",
+		id.Bytes[0:4], id.Bytes[4:6], id.Bytes[6:8], id.Bytes[8:10], id.Bytes[10:16])
 }
 
 // EnsureTopics creates and binds every required forum topic. A topic that was

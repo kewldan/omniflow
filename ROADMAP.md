@@ -830,12 +830,31 @@ Carried into v0.9 and tracked here rather than left implied.
   forever.~~ Closed. `internal/airuntime` builds a gateway from stored
   configuration and the panel's test button uses it. The support, marketing,
   risk, and copilot features, and every MCP path, remain unwired.
-- **Campaign and notification test delivery.** Scheduling, pausing, cancelling,
+- ~~**Campaign and notification test delivery.** Scheduling, pausing, cancelling,
   audience estimation, and result counters are implemented and enforced; sending
   one message to a single operator account before committing to the audience is
   not. It needs a delivery path that reaches the outbox without creating
   recipients, so the test send cannot be mistaken for the campaign in the
-  counters.
+  counters.~~ Closed. `20260824000000_campaign_test_sends.sql` gives the preview
+  a queue of its own, and the delivery path is the operator notifier's, into a
+  forum topic of its own. Nothing touches `campaign_recipients`, which is what
+  keeps the counters honest and keeps a preview from consuming a place in the
+  audience. The rendering is shared with the customer delivery path rather than
+  reimplemented, because a preview that substituted variables differently would
+  be a preview of a different message.
+
+  Writing the tests for it found two defects that had made the surface
+  unusable, and both were invisible from the panel. **Creating a campaign never
+  worked at all**: `CreateCampaign`, `SetCampaignState`, and both suppression
+  calls audited under the category `communication`, which
+  `audit_events_category_known` does not allow, so the insert failed and took
+  the whole transaction with it. Nothing in the repository had ever created a
+  campaign against a real database. And **audience expansion queued nobody** for
+  any segment binding a value: the statement passed the campaign id as `$1` and
+  appended the segment's arguments after it, while the compiled filter numbers
+  from `$1` too. That one was known and documented as a warning on the campaigns
+  page rather than fixed; it is fixed, and an integration test expands a
+  `locale` segment and fails without the fix.
 - ~~**Update availability.** The diagnostics bundle reports the running version,
   the schema state, and every applied migration. It does not say whether a newer
   release exists, because that needs a release feed the installation would have

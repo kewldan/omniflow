@@ -1524,6 +1524,8 @@
         "title": "Campaigns",
         "description": "A campaign is created in draft with its estimated audience already visible. Scheduling is a separate action.",
         "reason": "Campaign changed",
+        "testReason": "Campaign preview sent to the operator group",
+        "testQueued": "{locale} preview queued for the operator group.",
         "newTitle": "New campaign",
         "name": "Name",
         "segment": "Audience segment",
@@ -1548,7 +1550,8 @@
         "actions": {
           "scheduled": "Schedule",
           "paused": "Pause",
-          "cancelled": "Cancel"
+          "cancelled": "Cancel",
+          "test": "Preview {locale}"
         }
       },
       "segments": {

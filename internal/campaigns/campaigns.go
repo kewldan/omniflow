@@ -162,7 +162,17 @@ func (runner *Runner) advance(
 func (runner *Runner) queueBatch(
 	ctx context.Context, queries *dbgen.Queries, campaignID pgtype.UUID, query audience.Query,
 ) (int, error) {
-	args := append([]any{campaignID}, query.Args...)
+	// The segment's own arguments come first and the campaign identifier last.
+	//
+	// It used to be the other way round, and that was a defect that emptied every
+	// campaign whose segment bound a value: `audience.Compile` numbers its
+	// placeholders from $1, so putting the campaign id in $1 made the two collide
+	// and PostgreSQL rejected the bind. The pass logged "campaign expansion
+	// failed" and queued nobody, which looks exactly like a segment that matches
+	// nobody. Only a segment binding no values — an empty one, or one built
+	// solely from `subscription` — ever expanded.
+	args := append(append([]any{}, query.Args...), campaignID)
+	campaignArg := "$" + itoa(len(query.Args)+1)
 	rows, err := runner.pool.Query(ctx, `
 		SELECT u.id,
 		       EXISTS (SELECT 1 FROM communication_suppressions s WHERE s.user_id = u.id)
@@ -171,7 +181,7 @@ func (runner *Runner) queueBatch(
 		  AND (`+query.Where+`)
 		  AND NOT EXISTS (
 			SELECT 1 FROM campaign_recipients r
-			WHERE r.campaign_id = $1 AND r.user_id = u.id
+			WHERE r.campaign_id = `+campaignArg+` AND r.user_id = u.id
 		  )
 		ORDER BY u.id
 		LIMIT `+itoa(expansionBatch), args...)

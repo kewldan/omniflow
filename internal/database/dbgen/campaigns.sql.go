@@ -54,6 +54,27 @@ func (q *Queries) CampaignRecipientSample(ctx context.Context, sampleSize int32)
 	return items, nil
 }
 
+const completeCampaignTestSend = `-- name: CompleteCampaignTestSend :exec
+UPDATE campaign_test_sends
+SET status = $1,
+    error_code = $2,
+    resolved_at = now()
+WHERE id = $3 AND status = 'queued'
+`
+
+type CompleteCampaignTestSendParams struct {
+	Status     string      `json:"status"`
+	ErrorCode  pgtype.Text `json:"error_code"`
+	TestSendID pgtype.UUID `json:"test_send_id"`
+}
+
+// The status guard makes this safe to call twice: a retried delivery updates
+// nothing rather than overwriting the outcome already recorded.
+func (q *Queries) CompleteCampaignTestSend(ctx context.Context, arg CompleteCampaignTestSendParams) error {
+	_, err := q.db.Exec(ctx, completeCampaignTestSend, arg.Status, arg.ErrorCode, arg.TestSendID)
+	return err
+}
+
 const createCampaign = `-- name: CreateCampaign :one
 INSERT INTO campaigns (name, template_id, segment_id, estimated_audience, created_by)
 VALUES ($1, $2, $3,
@@ -95,6 +116,42 @@ func (q *Queries) CreateCampaign(ctx context.Context, arg CreateCampaignParams) 
 		&i.StartedAt,
 		&i.CompletedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const enqueueCampaignTestSend = `-- name: EnqueueCampaignTestSend :one
+
+INSERT INTO campaign_test_sends (campaign_id, locale, requested_by)
+VALUES ($1, $2, $3)
+RETURNING id, campaign_id, locale, status, error_code, requested_by, requested_at, resolved_at
+`
+
+type EnqueueCampaignTestSendParams struct {
+	CampaignID  pgtype.UUID `json:"campaign_id"`
+	Locale      string      `json:"locale"`
+	RequestedBy pgtype.UUID `json:"requested_by"`
+}
+
+// ---------------------------------------------------------------------------
+// Test sends
+//
+// One copy of a campaign's message, to the operator group, before the audience
+// is committed to. None of these queries touches campaign_recipients, which is
+// what keeps a test out of the counters an operator judges the campaign by.
+// ---------------------------------------------------------------------------
+func (q *Queries) EnqueueCampaignTestSend(ctx context.Context, arg EnqueueCampaignTestSendParams) (CampaignTestSend, error) {
+	row := q.db.QueryRow(ctx, enqueueCampaignTestSend, arg.CampaignID, arg.Locale, arg.RequestedBy)
+	var i CampaignTestSend
+	err := row.Scan(
+		&i.ID,
+		&i.CampaignID,
+		&i.Locale,
+		&i.Status,
+		&i.ErrorCode,
+		&i.RequestedBy,
+		&i.RequestedAt,
+		&i.ResolvedAt,
 	)
 	return i, err
 }
@@ -250,6 +307,47 @@ func (q *Queries) ListAudienceSegments(ctx context.Context) ([]AudienceSegment, 
 			&i.CreatedAt,
 			&i.CreatedBy,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCampaignTestSends = `-- name: ListCampaignTestSends :many
+SELECT id, campaign_id, locale, status, error_code, requested_by, requested_at, resolved_at FROM campaign_test_sends
+WHERE campaign_id = $1
+ORDER BY requested_at DESC
+LIMIT $2
+`
+
+type ListCampaignTestSendsParams struct {
+	CampaignID pgtype.UUID `json:"campaign_id"`
+	PageSize   int32       `json:"page_size"`
+}
+
+func (q *Queries) ListCampaignTestSends(ctx context.Context, arg ListCampaignTestSendsParams) ([]CampaignTestSend, error) {
+	rows, err := q.db.Query(ctx, listCampaignTestSends, arg.CampaignID, arg.PageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CampaignTestSend{}
+	for rows.Next() {
+		var i CampaignTestSend
+		if err := rows.Scan(
+			&i.ID,
+			&i.CampaignID,
+			&i.Locale,
+			&i.Status,
+			&i.ErrorCode,
+			&i.RequestedBy,
+			&i.RequestedAt,
+			&i.ResolvedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -472,6 +570,60 @@ func (q *Queries) ListPendingCampaignRecipients(ctx context.Context, arg ListPen
 	for rows.Next() {
 		var i ListPendingCampaignRecipientsRow
 		if err := rows.Scan(&i.UserID, &i.Locale, &i.TelegramID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPendingCampaignTestSends = `-- name: ListPendingCampaignTestSends :many
+SELECT t.id, t.campaign_id, t.locale, c.name AS campaign_name,
+       m.subject_en, m.subject_ru, m.body_en, m.body_ru
+FROM campaign_test_sends t
+JOIN campaigns c ON c.id = t.campaign_id
+JOIN message_templates m ON m.id = c.template_id
+WHERE t.status = 'queued'
+ORDER BY t.requested_at
+LIMIT $1
+`
+
+type ListPendingCampaignTestSendsRow struct {
+	ID           pgtype.UUID `json:"id"`
+	CampaignID   pgtype.UUID `json:"campaign_id"`
+	Locale       string      `json:"locale"`
+	CampaignName string      `json:"campaign_name"`
+	SubjectEn    string      `json:"subject_en"`
+	SubjectRu    string      `json:"subject_ru"`
+	BodyEn       string      `json:"body_en"`
+	BodyRu       string      `json:"body_ru"`
+}
+
+// The template is joined rather than stored on the row, so a test send always
+// renders whatever the template says now — which is the point of asking for one
+// after editing it.
+func (q *Queries) ListPendingCampaignTestSends(ctx context.Context, pageSize int32) ([]ListPendingCampaignTestSendsRow, error) {
+	rows, err := q.db.Query(ctx, listPendingCampaignTestSends, pageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListPendingCampaignTestSendsRow{}
+	for rows.Next() {
+		var i ListPendingCampaignTestSendsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CampaignID,
+			&i.Locale,
+			&i.CampaignName,
+			&i.SubjectEn,
+			&i.SubjectRu,
+			&i.BodyEn,
+			&i.BodyRu,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

@@ -25,6 +25,7 @@ func (handlers *AdminHandlers) mountMarketing(secure chi.Router) {
 		read.Get("/marketing/segments", handlers.audienceSegments)
 		read.Get("/marketing/templates", handlers.messageTemplates)
 		read.Get("/marketing/campaigns", handlers.campaigns)
+		read.Get("/marketing/campaigns/{campaignID}/tests", handlers.campaignTests)
 		read.Get("/marketing/suppressions", handlers.suppressions)
 		read.Get("/marketing/referrals", handlers.referralProgram)
 	})
@@ -34,6 +35,10 @@ func (handlers *AdminHandlers) mountMarketing(secure chi.Router) {
 		write.Put("/marketing/templates", handlers.saveTemplate)
 		write.Post("/marketing/campaigns", handlers.createCampaign)
 		write.Post("/marketing/campaigns/{campaignID}/state", handlers.setCampaignState)
+		// Sending a test is a write even though it changes no campaign state:
+		// it puts the campaign's copy into the operator group, and reading a
+		// campaign should not be able to put anything anywhere.
+		write.Post("/marketing/campaigns/{campaignID}/test", handlers.sendCampaignTest)
 		write.Put("/marketing/suppressions", handlers.suppress)
 		write.Delete("/marketing/suppressions/{customerID}", handlers.unsuppress)
 	})
@@ -91,6 +96,38 @@ func (handlers *AdminHandlers) createCampaign(writer http.ResponseWriter, reques
 	campaign, err := handlers.operations.CreateCampaign(
 		request.Context(), body.Name, body.TemplateID, body.SegmentID, actorFrom(request))
 	handlers.respond(writer, request, campaign, err)
+}
+
+// campaignTests lists the test sends a campaign has already had.
+//
+// The screen needs them because a test is asynchronous: the panel queues it and
+// the bot delivers it, so without the record the button would look as though it
+// had done nothing until a message appeared in another application.
+func (handlers *AdminHandlers) campaignTests(writer http.ResponseWriter, request *http.Request) {
+	tests, err := handlers.operations.CampaignTests(
+		request.Context(), chi.URLParam(request, "campaignID"), queryInt(request, "limit"))
+	handlers.respond(writer, request, map[string]any{"items": tests}, err)
+}
+
+// sendCampaignTest queues one copy of the campaign's message for the operators.
+//
+// It is refused for a campaign that has completed or been cancelled. A test
+// exists to be read while the decision to send is still open, and rendering the
+// copy into the operator group for a campaign that will never run again would
+// read as though it might.
+func (handlers *AdminHandlers) sendCampaignTest(writer http.ResponseWriter, request *http.Request) {
+	var body struct {
+		// Locale picks which of the template's two languages to render. There is
+		// no default: an operator reviewing Russian copy should not have to
+		// discover that the test showed them the English.
+		Locale string `json:"locale"`
+	}
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	test, err := handlers.operations.SendCampaignTest(
+		request.Context(), chi.URLParam(request, "campaignID"), body.Locale, actorFrom(request))
+	handlers.respond(writer, request, test, err)
 }
 
 func (handlers *AdminHandlers) setCampaignState(writer http.ResponseWriter, request *http.Request) {
