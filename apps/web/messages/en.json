@@ -44,6 +44,7 @@
         "security": "Security",
         "shop": "Shop",
         "gifts": "Gifts",
+        "offers": "Offers",
         "risk": "Risk",
         "settings": "Settings",
         "aiSettings": "AI and MCP"
@@ -350,31 +351,65 @@
         "outboxOldestAgeSeconds": "Oldest outbox event"
       },
       "definitions": {
-        "customer.status.active": "Customer records that are neither suspended nor deleted. Not the same as having a live subscription.",
-        "customer.status.suspended": "Customer records an operator has suspended.",
-        "customer.status.deleted": "Customer records marked deleted under the retention policy.",
-        "customer.created.window": "Customer records created inside the reporting window.",
-        "entitlement.active": "Entitlements marked active whose end instant is still in the future.",
-        "entitlement.limited": "Entitlements in the limited state, typically past a traffic or device cap.",
-        "entitlement.lapsed": "Entitlements still marked active or limited whose end instant has passed.",
-        "entitlement.renewal.window": "Active entitlements ending inside the reporting window.",
-        "traffic.observed": "The traffic counter Omniflow last observed from Remnawave. Remnawave is authoritative; this is a snapshot, not a total.",
-        "payment.succeeded.window": "Payment intents that settled inside the reporting window.",
-        "payment.inflight": "Payment intents currently pending, awaiting action, or processing.",
-        "payment.failed.window": "Payment intents that failed inside the reporting window.",
-        "payment.stuck": "Payment intents in flight and untouched for longer than any supported provider should take.",
-        "support.open": "Support tickets in the open state.",
-        "support.stale": "Open tickets with no message for a day or more.",
-        "job.queued": "Fulfillment operations pending or retrying.",
-        "job.failed": "Fulfillment operations that exhausted their retries.",
-        "job.overdue": "Queued fulfillment operations whose next attempt was due some time ago.",
-        "webhook.unprocessed.window": "Provider callbacks received but not yet processed.",
-        "webhook.failed.window": "Provider callbacks whose processing failed.",
-        "webhook.unverified.window": "Provider callbacks whose signature did not verify.",
-        "drift.open": "Unresolved differences between Omniflow and Remnawave.",
-        "drift.missing_remote": "Entitlements whose Remnawave user no longer exists.",
-        "outbox.unpublished": "Domain events the publisher has not yet drained.",
-        "outbox.oldest_age": "Age of the oldest unpublished event. A large backlog of fresh events is healthy; one old event is not."
+        "customer": {
+          "status": {
+            "active": "Customer records that are neither suspended nor deleted. Not the same as having a live subscription.",
+            "suspended": "Customer records an operator has suspended.",
+            "deleted": "Customer records marked deleted under the retention policy."
+          },
+          "created": {
+            "window": "Customer records created inside the reporting window."
+          }
+        },
+        "entitlement": {
+          "active": "Entitlements marked active whose end instant is still in the future.",
+          "limited": "Entitlements in the limited state, typically past a traffic or device cap.",
+          "lapsed": "Entitlements still marked active or limited whose end instant has passed.",
+          "renewal": {
+            "window": "Active entitlements ending inside the reporting window."
+          }
+        },
+        "traffic": {
+          "observed": "The traffic counter Omniflow last observed from Remnawave. Remnawave is authoritative; this is a snapshot, not a total."
+        },
+        "payment": {
+          "succeeded": {
+            "window": "Payment intents that settled inside the reporting window."
+          },
+          "inflight": "Payment intents currently pending, awaiting action, or processing.",
+          "failed": {
+            "window": "Payment intents that failed inside the reporting window."
+          },
+          "stuck": "Payment intents in flight and untouched for longer than any supported provider should take."
+        },
+        "support": {
+          "open": "Support tickets in the open state.",
+          "stale": "Open tickets with no message for a day or more."
+        },
+        "job": {
+          "queued": "Fulfillment operations pending or retrying.",
+          "failed": "Fulfillment operations that exhausted their retries.",
+          "overdue": "Queued fulfillment operations whose next attempt was due some time ago."
+        },
+        "webhook": {
+          "unprocessed": {
+            "window": "Provider callbacks received but not yet processed."
+          },
+          "failed": {
+            "window": "Provider callbacks whose processing failed."
+          },
+          "unverified": {
+            "window": "Provider callbacks whose signature did not verify."
+          }
+        },
+        "drift": {
+          "open": "Unresolved differences between Omniflow and Remnawave.",
+          "missing_remote": "Entitlements whose Remnawave user no longer exists."
+        },
+        "outbox": {
+          "unpublished": "Domain events the publisher has not yet drained.",
+          "oldest_age": "Age of the oldest unpublished event. A large backlog of fresh events is healthy; one old event is not."
+        }
       },
       "unchanged": "unchanged",
       "versusPrevious": "vs previous period",

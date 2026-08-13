@@ -47,11 +47,84 @@ jobs:
   e2e:
     name: End-to-end (Playwright)
     runs-on: ubuntu-latest
+    # The suite runs against a real API rather than the web application alone.
+    # Without one, every panel still renders, still refuses anonymous visitors,
+    # and still passes the accessibility and layout gates while being unable to
+    # complete a single request — which is exactly how a browser-to-API routing
+    # break reached a release: nothing in the suite had ever made a call.
+    services:
+      postgres:
+        image: postgres:18.4-alpine
+        env:
+          POSTGRES_DB: omniflow
+          POSTGRES_USER: omniflow
+          POSTGRES_PASSWORD: omniflow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U omniflow -d omniflow"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      valkey:
+        image: valkey/valkey:9.1.1-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "valkey-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      APP_DATABASE_URL: postgres://omniflow:omniflow@localhost:5432/omniflow?sslmode=disable
+      APP_VALKEY_URL: redis://localhost:6379/0
+      # Test-only values. The panels refuse to run without them, and the cookie
+      # flags are off because the suite speaks plain HTTP to localhost.
+      APP_DATA_ENCRYPTION_KEY: ${{ vars.CI_DATA_ENCRYPTION_KEY || 'ZGV2ZWxvcG1lbnQtb25seS0zMi1ieXRlLWtleS0xMjM0NQ==' }}
+      APP_ADMIN_PANEL_ENABLED: "true"
+      APP_CUSTOMER_PANEL_ENABLED: "true"
+      APP_ADMIN_COOKIE_SECURE: "false"
+      APP_CUSTOMER_COOKIE_SECURE: "false"
+      APP_TELEMETRY_ENABLED: "false"
+      APP_HTTP_ADDR: ":8080"
+      # The web server proxies /v1 to the API, which is what makes the browser's
+      # same-origin calls reach it.
+      API_INTERNAL_URL: http://127.0.0.1:8080
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: 1.26.5
+          cache: true
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
+      - uses: ariga/setup-atlas@v0
+      - run: atlas migrate apply --dir file://database/migrations --url "$APP_DATABASE_URL"
+      - name: Start the API
+        run: |
+          go build -o /tmp/omniflow-api ./cmd/api
+          /tmp/omniflow-api > /tmp/api.log 2>&1 &
+          for _ in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:8080/livez >/dev/null 2>&1 && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8080/livez
+      - name: Seed the first operator
+        id: seed
+        run: |
+          # The API mints a one-time setup token when no administrator exists
+          # and logs it; redeeming it here is what gives the browser suite an
+          # account to sign in with.
+          TOKEN=$(grep -o '"token":"[^"]*"' /tmp/api.log | head -1 | cut -d'"' -f4)
+          if [ -z "$TOKEN" ]; then
+            echo "no setup token was logged; the API did not start clean"
+            cat /tmp/api.log
+            exit 1
+          fi
+          curl -fsS -X POST http://127.0.0.1:8080/v1/panel/bootstrap \
+            -H 'Content-Type: application/json' \
+            -d "{\"setupToken\":\"$TOKEN\",\"email\":\"e2e@omniflow.test\",\"displayName\":\"E2E Operator\",\"password\":\"e2e-operator-passphrase-2026\",\"locale\":\"en\"}"
       - run: bun ci
       # The suite runs against a production build rather than the dev server:
       # Next.js behaves differently in development, and a gate that passes
@@ -63,6 +136,12 @@ jobs:
       # and is why this job failed silently for several releases.
       - run: bun --filter @omniflow/web e2e:install
       - run: bun --filter @omniflow/web e2e
+        env:
+          PANEL_EMAIL: e2e@omniflow.test
+          PANEL_PASSWORD: e2e-operator-passphrase-2026
+      - name: The API log, when something failed
+        if: failure()
+        run: tail -100 /tmp/api.log
       - uses: actions/upload-artifact@v5
         if: failure()
         with:
