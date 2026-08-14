@@ -68,26 +68,22 @@ export default function AdminHome() {
       />
 
       {!can("system.read") ? (
-        <Card className="p-6">
-          <StateNotice
-            description={translate("home.noDashboardDescription")}
-            title={translate("home.noDashboard")}
-            variant="forbidden"
-          />
-        </Card>
+        <StateNotice
+          description={translate("home.noDashboardDescription")}
+          title={translate("home.noDashboard")}
+          variant="forbidden"
+        />
       ) : error ? (
-        <Card className="p-6">
-          <StateNotice
-            action={
-              <Button onClick={() => mutate()} size="sm" variant="outline">
-                {translate("operations.retry")}
-              </Button>
-            }
-            description={translate("operations.errorDescription")}
-            title={translate("operations.error")}
-            variant="danger"
-          />
-        </Card>
+        <StateNotice
+          action={
+            <Button onClick={() => mutate()} size="sm" variant="outline">
+              {translate("operations.retry")}
+            </Button>
+          }
+          description={translate("operations.errorDescription")}
+          title={translate("operations.error")}
+          variant="danger"
+        />
       ) : isLoading && !data ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[0, 1, 2, 3, 4, 5, 6, 7].map((slot) => (

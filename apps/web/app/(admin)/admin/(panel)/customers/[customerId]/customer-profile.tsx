@@ -54,13 +54,11 @@ export function CustomerProfileView({ customerId }: { customerId: string }) {
 
   if (error) {
     return (
-      <Card className="p-6">
-        <StateNotice
-          description={translate("notFoundDescription")}
-          title={error.status === 404 ? translate("notFound") : translate("loadFailed")}
-          variant={error.status === 404 ? "empty" : "danger"}
-        />
-      </Card>
+      <StateNotice
+        description={translate("notFoundDescription")}
+        title={error.status === 404 ? translate("notFound") : translate("loadFailed")}
+        variant={error.status === 404 ? "empty" : "danger"}
+      />
     );
   }
 
@@ -255,11 +253,7 @@ function SubscriptionList({
   }
   const items = data?.items ?? [];
   if (items.length === 0) {
-    return (
-      <Card className="p-6">
-        <StateNotice title={translate("empty.subscriptions")} variant="empty" />
-      </Card>
-    );
+    return <StateNotice title={translate("empty.subscriptions")} variant="empty" />;
   }
 
   return (
@@ -333,11 +327,7 @@ function OrderList({ active, base, locale }: { active: boolean; base: string; lo
   }
   const items = data?.items ?? [];
   if (items.length === 0) {
-    return (
-      <Card className="p-6">
-        <StateNotice title={translate("empty.orders")} variant="empty" />
-      </Card>
-    );
+    return <StateNotice title={translate("empty.orders")} variant="empty" />;
   }
 
   return (
@@ -384,11 +374,7 @@ function WalletList({ active, base, locale }: { active: boolean; base: string; l
   }
   const items = data?.items ?? [];
   if (items.length === 0) {
-    return (
-      <Card className="p-6">
-        <StateNotice title={translate("empty.wallet")} variant="empty" />
-      </Card>
-    );
+    return <StateNotice title={translate("empty.wallet")} variant="empty" />;
   }
 
   return (
@@ -440,13 +426,11 @@ function RiskList({ active, base, locale }: { active: boolean; base: string; loc
   const items = data?.items ?? [];
   if (items.length === 0) {
     return (
-      <Card className="p-6">
-        <StateNotice
-          description={translate("empty.riskDescription")}
-          title={translate("empty.risk")}
-          variant="empty"
-        />
-      </Card>
+      <StateNotice
+        description={translate("empty.riskDescription")}
+        title={translate("empty.risk")}
+        variant="empty"
+      />
     );
   }
 

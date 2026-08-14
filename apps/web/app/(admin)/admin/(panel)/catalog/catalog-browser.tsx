@@ -78,13 +78,11 @@ function Plans({ active }: { active: boolean }) {
   const items = data?.items ?? [];
   if (items.length === 0) {
     return (
-      <Card className="p-6">
-        <StateNotice
-          description={translate("empty.plansDescription")}
-          title={translate("empty.plans")}
-          variant="empty"
-        />
-      </Card>
+      <StateNotice
+        description={translate("empty.plansDescription")}
+        title={translate("empty.plans")}
+        variant="empty"
+      />
     );
   }
 
@@ -185,11 +183,7 @@ function Promotions({ active }: { active: boolean }) {
   }
   const items = data?.items ?? [];
   if (items.length === 0) {
-    return (
-      <Card className="p-6">
-        <StateNotice title={translate("empty.promotions")} variant="empty" />
-      </Card>
-    );
+    return <StateNotice title={translate("empty.promotions")} variant="empty" />;
   }
 
   return (

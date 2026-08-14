@@ -226,13 +226,11 @@ export function AuditTimeline({
   const items = data?.items ?? [];
   if (items.length === 0) {
     return (
-      <Card className="p-6">
-        <StateNotice
-          description={translate("emptyDescription")}
-          title={translate("empty")}
-          variant="empty"
-        />
-      </Card>
+      <StateNotice
+        description={translate("emptyDescription")}
+        title={translate("empty")}
+        variant="empty"
+      />
     );
   }
 

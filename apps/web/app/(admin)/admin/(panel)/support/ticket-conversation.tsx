@@ -48,11 +48,7 @@ export function TicketConversation({
   const { data: tags } = useSWR<Listing<SupportTag>, ApiError>("/v1/panel/support/tags", fetcher);
 
   if (error) {
-    return (
-      <Card className="p-6">
-        <StateNotice title={translate("loadFailed")} variant="danger" />
-      </Card>
-    );
+    return <StateNotice title={translate("loadFailed")} variant="danger" />;
   }
   if (isLoading || !data) {
     return <Skeleton className="h-96 w-full" />;

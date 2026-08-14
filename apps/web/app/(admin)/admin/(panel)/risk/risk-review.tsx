@@ -111,13 +111,11 @@ function Matches({ active }: { active: boolean }) {
   const items = data?.items ?? [];
   if (items.length === 0) {
     return (
-      <Card className="p-6">
-        <StateNotice
-          description={translate("empty.matchesDescription")}
-          title={translate("empty.matches")}
-          variant="empty"
-        />
-      </Card>
+      <StateNotice
+        description={translate("empty.matchesDescription")}
+        title={translate("empty.matches")}
+        variant="empty"
+      />
     );
   }
 
@@ -209,13 +207,11 @@ function Anomalies({ active }: { active: boolean }) {
   const items = data?.items ?? [];
   if (items.length === 0) {
     return (
-      <Card className="p-6">
-        <StateNotice
-          description={translate("empty.anomaliesDescription")}
-          title={translate("empty.anomalies")}
-          variant="empty"
-        />
-      </Card>
+      <StateNotice
+        description={translate("empty.anomaliesDescription")}
+        title={translate("empty.anomalies")}
+        variant="empty"
+      />
     );
   }
 

@@ -68,20 +68,18 @@ export function ResourceTable<Row>({
 
   if (error) {
     return (
-      <Card className="p-6">
-        <StateNotice
-          action={
-            onRetry ? (
-              <Button onClick={onRetry} size="sm" variant="outline">
-                {translate("retry")}
-              </Button>
-            ) : undefined
-          }
-          description={translate("errorDescription")}
-          title={translate("error")}
-          variant="danger"
-        />
-      </Card>
+      <StateNotice
+        action={
+          onRetry ? (
+            <Button onClick={onRetry} size="sm" variant="outline">
+              {translate("retry")}
+            </Button>
+          ) : undefined
+        }
+        description={translate("errorDescription")}
+        title={translate("error")}
+        variant="danger"
+      />
     );
   }
 
@@ -92,24 +90,22 @@ export function ResourceTable<Row>({
      * believe a working page is broken.
      */
     return (
-      <Card className="p-6">
-        <StateNotice
-          action={
-            filtersActive && onClearFilters ? (
-              <Button onClick={onClearFilters} size="sm" variant="outline">
-                {translate("clearFilters")}
-              </Button>
-            ) : undefined
-          }
-          description={
-            filtersActive
-              ? translate("noMatchesDescription")
-              : (emptyDescription ?? translate("emptyDescription"))
-          }
-          title={filtersActive ? translate("noMatches") : (emptyTitle ?? translate("empty"))}
-          variant={filtersActive ? "filtered" : "empty"}
-        />
-      </Card>
+      <StateNotice
+        action={
+          filtersActive && onClearFilters ? (
+            <Button onClick={onClearFilters} size="sm" variant="outline">
+              {translate("clearFilters")}
+            </Button>
+          ) : undefined
+        }
+        description={
+          filtersActive
+            ? translate("noMatchesDescription")
+            : (emptyDescription ?? translate("emptyDescription"))
+        }
+        title={filtersActive ? translate("noMatches") : (emptyTitle ?? translate("empty"))}
+        variant={filtersActive ? "filtered" : "empty"}
+      />
     );
   }
 

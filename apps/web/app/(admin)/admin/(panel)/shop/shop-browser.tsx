@@ -89,11 +89,7 @@ function Orders({ active }: { active: boolean }) {
   }
   const items = data?.items ?? [];
   if (items.length === 0) {
-    return (
-      <Card className="p-6">
-        <StateNotice title={translate("empty.orders")} variant="empty" />
-      </Card>
-    );
+    return <StateNotice title={translate("empty.orders")} variant="empty" />;
   }
 
   return (
@@ -175,13 +171,11 @@ function Products({ active }: { active: boolean }) {
   const items = data?.items ?? [];
   if (items.length === 0) {
     return (
-      <Card className="p-6">
-        <StateNotice
-          description={translate("empty.productsDescription")}
-          title={translate("empty.products")}
-          variant="empty"
-        />
-      </Card>
+      <StateNotice
+        description={translate("empty.productsDescription")}
+        title={translate("empty.products")}
+        variant="empty"
+      />
     );
   }
 
@@ -286,13 +280,11 @@ function Providers({ active }: { active: boolean }) {
   const items = data?.items ?? [];
   if (items.length === 0) {
     return (
-      <Card className="p-6">
-        <StateNotice
-          description={translate("empty.providersDescription")}
-          title={translate("empty.providers")}
-          variant="empty"
-        />
-      </Card>
+      <StateNotice
+        description={translate("empty.providersDescription")}
+        title={translate("empty.providers")}
+        variant="empty"
+      />
     );
   }
 

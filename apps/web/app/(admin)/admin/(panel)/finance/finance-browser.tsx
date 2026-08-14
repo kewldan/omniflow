@@ -286,13 +286,11 @@ function StuckPayments({ active }: { active: boolean }) {
   const items = data?.items ?? [];
   if (items.length === 0) {
     return (
-      <Card className="p-6">
-        <StateNotice
-          description={translate("empty.stuckDescription")}
-          title={translate("empty.stuck")}
-          variant="empty"
-        />
-      </Card>
+      <StateNotice
+        description={translate("empty.stuckDescription")}
+        title={translate("empty.stuck")}
+        variant="empty"
+      />
     );
   }
 
@@ -399,13 +397,11 @@ function FailedCharges({ active }: { active: boolean }) {
   const items = data?.items ?? [];
   if (items.length === 0) {
     return (
-      <Card className="p-6">
-        <StateNotice
-          description={translate("empty.chargesDescription")}
-          title={translate("empty.charges")}
-          variant="empty"
-        />
-      </Card>
+      <StateNotice
+        description={translate("empty.chargesDescription")}
+        title={translate("empty.charges")}
+        variant="empty"
+      />
     );
   }
 

@@ -69,13 +69,11 @@ export function ReviewQueue({ active }: { active: boolean }) {
   const items = data?.items ?? [];
   if (items.length === 0) {
     return (
-      <Card className="p-6">
-        <StateNotice
-          description={translate("empty.reviewDescription")}
-          title={translate("empty.review")}
-          variant="empty"
-        />
-      </Card>
+      <StateNotice
+        description={translate("empty.reviewDescription")}
+        title={translate("empty.review")}
+        variant="empty"
+      />
     );
   }
 

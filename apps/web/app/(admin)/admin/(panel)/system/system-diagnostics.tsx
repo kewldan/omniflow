@@ -103,13 +103,11 @@ function Jobs({ active }: { active: boolean }) {
   const items = data?.items ?? [];
   if (items.length === 0) {
     return (
-      <Card className="p-6">
-        <StateNotice
-          description={translate("empty.jobsDescription")}
-          title={translate("empty.jobs")}
-          variant="empty"
-        />
-      </Card>
+      <StateNotice
+        description={translate("empty.jobsDescription")}
+        title={translate("empty.jobs")}
+        variant="empty"
+      />
     );
   }
 
@@ -202,11 +200,7 @@ function Webhooks({ active }: { active: boolean }) {
   }
   const items = data?.items ?? [];
   if (items.length === 0) {
-    return (
-      <Card className="p-6">
-        <StateNotice title={translate("empty.webhooks")} variant="empty" />
-      </Card>
-    );
+    return <StateNotice title={translate("empty.webhooks")} variant="empty" />;
   }
 
   return (
@@ -283,13 +277,11 @@ function Drifts({ active }: { active: boolean }) {
   const items = data?.items ?? [];
   if (items.length === 0) {
     return (
-      <Card className="p-6">
-        <StateNotice
-          description={translate("empty.driftDescription")}
-          title={translate("empty.drift")}
-          variant="empty"
-        />
-      </Card>
+      <StateNotice
+        description={translate("empty.driftDescription")}
+        title={translate("empty.drift")}
+        variant="empty"
+      />
     );
   }
 
@@ -334,13 +326,11 @@ function Outbox({ active }: { active: boolean }) {
   const items = data?.items ?? [];
   if (items.length === 0) {
     return (
-      <Card className="p-6">
-        <StateNotice
-          description={translate("empty.outboxDescription")}
-          title={translate("empty.outbox")}
-          variant="empty"
-        />
-      </Card>
+      <StateNotice
+        description={translate("empty.outboxDescription")}
+        title={translate("empty.outbox")}
+        variant="empty"
+      />
     );
   }
 

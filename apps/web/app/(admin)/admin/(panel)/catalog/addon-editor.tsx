@@ -68,13 +68,11 @@ export function Addons({ active }: { active: boolean }) {
         />
       )}
       {items.length === 0 ? (
-        <Card className="p-6">
-          <StateNotice
-            description={translate("empty.description")}
-            title={translate("empty.title")}
-            variant="empty"
-          />
-        </Card>
+        <StateNotice
+          description={translate("empty.description")}
+          title={translate("empty.title")}
+          variant="empty"
+        />
       ) : (
         <Card className="flex flex-col gap-2 p-4">
           {items.map((addon) => (

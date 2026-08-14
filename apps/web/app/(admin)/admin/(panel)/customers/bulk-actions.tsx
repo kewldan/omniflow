@@ -87,13 +87,11 @@ export function BulkActions() {
       {isLoading ? (
         <Skeleton className="h-32 w-full" />
       ) : items.length === 0 ? (
-        <Card className="p-6">
-          <StateNotice
-            description={translate("empty.description")}
-            title={translate("empty.title")}
-            variant="empty"
-          />
-        </Card>
+        <StateNotice
+          description={translate("empty.description")}
+          title={translate("empty.title")}
+          variant="empty"
+        />
       ) : (
         items.map((operation) => (
           <Card className="flex flex-col gap-3 p-4" key={operation.id}>

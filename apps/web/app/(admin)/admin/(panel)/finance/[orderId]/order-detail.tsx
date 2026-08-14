@@ -87,14 +87,10 @@ export function OrderDetailView({ orderId }: { orderId: string }) {
 
   if (error) {
     return (
-      <Card className="p-6">
-        <StateNotice
-          title={
-            error.status === 404 ? translate("detail.notFound") : translate("detail.loadFailed")
-          }
-          variant={error.status === 404 ? "empty" : "danger"}
-        />
-      </Card>
+      <StateNotice
+        title={error.status === 404 ? translate("detail.notFound") : translate("detail.loadFailed")}
+        variant={error.status === 404 ? "empty" : "danger"}
+      />
     );
   }
   if (isLoading || !data) {
@@ -185,9 +181,7 @@ export function OrderDetailView({ orderId }: { orderId: string }) {
           {translate("detail.intents")}
         </h2>
         {(data.intents ?? []).length === 0 ? (
-          <Card className="p-6">
-            <StateNotice title={translate("detail.noIntents")} variant="empty" />
-          </Card>
+          <StateNotice title={translate("detail.noIntents")} variant="empty" />
         ) : (
           (data.intents ?? []).map((intent) => (
             <Card className="flex flex-col gap-3 p-4" key={intent.id}>

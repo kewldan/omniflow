@@ -139,13 +139,11 @@ function Queue({ active }: { active: boolean }) {
           {isLoading ? (
             <Skeleton className="h-64 w-full" />
           ) : tickets.length === 0 ? (
-            <Card className="p-6">
-              <StateNotice
-                description={translate("empty.description")}
-                title={translate("empty.title")}
-                variant="empty"
-              />
-            </Card>
+            <StateNotice
+              description={translate("empty.description")}
+              title={translate("empty.title")}
+              variant="empty"
+            />
           ) : (
             tickets.map((ticket) => (
               <Card
@@ -198,11 +196,12 @@ function Queue({ active }: { active: boolean }) {
             queues={queues?.items ?? []}
             ticketId={filters.ticketId}
           />
-        ) : (
-          <Card className="p-6">
-            <StateNotice title={translate("selectTicket")} variant="empty" />
-          </Card>
-        )}
+        ) : tickets.length > 0 ? (
+          <StateNotice title={translate("selectTicket")} variant="empty" />
+        ) : // Nothing to select, so nothing is offered. Asking an operator to
+        // pick a ticket beside a list that says there are none is two empty
+        // states side by side, each contradicting the other's suggestion.
+        null}
       </div>
     </div>
   );
