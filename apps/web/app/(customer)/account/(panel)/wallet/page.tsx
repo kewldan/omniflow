@@ -8,8 +8,6 @@ import { toast } from "@omniflow/ui/toast";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWRInfinite from "swr/infinite";
-
-import { useSubmission } from "@/components/account/commerce/idempotency";
 import { PaymentHandoff } from "@/components/account/commerce/order-status";
 import { useProblemMessage } from "@/components/account/commerce/reasons";
 import type {
@@ -22,6 +20,7 @@ import type {
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
 import { type ApiError, apiFetch, fetcher, toQuery } from "@/lib/api";
 import { currencyExponent, useMoney } from "@/lib/format";
+import { useSubmission } from "@/lib/idempotency";
 
 /** The ledger movements this build has copy for, from `ledger_transactions.type`. */
 const ENTRY_TYPES = [

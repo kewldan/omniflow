@@ -12,6 +12,7 @@ import useSWR from "swr";
 
 import { StateNotice } from "@/components/admin/state-notice";
 import { type ApiError, fetcher } from "@/lib/api";
+import { useSubmission } from "@/lib/idempotency";
 import { type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 
@@ -308,6 +309,7 @@ function ReplyBox({ onSent, ticketId }: { onSent: () => void; ticketId: string }
   const [note, setNote] = useState("");
   const [cannedId, setCannedId] = useState("");
   const { run, pending, error } = useOperatorAction();
+  const reply = useSubmission();
 
   const { data: canned } = useSWR<Listing<CannedResponse>, ApiError>(
     "/v1/panel/support/canned",
@@ -350,9 +352,13 @@ function ReplyBox({ onSent, ticketId }: { onSent: () => void; ticketId: string }
         <Button
           disabled={pending || body.trim().length === 0}
           onClick={async () => {
+            // The key is required by the API and is the message's dedupe key:
+            // a double-clicked send reaches the reply that already exists
+            // rather than answering the customer twice.
             const ok = await run(`/v1/panel/support/tickets/${ticketId}/reply`, {
               body: { body: body.trim(), cannedResponseId: cannedId || undefined },
               method: "POST",
+              submission: reply,
             });
             if (ok) {
               setBody("");

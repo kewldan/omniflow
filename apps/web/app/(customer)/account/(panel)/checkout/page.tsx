@@ -11,8 +11,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
-
-import { useSubmission } from "@/components/account/commerce/idempotency";
 import { OPERATIONS, usePeriodLabel } from "@/components/account/commerce/plan-card";
 import { QuoteBreakdown } from "@/components/account/commerce/quote-breakdown";
 import { useProblemMessage, usePromoRejection } from "@/components/account/commerce/reasons";
@@ -22,6 +20,7 @@ import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/
 import { apiFetch } from "@/lib/api";
 import { attachAttribution } from "@/lib/attach-attribution";
 import { useBytes, useDuration, useMoney } from "@/lib/format";
+import { useSubmission } from "@/lib/idempotency";
 
 /** The payment methods this build has copy for; anything else keeps its code. */
 const PROVIDERS = ["telegram_stars", "cryptobot", "yookassa", "manual"];

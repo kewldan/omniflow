@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 
 import { ApiError, apiFetch } from "./api";
+import type { Submission } from "./idempotency";
 
 /**
  * Shapes returned by the /v1/panel operations endpoints.
@@ -911,27 +912,47 @@ export function useOperatorAction() {
   const run = useCallback(
     async (
       path: string,
-      options: { method: string; body?: unknown; reason?: string; idempotencyKey?: string } = {
+      options: {
+        method: string;
+        body?: unknown;
+        reason?: string;
+        idempotencyKey?: string;
+        /**
+         * A submission whose key this request carries, and whose lifecycle the
+         * hook manages: retired when the server answered, kept when it did not.
+         *
+         * Handled here rather than at each call site because the rule is easy
+         * to get wrong in both directions and there is no reason for two
+         * screens to encode it separately. See `lib/idempotency.ts`.
+         */
+        submission?: Submission;
+      } = {
         method: "POST",
       },
     ): Promise<boolean> => {
       setPending(true);
       setError(null);
+      const key = options.idempotencyKey ?? options.submission?.begin();
       try {
         const headers: Record<string, string> = {};
         if (options.reason) {
           headers["X-Operator-Reason"] = options.reason;
         }
-        if (options.idempotencyKey) {
-          headers["Idempotency-Key"] = options.idempotencyKey;
+        if (key) {
+          headers["Idempotency-Key"] = key;
         }
         await apiFetch(path, {
           method: options.method,
           headers,
           body: options.body === undefined ? undefined : JSON.stringify(options.body),
         });
+        options.submission?.settle();
         return true;
       } catch (caught) {
+        // A refusal the server produced ends the submission; a transport
+        // failure does not, because the request may well have been processed
+        // and the retry has to be able to find what it produced.
+        options.submission?.settle(caught);
         setError(caught instanceof ApiError ? caught : new ApiError(0, null));
         return false;
       } finally {

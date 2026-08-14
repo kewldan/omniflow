@@ -9,8 +9,6 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR from "swr";
-
-import { useSubmission } from "@/components/account/commerce/idempotency";
 import {
   FulfillmentNote,
   knownPhase,
@@ -25,6 +23,7 @@ import { useProblemMessage } from "@/components/account/commerce/reasons";
 import type { OrderSummary, PaymentHandle } from "@/components/account/commerce/types";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
+import { useSubmission } from "@/lib/idempotency";
 
 /** Phases that are still moving, and so are worth re-reading on a timer. */
 const LIVE_PHASES = ["pending", "awaiting_action", "succeeded", "provisioning"];

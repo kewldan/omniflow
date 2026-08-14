@@ -8,9 +8,16 @@ import { ApiError } from "@/lib/api";
  * One idempotency key per submission, held across every retry of it.
  *
  * The API requires an `Idempotency-Key` on confirming a checkout, starting a
- * payment, and topping up a wallet, and those are precisely the three requests
- * where sending two of them must not produce two orders. The key is what makes a
- * repeat resolve to the record that already exists.
+ * payment, topping up a wallet, replying to a support ticket, and previewing a
+ * bulk action. Those are the requests where sending two must not produce two
+ * outcomes — two orders, two answers to the same customer, two bulk previews.
+ * The key is what makes a repeat resolve to the record that already exists.
+ *
+ * It lives here rather than beside the checkout because both panels need it. It
+ * did live beside the checkout, and the operator panel consequently sent no key
+ * at all: replying to a ticket and previewing a bulk action answered 422 every
+ * time, on every installation, because the button that would have carried the
+ * key was written where the hook was not in view.
  *
  * The rule this encodes is when the key changes, which is the part that is easy
  * to get wrong in both directions:
@@ -45,8 +52,8 @@ export type Submission = {
 /**
  * Generates a key.
  *
- * `crypto.randomUUID` is the right source and is present in every browser this
- * panel supports over HTTPS, but it is undefined on an insecure origin — which
+ * `crypto.randomUUID` is the right source and is present in every browser these
+ * panels support over HTTPS, but it is undefined on an insecure origin — which
  * is exactly what a self-hosted installation looks like the first time an
  * operator opens it over plain HTTP on a LAN. Falling back to random bytes keeps
  * a purchase possible there rather than throwing inside the confirm handler.

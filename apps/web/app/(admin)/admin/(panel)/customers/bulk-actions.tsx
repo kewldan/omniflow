@@ -12,6 +12,7 @@ import useSWR from "swr";
 
 import { StateNotice } from "@/components/admin/state-notice";
 import { type ApiError, fetcher } from "@/lib/api";
+import { useSubmission } from "@/lib/idempotency";
 import { type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 
@@ -227,6 +228,7 @@ function BulkComposer({ onPreviewed }: { onPreviewed: () => void }) {
   const [currency, setCurrency] = useState("RUB");
   const [reason, setReason] = useState("");
   const { run, pending, error } = useOperatorAction();
+  const preview = useSubmission();
 
   const identifiers = targets
     .split(/[\s,]+/)
@@ -334,6 +336,9 @@ function BulkComposer({ onPreviewed }: { onPreviewed: () => void }) {
               },
               method: "POST",
               reason: reason.trim(),
+              // Required by the API, and it is what makes a resubmitted form
+              // return the preview it already created rather than a second one.
+              submission: preview,
             });
             if (ok) {
               setTargets("");
