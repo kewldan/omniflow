@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.1.0](https://github.com/kewldan/omniflow/compare/omniflow-v1.0.1...omniflow-v1.1.0) (2026-08-14)
+
+
+### Features
+
+* **security:** draw the enrolment QR, and say how good a password is ([f9c3be4](https://github.com/kewldan/omniflow/commit/f9c3be439ee6f92d5de22fe7dd8f3d6ee9c65a31))
+* **ui:** chart the three revenue figures nobody may add together ([8379585](https://github.com/kewldan/omniflow/commit/8379585aab962906e6449072c72d0e646a855ea5))
+* **ui:** pick dates and options with the design system, not the browser's ([f666f22](https://github.com/kewldan/omniflow/commit/f666f2238abb37602402dfa1cc5f2059a38f0584))
+
+
+### Bug Fixes
+
+* **release:** call the image workflow instead of waiting for a tag event ([434fffe](https://github.com/kewldan/omniflow/commit/434fffe3d639624de62ebfbf80f2d0f0c5e05fed))
+* **test:** drop the assertion for a field the payload no longer carries ([9439cb3](https://github.com/kewldan/omniflow/commit/9439cb359bf892ad64888df3dff260651dd394bf))
+* **web:** stop framing the empty state twice ([0ba3423](https://github.com/kewldan/omniflow/commit/0ba342345b97a33c848949802c510f3cd6b88406))
+
 ## [1.0.1](https://github.com/kewldan/omniflow/compare/omniflow-v1.0.0...omniflow-v1.0.1) (2026-08-13)
 
 
