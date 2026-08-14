@@ -1885,6 +1885,41 @@ export interface Branding {
   assets: BrandingAssets;
 }
 
+export interface PanelConnectPlatform {
+  /** Lowercase key. Immutable once created; renaming means creating another. */
+  slug: string;
+  labelEn: string;
+  labelRu: string;
+  /** A platform that is not offered disappears from both customer surfaces. */
+  enabled: boolean;
+  sortOrder: number;
+  updatedAt: string;
+  updatedBy?: string;
+}
+
+export interface PanelConnectClient {
+  /** Absent creates, present updates. */
+  id?: string;
+  platform: string;
+  name: string;
+  /** Concatenated with the subscription link to build the deep link. Validated against an allowlist before storage. */
+  scheme: string;
+  /** https only. */
+  downloadUrl?: string;
+  /** Replaces the generic setup steps for this platform when present. */
+  instructionsEn?: string;
+  instructionsRu?: string;
+  enabled: boolean;
+  sortOrder: number;
+  updatedAt: string;
+  updatedBy?: string;
+}
+
+export interface PanelConnectCatalogue {
+  platforms: PanelConnectPlatform[];
+  clients: PanelConnectClient[];
+}
+
 export interface PanelCommerceSettings {
   topUp: PanelTopUpSettings;
   subscriptions: PanelSubscriptionSettings;
@@ -2774,15 +2809,25 @@ export interface AccountOverview {
   degraded: boolean;
 }
 
+export type AccountConnectionPlatformsItem = {
+  slug: string;
+  label: string;
+};
+
 export type AccountConnectionClientsItem = {
   name: string;
+  /** Empty when the subscription has no link yet. */
   deepLink: string;
+  downloadUrl?: string;
+  /** The operator's own words, replacing the generic setup steps when present. */
+  instructions?: string;
 };
 
 export interface AccountConnection {
   subscriptionUrl: string;
   platform: string;
-  platforms: string[];
+  /** The platforms this installation documents, with labels already resolved to the customer's language. They are text rather than keys because the catalogue is operator-editable, and somebody adding a platform from the panel cannot add a message to a compiled catalogue. */
+  platforms: AccountConnectionPlatformsItem[];
   clients: AccountConnectionClientsItem[];
 }
 
@@ -4315,6 +4360,14 @@ export type DeletePanelBrandingAsset200 = {
   removed?: boolean;
 };
 
+export type DeletePanelConnectPlatform200 = {
+  removed?: boolean;
+};
+
+export type DeletePanelConnectClient200 = {
+  removed?: boolean;
+};
+
 export type SearchPanelBlocklistMatchesParams = {
   /**
    * Opaque keyset cursor from the previous page.
@@ -4533,19 +4586,11 @@ export type RenameAccountSubscriptionBody = {
 };
 
 export type GetAccountConnectionParams = {
-  platform?: GetAccountConnectionPlatform;
+  /**
+   * A platform key from the catalogue. An unknown one falls back to the first documented platform rather than erroring, so a stale bookmark still works.
+   */
+  platform?: string;
 };
-
-export type GetAccountConnectionPlatform =
-  (typeof GetAccountConnectionPlatform)[keyof typeof GetAccountConnectionPlatform];
-
-export const GetAccountConnectionPlatform = {
-  ios: "ios",
-  android: "android",
-  windows: "windows",
-  macos: "macos",
-  linux: "linux",
-} as const;
 
 export type RotateAccountSubscriptionLinkBody = {
   confirm: boolean;
@@ -15159,6 +15204,442 @@ export const useDeletePanelBrandingAsset = <TError = Promise<ProblemResponse>>(
   };
 };
 
+export type getPanelConnectCatalogueResponse200 = {
+  data: PanelConnectCatalogue;
+  status: 200;
+};
+
+export type getPanelConnectCatalogueResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelConnectCatalogueResponseSuccess = getPanelConnectCatalogueResponse200 & {
+  headers: Headers;
+};
+export type getPanelConnectCatalogueResponseError = getPanelConnectCatalogueResponse403 & {
+  headers: Headers;
+};
+
+export type getPanelConnectCatalogueResponse =
+  | getPanelConnectCatalogueResponseSuccess
+  | getPanelConnectCatalogueResponseError;
+
+export const getGetPanelConnectCatalogueUrl = () => {
+  return `/v1/panel/settings/connect`;
+};
+
+/**
+ * Requires settings.read. Every platform and every recommended application, including the ones an operator has switched off — a disabled row is what somebody came to this screen to turn back on. The customer surfaces read only the enabled ones.
+ */
+export const getPanelConnectCatalogue = async (
+  options?: RequestInit,
+): Promise<getPanelConnectCatalogueResponse> => {
+  const res = await fetch(getGetPanelConnectCatalogueUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelConnectCatalogueResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelConnectCatalogueResponse;
+};
+
+export const getGetPanelConnectCatalogueKey = () => [`/v1/panel/settings/connect`] as const;
+
+export type GetPanelConnectCatalogueQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelConnectCatalogue>>
+>;
+
+export const useGetPanelConnectCatalogue = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelConnectCatalogue>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelConnectCatalogueKey() : null));
+  const swrFn = () => getPanelConnectCatalogue(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelConnectPlatformResponse200 = {
+  data: PanelConnectPlatform;
+  status: 200;
+};
+
+export type savePanelConnectPlatformResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelConnectPlatformResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelConnectPlatformResponseSuccess = savePanelConnectPlatformResponse200 & {
+  headers: Headers;
+};
+export type savePanelConnectPlatformResponseError = (
+  | savePanelConnectPlatformResponse403
+  | savePanelConnectPlatformResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelConnectPlatformResponse =
+  | savePanelConnectPlatformResponseSuccess
+  | savePanelConnectPlatformResponseError;
+
+export const getSavePanelConnectPlatformUrl = () => {
+  return `/v1/panel/settings/connect/platforms`;
+};
+
+/**
+ * Requires settings.write. Creates or updates a platform. A missing Russian label is stored as the English one rather than left to render as a gap.
+ */
+export const savePanelConnectPlatform = async (
+  panelConnectPlatform: PanelConnectPlatform,
+  options?: RequestInit,
+): Promise<savePanelConnectPlatformResponse> => {
+  const res = await fetch(getSavePanelConnectPlatformUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(panelConnectPlatform),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelConnectPlatformResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as savePanelConnectPlatformResponse;
+};
+
+export const getSavePanelConnectPlatformMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PanelConnectPlatform }) => {
+    return savePanelConnectPlatform(arg, options);
+  };
+};
+export const getSavePanelConnectPlatformMutationKey = () =>
+  [`/v1/panel/settings/connect/platforms`] as const;
+
+export type SavePanelConnectPlatformMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelConnectPlatform>>
+>;
+
+export const useSavePanelConnectPlatform = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof savePanelConnectPlatform>>,
+    TError,
+    Key,
+    PanelConnectPlatform,
+    Awaited<ReturnType<typeof savePanelConnectPlatform>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelConnectPlatformMutationKey();
+  const swrFn = getSavePanelConnectPlatformMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type deletePanelConnectPlatformResponse200 = {
+  data: DeletePanelConnectPlatform200;
+  status: 200;
+};
+
+export type deletePanelConnectPlatformResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type deletePanelConnectPlatformResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type deletePanelConnectPlatformResponseSuccess = deletePanelConnectPlatformResponse200 & {
+  headers: Headers;
+};
+export type deletePanelConnectPlatformResponseError = (
+  | deletePanelConnectPlatformResponse403
+  | deletePanelConnectPlatformResponse404
+) & {
+  headers: Headers;
+};
+
+export type deletePanelConnectPlatformResponse =
+  | deletePanelConnectPlatformResponseSuccess
+  | deletePanelConnectPlatformResponseError;
+
+export const getDeletePanelConnectPlatformUrl = (slug: string) => {
+  return `/v1/panel/settings/connect/platforms/${slug}`;
+};
+
+/**
+ * Requires settings.write. Deletes the platform and, by cascade, every application documented for it. Disabling it instead keeps the entries.
+ */
+export const deletePanelConnectPlatform = async (
+  slug: string,
+  options?: RequestInit,
+): Promise<deletePanelConnectPlatformResponse> => {
+  const res = await fetch(getDeletePanelConnectPlatformUrl(slug), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: deletePanelConnectPlatformResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as deletePanelConnectPlatformResponse;
+};
+
+export const getDeletePanelConnectPlatformMutationFetcher = (
+  slug: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return deletePanelConnectPlatform(slug, options);
+  };
+};
+export const getDeletePanelConnectPlatformMutationKey = (slug: string) =>
+  [`/v1/panel/settings/connect/platforms/${slug}`] as const;
+
+export type DeletePanelConnectPlatformMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deletePanelConnectPlatform>>
+>;
+
+export const useDeletePanelConnectPlatform = <TError = Promise<ProblemResponse>>(
+  slug: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof deletePanelConnectPlatform>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof deletePanelConnectPlatform>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getDeletePanelConnectPlatformMutationKey(slug);
+  const swrFn = getDeletePanelConnectPlatformMutationFetcher(slug, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelConnectClientResponse200 = {
+  data: PanelConnectClient;
+  status: 200;
+};
+
+export type savePanelConnectClientResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelConnectClientResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type savePanelConnectClientResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelConnectClientResponseSuccess = savePanelConnectClientResponse200 & {
+  headers: Headers;
+};
+export type savePanelConnectClientResponseError = (
+  | savePanelConnectClientResponse403
+  | savePanelConnectClientResponse409
+  | savePanelConnectClientResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelConnectClientResponse =
+  | savePanelConnectClientResponseSuccess
+  | savePanelConnectClientResponseError;
+
+export const getSavePanelConnectClientUrl = () => {
+  return `/v1/panel/settings/connect/clients`;
+};
+
+/**
+ * Requires settings.write. Creates when `id` is absent and updates when it is present. The import scheme is refused unless it matches a scheme followed by `://` and a conservative path, and never when it names javascript, data, vbscript, or file — the value is concatenated with the subscription link and rendered as the href of an anchor on a page that holds a session cookie. A download address must be https.
+ */
+export const savePanelConnectClient = async (
+  panelConnectClient: PanelConnectClient,
+  options?: RequestInit,
+): Promise<savePanelConnectClientResponse> => {
+  const res = await fetch(getSavePanelConnectClientUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(panelConnectClient),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelConnectClientResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as savePanelConnectClientResponse;
+};
+
+export const getSavePanelConnectClientMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PanelConnectClient }) => {
+    return savePanelConnectClient(arg, options);
+  };
+};
+export const getSavePanelConnectClientMutationKey = () =>
+  [`/v1/panel/settings/connect/clients`] as const;
+
+export type SavePanelConnectClientMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelConnectClient>>
+>;
+
+export const useSavePanelConnectClient = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof savePanelConnectClient>>,
+    TError,
+    Key,
+    PanelConnectClient,
+    Awaited<ReturnType<typeof savePanelConnectClient>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelConnectClientMutationKey();
+  const swrFn = getSavePanelConnectClientMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type deletePanelConnectClientResponse200 = {
+  data: DeletePanelConnectClient200;
+  status: 200;
+};
+
+export type deletePanelConnectClientResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type deletePanelConnectClientResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type deletePanelConnectClientResponseSuccess = deletePanelConnectClientResponse200 & {
+  headers: Headers;
+};
+export type deletePanelConnectClientResponseError = (
+  | deletePanelConnectClientResponse403
+  | deletePanelConnectClientResponse404
+) & {
+  headers: Headers;
+};
+
+export type deletePanelConnectClientResponse =
+  | deletePanelConnectClientResponseSuccess
+  | deletePanelConnectClientResponseError;
+
+export const getDeletePanelConnectClientUrl = (clientID: string) => {
+  return `/v1/panel/settings/connect/clients/${clientID}`;
+};
+
+/**
+ * Requires settings.write.
+ */
+export const deletePanelConnectClient = async (
+  clientID: string,
+  options?: RequestInit,
+): Promise<deletePanelConnectClientResponse> => {
+  const res = await fetch(getDeletePanelConnectClientUrl(clientID), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: deletePanelConnectClientResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as deletePanelConnectClientResponse;
+};
+
+export const getDeletePanelConnectClientMutationFetcher = (
+  clientID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return deletePanelConnectClient(clientID, options);
+  };
+};
+export const getDeletePanelConnectClientMutationKey = (clientID: string) =>
+  [`/v1/panel/settings/connect/clients/${clientID}`] as const;
+
+export type DeletePanelConnectClientMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deletePanelConnectClient>>
+>;
+
+export const useDeletePanelConnectClient = <TError = Promise<ProblemResponse>>(
+  clientID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof deletePanelConnectClient>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof deletePanelConnectClient>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getDeletePanelConnectClientMutationKey(clientID);
+  const swrFn = getDeletePanelConnectClientMutationFetcher(clientID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
 export type listPanelProviderSettingsResponse200 = {
   data: PanelProviderSettingsList;
   status: 200;
@@ -19935,7 +20416,7 @@ export const getGetAccountConnectionUrl = (
 };
 
 /**
- * The access link plus the documented clients for one platform. The client list is the same one the bot renders, so the two surfaces cannot recommend different applications.
+ * The access link plus the documented clients for one platform. The catalogue is the operator's own and is read through one query that the bot reads too, so the two surfaces cannot recommend different applications.
  */
 export const getAccountConnection = async (
   subscriptionID: string,

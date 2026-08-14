@@ -646,7 +646,7 @@ func (app *App) loadCustomerView(ctx context.Context, telegramID int64, locale L
 			app.logger.Error("Remnawave subscription lookup failed", "error", subscriptionErr)
 			return app.errorView(session.Locale, routeConnect)
 		}
-		return connectPlatformsView(session.Locale, subscription)
+		return app.connectPlatformsScreen(ctx, session.Locale, subscription)
 	}
 	menu := app.menuState(ctx, session.Customer.ID, session.Locale)
 	if session.Customer.RemnawaveID <= 0 {

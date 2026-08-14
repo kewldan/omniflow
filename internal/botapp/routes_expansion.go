@@ -365,7 +365,7 @@ func (app *App) subscriptionRemnawaveView(ctx context.Context, session commerceC
 			app.logger.Error("Remnawave subscription lookup failed", "error", lookupErr)
 			return app.errorView(session.Locale, routeSubscriptions)
 		}
-		return connectPlatformsView(session.Locale, result)
+		return app.connectPlatformsScreen(ctx, session.Locale, result)
 	case "devices":
 		user, userErr := app.remnawave.User(ctx, subscription.RemnawaveID)
 		if userErr != nil {

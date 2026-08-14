@@ -1477,6 +1477,75 @@ paths:
         "200": {description: Removed, content: {application/json: {schema: {type: object, properties: {removed: {type: boolean}}}}}}
         "403": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/connect:
+    get:
+      operationId: getPanelConnectCatalogue
+      tags: [panel]
+      description: >-
+        Requires settings.read. Every platform and every recommended application,
+        including the ones an operator has switched off — a disabled row is what
+        somebody came to this screen to turn back on. The customer surfaces read
+        only the enabled ones.
+      responses:
+        "200": {description: Connection guidance, content: {application/json: {schema: {$ref: "#/components/schemas/PanelConnectCatalogue"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/connect/platforms:
+    put:
+      operationId: savePanelConnectPlatform
+      tags: [panel]
+      description: >-
+        Requires settings.write. Creates or updates a platform. A missing Russian
+        label is stored as the English one rather than left to render as a gap.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelConnectPlatform"}}}}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelConnectPlatform"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/connect/platforms/{slug}:
+    delete:
+      operationId: deletePanelConnectPlatform
+      tags: [panel]
+      description: >-
+        Requires settings.write. Deletes the platform and, by cascade, every
+        application documented for it. Disabling it instead keeps the entries.
+      parameters:
+        - {in: path, name: slug, required: true, schema: {type: string}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "200": {description: Removed, content: {application/json: {schema: {type: object, properties: {removed: {type: boolean}}}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/connect/clients:
+    put:
+      operationId: savePanelConnectClient
+      tags: [panel]
+      description: >-
+        Requires settings.write. Creates when `id` is absent and updates when it
+        is present. The import scheme is refused unless it matches a scheme
+        followed by `://` and a conservative path, and never when it names
+        javascript, data, vbscript, or file — the value is concatenated with the
+        subscription link and rendered as the href of an anchor on a page that
+        holds a session cookie. A download address must be https.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelConnectClient"}}}}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelConnectClient"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/connect/clients/{clientID}:
+    delete:
+      operationId: deletePanelConnectClient
+      tags: [panel]
+      description: Requires settings.write.
+      parameters:
+        - {in: path, name: clientID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "200": {description: Removed, content: {application/json: {schema: {type: object, properties: {removed: {type: boolean}}}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
   /v1/panel/settings/providers:
     get:
       operationId: listPanelProviderSettings
@@ -2209,12 +2278,13 @@ paths:
       operationId: getAccountConnection
       tags: [account]
       description: >-
-        The access link plus the documented clients for one platform. The client
-        list is the same one the bot renders, so the two surfaces cannot
-        recommend different applications.
+        The access link plus the documented clients for one platform. The
+        catalogue is the operator's own and is read through one query that the
+        bot reads too, so the two surfaces cannot recommend different
+        applications.
       parameters:
         - {$ref: "#/components/parameters/AccountSubscriptionID"}
-        - {in: query, name: platform, schema: {type: string, enum: [ios, android, windows, macos, linux]}}
+        - {in: query, name: platform, schema: {type: string}, description: "A platform key from the catalogue. An unknown one falls back to the first documented platform rather than erroring, so a stale bookmark still works."}
       responses:
         "200": {description: Connection details, content: {application/json: {schema: {$ref: "#/components/schemas/AccountConnection"}}}}
         "404": {$ref: "#/components/responses/Problem"}
@@ -4224,6 +4294,38 @@ components:
           type: object
           description: "Slot name to an address carrying the image checksum. A slot with no image is absent."
           additionalProperties: {type: string}
+    PanelConnectPlatform:
+      type: object
+      required: [slug, labelEn, labelRu, enabled, sortOrder, updatedAt]
+      properties:
+        slug: {type: string, description: "Lowercase key. Immutable once created; renaming means creating another."}
+        labelEn: {type: string}
+        labelRu: {type: string}
+        enabled: {type: boolean, description: "A platform that is not offered disappears from both customer surfaces."}
+        sortOrder: {type: integer}
+        updatedAt: {type: string, format: date-time}
+        updatedBy: {type: string, format: uuid}
+    PanelConnectClient:
+      type: object
+      required: [platform, name, scheme, enabled, sortOrder, updatedAt]
+      properties:
+        id: {type: string, format: uuid, description: "Absent creates, present updates."}
+        platform: {type: string}
+        name: {type: string}
+        scheme: {type: string, description: "Concatenated with the subscription link to build the deep link. Validated against an allowlist before storage."}
+        downloadUrl: {type: string, description: "https only."}
+        instructionsEn: {type: string, description: "Replaces the generic setup steps for this platform when present."}
+        instructionsRu: {type: string}
+        enabled: {type: boolean}
+        sortOrder: {type: integer}
+        updatedAt: {type: string, format: date-time}
+        updatedBy: {type: string, format: uuid}
+    PanelConnectCatalogue:
+      type: object
+      required: [platforms, clients]
+      properties:
+        platforms: {type: array, items: {$ref: "#/components/schemas/PanelConnectPlatform"}}
+        clients: {type: array, items: {$ref: "#/components/schemas/PanelConnectClient"}}
     PanelCommerceSettings:
       type: object
       required: [topUp, subscriptions, updatedAt]
@@ -4797,7 +4899,19 @@ components:
       properties:
         subscriptionUrl: {type: string}
         platform: {type: string}
-        platforms: {type: array, items: {type: string}}
+        platforms:
+          type: array
+          description: >-
+            The platforms this installation documents, with labels already
+            resolved to the customer's language. They are text rather than keys
+            because the catalogue is operator-editable, and somebody adding a
+            platform from the panel cannot add a message to a compiled catalogue.
+          items:
+            type: object
+            required: [slug, label]
+            properties:
+              slug: {type: string}
+              label: {type: string}
         clients:
           type: array
           items:
@@ -4805,7 +4919,9 @@ components:
             required: [name, deepLink]
             properties:
               name: {type: string}
-              deepLink: {type: string}
+              deepLink: {type: string, description: "Empty when the subscription has no link yet."}
+              downloadUrl: {type: string}
+              instructions: {type: string, description: "The operator's own words, replacing the generic setup steps when present."}
     AccountDeviceList:
       type: object
       required: [items]

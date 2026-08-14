@@ -286,6 +286,8 @@ type Querier interface {
 	DeleteBlocklistSource(ctx context.Context, id pgtype.UUID) error
 	DeleteBrandingAsset(ctx context.Context, kind string) (int64, error)
 	DeleteCartAddon(ctx context.Context, arg DeleteCartAddonParams) error
+	DeleteConnectClient(ctx context.Context, id pgtype.UUID) (int64, error)
+	DeleteConnectPlatform(ctx context.Context, slug string) (int64, error)
 	DeleteCustomerOIDCProvider(ctx context.Context, slug string) (int64, error)
 	// ---------------------------------------------------------------------------
 	// Retention and cleanup
@@ -629,6 +631,8 @@ type Querier interface {
 	// Warned customers whose grace has run out.
 	ListChannelEnforcementDue(ctx context.Context, pageSize int32) ([]ListChannelEnforcementDueRow, error)
 	ListChannelExemptions(ctx context.Context, pageSize int32) ([]ListChannelExemptionsRow, error)
+	ListConnectClients(ctx context.Context) ([]ConnectClient, error)
+	ListConnectPlatforms(ctx context.Context) ([]ConnectPlatform, error)
 	ListContactChannels(ctx context.Context, userID pgtype.UUID) ([]ListContactChannelsRow, error)
 	ListCustomerConsents(ctx context.Context, userID pgtype.UUID) ([]ConsentRecord, error)
 	ListCustomerIdentities(ctx context.Context, userID pgtype.UUID) ([]Identity, error)
@@ -682,6 +686,14 @@ type Querier interface {
 	ListDunningAttemptsForCustomer(ctx context.Context, arg ListDunningAttemptsForCustomerParams) ([]DunningAttempt, error)
 	ListEnabledAdminOIDCProviders(ctx context.Context) ([]AdminOidcProvider, error)
 	ListEnabledChannels(ctx context.Context) ([]RequiredChannel, error)
+	ListEnabledConnectClients(ctx context.Context, platformSlug string) ([]ListEnabledConnectClientsRow, error)
+	// Connection guidance.
+	//
+	// The customer-facing reads select only enabled rows, so disabling a platform
+	// or a client removes it from the bot and the browser at the same moment. The
+	// operator reads select everything, because a disabled row is exactly what an
+	// operator came to the screen to re-enable.
+	ListEnabledConnectPlatforms(ctx context.Context) ([]ListEnabledConnectPlatformsRow, error)
 	ListEnabledCustomerOIDCProviders(ctx context.Context) ([]CustomerOidcProvider, error)
 	// What an installation actually exposes: enabled tools on enabled servers whose
 	// schema this build can enforce.
@@ -1263,6 +1275,11 @@ type Querier interface {
 	// Cart and deferred purchase
 	// ---------------------------------------------------------------------------
 	UpsertCart(ctx context.Context, arg UpsertCartParams) (Cart, error)
+	// The identifier is optional: absent creates, present updates. The pairing of
+	// platform and name is unique, so a rename that collides is refused by the
+	// table rather than silently producing two rows the screen shows twice.
+	UpsertConnectClient(ctx context.Context, arg UpsertConnectClientParams) (ConnectClient, error)
+	UpsertConnectPlatform(ctx context.Context, arg UpsertConnectPlatformParams) (ConnectPlatform, error)
 	UpsertCustomerImportItem(ctx context.Context, arg UpsertCustomerImportItemParams) (CustomerImportItem, error)
 	// The client secret is only overwritten when a new one is supplied, so saving
 	// the form without retyping it does not blank the stored credential.

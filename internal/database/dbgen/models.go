@@ -630,6 +630,31 @@ type CommunicationSuppression struct {
 	CreatedBy pgtype.UUID        `json:"created_by"`
 }
 
+// Operator-editable connection guidance. Read by the bot and the customer web panel from one place so they cannot recommend different applications.
+type ConnectClient struct {
+	ID             pgtype.UUID        `json:"id"`
+	PlatformSlug   string             `json:"platform_slug"`
+	Name           string             `json:"name"`
+	Scheme         string             `json:"scheme"`
+	DownloadUrl    pgtype.Text        `json:"download_url"`
+	InstructionsEn pgtype.Text        `json:"instructions_en"`
+	InstructionsRu pgtype.Text        `json:"instructions_ru"`
+	Enabled        bool               `json:"enabled"`
+	SortOrder      int32              `json:"sort_order"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy      pgtype.UUID        `json:"updated_by"`
+}
+
+type ConnectPlatform struct {
+	Slug      string             `json:"slug"`
+	LabelEn   string             `json:"label_en"`
+	LabelRu   string             `json:"label_ru"`
+	Enabled   bool               `json:"enabled"`
+	SortOrder int32              `json:"sort_order"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy pgtype.UUID        `json:"updated_by"`
+}
+
 type ConsentRecord struct {
 	ID            pgtype.UUID        `json:"id"`
 	UserID        pgtype.UUID        `json:"user_id"`

@@ -1,0 +1,120 @@
+---
+title: Connection catalogue
+description: The platforms and client applications an installation recommends, edited from the panel, read by the bot and the browser from the same rows
+---
+
+`/admin/settings/connect` is where an installation decides what its customers
+are told to install: which platforms to offer, which application to recommend
+first on each, where to get it, and what the setup steps say.
+
+This used to be a table compiled into the Go binary. The property that made that
+worth doing is the one thing not to lose: the Telegram bot and the customer web
+panel read the same guidance, so nobody can be told to install one application
+in a chat and a different one in a browser. That property is now kept by both
+surfaces reading one query rather than by both linking one constant — and adding
+a client no longer needs a release.
+
+<Note>
+  Upgrading changes nothing. The migration seeds exactly the five platforms and
+  eleven entries that were compiled in, in the order they were recommended, with
+  the labels the bot's own catalogue used. An installation that never opens this
+  screen recommends today what it recommended yesterday.
+</Note>
+
+## Platforms
+
+A platform is what a customer picks from first. Each has a key, a label in
+English and Russian, an order, and a switch.
+
+The labels are stored rather than resolved from a message catalogue, because an
+operator adding a platform has no way to add a translation key to a compiled
+one. A missing Russian label is stored as the English one rather than left to
+render as a gap.
+
+**Turning a platform off removes it from both surfaces**, including from a link
+that names it directly — so a stale bookmark falls back to the first platform
+that is offered rather than reaching guidance that was withdrawn. It stays on
+the operator's own screen, because turning it back on is what somebody opens
+this page to do.
+
+Deleting a platform deletes every application documented under it. That is why
+deleting confirms and the switch beside it does not.
+
+## Applications
+
+Each entry names an application, the scheme that imports a subscription into it,
+and optionally a download address and setup instructions.
+
+| Field | Rule |
+| --- | --- |
+| Application | The name shown on the button and in the steps. Unique per platform. |
+| Import scheme | Must look like `happ://add/`. See below. |
+| Download address | `https://` only, or empty. |
+| Instructions | Optional, per language. Replaces the generic steps. |
+| Order | Lowest first. The **first** entry is the one the setup steps name. |
+
+A deep link is the scheme with the subscription URL appended and nothing else:
+`happ://add/https://panel.example.com/sub/…`. There is no redirect in between.
+
+Instructions **replace** the generic three steps rather than adding to them.
+Somebody who wrote their own setup knows something the generic copy does not, and
+showing both would leave a customer choosing between two accounts of the same
+thing.
+
+## The import scheme is a security boundary
+
+This value is concatenated with the subscription link and rendered as the `href`
+of an anchor in the customer web panel — the same origin that holds the session
+cookie. It is the one field on this screen where a mistake is not a cosmetic
+one.
+
+It must match a scheme name, `://`, and a conservative path alphabet, and it may
+never name `javascript`, `data`, `vbscript`, or `file`. `javascript:` in an
+`href` executes; the other three are the neighbours it travels with.
+
+Both rules are enforced twice: in Go, so an operator gets a message naming the
+field, and as a constraint on the table, so a script writing directly to the
+database is refused too. The download address is https-only for a related
+reason — it is a link handed to somebody about to install software on their own
+device.
+
+## What a customer sees
+
+**In the browser.** A row of platform buttons carrying the operator's own
+labels, the setup steps or the operator's instructions, one button per
+application, a second smaller button where a download address exists, then the
+QR code and the copyable link.
+
+**In the bot.** The same platforms as inline buttons, the same steps or
+instructions, one copy-text button per application — Telegram inline buttons
+accept only `http`, `https`, and `tg` URLs, so an import scheme travels as
+copyable text — and an ordinary link button for a download address, which is
+https and therefore may be one.
+
+**With nothing configured.** Both surfaces say so and still offer the
+subscription link, because copying the link into any compatible client is the
+thing that actually has to work.
+
+## Permissions and audit
+
+Reading needs `settings.read`; every change needs `settings.write`. Saves and
+deletions audit as `connect.platform.saved`, `connect.platform.deleted`,
+`connect.client.saved`, and `connect.client.deleted` under the `configuration`
+category.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Connecting a device" icon="mobile-screen" href="/customer/connection">
+    What a customer does with this guidance, and how the link travels.
+  </Card>
+  <Card title="Installation settings" icon="sliders" href="/operations/installation-settings">
+    The other settings areas and how a section is saved.
+  </Card>
+  <Card title="White-label appearance" icon="palette" href="/operations/branding">
+    The other half of making an installation look and read as its own.
+  </Card>
+  <Card title="Admin panel" icon="shield-halved" href="/operations/admin-panel">
+    Roles, permissions, and the audit trail behind this screen.
+  </Card>
+</CardGroup>

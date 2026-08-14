@@ -14,8 +14,15 @@ import (
 // ConnectionClient is one documented client application with the link that
 // imports this subscription into it.
 type ConnectionClient struct {
-	Name     string
+	Name string
+	// DeepLink is empty when the subscription has no link yet, so the screen
+	// renders no button rather than a broken one.
 	DeepLink string
+	// DownloadURL is where to get the application, when the operator said.
+	DownloadURL string
+	// Instructions are the operator's own words for this client, in the
+	// customer's language. Empty means the generic steps.
+	Instructions string
 }
 
 // Connection is everything the "connect a device" screen needs.
@@ -27,40 +34,42 @@ type ConnectionClient struct {
 type Connection struct {
 	SubscriptionURL string
 	Platform        string
-	Platforms       []string
+	Platforms       []commerce.ConnectPlatform
 	Clients         []ConnectionClient
 }
 
 // Connection builds the connection instructions for one platform.
 //
-// The client list comes from internal/commerce, which is the same table the bot
-// renders from. That is deliberate: a customer who reads one recommendation in
-// the chat and a different one in the browser has been handed two products.
+// The catalogue is read through internal/connectpg, which is the same query the
+// bot reads. That is deliberate: a customer who reads one recommendation in the
+// chat and a different one in the browser has been handed two products.
+//
+// The platform label comes back resolved to the customer's language rather than
+// as a key, because an operator who adds a platform has no way to add a message
+// to a compiled catalogue.
 func (service *Service) Connection(
-	ctx context.Context, customerID, subscriptionID, platform string,
+	ctx context.Context, customerID, subscriptionID, platform, locale string,
 ) (Connection, error) {
 	subscription, err := service.SubscriptionURL(ctx, customerID, subscriptionID)
 	if err != nil {
 		return Connection{}, err
 	}
 
-	platforms := commerce.ConnectPlatforms()
-	platform = strings.ToLower(strings.TrimSpace(platform))
-	clients := commerce.ClientsForPlatform(platform)
-	if len(clients) == 0 {
-		platform = platforms[0]
-		clients = commerce.ClientsForPlatform(platform)
+	chosen, platforms, clients, err := service.connect.Resolve(ctx, platform, locale)
+	if err != nil {
+		return Connection{}, err
 	}
 
 	connection := Connection{
 		SubscriptionURL: subscription.SubscriptionURL,
-		Platform:        platform,
+		Platform:        chosen,
 		Platforms:       platforms,
 		Clients:         make([]ConnectionClient, 0, len(clients)),
 	}
 	for _, client := range clients {
 		connection.Clients = append(connection.Clients, ConnectionClient{
 			Name: client.Name, DeepLink: client.DeepLink(subscription.SubscriptionURL),
+			DownloadURL: client.DownloadURL, Instructions: client.Instructions,
 		})
 	}
 	return connection, nil

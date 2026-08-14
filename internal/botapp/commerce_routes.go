@@ -696,7 +696,7 @@ func (app *App) connectPlatform(ctx context.Context, session commerceContext, pl
 		app.logger.Warn("subscription lookup failed", "error", err)
 		return app.errorView(session.Locale, routeConnect)
 	}
-	return connectPlatformView(session.Locale, platform, subscription)
+	return app.connectPlatformScreen(ctx, session.Locale, platform, subscription)
 }
 
 func (app *App) setAutoRenew(ctx context.Context, session commerceContext, enabled bool) View {

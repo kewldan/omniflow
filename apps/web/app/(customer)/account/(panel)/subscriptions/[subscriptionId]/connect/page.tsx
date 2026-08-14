@@ -16,8 +16,21 @@ import { type ApiError, fetcher } from "@/lib/api";
 type Connection = {
   subscriptionUrl: string;
   platform: string;
-  platforms: string[];
-  clients: { name: string; deepLink: string }[];
+  /**
+   * The platforms this installation documents, with their labels already
+   * resolved to the customer's language.
+   *
+   * They arrive as text rather than as message keys because the catalogue is
+   * operator-editable: somebody who adds a platform from the panel cannot add a
+   * key to a compiled catalogue. The same is true of a client's instructions.
+   */
+  platforms: { slug: string; label: string }[];
+  clients: {
+    name: string;
+    deepLink: string;
+    downloadUrl?: string;
+    instructions?: string;
+  }[];
 };
 
 /**
@@ -77,51 +90,98 @@ export default function ConnectPage() {
         <legend className="sr-only">{translate("connect.platform")}</legend>
         {data.platforms.map((option) => (
           <Button
-            aria-pressed={option === data.platform}
+            aria-pressed={option.slug === data.platform}
             className="rounded-full"
-            key={option}
-            onClick={() => setPlatform(option)}
+            key={option.slug}
+            onClick={() => setPlatform(option.slug)}
             size="sm"
-            variant={option === data.platform ? "secondary" : "outline"}
+            variant={option.slug === data.platform ? "secondary" : "outline"}
           >
-            {translate(`connect.platforms.${option}`)}
+            {option.label}
           </Button>
         ))}
       </fieldset>
 
-      <ol className="space-y-3 rounded-xl border border-border bg-card p-4">
-        {[1, 2, 3].map((step) => (
-          <li className="flex items-start gap-3" key={step}>
-            <span
-              aria-hidden
-              className="flex size-[21px] shrink-0 items-center justify-center rounded-full bg-muted font-mono font-semibold text-[10.5px] text-muted-foreground"
-            >
-              {step}
-            </span>
-            <span className="text-[13.5px] leading-snug">
-              {translate(`connect.step${step}`, { app: data.clients[0]?.name ?? "" })}
-            </span>
-          </li>
-        ))}
-      </ol>
+      <Steps instructions={data.clients[0]?.instructions} name={data.clients[0]?.name ?? ""} />
 
-      <SectionLabel>{translate("connect.openIn")}</SectionLabel>
-      <div className="space-y-2">
-        {data.clients.map((client) => (
-          <Button asChild className="w-full justify-between" key={client.name} size="lg">
-            {/* Deep links leave the page for an application, so they are ordinary
-                anchors rather than router navigations. */}
-            <a href={client.deepLink} rel="noreferrer">
-              {translate("connect.openWith", { app: client.name })}
-              <ExternalLink aria-hidden />
-            </a>
-          </Button>
-        ))}
-      </div>
+      {data.clients.length === 0 ? (
+        <AccountNotice
+          description={translate("connect.noClientsDescription")}
+          title={translate("connect.noClients")}
+          variant="offline"
+        />
+      ) : (
+        <>
+          <SectionLabel>{translate("connect.openIn")}</SectionLabel>
+          <div className="space-y-2">
+            {data.clients.map((client) => (
+              <div className="space-y-1" key={client.name}>
+                <Button asChild className="w-full justify-between" size="lg">
+                  {/* Deep links leave the page for an application, so they are
+                      ordinary anchors rather than router navigations. The scheme
+                      is validated by the API against an allowlist before it is
+                      ever stored — see internal/commerce. */}
+                  <a href={client.deepLink} rel="noreferrer">
+                    {translate("connect.openWith", { app: client.name })}
+                    <ExternalLink aria-hidden />
+                  </a>
+                </Button>
+                {client.downloadUrl ? (
+                  <Button asChild className="w-full justify-between" size="sm" variant="ghost">
+                    <a href={client.downloadUrl} rel="noreferrer noopener" target="_blank">
+                      {translate("connect.download", { app: client.name })}
+                      <ExternalLink aria-hidden />
+                    </a>
+                  </Button>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       <QrPanel value={data.subscriptionUrl} />
       <CopyLink value={data.subscriptionUrl} />
     </div>
+  );
+}
+
+/**
+ * The setup steps.
+ *
+ * An operator who has written their own instructions for this client replaces
+ * the generic three steps rather than appending to them: somebody who took the
+ * trouble to describe their own setup knows something the generic copy does not,
+ * and showing both would leave a customer choosing between two accounts of the
+ * same thing.
+ */
+function Steps({ instructions, name }: { instructions?: string; name: string }) {
+  const translate = useTranslations("account");
+
+  if (instructions?.trim()) {
+    return (
+      <div className="whitespace-pre-line rounded-xl border border-border bg-card p-4 text-[13.5px] leading-snug">
+        {instructions}
+      </div>
+    );
+  }
+
+  return (
+    <ol className="space-y-3 rounded-xl border border-border bg-card p-4">
+      {[1, 2, 3].map((step) => (
+        <li className="flex items-start gap-3" key={step}>
+          <span
+            aria-hidden
+            className="flex size-[21px] shrink-0 items-center justify-center rounded-full bg-muted font-mono font-semibold text-[10.5px] text-muted-foreground"
+          >
+            {step}
+          </span>
+          <span className="text-[13.5px] leading-snug">
+            {translate(`connect.step${step}`, { app: name })}
+          </span>
+        </li>
+      ))}
+    </ol>
   );
 }
 

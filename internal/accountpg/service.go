@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/omniflow/omniflow/internal/connectpg"
 	"github.com/omniflow/omniflow/internal/remnawave"
 )
 
@@ -84,6 +85,11 @@ type Service struct {
 	security  SecurityRecorder
 	logger    *slog.Logger
 	clock     func() time.Time
+	// connect reads the operator's connection guidance. It is built from the
+	// same pool rather than passed in, because the alternative is a caller that
+	// can construct this service without one — and a connect screen with no
+	// catalogue behind it is a screen with no buttons.
+	connect *connectpg.Catalogue
 }
 
 // Options configures a Service.
@@ -103,6 +109,7 @@ func New(pool *pgxpool.Pool, client *remnawave.Client, options Options) (*Servic
 	service := &Service{
 		pool: pool, remnawave: client,
 		security: options.Security, logger: options.Logger, clock: options.Clock,
+		connect: connectpg.New(pool),
 	}
 	if service.logger == nil {
 		service.logger = slog.Default()

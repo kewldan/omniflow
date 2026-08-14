@@ -445,6 +445,45 @@ export type BrandingAssets = {
   maxBytes: number;
 };
 
+/**
+ * The connection guidance an installation gives its customers.
+ *
+ * The same rows are read by the Telegram bot and by the customer web panel, so
+ * a change here changes both — which is the property this catalogue exists to
+ * keep. The labels are stored per locale rather than resolved from a message
+ * catalogue, because an operator who adds a platform has no way to add a key to
+ * a compiled one.
+ */
+export type ConnectPlatform = {
+  slug: string;
+  labelEn: string;
+  labelRu: string;
+  enabled: boolean;
+  sortOrder: number;
+  updatedAt: string;
+  updatedBy?: string;
+};
+
+export type ConnectClient = {
+  id?: string;
+  platform: string;
+  name: string;
+  /** Concatenated with the subscription link. Validated by the API, not here. */
+  scheme: string;
+  downloadUrl?: string;
+  instructionsEn?: string;
+  instructionsRu?: string;
+  enabled: boolean;
+  sortOrder: number;
+  updatedAt: string;
+  updatedBy?: string;
+};
+
+export type ConnectCatalogue = {
+  platforms: ConnectPlatform[];
+  clients: ConnectClient[];
+};
+
 export type Page<Item> = { items: Item[] | null; nextCursor?: string };
 export type Listing<Item> = { items: Item[] | null };
 

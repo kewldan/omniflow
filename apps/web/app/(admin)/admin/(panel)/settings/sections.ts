@@ -38,7 +38,7 @@ export type SectionField = {
 export type SettingsGroupKey = "commerce" | "integrations" | "operations" | "brand";
 
 export type SettingsGroup = {
-  key: SettingsGroupKey | "signIn" | "ai";
+  key: SettingsGroupKey | "signIn" | "ai" | "connect";
   href: string;
   /** The permission the route itself requires. */
   permission: string;
@@ -49,6 +49,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
   { key: "integrations", href: "/admin/settings/integrations", permission: "settings.read" },
   { key: "operations", href: "/admin/settings/operations", permission: "settings.read" },
   { key: "brand", href: "/admin/settings/brand", permission: "settings.read" },
+  { key: "connect", href: "/admin/settings/connect", permission: "settings.read" },
   { key: "signIn", href: "/admin/settings/sign-in", permission: "settings.read" },
   { key: "ai", href: "/admin/settings/ai", permission: "settings.read" },
 ];

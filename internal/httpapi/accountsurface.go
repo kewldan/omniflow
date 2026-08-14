@@ -347,16 +347,22 @@ func (handlers *AccountHandlers) connection(writer http.ResponseWriter, request 
 		return
 	}
 	principal, _ := CustomerFrom(request.Context())
+	// The catalogue is operator-editable, so a platform label and a client's
+	// instructions come back resolved to the customer's language rather than as
+	// keys: nothing an operator types can be added to a compiled catalogue.
 	connection, err := handlers.account.Connection(
 		request.Context(), principal.Customer.ID, chi.URLParam(request, "subscriptionID"),
-		trimmedQuery(request, "platform"),
+		trimmedQuery(request, "platform"), principal.Customer.Locale,
 	)
 	if handlers.writeAccountError(writer, request, err) {
 		return
 	}
 	clients := make([]map[string]any, 0, len(connection.Clients))
 	for _, client := range connection.Clients {
-		clients = append(clients, map[string]any{"name": client.Name, "deepLink": client.DeepLink})
+		clients = append(clients, map[string]any{
+			"name": client.Name, "deepLink": client.DeepLink,
+			"downloadUrl": client.DownloadURL, "instructions": client.Instructions,
+		})
 	}
 	writeJSON(writer, http.StatusOK, map[string]any{
 		"subscriptionUrl": connection.SubscriptionURL,

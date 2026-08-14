@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/remnawave"
 )
 
@@ -135,6 +136,21 @@ func (store *fakeIdentityStore) Referral(context.Context, int64) (string, int64,
 	return "ABCDEFGHIJ", 0, nil
 }
 func (store *fakeIdentityStore) AttributeReferral(context.Context, int64, string) error { return nil }
+
+// The connection catalogue. The fake documents one platform with one client, so
+// a view test exercises the shape a real installation has rather than the empty
+// case, which has its own test.
+func (store *fakeIdentityStore) ConnectPlatforms(
+	context.Context, string,
+) ([]commerce.ConnectPlatform, error) {
+	return []commerce.ConnectPlatform{{Slug: "ios", Label: "iOS"}}, nil
+}
+
+func (store *fakeIdentityStore) ConnectClients(
+	context.Context, string, string,
+) ([]commerce.ClientApp, error) {
+	return []commerce.ClientApp{{Name: "Happ", Scheme: "happ://add/"}}, nil
+}
 
 type fakeRemnawave struct {
 	telegramUser remnawave.User

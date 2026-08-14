@@ -87,6 +87,42 @@
         }
       }
     },
+    "connect": {
+      "title": "Connection guidance",
+      "description": "The platforms and applications this installation recommends. The Telegram bot and the customer web panel read the same rows, so a change here changes both.",
+      "save": "Save",
+      "saved": "Saved",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "enabled": "Offered",
+      "order": "Order",
+      "platformRemoved": "Platform removed",
+      "clientRemoved": "Application removed",
+      "platforms": {
+        "title": "Platforms",
+        "description": "What a customer picks from first. A platform that is not offered disappears from both surfaces rather than being shown greyed out.",
+        "slug": "Key",
+        "labelEn": "Label (English)",
+        "labelRu": "Label (Russian)",
+        "add": "Add a platform",
+        "empty": "No platforms are offered, so neither surface can recommend anything. The subscription link is still copyable.",
+        "deleteTitle": "Delete {platform}?",
+        "deleteWarning": "Every application documented for this platform is deleted with it. Turning it off instead keeps the entries and hides the platform."
+      },
+      "clients": {
+        "description": "Recommended in this order. The first one names the application in the setup steps.",
+        "name": "Application",
+        "scheme": "Import scheme",
+        "schemeHint": "Ends up in a link, so it must look like happ://add/. javascript, data, vbscript, and file are refused.",
+        "download": "Download address",
+        "downloadHint": "https only. Shown as a second button beside the import link.",
+        "instructionsEn": "Instructions (English)",
+        "instructionsRu": "Instructions (Russian)",
+        "instructionsHint": "Optional. Yours replace the generic three steps for this platform rather than being added to them.",
+        "add": "Add an application",
+        "empty": "No application is documented for this platform yet."
+      }
+    },
     "navigation": {
       "label": "Admin navigation",
       "open": "Open navigation",
@@ -1941,6 +1977,10 @@
         "ai": {
           "title": "AI and MCP",
           "description": "Model providers, per-feature enablement, budgets, and the tool connections an assistant may reach."
+        },
+        "connect": {
+          "title": "Connection guidance",
+          "description": "The platforms and applications customers are told to install, shared by the bot and the browser."
         }
       }
     }
@@ -2052,13 +2092,6 @@
     },
     "connect": {
       "platform": "Platform",
-      "platforms": {
-        "ios": "iOS",
-        "android": "Android",
-        "windows": "Windows",
-        "macos": "macOS",
-        "linux": "Linux"
-      },
       "step1": "Install {app} on the device you want to connect.",
       "step2": "Tap the button below — the subscription is added for you.",
       "step3": "If nothing opens, copy the link and paste it into the app.",
@@ -2071,7 +2104,10 @@
       "qrAlt": "QR code for this subscription link",
       "qrHint": "Point another device's camera at this code to add the subscription there.",
       "provisioning": "Still being set up",
-      "provisioningDescription": "Your subscription is being prepared. This screen works as soon as it is ready."
+      "provisioningDescription": "Your subscription is being prepared. This screen works as soon as it is ready.",
+      "noClients": "No application is recommended yet",
+      "noClientsDescription": "Copy the subscription link below and import it into any compatible client.",
+      "download": "Get {app}"
     },
     "profile": {
       "signedIn": "Signed in with",

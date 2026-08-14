@@ -1559,12 +1559,36 @@ below this section are directions; these are specific absences.
       alone would have left every theme control on both surfaces rendered,
       pressable, and inert. The allowed set is published to the client and both
       controls disappear instead.
-- [ ] Operator-editable client application catalogue — the connect screen renders
-      a client table compiled into `internal/commerce`, which both customer
-      surfaces read so that the chat and the browser cannot recommend different
-      applications. The single source is the property worth keeping; the cost is
-      that adding a client, a platform, or a per-platform instruction needs a
-      release. See [`docs/customer/connection.mdx`](./docs/customer/connection.mdx).
+- [x] Operator-editable client application catalogue — done, and documented at
+      [`operations/connection-catalogue`](./docs/operations/connection-catalogue.mdx).
+      `connect_platforms` and `connect_clients` replace the compiled table;
+      `/admin/settings/connect` edits them, and an operator can add a client, add
+      a platform, give a client a download address, or write their own setup
+      instructions per platform and per language without a release.
+
+      The single source survived the move, and that is the whole point: it used
+      to be guaranteed by both surfaces linking one constant and is now
+      guaranteed by both reading one query through `internal/connectpg`. Disabling
+      a platform removes it from the chat and the browser at once, including from
+      a link that names it directly, because the predicate is in the query rather
+      than in one caller. An integration test asserts that; another asserts the
+      seed reproduces the eleven entries and five platforms the binary carried, in
+      the order it recommended them and with the labels the bot's own catalogue
+      used, so an upgrade is a no-op for anybody who never opens the screen.
+
+      One field became a security boundary in the move. The import scheme is
+      concatenated with the subscription link and rendered as the `href` of an
+      anchor on the origin that holds the session cookie, so it is checked against
+      a pattern and against a denylist of `javascript`, `data`, `vbscript`, and
+      `file` — in Go so an operator gets a message naming the field, and in the
+      table so a script writing directly is refused too. A download address is
+      https-only for the neighbouring reason.
+
+      Two smaller consequences, both improvements. Platform labels moved out of
+      the bot's compiled message catalogue into stored per-locale columns, because
+      an operator adding a platform cannot add a translation key. And an
+      operator's own instructions replace the generic three steps rather than
+      appending to them, on both surfaces.
 
 ### Reporting and growth measurement
 

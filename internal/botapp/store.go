@@ -11,6 +11,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/omniflow/omniflow/internal/commerce"
+	"github.com/omniflow/omniflow/internal/connectpg"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 )
 
@@ -38,6 +40,13 @@ type Store interface {
 	SubmitSupport(context.Context, int64, int, string) error
 	Referral(context.Context, int64) (string, int64, error)
 	AttributeReferral(context.Context, int64, string) error
+
+	// The connection catalogue. It is on this interface rather than on the
+	// optional commerce store because the connect screen predates commerce: a
+	// bot running only the v0.2 self-service surface still tells a customer
+	// which application to install.
+	ConnectPlatforms(ctx context.Context, locale string) ([]commerce.ConnectPlatform, error)
+	ConnectClients(ctx context.Context, platform, locale string) ([]commerce.ClientApp, error)
 }
 
 func (store *PostgresStore) Link(ctx context.Context, telegramID, remnawaveID int64) (int64, error) {
@@ -54,6 +63,24 @@ func (store *PostgresStore) Link(ctx context.Context, telegramID, remnawaveID in
 type PostgresStore struct {
 	pool    *pgxpool.Pool
 	queries *dbgen.Queries
+	// connect is the operator's connection guidance, read through the same
+	// package the customer web panel reads it through so the two surfaces
+	// cannot recommend different applications.
+	connect *connectpg.Catalogue
+}
+
+// ConnectPlatforms lists the platforms this installation documents.
+func (store *PostgresStore) ConnectPlatforms(
+	ctx context.Context, locale string,
+) ([]commerce.ConnectPlatform, error) {
+	return store.connect.Platforms(ctx, locale)
+}
+
+// ConnectClients lists the applications documented for one platform.
+func (store *PostgresStore) ConnectClients(
+	ctx context.Context, platform, locale string,
+) ([]commerce.ClientApp, error) {
+	return store.connect.Clients(ctx, platform, locale)
 }
 
 func NewPostgresStore(ctx context.Context, databaseURL string) (*PostgresStore, error) {
@@ -68,7 +95,9 @@ func NewPostgresStore(ctx context.Context, databaseURL string) (*PostgresStore, 
 		pool.Close()
 		return nil, fmt.Errorf("ping bot database: %w", err)
 	}
-	return &PostgresStore{pool: pool, queries: dbgen.New(pool)}, nil
+	return &PostgresStore{
+		pool: pool, queries: dbgen.New(pool), connect: connectpg.New(pool),
+	}, nil
 }
 
 func (store *PostgresStore) Close() {

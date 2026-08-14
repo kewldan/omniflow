@@ -33,50 +33,72 @@ func TestDeviceHandleIsStableAndDistinct(t *testing.T) {
 	}
 }
 
-func TestClientsForPlatformIsShared(t *testing.T) {
-	platforms := ConnectPlatforms()
-	if len(platforms) == 0 {
-		t.Fatal("no platforms are documented")
-	}
-	for _, platform := range platforms {
-		clients := ClientsForPlatform(platform)
-		if len(clients) == 0 {
-			t.Fatalf("platform %q documents no client", platform)
-		}
-		for _, client := range clients {
-			if client.Name == "" || client.Scheme == "" {
-				t.Fatalf("platform %q has an incomplete client entry", platform)
-			}
-			link := client.DeepLink("https://example.test/sub/abc")
-			if !strings.HasPrefix(link, client.Scheme) {
-				t.Fatalf("deep link %q does not use the client's scheme", link)
-			}
-		}
-	}
-}
-
-func TestClientsForPlatformIsCaseInsensitiveAndSafe(t *testing.T) {
-	if len(ClientsForPlatform("  IOS ")) == 0 {
-		t.Fatal("a platform with different casing was not recognised")
-	}
-	if ClientsForPlatform("symbian") != nil {
-		t.Fatal("an undocumented platform returned clients")
-	}
-}
-
 func TestDeepLinkIsEmptyWithoutASubscriptionURL(t *testing.T) {
 	// A subscription that is not provisioned yet has no link, and building
 	// "happ://add/" out of nothing would hand the customer a broken button.
-	clients := ClientsForPlatform("ios")
-	if got := clients[0].DeepLink(""); got != "" {
+	client := ClientApp{Name: "Happ", Scheme: "happ://add/"}
+	if got := client.DeepLink(""); got != "" {
 		t.Fatalf("deep link = %q, want empty", got)
+	}
+	if got := client.DeepLink("https://example.test/sub/abc"); !strings.HasPrefix(got, client.Scheme) {
+		t.Fatalf("deep link %q does not use the client's scheme", got)
 	}
 }
 
-func TestClientsForPlatformReturnsACopy(t *testing.T) {
-	first := ClientsForPlatform("ios")
-	first[0].Name = "mutated"
-	if ClientsForPlatform("ios")[0].Name == "mutated" {
-		t.Fatal("a caller mutated the shared client table")
+// The scheme is now operator-supplied, and it ends up in the href of an anchor
+// in the customer web panel. This is the test that stands between an operator
+// and stored cross-site scripting on a page that holds a session cookie.
+func TestValidateClientSchemeRefusesAnythingThatIsNotAnImportScheme(t *testing.T) {
+	for _, scheme := range []string{
+		"happ://add/", "v2raytun://import/", "hiddify://import/",
+		"streisand://import/", "clash://install-config/",
+	} {
+		if err := ValidateClientScheme(scheme); err != nil {
+			t.Errorf("a real import scheme was refused: %q: %v", scheme, err)
+		}
+	}
+
+	for _, scheme := range []string{
+		"", "happ", "happ:add/", "//add/",
+		// The four that execute or read local state. javascript: in an href
+		// runs; the others are the neighbours it travels with.
+		"javascript://alert(1)", "JavaScript://x", "data://text/html,x",
+		"vbscript://x", "file:///etc/passwd",
+		// A scheme that closes the attribute and opens another one.
+		`happ://add/" onclick="alert(1)`,
+		"happ://add/><script>alert(1)</script>",
+		// Whitespace, which a browser strips before parsing a URL.
+		"java\tscript://x", "happ://add/ x",
+	} {
+		if err := ValidateClientScheme(scheme); err == nil {
+			t.Errorf("%q was accepted as an import scheme", scheme)
+		}
+	}
+}
+
+func TestValidateDownloadURLRequiresHTTPS(t *testing.T) {
+	// Absent is fine: an operator who has not said where to get the application
+	// has not made a mistake.
+	if err := ValidateDownloadURL(""); err != nil {
+		t.Errorf("an empty download address was refused: %v", err)
+	}
+	if err := ValidateDownloadURL("https://apps.example.test/happ"); err != nil {
+		t.Errorf("an https address was refused: %v", err)
+	}
+	for _, address := range []string{
+		"http://apps.example.test/happ",
+		"javascript:alert(1)",
+		"//apps.example.test/happ",
+		"https://apps.example.test/a b",
+	} {
+		if err := ValidateDownloadURL(address); err == nil {
+			t.Errorf("%q was accepted as a download address", address)
+		}
+	}
+}
+
+func TestNormaliseClientSchemeIsCaseInsensitive(t *testing.T) {
+	if got := NormaliseClientScheme("  HAPP://Add/ "); got != "happ://add/" {
+		t.Fatalf("normalised to %q", got)
 	}
 }

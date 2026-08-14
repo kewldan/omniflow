@@ -140,7 +140,14 @@ func TestOrderStatusViewMentionsDelayedConfirmation(t *testing.T) {
 func TestConnectViewOffersDeepLinksAndAManualFallback(t *testing.T) {
 	t.Parallel()
 	subscription := remnawave.Subscription{Found: true, SubscriptionURL: "https://sub.example/secret"}
-	view := connectPlatformView(LocaleEnglish, "ios", subscription)
+	view := connectPlatformView(
+		LocaleEnglish, "ios", subscription, "iOS",
+		[]commerce.ClientApp{
+			{Name: "Happ", Scheme: "happ://add/", DownloadURL: "https://apps.example.test/happ"},
+			{Name: "Streisand", Scheme: "streisand://import/"},
+		},
+		[]commerce.ConnectPlatform{{Slug: "ios", Label: "iOS"}},
+	)
 	copyButtons := 0
 	for _, buttonRow := range view.Keyboard.InlineKeyboard {
 		for _, button := range buttonRow {
@@ -162,7 +169,11 @@ func TestConnectViewOffersDeepLinksAndAManualFallback(t *testing.T) {
 
 func TestConnectViewWithoutASubscriptionExplainsItself(t *testing.T) {
 	t.Parallel()
-	view := connectPlatformView(LocaleRussian, "android", remnawave.Subscription{})
+	view := connectPlatformView(
+		LocaleRussian, "android", remnawave.Subscription{}, "Android",
+		[]commerce.ClientApp{{Name: "Happ", Scheme: "happ://add/"}},
+		[]commerce.ConnectPlatform{{Slug: "android", Label: "Android"}},
+	)
 	if !strings.Contains(view.Text, "появится после активации") {
 		t.Fatalf("a customer without access must be told why: %s", view.Text)
 	}

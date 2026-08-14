@@ -99,10 +99,14 @@ Every bot screen is sent as protected content, so Telegram will not let a messag
 carrying a subscription link be forwarded. The full Telegram flow is described in
 [the Telegram bot](/customer/telegram-bot).
 
-## The clients Omniflow documents
+## The clients an installation documents
 
-The table is compiled in and identical on both surfaces. Order is recommendation
-order: the first entry is the application the setup steps name.
+The catalogue is stored rather than compiled in, and both surfaces read the same
+rows — so the bot and the browser cannot recommend different applications. It is
+edited at [`/admin/settings/connect`](/operations/connection-catalogue). Order is
+recommendation order: the first entry is the application the setup steps name.
+
+A fresh installation is seeded with exactly what earlier versions had built in:
 
 | Platform | Clients, in order | Import scheme |
 | --- | --- | --- |
@@ -117,8 +121,14 @@ A deep link is the scheme with the subscription URL appended, and nothing else �
 between, so a client that supports its scheme imports the subscription without
 any part of Omniflow observing that it happened.
 
+An operator may also give a client a download address and write their own setup
+instructions per platform and per language. Instructions replace the generic
+three steps rather than being added to them: somebody who described their own
+setup knows something the generic copy does not, and showing both would leave a
+customer choosing between two accounts of the same thing.
+
 <Note>
-  The list is deliberately short. These are the clients this installation
+  The seeded list is deliberately short. These are the clients the installation
   documents and supports, not every client that can read a subscription link — a
   customer using something else can still paste the link into it, but the steps
   on screen will not describe their application.

@@ -154,6 +154,13 @@ func TestTheNewSurfacesAreInsideTheAuthenticatedGroup(t *testing.T) {
 		{http.MethodGet, "/v1/panel/settings/theme/assets"},
 		{http.MethodPut, "/v1/panel/settings/theme/assets/logo_light"},
 		{http.MethodDelete, "/v1/panel/settings/theme/assets/logo_light"},
+		// The connection catalogue decides what a customer is told to install
+		// on their own device, which makes an ungated write here a way to
+		// recommend somebody else's software to every customer at once.
+		{http.MethodGet, "/v1/panel/settings/connect"},
+		{http.MethodPut, "/v1/panel/settings/connect/platforms"},
+		{http.MethodDelete, "/v1/panel/settings/connect/platforms/ios"},
+		{http.MethodPut, "/v1/panel/settings/connect/clients"},
 	} {
 		recorder := httptest.NewRecorder()
 		router.(http.Handler).ServeHTTP(

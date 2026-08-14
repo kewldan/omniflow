@@ -3121,33 +3121,6 @@ func (e GetAccountSubscriptionParamsLocale) Valid() bool {
 	}
 }
 
-// Defines values for GetAccountConnectionParamsPlatform.
-const (
-	Android GetAccountConnectionParamsPlatform = "android"
-	Ios     GetAccountConnectionParamsPlatform = "ios"
-	Linux   GetAccountConnectionParamsPlatform = "linux"
-	Macos   GetAccountConnectionParamsPlatform = "macos"
-	Windows GetAccountConnectionParamsPlatform = "windows"
-)
-
-// Valid indicates whether the value is a known member of the GetAccountConnectionParamsPlatform enum.
-func (e GetAccountConnectionParamsPlatform) Valid() bool {
-	switch e {
-	case Android:
-		return true
-	case Ios:
-		return true
-	case Linux:
-		return true
-	case Macos:
-		return true
-	case Windows:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for RemoveAllAccountDevicesParamsConfirm.
 const (
 	RemoveAllAccountDevicesParamsConfirmTrue RemoveAllAccountDevicesParamsConfirm = "true"
@@ -3630,12 +3603,22 @@ type AccountCheckoutQuote struct {
 // AccountConnection defines model for AccountConnection.
 type AccountConnection struct {
 	Clients []struct {
-		DeepLink string `json:"deepLink"`
-		Name     string `json:"name"`
+		// DeepLink Empty when the subscription has no link yet.
+		DeepLink    string  `json:"deepLink"`
+		DownloadUrl *string `json:"downloadUrl,omitempty"`
+
+		// Instructions The operator's own words, replacing the generic setup steps when present.
+		Instructions *string `json:"instructions,omitempty"`
+		Name         string  `json:"name"`
 	} `json:"clients"`
-	Platform        string   `json:"platform"`
-	Platforms       []string `json:"platforms"`
-	SubscriptionUrl string   `json:"subscriptionUrl"`
+	Platform string `json:"platform"`
+
+	// Platforms The platforms this installation documents, with labels already resolved to the customer's language. They are text rather than keys because the catalogue is operator-editable, and somebody adding a platform from the panel cannot add a message to a compiled catalogue.
+	Platforms []struct {
+		Label string `json:"label"`
+		Slug  string `json:"slug"`
+	} `json:"platforms"`
+	SubscriptionUrl string `json:"subscriptionUrl"`
 }
 
 // AccountContact Flags only. The stored value is never returned.
@@ -5309,6 +5292,48 @@ type PanelCommerceSettings struct {
 	TopUp         PanelTopUpSettings        `json:"topUp"`
 	UpdatedAt     time.Time                 `json:"updatedAt"`
 	UpdatedBy     *openapi_types.UUID       `json:"updatedBy,omitempty"`
+}
+
+// PanelConnectCatalogue defines model for PanelConnectCatalogue.
+type PanelConnectCatalogue struct {
+	Clients   []PanelConnectClient   `json:"clients"`
+	Platforms []PanelConnectPlatform `json:"platforms"`
+}
+
+// PanelConnectClient defines model for PanelConnectClient.
+type PanelConnectClient struct {
+	// DownloadUrl https only.
+	DownloadUrl *string `json:"downloadUrl,omitempty"`
+	Enabled     bool    `json:"enabled"`
+
+	// Id Absent creates, present updates.
+	Id *openapi_types.UUID `json:"id,omitempty"`
+
+	// InstructionsEn Replaces the generic setup steps for this platform when present.
+	InstructionsEn *string `json:"instructionsEn,omitempty"`
+	InstructionsRu *string `json:"instructionsRu,omitempty"`
+	Name           string  `json:"name"`
+	Platform       string  `json:"platform"`
+
+	// Scheme Concatenated with the subscription link to build the deep link. Validated against an allowlist before storage.
+	Scheme    string              `json:"scheme"`
+	SortOrder int                 `json:"sortOrder"`
+	UpdatedAt time.Time           `json:"updatedAt"`
+	UpdatedBy *openapi_types.UUID `json:"updatedBy,omitempty"`
+}
+
+// PanelConnectPlatform defines model for PanelConnectPlatform.
+type PanelConnectPlatform struct {
+	// Enabled A platform that is not offered disappears from both customer surfaces.
+	Enabled bool   `json:"enabled"`
+	LabelEn string `json:"labelEn"`
+	LabelRu string `json:"labelRu"`
+
+	// Slug Lowercase key. Immutable once created; renaming means creating another.
+	Slug      string              `json:"slug"`
+	SortOrder int                 `json:"sortOrder"`
+	UpdatedAt time.Time           `json:"updatedAt"`
+	UpdatedBy *openapi_types.UUID `json:"updatedBy,omitempty"`
 }
 
 // PanelConsent defines model for PanelConsent.
@@ -7025,11 +7050,9 @@ type RenameAccountSubscriptionParams struct {
 
 // GetAccountConnectionParams defines parameters for GetAccountConnection.
 type GetAccountConnectionParams struct {
-	Platform *GetAccountConnectionParamsPlatform `form:"platform,omitempty" json:"platform,omitempty"`
+	// Platform A platform key from the catalogue. An unknown one falls back to the first documented platform rather than erroring, so a stale bookmark still works.
+	Platform *string `form:"platform,omitempty" json:"platform,omitempty"`
 }
-
-// GetAccountConnectionParamsPlatform defines parameters for GetAccountConnection.
-type GetAccountConnectionParamsPlatform string
 
 // RemoveAllAccountDevicesParams defines parameters for RemoveAllAccountDevices.
 type RemoveAllAccountDevicesParams struct {
@@ -7844,6 +7867,30 @@ type SavePanelTopUpSettingsParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// SavePanelConnectClientParams defines parameters for SavePanelConnectClient.
+type SavePanelConnectClientParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// DeletePanelConnectClientParams defines parameters for DeletePanelConnectClient.
+type DeletePanelConnectClientParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// SavePanelConnectPlatformParams defines parameters for SavePanelConnectPlatform.
+type SavePanelConnectPlatformParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// DeletePanelConnectPlatformParams defines parameters for DeletePanelConnectPlatform.
+type DeletePanelConnectPlatformParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // SavePanelCustomerOidcProviderParams defines parameters for SavePanelCustomerOidcProvider.
 type SavePanelCustomerOidcProviderParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
@@ -8173,6 +8220,12 @@ type SavePanelSubscriptionSettingsJSONRequestBody = PanelSubscriptionSettings
 
 // SavePanelTopUpSettingsJSONRequestBody defines body for SavePanelTopUpSettings for application/json ContentType.
 type SavePanelTopUpSettingsJSONRequestBody = PanelTopUpSettings
+
+// SavePanelConnectClientJSONRequestBody defines body for SavePanelConnectClient for application/json ContentType.
+type SavePanelConnectClientJSONRequestBody = PanelConnectClient
+
+// SavePanelConnectPlatformJSONRequestBody defines body for SavePanelConnectPlatform for application/json ContentType.
+type SavePanelConnectPlatformJSONRequestBody = PanelConnectPlatform
 
 // SavePanelCustomerOidcProviderJSONRequestBody defines body for SavePanelCustomerOidcProvider for application/json ContentType.
 type SavePanelCustomerOidcProviderJSONRequestBody = CustomerOidcProviderInput
@@ -8848,6 +8901,21 @@ type ServerInterface interface {
 
 	// (PUT /v1/panel/settings/commerce/topup)
 	SavePanelTopUpSettings(w http.ResponseWriter, r *http.Request, params SavePanelTopUpSettingsParams)
+
+	// (GET /v1/panel/settings/connect)
+	GetPanelConnectCatalogue(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /v1/panel/settings/connect/clients)
+	SavePanelConnectClient(w http.ResponseWriter, r *http.Request, params SavePanelConnectClientParams)
+
+	// (DELETE /v1/panel/settings/connect/clients/{clientID})
+	DeletePanelConnectClient(w http.ResponseWriter, r *http.Request, clientID openapi_types.UUID, params DeletePanelConnectClientParams)
+
+	// (PUT /v1/panel/settings/connect/platforms)
+	SavePanelConnectPlatform(w http.ResponseWriter, r *http.Request, params SavePanelConnectPlatformParams)
+
+	// (DELETE /v1/panel/settings/connect/platforms/{slug})
+	DeletePanelConnectPlatform(w http.ResponseWriter, r *http.Request, slug string, params DeletePanelConnectPlatformParams)
 
 	// (GET /v1/panel/settings/customer-oidc)
 	ListPanelCustomerOidcProviders(w http.ResponseWriter, r *http.Request)
@@ -10007,6 +10075,31 @@ func (_ Unimplemented) SavePanelSubscriptionSettings(w http.ResponseWriter, r *h
 
 // (PUT /v1/panel/settings/commerce/topup)
 func (_ Unimplemented) SavePanelTopUpSettings(w http.ResponseWriter, r *http.Request, params SavePanelTopUpSettingsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/settings/connect)
+func (_ Unimplemented) GetPanelConnectCatalogue(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /v1/panel/settings/connect/clients)
+func (_ Unimplemented) SavePanelConnectClient(w http.ResponseWriter, r *http.Request, params SavePanelConnectClientParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /v1/panel/settings/connect/clients/{clientID})
+func (_ Unimplemented) DeletePanelConnectClient(w http.ResponseWriter, r *http.Request, clientID openapi_types.UUID, params DeletePanelConnectClientParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /v1/panel/settings/connect/platforms)
+func (_ Unimplemented) SavePanelConnectPlatform(w http.ResponseWriter, r *http.Request, params SavePanelConnectPlatformParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /v1/panel/settings/connect/platforms/{slug})
+func (_ Unimplemented) DeletePanelConnectPlatform(w http.ResponseWriter, r *http.Request, slug string, params DeletePanelConnectPlatformParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -19467,6 +19560,218 @@ func (siw *ServerInterfaceWrapper) SavePanelTopUpSettings(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// GetPanelConnectCatalogue operation middleware
+func (siw *ServerInterfaceWrapper) GetPanelConnectCatalogue(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPanelConnectCatalogue(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SavePanelConnectClient operation middleware
+func (siw *ServerInterfaceWrapper) SavePanelConnectClient(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SavePanelConnectClientParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SavePanelConnectClient(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeletePanelConnectClient operation middleware
+func (siw *ServerInterfaceWrapper) DeletePanelConnectClient(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "clientID" -------------
+	var clientID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "clientID", chi.URLParam(r, "clientID"), &clientID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "clientID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeletePanelConnectClientParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeletePanelConnectClient(w, r, clientID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SavePanelConnectPlatform operation middleware
+func (siw *ServerInterfaceWrapper) SavePanelConnectPlatform(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SavePanelConnectPlatformParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SavePanelConnectPlatform(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeletePanelConnectPlatform operation middleware
+func (siw *ServerInterfaceWrapper) DeletePanelConnectPlatform(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", chi.URLParam(r, "slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slug", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeletePanelConnectPlatformParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeletePanelConnectPlatform(w, r, slug, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPanelCustomerOidcProviders operation middleware
 func (siw *ServerInterfaceWrapper) ListPanelCustomerOidcProviders(w http.ResponseWriter, r *http.Request) {
 
@@ -20841,6 +21146,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/v1/panel/settings/theme/assets/{kind}", wrapper.SavePanelBrandingAsset)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/settings/connect", wrapper.GetPanelConnectCatalogue)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/panel/settings/connect/platforms", wrapper.SavePanelConnectPlatform)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/panel/settings/connect/platforms/{slug}", wrapper.DeletePanelConnectPlatform)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/panel/settings/connect/clients", wrapper.SavePanelConnectClient)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/panel/settings/connect/clients/{clientID}", wrapper.DeletePanelConnectClient)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/settings/providers", wrapper.ListPanelProviderSettings)
@@ -30358,6 +30678,273 @@ func (response SavePanelTopUpSettings422ApplicationProblemPlusJSONResponse) Visi
 	return err
 }
 
+type GetPanelConnectCatalogueRequestObject struct {
+}
+
+type GetPanelConnectCatalogueResponseObject interface {
+	VisitGetPanelConnectCatalogueResponse(w http.ResponseWriter) error
+}
+
+type GetPanelConnectCatalogue200JSONResponse PanelConnectCatalogue
+
+func (response GetPanelConnectCatalogue200JSONResponse) VisitGetPanelConnectCatalogueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelConnectCatalogue403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetPanelConnectCatalogue403ApplicationProblemPlusJSONResponse) VisitGetPanelConnectCatalogueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelConnectClientRequestObject struct {
+	Params SavePanelConnectClientParams
+	Body   *SavePanelConnectClientJSONRequestBody
+}
+
+type SavePanelConnectClientResponseObject interface {
+	VisitSavePanelConnectClientResponse(w http.ResponseWriter) error
+}
+
+type SavePanelConnectClient200JSONResponse PanelConnectClient
+
+func (response SavePanelConnectClient200JSONResponse) VisitSavePanelConnectClientResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelConnectClient403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SavePanelConnectClient403ApplicationProblemPlusJSONResponse) VisitSavePanelConnectClientResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelConnectClient409ApplicationProblemPlusJSONResponse Problem
+
+func (response SavePanelConnectClient409ApplicationProblemPlusJSONResponse) VisitSavePanelConnectClientResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelConnectClient422ApplicationProblemPlusJSONResponse Problem
+
+func (response SavePanelConnectClient422ApplicationProblemPlusJSONResponse) VisitSavePanelConnectClientResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelConnectClientRequestObject struct {
+	ClientID openapi_types.UUID `json:"clientID"`
+	Params   DeletePanelConnectClientParams
+}
+
+type DeletePanelConnectClientResponseObject interface {
+	VisitDeletePanelConnectClientResponse(w http.ResponseWriter) error
+}
+
+type DeletePanelConnectClient200JSONResponse struct {
+	Removed *bool `json:"removed,omitempty"`
+}
+
+func (response DeletePanelConnectClient200JSONResponse) VisitDeletePanelConnectClientResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelConnectClient403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DeletePanelConnectClient403ApplicationProblemPlusJSONResponse) VisitDeletePanelConnectClientResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelConnectClient404ApplicationProblemPlusJSONResponse Problem
+
+func (response DeletePanelConnectClient404ApplicationProblemPlusJSONResponse) VisitDeletePanelConnectClientResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelConnectPlatformRequestObject struct {
+	Params SavePanelConnectPlatformParams
+	Body   *SavePanelConnectPlatformJSONRequestBody
+}
+
+type SavePanelConnectPlatformResponseObject interface {
+	VisitSavePanelConnectPlatformResponse(w http.ResponseWriter) error
+}
+
+type SavePanelConnectPlatform200JSONResponse PanelConnectPlatform
+
+func (response SavePanelConnectPlatform200JSONResponse) VisitSavePanelConnectPlatformResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelConnectPlatform403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SavePanelConnectPlatform403ApplicationProblemPlusJSONResponse) VisitSavePanelConnectPlatformResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelConnectPlatform422ApplicationProblemPlusJSONResponse Problem
+
+func (response SavePanelConnectPlatform422ApplicationProblemPlusJSONResponse) VisitSavePanelConnectPlatformResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelConnectPlatformRequestObject struct {
+	Slug   string `json:"slug"`
+	Params DeletePanelConnectPlatformParams
+}
+
+type DeletePanelConnectPlatformResponseObject interface {
+	VisitDeletePanelConnectPlatformResponse(w http.ResponseWriter) error
+}
+
+type DeletePanelConnectPlatform200JSONResponse struct {
+	Removed *bool `json:"removed,omitempty"`
+}
+
+func (response DeletePanelConnectPlatform200JSONResponse) VisitDeletePanelConnectPlatformResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelConnectPlatform403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DeletePanelConnectPlatform403ApplicationProblemPlusJSONResponse) VisitDeletePanelConnectPlatformResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelConnectPlatform404ApplicationProblemPlusJSONResponse Problem
+
+func (response DeletePanelConnectPlatform404ApplicationProblemPlusJSONResponse) VisitDeletePanelConnectPlatformResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListPanelCustomerOidcProvidersRequestObject struct {
 }
 
@@ -32000,6 +32587,21 @@ type StrictServerInterface interface {
 
 	// (PUT /v1/panel/settings/commerce/topup)
 	SavePanelTopUpSettings(ctx context.Context, request SavePanelTopUpSettingsRequestObject) (SavePanelTopUpSettingsResponseObject, error)
+
+	// (GET /v1/panel/settings/connect)
+	GetPanelConnectCatalogue(ctx context.Context, request GetPanelConnectCatalogueRequestObject) (GetPanelConnectCatalogueResponseObject, error)
+
+	// (PUT /v1/panel/settings/connect/clients)
+	SavePanelConnectClient(ctx context.Context, request SavePanelConnectClientRequestObject) (SavePanelConnectClientResponseObject, error)
+
+	// (DELETE /v1/panel/settings/connect/clients/{clientID})
+	DeletePanelConnectClient(ctx context.Context, request DeletePanelConnectClientRequestObject) (DeletePanelConnectClientResponseObject, error)
+
+	// (PUT /v1/panel/settings/connect/platforms)
+	SavePanelConnectPlatform(ctx context.Context, request SavePanelConnectPlatformRequestObject) (SavePanelConnectPlatformResponseObject, error)
+
+	// (DELETE /v1/panel/settings/connect/platforms/{slug})
+	DeletePanelConnectPlatform(ctx context.Context, request DeletePanelConnectPlatformRequestObject) (DeletePanelConnectPlatformResponseObject, error)
 
 	// (GET /v1/panel/settings/customer-oidc)
 	ListPanelCustomerOidcProviders(ctx context.Context, request ListPanelCustomerOidcProvidersRequestObject) (ListPanelCustomerOidcProvidersResponseObject, error)
@@ -38290,6 +38892,150 @@ func (sh *strictHandler) SavePanelTopUpSettings(w http.ResponseWriter, r *http.R
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(SavePanelTopUpSettingsResponseObject); ok {
 		if err := validResponse.VisitSavePanelTopUpSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPanelConnectCatalogue operation middleware
+func (sh *strictHandler) GetPanelConnectCatalogue(w http.ResponseWriter, r *http.Request) {
+	var request GetPanelConnectCatalogueRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPanelConnectCatalogue(ctx, request.(GetPanelConnectCatalogueRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPanelConnectCatalogue")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPanelConnectCatalogueResponseObject); ok {
+		if err := validResponse.VisitGetPanelConnectCatalogueResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SavePanelConnectClient operation middleware
+func (sh *strictHandler) SavePanelConnectClient(w http.ResponseWriter, r *http.Request, params SavePanelConnectClientParams) {
+	var request SavePanelConnectClientRequestObject
+
+	request.Params = params
+
+	var body SavePanelConnectClientJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SavePanelConnectClient(ctx, request.(SavePanelConnectClientRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SavePanelConnectClient")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SavePanelConnectClientResponseObject); ok {
+		if err := validResponse.VisitSavePanelConnectClientResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeletePanelConnectClient operation middleware
+func (sh *strictHandler) DeletePanelConnectClient(w http.ResponseWriter, r *http.Request, clientID openapi_types.UUID, params DeletePanelConnectClientParams) {
+	var request DeletePanelConnectClientRequestObject
+
+	request.ClientID = clientID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeletePanelConnectClient(ctx, request.(DeletePanelConnectClientRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeletePanelConnectClient")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeletePanelConnectClientResponseObject); ok {
+		if err := validResponse.VisitDeletePanelConnectClientResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SavePanelConnectPlatform operation middleware
+func (sh *strictHandler) SavePanelConnectPlatform(w http.ResponseWriter, r *http.Request, params SavePanelConnectPlatformParams) {
+	var request SavePanelConnectPlatformRequestObject
+
+	request.Params = params
+
+	var body SavePanelConnectPlatformJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SavePanelConnectPlatform(ctx, request.(SavePanelConnectPlatformRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SavePanelConnectPlatform")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SavePanelConnectPlatformResponseObject); ok {
+		if err := validResponse.VisitSavePanelConnectPlatformResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeletePanelConnectPlatform operation middleware
+func (sh *strictHandler) DeletePanelConnectPlatform(w http.ResponseWriter, r *http.Request, slug string, params DeletePanelConnectPlatformParams) {
+	var request DeletePanelConnectPlatformRequestObject
+
+	request.Slug = slug
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeletePanelConnectPlatform(ctx, request.(DeletePanelConnectPlatformRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeletePanelConnectPlatform")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeletePanelConnectPlatformResponseObject); ok {
+		if err := validResponse.VisitDeletePanelConnectPlatformResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

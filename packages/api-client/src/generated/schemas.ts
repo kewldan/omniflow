@@ -3467,6 +3467,171 @@ export const DeletePanelBrandingAssetResponse = zod.object({
 });
 
 /**
+ * Requires settings.read. Every platform and every recommended application, including the ones an operator has switched off — a disabled row is what somebody came to this screen to turn back on. The customer surfaces read only the enabled ones.
+ */
+export const GetPanelConnectCatalogueResponse = zod.object({
+  platforms: zod.array(
+    zod.object({
+      slug: zod
+        .string()
+        .describe("Lowercase key. Immutable once created; renaming means creating another."),
+      labelEn: zod.string(),
+      labelRu: zod.string(),
+      enabled: zod
+        .boolean()
+        .describe("A platform that is not offered disappears from both customer surfaces."),
+      sortOrder: zod.int(),
+      updatedAt: zod.iso.datetime({ offset: true }),
+      updatedBy: zod.uuid().optional(),
+    }),
+  ),
+  clients: zod.array(
+    zod.object({
+      id: zod.uuid().optional().describe("Absent creates, present updates."),
+      platform: zod.string(),
+      name: zod.string(),
+      scheme: zod
+        .string()
+        .describe(
+          "Concatenated with the subscription link to build the deep link. Validated against an allowlist before storage.",
+        ),
+      downloadUrl: zod.string().optional().describe("https only."),
+      instructionsEn: zod
+        .string()
+        .optional()
+        .describe("Replaces the generic setup steps for this platform when present."),
+      instructionsRu: zod.string().optional(),
+      enabled: zod.boolean(),
+      sortOrder: zod.int(),
+      updatedAt: zod.iso.datetime({ offset: true }),
+      updatedBy: zod.uuid().optional(),
+    }),
+  ),
+});
+
+/**
+ * Requires settings.write. Creates or updates a platform. A missing Russian label is stored as the English one rather than left to render as a gap.
+ */
+export const SavePanelConnectPlatformHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const SavePanelConnectPlatformBody = zod.object({
+  slug: zod
+    .string()
+    .describe("Lowercase key. Immutable once created; renaming means creating another."),
+  labelEn: zod.string(),
+  labelRu: zod.string(),
+  enabled: zod
+    .boolean()
+    .describe("A platform that is not offered disappears from both customer surfaces."),
+  sortOrder: zod.int(),
+  updatedAt: zod.iso.datetime({ offset: true }),
+  updatedBy: zod.uuid().optional(),
+});
+
+export const SavePanelConnectPlatformResponse = zod.object({
+  slug: zod
+    .string()
+    .describe("Lowercase key. Immutable once created; renaming means creating another."),
+  labelEn: zod.string(),
+  labelRu: zod.string(),
+  enabled: zod
+    .boolean()
+    .describe("A platform that is not offered disappears from both customer surfaces."),
+  sortOrder: zod.int(),
+  updatedAt: zod.iso.datetime({ offset: true }),
+  updatedBy: zod.uuid().optional(),
+});
+
+/**
+ * Requires settings.write. Deletes the platform and, by cascade, every application documented for it. Disabling it instead keeps the entries.
+ */
+export const DeletePanelConnectPlatformParams = zod.object({
+  slug: zod.string(),
+});
+
+export const DeletePanelConnectPlatformHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const DeletePanelConnectPlatformResponse = zod.object({
+  removed: zod.boolean().optional(),
+});
+
+/**
+ * Requires settings.write. Creates when `id` is absent and updates when it is present. The import scheme is refused unless it matches a scheme followed by `://` and a conservative path, and never when it names javascript, data, vbscript, or file — the value is concatenated with the subscription link and rendered as the href of an anchor on a page that holds a session cookie. A download address must be https.
+ */
+export const SavePanelConnectClientHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const SavePanelConnectClientBody = zod.object({
+  id: zod.uuid().optional().describe("Absent creates, present updates."),
+  platform: zod.string(),
+  name: zod.string(),
+  scheme: zod
+    .string()
+    .describe(
+      "Concatenated with the subscription link to build the deep link. Validated against an allowlist before storage.",
+    ),
+  downloadUrl: zod.string().optional().describe("https only."),
+  instructionsEn: zod
+    .string()
+    .optional()
+    .describe("Replaces the generic setup steps for this platform when present."),
+  instructionsRu: zod.string().optional(),
+  enabled: zod.boolean(),
+  sortOrder: zod.int(),
+  updatedAt: zod.iso.datetime({ offset: true }),
+  updatedBy: zod.uuid().optional(),
+});
+
+export const SavePanelConnectClientResponse = zod.object({
+  id: zod.uuid().optional().describe("Absent creates, present updates."),
+  platform: zod.string(),
+  name: zod.string(),
+  scheme: zod
+    .string()
+    .describe(
+      "Concatenated with the subscription link to build the deep link. Validated against an allowlist before storage.",
+    ),
+  downloadUrl: zod.string().optional().describe("https only."),
+  instructionsEn: zod
+    .string()
+    .optional()
+    .describe("Replaces the generic setup steps for this platform when present."),
+  instructionsRu: zod.string().optional(),
+  enabled: zod.boolean(),
+  sortOrder: zod.int(),
+  updatedAt: zod.iso.datetime({ offset: true }),
+  updatedBy: zod.uuid().optional(),
+});
+
+/**
+ * Requires settings.write.
+ */
+export const DeletePanelConnectClientParams = zod.object({
+  clientID: zod.uuid(),
+});
+
+export const DeletePanelConnectClientHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const DeletePanelConnectClientResponse = zod.object({
+  removed: zod.boolean().optional(),
+});
+
+/**
  * Requires settings.read. Reports what the operator configured beside what each compiled-in adapter declares. No secret is ever returned; the `credentialsSet` flags report only whether one is stored.
  */
 export const ListPanelProviderSettingsResponse = zod.object({
@@ -5364,24 +5529,43 @@ export const RenameAccountSubscriptionBody = zod.object({
 export const RenameAccountSubscriptionResponse = zod.void();
 
 /**
- * The access link plus the documented clients for one platform. The client list is the same one the bot renders, so the two surfaces cannot recommend different applications.
+ * The access link plus the documented clients for one platform. The catalogue is the operator's own and is read through one query that the bot reads too, so the two surfaces cannot recommend different applications.
  */
 export const GetAccountConnectionParams = zod.object({
   subscriptionID: zod.uuid(),
 });
 
 export const GetAccountConnectionQueryParams = zod.object({
-  platform: zod.enum(["ios", "android", "windows", "macos", "linux"]).optional(),
+  platform: zod
+    .string()
+    .optional()
+    .describe(
+      "A platform key from the catalogue. An unknown one falls back to the first documented platform rather than erroring, so a stale bookmark still works.",
+    ),
 });
 
 export const GetAccountConnectionResponse = zod.object({
   subscriptionUrl: zod.string(),
   platform: zod.string(),
-  platforms: zod.array(zod.string()),
+  platforms: zod
+    .array(
+      zod.object({
+        slug: zod.string(),
+        label: zod.string(),
+      }),
+    )
+    .describe(
+      "The platforms this installation documents, with labels already resolved to the customer's language. They are text rather than keys because the catalogue is operator-editable, and somebody adding a platform from the panel cannot add a message to a compiled catalogue.",
+    ),
   clients: zod.array(
     zod.object({
       name: zod.string(),
-      deepLink: zod.string(),
+      deepLink: zod.string().describe("Empty when the subscription has no link yet."),
+      downloadUrl: zod.string().optional(),
+      instructions: zod
+        .string()
+        .optional()
+        .describe("The operator's own words, replacing the generic setup steps when present."),
     }),
   ),
 });
