@@ -6,10 +6,11 @@ import { toast } from "@omniflow/ui/toast";
 import { Check, Copy, ExternalLink } from "lucide-react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import useSWR from "swr";
 
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
+import { QrCode } from "@/components/qr-code";
 import { type ApiError, fetcher } from "@/lib/api";
 
 type Connection = {
@@ -125,55 +126,17 @@ export default function ConnectPage() {
 }
 
 /**
- * The QR code.
+ * The QR beside the link.
  *
- * It is rendered in the browser from the link the API just returned rather than
- * fetched as an image: an image URL carrying a subscription link would put that
- * credential into a request line, a proxy log, and the browser cache.
+ * The encoder runs in the browser — see `components/qr-code.tsx` for why a
+ * subscription link must never travel as an image URL.
  */
 function QrPanel({ value }: { value: string }) {
   const translate = useTranslations("account");
-  const [dataUrl, setDataUrl] = useState<string | null>(null);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    // Imported lazily so the encoder is not in the bundle of every other screen.
-    import("qrcode")
-      .then((module) =>
-        module.toDataURL(value, { errorCorrectionLevel: "M", margin: 1, width: 320 }),
-      )
-      .then((url) => {
-        if (!cancelled) {
-          setDataUrl(url);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setFailed(true);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [value]);
-
-  if (failed) {
-    return null;
-  }
   return (
     <div className="flex items-center gap-4 rounded-xl border border-border bg-card p-4">
       <div className="flex size-[84px] shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-white">
-        {dataUrl ? (
-          // A plain <img>, not next/image: the source is a data URL produced in
-          // the browser a moment ago, so there is nothing for the image pipeline
-          // to optimise, and routing it through /_next/image would send a
-          // credential-bearing payload to the server to be cached.
-          // biome-ignore lint/performance/noImgElement: runtime-generated data URL, must not reach the image pipeline
-          <img alt={translate("connect.qrAlt")} src={dataUrl} />
-        ) : (
-          <span aria-hidden className="size-full animate-pulse bg-muted" />
-        )}
+        <QrCode alt={translate("connect.qrAlt")} value={value} />
       </div>
       <p className="text-[12.5px] text-muted-foreground leading-relaxed">
         {translate("connect.qrHint")}

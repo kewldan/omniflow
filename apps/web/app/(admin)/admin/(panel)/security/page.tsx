@@ -25,7 +25,9 @@ import { useForm } from "react-hook-form";
 import useSWR from "swr";
 import { z } from "zod";
 
+import { PasswordStrength } from "@/components/admin/password-strength";
 import { StateNotice } from "@/components/admin/state-notice";
+import { QrCode } from "@/components/qr-code";
 import { ApiError, apiFetch, fetcher } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
@@ -163,13 +165,26 @@ function TwoFactorCard({ enabled, onChanged }: { enabled: boolean; onChanged: ()
         {enrolment && (
           <div className="flex flex-col gap-3">
             <p className="text-muted-foreground text-sm">{translate("scanHint")}</p>
-            {/*
-              The secret is shown as text as well as in the URI, because an
-              authenticator on the same device cannot scan this screen.
-            */}
-            <code className="block overflow-x-auto rounded-md bg-secondary p-3 font-mono text-[12px]">
-              {enrolment.secret}
-            </code>
+            <div className="flex flex-wrap items-start gap-4">
+              {/* The URI has always been returned and never drawn, so enrolling
+                  meant typing a thirty-two character secret into a phone. It is
+                  encoded in the browser: an otpauth URI carries the secret
+                  itself, and fetching it as an image would put that into a
+                  request line and a cache. */}
+              <div className="flex size-[168px] shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-white p-2">
+                <QrCode alt={translate("qrAlt")} value={enrolment.uri} />
+              </div>
+              <div className="flex min-w-[16rem] flex-1 flex-col gap-1.5">
+                <span className="text-muted-foreground text-xs">{translate("secretLabel")}</span>
+                {/*
+                  The secret is shown as text as well as in the QR, because an
+                  authenticator on the same device cannot scan this screen.
+                */}
+                <code className="block overflow-x-auto rounded-md bg-secondary p-3 font-mono text-[12px]">
+                  {enrolment.secret}
+                </code>
+              </div>
+            </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor={codeId}>{translate("codeLabel")}</Label>
               <Input
@@ -328,6 +343,10 @@ function PasswordCard() {
               {...form.register("newPassword")}
             />
             <p className="text-muted-foreground text-xs">{translate("hint")}</p>
+            {/* Advice, never a gate. The minimum length is the API's rule and
+                is enforced there; a meter that refused would be a second place
+                deciding what a valid password is. */}
+            <PasswordStrength password={form.watch("newPassword") ?? ""} />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={confirmId}>{translate("confirm")}</Label>

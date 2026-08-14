@@ -244,7 +244,9 @@
           "confirm": "Enrolment could not be completed.",
           "invalidCode": "That code is not valid.",
           "disable": "Two-factor could not be turned off."
-        }
+        },
+        "qrAlt": "QR code carrying the enrolment secret for an authenticator app",
+        "secretLabel": "Or type the secret"
       },
       "password": {
         "title": "Password",
@@ -260,6 +262,20 @@
           "wrongCurrent": "The current password is not correct.",
           "mismatch": "The passwords do not match.",
           "generic": "The password could not be changed."
+        },
+        "strength": {
+          "0": "Too easy to guess",
+          "1": "Weak",
+          "2": "Fair",
+          "3": "Strong",
+          "4": "Excellent",
+          "bits": "about {bits} bits of entropy"
+        },
+        "advice": {
+          "longer": "Length helps more than anything else — aim for sixteen characters or a short phrase.",
+          "repeats": "Too few distinct characters: a long password made of three letters is a short one.",
+          "sequence": "Contains a run from the keyboard or the alphabet, which is guessed early.",
+          "oneWord": "A single word is a dictionary entry, whatever its length."
         }
       },
       "sessions": {

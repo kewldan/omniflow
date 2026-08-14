@@ -79,6 +79,18 @@ Each operator can review their live sessions at `/admin/security`, end any one o
 them, or sign out everywhere else. Changing a password ends every other session;
 completing a password reset ends all of them.
 
+The new-password field carries a strength meter. It estimates entropy over the
+alphabet the password actually uses and then subtracts for the patterns that
+make that alphabet a lie — too few distinct characters, a run from the keyboard
+or the alphabet, a single unbroken word — and names the one or two things that
+would help most. It is deliberately not a character-class checklist: "one upper,
+one digit, one symbol" rewards `Password1!`, which is among the first guesses
+any real attack makes, and penalises a long passphrase that is genuinely hard.
+
+The meter never refuses a password. The minimum length is the API's rule and is
+enforced there; a meter that blocked would be a second place deciding what a
+valid password is.
+
 ## Two-factor authentication
 
 TOTP follows RFC 6238 with 6-digit codes on a 30-second step, and works with any
@@ -88,6 +100,13 @@ before storage.
 Enrolment is two steps. Adding the secret stores it unconfirmed; it satisfies no
 login challenge until the first code is verified. An abandoned enrolment leaves
 the account exactly as it was.
+
+The enrolment screen shows a QR code beside the secret. It is drawn in the
+browser from the `otpauth://` URI the API returns, never fetched as an image:
+that URI carries the secret itself, so requesting it from an image endpoint —
+including this application's own — would put a credential into a request line,
+a proxy log, and a cache. The secret is also printed as text, because an
+authenticator running on the same device cannot photograph the screen it is on.
 
 Confirming enrolment issues ten single-use recovery codes, shown once. Only their
 digests are stored. Regenerating the set invalidates every unused code.
