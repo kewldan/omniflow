@@ -160,8 +160,12 @@ func TestFirstResponseIsRecordedOnce(t *testing.T) {
 	if report.MedianFirstResponseSeconds < 0 {
 		t.Fatal("median first response must not be negative")
 	}
-	if len(report.Definitions) == 0 {
-		t.Fatal("the report must carry the definitions of its own numbers")
+	// The report used to carry the definitions of its own numbers as English
+	// prose, and this asserted they were present. They live in the panel's
+	// message catalogues now, beside every other operator-facing string, so the
+	// payload carries figures and nothing a translator would need to touch.
+	if report.Open < 0 || report.Unassigned < 0 || report.Resolved < 0 {
+		t.Fatalf("report = %+v, want no negative counts", report)
 	}
 }
 
