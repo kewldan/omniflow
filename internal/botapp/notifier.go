@@ -76,6 +76,25 @@ type Notifier struct {
 	commerce  *Commerce
 	settings  CommerceSettings
 	clock     func() time.Time
+	// notices is the operator wording in force for the current pass. The zero
+	// value means "shipped defaults", so a notifier that has never refreshed —
+	// or one whose refresh failed — still sends every notice.
+	notices notices
+}
+
+// refreshNotices reloads the operator wording for this pass.
+//
+// A failure keeps whatever was in force rather than clearing it. Falling back
+// to the shipped defaults on a transient database error would change what every
+// customer reads because one query timed out, and the previous pass's wording
+// is far closer to correct than that.
+func (notifier *Notifier) refreshNotices(ctx context.Context) {
+	loaded, err := notifier.store.loadNotices(ctx)
+	if err != nil {
+		notifier.logger.Warn("notice override lookup failed", "error", err)
+		return
+	}
+	notifier.notices = loaded
 }
 
 // NewNotifier builds the notification pipeline. A nil commerce service disables
@@ -101,6 +120,11 @@ func (notifier *Notifier) Run(ctx context.Context) {
 
 // RunOnce executes one full notification pass.
 func (notifier *Notifier) RunOnce(ctx context.Context) {
+	// The operator's wording is read once and used for every message in this
+	// pass. A save halfway through a batch takes effect on the next one, which
+	// is both cheaper than a query per message and more coherent: a hundred
+	// expiry warnings sent together say the same thing.
+	notifier.refreshNotices(ctx)
 	notifier.deliverSupportReplies(ctx)
 	notifier.deliverTests(ctx)
 	notifier.deliverDunning(ctx)
@@ -172,13 +196,13 @@ func (notifier *Notifier) deliverSubscriptionAlerts(ctx context.Context, candida
 	now := notifier.clock().UTC()
 	if offset, due := commerce.RenewalReminderDue(now, entitlement.EndsAt); due {
 		dedupe := fmt.Sprintf("%s:%d", entitlement.ID, offset)
-		notifier.deliver(ctx, candidate, subscription.ID, "renewal", dedupe, renewalReminderView(locale, entitlement, offset))
+		notifier.deliver(ctx, candidate, subscription.ID, "renewal", dedupe, renewalReminderView(notifier.notices, locale, entitlement, offset))
 	}
 	if entitlement.GracePeriod > 0 && !now.Before(entitlement.EndsAt) && now.Before(entitlement.EndsAt.Add(entitlement.GracePeriod)) {
-		notifier.deliver(ctx, candidate, subscription.ID, "grace", entitlement.ID, gracePeriodView(locale, entitlement))
+		notifier.deliver(ctx, candidate, subscription.ID, "grace", entitlement.ID, gracePeriodView(notifier.notices, locale, entitlement))
 	}
 	if commerce.RecoveryDue(now, entitlement.EndsAt, entitlement.GracePeriod, notifier.settings.RecoveryWindow) {
-		notifier.deliver(ctx, candidate, subscription.ID, "recovery", entitlement.ID, recoveryView(locale, entitlement))
+		notifier.deliver(ctx, candidate, subscription.ID, "recovery", entitlement.ID, recoveryView(notifier.notices, locale, entitlement))
 	}
 	notifier.deliverFulfillment(ctx, candidate, subscription.ID, entitlement, locale)
 }
@@ -194,9 +218,9 @@ func (notifier *Notifier) deliverFulfillment(ctx context.Context, candidate noti
 	}
 	switch status {
 	case "succeeded":
-		notifier.deliver(ctx, candidate, subscriptionID, "fulfillment", entitlement.ID+":succeeded", fulfillmentAlertView(locale, true, entitlement.SubscriptionLabel))
+		notifier.deliver(ctx, candidate, subscriptionID, "fulfillment", entitlement.ID+":succeeded", fulfillmentAlertView(notifier.notices, locale, true, entitlement.SubscriptionLabel))
 	case "failed":
-		notifier.deliver(ctx, candidate, subscriptionID, "fulfillment", entitlement.ID+":failed", fulfillmentAlertView(locale, false, entitlement.SubscriptionLabel))
+		notifier.deliver(ctx, candidate, subscriptionID, "fulfillment", entitlement.ID+":failed", fulfillmentAlertView(notifier.notices, locale, false, entitlement.SubscriptionLabel))
 	}
 }
 
@@ -209,7 +233,7 @@ func (notifier *Notifier) maybeSendExpiry(ctx context.Context, candidate notific
 		return
 	}
 	dedupe := fmt.Sprintf("%s:%d", user.ExpireAt.UTC().Format(time.DateOnly), days)
-	notifier.deliver(ctx, candidate, subscription.ID, "expiry", dedupe, expiryAlertView(locale, days, subscriptionLabelFor(subscription, named)))
+	notifier.deliver(ctx, candidate, subscription.ID, "expiry", dedupe, expiryAlertView(notifier.notices, locale, days, subscriptionLabelFor(subscription, named)))
 }
 
 func (notifier *Notifier) maybeSendTraffic(ctx context.Context, candidate notificationCandidate, subscription SubscriptionSummary, user remnawave.User, locale Locale, named bool) {
@@ -227,7 +251,7 @@ func (notifier *Notifier) maybeSendTraffic(ctx context.Context, candidate notifi
 		return
 	}
 	dedupe := fmt.Sprintf("%d:%d:%s", threshold, user.TrafficLimitBytes, user.ExpireAt.UTC().Format(time.DateOnly))
-	notifier.deliver(ctx, candidate, subscription.ID, "traffic", dedupe, trafficAlertView(locale, percent, subscriptionLabelFor(subscription, named)))
+	notifier.deliver(ctx, candidate, subscription.ID, "traffic", dedupe, trafficAlertView(notifier.notices, locale, percent, subscriptionLabelFor(subscription, named)))
 }
 
 // subscriptionLabelFor returns the label an alert should carry, or an empty
@@ -389,7 +413,7 @@ func (notifier *Notifier) deliverDunning(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
-		view := dunningAlertView(localeFrom(notice.Locale), notice.Abandoned)
+		view := dunningAlertView(notifier.notices, localeFrom(notice.Locale), notice.Abandoned)
 		if err := notifier.sender.Send(ctx, notice.CustomerID, notice.TelegramID, view); err != nil {
 			// Leaving the mark unset is what retries it. A customer who has
 			// blocked the bot is handled by the delivery state the sender keeps.

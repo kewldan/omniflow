@@ -97,6 +97,7 @@ type Querier interface {
 	// nothing rather than overwriting the outcome already recorded.
 	CompleteCampaignTestSend(ctx context.Context, arg CompleteCampaignTestSendParams) error
 	CompleteGoodsDelivery(ctx context.Context, arg CompleteGoodsDeliveryParams) (GoodsDelivery, error)
+	CompleteNoticeTestSend(ctx context.Context, arg CompleteNoticeTestSendParams) error
 	CompleteOperatorNotification(ctx context.Context, arg CompleteOperatorNotificationParams) (OperatorNotification, error)
 	CompleteWebhookEvent(ctx context.Context, arg CompleteWebhookEventParams) (ProviderWebhookEvent, error)
 	ConfigureAIFeature(ctx context.Context, arg ConfigureAIFeatureParams) (AiFeature, error)
@@ -330,6 +331,11 @@ type Querier interface {
 	DeleteInfoPage(ctx context.Context, slug string) (int64, error)
 	DeleteInfoPageLocalization(ctx context.Context, arg DeleteInfoPageLocalizationParams) error
 	DeleteMCPServer(ctx context.Context, slug string) error
+	// Reverting to the shipped wording is a delete rather than a write of the
+	// current default. An installation that reverts today and upgrades tomorrow
+	// gets tomorrow's improved wording, which a copied-in default would have
+	// silently frozen.
+	DeleteNoticeOverride(ctx context.Context, arg DeleteNoticeOverrideParams) (int64, error)
 	DeleteOldTelemetryEvents(ctx context.Context, retentionSeconds float64) (int64, error)
 	DeletePublishedOutboxEvents(ctx context.Context, retentionSeconds float64) (int64, error)
 	DeleteRequiredChannel(ctx context.Context, id pgtype.UUID) error
@@ -349,6 +355,10 @@ type Querier interface {
 	// what keeps a test out of the counters an operator judges the campaign by.
 	// ---------------------------------------------------------------------------
 	EnqueueCampaignTestSend(ctx context.Context, arg EnqueueCampaignTestSendParams) (CampaignTestSend, error)
+	// The body is stored, not the code, because what the operator asked to see is
+	// the text that was in the editor — which may not be saved and may be edited
+	// again before the group receives it.
+	EnqueueNoticeTestSend(ctx context.Context, arg EnqueueNoticeTestSendParams) (EnqueueNoticeTestSendRow, error)
 	EnqueueOperatorNotification(ctx context.Context, arg EnqueueOperatorNotificationParams) (OperatorNotification, error)
 	// Retires outstanding tokens by moving their expiry into the past rather than
 	// marking them consumed: `admin_setup_tokens_consumption_complete` requires a
@@ -782,6 +792,16 @@ type Querier interface {
 	ListMCPServers(ctx context.Context) ([]ListMCPServersRow, error)
 	ListMCPTools(ctx context.Context, serverSlug string) ([]McpTool, error)
 	ListMessageTemplates(ctx context.Context) ([]MessageTemplate, error)
+	// Transactional notice overrides.
+	//
+	// A row is the exception and its absence is the shipped wording, so there is no
+	// "list all notices" query here: the set of notices is compiled into
+	// `internal/notice`, and this only ever says which of them an operator has
+	// reworded.
+	ListNoticeOverrides(ctx context.Context) ([]NoticeOverride, error)
+	// What the screen shows under the button, so a test in flight looks like a test
+	// in flight rather than a button that did nothing.
+	ListNoticeTestSends(ctx context.Context, arg ListNoticeTestSendsParams) ([]ListNoticeTestSendsRow, error)
 	// Notification history.
 	//
 	// `notification_deliveries` already recorded everything. These are the reads
@@ -833,6 +853,7 @@ type Querier interface {
 	// deserve a message is a product rule, and it is applied by the worker that
 	// resolved the attempt.
 	ListPendingDunningNotifications(ctx context.Context, pageSize int32) ([]ListPendingDunningNotificationsRow, error)
+	ListPendingNoticeTestSends(ctx context.Context, pageSize int32) ([]ListPendingNoticeTestSendsRow, error)
 	ListPendingOperatorNotifications(ctx context.Context, limit int32) ([]OperatorNotification, error)
 	// ---------------------------------------------------------------------------
 	// Add-ons
@@ -1256,6 +1277,8 @@ type Querier interface {
 	// reason plan versions exist: a price change last week must not re-price a sale
 	// from last month.
 	SalesByPlan(ctx context.Context, arg SalesByPlanParams) ([]SalesByPlanRow, error)
+	// Upsert, because an operator editing wording twice is editing the same thing.
+	SaveNoticeOverride(ctx context.Context, arg SaveNoticeOverrideParams) (NoticeOverride, error)
 	// Re-presenting the same provider token is not a new method: the provider still
 	// holds one binding, so the row is refreshed rather than duplicated. Consent is
 	// re-stamped because the customer just granted it again.

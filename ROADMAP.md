@@ -1727,10 +1727,46 @@ below this section are directions; these are specific absences.
       them is guaranteed to run JavaScript. A published page can also be unlisted
       — a stable address with no menu entry — which is exactly what a document
       that exists to satisfy a review needs.
-- [ ] Transactional e-mail templates an operator can override —
-      `/v1/panel/marketing/templates` covers campaigns. System mail has no
-      per-type, per-locale override, no variable reference, no preview against
-      real substitutions, and no test send.
+- [x] Transactional message wording an operator can override — done, at
+      `/admin/settings/notices` and documented under
+      [`operations/message-wording`](./docs/operations/message-wording.mdx). The
+      item said "e-mail", and there is no e-mail transport in this repository:
+      every message the installation sends on its own initiative goes to
+      Telegram. Building the capability against a channel nothing reaches would
+      have produced a settings screen with no effect, so it targets the nine
+      notices that actually exist — expiry, traffic, renewal, grace, recovery,
+      the two fulfillment messages, and the two dunning ones — with a per-locale
+      override, a variable reference, a preview against sample values, and a
+      test send.
+
+      The design decision that mattered was giving up `fmt.Sprintf`. The
+      compiled catalogue uses positional verbs, which are safe beside the code
+      that renders them and unsafe in a browser: a `%d` meeting a string prints
+      `%!d(string=Pro)` and does not fail, so it reaches the customer looking
+      broken. Overrides name their values — `{days}`, `{plan}`, `{until}` — and
+      a placeholder the notice does not carry is refused at save time with the
+      offending name in the message, rather than discovered as literal braces in
+      ten thousand deliveries. The same check refuses markup outside Telegram's
+      subset, an unclosed tag, a link that is not https, and a stray `<` that
+      Telegram would reject at send time. `internal/notice` owns both the
+      defaults and the validation, so the panel can show an operator the exact
+      string they are replacing from a process with no bot in it.
+
+      An override is an exception rather than a copy: no row means the shipped
+      wording, so reverting is a delete and an installation that reverts keeps
+      receiving improved defaults from later upgrades. Wording is loaded once
+      per notifier pass — a hundred expiry warnings sent together say the same
+      thing — and a failed lookup keeps whatever was in force rather than
+      falling back, because changing what every customer reads over one query
+      timeout is worse than being fifteen minutes out of date.
+
+      The test send goes to a notice-preview topic in the operator group and
+      never to a customer. A transactional notice has a trigger, and
+      manufacturing an expiry warning against a real subscription to see how it
+      reads would tell somebody their access is ending when it is not. The body
+      is rendered and stored when the button is pressed, so the group receives
+      what was in the editor at that moment even if it is edited again or never
+      saved.
 - [x] Notification history and a test notification — done, on both sides and
       documented under
       [`customer/notifications`](./docs/customer/notifications.mdx). It was never

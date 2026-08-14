@@ -2419,6 +2419,45 @@ func (e PanelMergePreviewNotes) Valid() bool {
 	}
 }
 
+// Defines values for PanelNoticeTestLocale.
+const (
+	PanelNoticeTestLocaleEn PanelNoticeTestLocale = "en"
+	PanelNoticeTestLocaleRu PanelNoticeTestLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the PanelNoticeTestLocale enum.
+func (e PanelNoticeTestLocale) Valid() bool {
+	switch e {
+	case PanelNoticeTestLocaleEn:
+		return true
+	case PanelNoticeTestLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelNoticeTestStatus.
+const (
+	PanelNoticeTestStatusFailed  PanelNoticeTestStatus = "failed"
+	PanelNoticeTestStatusPending PanelNoticeTestStatus = "pending"
+	PanelNoticeTestStatusSent    PanelNoticeTestStatus = "sent"
+)
+
+// Valid indicates whether the value is a known member of the PanelNoticeTestStatus enum.
+func (e PanelNoticeTestStatus) Valid() bool {
+	switch e {
+	case PanelNoticeTestStatusFailed:
+		return true
+	case PanelNoticeTestStatusPending:
+		return true
+	case PanelNoticeTestStatusSent:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PanelOfferStatus.
 const (
 	PanelOfferStatusActive    PanelOfferStatus = "active"
@@ -3664,6 +3703,78 @@ func (e SavePanelGoodsLocalizationParamsLocale) Valid() bool {
 	case SavePanelGoodsLocalizationParamsLocaleEn:
 		return true
 	case SavePanelGoodsLocalizationParamsLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RevertPanelNoticeParamsLocale.
+const (
+	RevertPanelNoticeParamsLocaleEn RevertPanelNoticeParamsLocale = "en"
+	RevertPanelNoticeParamsLocaleRu RevertPanelNoticeParamsLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the RevertPanelNoticeParamsLocale enum.
+func (e RevertPanelNoticeParamsLocale) Valid() bool {
+	switch e {
+	case RevertPanelNoticeParamsLocaleEn:
+		return true
+	case RevertPanelNoticeParamsLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SavePanelNoticeJSONBodyLocale.
+const (
+	SavePanelNoticeJSONBodyLocaleEn SavePanelNoticeJSONBodyLocale = "en"
+	SavePanelNoticeJSONBodyLocaleRu SavePanelNoticeJSONBodyLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the SavePanelNoticeJSONBodyLocale enum.
+func (e SavePanelNoticeJSONBodyLocale) Valid() bool {
+	switch e {
+	case SavePanelNoticeJSONBodyLocaleEn:
+		return true
+	case SavePanelNoticeJSONBodyLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PreviewPanelNoticeJSONBodyLocale.
+const (
+	PreviewPanelNoticeJSONBodyLocaleEn PreviewPanelNoticeJSONBodyLocale = "en"
+	PreviewPanelNoticeJSONBodyLocaleRu PreviewPanelNoticeJSONBodyLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the PreviewPanelNoticeJSONBodyLocale enum.
+func (e PreviewPanelNoticeJSONBodyLocale) Valid() bool {
+	switch e {
+	case PreviewPanelNoticeJSONBodyLocaleEn:
+		return true
+	case PreviewPanelNoticeJSONBodyLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SendPanelNoticeTestJSONBodyLocale.
+const (
+	SendPanelNoticeTestJSONBodyLocaleEn SendPanelNoticeTestJSONBodyLocale = "en"
+	SendPanelNoticeTestJSONBodyLocaleRu SendPanelNoticeTestJSONBodyLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the SendPanelNoticeTestJSONBodyLocale enum.
+func (e SendPanelNoticeTestJSONBodyLocale) Valid() bool {
+	switch e {
+	case SendPanelNoticeTestJSONBodyLocaleEn:
+		return true
+	case SendPanelNoticeTestJSONBodyLocaleRu:
 		return true
 	default:
 		return false
@@ -6333,6 +6444,59 @@ type PanelMetric struct {
 	Value      int64  `json:"value"`
 }
 
+// PanelNotice defines model for PanelNotice.
+type PanelNotice struct {
+	Code string `json:"code"`
+
+	// Default The shipped wording per locale, which an override replaces and reverting restores.
+	Default map[string]string `json:"default"`
+
+	// Overrides Only the locales an operator has actually reworded.
+	Overrides *map[string]PanelNoticeOverride `json:"overrides,omitempty"`
+	Variables *[]PanelNoticeVariable          `json:"variables,omitempty"`
+}
+
+// PanelNoticeOverride defines model for PanelNoticeOverride.
+type PanelNoticeOverride struct {
+	Body      string              `json:"body"`
+	UpdatedAt time.Time           `json:"updatedAt"`
+	UpdatedBy *openapi_types.UUID `json:"updatedBy,omitempty"`
+}
+
+// PanelNoticePreview defines model for PanelNoticePreview.
+type PanelNoticePreview struct {
+	// Placeholders What the body actually used, which is how an operator notices they deleted {days} from the expiry warning.
+	Placeholders *[]string `json:"placeholders,omitempty"`
+	Rendered     string    `json:"rendered"`
+}
+
+// PanelNoticeTest defines model for PanelNoticeTest.
+type PanelNoticeTest struct {
+	Code        string                `json:"code"`
+	ErrorCode   *string               `json:"errorCode,omitempty"`
+	Id          openapi_types.UUID    `json:"id"`
+	Locale      PanelNoticeTestLocale `json:"locale"`
+	RequestedAt time.Time             `json:"requestedAt"`
+	ResolvedAt  *time.Time            `json:"resolvedAt,omitempty"`
+	Status      PanelNoticeTestStatus `json:"status"`
+}
+
+// PanelNoticeTestLocale defines model for PanelNoticeTest.Locale.
+type PanelNoticeTestLocale string
+
+// PanelNoticeTestStatus defines model for PanelNoticeTest.Status.
+type PanelNoticeTestStatus string
+
+// PanelNoticeVariable defines model for PanelNoticeVariable.
+type PanelNoticeVariable struct {
+	// Name Written as {name} in the body.
+	Name    string `json:"name"`
+	Purpose string `json:"purpose"`
+
+	// Sample What a preview substitutes.
+	Sample string `json:"sample"`
+}
+
 // PanelOffer defines model for PanelOffer.
 type PanelOffer struct {
 	CreatedAt   time.Time           `json:"createdAt"`
@@ -8635,6 +8799,68 @@ type ListPanelGoodsReviewQueueParams struct {
 	PageSize *PageSize `form:"pageSize,omitempty" json:"pageSize,omitempty"`
 }
 
+// RevertPanelNoticeParams defines parameters for RevertPanelNotice.
+type RevertPanelNoticeParams struct {
+	Locale RevertPanelNoticeParamsLocale `form:"locale" json:"locale"`
+
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// RevertPanelNoticeParamsLocale defines parameters for RevertPanelNotice.
+type RevertPanelNoticeParamsLocale string
+
+// SavePanelNoticeJSONBody defines parameters for SavePanelNotice.
+type SavePanelNoticeJSONBody struct {
+	Body   string                        `json:"body"`
+	Locale SavePanelNoticeJSONBodyLocale `json:"locale"`
+}
+
+// SavePanelNoticeParams defines parameters for SavePanelNotice.
+type SavePanelNoticeParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// SavePanelNoticeJSONBodyLocale defines parameters for SavePanelNotice.
+type SavePanelNoticeJSONBodyLocale string
+
+// PreviewPanelNoticeJSONBody defines parameters for PreviewPanelNotice.
+type PreviewPanelNoticeJSONBody struct {
+	// Body Empty previews the shipped wording.
+	Body   *string                          `json:"body,omitempty"`
+	Locale PreviewPanelNoticeJSONBodyLocale `json:"locale"`
+}
+
+// PreviewPanelNoticeParams defines parameters for PreviewPanelNotice.
+type PreviewPanelNoticeParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// PreviewPanelNoticeJSONBodyLocale defines parameters for PreviewPanelNotice.
+type PreviewPanelNoticeJSONBodyLocale string
+
+// SendPanelNoticeTestJSONBody defines parameters for SendPanelNoticeTest.
+type SendPanelNoticeTestJSONBody struct {
+	Body   *string                           `json:"body,omitempty"`
+	Locale SendPanelNoticeTestJSONBodyLocale `json:"locale"`
+}
+
+// SendPanelNoticeTestParams defines parameters for SendPanelNoticeTest.
+type SendPanelNoticeTestParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// SendPanelNoticeTestJSONBodyLocale defines parameters for SendPanelNoticeTest.
+type SendPanelNoticeTestJSONBodyLocale string
+
+// ListPanelNoticeTestsParams defines parameters for ListPanelNoticeTests.
+type ListPanelNoticeTestsParams struct {
+	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // SearchPanelOffersParams defines parameters for SearchPanelOffers.
 type SearchPanelOffersParams struct {
 	Cursor     *Cursor                        `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -9163,6 +9389,15 @@ type SavePanelGoodsPricingJSONRequestBody = PanelGoodsPricing
 
 // SavePanelGoodsProviderJSONRequestBody defines body for SavePanelGoodsProvider for application/json ContentType.
 type SavePanelGoodsProviderJSONRequestBody = PanelGoodsProviderInput
+
+// SavePanelNoticeJSONRequestBody defines body for SavePanelNotice for application/json ContentType.
+type SavePanelNoticeJSONRequestBody SavePanelNoticeJSONBody
+
+// PreviewPanelNoticeJSONRequestBody defines body for PreviewPanelNotice for application/json ContentType.
+type PreviewPanelNoticeJSONRequestBody PreviewPanelNoticeJSONBody
+
+// SendPanelNoticeTestJSONRequestBody defines body for SendPanelNoticeTest for application/json ContentType.
+type SendPanelNoticeTestJSONRequestBody SendPanelNoticeTestJSONBody
 
 // CreatePanelOfferJSONRequestBody defines body for CreatePanelOffer for application/json ContentType.
 type CreatePanelOfferJSONRequestBody = PanelOfferInput
@@ -9859,6 +10094,24 @@ type ServerInterface interface {
 
 	// (GET /v1/panel/goods/review)
 	ListPanelGoodsReviewQueue(w http.ResponseWriter, r *http.Request, params ListPanelGoodsReviewQueueParams)
+
+	// (GET /v1/panel/notices)
+	ListPanelNotices(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /v1/panel/notices/{code})
+	RevertPanelNotice(w http.ResponseWriter, r *http.Request, code string, params RevertPanelNoticeParams)
+
+	// (PUT /v1/panel/notices/{code})
+	SavePanelNotice(w http.ResponseWriter, r *http.Request, code string, params SavePanelNoticeParams)
+
+	// (POST /v1/panel/notices/{code}/preview)
+	PreviewPanelNotice(w http.ResponseWriter, r *http.Request, code string, params PreviewPanelNoticeParams)
+
+	// (POST /v1/panel/notices/{code}/test)
+	SendPanelNoticeTest(w http.ResponseWriter, r *http.Request, code string, params SendPanelNoticeTestParams)
+
+	// (GET /v1/panel/notices/{code}/tests)
+	ListPanelNoticeTests(w http.ResponseWriter, r *http.Request, code string, params ListPanelNoticeTestsParams)
 
 	// (GET /v1/panel/offers)
 	SearchPanelOffers(w http.ResponseWriter, r *http.Request, params SearchPanelOffersParams)
@@ -11097,6 +11350,36 @@ func (_ Unimplemented) SavePanelGoodsProvider(w http.ResponseWriter, r *http.Req
 
 // (GET /v1/panel/goods/review)
 func (_ Unimplemented) ListPanelGoodsReviewQueue(w http.ResponseWriter, r *http.Request, params ListPanelGoodsReviewQueueParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/notices)
+func (_ Unimplemented) ListPanelNotices(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /v1/panel/notices/{code})
+func (_ Unimplemented) RevertPanelNotice(w http.ResponseWriter, r *http.Request, code string, params RevertPanelNoticeParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /v1/panel/notices/{code})
+func (_ Unimplemented) SavePanelNotice(w http.ResponseWriter, r *http.Request, code string, params SavePanelNoticeParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/notices/{code}/preview)
+func (_ Unimplemented) PreviewPanelNotice(w http.ResponseWriter, r *http.Request, code string, params PreviewPanelNoticeParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/notices/{code}/test)
+func (_ Unimplemented) SendPanelNoticeTest(w http.ResponseWriter, r *http.Request, code string, params SendPanelNoticeTestParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/notices/{code}/tests)
+func (_ Unimplemented) ListPanelNoticeTests(w http.ResponseWriter, r *http.Request, code string, params ListPanelNoticeTestsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -20561,6 +20844,291 @@ func (siw *ServerInterfaceWrapper) ListPanelGoodsReviewQueue(w http.ResponseWrit
 	handler.ServeHTTP(w, r)
 }
 
+// ListPanelNotices operation middleware
+func (siw *ServerInterfaceWrapper) ListPanelNotices(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPanelNotices(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevertPanelNotice operation middleware
+func (siw *ServerInterfaceWrapper) RevertPanelNotice(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "code" -------------
+	var code string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "code", chi.URLParam(r, "code"), &code, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RevertPanelNoticeParams
+
+	// ------------- Required query parameter "locale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "locale", r.URL.Query(), &params.Locale, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "locale"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locale", Err: err})
+		}
+		return
+	}
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevertPanelNotice(w, r, code, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SavePanelNotice operation middleware
+func (siw *ServerInterfaceWrapper) SavePanelNotice(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "code" -------------
+	var code string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "code", chi.URLParam(r, "code"), &code, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SavePanelNoticeParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SavePanelNotice(w, r, code, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PreviewPanelNotice operation middleware
+func (siw *ServerInterfaceWrapper) PreviewPanelNotice(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "code" -------------
+	var code string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "code", chi.URLParam(r, "code"), &code, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PreviewPanelNoticeParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreviewPanelNotice(w, r, code, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SendPanelNoticeTest operation middleware
+func (siw *ServerInterfaceWrapper) SendPanelNoticeTest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "code" -------------
+	var code string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "code", chi.URLParam(r, "code"), &code, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SendPanelNoticeTestParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SendPanelNoticeTest(w, r, code, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPanelNoticeTests operation middleware
+func (siw *ServerInterfaceWrapper) ListPanelNoticeTests(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "code" -------------
+	var code string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "code", chi.URLParam(r, "code"), &code, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPanelNoticeTestsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPanelNoticeTests(w, r, code, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // SearchPanelOffers operation middleware
 func (siw *ServerInterfaceWrapper) SearchPanelOffers(w http.ResponseWriter, r *http.Request) {
 
@@ -23489,6 +24057,24 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/panel/customers/{customerID}/notifications/test", wrapper.SendPanelCustomerTestNotification)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/notices", wrapper.ListPanelNotices)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/panel/notices/{code}", wrapper.RevertPanelNotice)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/panel/notices/{code}", wrapper.SavePanelNotice)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/notices/{code}/preview", wrapper.PreviewPanelNotice)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/notices/{code}/test", wrapper.SendPanelNoticeTest)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/notices/{code}/tests", wrapper.ListPanelNoticeTests)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/reports/sales", wrapper.GetPanelSalesReport)
@@ -32977,6 +33563,295 @@ func (response ListPanelGoodsReviewQueue403ApplicationProblemPlusJSONResponse) V
 	return err
 }
 
+type ListPanelNoticesRequestObject struct {
+}
+
+type ListPanelNoticesResponseObject interface {
+	VisitListPanelNoticesResponse(w http.ResponseWriter) error
+}
+
+type ListPanelNotices200JSONResponse struct {
+	Items []PanelNotice `json:"items"`
+}
+
+func (response ListPanelNotices200JSONResponse) VisitListPanelNoticesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelNotices403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListPanelNotices403ApplicationProblemPlusJSONResponse) VisitListPanelNoticesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevertPanelNoticeRequestObject struct {
+	Code   string `json:"code"`
+	Params RevertPanelNoticeParams
+}
+
+type RevertPanelNoticeResponseObject interface {
+	VisitRevertPanelNoticeResponse(w http.ResponseWriter) error
+}
+
+type RevertPanelNotice204Response struct {
+}
+
+func (response RevertPanelNotice204Response) VisitRevertPanelNoticeResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type RevertPanelNotice403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RevertPanelNotice403ApplicationProblemPlusJSONResponse) VisitRevertPanelNoticeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevertPanelNotice422ApplicationProblemPlusJSONResponse Problem
+
+func (response RevertPanelNotice422ApplicationProblemPlusJSONResponse) VisitRevertPanelNoticeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelNoticeRequestObject struct {
+	Code   string `json:"code"`
+	Params SavePanelNoticeParams
+	Body   *SavePanelNoticeJSONRequestBody
+}
+
+type SavePanelNoticeResponseObject interface {
+	VisitSavePanelNoticeResponse(w http.ResponseWriter) error
+}
+
+type SavePanelNotice200JSONResponse PanelNoticeOverride
+
+func (response SavePanelNotice200JSONResponse) VisitSavePanelNoticeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelNotice403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SavePanelNotice403ApplicationProblemPlusJSONResponse) VisitSavePanelNoticeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelNotice422ApplicationProblemPlusJSONResponse Problem
+
+func (response SavePanelNotice422ApplicationProblemPlusJSONResponse) VisitSavePanelNoticeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewPanelNoticeRequestObject struct {
+	Code   string `json:"code"`
+	Params PreviewPanelNoticeParams
+	Body   *PreviewPanelNoticeJSONRequestBody
+}
+
+type PreviewPanelNoticeResponseObject interface {
+	VisitPreviewPanelNoticeResponse(w http.ResponseWriter) error
+}
+
+type PreviewPanelNotice200JSONResponse PanelNoticePreview
+
+func (response PreviewPanelNotice200JSONResponse) VisitPreviewPanelNoticeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewPanelNotice403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response PreviewPanelNotice403ApplicationProblemPlusJSONResponse) VisitPreviewPanelNoticeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewPanelNotice422ApplicationProblemPlusJSONResponse Problem
+
+func (response PreviewPanelNotice422ApplicationProblemPlusJSONResponse) VisitPreviewPanelNoticeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SendPanelNoticeTestRequestObject struct {
+	Code   string `json:"code"`
+	Params SendPanelNoticeTestParams
+	Body   *SendPanelNoticeTestJSONRequestBody
+}
+
+type SendPanelNoticeTestResponseObject interface {
+	VisitSendPanelNoticeTestResponse(w http.ResponseWriter) error
+}
+
+type SendPanelNoticeTest202JSONResponse PanelNoticeTest
+
+func (response SendPanelNoticeTest202JSONResponse) VisitSendPanelNoticeTestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SendPanelNoticeTest403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SendPanelNoticeTest403ApplicationProblemPlusJSONResponse) VisitSendPanelNoticeTestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SendPanelNoticeTest422ApplicationProblemPlusJSONResponse Problem
+
+func (response SendPanelNoticeTest422ApplicationProblemPlusJSONResponse) VisitSendPanelNoticeTestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelNoticeTestsRequestObject struct {
+	Code   string `json:"code"`
+	Params ListPanelNoticeTestsParams
+}
+
+type ListPanelNoticeTestsResponseObject interface {
+	VisitListPanelNoticeTestsResponse(w http.ResponseWriter) error
+}
+
+type ListPanelNoticeTests200JSONResponse struct {
+	Items []PanelNoticeTest `json:"items"`
+}
+
+func (response ListPanelNoticeTests200JSONResponse) VisitListPanelNoticeTestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelNoticeTests403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListPanelNoticeTests403ApplicationProblemPlusJSONResponse) VisitListPanelNoticeTestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type SearchPanelOffersRequestObject struct {
 	Params SearchPanelOffersParams
 }
@@ -36191,6 +37066,24 @@ type StrictServerInterface interface {
 
 	// (GET /v1/panel/goods/review)
 	ListPanelGoodsReviewQueue(ctx context.Context, request ListPanelGoodsReviewQueueRequestObject) (ListPanelGoodsReviewQueueResponseObject, error)
+
+	// (GET /v1/panel/notices)
+	ListPanelNotices(ctx context.Context, request ListPanelNoticesRequestObject) (ListPanelNoticesResponseObject, error)
+
+	// (DELETE /v1/panel/notices/{code})
+	RevertPanelNotice(ctx context.Context, request RevertPanelNoticeRequestObject) (RevertPanelNoticeResponseObject, error)
+
+	// (PUT /v1/panel/notices/{code})
+	SavePanelNotice(ctx context.Context, request SavePanelNoticeRequestObject) (SavePanelNoticeResponseObject, error)
+
+	// (POST /v1/panel/notices/{code}/preview)
+	PreviewPanelNotice(ctx context.Context, request PreviewPanelNoticeRequestObject) (PreviewPanelNoticeResponseObject, error)
+
+	// (POST /v1/panel/notices/{code}/test)
+	SendPanelNoticeTest(ctx context.Context, request SendPanelNoticeTestRequestObject) (SendPanelNoticeTestResponseObject, error)
+
+	// (GET /v1/panel/notices/{code}/tests)
+	ListPanelNoticeTests(ctx context.Context, request ListPanelNoticeTestsRequestObject) (ListPanelNoticeTestsResponseObject, error)
 
 	// (GET /v1/panel/offers)
 	SearchPanelOffers(ctx context.Context, request SearchPanelOffersRequestObject) (SearchPanelOffersResponseObject, error)
@@ -42459,6 +43352,186 @@ func (sh *strictHandler) ListPanelGoodsReviewQueue(w http.ResponseWriter, r *htt
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListPanelGoodsReviewQueueResponseObject); ok {
 		if err := validResponse.VisitListPanelGoodsReviewQueueResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPanelNotices operation middleware
+func (sh *strictHandler) ListPanelNotices(w http.ResponseWriter, r *http.Request) {
+	var request ListPanelNoticesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPanelNotices(ctx, request.(ListPanelNoticesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPanelNotices")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPanelNoticesResponseObject); ok {
+		if err := validResponse.VisitListPanelNoticesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RevertPanelNotice operation middleware
+func (sh *strictHandler) RevertPanelNotice(w http.ResponseWriter, r *http.Request, code string, params RevertPanelNoticeParams) {
+	var request RevertPanelNoticeRequestObject
+
+	request.Code = code
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RevertPanelNotice(ctx, request.(RevertPanelNoticeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RevertPanelNotice")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RevertPanelNoticeResponseObject); ok {
+		if err := validResponse.VisitRevertPanelNoticeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SavePanelNotice operation middleware
+func (sh *strictHandler) SavePanelNotice(w http.ResponseWriter, r *http.Request, code string, params SavePanelNoticeParams) {
+	var request SavePanelNoticeRequestObject
+
+	request.Code = code
+	request.Params = params
+
+	var body SavePanelNoticeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SavePanelNotice(ctx, request.(SavePanelNoticeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SavePanelNotice")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SavePanelNoticeResponseObject); ok {
+		if err := validResponse.VisitSavePanelNoticeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PreviewPanelNotice operation middleware
+func (sh *strictHandler) PreviewPanelNotice(w http.ResponseWriter, r *http.Request, code string, params PreviewPanelNoticeParams) {
+	var request PreviewPanelNoticeRequestObject
+
+	request.Code = code
+	request.Params = params
+
+	var body PreviewPanelNoticeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PreviewPanelNotice(ctx, request.(PreviewPanelNoticeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PreviewPanelNotice")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PreviewPanelNoticeResponseObject); ok {
+		if err := validResponse.VisitPreviewPanelNoticeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SendPanelNoticeTest operation middleware
+func (sh *strictHandler) SendPanelNoticeTest(w http.ResponseWriter, r *http.Request, code string, params SendPanelNoticeTestParams) {
+	var request SendPanelNoticeTestRequestObject
+
+	request.Code = code
+	request.Params = params
+
+	var body SendPanelNoticeTestJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SendPanelNoticeTest(ctx, request.(SendPanelNoticeTestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SendPanelNoticeTest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SendPanelNoticeTestResponseObject); ok {
+		if err := validResponse.VisitSendPanelNoticeTestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPanelNoticeTests operation middleware
+func (sh *strictHandler) ListPanelNoticeTests(w http.ResponseWriter, r *http.Request, code string, params ListPanelNoticeTestsParams) {
+	var request ListPanelNoticeTestsRequestObject
+
+	request.Code = code
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPanelNoticeTests(ctx, request.(ListPanelNoticeTestsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPanelNoticeTests")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPanelNoticeTestsResponseObject); ok {
+		if err := validResponse.VisitListPanelNoticeTestsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

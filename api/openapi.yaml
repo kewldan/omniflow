@@ -1756,6 +1756,179 @@ paths:
         "202": {description: Queued, content: {application/json: {schema: {$ref: "#/components/schemas/PanelQueuedTest"}}}}
         "403": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}
+  /v1/panel/notices:
+    get:
+      operationId: listPanelNotices
+      tags: [panel]
+      description: >-
+        Requires settings.read. Every transactional notice an operator may
+        reword, with the shipped wording, the values it carries, and whatever
+        has been written for it.
+
+        These are the messages the installation sends on its own initiative
+        because something happened to a subscription — expiry, traffic, renewal,
+        grace, recovery, fulfillment, and the two dunning notices. Campaign copy
+        lives under `/marketing/templates`; this is the voice every customer
+        hears whether or not anybody is running a campaign.
+
+        An override is an exception rather than a copy: a locale with no entry
+        in `overrides` is using the shipped default, so reverting keeps the
+        improved wording that later upgrades bring.
+      responses:
+        "200":
+          description: Notices
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: {type: array, items: {$ref: "#/components/schemas/PanelNotice"}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/notices/{code}:
+    put:
+      operationId: savePanelNotice
+      tags: [panel]
+      description: >-
+        Requires settings.write. Stores one body for one locale.
+
+        One locale at a time, deliberately: rewriting the English expiry warning
+        decides nothing about the Russian one, and a document-shaped save would
+        let this screen overwrite a translation somebody else was working on.
+
+        Refused with 422 when the body names a value the notice does not carry,
+        uses markup Telegram does not accept, contains a stray `<`, links to
+        anything but https, is blank, or exceeds 2000 characters. Every one of
+        those would otherwise become a message that fails or looks broken at the
+        customer, hours later, with nobody watching.
+
+        Values are named — `{days}`, `{plan}`, `{until}` — rather than format
+        verbs. A `%d` that meets a string prints `%!d(string=Pro)` and does not
+        fail, which is exactly the outcome an operator cannot be asked to guard
+        against.
+      parameters:
+        - {in: path, name: code, required: true, schema: {type: string}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [locale, body]
+              properties:
+                locale: {type: string, enum: [en, ru]}
+                body: {type: string, maxLength: 2000}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelNoticeOverride"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+    delete:
+      operationId: revertPanelNotice
+      tags: [panel]
+      description: >-
+        Requires settings.write. Removes the override so the shipped wording
+        applies again.
+
+        A delete rather than a write of the current default: an installation
+        that reverts today and upgrades tomorrow gets tomorrow's improved
+        wording, which a copied-in default would have frozen. Reverting
+        something that was never overridden is not an error.
+      parameters:
+        - {in: path, name: code, required: true, schema: {type: string}}
+        - {in: query, name: locale, required: true, schema: {type: string, enum: [en, ru]}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "204": {description: Reverted}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/notices/{code}/preview:
+    post:
+      operationId: previewPanelNotice
+      tags: [panel]
+      description: >-
+        Requires settings.write — a preview stores nothing, but it runs the
+        renderer over caller-supplied text, and a read permission should not be
+        a way to do that.
+
+        Renders a body against the notice's sample values, so an operator judges
+        a message rather than a template. An empty body previews the shipped
+        wording, which is what a customer would receive if nothing were saved.
+        It refuses exactly what a save refuses, so a preview can never show
+        something that could not then be stored.
+      parameters:
+        - {in: path, name: code, required: true, schema: {type: string}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [locale]
+              properties:
+                locale: {type: string, enum: [en, ru]}
+                body: {type: string, maxLength: 2000, description: "Empty previews the shipped wording."}
+      responses:
+        "200": {description: Preview, content: {application/json: {schema: {$ref: "#/components/schemas/PanelNoticePreview"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/notices/{code}/test:
+    post:
+      operationId: sendPanelNoticeTest
+      tags: [panel]
+      description: >-
+        Requires settings.write. Queues one rendered copy for the operator
+        group's notice-preview topic.
+
+        Never for a customer. A transactional notice has a trigger — a
+        subscription about to expire, a charge that failed — and manufacturing
+        one against a real subscription to see how the wording reads would tell
+        somebody their access is ending when it is not.
+
+        The body is rendered and stored at this moment rather than resolved at
+        delivery, so the group sees the text that was in the editor even if it
+        is edited again before the bot collects it. Answers 202; the outcome
+        appears in the test list.
+      parameters:
+        - {in: path, name: code, required: true, schema: {type: string}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [locale]
+              properties:
+                locale: {type: string, enum: [en, ru]}
+                body: {type: string, maxLength: 2000}
+      responses:
+        "202": {description: Queued, content: {application/json: {schema: {$ref: "#/components/schemas/PanelNoticeTest"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/notices/{code}/tests:
+    get:
+      operationId: listPanelNoticeTests
+      tags: [panel]
+      description: >-
+        Requires settings.read. What has been queued for this notice, so a
+        preview in flight looks like one rather than like a button that did
+        nothing.
+      parameters:
+        - {in: path, name: code, required: true, schema: {type: string}}
+        - {in: query, name: limit, schema: {type: integer, format: int32, minimum: 1, maximum: 50}}
+      responses:
+        "200":
+          description: Tests
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: {type: array, items: {$ref: "#/components/schemas/PanelNoticeTest"}}
+        "403": {$ref: "#/components/responses/Problem"}
   /v1/panel/reports/sales:
     get:
       operationId: getPanelSalesReport
@@ -5218,6 +5391,54 @@ components:
         reason: {type: string}
         subscriptionSlot: {type: integer, format: int32}
         subscriptionLabel: {type: string}
+    PanelNoticeVariable:
+      type: object
+      required: [name, purpose, sample]
+      properties:
+        name: {type: string, description: "Written as {name} in the body."}
+        purpose: {type: string}
+        sample: {type: string, description: "What a preview substitutes."}
+    PanelNoticeOverride:
+      type: object
+      required: [body, updatedAt]
+      properties:
+        body: {type: string}
+        updatedAt: {type: string, format: date-time}
+        updatedBy: {type: string, format: uuid}
+    PanelNotice:
+      type: object
+      required: [code, default]
+      properties:
+        code: {type: string}
+        variables: {type: array, items: {$ref: "#/components/schemas/PanelNoticeVariable"}}
+        default:
+          type: object
+          description: "The shipped wording per locale, which an override replaces and reverting restores."
+          additionalProperties: {type: string}
+        overrides:
+          type: object
+          description: "Only the locales an operator has actually reworded."
+          additionalProperties: {$ref: "#/components/schemas/PanelNoticeOverride"}
+    PanelNoticePreview:
+      type: object
+      required: [rendered]
+      properties:
+        rendered: {type: string}
+        placeholders:
+          type: array
+          description: "What the body actually used, which is how an operator notices they deleted {days} from the expiry warning."
+          items: {type: string}
+    PanelNoticeTest:
+      type: object
+      required: [id, code, locale, status, requestedAt]
+      properties:
+        id: {type: string, format: uuid}
+        code: {type: string}
+        locale: {type: string, enum: [en, ru]}
+        status: {type: string, enum: [pending, sent, failed]}
+        errorCode: {type: string}
+        requestedAt: {type: string, format: date-time}
+        resolvedAt: {type: string, format: date-time}
     PanelCommerceSettings:
       type: object
       required: [topUp, subscriptions, updatedAt]

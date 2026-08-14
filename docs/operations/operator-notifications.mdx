@@ -55,6 +55,10 @@ happened — it simply has nobody to tell.
 | 🚨 Incidents | `incident` | Maintenance transitions | *nothing today* |
 | 💾 Backups | `backup` | Backup outcomes | *nothing today* |
 | 🔐 Admin security | `security` | Operator sign-ins from a new address, password changes and resets, two-factor removal, and owner grants | Operator identity service |
+| 📣 Campaign previews | `campaign_test` | One copy of a campaign's message, asked for before the audience is committed to | Campaign test send |
+| 🔔 Notice previews | `notice_test` | One rendered copy of a transactional notice an operator is rewording | Notice test send |
+
+The last two carry something the others deliberately do not: a rendered message body. Everything else here is a set of allowlisted, non-personal fields, and a preview is by definition the copy itself. Both say plainly that nobody else received them — a preview mistaken for a real send is somebody reaching for the pause button. See [Campaigns](/commerce/campaigns) and [Message wording](/operations/message-wording).
 
 Two topics are created and stay empty. The incident announcer that would post maintenance
 transitions is implemented but not attached — maintenance detection runs in the `api`

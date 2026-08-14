@@ -127,7 +127,7 @@ This table's Bedolaga column covers the bot and the cabinet together, because th
 | Traffic reporting per node, with export | ✅ | ✅ | — |
 | Account-sharing detection by distinct address | 🔭 | ✅ | — |
 | Operator-published information pages: FAQ, terms, offer, privacy | ✅ | ✅ | — |
-| Transactional e-mail templates an operator can override | 🔭 | ✅ | — |
+| Transactional message wording an operator can override | ✅ (Telegram) | ✅ (e-mail) | — |
 | White-label theming: palette, logo, permitted themes | ✅ | ✅ | — |
 | Command palette and live updates without a refresh | 🔭 | ✅ | — |
 | Remnawave node and squad control from the panel | ❌ | ✅ | ✅ |
@@ -158,6 +158,8 @@ That is a real trade-off. Bedolaga operators are productive on day one with no r
 | Interface languages | 2: ru, en | 4: ru, en, zh, fa | — |
 
 Two rows there deserve their reasoning rather than their mark. E-mail and password sign-in is genuinely undecided: Telegram, OIDC, and a magic link are the ways into an Omniflow account, a password is a credential to phish, reset, and breach, and not having one is defensible — but the choice has never been written down, so it currently reads as an oversight. It is on the roadmap as a decision to record, not as a feature to build.
+
+Transactional wording is the same capability over a different channel, which is why the marks differ in their parentheses. Omniflow has no e-mail transport at all: every message it sends on its own initiative goes to Telegram, so the nine notices an operator can reword — expiry, traffic, renewal, grace, recovery, the two fulfillment messages, and the two dunning ones — are Telegram messages, with a variable reference, a preview against sample values, and a test send into the operator group. See [Message wording](/operations/message-wording).
 
 The client application catalogue is a trade-off rather than an omission. Omniflow's connect screen renders a client table compiled into the application, which both the bot and the web panel read, so a customer cannot be told to install one client in the chat and a different one in the browser. Keeping one source is the point; needing a release to add a client is what it costs. See [Connecting a device](/customer/connection).
 

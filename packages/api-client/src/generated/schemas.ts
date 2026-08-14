@@ -4071,6 +4071,187 @@ export const SendPanelCustomerTestNotificationResponse = zod.object({
 });
 
 /**
+ * Requires settings.read. Every transactional notice an operator may reword, with the shipped wording, the values it carries, and whatever has been written for it.
+ * These are the messages the installation sends on its own initiative because something happened to a subscription — expiry, traffic, renewal, grace, recovery, fulfillment, and the two dunning notices. Campaign copy lives under `/marketing/templates`; this is the voice every customer hears whether or not anybody is running a campaign.
+ * An override is an exception rather than a copy: a locale with no entry in `overrides` is using the shipped default, so reverting keeps the improved wording that later upgrades bring.
+ */
+export const ListPanelNoticesResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      code: zod.string(),
+      variables: zod
+        .array(
+          zod.object({
+            name: zod.string().describe("Written as {name} in the body."),
+            purpose: zod.string(),
+            sample: zod.string().describe("What a preview substitutes."),
+          }),
+        )
+        .optional(),
+      default: zod
+        .record(zod.string(), zod.string())
+        .describe(
+          "The shipped wording per locale, which an override replaces and reverting restores.",
+        ),
+      overrides: zod
+        .record(
+          zod.string(),
+          zod.object({
+            body: zod.string(),
+            updatedAt: zod.iso.datetime({ offset: true }),
+            updatedBy: zod.uuid().optional(),
+          }),
+        )
+        .optional()
+        .describe("Only the locales an operator has actually reworded."),
+    }),
+  ),
+});
+
+/**
+ * Requires settings.write. Stores one body for one locale.
+ * One locale at a time, deliberately: rewriting the English expiry warning decides nothing about the Russian one, and a document-shaped save would let this screen overwrite a translation somebody else was working on.
+ * Refused with 422 when the body names a value the notice does not carry, uses markup Telegram does not accept, contains a stray `<`, links to anything but https, is blank, or exceeds 2000 characters. Every one of those would otherwise become a message that fails or looks broken at the customer, hours later, with nobody watching.
+ * Values are named — `{days}`, `{plan}`, `{until}` — rather than format verbs. A `%d` that meets a string prints `%!d(string=Pro)` and does not fail, which is exactly the outcome an operator cannot be asked to guard against.
+ */
+export const SavePanelNoticeParams = zod.object({
+  code: zod.string(),
+});
+
+export const SavePanelNoticeHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const savePanelNoticeBodyBodyMax = 2000;
+
+export const SavePanelNoticeBody = zod.object({
+  locale: zod.enum(["en", "ru"]),
+  body: zod.string().max(savePanelNoticeBodyBodyMax),
+});
+
+export const SavePanelNoticeResponse = zod.object({
+  body: zod.string(),
+  updatedAt: zod.iso.datetime({ offset: true }),
+  updatedBy: zod.uuid().optional(),
+});
+
+/**
+ * Requires settings.write. Removes the override so the shipped wording applies again.
+ * A delete rather than a write of the current default: an installation that reverts today and upgrades tomorrow gets tomorrow's improved wording, which a copied-in default would have frozen. Reverting something that was never overridden is not an error.
+ */
+export const RevertPanelNoticeParams = zod.object({
+  code: zod.string(),
+});
+
+export const RevertPanelNoticeQueryParams = zod.object({
+  locale: zod.enum(["en", "ru"]),
+});
+
+export const RevertPanelNoticeHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const RevertPanelNoticeResponse = zod.void();
+
+/**
+ * Requires settings.write — a preview stores nothing, but it runs the renderer over caller-supplied text, and a read permission should not be a way to do that.
+ * Renders a body against the notice's sample values, so an operator judges a message rather than a template. An empty body previews the shipped wording, which is what a customer would receive if nothing were saved. It refuses exactly what a save refuses, so a preview can never show something that could not then be stored.
+ */
+export const PreviewPanelNoticeParams = zod.object({
+  code: zod.string(),
+});
+
+export const PreviewPanelNoticeHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const previewPanelNoticeBodyBodyMax = 2000;
+
+export const PreviewPanelNoticeBody = zod.object({
+  locale: zod.enum(["en", "ru"]),
+  body: zod
+    .string()
+    .max(previewPanelNoticeBodyBodyMax)
+    .optional()
+    .describe("Empty previews the shipped wording."),
+});
+
+export const PreviewPanelNoticeResponse = zod.object({
+  rendered: zod.string(),
+  placeholders: zod
+    .array(zod.string())
+    .optional()
+    .describe(
+      "What the body actually used, which is how an operator notices they deleted {days} from the expiry warning.",
+    ),
+});
+
+/**
+ * Requires settings.write. Queues one rendered copy for the operator group's notice-preview topic.
+ * Never for a customer. A transactional notice has a trigger — a subscription about to expire, a charge that failed — and manufacturing one against a real subscription to see how the wording reads would tell somebody their access is ending when it is not.
+ * The body is rendered and stored at this moment rather than resolved at delivery, so the group sees the text that was in the editor even if it is edited again before the bot collects it. Answers 202; the outcome appears in the test list.
+ */
+export const SendPanelNoticeTestParams = zod.object({
+  code: zod.string(),
+});
+
+export const SendPanelNoticeTestHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const sendPanelNoticeTestBodyBodyMax = 2000;
+
+export const SendPanelNoticeTestBody = zod.object({
+  locale: zod.enum(["en", "ru"]),
+  body: zod.string().max(sendPanelNoticeTestBodyBodyMax).optional(),
+});
+
+export const SendPanelNoticeTestResponse = zod.object({
+  id: zod.uuid(),
+  code: zod.string(),
+  locale: zod.enum(["en", "ru"]),
+  status: zod.enum(["pending", "sent", "failed"]),
+  errorCode: zod.string().optional(),
+  requestedAt: zod.iso.datetime({ offset: true }),
+  resolvedAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+/**
+ * Requires settings.read. What has been queued for this notice, so a preview in flight looks like one rather than like a button that did nothing.
+ */
+export const ListPanelNoticeTestsParams = zod.object({
+  code: zod.string(),
+});
+
+export const listPanelNoticeTestsQueryLimitMax = 50;
+
+export const ListPanelNoticeTestsQueryParams = zod.object({
+  limit: zod.int().min(1).max(listPanelNoticeTestsQueryLimitMax).optional(),
+});
+
+export const ListPanelNoticeTestsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      code: zod.string(),
+      locale: zod.enum(["en", "ru"]),
+      status: zod.enum(["pending", "sent", "failed"]),
+      errorCode: zod.string().optional(),
+      requestedAt: zod.iso.datetime({ offset: true }),
+      resolvedAt: zod.iso.datetime({ offset: true }).optional(),
+    }),
+  ),
+});
+
+/**
  * Requires finance.read. What was sold over a chosen period, by kind of sale, by plan version, and by day, with trial conversion and refunds issued. The period keys on `orders.paid_at`, which is set once when an order first settles and never moved afterwards, so re-running a report over a closed period returns the same figures. Provider money and wallet credit are reported apart and must never be added: the balance was already revenue when it was funded. A period longer than two years is refused.
  */
 export const getPanelSalesReportQueryTimezoneDefault = `UTC`;

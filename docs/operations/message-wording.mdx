@@ -1,0 +1,160 @@
+---
+title: Message wording
+description: Rewording the transactional notices the installation sends on its own, with a variable reference, a preview, and a test send that never reaches a customer
+---
+
+`/admin/settings/notices` changes what the installation says when something
+happens to a subscription: it is about to expire, the traffic allowance is
+nearly gone, an automatic charge failed.
+
+Campaign copy is written elsewhere, under
+[Campaigns](/commerce/campaigns), where you compose a message and choose who
+receives it. These are different. They reach every customer, they are triggered
+by an event rather than by a decision to send, and they are the voice your
+customers hear from you most often — which is why leaving them compiled in was
+the wrong default.
+
+## The nine notices
+
+| Notice | Sent when | Values it carries |
+| --- | --- | --- |
+| Expiry warning | 7, 3, and 1 days before expiry, and on the day | `{days}` |
+| Traffic warning | The allowance passes 80%, and again at 100% | `{percent}` |
+| Renewal reminder | A subscription is close enough to its end to renew | `{plan}`, `{days}`, `{until}` |
+| Grace period | Access continues after the subscription expired | `{until}`, `{graceUntil}` |
+| Recovery offer | After the grace period, offering to bring it back | — |
+| Activation finished | Provisioning completed and the customer can connect | — |
+| Activation delayed | Provisioning is slow enough to deserve an explanation | — |
+| Automatic charge failed | A charge failed and will be retried | — |
+| Automatic renewal stopped | Dunning gave up | — |
+
+Most carry nothing to substitute. That is not an oversight — the wording an
+installation wants to change is usually the tone rather than the data.
+
+## Values are named, not numbered
+
+An override writes `{days}`, not `%d`.
+
+The compiled catalogue uses `fmt.Sprintf`, which is safe for text written beside
+the code that renders it and unsafe for text written in a browser. A `%d` that
+meets a string prints `%!d(string=Pro)`. A verb too many prints `%!(EXTRA ...)`.
+Neither fails — they reach the customer looking broken, and nobody reads the
+message between you writing it and them receiving it.
+
+So a placeholder is refused when you save it if the notice does not carry that
+value. `{name}` in the expiry warning is an error on the screen you are looking
+at, rather than literal braces in ten thousand messages.
+
+## What a save refuses
+
+Everything here would otherwise become a message that fails or looks broken at
+the customer, hours later, with nobody watching:
+
+- A value the notice does not carry.
+- Markup outside `<b>`, `<i>`, `<u>`, `<s>`, `<code>`, `<pre>`, and `<a>` — the
+  subset Telegram's HTML mode accepts.
+- A tag that is never closed, or a closing tag that closes nothing.
+- A link that is not `https`. A `tg://` or `javascript:` target in a message the
+  installation sends on its own initiative is a link the customer has every
+  reason to trust and no way to inspect.
+- A stray `<`. Telegram refuses a message with one, so "5 < 10" is caught while
+  you are still on the screen. Write `&lt;`.
+- A blank body, or one over 2000 characters. Telegram accepts 4096; the limit is
+  half of it because the notice is prefixed with the subscription line and
+  carries a keyboard.
+
+The refusal names the offending placeholder or tag. "Invalid" is not something
+anybody can act on while looking at a text area.
+
+## Preview, and test send
+
+**Preview** renders your text against sample values — `{plan}` becomes `Pro`,
+`{days}` becomes `5` — so you are judging a message rather than a template. It
+renders as plain text in the panel: the body is Telegram markup, this is a
+browser, and interpreting it here would show you something neither Telegram nor
+the customer produces.
+
+**Send to the operator group** puts one rendered copy into the notice-preview
+topic in your operator group. That is what shows the real thing: whether
+Telegram accepts the markup, how the emoji look on a phone, where the lines
+break.
+
+It never goes to a customer, and that is deliberate. A transactional notice has
+a trigger. Manufacturing an expiry warning against a real subscription to see
+how it reads would tell somebody their access is ending when it is not.
+
+The body is rendered and stored when you press the button, so the group receives
+what was in the editor at that moment — even if you keep editing, and even if
+you never save.
+
+## Overrides are exceptions, not copies
+
+A notice with no row for a locale is using the shipped wording. Nothing is
+copied into the database when you first open the screen.
+
+This is why **Use the shipped wording** is a delete rather than a write of the
+current default. An installation that reverts today and upgrades next month gets
+next month's improved wording. Had reverting stored a copy, it would have frozen
+that installation on whatever the text happened to be on the day somebody
+clicked.
+
+The two languages are independent. Rewriting the English expiry warning decides
+nothing about the Russian one, and each is saved on its own request so this
+screen cannot overwrite a translation somebody else was working on.
+
+## When it takes effect
+
+On the notifier's next pass, within fifteen minutes.
+
+The wording is read once at the top of a pass and used for every message in it.
+That is cheaper than a query per message and more coherent: a hundred expiry
+warnings sent together say the same thing, even if you save an edit halfway
+through.
+
+If the lookup fails, the notifier keeps whatever was in force rather than
+falling back to the shipped text. Changing what every customer reads because one
+query timed out would be worse than being one pass out of date.
+
+## Permissions
+
+Reading the wording needs `settings.read`. Writing, reverting, previewing, and
+sending a test need `settings.write`.
+
+Preview is a write even though it stores nothing: it runs the renderer over text
+the caller supplied, and a read permission should not be a way to do that.
+
+Every save, revert, and test send is in the audit trail as `notice.overridden`,
+`notice.reverted`, and `notice.tested`. The body is not in the audit payload —
+it is up to 2000 characters of message text readable from the table it was just
+written to, and an audit trail records who did what rather than keeping a second
+copy of the content.
+
+## Reference
+
+| Route | Method | Notes |
+| --- | --- | --- |
+| `/v1/panel/notices` | `GET` | `settings.read`; every notice with its shipped wording, variables, and overrides |
+| `/v1/panel/notices/{code}` | `PUT` | `settings.write`; `{locale, body}`, one locale per request |
+| `/v1/panel/notices/{code}` | `DELETE` | `settings.write`; `?locale=` — reverting something untouched is not an error |
+| `/v1/panel/notices/{code}/preview` | `POST` | `settings.write`; an empty body previews the shipped wording |
+| `/v1/panel/notices/{code}/test` | `POST` | `settings.write`; answers `202`, delivers to the operator group |
+| `/v1/panel/notices/{code}/tests` | `GET` | `settings.read`; recent tests and their outcomes |
+
+Refusals are RFC 9457 problem documents with the reason in `detail`.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Notifications" icon="bell" href="/customer/notifications">
+    What the customer controls, and what was actually delivered.
+  </Card>
+  <Card title="Campaigns" icon="bullhorn" href="/commerce/campaigns">
+    Marketing copy, segments, and sends — a different kind of message.
+  </Card>
+  <Card title="Operator notifications" icon="tower-broadcast" href="/operations/operator-notifications">
+    The group the test send lands in, and every topic in it.
+  </Card>
+  <Card title="Branding" icon="palette" href="/operations/branding">
+    The other half of how the installation presents itself.
+  </Card>
+</CardGroup>

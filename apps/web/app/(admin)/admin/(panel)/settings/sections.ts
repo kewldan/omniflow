@@ -38,7 +38,7 @@ export type SectionField = {
 export type SettingsGroupKey = "commerce" | "integrations" | "operations" | "brand";
 
 export type SettingsGroup = {
-  key: SettingsGroupKey | "signIn" | "ai" | "connect";
+  key: SettingsGroupKey | "signIn" | "ai" | "connect" | "notices";
   href: string;
   /** The permission the route itself requires. */
   permission: string;
@@ -50,6 +50,11 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
   { key: "operations", href: "/admin/settings/operations", permission: "settings.read" },
   { key: "brand", href: "/admin/settings/brand", permission: "settings.read" },
   { key: "connect", href: "/admin/settings/connect", permission: "settings.read" },
+  // The wording of the messages the installation sends on its own initiative.
+  // It sits here rather than under marketing because there is no audience
+  // decision to make: these reach every customer, and how the installation
+  // speaks is a configuration of it rather than a campaign.
+  { key: "notices", href: "/admin/settings/notices", permission: "settings.read" },
   { key: "signIn", href: "/admin/settings/sign-in", permission: "settings.read" },
   { key: "ai", href: "/admin/settings/ai", permission: "settings.read" },
 ];

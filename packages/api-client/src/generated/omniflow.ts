@@ -2386,6 +2386,72 @@ export interface AccountDelivery {
   subscriptionLabel?: string;
 }
 
+export interface PanelNoticeVariable {
+  /** Written as {name} in the body. */
+  name: string;
+  purpose: string;
+  /** What a preview substitutes. */
+  sample: string;
+}
+
+export interface PanelNoticeOverride {
+  body: string;
+  updatedAt: string;
+  updatedBy?: string;
+}
+
+/**
+ * The shipped wording per locale, which an override replaces and reverting restores.
+ */
+export type PanelNoticeDefault = { [key: string]: string };
+
+/**
+ * Only the locales an operator has actually reworded.
+ */
+export type PanelNoticeOverrides = { [key: string]: PanelNoticeOverride };
+
+export interface PanelNotice {
+  code: string;
+  variables?: PanelNoticeVariable[];
+  /** The shipped wording per locale, which an override replaces and reverting restores. */
+  default: PanelNoticeDefault;
+  /** Only the locales an operator has actually reworded. */
+  overrides?: PanelNoticeOverrides;
+}
+
+export interface PanelNoticePreview {
+  rendered: string;
+  /** What the body actually used, which is how an operator notices they deleted {days} from the expiry warning. */
+  placeholders?: string[];
+}
+
+export type PanelNoticeTestLocale =
+  (typeof PanelNoticeTestLocale)[keyof typeof PanelNoticeTestLocale];
+
+export const PanelNoticeTestLocale = {
+  en: "en",
+  ru: "ru",
+} as const;
+
+export type PanelNoticeTestStatus =
+  (typeof PanelNoticeTestStatus)[keyof typeof PanelNoticeTestStatus];
+
+export const PanelNoticeTestStatus = {
+  pending: "pending",
+  sent: "sent",
+  failed: "failed",
+} as const;
+
+export interface PanelNoticeTest {
+  id: string;
+  code: string;
+  locale: PanelNoticeTestLocale;
+  status: PanelNoticeTestStatus;
+  errorCode?: string;
+  requestedAt: string;
+  resolvedAt?: string;
+}
+
 export interface PanelCommerceSettings {
   topUp: PanelTopUpSettings;
   subscriptions: PanelSubscriptionSettings;
@@ -4929,6 +4995,79 @@ export const ListPanelCustomerNotificationsStatus = {
 
 export type SummarisePanelCustomerNotifications200 = {
   summaries: PanelDeliverySummary[];
+};
+
+export type ListPanelNotices200 = {
+  items: PanelNotice[];
+};
+
+export type SavePanelNoticeBodyLocale =
+  (typeof SavePanelNoticeBodyLocale)[keyof typeof SavePanelNoticeBodyLocale];
+
+export const SavePanelNoticeBodyLocale = {
+  en: "en",
+  ru: "ru",
+} as const;
+
+export type SavePanelNoticeBody = {
+  locale: SavePanelNoticeBodyLocale;
+  /** @maxLength 2000 */
+  body: string;
+};
+
+export type RevertPanelNoticeParams = {
+  locale: RevertPanelNoticeLocale;
+};
+
+export type RevertPanelNoticeLocale =
+  (typeof RevertPanelNoticeLocale)[keyof typeof RevertPanelNoticeLocale];
+
+export const RevertPanelNoticeLocale = {
+  en: "en",
+  ru: "ru",
+} as const;
+
+export type PreviewPanelNoticeBodyLocale =
+  (typeof PreviewPanelNoticeBodyLocale)[keyof typeof PreviewPanelNoticeBodyLocale];
+
+export const PreviewPanelNoticeBodyLocale = {
+  en: "en",
+  ru: "ru",
+} as const;
+
+export type PreviewPanelNoticeBody = {
+  locale: PreviewPanelNoticeBodyLocale;
+  /**
+   * Empty previews the shipped wording.
+   * @maxLength 2000
+   */
+  body?: string;
+};
+
+export type SendPanelNoticeTestBodyLocale =
+  (typeof SendPanelNoticeTestBodyLocale)[keyof typeof SendPanelNoticeTestBodyLocale];
+
+export const SendPanelNoticeTestBodyLocale = {
+  en: "en",
+  ru: "ru",
+} as const;
+
+export type SendPanelNoticeTestBody = {
+  locale: SendPanelNoticeTestBodyLocale;
+  /** @maxLength 2000 */
+  body?: string;
+};
+
+export type ListPanelNoticeTestsParams = {
+  /**
+   * @minimum 1
+   * @maximum 50
+   */
+  limit?: number;
+};
+
+export type ListPanelNoticeTests200 = {
+  items: PanelNoticeTest[];
 };
 
 export type GetPanelSalesReportParams = {
@@ -17091,6 +17230,552 @@ export const useSendPanelCustomerTestNotification = <TError = Promise<ProblemRes
   const swrFn = getSendPanelCustomerTestNotificationMutationFetcher(customerID, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelNoticesResponse200 = {
+  data: ListPanelNotices200;
+  status: 200;
+};
+
+export type listPanelNoticesResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelNoticesResponseSuccess = listPanelNoticesResponse200 & {
+  headers: Headers;
+};
+export type listPanelNoticesResponseError = listPanelNoticesResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelNoticesResponse =
+  | listPanelNoticesResponseSuccess
+  | listPanelNoticesResponseError;
+
+export const getListPanelNoticesUrl = () => {
+  return `/v1/panel/notices`;
+};
+
+/**
+ * Requires settings.read. Every transactional notice an operator may reword, with the shipped wording, the values it carries, and whatever has been written for it.
+ * These are the messages the installation sends on its own initiative because something happened to a subscription — expiry, traffic, renewal, grace, recovery, fulfillment, and the two dunning notices. Campaign copy lives under `/marketing/templates`; this is the voice every customer hears whether or not anybody is running a campaign.
+ * An override is an exception rather than a copy: a locale with no entry in `overrides` is using the shipped default, so reverting keeps the improved wording that later upgrades bring.
+ */
+export const listPanelNotices = async (
+  options?: RequestInit,
+): Promise<listPanelNoticesResponse> => {
+  const res = await fetch(getListPanelNoticesUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelNoticesResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelNoticesResponse;
+};
+
+export const getListPanelNoticesKey = () => [`/v1/panel/notices`] as const;
+
+export type ListPanelNoticesQueryResult = NonNullable<Awaited<ReturnType<typeof listPanelNotices>>>;
+
+export const useListPanelNotices = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelNotices>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelNoticesKey() : null));
+  const swrFn = () => listPanelNotices(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelNoticeResponse200 = {
+  data: PanelNoticeOverride;
+  status: 200;
+};
+
+export type savePanelNoticeResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelNoticeResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelNoticeResponseSuccess = savePanelNoticeResponse200 & {
+  headers: Headers;
+};
+export type savePanelNoticeResponseError = (
+  | savePanelNoticeResponse403
+  | savePanelNoticeResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelNoticeResponse = savePanelNoticeResponseSuccess | savePanelNoticeResponseError;
+
+export const getSavePanelNoticeUrl = (code: string) => {
+  return `/v1/panel/notices/${code}`;
+};
+
+/**
+ * Requires settings.write. Stores one body for one locale.
+ * One locale at a time, deliberately: rewriting the English expiry warning decides nothing about the Russian one, and a document-shaped save would let this screen overwrite a translation somebody else was working on.
+ * Refused with 422 when the body names a value the notice does not carry, uses markup Telegram does not accept, contains a stray `<`, links to anything but https, is blank, or exceeds 2000 characters. Every one of those would otherwise become a message that fails or looks broken at the customer, hours later, with nobody watching.
+ * Values are named — `{days}`, `{plan}`, `{until}` — rather than format verbs. A `%d` that meets a string prints `%!d(string=Pro)` and does not fail, which is exactly the outcome an operator cannot be asked to guard against.
+ */
+export const savePanelNotice = async (
+  code: string,
+  savePanelNoticeBody: SavePanelNoticeBody,
+  options?: RequestInit,
+): Promise<savePanelNoticeResponse> => {
+  const res = await fetch(getSavePanelNoticeUrl(code), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(savePanelNoticeBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelNoticeResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as savePanelNoticeResponse;
+};
+
+export const getSavePanelNoticeMutationFetcher = (code: string, options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: SavePanelNoticeBody }) => {
+    return savePanelNotice(code, arg, options);
+  };
+};
+export const getSavePanelNoticeMutationKey = (code: string) =>
+  [`/v1/panel/notices/${code}`] as const;
+
+export type SavePanelNoticeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelNotice>>
+>;
+
+export const useSavePanelNotice = <TError = Promise<ProblemResponse>>(
+  code: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof savePanelNotice>>,
+      TError,
+      Key,
+      SavePanelNoticeBody,
+      Awaited<ReturnType<typeof savePanelNotice>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelNoticeMutationKey(code);
+  const swrFn = getSavePanelNoticeMutationFetcher(code, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type revertPanelNoticeResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type revertPanelNoticeResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type revertPanelNoticeResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type revertPanelNoticeResponseSuccess = revertPanelNoticeResponse204 & {
+  headers: Headers;
+};
+export type revertPanelNoticeResponseError = (
+  | revertPanelNoticeResponse403
+  | revertPanelNoticeResponse422
+) & {
+  headers: Headers;
+};
+
+export type revertPanelNoticeResponse =
+  | revertPanelNoticeResponseSuccess
+  | revertPanelNoticeResponseError;
+
+export const getRevertPanelNoticeUrl = (code: string, params: RevertPanelNoticeParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/notices/${code}?${stringifiedParams}`
+    : `/v1/panel/notices/${code}`;
+};
+
+/**
+ * Requires settings.write. Removes the override so the shipped wording applies again.
+ * A delete rather than a write of the current default: an installation that reverts today and upgrades tomorrow gets tomorrow's improved wording, which a copied-in default would have frozen. Reverting something that was never overridden is not an error.
+ */
+export const revertPanelNotice = async (
+  code: string,
+  params: RevertPanelNoticeParams,
+  options?: RequestInit,
+): Promise<revertPanelNoticeResponse> => {
+  const res = await fetch(getRevertPanelNoticeUrl(code, params), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: revertPanelNoticeResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as revertPanelNoticeResponse;
+};
+
+export const getRevertPanelNoticeMutationFetcher = (
+  code: string,
+  params: RevertPanelNoticeParams,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return revertPanelNotice(code, params, options);
+  };
+};
+export const getRevertPanelNoticeMutationKey = (code: string, params: RevertPanelNoticeParams) =>
+  [`/v1/panel/notices/${code}`, ...(params ? [params] : [])] as const;
+
+export type RevertPanelNoticeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof revertPanelNotice>>
+>;
+
+export const useRevertPanelNotice = <TError = Promise<ProblemResponse>>(
+  code: string,
+  params: RevertPanelNoticeParams,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof revertPanelNotice>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof revertPanelNotice>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRevertPanelNoticeMutationKey(code, params);
+  const swrFn = getRevertPanelNoticeMutationFetcher(code, params, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type previewPanelNoticeResponse200 = {
+  data: PanelNoticePreview;
+  status: 200;
+};
+
+export type previewPanelNoticeResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type previewPanelNoticeResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type previewPanelNoticeResponseSuccess = previewPanelNoticeResponse200 & {
+  headers: Headers;
+};
+export type previewPanelNoticeResponseError = (
+  | previewPanelNoticeResponse403
+  | previewPanelNoticeResponse422
+) & {
+  headers: Headers;
+};
+
+export type previewPanelNoticeResponse =
+  | previewPanelNoticeResponseSuccess
+  | previewPanelNoticeResponseError;
+
+export const getPreviewPanelNoticeUrl = (code: string) => {
+  return `/v1/panel/notices/${code}/preview`;
+};
+
+/**
+ * Requires settings.write — a preview stores nothing, but it runs the renderer over caller-supplied text, and a read permission should not be a way to do that.
+ * Renders a body against the notice's sample values, so an operator judges a message rather than a template. An empty body previews the shipped wording, which is what a customer would receive if nothing were saved. It refuses exactly what a save refuses, so a preview can never show something that could not then be stored.
+ */
+export const previewPanelNotice = async (
+  code: string,
+  previewPanelNoticeBody: PreviewPanelNoticeBody,
+  options?: RequestInit,
+): Promise<previewPanelNoticeResponse> => {
+  const res = await fetch(getPreviewPanelNoticeUrl(code), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(previewPanelNoticeBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: previewPanelNoticeResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as previewPanelNoticeResponse;
+};
+
+export const getPreviewPanelNoticeMutationFetcher = (code: string, options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PreviewPanelNoticeBody }) => {
+    return previewPanelNotice(code, arg, options);
+  };
+};
+export const getPreviewPanelNoticeMutationKey = (code: string) =>
+  [`/v1/panel/notices/${code}/preview`] as const;
+
+export type PreviewPanelNoticeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof previewPanelNotice>>
+>;
+
+export const usePreviewPanelNotice = <TError = Promise<ProblemResponse>>(
+  code: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof previewPanelNotice>>,
+      TError,
+      Key,
+      PreviewPanelNoticeBody,
+      Awaited<ReturnType<typeof previewPanelNotice>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getPreviewPanelNoticeMutationKey(code);
+  const swrFn = getPreviewPanelNoticeMutationFetcher(code, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type sendPanelNoticeTestResponse202 = {
+  data: PanelNoticeTest;
+  status: 202;
+};
+
+export type sendPanelNoticeTestResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type sendPanelNoticeTestResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type sendPanelNoticeTestResponseSuccess = sendPanelNoticeTestResponse202 & {
+  headers: Headers;
+};
+export type sendPanelNoticeTestResponseError = (
+  | sendPanelNoticeTestResponse403
+  | sendPanelNoticeTestResponse422
+) & {
+  headers: Headers;
+};
+
+export type sendPanelNoticeTestResponse =
+  | sendPanelNoticeTestResponseSuccess
+  | sendPanelNoticeTestResponseError;
+
+export const getSendPanelNoticeTestUrl = (code: string) => {
+  return `/v1/panel/notices/${code}/test`;
+};
+
+/**
+ * Requires settings.write. Queues one rendered copy for the operator group's notice-preview topic.
+ * Never for a customer. A transactional notice has a trigger — a subscription about to expire, a charge that failed — and manufacturing one against a real subscription to see how the wording reads would tell somebody their access is ending when it is not.
+ * The body is rendered and stored at this moment rather than resolved at delivery, so the group sees the text that was in the editor even if it is edited again before the bot collects it. Answers 202; the outcome appears in the test list.
+ */
+export const sendPanelNoticeTest = async (
+  code: string,
+  sendPanelNoticeTestBody: SendPanelNoticeTestBody,
+  options?: RequestInit,
+): Promise<sendPanelNoticeTestResponse> => {
+  const res = await fetch(getSendPanelNoticeTestUrl(code), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(sendPanelNoticeTestBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: sendPanelNoticeTestResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as sendPanelNoticeTestResponse;
+};
+
+export const getSendPanelNoticeTestMutationFetcher = (code: string, options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: SendPanelNoticeTestBody }) => {
+    return sendPanelNoticeTest(code, arg, options);
+  };
+};
+export const getSendPanelNoticeTestMutationKey = (code: string) =>
+  [`/v1/panel/notices/${code}/test`] as const;
+
+export type SendPanelNoticeTestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendPanelNoticeTest>>
+>;
+
+export const useSendPanelNoticeTest = <TError = Promise<ProblemResponse>>(
+  code: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof sendPanelNoticeTest>>,
+      TError,
+      Key,
+      SendPanelNoticeTestBody,
+      Awaited<ReturnType<typeof sendPanelNoticeTest>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSendPanelNoticeTestMutationKey(code);
+  const swrFn = getSendPanelNoticeTestMutationFetcher(code, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelNoticeTestsResponse200 = {
+  data: ListPanelNoticeTests200;
+  status: 200;
+};
+
+export type listPanelNoticeTestsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelNoticeTestsResponseSuccess = listPanelNoticeTestsResponse200 & {
+  headers: Headers;
+};
+export type listPanelNoticeTestsResponseError = listPanelNoticeTestsResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelNoticeTestsResponse =
+  | listPanelNoticeTestsResponseSuccess
+  | listPanelNoticeTestsResponseError;
+
+export const getListPanelNoticeTestsUrl = (code: string, params?: ListPanelNoticeTestsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/notices/${code}/tests?${stringifiedParams}`
+    : `/v1/panel/notices/${code}/tests`;
+};
+
+/**
+ * Requires settings.read. What has been queued for this notice, so a preview in flight looks like one rather than like a button that did nothing.
+ */
+export const listPanelNoticeTests = async (
+  code: string,
+  params?: ListPanelNoticeTestsParams,
+  options?: RequestInit,
+): Promise<listPanelNoticeTestsResponse> => {
+  const res = await fetch(getListPanelNoticeTestsUrl(code, params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelNoticeTestsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelNoticeTestsResponse;
+};
+
+export const getListPanelNoticeTestsKey = (code: string, params?: ListPanelNoticeTestsParams) =>
+  [`/v1/panel/notices/${code}/tests`, ...(params ? [params] : [])] as const;
+
+export type ListPanelNoticeTestsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelNoticeTests>>
+>;
+
+export const useListPanelNoticeTests = <TError = Promise<ProblemResponse>>(
+  code: string,
+  params?: ListPanelNoticeTestsParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelNoticeTests>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false && code !== null && code !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelNoticeTestsKey(code, params) : null));
+  const swrFn = () => listPanelNoticeTests(code, params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,

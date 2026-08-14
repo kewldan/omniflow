@@ -28,7 +28,7 @@ import (
 )
 
 // Kinds are the event streams that each get their own forum topic.
-var Kinds = []string{"purchase", "renewal", "topup", "refund", "fulfillment_failure", "incident", "backup", "security", "campaign_test"}
+var Kinds = []string{"purchase", "renewal", "topup", "refund", "fulfillment_failure", "incident", "backup", "security", "campaign_test", "notice_test"}
 
 // KindCampaignTest is the topic campaign previews go to.
 //
@@ -51,6 +51,7 @@ var topicNames = map[string]string{
 	"backup":              "💾 Backups",
 	"security":            "🔐 Admin security",
 	"campaign_test":       "📣 Campaign previews",
+	"notice_test":         "🔔 Notice previews",
 }
 
 // Config binds the operator group and bounds notification volume.
@@ -95,6 +96,7 @@ func (notifier *Notifier) Run(ctx context.Context) {
 	for {
 		notifier.Dispatch(ctx)
 		notifier.DispatchCampaignTests(ctx)
+		notifier.DispatchNoticeTests(ctx)
 		select {
 		case <-ctx.Done():
 			return

@@ -2306,6 +2306,10 @@
         "connect": {
           "title": "Connection guidance",
           "description": "The platforms and applications customers are told to install, shared by the bot and the browser."
+        },
+        "notices": {
+          "title": "Message wording",
+          "description": "The transactional notices the installation sends on its own — expiry, traffic, renewal, dunning — in both languages, with a preview and a test send."
         }
       }
     },
@@ -2363,6 +2367,60 @@
         "chat_not_found": "No Telegram chat with this customer",
         "user_deactivated": "The Telegram account is deactivated",
         "telegram_unavailable": "Telegram could not be reached"
+      }
+    },
+    "notices": {
+      "failed": "The notice wording could not be loaded.",
+      "language": "Language",
+      "locale": {
+        "en": "English",
+        "ru": "Russian"
+      },
+      "body": "Message",
+      "markup": "Telegram markup: <b>, <i>, <u>, <s>, <code>, <pre>, and https links. Write &lt; for a literal angle bracket.",
+      "variables": "Values you can use",
+      "noVariables": "This notice carries no values.",
+      "preview": "Preview with sample values",
+      "renderPreview": "Preview",
+      "previewFailed": "The preview could not be rendered.",
+      "save": "Save",
+      "saved": "Wording saved. It applies on the notifier's next pass.",
+      "revert": "Use the shipped wording",
+      "reverted": "Reverted. Upgrades will keep improving this text.",
+      "sendTest": "Send to the operator group",
+      "testQueued": "Queued for the operator group. It never goes to a customer.",
+      "testFailed": "The test could not be queued.",
+      "tests": "Recent tests",
+      "testsNote": "Tests go to the notice-preview topic in the operator group, never to a customer.",
+      "testStatus": {
+        "pending": "Queued",
+        "sent": "Sent",
+        "failed": "Failed"
+      },
+      "edited": "{count} edited",
+      "usingOverride": "Your wording is in force.",
+      "usingDefault": "The shipped wording is in force.",
+      "code": {
+        "expiry": "Expiry warning",
+        "traffic": "Traffic warning",
+        "renewal": "Renewal reminder",
+        "grace": "Grace period",
+        "recovery": "Recovery offer",
+        "fulfillment_succeeded": "Activation finished",
+        "fulfillment_failed": "Activation delayed",
+        "dunning_retry": "Automatic charge failed",
+        "dunning_abandoned": "Automatic renewal stopped"
+      },
+      "about": {
+        "expiry": "Sent 7, 3, and 1 days before a subscription expires, and on the day.",
+        "traffic": "Sent once the traffic allowance passes 80%, and again at 100%.",
+        "renewal": "Sent when a subscription is close enough to its end to renew.",
+        "grace": "Sent while access continues after the subscription has expired.",
+        "recovery": "Sent after the grace period, offering to bring the subscription back.",
+        "fulfillment_succeeded": "Sent when provisioning finishes and the customer can connect.",
+        "fulfillment_failed": "Sent when provisioning is taking long enough to deserve an explanation. The payment is not at risk.",
+        "dunning_retry": "Sent when an automatic charge failed and will be retried.",
+        "dunning_abandoned": "Sent when automatic renewal has stopped trying."
       }
     }
   },

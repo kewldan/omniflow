@@ -190,6 +190,13 @@ func TestTheNewSurfacesAreInsideTheAuthenticatedGroup(t *testing.T) {
 		// A merge combines two people's records irreversibly.
 		{http.MethodGet, "/v1/panel/customers/00000000-0000-0000-0000-000000000000/merge/preview"},
 		{http.MethodPost, "/v1/panel/customers/00000000-0000-0000-0000-000000000000/merge"},
+		// Notice wording reaches every customer of the installation, and the
+		// preview and test routes run a renderer over caller-supplied text.
+		{http.MethodGet, "/v1/panel/notices"},
+		{http.MethodPut, "/v1/panel/notices/expiry"},
+		{http.MethodDelete, "/v1/panel/notices/expiry"},
+		{http.MethodPost, "/v1/panel/notices/expiry/preview"},
+		{http.MethodPost, "/v1/panel/notices/expiry/test"},
 		// A test notification sends a real message to a real person. Reading the
 		// history is gated with it: it is part of a customer record, and a
 		// delivery log names every kind of notice somebody has received.

@@ -802,6 +802,37 @@ export type QueuedTest = {
   scheduledAt?: string;
 };
 
+/**
+ * One transactional notice an operator may reword.
+ *
+ * `default` is the shipped wording, which an override replaces and reverting
+ * restores. `overrides` holds only the locales somebody has actually rewritten,
+ * so a locale missing from it is using the default — which is why reverting is
+ * a delete rather than a write of the current text.
+ */
+export type NoticeVariable = { name: string; purpose: string; sample: string };
+
+export type NoticeOverride = { body: string; updatedAt: string; updatedBy?: string };
+
+export type Notice = {
+  code: string;
+  variables?: NoticeVariable[];
+  default: Record<string, string>;
+  overrides?: Record<string, NoticeOverride>;
+};
+
+export type NoticePreview = { rendered: string; placeholders?: string[] };
+
+export type NoticeTest = {
+  id: string;
+  code: string;
+  locale: string;
+  status: "pending" | "sent" | "failed";
+  errorCode?: string;
+  requestedAt: string;
+  resolvedAt?: string;
+};
+
 export type Page<Item> = { items: Item[] | null; nextCursor?: string };
 export type Listing<Item> = { items: Item[] | null };
 

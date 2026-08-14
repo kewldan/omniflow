@@ -1260,6 +1260,28 @@ type NewsRead struct {
 	ReadAt pgtype.Timestamptz `json:"read_at"`
 }
 
+// Operator wording for transactional notices. A missing row means the shipped default, so deleting one is a real revert.
+type NoticeOverride struct {
+	Code      string             `json:"code"`
+	Locale    string             `json:"locale"`
+	Body      string             `json:"body"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy pgtype.UUID        `json:"updated_by"`
+}
+
+// One rendered copy of a transactional notice, queued for the operator group. Never sent to a customer.
+type NoticeTestSend struct {
+	ID          pgtype.UUID        `json:"id"`
+	Code        string             `json:"code"`
+	Locale      string             `json:"locale"`
+	Body        string             `json:"body"`
+	Status      string             `json:"status"`
+	ErrorCode   pgtype.Text        `json:"error_code"`
+	RequestedAt pgtype.Timestamptz `json:"requested_at"`
+	ResolvedAt  pgtype.Timestamptz `json:"resolved_at"`
+	RequestedBy pgtype.UUID        `json:"requested_by"`
+}
+
 type NotificationDelivery struct {
 	ID           pgtype.UUID        `json:"id"`
 	UserID       pgtype.UUID        `json:"user_id"`
