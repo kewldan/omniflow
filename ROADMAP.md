@@ -1512,6 +1512,120 @@ no test written from the inside can see.
 
 ---
 
+## 🔭 Post-1.0 product gaps
+
+These came from reading Bedolaga Cabinet 1.61's feature list against this
+repository on 14 August 2026 — against the routes and the packages rather than
+against a README, which is how [`docs/comparison.mdx`](./docs/comparison.mdx)
+was assembled and why that page names almost none of them.
+
+Nothing here is scheduled and nothing here blocks a 1.x release. Each item
+states what exists today, so what is listed is the difference rather than the
+whole capability, and each states the consequence of leaving it open: an item
+whose consequence cannot be named does not belong on this list. The candidates
+below this section are directions; these are specific absences.
+
+### Branding and presentation
+
+- [ ] White-label theming beyond a name — the `branding` settings section carries
+      `serviceName`, `supportContact`, `publicUrl`, `termsUrl`, `defaultLocale`,
+      and `timezone`. There is no colour palette for light and dark, no logo
+      upload, no way to restrict which themes an installation offers, and no
+      radius or density preference. An operator who installs Omniflow to sell
+      under their own brand currently ships somebody else's colour and type.
+- [ ] Operator-editable client application catalogue — the connect screen renders
+      a client table compiled into `internal/commerce`, which both customer
+      surfaces read so that the chat and the browser cannot recommend different
+      applications. The single source is the property worth keeping; the cost is
+      that adding a client, a platform, or a per-platform instruction needs a
+      release. See [`docs/customer/connection.mdx`](./docs/customer/connection.mdx).
+
+### Reporting and growth measurement
+
+- [ ] Sales reporting over a period an operator chooses —
+      `internal/panelpg/dashboard.go` reports a fixed 30-day window, deliberately,
+      so that two visits compare. That is the right default and the wrong only
+      option: there is no breakdown by plan, period, or day, no trial-to-paid
+      conversion, and no separate view of renewals, add-ons, or wallet top-ups.
+- [ ] Payment health per provider — the share of intents that settle, by adapter,
+      over time. With four bundled providers an acquirer that starts failing is
+      currently visible as support tickets and a growing stuck-payment queue
+      rather than as a number that moved.
+- [ ] Advertising measurement — no counter integration, no offline-conversion
+      upload, and no click identifier carried from a first visit into the order
+      that settles later. Payment happens on the backend, sometimes a day after
+      the click, so without it no advertising channel can be attributed at all.
+      Site-verification meta tags for webmaster tools are absent for the same
+      reason: nothing renders them. This is the operator's own analytics, never
+      project telemetry, so it stays per-installation, off by default, and inside
+      the consent the marketing surfaces already enforce.
+- [ ] Traffic reporting per node — `internal/anomaly` raises a reviewable signal
+      on the `traffic` metric, which answers "who should somebody look at". It
+      does not answer "which node is filling up" or "who consumed the most this
+      month", and there is no export.
+
+### Revenue protection
+
+- [ ] Account-sharing detection — device limits come from Remnawave and are the
+      only control today. Distinct-address concurrency, with a network-type
+      allowance so that a mobile carrier is not mistaken for sharing, is the
+      measure that finds one subscription serving a group. Whether Omniflow may
+      hold that observation at all is a boundary question that has to be answered
+      before it is a feature: Remnawave is authoritative for traffic and
+      connections.
+
+### Content and communication
+
+- [ ] Information pages an operator can publish — news (`/v1/account/news`) is the
+      only content surface. FAQ, terms, offer, and privacy exist only as
+      `termsUrl` pointing somewhere else, so an operator has to host and translate
+      them outside the product. Payment providers and application stores routinely
+      require an offer and a privacy policy at a stable address.
+- [ ] Transactional e-mail templates an operator can override —
+      `/v1/panel/marketing/templates` covers campaigns. System mail has no
+      per-type, per-locale override, no variable reference, no preview against
+      real substitutions, and no test send.
+- [ ] Notification history and a test notification — `/v1/account/preferences`
+      sets what a customer receives and `/preferences/unsubscribe` stops it.
+      Neither the customer nor an operator can see what was actually delivered,
+      which leaves "I never got it" unanswerable.
+
+### Identity and lifecycle
+
+- [ ] Merging two customer accounts — linking an identity to the account already
+      signed in works (`/v1/account/auth/link`). Joining two accounts that both
+      exist does not, and that is the case that occurs: a customer buys in
+      Telegram, later signs in on the web through a provider the first account
+      never carried, and holds an empty second account. A merge has to show what
+      happens to wallet balance, subscriptions, orders, and referral attribution
+      before it happens, and it has to be one audited, idempotent operation.
+- [ ] Pausing a subscription — the lifecycle has cancellation and refund, not
+      suspension that preserves the remaining days.
+- [ ] Wholesale code batches — promo codes belong to a promotion and gifts are
+      issued one at a time. Selling a block of access to a distributor means
+      generating a batch at an agreed price, handing over the codes, and being
+      able to revoke the unredeemed remainder when the list leaks.
+- [ ] A recorded decision on customer password sign-in — Telegram, OIDC, and a
+      magic link are the ways in. A password is absent, which is defensible, but
+      the absence is stated nowhere, so it reads as an oversight rather than a
+      choice. Decide it and write it down rather than leaving it inferred from
+      the route list.
+
+### Panel and customer experience
+
+- [ ] Command palette — the panel is around thirty screens reachable only by
+      navigating to them.
+- [ ] Live updates — every panel and account surface polls. A ticket reply, a
+      settled payment, and a bulk operation's progress all arrive on the next
+      request, and `/v1/panel/bulk/{operationID}/items` is a list somebody
+      refreshes rather than a stream.
+- [ ] Multi-currency with rates — amounts are integer minor units in the order's
+      own currency, which is the correct storage and is not the gap. What is
+      missing is a rate source and a presentation currency, so an installation
+      that sells in one currency cannot quote a price in another.
+
+---
+
 ## 🔭 Post-1.0 candidates
 
 These items require demonstrated demand and must not delay the core roadmap:

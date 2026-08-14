@@ -6,7 +6,7 @@ description: How Omniflow differs from Bedolaga Bot, Bedolaga Cabinet, and Remna
 Omniflow is not the only open-source way to sell Remnawave subscriptions. This page compares it with the projects operators most often evaluate alongside it, using each project's own public documentation.
 
 <Note>
-The other projects were compared on 11 August 2026 against their public `main` branches and have not been re-checked since; Omniflow's own column tracks this repository and was last updated on 12 August 2026. Feature sets move quickly. Verify against the upstream repository before making a decision, and open an issue if anything here is out of date or unfair.
+Bedolaga Bot and RemnaCore were compared on 11 August 2026 against their public `main` branches and have not been re-checked since. The Bedolaga Cabinet rows were re-checked on 14 August 2026 against its published 1.61.0 feature list, which is more detailed than the README the first pass used and is why several rows below are new. Omniflow's own column tracks this repository and was last updated on 14 August 2026. Feature sets move quickly. Verify against the upstream repository before making a decision, and open an issue if anything here is out of date or unfair.
 </Note>
 
 ## The projects
@@ -32,6 +32,8 @@ License differences are worth reading carefully. Omniflow is Apache-2.0, which p
 
 A dash means the capability is absent from the project's own public documentation. Internal implementation details such as ledger design or idempotency handling may exist in code without appearing in a README, so treat a dash as "unverified", not as a proven gap.
 
+The 🔭 rows that came out of the 14 August 2026 reading of Bedolaga Cabinet 1.61.0 are collected as [Post-1.0 product gaps](https://github.com/kewldan/omniflow/blob/main/ROADMAP.md) in the roadmap. Each one there states what Omniflow has today and what the absence costs, which is the part a one-cell mark cannot carry.
+
 Omniflow's shipped surface today is v0.1–v0.10: the complete backend commerce model, a feature-complete Telegram bot, wallet top-up with deferred carts, add-ons, optional concurrent subscriptions, a production runtime with health probes, metrics, tracing, encrypted backups, and maintenance mode, and a complete operator panel — sign-in with two-factor, optional OIDC, granular RBAC, an append-only audit trail, and the day-to-day screens for customers, finance, catalogue, support, marketing, risk, and every installation setting, and a complete customer web panel — sign-in, subscriptions, checkout, wallet, the digital-goods shop, support, news, referrals, loyalty, and a customer's own data export and deletion request. What remains is v1.0: release engineering rather than product surface.
 
 ## Subscriptions and plans
@@ -49,6 +51,7 @@ Omniflow's shipped surface today is v0.1–v0.10: the complete backend commerce 
 | Smart cart that survives insufficient balance | ✅ | ✅ | — |
 | Auto-renew before expiry | ✅ | ✅ | ✅ |
 | One customer holding several concurrent subscriptions | ✅ (opt-in) | — | ✅ |
+| Pausing a subscription with the remaining days preserved | 🔭 | ✅ | — |
 
 ## Payments and money handling
 
@@ -68,6 +71,7 @@ Omniflow's shipped surface today is v0.1–v0.10: the complete backend commerce 
 | Fiscalization metadata boundary | ✅ | ✅ | — |
 | Self-employed fiscalization adapter | 🔭 | ✅ | — |
 | Guest checkout without authorization | 🔭 | ✅ | — |
+| Presentation currency with exchange rates | 🔭 | ✅ | — |
 
 Provider count is the clearest gap. Bedolaga bundles an order of magnitude more providers, and if a specific Russian acquirer is a hard requirement, that is a decisive advantage today. Omniflow adds providers on demand rather than for parity, so the relevant question is whether the provider you need is present, not how many exist.
 
@@ -90,19 +94,25 @@ Omniflow's counterweight is the financial model. Every order and payment mutatio
 | Consent, quiet hours, frequency caps, suppression | ✅ | — | — |
 | Custom landing pages with analytics | ❌ | ✅ | — |
 | Contests and daily games | 🔭 | ✅ | — |
+| Wholesale code batches for resellers, revocable in bulk | 🔭 | ✅ | — |
+| Advertising counters, offline conversions, and site-verification tags | 🔭 | ✅ | — |
 
 Omniflow enforces marketing consent, quiet hours, frequency caps, and delivery deduplication, and separates transactional from marketing classification. Those constraints were built before the campaign tooling that now uses them, which is the order that makes them hold: a suppression list added after the first broadcast is a suppression list somebody has already been missed by.
 
+Advertising measurement is the sharpest of the marketing gaps, and it is worth understanding why rather than reading it as a missing checkbox. Payment settles on the backend, sometimes a day after the click that started it, so an advertising platform learns nothing unless a click identifier is carried into the order and uploaded back as an offline conversion. Omniflow does not do this today, which means a paid channel cannot be attributed at all. When it arrives it will be the operator's own analytics, never project telemetry, and it will be per-installation, off by default, and bound by the marketing consent already enforced above — see [Telemetry](/operations/telemetry) for the line that separates the two.
+
 ## Administration
 
-| Capability | Omniflow | Bedolaga | RemnaCore |
+This table's Bedolaga column covers the bot and the cabinet together, because that is how the administrative surface is actually delivered: the bot administers from Telegram and the cabinet adds a web panel over the same Cabinet API.
+
+| Capability | Omniflow | Bedolaga (bot + cabinet) | RemnaCore |
 | --- | --- | --- | --- |
 | Administration from inside Telegram | ❌ | ✅ | — |
 | Operator notifications to Telegram topics, auto-created | ✅ | ✅ | — |
 | Automatic database backups with restore from the bot | ✅ | ✅ | — |
 | Maintenance mode with dependency auto-detection | ✅ | ✅ | — |
 | Traffic and behavior anomaly monitoring | ✅ | ✅ | ✅ |
-| Web admin panel | ✅ | — | ✅ |
+| Web admin panel | ✅ | ✅ (cabinet) | ✅ |
 | RBAC with granular permissions | ✅ | ✅ | ✅ |
 | Append-only audit events with actor, reason, and before/after | ✅ | — | — |
 | TOTP two-factor authentication and session management | ✅ | — | ✅ |
@@ -112,6 +122,19 @@ Omniflow enforces marketing consent, quiet hours, frequency caps, and delivery d
 | Installation settings editable without SQL or shell access | ✅ | ✅ | — |
 | AI-assisted support, scam analysis, admin copilot | ✅ (optional, off by default) | — | — |
 | MCP client and first-party MCP server | ✅ (optional, off by default) | — | — |
+| Sales reporting over a period the operator chooses | 🔭 | ✅ | — |
+| Payment health: settlement rate by provider | 🔭 | ✅ | — |
+| Traffic reporting per node, with export | 🔭 | ✅ | — |
+| Account-sharing detection by distinct address | 🔭 | ✅ | — |
+| Operator-published information pages: FAQ, terms, offer, privacy | 🔭 | ✅ | — |
+| Transactional e-mail templates an operator can override | 🔭 | ✅ | — |
+| White-label theming: palette, logo, permitted themes | 🔭 | ✅ | — |
+| Command palette and live updates without a refresh | 🔭 | ✅ | — |
+| Remnawave node and squad control from the panel | ❌ | ✅ | ✅ |
+
+Two of those marks are decisions rather than backlog. Node and squad control is ❌ for the same reason node health and routing are further down: Remnawave owns nodes, hosts, squads, and Xray state, and an operator reaches them in Remnawave's own panel. Account-sharing detection is 🔭 with a condition attached — whether Omniflow may hold per-connection observations at all is a boundary question that has to be settled before it is a feature, not after.
+
+The reporting rows are the substantive gap. Omniflow's dashboard reports a fixed 30-day window on purpose, so that two visits compare, but it is currently the only window: there is no breakdown by plan, period, or day, no trial-to-paid conversion, and no settlement rate per provider. With four bundled providers, an acquirer that quietly starts failing shows up as support tickets and a growing stuck-payment queue rather than as a number that moved.
 
 Omniflow deliberately keeps administration out of Telegram. As of v0.5 Telegram carries operator notifications and backup/restore actions, and nothing else: those two are exempt because an incident is exactly when a browser and a panel may be unavailable. Every other control lives in the web panel, where RBAC, audit, and confirmation dialogs can be enforced consistently.
 
@@ -128,6 +151,15 @@ That is a real trade-off. Bedolaga operators are productive on day one with no r
 | Shared component system with the admin panel | ✅ | — | ✅ |
 | Checkout parity with the bot | ✅ | ✅ | ✅ |
 | WCAG 2.2 AA review of core journeys | ✅ | — | — |
+| E-mail and password sign-in | 🔭 (undecided) | ✅ | ✅ |
+| Merging two existing accounts, with a preview | 🔭 | ✅ | — |
+| Operator-editable client application catalogue | 🔭 | ✅ | — |
+| Delivered-notification history and a test notification | 🔭 | ✅ | — |
+| Interface languages | 2: ru, en | 4: ru, en, zh, fa | — |
+
+Two rows there deserve their reasoning rather than their mark. E-mail and password sign-in is genuinely undecided: Telegram, OIDC, and a magic link are the ways into an Omniflow account, a password is a credential to phish, reset, and breach, and not having one is defensible — but the choice has never been written down, so it currently reads as an oversight. It is on the roadmap as a decision to record, not as a feature to build.
+
+The client application catalogue is a trade-off rather than an omission. Omniflow's connect screen renders a client table compiled into the application, which both the bot and the web panel read, so a customer cannot be told to install one client in the chat and a different one in the browser. Keeping one source is the point; needing a release to add a client is what it costs. See [Connecting a device](/customer/connection).
 
 ## Architecture and operations
 
@@ -150,7 +182,7 @@ RemnaCore also reaches into node health monitoring, smart routing, and speed tes
 
 ## Choosing between them
 
-**Choose Bedolaga Bot** if you need the widest payment-provider coverage today, want to administer everything from Telegram without deploying a web panel, or need growth mechanics such as contests, custom landing pages, and referral payouts that Omniflow has deferred past 1.0.
+**Choose Bedolaga Bot** if you need the widest payment-provider coverage today, want to administer everything from Telegram without deploying a web panel, or need growth mechanics such as contests, custom landing pages, and referral payouts that Omniflow has deferred past 1.0. Adding the cabinet also gets you the reporting and presentation layer Omniflow has not built: sales figures over a period you choose, settlement rates per provider, per-node traffic, a colour palette and logo of your own, and information pages you publish from the panel instead of hosting elsewhere. If you sell through paid advertising, note the attribution gap in particular — Bedolaga carries a click identifier into the order and uploads the conversion back, and Omniflow does not.
 
 **Choose RemnaCore** if you need white-label reseller capability with commission tracking, or are already running Kubernetes and want a plugin runtime and event bus as first-class infrastructure. Note its stated development status before committing production traffic.
 
@@ -161,5 +193,7 @@ Since v0.5 it is additionally the option that takes production operation serious
 <Note>
 Both panels are complete as of v0.10: the operator panel since v0.8, and the customer panel — sign-in, subscriptions, checkout, wallet, shop, support, referrals, and personal data — since v0.10. Customers can self-serve in a browser or in Telegram, against the same records: a cart started in a chat is the cart the browser shows, and a support reply read on the web stops being unread in Telegram.
 
-What is not yet done is v1.0, which is release engineering rather than product surface: a published compatibility matrix, an independent security review, signed artifacts, and the reliability and documentation gates. Treat the current state as feature-complete but pre-GA.
+The v1.0 gate is release engineering rather than product surface, and one item in it remains: an independent security review of authentication, authorization, payments, and secret handling. That one names an external reviewer engagement rather than a change to this repository. The compatibility matrix, signed artifacts, and the reliability and documentation gates are done.
+
+Complete is not the same as at parity. The 🔭 rows above are capabilities Bedolaga Cabinet has and Omniflow does not — reporting depth, advertising attribution, white-label presentation, published information pages — and none of them is scheduled. [Post-1.0 product gaps](https://github.com/kewldan/omniflow/blob/main/ROADMAP.md) records each one with what exists today and what the absence costs.
 </Note>
