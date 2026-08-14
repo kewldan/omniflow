@@ -108,7 +108,7 @@ For how migrations are authored and reviewed, see [Database](/contributing/datab
 
 Both bases run as `nonroot` (uid 65532 on the Alpine one), and `/var/lib/omniflow` is pre-created and owned by that user so the backup directory is writable without a privileged container.
 
-The web image installs and builds with Bun and serves the Next.js standalone output from `node:26.7-alpine` on port 3000.
+The web image installs and builds with Bun and serves the Next.js standalone output from `node:26.7-alpine` on port 3000. npm is deleted from the runtime stage: nothing there invokes it, and it arrives from the base image carrying a bundled dependency tree of its own that an image scan reports as findings. Removing it removes the code rather than silencing the scanner.
 
 ### Released images
 
