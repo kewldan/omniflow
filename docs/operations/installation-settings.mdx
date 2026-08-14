@@ -3,11 +3,31 @@ title: Installation settings
 description: What the Settings screen stores, which of it changes behaviour today, and where each running value actually comes from
 ---
 
-`/admin/settings` is the operator console's configuration screen, and it holds three
-different kinds of thing. Commerce policy — wallet top-up and subscription concurrency —
-is stored in the database. Ten declarative **installation sections** are stored,
-versioned, and audited, with their credentials sealed. Three cards are read-only: the
-telemetry preview, the backup and restore history, and the diagnostics bundle.
+`/admin/settings` is the way in to the operator console's configuration, and it holds
+three different kinds of thing. Commerce policy — wallet top-up and subscription
+concurrency — is stored in the database. Ten declarative **installation sections** are
+stored, versioned, and audited, with their credentials sealed. Two cards are read-only:
+the telemetry preview and the backup and restore history.
+
+It is an index rather than a page of forms. Everything used to render in one column —
+commerce and its payment providers, all ten sections, the telemetry preview, the backup
+history, the diagnostics bundle, and every customer sign-in provider — so finding the
+maintenance notice meant scrolling past the payment providers, and opening the screen
+fetched all of it whether or not you were looking at any of it.
+
+| Area | Holds |
+| --- | --- |
+| `/admin/settings/commerce` | Currency, top-up limits, subscription policy, payment providers |
+| `/admin/settings/integrations` | Remnawave, the Telegram bot, the operator group, required channels |
+| `/admin/settings/operations` | Maintenance, notifications, backups, telemetry — plus the telemetry preview and backup history |
+| `/admin/settings/brand` | Branding and the security section |
+| `/admin/settings/sign-in` | The customer sign-in providers |
+| `/admin/settings/ai` | Model providers, per-feature enablement, budgets, MCP connections |
+
+The diagnostics bundle moved to [`/admin/system`](/operations/admin-operations). Its
+route has always been behind `system.read` rather than `settings.read` — a bundle
+describes the running installation rather than configuring it — and it used to render on
+a page an operator holding only `system.read` could not open.
 
 The distinction that matters is not visible on the screen, so it is stated here first.
 
@@ -21,8 +41,8 @@ The distinction that matters is not visible on the screen, so it is stated here 
   Treat a saved section as a record of intent — useful, auditable, and not yet a control.
 </Warning>
 
-The whole screen needs `settings.read`; every save needs `settings.write`; the
-diagnostics card additionally needs `system.read`. See
+Every settings area needs `settings.read`; every save needs `settings.write`. The
+diagnostics bundle needs `system.read` and lives on the system screen. See
 [Admin panel](/operations/admin-panel) for how those permissions are granted.
 
 ## Where each value is actually read from
@@ -73,9 +93,9 @@ it rendered from and when it was last written.
 
 <Steps>
   <Step title="Open the section">
-    Go to `/admin/settings`. Every section an installation could have is rendered, not
-    only the ones somebody has already written, so a fresh installation shows ten empty
-    cards rather than none.
+    Go to `/admin/settings` and pick the area. Every section an area could have is
+    rendered, not only the ones somebody has already written, so a fresh installation
+    shows empty cards rather than none.
   </Step>
   <Step title="Edit the document fields">
     Text, URL, number, boolean, and textarea fields all belong to the section's

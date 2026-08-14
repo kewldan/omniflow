@@ -1,16 +1,8 @@
 import { requirePermissions } from "@/lib/server-session";
 
-import { CommerceSettingsForm } from "./commerce-settings";
-import { CustomerOidcSettings } from "./customer-oidc";
-import { InstallationSettings } from "./installation-settings";
+import { SettingsIndex } from "./settings-index";
 
 export default async function SettingsPage() {
   await requirePermissions(["settings.read"], "/admin/settings");
-  return (
-    <div className="flex flex-col gap-5">
-      <CommerceSettingsForm />
-      <InstallationSettings />
-      <CustomerOidcSettings />
-    </div>
-  );
+  return <SettingsIndex />;
 }

@@ -1791,6 +1791,36 @@
         "allowAutoProvision": "Allow new accounts",
         "provisionHint": "A subject nobody has linked may create a customer. It never adopts an existing customer by email address — matching on an address would let anyone who can make a provider assert it take over that account."
       }
+    },
+    "settingsIndex": {
+      "title": "Settings",
+      "description": "Everything an owner configures, grouped by the question you arrived with.",
+      "groups": {
+        "commerce": {
+          "title": "Commerce",
+          "description": "Currency, top-up limits, subscription policy, and the payment providers behind them."
+        },
+        "integrations": {
+          "title": "Integrations",
+          "description": "Remnawave, the Telegram bot, the operator group, and the channels a customer must join."
+        },
+        "operations": {
+          "title": "Operations",
+          "description": "Maintenance mode, operator notifications, backups, and what anonymous telemetry would send."
+        },
+        "brand": {
+          "title": "Brand and security",
+          "description": "Service name, public links, session lifetimes, and whether operators must hold a second factor."
+        },
+        "signIn": {
+          "title": "Customer sign-in",
+          "description": "The identity providers a customer may use to reach their own account."
+        },
+        "ai": {
+          "title": "AI and MCP",
+          "description": "Model providers, per-feature enablement, budgets, and the tool connections an assistant may reach."
+        }
+      }
     }
   },
   "account": {

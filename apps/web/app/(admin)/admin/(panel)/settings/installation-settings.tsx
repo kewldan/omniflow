@@ -17,7 +17,12 @@ import { type ApiError, fetcher } from "@/lib/api";
 import { formatBytes, type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 
-import { SECTIONS, type SectionField, type SectionSchema } from "./sections";
+import {
+  type SectionField,
+  type SectionSchema,
+  type SettingsGroupKey,
+  sectionsInGroup,
+} from "./sections";
 
 type SettingSection = {
   section: string;
@@ -49,7 +54,12 @@ type BackupEntry = {
 };
 
 /**
- * The installation's own configuration.
+ * One group of the installation's own configuration.
+ *
+ * It renders the sections belonging to a single group rather than all ten,
+ * because all ten on one page — under commerce and above every sign-in provider
+ * — is what made the settings screen something an operator scrolled through
+ * looking for the thing they came for.
  *
  * Every section saves with the version it was rendered from, so two operators
  * editing the same screen produce a conflict rather than one silently
@@ -58,7 +68,7 @@ type BackupEntry = {
  * stored one — which is what makes rotating a token a deliberate act rather
  * than a side effect of editing the field next to it.
  */
-export function InstallationSettings() {
+export function InstallationSettings({ group }: { group: SettingsGroupKey }) {
   const translate = useTranslations("admin.installationSettings");
   const { can } = useSession();
   const editable = can("settings.write");
@@ -68,6 +78,7 @@ export function InstallationSettings() {
     fetcher,
   );
   const sections = data?.items ?? [];
+  const schemas = sectionsInGroup(group);
 
   if (isLoading) {
     return <Skeleton className="h-96 w-full" />;
@@ -75,7 +86,7 @@ export function InstallationSettings() {
 
   return (
     <div className="flex flex-col gap-5">
-      {SECTIONS.map((schema) => {
+      {schemas.map((schema) => {
         const stored = sections.find((candidate) => candidate.section === schema.section);
         if (!stored) {
           return null;
@@ -90,10 +101,18 @@ export function InstallationSettings() {
           />
         );
       })}
-      <TelemetryCard />
-      <BackupCard />
-      <DiagnosticsCard />
-      <p className="text-muted-foreground text-xs">{translate("secretsNote")}</p>
+      {/* The telemetry preview and the backup history belong beside the
+          settings they report on, not at the foot of a page that also held
+          payment providers. */}
+      {group === "operations" ? (
+        <>
+          <TelemetryCard />
+          <BackupCard />
+        </>
+      ) : null}
+      {schemas.some((schema) => schema.fields.some((field) => field.kind === "secret")) ? (
+        <p className="text-muted-foreground text-xs">{translate("secretsNote")}</p>
+      ) : null}
     </div>
   );
 }
@@ -411,43 +430,6 @@ function BackupCard() {
             </ul>
           )}
         </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function DiagnosticsCard() {
-  const translate = useTranslations("admin.installationSettings");
-  const { can } = useSession();
-  const [requested, setRequested] = useState(false);
-  const { data, isLoading } = useSWR<Record<string, unknown>, ApiError>(
-    requested ? "/v1/panel/settings/diagnostics" : null,
-    fetcher,
-  );
-
-  if (!can("system.read")) {
-    return null;
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{translate("diagnostics.title")}</CardTitle>
-        {/* Assembled from an allowlist rather than by dumping state and
-            filtering, so a field added later is absent until somebody adds it
-            deliberately. */}
-        <CardDescription>{translate("diagnostics.description")}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <Button className="self-start" onClick={() => setRequested(true)} type="button">
-          {translate("diagnostics.generate")}
-        </Button>
-        {requested && isLoading ? <Skeleton className="h-40 w-full" /> : null}
-        {data ? (
-          <pre className="max-h-96 overflow-auto rounded-md border bg-muted/40 p-3 text-xs">
-            {JSON.stringify(data, null, 2)}
-          </pre>
-        ) : null}
       </CardContent>
     </Card>
   );

@@ -88,7 +88,7 @@ level=INFO msg="anonymous telemetry disabled"
 That log line is the authoritative statement of what this installation is doing.
 
 <Warning>
-  The panel's telemetry preview card at `/admin/settings` reads its on/off state from the
+  The panel's telemetry preview card at `/admin/settings/operations` reads its on/off state from the
   `telemetry` settings section, which is empty on a fresh installation — so the card
   shows `enabled: false` while the API is sending heartbeats, because
   `APP_TELEMETRY_ENABLED` defaults to `true`. The card also renders a different field set

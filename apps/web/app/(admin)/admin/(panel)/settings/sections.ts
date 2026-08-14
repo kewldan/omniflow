@@ -21,16 +21,56 @@ export type SectionField = {
   messageKey: string;
 };
 
+/**
+ * The areas settings are split across, one route each.
+ *
+ * They exist because everything used to be one page: commerce, ten
+ * installation sections, the telemetry preview, the backup history, the
+ * diagnostics bundle, and every customer sign-in provider, stacked vertically.
+ * Finding the maintenance notice meant scrolling past the payment providers,
+ * and the page fired a request for all of it whether or not the operator was
+ * looking at any of it.
+ *
+ * The grouping is by the question an operator arrived with, not by which table
+ * the value lands in: "how do we connect to things", "what happens on its own",
+ * "how do we look and who may sign in".
+ */
+export type SettingsGroupKey = "commerce" | "integrations" | "operations" | "brand";
+
+export type SettingsGroup = {
+  key: SettingsGroupKey | "signIn" | "ai";
+  href: string;
+  /** The permission the route itself requires. */
+  permission: string;
+};
+
+export const SETTINGS_GROUPS: SettingsGroup[] = [
+  { key: "commerce", href: "/admin/settings/commerce", permission: "settings.read" },
+  { key: "integrations", href: "/admin/settings/integrations", permission: "settings.read" },
+  { key: "operations", href: "/admin/settings/operations", permission: "settings.read" },
+  { key: "brand", href: "/admin/settings/brand", permission: "settings.read" },
+  { key: "signIn", href: "/admin/settings/sign-in", permission: "settings.read" },
+  { key: "ai", href: "/admin/settings/ai", permission: "settings.read" },
+];
+
 export type SectionSchema = {
   section: string;
+  /** Which route the section is rendered on. */
+  group: SettingsGroupKey;
   /** Suffix under `admin.installationSettings.sections`. */
   messageKey: string;
   fields: SectionField[];
 };
 
+/** The sections one route renders, in the order they are declared. */
+export function sectionsInGroup(group: SettingsGroupKey): SectionSchema[] {
+  return SECTIONS.filter((schema) => schema.group === group);
+}
+
 export const SECTIONS: SectionSchema[] = [
   {
     section: "branding",
+    group: "brand",
     messageKey: "branding",
     fields: [
       { name: "serviceName", kind: "text", messageKey: "serviceName" },
@@ -43,6 +83,7 @@ export const SECTIONS: SectionSchema[] = [
   },
   {
     section: "remnawave",
+    group: "integrations",
     messageKey: "remnawave",
     fields: [
       { name: "baseUrl", kind: "url", messageKey: "remnawaveBaseUrl" },
@@ -56,6 +97,7 @@ export const SECTIONS: SectionSchema[] = [
   },
   {
     section: "telegram",
+    group: "integrations",
     messageKey: "telegram",
     fields: [
       { name: "botUsername", kind: "text", messageKey: "botUsername" },
@@ -67,6 +109,7 @@ export const SECTIONS: SectionSchema[] = [
   },
   {
     section: "operator_group",
+    group: "integrations",
     messageKey: "operatorGroup",
     fields: [
       { name: "chatId", kind: "text", messageKey: "operatorChatId" },
@@ -77,6 +120,7 @@ export const SECTIONS: SectionSchema[] = [
   },
   {
     section: "required_channels",
+    group: "integrations",
     messageKey: "requiredChannels",
     fields: [
       { name: "recheckIntervalMinutes", kind: "number", messageKey: "recheckInterval" },
@@ -86,6 +130,7 @@ export const SECTIONS: SectionSchema[] = [
   },
   {
     section: "maintenance",
+    group: "operations",
     messageKey: "maintenance",
     fields: [
       { name: "autoEnable", kind: "boolean", messageKey: "autoEnable" },
@@ -96,6 +141,7 @@ export const SECTIONS: SectionSchema[] = [
   },
   {
     section: "notifications",
+    group: "operations",
     messageKey: "notifications",
     fields: [
       { name: "failedPaymentThreshold", kind: "number", messageKey: "failedPaymentThreshold" },
@@ -107,6 +153,7 @@ export const SECTIONS: SectionSchema[] = [
   },
   {
     section: "telemetry",
+    group: "operations",
     messageKey: "telemetry",
     fields: [
       { name: "enabled", kind: "boolean", messageKey: "telemetryEnabled" },
@@ -115,6 +162,7 @@ export const SECTIONS: SectionSchema[] = [
   },
   {
     section: "backup",
+    group: "operations",
     messageKey: "backup",
     fields: [
       { name: "enabled", kind: "boolean", messageKey: "backupEnabled" },
@@ -126,6 +174,7 @@ export const SECTIONS: SectionSchema[] = [
   },
   {
     section: "security",
+    group: "brand",
     messageKey: "security",
     fields: [
       { name: "sessionIdleMinutes", kind: "number", messageKey: "sessionIdle" },

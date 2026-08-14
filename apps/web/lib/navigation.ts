@@ -113,6 +113,9 @@ export const NAVIGATION: NavigationSection[] = [
         icon: SlidersHorizontal,
         permission: "settings.read",
       },
+      // The AI area keeps its own entry because it is the one an operator goes
+      // to repeatedly. The other four are reached through the settings index,
+      // which exists so the sidebar does not have to grow a row per area.
       {
         key: "aiSettings",
         href: "/admin/settings/ai",

@@ -238,7 +238,7 @@ docker compose exec -T postgres pg_restore \
 | --- | --- | --- |
 | `GET /v1/panel/settings/backups?limit=` | `settings.read` | `{backups, restores}` вместе |
 | `GET /v1/admin/backups?limit=` | Bearer-токен `APP_OPERATOR_TOKEN` | Только копии; limit 1–100, по умолчанию 20 |
-| `/admin/settings` → карточка Backups | `settings.read` | Те же два списка, отрисованные |
+| `/admin/settings/operations` → карточка Backups | `settings.read` | Те же два списка, отрисованные |
 | `/ops` в Telegram | Перечисленные аккаунты операторов | Пять последних |
 
 Резервная копия, которую никто никогда не восстанавливал, — это копия, о которой никто не

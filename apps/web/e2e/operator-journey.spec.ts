@@ -116,7 +116,15 @@ test.describe("operator journey", () => {
       "/admin/support",
       "/admin/marketing",
       "/admin/system",
+      // Every settings area, because each carries copy of its own and the
+      // sweep is what catches a key nobody translated.
       "/admin/settings",
+      "/admin/settings/commerce",
+      "/admin/settings/integrations",
+      "/admin/settings/operations",
+      "/admin/settings/brand",
+      "/admin/settings/sign-in",
+      "/admin/settings/ai",
       "/admin/audit",
       "/admin/operators",
       "/admin/risk",

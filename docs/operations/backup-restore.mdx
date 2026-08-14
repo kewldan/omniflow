@@ -231,7 +231,7 @@ next pass tries again rather than losing track of it.
 | --- | --- | --- |
 | `GET /v1/panel/settings/backups?limit=` | `settings.read` | `{backups, restores}` together |
 | `GET /v1/admin/backups?limit=` | `APP_OPERATOR_TOKEN` bearer | Backups only; limit 1–100, default 20 |
-| `/admin/settings` → Backups card | `settings.read` | The same two lists, rendered |
+| `/admin/settings/operations` → Backups card | `settings.read` | The same two lists, rendered |
 | `/ops` in Telegram | Listed operator accounts | The five most recent |
 
 A backup nobody has ever restored is a backup nobody knows works, which is why the
