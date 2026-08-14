@@ -226,6 +226,14 @@ type Querier interface {
 	// The metric a standing is evaluated on, computed from facts Omniflow already
 	// records. Nothing new is tracked to support loyalty.
 	CustomerLoyaltyMetric(ctx context.Context, arg CustomerLoyaltyMetricParams) (CustomerLoyaltyMetricRow, error)
+	// Resolves Remnawave user identifiers back to Omniflow customers for the traffic
+	// report.
+	//
+	// Consumption itself is never stored here — Remnawave owns traffic, and this
+	// repository has no column for a byte a customer used. What Omniflow can add to
+	// a list of heavy users is who they are, which is exactly this join and nothing
+	// more.
+	CustomersByRemnawaveIDs(ctx context.Context, remnawaveIds []int64) ([]CustomersByRemnawaveIDsRow, error)
 	// ---------------------------------------------------------------------------
 	// Dashboard
 	// ---------------------------------------------------------------------------

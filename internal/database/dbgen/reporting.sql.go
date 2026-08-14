@@ -11,6 +11,57 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const customersByRemnawaveIDs = `-- name: CustomersByRemnawaveIDs :many
+SELECT DISTINCT ON (s.remnawave_user_id)
+  s.remnawave_user_id,
+  s.user_id AS customer_id,
+  s.label,
+  u.status AS customer_status
+FROM subscriptions s
+JOIN users u ON u.id = s.user_id
+WHERE s.remnawave_user_id = ANY($1::bigint[])
+ORDER BY s.remnawave_user_id, s.created_at
+`
+
+type CustomersByRemnawaveIDsRow struct {
+	RemnawaveUserID pgtype.Int8 `json:"remnawave_user_id"`
+	CustomerID      pgtype.UUID `json:"customer_id"`
+	Label           string      `json:"label"`
+	CustomerStatus  string      `json:"customer_status"`
+}
+
+// Resolves Remnawave user identifiers back to Omniflow customers for the traffic
+// report.
+//
+// Consumption itself is never stored here — Remnawave owns traffic, and this
+// repository has no column for a byte a customer used. What Omniflow can add to
+// a list of heavy users is who they are, which is exactly this join and nothing
+// more.
+func (q *Queries) CustomersByRemnawaveIDs(ctx context.Context, remnawaveIds []int64) ([]CustomersByRemnawaveIDsRow, error) {
+	rows, err := q.db.Query(ctx, customersByRemnawaveIDs, remnawaveIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CustomersByRemnawaveIDsRow{}
+	for rows.Next() {
+		var i CustomersByRemnawaveIDsRow
+		if err := rows.Scan(
+			&i.RemnawaveUserID,
+			&i.CustomerID,
+			&i.Label,
+			&i.CustomerStatus,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const paymentHealthByDay = `-- name: PaymentHealthByDay :many
 SELECT
   (date_trunc('day', pi.created_at AT TIME ZONE $1::text))::date AS day,

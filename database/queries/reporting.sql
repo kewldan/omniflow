@@ -196,3 +196,21 @@ FROM provider_webhook_events
 WHERE received_at >= sqlc.arg(since) AND received_at < sqlc.arg(until)
 GROUP BY provider
 ORDER BY provider;
+
+-- name: CustomersByRemnawaveIDs :many
+-- Resolves Remnawave user identifiers back to Omniflow customers for the traffic
+-- report.
+--
+-- Consumption itself is never stored here — Remnawave owns traffic, and this
+-- repository has no column for a byte a customer used. What Omniflow can add to
+-- a list of heavy users is who they are, which is exactly this join and nothing
+-- more.
+SELECT DISTINCT ON (s.remnawave_user_id)
+  s.remnawave_user_id,
+  s.user_id AS customer_id,
+  s.label,
+  u.status AS customer_status
+FROM subscriptions s
+JOIN users u ON u.id = s.user_id
+WHERE s.remnawave_user_id = ANY(sqlc.arg(remnawave_ids)::bigint[])
+ORDER BY s.remnawave_user_id, s.created_at;

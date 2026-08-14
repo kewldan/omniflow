@@ -257,6 +257,49 @@ func (client *Client) RevokeSubscription(ctx context.Context, userID int64) erro
 	return client.post(ctx, "/api/users/"+strconv.FormatInt(userID, 10)+"/actions/revoke", map[string]any{})
 }
 
+// Node is one Remnawave node as the panel reports it.
+//
+// Only the fields Omniflow renders are decoded, and every one of them is
+// optional in the sense that a panel which omits it leaves a zero here rather
+// than failing the decode. That is deliberate: this is the one Remnawave surface
+// Omniflow reads that is not on the critical path of a purchase, and a panel
+// version that shapes it differently must degrade to "no node data" rather than
+// break the report.
+type Node struct {
+	UUID string `json:"uuid"`
+	Name string `json:"name"`
+	// CountryCode is what a panel labels the node's location with. It is a
+	// label rather than an assertion about where traffic goes.
+	CountryCode string `json:"countryCode"`
+	IsConnected bool   `json:"isConnected"`
+	IsDisabled  bool   `json:"isDisabled"`
+	// TrafficUsedBytes and TrafficLimitBytes are the node's own counters. A zero
+	// limit means the node has none, not that it is full.
+	TrafficUsedBytes  int64 `json:"trafficUsedBytes"`
+	TrafficLimitBytes int64 `json:"trafficLimitBytes"`
+	UsersOnline       *int  `json:"usersOnline"`
+}
+
+// Nodes lists the panel's nodes.
+//
+// It returns ErrNotFound when the panel does not expose the route, which callers
+// render as "this panel did not provide node data" rather than as zeros. The
+// distinction matters: a node list of zero bytes and no node list at all look
+// identical on a screen and mean opposite things.
+//
+// Remnawave owns nodes, traffic, and connections. Omniflow reads this and stores
+// none of it — there is no table for a node in this repository, and adding one
+// would be the boundary violation that decision 0004 exists to prevent.
+func (client *Client) Nodes(ctx context.Context) ([]Node, error) {
+	var envelope struct {
+		Response []Node `json:"response"`
+	}
+	if err := client.get(ctx, "/api/nodes", &envelope); err != nil {
+		return nil, err
+	}
+	return envelope.Response, nil
+}
+
 // Ping reports whether the panel answers an authenticated request. It reads one
 // user rather than an unauthenticated page, so an expired token is detected as
 // unavailability instead of being mistaken for a healthy panel.

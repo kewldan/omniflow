@@ -138,6 +138,7 @@
         "customers": "Customers",
         "finance": "Finance",
         "reports": "Sales",
+        "traffic": "Traffic",
         "catalog": "Catalog",
         "support": "Support",
         "marketing": "Marketing",
@@ -929,6 +930,48 @@
         "cryptobot": "CryptoBot",
         "yookassa": "YooKassa",
         "manual": "Manual"
+      }
+    },
+    "traffic": {
+      "title": "Traffic",
+      "description": "Read live from Remnawave on every request. Omniflow stores none of it — Remnawave owns traffic, nodes, and connections, and there is no history here because keeping one would be the first step towards Omniflow having an opinion about traffic.",
+      "export": "Export CSV",
+      "failed": "The report could not be read",
+      "nodes": {
+        "title": "Nodes",
+        "description": "Sorted by pressure: nodes with a limit first, by how close they are to it.",
+        "node": "Node",
+        "state": "State",
+        "used": "Used",
+        "limit": "Limit",
+        "share": "Of limit",
+        "online": "Online",
+        "noLimit": "None",
+        "up": "Connected",
+        "down": "Offline",
+        "disabled": "Disabled",
+        "none": "No nodes",
+        "noneHint": "The panel answered with an empty list.",
+        "unavailable": "No node data",
+        "detail": {
+          "nodes_unsupported": "This Remnawave panel does not expose a node listing. Everything else on this page is unaffected.",
+          "nodes_unavailable": "The panel could not be reached for node figures. This is a connection problem rather than an absence of nodes.",
+          "remnawave_not_configured": "No Remnawave connection is configured for this installation."
+        }
+      },
+      "consumers": {
+        "title": "Heaviest users",
+        "description": "The fifty largest consumers in the current cycle.",
+        "partial": "The fifty largest consumers among the {scanned} users scanned, of {total}. A longer user base is read in pages and this report stops before the request would.",
+        "user": "Remnawave user",
+        "customer": "Customer",
+        "used": "This cycle",
+        "lifetime": "Lifetime",
+        "limit": "Limit",
+        "open": "Open customer",
+        "unattributed": "Not linked",
+        "empty": "No users",
+        "emptyHint": "The panel reported no users, so there is nothing to rank."
       }
     },
     "risk": {

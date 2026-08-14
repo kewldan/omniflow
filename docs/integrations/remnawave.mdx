@@ -88,7 +88,7 @@ probe is the connection test.
 
 ## Every call Omniflow makes
 
-Fourteen operations. This is the complete list — nothing else in Remnawave's API is reachable from
+Fifteen operations. This is the complete list — nothing else in Remnawave's API is reachable from
 Omniflow, because nothing else is implemented.
 
 | Remnawave call | What uses it |
@@ -107,6 +107,7 @@ Omniflow, because nothing else is implemented.
 | `GET /api/hwid/devices/{id}` | Device lists and device counters |
 | `POST /api/hwid/devices/delete` (body `{userId, hwid}`) | Removing one device |
 | `POST /api/hwid/devices/delete-all` (body `{userId}`) | A customer disconnecting everything |
+| `GET /api/nodes` | [Traffic reporting](/operations/traffic-reporting): node saturation. The one call whose absence is a normal outcome — a panel that does not expose it produces a stated absence on the screen rather than a page of zeros |
 
 Three narrow Go interfaces divide that set by who is allowed to hold it: `Service` is the read set
 for customer surfaces, `Provisioner` is the write set the fulfillment worker holds, and `Importer` is

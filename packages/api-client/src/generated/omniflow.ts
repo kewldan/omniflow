@@ -2030,6 +2030,53 @@ export interface PanelPaymentHealth {
   generatedAt: string;
 }
 
+export interface PanelTrafficNode {
+  name: string;
+  countryCode?: string;
+  connected: boolean;
+  disabled: boolean;
+  usedBytes: number;
+  /** Zero means the node has no limit, not that it is full. */
+  limitBytes: number;
+  /** used ÷ limit. Absent when the node has no limit: it cannot be filling up. */
+  usedShare?: number;
+  usersOnline?: number;
+}
+
+export interface PanelTrafficConsumer {
+  remnawaveId: number;
+  username: string;
+  /** The current cycle, which resets. */
+  usedBytes: number;
+  lifetimeBytes: number;
+  limitBytes: number;
+  /** Absent for a Remnawave user Omniflow did not create, which is a real state rather than an error. */
+  customerId?: string;
+  label?: string;
+  status?: string;
+}
+
+export type PanelTrafficReportNodesDetail =
+  (typeof PanelTrafficReportNodesDetail)[keyof typeof PanelTrafficReportNodesDetail];
+
+export const PanelTrafficReportNodesDetail = {
+  nodes_unsupported: "nodes_unsupported",
+  nodes_unavailable: "nodes_unavailable",
+  remnawave_not_configured: "remnawave_not_configured",
+} as const;
+
+export interface PanelTrafficReport {
+  nodes: PanelTrafficNode[];
+  /** False when the panel did not answer. An empty list means neither thing. */
+  nodesReported: boolean;
+  nodesDetail?: PanelTrafficReportNodesDetail;
+  consumers: PanelTrafficConsumer[];
+  /** How many users the ranking covers. */
+  scanned: number;
+  /** How many the panel reports having. */
+  total: number;
+}
+
 export interface PanelCommerceSettings {
   topUp: PanelTopUpSettings;
   subscriptions: PanelSubscriptionSettings;
@@ -15253,6 +15300,153 @@ export const useGetPanelPaymentHealth = <TError = Promise<ProblemResponse>>(
   const swrKey =
     swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelPaymentHealthKey(params) : null));
   const swrFn = () => getPanelPaymentHealth(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelTrafficReportResponse200 = {
+  data: PanelTrafficReport;
+  status: 200;
+};
+
+export type getPanelTrafficReportResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelTrafficReportResponseSuccess = getPanelTrafficReportResponse200 & {
+  headers: Headers;
+};
+export type getPanelTrafficReportResponseError = getPanelTrafficReportResponse403 & {
+  headers: Headers;
+};
+
+export type getPanelTrafficReportResponse =
+  | getPanelTrafficReportResponseSuccess
+  | getPanelTrafficReportResponseError;
+
+export const getGetPanelTrafficReportUrl = () => {
+  return `/v1/panel/reports/traffic`;
+};
+
+/**
+ * Requires customers.read. Node saturation and the heaviest users, read live from Remnawave on every request.
+ * Omniflow stores none of it. Remnawave is authoritative for traffic, nodes, and connections, and this repository has no table for a node or for a byte a customer used — keeping one would be the first step towards Omniflow having an opinion about traffic. What Omniflow adds is the join: a Remnawave user identifier resolved to the customer who holds it.
+ * `nodesReported` is false when the panel does not expose a node listing or could not be reached, and `nodesDetail` says which. An empty node list and no node data look identical on a screen and mean opposite things.
+ * The consumer ranking pages the panel's user list and stops after ten pages. `scanned` and `total` say how far it got, so a truncated ranking is never presented as a complete one.
+ */
+export const getPanelTrafficReport = async (
+  options?: RequestInit,
+): Promise<getPanelTrafficReportResponse> => {
+  const res = await fetch(getGetPanelTrafficReportUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelTrafficReportResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelTrafficReportResponse;
+};
+
+export const getGetPanelTrafficReportKey = () => [`/v1/panel/reports/traffic`] as const;
+
+export type GetPanelTrafficReportQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelTrafficReport>>
+>;
+
+export const useGetPanelTrafficReport = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelTrafficReport>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelTrafficReportKey() : null));
+  const swrFn = () => getPanelTrafficReport(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type exportPanelTrafficReportResponse200 = {
+  data: string;
+  status: 200;
+};
+
+export type exportPanelTrafficReportResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type exportPanelTrafficReportResponseSuccess = exportPanelTrafficReportResponse200 & {
+  headers: Headers;
+};
+export type exportPanelTrafficReportResponseError = exportPanelTrafficReportResponse403 & {
+  headers: Headers;
+};
+
+export type exportPanelTrafficReportResponse =
+  | exportPanelTrafficReportResponseSuccess
+  | exportPanelTrafficReportResponseError;
+
+export const getExportPanelTrafficReportUrl = () => {
+  return `/v1/panel/reports/traffic/export`;
+};
+
+/**
+ * Requires customers.read. The same figures as CSV. Byte counts are unscaled: a gigabyte is 1000³ to some readers and 1024³ to others, and choosing one in an export makes the file wrong for the other half.
+ */
+export const exportPanelTrafficReport = async (
+  options?: RequestInit,
+): Promise<exportPanelTrafficReportResponse> => {
+  const res = await fetch(getExportPanelTrafficReportUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const contentType = (res.headers.get("content-type") ?? "").toLowerCase();
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: exportPanelTrafficReportResponse["data"] = body
+    ? contentType.includes("json")
+      ? JSON.parse(body)
+      : body
+    : {};
+  return { data, status: res.status, headers: res.headers } as exportPanelTrafficReportResponse;
+};
+
+export const getExportPanelTrafficReportKey = () => [`/v1/panel/reports/traffic/export`] as const;
+
+export type ExportPanelTrafficReportQueryResult = NonNullable<
+  Awaited<ReturnType<typeof exportPanelTrafficReport>>
+>;
+
+export const useExportPanelTrafficReport = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof exportPanelTrafficReport>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getExportPanelTrafficReportKey() : null));
+  const swrFn = () => exportPanelTrafficReport(fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 

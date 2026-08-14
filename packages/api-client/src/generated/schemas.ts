@@ -3494,6 +3494,60 @@ export const GetPanelPaymentHealthResponse = zod.object({
 });
 
 /**
+ * Requires customers.read. Node saturation and the heaviest users, read live from Remnawave on every request.
+ * Omniflow stores none of it. Remnawave is authoritative for traffic, nodes, and connections, and this repository has no table for a node or for a byte a customer used — keeping one would be the first step towards Omniflow having an opinion about traffic. What Omniflow adds is the join: a Remnawave user identifier resolved to the customer who holds it.
+ * `nodesReported` is false when the panel does not expose a node listing or could not be reached, and `nodesDetail` says which. An empty node list and no node data look identical on a screen and mean opposite things.
+ * The consumer ranking pages the panel's user list and stops after ten pages. `scanned` and `total` say how far it got, so a truncated ranking is never presented as a complete one.
+ */
+export const GetPanelTrafficReportResponse = zod.object({
+  nodes: zod.array(
+    zod.object({
+      name: zod.string(),
+      countryCode: zod.string().optional(),
+      connected: zod.boolean(),
+      disabled: zod.boolean(),
+      usedBytes: zod.int(),
+      limitBytes: zod.int().describe("Zero means the node has no limit, not that it is full."),
+      usedShare: zod
+        .number()
+        .optional()
+        .describe("used ÷ limit. Absent when the node has no limit: it cannot be filling up."),
+      usersOnline: zod.int().optional(),
+    }),
+  ),
+  nodesReported: zod
+    .boolean()
+    .describe("False when the panel did not answer. An empty list means neither thing."),
+  nodesDetail: zod
+    .enum(["nodes_unsupported", "nodes_unavailable", "remnawave_not_configured"])
+    .optional(),
+  consumers: zod.array(
+    zod.object({
+      remnawaveId: zod.int(),
+      username: zod.string(),
+      usedBytes: zod.int().describe("The current cycle, which resets."),
+      lifetimeBytes: zod.int(),
+      limitBytes: zod.int(),
+      customerId: zod
+        .uuid()
+        .optional()
+        .describe(
+          "Absent for a Remnawave user Omniflow did not create, which is a real state rather than an error.",
+        ),
+      label: zod.string().optional(),
+      status: zod.string().optional(),
+    }),
+  ),
+  scanned: zod.int().describe("How many users the ranking covers."),
+  total: zod.int().describe("How many the panel reports having."),
+});
+
+/**
+ * Requires customers.read. The same figures as CSV. Byte counts are unscaled: a gigabyte is 1000³ to some readers and 1024³ to others, and choosing one in an export makes the file wrong for the other half.
+ */
+export const ExportPanelTrafficReportResponse = zod.unknown();
+
+/**
  * Requires settings.read. The stored palette, the stylesheet it renders as, the tokens this build honours, and every contrast problem the palette has. The warnings are recomputed on each read rather than stored, so they cannot go stale against a palette edited elsewhere.
  */
 export const GetPanelThemeResponse = zod.object({

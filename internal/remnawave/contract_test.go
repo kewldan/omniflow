@@ -51,6 +51,8 @@ func TestSupportedRoutesAreCalledExactly(t *testing.T) {
 			func(client *Client) error { return client.RevokeSubscription(context.Background(), 7) }},
 		{"list devices", http.MethodGet, "/api/hwid/devices/7", `{"response":{"total":0,"devices":[]}}`,
 			func(client *Client) error { _, err := client.Devices(context.Background(), 7); return err }},
+		{"list nodes", http.MethodGet, "/api/nodes", `{"response":[]}`,
+			func(client *Client) error { _, err := client.Nodes(context.Background()); return err }},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -149,5 +151,44 @@ func TestRedirectsAreNotFollowed(t *testing.T) {
 	}
 	if leaked {
 		t.Fatal("the bearer token was sent to the redirect target")
+	}
+}
+
+// The node listing is the one route in this adapter whose absence is a normal
+// outcome rather than a fault.
+//
+// It is read for a report, not for a purchase, and a panel that does not expose
+// it must produce "no node data" on the screen rather than a page of zeros —
+// those two look identical and mean opposite things. A panel that shapes the
+// payload differently degrades the same way: only the fields Omniflow renders
+// are decoded, and an absent one is a zero rather than a decode failure.
+func TestTheNodeListingDegradesRatherThanFailing(t *testing.T) {
+	t.Parallel()
+
+	missing := contractClient(t, func(writer http.ResponseWriter, _ *http.Request) {
+		writer.WriteHeader(http.StatusNotFound)
+	})
+	if _, err := missing.Nodes(context.Background()); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("a panel without the route returned %v, want ErrNotFound", err)
+	}
+
+	// A payload carrying fields this build does not know about, and missing one
+	// it does.
+	extra := contractClient(t, func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write([]byte(`{"response":[{
+			"uuid":"n1","name":"Frankfurt","isConnected":true,
+			"trafficUsedBytes":1024,"somethingNew":{"nested":true}
+		}]}`))
+	})
+	nodes, err := extra.Nodes(context.Background())
+	if err != nil {
+		t.Fatalf("an unfamiliar payload failed to decode: %v", err)
+	}
+	if len(nodes) != 1 || nodes[0].Name != "Frankfurt" || nodes[0].TrafficUsedBytes != 1024 {
+		t.Fatalf("decoded %+v", nodes)
+	}
+	if nodes[0].TrafficLimitBytes != 0 || nodes[0].UsersOnline != nil {
+		t.Fatalf("an absent field became something other than a zero: %+v", nodes[0])
 	}
 }

@@ -166,6 +166,8 @@ func TestTheNewSurfacesAreInsideTheAuthenticatedGroup(t *testing.T) {
 		{http.MethodGet, "/v1/panel/reports/sales"},
 		{http.MethodGet, "/v1/panel/reports/sales/export"},
 		{http.MethodGet, "/v1/panel/reports/payments"},
+		{http.MethodGet, "/v1/panel/reports/traffic"},
+		{http.MethodGet, "/v1/panel/reports/traffic/export"},
 	} {
 		recorder := httptest.NewRecorder()
 		router.(http.Handler).ServeHTTP(

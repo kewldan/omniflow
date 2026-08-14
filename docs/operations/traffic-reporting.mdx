@@ -1,0 +1,100 @@
+---
+title: Traffic reporting
+description: Which node is filling up and who consumed the most, read live from Remnawave, and why nothing on this screen is stored
+---
+
+`/admin/traffic` answers two questions that the anomaly signals cannot. Anomaly
+detection answers "who should somebody look at". This answers **which node is
+filling up** and **who consumed the most**, and it exports both.
+
+## Nothing here is stored
+
+Remnawave is authoritative for traffic, nodes, and connections. There is no
+table in this repository for a node, and no column anywhere for a byte a
+customer used — the reconciler records status, expiry, traffic *limit*, and
+device limit, and deliberately not consumption.
+
+So both halves of this screen are read from the panel on every request, and
+there is no history. Keeping one would be the first step towards Omniflow having
+an opinion about traffic, which is the boundary
+[decision 0004](/architecture/decision-0004-remnawave-boundary) exists to hold.
+
+What Omniflow adds is the one thing it can: the join. A Remnawave user
+identifier resolved to the customer who holds it, and a link to their profile.
+
+## Nodes
+
+Sorted by pressure — nodes with a limit first, by how close they are to it, then
+the unlimited ones by absolute use. The question is "which node is filling up",
+and the answer belongs at the top.
+
+A node with **no limit reports no saturation figure** rather than 0%. It cannot
+be filling up, and rendering zero would sort it among the empty ones when it
+belongs off that list entirely.
+
+<Warning>
+  **A panel that does not expose a node listing says so.** `nodesReported` is
+  false and the screen renders the reason — the route is unsupported, the panel
+  could not be reached, or no Remnawave connection is configured.
+
+  This distinction is the point. An empty node table and "we could not ask" look
+  identical and mean opposite things, and a page of zeros for an installation
+  whose nodes are fine is worse than an honest absence.
+
+  Only the fields Omniflow renders are decoded, and a panel that omits one
+  leaves a zero rather than failing the request. If your panel version shapes
+  its node listing differently, this section degrades and the rest of the page
+  is unaffected — confirm it against your own panel rather than assuming from
+  this page.
+</Warning>
+
+## Heaviest users
+
+The fifty largest consumers in the current cycle, with lifetime use beside the
+cycle figure. Both, because "this month" and "ever" are different questions and
+the second explains the first.
+
+**The ranking says how far it looked.** Finding the heaviest users means
+scanning every user, and the panel pages at five hundred; the report stops after
+ten pages. When it did not reach the end, the screen says the ranking covers the
+users it scanned out of the total the panel reports. A truncated ranking
+presented as a complete one is worse than no ranking.
+
+**A user Omniflow did not create reads as "not linked"**, not as an error.
+Somebody provisioned it in the panel directly, or an import has not run, and
+both are real states.
+
+## The export
+
+`GET /v1/panel/reports/traffic/export` returns one CSV with a `section` column —
+`node` and `consumer`.
+
+Byte counts are **unscaled**. A gigabyte is 1000³ to some readers and 1024³ to
+others, and choosing one in an export makes the file wrong for the other half.
+The screen renders binary units and labels them as such (GiB, not GB), because
+the conversion it applies divides by 1024 and calling that a gigabyte would be
+seven percent out at that scale — enough to stop an operator's arithmetic
+reconciling against their host's invoice.
+
+## Permissions
+
+Both routes need `customers.read`. The half that matters names customers and
+their consumption; the node figures are the less sensitive half and travel with
+it.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Remnawave integration" icon="server" href="/integrations/remnawave">
+    Which routes Omniflow calls, and what the adapter does when one is absent.
+  </Card>
+  <Card title="Data ownership" icon="scale-balanced" href="/architecture/data-ownership">
+    Which system is authoritative for each category of data.
+  </Card>
+  <Card title="Risk controls" icon="shield-halved" href="/operations/risk-controls">
+    Anomaly signals, including the traffic metric, and what they are for instead.
+  </Card>
+  <Card title="Sales and payment reporting" icon="chart-column" href="/operations/sales-reporting">
+    What was sold, and whether the money arrived.
+  </Card>
+</CardGroup>

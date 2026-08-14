@@ -1457,6 +1457,41 @@ paths:
         "200": {description: Payment health, content: {application/json: {schema: {$ref: "#/components/schemas/PanelPaymentHealth"}}}}
         "403": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/reports/traffic:
+    get:
+      operationId: getPanelTrafficReport
+      tags: [panel]
+      description: >-
+        Requires customers.read. Node saturation and the heaviest users, read
+        live from Remnawave on every request.
+
+        Omniflow stores none of it. Remnawave is authoritative for traffic,
+        nodes, and connections, and this repository has no table for a node or
+        for a byte a customer used — keeping one would be the first step towards
+        Omniflow having an opinion about traffic. What Omniflow adds is the join:
+        a Remnawave user identifier resolved to the customer who holds it.
+
+        `nodesReported` is false when the panel does not expose a node listing or
+        could not be reached, and `nodesDetail` says which. An empty node list
+        and no node data look identical on a screen and mean opposite things.
+
+        The consumer ranking pages the panel's user list and stops after ten
+        pages. `scanned` and `total` say how far it got, so a truncated ranking
+        is never presented as a complete one.
+      responses:
+        "200": {description: Traffic report, content: {application/json: {schema: {$ref: "#/components/schemas/PanelTrafficReport"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/reports/traffic/export:
+    get:
+      operationId: exportPanelTrafficReport
+      tags: [panel]
+      description: >-
+        Requires customers.read. The same figures as CSV. Byte counts are
+        unscaled: a gigabyte is 1000³ to some readers and 1024³ to others, and
+        choosing one in an export makes the file wrong for the other half.
+      responses:
+        "200": {description: CSV, content: {text/csv: {schema: {type: string}}}}
+        "403": {$ref: "#/components/responses/Problem"}
   /v1/panel/settings/theme:
     get:
       operationId: getPanelTheme
@@ -4518,6 +4553,40 @@ components:
         byDay: {type: array, items: {$ref: "#/components/schemas/PanelProviderHealthDay"}}
         webhooks: {type: array, items: {$ref: "#/components/schemas/PanelWebhookHealthLine"}}
         generatedAt: {type: string, format: date-time}
+    PanelTrafficNode:
+      type: object
+      required: [name, connected, disabled, usedBytes, limitBytes]
+      properties:
+        name: {type: string}
+        countryCode: {type: string}
+        connected: {type: boolean}
+        disabled: {type: boolean}
+        usedBytes: {type: integer, format: int64}
+        limitBytes: {type: integer, format: int64, description: "Zero means the node has no limit, not that it is full."}
+        usedShare: {type: number, description: "used ÷ limit. Absent when the node has no limit: it cannot be filling up."}
+        usersOnline: {type: integer}
+    PanelTrafficConsumer:
+      type: object
+      required: [remnawaveId, username, usedBytes, lifetimeBytes, limitBytes]
+      properties:
+        remnawaveId: {type: integer, format: int64}
+        username: {type: string}
+        usedBytes: {type: integer, format: int64, description: "The current cycle, which resets."}
+        lifetimeBytes: {type: integer, format: int64}
+        limitBytes: {type: integer, format: int64}
+        customerId: {type: string, format: uuid, description: "Absent for a Remnawave user Omniflow did not create, which is a real state rather than an error."}
+        label: {type: string}
+        status: {type: string}
+    PanelTrafficReport:
+      type: object
+      required: [nodes, nodesReported, consumers, scanned, total]
+      properties:
+        nodes: {type: array, items: {$ref: "#/components/schemas/PanelTrafficNode"}}
+        nodesReported: {type: boolean, description: "False when the panel did not answer. An empty list means neither thing."}
+        nodesDetail: {type: string, enum: [nodes_unsupported, nodes_unavailable, remnawave_not_configured]}
+        consumers: {type: array, items: {$ref: "#/components/schemas/PanelTrafficConsumer"}}
+        scanned: {type: integer, description: "How many users the ranking covers."}
+        total: {type: integer, description: "How many the panel reports having."}
     PanelCommerceSettings:
       type: object
       required: [topUp, subscriptions, updatedAt]

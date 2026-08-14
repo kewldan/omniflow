@@ -248,6 +248,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 			handlers.mountTheme(secure)
 			handlers.mountConnectCatalogue(secure)
 			handlers.mountReports(secure)
+			handlers.mountTraffic(secure)
 			handlers.mountCustomerAuth(secure)
 		})
 	})

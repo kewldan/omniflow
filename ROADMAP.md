@@ -1652,10 +1652,36 @@ below this section are directions; these are specific absences.
       reason: nothing renders them. This is the operator's own analytics, never
       project telemetry, so it stays per-installation, off by default, and inside
       the consent the marketing surfaces already enforce.
-- [ ] Traffic reporting per node — `internal/anomaly` raises a reviewable signal
-      on the `traffic` metric, which answers "who should somebody look at". It
-      does not answer "which node is filling up" or "who consumed the most this
-      month", and there is no export.
+- [x] Traffic reporting per node — done, at `/admin/traffic` and documented at
+      [`operations/traffic-reporting`](./docs/operations/traffic-reporting.mdx).
+      Node saturation sorted by pressure, the fifty heaviest users with the
+      customer who holds each one, and a CSV of both. The anomaly signal keeps
+      answering the question it answers.
+
+      **Nothing is stored, and that is the design rather than a shortcut.**
+      Remnawave owns traffic, nodes, and connections; this repository still has
+      no table for a node and no column for a byte a customer used. Both halves
+      are read from the panel on each request and no history is kept, because
+      keeping one is the first step towards Omniflow having an opinion about
+      traffic. The single thing Omniflow contributes is the join from a
+      Remnawave user identifier to the customer who holds it.
+
+      `GET /api/nodes` is the fifteenth call in the adapter and the only one
+      whose absence is a normal outcome rather than a fault. A panel that does
+      not expose it produces a stated absence on the screen — "this panel does
+      not expose a node listing" — instead of a page of zeros, because an empty
+      node table and "we could not ask" look identical and mean opposite things.
+      The decode is lenient for the same reason: a panel that shapes the payload
+      differently degrades that one section and leaves the rest of the page
+      working. **Confirm it against your own panel**; this is the one upstream
+      shape in the adapter that no test written inside this repository can
+      verify.
+
+      Two smaller refusals. A node with no limit reports no saturation rather
+      than 0%, because it cannot be filling up and zero would sort it among the
+      empty ones. And the consumer ranking says how far it scanned whenever it
+      did not reach the end of the user base, since a truncated ranking
+      presented as a complete one is worse than no ranking.
 
 ### Revenue protection
 

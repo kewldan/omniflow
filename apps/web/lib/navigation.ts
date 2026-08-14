@@ -1,4 +1,5 @@
 import {
+  Activity,
   ChartColumn,
   ClipboardList,
   CreditCard,
@@ -68,6 +69,12 @@ export const NAVIGATION: NavigationSection[] = [
         href: "/admin/reports",
         icon: ChartColumn,
         permission: "finance.read",
+      },
+      {
+        key: "traffic",
+        href: "/admin/traffic",
+        icon: Activity,
+        permission: "customers.read",
       },
       {
         key: "catalog",

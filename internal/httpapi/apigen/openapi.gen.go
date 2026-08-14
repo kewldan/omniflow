@@ -2413,6 +2413,27 @@ func (e PanelSubscriptionStatus) Valid() bool {
 	}
 }
 
+// Defines values for PanelTrafficReportNodesDetail.
+const (
+	NodesUnavailable       PanelTrafficReportNodesDetail = "nodes_unavailable"
+	NodesUnsupported       PanelTrafficReportNodesDetail = "nodes_unsupported"
+	RemnawaveNotConfigured PanelTrafficReportNodesDetail = "remnawave_not_configured"
+)
+
+// Valid indicates whether the value is a known member of the PanelTrafficReportNodesDetail enum.
+func (e PanelTrafficReportNodesDetail) Valid() bool {
+	switch e {
+	case NodesUnavailable:
+		return true
+	case NodesUnsupported:
+		return true
+	case RemnawaveNotConfigured:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PaymentProvider.
 const (
 	PaymentProviderCryptobot     PaymentProvider = "cryptobot"
@@ -6350,6 +6371,56 @@ type PanelTopUpSettings struct {
 	WindowSeconds    int64    `json:"windowSeconds"`
 }
 
+// PanelTrafficConsumer defines model for PanelTrafficConsumer.
+type PanelTrafficConsumer struct {
+	// CustomerId Absent for a Remnawave user Omniflow did not create, which is a real state rather than an error.
+	CustomerId    *openapi_types.UUID `json:"customerId,omitempty"`
+	Label         *string             `json:"label,omitempty"`
+	LifetimeBytes int64               `json:"lifetimeBytes"`
+	LimitBytes    int64               `json:"limitBytes"`
+	RemnawaveId   int64               `json:"remnawaveId"`
+	Status        *string             `json:"status,omitempty"`
+
+	// UsedBytes The current cycle, which resets.
+	UsedBytes int64  `json:"usedBytes"`
+	Username  string `json:"username"`
+}
+
+// PanelTrafficNode defines model for PanelTrafficNode.
+type PanelTrafficNode struct {
+	Connected   bool    `json:"connected"`
+	CountryCode *string `json:"countryCode,omitempty"`
+	Disabled    bool    `json:"disabled"`
+
+	// LimitBytes Zero means the node has no limit, not that it is full.
+	LimitBytes int64  `json:"limitBytes"`
+	Name       string `json:"name"`
+	UsedBytes  int64  `json:"usedBytes"`
+
+	// UsedShare used ÷ limit. Absent when the node has no limit: it cannot be filling up.
+	UsedShare   *float32 `json:"usedShare,omitempty"`
+	UsersOnline *int     `json:"usersOnline,omitempty"`
+}
+
+// PanelTrafficReport defines model for PanelTrafficReport.
+type PanelTrafficReport struct {
+	Consumers   []PanelTrafficConsumer         `json:"consumers"`
+	Nodes       []PanelTrafficNode             `json:"nodes"`
+	NodesDetail *PanelTrafficReportNodesDetail `json:"nodesDetail,omitempty"`
+
+	// NodesReported False when the panel did not answer. An empty list means neither thing.
+	NodesReported bool `json:"nodesReported"`
+
+	// Scanned How many users the ranking covers.
+	Scanned int `json:"scanned"`
+
+	// Total How many the panel reports having.
+	Total int `json:"total"`
+}
+
+// PanelTrafficReportNodesDetail defines model for PanelTrafficReport.NodesDetail.
+type PanelTrafficReportNodesDetail string
+
 // PanelTrialConversion defines model for PanelTrialConversion.
 type PanelTrialConversion struct {
 	// Cohort Always true. The numerator counts conversions at any later time, so a period ending today reads low by construction.
@@ -9048,6 +9119,12 @@ type ServerInterface interface {
 	// (GET /v1/panel/reports/sales/export)
 	ExportPanelSalesReport(w http.ResponseWriter, r *http.Request, params ExportPanelSalesReportParams)
 
+	// (GET /v1/panel/reports/traffic)
+	GetPanelTrafficReport(w http.ResponseWriter, r *http.Request)
+
+	// (GET /v1/panel/reports/traffic/export)
+	ExportPanelTrafficReport(w http.ResponseWriter, r *http.Request)
+
 	// (GET /v1/panel/risk/anomalies)
 	SearchPanelAnomalies(w http.ResponseWriter, r *http.Request, params SearchPanelAnomaliesParams)
 
@@ -10202,6 +10279,16 @@ func (_ Unimplemented) GetPanelSalesReport(w http.ResponseWriter, r *http.Reques
 
 // (GET /v1/panel/reports/sales/export)
 func (_ Unimplemented) ExportPanelSalesReport(w http.ResponseWriter, r *http.Request, params ExportPanelSalesReportParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/reports/traffic)
+func (_ Unimplemented) GetPanelTrafficReport(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/reports/traffic/export)
+func (_ Unimplemented) ExportPanelTrafficReport(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -19135,6 +19222,34 @@ func (siw *ServerInterfaceWrapper) ExportPanelSalesReport(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// GetPanelTrafficReport operation middleware
+func (siw *ServerInterfaceWrapper) GetPanelTrafficReport(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPanelTrafficReport(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ExportPanelTrafficReport operation middleware
+func (siw *ServerInterfaceWrapper) ExportPanelTrafficReport(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ExportPanelTrafficReport(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // SearchPanelAnomalies operation middleware
 func (siw *ServerInterfaceWrapper) SearchPanelAnomalies(w http.ResponseWriter, r *http.Request) {
 
@@ -21555,6 +21670,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/reports/payments", wrapper.GetPanelPaymentHealth)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/reports/traffic", wrapper.GetPanelTrafficReport)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/reports/traffic/export", wrapper.ExportPanelTrafficReport)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/settings/theme", wrapper.GetPanelTheme)
@@ -30437,6 +30558,86 @@ func (response ExportPanelSalesReport422ApplicationProblemPlusJSONResponse) Visi
 	return err
 }
 
+type GetPanelTrafficReportRequestObject struct {
+}
+
+type GetPanelTrafficReportResponseObject interface {
+	VisitGetPanelTrafficReportResponse(w http.ResponseWriter) error
+}
+
+type GetPanelTrafficReport200JSONResponse PanelTrafficReport
+
+func (response GetPanelTrafficReport200JSONResponse) VisitGetPanelTrafficReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelTrafficReport403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetPanelTrafficReport403ApplicationProblemPlusJSONResponse) VisitGetPanelTrafficReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ExportPanelTrafficReportRequestObject struct {
+}
+
+type ExportPanelTrafficReportResponseObject interface {
+	VisitExportPanelTrafficReportResponse(w http.ResponseWriter) error
+}
+
+type ExportPanelTrafficReport200TextcsvResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response ExportPanelTrafficReport200TextcsvResponse) VisitExportPanelTrafficReportResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "text/csv")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type ExportPanelTrafficReport403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ExportPanelTrafficReport403ApplicationProblemPlusJSONResponse) VisitExportPanelTrafficReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type SearchPanelAnomaliesRequestObject struct {
 	Params SearchPanelAnomaliesParams
 }
@@ -33131,6 +33332,12 @@ type StrictServerInterface interface {
 
 	// (GET /v1/panel/reports/sales/export)
 	ExportPanelSalesReport(ctx context.Context, request ExportPanelSalesReportRequestObject) (ExportPanelSalesReportResponseObject, error)
+
+	// (GET /v1/panel/reports/traffic)
+	GetPanelTrafficReport(ctx context.Context, request GetPanelTrafficReportRequestObject) (GetPanelTrafficReportResponseObject, error)
+
+	// (GET /v1/panel/reports/traffic/export)
+	ExportPanelTrafficReport(ctx context.Context, request ExportPanelTrafficReportRequestObject) (ExportPanelTrafficReportResponseObject, error)
 
 	// (GET /v1/panel/risk/anomalies)
 	SearchPanelAnomalies(ctx context.Context, request SearchPanelAnomaliesRequestObject) (SearchPanelAnomaliesResponseObject, error)
@@ -39065,6 +39272,54 @@ func (sh *strictHandler) ExportPanelSalesReport(w http.ResponseWriter, r *http.R
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ExportPanelSalesReportResponseObject); ok {
 		if err := validResponse.VisitExportPanelSalesReportResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPanelTrafficReport operation middleware
+func (sh *strictHandler) GetPanelTrafficReport(w http.ResponseWriter, r *http.Request) {
+	var request GetPanelTrafficReportRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPanelTrafficReport(ctx, request.(GetPanelTrafficReportRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPanelTrafficReport")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPanelTrafficReportResponseObject); ok {
+		if err := validResponse.VisitGetPanelTrafficReportResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ExportPanelTrafficReport operation middleware
+func (sh *strictHandler) ExportPanelTrafficReport(w http.ResponseWriter, r *http.Request) {
+	var request ExportPanelTrafficReportRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ExportPanelTrafficReport(ctx, request.(ExportPanelTrafficReportRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ExportPanelTrafficReport")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ExportPanelTrafficReportResponseObject); ok {
+		if err := validResponse.VisitExportPanelTrafficReportResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

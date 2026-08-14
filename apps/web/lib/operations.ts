@@ -597,6 +597,49 @@ export type PaymentHealthReport = {
   generatedAt: string;
 };
 
+/**
+ * Traffic, read live from Remnawave on every request.
+ *
+ * Omniflow stores none of this. Remnawave owns traffic, nodes, and connections;
+ * the report adds the one thing Omniflow can — which customer holds a given
+ * Remnawave user — and keeps no history, because keeping one would be the first
+ * step towards Omniflow having an opinion about traffic.
+ */
+export type NodeLine = {
+  name: string;
+  countryCode?: string;
+  connected: boolean;
+  disabled: boolean;
+  usedBytes: number;
+  limitBytes: number;
+  /** Absent when the node has no limit: it cannot be "filling up". */
+  usedShare?: number;
+  usersOnline?: number;
+};
+
+export type ConsumerLine = {
+  remnawaveId: number;
+  username: string;
+  usedBytes: number;
+  lifetimeBytes: number;
+  limitBytes: number;
+  /** Empty for a Remnawave user Omniflow did not create. */
+  customerId?: string;
+  label?: string;
+  status?: string;
+};
+
+export type TrafficReport = {
+  nodes: NodeLine[];
+  /** False when the panel did not answer. An empty list means neither thing. */
+  nodesReported: boolean;
+  nodesDetail?: string;
+  consumers: ConsumerLine[];
+  /** How much of the user base the ranking covers, and how much there is. */
+  scanned: number;
+  total: number;
+};
+
 export type Page<Item> = { items: Item[] | null; nextCursor?: string };
 export type Listing<Item> = { items: Item[] | null };
 

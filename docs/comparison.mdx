@@ -124,7 +124,7 @@ This table's Bedolaga column covers the bot and the cabinet together, because th
 | MCP client and first-party MCP server | ✅ (optional, off by default) | — | — |
 | Sales reporting over a period the operator chooses | ✅ | ✅ | — |
 | Payment health: settlement rate by provider | ✅ | ✅ | — |
-| Traffic reporting per node, with export | 🔭 | ✅ | — |
+| Traffic reporting per node, with export | ✅ | ✅ | — |
 | Account-sharing detection by distinct address | 🔭 | ✅ | — |
 | Operator-published information pages: FAQ, terms, offer, privacy | 🔭 | ✅ | — |
 | Transactional e-mail templates an operator can override | 🔭 | ✅ | — |
@@ -134,7 +134,7 @@ This table's Bedolaga column covers the bot and the cabinet together, because th
 
 Two of those marks are decisions rather than backlog. Node and squad control is ❌ for the same reason node health and routing are further down: Remnawave owns nodes, hosts, squads, and Xray state, and an operator reaches them in Remnawave's own panel. Account-sharing detection is 🔭 with a condition attached — whether Omniflow may hold per-connection observations at all is a boundary question that has to be settled before it is a feature, not after.
 
-The reporting rows were the substantive gap and are now closed. Omniflow's dashboard still reports a fixed 30-day window on purpose, so that two visits compare; `/admin/reports` is where the window moves, with breakdowns by kind of sale, plan version, and day, trial conversion, and a settlement rate per provider beside the completion rate — because a customer abandoning a checkout and a gateway refusing a card are not the same event. What remains open is advertising attribution and per-node traffic.
+The reporting rows were the substantive gap and are now closed. Omniflow's dashboard still reports a fixed 30-day window on purpose, so that two visits compare; `/admin/reports` is where the window moves, with breakdowns by kind of sale, plan version, and day, trial conversion, and a settlement rate per provider beside the completion rate — because a customer abandoning a checkout and a gateway refusing a card are not the same event. What remains open is advertising attribution.
 
 Omniflow deliberately keeps administration out of Telegram. As of v0.5 Telegram carries operator notifications and backup/restore actions, and nothing else: those two are exempt because an incident is exactly when a browser and a panel may be unavailable. Every other control lives in the web panel, where RBAC, audit, and confirmation dialogs can be enforced consistently.
 
@@ -182,7 +182,7 @@ RemnaCore also reaches into node health monitoring, smart routing, and speed tes
 
 ## Choosing between them
 
-**Choose Bedolaga Bot** if you need the widest payment-provider coverage today, want to administer everything from Telegram without deploying a web panel, or need growth mechanics such as contests, custom landing pages, and referral payouts that Omniflow has deferred past 1.0. Adding the cabinet also gets you the reporting and presentation layer Omniflow has not built: per-node traffic and information pages you publish from the panel instead of hosting elsewhere. If you sell through paid advertising, note the attribution gap in particular — Bedolaga carries a click identifier into the order and uploads the conversion back, and Omniflow does not.
+**Choose Bedolaga Bot** if you need the widest payment-provider coverage today, want to administer everything from Telegram without deploying a web panel, or need growth mechanics such as contests, custom landing pages, and referral payouts that Omniflow has deferred past 1.0. Adding the cabinet also gets you the reporting and presentation layer Omniflow has not built: information pages you publish from the panel instead of hosting elsewhere. If you sell through paid advertising, note the attribution gap in particular — Bedolaga carries a click identifier into the order and uploads the conversion back, and Omniflow does not.
 
 **Choose RemnaCore** if you need white-label reseller capability with commission tracking, or are already running Kubernetes and want a plugin runtime and event bus as first-class infrastructure. Note its stated development status before committing production traffic.
 
