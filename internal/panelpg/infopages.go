@@ -109,7 +109,7 @@ func (service *Service) InfoPage(ctx context.Context, slug string) (InfoPage, er
 		Slug: row.Slug, Kind: row.Kind, PublishedAt: row.PublishedAt.Time,
 		Listed: row.Listed, SortOrder: row.SortOrder,
 		UpdatedAt: row.UpdatedAt.Time, UpdatedBy: uuidString(row.UpdatedBy),
-		Locales:   make([]InfoPageLocale, 0, len(localizations)),
+		Locales: make([]InfoPageLocale, 0, len(localizations)),
 	}
 	for _, localization := range localizations {
 		page.Locales = append(page.Locales, InfoPageLocale{
