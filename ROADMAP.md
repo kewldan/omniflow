@@ -1605,11 +1605,18 @@ below this section are directions; these are specific absences.
       issued one at a time. Selling a block of access to a distributor means
       generating a batch at an agreed price, handing over the codes, and being
       able to revoke the unredeemed remainder when the list leaks.
-- [ ] A recorded decision on customer password sign-in — Telegram, OIDC, and a
-      magic link are the ways in. A password is absent, which is defensible, but
-      the absence is stated nowhere, so it reads as an oversight rather than a
-      choice. Decide it and write it down rather than leaving it inferred from
-      the route list.
+- [x] A recorded decision on customer password sign-in — decided against, and
+      written down as
+      [`decision-0007-no-customer-password`](./docs/architecture/decision-0007-no-customer-password.mdx).
+      The reason that settles it is not preference: there is no e-mail transport
+      in this installation at all, so a password would be a credential whose
+      reset path cannot reach the one person who needs it. The record states the
+      cost plainly — an installation with neither Telegram nor an acceptable
+      OIDC provider cannot sign anybody in on the web, and no configuration
+      produces one — and names the two observable conditions that would reopen
+      it. The sign-in section of the customer web guide now points at it, so a
+      reader comparing the two route lists finds the choice rather than
+      inferring an oversight.
 
 ### Panel and customer experience
 

@@ -148,6 +148,11 @@ widget is loaded by username: a token without a resolvable username cannot rende
 one. With neither Telegram nor any OIDC provider available the screen says "No
 sign-in method is configured yet. Contact support."
 
+There is no password field, and there is no configuration that adds one. That is
+a decision rather than an omission, with a stated cost and a stated condition for
+reversing it:
+[0007 — Customers do not sign in with a password](/architecture/decision-0007-no-customer-password).
+
 ### Telegram
 
 The primary route. Telegram's login widget signs its fields with HMAC-SHA256

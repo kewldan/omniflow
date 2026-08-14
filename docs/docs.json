@@ -37,7 +37,8 @@
               "architecture/decision-0003-contract-first-api",
               "architecture/decision-0004-remnawave-boundary",
               "architecture/decision-0005-one-web-application",
-              "architecture/decision-0006-ai-is-optional"
+              "architecture/decision-0006-ai-is-optional",
+              "architecture/decision-0007-no-customer-password"
             ]
           },
           {
@@ -160,7 +161,8 @@
               "ru/architecture/decision-0003-contract-first-api",
               "ru/architecture/decision-0004-remnawave-boundary",
               "ru/architecture/decision-0005-one-web-application",
-              "ru/architecture/decision-0006-ai-is-optional"
+              "ru/architecture/decision-0006-ai-is-optional",
+              "ru/architecture/decision-0007-no-customer-password"
             ]
           },
           {
