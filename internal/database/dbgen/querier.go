@@ -41,6 +41,7 @@ type Querier interface {
 	// action rather than an error state: an operator who cannot finish something
 	// should be able to put it down.
 	AssignSupportTicket(ctx context.Context, arg AssignSupportTicketParams) (SupportTicket, error)
+	AttachAccessCodeEntitlement(ctx context.Context, arg AttachAccessCodeEntitlementParams) error
 	AttachReferralSignal(ctx context.Context, arg AttachReferralSignalParams) error
 	// A backup nobody has ever restored is a backup nobody knows works, so the last
 	// restore is part of the status rather than a separate screen.
@@ -157,6 +158,8 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	CreateBulkOperation(ctx context.Context, arg CreateBulkOperationParams) (BulkOperation, error)
 	CreateCampaign(ctx context.Context, arg CreateCampaignParams) (Campaign, error)
+	// Wholesale code batches.
+	CreateCodeBatch(ctx context.Context, arg CreateCodeBatchParams) (CodeBatch, error)
 	CreateContactChannel(ctx context.Context, arg CreateContactChannelParams) (ContactChannel, error)
 	// Used only when a sign-in route is allowed to provision. The row it creates is
 	// an ordinary customer with no entitlement, no balance, and no Remnawave user.
@@ -407,6 +410,7 @@ type Querier interface {
 	GetCannedResponse(ctx context.Context, id pgtype.UUID) (SupportCannedResponse, error)
 	GetCartGoods(ctx context.Context, cartID pgtype.UUID) (GetCartGoodsRow, error)
 	GetChannelEnforcement(ctx context.Context, userID pgtype.UUID) (ChannelEnforcement, error)
+	GetCodeBatchForRedemption(ctx context.Context, id pgtype.UUID) (GetCodeBatchForRedemptionRow, error)
 	// Operator panel queries for v0.7: settings, dashboard, customer and finance
 	// operations, fulfillment and job diagnostics, and bulk actions.
 	//
@@ -512,6 +516,7 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	GrantAdminRole(ctx context.Context, arg GrantAdminRoleParams) error
 	GrantChannelExemption(ctx context.Context, arg GrantChannelExemptionParams) (ChannelExemption, error)
+	InsertAccessCode(ctx context.Context, arg InsertAccessCodeParams) error
 	InsertAdminRecoveryCode(ctx context.Context, arg InsertAdminRecoveryCodeParams) error
 	// The single writer for the audit trail. `category` and `outcome` are the two
 	// axes the admin panel filters and exports on, so every caller classifies its
@@ -617,6 +622,9 @@ type Querier interface {
 	ListAutoRenewDue(ctx context.Context, pageSize int32) ([]ListAutoRenewDueRow, error)
 	ListBackupRestores(ctx context.Context, limit int32) ([]BackupRestore, error)
 	ListBackups(ctx context.Context, limit int32) ([]Backup, error)
+	// The hints and statuses of one batch's codes. Never the codes themselves:
+	// there is nothing in this table that could produce one.
+	ListBatchCodes(ctx context.Context, batchID pgtype.UUID) ([]ListBatchCodesRow, error)
 	ListBlocklistMatchesForCustomer(ctx context.Context, userID pgtype.UUID) ([]ListBlocklistMatchesForCustomerRow, error)
 	// External blocklists and anomaly detection.
 	//
@@ -649,6 +657,9 @@ type Querier interface {
 	// Warned customers whose grace has run out.
 	ListChannelEnforcementDue(ctx context.Context, pageSize int32) ([]ListChannelEnforcementDueRow, error)
 	ListChannelExemptions(ctx context.Context, pageSize int32) ([]ListChannelExemptionsRow, error)
+	// One row per batch with its counts, so the list answers "how many are still
+	// out there" without a second query per row.
+	ListCodeBatches(ctx context.Context, pageSize int32) ([]ListCodeBatchesRow, error)
 	ListConnectClients(ctx context.Context) ([]ConnectClient, error)
 	ListConnectPlatforms(ctx context.Context) ([]ConnectPlatform, error)
 	ListContactChannels(ctx context.Context, userID pgtype.UUID) ([]ListContactChannelsRow, error)
@@ -886,6 +897,12 @@ type Querier interface {
 	LockWalletTopup(ctx context.Context, orderID pgtype.UUID) (WalletTopup, error)
 	MarkBackupPruned(ctx context.Context, id pgtype.UUID) (Backup, error)
 	MarkCartPurchased(ctx context.Context, arg MarkCartPurchasedParams) (Cart, error)
+	// Records who withdrew the batch and why.
+	//
+	// Both COALESCE calls make a second revocation a no-op rather than a rewrite of
+	// the first one's reason, which is the record somebody reads six months later
+	// when they ask why three hundred codes were killed.
+	MarkCodeBatchRevoked(ctx context.Context, arg MarkCodeBatchRevokedParams) (CodeBatch, error)
 	MarkDunningNotified(ctx context.Context, attemptID pgtype.UUID) (DunningAttempt, error)
 	// Settlement of the sender's order is what makes a gift claimable. Restricting
 	// the update to 'pending' means a replayed settlement changes nothing.
@@ -1032,6 +1049,13 @@ type Querier interface {
 	// worker cannot double-count an outcome it already recorded.
 	RecountBulkOperation(ctx context.Context, operationID pgtype.UUID) (BulkOperation, error)
 	RecountCampaign(ctx context.Context, campaignID pgtype.UUID) (Campaign, error)
+	// Single redemption as a property of the predicate rather than of timing.
+	//
+	// Only an `issued` code in a batch that is neither revoked nor expired matches,
+	// and the same statement is what writes the redemption — so two simultaneous
+	// attempts on one code produce one entitlement and one refusal, without a lock
+	// anybody has to remember to take.
+	RedeemAccessCode(ctx context.Context, arg RedeemAccessCodeParams) (RedeemAccessCodeRow, error)
 	RedeemPersonalOffer(ctx context.Context, arg RedeemPersonalOfferParams) (PersonalOffer, error)
 	// What the programme has actually cost and produced, so an operator changing a
 	// reward can see what the current one did rather than guessing.
@@ -1082,6 +1106,13 @@ type Querier interface {
 	// Logout-everywhere. `keep_session_id` lets the caller preserve the session
 	// that requested it, which is what a password change should do.
 	RevokeAdminSessionsForUser(ctx context.Context, arg RevokeAdminSessionsForUserParams) (int64, error)
+	// Kills every code in the batch that nobody has redeemed.
+	//
+	// A redeemed code is untouched by design: somebody is using the subscription it
+	// produced, and taking that back is a different decision from withdrawing an
+	// unused list. The affected count comes back so the panel reports how many were
+	// actually killed rather than how many the operator imagined.
+	RevokeBatchCodes(ctx context.Context, batchID pgtype.UUID) (int64, error)
 	RevokeChannelExemption(ctx context.Context, userID pgtype.UUID) error
 	RevokeCustomerIdentity(ctx context.Context, arg RevokeCustomerIdentityParams) (Identity, error)
 	// Guarded by `user_id` as well as `id`, so a customer can only ever end one of

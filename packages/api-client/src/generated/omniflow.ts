@@ -2187,6 +2187,67 @@ export interface PanelSubscriptionOperationAccepted {
   status: string;
 }
 
+export interface PanelCodeBatch {
+  id?: string;
+  /** What the operator calls the batch. Unique, and what they search for. */
+  reference: string;
+  planCode?: string;
+  /** A version rather than a plan: publishing a new version must not change what people already hold a code for. */
+  planVersionId: string;
+  planVersion?: number;
+  billingPeriod?: string;
+  /**
+   * @minimum 1
+   * @maximum 10000
+   */
+  quantity: number;
+  /** The agreed wholesale price, recorded and never charged. The money changed hands outside Omniflow. */
+  unitPriceMinor: number;
+  currency: string;
+  note?: string;
+  /** Codes nobody has redeemed, and therefore what revoking would kill. */
+  issued?: number;
+  redeemed?: number;
+  revoked?: number;
+  /** Absent means the codes never expire. */
+  expiresAt?: string;
+  revokedAt?: string;
+  revokeReason?: string;
+  createdAt?: string;
+  createdBy?: string;
+}
+
+export interface PanelGeneratedBatch {
+  batch: PanelCodeBatch;
+  /** Returned once and never again. Only the SHA-256 of each is stored, so no other endpoint can produce them. */
+  codes: string[];
+}
+
+export interface PanelCodeBatchList {
+  items: PanelCodeBatch[];
+  maxBatchSize: number;
+}
+
+export type PanelBatchCodeStatus = (typeof PanelBatchCodeStatus)[keyof typeof PanelBatchCodeStatus];
+
+export const PanelBatchCodeStatus = {
+  issued: "issued",
+  redeemed: "redeemed",
+  revoked: "revoked",
+} as const;
+
+export interface PanelBatchCode {
+  /** The last four characters. */
+  hint: string;
+  status: PanelBatchCodeStatus;
+  redeemedBy?: string;
+  redeemedAt?: string;
+}
+
+export interface PanelBatchCodeList {
+  items: PanelBatchCode[];
+}
+
 export interface PanelCommerceSettings {
   topUp: PanelTopUpSettings;
   subscriptions: PanelSubscriptionSettings;
@@ -4670,6 +4731,23 @@ export type DeletePanelInfoPage200 = {
 
 export type SetPanelInfoPagePublicationBody = {
   published: boolean;
+};
+
+export type ListPanelCodeBatchesParams = {
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  pageSize?: PageSizeParameter;
+};
+
+export type RevokePanelCodeBatchBody = {
+  /** @minLength 3 */
+  reason: string;
+};
+
+export type RevokePanelCodeBatch200 = {
+  revoked?: number;
 };
 
 export type GetPanelSalesReportParams = {
@@ -15956,6 +16034,362 @@ export const useResumePanelSubscription = <TError = Promise<ProblemResponse>>(
   const swrKey =
     swrOptions?.swrKey ?? getResumePanelSubscriptionMutationKey(customerID, subscriptionID);
   const swrFn = getResumePanelSubscriptionMutationFetcher(customerID, subscriptionID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelCodeBatchesResponse200 = {
+  data: PanelCodeBatchList;
+  status: 200;
+};
+
+export type listPanelCodeBatchesResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelCodeBatchesResponseSuccess = listPanelCodeBatchesResponse200 & {
+  headers: Headers;
+};
+export type listPanelCodeBatchesResponseError = listPanelCodeBatchesResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelCodeBatchesResponse =
+  | listPanelCodeBatchesResponseSuccess
+  | listPanelCodeBatchesResponseError;
+
+export const getListPanelCodeBatchesUrl = (params?: ListPanelCodeBatchesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/codes/batches?${stringifiedParams}`
+    : `/v1/panel/codes/batches`;
+};
+
+/**
+ * Requires catalog.read. Wholesale batches with their counts. It carries no codes: only their SHA-256 is stored, so there is nothing here that could produce one.
+ */
+export const listPanelCodeBatches = async (
+  params?: ListPanelCodeBatchesParams,
+  options?: RequestInit,
+): Promise<listPanelCodeBatchesResponse> => {
+  const res = await fetch(getListPanelCodeBatchesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelCodeBatchesResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelCodeBatchesResponse;
+};
+
+export const getListPanelCodeBatchesKey = (params?: ListPanelCodeBatchesParams) =>
+  [`/v1/panel/codes/batches`, ...(params ? [params] : [])] as const;
+
+export type ListPanelCodeBatchesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelCodeBatches>>
+>;
+
+export const useListPanelCodeBatches = <TError = Promise<ProblemResponse>>(
+  params?: ListPanelCodeBatchesParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelCodeBatches>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelCodeBatchesKey(params) : null));
+  const swrFn = () => listPanelCodeBatches(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type createPanelCodeBatchResponse201 = {
+  data: PanelGeneratedBatch;
+  status: 201;
+};
+
+export type createPanelCodeBatchResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type createPanelCodeBatchResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type createPanelCodeBatchResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type createPanelCodeBatchResponseSuccess = createPanelCodeBatchResponse201 & {
+  headers: Headers;
+};
+export type createPanelCodeBatchResponseError = (
+  | createPanelCodeBatchResponse403
+  | createPanelCodeBatchResponse409
+  | createPanelCodeBatchResponse422
+) & {
+  headers: Headers;
+};
+
+export type createPanelCodeBatchResponse =
+  | createPanelCodeBatchResponseSuccess
+  | createPanelCodeBatchResponseError;
+
+export const getCreatePanelCodeBatchUrl = () => {
+  return `/v1/panel/codes/batches`;
+};
+
+/**
+ * Requires catalog.write. Generates a batch and returns its codes.
+ * This is the only response in the API that carries redeemable codes, and it carries every code in the batch. It cannot be replayed: asking again generates a different batch rather than returning this one, because nothing is stored that could return it. An operator who loses the list has to issue a new batch, which the screen says before they generate one.
+ * The batch row and every code commit together. A partial batch would leave somebody holding a list whose halves behave differently with no way to tell which is which.
+ */
+export const createPanelCodeBatch = async (
+  panelCodeBatch: PanelCodeBatch,
+  options?: RequestInit,
+): Promise<createPanelCodeBatchResponse> => {
+  const res = await fetch(getCreatePanelCodeBatchUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(panelCodeBatch),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: createPanelCodeBatchResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as createPanelCodeBatchResponse;
+};
+
+export const getCreatePanelCodeBatchMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PanelCodeBatch }) => {
+    return createPanelCodeBatch(arg, options);
+  };
+};
+export const getCreatePanelCodeBatchMutationKey = () => [`/v1/panel/codes/batches`] as const;
+
+export type CreatePanelCodeBatchMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPanelCodeBatch>>
+>;
+
+export const useCreatePanelCodeBatch = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof createPanelCodeBatch>>,
+    TError,
+    Key,
+    PanelCodeBatch,
+    Awaited<ReturnType<typeof createPanelCodeBatch>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getCreatePanelCodeBatchMutationKey();
+  const swrFn = getCreatePanelCodeBatchMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelBatchCodesResponse200 = {
+  data: PanelBatchCodeList;
+  status: 200;
+};
+
+export type listPanelBatchCodesResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelBatchCodesResponseSuccess = listPanelBatchCodesResponse200 & {
+  headers: Headers;
+};
+export type listPanelBatchCodesResponseError = listPanelBatchCodesResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelBatchCodesResponse =
+  | listPanelBatchCodesResponseSuccess
+  | listPanelBatchCodesResponseError;
+
+export const getListPanelBatchCodesUrl = (batchID: string) => {
+  return `/v1/panel/codes/batches/${batchID}/codes`;
+};
+
+/**
+ * Requires catalog.read. One batch's codes by hint and status. The hint is the last four characters, which is enough to match a support question to a row and far too little to guess the other twelve.
+ */
+export const listPanelBatchCodes = async (
+  batchID: string,
+  options?: RequestInit,
+): Promise<listPanelBatchCodesResponse> => {
+  const res = await fetch(getListPanelBatchCodesUrl(batchID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelBatchCodesResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelBatchCodesResponse;
+};
+
+export const getListPanelBatchCodesKey = (batchID: string) =>
+  [`/v1/panel/codes/batches/${batchID}/codes`] as const;
+
+export type ListPanelBatchCodesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelBatchCodes>>
+>;
+
+export const useListPanelBatchCodes = <TError = Promise<ProblemResponse>>(
+  batchID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelBatchCodes>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false && batchID !== null && batchID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelBatchCodesKey(batchID) : null));
+  const swrFn = () => listPanelBatchCodes(batchID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type revokePanelCodeBatchResponse200 = {
+  data: RevokePanelCodeBatch200;
+  status: 200;
+};
+
+export type revokePanelCodeBatchResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type revokePanelCodeBatchResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type revokePanelCodeBatchResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type revokePanelCodeBatchResponseSuccess = revokePanelCodeBatchResponse200 & {
+  headers: Headers;
+};
+export type revokePanelCodeBatchResponseError = (
+  | revokePanelCodeBatchResponse403
+  | revokePanelCodeBatchResponse404
+  | revokePanelCodeBatchResponse422
+) & {
+  headers: Headers;
+};
+
+export type revokePanelCodeBatchResponse =
+  | revokePanelCodeBatchResponseSuccess
+  | revokePanelCodeBatchResponseError;
+
+export const getRevokePanelCodeBatchUrl = (batchID: string) => {
+  return `/v1/panel/codes/batches/${batchID}/revoke`;
+};
+
+/**
+ * Requires catalog.write and a reason. Kills every code in the batch that nobody has redeemed, and returns how many that was.
+ * Redeemed codes are untouched by design: somebody is using the subscription each one produced, and taking that back is a different decision. The reason is required because this is the action taken when a list leaks, and "why were these three hundred codes killed" is the question somebody asks six months later.
+ */
+export const revokePanelCodeBatch = async (
+  batchID: string,
+  revokePanelCodeBatchBody: RevokePanelCodeBatchBody,
+  options?: RequestInit,
+): Promise<revokePanelCodeBatchResponse> => {
+  const res = await fetch(getRevokePanelCodeBatchUrl(batchID), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(revokePanelCodeBatchBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: revokePanelCodeBatchResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as revokePanelCodeBatchResponse;
+};
+
+export const getRevokePanelCodeBatchMutationFetcher = (batchID: string, options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: RevokePanelCodeBatchBody }) => {
+    return revokePanelCodeBatch(batchID, arg, options);
+  };
+};
+export const getRevokePanelCodeBatchMutationKey = (batchID: string) =>
+  [`/v1/panel/codes/batches/${batchID}/revoke`] as const;
+
+export type RevokePanelCodeBatchMutationResult = NonNullable<
+  Awaited<ReturnType<typeof revokePanelCodeBatch>>
+>;
+
+export const useRevokePanelCodeBatch = <TError = Promise<ProblemResponse>>(
+  batchID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof revokePanelCodeBatch>>,
+      TError,
+      Key,
+      RevokePanelCodeBatchBody,
+      Awaited<ReturnType<typeof revokePanelCodeBatch>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRevokePanelCodeBatchMutationKey(batchID);
+  const swrFn = getRevokePanelCodeBatchMutationFetcher(batchID, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

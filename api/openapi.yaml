@@ -1552,6 +1552,79 @@ paths:
         "403": {$ref: "#/components/responses/Problem"}
         "409": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/codes/batches:
+    get:
+      operationId: listPanelCodeBatches
+      tags: [panel]
+      description: >-
+        Requires catalog.read. Wholesale batches with their counts. It carries no
+        codes: only their SHA-256 is stored, so there is nothing here that could
+        produce one.
+      parameters: [{$ref: "#/components/parameters/PageSize"}]
+      responses:
+        "200": {description: Batches, content: {application/json: {schema: {$ref: "#/components/schemas/PanelCodeBatchList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+    post:
+      operationId: createPanelCodeBatch
+      tags: [panel]
+      description: >-
+        Requires catalog.write. Generates a batch and returns its codes.
+
+        This is the only response in the API that carries redeemable codes, and
+        it carries every code in the batch. It cannot be replayed: asking again
+        generates a different batch rather than returning this one, because
+        nothing is stored that could return it. An operator who loses the list
+        has to issue a new batch, which the screen says before they generate one.
+
+        The batch row and every code commit together. A partial batch would leave
+        somebody holding a list whose halves behave differently with no way to
+        tell which is which.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelCodeBatch"}}}}
+      responses:
+        "201": {description: Generated, content: {application/json: {schema: {$ref: "#/components/schemas/PanelGeneratedBatch"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/codes/batches/{batchID}/codes:
+    get:
+      operationId: listPanelBatchCodes
+      tags: [panel]
+      description: >-
+        Requires catalog.read. One batch's codes by hint and status. The hint is
+        the last four characters, which is enough to match a support question to
+        a row and far too little to guess the other twelve.
+      parameters:
+        - {in: path, name: batchID, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200": {description: Codes, content: {application/json: {schema: {$ref: "#/components/schemas/PanelBatchCodeList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/codes/batches/{batchID}/revoke:
+    post:
+      operationId: revokePanelCodeBatch
+      tags: [panel]
+      description: >-
+        Requires catalog.write and a reason. Kills every code in the batch that
+        nobody has redeemed, and returns how many that was.
+
+        Redeemed codes are untouched by design: somebody is using the
+        subscription each one produced, and taking that back is a different
+        decision. The reason is required because this is the action taken when a
+        list leaks, and "why were these three hundred codes killed" is the
+        question somebody asks six months later.
+      parameters:
+        - {in: path, name: batchID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [reason], properties: {reason: {type: string, minLength: 3}}}
+      responses:
+        "200": {description: Revoked, content: {application/json: {schema: {type: object, properties: {revoked: {type: integer, format: int64}}}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/panel/reports/sales:
     get:
       operationId: getPanelSalesReport
@@ -4829,6 +4902,58 @@ components:
         operationId: {type: string, format: uuid}
         operation: {type: string}
         status: {type: string}
+    PanelCodeBatch:
+      type: object
+      required: [reference, planVersionId, quantity, unitPriceMinor, currency]
+      properties:
+        id: {type: string, format: uuid}
+        reference: {type: string, description: "What the operator calls the batch. Unique, and what they search for."}
+        planCode: {type: string}
+        planVersionId: {type: string, format: uuid, description: "A version rather than a plan: publishing a new version must not change what people already hold a code for."}
+        planVersion: {type: integer}
+        billingPeriod: {type: string}
+        quantity: {type: integer, minimum: 1, maximum: 10000}
+        unitPriceMinor: {type: integer, format: int64, description: "The agreed wholesale price, recorded and never charged. The money changed hands outside Omniflow."}
+        currency: {type: string}
+        note: {type: string}
+        issued: {type: integer, format: int64, description: "Codes nobody has redeemed, and therefore what revoking would kill."}
+        redeemed: {type: integer, format: int64}
+        revoked: {type: integer, format: int64}
+        expiresAt: {type: string, format: date-time, description: "Absent means the codes never expire."}
+        revokedAt: {type: string, format: date-time}
+        revokeReason: {type: string}
+        createdAt: {type: string, format: date-time}
+        createdBy: {type: string, format: uuid}
+    PanelGeneratedBatch:
+      type: object
+      required: [batch, codes]
+      properties:
+        batch: {$ref: "#/components/schemas/PanelCodeBatch"}
+        codes:
+          type: array
+          items: {type: string}
+          description: >-
+            Returned once and never again. Only the SHA-256 of each is stored, so
+            no other endpoint can produce them.
+    PanelCodeBatchList:
+      type: object
+      required: [items, maxBatchSize]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/PanelCodeBatch"}}
+        maxBatchSize: {type: integer}
+    PanelBatchCode:
+      type: object
+      required: [hint, status]
+      properties:
+        hint: {type: string, description: "The last four characters."}
+        status: {type: string, enum: [issued, redeemed, revoked]}
+        redeemedBy: {type: string, format: uuid}
+        redeemedAt: {type: string, format: date-time}
+    PanelBatchCodeList:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/PanelBatchCode"}}
     PanelCommerceSettings:
       type: object
       required: [topUp, subscriptions, updatedAt]

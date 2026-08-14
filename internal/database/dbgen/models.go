@@ -10,6 +10,19 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AccessCode struct {
+	ID      pgtype.UUID `json:"id"`
+	BatchID pgtype.UUID `json:"batch_id"`
+	// SHA-256 of the code. The plaintext is returned once, when the batch is generated, and is never recoverable afterwards.
+	CodeHash              []byte             `json:"code_hash"`
+	CodeHint              string             `json:"code_hint"`
+	Status                string             `json:"status"`
+	RedeemedBy            pgtype.UUID        `json:"redeemed_by"`
+	RedeemedEntitlementID pgtype.UUID        `json:"redeemed_entitlement_id"`
+	RedeemedAt            pgtype.Timestamptz `json:"redeemed_at"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+}
+
 type Addon struct {
 	ID         pgtype.UUID        `json:"id"`
 	Code       string             `json:"code"`
@@ -603,6 +616,22 @@ type ChannelMembership struct {
 	State     string             `json:"state"`
 	CheckedAt pgtype.Timestamptz `json:"checked_at"`
 	LeftAt    pgtype.Timestamptz `json:"left_at"`
+}
+
+type CodeBatch struct {
+	ID             pgtype.UUID        `json:"id"`
+	Reference      string             `json:"reference"`
+	PlanVersionID  pgtype.UUID        `json:"plan_version_id"`
+	Quantity       int32              `json:"quantity"`
+	UnitPriceMinor int64              `json:"unit_price_minor"`
+	Currency       string             `json:"currency"`
+	Note           pgtype.Text        `json:"note"`
+	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
+	RevokedAt      pgtype.Timestamptz `json:"revoked_at"`
+	RevokedBy      pgtype.UUID        `json:"revoked_by"`
+	RevokeReason   pgtype.Text        `json:"revoke_reason"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	CreatedBy      pgtype.UUID        `json:"created_by"`
 }
 
 type CommerceSetting struct {

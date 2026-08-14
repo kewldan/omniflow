@@ -1594,6 +1594,27 @@ func (e PanelAttentionItemSeverity) Valid() bool {
 	}
 }
 
+// Defines values for PanelBatchCodeStatus.
+const (
+	PanelBatchCodeStatusIssued   PanelBatchCodeStatus = "issued"
+	PanelBatchCodeStatusRedeemed PanelBatchCodeStatus = "redeemed"
+	PanelBatchCodeStatusRevoked  PanelBatchCodeStatus = "revoked"
+)
+
+// Valid indicates whether the value is a known member of the PanelBatchCodeStatus enum.
+func (e PanelBatchCodeStatus) Valid() bool {
+	switch e {
+	case PanelBatchCodeStatusIssued:
+		return true
+	case PanelBatchCodeStatusRedeemed:
+		return true
+	case PanelBatchCodeStatusRevoked:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PanelBlocklistMatchStatus.
 const (
 	PanelBlocklistMatchStatusAllowed  PanelBlocklistMatchStatus = "allowed"
@@ -5306,6 +5327,23 @@ type PanelAttentionItem struct {
 // PanelAttentionItemSeverity defines model for PanelAttentionItem.Severity.
 type PanelAttentionItemSeverity string
 
+// PanelBatchCode defines model for PanelBatchCode.
+type PanelBatchCode struct {
+	// Hint The last four characters.
+	Hint       string               `json:"hint"`
+	RedeemedAt *time.Time           `json:"redeemedAt,omitempty"`
+	RedeemedBy *openapi_types.UUID  `json:"redeemedBy,omitempty"`
+	Status     PanelBatchCodeStatus `json:"status"`
+}
+
+// PanelBatchCodeStatus defines model for PanelBatchCode.Status.
+type PanelBatchCodeStatus string
+
+// PanelBatchCodeList defines model for PanelBatchCodeList.
+type PanelBatchCodeList struct {
+	Items []PanelBatchCode `json:"items"`
+}
+
 // PanelBlocklistMatch defines model for PanelBlocklistMatch.
 type PanelBlocklistMatch struct {
 	CustomerId     openapi_types.UUID             `json:"customerId"`
@@ -5457,6 +5495,44 @@ type PanelBulkTarget struct {
 
 // PanelBulkTargetType defines model for PanelBulkTarget.Type.
 type PanelBulkTargetType string
+
+// PanelCodeBatch defines model for PanelCodeBatch.
+type PanelCodeBatch struct {
+	BillingPeriod *string             `json:"billingPeriod,omitempty"`
+	CreatedAt     *time.Time          `json:"createdAt,omitempty"`
+	CreatedBy     *openapi_types.UUID `json:"createdBy,omitempty"`
+	Currency      string              `json:"currency"`
+
+	// ExpiresAt Absent means the codes never expire.
+	ExpiresAt *time.Time          `json:"expiresAt,omitempty"`
+	Id        *openapi_types.UUID `json:"id,omitempty"`
+
+	// Issued Codes nobody has redeemed, and therefore what revoking would kill.
+	Issued      *int64  `json:"issued,omitempty"`
+	Note        *string `json:"note,omitempty"`
+	PlanCode    *string `json:"planCode,omitempty"`
+	PlanVersion *int    `json:"planVersion,omitempty"`
+
+	// PlanVersionId A version rather than a plan: publishing a new version must not change what people already hold a code for.
+	PlanVersionId openapi_types.UUID `json:"planVersionId"`
+	Quantity      int                `json:"quantity"`
+	Redeemed      *int64             `json:"redeemed,omitempty"`
+
+	// Reference What the operator calls the batch. Unique, and what they search for.
+	Reference    string     `json:"reference"`
+	RevokeReason *string    `json:"revokeReason,omitempty"`
+	Revoked      *int64     `json:"revoked,omitempty"`
+	RevokedAt    *time.Time `json:"revokedAt,omitempty"`
+
+	// UnitPriceMinor The agreed wholesale price, recorded and never charged. The money changed hands outside Omniflow.
+	UnitPriceMinor int64 `json:"unitPriceMinor"`
+}
+
+// PanelCodeBatchList defines model for PanelCodeBatchList.
+type PanelCodeBatchList struct {
+	Items        []PanelCodeBatch `json:"items"`
+	MaxBatchSize int              `json:"maxBatchSize"`
+}
 
 // PanelCommerceSettings defines model for PanelCommerceSettings.
 type PanelCommerceSettings struct {
@@ -5688,6 +5764,14 @@ type PanelFulfillmentOperation struct {
 type PanelFulfillmentPage struct {
 	Items      *[]PanelFulfillmentOperation `json:"items"`
 	NextCursor *string                      `json:"nextCursor,omitempty"`
+}
+
+// PanelGeneratedBatch defines model for PanelGeneratedBatch.
+type PanelGeneratedBatch struct {
+	Batch PanelCodeBatch `json:"batch"`
+
+	// Codes Returned once and never again. Only the SHA-256 of each is stored, so no other endpoint can produce them.
+	Codes []string `json:"codes"`
 }
 
 // PanelGift defines model for PanelGift.
@@ -7941,6 +8025,28 @@ type UpdatePanelPromotionParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// ListPanelCodeBatchesParams defines parameters for ListPanelCodeBatches.
+type ListPanelCodeBatchesParams struct {
+	PageSize *PageSize `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+}
+
+// CreatePanelCodeBatchParams defines parameters for CreatePanelCodeBatch.
+type CreatePanelCodeBatchParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// RevokePanelCodeBatchJSONBody defines parameters for RevokePanelCodeBatch.
+type RevokePanelCodeBatchJSONBody struct {
+	Reason string `json:"reason"`
+}
+
+// RevokePanelCodeBatchParams defines parameters for RevokePanelCodeBatch.
+type RevokePanelCodeBatchParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // SavePanelInfoPageParams defines parameters for SavePanelInfoPage.
 type SavePanelInfoPageParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
@@ -8701,6 +8807,12 @@ type SetPanelPromoCodeActiveJSONRequestBody SetPanelPromoCodeActiveJSONBody
 // UpdatePanelPromotionJSONRequestBody defines body for UpdatePanelPromotion for application/json ContentType.
 type UpdatePanelPromotionJSONRequestBody = PanelPromotionUpdate
 
+// CreatePanelCodeBatchJSONRequestBody defines body for CreatePanelCodeBatch for application/json ContentType.
+type CreatePanelCodeBatchJSONRequestBody = PanelCodeBatch
+
+// RevokePanelCodeBatchJSONRequestBody defines body for RevokePanelCodeBatch for application/json ContentType.
+type RevokePanelCodeBatchJSONRequestBody RevokePanelCodeBatchJSONBody
+
 // SavePanelInfoPageJSONRequestBody defines body for SavePanelInfoPage for application/json ContentType.
 type SavePanelInfoPageJSONRequestBody = PanelInfoPage
 
@@ -9270,6 +9382,18 @@ type ServerInterface interface {
 
 	// (GET /v1/panel/catalog/promotions/{promotionID}/codes)
 	ListPanelPromoCodes(w http.ResponseWriter, r *http.Request, promotionID openapi_types.UUID)
+
+	// (GET /v1/panel/codes/batches)
+	ListPanelCodeBatches(w http.ResponseWriter, r *http.Request, params ListPanelCodeBatchesParams)
+
+	// (POST /v1/panel/codes/batches)
+	CreatePanelCodeBatch(w http.ResponseWriter, r *http.Request, params CreatePanelCodeBatchParams)
+
+	// (GET /v1/panel/codes/batches/{batchID}/codes)
+	ListPanelBatchCodes(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID)
+
+	// (POST /v1/panel/codes/batches/{batchID}/revoke)
+	RevokePanelCodeBatch(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID, params RevokePanelCodeBatchParams)
 
 	// (GET /v1/panel/content/pages)
 	ListPanelInfoPages(w http.ResponseWriter, r *http.Request)
@@ -10370,6 +10494,26 @@ func (_ Unimplemented) UpdatePanelPromotion(w http.ResponseWriter, r *http.Reque
 
 // (GET /v1/panel/catalog/promotions/{promotionID}/codes)
 func (_ Unimplemented) ListPanelPromoCodes(w http.ResponseWriter, r *http.Request, promotionID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/codes/batches)
+func (_ Unimplemented) ListPanelCodeBatches(w http.ResponseWriter, r *http.Request, params ListPanelCodeBatchesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/codes/batches)
+func (_ Unimplemented) CreatePanelCodeBatch(w http.ResponseWriter, r *http.Request, params CreatePanelCodeBatchParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/codes/batches/{batchID}/codes)
+func (_ Unimplemented) ListPanelBatchCodes(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/codes/batches/{batchID}/revoke)
+func (_ Unimplemented) RevokePanelCodeBatch(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID, params RevokePanelCodeBatchParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -17264,6 +17408,164 @@ func (siw *ServerInterfaceWrapper) ListPanelPromoCodes(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// ListPanelCodeBatches operation middleware
+func (siw *ServerInterfaceWrapper) ListPanelCodeBatches(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPanelCodeBatchesParams
+
+	// ------------- Optional query parameter "pageSize" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "pageSize", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "pageSize"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pageSize", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPanelCodeBatches(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreatePanelCodeBatch operation middleware
+func (siw *ServerInterfaceWrapper) CreatePanelCodeBatch(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreatePanelCodeBatchParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePanelCodeBatch(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPanelBatchCodes operation middleware
+func (siw *ServerInterfaceWrapper) ListPanelBatchCodes(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "batchID" -------------
+	var batchID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "batchID", chi.URLParam(r, "batchID"), &batchID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "batchID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPanelBatchCodes(w, r, batchID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokePanelCodeBatch operation middleware
+func (siw *ServerInterfaceWrapper) RevokePanelCodeBatch(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "batchID" -------------
+	var batchID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "batchID", chi.URLParam(r, "batchID"), &batchID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "batchID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RevokePanelCodeBatchParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokePanelCodeBatch(w, r, batchID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPanelInfoPages operation middleware
 func (siw *ServerInterfaceWrapper) ListPanelInfoPages(w http.ResponseWriter, r *http.Request) {
 
@@ -22484,6 +22786,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/resume", wrapper.ResumePanelSubscription)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/codes/batches", wrapper.ListPanelCodeBatches)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/codes/batches", wrapper.CreatePanelCodeBatch)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/codes/batches/{batchID}/codes", wrapper.ListPanelBatchCodes)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/codes/batches/{batchID}/revoke", wrapper.RevokePanelCodeBatch)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/reports/sales", wrapper.GetPanelSalesReport)
@@ -29411,6 +29725,219 @@ func (response ListPanelPromoCodes403ApplicationProblemPlusJSONResponse) VisitLi
 	return err
 }
 
+type ListPanelCodeBatchesRequestObject struct {
+	Params ListPanelCodeBatchesParams
+}
+
+type ListPanelCodeBatchesResponseObject interface {
+	VisitListPanelCodeBatchesResponse(w http.ResponseWriter) error
+}
+
+type ListPanelCodeBatches200JSONResponse PanelCodeBatchList
+
+func (response ListPanelCodeBatches200JSONResponse) VisitListPanelCodeBatchesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelCodeBatches403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListPanelCodeBatches403ApplicationProblemPlusJSONResponse) VisitListPanelCodeBatchesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePanelCodeBatchRequestObject struct {
+	Params CreatePanelCodeBatchParams
+	Body   *CreatePanelCodeBatchJSONRequestBody
+}
+
+type CreatePanelCodeBatchResponseObject interface {
+	VisitCreatePanelCodeBatchResponse(w http.ResponseWriter) error
+}
+
+type CreatePanelCodeBatch201JSONResponse PanelGeneratedBatch
+
+func (response CreatePanelCodeBatch201JSONResponse) VisitCreatePanelCodeBatchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePanelCodeBatch403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreatePanelCodeBatch403ApplicationProblemPlusJSONResponse) VisitCreatePanelCodeBatchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePanelCodeBatch409ApplicationProblemPlusJSONResponse Problem
+
+func (response CreatePanelCodeBatch409ApplicationProblemPlusJSONResponse) VisitCreatePanelCodeBatchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePanelCodeBatch422ApplicationProblemPlusJSONResponse Problem
+
+func (response CreatePanelCodeBatch422ApplicationProblemPlusJSONResponse) VisitCreatePanelCodeBatchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelBatchCodesRequestObject struct {
+	BatchID openapi_types.UUID `json:"batchID"`
+}
+
+type ListPanelBatchCodesResponseObject interface {
+	VisitListPanelBatchCodesResponse(w http.ResponseWriter) error
+}
+
+type ListPanelBatchCodes200JSONResponse PanelBatchCodeList
+
+func (response ListPanelBatchCodes200JSONResponse) VisitListPanelBatchCodesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelBatchCodes403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListPanelBatchCodes403ApplicationProblemPlusJSONResponse) VisitListPanelBatchCodesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokePanelCodeBatchRequestObject struct {
+	BatchID openapi_types.UUID `json:"batchID"`
+	Params  RevokePanelCodeBatchParams
+	Body    *RevokePanelCodeBatchJSONRequestBody
+}
+
+type RevokePanelCodeBatchResponseObject interface {
+	VisitRevokePanelCodeBatchResponse(w http.ResponseWriter) error
+}
+
+type RevokePanelCodeBatch200JSONResponse struct {
+	Revoked *int64 `json:"revoked,omitempty"`
+}
+
+func (response RevokePanelCodeBatch200JSONResponse) VisitRevokePanelCodeBatchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokePanelCodeBatch403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RevokePanelCodeBatch403ApplicationProblemPlusJSONResponse) VisitRevokePanelCodeBatchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokePanelCodeBatch404ApplicationProblemPlusJSONResponse Problem
+
+func (response RevokePanelCodeBatch404ApplicationProblemPlusJSONResponse) VisitRevokePanelCodeBatchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokePanelCodeBatch422ApplicationProblemPlusJSONResponse Problem
+
+func (response RevokePanelCodeBatch422ApplicationProblemPlusJSONResponse) VisitRevokePanelCodeBatchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListPanelInfoPagesRequestObject struct {
 }
 
@@ -34488,6 +35015,18 @@ type StrictServerInterface interface {
 	// (GET /v1/panel/catalog/promotions/{promotionID}/codes)
 	ListPanelPromoCodes(ctx context.Context, request ListPanelPromoCodesRequestObject) (ListPanelPromoCodesResponseObject, error)
 
+	// (GET /v1/panel/codes/batches)
+	ListPanelCodeBatches(ctx context.Context, request ListPanelCodeBatchesRequestObject) (ListPanelCodeBatchesResponseObject, error)
+
+	// (POST /v1/panel/codes/batches)
+	CreatePanelCodeBatch(ctx context.Context, request CreatePanelCodeBatchRequestObject) (CreatePanelCodeBatchResponseObject, error)
+
+	// (GET /v1/panel/codes/batches/{batchID}/codes)
+	ListPanelBatchCodes(ctx context.Context, request ListPanelBatchCodesRequestObject) (ListPanelBatchCodesResponseObject, error)
+
+	// (POST /v1/panel/codes/batches/{batchID}/revoke)
+	RevokePanelCodeBatch(ctx context.Context, request RevokePanelCodeBatchRequestObject) (RevokePanelCodeBatchResponseObject, error)
+
 	// (GET /v1/panel/content/pages)
 	ListPanelInfoPages(ctx context.Context, request ListPanelInfoPagesRequestObject) (ListPanelInfoPagesResponseObject, error)
 
@@ -39349,6 +39888,125 @@ func (sh *strictHandler) ListPanelPromoCodes(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListPanelPromoCodesResponseObject); ok {
 		if err := validResponse.VisitListPanelPromoCodesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPanelCodeBatches operation middleware
+func (sh *strictHandler) ListPanelCodeBatches(w http.ResponseWriter, r *http.Request, params ListPanelCodeBatchesParams) {
+	var request ListPanelCodeBatchesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPanelCodeBatches(ctx, request.(ListPanelCodeBatchesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPanelCodeBatches")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPanelCodeBatchesResponseObject); ok {
+		if err := validResponse.VisitListPanelCodeBatchesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreatePanelCodeBatch operation middleware
+func (sh *strictHandler) CreatePanelCodeBatch(w http.ResponseWriter, r *http.Request, params CreatePanelCodeBatchParams) {
+	var request CreatePanelCodeBatchRequestObject
+
+	request.Params = params
+
+	var body CreatePanelCodeBatchJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreatePanelCodeBatch(ctx, request.(CreatePanelCodeBatchRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreatePanelCodeBatch")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreatePanelCodeBatchResponseObject); ok {
+		if err := validResponse.VisitCreatePanelCodeBatchResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPanelBatchCodes operation middleware
+func (sh *strictHandler) ListPanelBatchCodes(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID) {
+	var request ListPanelBatchCodesRequestObject
+
+	request.BatchID = batchID
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPanelBatchCodes(ctx, request.(ListPanelBatchCodesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPanelBatchCodes")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPanelBatchCodesResponseObject); ok {
+		if err := validResponse.VisitListPanelBatchCodesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RevokePanelCodeBatch operation middleware
+func (sh *strictHandler) RevokePanelCodeBatch(w http.ResponseWriter, r *http.Request, batchID openapi_types.UUID, params RevokePanelCodeBatchParams) {
+	var request RevokePanelCodeBatchRequestObject
+
+	request.BatchID = batchID
+	request.Params = params
+
+	var body RevokePanelCodeBatchJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RevokePanelCodeBatch(ctx, request.(RevokePanelCodeBatchRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RevokePanelCodeBatch")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RevokePanelCodeBatchResponseObject); ok {
+		if err := validResponse.VisitRevokePanelCodeBatchResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

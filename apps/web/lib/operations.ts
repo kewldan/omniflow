@@ -673,6 +673,47 @@ export type InfoPageList = {
   kinds: string[];
 };
 
+/**
+ * A wholesale code batch.
+ *
+ * The plaintext codes appear in exactly one place — the response to creating a
+ * batch — and nowhere else, because only their SHA-256 is stored. `GeneratedBatch`
+ * is a separate type from `CodeBatch` for that reason: there is no field on the
+ * stored shape to put a code in, so no listing screen can render one by accident.
+ */
+export type CodeBatch = {
+  id: string;
+  reference: string;
+  planCode: string;
+  planVersionId?: string;
+  planVersion: number;
+  billingPeriod: string;
+  quantity: number;
+  unitPriceMinor: number;
+  currency: string;
+  note?: string;
+  /** Codes nobody has redeemed yet, and therefore what revoking would kill. */
+  issued: number;
+  redeemed: number;
+  revoked: number;
+  expiresAt?: string;
+  revokedAt?: string;
+  revokeReason?: string;
+  createdAt: string;
+  createdBy?: string;
+};
+
+export type GeneratedBatch = {
+  batch: CodeBatch;
+  /** Returned once. There is no way to ask for them again. */
+  codes: string[];
+};
+
+export type CodeBatchList = {
+  items: CodeBatch[] | null;
+  maxBatchSize: number;
+};
+
 export type Page<Item> = { items: Item[] | null; nextCursor?: string };
 export type Listing<Item> = { items: Item[] | null };
 

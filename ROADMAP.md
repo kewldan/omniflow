@@ -1777,10 +1777,35 @@ below this section are directions; these are specific absences.
       What the customer does get is an honest state on both surfaces — paused,
       days kept — rather than "disabled, contact support", which would send
       somebody to a ticket queue to be told nothing is wrong.
-- [ ] Wholesale code batches — promo codes belong to a promotion and gifts are
-      issued one at a time. Selling a block of access to a distributor means
-      generating a batch at an agreed price, handing over the codes, and being
-      able to revoke the unredeemed remainder when the list leaks.
+- [x] Wholesale code batches — done, under `/admin/catalog` and documented in
+      [`commerce/catalog-promotions`](./docs/commerce/catalog-promotions.mdx).
+      `code_batches` and `access_codes` generate a block against a plan version
+      at an agreed price, hand the list over once, and revoke the unredeemed
+      remainder with a reason.
+
+      **The codes exist once**, and the screen says so before the operator
+      generates a batch rather than after. Only the SHA-256 is stored, so no
+      endpoint can produce them again and there is nothing in the database to
+      produce them from; the result panel offers a download and a copy and
+      confirms before it closes.
+
+      The redemption path is where the design paid off. A batch code and a gift
+      code are the same sixteen Crockford characters, so the format moved into
+      `internal/accesscode` and the existing claim box accepts either — a
+      customer holding a code has no way to know which kind it is, and asking
+      them to pick the right form would be asking them to know something only
+      the operator does. Single redemption is the `UPDATE` predicate rather than
+      a lock, and every refusal is identical, because distinguishing "unknown"
+      from "already used" turns the endpoint into an oracle for which codes
+      exist.
+
+      One consequence worth stating: a redemption creates a **zero-value order**
+      with the operation `code`. `entitlements.order_id` stays NOT NULL, so every
+      entitlement is still traceable to a transaction, and the sales report shows
+      the redemption with empty money columns instead of inventing revenue on a
+      day nobody paid. The wholesale price lives on the batch, where the
+      arrangement actually is. Revoking spares redeemed codes, because somebody
+      is using each subscription they produced.
 - [x] A recorded decision on customer password sign-in — decided against, and
       written down as
       [`decision-0007-no-customer-password`](./docs/architecture/decision-0007-no-customer-password.mdx).

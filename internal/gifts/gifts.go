@@ -13,11 +13,9 @@
 package gifts
 
 import (
-	"crypto/rand"
-	"crypto/sha256"
-	"errors"
-	"strings"
 	"time"
+
+	"github.com/omniflow/omniflow/internal/accesscode"
 )
 
 // Gift statuses match the database check constraint on `gifts.status`.
@@ -39,11 +37,10 @@ const (
 
 // CodeLength is the number of characters in a claim code.
 //
-// Sixteen Crockford characters carry 80 bits. Combined with the attempt ceiling
-// below and the rate limit in front of the endpoint, guessing one is not a
-// realistic attack even against an installation with a large number of live
-// gifts.
-const CodeLength = 16
+// The format itself lives in internal/accesscode, because a wholesale batch
+// code is the same sixteen characters and making them two formats would mean a
+// customer having to know which kind of code somebody handed them.
+const CodeLength = accesscode.Length
 
 // DefaultLifetime is how long an unclaimed gift stays claimable.
 //
@@ -60,15 +57,11 @@ const DefaultLifetime = 30 * 24 * time.Hour
 // window.
 const MaxClaimAttempts = 10
 
-// alphabet is Crockford base32: no I, L, O, or U, so a hand-copied code has no
-// visually ambiguous character in it and no accidental word in it either.
-const alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
-
 var (
 	// ErrInvalidCode reports a code that cannot be a claim code at all.
-	ErrInvalidCode = errors.New("gift code is not valid")
+	ErrInvalidCode = accesscode.ErrInvalid
 	// ErrCodeGeneration reports a failure to read the system entropy source.
-	ErrCodeGeneration = errors.New("gift code could not be generated")
+	ErrCodeGeneration = accesscode.ErrGeneration
 )
 
 // Rejection explains why a claim was refused.
@@ -97,65 +90,18 @@ const (
 // Four characters out of eighty bits leaves the code itself unguessable from
 // the hint, which is why the hint may be shown and the code may not.
 func NewCode() (code string, hint string, err error) {
-	buffer := make([]byte, CodeLength)
-	if _, readErr := rand.Read(buffer); readErr != nil {
-		return "", "", ErrCodeGeneration
-	}
-
-	builder := strings.Builder{}
-	builder.Grow(CodeLength)
-	for _, value := range buffer {
-		// The alphabet is exactly 32 characters, so masking the low five bits
-		// selects uniformly with no modulo bias to correct for.
-		builder.WriteByte(alphabet[value&0x1f])
-	}
-	code = builder.String()
-	return code, code[CodeLength-4:], nil
+	return accesscode.New()
 }
 
 // Normalize turns what somebody typed into the canonical code.
-//
-// Separators are stripped because a code is easier to read in groups, and the
-// three Crockford substitutions are applied because a person copying by hand
-// reliably confuses those characters. Anything else is rejected rather than
-// guessed at.
 func Normalize(input string) (string, error) {
-	upper := strings.ToUpper(strings.TrimSpace(input))
-	builder := strings.Builder{}
-	builder.Grow(len(upper))
-
-	for _, character := range upper {
-		switch character {
-		case ' ', '-', '_':
-			continue
-		case 'I', 'L':
-			builder.WriteRune('1')
-		case 'O':
-			builder.WriteRune('0')
-		case 'U':
-			// Crockford excludes U deliberately to avoid accidental words; there
-			// is no sensible character to map it to.
-			return "", ErrInvalidCode
-		default:
-			if !strings.ContainsRune(alphabet, character) {
-				return "", ErrInvalidCode
-			}
-			builder.WriteRune(character)
-		}
-	}
-
-	normalized := builder.String()
-	if len(normalized) != CodeLength {
-		return "", ErrInvalidCode
-	}
-	return normalized, nil
+	return accesscode.Normalize(input)
 }
 
 // Hash returns the digest stored for a code. The plaintext never reaches the
 // database, so a dump of the gifts table yields nothing redeemable.
 func Hash(code string) []byte {
-	digest := sha256.Sum256([]byte(code))
-	return digest[:]
+	return accesscode.Hash(code)
 }
 
 // State is the stored gift as the claim rules see it.

@@ -183,6 +183,10 @@ func TestTheNewSurfacesAreInsideTheAuthenticatedGroup(t *testing.T) {
 		{http.MethodPut, "/v1/panel/content/pages"},
 		{http.MethodPost, "/v1/panel/content/pages/terms/publication"},
 		{http.MethodDelete, "/v1/panel/content/pages/terms"},
+		// Generating a batch is the one call in the API that returns redeemable
+		// codes, so being outside the session gate would hand out subscriptions.
+		{http.MethodGet, "/v1/panel/codes/batches"},
+		{http.MethodPost, "/v1/panel/codes/batches"},
 		// Pausing suspends a customer's access and stops their clock, so it is a
 		// subscription mutation like any other and gated like one.
 		{http.MethodPost, "/v1/panel/customers/00000000-0000-0000-0000-000000000000/subscriptions/00000000-0000-0000-0000-000000000000/pause"},

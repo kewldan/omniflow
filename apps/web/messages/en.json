@@ -1358,6 +1358,59 @@
         }
       }
     },
+    "codes": {
+      "title": "Wholesale code batches",
+      "description": "Generate a block of codes at an agreed price, hand over the list, and revoke whatever is left if the list leaks. A code grants the plan version it was issued against; the money changes hands outside Omniflow, which is what wholesale means.",
+      "create": "New batch",
+      "cancel": "Cancel",
+      "empty": "No batches yet",
+      "emptyHint": "Nothing has been issued to a distributor.",
+      "copied": "Codes copied",
+      "copyFailed": "The browser refused clipboard access.",
+      "revoke": "Revoke remainder",
+      "revoked": "Unredeemed codes revoked",
+      "revokeTitle": "Revoke the remainder of {reference}?",
+      "revokeWarning": "This kills the {count} codes nobody has redeemed. Codes already redeemed are untouched: somebody is using the subscription each one produced, and taking that back is a different decision.",
+      "revokeReason": "Why — recorded in the audit trail",
+      "generated": {
+        "title": "{count} codes generated",
+        "onlyCopy": "This is the only copy. Only their SHA-256 is stored, so nothing in the panel or the database can show them again. Download or copy them before dismissing this.",
+        "download": "Download",
+        "copy": "Copy all",
+        "dismiss": "Dismiss",
+        "dismissTitle": "Dismiss the codes?",
+        "dismissWarning": "They cannot be shown again. If you have not saved them, the batch is unusable and you will have to generate another."
+      },
+      "form": {
+        "title": "New batch",
+        "description": "Up to {max} codes in one batch. A larger arrangement is several batches, which is what a distributor's own order structure looks like anyway.",
+        "reference": "Reference",
+        "referenceHint": "What you will search for when the distributor emails about it.",
+        "plan": "What a code grants",
+        "pickPlan": "Plan",
+        "pickVersion": "Version",
+        "quantity": "How many codes",
+        "price": "Agreed price per code, in minor units",
+        "priceHint": "Recorded, not charged. Zero is allowed — a batch given away for a partnership is a real thing.",
+        "currency": "Currency",
+        "note": "Note",
+        "expiry": "Codes expire",
+        "noExpiry": "Never",
+        "expiryHint": "Leave empty and the codes never expire, which is a liability you then carry.",
+        "hour": "Hour",
+        "minute": "Minute",
+        "generate": "Generate codes"
+      },
+      "list": {
+        "reference": "Batch",
+        "plan": "Grants",
+        "unredeemed": "Unredeemed",
+        "redeemed": "Redeemed",
+        "revoked": "Revoked",
+        "price": "Per code",
+        "revokedBadge": "Revoked"
+      }
+    },
     "shop": {
       "title": "Digital goods",
       "description": "Telegram Premium and Stars sold alongside subscriptions. Nothing here touches a VPN entitlement.",

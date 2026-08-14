@@ -517,6 +517,82 @@ The panel forms all require a reason and send it as `X-Operator-Reason`, but no 
 
 `GET /v1/catalog/plans` takes an optional `locale` and requires no authentication. It is a legacy feed, and it does not deduplicate the price join: a plan priced in two currencies appears twice, once per currency. The customer-facing routes under `/v1/account` are the ones that return one entry per plan with eligibility already decided.
 
+## Wholesale code batches
+
+Promo codes discount a purchase the customer still makes. Gifts are issued one
+at a time and are bought through an order. A reseller arrangement is neither:
+generate two hundred codes at an agreed price, hand over the list, and be able
+to kill whatever is left when the list leaks.
+
+`/admin/catalog` holds them, because a batch decides what is sold and at what
+agreed price — the same decision as publishing a plan version. The money never
+moves through Omniflow, which is what wholesale means.
+
+### The codes exist once
+
+Only the SHA-256 of each code is stored. The plaintext appears in exactly one
+place — the response to generating the batch — and nowhere afterwards. There is
+no endpoint that can produce them again and nothing in the database to produce
+them from.
+
+The screen therefore says so before the operator generates a batch, offers a
+download and a copy, and confirms before dismissing the list. An operator who
+loses it has to issue a new batch.
+
+### What a batch is
+
+| Field | Meaning |
+| --- | --- |
+| Reference | What the operator calls it, and searches for. Unique. |
+| Plan **version** | What each code grants. A version rather than a plan, so publishing a new one cannot change what two hundred people already hold a code for. |
+| Quantity | 1 to 10 000. A larger arrangement is several batches. |
+| Agreed price per code | Recorded, never charged. Zero is allowed: a batch given away for a partnership is a real thing, and pretending it had a price would be worse than recording that it had none. |
+| Expiry | Optional. No expiry is a decision an operator may make and a liability they then carry. |
+
+### Redeeming
+
+A batch code and a gift code are **the same sixteen Crockford characters** — see
+`internal/accesscode` — so the customer surfaces offer one box and try both. A
+customer holding a code has no way to know which kind it is, and asking them to
+pick the right form would be asking them to know something only the operator
+does.
+
+Single redemption is a property of the `UPDATE` predicate: only an `issued` code
+in a batch that is neither revoked nor expired matches, and the same statement
+writes the redemption. Two simultaneous attempts on one code produce one
+entitlement and one refusal, with no lock anybody has to remember to take.
+
+Every refusal is the same refusal — unknown, already used, revoked, expired.
+Distinguishing them would turn the endpoint into an oracle for which codes
+exist, which is exactly what somebody working through guesses wants to know.
+
+A redemption **extends** what the customer already has rather than replacing it,
+for the same reason a gift does: replacing would mean a code that shortens
+somebody's subscription.
+
+<Note>
+  A redemption creates a **zero-value order** with the operation `code`.
+
+  `entitlements.order_id` is NOT NULL, and that is worth keeping: every
+  entitlement this installation has granted can be traced to the transaction
+  that produced it. No money arrives at redemption — the distributor paid
+  outside the product — so the order carries nothing, and the sales report shows
+  the redemption with empty money columns rather than inventing revenue on a day
+  nobody paid. The wholesale price lives on the batch, where the arrangement
+  actually is.
+</Note>
+
+### Revoking the remainder
+
+Revoking kills every code nobody has redeemed and reports how many that was.
+**Redeemed codes are untouched**: somebody is using the subscription each one
+produced, and taking that back is a different decision the operator has not
+made here.
+
+A reason is required, because this is the action taken when a list leaks and
+"why were these three hundred codes killed" is the question somebody asks six
+months later. It goes into the audit trail as `codes.batch.revoked`.
+
 ## Related pages
 
 <CardGroup cols={2}>

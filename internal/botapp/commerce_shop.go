@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/omniflow/omniflow/internal/commercepg"
+	"github.com/omniflow/omniflow/internal/gifts"
 	"github.com/omniflow/omniflow/internal/goods"
 )
 
@@ -169,19 +170,46 @@ type ClaimedGift struct {
 	Kind        string
 	CreditMinor int64
 	Currency    string
+	// EndsAt is set when the code granted a subscription, so the confirmation
+	// can say what the customer now has rather than only that it worked.
+	EndsAt time.Time
 }
 
 // ClaimGift redeems a code for the claiming customer.
+//
+// It accepts either kind of code, and that is the point rather than a
+// convenience. A gift code and a wholesale batch code are the same sixteen
+// characters — see internal/accesscode — and a customer holding one has no way
+// to know which they were handed. Asking them to pick the right form would be
+// asking them to know something only the operator does.
+//
+// The gift table is tried first because a gift carries more state to get wrong:
+// a named recipient, a sender who must not claim their own, an attempt counter.
+// A code the gift table does not recognise falls through to the batch table,
+// and a failure that is not "no such gift" is returned as it is rather than
+// being retried against a table that could not possibly hold it.
 func (service *Commerce) ClaimGift(
 	ctx context.Context, code, claimantID string,
 ) (ClaimedGift, error) {
 	gift, err := service.orders.ClaimGift(ctx, code, claimantID)
-	if err != nil {
+	if err == nil {
+		return ClaimedGift{
+			Kind: gift.Kind, CreditMinor: gift.CreditMinor.Int64, Currency: gift.Currency,
+		}, nil
+	}
+	if !errors.Is(err, commercepg.ErrGiftNotFound) {
 		return ClaimedGift{}, err
 	}
-	return ClaimedGift{
-		Kind: gift.Kind, CreditMinor: gift.CreditMinor.Int64, Currency: gift.Currency,
-	}, nil
+
+	redeemed, redeemErr := service.orders.RedeemAccessCode(ctx, code, claimantID)
+	if redeemErr != nil {
+		// The original refusal is what the caller renders, and both refusals
+		// render the same message anyway: a recipient learning the difference
+		// between "no such code" and "already used" would be an attacker
+		// learning which codes exist.
+		return ClaimedGift{}, err
+	}
+	return ClaimedGift{Kind: gifts.KindSubscription, EndsAt: redeemed.EndsAt}, nil
 }
 
 // SavedShopPurchase is a shop selection the customer kept for later.

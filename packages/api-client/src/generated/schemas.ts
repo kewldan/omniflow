@@ -3642,6 +3642,202 @@ export const ResumePanelSubscriptionResponse = zod.object({
 });
 
 /**
+ * Requires catalog.read. Wholesale batches with their counts. It carries no codes: only their SHA-256 is stored, so there is nothing here that could produce one.
+ */
+export const listPanelCodeBatchesQueryPageSizeDefault = 100;
+export const listPanelCodeBatchesQueryPageSizeMax = 500;
+
+export const ListPanelCodeBatchesQueryParams = zod.object({
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(listPanelCodeBatchesQueryPageSizeMax)
+    .default(listPanelCodeBatchesQueryPageSizeDefault),
+});
+
+export const listPanelCodeBatchesResponseItemsItemQuantityMax = 10000;
+
+export const ListPanelCodeBatchesResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid().optional(),
+      reference: zod
+        .string()
+        .describe("What the operator calls the batch. Unique, and what they search for."),
+      planCode: zod.string().optional(),
+      planVersionId: zod
+        .uuid()
+        .describe(
+          "A version rather than a plan: publishing a new version must not change what people already hold a code for.",
+        ),
+      planVersion: zod.int().optional(),
+      billingPeriod: zod.string().optional(),
+      quantity: zod.int().min(1).max(listPanelCodeBatchesResponseItemsItemQuantityMax),
+      unitPriceMinor: zod
+        .int()
+        .describe(
+          "The agreed wholesale price, recorded and never charged. The money changed hands outside Omniflow.",
+        ),
+      currency: zod.string(),
+      note: zod.string().optional(),
+      issued: zod
+        .int()
+        .optional()
+        .describe("Codes nobody has redeemed, and therefore what revoking would kill."),
+      redeemed: zod.int().optional(),
+      revoked: zod.int().optional(),
+      expiresAt: zod.iso
+        .datetime({ offset: true })
+        .optional()
+        .describe("Absent means the codes never expire."),
+      revokedAt: zod.iso.datetime({ offset: true }).optional(),
+      revokeReason: zod.string().optional(),
+      createdAt: zod.iso.datetime({ offset: true }).optional(),
+      createdBy: zod.uuid().optional(),
+    }),
+  ),
+  maxBatchSize: zod.int(),
+});
+
+/**
+ * Requires catalog.write. Generates a batch and returns its codes.
+ * This is the only response in the API that carries redeemable codes, and it carries every code in the batch. It cannot be replayed: asking again generates a different batch rather than returning this one, because nothing is stored that could return it. An operator who loses the list has to issue a new batch, which the screen says before they generate one.
+ * The batch row and every code commit together. A partial batch would leave somebody holding a list whose halves behave differently with no way to tell which is which.
+ */
+export const CreatePanelCodeBatchHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const createPanelCodeBatchBodyQuantityMax = 10000;
+
+export const CreatePanelCodeBatchBody = zod.object({
+  id: zod.uuid().optional(),
+  reference: zod
+    .string()
+    .describe("What the operator calls the batch. Unique, and what they search for."),
+  planCode: zod.string().optional(),
+  planVersionId: zod
+    .uuid()
+    .describe(
+      "A version rather than a plan: publishing a new version must not change what people already hold a code for.",
+    ),
+  planVersion: zod.int().optional(),
+  billingPeriod: zod.string().optional(),
+  quantity: zod.int().min(1).max(createPanelCodeBatchBodyQuantityMax),
+  unitPriceMinor: zod
+    .int()
+    .describe(
+      "The agreed wholesale price, recorded and never charged. The money changed hands outside Omniflow.",
+    ),
+  currency: zod.string(),
+  note: zod.string().optional(),
+  issued: zod
+    .int()
+    .optional()
+    .describe("Codes nobody has redeemed, and therefore what revoking would kill."),
+  redeemed: zod.int().optional(),
+  revoked: zod.int().optional(),
+  expiresAt: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("Absent means the codes never expire."),
+  revokedAt: zod.iso.datetime({ offset: true }).optional(),
+  revokeReason: zod.string().optional(),
+  createdAt: zod.iso.datetime({ offset: true }).optional(),
+  createdBy: zod.uuid().optional(),
+});
+
+export const createPanelCodeBatchResponseBatchQuantityMax = 10000;
+
+export const CreatePanelCodeBatchResponse = zod.object({
+  batch: zod.object({
+    id: zod.uuid().optional(),
+    reference: zod
+      .string()
+      .describe("What the operator calls the batch. Unique, and what they search for."),
+    planCode: zod.string().optional(),
+    planVersionId: zod
+      .uuid()
+      .describe(
+        "A version rather than a plan: publishing a new version must not change what people already hold a code for.",
+      ),
+    planVersion: zod.int().optional(),
+    billingPeriod: zod.string().optional(),
+    quantity: zod.int().min(1).max(createPanelCodeBatchResponseBatchQuantityMax),
+    unitPriceMinor: zod
+      .int()
+      .describe(
+        "The agreed wholesale price, recorded and never charged. The money changed hands outside Omniflow.",
+      ),
+    currency: zod.string(),
+    note: zod.string().optional(),
+    issued: zod
+      .int()
+      .optional()
+      .describe("Codes nobody has redeemed, and therefore what revoking would kill."),
+    redeemed: zod.int().optional(),
+    revoked: zod.int().optional(),
+    expiresAt: zod.iso
+      .datetime({ offset: true })
+      .optional()
+      .describe("Absent means the codes never expire."),
+    revokedAt: zod.iso.datetime({ offset: true }).optional(),
+    revokeReason: zod.string().optional(),
+    createdAt: zod.iso.datetime({ offset: true }).optional(),
+    createdBy: zod.uuid().optional(),
+  }),
+  codes: zod
+    .array(zod.string())
+    .describe(
+      "Returned once and never again. Only the SHA-256 of each is stored, so no other endpoint can produce them.",
+    ),
+});
+
+/**
+ * Requires catalog.read. One batch's codes by hint and status. The hint is the last four characters, which is enough to match a support question to a row and far too little to guess the other twelve.
+ */
+export const ListPanelBatchCodesParams = zod.object({
+  batchID: zod.uuid(),
+});
+
+export const ListPanelBatchCodesResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      hint: zod.string().describe("The last four characters."),
+      status: zod.enum(["issued", "redeemed", "revoked"]),
+      redeemedBy: zod.uuid().optional(),
+      redeemedAt: zod.iso.datetime({ offset: true }).optional(),
+    }),
+  ),
+});
+
+/**
+ * Requires catalog.write and a reason. Kills every code in the batch that nobody has redeemed, and returns how many that was.
+ * Redeemed codes are untouched by design: somebody is using the subscription each one produced, and taking that back is a different decision. The reason is required because this is the action taken when a list leaks, and "why were these three hundred codes killed" is the question somebody asks six months later.
+ */
+export const RevokePanelCodeBatchParams = zod.object({
+  batchID: zod.uuid(),
+});
+
+export const RevokePanelCodeBatchHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const revokePanelCodeBatchBodyReasonMin = 3;
+
+export const RevokePanelCodeBatchBody = zod.object({
+  reason: zod.string().min(revokePanelCodeBatchBodyReasonMin),
+});
+
+export const RevokePanelCodeBatchResponse = zod.object({
+  revoked: zod.int().optional(),
+});
+
+/**
  * Requires finance.read. What was sold over a chosen period, by kind of sale, by plan version, and by day, with trial conversion and refunds issued. The period keys on `orders.paid_at`, which is set once when an order first settles and never moved afterwards, so re-running a report over a closed period returns the same figures. Provider money and wallet credit are reported apart and must never be added: the balance was already revenue when it was funded. A period longer than two years is refused.
  */
 export const getPanelSalesReportQueryTimezoneDefault = `UTC`;
