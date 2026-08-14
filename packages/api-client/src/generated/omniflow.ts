@@ -1920,6 +1920,66 @@ export interface PanelConnectCatalogue {
   clients: PanelConnectClient[];
 }
 
+export interface PanelSalesLine {
+  /** purchase, renewal, extension, upgrade, downgrade, addon, topup, gift, or goods. */
+  operation: string;
+  currency: string;
+  orders: number;
+  subtotalMinor: number;
+  discountMinor: number;
+  /** Money that arrived through a provider. */
+  paidMinor: number;
+  /** Balance spent. Already counted as revenue when funded; never add it to paidMinor. */
+  walletMinor: number;
+}
+
+export interface PanelPlanSales {
+  planCode: string;
+  planVersion: number;
+  billingPeriod: string;
+  currency: string;
+  orders: number;
+  /** List value of the lines, read off the version the order referenced. */
+  grossMinor: number;
+}
+
+export interface PanelDaySales {
+  /** A day in the requested timezone, not an instant. */
+  day: string;
+  currency: string;
+  orders: number;
+  paidMinor: number;
+  walletMinor: number;
+}
+
+export interface PanelPeriodRefunds {
+  currency: string;
+  refunds: number;
+  refundedMinor: number;
+}
+
+export interface PanelTrialConversion {
+  /** Trials claimed inside the period. */
+  trials: number;
+  /** How many of those customers have since paid for anything. */
+  converted: number;
+  /** Always true. The numerator counts conversions at any later time, so a period ending today reads low by construction. */
+  cohort: boolean;
+}
+
+export interface PanelSalesReport {
+  since: string;
+  until: string;
+  timezone: string;
+  currency?: string;
+  byOperation: PanelSalesLine[];
+  byPlan: PanelPlanSales[];
+  byDay: PanelDaySales[];
+  refunds: PanelPeriodRefunds[];
+  trials: PanelTrialConversion;
+  generatedAt: string;
+}
+
 export interface PanelCommerceSettings {
   topUp: PanelTopUpSettings;
   subscriptions: PanelSubscriptionSettings;
@@ -3937,6 +3997,26 @@ export type PlanBody = PlanInput;
 
 export type PlanVersionBody = PlanVersionInput;
 
+/**
+ * Start of the period, inclusive. Defaults to thirty days before `until`.
+ */
+export type ReportSinceParameter = string;
+
+/**
+ * End of the period, exclusive. Defaults to now.
+ */
+export type ReportUntilParameter = string;
+
+/**
+ * The zone the day boundaries are computed in. "Sales on the third" means the operator's third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day.
+ */
+export type ReportTimezoneParameter = string;
+
+/**
+ * ISO currency to restrict the report to. Omit for every currency.
+ */
+export type ReportCurrencyParameter = string;
+
 export type CursorParameter = string;
 
 /**
@@ -4348,6 +4428,44 @@ export type ListPanelOutboxParams = {
    * @maximum 500
    */
   pageSize?: PageSizeParameter;
+};
+
+export type GetPanelSalesReportParams = {
+  /**
+   * Start of the period, inclusive. Defaults to thirty days before `until`.
+   */
+  since?: ReportSinceParameter;
+  /**
+   * End of the period, exclusive. Defaults to now.
+   */
+  until?: ReportUntilParameter;
+  /**
+   * The zone the day boundaries are computed in. "Sales on the third" means the operator's third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day.
+   */
+  timezone?: ReportTimezoneParameter;
+  /**
+   * ISO currency to restrict the report to. Omit for every currency.
+   */
+  currency?: ReportCurrencyParameter;
+};
+
+export type ExportPanelSalesReportParams = {
+  /**
+   * Start of the period, inclusive. Defaults to thirty days before `until`.
+   */
+  since?: ReportSinceParameter;
+  /**
+   * End of the period, exclusive. Defaults to now.
+   */
+  until?: ReportUntilParameter;
+  /**
+   * The zone the day boundaries are computed in. "Sales on the third" means the operator's third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day.
+   */
+  timezone?: ReportTimezoneParameter;
+  /**
+   * ISO currency to restrict the report to. Omit for every currency.
+   */
+  currency?: ReportCurrencyParameter;
 };
 
 export type SavePanelThemeBody = {
@@ -14781,6 +14899,201 @@ export const useSavePanelSubscriptionSettings = <TError = Promise<ProblemRespons
   const swrFn = getSavePanelSubscriptionSettingsMutationFetcher(fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelSalesReportResponse200 = {
+  data: PanelSalesReport;
+  status: 200;
+};
+
+export type getPanelSalesReportResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelSalesReportResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type getPanelSalesReportResponseSuccess = getPanelSalesReportResponse200 & {
+  headers: Headers;
+};
+export type getPanelSalesReportResponseError = (
+  | getPanelSalesReportResponse403
+  | getPanelSalesReportResponse422
+) & {
+  headers: Headers;
+};
+
+export type getPanelSalesReportResponse =
+  | getPanelSalesReportResponseSuccess
+  | getPanelSalesReportResponseError;
+
+export const getGetPanelSalesReportUrl = (params?: GetPanelSalesReportParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/reports/sales?${stringifiedParams}`
+    : `/v1/panel/reports/sales`;
+};
+
+/**
+ * Requires finance.read. What was sold over a chosen period, by kind of sale, by plan version, and by day, with trial conversion and refunds issued. The period keys on `orders.paid_at`, which is set once when an order first settles and never moved afterwards, so re-running a report over a closed period returns the same figures. Provider money and wallet credit are reported apart and must never be added: the balance was already revenue when it was funded. A period longer than two years is refused.
+ */
+export const getPanelSalesReport = async (
+  params?: GetPanelSalesReportParams,
+  options?: RequestInit,
+): Promise<getPanelSalesReportResponse> => {
+  const res = await fetch(getGetPanelSalesReportUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelSalesReportResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelSalesReportResponse;
+};
+
+export const getGetPanelSalesReportKey = (params?: GetPanelSalesReportParams) =>
+  [`/v1/panel/reports/sales`, ...(params ? [params] : [])] as const;
+
+export type GetPanelSalesReportQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelSalesReport>>
+>;
+
+export const useGetPanelSalesReport = <TError = Promise<ProblemResponse>>(
+  params?: GetPanelSalesReportParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelSalesReport>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelSalesReportKey(params) : null));
+  const swrFn = () => getPanelSalesReport(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type exportPanelSalesReportResponse200 = {
+  data: string;
+  status: 200;
+};
+
+export type exportPanelSalesReportResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type exportPanelSalesReportResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type exportPanelSalesReportResponseSuccess = exportPanelSalesReportResponse200 & {
+  headers: Headers;
+};
+export type exportPanelSalesReportResponseError = (
+  | exportPanelSalesReportResponse403
+  | exportPanelSalesReportResponse422
+) & {
+  headers: Headers;
+};
+
+export type exportPanelSalesReportResponse =
+  | exportPanelSalesReportResponseSuccess
+  | exportPanelSalesReportResponseError;
+
+export const getExportPanelSalesReportUrl = (params?: ExportPanelSalesReportParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/reports/sales/export?${stringifiedParams}`
+    : `/v1/panel/reports/sales/export`;
+};
+
+/**
+ * Requires finance.read. The same report as CSV, one file with a `section` column rather than four files, because the breakdowns are four views of one period. Amounts are minor units, unscaled: dividing by a hundred is wrong for every zero-decimal currency and is something the reader can do knowing their own.
+ */
+export const exportPanelSalesReport = async (
+  params?: ExportPanelSalesReportParams,
+  options?: RequestInit,
+): Promise<exportPanelSalesReportResponse> => {
+  const res = await fetch(getExportPanelSalesReportUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const contentType = (res.headers.get("content-type") ?? "").toLowerCase();
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: exportPanelSalesReportResponse["data"] = body
+    ? contentType.includes("json")
+      ? JSON.parse(body)
+      : body
+    : {};
+  return { data, status: res.status, headers: res.headers } as exportPanelSalesReportResponse;
+};
+
+export const getExportPanelSalesReportKey = (params?: ExportPanelSalesReportParams) =>
+  [`/v1/panel/reports/sales/export`, ...(params ? [params] : [])] as const;
+
+export type ExportPanelSalesReportQueryResult = NonNullable<
+  Awaited<ReturnType<typeof exportPanelSalesReport>>
+>;
+
+export const useExportPanelSalesReport = <TError = Promise<ProblemResponse>>(
+  params?: ExportPanelSalesReportParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof exportPanelSalesReport>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getExportPanelSalesReportKey(params) : null));
+  const swrFn = () => exportPanelSalesReport(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,

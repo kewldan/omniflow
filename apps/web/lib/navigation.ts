@@ -1,4 +1,5 @@
 import {
+  ChartColumn,
   ClipboardList,
   CreditCard,
   Gift,
@@ -60,6 +61,12 @@ export const NAVIGATION: NavigationSection[] = [
         key: "finance",
         href: "/admin/finance",
         icon: CreditCard,
+        permission: "finance.read",
+      },
+      {
+        key: "reports",
+        href: "/admin/reports",
+        icon: ChartColumn,
         permission: "finance.read",
       },
       {

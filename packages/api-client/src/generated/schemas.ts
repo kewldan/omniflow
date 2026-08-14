@@ -3298,6 +3298,124 @@ export const SavePanelSubscriptionSettingsResponse = zod.object({
 });
 
 /**
+ * Requires finance.read. What was sold over a chosen period, by kind of sale, by plan version, and by day, with trial conversion and refunds issued. The period keys on `orders.paid_at`, which is set once when an order first settles and never moved afterwards, so re-running a report over a closed period returns the same figures. Provider money and wallet credit are reported apart and must never be added: the balance was already revenue when it was funded. A period longer than two years is refused.
+ */
+export const getPanelSalesReportQueryTimezoneDefault = `UTC`;
+
+export const GetPanelSalesReportQueryParams = zod.object({
+  since: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("Start of the period, inclusive. Defaults to thirty days before `until`."),
+  until: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("End of the period, exclusive. Defaults to now."),
+  timezone: zod
+    .string()
+    .default(getPanelSalesReportQueryTimezoneDefault)
+    .describe(
+      'The zone the day boundaries are computed in. "Sales on the third" means the operator\'s third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day.',
+    ),
+  currency: zod
+    .string()
+    .optional()
+    .describe("ISO currency to restrict the report to. Omit for every currency."),
+});
+
+export const GetPanelSalesReportResponse = zod.object({
+  since: zod.iso.datetime({ offset: true }),
+  until: zod.iso.datetime({ offset: true }),
+  timezone: zod.string(),
+  currency: zod.string().optional(),
+  byOperation: zod.array(
+    zod.object({
+      operation: zod
+        .string()
+        .describe(
+          "purchase, renewal, extension, upgrade, downgrade, addon, topup, gift, or goods.",
+        ),
+      currency: zod.string(),
+      orders: zod.int(),
+      subtotalMinor: zod.int(),
+      discountMinor: zod.int(),
+      paidMinor: zod.int().describe("Money that arrived through a provider."),
+      walletMinor: zod
+        .int()
+        .describe(
+          "Balance spent. Already counted as revenue when funded; never add it to paidMinor.",
+        ),
+    }),
+  ),
+  byPlan: zod.array(
+    zod.object({
+      planCode: zod.string(),
+      planVersion: zod.int(),
+      billingPeriod: zod.string(),
+      currency: zod.string(),
+      orders: zod.int(),
+      grossMinor: zod
+        .int()
+        .describe("List value of the lines, read off the version the order referenced."),
+    }),
+  ),
+  byDay: zod.array(
+    zod.object({
+      day: zod.iso.date().describe("A day in the requested timezone, not an instant."),
+      currency: zod.string(),
+      orders: zod.int(),
+      paidMinor: zod.int(),
+      walletMinor: zod.int(),
+    }),
+  ),
+  refunds: zod.array(
+    zod.object({
+      currency: zod.string(),
+      refunds: zod.int(),
+      refundedMinor: zod.int(),
+    }),
+  ),
+  trials: zod.object({
+    trials: zod.int().describe("Trials claimed inside the period."),
+    converted: zod.int().describe("How many of those customers have since paid for anything."),
+    cohort: zod
+      .boolean()
+      .describe(
+        "Always true. The numerator counts conversions at any later time, so a period ending today reads low by construction.",
+      ),
+  }),
+  generatedAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Requires finance.read. The same report as CSV, one file with a `section` column rather than four files, because the breakdowns are four views of one period. Amounts are minor units, unscaled: dividing by a hundred is wrong for every zero-decimal currency and is something the reader can do knowing their own.
+ */
+export const exportPanelSalesReportQueryTimezoneDefault = `UTC`;
+
+export const ExportPanelSalesReportQueryParams = zod.object({
+  since: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("Start of the period, inclusive. Defaults to thirty days before `until`."),
+  until: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("End of the period, exclusive. Defaults to now."),
+  timezone: zod
+    .string()
+    .default(exportPanelSalesReportQueryTimezoneDefault)
+    .describe(
+      'The zone the day boundaries are computed in. "Sales on the third" means the operator\'s third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day.',
+    ),
+  currency: zod
+    .string()
+    .optional()
+    .describe("ISO currency to restrict the report to. Omit for every currency."),
+});
+
+export const ExportPanelSalesReportResponse = zod.unknown();
+
+/**
  * Requires settings.read. The stored palette, the stylesheet it renders as, the tokens this build honours, and every contrast problem the palette has. The warnings are recomputed on each read rather than stored, so they cannot go stale against a palette edited elsewhere.
  */
 export const GetPanelThemeResponse = zod.object({

@@ -984,6 +984,9 @@ type Querier interface {
 	// What the programme has actually cost and produced, so an operator changing a
 	// reward can see what the current one did rather than guessing.
 	ReferralProgramSummary(ctx context.Context) (ReferralProgramSummaryRow, error)
+	// Refunds by the date they were issued, which is the only date on which an
+	// operator can act.
+	RefundsInPeriod(ctx context.Context, arg RefundsInPeriodParams) ([]RefundsInPeriodRow, error)
 	ReleasePaymentMutationLock(ctx context.Context, hashtextextended string) error
 	ReleaseRetentionHold(ctx context.Context, arg ReleaseRetentionHoldParams) (AiRetentionHold, error)
 	RemoveBlocklistAllowlistEntry(ctx context.Context, userID pgtype.UUID) error
@@ -1046,6 +1049,34 @@ type Querier interface {
 	// captured from a log or a proxy stays replayable. The unique index on
 	// `token_hash` means a colliding rotation fails rather than merging sessions.
 	RotateCustomerSessionToken(ctx context.Context, arg RotateCustomerSessionTokenParams) (CustomerSession, error)
+	// One row per day with a sale in it.
+	//
+	// The day boundary is computed in the installation's own timezone, passed in by
+	// the caller, because "sales on the 3rd" means the operator's 3rd and a report
+	// bucketed in UTC puts an evening sale in Vladivostok on the wrong day.
+	SalesByDay(ctx context.Context, arg SalesByDayParams) ([]SalesByDayRow, error)
+	// Sales reporting over a period an operator chooses.
+	//
+	// Every query here keys on `orders.paid_at` rather than `updated_at`, so the
+	// same closed period reports the same figures however many refunds are recorded
+	// afterwards. Refunds are reported on their own date for the same reason: "what
+	// did we refund in March" and "what did we sell in February that was later
+	// refunded" are different questions, and answering the first with the second is
+	// how a refund appears to reduce a month that had already closed.
+	//
+	// Provider money and wallet credit stay separate in every one of these, as they
+	// do on the dashboard. Wallet credit was already counted as revenue when the
+	// balance was funded, so adding the two counts it twice.
+	// What was sold, by what kind of sale. This is the breakdown that separates a
+	// new purchase from a renewal, an add-on, and a wallet top-up.
+	SalesByOperation(ctx context.Context, arg SalesByOperationParams) ([]SalesByOperationRow, error)
+	// What was sold, by plan and billing period.
+	//
+	// It reads the plan code and the period off the version the order actually
+	// referenced rather than off the plan's current state, which is the whole
+	// reason plan versions exist: a price change last week must not re-price a sale
+	// from last month.
+	SalesByPlan(ctx context.Context, arg SalesByPlanParams) ([]SalesByPlanRow, error)
 	// Re-presenting the same provider token is not a new method: the provider still
 	// holds one binding, so the row is refreshed rather than duplicated. Consent is
 	// re-stamped because the customer just granted it again.
@@ -1167,6 +1198,10 @@ type Querier interface {
 	// Publication is recorded, not inferred. `published_at` is set once and kept, so
 	// unpublishing and republishing does not rewrite when customers first saw it.
 	SetNewsPostState(ctx context.Context, arg SetNewsPostStateParams) (NewsPost, error)
+	// The same first-settlement rule as UpdateOrderPayment. It is repeated rather
+	// than centralised because these are the only two statements that can move an
+	// order into a settled state, and a report keyed on a timestamp that one of
+	// them forgot to set would under-count silently.
 	SetOrderState(ctx context.Context, arg SetOrderStateParams) (Order, error)
 	// Replaces the add-ons offered with a plan version. Deleting first keeps the
 	// set exactly what the operator chose rather than the union of every edit.
@@ -1226,6 +1261,14 @@ type Querier interface {
 	// horizon would extend a session the absolute limit had already ended.
 	TouchCustomerSession(ctx context.Context, arg TouchCustomerSessionParams) (CustomerSession, error)
 	TouchPaymentMethodUsed(ctx context.Context, id pgtype.UUID) error
+	// Of the trials claimed in this period, how many of those customers have since
+	// paid for something.
+	//
+	// It is a cohort measure and reads low for a window that ends today, because a
+	// trial claimed yesterday has had a day to convert. That is a property of the
+	// question rather than a fault in the query, and the panel says so beside the
+	// figure rather than quietly excluding recent trials.
+	TrialConversion(ctx context.Context, arg TrialConversionParams) (TrialConversionRow, error)
 	UnsuppressCustomer(ctx context.Context, userID pgtype.UUID) error
 	UntagSupportTicket(ctx context.Context, arg UntagSupportTicketParams) error
 	// The customer's own locale and timezone. Both are validated in Go against the
@@ -1241,6 +1284,10 @@ type Querier interface {
 	UpdateEntitlementObservedState(ctx context.Context, arg UpdateEntitlementObservedStateParams) (Entitlement, error)
 	UpdateFulfillmentOperation(ctx context.Context, arg UpdateFulfillmentOperationParams) (FulfillmentOperation, error)
 	UpdateGoodsProduct(ctx context.Context, arg UpdateGoodsProductParams) (GoodsProduct, error)
+	// paid_at is set the first time the order settles and never again. COALESCE is
+	// what makes that true: a partial refund moves the state through this statement
+	// a second time, and a sale must not change reporting period because somebody
+	// was refunded a month later.
 	UpdateOrderPayment(ctx context.Context, arg UpdateOrderPaymentParams) (Order, error)
 	UpdateOrderRefund(ctx context.Context, arg UpdateOrderRefundParams) (Order, error)
 	UpdatePaymentIntentStatus(ctx context.Context, arg UpdatePaymentIntentStatusParams) (PaymentIntent, error)

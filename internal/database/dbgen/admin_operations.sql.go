@@ -1532,7 +1532,7 @@ func (q *Queries) ListCustomerLedgerEntries(ctx context.Context, arg ListCustome
 }
 
 const listCustomerOrders = `-- name: ListCustomerOrders :many
-SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids FROM orders
+SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at FROM orders
 WHERE user_id = $1
 ORDER BY created_at DESC
 LIMIT $2
@@ -1570,6 +1570,7 @@ func (q *Queries) ListCustomerOrders(ctx context.Context, arg ListCustomerOrders
 			&i.UpdatedAt,
 			&i.SubscriptionID,
 			&i.SelectedSquadIds,
+			&i.PaidAt,
 		); err != nil {
 			return nil, err
 		}
@@ -2898,7 +2899,7 @@ func (q *Queries) SearchFulfillmentOperations(ctx context.Context, arg SearchFul
 
 const searchOrders = `-- name: SearchOrders :many
 
-SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids FROM orders
+SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at FROM orders
 WHERE (
     $1::timestamptz IS NULL
     OR (created_at, id) < ($1::timestamptz, $2::uuid)
@@ -2965,6 +2966,7 @@ func (q *Queries) SearchOrders(ctx context.Context, arg SearchOrdersParams) ([]O
 			&i.UpdatedAt,
 			&i.SubscriptionID,
 			&i.SelectedSquadIds,
+			&i.PaidAt,
 		); err != nil {
 			return nil, err
 		}

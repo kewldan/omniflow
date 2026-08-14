@@ -1392,6 +1392,47 @@ paths:
         "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelCommerceSettings"}}}}
         "403": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/reports/sales:
+    get:
+      operationId: getPanelSalesReport
+      tags: [panel]
+      description: >-
+        Requires finance.read. What was sold over a chosen period, by kind of
+        sale, by plan version, and by day, with trial conversion and refunds
+        issued. The period keys on `orders.paid_at`, which is set once when an
+        order first settles and never moved afterwards, so re-running a report
+        over a closed period returns the same figures. Provider money and wallet
+        credit are reported apart and must never be added: the balance was
+        already revenue when it was funded. A period longer than two years is
+        refused.
+      parameters:
+        - {$ref: "#/components/parameters/ReportSince"}
+        - {$ref: "#/components/parameters/ReportUntil"}
+        - {$ref: "#/components/parameters/ReportTimezone"}
+        - {$ref: "#/components/parameters/ReportCurrency"}
+      responses:
+        "200": {description: Sales report, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSalesReport"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/reports/sales/export:
+    get:
+      operationId: exportPanelSalesReport
+      tags: [panel]
+      description: >-
+        Requires finance.read. The same report as CSV, one file with a `section`
+        column rather than four files, because the breakdowns are four views of
+        one period. Amounts are minor units, unscaled: dividing by a hundred is
+        wrong for every zero-decimal currency and is something the reader can do
+        knowing their own.
+      parameters:
+        - {$ref: "#/components/parameters/ReportSince"}
+        - {$ref: "#/components/parameters/ReportUntil"}
+        - {$ref: "#/components/parameters/ReportTimezone"}
+        - {$ref: "#/components/parameters/ReportCurrency"}
+      responses:
+        "200": {description: CSV, content: {text/csv: {schema: {type: string}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/panel/settings/theme:
     get:
       operationId: getPanelTheme
@@ -3111,6 +3152,29 @@ components:
     # other, and a customer credential can never satisfy an operator route.
     accountSession: {type: apiKey, in: cookie, name: __Host-omniflow_account}
   parameters:
+    ReportSince:
+      in: query
+      name: since
+      schema: {type: string, format: date-time}
+      description: "Start of the period, inclusive. Defaults to thirty days before `until`."
+    ReportUntil:
+      in: query
+      name: until
+      schema: {type: string, format: date-time}
+      description: "End of the period, exclusive. Defaults to now."
+    ReportTimezone:
+      in: query
+      name: timezone
+      schema: {type: string, default: UTC}
+      description: >-
+        The zone the day boundaries are computed in. "Sales on the third" means
+        the operator's third, and a report bucketed in UTC puts an evening sale
+        several hours east on the wrong day.
+    ReportCurrency:
+      in: query
+      name: currency
+      schema: {type: string}
+      description: "ISO currency to restrict the report to. Omit for every currency."
     AdminID: {in: path, name: adminID, required: true, schema: {type: string, format: uuid}}
     Cursor: {in: query, name: cursor, schema: {type: string, description: "Opaque keyset cursor from the previous page."}}
     CSRFToken:
@@ -4326,6 +4390,64 @@ components:
       properties:
         platforms: {type: array, items: {$ref: "#/components/schemas/PanelConnectPlatform"}}
         clients: {type: array, items: {$ref: "#/components/schemas/PanelConnectClient"}}
+    PanelSalesLine:
+      type: object
+      required: [operation, currency, orders, subtotalMinor, discountMinor, paidMinor, walletMinor]
+      properties:
+        operation: {type: string, description: "purchase, renewal, extension, upgrade, downgrade, addon, topup, gift, or goods."}
+        currency: {type: string}
+        orders: {type: integer, format: int64}
+        subtotalMinor: {type: integer, format: int64}
+        discountMinor: {type: integer, format: int64}
+        paidMinor: {type: integer, format: int64, description: "Money that arrived through a provider."}
+        walletMinor: {type: integer, format: int64, description: "Balance spent. Already counted as revenue when funded; never add it to paidMinor."}
+    PanelPlanSales:
+      type: object
+      required: [planCode, planVersion, billingPeriod, currency, orders, grossMinor]
+      properties:
+        planCode: {type: string}
+        planVersion: {type: integer}
+        billingPeriod: {type: string}
+        currency: {type: string}
+        orders: {type: integer, format: int64}
+        grossMinor: {type: integer, format: int64, description: "List value of the lines, read off the version the order referenced."}
+    PanelDaySales:
+      type: object
+      required: [day, currency, orders, paidMinor, walletMinor]
+      properties:
+        day: {type: string, format: date, description: "A day in the requested timezone, not an instant."}
+        currency: {type: string}
+        orders: {type: integer, format: int64}
+        paidMinor: {type: integer, format: int64}
+        walletMinor: {type: integer, format: int64}
+    PanelPeriodRefunds:
+      type: object
+      required: [currency, refunds, refundedMinor]
+      properties:
+        currency: {type: string}
+        refunds: {type: integer, format: int64}
+        refundedMinor: {type: integer, format: int64}
+    PanelTrialConversion:
+      type: object
+      required: [trials, converted, cohort]
+      properties:
+        trials: {type: integer, format: int64, description: "Trials claimed inside the period."}
+        converted: {type: integer, format: int64, description: "How many of those customers have since paid for anything."}
+        cohort: {type: boolean, description: "Always true. The numerator counts conversions at any later time, so a period ending today reads low by construction."}
+    PanelSalesReport:
+      type: object
+      required: [since, until, timezone, byOperation, byPlan, byDay, refunds, trials, generatedAt]
+      properties:
+        since: {type: string, format: date-time}
+        until: {type: string, format: date-time}
+        timezone: {type: string}
+        currency: {type: string}
+        byOperation: {type: array, items: {$ref: "#/components/schemas/PanelSalesLine"}}
+        byPlan: {type: array, items: {$ref: "#/components/schemas/PanelPlanSales"}}
+        byDay: {type: array, items: {$ref: "#/components/schemas/PanelDaySales"}}
+        refunds: {type: array, items: {$ref: "#/components/schemas/PanelPeriodRefunds"}}
+        trials: {$ref: "#/components/schemas/PanelTrialConversion"}
+        generatedAt: {type: string, format: date-time}
     PanelCommerceSettings:
       type: object
       required: [topUp, subscriptions, updatedAt]

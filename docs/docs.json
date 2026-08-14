@@ -90,6 +90,7 @@
             "pages": [
               "operations/admin-panel",
               "operations/admin-operations",
+              "operations/sales-reporting",
               "operations/installation-settings",
               "operations/branding",
               "operations/connection-catalogue",
@@ -216,6 +217,7 @@
             "pages": [
               "ru/operations/admin-panel",
               "ru/operations/admin-operations",
+              "ru/operations/sales-reporting",
               "ru/operations/installation-settings",
               "ru/operations/branding",
               "ru/operations/connection-catalogue",

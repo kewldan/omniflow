@@ -484,6 +484,66 @@ export type ConnectCatalogue = {
   clients: ConnectClient[];
 };
 
+/**
+ * Sales over a period the operator chose.
+ *
+ * Provider money and wallet credit are separate fields on purpose and must not
+ * be added: the balance was already counted as revenue when it was funded.
+ * Refunds are keyed on the date they were issued rather than on the sale they
+ * reverse, so re-running a report over a closed period returns the same figures.
+ */
+export type SalesLine = {
+  operation: string;
+  currency: string;
+  orders: number;
+  subtotalMinor: number;
+  discountMinor: number;
+  paidMinor: number;
+  walletMinor: number;
+};
+
+export type PlanSales = {
+  planCode: string;
+  planVersion: number;
+  billingPeriod: string;
+  currency: string;
+  orders: number;
+  grossMinor: number;
+};
+
+export type DaySales = {
+  /** `YYYY-MM-DD` in the timezone the report was asked for. */
+  day: string;
+  currency: string;
+  orders: number;
+  paidMinor: number;
+  walletMinor: number;
+};
+
+export type PeriodRefunds = {
+  currency: string;
+  refunds: number;
+  refundedMinor: number;
+};
+
+export type SalesReport = {
+  since: string;
+  until: string;
+  timezone: string;
+  currency?: string;
+  byOperation: SalesLine[];
+  byPlan: PlanSales[];
+  byDay: DaySales[];
+  refunds: PeriodRefunds[];
+  /**
+   * A cohort figure: the denominator is trials claimed in the period, the
+   * numerator counts conversions at any later time. A period ending today reads
+   * low by construction, which the screen says rather than hides.
+   */
+  trials: { trials: number; converted: number; cohort: boolean };
+  generatedAt: string;
+};
+
 export type Page<Item> = { items: Item[] | null; nextCursor?: string };
 export type Listing<Item> = { items: Item[] | null };
 

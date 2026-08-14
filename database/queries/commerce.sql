@@ -353,8 +353,18 @@ ON CONFLICT (order_id, plan_version_id) DO UPDATE SET snapshot = order_lines.sna
 RETURNING *;
 
 -- name: UpdateOrderPayment :one
+-- paid_at is set the first time the order settles and never again. COALESCE is
+-- what makes that true: a partial refund moves the state through this statement
+-- a second time, and a sale must not change reporting period because somebody
+-- was refunded a month later.
 UPDATE orders
-SET state = sqlc.arg(state), paid_minor = sqlc.arg(paid_minor), updated_at = now()
+SET state = sqlc.arg(state), paid_minor = sqlc.arg(paid_minor),
+    paid_at = CASE
+      WHEN sqlc.arg(state) IN ('paid', 'fulfilled', 'partially_refunded', 'refunded')
+      THEN COALESCE(paid_at, now())
+      ELSE paid_at
+    END,
+    updated_at = now()
 WHERE id = sqlc.arg(order_id)
 RETURNING *;
 
@@ -365,7 +375,20 @@ WHERE id = sqlc.arg(order_id)
 RETURNING *;
 
 -- name: SetOrderState :one
-UPDATE orders SET state = $2, updated_at = now() WHERE id = $1 RETURNING *;
+-- The same first-settlement rule as UpdateOrderPayment. It is repeated rather
+-- than centralised because these are the only two statements that can move an
+-- order into a settled state, and a report keyed on a timestamp that one of
+-- them forgot to set would under-count silently.
+UPDATE orders
+SET state = $2,
+    paid_at = CASE
+      WHEN $2 IN ('paid', 'fulfilled', 'partially_refunded', 'refunded')
+      THEN COALESCE(paid_at, now())
+      ELSE paid_at
+    END,
+    updated_at = now()
+WHERE id = $1
+RETURNING *;
 
 -- name: CancelOrder :one
 WITH mutation AS (

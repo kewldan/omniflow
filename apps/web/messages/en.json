@@ -137,6 +137,7 @@
         "dashboard": "Dashboard",
         "customers": "Customers",
         "finance": "Finance",
+        "reports": "Sales",
         "catalog": "Catalog",
         "support": "Support",
         "marketing": "Marketing",
@@ -811,6 +812,83 @@
         "overpayment": "Overpayment",
         "underpayment": "Underpayment",
         "reconciled": "Reconciled"
+      }
+    },
+    "reports": {
+      "title": "Sales",
+      "description": "What was sold over a period you choose, broken down by kind of sale, by plan, and by day. The dashboard's thirty-day window stays fixed so that two visits compare; this is the one that moves.",
+      "export": "Export CSV",
+      "failed": "The report could not be read",
+      "empty": "Nothing in this period.",
+      "noSales": "No sales in this period",
+      "currency": "Currency",
+      "orders": "Orders",
+      "discount": "Discounts",
+      "provider": "Through a provider",
+      "wallet": "From wallet balance",
+      "period": {
+        "title": "Period",
+        "description": "Days are bucketed in {timezone}, which is this browser's timezone.",
+        "since": "From",
+        "until": "To",
+        "currency": "Currency",
+        "allCurrencies": "All currencies",
+        "hour": "Hour",
+        "minute": "Minute",
+        "week": "Last 7 days",
+        "month": "Last 30 days",
+        "quarter": "Last 90 days",
+        "year": "Last year"
+      },
+      "trials": {
+        "title": "Trial conversion",
+        "cohort": "Of the trials claimed in this period, how many of those customers have since paid for anything. A period ending today reads low: a trial claimed yesterday has had a day to convert.",
+        "claimed": "Trials claimed",
+        "converted": "Converted since",
+        "rate": "Conversion"
+      },
+      "operations": {
+        "title": "By kind of sale",
+        "description": "Provider money and wallet balance are shown apart and must not be added: the balance was already revenue when it was funded.",
+        "operation": "Kind"
+      },
+      "plans": {
+        "title": "By plan",
+        "description": "Read off the plan version each order actually referenced, so a price change since then does not re-price the sale.",
+        "plan": "Plan",
+        "period": "Billing period",
+        "gross": "List value"
+      },
+      "daily": {
+        "title": "Provider money by day",
+        "day": "Day",
+        "description": "One chart per currency. Two currencies on one axis would assert that a hundred of one is a hundred of the other."
+      },
+      "refunds": {
+        "title": "Refunds issued",
+        "description": "By the date the refund was issued, not the date of the sale it reverses — so a closed month stays closed.",
+        "count": "{count} refunds"
+      },
+      "operation": {
+        "purchase": "New purchase",
+        "renewal": "Automatic renewal",
+        "extension": "Extension",
+        "upgrade": "Upgrade",
+        "downgrade": "Downgrade",
+        "addon": "Add-on",
+        "topup": "Wallet top-up",
+        "gift": "Gift",
+        "goods": "Digital goods"
+      },
+      "billingPeriod": {
+        "none": "One-off",
+        "day": "Daily",
+        "week": "Weekly",
+        "month": "Monthly",
+        "quarter": "Quarterly",
+        "half_year": "Half-yearly",
+        "year": "Yearly",
+        "custom": "Custom"
       }
     },
     "risk": {

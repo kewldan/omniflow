@@ -205,7 +205,7 @@ WITH mutation AS (
 )
 UPDATE orders SET state = 'cancelled', updated_at = now()
 WHERE orders.id = $1 AND orders.state IN ('draft', 'pending', 'cancelled')
-RETURNING orders.id, orders.user_id, orders.state, orders.operation, orders.currency, orders.subtotal_minor, orders.discount_minor, orders.wallet_minor, orders.external_minor, orders.paid_minor, orders.refunded_minor, orders.idempotency_key, orders.expires_at, orders.created_at, orders.updated_at, orders.subscription_id, orders.selected_squad_ids
+RETURNING orders.id, orders.user_id, orders.state, orders.operation, orders.currency, orders.subtotal_minor, orders.discount_minor, orders.wallet_minor, orders.external_minor, orders.paid_minor, orders.refunded_minor, orders.idempotency_key, orders.expires_at, orders.created_at, orders.updated_at, orders.subscription_id, orders.selected_squad_ids, orders.paid_at
 `
 
 type CancelOrderParams struct {
@@ -235,6 +235,7 @@ func (q *Queries) CancelOrder(ctx context.Context, arg CancelOrderParams) (Order
 		&i.UpdatedAt,
 		&i.SubscriptionID,
 		&i.SelectedSquadIds,
+		&i.PaidAt,
 	)
 	return i, err
 }
@@ -544,7 +545,7 @@ INSERT INTO orders (
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 ON CONFLICT (user_id, idempotency_key) DO UPDATE SET idempotency_key = EXCLUDED.idempotency_key
-RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids
+RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at
 `
 
 type CreateOrderParams struct {
@@ -596,6 +597,7 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order
 		&i.UpdatedAt,
 		&i.SubscriptionID,
 		&i.SelectedSquadIds,
+		&i.PaidAt,
 	)
 	return i, err
 }
@@ -916,7 +918,7 @@ WITH expired AS (
   ON CONFLICT DO NOTHING
 )
 UPDATE orders SET state = 'expired', updated_at = now() WHERE id IN (SELECT id FROM expired)
-RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids
+RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at
 `
 
 func (q *Queries) ExpirePendingOrders(ctx context.Context) ([]Order, error) {
@@ -946,6 +948,7 @@ func (q *Queries) ExpirePendingOrders(ctx context.Context) ([]Order, error) {
 			&i.UpdatedAt,
 			&i.SubscriptionID,
 			&i.SelectedSquadIds,
+			&i.PaidAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1173,7 +1176,7 @@ func (q *Queries) GetLedgerTransactionByIdempotency(ctx context.Context, idempot
 }
 
 const getOrder = `-- name: GetOrder :one
-SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids FROM orders WHERE id = $1
+SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at FROM orders WHERE id = $1
 `
 
 func (q *Queries) GetOrder(ctx context.Context, id pgtype.UUID) (Order, error) {
@@ -1197,12 +1200,13 @@ func (q *Queries) GetOrder(ctx context.Context, id pgtype.UUID) (Order, error) {
 		&i.UpdatedAt,
 		&i.SubscriptionID,
 		&i.SelectedSquadIds,
+		&i.PaidAt,
 	)
 	return i, err
 }
 
 const getOrderByIdempotency = `-- name: GetOrderByIdempotency :one
-SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids FROM orders WHERE user_id = $1 AND idempotency_key = $2
+SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at FROM orders WHERE user_id = $1 AND idempotency_key = $2
 `
 
 type GetOrderByIdempotencyParams struct {
@@ -1231,6 +1235,7 @@ func (q *Queries) GetOrderByIdempotency(ctx context.Context, arg GetOrderByIdemp
 		&i.UpdatedAt,
 		&i.SubscriptionID,
 		&i.SelectedSquadIds,
+		&i.PaidAt,
 	)
 	return i, err
 }
@@ -2641,7 +2646,7 @@ func (q *Queries) LockFulfillmentOperation(ctx context.Context, id pgtype.UUID) 
 }
 
 const lockOrder = `-- name: LockOrder :one
-SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids FROM orders WHERE id = $1 FOR UPDATE
+SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at FROM orders WHERE id = $1 FOR UPDATE
 `
 
 func (q *Queries) LockOrder(ctx context.Context, id pgtype.UUID) (Order, error) {
@@ -2665,6 +2670,7 @@ func (q *Queries) LockOrder(ctx context.Context, id pgtype.UUID) (Order, error) 
 		&i.UpdatedAt,
 		&i.SubscriptionID,
 		&i.SelectedSquadIds,
+		&i.PaidAt,
 	)
 	return i, err
 }
@@ -2731,7 +2737,16 @@ func (q *Queries) RevokeCustomerIdentity(ctx context.Context, arg RevokeCustomer
 }
 
 const setOrderState = `-- name: SetOrderState :one
-UPDATE orders SET state = $2, updated_at = now() WHERE id = $1 RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids
+UPDATE orders
+SET state = $2,
+    paid_at = CASE
+      WHEN $2 IN ('paid', 'fulfilled', 'partially_refunded', 'refunded')
+      THEN COALESCE(paid_at, now())
+      ELSE paid_at
+    END,
+    updated_at = now()
+WHERE id = $1
+RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at
 `
 
 type SetOrderStateParams struct {
@@ -2739,6 +2754,10 @@ type SetOrderStateParams struct {
 	State string      `json:"state"`
 }
 
+// The same first-settlement rule as UpdateOrderPayment. It is repeated rather
+// than centralised because these are the only two statements that can move an
+// order into a settled state, and a report keyed on a timestamp that one of
+// them forgot to set would under-count silently.
 func (q *Queries) SetOrderState(ctx context.Context, arg SetOrderStateParams) (Order, error) {
 	row := q.db.QueryRow(ctx, setOrderState, arg.ID, arg.State)
 	var i Order
@@ -2760,6 +2779,7 @@ func (q *Queries) SetOrderState(ctx context.Context, arg SetOrderStateParams) (O
 		&i.UpdatedAt,
 		&i.SubscriptionID,
 		&i.SelectedSquadIds,
+		&i.PaidAt,
 	)
 	return i, err
 }
@@ -3021,9 +3041,15 @@ func (q *Queries) UpdateFulfillmentOperation(ctx context.Context, arg UpdateFulf
 
 const updateOrderPayment = `-- name: UpdateOrderPayment :one
 UPDATE orders
-SET state = $1, paid_minor = $2, updated_at = now()
+SET state = $1, paid_minor = $2,
+    paid_at = CASE
+      WHEN $1 IN ('paid', 'fulfilled', 'partially_refunded', 'refunded')
+      THEN COALESCE(paid_at, now())
+      ELSE paid_at
+    END,
+    updated_at = now()
 WHERE id = $3
-RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids
+RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at
 `
 
 type UpdateOrderPaymentParams struct {
@@ -3032,6 +3058,10 @@ type UpdateOrderPaymentParams struct {
 	OrderID   pgtype.UUID `json:"order_id"`
 }
 
+// paid_at is set the first time the order settles and never again. COALESCE is
+// what makes that true: a partial refund moves the state through this statement
+// a second time, and a sale must not change reporting period because somebody
+// was refunded a month later.
 func (q *Queries) UpdateOrderPayment(ctx context.Context, arg UpdateOrderPaymentParams) (Order, error) {
 	row := q.db.QueryRow(ctx, updateOrderPayment, arg.State, arg.PaidMinor, arg.OrderID)
 	var i Order
@@ -3053,6 +3083,7 @@ func (q *Queries) UpdateOrderPayment(ctx context.Context, arg UpdateOrderPayment
 		&i.UpdatedAt,
 		&i.SubscriptionID,
 		&i.SelectedSquadIds,
+		&i.PaidAt,
 	)
 	return i, err
 }
@@ -3061,7 +3092,7 @@ const updateOrderRefund = `-- name: UpdateOrderRefund :one
 UPDATE orders
 SET state = $1, refunded_minor = $2, updated_at = now()
 WHERE id = $3
-RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids
+RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at
 `
 
 type UpdateOrderRefundParams struct {
@@ -3091,6 +3122,7 @@ func (q *Queries) UpdateOrderRefund(ctx context.Context, arg UpdateOrderRefundPa
 		&i.UpdatedAt,
 		&i.SubscriptionID,
 		&i.SelectedSquadIds,
+		&i.PaidAt,
 	)
 	return i, err
 }

@@ -161,6 +161,10 @@ func TestTheNewSurfacesAreInsideTheAuthenticatedGroup(t *testing.T) {
 		{http.MethodPut, "/v1/panel/settings/connect/platforms"},
 		{http.MethodDelete, "/v1/panel/settings/connect/platforms/ios"},
 		{http.MethodPut, "/v1/panel/settings/connect/clients"},
+		// Reporting is money, so it sits behind finance.read; being outside the
+		// session gate would publish every figure an installation has.
+		{http.MethodGet, "/v1/panel/reports/sales"},
+		{http.MethodGet, "/v1/panel/reports/sales/export"},
 	} {
 		recorder := httptest.NewRecorder()
 		router.(http.Handler).ServeHTTP(

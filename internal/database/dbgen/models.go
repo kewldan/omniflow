@@ -1264,6 +1264,8 @@ type Order struct {
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 	SubscriptionID   pgtype.UUID        `json:"subscription_id"`
 	SelectedSquadIds []pgtype.UUID      `json:"selected_squad_ids"`
+	// Set once, when the order first reaches a settled state. Never updated afterwards, so a later refund cannot move a sale between reporting periods.
+	PaidAt pgtype.Timestamptz `json:"paid_at"`
 }
 
 type OrderAddonLine struct {

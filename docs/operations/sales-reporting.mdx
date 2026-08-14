@@ -1,0 +1,109 @@
+---
+title: Sales reporting
+description: What was sold over a period you choose, why the dashboard's window stays fixed, and the three rules that decide which figures are ever added together
+---
+
+`/admin/reports` answers the questions the dashboard cannot: how a quarter went,
+which plan is actually selling, how much of the money is renewals rather than new
+business, and whether the trials turn into anything.
+
+The dashboard's thirty-day window stays exactly where it is. A window that moves
+cannot be compared between two visits, which is the property an operations
+overview needs and the reason it was fixed in the first place. This is the screen
+where the window moves.
+
+## Three rules that decide the numbers
+
+**The period keys on when the order was paid, and that instant never moves.**
+`orders.paid_at` is written the first time an order reaches a settled state and
+never again. Before this existed, reporting keyed on `updated_at` — so recording
+a refund in March silently moved a February sale into March, and the same report
+run twice over the same closed period returned different numbers. An integration
+test now records a refund against a closed period and asserts the figures do not
+change.
+
+**Provider money and wallet credit are never added.** They are separate columns
+in every table on the screen. A wallet balance was already counted as revenue
+when it was funded, so adding the two counts it twice — which is exactly the
+mistake a single "revenue" figure invites.
+
+**Refunds are reported on the day they were issued**, not against the sale they
+reverse. "What did we refund in March" is a question an operator can act on;
+"what did we sell in February that was later refunded" retroactively changes a
+month that had closed.
+
+## What the screen shows
+
+| Section | What it answers |
+| --- | --- |
+| Trial conversion | Of the trials claimed in this period, how many of those customers have since paid for anything. |
+| By kind of sale | New purchases, automatic renewals, extensions, upgrades, downgrades, add-ons, wallet top-ups, gifts, and digital goods, per currency. |
+| By plan | Which plan version sold, at which billing period, and what it was worth at list price. |
+| Provider money by day | One chart per currency, with the same figures as a table beside it. |
+| Refunds issued | What went back, per currency, in this period. |
+
+<Note>
+  Trial conversion is a **cohort** measure and the screen says so beside the
+  figure. The denominator is trials claimed inside the period; the numerator
+  counts conversions at any later time. A period ending today therefore reads
+  low — a trial claimed yesterday has had one day to convert — and that is a
+  property of the question rather than a fault in the measurement.
+</Note>
+
+## The period
+
+Four presets cover what people actually ask for — 7, 30, 90, and 365 days — and
+the two date fields take anything else. A period longer than two years is
+refused with the limit named, rather than becoming a query that runs until a
+proxy times out.
+
+**Days are bucketed in your own timezone**, taken from the browser and passed to
+the API. "Sales on the third" means the operator's third; a report bucketed in
+UTC puts an evening sale several hours east on the wrong day, and an integration
+test asserts the same sale lands on the 2nd in UTC and the 3rd in Moscow.
+
+The plan breakdown reads the code, version, and billing period off the plan
+version each order actually referenced rather than off the plan's current state.
+That is what plan versions are for: a price change last week must not re-price a
+sale from last month.
+
+## The export
+
+`GET /v1/panel/reports/sales/export` takes the same four parameters and returns
+one CSV with a `section` column — `operation`, `plan`, `day`, `refund`, `trial` —
+rather than four files, because the breakdowns are four views of one period.
+
+Amounts are exported in **minor units, unscaled**, exactly as they are stored.
+Dividing by a hundred is wrong for every zero-decimal currency, and it is
+something the reader can do knowing their own.
+
+## Permissions
+
+Both routes need `finance.read`, the same permission the order and payment
+screens need. A sales report is money, and an installation that has decided who
+may read money has already made this decision; a permission of its own would let
+the two drift into disagreeing about the same figures.
+
+## What is not here
+
+Payment health per provider — the share of intents that settle, by adapter — is
+a separate absence tracked in the roadmap. So is advertising attribution and
+per-node traffic. This screen reports what was sold, not how well each acquirer
+took the money or where the customer came from.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Admin operations" icon="gauge" href="/operations/admin-operations">
+    The dashboard, its fixed window, and the incidents and drift beside it.
+  </Card>
+  <Card title="Orders and payments" icon="receipt" href="/commerce/orders-payments">
+    The states an order moves through and what settles it.
+  </Card>
+  <Card title="Financial invariants" icon="scale-balanced" href="/commerce/financial-invariants">
+    Why provider money, wallet credit, and refunds are three figures rather than one.
+  </Card>
+  <Card title="Wallet and ledger" icon="wallet" href="/commerce/wallet-ledger">
+    Where a balance comes from, and why spending it is not new revenue.
+  </Card>
+</CardGroup>

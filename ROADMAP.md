@@ -1592,11 +1592,37 @@ below this section are directions; these are specific absences.
 
 ### Reporting and growth measurement
 
-- [ ] Sales reporting over a period an operator chooses —
-      `internal/panelpg/dashboard.go` reports a fixed 30-day window, deliberately,
-      so that two visits compare. That is the right default and the wrong only
-      option: there is no breakdown by plan, period, or day, no trial-to-paid
-      conversion, and no separate view of renewals, add-ons, or wallet top-ups.
+- [x] Sales reporting over a period an operator chooses — done, at
+      `/admin/reports` and documented at
+      [`operations/sales-reporting`](./docs/operations/sales-reporting.mdx). The
+      dashboard's fixed window stays exactly where it is, for the reason it was
+      fixed; this is the screen where it moves. It breaks down by kind of sale —
+      which is what separates new purchases from renewals, add-ons, and top-ups —
+      by plan version and billing period, and by day, with trial conversion and
+      refunds issued, plus a CSV of all of it.
+
+      Building it found the reason the fixed window had been getting away with
+      it. Reporting keyed on `orders.updated_at`, which moves on any write, so
+      recording a refund in March silently moved a February sale into March and
+      the same report over the same closed period returned different numbers
+      each time. `orders.paid_at` is written once, on first settlement, and never
+      again; an integration test records a refund against a closed period and
+      asserts the figures do not move.
+
+      Three smaller decisions are stated on the screen rather than left implied.
+      Provider money and wallet credit are never added, because the balance was
+      already revenue when it was funded. Refunds are dated by when they were
+      issued, not by the sale they reverse. And trial conversion is labelled as
+      a cohort measure, because the numerator counts conversions at any later
+      time and a period ending today reads low by construction — a figure people
+      misread once and then distrust forever.
+
+      Days bucket in the operator's own timezone rather than UTC, with a test
+      asserting the same sale lands on the 2nd in UTC and the 3rd in Moscow. The
+      route went over the first-load JavaScript budget once recharts and the
+      date picker's calendar were both on it, so the chart loads on demand and
+      the tables — which carry the same figures and are the accessible
+      equivalent the chart needs anyway — arrive first.
 - [ ] Payment health per provider — the share of intents that settle, by adapter,
       over time. With four bundled providers an acquirer that starts failing is
       currently visible as support tickets and a growing stuck-payment queue
