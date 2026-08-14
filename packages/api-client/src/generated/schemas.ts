@@ -58,6 +58,36 @@ export const ListPlansResponse = zod.object({
   items: zod.array(zod.record(zod.string(), zod.unknown())),
 });
 
+/**
+ * Public. What an installation looks like, read by both panels before they paint: the service name, the operator's palette rendered as ready-to-inline declarations, and the addresses of the brand images. It deliberately carries nothing else, because everything here is readable by anyone who can reach the installation. Absent when no operator panel is configured, in which case the shipped design is used.
+ */
+export const GetBrandingResponse = zod.object({
+  serviceName: zod.string().describe("Empty when the installation has not named itself."),
+  css: zod.string(),
+  radius: zod.string(),
+  density: zod.string(),
+  allowedThemes: zod.array(zod.string()),
+  defaultTheme: zod.string(),
+  assets: zod
+    .record(zod.string(), zod.string())
+    .describe(
+      "Slot name to an address carrying the image checksum. A slot with no image is absent.",
+    ),
+});
+
+/**
+ * Public. One brand image. The `v` parameter carries the image's own SHA-256; a request naming the current one is answered as immutable, so a browser holds the bytes until the operator replaces them.
+ */
+export const GetBrandingAssetParams = zod.object({
+  kind: zod.enum(["logo_light", "logo_dark", "favicon"]),
+});
+
+export const GetBrandingAssetQueryParams = zod.object({
+  v: zod.string().optional().describe("The image checksum, as published by /v1/branding."),
+});
+
+export const GetBrandingAssetResponse = zod.unknown();
+
 export const createPlanBodyCodeRegExp = /^[a-z][a-z0-9_-]{1,63}$/;
 export const createPlanBodyVisibleDefault = false;
 export const createPlanBodyLocalizationsNameMax = 120;
@@ -3265,6 +3295,175 @@ export const SavePanelSubscriptionSettingsResponse = zod.object({
   }),
   updatedAt: zod.iso.datetime({ offset: true }),
   updatedBy: zod.uuid().optional(),
+});
+
+/**
+ * Requires settings.read. The stored palette, the stylesheet it renders as, the tokens this build honours, and every contrast problem the palette has. The warnings are recomputed on each read rather than stored, so they cannot go stale against a palette edited elsewhere.
+ */
+export const GetPanelThemeResponse = zod.object({
+  theme: zod
+    .object({
+      light: zod.record(zod.string(), zod.string()).optional(),
+      dark: zod.record(zod.string(), zod.string()).optional(),
+      radius: zod.enum(["square", "compact", "default", "rounded"]).optional(),
+      density: zod.enum(["compact", "default", "comfortable"]).optional(),
+      allowedThemes: zod
+        .array(zod.enum(["light", "dark"]))
+        .optional()
+        .describe(
+          "Which modes a visitor may switch between. One mode removes the switcher rather than leaving it inert.",
+        ),
+      defaultTheme: zod.enum(["light", "dark", "system"]).optional(),
+    })
+    .describe(
+      "An operator's overrides. Every field is optional, and an omitted one keeps the design's own value. A palette maps a themable token name to a hex colour and accepts nothing else, because these values are rendered into a style element.",
+    ),
+  css: zod.string().describe("The declarations to inline. Empty when nothing has been customised."),
+  warnings: zod.array(
+    zod.object({
+      code: zod.enum(["pair_unreadable", "pair_below_aa"]),
+      mode: zod.enum(["light", "dark"]),
+      foreground: zod.string(),
+      background: zod.string(),
+      ratio: zod.number().describe("The WCAG contrast ratio, from 1 to 21."),
+      blocking: zod.boolean().describe("True below 3:1, which refuses the save."),
+    }),
+  ),
+  themable: zod.array(zod.string()).describe("The token names this build honours."),
+  version: zod.int(),
+  updatedAt: zod.iso.datetime({ offset: true }),
+  updatedBy: zod.uuid().optional(),
+});
+
+/**
+ * Requires settings.write. Refused when any text pair falls below 3:1 against its own background, which is under the loosest threshold WCAG 2.2 defines for any text. A pair between 3:1 and 4.5:1 is saved and reported as a warning, because a brand tone that fails AA is a decision an operator is entitled to make and be told about.
+ */
+export const SavePanelThemeHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const SavePanelThemeBody = zod.object({
+  theme: zod
+    .object({
+      light: zod.record(zod.string(), zod.string()).optional(),
+      dark: zod.record(zod.string(), zod.string()).optional(),
+      radius: zod.enum(["square", "compact", "default", "rounded"]).optional(),
+      density: zod.enum(["compact", "default", "comfortable"]).optional(),
+      allowedThemes: zod
+        .array(zod.enum(["light", "dark"]))
+        .optional()
+        .describe(
+          "Which modes a visitor may switch between. One mode removes the switcher rather than leaving it inert.",
+        ),
+      defaultTheme: zod.enum(["light", "dark", "system"]).optional(),
+    })
+    .describe(
+      "An operator's overrides. Every field is optional, and an omitted one keeps the design's own value. A palette maps a themable token name to a hex colour and accepts nothing else, because these values are rendered into a style element.",
+    ),
+  version: zod
+    .int()
+    .describe(
+      "The version the screen was showing. A mismatch is a conflict rather than an overwrite.",
+    ),
+});
+
+export const SavePanelThemeResponse = zod.object({
+  theme: zod
+    .object({
+      light: zod.record(zod.string(), zod.string()).optional(),
+      dark: zod.record(zod.string(), zod.string()).optional(),
+      radius: zod.enum(["square", "compact", "default", "rounded"]).optional(),
+      density: zod.enum(["compact", "default", "comfortable"]).optional(),
+      allowedThemes: zod
+        .array(zod.enum(["light", "dark"]))
+        .optional()
+        .describe(
+          "Which modes a visitor may switch between. One mode removes the switcher rather than leaving it inert.",
+        ),
+      defaultTheme: zod.enum(["light", "dark", "system"]).optional(),
+    })
+    .describe(
+      "An operator's overrides. Every field is optional, and an omitted one keeps the design's own value. A palette maps a themable token name to a hex colour and accepts nothing else, because these values are rendered into a style element.",
+    ),
+  css: zod.string().describe("The declarations to inline. Empty when nothing has been customised."),
+  warnings: zod.array(
+    zod.object({
+      code: zod.enum(["pair_unreadable", "pair_below_aa"]),
+      mode: zod.enum(["light", "dark"]),
+      foreground: zod.string(),
+      background: zod.string(),
+      ratio: zod.number().describe("The WCAG contrast ratio, from 1 to 21."),
+      blocking: zod.boolean().describe("True below 3:1, which refuses the save."),
+    }),
+  ),
+  themable: zod.array(zod.string()).describe("The token names this build honours."),
+  version: zod.int(),
+  updatedAt: zod.iso.datetime({ offset: true }),
+  updatedBy: zod.uuid().optional(),
+});
+
+/**
+ * Requires settings.read. The image slots with their size, type, and checksum. The bytes are not returned here; they are served publicly by the branding asset route.
+ */
+export const ListPanelBrandingAssetsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      kind: zod.enum(["logo_light", "logo_dark", "favicon"]),
+      contentType: zod.enum(["image/png", "image/jpeg", "image/webp"]),
+      byteSize: zod.int(),
+      checksum: zod
+        .string()
+        .describe("SHA-256 of the bytes, hex encoded. Published as the ETag of the asset."),
+      updatedAt: zod.iso.datetime({ offset: true }),
+      updatedBy: zod.uuid().optional(),
+    }),
+  ),
+  kinds: zod.array(zod.string()),
+  contentTypes: zod.array(zod.string()),
+  maxBytes: zod.int(),
+});
+
+/**
+ * Requires settings.write. The body is the image itself rather than a form or a base64 field, so its size is bounded before a byte is read. The declared content type must match the magic number of the bytes. SVG is not accepted: it can carry a script, and these files are served from the same origin as both panels.
+ */
+export const SavePanelBrandingAssetParams = zod.object({
+  kind: zod.enum(["logo_light", "logo_dark", "favicon"]),
+});
+
+export const SavePanelBrandingAssetHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const SavePanelBrandingAssetResponse = zod.object({
+  kind: zod.enum(["logo_light", "logo_dark", "favicon"]),
+  contentType: zod.enum(["image/png", "image/jpeg", "image/webp"]),
+  byteSize: zod.int(),
+  checksum: zod
+    .string()
+    .describe("SHA-256 of the bytes, hex encoded. Published as the ETag of the asset."),
+  updatedAt: zod.iso.datetime({ offset: true }),
+  updatedBy: zod.uuid().optional(),
+});
+
+/**
+ * Requires settings.write. Clears the slot, returning the installation to the shipped mark.
+ */
+export const DeletePanelBrandingAssetParams = zod.object({
+  kind: zod.enum(["logo_light", "logo_dark", "favicon"]),
+});
+
+export const DeletePanelBrandingAssetHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const DeletePanelBrandingAssetResponse = zod.object({
+  removed: zod.boolean().optional(),
 });
 
 /**

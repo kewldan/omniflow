@@ -464,6 +464,16 @@ type BotSession struct {
 	Context    []byte             `json:"context"`
 }
 
+// Operator-supplied brand images, served publicly by checksum. Never customer data.
+type BrandingAsset struct {
+	Kind        string             `json:"kind"`
+	ContentType string             `json:"content_type"`
+	Bytes       []byte             `json:"bytes"`
+	Checksum    string             `json:"checksum"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy   pgtype.UUID        `json:"updated_by"`
+}
+
 type BulkOperation struct {
 	ID             pgtype.UUID        `json:"id"`
 	Kind           string             `json:"kind"`

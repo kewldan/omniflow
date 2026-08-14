@@ -1527,12 +1527,38 @@ below this section are directions; these are specific absences.
 
 ### Branding and presentation
 
-- [ ] White-label theming beyond a name — the `branding` settings section carries
-      `serviceName`, `supportContact`, `publicUrl`, `termsUrl`, `defaultLocale`,
-      and `timezone`. There is no colour palette for light and dark, no logo
-      upload, no way to restrict which themes an installation offers, and no
-      radius or density preference. An operator who installs Omniflow to sell
-      under their own brand currently ships somebody else's colour and type.
+- [x] White-label theming beyond a name — done, and documented at
+      [`operations/branding`](./docs/operations/branding.mdx). A `theme` settings
+      section carries a palette for both modes over twenty-three tokens, a corner
+      and a spacing scale, which modes the installation offers, and its default;
+      `branding_assets` carries a logo per mode and a tab icon. It is the first
+      installation setting that actually takes effect — both panels read
+      `GET /v1/branding` server-side and inline the declarations before first
+      paint, so there is no flash of somebody else's brand and no environment
+      variable to restart for.
+
+      Three decisions are worth reading rather than inferring. **The status tones
+      are not settable**: an installation whose *destructive* is green has not
+      been branded, it has been broken, in the one place where being wrong costs
+      somebody an action they cannot undo. **Contrast is computed, not trusted** —
+      against the resolved palette, so setting only `card` is checked against
+      every foreground drawn on a card; below 3:1 refuses the save naming the
+      pair, between 3:1 and 4.5:1 saves with a warning, because a brand tone that
+      fails AA is a decision an operator is entitled to make and unreadable text
+      is not. And **SVG is refused**, because these files are served from the
+      origin that holds the session cookie and an SVG can carry a script.
+
+      There is no second implementation of any of it in the browser, including
+      the WCAG formula: two would eventually disagree about which palettes are
+      allowed, and only the one that refuses saves would be right. What the panel
+      computes locally is the preview, by setting the form's values as custom
+      properties on one wrapper and letting the browser answer.
+
+      One thing shipped that was not asked for and is the reason the switcher is
+      honest: next-themes has no notion of a restricted set, so `forcedTheme`
+      alone would have left every theme control on both surfaces rendered,
+      pressable, and inert. The allowed set is published to the client and both
+      controls disappear instead.
 - [ ] Operator-editable client application catalogue — the connect screen renders
       a client table compiled into `internal/commerce`, which both customer
       surfaces read so that the chat and the browser cannot recommend different

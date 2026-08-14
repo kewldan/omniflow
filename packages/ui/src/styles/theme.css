@@ -203,13 +203,27 @@
   /*
    * Corner radii read straight off the design: 5px chips, 8-9px controls,
    * 10px rows and cards, 12px feature cards, pills for avatars and badges.
+   *
+   * Each is multiplied by --radius-scale so an operator can square the corners
+   * off or round them further from the panel. A scale rather than six numbers
+   * because these six are a relationship — chips smaller than controls smaller
+   * than cards — and an operator setting them individually would be choosing a
+   * relationship they cannot see. The fallback keeps the design's own value
+   * when no theme is published, including in a build that never renders one.
    */
-  --radius-xs: 5px;
-  --radius-sm: 8px;
-  --radius-md: 9px;
-  --radius-lg: 10px;
-  --radius-xl: 12px;
-  --radius-2xl: 16px;
+  --radius-xs: calc(5px * var(--radius-scale, 1));
+  --radius-sm: calc(8px * var(--radius-scale, 1));
+  --radius-md: calc(9px * var(--radius-scale, 1));
+  --radius-lg: calc(10px * var(--radius-scale, 1));
+  --radius-xl: calc(12px * var(--radius-scale, 1));
+  --radius-2xl: calc(16px * var(--radius-scale, 1));
+
+  /*
+   * Tailwind's spacing base, multiplied the same way. Every padding, gap, and
+   * inset in both panels is a multiple of it, so one variable is the whole
+   * density control — and is also why the scales it accepts are narrow.
+   */
+  --spacing: calc(0.25rem * var(--density-scale, 1));
 
   --font-sans: var(--font-geist-sans), Geist, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), "Geist Mono", ui-monospace, monospace;

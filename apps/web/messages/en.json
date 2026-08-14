@@ -21,6 +21,72 @@
       "dark": "Dark",
       "system": "System"
     },
+    "branding": {
+      "title": "Appearance",
+      "description": "The palette, the corners, the spacing, and the mark this installation renders under. Everything here is optional; what you leave unset stays the shipped design.",
+      "save": "Save appearance",
+      "saved": "Appearance saved",
+      "reset": "Restore the shipped design",
+      "resetHint": "Clears every override. Nothing is stored until you save.",
+      "unsaved": "The appearance has unsaved changes.",
+      "mode": {
+        "light": "Light",
+        "dark": "Dark",
+        "system": "Follow the device"
+      },
+      "radius": {
+        "square": "Square",
+        "compact": "Slightly rounded",
+        "default": "As designed",
+        "rounded": "Rounded"
+      },
+      "density": {
+        "compact": "Compact",
+        "default": "As designed",
+        "comfortable": "Comfortable"
+      },
+      "shape": {
+        "title": "Shape and modes",
+        "description": "Corner radius and spacing scale with the design rather than replacing it, so the relationship between a chip, a control, and a card survives the change.",
+        "radius": "Corners",
+        "density": "Spacing",
+        "offered": "Modes offered",
+        "offeredHint": "Turning one off removes the switcher from both surfaces instead of leaving a control that cannot take effect.",
+        "default": "Default for a new visitor"
+      },
+      "palette": {
+        "title": "Palette",
+        "description": "Six-digit hex values. An empty field keeps the design's own colour for that slot. The status tones — danger, success, warning — are not editable, because their meaning is what they communicate."
+      },
+      "preview": {
+        "label": "Preview",
+        "heading": "Subscription renewed",
+        "body": "This is how ordinary text reads against your surfaces.",
+        "primary": "Primary action",
+        "secondary": "Secondary",
+        "badge": "Label"
+      },
+      "warnings": {
+        "blocking": "This palette cannot be saved",
+        "advisory": "This palette falls short of WCAG 2.2 AA",
+        "pair": "{foreground} on {background} in the {mode} palette is {ratio}:1."
+      },
+      "assets": {
+        "title": "Brand images",
+        "description": "Up to {kilobytes} KB each, as {types}. SVG is not accepted: an SVG can carry a script, and these files are served from the same origin as the panel.",
+        "empty": "Not set — the shipped mark is used.",
+        "upload": "Upload",
+        "uploaded": "Image saved",
+        "remove": "Remove",
+        "removed": "Image removed",
+        "tooLarge": "That image is larger than {kilobytes} KB.",
+        "kind": {
+          "logo_light": "Logo, light mode",
+          "logo_dark": "Logo, dark mode",
+          "favicon": "Browser tab icon"
+        }
+      }
+    },
     "navigation": {
       "label": "Admin navigation",
       "open": "Open navigation",

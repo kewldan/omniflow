@@ -1681,6 +1681,48 @@ func (e PanelBlocklistSourceInputSubjectKind) Valid() bool {
 	}
 }
 
+// Defines values for PanelBrandingAssetContentType.
+const (
+	Imagejpeg PanelBrandingAssetContentType = "image/jpeg"
+	Imagepng  PanelBrandingAssetContentType = "image/png"
+	Imagewebp PanelBrandingAssetContentType = "image/webp"
+)
+
+// Valid indicates whether the value is a known member of the PanelBrandingAssetContentType enum.
+func (e PanelBrandingAssetContentType) Valid() bool {
+	switch e {
+	case Imagejpeg:
+		return true
+	case Imagepng:
+		return true
+	case Imagewebp:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelBrandingAssetKind.
+const (
+	PanelBrandingAssetKindFavicon   PanelBrandingAssetKind = "favicon"
+	PanelBrandingAssetKindLogoDark  PanelBrandingAssetKind = "logo_dark"
+	PanelBrandingAssetKindLogoLight PanelBrandingAssetKind = "logo_light"
+)
+
+// Valid indicates whether the value is a known member of the PanelBrandingAssetKind enum.
+func (e PanelBrandingAssetKind) Valid() bool {
+	switch e {
+	case PanelBrandingAssetKindFavicon:
+		return true
+	case PanelBrandingAssetKindLogoDark:
+		return true
+	case PanelBrandingAssetKindLogoLight:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PanelBulkInputKind.
 const (
 	PanelBulkInputKindCustomerExport      PanelBulkInputKind = "customer_export"
@@ -2632,6 +2674,126 @@ func (e TelemetryEventService) Valid() bool {
 	}
 }
 
+// Defines values for ThemeDocumentAllowedThemes.
+const (
+	ThemeDocumentAllowedThemesDark  ThemeDocumentAllowedThemes = "dark"
+	ThemeDocumentAllowedThemesLight ThemeDocumentAllowedThemes = "light"
+)
+
+// Valid indicates whether the value is a known member of the ThemeDocumentAllowedThemes enum.
+func (e ThemeDocumentAllowedThemes) Valid() bool {
+	switch e {
+	case ThemeDocumentAllowedThemesDark:
+		return true
+	case ThemeDocumentAllowedThemesLight:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ThemeDocumentDefaultTheme.
+const (
+	ThemeDocumentDefaultThemeDark   ThemeDocumentDefaultTheme = "dark"
+	ThemeDocumentDefaultThemeLight  ThemeDocumentDefaultTheme = "light"
+	ThemeDocumentDefaultThemeSystem ThemeDocumentDefaultTheme = "system"
+)
+
+// Valid indicates whether the value is a known member of the ThemeDocumentDefaultTheme enum.
+func (e ThemeDocumentDefaultTheme) Valid() bool {
+	switch e {
+	case ThemeDocumentDefaultThemeDark:
+		return true
+	case ThemeDocumentDefaultThemeLight:
+		return true
+	case ThemeDocumentDefaultThemeSystem:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ThemeDocumentDensity.
+const (
+	ThemeDocumentDensityComfortable ThemeDocumentDensity = "comfortable"
+	ThemeDocumentDensityCompact     ThemeDocumentDensity = "compact"
+	ThemeDocumentDensityDefault     ThemeDocumentDensity = "default"
+)
+
+// Valid indicates whether the value is a known member of the ThemeDocumentDensity enum.
+func (e ThemeDocumentDensity) Valid() bool {
+	switch e {
+	case ThemeDocumentDensityComfortable:
+		return true
+	case ThemeDocumentDensityCompact:
+		return true
+	case ThemeDocumentDensityDefault:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ThemeDocumentRadius.
+const (
+	ThemeDocumentRadiusCompact ThemeDocumentRadius = "compact"
+	ThemeDocumentRadiusDefault ThemeDocumentRadius = "default"
+	ThemeDocumentRadiusRounded ThemeDocumentRadius = "rounded"
+	ThemeDocumentRadiusSquare  ThemeDocumentRadius = "square"
+)
+
+// Valid indicates whether the value is a known member of the ThemeDocumentRadius enum.
+func (e ThemeDocumentRadius) Valid() bool {
+	switch e {
+	case ThemeDocumentRadiusCompact:
+		return true
+	case ThemeDocumentRadiusDefault:
+		return true
+	case ThemeDocumentRadiusRounded:
+		return true
+	case ThemeDocumentRadiusSquare:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ThemeWarningCode.
+const (
+	PairBelowAa    ThemeWarningCode = "pair_below_aa"
+	PairUnreadable ThemeWarningCode = "pair_unreadable"
+)
+
+// Valid indicates whether the value is a known member of the ThemeWarningCode enum.
+func (e ThemeWarningCode) Valid() bool {
+	switch e {
+	case PairBelowAa:
+		return true
+	case PairUnreadable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ThemeWarningMode.
+const (
+	ThemeWarningModeDark  ThemeWarningMode = "dark"
+	ThemeWarningModeLight ThemeWarningMode = "light"
+)
+
+// Valid indicates whether the value is a known member of the ThemeWarningMode enum.
+func (e ThemeWarningMode) Valid() bool {
+	switch e {
+	case ThemeWarningModeDark:
+		return true
+	case ThemeWarningModeLight:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for WalletAdjustmentType.
 const (
 	Correction     WalletAdjustmentType = "correction"
@@ -3031,6 +3193,27 @@ func (e ListJobsParamsState) Valid() bool {
 	}
 }
 
+// Defines values for GetBrandingAssetParamsKind.
+const (
+	GetBrandingAssetParamsKindFavicon   GetBrandingAssetParamsKind = "favicon"
+	GetBrandingAssetParamsKindLogoDark  GetBrandingAssetParamsKind = "logo_dark"
+	GetBrandingAssetParamsKindLogoLight GetBrandingAssetParamsKind = "logo_light"
+)
+
+// Valid indicates whether the value is a known member of the GetBrandingAssetParamsKind enum.
+func (e GetBrandingAssetParamsKind) Valid() bool {
+	switch e {
+	case GetBrandingAssetParamsKindFavicon:
+		return true
+	case GetBrandingAssetParamsKindLogoDark:
+		return true
+	case GetBrandingAssetParamsKindLogoLight:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListPlansParamsLocale.
 const (
 	ListPlansParamsLocaleEn ListPlansParamsLocale = "en"
@@ -3310,6 +3493,48 @@ func (e DecidePanelBlocklistMatchJSONBodyDecision) Valid() bool {
 	case DecidePanelBlocklistMatchJSONBodyDecisionAllowed:
 		return true
 	case DecidePanelBlocklistMatchJSONBodyDecisionBlocked:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeletePanelBrandingAssetParamsKind.
+const (
+	DeletePanelBrandingAssetParamsKindFavicon   DeletePanelBrandingAssetParamsKind = "favicon"
+	DeletePanelBrandingAssetParamsKindLogoDark  DeletePanelBrandingAssetParamsKind = "logo_dark"
+	DeletePanelBrandingAssetParamsKindLogoLight DeletePanelBrandingAssetParamsKind = "logo_light"
+)
+
+// Valid indicates whether the value is a known member of the DeletePanelBrandingAssetParamsKind enum.
+func (e DeletePanelBrandingAssetParamsKind) Valid() bool {
+	switch e {
+	case DeletePanelBrandingAssetParamsKindFavicon:
+		return true
+	case DeletePanelBrandingAssetParamsKindLogoDark:
+		return true
+	case DeletePanelBrandingAssetParamsKindLogoLight:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SavePanelBrandingAssetParamsKind.
+const (
+	SavePanelBrandingAssetParamsKindFavicon   SavePanelBrandingAssetParamsKind = "favicon"
+	SavePanelBrandingAssetParamsKindLogoDark  SavePanelBrandingAssetParamsKind = "logo_dark"
+	SavePanelBrandingAssetParamsKindLogoLight SavePanelBrandingAssetParamsKind = "logo_light"
+)
+
+// Valid indicates whether the value is a known member of the SavePanelBrandingAssetParamsKind enum.
+func (e SavePanelBrandingAssetParamsKind) Valid() bool {
+	switch e {
+	case SavePanelBrandingAssetParamsKindFavicon:
+		return true
+	case SavePanelBrandingAssetParamsKindLogoDark:
+		return true
+	case SavePanelBrandingAssetParamsKindLogoLight:
 		return true
 	default:
 		return false
@@ -4392,6 +4617,21 @@ type BootstrapStatus struct {
 	SetupRequired bool `json:"setupRequired"`
 }
 
+// Branding defines model for Branding.
+type Branding struct {
+	AllowedThemes []string `json:"allowedThemes"`
+
+	// Assets Slot name to an address carrying the image checksum. A slot with no image is absent.
+	Assets       map[string]string `json:"assets"`
+	Css          string            `json:"css"`
+	DefaultTheme string            `json:"defaultTheme"`
+	Density      string            `json:"density"`
+	Radius       string            `json:"radius"`
+
+	// ServiceName Empty when the installation has not named itself.
+	ServiceName string `json:"serviceName"`
+}
+
 // ChallengeInput defines model for ChallengeInput.
 type ChallengeInput struct {
 	// Code A TOTP code or a single-use recovery code.
@@ -4973,6 +5213,32 @@ type PanelBlocklistSourceInputSubjectKind string
 // PanelBlocklistSourceList defines model for PanelBlocklistSourceList.
 type PanelBlocklistSourceList struct {
 	Items *[]PanelBlocklistSource `json:"items"`
+}
+
+// PanelBrandingAsset defines model for PanelBrandingAsset.
+type PanelBrandingAsset struct {
+	ByteSize int64 `json:"byteSize"`
+
+	// Checksum SHA-256 of the bytes, hex encoded. Published as the ETag of the asset.
+	Checksum    string                        `json:"checksum"`
+	ContentType PanelBrandingAssetContentType `json:"contentType"`
+	Kind        PanelBrandingAssetKind        `json:"kind"`
+	UpdatedAt   time.Time                     `json:"updatedAt"`
+	UpdatedBy   *openapi_types.UUID           `json:"updatedBy,omitempty"`
+}
+
+// PanelBrandingAssetContentType defines model for PanelBrandingAsset.ContentType.
+type PanelBrandingAssetContentType string
+
+// PanelBrandingAssetKind defines model for PanelBrandingAsset.Kind.
+type PanelBrandingAssetKind string
+
+// PanelBrandingAssetList defines model for PanelBrandingAssetList.
+type PanelBrandingAssetList struct {
+	ContentTypes []string             `json:"contentTypes"`
+	Items        []PanelBrandingAsset `json:"items"`
+	Kinds        []string             `json:"kinds"`
+	MaxBytes     int                  `json:"maxBytes"`
 }
 
 // PanelBulkDetail defines model for PanelBulkDetail.
@@ -5904,6 +6170,22 @@ type PanelSubscriptionSettings struct {
 	MultiEnabled   bool `json:"multiEnabled"`
 }
 
+// PanelTheme defines model for PanelTheme.
+type PanelTheme struct {
+	// Css The declarations to inline. Empty when nothing has been customised.
+	Css string `json:"css"`
+
+	// Themable The token names this build honours.
+	Themable []string `json:"themable"`
+
+	// Theme An operator's overrides. Every field is optional, and an omitted one keeps the design's own value. A palette maps a themable token name to a hex colour and accepts nothing else, because these values are rendered into a style element.
+	Theme     ThemeDocument       `json:"theme"`
+	UpdatedAt time.Time           `json:"updatedAt"`
+	UpdatedBy *openapi_types.UUID `json:"updatedBy,omitempty"`
+	Version   int                 `json:"version"`
+	Warnings  []ThemeWarning      `json:"warnings"`
+}
+
 // PanelTicket defines model for PanelTicket.
 type PanelTicket struct {
 	CreatedAt     time.Time          `json:"createdAt"`
@@ -5949,6 +6231,38 @@ type PanelWebhookEvent struct {
 type PanelWebhookPage struct {
 	Items      *[]PanelWebhookEvent `json:"items"`
 	NextCursor *string              `json:"nextCursor,omitempty"`
+}
+
+// Passkey One registered credential. It carries neither the public key nor the credential identifier: neither is secret, and neither is any use to an operator reading a list.
+type Passkey struct {
+	CreatedAt time.Time `json:"createdAt"`
+
+	// Discoverable Whether the key can sign in without the account being named first.
+	Discoverable bool               `json:"discoverable"`
+	Id           openapi_types.UUID `json:"id"`
+
+	// Label Chosen by the owner, to tell one device from another.
+	Label string `json:"label"`
+
+	// LastUsedAt Absent until the key has signed in.
+	LastUsedAt *time.Time `json:"lastUsedAt,omitempty"`
+}
+
+// PasskeyAvailability defines model for PasskeyAvailability.
+type PasskeyAvailability struct {
+	Available bool `json:"available"`
+}
+
+// PasskeyLabelInput defines model for PasskeyLabelInput.
+type PasskeyLabelInput struct {
+	Label string `json:"label"`
+}
+
+// PasskeyList defines model for PasskeyList.
+type PasskeyList struct {
+	// Available False when the installation has no public URL to bind credentials to.
+	Available bool      `json:"available"`
+	Items     []Passkey `json:"items"`
 }
 
 // PasswordChangeInput defines model for PasswordChangeInput.
@@ -6174,6 +6488,49 @@ type TelemetryEventSchema int
 
 // TelemetryEventService defines model for TelemetryEvent.Service.
 type TelemetryEventService string
+
+// ThemeDocument An operator's overrides. Every field is optional, and an omitted one keeps the design's own value. A palette maps a themable token name to a hex colour and accepts nothing else, because these values are rendered into a style element.
+type ThemeDocument struct {
+	// AllowedThemes Which modes a visitor may switch between. One mode removes the switcher rather than leaving it inert.
+	AllowedThemes *[]ThemeDocumentAllowedThemes `json:"allowedThemes,omitempty"`
+	Dark          *map[string]string            `json:"dark,omitempty"`
+	DefaultTheme  *ThemeDocumentDefaultTheme    `json:"defaultTheme,omitempty"`
+	Density       *ThemeDocumentDensity         `json:"density,omitempty"`
+	Light         *map[string]string            `json:"light,omitempty"`
+	Radius        *ThemeDocumentRadius          `json:"radius,omitempty"`
+}
+
+// ThemeDocumentAllowedThemes defines model for ThemeDocument.AllowedThemes.
+type ThemeDocumentAllowedThemes string
+
+// ThemeDocumentDefaultTheme defines model for ThemeDocument.DefaultTheme.
+type ThemeDocumentDefaultTheme string
+
+// ThemeDocumentDensity defines model for ThemeDocument.Density.
+type ThemeDocumentDensity string
+
+// ThemeDocumentRadius defines model for ThemeDocument.Radius.
+type ThemeDocumentRadius string
+
+// ThemeWarning defines model for ThemeWarning.
+type ThemeWarning struct {
+	Background string `json:"background"`
+
+	// Blocking True below 3:1, which refuses the save.
+	Blocking   bool             `json:"blocking"`
+	Code       ThemeWarningCode `json:"code"`
+	Foreground string           `json:"foreground"`
+	Mode       ThemeWarningMode `json:"mode"`
+
+	// Ratio The WCAG contrast ratio, from 1 to 21.
+	Ratio float32 `json:"ratio"`
+}
+
+// ThemeWarningCode defines model for ThemeWarning.Code.
+type ThemeWarningCode string
+
+// ThemeWarningMode defines model for ThemeWarning.Mode.
+type ThemeWarningMode string
 
 // TotpEnrolment defines model for TotpEnrolment.
 type TotpEnrolment struct {
@@ -6873,6 +7230,15 @@ type ListWebhookEventsParams struct {
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// GetBrandingAssetParams defines parameters for GetBrandingAsset.
+type GetBrandingAssetParams struct {
+	// V The image checksum, as published by /v1/branding.
+	V *string `form:"v,omitempty" json:"v,omitempty"`
+}
+
+// GetBrandingAssetParamsKind defines parameters for GetBrandingAsset.
+type GetBrandingAssetParamsKind string
+
 // ListPlansParams defines parameters for ListPlans.
 type ListPlansParams struct {
 	Locale *ListPlansParamsLocale `form:"locale,omitempty" json:"locale,omitempty"`
@@ -6932,6 +7298,38 @@ type PanelLogoutParams struct {
 
 // PanelLogoutAllParams defines parameters for PanelLogoutAll.
 type PanelLogoutAllParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// FinishPanelPasskeyLoginJSONBody defines parameters for FinishPanelPasskeyLogin.
+type FinishPanelPasskeyLoginJSONBody map[string]interface{}
+
+// BeginPanelPasskeyRegistrationParams defines parameters for BeginPanelPasskeyRegistration.
+type BeginPanelPasskeyRegistrationParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// FinishPanelPasskeyRegistrationJSONBody defines parameters for FinishPanelPasskeyRegistration.
+type FinishPanelPasskeyRegistrationJSONBody map[string]interface{}
+
+// FinishPanelPasskeyRegistrationParams defines parameters for FinishPanelPasskeyRegistration.
+type FinishPanelPasskeyRegistrationParams struct {
+	Label *string `form:"label,omitempty" json:"label,omitempty"`
+
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// RevokePanelPasskeyParams defines parameters for RevokePanelPasskey.
+type RevokePanelPasskeyParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// RenamePanelPasskeyParams defines parameters for RenamePanelPasskey.
+type RenamePanelPasskeyParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
@@ -7470,6 +7868,39 @@ type ConfigurePanelRecurringParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// SavePanelThemeJSONBody defines parameters for SavePanelTheme.
+type SavePanelThemeJSONBody struct {
+	// Theme An operator's overrides. Every field is optional, and an omitted one keeps the design's own value. A palette maps a themable token name to a hex colour and accepts nothing else, because these values are rendered into a style element.
+	Theme ThemeDocument `json:"theme"`
+
+	// Version The version the screen was showing. A mismatch is a conflict rather than an overwrite.
+	Version int `json:"version"`
+}
+
+// SavePanelThemeParams defines parameters for SavePanelTheme.
+type SavePanelThemeParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// DeletePanelBrandingAssetParams defines parameters for DeletePanelBrandingAsset.
+type DeletePanelBrandingAssetParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// DeletePanelBrandingAssetParamsKind defines parameters for DeletePanelBrandingAsset.
+type DeletePanelBrandingAssetParamsKind string
+
+// SavePanelBrandingAssetParams defines parameters for SavePanelBrandingAsset.
+type SavePanelBrandingAssetParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// SavePanelBrandingAssetParamsKind defines parameters for SavePanelBrandingAsset.
+type SavePanelBrandingAssetParamsKind string
+
 // ListPanelDriftParams defines parameters for ListPanelDrift.
 type ListPanelDriftParams struct {
 	PageSize *PageSize `form:"pageSize,omitempty" json:"pageSize,omitempty"`
@@ -7638,6 +8069,15 @@ type PanelVerifyChallengeJSONRequestBody = ChallengeInput
 // PanelLoginJSONRequestBody defines body for PanelLogin for application/json ContentType.
 type PanelLoginJSONRequestBody = LoginInput
 
+// FinishPanelPasskeyLoginJSONRequestBody defines body for FinishPanelPasskeyLogin for application/json ContentType.
+type FinishPanelPasskeyLoginJSONRequestBody FinishPanelPasskeyLoginJSONBody
+
+// FinishPanelPasskeyRegistrationJSONRequestBody defines body for FinishPanelPasskeyRegistration for application/json ContentType.
+type FinishPanelPasskeyRegistrationJSONRequestBody FinishPanelPasskeyRegistrationJSONBody
+
+// RenamePanelPasskeyJSONRequestBody defines body for RenamePanelPasskey for application/json ContentType.
+type RenamePanelPasskeyJSONRequestBody = PasskeyLabelInput
+
 // ChangePanelPasswordJSONRequestBody defines body for ChangePanelPassword for application/json ContentType.
 type ChangePanelPasswordJSONRequestBody = PasswordChangeInput
 
@@ -7742,6 +8182,9 @@ type SavePanelProviderSettingsJSONRequestBody = PanelProviderSettingsInput
 
 // ConfigurePanelRecurringJSONRequestBody defines body for ConfigurePanelRecurring for application/json ContentType.
 type ConfigurePanelRecurringJSONRequestBody = PanelRecurringTest
+
+// SavePanelThemeJSONRequestBody defines body for SavePanelTheme for application/json ContentType.
+type SavePanelThemeJSONRequestBody SavePanelThemeJSONBody
 
 // ReceivePaymentWebhookJSONRequestBody defines body for ReceivePaymentWebhook for application/json ContentType.
 type ReceivePaymentWebhookJSONRequestBody ReceivePaymentWebhookJSONBody
@@ -8067,6 +8510,12 @@ type ServerInterface interface {
 	// (GET /v1/admin/webhooks)
 	ListWebhookEvents(w http.ResponseWriter, r *http.Request, params ListWebhookEventsParams)
 
+	// (GET /v1/branding)
+	GetBranding(w http.ResponseWriter, r *http.Request)
+
+	// (GET /v1/branding/assets/{kind})
+	GetBrandingAsset(w http.ResponseWriter, r *http.Request, kind GetBrandingAssetParamsKind, params GetBrandingAssetParams)
+
 	// (GET /v1/catalog/plans)
 	ListPlans(w http.ResponseWriter, r *http.Request, params ListPlansParams)
 
@@ -8105,6 +8554,30 @@ type ServerInterface interface {
 
 	// (POST /v1/panel/auth/logout-all)
 	PanelLogoutAll(w http.ResponseWriter, r *http.Request, params PanelLogoutAllParams)
+
+	// (GET /v1/panel/auth/passkey)
+	PanelPasskeyAvailability(w http.ResponseWriter, r *http.Request)
+
+	// (POST /v1/panel/auth/passkey/login/begin)
+	BeginPanelPasskeyLogin(w http.ResponseWriter, r *http.Request)
+
+	// (POST /v1/panel/auth/passkey/login/finish)
+	FinishPanelPasskeyLogin(w http.ResponseWriter, r *http.Request)
+
+	// (GET /v1/panel/auth/passkeys)
+	ListPanelPasskeys(w http.ResponseWriter, r *http.Request)
+
+	// (POST /v1/panel/auth/passkeys/register/begin)
+	BeginPanelPasskeyRegistration(w http.ResponseWriter, r *http.Request, params BeginPanelPasskeyRegistrationParams)
+
+	// (POST /v1/panel/auth/passkeys/register/finish)
+	FinishPanelPasskeyRegistration(w http.ResponseWriter, r *http.Request, params FinishPanelPasskeyRegistrationParams)
+
+	// (DELETE /v1/panel/auth/passkeys/{passkeyID})
+	RevokePanelPasskey(w http.ResponseWriter, r *http.Request, passkeyID openapi_types.UUID, params RevokePanelPasskeyParams)
+
+	// (PATCH /v1/panel/auth/passkeys/{passkeyID})
+	RenamePanelPasskey(w http.ResponseWriter, r *http.Request, passkeyID openapi_types.UUID, params RenamePanelPasskeyParams)
 
 	// (POST /v1/panel/auth/password)
 	ChangePanelPassword(w http.ResponseWriter, r *http.Request, params ChangePanelPasswordParams)
@@ -8396,6 +8869,21 @@ type ServerInterface interface {
 
 	// (POST /v1/panel/settings/providers/{provider}/recurring)
 	ConfigurePanelRecurring(w http.ResponseWriter, r *http.Request, provider string, params ConfigurePanelRecurringParams)
+
+	// (GET /v1/panel/settings/theme)
+	GetPanelTheme(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /v1/panel/settings/theme)
+	SavePanelTheme(w http.ResponseWriter, r *http.Request, params SavePanelThemeParams)
+
+	// (GET /v1/panel/settings/theme/assets)
+	ListPanelBrandingAssets(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /v1/panel/settings/theme/assets/{kind})
+	DeletePanelBrandingAsset(w http.ResponseWriter, r *http.Request, kind DeletePanelBrandingAssetParamsKind, params DeletePanelBrandingAssetParams)
+
+	// (PUT /v1/panel/settings/theme/assets/{kind})
+	SavePanelBrandingAsset(w http.ResponseWriter, r *http.Request, kind SavePanelBrandingAssetParamsKind, params SavePanelBrandingAssetParams)
 
 	// (GET /v1/panel/system/drift)
 	ListPanelDrift(w http.ResponseWriter, r *http.Request, params ListPanelDriftParams)
@@ -8957,6 +9445,16 @@ func (_ Unimplemented) ListWebhookEvents(w http.ResponseWriter, r *http.Request,
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /v1/branding)
+func (_ Unimplemented) GetBranding(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/branding/assets/{kind})
+func (_ Unimplemented) GetBrandingAsset(w http.ResponseWriter, r *http.Request, kind GetBrandingAssetParamsKind, params GetBrandingAssetParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /v1/catalog/plans)
 func (_ Unimplemented) ListPlans(w http.ResponseWriter, r *http.Request, params ListPlansParams) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -9019,6 +9517,46 @@ func (_ Unimplemented) PanelLogout(w http.ResponseWriter, r *http.Request, param
 
 // (POST /v1/panel/auth/logout-all)
 func (_ Unimplemented) PanelLogoutAll(w http.ResponseWriter, r *http.Request, params PanelLogoutAllParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/auth/passkey)
+func (_ Unimplemented) PanelPasskeyAvailability(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/auth/passkey/login/begin)
+func (_ Unimplemented) BeginPanelPasskeyLogin(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/auth/passkey/login/finish)
+func (_ Unimplemented) FinishPanelPasskeyLogin(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/auth/passkeys)
+func (_ Unimplemented) ListPanelPasskeys(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/auth/passkeys/register/begin)
+func (_ Unimplemented) BeginPanelPasskeyRegistration(w http.ResponseWriter, r *http.Request, params BeginPanelPasskeyRegistrationParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/auth/passkeys/register/finish)
+func (_ Unimplemented) FinishPanelPasskeyRegistration(w http.ResponseWriter, r *http.Request, params FinishPanelPasskeyRegistrationParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /v1/panel/auth/passkeys/{passkeyID})
+func (_ Unimplemented) RevokePanelPasskey(w http.ResponseWriter, r *http.Request, passkeyID openapi_types.UUID, params RevokePanelPasskeyParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /v1/panel/auth/passkeys/{passkeyID})
+func (_ Unimplemented) RenamePanelPasskey(w http.ResponseWriter, r *http.Request, passkeyID openapi_types.UUID, params RenamePanelPasskeyParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -9504,6 +10042,31 @@ func (_ Unimplemented) SavePanelProviderSettings(w http.ResponseWriter, r *http.
 
 // (POST /v1/panel/settings/providers/{provider}/recurring)
 func (_ Unimplemented) ConfigurePanelRecurring(w http.ResponseWriter, r *http.Request, provider string, params ConfigurePanelRecurringParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/settings/theme)
+func (_ Unimplemented) GetPanelTheme(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /v1/panel/settings/theme)
+func (_ Unimplemented) SavePanelTheme(w http.ResponseWriter, r *http.Request, params SavePanelThemeParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/settings/theme/assets)
+func (_ Unimplemented) ListPanelBrandingAssets(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /v1/panel/settings/theme/assets/{kind})
+func (_ Unimplemented) DeletePanelBrandingAsset(w http.ResponseWriter, r *http.Request, kind DeletePanelBrandingAssetParamsKind, params DeletePanelBrandingAssetParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /v1/panel/settings/theme/assets/{kind})
+func (_ Unimplemented) SavePanelBrandingAsset(w http.ResponseWriter, r *http.Request, kind SavePanelBrandingAssetParamsKind, params SavePanelBrandingAssetParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -13795,6 +14358,62 @@ func (siw *ServerInterfaceWrapper) ListWebhookEvents(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// GetBranding operation middleware
+func (siw *ServerInterfaceWrapper) GetBranding(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetBranding(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetBrandingAsset operation middleware
+func (siw *ServerInterfaceWrapper) GetBrandingAsset(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "kind" -------------
+	var kind GetBrandingAssetParamsKind
+
+	err = runtime.BindStyledParameterWithOptions("simple", "kind", chi.URLParam(r, "kind"), &kind, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetBrandingAssetParams
+
+	// ------------- Optional query parameter "v" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "v", r.URL.Query(), &params.V, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "v"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "v", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetBrandingAsset(w, r, kind, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPlans operation middleware
 func (siw *ServerInterfaceWrapper) ListPlans(w http.ResponseWriter, r *http.Request) {
 
@@ -14366,6 +14985,273 @@ func (siw *ServerInterfaceWrapper) PanelLogoutAll(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PanelLogoutAll(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PanelPasskeyAvailability operation middleware
+func (siw *ServerInterfaceWrapper) PanelPasskeyAvailability(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PanelPasskeyAvailability(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// BeginPanelPasskeyLogin operation middleware
+func (siw *ServerInterfaceWrapper) BeginPanelPasskeyLogin(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BeginPanelPasskeyLogin(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// FinishPanelPasskeyLogin operation middleware
+func (siw *ServerInterfaceWrapper) FinishPanelPasskeyLogin(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.FinishPanelPasskeyLogin(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPanelPasskeys operation middleware
+func (siw *ServerInterfaceWrapper) ListPanelPasskeys(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPanelPasskeys(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// BeginPanelPasskeyRegistration operation middleware
+func (siw *ServerInterfaceWrapper) BeginPanelPasskeyRegistration(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params BeginPanelPasskeyRegistrationParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BeginPanelPasskeyRegistration(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// FinishPanelPasskeyRegistration operation middleware
+func (siw *ServerInterfaceWrapper) FinishPanelPasskeyRegistration(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params FinishPanelPasskeyRegistrationParams
+
+	// ------------- Optional query parameter "label" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "label", r.URL.Query(), &params.Label, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "label"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "label", Err: err})
+		}
+		return
+	}
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.FinishPanelPasskeyRegistration(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokePanelPasskey operation middleware
+func (siw *ServerInterfaceWrapper) RevokePanelPasskey(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "passkeyID" -------------
+	var passkeyID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "passkeyID", chi.URLParam(r, "passkeyID"), &passkeyID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "passkeyID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RevokePanelPasskeyParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokePanelPasskey(w, r, passkeyID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RenamePanelPasskey operation middleware
+func (siw *ServerInterfaceWrapper) RenamePanelPasskey(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "passkeyID" -------------
+	var passkeyID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "passkeyID", chi.URLParam(r, "passkeyID"), &passkeyID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "passkeyID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RenamePanelPasskeyParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RenamePanelPasskey(w, r, passkeyID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -18830,6 +19716,187 @@ func (siw *ServerInterfaceWrapper) ConfigurePanelRecurring(w http.ResponseWriter
 	handler.ServeHTTP(w, r)
 }
 
+// GetPanelTheme operation middleware
+func (siw *ServerInterfaceWrapper) GetPanelTheme(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPanelTheme(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SavePanelTheme operation middleware
+func (siw *ServerInterfaceWrapper) SavePanelTheme(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SavePanelThemeParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SavePanelTheme(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPanelBrandingAssets operation middleware
+func (siw *ServerInterfaceWrapper) ListPanelBrandingAssets(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPanelBrandingAssets(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeletePanelBrandingAsset operation middleware
+func (siw *ServerInterfaceWrapper) DeletePanelBrandingAsset(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "kind" -------------
+	var kind DeletePanelBrandingAssetParamsKind
+
+	err = runtime.BindStyledParameterWithOptions("simple", "kind", chi.URLParam(r, "kind"), &kind, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeletePanelBrandingAssetParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeletePanelBrandingAsset(w, r, kind, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SavePanelBrandingAsset operation middleware
+func (siw *ServerInterfaceWrapper) SavePanelBrandingAsset(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "kind" -------------
+	var kind SavePanelBrandingAssetParamsKind
+
+	err = runtime.BindStyledParameterWithOptions("simple", "kind", chi.URLParam(r, "kind"), &kind, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SavePanelBrandingAssetParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SavePanelBrandingAsset(w, r, kind, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPanelDrift operation middleware
 func (siw *ServerInterfaceWrapper) ListPanelDrift(w http.ResponseWriter, r *http.Request) {
 
@@ -19410,6 +20477,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/v1/catalog/plans", wrapper.ListPlans)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/branding", wrapper.GetBranding)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/branding/assets/{kind}", wrapper.GetBrandingAsset)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/admin/plans", wrapper.CreatePlan)
 	})
 	r.Group(func(r chi.Router) {
@@ -19552,6 +20625,30 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/panel/auth/recovery-codes", wrapper.RegeneratePanelRecoveryCodes)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/auth/passkey", wrapper.PanelPasskeyAvailability)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/auth/passkey/login/begin", wrapper.BeginPanelPasskeyLogin)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/auth/passkey/login/finish", wrapper.FinishPanelPasskeyLogin)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/auth/passkeys", wrapper.ListPanelPasskeys)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/auth/passkeys/register/begin", wrapper.BeginPanelPasskeyRegistration)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/auth/passkeys/register/finish", wrapper.FinishPanelPasskeyRegistration)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/panel/auth/passkeys/{passkeyID}", wrapper.RevokePanelPasskey)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/v1/panel/auth/passkeys/{passkeyID}", wrapper.RenamePanelPasskey)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/admins", wrapper.ListPanelAdmins)
@@ -19729,6 +20826,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/v1/panel/settings/commerce/subscriptions", wrapper.SavePanelSubscriptionSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/settings/theme", wrapper.GetPanelTheme)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/panel/settings/theme", wrapper.SavePanelTheme)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/settings/theme/assets", wrapper.ListPanelBrandingAssets)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/panel/settings/theme/assets/{kind}", wrapper.DeletePanelBrandingAsset)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/panel/settings/theme/assets/{kind}", wrapper.SavePanelBrandingAsset)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/settings/providers", wrapper.ListPanelProviderSettings)
@@ -24397,6 +25509,97 @@ func (response ListWebhookEvents500ApplicationProblemPlusJSONResponse) VisitList
 	return err
 }
 
+type GetBrandingRequestObject struct {
+}
+
+type GetBrandingResponseObject interface {
+	VisitGetBrandingResponse(w http.ResponseWriter) error
+}
+
+type GetBranding200JSONResponse Branding
+
+func (response GetBranding200JSONResponse) VisitGetBrandingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetBranding404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetBranding404ApplicationProblemPlusJSONResponse) VisitGetBrandingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetBrandingAssetRequestObject struct {
+	Kind   GetBrandingAssetParamsKind `json:"kind"`
+	Params GetBrandingAssetParams
+}
+
+type GetBrandingAssetResponseObject interface {
+	VisitGetBrandingAssetResponse(w http.ResponseWriter) error
+}
+
+type GetBrandingAsset200ImageResponse struct {
+	Body          io.Reader
+	ContentType   string
+	ContentLength int64
+}
+
+func (response GetBrandingAsset200ImageResponse) VisitGetBrandingAssetResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", response.ContentType)
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type GetBrandingAsset304Response struct {
+}
+
+func (response GetBrandingAsset304Response) VisitGetBrandingAssetResponse(w http.ResponseWriter) error {
+	w.WriteHeader(304)
+	return nil
+}
+
+type GetBrandingAsset404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetBrandingAsset404ApplicationProblemPlusJSONResponse) VisitGetBrandingAssetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListPlansRequestObject struct {
 	Params ListPlansParams
 }
@@ -24916,6 +26119,343 @@ func (response PanelLogoutAll200JSONResponse) VisitPanelLogoutAllResponse(w http
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PanelPasskeyAvailabilityRequestObject struct {
+}
+
+type PanelPasskeyAvailabilityResponseObject interface {
+	VisitPanelPasskeyAvailabilityResponse(w http.ResponseWriter) error
+}
+
+type PanelPasskeyAvailability200JSONResponse PasskeyAvailability
+
+func (response PanelPasskeyAvailability200JSONResponse) VisitPanelPasskeyAvailabilityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BeginPanelPasskeyLoginRequestObject struct {
+}
+
+type BeginPanelPasskeyLoginResponseObject interface {
+	VisitBeginPanelPasskeyLoginResponse(w http.ResponseWriter) error
+}
+
+type BeginPanelPasskeyLogin200JSONResponse map[string]interface{}
+
+func (response BeginPanelPasskeyLogin200JSONResponse) VisitBeginPanelPasskeyLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BeginPanelPasskeyLogin429ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response BeginPanelPasskeyLogin429ApplicationProblemPlusJSONResponse) VisitBeginPanelPasskeyLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BeginPanelPasskeyLogin503ApplicationProblemPlusJSONResponse Problem
+
+func (response BeginPanelPasskeyLogin503ApplicationProblemPlusJSONResponse) VisitBeginPanelPasskeyLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishPanelPasskeyLoginRequestObject struct {
+	Body *FinishPanelPasskeyLoginJSONRequestBody
+}
+
+type FinishPanelPasskeyLoginResponseObject interface {
+	VisitFinishPanelPasskeyLoginResponse(w http.ResponseWriter) error
+}
+
+type FinishPanelPasskeyLogin200JSONResponse LoginResult
+
+func (response FinishPanelPasskeyLogin200JSONResponse) VisitFinishPanelPasskeyLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishPanelPasskeyLogin400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response FinishPanelPasskeyLogin400ApplicationProblemPlusJSONResponse) VisitFinishPanelPasskeyLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishPanelPasskeyLogin401ApplicationProblemPlusJSONResponse Problem
+
+func (response FinishPanelPasskeyLogin401ApplicationProblemPlusJSONResponse) VisitFinishPanelPasskeyLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishPanelPasskeyLogin503ApplicationProblemPlusJSONResponse Problem
+
+func (response FinishPanelPasskeyLogin503ApplicationProblemPlusJSONResponse) VisitFinishPanelPasskeyLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelPasskeysRequestObject struct {
+}
+
+type ListPanelPasskeysResponseObject interface {
+	VisitListPanelPasskeysResponse(w http.ResponseWriter) error
+}
+
+type ListPanelPasskeys200JSONResponse PasskeyList
+
+func (response ListPanelPasskeys200JSONResponse) VisitListPanelPasskeysResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BeginPanelPasskeyRegistrationRequestObject struct {
+	Params BeginPanelPasskeyRegistrationParams
+}
+
+type BeginPanelPasskeyRegistrationResponseObject interface {
+	VisitBeginPanelPasskeyRegistrationResponse(w http.ResponseWriter) error
+}
+
+type BeginPanelPasskeyRegistration200JSONResponse map[string]interface{}
+
+func (response BeginPanelPasskeyRegistration200JSONResponse) VisitBeginPanelPasskeyRegistrationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BeginPanelPasskeyRegistration503ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response BeginPanelPasskeyRegistration503ApplicationProblemPlusJSONResponse) VisitBeginPanelPasskeyRegistrationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishPanelPasskeyRegistrationRequestObject struct {
+	Params FinishPanelPasskeyRegistrationParams
+	Body   *FinishPanelPasskeyRegistrationJSONRequestBody
+}
+
+type FinishPanelPasskeyRegistrationResponseObject interface {
+	VisitFinishPanelPasskeyRegistrationResponse(w http.ResponseWriter) error
+}
+
+type FinishPanelPasskeyRegistration200JSONResponse Passkey
+
+func (response FinishPanelPasskeyRegistration200JSONResponse) VisitFinishPanelPasskeyRegistrationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishPanelPasskeyRegistration400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response FinishPanelPasskeyRegistration400ApplicationProblemPlusJSONResponse) VisitFinishPanelPasskeyRegistrationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishPanelPasskeyRegistration422ApplicationProblemPlusJSONResponse Problem
+
+func (response FinishPanelPasskeyRegistration422ApplicationProblemPlusJSONResponse) VisitFinishPanelPasskeyRegistrationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishPanelPasskeyRegistration503ApplicationProblemPlusJSONResponse Problem
+
+func (response FinishPanelPasskeyRegistration503ApplicationProblemPlusJSONResponse) VisitFinishPanelPasskeyRegistrationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokePanelPasskeyRequestObject struct {
+	PasskeyID openapi_types.UUID `json:"passkeyID"`
+	Params    RevokePanelPasskeyParams
+}
+
+type RevokePanelPasskeyResponseObject interface {
+	VisitRevokePanelPasskeyResponse(w http.ResponseWriter) error
+}
+
+type RevokePanelPasskey204Response struct {
+}
+
+func (response RevokePanelPasskey204Response) VisitRevokePanelPasskeyResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type RevokePanelPasskey404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RevokePanelPasskey404ApplicationProblemPlusJSONResponse) VisitRevokePanelPasskeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RenamePanelPasskeyRequestObject struct {
+	PasskeyID openapi_types.UUID `json:"passkeyID"`
+	Params    RenamePanelPasskeyParams
+	Body      *RenamePanelPasskeyJSONRequestBody
+}
+
+type RenamePanelPasskeyResponseObject interface {
+	VisitRenamePanelPasskeyResponse(w http.ResponseWriter) error
+}
+
+type RenamePanelPasskey200JSONResponse Passkey
+
+func (response RenamePanelPasskey200JSONResponse) VisitRenamePanelPasskeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RenamePanelPasskey404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RenamePanelPasskey404ApplicationProblemPlusJSONResponse) VisitRenamePanelPasskeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -29123,6 +30663,271 @@ func (response ConfigurePanelRecurring422ApplicationProblemPlusJSONResponse) Vis
 	return err
 }
 
+type GetPanelThemeRequestObject struct {
+}
+
+type GetPanelThemeResponseObject interface {
+	VisitGetPanelThemeResponse(w http.ResponseWriter) error
+}
+
+type GetPanelTheme200JSONResponse PanelTheme
+
+func (response GetPanelTheme200JSONResponse) VisitGetPanelThemeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelTheme403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetPanelTheme403ApplicationProblemPlusJSONResponse) VisitGetPanelThemeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelThemeRequestObject struct {
+	Params SavePanelThemeParams
+	Body   *SavePanelThemeJSONRequestBody
+}
+
+type SavePanelThemeResponseObject interface {
+	VisitSavePanelThemeResponse(w http.ResponseWriter) error
+}
+
+type SavePanelTheme200JSONResponse PanelTheme
+
+func (response SavePanelTheme200JSONResponse) VisitSavePanelThemeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelTheme403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SavePanelTheme403ApplicationProblemPlusJSONResponse) VisitSavePanelThemeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelTheme409ApplicationProblemPlusJSONResponse Problem
+
+func (response SavePanelTheme409ApplicationProblemPlusJSONResponse) VisitSavePanelThemeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelTheme422ApplicationProblemPlusJSONResponse Problem
+
+func (response SavePanelTheme422ApplicationProblemPlusJSONResponse) VisitSavePanelThemeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelBrandingAssetsRequestObject struct {
+}
+
+type ListPanelBrandingAssetsResponseObject interface {
+	VisitListPanelBrandingAssetsResponse(w http.ResponseWriter) error
+}
+
+type ListPanelBrandingAssets200JSONResponse PanelBrandingAssetList
+
+func (response ListPanelBrandingAssets200JSONResponse) VisitListPanelBrandingAssetsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelBrandingAssets403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListPanelBrandingAssets403ApplicationProblemPlusJSONResponse) VisitListPanelBrandingAssetsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelBrandingAssetRequestObject struct {
+	Kind   DeletePanelBrandingAssetParamsKind `json:"kind"`
+	Params DeletePanelBrandingAssetParams
+}
+
+type DeletePanelBrandingAssetResponseObject interface {
+	VisitDeletePanelBrandingAssetResponse(w http.ResponseWriter) error
+}
+
+type DeletePanelBrandingAsset200JSONResponse struct {
+	Removed *bool `json:"removed,omitempty"`
+}
+
+func (response DeletePanelBrandingAsset200JSONResponse) VisitDeletePanelBrandingAssetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelBrandingAsset403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DeletePanelBrandingAsset403ApplicationProblemPlusJSONResponse) VisitDeletePanelBrandingAssetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelBrandingAsset404ApplicationProblemPlusJSONResponse Problem
+
+func (response DeletePanelBrandingAsset404ApplicationProblemPlusJSONResponse) VisitDeletePanelBrandingAssetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelBrandingAssetRequestObject struct {
+	Kind        SavePanelBrandingAssetParamsKind `json:"kind"`
+	Params      SavePanelBrandingAssetParams
+	ContentType string
+	Body        io.Reader
+}
+
+type SavePanelBrandingAssetResponseObject interface {
+	VisitSavePanelBrandingAssetResponse(w http.ResponseWriter) error
+}
+
+type SavePanelBrandingAsset200JSONResponse PanelBrandingAsset
+
+func (response SavePanelBrandingAsset200JSONResponse) VisitSavePanelBrandingAssetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelBrandingAsset403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SavePanelBrandingAsset403ApplicationProblemPlusJSONResponse) VisitSavePanelBrandingAssetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelBrandingAsset413ApplicationProblemPlusJSONResponse Problem
+
+func (response SavePanelBrandingAsset413ApplicationProblemPlusJSONResponse) VisitSavePanelBrandingAssetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(413)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelBrandingAsset422ApplicationProblemPlusJSONResponse Problem
+
+func (response SavePanelBrandingAsset422ApplicationProblemPlusJSONResponse) VisitSavePanelBrandingAssetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListPanelDriftRequestObject struct {
 	Params ListPanelDriftParams
 }
@@ -29857,6 +31662,12 @@ type StrictServerInterface interface {
 	// (GET /v1/admin/webhooks)
 	ListWebhookEvents(ctx context.Context, request ListWebhookEventsRequestObject) (ListWebhookEventsResponseObject, error)
 
+	// (GET /v1/branding)
+	GetBranding(ctx context.Context, request GetBrandingRequestObject) (GetBrandingResponseObject, error)
+
+	// (GET /v1/branding/assets/{kind})
+	GetBrandingAsset(ctx context.Context, request GetBrandingAssetRequestObject) (GetBrandingAssetResponseObject, error)
+
 	// (GET /v1/catalog/plans)
 	ListPlans(ctx context.Context, request ListPlansRequestObject) (ListPlansResponseObject, error)
 
@@ -29895,6 +31706,30 @@ type StrictServerInterface interface {
 
 	// (POST /v1/panel/auth/logout-all)
 	PanelLogoutAll(ctx context.Context, request PanelLogoutAllRequestObject) (PanelLogoutAllResponseObject, error)
+
+	// (GET /v1/panel/auth/passkey)
+	PanelPasskeyAvailability(ctx context.Context, request PanelPasskeyAvailabilityRequestObject) (PanelPasskeyAvailabilityResponseObject, error)
+
+	// (POST /v1/panel/auth/passkey/login/begin)
+	BeginPanelPasskeyLogin(ctx context.Context, request BeginPanelPasskeyLoginRequestObject) (BeginPanelPasskeyLoginResponseObject, error)
+
+	// (POST /v1/panel/auth/passkey/login/finish)
+	FinishPanelPasskeyLogin(ctx context.Context, request FinishPanelPasskeyLoginRequestObject) (FinishPanelPasskeyLoginResponseObject, error)
+
+	// (GET /v1/panel/auth/passkeys)
+	ListPanelPasskeys(ctx context.Context, request ListPanelPasskeysRequestObject) (ListPanelPasskeysResponseObject, error)
+
+	// (POST /v1/panel/auth/passkeys/register/begin)
+	BeginPanelPasskeyRegistration(ctx context.Context, request BeginPanelPasskeyRegistrationRequestObject) (BeginPanelPasskeyRegistrationResponseObject, error)
+
+	// (POST /v1/panel/auth/passkeys/register/finish)
+	FinishPanelPasskeyRegistration(ctx context.Context, request FinishPanelPasskeyRegistrationRequestObject) (FinishPanelPasskeyRegistrationResponseObject, error)
+
+	// (DELETE /v1/panel/auth/passkeys/{passkeyID})
+	RevokePanelPasskey(ctx context.Context, request RevokePanelPasskeyRequestObject) (RevokePanelPasskeyResponseObject, error)
+
+	// (PATCH /v1/panel/auth/passkeys/{passkeyID})
+	RenamePanelPasskey(ctx context.Context, request RenamePanelPasskeyRequestObject) (RenamePanelPasskeyResponseObject, error)
 
 	// (POST /v1/panel/auth/password)
 	ChangePanelPassword(ctx context.Context, request ChangePanelPasswordRequestObject) (ChangePanelPasswordResponseObject, error)
@@ -30186,6 +32021,21 @@ type StrictServerInterface interface {
 
 	// (POST /v1/panel/settings/providers/{provider}/recurring)
 	ConfigurePanelRecurring(ctx context.Context, request ConfigurePanelRecurringRequestObject) (ConfigurePanelRecurringResponseObject, error)
+
+	// (GET /v1/panel/settings/theme)
+	GetPanelTheme(ctx context.Context, request GetPanelThemeRequestObject) (GetPanelThemeResponseObject, error)
+
+	// (PUT /v1/panel/settings/theme)
+	SavePanelTheme(ctx context.Context, request SavePanelThemeRequestObject) (SavePanelThemeResponseObject, error)
+
+	// (GET /v1/panel/settings/theme/assets)
+	ListPanelBrandingAssets(ctx context.Context, request ListPanelBrandingAssetsRequestObject) (ListPanelBrandingAssetsResponseObject, error)
+
+	// (DELETE /v1/panel/settings/theme/assets/{kind})
+	DeletePanelBrandingAsset(ctx context.Context, request DeletePanelBrandingAssetRequestObject) (DeletePanelBrandingAssetResponseObject, error)
+
+	// (PUT /v1/panel/settings/theme/assets/{kind})
+	SavePanelBrandingAsset(ctx context.Context, request SavePanelBrandingAssetRequestObject) (SavePanelBrandingAssetResponseObject, error)
 
 	// (GET /v1/panel/system/drift)
 	ListPanelDrift(ctx context.Context, request ListPanelDriftRequestObject) (ListPanelDriftResponseObject, error)
@@ -33228,6 +35078,57 @@ func (sh *strictHandler) ListWebhookEvents(w http.ResponseWriter, r *http.Reques
 	}
 }
 
+// GetBranding operation middleware
+func (sh *strictHandler) GetBranding(w http.ResponseWriter, r *http.Request) {
+	var request GetBrandingRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetBranding(ctx, request.(GetBrandingRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetBranding")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetBrandingResponseObject); ok {
+		if err := validResponse.VisitGetBrandingResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetBrandingAsset operation middleware
+func (sh *strictHandler) GetBrandingAsset(w http.ResponseWriter, r *http.Request, kind GetBrandingAssetParamsKind, params GetBrandingAssetParams) {
+	var request GetBrandingAssetRequestObject
+
+	request.Kind = kind
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetBrandingAsset(ctx, request.(GetBrandingAssetRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetBrandingAsset")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetBrandingAssetResponseObject); ok {
+		if err := validResponse.VisitGetBrandingAssetResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListPlans operation middleware
 func (sh *strictHandler) ListPlans(w http.ResponseWriter, r *http.Request, params ListPlansParams) {
 	var request ListPlansRequestObject
@@ -33588,6 +35489,229 @@ func (sh *strictHandler) PanelLogoutAll(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PanelLogoutAllResponseObject); ok {
 		if err := validResponse.VisitPanelLogoutAllResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PanelPasskeyAvailability operation middleware
+func (sh *strictHandler) PanelPasskeyAvailability(w http.ResponseWriter, r *http.Request) {
+	var request PanelPasskeyAvailabilityRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PanelPasskeyAvailability(ctx, request.(PanelPasskeyAvailabilityRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PanelPasskeyAvailability")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PanelPasskeyAvailabilityResponseObject); ok {
+		if err := validResponse.VisitPanelPasskeyAvailabilityResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// BeginPanelPasskeyLogin operation middleware
+func (sh *strictHandler) BeginPanelPasskeyLogin(w http.ResponseWriter, r *http.Request) {
+	var request BeginPanelPasskeyLoginRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.BeginPanelPasskeyLogin(ctx, request.(BeginPanelPasskeyLoginRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "BeginPanelPasskeyLogin")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(BeginPanelPasskeyLoginResponseObject); ok {
+		if err := validResponse.VisitBeginPanelPasskeyLoginResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// FinishPanelPasskeyLogin operation middleware
+func (sh *strictHandler) FinishPanelPasskeyLogin(w http.ResponseWriter, r *http.Request) {
+	var request FinishPanelPasskeyLoginRequestObject
+
+	var body FinishPanelPasskeyLoginJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.FinishPanelPasskeyLogin(ctx, request.(FinishPanelPasskeyLoginRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "FinishPanelPasskeyLogin")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(FinishPanelPasskeyLoginResponseObject); ok {
+		if err := validResponse.VisitFinishPanelPasskeyLoginResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPanelPasskeys operation middleware
+func (sh *strictHandler) ListPanelPasskeys(w http.ResponseWriter, r *http.Request) {
+	var request ListPanelPasskeysRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPanelPasskeys(ctx, request.(ListPanelPasskeysRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPanelPasskeys")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPanelPasskeysResponseObject); ok {
+		if err := validResponse.VisitListPanelPasskeysResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// BeginPanelPasskeyRegistration operation middleware
+func (sh *strictHandler) BeginPanelPasskeyRegistration(w http.ResponseWriter, r *http.Request, params BeginPanelPasskeyRegistrationParams) {
+	var request BeginPanelPasskeyRegistrationRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.BeginPanelPasskeyRegistration(ctx, request.(BeginPanelPasskeyRegistrationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "BeginPanelPasskeyRegistration")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(BeginPanelPasskeyRegistrationResponseObject); ok {
+		if err := validResponse.VisitBeginPanelPasskeyRegistrationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// FinishPanelPasskeyRegistration operation middleware
+func (sh *strictHandler) FinishPanelPasskeyRegistration(w http.ResponseWriter, r *http.Request, params FinishPanelPasskeyRegistrationParams) {
+	var request FinishPanelPasskeyRegistrationRequestObject
+
+	request.Params = params
+
+	var body FinishPanelPasskeyRegistrationJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.FinishPanelPasskeyRegistration(ctx, request.(FinishPanelPasskeyRegistrationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "FinishPanelPasskeyRegistration")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(FinishPanelPasskeyRegistrationResponseObject); ok {
+		if err := validResponse.VisitFinishPanelPasskeyRegistrationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RevokePanelPasskey operation middleware
+func (sh *strictHandler) RevokePanelPasskey(w http.ResponseWriter, r *http.Request, passkeyID openapi_types.UUID, params RevokePanelPasskeyParams) {
+	var request RevokePanelPasskeyRequestObject
+
+	request.PasskeyID = passkeyID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RevokePanelPasskey(ctx, request.(RevokePanelPasskeyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RevokePanelPasskey")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RevokePanelPasskeyResponseObject); ok {
+		if err := validResponse.VisitRevokePanelPasskeyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RenamePanelPasskey operation middleware
+func (sh *strictHandler) RenamePanelPasskey(w http.ResponseWriter, r *http.Request, passkeyID openapi_types.UUID, params RenamePanelPasskeyParams) {
+	var request RenamePanelPasskeyRequestObject
+
+	request.PasskeyID = passkeyID
+	request.Params = params
+
+	var body RenamePanelPasskeyJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RenamePanelPasskey(ctx, request.(RenamePanelPasskeyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RenamePanelPasskey")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RenamePanelPasskeyResponseObject); ok {
+		if err := validResponse.VisitRenamePanelPasskeyResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -36366,6 +38490,144 @@ func (sh *strictHandler) ConfigurePanelRecurring(w http.ResponseWriter, r *http.
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ConfigurePanelRecurringResponseObject); ok {
 		if err := validResponse.VisitConfigurePanelRecurringResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPanelTheme operation middleware
+func (sh *strictHandler) GetPanelTheme(w http.ResponseWriter, r *http.Request) {
+	var request GetPanelThemeRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPanelTheme(ctx, request.(GetPanelThemeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPanelTheme")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPanelThemeResponseObject); ok {
+		if err := validResponse.VisitGetPanelThemeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SavePanelTheme operation middleware
+func (sh *strictHandler) SavePanelTheme(w http.ResponseWriter, r *http.Request, params SavePanelThemeParams) {
+	var request SavePanelThemeRequestObject
+
+	request.Params = params
+
+	var body SavePanelThemeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SavePanelTheme(ctx, request.(SavePanelThemeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SavePanelTheme")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SavePanelThemeResponseObject); ok {
+		if err := validResponse.VisitSavePanelThemeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPanelBrandingAssets operation middleware
+func (sh *strictHandler) ListPanelBrandingAssets(w http.ResponseWriter, r *http.Request) {
+	var request ListPanelBrandingAssetsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPanelBrandingAssets(ctx, request.(ListPanelBrandingAssetsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPanelBrandingAssets")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPanelBrandingAssetsResponseObject); ok {
+		if err := validResponse.VisitListPanelBrandingAssetsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeletePanelBrandingAsset operation middleware
+func (sh *strictHandler) DeletePanelBrandingAsset(w http.ResponseWriter, r *http.Request, kind DeletePanelBrandingAssetParamsKind, params DeletePanelBrandingAssetParams) {
+	var request DeletePanelBrandingAssetRequestObject
+
+	request.Kind = kind
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeletePanelBrandingAsset(ctx, request.(DeletePanelBrandingAssetRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeletePanelBrandingAsset")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeletePanelBrandingAssetResponseObject); ok {
+		if err := validResponse.VisitDeletePanelBrandingAssetResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SavePanelBrandingAsset operation middleware
+func (sh *strictHandler) SavePanelBrandingAsset(w http.ResponseWriter, r *http.Request, kind SavePanelBrandingAssetParamsKind, params SavePanelBrandingAssetParams) {
+	var request SavePanelBrandingAssetRequestObject
+
+	request.Kind = kind
+	request.Params = params
+	request.ContentType = r.Header.Get("Content-Type")
+
+	request.Body = r.Body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SavePanelBrandingAsset(ctx, request.(SavePanelBrandingAssetRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SavePanelBrandingAsset")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SavePanelBrandingAssetResponseObject); ok {
+		if err := validResponse.VisitSavePanelBrandingAssetResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

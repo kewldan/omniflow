@@ -18,6 +18,7 @@ import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { useState } from "react";
 
+import { useAllowedThemes } from "@/components/theme-provider";
 import { apiFetch } from "@/lib/api";
 import { useSession } from "@/lib/session";
 
@@ -31,6 +32,7 @@ export function UserMenu() {
   const { session, refresh } = useSession();
   const translate = useTranslations("admin");
   const { setTheme } = useTheme();
+  const allowedThemes = useAllowedThemes();
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
 
@@ -85,20 +87,33 @@ export function UserMenu() {
           </Link>
         </DropdownMenuItem>
 
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel>{translate("theme.label")}</DropdownMenuLabel>
-        <DropdownMenuItem onSelect={() => setTheme("light")}>
-          <Sun />
-          {translate("theme.light")}
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => setTheme("dark")}>
-          <Moon />
-          {translate("theme.dark")}
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => setTheme("system")}>
-          <Monitor />
-          {translate("theme.system")}
-        </DropdownMenuItem>
+        {/*
+          An installation that offers one mode has nothing to choose, so the
+          whole section goes rather than leaving three items that cannot change
+          anything.
+        */}
+        {allowedThemes.length > 1 ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>{translate("theme.label")}</DropdownMenuLabel>
+            {allowedThemes.includes("light") ? (
+              <DropdownMenuItem onSelect={() => setTheme("light")}>
+                <Sun />
+                {translate("theme.light")}
+              </DropdownMenuItem>
+            ) : null}
+            {allowedThemes.includes("dark") ? (
+              <DropdownMenuItem onSelect={() => setTheme("dark")}>
+                <Moon />
+                {translate("theme.dark")}
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuItem onSelect={() => setTheme("system")}>
+              <Monitor />
+              {translate("theme.system")}
+            </DropdownMenuItem>
+          </>
+        ) : null}
 
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled={signingOut} onSelect={signOut} variant="danger">

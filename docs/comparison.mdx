@@ -128,7 +128,7 @@ This table's Bedolaga column covers the bot and the cabinet together, because th
 | Account-sharing detection by distinct address | 🔭 | ✅ | — |
 | Operator-published information pages: FAQ, terms, offer, privacy | 🔭 | ✅ | — |
 | Transactional e-mail templates an operator can override | 🔭 | ✅ | — |
-| White-label theming: palette, logo, permitted themes | 🔭 | ✅ | — |
+| White-label theming: palette, logo, permitted themes | ✅ | ✅ | — |
 | Command palette and live updates without a refresh | 🔭 | ✅ | — |
 | Remnawave node and squad control from the panel | ❌ | ✅ | ✅ |
 
@@ -182,7 +182,7 @@ RemnaCore also reaches into node health monitoring, smart routing, and speed tes
 
 ## Choosing between them
 
-**Choose Bedolaga Bot** if you need the widest payment-provider coverage today, want to administer everything from Telegram without deploying a web panel, or need growth mechanics such as contests, custom landing pages, and referral payouts that Omniflow has deferred past 1.0. Adding the cabinet also gets you the reporting and presentation layer Omniflow has not built: sales figures over a period you choose, settlement rates per provider, per-node traffic, a colour palette and logo of your own, and information pages you publish from the panel instead of hosting elsewhere. If you sell through paid advertising, note the attribution gap in particular — Bedolaga carries a click identifier into the order and uploads the conversion back, and Omniflow does not.
+**Choose Bedolaga Bot** if you need the widest payment-provider coverage today, want to administer everything from Telegram without deploying a web panel, or need growth mechanics such as contests, custom landing pages, and referral payouts that Omniflow has deferred past 1.0. Adding the cabinet also gets you the reporting and presentation layer Omniflow has not built: sales figures over a period you choose, settlement rates per provider, per-node traffic, and information pages you publish from the panel instead of hosting elsewhere. If you sell through paid advertising, note the attribution gap in particular — Bedolaga carries a click identifier into the order and uploads the conversion back, and Omniflow does not.
 
 **Choose RemnaCore** if you need white-label reseller capability with commission tracking, or are already running Kubernetes and want a plugin runtime and event bus as first-class infrastructure. Note its stated development status before committing production traffic.
 
@@ -195,5 +195,5 @@ Both panels are complete as of v0.10: the operator panel since v0.8, and the cus
 
 The v1.0 gate is release engineering rather than product surface, and one item in it remains: an independent security review of authentication, authorization, payments, and secret handling. That one names an external reviewer engagement rather than a change to this repository. The compatibility matrix, signed artifacts, and the reliability and documentation gates are done.
 
-Complete is not the same as at parity. The 🔭 rows above are capabilities Bedolaga Cabinet has and Omniflow does not — reporting depth, advertising attribution, white-label presentation, published information pages — and none of them is scheduled. [Post-1.0 product gaps](https://github.com/kewldan/omniflow/blob/main/ROADMAP.md) records each one with what exists today and what the absence costs.
+Complete is not the same as at parity. The 🔭 rows above are capabilities Bedolaga Cabinet has and Omniflow does not — reporting depth, advertising attribution, published information pages — and none of them is scheduled. [Post-1.0 product gaps](https://github.com/kewldan/omniflow/blob/main/ROADMAP.md) records each one with what exists today and what the absence costs.
 </Note>

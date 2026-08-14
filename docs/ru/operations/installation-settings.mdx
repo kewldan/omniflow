@@ -22,7 +22,7 @@ description: "Что хранит экран настроек, что из эт�
 | `/admin/settings/commerce` | Валюта, лимиты пополнения, политика подписок, платёжные провайдеры |
 | `/admin/settings/integrations` | Remnawave, бот Telegram, операторская группа, обязательные каналы |
 | `/admin/settings/operations` | Обслуживание, уведомления, резервные копии, телеметрия — плюс предпросмотр телеметрии и история копий |
-| `/admin/settings/brand` | Брендинг и раздел безопасности |
+| `/admin/settings/brand` | Брендинг, [оформление](/ru/operations/branding) и раздел безопасности |
 | `/admin/settings/sign-in` | Провайдеры входа для клиентов |
 | `/admin/settings/ai` | Провайдеры моделей, включение по функциям, бюджеты, подключения MCP |
 
@@ -57,6 +57,7 @@ description: "Что хранит экран настроек, что из эт�
 | Пополнение кошелька | `commerce_settings` | Нет — лимиты, пресеты и скользящее окно берутся из окружения | `APP_WALLET_TOPUP_*` |
 | Подписки | `commerce_settings` | Частично — веб-панель клиента читает `multi_subscription_enabled`, чтобы решить, показывать ли переключатель подписок | `APP_MULTI_SUBSCRIPTION_ENABLED`, `APP_MAX_SUBSCRIPTIONS_PER_CUSTOMER` |
 | Брендирование | `installation_settings` | Нет | `APP_PUBLIC_URL`, `APP_TERMS_URL`, `APP_SUPPORT_URL`, `APP_DEFAULT_CURRENCY` |
+| Оформление | `installation_settings`, `branding_assets` | **Да** — обе панели читают его при каждой отрисовке, за минутным кэшем | Сохранить и перезагрузить; переменной окружения нет |
 | Remnawave | `installation_settings` | Нет | `APP_REMNAWAVE_URL`, `APP_REMNAWAVE_TOKEN` |
 | Telegram | `installation_settings` | Нет | `APP_TELEGRAM_TOKEN`, `APP_TELEGRAM_WEBHOOK_URL`, `APP_TELEGRAM_WEBHOOK_SECRET` |
 | Группа операторов | `installation_settings` | Нет | `APP_OPERATOR_CHAT_ID`, `APP_OPERATOR_NOTIFICATION_CAP`, `APP_OPERATOR_NOTIFICATION_WINDOW_MINUTES` |
@@ -166,11 +167,15 @@ description: "Что хранит экран настроек, что из эт�
 | `telemetry` | `enabled`, `endpoint` | — |
 | `backup` | `enabled`, `intervalHours`, `retentionDays`, `directory` | `encryptionKey` |
 | `security` | `sessionIdleMinutes`, `sessionAbsoluteHours`, `requireTotp`, `allowedOrigins` | — |
+| `theme` | Палитра, масштабы скруглений и отступов, доступные режимы, режим по умолчанию — см. [White-label оформление](/ru/operations/branding) | — |
 
-`GET`/`PUT /v1/panel/settings/{section}` дополнительно принимают `ai` и `mcp`,
-которые экран настроек не отрисовывает — у этих областей свой экран по адресу
-`/admin/settings/ai`. См. [Управление ИИ](/ru/operations/ai-governance) и
-[MCP](/ru/operations/mcp).
+Три из них не являются полями универсального рендерера. У `ai` и `mcp` свой экран по
+адресу `/admin/settings/ai` — см. [Управление ИИ](/ru/operations/ai-governance) и
+[MCP](/ru/operations/mcp), — а у `theme` свой редактор под полями брендинга на
+`/admin/settings/brand`, потому что цвет — не текстовое поле, а логотип — не документ
+настроек. Все три остаются обычными разделами через
+`GET`/`PUT /v1/panel/settings/{section}`, с тем же контролем версии и той же записью в
+журнале.
 
 ## Коммерческие настройки
 

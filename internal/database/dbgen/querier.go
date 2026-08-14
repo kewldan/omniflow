@@ -284,6 +284,7 @@ type Querier interface {
 	// starts.
 	DeleteBlocklistEntries(ctx context.Context, sourceID pgtype.UUID) error
 	DeleteBlocklistSource(ctx context.Context, id pgtype.UUID) error
+	DeleteBrandingAsset(ctx context.Context, kind string) (int64, error)
 	DeleteCartAddon(ctx context.Context, arg DeleteCartAddonParams) error
 	DeleteCustomerOIDCProvider(ctx context.Context, slug string) (int64, error)
 	// ---------------------------------------------------------------------------
@@ -381,6 +382,7 @@ type Querier interface {
 	GetBlocklistMatch(ctx context.Context, id pgtype.UUID) (BlocklistMatch, error)
 	GetBlocklistSource(ctx context.Context, id pgtype.UUID) (BlocklistSource, error)
 	GetBlocklistSourceBySlug(ctx context.Context, slug string) (BlocklistSource, error)
+	GetBrandingAsset(ctx context.Context, kind string) (GetBrandingAssetRow, error)
 	GetBulkOperation(ctx context.Context, id pgtype.UUID) (BulkOperation, error)
 	GetBulkOperationByIdempotency(ctx context.Context, idempotencyKey string) (BulkOperation, error)
 	// The live entitlement behind a subscription a bulk operation targets.
@@ -606,6 +608,12 @@ type Querier interface {
 	// Blocklist sources
 	// ---------------------------------------------------------------------------
 	ListBlocklistSources(ctx context.Context) ([]BlocklistSource, error)
+	// Brand images.
+	//
+	// The bytes are selected only by the route that serves them. Every other query
+	// reads the metadata, so listing the slots on a settings screen cannot pull a
+	// quarter of a megabyte per row into a response type that has nowhere to put it.
+	ListBrandingAssets(ctx context.Context) ([]ListBrandingAssetsRow, error)
 	ListBulkOperationItems(ctx context.Context, arg ListBulkOperationItemsParams) ([]BulkOperationItem, error)
 	ListBulkOperations(ctx context.Context, pageSize int32) ([]BulkOperation, error)
 	ListCampaignTestSends(ctx context.Context, arg ListCampaignTestSendsParams) ([]CampaignTestSend, error)
@@ -1249,6 +1257,7 @@ type Querier interface {
 	// A null auth header on update means "keep the stored credential", matching the
 	// write-only treatment every other secret in the schema gets.
 	UpsertBlocklistSource(ctx context.Context, arg UpsertBlocklistSourceParams) (BlocklistSource, error)
+	UpsertBrandingAsset(ctx context.Context, arg UpsertBrandingAssetParams) (UpsertBrandingAssetRow, error)
 	UpsertCannedResponse(ctx context.Context, arg UpsertCannedResponseParams) (SupportCannedResponse, error)
 	// ---------------------------------------------------------------------------
 	// Cart and deferred purchase

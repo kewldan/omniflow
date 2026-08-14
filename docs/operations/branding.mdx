@@ -1,0 +1,176 @@
+---
+title: White-label appearance
+description: The palette, corners, spacing, modes, and images an installation renders under, what refuses a save, and why the token list is short
+---
+
+`/admin/settings/brand` holds two things. The **branding** section names the
+service and its public links. Below it, **Appearance** is where an installation
+stops looking like Omniflow and starts looking like itself: a colour palette for
+light and dark, a corner radius, a spacing density, which modes are offered, and
+three images.
+
+<Note>
+  Appearance is the one installation setting that takes effect immediately. Every
+  other section on the settings screen is a versioned record of intent that the
+  running processes never re-read — see
+  [Installation settings](/operations/installation-settings). This one is read by
+  both panels on every page render, behind a one-minute cache, so pressing save
+  and reloading is the whole deployment procedure.
+</Note>
+
+Everything here is optional. What you do not set stays the shipped design, and
+nothing is emitted for it — an installation that has customised nothing serves
+no extra stylesheet at all rather than a copy of the design re-declared.
+
+## What an operator can change
+
+| Control | Values | What it does |
+| --- | --- | --- |
+| Palette | A hex colour per token, per mode | Overrides one design token. An empty field returns that token to the design's own value. |
+| Corners | `square`, `compact`, `default`, `rounded` | Multiplies all six corner radii by 0, 0.6, 1, or 1.6. |
+| Spacing | `compact`, `default`, `comfortable` | Multiplies the spacing base by 0.88, 1, or 1.14. Every padding, gap, and inset follows. |
+| Modes offered | Light, dark, or both | A single mode is forced, and the theme switcher disappears from both surfaces. |
+| Default mode | `light`, `dark`, or follow the device | What somebody with no stored preference gets. |
+| Images | Logo (light), logo (dark), tab icon | PNG, JPEG, or WebP, up to 256 KB each. |
+
+Corners and spacing are **scales rather than values**. The design uses six
+related radii — 5 px chips, 8–9 px controls, 10 px rows, 12 px feature cards —
+and an operator setting six numbers would be choosing a relationship they cannot
+see. Scaling keeps the relationship and changes the character.
+
+The spacing range is narrow for the same kind of reason in reverse: one variable
+reaches a table's cell padding, a sheet's inset, and the gap between two buttons
+at once, so a value that looked reasonable in isolation goes wrong somewhere
+you were not looking.
+
+## The token list, and what is deliberately not on it
+
+Twenty-three tokens are settable: the surfaces (`background`, `card`, `popover`,
+`chrome`), their foregrounds, the brand tones (`primary`, `secondary`, `accent`,
+`ring`), the quiet text tones (`muted-foreground`, `subtle-foreground`), the
+lines (`border`, `input`, `chrome-border`), and the three chart series.
+
+The panel renders the list the API publishes rather than one of its own, so it
+can never offer a slot this build does not honour.
+
+**The status tones are not settable.** `destructive`, `success`, `warning`, and
+`info` stay as designed. Their meaning is what they communicate, and an
+installation whose "destructive" is green has not been branded — it has been
+broken, in the one place where being wrong costs somebody an action they cannot
+undo. That boundary is worth more than a complete list.
+
+## What refuses a save
+
+Contrast is computed on the server, against the palette a visitor actually sees
+— the operator's overrides layered onto the design's own values. Somebody who
+sets only `card` has changed the contrast of every foreground drawn on a card,
+and a check that looked only at what changed would report nothing.
+
+Eleven pairs are checked in each offered mode, and the outcome is one of three:
+
+| Ratio | Outcome |
+| --- | --- |
+| 4.5:1 or better | Passes WCAG 2.2 AA for body text. Nothing is reported. |
+| Between 3:1 and 4.5:1 | Saved, with a warning naming the pair and the ratio. |
+| Below 3:1 | **Refused.** The message names the worst pair. |
+
+The line between the last two is the point. A brand tone that falls short of AA
+is a decision an operator is entitled to make and be told about. Below 3:1 there
+is no threshold in WCAG 2.2 under which the pair is usable by anybody, so it is
+not a decision — it is a screen nobody can read, including the screen you would
+have to use to fix it.
+
+A mode you do not offer is not checked. A light-only installation is not held to
+a dark palette it never renders.
+
+Warnings are recomputed on every read rather than stored, so they cannot go
+stale against a palette edited from somewhere else.
+
+## Images
+
+Three slots, one image each. Uploading replaces; removing returns the
+installation to the shipped mark.
+
+**SVG is not accepted, and that is not an oversight.** An SVG document can carry
+a `<script>` element and external references, and these files are served from
+the same origin as both panels — the origin that holds the session cookie.
+Accepting one would hand stored cross-site scripting to anybody who can reach
+the settings screen. PNG, JPEG, and WebP are the formats a browser renders
+without executing anything.
+
+The declared content type is checked against the bytes' own magic number, so
+nothing can be stored under an image type and served back with that header.
+
+Each image is published at `/v1/branding/assets/{kind}?v=<checksum>`, where the
+checksum is the SHA-256 of the bytes. A request naming the current checksum is
+answered as immutable, so a browser keeps the logo until you replace it — at
+which point the address changes and the new one appears immediately.
+
+## How it reaches a page
+
+`GET /v1/branding` is public and unauthenticated, which it has to be: the
+sign-in screen is the first page anybody sees and the page an installation most
+wants to carry its own mark. It answers with the service name, the palette
+already rendered as CSS declarations, the shape settings, and the image
+addresses — and nothing else, because everything on it is readable by anyone who
+can reach the installation.
+
+The web application reads it on the server and inlines the declarations in the
+document head, so the palette applies on first paint rather than after
+hydration. A palette applied after hydration is a visible flash of somebody
+else's brand on every cold load.
+
+<Note>
+  An installation running no operator panel has no theme to publish, and the
+  route is absent. The web application renders the shipped design in that case,
+  and in every case where the API cannot be reached — a colour that could not be
+  read must never be the reason a page fails to render.
+</Note>
+
+## Why the values can be inlined safely
+
+The string that lands in a `<style>` element is generated in Go, from an
+allowlist, by a parser that accepts hex colours and nothing else:
+
+- **A token name is chosen, never supplied.** The panel sends a name from the
+  published list; anything else is refused. A property name is where arbitrary
+  CSS would get in.
+- **A value is `#rgb` or `#rrggbb`**, normalised to six lowercase digits. Not a
+  keyword, not `rgb()`, not `var()`, not `url()`.
+- The output alphabet therefore cannot contain a brace, a semicolon, or the
+  sequence that would close the element.
+
+There is no second implementation of any of this in the browser — including the
+WCAG formula. Two of them would eventually disagree about which palettes are
+allowed, and only the one that refuses saves would be right. What the panel does
+compute locally is the preview, by setting the form's current values as CSS
+custom properties on one wrapper element and letting the browser show the
+operator what those colours look like together.
+
+## Permissions and audit
+
+Reading needs `settings.read`; every change needs `settings.write`. A palette
+save rides the same version guard as every other settings section, so two panel
+tabs conflict rather than one silently discarding the other.
+
+Uploads and removals audit as `branding.asset.saved` and
+`branding.asset.removed` under the `configuration` category. The audit metadata
+records the content type, the size, and the checksum — never the file. The
+auditable fact is that somebody changed the logo on Tuesday.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Installation settings" icon="sliders" href="/operations/installation-settings">
+    The other sections, the version guard, and which values actually change behaviour.
+  </Card>
+  <Card title="Admin panel" icon="shield-halved" href="/operations/admin-panel">
+    Roles, permissions, and the audit trail behind this screen.
+  </Card>
+  <Card title="Customer web panel" icon="browser" href="/customer/web-panel">
+    The surface a customer sees these colours on.
+  </Card>
+  <Card title="Public API" icon="code" href="/integrations/api">
+    Which surfaces carry the version promise, and which do not.
+  </Card>
+</CardGroup>

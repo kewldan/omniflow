@@ -12,6 +12,7 @@ import { useState } from "react";
 
 import { HubNav } from "@/components/account/account/hub-nav";
 import { SectionLabel } from "@/components/account/state";
+import { useAllowedThemes } from "@/components/theme-provider";
 import { useAccount } from "@/lib/account-session";
 import { type ApiError, apiFetch } from "@/lib/api";
 
@@ -51,7 +52,6 @@ export default function ProfilePage() {
         </p>
       </section>
 
-      <SectionLabel>{translate("profile.appearance")}</SectionLabel>
       <ThemeChoice />
 
       <SectionLabel>{translate("profile.language")}</SectionLabel>
@@ -132,24 +132,38 @@ export default function ProfilePage() {
 function ThemeChoice() {
   const translate = useTranslations("account");
   const { setTheme, theme } = useTheme();
+  const allowedThemes = useAllowedThemes();
 
+  // An installation offering one mode has nothing to choose here. A pair of
+  // buttons where one of them cannot take effect is worse than no buttons.
+  const options = (["dark", "light"] as const).filter((option) => allowedThemes.includes(option));
+  if (options.length < 2) {
+    return null;
+  }
+
+  // The heading belongs to the control rather than to the page, so an
+  // installation with one mode loses both together instead of leaving a
+  // section label above nothing.
   return (
-    <fieldset className="flex rounded-full border border-border bg-card p-1">
-      <legend className="sr-only">{translate("profile.appearance")}</legend>
-      {(["dark", "light"] as const).map((option) => (
-        <Button
-          aria-pressed={theme === option}
-          className="flex-1 rounded-full"
-          key={option}
-          onClick={() => setTheme(option)}
-          size="sm"
-          variant={theme === option ? "secondary" : "ghost"}
-        >
-          {option === "dark" ? <Moon aria-hidden /> : <Sun aria-hidden />}
-          {translate(`profile.theme.${option}`)}
-        </Button>
-      ))}
-    </fieldset>
+    <>
+      <SectionLabel>{translate("profile.appearance")}</SectionLabel>
+      <fieldset className="flex rounded-full border border-border bg-card p-1">
+        <legend className="sr-only">{translate("profile.appearance")}</legend>
+        {options.map((option) => (
+          <Button
+            aria-pressed={theme === option}
+            className="flex-1 rounded-full"
+            key={option}
+            onClick={() => setTheme(option)}
+            size="sm"
+            variant={theme === option ? "secondary" : "ghost"}
+          >
+            {option === "dark" ? <Moon aria-hidden /> : <Sun aria-hidden />}
+            {translate(`profile.theme.${option}`)}
+          </Button>
+        ))}
+      </fieldset>
+    </>
   );
 }
 

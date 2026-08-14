@@ -147,6 +147,13 @@ func TestTheNewSurfacesAreInsideTheAuthenticatedGroup(t *testing.T) {
 		{http.MethodGet, "/v1/panel/marketing/referrals"},
 		{http.MethodPut, "/v1/panel/marketing/referrals"},
 		{http.MethodGet, "/v1/panel/marketing/suppressions"},
+		// The palette is the one settings surface with a public half, so a
+		// mistake here is a mistake about which half is which.
+		{http.MethodGet, "/v1/panel/settings/theme"},
+		{http.MethodPut, "/v1/panel/settings/theme"},
+		{http.MethodGet, "/v1/panel/settings/theme/assets"},
+		{http.MethodPut, "/v1/panel/settings/theme/assets/logo_light"},
+		{http.MethodDelete, "/v1/panel/settings/theme/assets/logo_light"},
 	} {
 		recorder := httptest.NewRecorder()
 		router.(http.Handler).ServeHTTP(
@@ -171,11 +178,59 @@ func TestTheNewSurfacesAreAbsentWithoutTheService(t *testing.T) {
 		"/v1/panel/settings/ai/providers/acme/test",
 		"/v1/panel/settings/mcp/servers",
 		"/v1/panel/marketing/campaigns",
+		"/v1/panel/settings/theme",
+		// The public half is absent too. An installation with no panel has no
+		// theme to publish, and a route that answered would be answering from
+		// nothing.
+		"/v1/branding",
 	} {
 		recorder := httptest.NewRecorder()
 		router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path, nil))
 		if recorder.Code != http.StatusNotFound {
 			t.Fatalf("%s answered %d without an operations service, want 404", path, recorder.Code)
+		}
+	}
+}
+
+// The branding surface is public on purpose, and that is exactly why it needs
+// asserting rather than assuming.
+//
+// A sign-in screen has to be able to render an installation's own colours
+// before anybody has a session, so these two routes sit outside `/v1/panel` and
+// outside its gate. What must stay true is that being outside the gate buys
+// nothing else: they are readable, and there is no method on them that writes.
+// The panel's own theme routes above are where writing happens, behind the
+// session and behind `settings.write`.
+func TestBrandingIsPublicAndReadOnly(t *testing.T) {
+	router := mountedRouter(t)
+
+	found := map[string]bool{}
+	err := chi.Walk(router, func(
+		method, pattern string, _ http.Handler, _ ...func(http.Handler) http.Handler,
+	) error {
+		if !strings.HasPrefix(pattern, "/v1/branding") {
+			return nil
+		}
+		if mutatingMethods[method] {
+			t.Errorf(
+				"%s %s is a public route that mutates; branding is published "+
+					"without a session and must never be writable there",
+				method, pattern,
+			)
+		}
+		found[method+" "+pattern] = true
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk: %v", err)
+	}
+
+	for _, route := range []string{
+		"GET /v1/branding",
+		"GET /v1/branding/assets/{kind}",
+	} {
+		if !found[route] {
+			t.Errorf("%s is not mounted; both panels read it before they paint", route)
 		}
 	}
 }

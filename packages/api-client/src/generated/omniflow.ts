@@ -1745,6 +1745,146 @@ export interface PanelSubscriptionSettings {
   maxPerCustomer: number;
 }
 
+export type ThemeDocumentLight = { [key: string]: string };
+
+export type ThemeDocumentDark = { [key: string]: string };
+
+export type ThemeDocumentRadius = (typeof ThemeDocumentRadius)[keyof typeof ThemeDocumentRadius];
+
+export const ThemeDocumentRadius = {
+  square: "square",
+  compact: "compact",
+  default: "default",
+  rounded: "rounded",
+} as const;
+
+export type ThemeDocumentDensity = (typeof ThemeDocumentDensity)[keyof typeof ThemeDocumentDensity];
+
+export const ThemeDocumentDensity = {
+  compact: "compact",
+  default: "default",
+  comfortable: "comfortable",
+} as const;
+
+export type ThemeDocumentAllowedThemesItem =
+  (typeof ThemeDocumentAllowedThemesItem)[keyof typeof ThemeDocumentAllowedThemesItem];
+
+export const ThemeDocumentAllowedThemesItem = {
+  light: "light",
+  dark: "dark",
+} as const;
+
+export type ThemeDocumentDefaultTheme =
+  (typeof ThemeDocumentDefaultTheme)[keyof typeof ThemeDocumentDefaultTheme];
+
+export const ThemeDocumentDefaultTheme = {
+  light: "light",
+  dark: "dark",
+  system: "system",
+} as const;
+
+/**
+ * An operator's overrides. Every field is optional, and an omitted one keeps the design's own value. A palette maps a themable token name to a hex colour and accepts nothing else, because these values are rendered into a style element.
+ */
+export interface ThemeDocument {
+  light?: ThemeDocumentLight;
+  dark?: ThemeDocumentDark;
+  radius?: ThemeDocumentRadius;
+  density?: ThemeDocumentDensity;
+  /** Which modes a visitor may switch between. One mode removes the switcher rather than leaving it inert. */
+  allowedThemes?: ThemeDocumentAllowedThemesItem[];
+  defaultTheme?: ThemeDocumentDefaultTheme;
+}
+
+export type ThemeWarningCode = (typeof ThemeWarningCode)[keyof typeof ThemeWarningCode];
+
+export const ThemeWarningCode = {
+  pair_unreadable: "pair_unreadable",
+  pair_below_aa: "pair_below_aa",
+} as const;
+
+export type ThemeWarningMode = (typeof ThemeWarningMode)[keyof typeof ThemeWarningMode];
+
+export const ThemeWarningMode = {
+  light: "light",
+  dark: "dark",
+} as const;
+
+export interface ThemeWarning {
+  code: ThemeWarningCode;
+  mode: ThemeWarningMode;
+  foreground: string;
+  background: string;
+  /** The WCAG contrast ratio, from 1 to 21. */
+  ratio: number;
+  /** True below 3:1, which refuses the save. */
+  blocking: boolean;
+}
+
+export interface PanelTheme {
+  theme: ThemeDocument;
+  /** The declarations to inline. Empty when nothing has been customised. */
+  css: string;
+  warnings: ThemeWarning[];
+  /** The token names this build honours. */
+  themable: string[];
+  version: number;
+  updatedAt: string;
+  updatedBy?: string;
+}
+
+export type PanelBrandingAssetKind =
+  (typeof PanelBrandingAssetKind)[keyof typeof PanelBrandingAssetKind];
+
+export const PanelBrandingAssetKind = {
+  logo_light: "logo_light",
+  logo_dark: "logo_dark",
+  favicon: "favicon",
+} as const;
+
+export type PanelBrandingAssetContentType =
+  (typeof PanelBrandingAssetContentType)[keyof typeof PanelBrandingAssetContentType];
+
+export const PanelBrandingAssetContentType = {
+  "image/png": "image/png",
+  "image/jpeg": "image/jpeg",
+  "image/webp": "image/webp",
+} as const;
+
+export interface PanelBrandingAsset {
+  kind: PanelBrandingAssetKind;
+  contentType: PanelBrandingAssetContentType;
+  byteSize: number;
+  /** SHA-256 of the bytes, hex encoded. Published as the ETag of the asset. */
+  checksum: string;
+  updatedAt: string;
+  updatedBy?: string;
+}
+
+export interface PanelBrandingAssetList {
+  items: PanelBrandingAsset[];
+  kinds: string[];
+  contentTypes: string[];
+  maxBytes: number;
+}
+
+/**
+ * Slot name to an address carrying the image checksum. A slot with no image is absent.
+ */
+export type BrandingAssets = { [key: string]: string };
+
+export interface Branding {
+  /** Empty when the installation has not named itself. */
+  serviceName: string;
+  css: string;
+  radius: string;
+  density: string;
+  allowedThemes: string[];
+  defaultTheme: string;
+  /** Slot name to an address carrying the image checksum. A slot with no image is absent. */
+  assets: BrandingAssets;
+}
+
 export interface PanelCommerceSettings {
   topUp: PanelTopUpSettings;
   subscriptions: PanelSubscriptionSettings;
@@ -3784,6 +3924,13 @@ export const ListPlansLocale = {
   en: "en",
 } as const;
 
+export type GetBrandingAssetParams = {
+  /**
+   * The image checksum, as published by /v1/branding.
+   */
+  v?: string;
+};
+
 export type PreviewRemnawaveImportParams = {
   /**
    * @minimum 1
@@ -4156,6 +4303,16 @@ export type ListPanelOutboxParams = {
    * @maximum 500
    */
   pageSize?: PageSizeParameter;
+};
+
+export type SavePanelThemeBody = {
+  theme: ThemeDocument;
+  /** The version the screen was showing. A mismatch is a conflict rather than an overwrite. */
+  version: number;
+};
+
+export type DeletePanelBrandingAsset200 = {
+  removed?: boolean;
 };
 
 export type SearchPanelBlocklistMatchesParams = {
@@ -5011,6 +5168,168 @@ export const useListPlans = <TError = Promise<ProblemResponse>>(
   const isEnabled = swrOptions?.enabled !== false;
   const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListPlansKey(params) : null));
   const swrFn = () => listPlans(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getBrandingResponse200 = {
+  data: Branding;
+  status: 200;
+};
+
+export type getBrandingResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getBrandingResponseSuccess = getBrandingResponse200 & {
+  headers: Headers;
+};
+export type getBrandingResponseError = getBrandingResponse404 & {
+  headers: Headers;
+};
+
+export type getBrandingResponse = getBrandingResponseSuccess | getBrandingResponseError;
+
+export const getGetBrandingUrl = () => {
+  return `/v1/branding`;
+};
+
+/**
+ * Public. What an installation looks like, read by both panels before they paint: the service name, the operator's palette rendered as ready-to-inline declarations, and the addresses of the brand images. It deliberately carries nothing else, because everything here is readable by anyone who can reach the installation. Absent when no operator panel is configured, in which case the shipped design is used.
+ */
+export const getBranding = async (options?: RequestInit): Promise<getBrandingResponse> => {
+  const res = await fetch(getGetBrandingUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getBrandingResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getBrandingResponse;
+};
+
+export const getGetBrandingKey = () => [`/v1/branding`] as const;
+
+export type GetBrandingQueryResult = NonNullable<Awaited<ReturnType<typeof getBranding>>>;
+
+export const useGetBranding = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getBranding>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetBrandingKey() : null));
+  const swrFn = () => getBranding(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getBrandingAssetResponse200 = {
+  data: Blob;
+  status: 200;
+};
+
+export type getBrandingAssetResponse304 = {
+  data: void;
+  status: 304;
+};
+
+export type getBrandingAssetResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getBrandingAssetResponseSuccess = getBrandingAssetResponse200 & {
+  headers: Headers;
+};
+export type getBrandingAssetResponseError = (
+  | getBrandingAssetResponse304
+  | getBrandingAssetResponse404
+) & {
+  headers: Headers;
+};
+
+export type getBrandingAssetResponse =
+  | getBrandingAssetResponseSuccess
+  | getBrandingAssetResponseError;
+
+export const getGetBrandingAssetUrl = (
+  kind: "logo_light" | "logo_dark" | "favicon",
+  params?: GetBrandingAssetParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/branding/assets/${kind}?${stringifiedParams}`
+    : `/v1/branding/assets/${kind}`;
+};
+
+/**
+ * Public. One brand image. The `v` parameter carries the image's own SHA-256; a request naming the current one is answered as immutable, so a browser holds the bytes until the operator replaces them.
+ */
+export const getBrandingAsset = async (
+  kind: "logo_light" | "logo_dark" | "favicon",
+  params?: GetBrandingAssetParams,
+  options?: RequestInit,
+): Promise<getBrandingAssetResponse> => {
+  const res = await fetch(getGetBrandingAssetUrl(kind, params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.blob();
+  const data: getBrandingAssetResponse["data"] = body as getBrandingAssetResponse["data"];
+  return { data, status: res.status, headers: res.headers } as getBrandingAssetResponse;
+};
+
+export const getGetBrandingAssetKey = (
+  kind: "logo_light" | "logo_dark" | "favicon",
+  params?: GetBrandingAssetParams,
+) => [`/v1/branding/assets/${kind}`, ...(params ? [params] : [])] as const;
+
+export type GetBrandingAssetQueryResult = NonNullable<Awaited<ReturnType<typeof getBrandingAsset>>>;
+
+export const useGetBrandingAsset = <TError = Promise<void | ProblemResponse>>(
+  kind: "logo_light" | "logo_dark" | "favicon",
+  params?: GetBrandingAssetParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getBrandingAsset>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false && kind !== null && kind !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetBrandingAssetKey(kind, params) : null));
+  const swrFn = () => getBrandingAsset(kind, params, fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 
@@ -14415,6 +14734,422 @@ export const useSavePanelSubscriptionSettings = <TError = Promise<ProblemRespons
 
   const swrKey = swrOptions?.swrKey ?? getSavePanelSubscriptionSettingsMutationKey();
   const swrFn = getSavePanelSubscriptionSettingsMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelThemeResponse200 = {
+  data: PanelTheme;
+  status: 200;
+};
+
+export type getPanelThemeResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelThemeResponseSuccess = getPanelThemeResponse200 & {
+  headers: Headers;
+};
+export type getPanelThemeResponseError = getPanelThemeResponse403 & {
+  headers: Headers;
+};
+
+export type getPanelThemeResponse = getPanelThemeResponseSuccess | getPanelThemeResponseError;
+
+export const getGetPanelThemeUrl = () => {
+  return `/v1/panel/settings/theme`;
+};
+
+/**
+ * Requires settings.read. The stored palette, the stylesheet it renders as, the tokens this build honours, and every contrast problem the palette has. The warnings are recomputed on each read rather than stored, so they cannot go stale against a palette edited elsewhere.
+ */
+export const getPanelTheme = async (options?: RequestInit): Promise<getPanelThemeResponse> => {
+  const res = await fetch(getGetPanelThemeUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelThemeResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelThemeResponse;
+};
+
+export const getGetPanelThemeKey = () => [`/v1/panel/settings/theme`] as const;
+
+export type GetPanelThemeQueryResult = NonNullable<Awaited<ReturnType<typeof getPanelTheme>>>;
+
+export const useGetPanelTheme = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelTheme>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelThemeKey() : null));
+  const swrFn = () => getPanelTheme(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelThemeResponse200 = {
+  data: PanelTheme;
+  status: 200;
+};
+
+export type savePanelThemeResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelThemeResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type savePanelThemeResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelThemeResponseSuccess = savePanelThemeResponse200 & {
+  headers: Headers;
+};
+export type savePanelThemeResponseError = (
+  | savePanelThemeResponse403
+  | savePanelThemeResponse409
+  | savePanelThemeResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelThemeResponse = savePanelThemeResponseSuccess | savePanelThemeResponseError;
+
+export const getSavePanelThemeUrl = () => {
+  return `/v1/panel/settings/theme`;
+};
+
+/**
+ * Requires settings.write. Refused when any text pair falls below 3:1 against its own background, which is under the loosest threshold WCAG 2.2 defines for any text. A pair between 3:1 and 4.5:1 is saved and reported as a warning, because a brand tone that fails AA is a decision an operator is entitled to make and be told about.
+ */
+export const savePanelTheme = async (
+  savePanelThemeBody: SavePanelThemeBody,
+  options?: RequestInit,
+): Promise<savePanelThemeResponse> => {
+  const res = await fetch(getSavePanelThemeUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(savePanelThemeBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelThemeResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as savePanelThemeResponse;
+};
+
+export const getSavePanelThemeMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: SavePanelThemeBody }) => {
+    return savePanelTheme(arg, options);
+  };
+};
+export const getSavePanelThemeMutationKey = () => [`/v1/panel/settings/theme`] as const;
+
+export type SavePanelThemeMutationResult = NonNullable<Awaited<ReturnType<typeof savePanelTheme>>>;
+
+export const useSavePanelTheme = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof savePanelTheme>>,
+    TError,
+    Key,
+    SavePanelThemeBody,
+    Awaited<ReturnType<typeof savePanelTheme>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelThemeMutationKey();
+  const swrFn = getSavePanelThemeMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelBrandingAssetsResponse200 = {
+  data: PanelBrandingAssetList;
+  status: 200;
+};
+
+export type listPanelBrandingAssetsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelBrandingAssetsResponseSuccess = listPanelBrandingAssetsResponse200 & {
+  headers: Headers;
+};
+export type listPanelBrandingAssetsResponseError = listPanelBrandingAssetsResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelBrandingAssetsResponse =
+  | listPanelBrandingAssetsResponseSuccess
+  | listPanelBrandingAssetsResponseError;
+
+export const getListPanelBrandingAssetsUrl = () => {
+  return `/v1/panel/settings/theme/assets`;
+};
+
+/**
+ * Requires settings.read. The image slots with their size, type, and checksum. The bytes are not returned here; they are served publicly by the branding asset route.
+ */
+export const listPanelBrandingAssets = async (
+  options?: RequestInit,
+): Promise<listPanelBrandingAssetsResponse> => {
+  const res = await fetch(getListPanelBrandingAssetsUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelBrandingAssetsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelBrandingAssetsResponse;
+};
+
+export const getListPanelBrandingAssetsKey = () => [`/v1/panel/settings/theme/assets`] as const;
+
+export type ListPanelBrandingAssetsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelBrandingAssets>>
+>;
+
+export const useListPanelBrandingAssets = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelBrandingAssets>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelBrandingAssetsKey() : null));
+  const swrFn = () => listPanelBrandingAssets(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelBrandingAssetResponse200 = {
+  data: PanelBrandingAsset;
+  status: 200;
+};
+
+export type savePanelBrandingAssetResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelBrandingAssetResponse413 = {
+  data: ProblemResponse;
+  status: 413;
+};
+
+export type savePanelBrandingAssetResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelBrandingAssetResponseSuccess = savePanelBrandingAssetResponse200 & {
+  headers: Headers;
+};
+export type savePanelBrandingAssetResponseError = (
+  | savePanelBrandingAssetResponse403
+  | savePanelBrandingAssetResponse413
+  | savePanelBrandingAssetResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelBrandingAssetResponse =
+  | savePanelBrandingAssetResponseSuccess
+  | savePanelBrandingAssetResponseError;
+
+export const getSavePanelBrandingAssetUrl = (kind: "logo_light" | "logo_dark" | "favicon") => {
+  return `/v1/panel/settings/theme/assets/${kind}`;
+};
+
+/**
+ * Requires settings.write. The body is the image itself rather than a form or a base64 field, so its size is bounded before a byte is read. The declared content type must match the magic number of the bytes. SVG is not accepted: it can carry a script, and these files are served from the same origin as both panels.
+ */
+export const savePanelBrandingAsset = async (
+  kind: "logo_light" | "logo_dark" | "favicon",
+  savePanelBrandingAssetBody: Blob,
+  options?: RequestInit,
+): Promise<savePanelBrandingAssetResponse> => {
+  const res = await fetch(getSavePanelBrandingAssetUrl(kind), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "image/*", ...options?.headers },
+    body: savePanelBrandingAssetBody,
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelBrandingAssetResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as savePanelBrandingAssetResponse;
+};
+
+export const getSavePanelBrandingAssetMutationFetcher = (
+  kind: "logo_light" | "logo_dark" | "favicon",
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: Blob }) => {
+    return savePanelBrandingAsset(kind, arg, options);
+  };
+};
+export const getSavePanelBrandingAssetMutationKey = (
+  kind: "logo_light" | "logo_dark" | "favicon",
+) => [`/v1/panel/settings/theme/assets/${kind}`] as const;
+
+export type SavePanelBrandingAssetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelBrandingAsset>>
+>;
+
+export const useSavePanelBrandingAsset = <TError = Promise<ProblemResponse>>(
+  kind: "logo_light" | "logo_dark" | "favicon",
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof savePanelBrandingAsset>>,
+      TError,
+      Key,
+      Blob,
+      Awaited<ReturnType<typeof savePanelBrandingAsset>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelBrandingAssetMutationKey(kind);
+  const swrFn = getSavePanelBrandingAssetMutationFetcher(kind, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type deletePanelBrandingAssetResponse200 = {
+  data: DeletePanelBrandingAsset200;
+  status: 200;
+};
+
+export type deletePanelBrandingAssetResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type deletePanelBrandingAssetResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type deletePanelBrandingAssetResponseSuccess = deletePanelBrandingAssetResponse200 & {
+  headers: Headers;
+};
+export type deletePanelBrandingAssetResponseError = (
+  | deletePanelBrandingAssetResponse403
+  | deletePanelBrandingAssetResponse404
+) & {
+  headers: Headers;
+};
+
+export type deletePanelBrandingAssetResponse =
+  | deletePanelBrandingAssetResponseSuccess
+  | deletePanelBrandingAssetResponseError;
+
+export const getDeletePanelBrandingAssetUrl = (kind: "logo_light" | "logo_dark" | "favicon") => {
+  return `/v1/panel/settings/theme/assets/${kind}`;
+};
+
+/**
+ * Requires settings.write. Clears the slot, returning the installation to the shipped mark.
+ */
+export const deletePanelBrandingAsset = async (
+  kind: "logo_light" | "logo_dark" | "favicon",
+  options?: RequestInit,
+): Promise<deletePanelBrandingAssetResponse> => {
+  const res = await fetch(getDeletePanelBrandingAssetUrl(kind), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: deletePanelBrandingAssetResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as deletePanelBrandingAssetResponse;
+};
+
+export const getDeletePanelBrandingAssetMutationFetcher = (
+  kind: "logo_light" | "logo_dark" | "favicon",
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return deletePanelBrandingAsset(kind, options);
+  };
+};
+export const getDeletePanelBrandingAssetMutationKey = (
+  kind: "logo_light" | "logo_dark" | "favicon",
+) => [`/v1/panel/settings/theme/assets/${kind}`] as const;
+
+export type DeletePanelBrandingAssetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deletePanelBrandingAsset>>
+>;
+
+export const useDeletePanelBrandingAsset = <TError = Promise<ProblemResponse>>(
+  kind: "logo_light" | "logo_dark" | "favicon",
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof deletePanelBrandingAsset>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof deletePanelBrandingAsset>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getDeletePanelBrandingAssetMutationKey(kind);
+  const swrFn = getDeletePanelBrandingAssetMutationFetcher(kind, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

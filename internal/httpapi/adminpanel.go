@@ -176,6 +176,11 @@ func NewAdminHandlers(options AdminOptions) *AdminHandlers {
 
 // Mount registers the panel routes.
 func (handlers *AdminHandlers) Mount(router chi.Router) {
+	// Public, and mounted first because it is not part of the panel surface:
+	// a signed-out visitor has to be able to read what the installation looks
+	// like before there is a session to authorise anything.
+	handlers.mountPublicBranding(router)
+
 	router.Route("/v1/panel", func(panel chi.Router) {
 		panel.Use(SecurityHeaders)
 
@@ -240,6 +245,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 			handlers.mountLoyalty(secure)
 			handlers.mountMarketing(secure)
 			handlers.mountSettings(secure)
+			handlers.mountTheme(secure)
 			handlers.mountCustomerAuth(secure)
 		})
 	})

@@ -50,6 +50,10 @@ var settingSections = map[string]bool{
 	"branding": true, "remnawave": true, "telegram": true, "operator_group": true,
 	"required_channels": true, "maintenance": true, "notifications": true,
 	"telemetry": true, "backup": true, "security": true, "ai": true, "mcp": true,
+	// The palette is a section like any other — a document, a version guard,
+	// an audit event — but it is never edited through the generic settings
+	// renderer, because a colour is not a text field. See branding.go.
+	"theme": true,
 }
 
 // SettingSections reads every section without its secrets.

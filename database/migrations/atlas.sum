@@ -1,4 +1,4 @@
-h1:3WASc1Dt9+yye2XSgpzjhaW7Hz+6ant6qSc8JhHmV+0=
+h1:ca9h3y5mvYmcin/KRO1Lsv1smKDOjn8QRmROYtskXpQ=
 20260810160000_initial.sql h1:1kQrZBliczdiXY/iEDj2ZAU+pUo0tJpeSRzclMaGkBg=
 20260810190000_bot_self_service.sql h1:LS90y7P5Az1VyeoozUy8ljEsBUQmAAPv3fdH+4QTH5g=
 20260810220000_commerce.sql h1:F9VjoIN5PYaNjnYOHHNYKvv+kSYJ4KLnVu6eI5PVHzM=
@@ -18,3 +18,4 @@ h1:3WASc1Dt9+yye2XSgpzjhaW7Hz+6ant6qSc8JhHmV+0=
 20260823000000_attachment_storage.sql h1:OJ+Z1p72Xo+a662JhLNKhzq3IEv9C9I+2Hp93rvLK4M=
 20260824000000_campaign_test_sends.sql h1:KWAkbW6QpeqmSj6i3379RezqC8HsBcXIOR9zTZvj6cs=
 20260825000000_operator_passkeys.sql h1:vy7LR2fohg3FbgGOnxxzazNf8k6JcZc3UiDT4jlaJ5Y=
+20260826000000_branding_theme.sql h1:8ILmml3Jb82oGoD1LlbhQ272116jkOWgbDW1hf8Y+is=

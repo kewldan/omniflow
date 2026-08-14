@@ -20,7 +20,7 @@ fetched all of it whether or not you were looking at any of it.
 | `/admin/settings/commerce` | Currency, top-up limits, subscription policy, payment providers |
 | `/admin/settings/integrations` | Remnawave, the Telegram bot, the operator group, required channels |
 | `/admin/settings/operations` | Maintenance, notifications, backups, telemetry — plus the telemetry preview and backup history |
-| `/admin/settings/brand` | Branding and the security section |
+| `/admin/settings/brand` | Branding, [appearance](/operations/branding), and the security section |
 | `/admin/settings/sign-in` | The customer sign-in providers |
 | `/admin/settings/ai` | Model providers, per-feature enablement, budgets, MCP connections |
 
@@ -52,6 +52,7 @@ diagnostics bundle needs `system.read` and lives on the system screen. See
 | Wallet top-up | `commerce_settings` | No — limits, presets, and the rolling window come from the environment | `APP_WALLET_TOPUP_*` |
 | Subscriptions | `commerce_settings` | Partly — the customer web panel reads `multi_subscription_enabled` to decide whether to show the subscription switcher | `APP_MULTI_SUBSCRIPTION_ENABLED`, `APP_MAX_SUBSCRIPTIONS_PER_CUSTOMER` |
 | Branding | `installation_settings` | No | `APP_PUBLIC_URL`, `APP_TERMS_URL`, `APP_SUPPORT_URL`, `APP_DEFAULT_CURRENCY` |
+| Appearance | `installation_settings`, `branding_assets` | **Yes** — both panels read it on every render, behind a one-minute cache | Save and reload; there is no environment variable |
 | Remnawave | `installation_settings` | No | `APP_REMNAWAVE_URL`, `APP_REMNAWAVE_TOKEN` |
 | Telegram | `installation_settings` | No | `APP_TELEGRAM_TOKEN`, `APP_TELEGRAM_WEBHOOK_URL`, `APP_TELEGRAM_WEBHOOK_SECRET` |
 | Operator group | `installation_settings` | No | `APP_OPERATOR_CHAT_ID`, `APP_OPERATOR_NOTIFICATION_CAP`, `APP_OPERATOR_NOTIFICATION_WINDOW_MINUTES` |
@@ -157,11 +158,15 @@ somewhere it does not belong.
 | `telemetry` | `enabled`, `endpoint` | — |
 | `backup` | `enabled`, `intervalHours`, `retentionDays`, `directory` | `encryptionKey` |
 | `security` | `sessionIdleMinutes`, `sessionAbsoluteHours`, `requireTotp`, `allowedOrigins` | — |
+| `theme` | The palette, corner and spacing scales, offered modes, default mode — see [White-label appearance](/operations/branding) | — |
 
-`GET`/`PUT /v1/panel/settings/{section}` additionally accept `ai` and `mcp`, which the
-settings screen does not render — those areas have their own screen at
-`/admin/settings/ai`. See [AI governance](/operations/ai-governance) and
-[MCP](/operations/mcp).
+Three of these are not fields on the generic renderer. `ai` and `mcp` have their own
+screen at `/admin/settings/ai` — see [AI governance](/operations/ai-governance) and
+[MCP](/operations/mcp) — and `theme` has its own editor below the branding fields on
+`/admin/settings/brand`, because a colour is not a text field and a logo is not a
+settings document. All three are still ordinary sections over
+`GET`/`PUT /v1/panel/settings/{section}`, with the same version guard and the same audit
+entry.
 
 ## Commerce settings
 

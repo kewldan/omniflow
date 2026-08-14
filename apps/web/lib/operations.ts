@@ -392,6 +392,59 @@ export type CommerceSettings = {
   updatedAt: string;
 };
 
+/**
+ * One contrast problem in the operator's palette.
+ *
+ * The ratio is computed by the API rather than in the browser, and there is
+ * deliberately no second implementation of the WCAG formula here: two of them
+ * would eventually disagree about which palettes are allowed, and only the one
+ * that refuses saves would be right.
+ */
+export type BrandingWarning = {
+  code: "pair_unreadable" | "pair_below_aa";
+  mode: "light" | "dark";
+  foreground: string;
+  background: string;
+  ratio: number;
+  blocking: boolean;
+};
+
+export type Palette = Record<string, string>;
+
+export type ThemeSettings = {
+  theme: {
+    light?: Palette;
+    dark?: Palette;
+    radius: string;
+    density: string;
+    allowedThemes: string[];
+    defaultTheme: string;
+  };
+  css: string;
+  warnings: BrandingWarning[];
+  /** The tokens this build honours, so the screen never offers one it cannot set. */
+  themable: string[];
+  version: number;
+  updatedAt: string;
+  updatedBy?: string;
+};
+
+export type BrandingAsset = {
+  kind: string;
+  contentType: string;
+  byteSize: number;
+  checksum: string;
+  updatedAt: string;
+  updatedBy?: string;
+};
+
+export type BrandingAssets = {
+  items: BrandingAsset[] | null;
+  kinds: string[];
+  contentTypes: string[];
+  maxBytes: number;
+};
+
 export type Page<Item> = { items: Item[] | null; nextCursor?: string };
 export type Listing<Item> = { items: Item[] | null };
 

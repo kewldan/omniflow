@@ -47,6 +47,38 @@ paths:
       responses:
         "200": {description: Visible plans, content: {application/json: {schema: {$ref: "#/components/schemas/PlanList"}}}}
         "500": {$ref: "#/components/responses/Problem"}
+  /v1/branding:
+    get:
+      operationId: getBranding
+      tags: [catalog]
+      description: >-
+        Public. What an installation looks like, read by both panels before they
+        paint: the service name, the operator's palette rendered as
+        ready-to-inline declarations, and the addresses of the brand images. It
+        deliberately carries nothing else, because everything here is readable by
+        anyone who can reach the installation. Absent when no operator panel is
+        configured, in which case the shipped design is used.
+      responses:
+        "200": {description: Branding, content: {application/json: {schema: {$ref: "#/components/schemas/Branding"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/branding/assets/{kind}:
+    get:
+      operationId: getBrandingAsset
+      tags: [catalog]
+      description: >-
+        Public. One brand image. The `v` parameter carries the image's own
+        SHA-256; a request naming the current one is answered as immutable, so a
+        browser holds the bytes until the operator replaces them.
+      parameters:
+        - {in: path, name: kind, required: true, schema: {type: string, enum: [logo_light, logo_dark, favicon]}}
+        - {in: query, name: v, schema: {type: string}, description: "The image checksum, as published by /v1/branding."}
+      responses:
+        "200":
+          description: The image
+          content:
+            image/*: {schema: {type: string, format: binary}}
+        "304": {description: Unchanged since the client copy}
+        "404": {$ref: "#/components/responses/Problem"}
   /v1/admin/plans:
     post:
       operationId: createPlan
@@ -1360,6 +1392,91 @@ paths:
         "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelCommerceSettings"}}}}
         "403": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/theme:
+    get:
+      operationId: getPanelTheme
+      tags: [panel]
+      description: >-
+        Requires settings.read. The stored palette, the stylesheet it renders as,
+        the tokens this build honours, and every contrast problem the palette
+        has. The warnings are recomputed on each read rather than stored, so they
+        cannot go stale against a palette edited elsewhere.
+      responses:
+        "200": {description: Theme, content: {application/json: {schema: {$ref: "#/components/schemas/PanelTheme"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+    put:
+      operationId: savePanelTheme
+      tags: [panel]
+      description: >-
+        Requires settings.write. Refused when any text pair falls below 3:1
+        against its own background, which is under the loosest threshold WCAG 2.2
+        defines for any text. A pair between 3:1 and 4.5:1 is saved and reported
+        as a warning, because a brand tone that fails AA is a decision an operator
+        is entitled to make and be told about.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [theme, version]
+              properties:
+                theme: {$ref: "#/components/schemas/ThemeDocument"}
+                version: {type: integer, description: "The version the screen was showing. A mismatch is a conflict rather than an overwrite."}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelTheme"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/theme/assets:
+    get:
+      operationId: listPanelBrandingAssets
+      tags: [panel]
+      description: >-
+        Requires settings.read. The image slots with their size, type, and
+        checksum. The bytes are not returned here; they are served publicly by
+        the branding asset route.
+      responses:
+        "200": {description: Brand images, content: {application/json: {schema: {$ref: "#/components/schemas/PanelBrandingAssetList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/theme/assets/{kind}:
+    put:
+      operationId: savePanelBrandingAsset
+      tags: [panel]
+      description: >-
+        Requires settings.write. The body is the image itself rather than a form
+        or a base64 field, so its size is bounded before a byte is read. The
+        declared content type must match the magic number of the bytes. SVG is
+        not accepted: it can carry a script, and these files are served from the
+        same origin as both panels.
+      parameters:
+        - {in: path, name: kind, required: true, schema: {type: string, enum: [logo_light, logo_dark, favicon]}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody:
+        required: true
+        description: >-
+          One PNG, JPEG, or WebP image. The exact type is declared in the
+          Content-Type header and must match the bytes themselves; the media type
+          range here is what lets one request body carry any of the three.
+        content:
+          image/*: {schema: {type: string, format: binary}}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelBrandingAsset"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "413": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+    delete:
+      operationId: deletePanelBrandingAsset
+      tags: [panel]
+      description: Requires settings.write. Clears the slot, returning the installation to the shipped mark.
+      parameters:
+        - {in: path, name: kind, required: true, schema: {type: string, enum: [logo_light, logo_dark, favicon]}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "200": {description: Removed, content: {application/json: {schema: {type: object, properties: {removed: {type: boolean}}}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
   /v1/panel/settings/providers:
     get:
       operationId: listPanelProviderSettings
@@ -4037,6 +4154,76 @@ components:
       properties:
         multiEnabled: {type: boolean}
         maxPerCustomer: {type: integer, minimum: 1}
+    ThemeDocument:
+      type: object
+      description: >-
+        An operator's overrides. Every field is optional, and an omitted one keeps
+        the design's own value. A palette maps a themable token name to a hex
+        colour and accepts nothing else, because these values are rendered into a
+        style element.
+      properties:
+        light: {type: object, additionalProperties: {type: string}}
+        dark: {type: object, additionalProperties: {type: string}}
+        radius: {type: string, enum: [square, compact, default, rounded]}
+        density: {type: string, enum: [compact, default, comfortable]}
+        allowedThemes:
+          type: array
+          items: {type: string, enum: [light, dark]}
+          description: "Which modes a visitor may switch between. One mode removes the switcher rather than leaving it inert."
+        defaultTheme: {type: string, enum: [light, dark, system]}
+    ThemeWarning:
+      type: object
+      required: [code, mode, foreground, background, ratio, blocking]
+      properties:
+        code: {type: string, enum: [pair_unreadable, pair_below_aa]}
+        mode: {type: string, enum: [light, dark]}
+        foreground: {type: string}
+        background: {type: string}
+        ratio: {type: number, description: "The WCAG contrast ratio, from 1 to 21."}
+        blocking: {type: boolean, description: "True below 3:1, which refuses the save."}
+    PanelTheme:
+      type: object
+      required: [theme, css, warnings, themable, version, updatedAt]
+      properties:
+        theme: {$ref: "#/components/schemas/ThemeDocument"}
+        css: {type: string, description: "The declarations to inline. Empty when nothing has been customised."}
+        warnings: {type: array, items: {$ref: "#/components/schemas/ThemeWarning"}}
+        themable: {type: array, items: {type: string}, description: "The token names this build honours."}
+        version: {type: integer}
+        updatedAt: {type: string, format: date-time}
+        updatedBy: {type: string, format: uuid}
+    PanelBrandingAsset:
+      type: object
+      required: [kind, contentType, byteSize, checksum, updatedAt]
+      properties:
+        kind: {type: string, enum: [logo_light, logo_dark, favicon]}
+        contentType: {type: string, enum: [image/png, image/jpeg, image/webp]}
+        byteSize: {type: integer, format: int64}
+        checksum: {type: string, description: "SHA-256 of the bytes, hex encoded. Published as the ETag of the asset."}
+        updatedAt: {type: string, format: date-time}
+        updatedBy: {type: string, format: uuid}
+    PanelBrandingAssetList:
+      type: object
+      required: [items, kinds, contentTypes, maxBytes]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/PanelBrandingAsset"}}
+        kinds: {type: array, items: {type: string}}
+        contentTypes: {type: array, items: {type: string}}
+        maxBytes: {type: integer}
+    Branding:
+      type: object
+      required: [serviceName, css, radius, density, allowedThemes, defaultTheme, assets]
+      properties:
+        serviceName: {type: string, description: "Empty when the installation has not named itself."}
+        css: {type: string}
+        radius: {type: string}
+        density: {type: string}
+        allowedThemes: {type: array, items: {type: string}}
+        defaultTheme: {type: string}
+        assets:
+          type: object
+          description: "Slot name to an address carrying the image checksum. A slot with no image is absent."
+          additionalProperties: {type: string}
     PanelCommerceSettings:
       type: object
       required: [topUp, subscriptions, updatedAt]
