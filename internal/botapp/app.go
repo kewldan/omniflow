@@ -813,26 +813,48 @@ func referralURL(username, code string) string {
 	return fmt.Sprintf("https://t.me/%s?start=%s", url.PathEscape(username), url.QueryEscape("ref_"+code))
 }
 
+// sendParams builds one outbound message.
+//
+// The keyboard is assigned only when there is one, and that conditional is the
+// whole point of it. `ReplyMarkup` is an `any`, so a nil `*InlineKeyboardMarkup`
+// assigned to it is a non-nil interface holding a nil pointer, which marshals to
+// `"reply_markup": null` — and Telegram answers `Bad Request: object expected as
+// reply markup` and drops the message.
+//
+// Every message the bot sends without a keyboard went out that way: the web
+// sign-in link, all four of its notices, the rate-limit and promo replies, the
+// support hints, and the operator's test notification. None of them were ever
+// delivered, on any installation, and the failure was invisible because these
+// are precisely the sends whose error was discarded.
 func sendParams(chatID int64, view View) *telegram.SendMessageParams {
 	disabled := true
-	return &telegram.SendMessageParams{
+	params := &telegram.SendMessageParams{
 		ChatID:             chatID,
 		Text:               view.Text,
 		ParseMode:          models.ParseModeHTML,
 		LinkPreviewOptions: &models.LinkPreviewOptions{IsDisabled: &disabled},
 		ProtectContent:     true,
-		ReplyMarkup:        view.Keyboard,
 	}
+	if view.Keyboard != nil {
+		params.ReplyMarkup = view.Keyboard
+	}
+	return params
 }
 
+// editParams rewrites a message in place, with the same nil-keyboard rule as
+// sendParams: an edit that sent `"reply_markup": null` would be refused rather
+// than clearing the keyboard.
 func editParams(chatID int64, messageID int, view View) *telegram.EditMessageTextParams {
 	disabled := true
-	return &telegram.EditMessageTextParams{
+	params := &telegram.EditMessageTextParams{
 		ChatID:             chatID,
 		MessageID:          messageID,
 		Text:               view.Text,
 		ParseMode:          models.ParseModeHTML,
 		LinkPreviewOptions: &models.LinkPreviewOptions{IsDisabled: &disabled},
-		ReplyMarkup:        view.Keyboard,
 	}
+	if view.Keyboard != nil {
+		params.ReplyMarkup = view.Keyboard
+	}
+	return params
 }

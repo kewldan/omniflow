@@ -77,15 +77,27 @@ func (app *App) HandleWebLogin(ctx context.Context, client *telegram.Bot, update
 
 	// Protected so the message cannot be forwarded: the link is a bearer
 	// credential for ten minutes, and forwarding it hands over the account.
-	_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{
+	//
+	// The delivery error is reported rather than discarded. This is the one
+	// branch that has to reach the customer, and a send that fails here looks
+	// from the outside exactly like a command that was never received: no
+	// message arrives, and until this line existed nothing was written down
+	// either. The link itself is never logged — it is a credential.
+	if _, err := client.SendMessage(ctx, sendParams(message.Chat.ID, View{
 		Text: text(locale, "weblogin.link", link), Protect: true,
-	}))
+	})); err != nil {
+		app.logger.Warn("web sign-in link could not be delivered", "error", err)
+	}
 }
 
 func (app *App) sendWebLoginNotice(
 	ctx context.Context, client *telegram.Bot, chatID int64, locale Locale, key string,
 ) {
+	// Warn rather than Debug. Every one of these notices is the only thing the
+	// customer will see, so a delivery that fails leaves them looking at a chat
+	// where nothing happened — and a level nobody runs at leaves the operator
+	// with nothing to look at either.
 	if _, err := client.SendMessage(ctx, sendParams(chatID, View{Text: text(locale, key)})); err != nil {
-		app.logger.Debug("web sign-in notice delivery failed", "error", err)
+		app.logger.Warn("web sign-in notice could not be delivered", "notice", key, "error", err)
 	}
 }
