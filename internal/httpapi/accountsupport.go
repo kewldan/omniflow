@@ -44,6 +44,11 @@ func (handlers *AccountHandlers) mountSupport(router chi.Router) {
 	router.Get("/news", handlers.listSupportNews)
 	router.Post("/news/{postID}/read", handlers.readSupportNews)
 
+	// What was actually delivered, beside the settings that decided it. The
+	// preferences above say what should arrive; this says what did, and why
+	// anything did not.
+	router.Get("/notifications", handlers.notificationHistory)
+
 	router.Get("/preferences", handlers.communicationPreferences)
 	router.Patch("/preferences", handlers.updateCommunicationPreferences)
 	router.Post("/preferences/unsubscribe", handlers.unsubscribeFromMarketing)
@@ -378,6 +383,51 @@ func (handlers *AccountHandlers) readSupportNews(writer http.ResponseWriter, req
 		return
 	}
 	writer.WriteHeader(http.StatusNoContent)
+}
+
+// ---------------------------------------------------------------------------
+// Notification history
+// ---------------------------------------------------------------------------
+
+// notificationHistory answers "did you send it, and when".
+//
+// The customer identifier comes from the session and from nowhere else — there
+// is no path parameter to point at somebody else's history, because there is no
+// reason a customer would ever read one.
+func (handlers *AccountHandlers) notificationHistory(
+	writer http.ResponseWriter, request *http.Request,
+) {
+	principal, _ := CustomerFrom(request.Context())
+	deliveries, err := handlers.support.Deliveries(
+		request.Context(), principal.Customer.ID, queryLimit(request),
+	)
+	if handlers.writeSupportError(writer, request, err) {
+		return
+	}
+	items := make([]map[string]any, 0, len(deliveries))
+	for _, delivery := range deliveries {
+		item := map[string]any{
+			"kind": delivery.Kind, "status": delivery.Status,
+			"scheduledAt": delivery.ScheduledAt.Format(time.RFC3339),
+		}
+		if delivery.Reason != "" {
+			item["reason"] = delivery.Reason
+		}
+		if !delivery.SentAt.IsZero() {
+			item["sentAt"] = delivery.SentAt.Format(time.RFC3339)
+		}
+		if !delivery.DeferredUntil.IsZero() {
+			item["deferredUntil"] = delivery.DeferredUntil.Format(time.RFC3339)
+		}
+		if delivery.SubscriptionSlot > 0 {
+			item["subscriptionSlot"] = delivery.SubscriptionSlot
+			if delivery.SubscriptionLabel != "" {
+				item["subscriptionLabel"] = delivery.SubscriptionLabel
+			}
+		}
+		items = append(items, item)
+	}
+	writeJSON(writer, http.StatusOK, map[string]any{"items": items})
 }
 
 // ---------------------------------------------------------------------------

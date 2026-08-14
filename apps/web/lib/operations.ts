@@ -749,6 +749,59 @@ export type MergePreview = {
   notes: string[];
 };
 
+/**
+ * What a customer was actually sent.
+ *
+ * `reason` is the field that does the work. A status other than `sent` carries
+ * one, and the codes an installation produces on purpose — `quiet_hours`,
+ * `frequency_cap`, `no_consent` — turn "nothing arrived" into an answer about a
+ * decision somebody made rather than a fault nobody can find.
+ *
+ * There is no message body, deliberately. The record says a notice of a kind
+ * happened, not what it said; rendering a template against today's data would
+ * show an operator something that was never sent.
+ */
+export type Delivery = {
+  id: string;
+  kind: string;
+  class: string;
+  status: string;
+  scheduledAt: string;
+  sentAt?: string;
+  deferredUntil?: string;
+  failureCount: number;
+  reason?: string;
+  subscriptionId?: string;
+  subscriptionSlot?: number;
+  subscriptionLabel?: string;
+};
+
+export type DeliveryPage = { deliveries: Delivery[] | null; total: number };
+
+export type DeliverySummary = {
+  kind: string;
+  total: number;
+  sent: number;
+  failed: number;
+  suppressed: number;
+  waiting: number;
+  lastSentAt?: string;
+};
+
+/**
+ * What a test send reports back.
+ *
+ * `queued: false` means an identical test was already waiting to go out, which
+ * is what a double-click produces. Nothing new was created and the customer
+ * still receives exactly one message.
+ */
+export type QueuedTest = {
+  id?: string;
+  status: string;
+  queued: boolean;
+  scheduledAt?: string;
+};
+
 export type Page<Item> = { items: Item[] | null; nextCursor?: string };
 export type Listing<Item> = { items: Item[] | null };
 

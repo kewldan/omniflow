@@ -30,6 +30,7 @@ import { useSession } from "@/lib/session";
 
 import { AuditTimeline, ReferralPanel, SupportPanel } from "./customer-history";
 import { MergePanel } from "./merge-panel";
+import { NotificationsPanel } from "./notifications-panel";
 import { SubscriptionActions, SubscriptionDevices } from "./subscription-actions";
 
 /**
@@ -124,6 +125,7 @@ export function CustomerProfileView({ customerId }: { customerId: string }) {
           {can("support.read") && (
             <TabsTrigger value="support">{translate("tabs.support")}</TabsTrigger>
           )}
+          <TabsTrigger value="notifications">{translate("tabs.notifications")}</TabsTrigger>
           {can("risk.read") && <TabsTrigger value="risk">{translate("tabs.risk")}</TabsTrigger>}
           {can("audit.read") && (
             <TabsTrigger value="timeline">{translate("tabs.timeline")}</TabsTrigger>
@@ -149,6 +151,16 @@ export function CustomerProfileView({ customerId }: { customerId: string }) {
             <SupportPanel active={tab === "support"} base={base} />
           </TabsContent>
         )}
+        {/* Notification history needs only customers.read, because it is part of
+            this customer's record: it says what was sent to them and, when
+            nothing was, which decision held it back. */}
+        <TabsContent value="notifications">
+          <NotificationsPanel
+            active={tab === "notifications"}
+            base={base}
+            customerId={customerId}
+          />
+        </TabsContent>
         {can("risk.read") && (
           <TabsContent value="risk">
             <RiskList active={tab === "risk"} base={base} locale={locale} />

@@ -3978,6 +3978,99 @@ export const MergePanelCustomerResponse = zod.object({
 });
 
 /**
+ * Requires customers.read. What this customer was actually sent.
+ * There is no message body here. The record says that a notice of a kind happened, not what it said, and reconstructing text from a template and today's data would show an operator something that was never sent.
+ * `reason` is the useful column. It carries a transport failure such as `bot_blocked` when one happened, and a policy outcome otherwise: `quiet_hours`, `frequency_cap`, `no_consent`. Those are deliveries the installation declined to make on purpose, and they turn "nothing arrived" into an answer.
+ */
+export const ListPanelCustomerNotificationsParams = zod.object({
+  customerID: zod.uuid(),
+});
+
+export const listPanelCustomerNotificationsQueryOffsetMin = 0;
+
+export const listPanelCustomerNotificationsQueryLimitMax = 50;
+
+export const ListPanelCustomerNotificationsQueryParams = zod.object({
+  kind: zod.string().optional().describe("Narrow to one kind."),
+  status: zod.enum(["pending", "deferred", "sent", "failed", "suppressed"]).optional(),
+  offset: zod.int().min(listPanelCustomerNotificationsQueryOffsetMin).optional(),
+  limit: zod.int().min(1).max(listPanelCustomerNotificationsQueryLimitMax).optional(),
+});
+
+export const ListPanelCustomerNotificationsResponse = zod.object({
+  deliveries: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      kind: zod.string(),
+      class: zod.enum(["transactional", "marketing"]),
+      status: zod.enum(["pending", "deferred", "sent", "failed", "suppressed"]),
+      scheduledAt: zod.iso.datetime({ offset: true }),
+      sentAt: zod.iso.datetime({ offset: true }).optional(),
+      deferredUntil: zod.iso.datetime({ offset: true }).optional(),
+      failureCount: zod.int(),
+      reason: zod
+        .string()
+        .optional()
+        .describe(
+          "Why it was not sent: a transport failure, or a policy outcome such as quiet_hours.",
+        ),
+      subscriptionId: zod.uuid().optional(),
+      subscriptionSlot: zod.int().optional(),
+      subscriptionLabel: zod.string().optional(),
+    }),
+  ),
+  total: zod.int(),
+});
+
+/**
+ * Requires customers.read. The shape of the whole history per kind, which is what somebody wants before reading any single row of it.
+ */
+export const SummarisePanelCustomerNotificationsParams = zod.object({
+  customerID: zod.uuid(),
+});
+
+export const SummarisePanelCustomerNotificationsResponse = zod.object({
+  summaries: zod.array(
+    zod.object({
+      kind: zod.string(),
+      total: zod.int(),
+      sent: zod.int(),
+      failed: zod.int(),
+      suppressed: zod.int(),
+      waiting: zod.int(),
+      lastSentAt: zod.iso.datetime({ offset: true }).optional(),
+    }),
+  ),
+});
+
+/**
+ * Requires support.write. Queues one test message to this customer through the ordinary outbox.
+ * Queued, not sent — and that is the point. The panel process holds no Telegram connection; the notifier does. A test that took its own path would prove the test path works, which nobody asked. This one is claimed by the same worker, sent by the same call, and recorded with the same failure codes, so when real notifications are failing the test fails identically.
+ * Quiet hours, the marketing frequency cap, and the per-kind preferences are deliberately not applied: a test deferred until nine in the morning answers nothing at the moment somebody is asking. Delivery health still is, because a customer who blocked the bot cannot be reached by wanting it more — and that is the finding the operator needs.
+ * Answers 202. The outcome appears in the history, not in this response. Deduplicated by operator and minute, so a double-click is one message.
+ */
+export const SendPanelCustomerTestNotificationParams = zod.object({
+  customerID: zod.uuid(),
+});
+
+export const SendPanelCustomerTestNotificationHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const SendPanelCustomerTestNotificationResponse = zod.object({
+  id: zod.uuid().optional(),
+  status: zod.string(),
+  queued: zod
+    .boolean()
+    .describe(
+      "False when an identical test was already waiting, which is what a double-click produces. The customer still receives exactly one message.",
+    ),
+  scheduledAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+/**
  * Requires finance.read. What was sold over a chosen period, by kind of sale, by plan version, and by day, with trial conversion and refunds issued. The period keys on `orders.paid_at`, which is set once when an order first settles and never moved afterwards, so re-running a report over a closed period returns the same figures. Provider money and wallet credit are reported apart and must never be added: the balance was already revenue when it was funded. A period longer than two years is refused.
  */
 export const getPanelSalesReportQueryTimezoneDefault = `UTC`;
@@ -9015,6 +9108,32 @@ export const MarkAccountNewsReadHeader = zod.object({
 });
 
 export const MarkAccountNewsReadResponse = zod.void();
+
+/**
+ * What this customer was actually sent, newest first.
+ * The preferences screen says what should arrive; this says what did. A status other than `sent` carries a `reason`, and the ones an installation produces on purpose — `quiet_hours`, `frequency_cap`, `no_consent` — tell the customer their own setting held a message back, which is something they can act on.
+ * Scoped to the session's own account. There is no path parameter, because there is no reason a customer would read somebody else's history.
+ */
+export const listAccountNotificationsQueryLimitMax = 100;
+
+export const ListAccountNotificationsQueryParams = zod.object({
+  limit: zod.int().min(1).max(listAccountNotificationsQueryLimitMax).optional(),
+});
+
+export const ListAccountNotificationsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      kind: zod.string(),
+      status: zod.enum(["pending", "deferred", "sent", "failed", "suppressed"]),
+      scheduledAt: zod.iso.datetime({ offset: true }),
+      sentAt: zod.iso.datetime({ offset: true }).optional(),
+      deferredUntil: zod.iso.datetime({ offset: true }).optional(),
+      reason: zod.string().optional(),
+      subscriptionSlot: zod.int().optional(),
+      subscriptionLabel: zod.string().optional(),
+    }),
+  ),
+});
 
 /**
  * Notification choices, marketing consent, contact-channel flags, and any suppression. A contact's address is never returned — only whether it is verified and what it is used for.

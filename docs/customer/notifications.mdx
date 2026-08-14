@@ -371,6 +371,92 @@ What that means in practice:
   the shared message record — so a reply already read in Telegram arrives here
   with nothing to announce.
 
+## What was actually sent
+
+Everything above this point is a setting. A setting says what *should* arrive,
+which leaves "I never got the expiry warning" as a claim nobody in the
+conversation can check — the customer has only an absence to go on, and an
+absence looks identical whether the bot is broken, a quiet window held the
+message back, or nothing was ever due.
+
+The record existed from the first release. `notification_deliveries` has always
+carried the kind, the class, whether the message left, when, how many attempts
+it took, and — when it never left — a code saying why. Nothing read it. Both
+sides read it now.
+
+### The customer's own history
+
+Beneath the preference controls, on the same screen, newest first. There are no
+message bodies: the record says that a notice of a kind happened, not what it
+said, and rendering a template against today's data would show somebody
+something that was never sent to them.
+
+What each outcome means:
+
+| Outcome | What happened |
+| --- | --- |
+| Delivered | It reached Telegram and Telegram accepted it |
+| Held back | It was never sent, on purpose, for the stated reason |
+| Waiting | It is queued and has not gone out yet |
+| Waiting for quiet hours | It is deferred until the window the customer set ends |
+| Could not be delivered | Telegram refused or was unreachable |
+
+The reasons on a held-back message point back at a control on the same page —
+`quiet_hours` at the quiet window, `no_consent` at a switch, `frequency_cap` at
+the marketing setting. That is the point of putting the two together: it turns
+"nothing arrived" into something the customer can change without opening a
+ticket.
+
+### The operator's view
+
+`/admin/customers/{id}`, under **Notifications**. Reading it needs
+`customers.read`: a delivery history is part of a customer record, and the
+person answering "did you send it" is already looking at the account.
+
+The same rows, with a summary per kind above them and a filter by outcome. The
+useful filter is **Held back**, because it is the one that turns a support
+conversation around. `suppressed` is shown in a neutral colour rather than as a
+warning — it is the installation doing what it was told, and colouring it as a
+fault sends operators looking for a problem that is a working feature.
+
+## Sending a test
+
+An operator can send one message to one customer to establish that delivery
+works right now. It needs `support.write`: nothing about the customer changes, a
+message goes out, and the people who need this are the ones handling the
+conversation it came from.
+
+It travels the ordinary outbox, and that is the whole value of it. The panel
+process holds no Telegram connection; the notifier does. A test that took its
+own path would prove that the test path works, which nobody asked. This one is
+claimed by the same worker, sent by the same call, classified by the same
+failure codes, and recorded in the same table — so when real notifications are
+failing, the test fails identically and names the reason.
+
+Three consequences worth stating:
+
+- **It is queued, not sent.** The API answers `202` and the panel says so. The
+  message goes out on the notifier's next pass, and the outcome appears in the
+  history below the button. Reporting a send that has not happened yet as though
+  it had is precisely the failure this feature exists to expose.
+- **Quiet hours, the frequency cap, and the per-kind switches do not apply.** A
+  test deferred until nine in the morning answers nothing at the moment somebody
+  is asking. Delivery health still applies, because a customer who blocked the
+  bot cannot be reached by wanting it more — and that is the finding the
+  operator needs.
+- **It carries a kind of its own.** A test can never be read back as a real
+  notice, and it can never spend a marketing frequency budget.
+
+Deduplicated by operator and by minute: an impatient double-click is one
+message, two operators testing the same customer are two, because those are two
+questions. The panel says which happened.
+
+The customer sees a message that states plainly that an operator sent it as a
+test and that nothing is required of them, with the timestamp. An unexplained
+message from a VPN provider is worse than no message.
+
+Every test send is in the audit trail as `customer.notification.tested`.
+
 ## Reference
 
 | Route | Method | Notes |
@@ -380,11 +466,20 @@ What that means in practice:
 | `/v1/account/preferences/unsubscribe` | `POST` | No body; returns the refreshed document |
 | `/v1/account/news` | `GET` | `?locale&cursor&limit` (default 20, max 50) → `{items, unreadCount, locale, nextCursor?}` |
 | `/v1/account/news/{postID}/read` | `POST` | 204; marking twice is not an error, an invisible post is 404 |
+| `/v1/account/notifications` | `GET` | `?limit` (default 30, max 100) → `{items}` — what was actually sent to the signed-in customer, newest first |
 
 Refusals are RFC 9457 problem documents. `locale` must normalise to `auto`,
 `ru`, or `en` — the value is lower-cased first, so refusing `EN` would be a rule
 about capitalisation rather than about language. Quiet hours must be whole hours
 between 0 and 23. A customer record that does not exist answers 404.
+
+Operator routes, all under `/v1/panel`:
+
+| Route | Method | Notes |
+| --- | --- | --- |
+| `/customers/{id}/notifications` | `GET` | `customers.read`; `?kind&status&offset&limit` (max 50) → `{deliveries, total}` |
+| `/customers/{id}/notifications/summary` | `GET` | `customers.read`; totals per kind |
+| `/customers/{id}/notifications/test` | `POST` | `support.write`; answers `202` with `{status, queued}`. `queued: false` means an identical test was already waiting |
 
 ## Related
 

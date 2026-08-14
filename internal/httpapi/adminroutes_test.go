@@ -146,6 +146,8 @@ func TestOperationsRoutesRequireASession(t *testing.T) {
 		{http.MethodGet, "/v1/panel/customers/00000000-0000-0000-0000-000000000000/loyalty"},
 		{http.MethodGet, "/v1/panel/goods/products"},
 		{http.MethodPost, "/v1/panel/bulk"},
+		{http.MethodGet, "/v1/panel/customers/00000000-0000-0000-0000-000000000000/notifications"},
+		{http.MethodPost, "/v1/panel/customers/00000000-0000-0000-0000-000000000000/notifications/test"},
 	}
 	for _, testCase := range cases {
 		recorder := httptest.NewRecorder()

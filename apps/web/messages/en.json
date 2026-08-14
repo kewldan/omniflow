@@ -640,7 +640,8 @@
         "risk": "Risk",
         "referrals": "Referrals",
         "support": "Support",
-        "timeline": "Timeline"
+        "timeline": "Timeline",
+        "notifications": "Notifications"
       },
       "actions": {
         "reason": "Reason",
@@ -2307,6 +2308,62 @@
           "description": "The platforms and applications customers are told to install, shared by the bot and the browser."
         }
       }
+    },
+    "notifications": {
+      "sendTest": "Send a test",
+      "queued": "Test queued. It goes out on the notifier's next pass and appears below.",
+      "alreadyQueued": "A test is already waiting to go out. Nothing new was queued.",
+      "testFailed": "The test could not be queued.",
+      "failed": "The notification history could not be loaded.",
+      "empty": "Nothing matches this filter.",
+      "neverSent": "Nothing has been sent to this customer yet.",
+      "counts": "{sent} of {total} sent",
+      "heldBack": "{count} held back",
+      "total": "{count} recorded",
+      "attempts": "({count} attempts)",
+      "slot": "Subscription {slot}",
+      "column": {
+        "kind": "Notification",
+        "status": "Outcome",
+        "reason": "Reason",
+        "when": "When"
+      },
+      "status": {
+        "all": "Every outcome",
+        "sent": "Sent",
+        "failed": "Failed",
+        "suppressed": "Held back",
+        "deferred": "Deferred",
+        "pending": "Waiting"
+      },
+      "kind": {
+        "expiry": "Expiry warning",
+        "traffic": "Traffic warning",
+        "renewal": "Renewal",
+        "grace": "Grace period",
+        "recovery": "Recovery",
+        "payment": "Payment",
+        "fulfillment": "Fulfillment",
+        "support": "Support reply",
+        "news": "News",
+        "announcement": "Announcement",
+        "incident": "Incident",
+        "maintenance": "Maintenance",
+        "marketing": "Offer",
+        "referral": "Referral",
+        "trial": "Trial",
+        "test": "Test"
+      },
+      "reason": {
+        "quiet_hours": "Inside the customer's quiet hours",
+        "frequency_cap": "The marketing frequency cap was reached",
+        "no_consent": "The customer has not consented to this kind",
+        "suppressed": "Non-essential messages are being held for this customer",
+        "bot_blocked": "The customer blocked the bot",
+        "chat_not_found": "No Telegram chat with this customer",
+        "user_deactivated": "The Telegram account is deactivated",
+        "telegram_unavailable": "Telegram could not be reached"
+      }
     }
   },
   "account": {
@@ -3169,6 +3226,42 @@
         "upload_failed": "The upload did not finish. Check your connection and try again.",
         "invalid_input": "Something in the form was not accepted. Check the fields and try again.",
         "unknown": "That did not work. Try again in a moment."
+      },
+      "history": {
+        "title": "What we sent you",
+        "empty": "We have not sent you any notifications yet.",
+        "sent": "Delivered",
+        "kind": {
+          "expiry": "Expiry warning",
+          "traffic": "Traffic warning",
+          "renewal": "Renewal",
+          "grace": "Grace period",
+          "recovery": "Recovery",
+          "payment": "Payment",
+          "fulfillment": "Fulfillment",
+          "support": "Support reply",
+          "news": "News",
+          "announcement": "Announcement",
+          "incident": "Incident",
+          "maintenance": "Maintenance",
+          "marketing": "Offer",
+          "referral": "Referral",
+          "trial": "Trial",
+          "test": "Test"
+        },
+        "why": {
+          "quiet_hours": "Held back — it fell inside your quiet hours",
+          "frequency_cap": "Held back — you had already received an offer recently",
+          "no_consent": "Not sent — this kind is switched off above",
+          "suppressed": "Not sent — non-essential messages are on hold for your account",
+          "bot_blocked": "Not delivered — the bot is blocked in Telegram",
+          "chat_not_found": "Not delivered — we have no Telegram chat with you",
+          "user_deactivated": "Not delivered — the Telegram account is deactivated",
+          "telegram_unavailable": "Not delivered — Telegram could not be reached",
+          "pending": "Waiting to go out",
+          "deferred": "Waiting for your quiet hours to end",
+          "failed": "Could not be delivered"
+        }
       }
     },
     "commerce": {

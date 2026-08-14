@@ -140,7 +140,28 @@ export type PreferencesPatch = {
   quietHours?: { startHour: number; endHour: number };
 };
 
+/**
+ * One notification, as its recipient sees it.
+ *
+ * `reason` is the field worth reading. A status other than `sent` carries one,
+ * and the codes an installation produces on purpose — `quiet_hours`,
+ * `frequency_cap`, `no_consent` — say that a setting held the message back,
+ * which is something the customer can change. There is no body: the record says
+ * that a notice of a kind happened, not what it said.
+ */
+export type NotificationDelivery = {
+  kind: string;
+  status: "pending" | "deferred" | "sent" | "failed" | "suppressed";
+  reason?: string;
+  scheduledAt: string;
+  sentAt?: string;
+  deferredUntil?: string;
+  subscriptionSlot?: number;
+  subscriptionLabel?: string;
+};
+
 export const SUPPORT_TICKETS_KEY = "/v1/account/support/tickets?limit=20";
 export const SUPPORT_LIMITS_KEY = "/v1/account/support/limits";
 export const NEWS_KEY = "/v1/account/news?limit=20";
 export const PREFERENCES_KEY = "/v1/account/preferences";
+export const NOTIFICATION_HISTORY_KEY = "/v1/account/notifications?limit=30";

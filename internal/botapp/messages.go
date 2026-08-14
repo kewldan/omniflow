@@ -446,6 +446,14 @@ var catalog = map[string]phrase{
 	"support.replyAlert": {ru: "🛟 <b>Ответ поддержки</b>\n\n%s\n\n%s", en: "🛟 <b>Support reply</b>\n\n%s\n\n%s"},
 	"support.open":       {ru: "💬 Открыть обращение", en: "💬 Open request"},
 
+	// A test notification, sent by an operator to establish that notifications
+	// reach this customer at all. It says who sent it and when, because an
+	// unexplained message from a VPN provider is worse than no message.
+	"notifications.test": {
+		ru: "🔔 <b>Проверка уведомлений</b>\n\nЭто тестовое сообщение отправил оператор, чтобы убедиться, что уведомления до вас доходят. Ничего делать не нужно.\n\n<code>%s</code>",
+		en: "🔔 <b>Notification test</b>\n\nAn operator sent this test message to confirm that notifications reach you. Nothing is required of you.\n\n<code>%s</code>",
+	},
+
 	// News inbox.
 	"news.title":                 {ru: "📰 <b>Новости и объявления</b>", en: "📰 <b>News and announcements</b>"},
 	"news.empty":                 {ru: "📰 <b>Новости и объявления</b>\n\nПока ничего нового.", en: "📰 <b>News and announcements</b>\n\nNothing new right now."},

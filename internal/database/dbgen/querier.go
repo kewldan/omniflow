@@ -130,6 +130,7 @@ type Querier interface {
 	CountCannedResponseUse(ctx context.Context, responseID pgtype.UUID) error
 	CountDunningAttemptsForCycle(ctx context.Context, cycleKey string) (int64, error)
 	CountGiftsByStatus(ctx context.Context) ([]CountGiftsByStatusRow, error)
+	CountNotificationDeliveries(ctx context.Context, arg CountNotificationDeliveriesParams) (int64, error)
 	CountOpenAnomalySignals(ctx context.Context) (int64, error)
 	CountOpenBlocklistMatches(ctx context.Context) (int64, error)
 	CountPlanVersionSquads(ctx context.Context, arg CountPlanVersionSquadsParams) (int32, error)
@@ -781,6 +782,20 @@ type Querier interface {
 	ListMCPServers(ctx context.Context) ([]ListMCPServersRow, error)
 	ListMCPTools(ctx context.Context, serverSlug string) ([]McpTool, error)
 	ListMessageTemplates(ctx context.Context) ([]MessageTemplate, error)
+	// Notification history.
+	//
+	// `notification_deliveries` already recorded everything. These are the reads
+	// that make it answerable — for the customer who says they never got it, and
+	// for the operator who has to find out whether that is true.
+	//
+	// `error_code` is the interesting column. It carries a transport failure when
+	// one happened, and a policy outcome otherwise: `quiet_hours`, `frequency_cap`,
+	// `no_consent`. "It was suppressed because you turned marketing off" is a real
+	// answer; "no record" is not.
+	// One customer's history, newest first. The subscription label comes along
+	// because "your subscription expires soon" is unhelpful to somebody holding
+	// three of them.
+	ListNotificationDeliveries(ctx context.Context, arg ListNotificationDeliveriesParams) ([]ListNotificationDeliveriesRow, error)
 	ListOpenDriftsDetailed(ctx context.Context, pageSize int32) ([]ListOpenDriftsDetailedRow, error)
 	ListOpenEntitlementDrifts(ctx context.Context, limit int32) ([]EntitlementDrift, error)
 	// Payment attempts on an order that have neither settled nor failed.
@@ -1060,6 +1075,12 @@ type Querier interface {
 	// The primary key is the deduplication: a paused-and-resumed campaign continues
 	// rather than restarting, and a recipient cannot be queued twice.
 	QueueCampaignRecipient(ctx context.Context, arg QueueCampaignRecipientParams) error
+	// A test is a real delivery through the real path — same table, same worker,
+	// same Telegram call — under a kind of its own so it can never be counted as
+	// an expiry notice or spend a marketing frequency budget. It is transactional
+	// by class because it was asked for, and the dedupe key is the operator and
+	// the minute, so an impatient double-click is one message rather than two.
+	QueueTestNotification(ctx context.Context, arg QueueTestNotificationParams) (QueueTestNotificationRow, error)
 	// A condition that persists across several evaluation runs is one signal, not
 	// one per run: the dedupe key collides and the existing row is refreshed with
 	// the newest observation. A signal an operator already reviewed stays reviewed,
@@ -1393,6 +1414,9 @@ type Querier interface {
 	// The rolling window counts what was actually credited, so a failed or expired
 	// attempt never consumes a customer's allowance.
 	SumRecentTopups(ctx context.Context, arg SumRecentTopupsParams) (int64, error)
+	// What the operator sees before reading any single row: how much of each kind
+	// was sent, and how much never left for a stated reason.
+	SummariseNotificationDeliveries(ctx context.Context, userID pgtype.UUID) ([]SummariseNotificationDeliveriesRow, error)
 	// Superseding is scoped to one subscription so buying a second subscription
 	// never retires the first one's entitlement.
 	SupersedePreviousEntitlements(ctx context.Context, arg SupersedePreviousEntitlementsParams) error

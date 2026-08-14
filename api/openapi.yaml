@@ -1679,6 +1679,83 @@ paths:
         "403": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/customers/{customerID}/notifications:
+    get:
+      operationId: listPanelCustomerNotifications
+      tags: [panel]
+      description: >-
+        Requires customers.read. What this customer was actually sent.
+
+        There is no message body here. The record says that a notice of a kind
+        happened, not what it said, and reconstructing text from a template and
+        today's data would show an operator something that was never sent.
+
+        `reason` is the useful column. It carries a transport failure such as
+        `bot_blocked` when one happened, and a policy outcome otherwise:
+        `quiet_hours`, `frequency_cap`, `no_consent`. Those are deliveries the
+        installation declined to make on purpose, and they turn "nothing
+        arrived" into an answer.
+      parameters:
+        - {in: path, name: customerID, required: true, schema: {type: string, format: uuid}}
+        - {in: query, name: kind, schema: {type: string}, description: "Narrow to one kind."}
+        - {in: query, name: status, schema: {type: string, enum: [pending, deferred, sent, failed, suppressed]}}
+        - {in: query, name: offset, schema: {type: integer, format: int32, minimum: 0}}
+        - {in: query, name: limit, schema: {type: integer, format: int32, minimum: 1, maximum: 50}}
+      responses:
+        "200": {description: History, content: {application/json: {schema: {$ref: "#/components/schemas/PanelDeliveryPage"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/panel/customers/{customerID}/notifications/summary:
+    get:
+      operationId: summarisePanelCustomerNotifications
+      tags: [panel]
+      description: >-
+        Requires customers.read. The shape of the whole history per kind, which
+        is what somebody wants before reading any single row of it.
+      parameters:
+        - {in: path, name: customerID, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [summaries]
+                properties:
+                  summaries: {type: array, items: {$ref: "#/components/schemas/PanelDeliverySummary"}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/panel/customers/{customerID}/notifications/test:
+    post:
+      operationId: sendPanelCustomerTestNotification
+      tags: [panel]
+      description: >-
+        Requires support.write. Queues one test message to this customer through
+        the ordinary outbox.
+
+        Queued, not sent — and that is the point. The panel process holds no
+        Telegram connection; the notifier does. A test that took its own path
+        would prove the test path works, which nobody asked. This one is claimed
+        by the same worker, sent by the same call, and recorded with the same
+        failure codes, so when real notifications are failing the test fails
+        identically.
+
+        Quiet hours, the marketing frequency cap, and the per-kind preferences
+        are deliberately not applied: a test deferred until nine in the morning
+        answers nothing at the moment somebody is asking. Delivery health still
+        is, because a customer who blocked the bot cannot be reached by wanting
+        it more — and that is the finding the operator needs.
+
+        Answers 202. The outcome appears in the history, not in this response.
+        Deduplicated by operator and minute, so a double-click is one message.
+      parameters:
+        - {in: path, name: customerID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "202": {description: Queued, content: {application/json: {schema: {$ref: "#/components/schemas/PanelQueuedTest"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
   /v1/panel/reports/sales:
     get:
       operationId: getPanelSalesReport
@@ -3393,6 +3470,34 @@ paths:
       responses:
         "204": {description: Marked read}
         "404": {$ref: "#/components/responses/Problem"}
+  /v1/account/notifications:
+    get:
+      operationId: listAccountNotifications
+      tags: [account]
+      description: >-
+        What this customer was actually sent, newest first.
+
+        The preferences screen says what should arrive; this says what did. A
+        status other than `sent` carries a `reason`, and the ones an
+        installation produces on purpose — `quiet_hours`, `frequency_cap`,
+        `no_consent` — tell the customer their own setting held a message back,
+        which is something they can act on.
+
+        Scoped to the session's own account. There is no path parameter, because
+        there is no reason a customer would read somebody else's history.
+      parameters:
+        - {in: query, name: limit, schema: {type: integer, format: int32, minimum: 1, maximum: 100}}
+      responses:
+        "200":
+          description: History
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: {type: array, items: {$ref: "#/components/schemas/AccountDelivery"}}
+        "401": {$ref: "#/components/responses/Problem"}
   /v1/account/preferences:
     get:
       operationId: getAccountPreferences
@@ -5056,6 +5161,63 @@ components:
         alreadyMerged: {type: boolean, description: "True when this merge had already happened and nothing moved."}
         moved: {$ref: "#/components/schemas/PanelMergeSide"}
         wallet: {type: array, items: {$ref: "#/components/schemas/PanelMergeBalance"}}
+    PanelDelivery:
+      type: object
+      required: [id, kind, class, status, scheduledAt, failureCount]
+      properties:
+        id: {type: string, format: uuid}
+        kind: {type: string}
+        class: {type: string, enum: [transactional, marketing]}
+        status: {type: string, enum: [pending, deferred, sent, failed, suppressed]}
+        scheduledAt: {type: string, format: date-time}
+        sentAt: {type: string, format: date-time}
+        deferredUntil: {type: string, format: date-time}
+        failureCount: {type: integer, format: int32}
+        reason:
+          type: string
+          description: "Why it was not sent: a transport failure, or a policy outcome such as quiet_hours."
+        subscriptionId: {type: string, format: uuid}
+        subscriptionSlot: {type: integer, format: int32}
+        subscriptionLabel: {type: string}
+    PanelDeliveryPage:
+      type: object
+      required: [deliveries, total]
+      properties:
+        deliveries: {type: array, items: {$ref: "#/components/schemas/PanelDelivery"}}
+        total: {type: integer, format: int64}
+    PanelDeliverySummary:
+      type: object
+      required: [kind, total, sent, failed, suppressed, waiting]
+      properties:
+        kind: {type: string}
+        total: {type: integer, format: int64}
+        sent: {type: integer, format: int64}
+        failed: {type: integer, format: int64}
+        suppressed: {type: integer, format: int64}
+        waiting: {type: integer, format: int64}
+        lastSentAt: {type: string, format: date-time}
+    PanelQueuedTest:
+      type: object
+      required: [status, queued]
+      properties:
+        id: {type: string, format: uuid}
+        status: {type: string}
+        queued:
+          type: boolean
+          description: "False when an identical test was already waiting, which is what a double-click produces. The customer still receives exactly one message."
+        scheduledAt: {type: string, format: date-time}
+    AccountDelivery:
+      type: object
+      required: [kind, status, scheduledAt]
+      properties:
+        kind: {type: string}
+        status: {type: string, enum: [pending, deferred, sent, failed, suppressed]}
+        scheduledAt: {type: string, format: date-time}
+        sentAt: {type: string, format: date-time}
+        deferredUntil: {type: string, format: date-time}
+        reason: {type: string}
+        subscriptionSlot: {type: integer, format: int32}
+        subscriptionLabel: {type: string}
     PanelCommerceSettings:
       type: object
       required: [topUp, subscriptions, updatedAt]

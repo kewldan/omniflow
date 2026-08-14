@@ -102,6 +102,7 @@ func (notifier *Notifier) Run(ctx context.Context) {
 // RunOnce executes one full notification pass.
 func (notifier *Notifier) RunOnce(ctx context.Context) {
 	notifier.deliverSupportReplies(ctx)
+	notifier.deliverTests(ctx)
 	notifier.deliverDunning(ctx)
 	notifier.deliverCampaigns(ctx)
 	candidates, err := notifier.store.notificationCandidates(ctx, notifier.settings.MarketingWindow)

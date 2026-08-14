@@ -1261,15 +1261,16 @@ type NewsRead struct {
 }
 
 type NotificationDelivery struct {
-	ID             pgtype.UUID        `json:"id"`
-	UserID         pgtype.UUID        `json:"user_id"`
-	Kind           string             `json:"kind"`
-	DedupeKey      string             `json:"dedupe_key"`
-	Status         string             `json:"status"`
-	ScheduledAt    pgtype.Timestamptz `json:"scheduled_at"`
-	SentAt         pgtype.Timestamptz `json:"sent_at"`
-	FailureCount   int32              `json:"failure_count"`
-	Class          string             `json:"class"`
+	ID           pgtype.UUID        `json:"id"`
+	UserID       pgtype.UUID        `json:"user_id"`
+	Kind         string             `json:"kind"`
+	DedupeKey    string             `json:"dedupe_key"`
+	Status       string             `json:"status"`
+	ScheduledAt  pgtype.Timestamptz `json:"scheduled_at"`
+	SentAt       pgtype.Timestamptz `json:"sent_at"`
+	FailureCount int32              `json:"failure_count"`
+	Class        string             `json:"class"`
+	// Why a message was not sent: a transport failure, or a policy outcome such as quiet_hours, frequency_cap, or no_consent. It is what makes "I never got it" answerable.
 	ErrorCode      pgtype.Text        `json:"error_code"`
 	DeferredUntil  pgtype.Timestamptz `json:"deferred_until"`
 	SubscriptionID pgtype.UUID        `json:"subscription_id"`

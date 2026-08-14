@@ -169,6 +169,33 @@ func (e AccountCustomerStatus) Valid() bool {
 	}
 }
 
+// Defines values for AccountDeliveryStatus.
+const (
+	AccountDeliveryStatusDeferred   AccountDeliveryStatus = "deferred"
+	AccountDeliveryStatusFailed     AccountDeliveryStatus = "failed"
+	AccountDeliveryStatusPending    AccountDeliveryStatus = "pending"
+	AccountDeliveryStatusSent       AccountDeliveryStatus = "sent"
+	AccountDeliveryStatusSuppressed AccountDeliveryStatus = "suppressed"
+)
+
+// Valid indicates whether the value is a known member of the AccountDeliveryStatus enum.
+func (e AccountDeliveryStatus) Valid() bool {
+	switch e {
+	case AccountDeliveryStatusDeferred:
+		return true
+	case AccountDeliveryStatusFailed:
+		return true
+	case AccountDeliveryStatusPending:
+		return true
+	case AccountDeliveryStatusSent:
+		return true
+	case AccountDeliveryStatusSuppressed:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AccountExportVersion.
 const (
 	OmniflowAccountExport1 AccountExportVersion = "omniflow.account.export/1"
@@ -1906,6 +1933,51 @@ func (e PanelCustomerSummaryStatus) Valid() bool {
 	}
 }
 
+// Defines values for PanelDeliveryClass.
+const (
+	PanelDeliveryClassMarketing     PanelDeliveryClass = "marketing"
+	PanelDeliveryClassTransactional PanelDeliveryClass = "transactional"
+)
+
+// Valid indicates whether the value is a known member of the PanelDeliveryClass enum.
+func (e PanelDeliveryClass) Valid() bool {
+	switch e {
+	case PanelDeliveryClassMarketing:
+		return true
+	case PanelDeliveryClassTransactional:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelDeliveryStatus.
+const (
+	PanelDeliveryStatusDeferred   PanelDeliveryStatus = "deferred"
+	PanelDeliveryStatusFailed     PanelDeliveryStatus = "failed"
+	PanelDeliveryStatusPending    PanelDeliveryStatus = "pending"
+	PanelDeliveryStatusSent       PanelDeliveryStatus = "sent"
+	PanelDeliveryStatusSuppressed PanelDeliveryStatus = "suppressed"
+)
+
+// Valid indicates whether the value is a known member of the PanelDeliveryStatus enum.
+func (e PanelDeliveryStatus) Valid() bool {
+	switch e {
+	case PanelDeliveryStatusDeferred:
+		return true
+	case PanelDeliveryStatusFailed:
+		return true
+	case PanelDeliveryStatusPending:
+		return true
+	case PanelDeliveryStatusSent:
+		return true
+	case PanelDeliveryStatusSuppressed:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PanelDunningAttemptFunding.
 const (
 	SavedMethod PanelDunningAttemptFunding = "saved_method"
@@ -3514,6 +3586,33 @@ func (e SearchPanelCustomersParamsSegment) Valid() bool {
 	}
 }
 
+// Defines values for ListPanelCustomerNotificationsParamsStatus.
+const (
+	ListPanelCustomerNotificationsParamsStatusDeferred   ListPanelCustomerNotificationsParamsStatus = "deferred"
+	ListPanelCustomerNotificationsParamsStatusFailed     ListPanelCustomerNotificationsParamsStatus = "failed"
+	ListPanelCustomerNotificationsParamsStatusPending    ListPanelCustomerNotificationsParamsStatus = "pending"
+	ListPanelCustomerNotificationsParamsStatusSent       ListPanelCustomerNotificationsParamsStatus = "sent"
+	ListPanelCustomerNotificationsParamsStatusSuppressed ListPanelCustomerNotificationsParamsStatus = "suppressed"
+)
+
+// Valid indicates whether the value is a known member of the ListPanelCustomerNotificationsParamsStatus enum.
+func (e ListPanelCustomerNotificationsParamsStatus) Valid() bool {
+	switch e {
+	case ListPanelCustomerNotificationsParamsStatusDeferred:
+		return true
+	case ListPanelCustomerNotificationsParamsStatusFailed:
+		return true
+	case ListPanelCustomerNotificationsParamsStatusPending:
+		return true
+	case ListPanelCustomerNotificationsParamsStatusSent:
+		return true
+	case ListPanelCustomerNotificationsParamsStatusSuppressed:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SetPanelCustomerStatusJSONBodyStatus.
 const (
 	SetPanelCustomerStatusJSONBodyStatusActive    SetPanelCustomerStatusJSONBodyStatus = "active"
@@ -3911,6 +4010,21 @@ type AccountDeletion struct {
 	Reason      *string    `json:"reason,omitempty"`
 	RequestedAt *time.Time `json:"requestedAt,omitempty"`
 }
+
+// AccountDelivery defines model for AccountDelivery.
+type AccountDelivery struct {
+	DeferredUntil     *time.Time            `json:"deferredUntil,omitempty"`
+	Kind              string                `json:"kind"`
+	Reason            *string               `json:"reason,omitempty"`
+	ScheduledAt       time.Time             `json:"scheduledAt"`
+	SentAt            *time.Time            `json:"sentAt,omitempty"`
+	Status            AccountDeliveryStatus `json:"status"`
+	SubscriptionLabel *string               `json:"subscriptionLabel,omitempty"`
+	SubscriptionSlot  *int32                `json:"subscriptionSlot,omitempty"`
+}
+
+// AccountDeliveryStatus defines model for AccountDelivery.Status.
+type AccountDeliveryStatus string
 
 // AccountDeviceList defines model for AccountDeviceList.
 type AccountDeviceList struct {
@@ -5730,6 +5844,47 @@ type PanelDeleted struct {
 	Deleted bool `json:"deleted"`
 }
 
+// PanelDelivery defines model for PanelDelivery.
+type PanelDelivery struct {
+	Class         PanelDeliveryClass `json:"class"`
+	DeferredUntil *time.Time         `json:"deferredUntil,omitempty"`
+	FailureCount  int32              `json:"failureCount"`
+	Id            openapi_types.UUID `json:"id"`
+	Kind          string             `json:"kind"`
+
+	// Reason Why it was not sent: a transport failure, or a policy outcome such as quiet_hours.
+	Reason            *string             `json:"reason,omitempty"`
+	ScheduledAt       time.Time           `json:"scheduledAt"`
+	SentAt            *time.Time          `json:"sentAt,omitempty"`
+	Status            PanelDeliveryStatus `json:"status"`
+	SubscriptionId    *openapi_types.UUID `json:"subscriptionId,omitempty"`
+	SubscriptionLabel *string             `json:"subscriptionLabel,omitempty"`
+	SubscriptionSlot  *int32              `json:"subscriptionSlot,omitempty"`
+}
+
+// PanelDeliveryClass defines model for PanelDelivery.Class.
+type PanelDeliveryClass string
+
+// PanelDeliveryStatus defines model for PanelDelivery.Status.
+type PanelDeliveryStatus string
+
+// PanelDeliveryPage defines model for PanelDeliveryPage.
+type PanelDeliveryPage struct {
+	Deliveries []PanelDelivery `json:"deliveries"`
+	Total      int64           `json:"total"`
+}
+
+// PanelDeliverySummary defines model for PanelDeliverySummary.
+type PanelDeliverySummary struct {
+	Failed     int64      `json:"failed"`
+	Kind       string     `json:"kind"`
+	LastSentAt *time.Time `json:"lastSentAt,omitempty"`
+	Sent       int64      `json:"sent"`
+	Suppressed int64      `json:"suppressed"`
+	Total      int64      `json:"total"`
+	Waiting    int64      `json:"waiting"`
+}
+
 // PanelDrift defines model for PanelDrift.
 type PanelDrift struct {
 	CustomerId      *openapi_types.UUID     `json:"customerId,omitempty"`
@@ -6550,6 +6705,16 @@ type PanelProviderSettingsInput struct {
 type PanelProviderSettingsList struct {
 	Adapters *map[string]bool         `json:"adapters,omitempty"`
 	Items    *[]PanelProviderSettings `json:"items"`
+}
+
+// PanelQueuedTest defines model for PanelQueuedTest.
+type PanelQueuedTest struct {
+	Id *openapi_types.UUID `json:"id,omitempty"`
+
+	// Queued False when an identical test was already waiting, which is what a double-click produces. The customer still receives exactly one message.
+	Queued      bool       `json:"queued"`
+	ScheduledAt *time.Time `json:"scheduledAt,omitempty"`
+	Status      string     `json:"status"`
 }
 
 // PanelRecurringTest defines model for PanelRecurringTest.
@@ -7452,6 +7617,11 @@ type MarkAccountNewsReadParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// ListAccountNotificationsParams defines parameters for ListAccountNotifications.
+type ListAccountNotificationsParams struct {
+	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // ListAccountOrdersParams defines parameters for ListAccountOrders.
 type ListAccountOrdersParams struct {
 	Cursor   *Cursor                        `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -8227,6 +8397,24 @@ type MergePanelCustomerParams struct {
 type PreviewPanelCustomerMergeParams struct {
 	// Into The account that survives.
 	Into openapi_types.UUID `form:"into" json:"into"`
+}
+
+// ListPanelCustomerNotificationsParams defines parameters for ListPanelCustomerNotifications.
+type ListPanelCustomerNotificationsParams struct {
+	// Kind Narrow to one kind.
+	Kind   *string                                     `form:"kind,omitempty" json:"kind,omitempty"`
+	Status *ListPanelCustomerNotificationsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+	Offset *int32                                      `form:"offset,omitempty" json:"offset,omitempty"`
+	Limit  *int32                                      `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListPanelCustomerNotificationsParamsStatus defines parameters for ListPanelCustomerNotifications.
+type ListPanelCustomerNotificationsParamsStatus string
+
+// SendPanelCustomerTestNotificationParams defines parameters for SendPanelCustomerTestNotification.
+type SendPanelCustomerTestNotificationParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
 // ListPanelCustomerOrdersParams defines parameters for ListPanelCustomerOrders.
@@ -9114,6 +9302,9 @@ type ServerInterface interface {
 	// (POST /v1/account/news/{postID}/read)
 	MarkAccountNewsRead(w http.ResponseWriter, r *http.Request, postID openapi_types.UUID, params MarkAccountNewsReadParams)
 
+	// (GET /v1/account/notifications)
+	ListAccountNotifications(w http.ResponseWriter, r *http.Request, params ListAccountNotificationsParams)
+
 	// (GET /v1/account/orders)
 	ListAccountOrders(w http.ResponseWriter, r *http.Request, params ListAccountOrdersParams)
 
@@ -9561,6 +9752,15 @@ type ServerInterface interface {
 	// (GET /v1/panel/customers/{customerID}/merge/preview)
 	PreviewPanelCustomerMerge(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, params PreviewPanelCustomerMergeParams)
 
+	// (GET /v1/panel/customers/{customerID}/notifications)
+	ListPanelCustomerNotifications(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, params ListPanelCustomerNotificationsParams)
+
+	// (GET /v1/panel/customers/{customerID}/notifications/summary)
+	SummarisePanelCustomerNotifications(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID)
+
+	// (POST /v1/panel/customers/{customerID}/notifications/test)
+	SendPanelCustomerTestNotification(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, params SendPanelCustomerTestNotificationParams)
+
 	// (GET /v1/panel/customers/{customerID}/orders)
 	ListPanelCustomerOrders(w http.ResponseWriter, r *http.Request, customerID CustomerID, params ListPanelCustomerOrdersParams)
 
@@ -9967,6 +10167,11 @@ func (_ Unimplemented) ListAccountNews(w http.ResponseWriter, r *http.Request, p
 
 // (POST /v1/account/news/{postID}/read)
 func (_ Unimplemented) MarkAccountNewsRead(w http.ResponseWriter, r *http.Request, postID openapi_types.UUID, params MarkAccountNewsReadParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/notifications)
+func (_ Unimplemented) ListAccountNotifications(w http.ResponseWriter, r *http.Request, params ListAccountNotificationsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -10712,6 +10917,21 @@ func (_ Unimplemented) MergePanelCustomer(w http.ResponseWriter, r *http.Request
 
 // (GET /v1/panel/customers/{customerID}/merge/preview)
 func (_ Unimplemented) PreviewPanelCustomerMerge(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, params PreviewPanelCustomerMergeParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/customers/{customerID}/notifications)
+func (_ Unimplemented) ListPanelCustomerNotifications(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, params ListPanelCustomerNotificationsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/customers/{customerID}/notifications/summary)
+func (_ Unimplemented) SummarisePanelCustomerNotifications(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/customers/{customerID}/notifications/test)
+func (_ Unimplemented) SendPanelCustomerTestNotification(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, params SendPanelCustomerTestNotificationParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -12165,6 +12385,39 @@ func (siw *ServerInterfaceWrapper) MarkAccountNewsRead(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.MarkAccountNewsRead(w, r, postID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAccountNotifications operation middleware
+func (siw *ServerInterfaceWrapper) ListAccountNotifications(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAccountNotificationsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAccountNotifications(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -18331,6 +18584,167 @@ func (siw *ServerInterfaceWrapper) PreviewPanelCustomerMerge(w http.ResponseWrit
 	handler.ServeHTTP(w, r)
 }
 
+// ListPanelCustomerNotifications operation middleware
+func (siw *ServerInterfaceWrapper) ListPanelCustomerNotifications(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerID" -------------
+	var customerID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerID", chi.URLParam(r, "customerID"), &customerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPanelCustomerNotificationsParams
+
+	// ------------- Optional query parameter "kind" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", r.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "kind"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPanelCustomerNotifications(w, r, customerID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SummarisePanelCustomerNotifications operation middleware
+func (siw *ServerInterfaceWrapper) SummarisePanelCustomerNotifications(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerID" -------------
+	var customerID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerID", chi.URLParam(r, "customerID"), &customerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SummarisePanelCustomerNotifications(w, r, customerID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SendPanelCustomerTestNotification operation middleware
+func (siw *ServerInterfaceWrapper) SendPanelCustomerTestNotification(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerID" -------------
+	var customerID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerID", chi.URLParam(r, "customerID"), &customerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SendPanelCustomerTestNotificationParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SendPanelCustomerTestNotification(w, r, customerID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPanelCustomerOrders operation middleware
 func (siw *ServerInterfaceWrapper) ListPanelCustomerOrders(w http.ResponseWriter, r *http.Request) {
 
@@ -23068,6 +23482,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/v1/panel/customers/{customerID}/merge", wrapper.MergePanelCustomer)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/customers/{customerID}/notifications", wrapper.ListPanelCustomerNotifications)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/customers/{customerID}/notifications/summary", wrapper.SummarisePanelCustomerNotifications)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/customers/{customerID}/notifications/test", wrapper.SendPanelCustomerTestNotification)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/reports/sales", wrapper.GetPanelSalesReport)
 	})
 	r.Group(func(r chi.Router) {
@@ -23426,6 +23849,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/account/news/{postID}/read", wrapper.MarkAccountNewsRead)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/notifications", wrapper.ListAccountNotifications)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/preferences", wrapper.GetAccountPreferences)
@@ -24497,6 +24923,46 @@ func (response MarkAccountNewsRead404ApplicationProblemPlusJSONResponse) VisitMa
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountNotificationsRequestObject struct {
+	Params ListAccountNotificationsParams
+}
+
+type ListAccountNotificationsResponseObject interface {
+	VisitListAccountNotificationsResponse(w http.ResponseWriter) error
+}
+
+type ListAccountNotifications200JSONResponse struct {
+	Items []AccountDelivery `json:"items"`
+}
+
+func (response ListAccountNotifications200JSONResponse) VisitListAccountNotificationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountNotifications401ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListAccountNotifications401ApplicationProblemPlusJSONResponse) VisitListAccountNotificationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -30825,6 +31291,166 @@ func (response PreviewPanelCustomerMerge404ApplicationProblemPlusJSONResponse) V
 	return err
 }
 
+type ListPanelCustomerNotificationsRequestObject struct {
+	CustomerID openapi_types.UUID `json:"customerID"`
+	Params     ListPanelCustomerNotificationsParams
+}
+
+type ListPanelCustomerNotificationsResponseObject interface {
+	VisitListPanelCustomerNotificationsResponse(w http.ResponseWriter) error
+}
+
+type ListPanelCustomerNotifications200JSONResponse PanelDeliveryPage
+
+func (response ListPanelCustomerNotifications200JSONResponse) VisitListPanelCustomerNotificationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelCustomerNotifications403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListPanelCustomerNotifications403ApplicationProblemPlusJSONResponse) VisitListPanelCustomerNotificationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelCustomerNotifications404ApplicationProblemPlusJSONResponse Problem
+
+func (response ListPanelCustomerNotifications404ApplicationProblemPlusJSONResponse) VisitListPanelCustomerNotificationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SummarisePanelCustomerNotificationsRequestObject struct {
+	CustomerID openapi_types.UUID `json:"customerID"`
+}
+
+type SummarisePanelCustomerNotificationsResponseObject interface {
+	VisitSummarisePanelCustomerNotificationsResponse(w http.ResponseWriter) error
+}
+
+type SummarisePanelCustomerNotifications200JSONResponse struct {
+	Summaries []PanelDeliverySummary `json:"summaries"`
+}
+
+func (response SummarisePanelCustomerNotifications200JSONResponse) VisitSummarisePanelCustomerNotificationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SummarisePanelCustomerNotifications403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SummarisePanelCustomerNotifications403ApplicationProblemPlusJSONResponse) VisitSummarisePanelCustomerNotificationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SummarisePanelCustomerNotifications404ApplicationProblemPlusJSONResponse Problem
+
+func (response SummarisePanelCustomerNotifications404ApplicationProblemPlusJSONResponse) VisitSummarisePanelCustomerNotificationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SendPanelCustomerTestNotificationRequestObject struct {
+	CustomerID openapi_types.UUID `json:"customerID"`
+	Params     SendPanelCustomerTestNotificationParams
+}
+
+type SendPanelCustomerTestNotificationResponseObject interface {
+	VisitSendPanelCustomerTestNotificationResponse(w http.ResponseWriter) error
+}
+
+type SendPanelCustomerTestNotification202JSONResponse PanelQueuedTest
+
+func (response SendPanelCustomerTestNotification202JSONResponse) VisitSendPanelCustomerTestNotificationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SendPanelCustomerTestNotification403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SendPanelCustomerTestNotification403ApplicationProblemPlusJSONResponse) VisitSendPanelCustomerTestNotificationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SendPanelCustomerTestNotification404ApplicationProblemPlusJSONResponse Problem
+
+func (response SendPanelCustomerTestNotification404ApplicationProblemPlusJSONResponse) VisitSendPanelCustomerTestNotificationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListPanelCustomerOrdersRequestObject struct {
 	CustomerID CustomerID `json:"customerID"`
 	Params     ListPanelCustomerOrdersParams
@@ -35008,6 +35634,9 @@ type StrictServerInterface interface {
 	// (POST /v1/account/news/{postID}/read)
 	MarkAccountNewsRead(ctx context.Context, request MarkAccountNewsReadRequestObject) (MarkAccountNewsReadResponseObject, error)
 
+	// (GET /v1/account/notifications)
+	ListAccountNotifications(ctx context.Context, request ListAccountNotificationsRequestObject) (ListAccountNotificationsResponseObject, error)
+
 	// (GET /v1/account/orders)
 	ListAccountOrders(ctx context.Context, request ListAccountOrdersRequestObject) (ListAccountOrdersResponseObject, error)
 
@@ -35454,6 +36083,15 @@ type StrictServerInterface interface {
 
 	// (GET /v1/panel/customers/{customerID}/merge/preview)
 	PreviewPanelCustomerMerge(ctx context.Context, request PreviewPanelCustomerMergeRequestObject) (PreviewPanelCustomerMergeResponseObject, error)
+
+	// (GET /v1/panel/customers/{customerID}/notifications)
+	ListPanelCustomerNotifications(ctx context.Context, request ListPanelCustomerNotificationsRequestObject) (ListPanelCustomerNotificationsResponseObject, error)
+
+	// (GET /v1/panel/customers/{customerID}/notifications/summary)
+	SummarisePanelCustomerNotifications(ctx context.Context, request SummarisePanelCustomerNotificationsRequestObject) (SummarisePanelCustomerNotificationsResponseObject, error)
+
+	// (POST /v1/panel/customers/{customerID}/notifications/test)
+	SendPanelCustomerTestNotification(ctx context.Context, request SendPanelCustomerTestNotificationRequestObject) (SendPanelCustomerTestNotificationResponseObject, error)
 
 	// (GET /v1/panel/customers/{customerID}/orders)
 	ListPanelCustomerOrders(ctx context.Context, request ListPanelCustomerOrdersRequestObject) (ListPanelCustomerOrdersResponseObject, error)
@@ -36521,6 +37159,32 @@ func (sh *strictHandler) MarkAccountNewsRead(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(MarkAccountNewsReadResponseObject); ok {
 		if err := validResponse.VisitMarkAccountNewsReadResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAccountNotifications operation middleware
+func (sh *strictHandler) ListAccountNotifications(w http.ResponseWriter, r *http.Request, params ListAccountNotificationsParams) {
+	var request ListAccountNotificationsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAccountNotifications(ctx, request.(ListAccountNotificationsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAccountNotifications")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAccountNotificationsResponseObject); ok {
+		if err := validResponse.VisitListAccountNotificationsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -40766,6 +41430,86 @@ func (sh *strictHandler) PreviewPanelCustomerMerge(w http.ResponseWriter, r *htt
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PreviewPanelCustomerMergeResponseObject); ok {
 		if err := validResponse.VisitPreviewPanelCustomerMergeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPanelCustomerNotifications operation middleware
+func (sh *strictHandler) ListPanelCustomerNotifications(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, params ListPanelCustomerNotificationsParams) {
+	var request ListPanelCustomerNotificationsRequestObject
+
+	request.CustomerID = customerID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPanelCustomerNotifications(ctx, request.(ListPanelCustomerNotificationsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPanelCustomerNotifications")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPanelCustomerNotificationsResponseObject); ok {
+		if err := validResponse.VisitListPanelCustomerNotificationsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SummarisePanelCustomerNotifications operation middleware
+func (sh *strictHandler) SummarisePanelCustomerNotifications(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID) {
+	var request SummarisePanelCustomerNotificationsRequestObject
+
+	request.CustomerID = customerID
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SummarisePanelCustomerNotifications(ctx, request.(SummarisePanelCustomerNotificationsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SummarisePanelCustomerNotifications")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SummarisePanelCustomerNotificationsResponseObject); ok {
+		if err := validResponse.VisitSummarisePanelCustomerNotificationsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SendPanelCustomerTestNotification operation middleware
+func (sh *strictHandler) SendPanelCustomerTestNotification(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, params SendPanelCustomerTestNotificationParams) {
+	var request SendPanelCustomerTestNotificationRequestObject
+
+	request.CustomerID = customerID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SendPanelCustomerTestNotification(ctx, request.(SendPanelCustomerTestNotificationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SendPanelCustomerTestNotification")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SendPanelCustomerTestNotificationResponseObject); ok {
+		if err := validResponse.VisitSendPanelCustomerTestNotificationResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -189,6 +189,7 @@ func TestAccountCommerceRoutesRequireASession(t *testing.T) {
 		{http.MethodGet, "/v1/account/support/attachments/" + uuid},
 		{http.MethodGet, "/v1/account/news"},
 		{http.MethodPost, "/v1/account/news/" + uuid + "/read"},
+		{http.MethodGet, "/v1/account/notifications"},
 		{http.MethodGet, "/v1/account/preferences"},
 		{http.MethodPatch, "/v1/account/preferences"},
 		{http.MethodPost, "/v1/account/preferences/unsubscribe"},
@@ -227,6 +228,7 @@ func TestAccountV010SurfacesAreAbsentWithoutTheirServices(t *testing.T) {
 	for _, path := range []string{
 		"/v1/account/plans", "/v1/account/checkout", "/v1/account/orders", "/v1/account/wallet",
 		"/v1/account/shop/products", "/v1/account/support/tickets", "/v1/account/news",
+		"/v1/account/notifications",
 		"/v1/account/preferences", "/v1/account/referrals", "/v1/account/loyalty",
 		"/v1/account/contacts", "/v1/account/privacy",
 	} {

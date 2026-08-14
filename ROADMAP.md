@@ -1731,10 +1731,44 @@ below this section are directions; these are specific absences.
       `/v1/panel/marketing/templates` covers campaigns. System mail has no
       per-type, per-locale override, no variable reference, no preview against
       real substitutions, and no test send.
-- [ ] Notification history and a test notification — `/v1/account/preferences`
-      sets what a customer receives and `/preferences/unsubscribe` stops it.
-      Neither the customer nor an operator can see what was actually delivered,
-      which leaves "I never got it" unanswerable.
+- [x] Notification history and a test notification — done, on both sides and
+      documented under
+      [`customer/notifications`](./docs/customer/notifications.mdx). It was never
+      a recording problem: `notification_deliveries` has carried the kind, the
+      class, whether the message left, when, how many attempts it took, and a
+      code saying why it did not, since the first release. Nothing read it. The
+      customer's own history now sits directly beneath the switches that produced
+      it, and the operator's is a tab on the customer page behind
+      `customers.read`.
+
+      The reason column is the feature. `quiet_hours`, `frequency_cap`, and
+      `no_consent` are deliveries the installation declined to make on purpose,
+      and each one points back at a control on the same screen — which turns
+      "nothing arrived" from an unanswerable complaint into something the
+      customer can change without opening a ticket. Suppression is rendered
+      neutral rather than as a warning, because it is the installation doing what
+      it was told, and colouring it as a fault would send operators looking for a
+      problem that is a working feature. No message bodies are stored or shown:
+      the record says a notice of a kind happened, not what it said, and
+      rendering a template against today's data would show somebody something
+      that was never sent to them.
+
+      The test send travels the ordinary outbox, which is the only thing that
+      makes it worth having. The panel process holds no Telegram connection; the
+      notifier does, so the panel queues a row and `deliverTests` claims it
+      beside every other delivery pass — same worker, same call, same failure
+      codes, same table. A test that took its own path would prove the test path
+      works, which nobody asked. It answers `202` and says "queued" rather than
+      "sent", because reporting a send that has not happened yet as though it had
+      is precisely the failure this feature exists to expose. Quiet hours, the
+      frequency cap, and the per-kind switches are deliberately not applied — a
+      test deferred until nine in the morning answers nothing at the moment
+      somebody is asking — while delivery health still is, because a customer who
+      blocked the bot cannot be reached by wanting it more, and that is the
+      finding the operator needs. It carries a `test` kind of its own so it can
+      never be read back as a real notice or spend a marketing budget, and it is
+      deduplicated by operator and minute so an impatient double-click is one
+      message while two operators asking the same question are two.
 
 ### Identity and lifecycle
 

@@ -2308,6 +2308,84 @@ export interface PanelMergeResult {
   wallet?: PanelMergeBalance[];
 }
 
+export type PanelDeliveryClass = (typeof PanelDeliveryClass)[keyof typeof PanelDeliveryClass];
+
+export const PanelDeliveryClass = {
+  transactional: "transactional",
+  marketing: "marketing",
+} as const;
+
+export type PanelDeliveryStatus = (typeof PanelDeliveryStatus)[keyof typeof PanelDeliveryStatus];
+
+export const PanelDeliveryStatus = {
+  pending: "pending",
+  deferred: "deferred",
+  sent: "sent",
+  failed: "failed",
+  suppressed: "suppressed",
+} as const;
+
+export interface PanelDelivery {
+  id: string;
+  kind: string;
+  class: PanelDeliveryClass;
+  status: PanelDeliveryStatus;
+  scheduledAt: string;
+  sentAt?: string;
+  deferredUntil?: string;
+  failureCount: number;
+  /** Why it was not sent: a transport failure, or a policy outcome such as quiet_hours. */
+  reason?: string;
+  subscriptionId?: string;
+  subscriptionSlot?: number;
+  subscriptionLabel?: string;
+}
+
+export interface PanelDeliveryPage {
+  deliveries: PanelDelivery[];
+  total: number;
+}
+
+export interface PanelDeliverySummary {
+  kind: string;
+  total: number;
+  sent: number;
+  failed: number;
+  suppressed: number;
+  waiting: number;
+  lastSentAt?: string;
+}
+
+export interface PanelQueuedTest {
+  id?: string;
+  status: string;
+  /** False when an identical test was already waiting, which is what a double-click produces. The customer still receives exactly one message. */
+  queued: boolean;
+  scheduledAt?: string;
+}
+
+export type AccountDeliveryStatus =
+  (typeof AccountDeliveryStatus)[keyof typeof AccountDeliveryStatus];
+
+export const AccountDeliveryStatus = {
+  pending: "pending",
+  deferred: "deferred",
+  sent: "sent",
+  failed: "failed",
+  suppressed: "suppressed",
+} as const;
+
+export interface AccountDelivery {
+  kind: string;
+  status: AccountDeliveryStatus;
+  scheduledAt: string;
+  sentAt?: string;
+  deferredUntil?: string;
+  reason?: string;
+  subscriptionSlot?: number;
+  subscriptionLabel?: string;
+}
+
 export interface PanelCommerceSettings {
   topUp: PanelTopUpSettings;
   subscriptions: PanelSubscriptionSettings;
@@ -4821,6 +4899,38 @@ export type MergePanelCustomerBody = {
   into: string;
 };
 
+export type ListPanelCustomerNotificationsParams = {
+  /**
+   * Narrow to one kind.
+   */
+  kind?: string;
+  status?: ListPanelCustomerNotificationsStatus;
+  /**
+   * @minimum 0
+   */
+  offset?: number;
+  /**
+   * @minimum 1
+   * @maximum 50
+   */
+  limit?: number;
+};
+
+export type ListPanelCustomerNotificationsStatus =
+  (typeof ListPanelCustomerNotificationsStatus)[keyof typeof ListPanelCustomerNotificationsStatus];
+
+export const ListPanelCustomerNotificationsStatus = {
+  pending: "pending",
+  deferred: "deferred",
+  sent: "sent",
+  failed: "failed",
+  suppressed: "suppressed",
+} as const;
+
+export type SummarisePanelCustomerNotifications200 = {
+  summaries: PanelDeliverySummary[];
+};
+
 export type GetPanelSalesReportParams = {
   /**
    * Start of the period, inclusive. Defaults to thirty days before `until`.
@@ -5438,6 +5548,18 @@ export const ListAccountNewsLocale = {
   ru: "ru",
   en: "en",
 } as const;
+
+export type ListAccountNotificationsParams = {
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  limit?: number;
+};
+
+export type ListAccountNotifications200 = {
+  items: AccountDelivery[];
+};
 
 export type getHealthResponse200 = {
   data: Health;
@@ -16675,6 +16797,307 @@ export const useMergePanelCustomer = <TError = Promise<ProblemResponse>>(
   };
 };
 
+export type listPanelCustomerNotificationsResponse200 = {
+  data: PanelDeliveryPage;
+  status: 200;
+};
+
+export type listPanelCustomerNotificationsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelCustomerNotificationsResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type listPanelCustomerNotificationsResponseSuccess =
+  listPanelCustomerNotificationsResponse200 & {
+    headers: Headers;
+  };
+export type listPanelCustomerNotificationsResponseError = (
+  | listPanelCustomerNotificationsResponse403
+  | listPanelCustomerNotificationsResponse404
+) & {
+  headers: Headers;
+};
+
+export type listPanelCustomerNotificationsResponse =
+  | listPanelCustomerNotificationsResponseSuccess
+  | listPanelCustomerNotificationsResponseError;
+
+export const getListPanelCustomerNotificationsUrl = (
+  customerID: string,
+  params?: ListPanelCustomerNotificationsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/customers/${customerID}/notifications?${stringifiedParams}`
+    : `/v1/panel/customers/${customerID}/notifications`;
+};
+
+/**
+ * Requires customers.read. What this customer was actually sent.
+ * There is no message body here. The record says that a notice of a kind happened, not what it said, and reconstructing text from a template and today's data would show an operator something that was never sent.
+ * `reason` is the useful column. It carries a transport failure such as `bot_blocked` when one happened, and a policy outcome otherwise: `quiet_hours`, `frequency_cap`, `no_consent`. Those are deliveries the installation declined to make on purpose, and they turn "nothing arrived" into an answer.
+ */
+export const listPanelCustomerNotifications = async (
+  customerID: string,
+  params?: ListPanelCustomerNotificationsParams,
+  options?: RequestInit,
+): Promise<listPanelCustomerNotificationsResponse> => {
+  const res = await fetch(getListPanelCustomerNotificationsUrl(customerID, params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelCustomerNotificationsResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as listPanelCustomerNotificationsResponse;
+};
+
+export const getListPanelCustomerNotificationsKey = (
+  customerID: string,
+  params?: ListPanelCustomerNotificationsParams,
+) => [`/v1/panel/customers/${customerID}/notifications`, ...(params ? [params] : [])] as const;
+
+export type ListPanelCustomerNotificationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelCustomerNotifications>>
+>;
+
+export const useListPanelCustomerNotifications = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  params?: ListPanelCustomerNotificationsParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelCustomerNotifications>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && customerID !== null && customerID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ??
+    (() => (isEnabled ? getListPanelCustomerNotificationsKey(customerID, params) : null));
+  const swrFn = () => listPanelCustomerNotifications(customerID, params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type summarisePanelCustomerNotificationsResponse200 = {
+  data: SummarisePanelCustomerNotifications200;
+  status: 200;
+};
+
+export type summarisePanelCustomerNotificationsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type summarisePanelCustomerNotificationsResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type summarisePanelCustomerNotificationsResponseSuccess =
+  summarisePanelCustomerNotificationsResponse200 & {
+    headers: Headers;
+  };
+export type summarisePanelCustomerNotificationsResponseError = (
+  | summarisePanelCustomerNotificationsResponse403
+  | summarisePanelCustomerNotificationsResponse404
+) & {
+  headers: Headers;
+};
+
+export type summarisePanelCustomerNotificationsResponse =
+  | summarisePanelCustomerNotificationsResponseSuccess
+  | summarisePanelCustomerNotificationsResponseError;
+
+export const getSummarisePanelCustomerNotificationsUrl = (customerID: string) => {
+  return `/v1/panel/customers/${customerID}/notifications/summary`;
+};
+
+/**
+ * Requires customers.read. The shape of the whole history per kind, which is what somebody wants before reading any single row of it.
+ */
+export const summarisePanelCustomerNotifications = async (
+  customerID: string,
+  options?: RequestInit,
+): Promise<summarisePanelCustomerNotificationsResponse> => {
+  const res = await fetch(getSummarisePanelCustomerNotificationsUrl(customerID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: summarisePanelCustomerNotificationsResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as summarisePanelCustomerNotificationsResponse;
+};
+
+export const getSummarisePanelCustomerNotificationsKey = (customerID: string) =>
+  [`/v1/panel/customers/${customerID}/notifications/summary`] as const;
+
+export type SummarisePanelCustomerNotificationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof summarisePanelCustomerNotifications>>
+>;
+
+export const useSummarisePanelCustomerNotifications = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  options?: {
+    swr?: SWRConfiguration<
+      Awaited<ReturnType<typeof summarisePanelCustomerNotifications>>,
+      TError
+    > & { swrKey?: Key; enabled?: boolean };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && customerID !== null && customerID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ??
+    (() => (isEnabled ? getSummarisePanelCustomerNotificationsKey(customerID) : null));
+  const swrFn = () => summarisePanelCustomerNotifications(customerID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type sendPanelCustomerTestNotificationResponse202 = {
+  data: PanelQueuedTest;
+  status: 202;
+};
+
+export type sendPanelCustomerTestNotificationResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type sendPanelCustomerTestNotificationResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type sendPanelCustomerTestNotificationResponseSuccess =
+  sendPanelCustomerTestNotificationResponse202 & {
+    headers: Headers;
+  };
+export type sendPanelCustomerTestNotificationResponseError = (
+  | sendPanelCustomerTestNotificationResponse403
+  | sendPanelCustomerTestNotificationResponse404
+) & {
+  headers: Headers;
+};
+
+export type sendPanelCustomerTestNotificationResponse =
+  | sendPanelCustomerTestNotificationResponseSuccess
+  | sendPanelCustomerTestNotificationResponseError;
+
+export const getSendPanelCustomerTestNotificationUrl = (customerID: string) => {
+  return `/v1/panel/customers/${customerID}/notifications/test`;
+};
+
+/**
+ * Requires support.write. Queues one test message to this customer through the ordinary outbox.
+ * Queued, not sent — and that is the point. The panel process holds no Telegram connection; the notifier does. A test that took its own path would prove the test path works, which nobody asked. This one is claimed by the same worker, sent by the same call, and recorded with the same failure codes, so when real notifications are failing the test fails identically.
+ * Quiet hours, the marketing frequency cap, and the per-kind preferences are deliberately not applied: a test deferred until nine in the morning answers nothing at the moment somebody is asking. Delivery health still is, because a customer who blocked the bot cannot be reached by wanting it more — and that is the finding the operator needs.
+ * Answers 202. The outcome appears in the history, not in this response. Deduplicated by operator and minute, so a double-click is one message.
+ */
+export const sendPanelCustomerTestNotification = async (
+  customerID: string,
+  options?: RequestInit,
+): Promise<sendPanelCustomerTestNotificationResponse> => {
+  const res = await fetch(getSendPanelCustomerTestNotificationUrl(customerID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: sendPanelCustomerTestNotificationResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as sendPanelCustomerTestNotificationResponse;
+};
+
+export const getSendPanelCustomerTestNotificationMutationFetcher = (
+  customerID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return sendPanelCustomerTestNotification(customerID, options);
+  };
+};
+export const getSendPanelCustomerTestNotificationMutationKey = (customerID: string) =>
+  [`/v1/panel/customers/${customerID}/notifications/test`] as const;
+
+export type SendPanelCustomerTestNotificationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendPanelCustomerTestNotification>>
+>;
+
+export const useSendPanelCustomerTestNotification = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof sendPanelCustomerTestNotification>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof sendPanelCustomerTestNotification>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSendPanelCustomerTestNotificationMutationKey(customerID);
+  const swrFn = getSendPanelCustomerTestNotificationMutationFetcher(customerID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
 export type getPanelSalesReportResponse200 = {
   data: PanelSalesReport;
   status: 200;
@@ -26891,6 +27314,95 @@ export const useMarkAccountNewsRead = <TError = Promise<ProblemResponse>>(
   const swrFn = getMarkAccountNewsReadMutationFetcher(postID, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listAccountNotificationsResponse200 = {
+  data: ListAccountNotifications200;
+  status: 200;
+};
+
+export type listAccountNotificationsResponse401 = {
+  data: ProblemResponse;
+  status: 401;
+};
+
+export type listAccountNotificationsResponseSuccess = listAccountNotificationsResponse200 & {
+  headers: Headers;
+};
+export type listAccountNotificationsResponseError = listAccountNotificationsResponse401 & {
+  headers: Headers;
+};
+
+export type listAccountNotificationsResponse =
+  | listAccountNotificationsResponseSuccess
+  | listAccountNotificationsResponseError;
+
+export const getListAccountNotificationsUrl = (params?: ListAccountNotificationsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/account/notifications?${stringifiedParams}`
+    : `/v1/account/notifications`;
+};
+
+/**
+ * What this customer was actually sent, newest first.
+ * The preferences screen says what should arrive; this says what did. A status other than `sent` carries a `reason`, and the ones an installation produces on purpose — `quiet_hours`, `frequency_cap`, `no_consent` — tell the customer their own setting held a message back, which is something they can act on.
+ * Scoped to the session's own account. There is no path parameter, because there is no reason a customer would read somebody else's history.
+ */
+export const listAccountNotifications = async (
+  params?: ListAccountNotificationsParams,
+  options?: RequestInit,
+): Promise<listAccountNotificationsResponse> => {
+  const res = await fetch(getListAccountNotificationsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listAccountNotificationsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listAccountNotificationsResponse;
+};
+
+export const getListAccountNotificationsKey = (params?: ListAccountNotificationsParams) =>
+  [`/v1/account/notifications`, ...(params ? [params] : [])] as const;
+
+export type ListAccountNotificationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAccountNotifications>>
+>;
+
+export const useListAccountNotifications = <TError = Promise<ProblemResponse>>(
+  params?: ListAccountNotificationsParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listAccountNotifications>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListAccountNotificationsKey(params) : null));
+  const swrFn = () => listAccountNotifications(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,

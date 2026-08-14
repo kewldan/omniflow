@@ -13,6 +13,7 @@ import useSWR from "swr";
 
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
 import { BrowserNotificationSetting } from "@/components/account/support/browser-notifications";
+import { DeliveryHistory } from "@/components/account/support/delivery-history";
 import { useProblemMessage } from "@/components/account/support/problem";
 import {
   type CommunicationPreferences,
@@ -127,6 +128,12 @@ export default function PreferencesPage() {
 
       <SectionLabel>{translate("preferences.contacts.title")}</SectionLabel>
       <Contacts contacts={data.contacts} />
+
+      {/* The record sits beneath the settings that produced it. Every reason a
+          message did not go out points back at a control above, which is what
+          turns "nothing arrived" into something the customer can act on. */}
+      <SectionLabel>{translate("history.title")}</SectionLabel>
+      <DeliveryHistory />
     </div>
   );
 }
