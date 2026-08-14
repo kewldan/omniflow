@@ -4,7 +4,16 @@ import { Button } from "@omniflow/ui/button";
 import { Label } from "@omniflow/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
 import { toast } from "@omniflow/ui/toast";
-import { BellRing, Gift, MonitorSmartphone, Moon, Shield, ShieldCheck, Sun } from "lucide-react";
+import {
+  BellRing,
+  FileText,
+  Gift,
+  MonitorSmartphone,
+  Moon,
+  Shield,
+  ShieldCheck,
+  Sun,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
@@ -114,6 +123,15 @@ export default function ProfilePage() {
             href: "/account/privacy",
             icon: ShieldCheck,
             label: hub("hub.privacy"),
+          },
+          {
+            // The operator's published documents. They are readable without a
+            // session — a payment provider's reviewer opens them too — so this
+            // is a way in rather than the only one.
+            description: hub("hub.documentsHint"),
+            href: "/pages",
+            icon: FileText,
+            label: hub("hub.documents"),
           },
         ]}
         label={hub("hub.data")}

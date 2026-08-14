@@ -142,6 +142,7 @@
         "catalog": "Catalog",
         "support": "Support",
         "marketing": "Marketing",
+        "content": "Content",
         "operators": "Operators",
         "audit": "Audit log",
         "system": "System",
@@ -972,6 +973,60 @@
         "unattributed": "Not linked",
         "empty": "No users",
         "emptyHint": "The panel reported no users, so there is nothing to rank."
+      }
+    },
+    "content": {
+      "title": "Information pages",
+      "description": "The FAQ, the terms, the offer, and the privacy policy, published at addresses of your own. Anybody can read them without signing in — which is the point, because payment providers and application stores require an offer and a privacy policy at a stable address.",
+      "save": "Save",
+      "saved": "Saved",
+      "cancel": "Cancel",
+      "edit": "Edit",
+      "open": "Open",
+      "publish": "Publish",
+      "published": "Published",
+      "withdraw": "Withdraw",
+      "withdrawn": "Withdrawn",
+      "delete": "Delete",
+      "deleted": "Deleted",
+      "deleteTitle": "Delete /pages/{slug}?",
+      "deleteWarning": "This takes the address with it. If a payment provider approved that URL, the approval breaks. Withdrawing instead keeps the page and takes it out of the world reversibly.",
+      "deletePrompt": "Type {slug} to confirm.",
+      "noLanguages": "no languages",
+      "state": {
+        "published": "Published",
+        "draft": "Draft",
+        "unlisted": "Unlisted"
+      },
+      "kind": {
+        "faq": "FAQ",
+        "terms": "Terms of service",
+        "offer": "Offer",
+        "privacy": "Privacy policy",
+        "custom": "Other"
+      },
+      "language": {
+        "en": "English",
+        "ru": "Russian"
+      },
+      "list": {
+        "title": "Pages",
+        "description": "A published page answers at its address for anybody. A draft answers 404 until you publish it.",
+        "add": "Add a page",
+        "empty": "No pages yet",
+        "emptyHint": "Nothing is published, so /pages is empty and the customer panel links nowhere."
+      },
+      "editor": {
+        "new": "New page",
+        "slug": "Address",
+        "kind": "Kind",
+        "order": "Order",
+        "listed": "In the menu",
+        "listedHint": "Off keeps the address and hides the link.",
+        "pageTitle": "Title",
+        "body": "Body",
+        "syntax": "The body is plain text. `## ` starts a heading, `- ` a bullet, `1. ` a numbered item, a blank line ends a block, and [text](https://…) is a link. There is no bold, no image, and no HTML — what you type is rendered as text, so nothing here can become markup on the page.",
+        "bodyHint": "Up to 40 000 characters. Links must be https."
       }
     },
     "risk": {
@@ -2348,7 +2403,9 @@
         "preferences": "Notifications",
         "preferencesHint": "Choose what we tell you about, and where.",
         "privacy": "Personal data",
-        "privacyHint": "Contact addresses, consents, your export, and account deletion."
+        "privacyHint": "Contact addresses, consents, your export, and account deletion.",
+        "documents": "Terms and policies",
+        "documentsHint": "The documents this service publishes."
       },
       "referrals": {
         "title": "Invite a friend",
@@ -3364,5 +3421,10 @@
         }
       }
     }
+  },
+  "pages": {
+    "title": "Information",
+    "empty": "Nothing has been published yet.",
+    "updated": "Updated {date}"
   }
 }

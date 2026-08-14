@@ -995,6 +995,24 @@ type Identity struct {
 	Metadata        []byte             `json:"metadata"`
 }
 
+type InfoPage struct {
+	Slug        string             `json:"slug"`
+	Kind        string             `json:"kind"`
+	PublishedAt pgtype.Timestamptz `json:"published_at"`
+	Listed      bool               `json:"listed"`
+	SortOrder   int32              `json:"sort_order"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy   pgtype.UUID        `json:"updated_by"`
+}
+
+type InfoPageLocalization struct {
+	PageSlug string `json:"page_slug"`
+	Locale   string `json:"locale"`
+	Title    string `json:"title"`
+	// Operator source text. Parsed into typed blocks by internal/infopage and never rendered as HTML.
+	Body string `json:"body"`
+}
+
 type InstallationSetting struct {
 	Section  string `json:"section"`
 	Document []byte `json:"document"`

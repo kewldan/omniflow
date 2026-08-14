@@ -168,6 +168,13 @@ func TestTheNewSurfacesAreInsideTheAuthenticatedGroup(t *testing.T) {
 		{http.MethodGet, "/v1/panel/reports/payments"},
 		{http.MethodGet, "/v1/panel/reports/traffic"},
 		{http.MethodGet, "/v1/panel/reports/traffic/export"},
+		// Information pages are published to the world, so writing one has to be
+		// as gated as any other mutation even though reading one is not gated at
+		// all.
+		{http.MethodGet, "/v1/panel/content/pages"},
+		{http.MethodPut, "/v1/panel/content/pages"},
+		{http.MethodPost, "/v1/panel/content/pages/terms/publication"},
+		{http.MethodDelete, "/v1/panel/content/pages/terms"},
 	} {
 		recorder := httptest.NewRecorder()
 		router.(http.Handler).ServeHTTP(
@@ -197,6 +204,7 @@ func TestTheNewSurfacesAreAbsentWithoutTheService(t *testing.T) {
 		// theme to publish, and a route that answered would be answering from
 		// nothing.
 		"/v1/branding",
+		"/v1/pages",
 	} {
 		recorder := httptest.NewRecorder()
 		router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path, nil))
@@ -206,29 +214,40 @@ func TestTheNewSurfacesAreAbsentWithoutTheService(t *testing.T) {
 	}
 }
 
-// The branding surface is public on purpose, and that is exactly why it needs
+// The public surfaces are public on purpose, and that is exactly why they need
 // asserting rather than assuming.
 //
-// A sign-in screen has to be able to render an installation's own colours
-// before anybody has a session, so these two routes sit outside `/v1/panel` and
-// outside its gate. What must stay true is that being outside the gate buys
-// nothing else: they are readable, and there is no method on them that writes.
-// The panel's own theme routes above are where writing happens, behind the
-// session and behind `settings.write`.
-func TestBrandingIsPublicAndReadOnly(t *testing.T) {
+// A sign-in screen has to render an installation's own colours before anybody
+// has a session, and a payment provider's reviewer has to read the offer and
+// the privacy policy without an account. So these routes sit outside
+// `/v1/panel` and outside its gate. What must stay true is that being outside
+// the gate buys nothing else: they are readable, and there is no method on them
+// that writes. Writing happens on the panel routes above, behind the session
+// and behind a permission.
+func TestThePublicSurfacesAreReadOnly(t *testing.T) {
 	router := mountedRouter(t)
+
+	public := []string{"/v1/branding", "/v1/pages"}
+	isPublic := func(pattern string) bool {
+		for _, prefix := range public {
+			if strings.HasPrefix(pattern, prefix) {
+				return true
+			}
+		}
+		return false
+	}
 
 	found := map[string]bool{}
 	err := chi.Walk(router, func(
 		method, pattern string, _ http.Handler, _ ...func(http.Handler) http.Handler,
 	) error {
-		if !strings.HasPrefix(pattern, "/v1/branding") {
+		if !isPublic(pattern) {
 			return nil
 		}
 		if mutatingMethods[method] {
 			t.Errorf(
-				"%s %s is a public route that mutates; branding is published "+
-					"without a session and must never be writable there",
+				"%s %s is a public route that mutates; these are served without a "+
+					"session and must never be writable there",
 				method, pattern,
 			)
 		}
@@ -242,9 +261,11 @@ func TestBrandingIsPublicAndReadOnly(t *testing.T) {
 	for _, route := range []string{
 		"GET /v1/branding",
 		"GET /v1/branding/assets/{kind}",
+		"GET /v1/pages",
+		"GET /v1/pages/{slug}",
 	} {
 		if !found[route] {
-			t.Errorf("%s is not mounted; both panels read it before they paint", route)
+			t.Errorf("%s is not mounted", route)
 		}
 	}
 }

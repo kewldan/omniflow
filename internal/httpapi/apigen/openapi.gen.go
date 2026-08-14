@@ -1384,6 +1384,27 @@ func (e OrderInputOperation) Valid() bool {
 	}
 }
 
+// Defines values for PageBlockKind.
+const (
+	Heading   PageBlockKind = "heading"
+	List      PageBlockKind = "list"
+	Paragraph PageBlockKind = "paragraph"
+)
+
+// Valid indicates whether the value is a known member of the PageBlockKind enum.
+func (e PageBlockKind) Valid() bool {
+	switch e {
+	case Heading:
+		return true
+	case List:
+		return true
+	case Paragraph:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PanelAIProviderKind.
 const (
 	PanelAIProviderKindAnthropic        PanelAIProviderKind = "anthropic"
@@ -2206,6 +2227,51 @@ func (e PanelIncidentSource) Valid() bool {
 	}
 }
 
+// Defines values for PanelInfoPageKind.
+const (
+	PanelInfoPageKindCustom  PanelInfoPageKind = "custom"
+	PanelInfoPageKindFaq     PanelInfoPageKind = "faq"
+	PanelInfoPageKindOffer   PanelInfoPageKind = "offer"
+	PanelInfoPageKindPrivacy PanelInfoPageKind = "privacy"
+	PanelInfoPageKindTerms   PanelInfoPageKind = "terms"
+)
+
+// Valid indicates whether the value is a known member of the PanelInfoPageKind enum.
+func (e PanelInfoPageKind) Valid() bool {
+	switch e {
+	case PanelInfoPageKindCustom:
+		return true
+	case PanelInfoPageKindFaq:
+		return true
+	case PanelInfoPageKindOffer:
+		return true
+	case PanelInfoPageKindPrivacy:
+		return true
+	case PanelInfoPageKindTerms:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelInfoPageLocaleLocale.
+const (
+	PanelInfoPageLocaleLocaleEn PanelInfoPageLocaleLocale = "en"
+	PanelInfoPageLocaleLocaleRu PanelInfoPageLocaleLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the PanelInfoPageLocaleLocale enum.
+func (e PanelInfoPageLocaleLocale) Valid() bool {
+	switch e {
+	case PanelInfoPageLocaleLocaleEn:
+		return true
+	case PanelInfoPageLocaleLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PanelOfferStatus.
 const (
 	PanelOfferStatusActive    PanelOfferStatus = "active"
@@ -2617,6 +2683,33 @@ func (e PromotionInputKind) Valid() bool {
 	case PromotionInputKindFixed:
 		return true
 	case PromotionInputKindPercent:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PublishedPageKind.
+const (
+	PublishedPageKindCustom  PublishedPageKind = "custom"
+	PublishedPageKindFaq     PublishedPageKind = "faq"
+	PublishedPageKindOffer   PublishedPageKind = "offer"
+	PublishedPageKindPrivacy PublishedPageKind = "privacy"
+	PublishedPageKindTerms   PublishedPageKind = "terms"
+)
+
+// Valid indicates whether the value is a known member of the PublishedPageKind enum.
+func (e PublishedPageKind) Valid() bool {
+	switch e {
+	case PublishedPageKindCustom:
+		return true
+	case PublishedPageKindFaq:
+		return true
+	case PublishedPageKindOffer:
+		return true
+	case PublishedPageKindPrivacy:
+		return true
+	case PublishedPageKindTerms:
 		return true
 	default:
 		return false
@@ -3220,6 +3313,42 @@ func (e ListPlansParamsLocale) Valid() bool {
 	case ListPlansParamsLocaleEn:
 		return true
 	case ListPlansParamsLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListPublishedPagesParamsLocale.
+const (
+	ListPublishedPagesParamsLocaleEn ListPublishedPagesParamsLocale = "en"
+	ListPublishedPagesParamsLocaleRu ListPublishedPagesParamsLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the ListPublishedPagesParamsLocale enum.
+func (e ListPublishedPagesParamsLocale) Valid() bool {
+	switch e {
+	case ListPublishedPagesParamsLocaleEn:
+		return true
+	case ListPublishedPagesParamsLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetPublishedPageParamsLocale.
+const (
+	GetPublishedPageParamsLocaleEn GetPublishedPageParamsLocale = "en"
+	GetPublishedPageParamsLocaleRu GetPublishedPageParamsLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the GetPublishedPageParamsLocale enum.
+func (e GetPublishedPageParamsLocale) Valid() bool {
+	switch e {
+	case GetPublishedPageParamsLocaleEn:
+		return true
+	case GetPublishedPageParamsLocaleRu:
 		return true
 	default:
 		return false
@@ -4963,6 +5092,28 @@ type OutboxStatus struct {
 	PendingCount     int   `json:"pendingCount"`
 }
 
+// PageBlock defines model for PageBlock.
+type PageBlock struct {
+	Items   *[][]PageSpan `json:"items,omitempty"`
+	Kind    PageBlockKind `json:"kind"`
+	Ordered *bool         `json:"ordered,omitempty"`
+	Spans   *[]PageSpan   `json:"spans,omitempty"`
+}
+
+// PageBlockKind defines model for PageBlock.Kind.
+type PageBlockKind string
+
+// PageDocument A parsed document. It is deliberately not HTML and deliberately not the operator's source text: a renderer that emits text nodes from this cannot produce markup, which is why there is no sanitiser anywhere in the path.
+type PageDocument struct {
+	Blocks []PageBlock `json:"blocks"`
+}
+
+// PageSpan One run of inline content. `href` is present only for a validated https address.
+type PageSpan struct {
+	Href *string `json:"href,omitempty"`
+	Text string  `json:"text"`
+}
+
 // PanelAIProvider defines model for PanelAIProvider.
 type PanelAIProvider struct {
 	// BaseUrl Where the provider is reached. Required for the OpenAI-compatible adapter, which is how an owner points at a model they host themselves. It is an address rather than a secret and is returned.
@@ -5754,6 +5905,45 @@ type PanelIncidentSource string
 type PanelIncidentList struct {
 	Items *[]PanelIncident `json:"items"`
 }
+
+// PanelInfoPage defines model for PanelInfoPage.
+type PanelInfoPage struct {
+	AvailableLocales *[]string         `json:"availableLocales,omitempty"`
+	Kind             PanelInfoPageKind `json:"kind"`
+
+	// Listed Whether the page appears in the customer panel's menu. A published page can be unlisted.
+	Listed  bool                   `json:"listed"`
+	Locales *[]PanelInfoPageLocale `json:"locales,omitempty"`
+
+	// PublishedAt Absent for a draft, which answers 404 publicly.
+	PublishedAt *time.Time `json:"publishedAt,omitempty"`
+
+	// Slug The address, and the page's identity. Immutable once created.
+	Slug      string              `json:"slug"`
+	SortOrder int                 `json:"sortOrder"`
+	UpdatedAt time.Time           `json:"updatedAt"`
+	UpdatedBy *openapi_types.UUID `json:"updatedBy,omitempty"`
+}
+
+// PanelInfoPageKind defines model for PanelInfoPage.Kind.
+type PanelInfoPageKind string
+
+// PanelInfoPageList defines model for PanelInfoPageList.
+type PanelInfoPageList struct {
+	Items []PanelInfoPage `json:"items"`
+	Kinds []string        `json:"kinds"`
+}
+
+// PanelInfoPageLocale defines model for PanelInfoPageLocale.
+type PanelInfoPageLocale struct {
+	// Body The operator's source text, up to 40000 characters. Never HTML.
+	Body   string                    `json:"body"`
+	Locale PanelInfoPageLocaleLocale `json:"locale"`
+	Title  string                    `json:"title"`
+}
+
+// PanelInfoPageLocaleLocale defines model for PanelInfoPageLocale.Locale.
+type PanelInfoPageLocaleLocale string
 
 // PanelLedgerLine defines model for PanelLedgerLine.
 type PanelLedgerLine struct {
@@ -6645,6 +6835,29 @@ type PromotionInput struct {
 // PromotionInputKind defines model for PromotionInput.Kind.
 type PromotionInputKind string
 
+// PublishedPage defines model for PublishedPage.
+type PublishedPage struct {
+	// Document A parsed document. It is deliberately not HTML and deliberately not the operator's source text: a renderer that emits text nodes from this cannot produce markup, which is why there is no sanitiser anywhere in the path.
+	Document  PageDocument      `json:"document"`
+	Kind      PublishedPageKind `json:"kind"`
+	Locale    string            `json:"locale"`
+	Slug      string            `json:"slug"`
+	Title     string            `json:"title"`
+	UpdatedAt time.Time         `json:"updatedAt"`
+}
+
+// PublishedPageKind defines model for PublishedPage.Kind.
+type PublishedPageKind string
+
+// PublishedPageList defines model for PublishedPageList.
+type PublishedPageList struct {
+	Items []struct {
+		Kind  string `json:"kind"`
+		Slug  string `json:"slug"`
+		Title string `json:"title"`
+	} `json:"items"`
+}
+
 // RbacCatalog defines model for RbacCatalog.
 type RbacCatalog struct {
 	Permissions []string `json:"permissions"`
@@ -7487,6 +7700,23 @@ type ListPlansParams struct {
 // ListPlansParamsLocale defines parameters for ListPlans.
 type ListPlansParamsLocale string
 
+// ListPublishedPagesParams defines parameters for ListPublishedPages.
+type ListPublishedPagesParams struct {
+	// Locale Falls back to Accept-Language, then to English.
+	Locale *ListPublishedPagesParamsLocale `form:"locale,omitempty" json:"locale,omitempty"`
+}
+
+// ListPublishedPagesParamsLocale defines parameters for ListPublishedPages.
+type ListPublishedPagesParamsLocale string
+
+// GetPublishedPageParams defines parameters for GetPublishedPage.
+type GetPublishedPageParams struct {
+	Locale *GetPublishedPageParamsLocale `form:"locale,omitempty" json:"locale,omitempty"`
+}
+
+// GetPublishedPageParamsLocale defines parameters for GetPublishedPage.
+type GetPublishedPageParamsLocale string
+
 // ListPanelAdminsParams defines parameters for ListPanelAdmins.
 type ListPanelAdminsParams struct {
 	Cursor   *Cursor                      `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -7700,6 +7930,29 @@ type ListPanelPromotionsParams struct {
 
 // UpdatePanelPromotionParams defines parameters for UpdatePanelPromotion.
 type UpdatePanelPromotionParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// SavePanelInfoPageParams defines parameters for SavePanelInfoPage.
+type SavePanelInfoPageParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// DeletePanelInfoPageParams defines parameters for DeletePanelInfoPage.
+type DeletePanelInfoPageParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// SetPanelInfoPagePublicationJSONBody defines parameters for SetPanelInfoPagePublication.
+type SetPanelInfoPagePublicationJSONBody struct {
+	Published bool `json:"published"`
+}
+
+// SetPanelInfoPagePublicationParams defines parameters for SetPanelInfoPagePublication.
+type SetPanelInfoPagePublicationParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
@@ -8423,6 +8676,12 @@ type SetPanelPromoCodeActiveJSONRequestBody SetPanelPromoCodeActiveJSONBody
 // UpdatePanelPromotionJSONRequestBody defines body for UpdatePanelPromotion for application/json ContentType.
 type UpdatePanelPromotionJSONRequestBody = PanelPromotionUpdate
 
+// SavePanelInfoPageJSONRequestBody defines body for SavePanelInfoPage for application/json ContentType.
+type SavePanelInfoPageJSONRequestBody = PanelInfoPage
+
+// SetPanelInfoPagePublicationJSONRequestBody defines body for SetPanelInfoPagePublication for application/json ContentType.
+type SetPanelInfoPagePublicationJSONRequestBody SetPanelInfoPagePublicationJSONBody
+
 // SetPanelCustomerStatusJSONRequestBody defines body for SetPanelCustomerStatus for application/json ContentType.
 type SetPanelCustomerStatusJSONRequestBody SetPanelCustomerStatusJSONBody
 
@@ -8831,6 +9090,12 @@ type ServerInterface interface {
 	// (GET /v1/catalog/plans)
 	ListPlans(w http.ResponseWriter, r *http.Request, params ListPlansParams)
 
+	// (GET /v1/pages)
+	ListPublishedPages(w http.ResponseWriter, r *http.Request, params ListPublishedPagesParams)
+
+	// (GET /v1/pages/{slug})
+	GetPublishedPage(w http.ResponseWriter, r *http.Request, slug string, params GetPublishedPageParams)
+
 	// (GET /v1/panel/admins)
 	ListPanelAdmins(w http.ResponseWriter, r *http.Request, params ListPanelAdminsParams)
 
@@ -8980,6 +9245,21 @@ type ServerInterface interface {
 
 	// (GET /v1/panel/catalog/promotions/{promotionID}/codes)
 	ListPanelPromoCodes(w http.ResponseWriter, r *http.Request, promotionID openapi_types.UUID)
+
+	// (GET /v1/panel/content/pages)
+	ListPanelInfoPages(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /v1/panel/content/pages)
+	SavePanelInfoPage(w http.ResponseWriter, r *http.Request, params SavePanelInfoPageParams)
+
+	// (DELETE /v1/panel/content/pages/{slug})
+	DeletePanelInfoPage(w http.ResponseWriter, r *http.Request, slug string, params DeletePanelInfoPageParams)
+
+	// (GET /v1/panel/content/pages/{slug})
+	GetPanelInfoPage(w http.ResponseWriter, r *http.Request, slug string)
+
+	// (POST /v1/panel/content/pages/{slug}/publication)
+	SetPanelInfoPagePublication(w http.ResponseWriter, r *http.Request, slug string, params SetPanelInfoPagePublicationParams)
 
 	// (GET /v1/panel/customers)
 	SearchPanelCustomers(w http.ResponseWriter, r *http.Request, params SearchPanelCustomersParams)
@@ -9802,6 +10082,16 @@ func (_ Unimplemented) ListPlans(w http.ResponseWriter, r *http.Request, params 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /v1/pages)
+func (_ Unimplemented) ListPublishedPages(w http.ResponseWriter, r *http.Request, params ListPublishedPagesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/pages/{slug})
+func (_ Unimplemented) GetPublishedPage(w http.ResponseWriter, r *http.Request, slug string, params GetPublishedPageParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /v1/panel/admins)
 func (_ Unimplemented) ListPanelAdmins(w http.ResponseWriter, r *http.Request, params ListPanelAdminsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -10049,6 +10339,31 @@ func (_ Unimplemented) UpdatePanelPromotion(w http.ResponseWriter, r *http.Reque
 
 // (GET /v1/panel/catalog/promotions/{promotionID}/codes)
 func (_ Unimplemented) ListPanelPromoCodes(w http.ResponseWriter, r *http.Request, promotionID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/content/pages)
+func (_ Unimplemented) ListPanelInfoPages(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /v1/panel/content/pages)
+func (_ Unimplemented) SavePanelInfoPage(w http.ResponseWriter, r *http.Request, params SavePanelInfoPageParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /v1/panel/content/pages/{slug})
+func (_ Unimplemented) DeletePanelInfoPage(w http.ResponseWriter, r *http.Request, slug string, params DeletePanelInfoPageParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/content/pages/{slug})
+func (_ Unimplemented) GetPanelInfoPage(w http.ResponseWriter, r *http.Request, slug string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/content/pages/{slug}/publication)
+func (_ Unimplemented) SetPanelInfoPagePublication(w http.ResponseWriter, r *http.Request, slug string, params SetPanelInfoPagePublicationParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -14839,6 +15154,81 @@ func (siw *ServerInterfaceWrapper) ListPlans(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// ListPublishedPages operation middleware
+func (siw *ServerInterfaceWrapper) ListPublishedPages(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPublishedPagesParams
+
+	// ------------- Optional query parameter "locale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "locale", r.URL.Query(), &params.Locale, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "locale"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locale", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPublishedPages(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPublishedPage operation middleware
+func (siw *ServerInterfaceWrapper) GetPublishedPage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", chi.URLParam(r, "slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slug", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPublishedPageParams
+
+	// ------------- Optional query parameter "locale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "locale", r.URL.Query(), &params.Locale, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "locale"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locale", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPublishedPage(w, r, slug, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPanelAdmins operation middleware
 func (siw *ServerInterfaceWrapper) ListPanelAdmins(w http.ResponseWriter, r *http.Request) {
 
@@ -16824,6 +17214,199 @@ func (siw *ServerInterfaceWrapper) ListPanelPromoCodes(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListPanelPromoCodes(w, r, promotionID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPanelInfoPages operation middleware
+func (siw *ServerInterfaceWrapper) ListPanelInfoPages(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPanelInfoPages(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SavePanelInfoPage operation middleware
+func (siw *ServerInterfaceWrapper) SavePanelInfoPage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SavePanelInfoPageParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SavePanelInfoPage(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeletePanelInfoPage operation middleware
+func (siw *ServerInterfaceWrapper) DeletePanelInfoPage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", chi.URLParam(r, "slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slug", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeletePanelInfoPageParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeletePanelInfoPage(w, r, slug, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPanelInfoPage operation middleware
+func (siw *ServerInterfaceWrapper) GetPanelInfoPage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", chi.URLParam(r, "slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slug", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPanelInfoPage(w, r, slug)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetPanelInfoPagePublication operation middleware
+func (siw *ServerInterfaceWrapper) SetPanelInfoPagePublication(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", chi.URLParam(r, "slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slug", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SetPanelInfoPagePublicationParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetPanelInfoPagePublication(w, r, slug, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -21312,6 +21895,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/v1/catalog/plans", wrapper.ListPlans)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/pages", wrapper.ListPublishedPages)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/pages/{slug}", wrapper.GetPublishedPage)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/branding", wrapper.GetBranding)
 	})
 	r.Group(func(r chi.Router) {
@@ -21661,6 +22250,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/v1/panel/settings/commerce/subscriptions", wrapper.SavePanelSubscriptionSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/content/pages", wrapper.ListPanelInfoPages)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/panel/content/pages", wrapper.SavePanelInfoPage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/panel/content/pages/{slug}", wrapper.DeletePanelInfoPage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/content/pages/{slug}", wrapper.GetPanelInfoPage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/content/pages/{slug}/publication", wrapper.SetPanelInfoPagePublication)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/reports/sales", wrapper.GetPanelSalesReport)
@@ -26503,6 +27107,83 @@ func (response ListPlans500ApplicationProblemPlusJSONResponse) VisitListPlansRes
 	return err
 }
 
+type ListPublishedPagesRequestObject struct {
+	Params ListPublishedPagesParams
+}
+
+type ListPublishedPagesResponseObject interface {
+	VisitListPublishedPagesResponse(w http.ResponseWriter) error
+}
+
+type ListPublishedPages200JSONResponse PublishedPageList
+
+func (response ListPublishedPages200JSONResponse) VisitListPublishedPagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPublishedPages404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListPublishedPages404ApplicationProblemPlusJSONResponse) VisitListPublishedPagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPublishedPageRequestObject struct {
+	Slug   string `json:"slug"`
+	Params GetPublishedPageParams
+}
+
+type GetPublishedPageResponseObject interface {
+	VisitGetPublishedPageResponse(w http.ResponseWriter) error
+}
+
+type GetPublishedPage200JSONResponse PublishedPage
+
+func (response GetPublishedPage200JSONResponse) VisitGetPublishedPageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPublishedPage404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetPublishedPage404ApplicationProblemPlusJSONResponse) VisitGetPublishedPageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListPanelAdminsRequestObject struct {
 	Params ListPanelAdminsParams
 }
@@ -28507,6 +29188,257 @@ func (response ListPanelPromoCodes403ApplicationProblemPlusJSONResponse) VisitLi
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelInfoPagesRequestObject struct {
+}
+
+type ListPanelInfoPagesResponseObject interface {
+	VisitListPanelInfoPagesResponse(w http.ResponseWriter) error
+}
+
+type ListPanelInfoPages200JSONResponse PanelInfoPageList
+
+func (response ListPanelInfoPages200JSONResponse) VisitListPanelInfoPagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelInfoPages403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListPanelInfoPages403ApplicationProblemPlusJSONResponse) VisitListPanelInfoPagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelInfoPageRequestObject struct {
+	Params SavePanelInfoPageParams
+	Body   *SavePanelInfoPageJSONRequestBody
+}
+
+type SavePanelInfoPageResponseObject interface {
+	VisitSavePanelInfoPageResponse(w http.ResponseWriter) error
+}
+
+type SavePanelInfoPage200JSONResponse PanelInfoPage
+
+func (response SavePanelInfoPage200JSONResponse) VisitSavePanelInfoPageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelInfoPage403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SavePanelInfoPage403ApplicationProblemPlusJSONResponse) VisitSavePanelInfoPageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelInfoPage422ApplicationProblemPlusJSONResponse Problem
+
+func (response SavePanelInfoPage422ApplicationProblemPlusJSONResponse) VisitSavePanelInfoPageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelInfoPageRequestObject struct {
+	Slug   string `json:"slug"`
+	Params DeletePanelInfoPageParams
+}
+
+type DeletePanelInfoPageResponseObject interface {
+	VisitDeletePanelInfoPageResponse(w http.ResponseWriter) error
+}
+
+type DeletePanelInfoPage200JSONResponse struct {
+	Removed *bool `json:"removed,omitempty"`
+}
+
+func (response DeletePanelInfoPage200JSONResponse) VisitDeletePanelInfoPageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelInfoPage403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DeletePanelInfoPage403ApplicationProblemPlusJSONResponse) VisitDeletePanelInfoPageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelInfoPage404ApplicationProblemPlusJSONResponse Problem
+
+func (response DeletePanelInfoPage404ApplicationProblemPlusJSONResponse) VisitDeletePanelInfoPageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelInfoPageRequestObject struct {
+	Slug string `json:"slug"`
+}
+
+type GetPanelInfoPageResponseObject interface {
+	VisitGetPanelInfoPageResponse(w http.ResponseWriter) error
+}
+
+type GetPanelInfoPage200JSONResponse PanelInfoPage
+
+func (response GetPanelInfoPage200JSONResponse) VisitGetPanelInfoPageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelInfoPage403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetPanelInfoPage403ApplicationProblemPlusJSONResponse) VisitGetPanelInfoPageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelInfoPage404ApplicationProblemPlusJSONResponse Problem
+
+func (response GetPanelInfoPage404ApplicationProblemPlusJSONResponse) VisitGetPanelInfoPageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetPanelInfoPagePublicationRequestObject struct {
+	Slug   string `json:"slug"`
+	Params SetPanelInfoPagePublicationParams
+	Body   *SetPanelInfoPagePublicationJSONRequestBody
+}
+
+type SetPanelInfoPagePublicationResponseObject interface {
+	VisitSetPanelInfoPagePublicationResponse(w http.ResponseWriter) error
+}
+
+type SetPanelInfoPagePublication200JSONResponse PanelInfoPage
+
+func (response SetPanelInfoPagePublication200JSONResponse) VisitSetPanelInfoPagePublicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetPanelInfoPagePublication403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SetPanelInfoPagePublication403ApplicationProblemPlusJSONResponse) VisitSetPanelInfoPagePublicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetPanelInfoPagePublication404ApplicationProblemPlusJSONResponse Problem
+
+func (response SetPanelInfoPagePublication404ApplicationProblemPlusJSONResponse) VisitSetPanelInfoPagePublicationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -33045,6 +33977,12 @@ type StrictServerInterface interface {
 	// (GET /v1/catalog/plans)
 	ListPlans(ctx context.Context, request ListPlansRequestObject) (ListPlansResponseObject, error)
 
+	// (GET /v1/pages)
+	ListPublishedPages(ctx context.Context, request ListPublishedPagesRequestObject) (ListPublishedPagesResponseObject, error)
+
+	// (GET /v1/pages/{slug})
+	GetPublishedPage(ctx context.Context, request GetPublishedPageRequestObject) (GetPublishedPageResponseObject, error)
+
 	// (GET /v1/panel/admins)
 	ListPanelAdmins(ctx context.Context, request ListPanelAdminsRequestObject) (ListPanelAdminsResponseObject, error)
 
@@ -33194,6 +34132,21 @@ type StrictServerInterface interface {
 
 	// (GET /v1/panel/catalog/promotions/{promotionID}/codes)
 	ListPanelPromoCodes(ctx context.Context, request ListPanelPromoCodesRequestObject) (ListPanelPromoCodesResponseObject, error)
+
+	// (GET /v1/panel/content/pages)
+	ListPanelInfoPages(ctx context.Context, request ListPanelInfoPagesRequestObject) (ListPanelInfoPagesResponseObject, error)
+
+	// (PUT /v1/panel/content/pages)
+	SavePanelInfoPage(ctx context.Context, request SavePanelInfoPageRequestObject) (SavePanelInfoPageResponseObject, error)
+
+	// (DELETE /v1/panel/content/pages/{slug})
+	DeletePanelInfoPage(ctx context.Context, request DeletePanelInfoPageRequestObject) (DeletePanelInfoPageResponseObject, error)
+
+	// (GET /v1/panel/content/pages/{slug})
+	GetPanelInfoPage(ctx context.Context, request GetPanelInfoPageRequestObject) (GetPanelInfoPageResponseObject, error)
+
+	// (POST /v1/panel/content/pages/{slug}/publication)
+	SetPanelInfoPagePublication(ctx context.Context, request SetPanelInfoPagePublicationRequestObject) (SetPanelInfoPagePublicationResponseObject, error)
 
 	// (GET /v1/panel/customers)
 	SearchPanelCustomers(ctx context.Context, request SearchPanelCustomersRequestObject) (SearchPanelCustomersResponseObject, error)
@@ -36559,6 +37512,59 @@ func (sh *strictHandler) ListPlans(w http.ResponseWriter, r *http.Request, param
 	}
 }
 
+// ListPublishedPages operation middleware
+func (sh *strictHandler) ListPublishedPages(w http.ResponseWriter, r *http.Request, params ListPublishedPagesParams) {
+	var request ListPublishedPagesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPublishedPages(ctx, request.(ListPublishedPagesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPublishedPages")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPublishedPagesResponseObject); ok {
+		if err := validResponse.VisitListPublishedPagesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPublishedPage operation middleware
+func (sh *strictHandler) GetPublishedPage(w http.ResponseWriter, r *http.Request, slug string, params GetPublishedPageParams) {
+	var request GetPublishedPageRequestObject
+
+	request.Slug = slug
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPublishedPage(ctx, request.(GetPublishedPageRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPublishedPage")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPublishedPageResponseObject); ok {
+		if err := validResponse.VisitGetPublishedPageResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListPanelAdmins operation middleware
 func (sh *strictHandler) ListPanelAdmins(w http.ResponseWriter, r *http.Request, params ListPanelAdminsParams) {
 	var request ListPanelAdminsRequestObject
@@ -37982,6 +38988,150 @@ func (sh *strictHandler) ListPanelPromoCodes(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListPanelPromoCodesResponseObject); ok {
 		if err := validResponse.VisitListPanelPromoCodesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPanelInfoPages operation middleware
+func (sh *strictHandler) ListPanelInfoPages(w http.ResponseWriter, r *http.Request) {
+	var request ListPanelInfoPagesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPanelInfoPages(ctx, request.(ListPanelInfoPagesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPanelInfoPages")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPanelInfoPagesResponseObject); ok {
+		if err := validResponse.VisitListPanelInfoPagesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SavePanelInfoPage operation middleware
+func (sh *strictHandler) SavePanelInfoPage(w http.ResponseWriter, r *http.Request, params SavePanelInfoPageParams) {
+	var request SavePanelInfoPageRequestObject
+
+	request.Params = params
+
+	var body SavePanelInfoPageJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SavePanelInfoPage(ctx, request.(SavePanelInfoPageRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SavePanelInfoPage")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SavePanelInfoPageResponseObject); ok {
+		if err := validResponse.VisitSavePanelInfoPageResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeletePanelInfoPage operation middleware
+func (sh *strictHandler) DeletePanelInfoPage(w http.ResponseWriter, r *http.Request, slug string, params DeletePanelInfoPageParams) {
+	var request DeletePanelInfoPageRequestObject
+
+	request.Slug = slug
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeletePanelInfoPage(ctx, request.(DeletePanelInfoPageRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeletePanelInfoPage")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeletePanelInfoPageResponseObject); ok {
+		if err := validResponse.VisitDeletePanelInfoPageResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPanelInfoPage operation middleware
+func (sh *strictHandler) GetPanelInfoPage(w http.ResponseWriter, r *http.Request, slug string) {
+	var request GetPanelInfoPageRequestObject
+
+	request.Slug = slug
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPanelInfoPage(ctx, request.(GetPanelInfoPageRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPanelInfoPage")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPanelInfoPageResponseObject); ok {
+		if err := validResponse.VisitGetPanelInfoPageResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetPanelInfoPagePublication operation middleware
+func (sh *strictHandler) SetPanelInfoPagePublication(w http.ResponseWriter, r *http.Request, slug string, params SetPanelInfoPagePublicationParams) {
+	var request SetPanelInfoPagePublicationRequestObject
+
+	request.Slug = slug
+	request.Params = params
+
+	var body SetPanelInfoPagePublicationJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetPanelInfoPagePublication(ctx, request.(SetPanelInfoPagePublicationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetPanelInfoPagePublication")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetPanelInfoPagePublicationResponseObject); ok {
+		if err := validResponse.VisitSetPanelInfoPagePublicationResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

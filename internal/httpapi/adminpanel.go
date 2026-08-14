@@ -180,6 +180,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 	// a signed-out visitor has to be able to read what the installation looks
 	// like before there is a session to authorise anything.
 	handlers.mountPublicBranding(router)
+	handlers.mountPublicContent(router)
 
 	router.Route("/v1/panel", func(panel chi.Router) {
 		panel.Use(SecurityHeaders)
@@ -249,6 +250,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 			handlers.mountConnectCatalogue(secure)
 			handlers.mountReports(secure)
 			handlers.mountTraffic(secure)
+			handlers.mountContent(secure)
 			handlers.mountCustomerAuth(secure)
 		})
 	})

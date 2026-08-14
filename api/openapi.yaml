@@ -47,6 +47,45 @@ paths:
       responses:
         "200": {description: Visible plans, content: {application/json: {schema: {$ref: "#/components/schemas/PlanList"}}}}
         "500": {$ref: "#/components/responses/Problem"}
+  /v1/pages:
+    get:
+      operationId: listPublishedPages
+      tags: [catalog]
+      description: >-
+        Public. The information pages an operator has published and listed: the
+        FAQ, the terms, the offer, the privacy policy. It is unauthenticated by
+        design — a payment provider's reviewer and an application store's
+        reviewer both have to read the offer and the privacy policy without an
+        account, and a customer deciding whether to become one has to read the
+        terms before they do.
+      parameters:
+        - {in: query, name: locale, schema: {type: string, enum: [ru, en]}, description: "Falls back to Accept-Language, then to English."}
+      responses:
+        "200": {description: Published pages, content: {application/json: {schema: {$ref: "#/components/schemas/PublishedPageList"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/pages/{slug}:
+    get:
+      operationId: getPublishedPage
+      tags: [catalog]
+      description: >-
+        Public. One published document, returned as a parsed block structure
+        rather than as HTML or as the operator's source text. The browser renders
+        text nodes from it, so nothing an operator typed can become markup on the
+        origin that holds the session cookie — there is no sanitiser in the path
+        because there is nothing to sanitise.
+
+        A draft, a deleted page, and a slug that never existed all answer 404:
+        distinguishing them would tell an anonymous visitor whether a given
+        address exists as a draft.
+
+        The language falls back rather than 404ing, because the address is what a
+        provider approved and what somebody bookmarked.
+      parameters:
+        - {in: path, name: slug, required: true, schema: {type: string}}
+        - {in: query, name: locale, schema: {type: string, enum: [ru, en]}}
+      responses:
+        "200": {description: The page, content: {application/json: {schema: {$ref: "#/components/schemas/PublishedPage"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
   /v1/branding:
     get:
       operationId: getBranding
@@ -1392,6 +1431,73 @@ paths:
         "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelCommerceSettings"}}}}
         "403": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/content/pages:
+    get:
+      operationId: listPanelInfoPages
+      tags: [panel]
+      description: Requires marketing.read. Every page, drafts included.
+      responses:
+        "200": {description: Pages, content: {application/json: {schema: {$ref: "#/components/schemas/PanelInfoPageList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+    put:
+      operationId: savePanelInfoPage
+      tags: [panel]
+      description: >-
+        Requires marketing.write. Creates or updates a page and its translations.
+        A language with a title and no body, or the reverse, is refused: half a
+        translation renders a heading over nothing. A page with no language at
+        all is refused for the same reason.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelInfoPage"}}}}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelInfoPage"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/content/pages/{slug}:
+    get:
+      operationId: getPanelInfoPage
+      tags: [panel]
+      description: Requires marketing.read. One page with every translation's source text, for the editor.
+      parameters: [{in: path, name: slug, required: true, schema: {type: string}}]
+      responses:
+        "200": {description: The page, content: {application/json: {schema: {$ref: "#/components/schemas/PanelInfoPage"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+    delete:
+      operationId: deletePanelInfoPage
+      tags: [panel]
+      description: >-
+        Requires marketing.write. Deletes the page and takes its address with it.
+        Withdrawing publication instead is the reversible operation, and is what
+        an operator wants unless they mean to break a URL a payment provider
+        approved.
+      parameters:
+        - {in: path, name: slug, required: true, schema: {type: string}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "200": {description: Removed, content: {application/json: {schema: {type: object, properties: {removed: {type: boolean}}}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/panel/content/pages/{slug}/publication:
+    post:
+      operationId: setPanelInfoPagePublication
+      tags: [panel]
+      description: >-
+        Requires marketing.write. Publishing and withdrawing are the same
+        operation with a boolean, because the difference is one nullable column
+        and splitting them would let the two drift.
+      parameters:
+        - {in: path, name: slug, required: true, schema: {type: string}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [published], properties: {published: {type: boolean}}}
+      responses:
+        "200": {description: Updated, content: {application/json: {schema: {$ref: "#/components/schemas/PanelInfoPage"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
   /v1/panel/reports/sales:
     get:
       operationId: getPanelSalesReport
@@ -4587,6 +4693,81 @@ components:
         consumers: {type: array, items: {$ref: "#/components/schemas/PanelTrafficConsumer"}}
         scanned: {type: integer, description: "How many users the ranking covers."}
         total: {type: integer, description: "How many the panel reports having."}
+    PageSpan:
+      type: object
+      required: [text]
+      description: One run of inline content. `href` is present only for a validated https address.
+      properties:
+        text: {type: string}
+        href: {type: string}
+    PageBlock:
+      type: object
+      required: [kind]
+      properties:
+        kind: {type: string, enum: [heading, paragraph, list]}
+        spans: {type: array, items: {$ref: "#/components/schemas/PageSpan"}}
+        items:
+          type: array
+          items: {type: array, items: {$ref: "#/components/schemas/PageSpan"}}
+        ordered: {type: boolean}
+    PageDocument:
+      type: object
+      required: [blocks]
+      description: >-
+        A parsed document. It is deliberately not HTML and deliberately not the
+        operator's source text: a renderer that emits text nodes from this cannot
+        produce markup, which is why there is no sanitiser anywhere in the path.
+      properties:
+        blocks: {type: array, items: {$ref: "#/components/schemas/PageBlock"}}
+    PublishedPage:
+      type: object
+      required: [slug, kind, locale, title, document, updatedAt]
+      properties:
+        slug: {type: string}
+        kind: {type: string, enum: [faq, terms, offer, privacy, custom]}
+        locale: {type: string}
+        title: {type: string}
+        document: {$ref: "#/components/schemas/PageDocument"}
+        updatedAt: {type: string, format: date-time}
+    PublishedPageList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [slug, kind, title]
+            properties:
+              slug: {type: string}
+              kind: {type: string}
+              title: {type: string}
+    PanelInfoPageLocale:
+      type: object
+      required: [locale, title, body]
+      properties:
+        locale: {type: string, enum: [ru, en]}
+        title: {type: string}
+        body: {type: string, description: "The operator's source text, up to 40000 characters. Never HTML."}
+    PanelInfoPage:
+      type: object
+      required: [slug, kind, listed, sortOrder, updatedAt]
+      properties:
+        slug: {type: string, description: "The address, and the page's identity. Immutable once created."}
+        kind: {type: string, enum: [faq, terms, offer, privacy, custom]}
+        publishedAt: {type: string, format: date-time, description: "Absent for a draft, which answers 404 publicly."}
+        listed: {type: boolean, description: "Whether the page appears in the customer panel's menu. A published page can be unlisted."}
+        sortOrder: {type: integer}
+        locales: {type: array, items: {$ref: "#/components/schemas/PanelInfoPageLocale"}}
+        availableLocales: {type: array, items: {type: string}}
+        updatedAt: {type: string, format: date-time}
+        updatedBy: {type: string, format: uuid}
+    PanelInfoPageList:
+      type: object
+      required: [items, kinds]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/PanelInfoPage"}}
+        kinds: {type: array, items: {type: string}}
     PanelCommerceSettings:
       type: object
       required: [topUp, subscriptions, updatedAt]

@@ -309,6 +309,8 @@ type Querier interface {
 	DeleteExpiredCustomerSessions(ctx context.Context, retention pgtype.Interval) (int64, error)
 	DeleteExpiredSupportAttachments(ctx context.Context) (int64, error)
 	DeleteExpiredWebhookEvents(ctx context.Context) (int64, error)
+	DeleteInfoPage(ctx context.Context, slug string) (int64, error)
+	DeleteInfoPageLocalization(ctx context.Context, arg DeleteInfoPageLocalizationParams) error
 	DeleteMCPServer(ctx context.Context, slug string) error
 	DeleteOldTelemetryEvents(ctx context.Context, retentionSeconds float64) (int64, error)
 	DeletePublishedOutboxEvents(ctx context.Context, retentionSeconds float64) (int64, error)
@@ -451,6 +453,8 @@ type Querier interface {
 	GetGoodsProduct(ctx context.Context, id pgtype.UUID) (GoodsProduct, error)
 	GetGoodsProductByCode(ctx context.Context, code string) (GoodsProduct, error)
 	GetGoodsProvider(ctx context.Context, slug string) (GoodsProvider, error)
+	GetInfoPage(ctx context.Context, slug string) (InfoPage, error)
+	GetInfoPageLocalizations(ctx context.Context, pageSlug string) ([]GetInfoPageLocalizationsRow, error)
 	GetLatestBackup(ctx context.Context) (Backup, error)
 	GetLatestConsents(ctx context.Context, userID pgtype.UUID) ([]ConsentRecord, error)
 	GetLatestEntitlementForChange(ctx context.Context, arg GetLatestEntitlementForChangeParams) (Entitlement, error)
@@ -477,6 +481,12 @@ type Querier interface {
 	GetPrimarySubscription(ctx context.Context, userID pgtype.UUID) (Subscription, error)
 	GetPromoForRedemption(ctx context.Context, normalizedCode string) (GetPromoForRedemptionRow, error)
 	GetPromotionAdmin(ctx context.Context, id pgtype.UUID) (Promotion, error)
+	// One page by its address, in the reader's language.
+	//
+	// The locale falls back to the other one in the caller rather than here: a page
+	// that exists in English only must still answer at its address for a Russian
+	// reader, because the address is what a provider approved.
+	GetPublishedInfoPage(ctx context.Context, arg GetPublishedInfoPageParams) (GetPublishedInfoPageRow, error)
 	// The single referral configuration. The table is a singleton because a second
 	// programme would mean two answers to "what does an invite earn?", and the
 	// customer would have been told one of them.
@@ -729,6 +739,8 @@ type Querier interface {
 	// Providers
 	// ---------------------------------------------------------------------------
 	ListGoodsProviders(ctx context.Context) ([]GoodsProvider, error)
+	// The operator's view: every page, including drafts.
+	ListInfoPages(ctx context.Context) ([]ListInfoPagesRow, error)
 	ListLedgerEntriesByTransaction(ctx context.Context, transactionID pgtype.UUID) ([]LedgerEntry, error)
 	ListLoyaltyHistory(ctx context.Context, arg ListLoyaltyHistoryParams) ([]ListLoyaltyHistoryRow, error)
 	// ---------------------------------------------------------------------------
@@ -797,6 +809,15 @@ type Querier interface {
 	ListPlansAdmin(ctx context.Context) ([]ListPlansAdminRow, error)
 	ListPromoCodesForPromotion(ctx context.Context, promotionID pgtype.UUID) ([]ListPromoCodesForPromotionRow, error)
 	ListPromotionPlans(ctx context.Context, promotionID pgtype.UUID) ([]Plan, error)
+	// Information pages.
+	//
+	// The public reads select only published pages, so unpublishing removes an
+	// address from the world without deleting it — and deleting is the irreversible
+	// one, because it takes the address a payment provider approved with it.
+	// What the customer panel lists. A page can be published without being listed:
+	// a document that exists to satisfy a provider's review needs a stable address
+	// and not necessarily a menu entry.
+	ListPublishedInfoPages(ctx context.Context, locale string) ([]ListPublishedInfoPagesRow, error)
 	// The panel's review queue: failed and abandoned charges, newest first, with
 	// the customer attached so the list is usable without a second lookup per row.
 	ListRecentDunningFailures(ctx context.Context, arg ListRecentDunningFailuresParams) ([]ListRecentDunningFailuresRow, error)
@@ -1214,6 +1235,9 @@ type Querier interface {
 	// else would be a second place a customer's intention can be lost.
 	SetGoodsCartPromo(ctx context.Context, arg SetGoodsCartPromoParams) (Cart, error)
 	SetGoodsOrderStatus(ctx context.Context, arg SetGoodsOrderStatusParams) (GoodsOrder, error)
+	// Publishing and unpublishing are the same statement, because the difference is
+	// one nullable column and splitting them would let the two drift.
+	SetInfoPagePublication(ctx context.Context, arg SetInfoPagePublicationParams) (InfoPage, error)
 	SetMCPServerCredentials(ctx context.Context, arg SetMCPServerCredentialsParams) error
 	// The owner's decisions: enablement, the permission it maps to, and whether it
 	// writes. Separate from discovery for the reason above.
@@ -1371,6 +1395,8 @@ type Querier interface {
 	// A null ciphertext on update means "leave the stored credential alone", so the
 	// panel can render and re-save the form without ever echoing a secret back.
 	UpsertGoodsProvider(ctx context.Context, arg UpsertGoodsProviderParams) (GoodsProvider, error)
+	UpsertInfoPage(ctx context.Context, arg UpsertInfoPageParams) (InfoPage, error)
+	UpsertInfoPageLocalization(ctx context.Context, arg UpsertInfoPageLocalizationParams) error
 	UpsertLoyaltyStanding(ctx context.Context, arg UpsertLoyaltyStandingParams) (LoyaltyStanding, error)
 	UpsertMCPServer(ctx context.Context, arg UpsertMCPServerParams) (UpsertMCPServerRow, error)
 	UpsertMessageTemplate(ctx context.Context, arg UpsertMessageTemplateParams) (MessageTemplate, error)

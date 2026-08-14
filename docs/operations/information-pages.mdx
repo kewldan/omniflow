@@ -1,0 +1,133 @@
+---
+title: Information pages
+description: Publishing the FAQ, terms, offer, and privacy policy at addresses of your own, and why the body is never HTML
+---
+
+`/admin/content` publishes documents at addresses on your own installation:
+`/pages/terms`, `/pages/privacy`, `/pages/offer`, `/pages/faq`, and anything else
+you need.
+
+Before this, the only content surface was news, and terms existed as a
+`termsUrl` in the branding section pointing somewhere else entirely — so an
+operator had to host and translate those documents outside the product. Payment
+providers and application stores routinely require an offer and a privacy policy
+at a stable address before they approve an account.
+
+## Why these are not news posts
+
+The difference is not cosmetic, and it decides the whole shape.
+
+| News post | Information page |
+| --- | --- |
+| Dated, and expires | Permanent; content changes in place |
+| Read once, counts towards an unread badge | Read whenever somebody needs it |
+| For customers who signed in | For anybody, including a provider's reviewer |
+| Identified by a generated id | Identified by its **address** |
+
+That last row is the load-bearing one. A payment provider approves a URL, so the
+slug is the page's identity in the database rather than a field beside a
+generated identifier — there is no way to change an address while keeping the
+page, because that would break an approval silently.
+
+## Publishing, withdrawing, deleting
+
+Three states, and the middle one is the one to reach for.
+
+- **Draft** — no publication instant. The address answers 404 and the page is
+  visible only in the panel.
+- **Published** — readable by anybody at `/pages/{slug}`.
+- **Unlisted but published** — a stable address with no menu entry, which is
+  what a document that exists to satisfy a review needs.
+
+**Withdrawing is reversible** and takes the address out of the world without
+destroying it. **Deleting takes the address itself**, which is what a provider
+approved, so it requires typing the slug to confirm.
+
+A page needs at least one language, and a language needs both a title and a
+body. Half a translation renders a heading over nothing, which is worse than an
+absent language — so it is refused rather than stored.
+
+**The language falls back rather than 404ing.** A page that exists in English
+only still answers at its address for a Russian reader, because the address is
+what somebody bookmarked and what a provider approved.
+
+## The body is never HTML
+
+This is the part worth reading before writing a page.
+
+These documents are written by an operator and served from the origin that holds
+the session cookie. Rendering operator text as HTML — with or without a
+sanitiser — puts the whole page one sanitiser bug away from stored cross-site
+scripting.
+
+So the text is **parsed by the API into typed blocks and typed inline runs**, and
+the browser renders text nodes and anchors from that structure. There is no HTML
+in the path, which means there is nothing for a sanitiser to get wrong. The API
+returns the parsed document; it never returns the source text to a reader.
+
+The whole syntax:
+
+| Written | Renders as |
+| --- | --- |
+| `## Heading` | A heading |
+| `- item` | A bullet |
+| `1. item` | A numbered item |
+| A blank line | The end of a block |
+| `[text](https://…)` | A link, **https only** |
+
+Everything else is a paragraph, and consecutive lines join into one — a document
+written with a hard wrap does not render as a line per source line.
+
+There is no bold, no italic, no image, and no raw HTML, because a legal document
+does not need them and each one is another construct to get wrong.
+
+<Note>
+  **An unrecognised construct becomes ordinary text.** A link with an `http://`
+  or `javascript:` target renders as the literal characters you typed, brackets
+  and all: visible, obviously wrong, and harmless. Parsing never refuses a
+  document — an operator with a published page they cannot see and no line
+  number is worse off than one with a paragraph that reads oddly.
+</Note>
+
+## The reader's side
+
+`/pages` lists the published, listed documents; `/pages/{slug}` is one of them.
+Both are **server-rendered**, because the readers who matter most — a payment
+provider's reviewer, an application store's reviewer, a search engine — are not
+guaranteed to run JavaScript. A terms page that needs hydration to appear is a
+terms page that does not exist to the party requiring it.
+
+The customer panel links to the list from the account screen, under the same
+group as notification preferences and personal data.
+
+`GET /v1/pages` and `GET /v1/pages/{slug}` are public and unauthenticated. They
+carry nothing but what an operator published for everybody, and both are cached
+for five minutes.
+
+## Permissions and audit
+
+Reading in the panel needs `marketing.read`; publishing, editing, and deleting
+need `marketing.write` — the same permissions as news, because it is the same
+capability: publishing words to customers. A support operator who may answer a
+ticket has no business rewriting the terms of service.
+
+Saves, publications, withdrawals, and deletions audit as `content.page.saved`,
+`content.page.published`, `content.page.withdrawn`, and `content.page.deleted`
+under the `marketing` category.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Campaigns and news" icon="megaphone" href="/commerce/campaigns">
+    The other content surface, and why it is a different one.
+  </Card>
+  <Card title="White-label appearance" icon="palette" href="/operations/branding">
+    The colours and mark these pages render under.
+  </Card>
+  <Card title="Installation settings" icon="sliders" href="/operations/installation-settings">
+    Where `termsUrl` still points, for an operator who prefers to host elsewhere.
+  </Card>
+  <Card title="Customer web panel" icon="browser" href="/customer/web-panel">
+    Where a customer finds the link.
+  </Card>
+</CardGroup>

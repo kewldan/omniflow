@@ -1695,11 +1695,38 @@ below this section are directions; these are specific absences.
 
 ### Content and communication
 
-- [ ] Information pages an operator can publish — news (`/v1/account/news`) is the
-      only content surface. FAQ, terms, offer, and privacy exist only as
-      `termsUrl` pointing somewhere else, so an operator has to host and translate
-      them outside the product. Payment providers and application stores routinely
-      require an offer and a privacy policy at a stable address.
+- [x] Information pages an operator can publish — done, at `/admin/content` and
+      documented at
+      [`operations/information-pages`](./docs/operations/information-pages.mdx).
+      `/pages/{slug}` is public, server-rendered, and bilingual, and an operator
+      publishes the FAQ, terms, offer, privacy policy, or anything else at an
+      address of their own.
+
+      **The address is the identity.** A payment provider approves a URL, so the
+      slug is the primary key rather than a field beside a generated one: there
+      is no way to change an address while keeping the page, because that would
+      break an approval silently. Withdrawing takes the address out of the world
+      reversibly; deleting takes the address itself and asks the operator to type
+      it.
+
+      **The body is never HTML, and that is the substance rather than an
+      implementation note.** These documents are written by an operator and
+      served from the origin that holds the session cookie, so rendering them as
+      HTML — with or without a sanitiser — would put the page one sanitiser bug
+      away from stored cross-site scripting. `internal/infopage` parses the
+      source into typed blocks and typed inline runs, and the browser renders
+      text nodes and anchors; there is no sanitiser in the path because there is
+      nothing to sanitise. The syntax is correspondingly small — headings,
+      lists, paragraphs, and https-only links — and an unrecognised construct
+      becomes visible literal text rather than a refusal, because an operator
+      with a published page they cannot see and no line number is worse off than
+      one with a paragraph that reads oddly.
+
+      Server-rendered because the readers who matter are a payment provider's
+      reviewer, an application store's reviewer, and a search engine, and none of
+      them is guaranteed to run JavaScript. A published page can also be unlisted
+      — a stable address with no menu entry — which is exactly what a document
+      that exists to satisfy a review needs.
 - [ ] Transactional e-mail templates an operator can override —
       `/v1/panel/marketing/templates` covers campaigns. System mail has no
       per-type, per-locale override, no variable reference, no preview against

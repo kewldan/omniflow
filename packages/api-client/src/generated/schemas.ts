@@ -59,6 +59,85 @@ export const ListPlansResponse = zod.object({
 });
 
 /**
+ * Public. The information pages an operator has published and listed: the FAQ, the terms, the offer, the privacy policy. It is unauthenticated by design — a payment provider's reviewer and an application store's reviewer both have to read the offer and the privacy policy without an account, and a customer deciding whether to become one has to read the terms before they do.
+ */
+export const ListPublishedPagesQueryParams = zod.object({
+  locale: zod
+    .enum(["ru", "en"])
+    .optional()
+    .describe("Falls back to Accept-Language, then to English."),
+});
+
+export const ListPublishedPagesResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      slug: zod.string(),
+      kind: zod.string(),
+      title: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * Public. One published document, returned as a parsed block structure rather than as HTML or as the operator's source text. The browser renders text nodes from it, so nothing an operator typed can become markup on the origin that holds the session cookie — there is no sanitiser in the path because there is nothing to sanitise.
+ * A draft, a deleted page, and a slug that never existed all answer 404: distinguishing them would tell an anonymous visitor whether a given address exists as a draft.
+ * The language falls back rather than 404ing, because the address is what a provider approved and what somebody bookmarked.
+ */
+export const GetPublishedPageParams = zod.object({
+  slug: zod.string(),
+});
+
+export const GetPublishedPageQueryParams = zod.object({
+  locale: zod.enum(["ru", "en"]).optional(),
+});
+
+export const GetPublishedPageResponse = zod.object({
+  slug: zod.string(),
+  kind: zod.enum(["faq", "terms", "offer", "privacy", "custom"]),
+  locale: zod.string(),
+  title: zod.string(),
+  document: zod
+    .object({
+      blocks: zod.array(
+        zod.object({
+          kind: zod.enum(["heading", "paragraph", "list"]),
+          spans: zod
+            .array(
+              zod
+                .object({
+                  text: zod.string(),
+                  href: zod.string().optional(),
+                })
+                .describe(
+                  "One run of inline content. `href` is present only for a validated https address.",
+                ),
+            )
+            .optional(),
+          items: zod
+            .array(
+              zod.array(
+                zod
+                  .object({
+                    text: zod.string(),
+                    href: zod.string().optional(),
+                  })
+                  .describe(
+                    "One run of inline content. `href` is present only for a validated https address.",
+                  ),
+              ),
+            )
+            .optional(),
+          ordered: zod.boolean().optional(),
+        }),
+      ),
+    })
+    .describe(
+      "A parsed document. It is deliberately not HTML and deliberately not the operator's source text: a renderer that emits text nodes from this cannot produce markup, which is why there is no sanitiser anywhere in the path.",
+    ),
+  updatedAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
  * Public. What an installation looks like, read by both panels before they paint: the service name, the operator's palette rendered as ready-to-inline declarations, and the addresses of the brand images. It deliberately carries nothing else, because everything here is readable by anyone who can reach the installation. Absent when no operator panel is configured, in which case the shipped design is used.
  */
 export const GetBrandingResponse = zod.object({
@@ -3293,6 +3372,209 @@ export const SavePanelSubscriptionSettingsResponse = zod.object({
     multiEnabled: zod.boolean(),
     maxPerCustomer: zod.int().min(1),
   }),
+  updatedAt: zod.iso.datetime({ offset: true }),
+  updatedBy: zod.uuid().optional(),
+});
+
+/**
+ * Requires marketing.read. Every page, drafts included.
+ */
+export const ListPanelInfoPagesResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      slug: zod.string().describe("The address, and the page's identity. Immutable once created."),
+      kind: zod.enum(["faq", "terms", "offer", "privacy", "custom"]),
+      publishedAt: zod.iso
+        .datetime({ offset: true })
+        .optional()
+        .describe("Absent for a draft, which answers 404 publicly."),
+      listed: zod
+        .boolean()
+        .describe(
+          "Whether the page appears in the customer panel's menu. A published page can be unlisted.",
+        ),
+      sortOrder: zod.int(),
+      locales: zod
+        .array(
+          zod.object({
+            locale: zod.enum(["ru", "en"]),
+            title: zod.string(),
+            body: zod
+              .string()
+              .describe("The operator's source text, up to 40000 characters. Never HTML."),
+          }),
+        )
+        .optional(),
+      availableLocales: zod.array(zod.string()).optional(),
+      updatedAt: zod.iso.datetime({ offset: true }),
+      updatedBy: zod.uuid().optional(),
+    }),
+  ),
+  kinds: zod.array(zod.string()),
+});
+
+/**
+ * Requires marketing.write. Creates or updates a page and its translations. A language with a title and no body, or the reverse, is refused: half a translation renders a heading over nothing. A page with no language at all is refused for the same reason.
+ */
+export const SavePanelInfoPageHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const SavePanelInfoPageBody = zod.object({
+  slug: zod.string().describe("The address, and the page's identity. Immutable once created."),
+  kind: zod.enum(["faq", "terms", "offer", "privacy", "custom"]),
+  publishedAt: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("Absent for a draft, which answers 404 publicly."),
+  listed: zod
+    .boolean()
+    .describe(
+      "Whether the page appears in the customer panel's menu. A published page can be unlisted.",
+    ),
+  sortOrder: zod.int(),
+  locales: zod
+    .array(
+      zod.object({
+        locale: zod.enum(["ru", "en"]),
+        title: zod.string(),
+        body: zod
+          .string()
+          .describe("The operator's source text, up to 40000 characters. Never HTML."),
+      }),
+    )
+    .optional(),
+  availableLocales: zod.array(zod.string()).optional(),
+  updatedAt: zod.iso.datetime({ offset: true }),
+  updatedBy: zod.uuid().optional(),
+});
+
+export const SavePanelInfoPageResponse = zod.object({
+  slug: zod.string().describe("The address, and the page's identity. Immutable once created."),
+  kind: zod.enum(["faq", "terms", "offer", "privacy", "custom"]),
+  publishedAt: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("Absent for a draft, which answers 404 publicly."),
+  listed: zod
+    .boolean()
+    .describe(
+      "Whether the page appears in the customer panel's menu. A published page can be unlisted.",
+    ),
+  sortOrder: zod.int(),
+  locales: zod
+    .array(
+      zod.object({
+        locale: zod.enum(["ru", "en"]),
+        title: zod.string(),
+        body: zod
+          .string()
+          .describe("The operator's source text, up to 40000 characters. Never HTML."),
+      }),
+    )
+    .optional(),
+  availableLocales: zod.array(zod.string()).optional(),
+  updatedAt: zod.iso.datetime({ offset: true }),
+  updatedBy: zod.uuid().optional(),
+});
+
+/**
+ * Requires marketing.read. One page with every translation's source text, for the editor.
+ */
+export const GetPanelInfoPageParams = zod.object({
+  slug: zod.string(),
+});
+
+export const GetPanelInfoPageResponse = zod.object({
+  slug: zod.string().describe("The address, and the page's identity. Immutable once created."),
+  kind: zod.enum(["faq", "terms", "offer", "privacy", "custom"]),
+  publishedAt: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("Absent for a draft, which answers 404 publicly."),
+  listed: zod
+    .boolean()
+    .describe(
+      "Whether the page appears in the customer panel's menu. A published page can be unlisted.",
+    ),
+  sortOrder: zod.int(),
+  locales: zod
+    .array(
+      zod.object({
+        locale: zod.enum(["ru", "en"]),
+        title: zod.string(),
+        body: zod
+          .string()
+          .describe("The operator's source text, up to 40000 characters. Never HTML."),
+      }),
+    )
+    .optional(),
+  availableLocales: zod.array(zod.string()).optional(),
+  updatedAt: zod.iso.datetime({ offset: true }),
+  updatedBy: zod.uuid().optional(),
+});
+
+/**
+ * Requires marketing.write. Deletes the page and takes its address with it. Withdrawing publication instead is the reversible operation, and is what an operator wants unless they mean to break a URL a payment provider approved.
+ */
+export const DeletePanelInfoPageParams = zod.object({
+  slug: zod.string(),
+});
+
+export const DeletePanelInfoPageHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const DeletePanelInfoPageResponse = zod.object({
+  removed: zod.boolean().optional(),
+});
+
+/**
+ * Requires marketing.write. Publishing and withdrawing are the same operation with a boolean, because the difference is one nullable column and splitting them would let the two drift.
+ */
+export const SetPanelInfoPagePublicationParams = zod.object({
+  slug: zod.string(),
+});
+
+export const SetPanelInfoPagePublicationHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const SetPanelInfoPagePublicationBody = zod.object({
+  published: zod.boolean(),
+});
+
+export const SetPanelInfoPagePublicationResponse = zod.object({
+  slug: zod.string().describe("The address, and the page's identity. Immutable once created."),
+  kind: zod.enum(["faq", "terms", "offer", "privacy", "custom"]),
+  publishedAt: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("Absent for a draft, which answers 404 publicly."),
+  listed: zod
+    .boolean()
+    .describe(
+      "Whether the page appears in the customer panel's menu. A published page can be unlisted.",
+    ),
+  sortOrder: zod.int(),
+  locales: zod
+    .array(
+      zod.object({
+        locale: zod.enum(["ru", "en"]),
+        title: zod.string(),
+        body: zod
+          .string()
+          .describe("The operator's source text, up to 40000 characters. Never HTML."),
+      }),
+    )
+    .optional(),
+  availableLocales: zod.array(zod.string()).optional(),
   updatedAt: zod.iso.datetime({ offset: true }),
   updatedBy: zod.uuid().optional(),
 });

@@ -2077,6 +2077,110 @@ export interface PanelTrafficReport {
   total: number;
 }
 
+/**
+ * One run of inline content. `href` is present only for a validated https address.
+ */
+export interface PageSpan {
+  text: string;
+  href?: string;
+}
+
+export type PageBlockKind = (typeof PageBlockKind)[keyof typeof PageBlockKind];
+
+export const PageBlockKind = {
+  heading: "heading",
+  paragraph: "paragraph",
+  list: "list",
+} as const;
+
+export interface PageBlock {
+  kind: PageBlockKind;
+  spans?: PageSpan[];
+  items?: PageSpan[][];
+  ordered?: boolean;
+}
+
+/**
+ * A parsed document. It is deliberately not HTML and deliberately not the operator's source text: a renderer that emits text nodes from this cannot produce markup, which is why there is no sanitiser anywhere in the path.
+ */
+export interface PageDocument {
+  blocks: PageBlock[];
+}
+
+export type PublishedPageKind = (typeof PublishedPageKind)[keyof typeof PublishedPageKind];
+
+export const PublishedPageKind = {
+  faq: "faq",
+  terms: "terms",
+  offer: "offer",
+  privacy: "privacy",
+  custom: "custom",
+} as const;
+
+export interface PublishedPage {
+  slug: string;
+  kind: PublishedPageKind;
+  locale: string;
+  title: string;
+  document: PageDocument;
+  updatedAt: string;
+}
+
+export type PublishedPageListItemsItem = {
+  slug: string;
+  kind: string;
+  title: string;
+};
+
+export interface PublishedPageList {
+  items: PublishedPageListItemsItem[];
+}
+
+export type PanelInfoPageLocaleLocale =
+  (typeof PanelInfoPageLocaleLocale)[keyof typeof PanelInfoPageLocaleLocale];
+
+export const PanelInfoPageLocaleLocale = {
+  ru: "ru",
+  en: "en",
+} as const;
+
+export interface PanelInfoPageLocale {
+  locale: PanelInfoPageLocaleLocale;
+  title: string;
+  /** The operator's source text, up to 40000 characters. Never HTML. */
+  body: string;
+}
+
+export type PanelInfoPageKind = (typeof PanelInfoPageKind)[keyof typeof PanelInfoPageKind];
+
+export const PanelInfoPageKind = {
+  faq: "faq",
+  terms: "terms",
+  offer: "offer",
+  privacy: "privacy",
+  custom: "custom",
+} as const;
+
+export interface PanelInfoPage {
+  /** The address, and the page's identity. Immutable once created. */
+  slug: string;
+  kind: PanelInfoPageKind;
+  /** Absent for a draft, which answers 404 publicly. */
+  publishedAt?: string;
+  /** Whether the page appears in the customer panel's menu. A published page can be unlisted. */
+  listed: boolean;
+  sortOrder: number;
+  locales?: PanelInfoPageLocale[];
+  availableLocales?: string[];
+  updatedAt: string;
+  updatedBy?: string;
+}
+
+export interface PanelInfoPageList {
+  items: PanelInfoPage[];
+  kinds: string[];
+}
+
 export interface PanelCommerceSettings {
   topUp: PanelTopUpSettings;
   subscriptions: PanelSubscriptionSettings;
@@ -4146,6 +4250,33 @@ export const ListPlansLocale = {
   en: "en",
 } as const;
 
+export type ListPublishedPagesParams = {
+  /**
+   * Falls back to Accept-Language, then to English.
+   */
+  locale?: ListPublishedPagesLocale;
+};
+
+export type ListPublishedPagesLocale =
+  (typeof ListPublishedPagesLocale)[keyof typeof ListPublishedPagesLocale];
+
+export const ListPublishedPagesLocale = {
+  ru: "ru",
+  en: "en",
+} as const;
+
+export type GetPublishedPageParams = {
+  locale?: GetPublishedPageLocale;
+};
+
+export type GetPublishedPageLocale =
+  (typeof GetPublishedPageLocale)[keyof typeof GetPublishedPageLocale];
+
+export const GetPublishedPageLocale = {
+  ru: "ru",
+  en: "en",
+} as const;
+
 export type GetBrandingAssetParams = {
   /**
    * The image checksum, as published by /v1/branding.
@@ -4525,6 +4656,14 @@ export type ListPanelOutboxParams = {
    * @maximum 500
    */
   pageSize?: PageSizeParameter;
+};
+
+export type DeletePanelInfoPage200 = {
+  removed?: boolean;
+};
+
+export type SetPanelInfoPagePublicationBody = {
+  published: boolean;
 };
 
 export type GetPanelSalesReportParams = {
@@ -5443,6 +5582,180 @@ export const useListPlans = <TError = Promise<ProblemResponse>>(
   const isEnabled = swrOptions?.enabled !== false;
   const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListPlansKey(params) : null));
   const swrFn = () => listPlans(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPublishedPagesResponse200 = {
+  data: PublishedPageList;
+  status: 200;
+};
+
+export type listPublishedPagesResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type listPublishedPagesResponseSuccess = listPublishedPagesResponse200 & {
+  headers: Headers;
+};
+export type listPublishedPagesResponseError = listPublishedPagesResponse404 & {
+  headers: Headers;
+};
+
+export type listPublishedPagesResponse =
+  | listPublishedPagesResponseSuccess
+  | listPublishedPagesResponseError;
+
+export const getListPublishedPagesUrl = (params?: ListPublishedPagesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/v1/pages?${stringifiedParams}` : `/v1/pages`;
+};
+
+/**
+ * Public. The information pages an operator has published and listed: the FAQ, the terms, the offer, the privacy policy. It is unauthenticated by design — a payment provider's reviewer and an application store's reviewer both have to read the offer and the privacy policy without an account, and a customer deciding whether to become one has to read the terms before they do.
+ */
+export const listPublishedPages = async (
+  params?: ListPublishedPagesParams,
+  options?: RequestInit,
+): Promise<listPublishedPagesResponse> => {
+  const res = await fetch(getListPublishedPagesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPublishedPagesResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPublishedPagesResponse;
+};
+
+export const getListPublishedPagesKey = (params?: ListPublishedPagesParams) =>
+  [`/v1/pages`, ...(params ? [params] : [])] as const;
+
+export type ListPublishedPagesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPublishedPages>>
+>;
+
+export const useListPublishedPages = <TError = Promise<ProblemResponse>>(
+  params?: ListPublishedPagesParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPublishedPages>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPublishedPagesKey(params) : null));
+  const swrFn = () => listPublishedPages(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPublishedPageResponse200 = {
+  data: PublishedPage;
+  status: 200;
+};
+
+export type getPublishedPageResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getPublishedPageResponseSuccess = getPublishedPageResponse200 & {
+  headers: Headers;
+};
+export type getPublishedPageResponseError = getPublishedPageResponse404 & {
+  headers: Headers;
+};
+
+export type getPublishedPageResponse =
+  | getPublishedPageResponseSuccess
+  | getPublishedPageResponseError;
+
+export const getGetPublishedPageUrl = (slug: string, params?: GetPublishedPageParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/pages/${slug}?${stringifiedParams}`
+    : `/v1/pages/${slug}`;
+};
+
+/**
+ * Public. One published document, returned as a parsed block structure rather than as HTML or as the operator's source text. The browser renders text nodes from it, so nothing an operator typed can become markup on the origin that holds the session cookie — there is no sanitiser in the path because there is nothing to sanitise.
+ * A draft, a deleted page, and a slug that never existed all answer 404: distinguishing them would tell an anonymous visitor whether a given address exists as a draft.
+ * The language falls back rather than 404ing, because the address is what a provider approved and what somebody bookmarked.
+ */
+export const getPublishedPage = async (
+  slug: string,
+  params?: GetPublishedPageParams,
+  options?: RequestInit,
+): Promise<getPublishedPageResponse> => {
+  const res = await fetch(getGetPublishedPageUrl(slug, params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPublishedPageResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPublishedPageResponse;
+};
+
+export const getGetPublishedPageKey = (slug: string, params?: GetPublishedPageParams) =>
+  [`/v1/pages/${slug}`, ...(params ? [params] : [])] as const;
+
+export type GetPublishedPageQueryResult = NonNullable<Awaited<ReturnType<typeof getPublishedPage>>>;
+
+export const useGetPublishedPage = <TError = Promise<ProblemResponse>>(
+  slug: string,
+  params?: GetPublishedPageParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getPublishedPage>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false && slug !== null && slug !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetPublishedPageKey(slug, params) : null));
+  const swrFn = () => getPublishedPage(slug, params, fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 
@@ -15009,6 +15322,426 @@ export const useSavePanelSubscriptionSettings = <TError = Promise<ProblemRespons
 
   const swrKey = swrOptions?.swrKey ?? getSavePanelSubscriptionSettingsMutationKey();
   const swrFn = getSavePanelSubscriptionSettingsMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelInfoPagesResponse200 = {
+  data: PanelInfoPageList;
+  status: 200;
+};
+
+export type listPanelInfoPagesResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelInfoPagesResponseSuccess = listPanelInfoPagesResponse200 & {
+  headers: Headers;
+};
+export type listPanelInfoPagesResponseError = listPanelInfoPagesResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelInfoPagesResponse =
+  | listPanelInfoPagesResponseSuccess
+  | listPanelInfoPagesResponseError;
+
+export const getListPanelInfoPagesUrl = () => {
+  return `/v1/panel/content/pages`;
+};
+
+/**
+ * Requires marketing.read. Every page, drafts included.
+ */
+export const listPanelInfoPages = async (
+  options?: RequestInit,
+): Promise<listPanelInfoPagesResponse> => {
+  const res = await fetch(getListPanelInfoPagesUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelInfoPagesResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelInfoPagesResponse;
+};
+
+export const getListPanelInfoPagesKey = () => [`/v1/panel/content/pages`] as const;
+
+export type ListPanelInfoPagesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelInfoPages>>
+>;
+
+export const useListPanelInfoPages = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelInfoPages>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelInfoPagesKey() : null));
+  const swrFn = () => listPanelInfoPages(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelInfoPageResponse200 = {
+  data: PanelInfoPage;
+  status: 200;
+};
+
+export type savePanelInfoPageResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelInfoPageResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelInfoPageResponseSuccess = savePanelInfoPageResponse200 & {
+  headers: Headers;
+};
+export type savePanelInfoPageResponseError = (
+  | savePanelInfoPageResponse403
+  | savePanelInfoPageResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelInfoPageResponse =
+  | savePanelInfoPageResponseSuccess
+  | savePanelInfoPageResponseError;
+
+export const getSavePanelInfoPageUrl = () => {
+  return `/v1/panel/content/pages`;
+};
+
+/**
+ * Requires marketing.write. Creates or updates a page and its translations. A language with a title and no body, or the reverse, is refused: half a translation renders a heading over nothing. A page with no language at all is refused for the same reason.
+ */
+export const savePanelInfoPage = async (
+  panelInfoPage: PanelInfoPage,
+  options?: RequestInit,
+): Promise<savePanelInfoPageResponse> => {
+  const res = await fetch(getSavePanelInfoPageUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(panelInfoPage),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelInfoPageResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as savePanelInfoPageResponse;
+};
+
+export const getSavePanelInfoPageMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PanelInfoPage }) => {
+    return savePanelInfoPage(arg, options);
+  };
+};
+export const getSavePanelInfoPageMutationKey = () => [`/v1/panel/content/pages`] as const;
+
+export type SavePanelInfoPageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelInfoPage>>
+>;
+
+export const useSavePanelInfoPage = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof savePanelInfoPage>>,
+    TError,
+    Key,
+    PanelInfoPage,
+    Awaited<ReturnType<typeof savePanelInfoPage>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelInfoPageMutationKey();
+  const swrFn = getSavePanelInfoPageMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelInfoPageResponse200 = {
+  data: PanelInfoPage;
+  status: 200;
+};
+
+export type getPanelInfoPageResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelInfoPageResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getPanelInfoPageResponseSuccess = getPanelInfoPageResponse200 & {
+  headers: Headers;
+};
+export type getPanelInfoPageResponseError = (
+  | getPanelInfoPageResponse403
+  | getPanelInfoPageResponse404
+) & {
+  headers: Headers;
+};
+
+export type getPanelInfoPageResponse =
+  | getPanelInfoPageResponseSuccess
+  | getPanelInfoPageResponseError;
+
+export const getGetPanelInfoPageUrl = (slug: string) => {
+  return `/v1/panel/content/pages/${slug}`;
+};
+
+/**
+ * Requires marketing.read. One page with every translation's source text, for the editor.
+ */
+export const getPanelInfoPage = async (
+  slug: string,
+  options?: RequestInit,
+): Promise<getPanelInfoPageResponse> => {
+  const res = await fetch(getGetPanelInfoPageUrl(slug), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelInfoPageResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelInfoPageResponse;
+};
+
+export const getGetPanelInfoPageKey = (slug: string) =>
+  [`/v1/panel/content/pages/${slug}`] as const;
+
+export type GetPanelInfoPageQueryResult = NonNullable<Awaited<ReturnType<typeof getPanelInfoPage>>>;
+
+export const useGetPanelInfoPage = <TError = Promise<ProblemResponse>>(
+  slug: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelInfoPage>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false && slug !== null && slug !== undefined;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelInfoPageKey(slug) : null));
+  const swrFn = () => getPanelInfoPage(slug, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type deletePanelInfoPageResponse200 = {
+  data: DeletePanelInfoPage200;
+  status: 200;
+};
+
+export type deletePanelInfoPageResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type deletePanelInfoPageResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type deletePanelInfoPageResponseSuccess = deletePanelInfoPageResponse200 & {
+  headers: Headers;
+};
+export type deletePanelInfoPageResponseError = (
+  | deletePanelInfoPageResponse403
+  | deletePanelInfoPageResponse404
+) & {
+  headers: Headers;
+};
+
+export type deletePanelInfoPageResponse =
+  | deletePanelInfoPageResponseSuccess
+  | deletePanelInfoPageResponseError;
+
+export const getDeletePanelInfoPageUrl = (slug: string) => {
+  return `/v1/panel/content/pages/${slug}`;
+};
+
+/**
+ * Requires marketing.write. Deletes the page and takes its address with it. Withdrawing publication instead is the reversible operation, and is what an operator wants unless they mean to break a URL a payment provider approved.
+ */
+export const deletePanelInfoPage = async (
+  slug: string,
+  options?: RequestInit,
+): Promise<deletePanelInfoPageResponse> => {
+  const res = await fetch(getDeletePanelInfoPageUrl(slug), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: deletePanelInfoPageResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as deletePanelInfoPageResponse;
+};
+
+export const getDeletePanelInfoPageMutationFetcher = (slug: string, options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return deletePanelInfoPage(slug, options);
+  };
+};
+export const getDeletePanelInfoPageMutationKey = (slug: string) =>
+  [`/v1/panel/content/pages/${slug}`] as const;
+
+export type DeletePanelInfoPageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deletePanelInfoPage>>
+>;
+
+export const useDeletePanelInfoPage = <TError = Promise<ProblemResponse>>(
+  slug: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof deletePanelInfoPage>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof deletePanelInfoPage>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getDeletePanelInfoPageMutationKey(slug);
+  const swrFn = getDeletePanelInfoPageMutationFetcher(slug, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type setPanelInfoPagePublicationResponse200 = {
+  data: PanelInfoPage;
+  status: 200;
+};
+
+export type setPanelInfoPagePublicationResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type setPanelInfoPagePublicationResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type setPanelInfoPagePublicationResponseSuccess = setPanelInfoPagePublicationResponse200 & {
+  headers: Headers;
+};
+export type setPanelInfoPagePublicationResponseError = (
+  | setPanelInfoPagePublicationResponse403
+  | setPanelInfoPagePublicationResponse404
+) & {
+  headers: Headers;
+};
+
+export type setPanelInfoPagePublicationResponse =
+  | setPanelInfoPagePublicationResponseSuccess
+  | setPanelInfoPagePublicationResponseError;
+
+export const getSetPanelInfoPagePublicationUrl = (slug: string) => {
+  return `/v1/panel/content/pages/${slug}/publication`;
+};
+
+/**
+ * Requires marketing.write. Publishing and withdrawing are the same operation with a boolean, because the difference is one nullable column and splitting them would let the two drift.
+ */
+export const setPanelInfoPagePublication = async (
+  slug: string,
+  setPanelInfoPagePublicationBody: SetPanelInfoPagePublicationBody,
+  options?: RequestInit,
+): Promise<setPanelInfoPagePublicationResponse> => {
+  const res = await fetch(getSetPanelInfoPagePublicationUrl(slug), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(setPanelInfoPagePublicationBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: setPanelInfoPagePublicationResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as setPanelInfoPagePublicationResponse;
+};
+
+export const getSetPanelInfoPagePublicationMutationFetcher = (
+  slug: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: SetPanelInfoPagePublicationBody }) => {
+    return setPanelInfoPagePublication(slug, arg, options);
+  };
+};
+export const getSetPanelInfoPagePublicationMutationKey = (slug: string) =>
+  [`/v1/panel/content/pages/${slug}/publication`] as const;
+
+export type SetPanelInfoPagePublicationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setPanelInfoPagePublication>>
+>;
+
+export const useSetPanelInfoPagePublication = <TError = Promise<ProblemResponse>>(
+  slug: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof setPanelInfoPagePublication>>,
+      TError,
+      Key,
+      SetPanelInfoPagePublicationBody,
+      Awaited<ReturnType<typeof setPanelInfoPagePublication>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSetPanelInfoPagePublicationMutationKey(slug);
+  const swrFn = getSetPanelInfoPagePublicationMutationFetcher(slug, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

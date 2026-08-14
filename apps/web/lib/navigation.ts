@@ -3,6 +3,7 @@ import {
   ChartColumn,
   ClipboardList,
   CreditCard,
+  FileText,
   Gift,
   LayoutDashboard,
   LifeBuoy,
@@ -105,6 +106,12 @@ export const NAVIGATION: NavigationSection[] = [
         href: "/admin/support",
         icon: LifeBuoy,
         permission: "support.read",
+      },
+      {
+        key: "content",
+        href: "/admin/content",
+        icon: FileText,
+        permission: "marketing.read",
       },
       {
         key: "marketing",

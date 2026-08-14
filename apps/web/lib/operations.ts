@@ -640,6 +640,39 @@ export type TrafficReport = {
   total: number;
 };
 
+/**
+ * An information page: the FAQ, the terms, the offer, the privacy policy.
+ *
+ * `slug` is the identity rather than a field beside a generated one, because the
+ * address is the thing that has to be stable — a payment provider approved a
+ * URL. The body is the operator's source text; the public surfaces receive it
+ * parsed into blocks and never as HTML.
+ */
+export type InfoPageLocale = {
+  locale: string;
+  title: string;
+  body: string;
+};
+
+export type InfoPage = {
+  slug: string;
+  kind: string;
+  /** Absent for a draft, which answers 404 publicly. */
+  publishedAt?: string;
+  /** A published page can be unlisted: a stable address without a menu entry. */
+  listed: boolean;
+  sortOrder: number;
+  locales?: InfoPageLocale[];
+  availableLocales?: string[];
+  updatedAt: string;
+  updatedBy?: string;
+};
+
+export type InfoPageList = {
+  items: InfoPage[] | null;
+  kinds: string[];
+};
+
 export type Page<Item> = { items: Item[] | null; nextCursor?: string };
 export type Listing<Item> = { items: Item[] | null };
 
