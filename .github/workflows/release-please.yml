@@ -7,9 +7,34 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  # Held by this workflow because it calls the image workflow directly. A
+  # called workflow gets the intersection of its own permissions and its
+  # caller's, so anything missing here is missing there.
+  packages: write
+  id-token: write
+  security-events: write
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    outputs:
+      released: ${{ steps.release.outputs.release_created }}
+      tag: ${{ steps.release.outputs.tag_name }}
     steps:
       - uses: googleapis/release-please-action@v5
+        id: release
+
+  # Builds, scans, signs, and publishes the images for the release just cut.
+  #
+  # It is called rather than triggered. release-please pushes its tag with the
+  # default GITHUB_TOKEN, and GitHub does not start workflow runs from events
+  # that token caused, so the tag trigger in release.yml cannot fire for a
+  # release this repository cuts — 1.0.0 was published with no images at all
+  # for exactly that reason. Calling the workflow is a direct invocation and
+  # needs no personal access token.
+  images:
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.release.outputs.tag }}

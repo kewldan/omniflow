@@ -10,6 +10,22 @@ on:
     # either, which is the worse half: a gate nothing triggers reports nothing
     # and reads as a gate that passed.
     tags: ["v[0-9]*", "omniflow-v[0-9]*"]
+  # Called by the release workflow the moment it cuts a release.
+  #
+  # This is the trigger that actually fires. A tag pushed by
+  # release-please-action is pushed with the default GITHUB_TOKEN, and GitHub
+  # deliberately does not start new workflow runs from events that token
+  # caused — so the `push` trigger above cannot run for a release this
+  # repository cuts, and never has. A `workflow_call` is a direct invocation
+  # rather than an event, so it is not subject to that rule and needs no
+  # personal access token to work around it. The tag trigger stays for a tag
+  # pushed by a person.
+  workflow_call:
+    inputs:
+      tag:
+        description: "Tag to build and publish, e.g. omniflow-v1.0.0"
+        required: true
+        type: string
   # Lets a tag that already exists be built without cutting a new one. Dispatch
   # from the default branch — this file has to be the version being run — and
   # name the tag; every job checks that out rather than the branch.

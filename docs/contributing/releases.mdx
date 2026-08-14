@@ -85,13 +85,25 @@ exists:
     rather than by editing the generated file.
   </Step>
   <Step title="Merge it">
-    Merging the release pull request creates the `vX.Y.Z` tag and the GitHub
-    release. Nothing else creates a tag; a hand-pushed tag would publish images
-    from a commit no changelog describes.
+    Merging the release pull request creates the `omniflow-vX.Y.Z` tag and the
+    GitHub release. The tag carries the package name because release-please is
+    configured with one. Nothing else creates a tag; a hand-pushed tag would
+    publish images from a commit no changelog describes.
   </Step>
   <Step title="Watch the release workflow">
-    The tag starts `Release images`. It gates, builds, publishes, and signs
-    without further input — see below for what can stop it.
+    `Release Please` calls `Release images` in the same run, which gates,
+    builds, publishes, and signs without further input — see below for what can
+    stop it.
+
+    <Note>
+      It is *called*, not triggered by the tag, and the difference is why 1.0.0
+      shipped with no images. release-please pushes its tag with the default
+      `GITHUB_TOKEN`, and GitHub deliberately does not start workflow runs from
+      events that token caused. `Release images` still has a tag trigger, for a
+      tag a person pushes, and a `workflow_dispatch` that takes a tag so an
+      existing release can be built without cutting a new one — but neither is
+      what runs for an ordinary release.
+    </Note>
   </Step>
   <Step title="Verify what was published">
     Pull one image by digest and verify its signature with the `cosign verify`
