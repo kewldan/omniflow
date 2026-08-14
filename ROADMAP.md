@@ -1745,8 +1745,38 @@ below this section are directions; these are specific absences.
       never carried, and holds an empty second account. A merge has to show what
       happens to wallet balance, subscriptions, orders, and referral attribution
       before it happens, and it has to be one audited, idempotent operation.
-- [ ] Pausing a subscription — the lifecycle has cancellation and refund, not
-      suspension that preserves the remaining days.
+- [x] Pausing a subscription — done, on the customer's subscription in the panel
+      and documented under
+      [`commerce/subscriptions`](./docs/commerce/subscriptions.mdx). Access stops
+      through the ordinary fulfillment pipeline and the entitlement's clock stops
+      with it, in one transaction; resuming moves `ends_at` forward by exactly
+      the elapsed pause and records the same figure in `paused_seconds`, so an
+      expiry later than the order paid for is explained by its own columns.
+
+      The properties live where they cannot be forgotten. The guards are `UPDATE`
+      predicates, so two operators pressing the button produce one pause and one
+      refusal rather than a second pause that resets the first instant. `paused`
+      and `paused_at` are paired by a table constraint. And resume is one
+      fulfillment operation rather than two, because the new expiry has to reach
+      Remnawave before the user is re-enabled — otherwise the user is briefly
+      enabled carrying an expiry that has since passed.
+
+      **The reconciler had to learn about it**, and this is the part that would
+      have quietly undone the feature. A paused subscription and a disabled one
+      are identical from Remnawave's side, so a reconcile a week later sees
+      either a disabled user or — once real time walks past the frozen expiry —
+      an expired one. Mapping either back would have taken away the days the
+      pause exists to preserve, a week after the customer was told they were
+      safe. Both now count as agreement; an *active* remote user while locally
+      paused is still reported as drift, because that is a customer connecting
+      on time nobody is counting.
+
+      There is deliberately no customer-facing pause: it turns a dated
+      entitlement into an indefinite one, and letting the holder decide when the
+      clock runs makes "thirty days" mean "thirty days of my choosing, forever".
+      What the customer does get is an honest state on both surfaces — paused,
+      days kept — rather than "disabled, contact support", which would send
+      somebody to a ticket queue to be told nothing is wrong.
 - [ ] Wholesale code batches — promo codes belong to a promotion and gifts are
       issued one at a time. Selling a block of access to a distributor means
       generating a batch at an agreed price, handing over the codes, and being

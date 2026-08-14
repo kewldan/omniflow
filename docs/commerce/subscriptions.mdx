@@ -181,6 +181,7 @@ One function reduces an entitlement plus the observed Remnawave traffic into a s
 | `provisioning` | Status `pending` — settled, waiting on the first Remnawave push |
 | `failed` | Status `failed` |
 | `disabled` | Status `disabled` |
+| `paused` | Status `paused` — suspended by an operator with the remaining days preserved |
 | `grace` | Past the end, with a grace period configured and not yet elapsed |
 | `expired` | Past the end with no grace left, or Remnawave reports expired |
 | `limited` | Status `limited`, or used bytes have reached a positive limit |
@@ -196,6 +197,76 @@ Days left are computed on the server and **rounded up**, because a subscription 
 `plan_versions.grace_period_seconds` defaults to `0`, and zero means expiry is immediate. There is no implicit grace anywhere. It is set per plan version in the version editor, entered in whole days, and exists so that expiry copy is not guesswork: it keeps access alive after the end so the customer can be told exactly how long they have left to renew.
 
 Grace is carried to the customer as `gracePeriodSeconds` on the plan payloads, and the phase ladder reports `grace` for as long as it lasts.
+
+## Pausing
+
+Cancellation and refund both end a subscription. Neither covers the case people
+actually ask for — "I am away for six weeks, stop the clock" — and the
+workaround an operator otherwise reaches for is to disable the Remnawave user,
+which stops access and does **not** stop the clock. The customer comes back to a
+subscription that expired while they could not use it.
+
+A pause is therefore two facts, not one.
+
+**Access stops.** The Remnawave user is disabled, through the ordinary
+fulfillment pipeline, so it carries the same idempotency key, retry policy, and
+history as any other change.
+
+**The clock stops.** `entitlements.paused_at` records when, and every
+remaining-time figure on both customer surfaces is measured from that instant
+instead of from now. A paused subscription that counted down to zero on the
+customer's own screen would be the feature contradicting itself in the one place
+the customer looks.
+
+Resuming moves `ends_at` forward by exactly the elapsed pause and records the
+same amount in `paused_seconds` — so an entitlement whose expiry sits later than
+its order paid for is explained by its own columns rather than looking like a
+mistake.
+
+### What holds it together
+
+| Property | Where it lives |
+| --- | --- |
+| Only an active or limited subscription can be paused | The `UPDATE` predicate, so two operators pressing the button produce one pause and one refusal |
+| Only a paused one can be resumed | The same, so a double-submitted button cannot hand out the elapsed time twice |
+| `status = 'paused'` exactly when `paused_at` is set | A table constraint |
+| The expiry pushed to Remnawave is the one the row holds | Read back from the update inside the same transaction |
+
+Resume is **one** fulfillment operation rather than two, and the order is why:
+the new expiry is pushed before the user is re-enabled, so the user is never
+briefly enabled carrying an expiry that has since passed.
+
+### Reconciliation knows about it
+
+A paused subscription and a disabled one are the same thing from Remnawave's
+side, and only Omniflow knows the difference. Two cases are therefore treated as
+agreement rather than drift:
+
+- The remote user is **disabled** — what a pause looks like the moment after it
+  is applied.
+- The remote user is **expired** — what it looks like a week later, once real
+  time has walked past the frozen expiry. Remnawave knows nothing about the
+  pause. Treating this as the entitlement expiring would take away the days the
+  pause exists to preserve, a week after the customer was told they were safe.
+
+A paused entitlement whose remote user is **active** is real drift: somebody
+re-enabled it in Remnawave and the customer is connecting on time nobody is
+counting. That is reported.
+
+### There is no customer-facing pause
+
+Deliberately. A pause turns a dated entitlement into an indefinite one, and
+letting the person holding it decide when the clock runs would make "thirty
+days" mean "thirty days of my choosing, forever". An operator pausing on request
+is a support action with a reason attached, which the audit entry records.
+
+What the customer does get is an honest state: the bot and the panel both say
+the subscription is paused and that the remaining days are kept, rather than
+"disabled — contact support", which would send somebody to a ticket queue to be
+told nothing is wrong.
+
+Automatic renewal skips a paused subscription without any extra rule: the
+renewal query already selects only `active` and `limited` entitlements.
 
 ## Reminders, grace notices, and recovery
 

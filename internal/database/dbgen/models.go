@@ -810,6 +810,9 @@ type Entitlement struct {
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
 	SubscriptionID        pgtype.UUID        `json:"subscription_id"`
+	// When the current pause began. NULL exactly when the status is not paused; the table enforces the pairing.
+	PausedAt      pgtype.Timestamptz `json:"paused_at"`
+	PausedSeconds int64              `json:"paused_seconds"`
 }
 
 type EntitlementAddon struct {

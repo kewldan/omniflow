@@ -211,12 +211,15 @@ func (service *Service) Subscription(
 
 // record is the database half of a subscription, before Remnawave is consulted.
 type record struct {
-	ID             string
-	Slot           int
-	Label          string
-	Plan           string
-	Status         string
-	EndsAt         time.Time
+	ID     string
+	Slot   int
+	Label  string
+	Plan   string
+	Status string
+	EndsAt time.Time
+	// PausedAt is when the current pause began, zero when running. Every
+	// remaining-time figure the customer sees is measured from it.
+	PausedAt       time.Time
 	GracePeriod    time.Duration
 	RemnawaveID    int64
 	TrafficLimit   int64
@@ -229,6 +232,7 @@ func subscriptionRow(row dbgen.ListAccountSubscriptionsRow) record {
 	return record{
 		ID: uuidString(row.ID), Slot: int(row.Slot), Label: row.Label, Plan: row.PlanName,
 		Status: row.EntitlementStatus, EndsAt: row.EndsAt.Time.UTC(),
+		PausedAt:     row.PausedAt.Time.UTC(),
 		GracePeriod:  time.Duration(row.GracePeriodSeconds) * time.Second,
 		RemnawaveID:  row.RemnawaveUserID.Int64,
 		TrafficLimit: row.TrafficAllowanceBytes.Int64, TrafficLimited: row.TrafficAllowanceBytes.Valid,
@@ -299,11 +303,16 @@ func (service *Service) projectSubscription(ctx context.Context, row record) (Su
 	subscription.Traffic.Percent = trafficPercent(subscription.Traffic)
 
 	now := service.now()
-	subscription.Phase = commerce.EvaluatePhase(now, commerce.Subscription{
+	state := commerce.Subscription{
 		Status: row.Status, EndsAt: row.EndsAt, GracePeriod: row.GracePeriod,
 		TrafficUsedBytes: subscription.Traffic.UsedBytes, TrafficLimitBytes: subscription.Traffic.LimitBytes,
-	})
-	subscription.DaysLeft = daysLeft(now, row.EndsAt)
+		PausedAt: row.PausedAt,
+	}
+	subscription.Phase = commerce.EvaluatePhase(now, state)
+	// Measured from the pause instant while paused, so the figure the customer
+	// reads stays the figure they were promised instead of counting down while
+	// nothing is being used.
+	subscription.DaysLeft = daysLeft(commerce.ClockNow(now, state), row.EndsAt)
 	return subscription, live
 }
 

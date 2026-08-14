@@ -19,8 +19,13 @@ const (
 	PhaseGrace        SubscriptionPhase = "grace"
 	PhaseLimited      SubscriptionPhase = "limited"
 	PhaseDisabled     SubscriptionPhase = "disabled"
-	PhaseExpired      SubscriptionPhase = "expired"
-	PhaseFailed       SubscriptionPhase = "failed"
+	// PhasePaused is a subscription an operator stopped without spending its
+	// remaining days. It is distinct from disabled because the two owe the
+	// customer different things: a disabled subscription is running out, and a
+	// paused one is not running at all.
+	PhasePaused  SubscriptionPhase = "paused"
+	PhaseExpired SubscriptionPhase = "expired"
+	PhaseFailed  SubscriptionPhase = "failed"
 )
 
 // expiringSoonWindow matches the earliest renewal reminder so the bot never
@@ -37,10 +42,28 @@ type Subscription struct {
 	// state. A limit of zero or less means unlimited.
 	TrafficUsedBytes  int64
 	TrafficLimitBytes int64
+	// PausedAt is when the current pause began, zero when the subscription is
+	// running. It is the instant every remaining-time figure is measured from.
+	PausedAt time.Time
+}
+
+// ClockNow is the instant a subscription's remaining time is measured from.
+//
+// While paused it is the moment the pause began, so "eleven days left" stays
+// eleven days left for as long as the pause lasts. Measuring from the real
+// clock would count a paused subscription down to zero on the customer's own
+// screen while nothing was being consumed, which is the feature contradicting
+// itself in the one place the customer looks.
+func ClockNow(now time.Time, subscription Subscription) time.Time {
+	if subscription.Status == "paused" && !subscription.PausedAt.IsZero() {
+		return subscription.PausedAt
+	}
+	return now
 }
 
 // EvaluatePhase reduces an entitlement to one phase the bot can explain.
 func EvaluatePhase(now time.Time, subscription Subscription) SubscriptionPhase {
+	now = ClockNow(now, subscription)
 	switch subscription.Status {
 	case "":
 		return PhaseNone
@@ -52,6 +75,13 @@ func EvaluatePhase(now time.Time, subscription Subscription) SubscriptionPhase {
 		return PhaseNone
 	case "disabled":
 		return PhaseDisabled
+	case "paused":
+		// Returned before any date arithmetic below, and that ordering is the
+		// point. A pause freezes `ends_at` where it stood and real time walks
+		// past it, so a paused subscription evaluated against the clock would
+		// read as expired — the feature undone on the customer's own screen a
+		// week after they were told their days were safe.
+		return PhasePaused
 	}
 	if !subscription.EndsAt.IsZero() && !now.Before(subscription.EndsAt) {
 		if subscription.GracePeriod > 0 && now.Before(subscription.EndsAt.Add(subscription.GracePeriod)) {

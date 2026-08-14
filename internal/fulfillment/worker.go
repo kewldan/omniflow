@@ -153,7 +153,7 @@ func (worker *Worker) work(ctx context.Context, job *river.Job[JobArgs]) error {
 			return err
 		}
 	}
-	if _, err = queries.UpdateEntitlementObservedState(ctx, dbgen.UpdateEntitlementObservedStateParams{EntitlementID: entitlement.ID, Status: observedEntitlementStatus(remote), RemnawaveUserID: pgtype.Int8{Int64: remote.ID, Valid: true}, ObservedState: observed}); err != nil {
+	if _, err = queries.UpdateEntitlementObservedState(ctx, dbgen.UpdateEntitlementObservedStateParams{EntitlementID: entitlement.ID, Status: reconciledStatus(entitlement.Status, remote), RemnawaveUserID: pgtype.Int8{Int64: remote.ID, Valid: true}, ObservedState: observed}); err != nil {
 		return err
 	}
 	if err = queries.ResolveEntitlementDrifts(ctx, entitlement.ID); err != nil {
@@ -219,8 +219,8 @@ func (worker *Worker) detectDrift(ctx context.Context, queries *dbgen.Queries, e
 	if !sameStringSet(desired.SquadIDs, remoteSquads) {
 		mismatches = append(mismatches, mismatch{"squads", desired.SquadIDs, remoteSquads})
 	}
-	if observedEntitlementStatus(remote) != entitlement.Status {
-		mismatches = append(mismatches, mismatch{"status", entitlement.Status, observedEntitlementStatus(remote)})
+	if reconciled := reconciledStatus(entitlement.Status, remote); reconciled != entitlement.Status {
+		mismatches = append(mismatches, mismatch{"status", entitlement.Status, reconciled})
 	}
 	for _, item := range mismatches {
 		expected, _ := json.Marshal(map[string]any{"value": item.expected})
@@ -350,8 +350,22 @@ func (worker *Worker) apply(ctx context.Context, queries *dbgen.Queries, operati
 		if err := worker.provisioner.EnableUser(ctx, remoteID); err != nil {
 			return remnawave.User{}, err
 		}
-	case "disable":
+	case "disable", "pause":
+		// A pause is a disable as far as Remnawave is concerned. What makes it a
+		// pause is the entitlement's own clock, which stopped in the same
+		// transaction that enqueued this.
 		if err := worker.provisioner.DisableUser(ctx, remoteID); err != nil {
+			return remnawave.User{}, err
+		}
+	case "resume":
+		// Two calls in one operation, and the order is the reason they are one
+		// operation. The expiry has already been moved forward by the length of
+		// the pause; pushing it before re-enabling means the user is never
+		// briefly enabled with an expiry that has since passed.
+		if _, err := worker.provisioner.UpdateUser(ctx, remoteID, provision); err != nil {
+			return remnawave.User{}, err
+		}
+		if err := worker.provisioner.EnableUser(ctx, remoteID); err != nil {
 			return remnawave.User{}, err
 		}
 	case "reset_traffic":
@@ -417,6 +431,33 @@ func backoff(attempt int32) time.Duration {
 		seconds *= 2
 	}
 	return time.Duration(seconds) * time.Second
+}
+
+// reconciledStatus is what the entitlement's status should be after looking at
+// Remnawave, given what it was before.
+//
+// It exists because a paused subscription and a disabled one are the same thing
+// from Remnawave's side, and only Omniflow knows the difference. Without this,
+// the first reconcile after a pause would map DISABLED back to `disabled`,
+// which the table's pairing constraint refuses outright — and if it did not,
+// the customer would silently lose the days the pause was preserving.
+//
+// `expired` counts as agreement too, and that is not a loophole. A pause freezes
+// `ends_at` where it stood, so real time walks past it while the subscription is
+// not being consumed; Remnawave, which knows nothing about the pause, then
+// reports the user as expired. Treating that as the entitlement expiring would
+// take away the days the pause exists to preserve — which is the whole feature,
+// undone by a background job a week later.
+//
+// A paused entitlement whose remote user is *active* is real drift: somebody
+// re-enabled it in Remnawave, and the customer is connecting on time nobody is
+// charging for. That case falls through and is reported.
+func reconciledStatus(local string, user remnawave.User) string {
+	observed := observedEntitlementStatus(user)
+	if local == "paused" && (observed == "disabled" || observed == "expired") {
+		return "paused"
+	}
+	return observed
 }
 
 func observedEntitlementStatus(user remnawave.User) string {

@@ -735,6 +735,20 @@
       "bulk": {
         "show": "Bulk actions",
         "hide": "Hide bulk actions"
+      },
+      "pause": {
+        "pause": "Pause",
+        "resume": "Resume",
+        "paused": "Paused",
+        "pauseTitle": "Pause {label}?",
+        "pauseWarning": "Access stops immediately and the remaining days stop counting down. Resuming gives back exactly the time the pause took.",
+        "resumeTitle": "Resume {label}?",
+        "resumeWarning": "Access returns and the expiry moves forward by the length of the pause.",
+        "paused_since": "Paused since {date}",
+        "pausedTotal": "Paused for {days} days in total",
+        "notPausable": "That subscription is not in a state that can be paused or resumed.",
+        "pauseDone": "Subscription paused",
+        "resumeDone": "Subscription resumed"
       }
     },
     "finance": {
@@ -2287,7 +2301,8 @@
         "limited": "Traffic used up",
         "disabled": "Disabled",
         "expired": "Expired {date}",
-        "failed": "Setup failed — contact support"
+        "failed": "Setup failed — contact support",
+        "paused": "Paused — your days are kept"
       }
     },
     "devices": {

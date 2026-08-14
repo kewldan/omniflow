@@ -20,6 +20,7 @@ export type AccountSubscription = {
     | "grace"
     | "limited"
     | "disabled"
+    | "paused"
     | "expired"
     | "failed";
   endsAt?: string;
@@ -44,6 +45,9 @@ const PHASE_TONE: Record<AccountSubscription["phase"], "ok" | "warn" | "bad"> = 
   failed: "bad",
   grace: "warn",
   limited: "warn",
+  // Warn rather than bad: a paused subscription is not working *and* nothing is
+  // being lost, which is a different thing from expired and reads differently.
+  paused: "warn",
   none: "bad",
   provisioning: "warn",
 };

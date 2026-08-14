@@ -1654,7 +1654,7 @@ SELECT
   v.version AS plan_version
 FROM subscriptions s
 LEFT JOIN LATERAL (
-  SELECT en.id, en.user_id, en.order_id, en.plan_version_id, en.status, en.starts_at, en.ends_at, en.traffic_allowance_bytes, en.device_limit, en.remnawave_squad_ids, en.remnawave_user_id, en.observed_state, en.reconciled_at, en.created_at, en.updated_at, en.subscription_id FROM entitlements en
+  SELECT en.id, en.user_id, en.order_id, en.plan_version_id, en.status, en.starts_at, en.ends_at, en.traffic_allowance_bytes, en.device_limit, en.remnawave_squad_ids, en.remnawave_user_id, en.observed_state, en.reconciled_at, en.created_at, en.updated_at, en.subscription_id, en.paused_at, en.paused_seconds FROM entitlements en
   WHERE en.subscription_id = s.id AND en.status IN ('pending', 'active', 'limited', 'disabled')
   ORDER BY en.ends_at DESC
   LIMIT 1

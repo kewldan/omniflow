@@ -16,6 +16,11 @@ SELECT s.id, s.slot, s.label, s.remnawave_user_id,
        COALESCE(p.code, '') AS plan_code,
        COALESCE(e.status, '') AS entitlement_status,
        e.ends_at,
+       -- A pause freezes the remaining time, so the customer surfaces measure
+       -- "days left" from this instant rather than from now. Without it a paused
+       -- subscription counts down to zero on the customer's own screen while
+       -- nothing is being consumed.
+       e.paused_at,
        COALESCE(v.grace_period_seconds, 0)::bigint AS grace_period_seconds,
        v.traffic_allowance_bytes,
        v.device_limit,
@@ -38,6 +43,11 @@ SELECT s.id, s.slot, s.label, s.remnawave_user_id,
        COALESCE(p.code, '') AS plan_code,
        COALESCE(e.status, '') AS entitlement_status,
        e.ends_at,
+       -- A pause freezes the remaining time, so the customer surfaces measure
+       -- "days left" from this instant rather than from now. Without it a paused
+       -- subscription counts down to zero on the customer's own screen while
+       -- nothing is being consumed.
+       e.paused_at,
        COALESCE(v.grace_period_seconds, 0)::bigint AS grace_period_seconds,
        v.traffic_allowance_bytes,
        v.device_limit,

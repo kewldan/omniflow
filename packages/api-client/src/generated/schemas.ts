@@ -3580,6 +3580,68 @@ export const SetPanelInfoPagePublicationResponse = zod.object({
 });
 
 /**
+ * Requires subscriptions.write and an operator reason. Suspends access without spending the subscription's remaining days: the Remnawave user is disabled and the entitlement's clock stops, in one transaction.
+ * This is what `disable` is not. A disabled subscription keeps running out while the customer cannot use it; a paused one does not. The remaining days are measured from the pause instant on both customer surfaces, so the figure a customer reads stops moving.
+ * There is no customer-facing equivalent, deliberately: a pause turns a dated entitlement into an indefinite one, and letting the holder decide when the clock runs would make "thirty days" mean "thirty days of my choosing, forever".
+ * 409 when the subscription is not active or limited — including when it is already paused, which is what makes a double-submitted button harmless.
+ */
+export const PausePanelSubscriptionParams = zod.object({
+  customerID: zod.uuid(),
+  subscriptionID: zod.uuid(),
+});
+
+export const pausePanelSubscriptionHeaderXOperatorReasonMax = 400;
+
+export const PausePanelSubscriptionHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "X-Operator-Reason": zod
+    .string()
+    .min(1)
+    .max(pausePanelSubscriptionHeaderXOperatorReasonMax)
+    .describe(
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+    ),
+});
+
+export const PausePanelSubscriptionResponse = zod.object({
+  operationId: zod.uuid(),
+  operation: zod.string(),
+  status: zod.string(),
+});
+
+/**
+ * Requires subscriptions.write and an operator reason. Gives back exactly the time the pause took: `ends_at` moves forward by the elapsed pause, `paused_seconds` records the same amount, and the Remnawave user has the new expiry pushed to it before being re-enabled — in that order, which is why it is one operation rather than two.
+ * 409 when the subscription is not paused, so a double-submitted button cannot hand out the elapsed time twice.
+ */
+export const ResumePanelSubscriptionParams = zod.object({
+  customerID: zod.uuid(),
+  subscriptionID: zod.uuid(),
+});
+
+export const resumePanelSubscriptionHeaderXOperatorReasonMax = 400;
+
+export const ResumePanelSubscriptionHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "X-Operator-Reason": zod
+    .string()
+    .min(1)
+    .max(resumePanelSubscriptionHeaderXOperatorReasonMax)
+    .describe(
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+    ),
+});
+
+export const ResumePanelSubscriptionResponse = zod.object({
+  operationId: zod.uuid(),
+  operation: zod.string(),
+  status: zod.string(),
+});
+
+/**
  * Requires finance.read. What was sold over a chosen period, by kind of sale, by plan version, and by day, with trial conversion and refunds issued. The period keys on `orders.paid_at`, which is set once when an order first settles and never moved afterwards, so re-running a report over a closed period returns the same figures. Provider money and wallet credit are reported apart and must never be added: the balance was already revenue when it was funded. A period longer than two years is refused.
  */
 export const getPanelSalesReportQueryTimezoneDefault = `UTC`;

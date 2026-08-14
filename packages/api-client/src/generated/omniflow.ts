@@ -2181,6 +2181,12 @@ export interface PanelInfoPageList {
   kinds: string[];
 }
 
+export interface PanelSubscriptionOperationAccepted {
+  operationId: string;
+  operation: string;
+  status: string;
+}
+
 export interface PanelCommerceSettings {
   topUp: PanelTopUpSettings;
   subscriptions: PanelSubscriptionSettings;
@@ -15742,6 +15748,214 @@ export const useSetPanelInfoPagePublication = <TError = Promise<ProblemResponse>
 
   const swrKey = swrOptions?.swrKey ?? getSetPanelInfoPagePublicationMutationKey(slug);
   const swrFn = getSetPanelInfoPagePublicationMutationFetcher(slug, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type pausePanelSubscriptionResponse202 = {
+  data: PanelSubscriptionOperationAccepted;
+  status: 202;
+};
+
+export type pausePanelSubscriptionResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type pausePanelSubscriptionResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type pausePanelSubscriptionResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type pausePanelSubscriptionResponseSuccess = pausePanelSubscriptionResponse202 & {
+  headers: Headers;
+};
+export type pausePanelSubscriptionResponseError = (
+  | pausePanelSubscriptionResponse403
+  | pausePanelSubscriptionResponse409
+  | pausePanelSubscriptionResponse422
+) & {
+  headers: Headers;
+};
+
+export type pausePanelSubscriptionResponse =
+  | pausePanelSubscriptionResponseSuccess
+  | pausePanelSubscriptionResponseError;
+
+export const getPausePanelSubscriptionUrl = (customerID: string, subscriptionID: string) => {
+  return `/v1/panel/customers/${customerID}/subscriptions/${subscriptionID}/pause`;
+};
+
+/**
+ * Requires subscriptions.write and an operator reason. Suspends access without spending the subscription's remaining days: the Remnawave user is disabled and the entitlement's clock stops, in one transaction.
+ * This is what `disable` is not. A disabled subscription keeps running out while the customer cannot use it; a paused one does not. The remaining days are measured from the pause instant on both customer surfaces, so the figure a customer reads stops moving.
+ * There is no customer-facing equivalent, deliberately: a pause turns a dated entitlement into an indefinite one, and letting the holder decide when the clock runs would make "thirty days" mean "thirty days of my choosing, forever".
+ * 409 when the subscription is not active or limited — including when it is already paused, which is what makes a double-submitted button harmless.
+ */
+export const pausePanelSubscription = async (
+  customerID: string,
+  subscriptionID: string,
+  options?: RequestInit,
+): Promise<pausePanelSubscriptionResponse> => {
+  const res = await fetch(getPausePanelSubscriptionUrl(customerID, subscriptionID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: pausePanelSubscriptionResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as pausePanelSubscriptionResponse;
+};
+
+export const getPausePanelSubscriptionMutationFetcher = (
+  customerID: string,
+  subscriptionID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return pausePanelSubscription(customerID, subscriptionID, options);
+  };
+};
+export const getPausePanelSubscriptionMutationKey = (customerID: string, subscriptionID: string) =>
+  [`/v1/panel/customers/${customerID}/subscriptions/${subscriptionID}/pause`] as const;
+
+export type PausePanelSubscriptionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof pausePanelSubscription>>
+>;
+
+export const usePausePanelSubscription = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  subscriptionID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof pausePanelSubscription>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof pausePanelSubscription>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey =
+    swrOptions?.swrKey ?? getPausePanelSubscriptionMutationKey(customerID, subscriptionID);
+  const swrFn = getPausePanelSubscriptionMutationFetcher(customerID, subscriptionID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type resumePanelSubscriptionResponse202 = {
+  data: PanelSubscriptionOperationAccepted;
+  status: 202;
+};
+
+export type resumePanelSubscriptionResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type resumePanelSubscriptionResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type resumePanelSubscriptionResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type resumePanelSubscriptionResponseSuccess = resumePanelSubscriptionResponse202 & {
+  headers: Headers;
+};
+export type resumePanelSubscriptionResponseError = (
+  | resumePanelSubscriptionResponse403
+  | resumePanelSubscriptionResponse409
+  | resumePanelSubscriptionResponse422
+) & {
+  headers: Headers;
+};
+
+export type resumePanelSubscriptionResponse =
+  | resumePanelSubscriptionResponseSuccess
+  | resumePanelSubscriptionResponseError;
+
+export const getResumePanelSubscriptionUrl = (customerID: string, subscriptionID: string) => {
+  return `/v1/panel/customers/${customerID}/subscriptions/${subscriptionID}/resume`;
+};
+
+/**
+ * Requires subscriptions.write and an operator reason. Gives back exactly the time the pause took: `ends_at` moves forward by the elapsed pause, `paused_seconds` records the same amount, and the Remnawave user has the new expiry pushed to it before being re-enabled — in that order, which is why it is one operation rather than two.
+ * 409 when the subscription is not paused, so a double-submitted button cannot hand out the elapsed time twice.
+ */
+export const resumePanelSubscription = async (
+  customerID: string,
+  subscriptionID: string,
+  options?: RequestInit,
+): Promise<resumePanelSubscriptionResponse> => {
+  const res = await fetch(getResumePanelSubscriptionUrl(customerID, subscriptionID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: resumePanelSubscriptionResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as resumePanelSubscriptionResponse;
+};
+
+export const getResumePanelSubscriptionMutationFetcher = (
+  customerID: string,
+  subscriptionID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return resumePanelSubscription(customerID, subscriptionID, options);
+  };
+};
+export const getResumePanelSubscriptionMutationKey = (customerID: string, subscriptionID: string) =>
+  [`/v1/panel/customers/${customerID}/subscriptions/${subscriptionID}/resume`] as const;
+
+export type ResumePanelSubscriptionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof resumePanelSubscription>>
+>;
+
+export const useResumePanelSubscription = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  subscriptionID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof resumePanelSubscription>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof resumePanelSubscription>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey =
+    swrOptions?.swrKey ?? getResumePanelSubscriptionMutationKey(customerID, subscriptionID);
+  const swrFn = getResumePanelSubscriptionMutationFetcher(customerID, subscriptionID, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

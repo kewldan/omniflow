@@ -27,7 +27,7 @@ SET traffic_allowance_bytes = CASE
     ),
     updated_at = now()
 WHERE id = $4
-RETURNING id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id
+RETURNING id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id, paused_at, paused_seconds
 `
 
 type ApplyEntitlementAddonTotalsParams struct {
@@ -64,6 +64,8 @@ func (q *Queries) ApplyEntitlementAddonTotals(ctx context.Context, arg ApplyEnti
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.SubscriptionID,
+		&i.PausedAt,
+		&i.PausedSeconds,
 	)
 	return i, err
 }

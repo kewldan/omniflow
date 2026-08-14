@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/omniflow/omniflow/internal/database/dbgen"
 	"github.com/omniflow/omniflow/internal/fulfillment"
 	"github.com/omniflow/omniflow/internal/panelpg"
 	"github.com/omniflow/omniflow/internal/rbac"
@@ -27,6 +28,18 @@ func (handlers *AdminHandlers) mountSubscriptionOperations(secure chi.Router) {
 		secure.With(handlers.requirePermission(rbac.PermissionSubscriptionsWrite)).
 			Post("/customers/{customerID}/subscriptions/{subscriptionID}/operations",
 				handlers.enqueueSubscriptionOperation)
+
+		// Pause and resume are their own routes rather than two more values on
+		// the operations endpoint. Everything there is a Remnawave change
+		// described by parameters; these two are a Remnawave change *and* a
+		// change to the entitlement's own clock, and the two have to commit
+		// together or a customer pays for time they cannot use.
+		secure.With(handlers.requirePermission(rbac.PermissionSubscriptionsWrite)).
+			Post("/customers/{customerID}/subscriptions/{subscriptionID}/pause",
+				handlers.pauseSubscription)
+		secure.With(handlers.requirePermission(rbac.PermissionSubscriptionsWrite)).
+			Post("/customers/{customerID}/subscriptions/{subscriptionID}/resume",
+				handlers.resumeSubscription)
 	}
 	if handlers.remnawave != nil {
 		secure.With(handlers.requirePermission(rbac.PermissionSubscriptionsRead)).
@@ -257,4 +270,86 @@ func optionalString(value *string) string {
 		return ""
 	}
 	return *value
+}
+
+// pauseSubscription stops a subscription without spending its remaining days.
+func (handlers *AdminHandlers) pauseSubscription(writer http.ResponseWriter, request *http.Request) {
+	handlers.pauseTransition(writer, request, "pause")
+}
+
+// resumeSubscription gives back exactly the time the pause took.
+func (handlers *AdminHandlers) resumeSubscription(writer http.ResponseWriter, request *http.Request) {
+	handlers.pauseTransition(writer, request, "resume")
+}
+
+// pauseTransition is the shared half of the two.
+//
+// There is no customer-facing equivalent of these routes, and that is a decision
+// rather than an omission. A pause converts a dated entitlement into an
+// indefinite one; letting the person holding it decide when the clock runs would
+// make "thirty days" mean "thirty days of my choosing, forever". An operator
+// pausing on request is a support action with a reason attached, which is what
+// the audit entry records.
+func (handlers *AdminHandlers) pauseTransition(
+	writer http.ResponseWriter, request *http.Request, transition string,
+) {
+	customerID := chi.URLParam(request, "customerID")
+	subscriptionID := chi.URLParam(request, "subscriptionID")
+	actor := actorFrom(request)
+
+	target, err := handlers.operations.SubscriptionTarget(request.Context(), customerID, subscriptionID)
+	if err != nil {
+		handlers.operationsError(writer, request, err)
+		return
+	}
+	if target.EntitlementID == "" {
+		writeProblem(
+			writer, request, http.StatusConflict,
+			"not_provisioned", "That subscription has no entitlement to change",
+		)
+		return
+	}
+
+	// Derived from the operator's request identifier, so a double-submitted
+	// button reuses the first transition rather than pausing twice — which for
+	// a resume would hand out the elapsed time a second time.
+	key := fmt.Sprintf("panel:%s:%s:%s", subscriptionID, transition, actor.RequestID)
+	correlation := "panel:" + actor.RequestID
+
+	var operation dbgen.FulfillmentOperation
+	if transition == "pause" {
+		operation, err = handlers.fulfillment.Pause(request.Context(), target.EntitlementID, key, correlation)
+	} else {
+		operation, err = handlers.fulfillment.Resume(request.Context(), target.EntitlementID, key, correlation)
+	}
+	if errors.Is(err, fulfillment.ErrNotPausable) {
+		// 409 rather than 422: the request is well formed and the subscription
+		// is simply not in a state it applies to, which is something that can
+		// change between the screen loading and the button being pressed.
+		writeProblem(
+			writer, request, http.StatusConflict, "not_pausable",
+			"That subscription is not in a state that can be "+transition+"d",
+		)
+		return
+	}
+	if err != nil {
+		handlers.logger.Error("panel subscription pause failed",
+			"transition", transition, "error", err)
+		writeProblem(
+			writer, request, http.StatusUnprocessableEntity,
+			"operation_rejected", "That change could not be queued",
+		)
+		return
+	}
+
+	operationID := uuidValue(operation.ID)
+	if err := handlers.operations.RecordSubscriptionOperation(
+		request.Context(), customerID, subscriptionID, transition, operationID, actor,
+	); err != nil {
+		handlers.operationsError(writer, request, err)
+		return
+	}
+	writeJSON(writer, http.StatusAccepted, map[string]any{
+		"operationId": operationID, "operation": transition, "status": operation.Status,
+	})
 }

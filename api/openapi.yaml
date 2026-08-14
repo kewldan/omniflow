@@ -1498,6 +1498,60 @@ paths:
         "200": {description: Updated, content: {application/json: {schema: {$ref: "#/components/schemas/PanelInfoPage"}}}}
         "403": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}
+  /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/pause:
+    post:
+      operationId: pausePanelSubscription
+      tags: [panel]
+      description: >-
+        Requires subscriptions.write and an operator reason. Suspends access
+        without spending the subscription's remaining days: the Remnawave user is
+        disabled and the entitlement's clock stops, in one transaction.
+
+        This is what `disable` is not. A disabled subscription keeps running out
+        while the customer cannot use it; a paused one does not. The remaining
+        days are measured from the pause instant on both customer surfaces, so
+        the figure a customer reads stops moving.
+
+        There is no customer-facing equivalent, deliberately: a pause turns a
+        dated entitlement into an indefinite one, and letting the holder decide
+        when the clock runs would make "thirty days" mean "thirty days of my
+        choosing, forever".
+
+        409 when the subscription is not active or limited — including when it is
+        already paused, which is what makes a double-submitted button harmless.
+      parameters:
+        - {in: path, name: customerID, required: true, schema: {type: string, format: uuid}}
+        - {in: path, name: subscriptionID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/OperatorReason"}
+      responses:
+        "202": {description: Queued, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSubscriptionOperationAccepted"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/resume:
+    post:
+      operationId: resumePanelSubscription
+      tags: [panel]
+      description: >-
+        Requires subscriptions.write and an operator reason. Gives back exactly
+        the time the pause took: `ends_at` moves forward by the elapsed pause,
+        `paused_seconds` records the same amount, and the Remnawave user has the
+        new expiry pushed to it before being re-enabled — in that order, which is
+        why it is one operation rather than two.
+
+        409 when the subscription is not paused, so a double-submitted button
+        cannot hand out the elapsed time twice.
+      parameters:
+        - {in: path, name: customerID, required: true, schema: {type: string, format: uuid}}
+        - {in: path, name: subscriptionID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/OperatorReason"}
+      responses:
+        "202": {description: Queued, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSubscriptionOperationAccepted"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/panel/reports/sales:
     get:
       operationId: getPanelSalesReport
@@ -4768,6 +4822,13 @@ components:
       properties:
         items: {type: array, items: {$ref: "#/components/schemas/PanelInfoPage"}}
         kinds: {type: array, items: {type: string}}
+    PanelSubscriptionOperationAccepted:
+      type: object
+      required: [operationId, operation, status]
+      properties:
+        operationId: {type: string, format: uuid}
+        operation: {type: string}
+        status: {type: string}
     PanelCommerceSettings:
       type: object
       required: [topUp, subscriptions, updatedAt]

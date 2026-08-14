@@ -70,6 +70,27 @@ export function SubscriptionActions({
     }
   }
 
+  /**
+   * Pause and resume have their own routes rather than being two more values on
+   * the operations endpoint.
+   *
+   * Everything above is a Remnawave change described by parameters. These two
+   * are a Remnawave change *and* a change to the entitlement's own clock, and
+   * the two commit together — otherwise a customer pays for time they cannot
+   * use, or keeps connecting on time nobody is counting.
+   */
+  async function transition(kind: "pause" | "resume") {
+    setQueued("");
+    const ok = await run(
+      `/v1/panel/customers/${customerId}/subscriptions/${subscriptionId}/${kind}`,
+      { method: "POST", reason: reason.trim() },
+    );
+    if (ok) {
+      setQueued(kind);
+      setReason("");
+    }
+  }
+
   const ready = reason.trim().length > 0 && hasEntitlement && !pending;
 
   return (
@@ -103,6 +124,18 @@ export function SubscriptionActions({
           variant="outline"
         >
           {translate("actions.resetTraffic")}
+        </Button>
+        {/* Pausing suspends access without spending the remaining days, which
+            is what "disable" does not do: a disabled subscription keeps running
+            out while the customer cannot use it. Both buttons are offered
+            unconditionally and the API refuses the one that does not apply,
+            because the panel would otherwise have to guess the entitlement's
+            state from a list that may be a minute old. */}
+        <Button disabled={!ready} onClick={() => transition("pause")} size="sm" variant="outline">
+          {translate("pause.pause")}
+        </Button>
+        <Button disabled={!ready} onClick={() => transition("resume")} size="sm" variant="outline">
+          {translate("pause.resume")}
         </Button>
       </div>
 

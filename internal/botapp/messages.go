@@ -249,6 +249,12 @@ var catalog = map[string]phrase{
 	"life.limited":  {ru: "🟠 <b>Лимит трафика исчерпан</b>\n\nПодключение ограничено до обновления лимита или смены тарифа.", en: "🟠 <b>Traffic limit reached</b>\n\nYour connection is limited until the allowance resets or you change plan."},
 	"life.expired":  {ru: "🔴 <b>Подписка истекла</b>\n\nВосстановите доступ в один тап — тариф и настройки сохранены.", en: "🔴 <b>Subscription expired</b>\n\nRestore access in one tap — your plan and settings are kept."},
 	"life.disabled": {ru: "⚪️ <b>Подписка отключена</b>\n\nОбратитесь в поддержку, чтобы восстановить доступ.", en: "⚪️ <b>Subscription disabled</b>\n\nContact support to restore access."},
+	// A pause is not a disable, and saying so is the whole point of the state:
+	// the customer's remaining days are safe and the figure beside this does
+	// not move. Telling them "disabled, contact support" would send somebody to
+	// a ticket queue to be told nothing is wrong.
+	"life.paused": {ru: "\u23f8 <b>Подписка на паузе</b>\n\nОставшиеся дни сохранены — счётчик остановлен и продолжит идти с того же места, когда подписку возобновят. Напишите в поддержку, если хотите вернуть доступ раньше.",
+		en: "\u23f8 <b>Subscription paused</b>\n\nYour remaining days are kept — the clock is stopped and continues from the same point when the subscription is resumed. Contact support if you want access back sooner."},
 	"life.failed": {ru: "⚠️ <b>Активация не завершилась</b>\n\nОплата сохранена. Мы повторяем активацию автоматически — обновите экран или напишите в поддержку.",
 		en: "⚠️ <b>Activation did not finish</b>\n\nYour payment is safe. Activation retries automatically — refresh or contact support."},
 	"life.none":    {ru: "У вас пока нет активной подписки.", en: "You do not have an active subscription yet."},
@@ -606,6 +612,7 @@ var catalog = map[string]phrase{
 	"phase.grace":         {ru: "🟠 Льготный период", en: "🟠 Grace period"},
 	"phase.limited":       {ru: "🟠 Лимит исчерпан", en: "🟠 Limit reached"},
 	"phase.disabled":      {ru: "⚪️ Отключена", en: "⚪️ Disabled"},
+	"phase.paused":        {ru: "⏸ На паузе", en: "⏸ Paused"},
 	"phase.expired":       {ru: "🔴 Истекла", en: "🔴 Expired"},
 	"phase.failed":        {ru: "⚠️ Активация не завершена", en: "⚠️ Activation unfinished"},
 

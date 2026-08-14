@@ -405,7 +405,7 @@ INSERT INTO entitlements (
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 ON CONFLICT (order_id) DO UPDATE SET order_id = EXCLUDED.order_id
-RETURNING id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id
+RETURNING id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id, paused_at, paused_seconds
 `
 
 type CreateEntitlementParams struct {
@@ -450,6 +450,8 @@ func (q *Queries) CreateEntitlement(ctx context.Context, arg CreateEntitlementPa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.SubscriptionID,
+		&i.PausedAt,
+		&i.PausedSeconds,
 	)
 	return i, err
 }
@@ -1053,7 +1055,7 @@ func (q *Queries) GetCustomerImportItemCounts(ctx context.Context, importID pgty
 }
 
 const getEntitlement = `-- name: GetEntitlement :one
-SELECT id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id FROM entitlements WHERE id = $1
+SELECT id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id, paused_at, paused_seconds FROM entitlements WHERE id = $1
 `
 
 func (q *Queries) GetEntitlement(ctx context.Context, id pgtype.UUID) (Entitlement, error) {
@@ -1076,6 +1078,8 @@ func (q *Queries) GetEntitlement(ctx context.Context, id pgtype.UUID) (Entitleme
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.SubscriptionID,
+		&i.PausedAt,
+		&i.PausedSeconds,
 	)
 	return i, err
 }
@@ -1117,7 +1121,7 @@ func (q *Queries) GetLatestConsents(ctx context.Context, userID pgtype.UUID) ([]
 }
 
 const getLatestEntitlementForChange = `-- name: GetLatestEntitlementForChange :one
-SELECT id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id FROM entitlements
+SELECT id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id, paused_at, paused_seconds FROM entitlements
 WHERE user_id = $1
   AND ($2::uuid IS NULL OR subscription_id = $2::uuid)
   AND status IN ('pending', 'active', 'limited', 'disabled')
@@ -1151,6 +1155,8 @@ func (q *Queries) GetLatestEntitlementForChange(ctx context.Context, arg GetLate
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.SubscriptionID,
+		&i.PausedAt,
+		&i.PausedSeconds,
 	)
 	return i, err
 }
@@ -2266,7 +2272,7 @@ func (q *Queries) ListCustomerImportTelegramIDs(ctx context.Context, importID pg
 }
 
 const listEntitlementsForReconciliation = `-- name: ListEntitlementsForReconciliation :many
-SELECT id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id FROM entitlements
+SELECT id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id, paused_at, paused_seconds FROM entitlements
 WHERE status IN ('active', 'limited', 'disabled', 'expired')
   AND (reconciled_at IS NULL OR reconciled_at < now() - interval '15 minutes')
 ORDER BY reconciled_at NULLS FIRST
@@ -2299,6 +2305,8 @@ func (q *Queries) ListEntitlementsForReconciliation(ctx context.Context, limit i
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.SubscriptionID,
+			&i.PausedAt,
+			&i.PausedSeconds,
 		); err != nil {
 			return nil, err
 		}
@@ -2687,6 +2695,47 @@ func (q *Queries) NextPlanVersion(ctx context.Context, planID pgtype.UUID) (int3
 	return column_1, err
 }
 
+const pauseEntitlement = `-- name: PauseEntitlement :one
+UPDATE entitlements
+SET status = 'paused', paused_at = now(), updated_at = now()
+WHERE id = $1
+  AND status IN ('active', 'limited')
+  AND paused_at IS NULL
+RETURNING id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id, paused_at, paused_seconds
+`
+
+// Freezes an entitlement's remaining time.
+//
+// The guard is in the predicate rather than in Go: only an active or limited
+// entitlement can be paused, so two operators pressing pause at the same moment
+// produce one pause and one "no rows", instead of a second pause that resets
+// the instant the first one recorded and loses the days between them.
+func (q *Queries) PauseEntitlement(ctx context.Context, entitlementID pgtype.UUID) (Entitlement, error) {
+	row := q.db.QueryRow(ctx, pauseEntitlement, entitlementID)
+	var i Entitlement
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.OrderID,
+		&i.PlanVersionID,
+		&i.Status,
+		&i.StartsAt,
+		&i.EndsAt,
+		&i.TrafficAllowanceBytes,
+		&i.DeviceLimit,
+		&i.RemnawaveSquadIds,
+		&i.RemnawaveUserID,
+		&i.ObservedState,
+		&i.ReconciledAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SubscriptionID,
+		&i.PausedAt,
+		&i.PausedSeconds,
+	)
+	return i, err
+}
+
 const releasePaymentMutationLock = `-- name: ReleasePaymentMutationLock :exec
 SELECT pg_advisory_unlock(hashtextextended($1, 0))
 `
@@ -2705,6 +2754,50 @@ WHERE entitlement_id = $1 AND status = 'open'
 func (q *Queries) ResolveEntitlementDrifts(ctx context.Context, entitlementID pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, resolveEntitlementDrifts, entitlementID)
 	return err
+}
+
+const resumeEntitlement = `-- name: ResumeEntitlement :one
+UPDATE entitlements
+SET status = 'active',
+    ends_at = ends_at + (now() - paused_at),
+    paused_seconds = paused_seconds + GREATEST(0, extract(epoch FROM (now() - paused_at))::bigint),
+    paused_at = NULL,
+    updated_at = now()
+WHERE id = $1
+  AND status = 'paused'
+  AND paused_at IS NOT NULL
+RETURNING id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id, paused_at, paused_seconds
+`
+
+// Gives back exactly the time the pause took.
+//
+// `ends_at` moves by the elapsed pause and `paused_seconds` records the same
+// amount, so the two together are a checkable statement: an entitlement whose
+// expiry sits later than its order paid for is explained by its own column.
+func (q *Queries) ResumeEntitlement(ctx context.Context, entitlementID pgtype.UUID) (Entitlement, error) {
+	row := q.db.QueryRow(ctx, resumeEntitlement, entitlementID)
+	var i Entitlement
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.OrderID,
+		&i.PlanVersionID,
+		&i.Status,
+		&i.StartsAt,
+		&i.EndsAt,
+		&i.TrafficAllowanceBytes,
+		&i.DeviceLimit,
+		&i.RemnawaveSquadIds,
+		&i.RemnawaveUserID,
+		&i.ObservedState,
+		&i.ReconciledAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SubscriptionID,
+		&i.PausedAt,
+		&i.PausedSeconds,
+	)
+	return i, err
 }
 
 const revokeCustomerIdentity = `-- name: RevokeCustomerIdentity :one
@@ -2954,9 +3047,11 @@ func (q *Queries) UpdateCustomerPreferences(ctx context.Context, arg UpdateCusto
 const updateEntitlementObservedState = `-- name: UpdateEntitlementObservedState :one
 UPDATE entitlements
 SET status = $1, remnawave_user_id = COALESCE($2, remnawave_user_id),
-    observed_state = $3, reconciled_at = now(), updated_at = now()
+    observed_state = $3,
+    paused_at = CASE WHEN $1 = 'paused' THEN paused_at ELSE NULL END,
+    reconciled_at = now(), updated_at = now()
 WHERE id = $4
-RETURNING id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id
+RETURNING id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id, paused_at, paused_seconds
 `
 
 type UpdateEntitlementObservedStateParams struct {
@@ -2966,6 +3061,15 @@ type UpdateEntitlementObservedStateParams struct {
 	EntitlementID   pgtype.UUID `json:"entitlement_id"`
 }
 
+// The reconciler's write, aware that a paused entitlement is a disabled user.
+//
+// `paused_at` is cleared whenever the incoming status is not `paused`, which is
+// what keeps the table's pairing constraint satisfiable. It matters more than it
+// looks: without it, a reconcile that saw a disabled Remnawave user would drop
+// the entitlement out of `paused` and leave the pause instant behind, and the
+// customer would silently lose the days they were owed. With the constraint, the
+// write would simply fail — which is why the clearing belongs here rather than
+// in a caller that could forget.
 func (q *Queries) UpdateEntitlementObservedState(ctx context.Context, arg UpdateEntitlementObservedStateParams) (Entitlement, error) {
 	row := q.db.QueryRow(ctx, updateEntitlementObservedState,
 		arg.Status,
@@ -2991,6 +3095,8 @@ func (q *Queries) UpdateEntitlementObservedState(ctx context.Context, arg Update
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.SubscriptionID,
+		&i.PausedAt,
+		&i.PausedSeconds,
 	)
 	return i, err
 }

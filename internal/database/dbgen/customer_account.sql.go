@@ -17,13 +17,18 @@ SELECT s.id, s.slot, s.label, s.remnawave_user_id,
        COALESCE(p.code, '') AS plan_code,
        COALESCE(e.status, '') AS entitlement_status,
        e.ends_at,
+       -- A pause freezes the remaining time, so the customer surfaces measure
+       -- "days left" from this instant rather than from now. Without it a paused
+       -- subscription counts down to zero on the customer's own screen while
+       -- nothing is being consumed.
+       e.paused_at,
        COALESCE(v.grace_period_seconds, 0)::bigint AS grace_period_seconds,
        v.traffic_allowance_bytes,
        v.device_limit,
        v.billing_period
 FROM subscriptions s
 LEFT JOIN LATERAL (
-  SELECT id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id FROM entitlements ent
+  SELECT id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id, paused_at, paused_seconds FROM entitlements ent
   WHERE ent.subscription_id = s.id AND ent.status <> 'superseded'
   ORDER BY ent.ends_at DESC LIMIT 1
 ) e ON true
@@ -48,6 +53,7 @@ type GetAccountSubscriptionRow struct {
 	PlanCode              string             `json:"plan_code"`
 	EntitlementStatus     string             `json:"entitlement_status"`
 	EndsAt                pgtype.Timestamptz `json:"ends_at"`
+	PausedAt              pgtype.Timestamptz `json:"paused_at"`
 	GracePeriodSeconds    int64              `json:"grace_period_seconds"`
 	TrafficAllowanceBytes pgtype.Int8        `json:"traffic_allowance_bytes"`
 	DeviceLimit           pgtype.Int4        `json:"device_limit"`
@@ -66,6 +72,7 @@ func (q *Queries) GetAccountSubscription(ctx context.Context, arg GetAccountSubs
 		&i.PlanCode,
 		&i.EntitlementStatus,
 		&i.EndsAt,
+		&i.PausedAt,
 		&i.GracePeriodSeconds,
 		&i.TrafficAllowanceBytes,
 		&i.DeviceLimit,
@@ -81,13 +88,18 @@ SELECT s.id, s.slot, s.label, s.remnawave_user_id,
        COALESCE(p.code, '') AS plan_code,
        COALESCE(e.status, '') AS entitlement_status,
        e.ends_at,
+       -- A pause freezes the remaining time, so the customer surfaces measure
+       -- "days left" from this instant rather than from now. Without it a paused
+       -- subscription counts down to zero on the customer's own screen while
+       -- nothing is being consumed.
+       e.paused_at,
        COALESCE(v.grace_period_seconds, 0)::bigint AS grace_period_seconds,
        v.traffic_allowance_bytes,
        v.device_limit,
        v.billing_period
 FROM subscriptions s
 LEFT JOIN LATERAL (
-  SELECT id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id FROM entitlements ent
+  SELECT id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id, paused_at, paused_seconds FROM entitlements ent
   WHERE ent.subscription_id = s.id AND ent.status <> 'superseded'
   ORDER BY ent.ends_at DESC LIMIT 1
 ) e ON true
@@ -112,6 +124,7 @@ type ListAccountSubscriptionsRow struct {
 	PlanCode              string             `json:"plan_code"`
 	EntitlementStatus     string             `json:"entitlement_status"`
 	EndsAt                pgtype.Timestamptz `json:"ends_at"`
+	PausedAt              pgtype.Timestamptz `json:"paused_at"`
 	GracePeriodSeconds    int64              `json:"grace_period_seconds"`
 	TrafficAllowanceBytes pgtype.Int8        `json:"traffic_allowance_bytes"`
 	DeviceLimit           pgtype.Int4        `json:"device_limit"`
@@ -147,6 +160,7 @@ func (q *Queries) ListAccountSubscriptions(ctx context.Context, arg ListAccountS
 			&i.PlanCode,
 			&i.EntitlementStatus,
 			&i.EndsAt,
+			&i.PausedAt,
 			&i.GracePeriodSeconds,
 			&i.TrafficAllowanceBytes,
 			&i.DeviceLimit,

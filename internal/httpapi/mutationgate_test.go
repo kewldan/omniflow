@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/omniflow/omniflow/internal/fulfillment"
 	"github.com/omniflow/omniflow/internal/panelpg"
 )
 
@@ -31,6 +32,13 @@ func mountedRouter(t *testing.T) chi.Routes {
 	handlers := NewAdminHandlers(AdminOptions{
 		Logger:     slog.New(slog.DiscardHandler),
 		Operations: &panelpg.Service{},
+		// Attached so the walk below reaches the subscription routes too. They
+		// mount only when a fulfillment service exists, and without one the
+		// most consequential mutations in the panel — the ones that change a
+		// customer's access — would be absent from the very test that exists to
+		// find an ungated mutation. Nothing is called: the session gate refuses
+		// before any handler runs.
+		Fulfillment: &fulfillment.Service{},
 	})
 	router := chi.NewRouter()
 	handlers.Mount(router)
@@ -175,6 +183,10 @@ func TestTheNewSurfacesAreInsideTheAuthenticatedGroup(t *testing.T) {
 		{http.MethodPut, "/v1/panel/content/pages"},
 		{http.MethodPost, "/v1/panel/content/pages/terms/publication"},
 		{http.MethodDelete, "/v1/panel/content/pages/terms"},
+		// Pausing suspends a customer's access and stops their clock, so it is a
+		// subscription mutation like any other and gated like one.
+		{http.MethodPost, "/v1/panel/customers/00000000-0000-0000-0000-000000000000/subscriptions/00000000-0000-0000-0000-000000000000/pause"},
+		{http.MethodPost, "/v1/panel/customers/00000000-0000-0000-0000-000000000000/subscriptions/00000000-0000-0000-0000-000000000000/resume"},
 	} {
 		recorder := httptest.NewRecorder()
 		router.(http.Handler).ServeHTTP(

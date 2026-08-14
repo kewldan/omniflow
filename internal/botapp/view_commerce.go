@@ -322,6 +322,8 @@ func lifecycleNotice(locale Locale, phase commerce.SubscriptionPhase, entitlemen
 		return text(locale, "life.expired")
 	case commerce.PhaseDisabled:
 		return text(locale, "life.disabled")
+	case commerce.PhasePaused:
+		return text(locale, "life.paused")
 	case commerce.PhaseFailed:
 		return text(locale, "life.failed")
 	case commerce.PhaseNone:

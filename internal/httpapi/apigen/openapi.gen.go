@@ -6511,6 +6511,13 @@ type PanelSubscriptionList struct {
 	Items *[]PanelSubscription `json:"items"`
 }
 
+// PanelSubscriptionOperationAccepted defines model for PanelSubscriptionOperationAccepted.
+type PanelSubscriptionOperationAccepted struct {
+	Operation   string             `json:"operation"`
+	OperationId openapi_types.UUID `json:"operationId"`
+	Status      string             `json:"status"`
+}
+
 // PanelSubscriptionSettings defines model for PanelSubscriptionSettings.
 type PanelSubscriptionSettings struct {
 	MaxPerCustomer int  `json:"maxPerCustomer"`
@@ -8031,6 +8038,24 @@ type RenamePanelSubscriptionParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// PausePanelSubscriptionParams defines parameters for PausePanelSubscription.
+type PausePanelSubscriptionParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+
+	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
+}
+
+// ResumePanelSubscriptionParams defines parameters for ResumePanelSubscription.
+type ResumePanelSubscriptionParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+
+	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
+}
+
 // ListPanelCustomerTicketsParams defines parameters for ListPanelCustomerTickets.
 type ListPanelCustomerTicketsParams struct {
 	PageSize *PageSize `form:"pageSize,omitempty" json:"pageSize,omitempty"`
@@ -9300,6 +9325,12 @@ type ServerInterface interface {
 	// (PATCH /v1/panel/customers/{customerID}/subscriptions/{subscriptionID})
 	RenamePanelSubscription(w http.ResponseWriter, r *http.Request, customerID CustomerID, subscriptionID openapi_types.UUID, params RenamePanelSubscriptionParams)
 
+	// (POST /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/pause)
+	PausePanelSubscription(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, subscriptionID openapi_types.UUID, params PausePanelSubscriptionParams)
+
+	// (POST /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/resume)
+	ResumePanelSubscription(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, subscriptionID openapi_types.UUID, params ResumePanelSubscriptionParams)
+
 	// (GET /v1/panel/customers/{customerID}/tickets)
 	ListPanelCustomerTickets(w http.ResponseWriter, r *http.Request, customerID CustomerID, params ListPanelCustomerTicketsParams)
 
@@ -10429,6 +10460,16 @@ func (_ Unimplemented) ListPanelCustomerSubscriptions(w http.ResponseWriter, r *
 
 // (PATCH /v1/panel/customers/{customerID}/subscriptions/{subscriptionID})
 func (_ Unimplemented) RenamePanelSubscription(w http.ResponseWriter, r *http.Request, customerID CustomerID, subscriptionID openapi_types.UUID, params RenamePanelSubscriptionParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/pause)
+func (_ Unimplemented) PausePanelSubscription(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, subscriptionID openapi_types.UUID, params PausePanelSubscriptionParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/resume)
+func (_ Unimplemented) ResumePanelSubscription(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, subscriptionID openapi_types.UUID, params ResumePanelSubscriptionParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -18049,6 +18090,178 @@ func (siw *ServerInterfaceWrapper) RenamePanelSubscription(w http.ResponseWriter
 	handler.ServeHTTP(w, r)
 }
 
+// PausePanelSubscription operation middleware
+func (siw *ServerInterfaceWrapper) PausePanelSubscription(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerID" -------------
+	var customerID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerID", chi.URLParam(r, "customerID"), &customerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PausePanelSubscriptionParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Operator-Reason" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Operator-Reason")]; found {
+		var XOperatorReason OperatorReason
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Operator-Reason", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Operator-Reason", valueList[0], &XOperatorReason, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Operator-Reason", Err: err})
+			return
+		}
+
+		params.XOperatorReason = XOperatorReason
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Operator-Reason is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Operator-Reason", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PausePanelSubscription(w, r, customerID, subscriptionID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ResumePanelSubscription operation middleware
+func (siw *ServerInterfaceWrapper) ResumePanelSubscription(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerID" -------------
+	var customerID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerID", chi.URLParam(r, "customerID"), &customerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ResumePanelSubscriptionParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Operator-Reason" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Operator-Reason")]; found {
+		var XOperatorReason OperatorReason
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Operator-Reason", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Operator-Reason", valueList[0], &XOperatorReason, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Operator-Reason", Err: err})
+			return
+		}
+
+		params.XOperatorReason = XOperatorReason
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Operator-Reason is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Operator-Reason", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ResumePanelSubscription(w, r, customerID, subscriptionID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPanelCustomerTickets operation middleware
 func (siw *ServerInterfaceWrapper) ListPanelCustomerTickets(w http.ResponseWriter, r *http.Request) {
 
@@ -22265,6 +22478,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/panel/content/pages/{slug}/publication", wrapper.SetPanelInfoPagePublication)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/pause", wrapper.PausePanelSubscription)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/resume", wrapper.ResumePanelSubscription)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/reports/sales", wrapper.GetPanelSalesReport)
@@ -29994,6 +30213,142 @@ func (response RenamePanelSubscription404ApplicationProblemPlusJSONResponse) Vis
 	return err
 }
 
+type PausePanelSubscriptionRequestObject struct {
+	CustomerID     openapi_types.UUID `json:"customerID"`
+	SubscriptionID openapi_types.UUID `json:"subscriptionID"`
+	Params         PausePanelSubscriptionParams
+}
+
+type PausePanelSubscriptionResponseObject interface {
+	VisitPausePanelSubscriptionResponse(w http.ResponseWriter) error
+}
+
+type PausePanelSubscription202JSONResponse PanelSubscriptionOperationAccepted
+
+func (response PausePanelSubscription202JSONResponse) VisitPausePanelSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PausePanelSubscription403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response PausePanelSubscription403ApplicationProblemPlusJSONResponse) VisitPausePanelSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PausePanelSubscription409ApplicationProblemPlusJSONResponse Problem
+
+func (response PausePanelSubscription409ApplicationProblemPlusJSONResponse) VisitPausePanelSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PausePanelSubscription422ApplicationProblemPlusJSONResponse Problem
+
+func (response PausePanelSubscription422ApplicationProblemPlusJSONResponse) VisitPausePanelSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ResumePanelSubscriptionRequestObject struct {
+	CustomerID     openapi_types.UUID `json:"customerID"`
+	SubscriptionID openapi_types.UUID `json:"subscriptionID"`
+	Params         ResumePanelSubscriptionParams
+}
+
+type ResumePanelSubscriptionResponseObject interface {
+	VisitResumePanelSubscriptionResponse(w http.ResponseWriter) error
+}
+
+type ResumePanelSubscription202JSONResponse PanelSubscriptionOperationAccepted
+
+func (response ResumePanelSubscription202JSONResponse) VisitResumePanelSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ResumePanelSubscription403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ResumePanelSubscription403ApplicationProblemPlusJSONResponse) VisitResumePanelSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ResumePanelSubscription409ApplicationProblemPlusJSONResponse Problem
+
+func (response ResumePanelSubscription409ApplicationProblemPlusJSONResponse) VisitResumePanelSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ResumePanelSubscription422ApplicationProblemPlusJSONResponse Problem
+
+func (response ResumePanelSubscription422ApplicationProblemPlusJSONResponse) VisitResumePanelSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListPanelCustomerTicketsRequestObject struct {
 	CustomerID CustomerID `json:"customerID"`
 	Params     ListPanelCustomerTicketsParams
@@ -34186,6 +34541,12 @@ type StrictServerInterface interface {
 
 	// (PATCH /v1/panel/customers/{customerID}/subscriptions/{subscriptionID})
 	RenamePanelSubscription(ctx context.Context, request RenamePanelSubscriptionRequestObject) (RenamePanelSubscriptionResponseObject, error)
+
+	// (POST /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/pause)
+	PausePanelSubscription(ctx context.Context, request PausePanelSubscriptionRequestObject) (PausePanelSubscriptionResponseObject, error)
+
+	// (POST /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/resume)
+	ResumePanelSubscription(ctx context.Context, request ResumePanelSubscriptionRequestObject) (ResumePanelSubscriptionResponseObject, error)
 
 	// (GET /v1/panel/customers/{customerID}/tickets)
 	ListPanelCustomerTickets(ctx context.Context, request ListPanelCustomerTicketsRequestObject) (ListPanelCustomerTicketsResponseObject, error)
@@ -39493,6 +39854,62 @@ func (sh *strictHandler) RenamePanelSubscription(w http.ResponseWriter, r *http.
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(RenamePanelSubscriptionResponseObject); ok {
 		if err := validResponse.VisitRenamePanelSubscriptionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PausePanelSubscription operation middleware
+func (sh *strictHandler) PausePanelSubscription(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, subscriptionID openapi_types.UUID, params PausePanelSubscriptionParams) {
+	var request PausePanelSubscriptionRequestObject
+
+	request.CustomerID = customerID
+	request.SubscriptionID = subscriptionID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PausePanelSubscription(ctx, request.(PausePanelSubscriptionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PausePanelSubscription")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PausePanelSubscriptionResponseObject); ok {
+		if err := validResponse.VisitPausePanelSubscriptionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ResumePanelSubscription operation middleware
+func (sh *strictHandler) ResumePanelSubscription(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, subscriptionID openapi_types.UUID, params ResumePanelSubscriptionParams) {
+	var request ResumePanelSubscriptionRequestObject
+
+	request.CustomerID = customerID
+	request.SubscriptionID = subscriptionID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ResumePanelSubscription(ctx, request.(ResumePanelSubscriptionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ResumePanelSubscription")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ResumePanelSubscriptionResponseObject); ok {
+		if err := validResponse.VisitResumePanelSubscriptionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -618,9 +618,20 @@ VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: UpdateEntitlementObservedState :one
+-- The reconciler's write, aware that a paused entitlement is a disabled user.
+--
+-- `paused_at` is cleared whenever the incoming status is not `paused`, which is
+-- what keeps the table's pairing constraint satisfiable. It matters more than it
+-- looks: without it, a reconcile that saw a disabled Remnawave user would drop
+-- the entitlement out of `paused` and leave the pause instant behind, and the
+-- customer would silently lose the days they were owed. With the constraint, the
+-- write would simply fail — which is why the clearing belongs here rather than
+-- in a caller that could forget.
 UPDATE entitlements
 SET status = sqlc.arg(status), remnawave_user_id = COALESCE(sqlc.narg(remnawave_user_id), remnawave_user_id),
-    observed_state = sqlc.arg(observed_state), reconciled_at = now(), updated_at = now()
+    observed_state = sqlc.arg(observed_state),
+    paused_at = CASE WHEN sqlc.arg(status) = 'paused' THEN paused_at ELSE NULL END,
+    reconciled_at = now(), updated_at = now()
 WHERE id = sqlc.arg(entitlement_id)
 RETURNING *;
 
@@ -662,4 +673,35 @@ INSERT INTO audit_events (
   sqlc.arg(target_type), sqlc.arg(target_id),
   sqlc.narg(reason), sqlc.narg(request_id), sqlc.arg(metadata)
 )
+RETURNING *;
+
+-- name: PauseEntitlement :one
+-- Freezes an entitlement's remaining time.
+--
+-- The guard is in the predicate rather than in Go: only an active or limited
+-- entitlement can be paused, so two operators pressing pause at the same moment
+-- produce one pause and one "no rows", instead of a second pause that resets
+-- the instant the first one recorded and loses the days between them.
+UPDATE entitlements
+SET status = 'paused', paused_at = now(), updated_at = now()
+WHERE id = sqlc.arg(entitlement_id)
+  AND status IN ('active', 'limited')
+  AND paused_at IS NULL
+RETURNING *;
+
+-- name: ResumeEntitlement :one
+-- Gives back exactly the time the pause took.
+--
+-- `ends_at` moves by the elapsed pause and `paused_seconds` records the same
+-- amount, so the two together are a checkable statement: an entitlement whose
+-- expiry sits later than its order paid for is explained by its own column.
+UPDATE entitlements
+SET status = 'active',
+    ends_at = ends_at + (now() - paused_at),
+    paused_seconds = paused_seconds + GREATEST(0, extract(epoch FROM (now() - paused_at))::bigint),
+    paused_at = NULL,
+    updated_at = now()
+WHERE id = sqlc.arg(entitlement_id)
+  AND status = 'paused'
+  AND paused_at IS NOT NULL
 RETURNING *;

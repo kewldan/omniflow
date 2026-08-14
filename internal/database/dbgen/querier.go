@@ -942,6 +942,13 @@ type Querier interface {
 	// retrying could deliver twice and refunding could give money back for goods
 	// the recipient received.
 	ParkGoodsDelivery(ctx context.Context, arg ParkGoodsDeliveryParams) (GoodsDelivery, error)
+	// Freezes an entitlement's remaining time.
+	//
+	// The guard is in the predicate rather than in Go: only an active or limited
+	// entitlement can be paused, so two operators pressing pause at the same moment
+	// produce one pause and one "no rows", instead of a second pause that resets
+	// the instant the first one recorded and loses the days between them.
+	PauseEntitlement(ctx context.Context, entitlementID pgtype.UUID) (Entitlement, error)
 	// The same outcomes per day, which is what turns "our settlement rate is 80%"
 	// into "it was 97% until Tuesday".
 	PaymentHealthByDay(ctx context.Context, arg PaymentHealthByDayParams) ([]PaymentHealthByDayRow, error)
@@ -1057,6 +1064,12 @@ type Querier interface {
 	// An operator's verdict on a parked delivery. 'delivered' records that the
 	// goods did arrive; 'failed' releases it to the refund path.
 	ResolveGoodsDeliveryReview(ctx context.Context, arg ResolveGoodsDeliveryReviewParams) (GoodsDelivery, error)
+	// Gives back exactly the time the pause took.
+	//
+	// `ends_at` moves by the elapsed pause and `paused_seconds` records the same
+	// amount, so the two together are a checkable statement: an entitlement whose
+	// expiry sits later than its order paid for is explained by its own column.
+	ResumeEntitlement(ctx context.Context, entitlementID pgtype.UUID) (Entitlement, error)
 	RetireAddonVersion(ctx context.Context, addonVersionID pgtype.UUID) (AddonVersion, error)
 	RetirePlanVersion(ctx context.Context, planVersionID pgtype.UUID) (PlanVersion, error)
 	// Records the reversal on the reward. The compensating ledger entries are
@@ -1329,6 +1342,15 @@ type Querier interface {
 	UpdateContactChannelPreferences(ctx context.Context, arg UpdateContactChannelPreferencesParams) (ContactChannel, error)
 	UpdateCustomerImportProgress(ctx context.Context, arg UpdateCustomerImportProgressParams) (CustomerImport, error)
 	UpdateCustomerPreferences(ctx context.Context, arg UpdateCustomerPreferencesParams) (User, error)
+	// The reconciler's write, aware that a paused entitlement is a disabled user.
+	//
+	// `paused_at` is cleared whenever the incoming status is not `paused`, which is
+	// what keeps the table's pairing constraint satisfiable. It matters more than it
+	// looks: without it, a reconcile that saw a disabled Remnawave user would drop
+	// the entitlement out of `paused` and leave the pause instant behind, and the
+	// customer would silently lose the days they were owed. With the constraint, the
+	// write would simply fail — which is why the clearing belongs here rather than
+	// in a caller that could forget.
 	UpdateEntitlementObservedState(ctx context.Context, arg UpdateEntitlementObservedStateParams) (Entitlement, error)
 	UpdateFulfillmentOperation(ctx context.Context, arg UpdateFulfillmentOperationParams) (FulfillmentOperation, error)
 	UpdateGoodsProduct(ctx context.Context, arg UpdateGoodsProductParams) (GoodsProduct, error)
