@@ -889,6 +889,46 @@
         "half_year": "Half-yearly",
         "year": "Yearly",
         "custom": "Custom"
+      },
+      "tabs": {
+        "sales": "Sales",
+        "payments": "Payment health"
+      }
+    },
+    "paymentHealth": {
+      "title": "Settlement by provider",
+      "description": "Two rates, because a customer abandoning a checkout and a gateway refusing a card are not the same event. Settlement is settled ÷ (settled + failed) — the provider's own success rate. Completion adds the customers who walked away.",
+      "failed": "Failed",
+      "empty": "No payments in this period",
+      "emptyDescription": "Nothing was attempted through any provider in this window.",
+      "provider": "Provider",
+      "currency": "Currency",
+      "settlement": "Settlement",
+      "completion": "Completion",
+      "settled": "Settled",
+      "abandoned": "Abandoned",
+      "open": "Still open",
+      "median": "Time to settle",
+      "oldest": "oldest {age}",
+      "sample": "of {count} decided",
+      "webhooks": {
+        "title": "Webhook intake",
+        "description": "Settlement and notification fail independently: a gateway that takes the money and cannot deliver the callback looks healthy to the customer and produces a stuck queue here. A non-zero rejected count is a rotated secret or somebody probing the endpoint.",
+        "received": "Received",
+        "processed": "Processed",
+        "failed": "Failed",
+        "rejected": "Signature rejected"
+      },
+      "daily": {
+        "title": "By day",
+        "description": "What turns \"our settlement rate is 80%\" into \"it was 97% until Tuesday\".",
+        "day": "Day"
+      },
+      "adapter": {
+        "telegram_stars": "Telegram Stars",
+        "cryptobot": "CryptoBot",
+        "yookassa": "YooKassa",
+        "manual": "Manual"
       }
     },
     "risk": {

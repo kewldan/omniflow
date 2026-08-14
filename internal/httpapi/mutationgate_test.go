@@ -165,6 +165,7 @@ func TestTheNewSurfacesAreInsideTheAuthenticatedGroup(t *testing.T) {
 		// session gate would publish every figure an installation has.
 		{http.MethodGet, "/v1/panel/reports/sales"},
 		{http.MethodGet, "/v1/panel/reports/sales/export"},
+		{http.MethodGet, "/v1/panel/reports/payments"},
 	} {
 		recorder := httptest.NewRecorder()
 		router.(http.Handler).ServeHTTP(

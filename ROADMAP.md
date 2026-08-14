@@ -1623,10 +1623,27 @@ below this section are directions; these are specific absences.
       date picker's calendar were both on it, so the chart loads on demand and
       the tables — which carry the same figures and are the accessible
       equivalent the chart needs anyway — arrive first.
-- [ ] Payment health per provider — the share of intents that settle, by adapter,
-      over time. With four bundled providers an acquirer that starts failing is
-      currently visible as support tickets and a growing stuck-payment queue
-      rather than as a number that moved.
+- [x] Payment health per provider — done, as the second tab of `/admin/reports`
+      and documented on the same page. Settlement, latency, and webhook intake
+      per adapter, with a daily series, so an acquirer that starts refusing is a
+      number that moved.
+
+      It reports **two** rates, and the distinction is the substance rather than
+      a detail: settlement is settled ÷ (settled + failed), the provider's own
+      success on payments it was asked to take, and completion adds the customers
+      who walked away. Collapsing them into one figure produces a number that
+      drops every time a campaign reaches people who were never going to buy,
+      which is how a real settlement problem gets lost in noise. Intents still in
+      flight are in neither denominator — one created five minutes ago has not
+      failed — and the age of the oldest is the stuck-payment queue as a number.
+
+      Two smaller refusals. A rate is absent rather than zero when nothing
+      reached a decision, because "nobody paid" and "everybody failed" are
+      opposite facts and a quiet adapter reading 0% sends somebody to investigate
+      nothing; the sample size travels beside every rate for the same reason.
+      And time-to-settle is measured from the settlement event rather than from
+      `updated_at`, which a later reconciliation moves — the same class of
+      mistake `orders.paid_at` was added to fix.
 - [ ] Advertising measurement — no counter integration, no offline-conversion
       upload, and no click identifier carried from a first visit into the order
       that settles later. Payment happens on the backend, sometimes a day after

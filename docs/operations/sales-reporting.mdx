@@ -1,6 +1,6 @@
 ---
-title: Sales reporting
-description: What was sold over a period you choose, why the dashboard's window stays fixed, and the three rules that decide which figures are ever added together
+title: Sales and payment reporting
+description: What was sold over a period you choose, whether the money arrived, and the rules that decide which figures are ever added together
 ---
 
 `/admin/reports` answers the questions the dashboard cannot: how a quarter went,
@@ -67,6 +67,49 @@ version each order actually referenced rather than off the plan's current state.
 That is what plan versions are for: a price change last week must not re-price a
 sale from last month.
 
+## Payment health
+
+The second tab answers a different question with the same period: not what was
+sold, but whether the money arrived. With four bundled adapters, an acquirer that
+starts refusing cards is otherwise visible as support tickets and a growing
+stuck-payment queue rather than as a number that moved.
+
+**Two rates, because two things fail.**
+
+| Rate | Definition | What it measures |
+| --- | --- | --- |
+| Settlement | settled ÷ (settled + failed) | The provider's own success rate on payments it was asked to take. |
+| Completion | settled ÷ (settled + failed + abandoned) | The funnel, including customers who changed their mind. |
+
+A customer abandoning a checkout and a gateway refusing a card are not the same
+event, and only the second is the acquirer's. Collapsing them into one "success
+rate" produces a figure that drops every time a campaign reaches people who were
+never going to buy — which is how a real settlement problem gets lost in noise.
+
+**Intents still in flight are in neither denominator** and are counted apart. One
+created five minutes ago has not failed, and including it would make the current
+hour look catastrophic exactly when somebody is watching. The oldest open intent
+is reported as an age, which is the stuck-payment queue expressed as a number.
+
+**A rate is absent rather than zero when nothing reached a decision.** "Nobody
+paid" and "everybody failed" are opposite facts, and a screen showing 0% for a
+quiet adapter would send somebody to investigate one nobody used. The sample size
+travels beside every rate for the same reason: 50% of four is a coincidence and
+50% of four hundred is an incident.
+
+**Time to settle is measured from the settlement event**, not from the intent's
+`updated_at`. A later reconciliation touches the row, and keying on it would
+inflate the latency of every payment anybody looked at twice.
+
+### Webhook intake
+
+Settlement and notification fail independently: a gateway that takes the money
+and cannot deliver the callback looks healthy from the customer's side and
+produces a stuck queue here. The table reports what arrived, what was processed,
+what failed, and what was **rejected for a bad signature** — a non-zero rejection
+count is either a rotated secret or somebody probing the endpoint, and both are
+worth seeing.
+
 ## The export
 
 `GET /v1/panel/reports/sales/export` takes the same four parameters and returns
@@ -86,10 +129,9 @@ the two drift into disagreeing about the same figures.
 
 ## What is not here
 
-Payment health per provider — the share of intents that settle, by adapter — is
-a separate absence tracked in the roadmap. So is advertising attribution and
-per-node traffic. This screen reports what was sold, not how well each acquirer
-took the money or where the customer came from.
+Advertising attribution and per-node traffic are separate absences tracked in
+the roadmap. These screens report what was sold and whether the money arrived,
+not where the customer came from or which node carried them.
 
 ## Related
 

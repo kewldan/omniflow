@@ -544,6 +544,59 @@ export type SalesReport = {
   generatedAt: string;
 };
 
+/**
+ * Payment health per provider.
+ *
+ * Two rates, and the difference between them is the point. `settlementRate` is
+ * settled ÷ (settled + failed): how often the adapter completes a payment it was
+ * asked to take. `completionRate` adds the customers who walked away, which is
+ * the funnel rather than the acquirer. Both are absent rather than zero when
+ * nothing reached a decision, because "nobody paid" and "everybody failed" are
+ * opposite facts.
+ */
+export type ProviderHealthLine = {
+  provider: string;
+  currency: string;
+  intents: number;
+  settled: number;
+  failed: number;
+  abandoned: number;
+  /** In neither rate's denominator: an intent created minutes ago has not failed. */
+  stillOpen: number;
+  settledMinor: number;
+  medianSettleSeconds: number;
+  p95SettleSeconds: number;
+  oldestOpenSeconds: number;
+  settlementRate?: number;
+  completionRate?: number;
+};
+
+export type ProviderHealthDay = {
+  day: string;
+  provider: string;
+  intents: number;
+  settled: number;
+  failed: number;
+};
+
+export type WebhookHealthLine = {
+  provider: string;
+  received: number;
+  rejected: number;
+  failed: number;
+  processed: number;
+};
+
+export type PaymentHealthReport = {
+  since: string;
+  until: string;
+  timezone: string;
+  providers: ProviderHealthLine[];
+  byDay: ProviderHealthDay[];
+  webhooks: WebhookHealthLine[];
+  generatedAt: string;
+};
+
 export type Page<Item> = { items: Item[] | null; nextCursor?: string };
 export type Listing<Item> = { items: Item[] | null };
 

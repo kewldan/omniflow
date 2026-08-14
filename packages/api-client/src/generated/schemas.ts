@@ -3416,6 +3416,84 @@ export const ExportPanelSalesReportQueryParams = zod.object({
 export const ExportPanelSalesReportResponse = zod.unknown();
 
 /**
+ * Requires finance.read. Settlement, latency, and webhook intake per payment adapter, so an acquirer that starts refusing is a number that moved rather than a growing stuck-payment queue.
+ * Two rates, because a customer abandoning a checkout and a gateway refusing a card are not the same event and only the second is the provider's: `settlementRate` is settled over settled plus failed, and `completionRate` adds abandoned. Intents still in flight appear in neither denominator — one created five minutes ago has not failed. Both rates are absent rather than zero when nothing reached a decision, because "nobody paid" and "everybody failed" are opposite facts.
+ */
+export const getPanelPaymentHealthQueryTimezoneDefault = `UTC`;
+
+export const GetPanelPaymentHealthQueryParams = zod.object({
+  since: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("Start of the period, inclusive. Defaults to thirty days before `until`."),
+  until: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("End of the period, exclusive. Defaults to now."),
+  timezone: zod
+    .string()
+    .default(getPanelPaymentHealthQueryTimezoneDefault)
+    .describe(
+      'The zone the day boundaries are computed in. "Sales on the third" means the operator\'s third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day.',
+    ),
+});
+
+export const GetPanelPaymentHealthResponse = zod.object({
+  since: zod.iso.datetime({ offset: true }),
+  until: zod.iso.datetime({ offset: true }),
+  timezone: zod.string(),
+  providers: zod.array(
+    zod.object({
+      provider: zod.string(),
+      currency: zod.string(),
+      intents: zod.int(),
+      settled: zod.int(),
+      failed: zod.int().describe("The provider refused or errored."),
+      abandoned: zod
+        .int()
+        .describe(
+          "Cancelled or expired — the customer's decision, not the acquirer's performance.",
+        ),
+      stillOpen: zod.int().describe("In neither rate's denominator."),
+      settledMinor: zod.int(),
+      medianSettleSeconds: zod
+        .int()
+        .describe(
+          "Measured from the settlement event, not from updated_at, which a later reconciliation would move.",
+        ),
+      p95SettleSeconds: zod.int(),
+      oldestOpenSeconds: zod
+        .int()
+        .describe("Age of the oldest intent still waiting: the stuck-payment queue as a number."),
+      settlementRate: zod
+        .number()
+        .optional()
+        .describe("settled / (settled + failed). Absent when nothing reached a decision."),
+      completionRate: zod.number().optional().describe("settled / (settled + failed + abandoned)."),
+    }),
+  ),
+  byDay: zod.array(
+    zod.object({
+      day: zod.iso.date(),
+      provider: zod.string(),
+      intents: zod.int(),
+      settled: zod.int(),
+      failed: zod.int(),
+    }),
+  ),
+  webhooks: zod.array(
+    zod.object({
+      provider: zod.string(),
+      received: zod.int(),
+      rejected: zod.int().describe("Failed signature verification."),
+      failed: zod.int(),
+      processed: zod.int(),
+    }),
+  ),
+  generatedAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
  * Requires settings.read. The stored palette, the stylesheet it renders as, the tokens this build honours, and every contrast problem the palette has. The warnings are recomputed on each read rather than stored, so they cannot go stale against a palette edited elsewhere.
  */
 export const GetPanelThemeResponse = zod.object({

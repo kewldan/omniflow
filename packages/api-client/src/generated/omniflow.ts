@@ -1980,6 +1980,56 @@ export interface PanelSalesReport {
   generatedAt: string;
 }
 
+export interface PanelProviderHealthLine {
+  provider: string;
+  currency: string;
+  intents: number;
+  settled: number;
+  /** The provider refused or errored. */
+  failed: number;
+  /** Cancelled or expired — the customer's decision, not the acquirer's performance. */
+  abandoned: number;
+  /** In neither rate's denominator. */
+  stillOpen: number;
+  settledMinor: number;
+  /** Measured from the settlement event, not from updated_at, which a later reconciliation would move. */
+  medianSettleSeconds: number;
+  p95SettleSeconds: number;
+  /** Age of the oldest intent still waiting: the stuck-payment queue as a number. */
+  oldestOpenSeconds: number;
+  /** settled / (settled + failed). Absent when nothing reached a decision. */
+  settlementRate?: number;
+  /** settled / (settled + failed + abandoned). */
+  completionRate?: number;
+}
+
+export interface PanelProviderHealthDay {
+  day: string;
+  provider: string;
+  intents: number;
+  settled: number;
+  failed: number;
+}
+
+export interface PanelWebhookHealthLine {
+  provider: string;
+  received: number;
+  /** Failed signature verification. */
+  rejected: number;
+  failed: number;
+  processed: number;
+}
+
+export interface PanelPaymentHealth {
+  since: string;
+  until: string;
+  timezone: string;
+  providers: PanelProviderHealthLine[];
+  byDay: PanelProviderHealthDay[];
+  webhooks: PanelWebhookHealthLine[];
+  generatedAt: string;
+}
+
 export interface PanelCommerceSettings {
   topUp: PanelTopUpSettings;
   subscriptions: PanelSubscriptionSettings;
@@ -4466,6 +4516,21 @@ export type ExportPanelSalesReportParams = {
    * ISO currency to restrict the report to. Omit for every currency.
    */
   currency?: ReportCurrencyParameter;
+};
+
+export type GetPanelPaymentHealthParams = {
+  /**
+   * Start of the period, inclusive. Defaults to thirty days before `until`.
+   */
+  since?: ReportSinceParameter;
+  /**
+   * End of the period, exclusive. Defaults to now.
+   */
+  until?: ReportUntilParameter;
+  /**
+   * The zone the day boundaries are computed in. "Sales on the third" means the operator's third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day.
+   */
+  timezone?: ReportTimezoneParameter;
 };
 
 export type SavePanelThemeBody = {
@@ -15092,6 +15157,102 @@ export const useExportPanelSalesReport = <TError = Promise<ProblemResponse>>(
   const swrKey =
     swrOptions?.swrKey ?? (() => (isEnabled ? getExportPanelSalesReportKey(params) : null));
   const swrFn = () => exportPanelSalesReport(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelPaymentHealthResponse200 = {
+  data: PanelPaymentHealth;
+  status: 200;
+};
+
+export type getPanelPaymentHealthResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelPaymentHealthResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type getPanelPaymentHealthResponseSuccess = getPanelPaymentHealthResponse200 & {
+  headers: Headers;
+};
+export type getPanelPaymentHealthResponseError = (
+  | getPanelPaymentHealthResponse403
+  | getPanelPaymentHealthResponse422
+) & {
+  headers: Headers;
+};
+
+export type getPanelPaymentHealthResponse =
+  | getPanelPaymentHealthResponseSuccess
+  | getPanelPaymentHealthResponseError;
+
+export const getGetPanelPaymentHealthUrl = (params?: GetPanelPaymentHealthParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/reports/payments?${stringifiedParams}`
+    : `/v1/panel/reports/payments`;
+};
+
+/**
+ * Requires finance.read. Settlement, latency, and webhook intake per payment adapter, so an acquirer that starts refusing is a number that moved rather than a growing stuck-payment queue.
+ * Two rates, because a customer abandoning a checkout and a gateway refusing a card are not the same event and only the second is the provider's: `settlementRate` is settled over settled plus failed, and `completionRate` adds abandoned. Intents still in flight appear in neither denominator — one created five minutes ago has not failed. Both rates are absent rather than zero when nothing reached a decision, because "nobody paid" and "everybody failed" are opposite facts.
+ */
+export const getPanelPaymentHealth = async (
+  params?: GetPanelPaymentHealthParams,
+  options?: RequestInit,
+): Promise<getPanelPaymentHealthResponse> => {
+  const res = await fetch(getGetPanelPaymentHealthUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelPaymentHealthResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelPaymentHealthResponse;
+};
+
+export const getGetPanelPaymentHealthKey = (params?: GetPanelPaymentHealthParams) =>
+  [`/v1/panel/reports/payments`, ...(params ? [params] : [])] as const;
+
+export type GetPanelPaymentHealthQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelPaymentHealth>>
+>;
+
+export const useGetPanelPaymentHealth = <TError = Promise<ProblemResponse>>(
+  params?: GetPanelPaymentHealthParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelPaymentHealth>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelPaymentHealthKey(params) : null));
+  const swrFn = () => getPanelPaymentHealth(params, fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 

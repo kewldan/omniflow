@@ -913,6 +913,22 @@ type Querier interface {
 	// retrying could deliver twice and refunding could give money back for goods
 	// the recipient received.
 	ParkGoodsDelivery(ctx context.Context, arg ParkGoodsDeliveryParams) (GoodsDelivery, error)
+	// The same outcomes per day, which is what turns "our settlement rate is 80%"
+	// into "it was 97% until Tuesday".
+	PaymentHealthByDay(ctx context.Context, arg PaymentHealthByDayParams) ([]PaymentHealthByDayRow, error)
+	// Payment health per provider.
+	//
+	// The question is "has an acquirer started failing", and answering it needs two
+	// rates rather than one, because a customer abandoning a checkout and a gateway
+	// refusing a card are not the same event and only the second is the provider's.
+	//
+	//   settlement rate  = settled / (settled + failed)
+	//   completion rate  = settled / (settled + failed + abandoned)
+	//
+	// Intents that are still open are counted separately and appear in neither
+	// denominator. One created five minutes ago has not failed, and including it
+	// would make today's rate look terrible exactly when somebody is watching.
+	PaymentHealthByProvider(ctx context.Context, arg PaymentHealthByProviderParams) ([]PaymentHealthByProviderRow, error)
 	PlaceRetentionHold(ctx context.Context, arg PlaceRetentionHoldParams) (AiRetentionHold, error)
 	// Enabling one programme disables the rest, because the partial unique index
 	// allows exactly one and a customer can only stand in one definition at a time.
@@ -1365,6 +1381,10 @@ type Querier interface {
 	UpsertSubscriptionRemnawaveUser(ctx context.Context, arg UpsertSubscriptionRemnawaveUserParams) (Subscription, error)
 	UpsertSupportQueue(ctx context.Context, arg UpsertSupportQueueParams) (SupportQueue, error)
 	UpsertSupportTag(ctx context.Context, arg UpsertSupportTagParams) (SupportTag, error)
+	// Webhook intake beside settlement, because the two fail independently: a
+	// gateway that takes the money and cannot deliver the notification looks
+	// healthy from the customer's side and produces a stuck queue on ours.
+	WebhookHealthByProvider(ctx context.Context, arg WebhookHealthByProviderParams) ([]WebhookHealthByProviderRow, error)
 }
 
 var _ Querier = (*Queries)(nil)

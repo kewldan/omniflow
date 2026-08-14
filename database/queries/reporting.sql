@@ -111,3 +111,88 @@ SELECT
     )
   )::bigint AS converted
 FROM claims;
+
+-- Payment health per provider.
+--
+-- The question is "has an acquirer started failing", and answering it needs two
+-- rates rather than one, because a customer abandoning a checkout and a gateway
+-- refusing a card are not the same event and only the second is the provider's.
+--
+--   settlement rate  = settled / (settled + failed)
+--   completion rate  = settled / (settled + failed + abandoned)
+--
+-- Intents that are still open are counted separately and appear in neither
+-- denominator. One created five minutes ago has not failed, and including it
+-- would make today's rate look terrible exactly when somebody is watching.
+
+-- name: PaymentHealthByProvider :many
+WITH settlement AS (
+  -- The moment the intent actually settled, from the event rather than from
+  -- `updated_at`: a later reconciliation touches the row and would inflate
+  -- every latency figure it touched.
+  SELECT payment_intent_id, min(occurred_at) AS settled_at
+  FROM payment_events
+  WHERE status = 'succeeded'
+  GROUP BY payment_intent_id
+)
+SELECT
+  pi.provider,
+  pi.currency,
+  count(*)::bigint AS intents,
+  count(*) FILTER (WHERE pi.status = 'succeeded')::bigint AS settled,
+  count(*) FILTER (WHERE pi.status = 'failed')::bigint AS failed,
+  count(*) FILTER (WHERE pi.status IN ('cancelled', 'expired'))::bigint AS abandoned,
+  count(*) FILTER (
+    WHERE pi.status IN ('pending', 'requires_action', 'processing')
+  )::bigint AS still_open,
+  COALESCE(sum(pi.amount_minor) FILTER (WHERE pi.status = 'succeeded'), 0)::bigint
+    AS settled_minor,
+  -- NULL for an intent that never settled, and percentile_cont ignores NULLs,
+  -- so these describe the ones that did.
+  COALESCE(round(percentile_cont(0.5) WITHIN GROUP (
+    ORDER BY extract(epoch FROM (s.settled_at - pi.created_at))
+  )), 0)::bigint AS median_settle_seconds,
+  COALESCE(round(percentile_cont(0.95) WITHIN GROUP (
+    ORDER BY extract(epoch FROM (s.settled_at - pi.created_at))
+  )), 0)::bigint AS p95_settle_seconds,
+  -- The age of the oldest intent still waiting, which is the stuck-payment
+  -- queue expressed as a number rather than as a growing list.
+  COALESCE(round(extract(epoch FROM (
+    now() - min(pi.created_at) FILTER (
+      WHERE pi.status IN ('pending', 'requires_action', 'processing')
+    )
+  ))), 0)::bigint AS oldest_open_seconds
+FROM payment_intents pi
+LEFT JOIN settlement s ON s.payment_intent_id = pi.id
+WHERE pi.created_at >= sqlc.arg(since) AND pi.created_at < sqlc.arg(until)
+GROUP BY pi.provider, pi.currency
+ORDER BY pi.provider, pi.currency;
+
+-- name: PaymentHealthByDay :many
+-- The same outcomes per day, which is what turns "our settlement rate is 80%"
+-- into "it was 97% until Tuesday".
+SELECT
+  (date_trunc('day', pi.created_at AT TIME ZONE sqlc.arg(timezone)::text))::date AS day,
+  pi.provider,
+  count(*)::bigint AS intents,
+  count(*) FILTER (WHERE pi.status = 'succeeded')::bigint AS settled,
+  count(*) FILTER (WHERE pi.status = 'failed')::bigint AS failed
+FROM payment_intents pi
+WHERE pi.created_at >= sqlc.arg(since) AND pi.created_at < sqlc.arg(until)
+GROUP BY 1, pi.provider
+ORDER BY 1, pi.provider;
+
+-- name: WebhookHealthByProvider :many
+-- Webhook intake beside settlement, because the two fail independently: a
+-- gateway that takes the money and cannot deliver the notification looks
+-- healthy from the customer's side and produces a stuck queue on ours.
+SELECT
+  provider,
+  count(*)::bigint AS received,
+  count(*) FILTER (WHERE NOT signature_valid)::bigint AS rejected,
+  count(*) FILTER (WHERE status = 'failed')::bigint AS failed,
+  count(*) FILTER (WHERE status = 'processed')::bigint AS processed
+FROM provider_webhook_events
+WHERE received_at >= sqlc.arg(since) AND received_at < sqlc.arg(until)
+GROUP BY provider
+ORDER BY provider;

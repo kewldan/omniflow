@@ -23,6 +23,7 @@ func (handlers *AdminHandlers) mountReports(secure chi.Router) {
 	secure.With(handlers.requirePermission(rbac.PermissionFinanceRead)).Group(func(read chi.Router) {
 		read.Get("/reports/sales", handlers.salesReport)
 		read.Get("/reports/sales/export", handlers.exportSalesReport)
+		read.Get("/reports/payments", handlers.paymentHealth)
 	})
 }
 
@@ -51,6 +52,12 @@ func (handlers *AdminHandlers) salesReport(writer http.ResponseWriter, request *
 	since, until, timezone, currency := reportPeriod(request)
 	report, err := handlers.operations.SalesReport(
 		request.Context(), since, until, timezone, currency)
+	handlers.respond(writer, request, report, err)
+}
+
+func (handlers *AdminHandlers) paymentHealth(writer http.ResponseWriter, request *http.Request) {
+	since, until, timezone, _ := reportPeriod(request)
+	report, err := handlers.operations.PaymentHealth(request.Context(), since, until, timezone)
 	handlers.respond(writer, request, report, err)
 }
 

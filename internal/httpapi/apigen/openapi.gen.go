@@ -5896,6 +5896,17 @@ type PanelPaymentEvent struct {
 	Type           string    `json:"type"`
 }
 
+// PanelPaymentHealth defines model for PanelPaymentHealth.
+type PanelPaymentHealth struct {
+	ByDay       []PanelProviderHealthDay  `json:"byDay"`
+	GeneratedAt time.Time                 `json:"generatedAt"`
+	Providers   []PanelProviderHealthLine `json:"providers"`
+	Since       time.Time                 `json:"since"`
+	Timezone    string                    `json:"timezone"`
+	Until       time.Time                 `json:"until"`
+	Webhooks    []PanelWebhookHealthLine  `json:"webhooks"`
+}
+
 // PanelPaymentIntent defines model for PanelPaymentIntent.
 type PanelPaymentIntent struct {
 	AmountMinor       int64                `json:"amountMinor"`
@@ -6050,6 +6061,45 @@ type PanelPromotionUpdate struct {
 	Stackable        bool                    `json:"stackable"`
 	StartsAt         *time.Time              `json:"startsAt,omitempty"`
 	Value            int64                   `json:"value"`
+}
+
+// PanelProviderHealthDay defines model for PanelProviderHealthDay.
+type PanelProviderHealthDay struct {
+	Day      openapi_types.Date `json:"day"`
+	Failed   int64              `json:"failed"`
+	Intents  int64              `json:"intents"`
+	Provider string             `json:"provider"`
+	Settled  int64              `json:"settled"`
+}
+
+// PanelProviderHealthLine defines model for PanelProviderHealthLine.
+type PanelProviderHealthLine struct {
+	// Abandoned Cancelled or expired — the customer's decision, not the acquirer's performance.
+	Abandoned int64 `json:"abandoned"`
+
+	// CompletionRate settled / (settled + failed + abandoned).
+	CompletionRate *float32 `json:"completionRate,omitempty"`
+	Currency       string   `json:"currency"`
+
+	// Failed The provider refused or errored.
+	Failed  int64 `json:"failed"`
+	Intents int64 `json:"intents"`
+
+	// MedianSettleSeconds Measured from the settlement event, not from updated_at, which a later reconciliation would move.
+	MedianSettleSeconds int64 `json:"medianSettleSeconds"`
+
+	// OldestOpenSeconds Age of the oldest intent still waiting: the stuck-payment queue as a number.
+	OldestOpenSeconds int64  `json:"oldestOpenSeconds"`
+	P95SettleSeconds  int64  `json:"p95SettleSeconds"`
+	Provider          string `json:"provider"`
+	Settled           int64  `json:"settled"`
+	SettledMinor      int64  `json:"settledMinor"`
+
+	// SettlementRate settled / (settled + failed). Absent when nothing reached a decision.
+	SettlementRate *float32 `json:"settlementRate,omitempty"`
+
+	// StillOpen In neither rate's denominator.
+	StillOpen int64 `json:"stillOpen"`
 }
 
 // PanelProviderSettings defines model for PanelProviderSettings.
@@ -6323,6 +6373,17 @@ type PanelWebhookEvent struct {
 	RetainUntil     time.Time          `json:"retainUntil"`
 	SignatureValid  bool               `json:"signatureValid"`
 	Status          string             `json:"status"`
+}
+
+// PanelWebhookHealthLine defines model for PanelWebhookHealthLine.
+type PanelWebhookHealthLine struct {
+	Failed    int64  `json:"failed"`
+	Processed int64  `json:"processed"`
+	Provider  string `json:"provider"`
+	Received  int64  `json:"received"`
+
+	// Rejected Failed signature verification.
+	Rejected int64 `json:"rejected"`
 }
 
 // PanelWebhookPage defines model for PanelWebhookPage.
@@ -7835,6 +7896,18 @@ type ListPanelIncidentsParams struct {
 	PageSize *PageSize `form:"pageSize,omitempty" json:"pageSize,omitempty"`
 }
 
+// GetPanelPaymentHealthParams defines parameters for GetPanelPaymentHealth.
+type GetPanelPaymentHealthParams struct {
+	// Since Start of the period, inclusive. Defaults to thirty days before `until`.
+	Since *ReportSince `form:"since,omitempty" json:"since,omitempty"`
+
+	// Until End of the period, exclusive. Defaults to now.
+	Until *ReportUntil `form:"until,omitempty" json:"until,omitempty"`
+
+	// Timezone The zone the day boundaries are computed in. "Sales on the third" means the operator's third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day.
+	Timezone *ReportTimezone `form:"timezone,omitempty" json:"timezone,omitempty"`
+}
+
 // GetPanelSalesReportParams defines parameters for GetPanelSalesReport.
 type GetPanelSalesReportParams struct {
 	// Since Start of the period, inclusive. Defaults to thirty days before `until`.
@@ -8965,6 +9038,9 @@ type ServerInterface interface {
 
 	// (GET /v1/panel/rbac/catalog)
 	GetPanelRbacCatalog(w http.ResponseWriter, r *http.Request)
+
+	// (GET /v1/panel/reports/payments)
+	GetPanelPaymentHealth(w http.ResponseWriter, r *http.Request, params GetPanelPaymentHealthParams)
 
 	// (GET /v1/panel/reports/sales)
 	GetPanelSalesReport(w http.ResponseWriter, r *http.Request, params GetPanelSalesReportParams)
@@ -10111,6 +10187,11 @@ func (_ Unimplemented) ListPanelIncidents(w http.ResponseWriter, r *http.Request
 
 // (GET /v1/panel/rbac/catalog)
 func (_ Unimplemented) GetPanelRbacCatalog(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/reports/payments)
+func (_ Unimplemented) GetPanelPaymentHealth(w http.ResponseWriter, r *http.Request, params GetPanelPaymentHealthParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -18851,6 +18932,65 @@ func (siw *ServerInterfaceWrapper) GetPanelRbacCatalog(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// GetPanelPaymentHealth operation middleware
+func (siw *ServerInterfaceWrapper) GetPanelPaymentHealth(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPanelPaymentHealthParams
+
+	// ------------- Optional query parameter "since" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "since", r.URL.Query(), &params.Since, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "since"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "since", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "until" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "until", r.URL.Query(), &params.Until, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "until"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "until", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "timezone" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "timezone", r.URL.Query(), &params.Timezone, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "timezone"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "timezone", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPanelPaymentHealth(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetPanelSalesReport operation middleware
 func (siw *ServerInterfaceWrapper) GetPanelSalesReport(w http.ResponseWriter, r *http.Request) {
 
@@ -21412,6 +21552,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/reports/sales/export", wrapper.ExportPanelSalesReport)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/reports/payments", wrapper.GetPanelPaymentHealth)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/settings/theme", wrapper.GetPanelTheme)
@@ -30132,6 +30275,58 @@ func (response GetPanelRbacCatalog200JSONResponse) VisitGetPanelRbacCatalogRespo
 	return err
 }
 
+type GetPanelPaymentHealthRequestObject struct {
+	Params GetPanelPaymentHealthParams
+}
+
+type GetPanelPaymentHealthResponseObject interface {
+	VisitGetPanelPaymentHealthResponse(w http.ResponseWriter) error
+}
+
+type GetPanelPaymentHealth200JSONResponse PanelPaymentHealth
+
+func (response GetPanelPaymentHealth200JSONResponse) VisitGetPanelPaymentHealthResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelPaymentHealth403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetPanelPaymentHealth403ApplicationProblemPlusJSONResponse) VisitGetPanelPaymentHealthResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelPaymentHealth422ApplicationProblemPlusJSONResponse Problem
+
+func (response GetPanelPaymentHealth422ApplicationProblemPlusJSONResponse) VisitGetPanelPaymentHealthResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetPanelSalesReportRequestObject struct {
 	Params GetPanelSalesReportParams
 }
@@ -32927,6 +33122,9 @@ type StrictServerInterface interface {
 
 	// (GET /v1/panel/rbac/catalog)
 	GetPanelRbacCatalog(ctx context.Context, request GetPanelRbacCatalogRequestObject) (GetPanelRbacCatalogResponseObject, error)
+
+	// (GET /v1/panel/reports/payments)
+	GetPanelPaymentHealth(ctx context.Context, request GetPanelPaymentHealthRequestObject) (GetPanelPaymentHealthResponseObject, error)
 
 	// (GET /v1/panel/reports/sales)
 	GetPanelSalesReport(ctx context.Context, request GetPanelSalesReportRequestObject) (GetPanelSalesReportResponseObject, error)
@@ -38789,6 +38987,32 @@ func (sh *strictHandler) GetPanelRbacCatalog(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetPanelRbacCatalogResponseObject); ok {
 		if err := validResponse.VisitGetPanelRbacCatalogResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPanelPaymentHealth operation middleware
+func (sh *strictHandler) GetPanelPaymentHealth(w http.ResponseWriter, r *http.Request, params GetPanelPaymentHealthParams) {
+	var request GetPanelPaymentHealthRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPanelPaymentHealth(ctx, request.(GetPanelPaymentHealthRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPanelPaymentHealth")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPanelPaymentHealthResponseObject); ok {
+		if err := validResponse.VisitGetPanelPaymentHealthResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -8,6 +8,7 @@ import { Label } from "@omniflow/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@omniflow/ui/tabs";
 import { Download } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useLocale, useTranslations } from "next-intl";
@@ -32,6 +33,17 @@ import { formatMoney, type SalesReport } from "@/lib/operations";
 const DailyChart = dynamic(() => import("./daily-chart").then((module) => module.DailyChart), {
   ssr: false,
 });
+
+/**
+ * Payment health shares the period controls above it rather than carrying its
+ * own. An operator comparing "what did we sell" against "did the money arrive"
+ * is asking about one period, and two sets of date fields would let the two
+ * answers silently describe different weeks.
+ */
+const PaymentHealthScreen = dynamic(
+  () => import("./payment-health").then((module) => module.PaymentHealthScreen),
+  { ssr: false },
+);
 
 /** The ranges an operator actually asks for, as offsets from now. */
 const PRESETS = [
@@ -145,17 +157,30 @@ export function SalesReportScreen() {
         <StateNotice description={error.message} title={translate("failed")} variant="danger" />
       ) : null}
 
-      {isLoading || !data ? (
-        <Skeleton className="h-96 w-full" />
-      ) : (
-        <>
-          <TrialCard report={data} />
-          <OperationCard locale={locale} report={data} />
-          <PlanCard locale={locale} report={data} />
-          <DailyChart locale={locale} report={data} />
-          <RefundCard locale={locale} report={data} />
-        </>
-      )}
+      <Tabs defaultValue="sales">
+        <TabsList>
+          <TabsTrigger value="sales">{translate("tabs.sales")}</TabsTrigger>
+          <TabsTrigger value="payments">{translate("tabs.payments")}</TabsTrigger>
+        </TabsList>
+
+        <TabsContent className="flex flex-col gap-5 pt-4" value="sales">
+          {isLoading || !data ? (
+            <Skeleton className="h-96 w-full" />
+          ) : (
+            <>
+              <TrialCard report={data} />
+              <OperationCard locale={locale} report={data} />
+              <PlanCard locale={locale} report={data} />
+              <DailyChart locale={locale} report={data} />
+              <RefundCard locale={locale} report={data} />
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent className="flex flex-col gap-5 pt-4" value="payments">
+          <PaymentHealthScreen query={query} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
