@@ -79,6 +79,31 @@
   --glass-pill: rgb(9 9 11 / 0.07);
   --glass-shadow: 0 10px 30px rgb(9 9 11 / 0.12);
 
+  /*
+   * Chart series.
+   *
+   * The rest of this system is deliberately neutral, so charts are the one
+   * place that needs hues which mean nothing but "a different thing". These
+   * three are validated against the card surface each mode actually uses:
+   * inside the lightness band, above the chroma floor, separated under
+   * deuteranopia and tritanopia by ΔE 9.2 here and 9.4 in dark against a
+   * target of 8, with a normal-vision worst pair of 24.0 and 20.9 against a
+   * floor of 15.
+   *
+   * There are three because there are three that pass. Adding a fourth hue
+   * from the same source order puts yellow beside orange, which fails the
+   * separation floors once any pair can share a chart. A fourth series folds
+   * into "other" or the chart becomes small multiples — see
+   * `packages/ui/src/chart.tsx`.
+   *
+   * The third sits at 2.82:1 against white, under the 3:1 mark. Every chart
+   * therefore carries its figures as text as well, which `ChartFigure`
+   * enforces by taking the table as a required prop.
+   */
+  --chart-1: #2a78d6;
+  --chart-2: #eb6834;
+  --chart-3: #1baf7a;
+
   color-scheme: light;
 }
 
@@ -132,6 +157,15 @@
   --glass-border: rgb(255 255 255 / 0.12);
   --glass-pill: rgb(255 255 255 / 0.13);
   --glass-shadow: 0 10px 34px rgb(0 0 0 / 0.55);
+
+  /*
+   * Chart series, stepped for the dark surface rather than flipped onto it.
+   * Same three hues, re-picked for `--card: #18181b` and validated there: all
+   * three clear 3:1 against it, which the light set does not manage.
+   */
+  --chart-1: #3987e5;
+  --chart-2: #d95926;
+  --chart-3: #199e70;
 
   color-scheme: dark;
 }

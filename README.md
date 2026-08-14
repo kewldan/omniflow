@@ -91,7 +91,7 @@ Omniflow never connects to Remnawave storage and never manages Xray processes di
 | Data | PostgreSQL 18, Atlas migrations, Valkey 9 |
 | Telegram | `go-telegram/bot`, localized inline keyboards, long polling |
 | Web | Next.js 16.3, React 19, TypeScript 7, SWR, Zustand |
-| UI and forms | Tailwind CSS v4, shadcn/ui, React Day Picker, React Hook Form, Zod |
+| UI and forms | Tailwind CSS v4, shadcn/ui, React Day Picker, Recharts, React Hook Form, Zod |
 | API generation | `oapi-codegen`, Orval Fetch/SWR clients and Zod schemas |
 | Tooling | Bun workspaces, Biome, Mintlify, Docker Compose |
 | Delivery | GitHub Actions, Renovate, Release Please, Trivy, Gitleaks, CodeQL, Cosign |

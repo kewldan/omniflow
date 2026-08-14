@@ -5,6 +5,7 @@ import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { ArrowRight } from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import useSWR from "swr";
@@ -16,11 +17,25 @@ import {
   type Dashboard,
   formatBytes,
   formatDuration,
-  formatMoney,
   type Incident,
   type Metric,
 } from "@/lib/operations";
 import { useSession } from "@/lib/session";
+
+/**
+ * The chart arrives after the page does.
+ *
+ * A charting library is a quarter of a megabyte, and loading it with the
+ * dashboard put first-load JavaScript over the budget — which is what the
+ * budget is for. Nothing above the fold needs it: the tiles, the attention
+ * list, and the freshness line all render from the same request, and the
+ * revenue section is below them. `ssr: false` because the chart measures its
+ * own container, which has no size on the server.
+ */
+const RevenueChart = dynamic(
+  () => import("@/components/admin/revenue-chart").then((module) => module.RevenueChart),
+  { loading: () => <Skeleton className="h-56 w-full" />, ssr: false },
+);
 
 /**
  * The operations dashboard.
@@ -106,36 +121,17 @@ export default function AdminHome() {
               <CardHeader>
                 <CardDescription>{translate("dashboard.revenueDefinition")}</CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-col gap-3">
+              <CardContent>
                 {(data.revenue ?? []).length === 0 ? (
                   <p className="text-muted-foreground text-sm">
                     {translate("dashboard.noRevenue")}
                   </p>
                 ) : (
-                  (data.revenue ?? []).map((line) => (
-                    <div
-                      className="flex flex-wrap items-baseline gap-x-6 gap-y-1"
-                      key={line.currency}
-                    >
-                      <Badge variant="neutral">{line.currency}</Badge>
-                      <Figure
-                        label={translate("dashboard.revenue.paid")}
-                        value={formatMoney(line.paidMinor, line.currency, locale)}
-                      />
-                      <Figure
-                        label={translate("dashboard.revenue.wallet")}
-                        value={formatMoney(line.walletMinor, line.currency, locale)}
-                      />
-                      <Figure
-                        label={translate("dashboard.revenue.refunded")}
-                        value={formatMoney(line.refundedMinor, line.currency, locale)}
-                      />
-                      <Figure
-                        label={translate("dashboard.revenue.orders")}
-                        value={String(line.orderCount)}
-                      />
-                    </div>
-                  ))
+                  /* Three bars side by side rather than four numbers on a line.
+                     The measures are ones the domain forbids adding, and a row
+                     of similar-looking figures is exactly where somebody adds
+                     them. */
+                  <RevenueChart lines={data.revenue ?? []} />
                 )}
               </CardContent>
             </Card>
@@ -202,17 +198,6 @@ function Incidents() {
         </CardContent>
       </Card>
     </section>
-  );
-}
-
-function Figure({ label, value }: { label: string; value: string }) {
-  return (
-    <span className="flex flex-col">
-      <span className="font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.12em]">
-        {label}
-      </span>
-      <span className="font-semibold tabular-nums">{value}</span>
-    </span>
   );
 }
 

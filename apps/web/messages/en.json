@@ -307,7 +307,12 @@
         "paid": "Paid",
         "wallet": "Wallet",
         "refunded": "Refunded",
-        "orders": "Orders"
+        "orders": "Orders",
+        "title": "Where the money came from",
+        "definition": "{orders, plural, one {# settled order} other {# settled orders}} in this window. The three figures are never added: wallet spend was already counted as revenue when the balance was funded.",
+        "measure": "Measure",
+        "amount": "Amount",
+        "none": "Nothing settled in this currency."
       },
       "severity": {
         "alert": "Alert",
