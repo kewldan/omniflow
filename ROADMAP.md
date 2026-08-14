@@ -1517,13 +1517,20 @@ no test written from the inside can see.
 These came from reading Bedolaga Cabinet 1.61's feature list against this
 repository on 14 August 2026 — against the routes and the packages rather than
 against a README, which is how [`docs/comparison.mdx`](./docs/comparison.mdx)
-was assembled and why that page names almost none of them.
+was assembled. That page carries the marks; this section carries the reasoning
+behind them.
 
-Nothing here is scheduled and nothing here blocks a 1.x release. Each item
-states what exists today, so what is listed is the difference rather than the
-whole capability, and each states the consequence of leaving it open: an item
-whose consequence cannot be named does not belong on this list. The candidates
-below this section are directions; these are specific absences.
+Nothing here was scheduled and nothing here blocked a 1.x release. Each item
+states what existed when it was written, so what is listed is the difference
+rather than the whole capability, and each states the consequence of leaving it
+open: an item whose consequence cannot be named does not belong on this list.
+The candidates below this section are directions; these are specific absences.
+
+Thirteen have since been built, and a ticked item records what was made and the
+decision that shaped it rather than only that it is done. Four remain open: one
+under Revenue protection, because whether Omniflow may hold per-connection
+observations at all is an ownership question before it is a feature, and three
+under Panel and customer experience.
 
 ### Branding and presentation
 

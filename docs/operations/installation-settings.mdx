@@ -22,6 +22,8 @@ fetched all of it whether or not you were looking at any of it.
 | `/admin/settings/operations` | Maintenance, notifications, backups, telemetry — plus the telemetry preview and backup history |
 | `/admin/settings/brand` | Branding, [appearance](/operations/branding), and the security section |
 | `/admin/settings/connect` | [Connection guidance](/operations/connection-catalogue): the platforms and applications customers are told to install |
+| `/admin/settings/notices` | [Message wording](/operations/message-wording): the transactional notices the installation sends on its own |
+| `/admin/settings/analytics` | [Advertising measurement](/operations/advertising-measurement): counters, site verification, and the click identifier carried into an order |
 | `/admin/settings/sign-in` | The customer sign-in providers |
 | `/admin/settings/ai` | Model providers, per-feature enablement, budgets, MCP connections |
 
@@ -160,14 +162,22 @@ somewhere it does not belong.
 | `backup` | `enabled`, `intervalHours`, `retentionDays`, `directory` | `encryptionKey` |
 | `security` | `sessionIdleMinutes`, `sessionAbsoluteHours`, `requireTotp`, `allowedOrigins` | — |
 | `theme` | The palette, corner and spacing scales, offered modes, default mode — see [White-label appearance](/operations/branding) | — |
+| `analytics` | `enabled`, counter identifiers per provider, webmaster verification tags — see [Advertising measurement](/operations/advertising-measurement) | — |
 
-Three of these are not fields on the generic renderer. `ai` and `mcp` have their own
+Four of these are not fields on the generic renderer. `ai` and `mcp` have their own
 screen at `/admin/settings/ai` — see [AI governance](/operations/ai-governance) and
-[MCP](/operations/mcp) — and `theme` has its own editor below the branding fields on
+[MCP](/operations/mcp); `theme` has its own editor below the branding fields on
 `/admin/settings/brand`, because a colour is not a text field and a logo is not a
-settings document. All three are still ordinary sections over
+settings document; and `analytics` has one at `/admin/settings/analytics`, because a
+counter identifier has a shape per provider and a verification tag is a name from an
+allowlist. All four are still ordinary sections over
 `GET`/`PUT /v1/panel/settings/{section}`, with the same version guard and the same audit
 entry.
+
+The notice wording at `/admin/settings/notices` is the exception that is not a section
+at all. It is a table of overrides rather than one document: a row is the exception and
+its absence is the shipped wording, which is what makes reverting a delete and lets a
+later upgrade improve a default nobody has touched.
 
 ## Commerce settings
 

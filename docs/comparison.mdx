@@ -51,7 +51,7 @@ Omniflow's shipped surface today is v0.1–v0.10: the complete backend commerce 
 | Smart cart that survives insufficient balance | ✅ | ✅ | — |
 | Auto-renew before expiry | ✅ | ✅ | ✅ |
 | One customer holding several concurrent subscriptions | ✅ (opt-in) | — | ✅ |
-| Pausing a subscription with the remaining days preserved | 🔭 | ✅ | — |
+| Pausing a subscription with the remaining days preserved | ✅ | ✅ | — |
 
 ## Payments and money handling
 
@@ -151,17 +151,17 @@ That is a real trade-off. Bedolaga operators are productive on day one with no r
 | Shared component system with the admin panel | ✅ | — | ✅ |
 | Checkout parity with the bot | ✅ | ✅ | ✅ |
 | WCAG 2.2 AA review of core journeys | ✅ | — | — |
-| E-mail and password sign-in | 🔭 (undecided) | ✅ | ✅ |
-| Merging two existing accounts, with a preview | 🔭 | ✅ | — |
-| Operator-editable client application catalogue | 🔭 | ✅ | — |
+| E-mail and password sign-in | ❌ (decided) | ✅ | ✅ |
+| Merging two existing accounts, with a preview | ✅ | ✅ | — |
+| Operator-editable client application catalogue | ✅ | ✅ | — |
 | Delivered-notification history and a test notification | ✅ | ✅ | — |
 | Interface languages | 2: ru, en | 4: ru, en, zh, fa | — |
 
-Two rows there deserve their reasoning rather than their mark. E-mail and password sign-in is genuinely undecided: Telegram, OIDC, and a magic link are the ways into an Omniflow account, a password is a credential to phish, reset, and breach, and not having one is defensible — but the choice has never been written down, so it currently reads as an oversight. It is on the roadmap as a decision to record, not as a feature to build.
+One row there deserves its reasoning rather than its mark. E-mail and password sign-in is a decision rather than a backlog item, and it is now a written one: Telegram, OIDC, and a bot-delivered link are the ways into an Omniflow account, and a password is a credential to phish, reset, and breach. [Decision 0007](/architecture/decision-0007-no-customer-password) records what that costs an installation and the condition under which it would be added, so it is no longer an absence that reads as an oversight.
 
 Transactional wording is the same capability over a different channel, which is why the marks differ in their parentheses. Omniflow has no e-mail transport at all: every message it sends on its own initiative goes to Telegram, so the nine notices an operator can reword — expiry, traffic, renewal, grace, recovery, the two fulfillment messages, and the two dunning ones — are Telegram messages, with a variable reference, a preview against sample values, and a test send into the operator group. See [Message wording](/operations/message-wording).
 
-The client application catalogue is a trade-off rather than an omission. Omniflow's connect screen renders a client table compiled into the application, which both the bot and the web panel read, so a customer cannot be told to install one client in the chat and a different one in the browser. Keeping one source is the point; needing a release to add a client is what it costs. See [Connecting a device](/customer/connection).
+The client application catalogue was a trade-off rather than an omission, and the trade-off is now resolved without giving up what made it one. The catalogue is stored and edited from the panel, and both the bot and the web panel still read that single source — so a customer cannot be told to install one client in the chat and a different one in the browser, and adding a client no longer needs a release. A deep link is validated against a scheme allowlist before it is stored, because a client entry ends up as a link a customer is told to trust. See [Connection catalogue](/operations/connection-catalogue) and [Connecting a device](/customer/connection).
 
 ## Architecture and operations
 
@@ -184,7 +184,7 @@ RemnaCore also reaches into node health monitoring, smart routing, and speed tes
 
 ## Choosing between them
 
-**Choose Bedolaga Bot** if you need the widest payment-provider coverage today, want to administer everything from Telegram without deploying a web panel, or need growth mechanics such as contests, custom landing pages, and referral payouts that Omniflow has deferred past 1.0. Adding the cabinet also gets you the reporting and presentation layer Omniflow has not built: information pages you publish from the panel instead of hosting elsewhere. If you sell through paid advertising, note that both now carry a click identifier into the order; the difference is what happens next, and it is a real choice. Bedolaga calls the platform's conversion API for you. Omniflow gives you a file to upload, because it makes no request to an advertising network on your behalf.
+**Choose Bedolaga Bot** if you need the widest payment-provider coverage today, want to administer everything from Telegram without deploying a web panel, or need growth mechanics such as contests, custom landing pages, and referral payouts that Omniflow has deferred past 1.0. If you sell through paid advertising, note that both now carry a click identifier into the order; the difference is what happens next, and it is a real choice. Bedolaga calls the platform's conversion API for you. Omniflow gives you a file to upload, because it makes no request to an advertising network on your behalf.
 
 **Choose RemnaCore** if you need white-label reseller capability with commission tracking, or are already running Kubernetes and want a plugin runtime and event bus as first-class infrastructure. Note its stated development status before committing production traffic.
 
@@ -197,5 +197,5 @@ Both panels are complete as of v0.10: the operator panel since v0.8, and the cus
 
 The v1.0 gate is release engineering rather than product surface, and one item in it remains: an independent security review of authentication, authorization, payments, and secret handling. That one names an external reviewer engagement rather than a change to this repository. The compatibility matrix, signed artifacts, and the reliability and documentation gates are done.
 
-Complete is not the same as at parity. The 🔭 rows above are capabilities Bedolaga Cabinet has and Omniflow does not, and none of them is scheduled. [Post-1.0 product gaps](https://github.com/kewldan/omniflow/blob/main/ROADMAP.md) records each one with what exists today and what the absence costs.
+Complete is not the same as at parity. Thirteen of the gaps that reading produced have since been closed — branding and presentation, reporting and growth measurement, content and communication, and identity and lifecycle — which is why most of the rows above now read ✅ on both sides. The 🔭 rows that remain are capabilities Bedolaga Cabinet has and Omniflow does not, and none of them is scheduled. [Post-1.0 product gaps](https://github.com/kewldan/omniflow/blob/main/ROADMAP.md) records every one of them, closed or open, with what exists today and what the absence cost.
 </Note>
