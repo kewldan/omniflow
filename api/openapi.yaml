@@ -1625,6 +1625,60 @@ paths:
         "403": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/customers/{customerID}/merge/preview:
+    get:
+      operationId: previewPanelCustomerMerge
+      tags: [panel]
+      description: >-
+        Requires customers.read. What merging this account into another would do,
+        and every reason it cannot happen.
+
+        A merge cannot be undone, so everything that would move is counted before
+        anything does. The blockers are recomputed when the merge is applied
+        rather than trusted from here: the two are separate requests, and a merge
+        authorised by a stale screen is the kind of thing that only goes wrong
+        once.
+      parameters:
+        - {in: path, name: customerID, required: true, schema: {type: string, format: uuid}}
+        - {in: query, name: into, required: true, schema: {type: string, format: uuid}, description: "The account that survives."}
+      responses:
+        "200": {description: Preview, content: {application/json: {schema: {$ref: "#/components/schemas/PanelMergePreview"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/panel/customers/{customerID}/merge:
+    post:
+      operationId: mergePanelCustomer
+      tags: [panel]
+      description: >-
+        Requires customers.write and a reason. Merges the account in the path
+        into the one in the body: subscriptions take new slots, orders,
+        identities, contacts, consents, tickets, and saved methods are
+        reassigned, the wallet balance moves as a compensating pair of ledger
+        entries, and the source is closed pointing at the target.
+
+        Idempotent. The closing update matches only an account that has not
+        already been merged, so a resubmitted form reports the earlier merge and
+        moves nothing — `alreadyMerged` says which happened.
+
+        Three things are deliberately not a reassignment. A saved cart is
+        cancelled, because one cart may be open per customer. Read markers move
+        only where the target has not read the same post. Saved methods arrive
+        as non-default, because one default per customer is a unique index and
+        the survivor's is the one they last chose.
+      parameters:
+        - {in: path, name: customerID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/OperatorReason"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [into], properties: {into: {type: string, format: uuid}}}
+      responses:
+        "200": {description: Merged, content: {application/json: {schema: {$ref: "#/components/schemas/PanelMergeResult"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/panel/reports/sales:
     get:
       operationId: getPanelSalesReport
@@ -4954,6 +5008,54 @@ components:
       required: [items]
       properties:
         items: {type: array, items: {$ref: "#/components/schemas/PanelBatchCode"}}
+    PanelMergeBalance:
+      type: object
+      required: [currency, balanceMinor]
+      properties:
+        currency: {type: string}
+        balanceMinor: {type: integer, format: int64}
+    PanelMergeSide:
+      type: object
+      required: [id, status, createdAt, activeSubscriptions, orders, tickets, identities, referralsMade, trialClaims, wallet]
+      properties:
+        id: {type: string, format: uuid}
+        status: {type: string}
+        createdAt: {type: string, format: date-time}
+        activeSubscriptions: {type: integer, format: int64}
+        orders: {type: integer, format: int64}
+        tickets: {type: integer, format: int64}
+        identities: {type: integer, format: int64}
+        referralsMade: {type: integer, format: int64}
+        trialClaims: {type: integer, format: int64}
+        wallet: {type: array, items: {$ref: "#/components/schemas/PanelMergeBalance"}}
+        mergedInto: {type: string, format: uuid, description: "Set when this account has already been absorbed."}
+    PanelMergePreview:
+      type: object
+      required: [source, target, blockers, notes]
+      properties:
+        source: {$ref: "#/components/schemas/PanelMergeSide"}
+        target: {$ref: "#/components/schemas/PanelMergeSide"}
+        blockers:
+          type: array
+          description: "Empty when the merge can proceed."
+          items:
+            type: string
+            enum: [same_account, already_merged, target_merged, account_deleted, referral_between]
+        notes:
+          type: array
+          description: "Consequences worth knowing rather than reasons to stop."
+          items:
+            type: string
+            enum: [cart_cancelled, trial_carried, default_method_kept, subscriptions_renumbered, wallet_moves]
+    PanelMergeResult:
+      type: object
+      required: [source, target, alreadyMerged]
+      properties:
+        source: {type: string, format: uuid}
+        target: {type: string, format: uuid}
+        alreadyMerged: {type: boolean, description: "True when this merge had already happened and nothing moved."}
+        moved: {$ref: "#/components/schemas/PanelMergeSide"}
+        wallet: {type: array, items: {$ref: "#/components/schemas/PanelMergeBalance"}}
     PanelCommerceSettings:
       type: object
       required: [topUp, subscriptions, updatedAt]

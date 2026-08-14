@@ -252,6 +252,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 			handlers.mountTraffic(secure)
 			handlers.mountContent(secure)
 			handlers.mountCodeBatches(secure)
+			handlers.mountCustomerMerge(secure)
 			handlers.mountCustomerAuth(secure)
 		})
 	})

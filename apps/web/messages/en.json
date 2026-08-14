@@ -751,6 +751,47 @@
         "resumeDone": "Subscription resumed"
       }
     },
+    "merge": {
+      "title": "Merge into another account",
+      "description": "Joins this account into another one. Everything transferable moves, this record is closed and points at the survivor, and nothing can be undone afterwards.",
+      "into": "Account that survives",
+      "intoPlaceholder": "Customer identifier",
+      "intoHint": "Paste the identifier of the account this one should be folded into. The account you are looking at is the one being absorbed.",
+      "reason": "Why — recorded in the audit trail and both histories",
+      "absorbed": "Absorbed",
+      "survives": "Survives",
+      "merge": "Merge accounts",
+      "cancel": "Cancel",
+      "done": "Accounts merged",
+      "blocked": "These accounts cannot be merged",
+      "previewFailed": "The preview could not be read",
+      "notesTitle": "What will happen",
+      "confirmTitle": "Merge this account away?",
+      "confirmWarning": "There is no undo. Subscriptions, orders, identities, tickets, and the wallet balance move to the other account, and this record is closed.",
+      "confirmPrompt": "Type this account's identifier to confirm.",
+      "counts": {
+        "subscriptions": "Active subscriptions",
+        "orders": "Orders",
+        "identities": "Sign-in methods",
+        "tickets": "Support tickets",
+        "referrals": "People referred",
+        "noWallet": "No wallet balance"
+      },
+      "blocker": {
+        "same_account": "An account cannot be merged into itself.",
+        "already_merged": "This account has already been merged into another one.",
+        "target_merged": "The other account is itself a merged account, which would leave everything two hops from where anybody looks.",
+        "account_deleted": "One of the accounts is in the retention workflow. Merging would move records out from under a deletion somebody asked for.",
+        "referral_between": "One of these accounts referred the other. Merging would make a customer their own referrer, and a reward was paid for that signup."
+      },
+      "note": {
+        "wallet_moves": "The wallet balance moves as ledger entries — the source debited, the target credited — rather than by rewriting financial history.",
+        "subscriptions_renumbered": "Both accounts hold subscriptions, so the moved ones take new slot numbers on the surviving account.",
+        "trial_carried": "The surviving account will count as having claimed a trial, because trial abuse controls count customers rather than accounts.",
+        "cart_cancelled": "A saved cart on this account is cancelled rather than moved: only one cart may be open per customer.",
+        "default_method_kept": "The surviving account keeps its default payment method; methods moved from here arrive as non-default."
+      }
+    },
     "finance": {
       "title": "Finance",
       "description": "Order history, the reconciliation queue, and automatic charges that did not go through.",

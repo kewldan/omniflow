@@ -2293,6 +2293,60 @@ func (e PanelInfoPageLocaleLocale) Valid() bool {
 	}
 }
 
+// Defines values for PanelMergePreviewBlockers.
+const (
+	AccountDeleted  PanelMergePreviewBlockers = "account_deleted"
+	AlreadyMerged   PanelMergePreviewBlockers = "already_merged"
+	ReferralBetween PanelMergePreviewBlockers = "referral_between"
+	SameAccount     PanelMergePreviewBlockers = "same_account"
+	TargetMerged    PanelMergePreviewBlockers = "target_merged"
+)
+
+// Valid indicates whether the value is a known member of the PanelMergePreviewBlockers enum.
+func (e PanelMergePreviewBlockers) Valid() bool {
+	switch e {
+	case AccountDeleted:
+		return true
+	case AlreadyMerged:
+		return true
+	case ReferralBetween:
+		return true
+	case SameAccount:
+		return true
+	case TargetMerged:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelMergePreviewNotes.
+const (
+	CartCancelled           PanelMergePreviewNotes = "cart_cancelled"
+	DefaultMethodKept       PanelMergePreviewNotes = "default_method_kept"
+	SubscriptionsRenumbered PanelMergePreviewNotes = "subscriptions_renumbered"
+	TrialCarried            PanelMergePreviewNotes = "trial_carried"
+	WalletMoves             PanelMergePreviewNotes = "wallet_moves"
+)
+
+// Valid indicates whether the value is a known member of the PanelMergePreviewNotes enum.
+func (e PanelMergePreviewNotes) Valid() bool {
+	switch e {
+	case CartCancelled:
+		return true
+	case DefaultMethodKept:
+		return true
+	case SubscriptionsRenumbered:
+		return true
+	case TrialCarried:
+		return true
+	case WalletMoves:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PanelOfferStatus.
 const (
 	PanelOfferStatusActive    PanelOfferStatus = "active"
@@ -6066,6 +6120,56 @@ type PanelMatchPage struct {
 	NextCursor *string                `json:"nextCursor,omitempty"`
 }
 
+// PanelMergeBalance defines model for PanelMergeBalance.
+type PanelMergeBalance struct {
+	BalanceMinor int64  `json:"balanceMinor"`
+	Currency     string `json:"currency"`
+}
+
+// PanelMergePreview defines model for PanelMergePreview.
+type PanelMergePreview struct {
+	// Blockers Empty when the merge can proceed.
+	Blockers []PanelMergePreviewBlockers `json:"blockers"`
+
+	// Notes Consequences worth knowing rather than reasons to stop.
+	Notes  []PanelMergePreviewNotes `json:"notes"`
+	Source PanelMergeSide           `json:"source"`
+	Target PanelMergeSide           `json:"target"`
+}
+
+// PanelMergePreviewBlockers defines model for PanelMergePreview.Blockers.
+type PanelMergePreviewBlockers string
+
+// PanelMergePreviewNotes defines model for PanelMergePreview.Notes.
+type PanelMergePreviewNotes string
+
+// PanelMergeResult defines model for PanelMergeResult.
+type PanelMergeResult struct {
+	// AlreadyMerged True when this merge had already happened and nothing moved.
+	AlreadyMerged bool                 `json:"alreadyMerged"`
+	Moved         *PanelMergeSide      `json:"moved,omitempty"`
+	Source        openapi_types.UUID   `json:"source"`
+	Target        openapi_types.UUID   `json:"target"`
+	Wallet        *[]PanelMergeBalance `json:"wallet,omitempty"`
+}
+
+// PanelMergeSide defines model for PanelMergeSide.
+type PanelMergeSide struct {
+	ActiveSubscriptions int64              `json:"activeSubscriptions"`
+	CreatedAt           time.Time          `json:"createdAt"`
+	Id                  openapi_types.UUID `json:"id"`
+	Identities          int64              `json:"identities"`
+
+	// MergedInto Set when this account has already been absorbed.
+	MergedInto    *openapi_types.UUID `json:"mergedInto,omitempty"`
+	Orders        int64               `json:"orders"`
+	ReferralsMade int64               `json:"referralsMade"`
+	Status        string              `json:"status"`
+	Tickets       int64               `json:"tickets"`
+	TrialClaims   int64               `json:"trialClaims"`
+	Wallet        []PanelMergeBalance `json:"wallet"`
+}
+
 // PanelMetric defines model for PanelMetric.
 type PanelMetric struct {
 	// Definition Stable identifier the panel resolves to localised copy explaining exactly what was counted.
@@ -8105,6 +8209,26 @@ type ListPanelCustomerChargesParams struct {
 	PageSize *PageSize `form:"pageSize,omitempty" json:"pageSize,omitempty"`
 }
 
+// MergePanelCustomerJSONBody defines parameters for MergePanelCustomer.
+type MergePanelCustomerJSONBody struct {
+	Into openapi_types.UUID `json:"into"`
+}
+
+// MergePanelCustomerParams defines parameters for MergePanelCustomer.
+type MergePanelCustomerParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+
+	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
+}
+
+// PreviewPanelCustomerMergeParams defines parameters for PreviewPanelCustomerMerge.
+type PreviewPanelCustomerMergeParams struct {
+	// Into The account that survives.
+	Into openapi_types.UUID `form:"into" json:"into"`
+}
+
 // ListPanelCustomerOrdersParams defines parameters for ListPanelCustomerOrders.
 type ListPanelCustomerOrdersParams struct {
 	PageSize *PageSize `form:"pageSize,omitempty" json:"pageSize,omitempty"`
@@ -8819,6 +8943,9 @@ type SavePanelInfoPageJSONRequestBody = PanelInfoPage
 // SetPanelInfoPagePublicationJSONRequestBody defines body for SetPanelInfoPagePublication for application/json ContentType.
 type SetPanelInfoPagePublicationJSONRequestBody SetPanelInfoPagePublicationJSONBody
 
+// MergePanelCustomerJSONRequestBody defines body for MergePanelCustomer for application/json ContentType.
+type MergePanelCustomerJSONRequestBody MergePanelCustomerJSONBody
+
 // SetPanelCustomerStatusJSONRequestBody defines body for SetPanelCustomerStatus for application/json ContentType.
 type SetPanelCustomerStatusJSONRequestBody SetPanelCustomerStatusJSONBody
 
@@ -9427,6 +9554,12 @@ type ServerInterface interface {
 
 	// (GET /v1/panel/customers/{customerID}/consents)
 	ListPanelCustomerConsents(w http.ResponseWriter, r *http.Request, customerID CustomerID)
+
+	// (POST /v1/panel/customers/{customerID}/merge)
+	MergePanelCustomer(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, params MergePanelCustomerParams)
+
+	// (GET /v1/panel/customers/{customerID}/merge/preview)
+	PreviewPanelCustomerMerge(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, params PreviewPanelCustomerMergeParams)
 
 	// (GET /v1/panel/customers/{customerID}/orders)
 	ListPanelCustomerOrders(w http.ResponseWriter, r *http.Request, customerID CustomerID, params ListPanelCustomerOrdersParams)
@@ -10569,6 +10702,16 @@ func (_ Unimplemented) ListPanelCustomerCharges(w http.ResponseWriter, r *http.R
 
 // (GET /v1/panel/customers/{customerID}/consents)
 func (_ Unimplemented) ListPanelCustomerConsents(w http.ResponseWriter, r *http.Request, customerID CustomerID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/customers/{customerID}/merge)
+func (_ Unimplemented) MergePanelCustomer(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, params MergePanelCustomerParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/customers/{customerID}/merge/preview)
+func (_ Unimplemented) PreviewPanelCustomerMerge(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, params PreviewPanelCustomerMergeParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -18069,6 +18212,125 @@ func (siw *ServerInterfaceWrapper) ListPanelCustomerConsents(w http.ResponseWrit
 	handler.ServeHTTP(w, r)
 }
 
+// MergePanelCustomer operation middleware
+func (siw *ServerInterfaceWrapper) MergePanelCustomer(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerID" -------------
+	var customerID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerID", chi.URLParam(r, "customerID"), &customerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params MergePanelCustomerParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Operator-Reason" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Operator-Reason")]; found {
+		var XOperatorReason OperatorReason
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Operator-Reason", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Operator-Reason", valueList[0], &XOperatorReason, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Operator-Reason", Err: err})
+			return
+		}
+
+		params.XOperatorReason = XOperatorReason
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Operator-Reason is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Operator-Reason", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.MergePanelCustomer(w, r, customerID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PreviewPanelCustomerMerge operation middleware
+func (siw *ServerInterfaceWrapper) PreviewPanelCustomerMerge(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerID" -------------
+	var customerID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerID", chi.URLParam(r, "customerID"), &customerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PreviewPanelCustomerMergeParams
+
+	// ------------- Required query parameter "into" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "into", r.URL.Query(), &params.Into, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "into"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "into", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreviewPanelCustomerMerge(w, r, customerID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPanelCustomerOrders operation middleware
 func (siw *ServerInterfaceWrapper) ListPanelCustomerOrders(w http.ResponseWriter, r *http.Request) {
 
@@ -22798,6 +23060,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/panel/codes/batches/{batchID}/revoke", wrapper.RevokePanelCodeBatch)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/customers/{customerID}/merge/preview", wrapper.PreviewPanelCustomerMerge)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/customers/{customerID}/merge", wrapper.MergePanelCustomer)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/reports/sales", wrapper.GetPanelSalesReport)
@@ -30436,6 +30704,127 @@ func (response ListPanelCustomerConsents403ApplicationProblemPlusJSONResponse) V
 	return err
 }
 
+type MergePanelCustomerRequestObject struct {
+	CustomerID openapi_types.UUID `json:"customerID"`
+	Params     MergePanelCustomerParams
+	Body       *MergePanelCustomerJSONRequestBody
+}
+
+type MergePanelCustomerResponseObject interface {
+	VisitMergePanelCustomerResponse(w http.ResponseWriter) error
+}
+
+type MergePanelCustomer200JSONResponse PanelMergeResult
+
+func (response MergePanelCustomer200JSONResponse) VisitMergePanelCustomerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type MergePanelCustomer403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response MergePanelCustomer403ApplicationProblemPlusJSONResponse) VisitMergePanelCustomerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type MergePanelCustomer404ApplicationProblemPlusJSONResponse Problem
+
+func (response MergePanelCustomer404ApplicationProblemPlusJSONResponse) VisitMergePanelCustomerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type MergePanelCustomer422ApplicationProblemPlusJSONResponse Problem
+
+func (response MergePanelCustomer422ApplicationProblemPlusJSONResponse) VisitMergePanelCustomerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewPanelCustomerMergeRequestObject struct {
+	CustomerID openapi_types.UUID `json:"customerID"`
+	Params     PreviewPanelCustomerMergeParams
+}
+
+type PreviewPanelCustomerMergeResponseObject interface {
+	VisitPreviewPanelCustomerMergeResponse(w http.ResponseWriter) error
+}
+
+type PreviewPanelCustomerMerge200JSONResponse PanelMergePreview
+
+func (response PreviewPanelCustomerMerge200JSONResponse) VisitPreviewPanelCustomerMergeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewPanelCustomerMerge403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response PreviewPanelCustomerMerge403ApplicationProblemPlusJSONResponse) VisitPreviewPanelCustomerMergeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewPanelCustomerMerge404ApplicationProblemPlusJSONResponse Problem
+
+func (response PreviewPanelCustomerMerge404ApplicationProblemPlusJSONResponse) VisitPreviewPanelCustomerMergeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListPanelCustomerOrdersRequestObject struct {
 	CustomerID CustomerID `json:"customerID"`
 	Params     ListPanelCustomerOrdersParams
@@ -35059,6 +35448,12 @@ type StrictServerInterface interface {
 
 	// (GET /v1/panel/customers/{customerID}/consents)
 	ListPanelCustomerConsents(ctx context.Context, request ListPanelCustomerConsentsRequestObject) (ListPanelCustomerConsentsResponseObject, error)
+
+	// (POST /v1/panel/customers/{customerID}/merge)
+	MergePanelCustomer(ctx context.Context, request MergePanelCustomerRequestObject) (MergePanelCustomerResponseObject, error)
+
+	// (GET /v1/panel/customers/{customerID}/merge/preview)
+	PreviewPanelCustomerMerge(ctx context.Context, request PreviewPanelCustomerMergeRequestObject) (PreviewPanelCustomerMergeResponseObject, error)
 
 	// (GET /v1/panel/customers/{customerID}/orders)
 	ListPanelCustomerOrders(ctx context.Context, request ListPanelCustomerOrdersRequestObject) (ListPanelCustomerOrdersResponseObject, error)
@@ -40310,6 +40705,67 @@ func (sh *strictHandler) ListPanelCustomerConsents(w http.ResponseWriter, r *htt
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListPanelCustomerConsentsResponseObject); ok {
 		if err := validResponse.VisitListPanelCustomerConsentsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// MergePanelCustomer operation middleware
+func (sh *strictHandler) MergePanelCustomer(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, params MergePanelCustomerParams) {
+	var request MergePanelCustomerRequestObject
+
+	request.CustomerID = customerID
+	request.Params = params
+
+	var body MergePanelCustomerJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.MergePanelCustomer(ctx, request.(MergePanelCustomerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "MergePanelCustomer")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(MergePanelCustomerResponseObject); ok {
+		if err := validResponse.VisitMergePanelCustomerResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PreviewPanelCustomerMerge operation middleware
+func (sh *strictHandler) PreviewPanelCustomerMerge(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, params PreviewPanelCustomerMergeParams) {
+	var request PreviewPanelCustomerMergeRequestObject
+
+	request.CustomerID = customerID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PreviewPanelCustomerMerge(ctx, request.(PreviewPanelCustomerMergeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PreviewPanelCustomerMerge")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PreviewPanelCustomerMergeResponseObject); ok {
+		if err := validResponse.VisitPreviewPanelCustomerMergeResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

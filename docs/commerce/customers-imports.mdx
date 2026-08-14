@@ -240,6 +240,72 @@ a large installation is never held in memory. It stops after 200 pages, for the 
 and finance exports do: one request must not be able to walk an unbounded table forever. An
 installation past forty thousand customers should expect the file to end there.
 
+## Merging two customer accounts
+
+Linking an identity to the account you are already signed in to works. Joining
+two accounts that both exist is a different problem, and it is the one that
+actually occurs: a customer buys in Telegram, later signs in on the web through
+a provider the first account never carried, and holds an empty second account
+with their subscription on the other one.
+
+`/admin/customers/{id}` has it, below the tabs. **The account you are looking at
+is the one being absorbed** — that direction is fixed and stated, because "merge
+A and B" is ambiguous in exactly the way that matters.
+
+### Preview first
+
+A merge cannot be undone, so everything that would move is counted before
+anything does: subscriptions, orders, sign-in methods, tickets, referrals, and
+the wallet balance per currency, on both sides.
+
+The blockers are recomputed when the merge is applied rather than trusted from
+the preview. The two are separate requests, and a merge authorised by a stale
+screen is the kind of thing that only goes wrong once.
+
+| Refused when | Why |
+| --- | --- |
+| An account is merged into itself | Nothing would happen, and it would look like something had |
+| The source has already been merged | The operation is idempotent; the second attempt reports the first |
+| The target is itself a merged account | Everything would end up two hops from where anybody looks |
+| Either account is deleted | Merging would move records out from under a deletion somebody asked for |
+| One account referred the other | A customer would become their own referrer, and a reward was paid for that signup |
+
+### What is not a plain reassignment
+
+Forty-six tables reference `users`. Most are a change of owner. Five are a
+decision, and they are why this is not a loop over the foreign-key catalogue:
+
+- **Subscription slots** are unique per customer, so moved subscriptions are
+  renumbered onto the first free slots on the target.
+- **The wallet** moves as a compensating pair of ledger entries — the source
+  debited to zero, the target credited the same — because `ledger_entries` is
+  append-only. Rewriting `user_id` on a customer's financial record is not
+  available and should not be: those entries are the evidence for every balance
+  the installation has ever reported.
+- **A saved cart** is cancelled rather than moved. Only one cart may be open per
+  customer, and a cart is a selection made in a session that is now ending.
+- **Read markers** move only where the target has not read the same post; the
+  pair is a primary key, and the whole merge should not fail over a read
+  receipt.
+- **Saved payment methods** move but arrive as non-default. One default per
+  customer is a unique index, and the survivor's is the method they last chose.
+
+### After it happens
+
+The source keeps its rows and its history and is marked `merged`, pointing at
+the target. It is not deleted: the record of what happened is worth more than
+the row is worth reclaiming, and support answering "where did my subscription
+go" needs somewhere to land.
+
+Both accounts get a lifecycle event — `merged_away` and `merged_in` — so the
+merge is readable from either customer's own history rather than only from the
+operator audit trail. The audit event is `customer.merged` and carries the
+counts.
+
+A reason is required. It goes into the audit trail and into both histories,
+because "why were these two accounts joined" is the first question anybody asks
+about one afterwards.
+
 ## Related pages
 
 <CardGroup cols={2}>

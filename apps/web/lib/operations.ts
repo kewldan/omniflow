@@ -714,6 +714,41 @@ export type CodeBatchList = {
   maxBatchSize: number;
 };
 
+/**
+ * Merging one customer account into another.
+ *
+ * The preview is the substance: a merge cannot be undone, so everything that
+ * would move is counted and every reason it cannot happen is listed before
+ * anything does. The API recomputes the blockers when the merge is applied, so a
+ * preview that went stale between the screen and the button cannot let a refused
+ * merge through.
+ */
+export type MergeBalance = { currency: string; balanceMinor: number };
+
+export type MergeSide = {
+  id: string;
+  status: string;
+  createdAt: string;
+  activeSubscriptions: number;
+  orders: number;
+  tickets: number;
+  identities: number;
+  referralsMade: number;
+  trialClaims: number;
+  wallet: MergeBalance[];
+  /** Set when this account has already been absorbed by another. */
+  mergedInto?: string;
+};
+
+export type MergePreview = {
+  source: MergeSide;
+  target: MergeSide;
+  /** Empty when the merge can proceed. */
+  blockers: string[];
+  /** Consequences worth knowing rather than reasons to stop. */
+  notes: string[];
+};
+
 export type Page<Item> = { items: Item[] | null; nextCursor?: string };
 export type Listing<Item> = { items: Item[] | null };
 

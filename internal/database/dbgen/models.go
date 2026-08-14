@@ -1815,6 +1815,9 @@ type User struct {
 	DeletedAt      pgtype.Timestamptz `json:"deleted_at"`
 	AnonymizedAt   pgtype.Timestamptz `json:"anonymized_at"`
 	RetentionUntil pgtype.Timestamptz `json:"retention_until"`
+	// Where this account went. A merged account keeps its rows and its history; everything transferable was moved to the target.
+	MergedInto pgtype.UUID        `json:"merged_into"`
+	MergedAt   pgtype.Timestamptz `json:"merged_at"`
 }
 
 type WalletTopup struct {

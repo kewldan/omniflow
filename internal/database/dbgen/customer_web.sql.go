@@ -67,7 +67,7 @@ func (q *Queries) CountRecentCustomerMagicLinks(ctx context.Context, arg CountRe
 const createCustomerForSignIn = `-- name: CreateCustomerForSignIn :one
 INSERT INTO users (status, locale, timezone)
 VALUES ('active', $1, $2)
-RETURNING id, status, locale, created_at, updated_at, timezone, suspended_at, deleted_at, anonymized_at, retention_until
+RETURNING id, status, locale, created_at, updated_at, timezone, suspended_at, deleted_at, anonymized_at, retention_until, merged_into, merged_at
 `
 
 type CreateCustomerForSignInParams struct {
@@ -91,6 +91,8 @@ func (q *Queries) CreateCustomerForSignIn(ctx context.Context, arg CreateCustome
 		&i.DeletedAt,
 		&i.AnonymizedAt,
 		&i.RetentionUntil,
+		&i.MergedInto,
+		&i.MergedAt,
 	)
 	return i, err
 }

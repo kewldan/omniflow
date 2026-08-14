@@ -63,6 +63,14 @@ type Querier interface {
 	// provisioning can never be retracted by a panel click.
 	CancelFulfillmentOperation(ctx context.Context, operationID pgtype.UUID) (FulfillmentOperation, error)
 	CancelGoodsDelivery(ctx context.Context, orderID pgtype.UUID) (GoodsDelivery, error)
+	// A saved cart is not moved, it is cancelled.
+	//
+	// Only one cart may be open per customer, so moving the source's would collide
+	// with the target's whenever both had one — and a cart is a selection made in a
+	// session that is now ending, priced against a plan version that re-quotes
+	// before any charge anyway. Cancelling it is honest; silently discarding the
+	// target's to make room would not be.
+	CancelMergedCustomerCart(ctx context.Context, source pgtype.UUID) error
 	CancelOrder(ctx context.Context, arg CancelOrderParams) (Order, error)
 	ChannelGateSettings(ctx context.Context) (ChannelGateSettingsRow, error)
 	CheckPromotionCustomerEligibility(ctx context.Context, arg CheckPromotionCustomerEligibilityParams) (pgtype.Bool, error)
@@ -71,6 +79,12 @@ type Querier interface {
 	ClaimGift(ctx context.Context, arg ClaimGiftParams) (Gift, error)
 	ClearCartGoods(ctx context.Context, cartID pgtype.UUID) error
 	ClearDefaultPaymentMethod(ctx context.Context, userID pgtype.UUID) error
+	// Marks the source and points it at the target.
+	//
+	// The predicate is what makes the whole operation idempotent: only an account
+	// that has not already been merged matches, so a second attempt moves nothing
+	// and reports the merge that already happened.
+	CloseMergedAccount(ctx context.Context, arg CloseMergedAccountParams) (User, error)
 	CloseSubscription(ctx context.Context, arg CloseSubscriptionParams) (Subscription, error)
 	// Promotes a half-authenticated session once the second factor is proven. The
 	// token is rotated in the same statement so the cookie that existed during the
@@ -324,6 +338,8 @@ type Querier interface {
 	DiagnosticCounts(ctx context.Context) (DiagnosticCountsRow, error)
 	DisableAdminTOTP(ctx context.Context, adminUserID pgtype.UUID) (AdminUser, error)
 	DismissPersonalOffer(ctx context.Context, arg DismissPersonalOfferParams) (PersonalOffer, error)
+	// Whatever the move above left behind, which is exactly the duplicates.
+	DropDuplicateNewsReads(ctx context.Context, source pgtype.UUID) error
 	// ---------------------------------------------------------------------------
 	// Test sends
 	//
@@ -853,6 +869,7 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	ListSubscriptions(ctx context.Context, userID pgtype.UUID) ([]Subscription, error)
 	ListSubscriptionsForAlerts(ctx context.Context, limit int32) ([]ListSubscriptionsForAlertsRow, error)
+	ListSubscriptionsToMove(ctx context.Context, userID pgtype.UUID) ([]ListSubscriptionsToMoveRow, error)
 	// ---------------------------------------------------------------------------
 	// Messages, notes, and tags
 	// ---------------------------------------------------------------------------
@@ -918,10 +935,59 @@ type Querier interface {
 	// source that lists one of them. An exact index probe per source, so the check
 	// is cheap enough to run on the sign-up and purchase paths.
 	MatchBlocklistFingerprints(ctx context.Context, fingerprints [][]byte) ([]MatchBlocklistFingerprintsRow, error)
+	// Merging two customer accounts.
+	//
+	// The preview and the move read the same counts from the same statements, so an
+	// operator cannot be shown one number and have another happen.
+	// What one side of a merge holds.
+	MergeCandidate(ctx context.Context, id pgtype.UUID) (MergeCandidateRow, error)
+	// Whether either account referred the other.
+	//
+	// Merging them would make a customer their own referrer, which is a reward
+	// somebody paid for a signup that turns out to be the same person. It is a
+	// refusal rather than something to clean up silently.
+	MergeReferralBetween(ctx context.Context, arg MergeReferralBetweenParams) (int64, error)
 	// The absorbed ticket keeps its row and its messages and points at its
 	// survivor. Deleting it would lose the customer's own words and the trail that
 	// explains where they went.
 	MergeSupportTicket(ctx context.Context, arg MergeSupportTicketParams) (SupportTicket, error)
+	// The source's balance per currency, which is what moves as a compensating pair
+	// of ledger entries rather than as an UPDATE.
+	// The account type is stated even though the table's own constraint already
+	// implies it: only a customer wallet entry carries a user. Naming it means this
+	// query still reads correctly if another account type ever gains one.
+	MergeWalletBalances(ctx context.Context, userID pgtype.UUID) ([]MergeWalletBalancesRow, error)
+	MoveCustomerConsents(ctx context.Context, arg MoveCustomerConsentsParams) error
+	MoveCustomerContacts(ctx context.Context, arg MoveCustomerContactsParams) error
+	// Everything below is a plain reassignment: one statement per table, called in
+	// order inside one transaction.
+	//
+	// They are listed explicitly rather than generated from the foreign-key
+	// catalogue, and the tables that are *not* here are the reason. A trial claim, a
+	// Remnawave mapping, a referral attribution, and a subscription slot each need a
+	// decision; a loop over every key referencing `users` would have moved them
+	// without anybody making one.
+	MoveCustomerEntitlements(ctx context.Context, arg MoveCustomerEntitlementsParams) error
+	MoveCustomerGoodsOrders(ctx context.Context, arg MoveCustomerGoodsOrdersParams) error
+	MoveCustomerIdentities(ctx context.Context, arg MoveCustomerIdentitiesParams) error
+	MoveCustomerLifecycleEvents(ctx context.Context, arg MoveCustomerLifecycleEventsParams) error
+	// Read markers move only where the target has not read the same post.
+	//
+	// The pair is the primary key, so moving a duplicate would fail the whole
+	// merge over a read receipt. The target's own marker is the one that survives:
+	// both mean the same person read it.
+	MoveCustomerNewsReads(ctx context.Context, arg MoveCustomerNewsReadsParams) error
+	MoveCustomerOrders(ctx context.Context, arg MoveCustomerOrdersParams) error
+	// Saved methods move, but none of them arrives as the default.
+	//
+	// One default per customer is a unique index, so two defaults would fail the
+	// merge. The target keeps theirs, which is also the right answer: it is the
+	// method they last chose, on the account that is surviving.
+	MoveCustomerPaymentMethods(ctx context.Context, arg MoveCustomerPaymentMethodsParams) error
+	MoveCustomerSecurityEvents(ctx context.Context, arg MoveCustomerSecurityEventsParams) error
+	MoveCustomerTickets(ctx context.Context, arg MoveCustomerTicketsParams) error
+	MoveCustomerTopUps(ctx context.Context, arg MoveCustomerTopUpsParams) error
+	MoveSubscription(ctx context.Context, arg MoveSubscriptionParams) error
 	// Moves the absorbed ticket's messages onto the survivor so the conversation
 	// reads as one thread.
 	MoveSupportMessages(ctx context.Context, arg MoveSupportMessagesParams) error
@@ -929,6 +995,9 @@ type Querier interface {
 	NextAddonVersion(ctx context.Context, addonID pgtype.UUID) (int32, error)
 	NextLoyaltyVersion(ctx context.Context) (int32, error)
 	NextPlanVersion(ctx context.Context, planID pgtype.UUID) (int32, error)
+	// The first free slot on the target, so moved subscriptions do not collide with
+	// the unique constraint on (user_id, slot).
+	NextSubscriptionSlot(ctx context.Context, userID pgtype.UUID) (int32, error)
 	// ---------------------------------------------------------------------------
 	// Observations the rules are evaluated against
 	// ---------------------------------------------------------------------------

@@ -29,6 +29,7 @@ import {
 import { useSession } from "@/lib/session";
 
 import { AuditTimeline, ReferralPanel, SupportPanel } from "./customer-history";
+import { MergePanel } from "./merge-panel";
 import { SubscriptionActions, SubscriptionDevices } from "./subscription-actions";
 
 /**
@@ -159,6 +160,11 @@ export function CustomerProfileView({ customerId }: { customerId: string }) {
           </TabsContent>
         )}
       </Tabs>
+
+      {/* Merging sits below the tabs rather than inside one, because it is not a
+          view of this customer: it is the action that ends this record and moves
+          everything on it somewhere else. */}
+      <MergePanel customerId={customerId} />
     </div>
   );
 }

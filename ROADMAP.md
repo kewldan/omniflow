@@ -1738,13 +1738,37 @@ below this section are directions; these are specific absences.
 
 ### Identity and lifecycle
 
-- [ ] Merging two customer accounts — linking an identity to the account already
-      signed in works (`/v1/account/auth/link`). Joining two accounts that both
-      exist does not, and that is the case that occurs: a customer buys in
-      Telegram, later signs in on the web through a provider the first account
-      never carried, and holds an empty second account. A merge has to show what
-      happens to wallet balance, subscriptions, orders, and referral attribution
-      before it happens, and it has to be one audited, idempotent operation.
+- [x] Merging two customer accounts — done, on the customer page and documented
+      under
+      [`commerce/customers-imports`](./docs/commerce/customers-imports.mdx). One
+      audited, idempotent operation with a preview that counts everything before
+      anything moves, and the direction fixed and stated: the account you are
+      looking at is the one being absorbed, because "merge A and B" is ambiguous
+      in exactly the way that matters.
+
+      Forty-six tables reference `users`, and the work was deciding which of them
+      are a change of owner and which are a decision. Five are decisions.
+      Subscription slots are unique per customer, so moved subscriptions are
+      renumbered. **The wallet moves as a compensating pair of ledger entries**
+      rather than by reassigning rows, because `ledger_entries` is append-only
+      and those entries are the evidence for every balance the installation has
+      ever reported. A saved cart is cancelled — one may be open per customer. A
+      read marker moves only where the target has not read the same post, since
+      the pair is a primary key and a merge should not fail over a read receipt.
+      And a saved payment method arrives non-default, because one default per
+      customer is a unique index.
+
+      Five refusals, listed in the preview and **recomputed when the merge is
+      applied** rather than trusted from it — the two are separate requests, and
+      a merge authorised by a stale screen goes wrong exactly once. The one worth
+      naming: if either account referred the other, the merge is refused, because
+      it would make a customer their own referrer and somebody was paid a reward
+      for that signup.
+
+      The source is marked `merged` and keeps its rows and its history rather
+      than being deleted: support answering "where did my subscription go" needs
+      somewhere to land. Both accounts get a lifecycle event, so the merge reads
+      from either customer's own history and not only from the operator trail.
 - [x] Pausing a subscription — done, on the customer's subscription in the panel
       and documented under
       [`commerce/subscriptions`](./docs/commerce/subscriptions.mdx). Access stops

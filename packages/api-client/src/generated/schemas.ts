@@ -3838,6 +3838,146 @@ export const RevokePanelCodeBatchResponse = zod.object({
 });
 
 /**
+ * Requires customers.read. What merging this account into another would do, and every reason it cannot happen.
+ * A merge cannot be undone, so everything that would move is counted before anything does. The blockers are recomputed when the merge is applied rather than trusted from here: the two are separate requests, and a merge authorised by a stale screen is the kind of thing that only goes wrong once.
+ */
+export const PreviewPanelCustomerMergeParams = zod.object({
+  customerID: zod.uuid(),
+});
+
+export const PreviewPanelCustomerMergeQueryParams = zod.object({
+  into: zod.uuid().describe("The account that survives."),
+});
+
+export const PreviewPanelCustomerMergeResponse = zod.object({
+  source: zod.object({
+    id: zod.uuid(),
+    status: zod.string(),
+    createdAt: zod.iso.datetime({ offset: true }),
+    activeSubscriptions: zod.int(),
+    orders: zod.int(),
+    tickets: zod.int(),
+    identities: zod.int(),
+    referralsMade: zod.int(),
+    trialClaims: zod.int(),
+    wallet: zod.array(
+      zod.object({
+        currency: zod.string(),
+        balanceMinor: zod.int(),
+      }),
+    ),
+    mergedInto: zod.uuid().optional().describe("Set when this account has already been absorbed."),
+  }),
+  target: zod.object({
+    id: zod.uuid(),
+    status: zod.string(),
+    createdAt: zod.iso.datetime({ offset: true }),
+    activeSubscriptions: zod.int(),
+    orders: zod.int(),
+    tickets: zod.int(),
+    identities: zod.int(),
+    referralsMade: zod.int(),
+    trialClaims: zod.int(),
+    wallet: zod.array(
+      zod.object({
+        currency: zod.string(),
+        balanceMinor: zod.int(),
+      }),
+    ),
+    mergedInto: zod.uuid().optional().describe("Set when this account has already been absorbed."),
+  }),
+  blockers: zod
+    .array(
+      zod.enum([
+        "same_account",
+        "already_merged",
+        "target_merged",
+        "account_deleted",
+        "referral_between",
+      ]),
+    )
+    .describe("Empty when the merge can proceed."),
+  notes: zod
+    .array(
+      zod.enum([
+        "cart_cancelled",
+        "trial_carried",
+        "default_method_kept",
+        "subscriptions_renumbered",
+        "wallet_moves",
+      ]),
+    )
+    .describe("Consequences worth knowing rather than reasons to stop."),
+});
+
+/**
+ * Requires customers.write and a reason. Merges the account in the path into the one in the body: subscriptions take new slots, orders, identities, contacts, consents, tickets, and saved methods are reassigned, the wallet balance moves as a compensating pair of ledger entries, and the source is closed pointing at the target.
+ * Idempotent. The closing update matches only an account that has not already been merged, so a resubmitted form reports the earlier merge and moves nothing — `alreadyMerged` says which happened.
+ * Three things are deliberately not a reassignment. A saved cart is cancelled, because one cart may be open per customer. Read markers move only where the target has not read the same post. Saved methods arrive as non-default, because one default per customer is a unique index and the survivor's is the one they last chose.
+ */
+export const MergePanelCustomerParams = zod.object({
+  customerID: zod.uuid(),
+});
+
+export const mergePanelCustomerHeaderXOperatorReasonMax = 400;
+
+export const MergePanelCustomerHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "X-Operator-Reason": zod
+    .string()
+    .min(1)
+    .max(mergePanelCustomerHeaderXOperatorReasonMax)
+    .describe(
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+    ),
+});
+
+export const MergePanelCustomerBody = zod.object({
+  into: zod.uuid(),
+});
+
+export const MergePanelCustomerResponse = zod.object({
+  source: zod.uuid(),
+  target: zod.uuid(),
+  alreadyMerged: zod
+    .boolean()
+    .describe("True when this merge had already happened and nothing moved."),
+  moved: zod
+    .object({
+      id: zod.uuid(),
+      status: zod.string(),
+      createdAt: zod.iso.datetime({ offset: true }),
+      activeSubscriptions: zod.int(),
+      orders: zod.int(),
+      tickets: zod.int(),
+      identities: zod.int(),
+      referralsMade: zod.int(),
+      trialClaims: zod.int(),
+      wallet: zod.array(
+        zod.object({
+          currency: zod.string(),
+          balanceMinor: zod.int(),
+        }),
+      ),
+      mergedInto: zod
+        .uuid()
+        .optional()
+        .describe("Set when this account has already been absorbed."),
+    })
+    .optional(),
+  wallet: zod
+    .array(
+      zod.object({
+        currency: zod.string(),
+        balanceMinor: zod.int(),
+      }),
+    )
+    .optional(),
+});
+
+/**
  * Requires finance.read. What was sold over a chosen period, by kind of sale, by plan version, and by day, with trial conversion and refunds issued. The period keys on `orders.paid_at`, which is set once when an order first settles and never moved afterwards, so re-running a report over a closed period returns the same figures. Provider money and wallet credit are reported apart and must never be added: the balance was already revenue when it was funded. A period longer than two years is refused.
  */
 export const getPanelSalesReportQueryTimezoneDefault = `UTC`;

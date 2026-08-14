@@ -2248,6 +2248,66 @@ export interface PanelBatchCodeList {
   items: PanelBatchCode[];
 }
 
+export interface PanelMergeBalance {
+  currency: string;
+  balanceMinor: number;
+}
+
+export interface PanelMergeSide {
+  id: string;
+  status: string;
+  createdAt: string;
+  activeSubscriptions: number;
+  orders: number;
+  tickets: number;
+  identities: number;
+  referralsMade: number;
+  trialClaims: number;
+  wallet: PanelMergeBalance[];
+  /** Set when this account has already been absorbed. */
+  mergedInto?: string;
+}
+
+export type PanelMergePreviewBlockersItem =
+  (typeof PanelMergePreviewBlockersItem)[keyof typeof PanelMergePreviewBlockersItem];
+
+export const PanelMergePreviewBlockersItem = {
+  same_account: "same_account",
+  already_merged: "already_merged",
+  target_merged: "target_merged",
+  account_deleted: "account_deleted",
+  referral_between: "referral_between",
+} as const;
+
+export type PanelMergePreviewNotesItem =
+  (typeof PanelMergePreviewNotesItem)[keyof typeof PanelMergePreviewNotesItem];
+
+export const PanelMergePreviewNotesItem = {
+  cart_cancelled: "cart_cancelled",
+  trial_carried: "trial_carried",
+  default_method_kept: "default_method_kept",
+  subscriptions_renumbered: "subscriptions_renumbered",
+  wallet_moves: "wallet_moves",
+} as const;
+
+export interface PanelMergePreview {
+  source: PanelMergeSide;
+  target: PanelMergeSide;
+  /** Empty when the merge can proceed. */
+  blockers: PanelMergePreviewBlockersItem[];
+  /** Consequences worth knowing rather than reasons to stop. */
+  notes: PanelMergePreviewNotesItem[];
+}
+
+export interface PanelMergeResult {
+  source: string;
+  target: string;
+  /** True when this merge had already happened and nothing moved. */
+  alreadyMerged: boolean;
+  moved?: PanelMergeSide;
+  wallet?: PanelMergeBalance[];
+}
+
 export interface PanelCommerceSettings {
   topUp: PanelTopUpSettings;
   subscriptions: PanelSubscriptionSettings;
@@ -4748,6 +4808,17 @@ export type RevokePanelCodeBatchBody = {
 
 export type RevokePanelCodeBatch200 = {
   revoked?: number;
+};
+
+export type PreviewPanelCustomerMergeParams = {
+  /**
+   * The account that survives.
+   */
+  into: string;
+};
+
+export type MergePanelCustomerBody = {
+  into: string;
 };
 
 export type GetPanelSalesReportParams = {
@@ -16390,6 +16461,211 @@ export const useRevokePanelCodeBatch = <TError = Promise<ProblemResponse>>(
 
   const swrKey = swrOptions?.swrKey ?? getRevokePanelCodeBatchMutationKey(batchID);
   const swrFn = getRevokePanelCodeBatchMutationFetcher(batchID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type previewPanelCustomerMergeResponse200 = {
+  data: PanelMergePreview;
+  status: 200;
+};
+
+export type previewPanelCustomerMergeResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type previewPanelCustomerMergeResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type previewPanelCustomerMergeResponseSuccess = previewPanelCustomerMergeResponse200 & {
+  headers: Headers;
+};
+export type previewPanelCustomerMergeResponseError = (
+  | previewPanelCustomerMergeResponse403
+  | previewPanelCustomerMergeResponse404
+) & {
+  headers: Headers;
+};
+
+export type previewPanelCustomerMergeResponse =
+  | previewPanelCustomerMergeResponseSuccess
+  | previewPanelCustomerMergeResponseError;
+
+export const getPreviewPanelCustomerMergeUrl = (
+  customerID: string,
+  params: PreviewPanelCustomerMergeParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/customers/${customerID}/merge/preview?${stringifiedParams}`
+    : `/v1/panel/customers/${customerID}/merge/preview`;
+};
+
+/**
+ * Requires customers.read. What merging this account into another would do, and every reason it cannot happen.
+ * A merge cannot be undone, so everything that would move is counted before anything does. The blockers are recomputed when the merge is applied rather than trusted from here: the two are separate requests, and a merge authorised by a stale screen is the kind of thing that only goes wrong once.
+ */
+export const previewPanelCustomerMerge = async (
+  customerID: string,
+  params: PreviewPanelCustomerMergeParams,
+  options?: RequestInit,
+): Promise<previewPanelCustomerMergeResponse> => {
+  const res = await fetch(getPreviewPanelCustomerMergeUrl(customerID, params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: previewPanelCustomerMergeResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as previewPanelCustomerMergeResponse;
+};
+
+export const getPreviewPanelCustomerMergeKey = (
+  customerID: string,
+  params: PreviewPanelCustomerMergeParams,
+) => [`/v1/panel/customers/${customerID}/merge/preview`, ...(params ? [params] : [])] as const;
+
+export type PreviewPanelCustomerMergeQueryResult = NonNullable<
+  Awaited<ReturnType<typeof previewPanelCustomerMerge>>
+>;
+
+export const usePreviewPanelCustomerMerge = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  params: PreviewPanelCustomerMergeParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof previewPanelCustomerMerge>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && customerID !== null && customerID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ??
+    (() => (isEnabled ? getPreviewPanelCustomerMergeKey(customerID, params) : null));
+  const swrFn = () => previewPanelCustomerMerge(customerID, params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type mergePanelCustomerResponse200 = {
+  data: PanelMergeResult;
+  status: 200;
+};
+
+export type mergePanelCustomerResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type mergePanelCustomerResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type mergePanelCustomerResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type mergePanelCustomerResponseSuccess = mergePanelCustomerResponse200 & {
+  headers: Headers;
+};
+export type mergePanelCustomerResponseError = (
+  | mergePanelCustomerResponse403
+  | mergePanelCustomerResponse404
+  | mergePanelCustomerResponse422
+) & {
+  headers: Headers;
+};
+
+export type mergePanelCustomerResponse =
+  | mergePanelCustomerResponseSuccess
+  | mergePanelCustomerResponseError;
+
+export const getMergePanelCustomerUrl = (customerID: string) => {
+  return `/v1/panel/customers/${customerID}/merge`;
+};
+
+/**
+ * Requires customers.write and a reason. Merges the account in the path into the one in the body: subscriptions take new slots, orders, identities, contacts, consents, tickets, and saved methods are reassigned, the wallet balance moves as a compensating pair of ledger entries, and the source is closed pointing at the target.
+ * Idempotent. The closing update matches only an account that has not already been merged, so a resubmitted form reports the earlier merge and moves nothing — `alreadyMerged` says which happened.
+ * Three things are deliberately not a reassignment. A saved cart is cancelled, because one cart may be open per customer. Read markers move only where the target has not read the same post. Saved methods arrive as non-default, because one default per customer is a unique index and the survivor's is the one they last chose.
+ */
+export const mergePanelCustomer = async (
+  customerID: string,
+  mergePanelCustomerBody: MergePanelCustomerBody,
+  options?: RequestInit,
+): Promise<mergePanelCustomerResponse> => {
+  const res = await fetch(getMergePanelCustomerUrl(customerID), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(mergePanelCustomerBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: mergePanelCustomerResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as mergePanelCustomerResponse;
+};
+
+export const getMergePanelCustomerMutationFetcher = (customerID: string, options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: MergePanelCustomerBody }) => {
+    return mergePanelCustomer(customerID, arg, options);
+  };
+};
+export const getMergePanelCustomerMutationKey = (customerID: string) =>
+  [`/v1/panel/customers/${customerID}/merge`] as const;
+
+export type MergePanelCustomerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof mergePanelCustomer>>
+>;
+
+export const useMergePanelCustomer = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof mergePanelCustomer>>,
+      TError,
+      Key,
+      MergePanelCustomerBody,
+      Awaited<ReturnType<typeof mergePanelCustomer>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getMergePanelCustomerMutationKey(customerID);
+  const swrFn = getMergePanelCustomerMutationFetcher(customerID, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 
