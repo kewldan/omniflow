@@ -102,6 +102,12 @@ jobs:
     needs: [source-scan, codeql]
     runs-on: ubuntu-latest
     strategy:
+      # One image's result must not cancel the others. The last step in this job
+      # is a scan of an image that has already been pushed — detection, not a
+      # gate — and with the default fail-fast a finding there cancelled three
+      # sibling builds that had nothing wrong with them. 1.0.1 published its web
+      # image and no others for exactly that reason.
+      fail-fast: false
       matrix:
         include:
           - image: api

@@ -727,11 +727,19 @@ type SupportReport struct {
 	Resolved   int64 `json:"resolvedInWindow"`
 	// MedianFirstResponseSeconds is a median rather than a mean: one ticket
 	// answered a week late would otherwise make a good week look bad.
-	MedianFirstResponseSeconds int64             `json:"medianFirstResponseSeconds"`
-	WindowSeconds              int64             `json:"windowSeconds"`
-	Operators                  []OperatorLoad    `json:"operators"`
-	Definitions                map[string]string `json:"definitions"`
+	MedianFirstResponseSeconds int64          `json:"medianFirstResponseSeconds"`
+	WindowSeconds              int64          `json:"windowSeconds"`
+	Operators                  []OperatorLoad `json:"operators"`
 }
+
+// The definitions that used to travel in this payload now live in the panel's
+// message catalogues, beside every other piece of operator-facing copy.
+//
+// They were a map of hard-coded English prose, which meant a Russian operator
+// read the numbers in their own language and the explanation of those numbers
+// in somebody else's. The panel renders each definition under the figure it
+// defines rather than as a list at the foot of the screen, which is where they
+// were and where nobody read them.
 
 // OperatorLoad is one operator's share of the desk.
 type OperatorLoad struct {
@@ -768,14 +776,6 @@ func (service *Service) SupportReport(
 		MedianFirstResponseSeconds: summary.MedianFirstResponseSeconds,
 		WindowSeconds:              int64(window.Seconds()),
 		Operators:                  make([]OperatorLoad, 0, len(rows)),
-		Definitions: map[string]string{
-			"openTickets":                "Tickets in the open or pending state, whatever their queue.",
-			"unassignedTickets":          "Open or pending tickets nobody has taken.",
-			"breachedTickets":            "Open or pending tickets past their queue's first-response target with no operator reply yet. A queue with a zero target never breaches.",
-			"resolvedInWindow":           "Tickets that reached resolved or closed inside the window.",
-			"medianFirstResponseSeconds": "Median time from a ticket being created to its first operator reply, over replies made inside the window. A median rather than a mean, so one very late answer does not distort the picture.",
-			"replies":                    "Operator messages written by this operator inside the window, including replies to tickets assigned to somebody else.",
-		},
 	}
 	for _, row := range rows {
 		report.Operators = append(report.Operators, OperatorLoad{

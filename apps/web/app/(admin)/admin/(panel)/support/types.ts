@@ -99,5 +99,4 @@ export type SupportReportData = {
   medianFirstResponseSeconds: number;
   windowSeconds: number;
   operators: OperatorLoad[];
-  definitions: Record<string, string>;
 };

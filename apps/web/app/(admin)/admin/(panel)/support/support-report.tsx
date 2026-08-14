@@ -1,8 +1,9 @@
 "use client";
 
+import { Button } from "@omniflow/ui/button";
 import { Card } from "@omniflow/ui/card";
 import { Skeleton } from "@omniflow/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
+import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR from "swr";
@@ -12,15 +13,41 @@ import { formatDuration } from "@/lib/operations";
 
 import type { SupportReportData } from "./types";
 
+/**
+ * The chart arrives after the report does.
+ *
+ * The charting library is a quarter of a megabyte and loading it with this page
+ * put it over the performance budget. The five figures above render from the
+ * same request without it, so it is fetched when this section renders rather
+ * than when the page does. `ssr: false` because the chart measures its own
+ * container, which has no size on the server.
+ */
+const OperatorWorkload = dynamic(
+  () => import("./operator-workload").then((module) => module.OperatorWorkload),
+  { loading: () => <Skeleton className="h-40 w-full" />, ssr: false },
+);
+
 const WINDOWS = [7, 30, 90] as const;
 
+/** The five headline figures, in the order an operator reads them. */
+const FIGURES = [
+  "openTickets",
+  "unassignedTickets",
+  "breachedTickets",
+  "resolvedInWindow",
+  "medianFirstResponseSeconds",
+] as const;
+
 /**
- * Workload and response time, with the definitions attached.
+ * Workload and response time.
  *
- * The definitions ship with the numbers because a response-time report whose
- * definition is ambiguous is a report people argue about instead of acting on:
- * "average response time" means at least three different things depending on
- * who is asked, and none of them is what this measures.
+ * Every figure carries its own definition, directly under it. They used to be a
+ * list at the foot of the page under the heading "What these numbers mean" —
+ * six paragraphs, in English regardless of the operator's language, at the
+ * furthest point from the numbers they explained. A definition nobody reads is
+ * the same as no definition, and this report needs them: "average response
+ * time" means at least three different things depending on who is asked, and
+ * none of them is what this measures.
  */
 export function SupportReport({ active }: { active: boolean }) {
   const translate = useTranslations("admin.support.report");
@@ -35,91 +62,51 @@ export function SupportReport({ active }: { active: boolean }) {
     return <Skeleton className="h-64 w-full" />;
   }
 
+  const values: Record<(typeof FIGURES)[number], string> = {
+    breachedTickets: String(data.breachedTickets),
+    medianFirstResponseSeconds:
+      data.medianFirstResponseSeconds > 0 ? formatDuration(data.medianFirstResponseSeconds) : "—",
+    openTickets: String(data.openTickets),
+    resolvedInWindow: String(data.resolvedInWindow),
+    unassignedTickets: String(data.unassignedTickets),
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap gap-2">
         {WINDOWS.map((days) => (
-          <button
-            className={`rounded-md border px-3 py-1 text-sm ${
-              windowDays === days ? "border-accent" : "border-border"
-            }`}
+          <Button
             key={days}
             onClick={() => setWindowDays(days)}
+            size="sm"
             type="button"
+            variant={windowDays === days ? "default" : "outline"}
           >
             {translate("window", { days })}
-          </button>
+          </Button>
         ))}
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-        <Figure label={translate("open")} value={String(data.openTickets)} />
-        <Figure label={translate("unassigned")} value={String(data.unassignedTickets)} />
-        <Figure label={translate("breached")} value={String(data.breachedTickets)} />
-        <Figure label={translate("resolved")} value={String(data.resolvedInWindow)} />
-        <Figure
-          label={translate("median")}
-          value={
-            data.medianFirstResponseSeconds > 0
-              ? formatDuration(data.medianFirstResponseSeconds)
-              : "—"
-          }
-        />
+        {FIGURES.map((key) => (
+          <Card className="flex flex-col gap-1 p-3" key={key}>
+            <span className="font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.12em]">
+              {translate(`figures.${key}.label`)}
+            </span>
+            <span className="font-semibold text-2xl tabular-nums">{values[key]}</span>
+            {/* The definition sits under the number rather than behind a
+                tooltip: it is the part somebody reads once and then trusts, and
+                a tooltip is exactly the affordance nobody discovers. */}
+            <span className="text-muted-foreground text-xs">
+              {translate(`figures.${key}.definition`)}
+            </span>
+          </Card>
+        ))}
       </div>
 
-      <Card className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{translate("operator")}</TableHead>
-              <TableHead>{translate("replies")}</TableHead>
-              <TableHead>{translate("openTickets")}</TableHead>
-              <TableHead>{translate("resolvedTickets")}</TableHead>
-              <TableHead>{translate("medianShort")}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.operators.map((operator) => (
-              <TableRow key={operator.operatorId}>
-                <TableCell>{operator.displayName}</TableCell>
-                <TableCell data-numeric>{operator.replies}</TableCell>
-                <TableCell data-numeric>{operator.openTickets}</TableCell>
-                <TableCell data-numeric>{operator.resolvedTickets}</TableCell>
-                <TableCell data-numeric>
-                  {operator.medianFirstResponseSeconds > 0
-                    ? formatDuration(operator.medianFirstResponseSeconds)
-                    : "—"}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
-
-      <Card className="flex flex-col gap-2 p-4">
-        <h3 className="font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.12em]">
-          {translate("definitions")}
-        </h3>
-        <dl className="flex flex-col gap-1.5">
-          {Object.entries(data.definitions).map(([key, definition]) => (
-            <div className="flex flex-col" key={key}>
-              <dt className="font-medium text-sm">{key}</dt>
-              <dd className="text-muted-foreground text-sm">{definition}</dd>
-            </div>
-          ))}
-        </dl>
+      <Card className="p-4">
+        <OperatorWorkload operators={data.operators} />
       </Card>
     </div>
-  );
-}
-
-function Figure({ label, value }: { label: string; value: string }) {
-  return (
-    <Card className="flex flex-col gap-0.5 p-3">
-      <span className="font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.12em]">
-        {label}
-      </span>
-      <span className="font-semibold text-2xl tabular-nums">{value}</span>
-    </Card>
   );
 }

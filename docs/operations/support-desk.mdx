@@ -329,13 +329,19 @@ directory setting and why the API and worker must agree on it.
 is 7 and the API caps it at 90, so one request cannot ask the database to compute
 a median across every ticket ever filed.
 
-The definitions travel with the numbers, because a response-time report whose
-definition is ambiguous is a report people argue about instead of acting on.
-"Average response time" means at least three different things depending on who is
-asked, and none of them is what this measures. The panel renders the definitions
-the server supplies, verbatim:
+Each definition sits under the figure it defines, on the tile itself. A
+response-time report whose definition is ambiguous is a report people argue
+about instead of acting on: "average response time" means at least three
+different things depending on who is asked, and none of them is what this
+measures.
 
-| Measure | Definition, as shipped |
+They used to be a list at the foot of the page headed *What these numbers mean*
+— six paragraphs at the furthest point from the numbers they explained, and in
+English whatever language the operator had chosen, because the API supplied the
+prose. The copy now lives in the panel's message catalogues like every other
+operator-facing string, and the payload carries only the figures.
+
+| Measure | Definition |
 | --- | --- |
 | Open tickets | Tickets in the open or pending state, whatever their queue |
 | Unassigned | Open or pending tickets nobody has taken |
@@ -344,9 +350,13 @@ the server supplies, verbatim:
 | Median first response | Median time from a ticket being created to its first operator reply, over replies made inside the window. A median rather than a mean, so one very late answer does not distort the picture |
 | Replies | Operator messages written by this operator inside the window, including replies to tickets assigned to somebody else |
 
-Below the five headline figures sits a per-operator table: display name, replies,
-open tickets, resolved tickets, and that operator's median first response. Two
-things about it are deliberate. Per-operator **open tickets** are not windowed —
+Below the five headline figures sit replies per operator, drawn as a horizontal
+bar chart with the full table under it: display name, replies, open tickets,
+resolved tickets, and that operator's median first response. The bars are
+horizontal because the categories are people's names, which a vertical chart
+would truncate or tilt; the table is always rendered rather than hidden behind a
+disclosure, because a chart is not a substitute for a number somebody has to act
+on. Two things about the table are deliberate. Per-operator **open tickets** are not windowed —
 they are what that person is currently holding, which is a present-tense question.
 And **replies** counts messages the operator wrote regardless of who the ticket
 was assigned to, because helping with somebody else's ticket is work.
