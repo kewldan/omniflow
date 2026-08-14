@@ -1353,6 +1353,19 @@ type OrderAddonLine struct {
 	Snapshot        []byte      `json:"snapshot"`
 }
 
+// Where one order came from, for the operator's own advertising measurement. Never sent anywhere by this software; an operator exports a file and uploads it themselves.
+type OrderAttribution struct {
+	OrderID     pgtype.UUID        `json:"order_id"`
+	ClickID     pgtype.Text        `json:"click_id"`
+	ClickSource pgtype.Text        `json:"click_source"`
+	UtmSource   pgtype.Text        `json:"utm_source"`
+	UtmMedium   pgtype.Text        `json:"utm_medium"`
+	UtmCampaign pgtype.Text        `json:"utm_campaign"`
+	UtmContent  pgtype.Text        `json:"utm_content"`
+	UtmTerm     pgtype.Text        `json:"utm_term"`
+	RecordedAt  pgtype.Timestamptz `json:"recorded_at"`
+}
+
 type OrderLine struct {
 	ID              pgtype.UUID `json:"id"`
 	OrderID         pgtype.UUID `json:"order_id"`

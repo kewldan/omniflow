@@ -209,6 +209,8 @@ APP_TELEMETRY_ENABLED=false
 
 The exact payload, retention policy, and opt-out behavior are documented in [Anonymous telemetry](./docs/operations/telemetry.mdx).
 
+This is not the same thing as the advertising measurement an operator can turn on for their own storefront. That is **off** by default, is never reported to this project or to anybody but the operator's own analytics provider, renders only for a visitor who agreed to it, and uploads nothing anywhere — the conversion export is a file the operator downloads and hands over themselves. See [Advertising measurement](./docs/operations/advertising-measurement.mdx).
+
 ## 🤝 Contributing
 
 Contributions are welcome. Before opening a pull request:

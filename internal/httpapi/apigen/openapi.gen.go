@@ -40,6 +40,36 @@ func (e AccountAddonOfferKind) Valid() bool {
 	}
 }
 
+// Defines values for AccountAttributionInputClickSource.
+const (
+	AccountAttributionInputClickSourceGoogle    AccountAttributionInputClickSource = "google"
+	AccountAttributionInputClickSourceMeta      AccountAttributionInputClickSource = "meta"
+	AccountAttributionInputClickSourceMicrosoft AccountAttributionInputClickSource = "microsoft"
+	AccountAttributionInputClickSourceTiktok    AccountAttributionInputClickSource = "tiktok"
+	AccountAttributionInputClickSourceX         AccountAttributionInputClickSource = "x"
+	AccountAttributionInputClickSourceYandex    AccountAttributionInputClickSource = "yandex"
+)
+
+// Valid indicates whether the value is a known member of the AccountAttributionInputClickSource enum.
+func (e AccountAttributionInputClickSource) Valid() bool {
+	switch e {
+	case AccountAttributionInputClickSourceGoogle:
+		return true
+	case AccountAttributionInputClickSourceMeta:
+		return true
+	case AccountAttributionInputClickSourceMicrosoft:
+		return true
+	case AccountAttributionInputClickSourceTiktok:
+		return true
+	case AccountAttributionInputClickSourceX:
+		return true
+	case AccountAttributionInputClickSourceYandex:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AccountCheckoutOperation.
 const (
 	AccountCheckoutOperationDowngrade AccountCheckoutOperation = "downgrade"
@@ -979,6 +1009,30 @@ func (e AdminStatus) Valid() bool {
 	case AdminStatusDisabled:
 		return true
 	case AdminStatusSuspended:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AnalyticsVerificationName.
+const (
+	FacebookDomainVerification AnalyticsVerificationName = "facebook-domain-verification"
+	GoogleSiteVerification     AnalyticsVerificationName = "google-site-verification"
+	Msvalidate01               AnalyticsVerificationName = "msvalidate.01"
+	YandexVerification         AnalyticsVerificationName = "yandex-verification"
+)
+
+// Valid indicates whether the value is a known member of the AnalyticsVerificationName enum.
+func (e AnalyticsVerificationName) Valid() bool {
+	switch e {
+	case FacebookDomainVerification:
+		return true
+	case GoogleSiteVerification:
+		return true
+	case Msvalidate01:
+		return true
+	case YandexVerification:
 		return true
 	default:
 		return false
@@ -3808,6 +3862,54 @@ func (e SearchPanelOffersParamsStatus) Valid() bool {
 	}
 }
 
+// Defines values for GetPanelConversionsParamsSource.
+const (
+	GetPanelConversionsParamsSourceGoogle    GetPanelConversionsParamsSource = "google"
+	GetPanelConversionsParamsSourceMeta      GetPanelConversionsParamsSource = "meta"
+	GetPanelConversionsParamsSourceMicrosoft GetPanelConversionsParamsSource = "microsoft"
+	GetPanelConversionsParamsSourceTiktok    GetPanelConversionsParamsSource = "tiktok"
+	GetPanelConversionsParamsSourceX         GetPanelConversionsParamsSource = "x"
+	GetPanelConversionsParamsSourceYandex    GetPanelConversionsParamsSource = "yandex"
+)
+
+// Valid indicates whether the value is a known member of the GetPanelConversionsParamsSource enum.
+func (e GetPanelConversionsParamsSource) Valid() bool {
+	switch e {
+	case GetPanelConversionsParamsSourceGoogle:
+		return true
+	case GetPanelConversionsParamsSourceMeta:
+		return true
+	case GetPanelConversionsParamsSourceMicrosoft:
+		return true
+	case GetPanelConversionsParamsSourceTiktok:
+		return true
+	case GetPanelConversionsParamsSourceX:
+		return true
+	case GetPanelConversionsParamsSourceYandex:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetPanelConversionsParamsFormat.
+const (
+	Csv  GetPanelConversionsParamsFormat = "csv"
+	Json GetPanelConversionsParamsFormat = "json"
+)
+
+// Valid indicates whether the value is a known member of the GetPanelConversionsParamsFormat enum.
+func (e GetPanelConversionsParamsFormat) Valid() bool {
+	switch e {
+	case Csv:
+		return true
+	case Json:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SearchPanelAnomaliesParamsStatus.
 const (
 	SearchPanelAnomaliesParamsStatusAcknowledged SearchPanelAnomaliesParamsStatus = "acknowledged"
@@ -3969,6 +4071,22 @@ type AccountAddonOffer struct {
 
 // AccountAddonOfferKind defines model for AccountAddonOffer.Kind.
 type AccountAddonOfferKind string
+
+// AccountAttributionInput At least one field must be present.
+type AccountAttributionInput struct {
+	Campaign *string `json:"campaign,omitempty"`
+
+	// ClickId The advertising platform's own identifier for the click it sold.
+	ClickId     *string                             `json:"clickId,omitempty"`
+	ClickSource *AccountAttributionInputClickSource `json:"clickSource,omitempty"`
+	Content     *string                             `json:"content,omitempty"`
+	Medium      *string                             `json:"medium,omitempty"`
+	Source      *string                             `json:"source,omitempty"`
+	Term        *string                             `json:"term,omitempty"`
+}
+
+// AccountAttributionInputClickSource defines model for AccountAttributionInput.ClickSource.
+type AccountAttributionInputClickSource string
 
 // AccountCheckout defines model for AccountCheckout.
 type AccountCheckout struct {
@@ -4977,6 +5095,25 @@ type AdminStatusInput struct {
 	Status AdminStatus `json:"status"`
 }
 
+// AnalyticsSettingsInput defines model for AnalyticsSettingsInput.
+type AnalyticsSettingsInput struct {
+	// Counters Identifier per provider. `yandex_metrica` is a counter number; `google_analytics` is a measurement ID such as G-XXXXXXX.
+	Counters *map[string]string `json:"counters,omitempty"`
+
+	// Enabled False on a fresh installation. Nothing renders or is captured until this is on.
+	Enabled       *bool                    `json:"enabled,omitempty"`
+	Verifications *[]AnalyticsVerification `json:"verifications,omitempty"`
+}
+
+// AnalyticsVerification defines model for AnalyticsVerification.
+type AnalyticsVerification struct {
+	Content string                    `json:"content"`
+	Name    AnalyticsVerificationName `json:"name"`
+}
+
+// AnalyticsVerificationName defines model for AnalyticsVerification.Name.
+type AnalyticsVerificationName string
+
 // AuditCategory defines model for AuditCategory.
 type AuditCategory string
 
@@ -5526,6 +5663,23 @@ type PanelAddonVersionSummary struct {
 // PanelAddonVersionSummaryProration defines model for PanelAddonVersionSummary.Proration.
 type PanelAddonVersionSummaryProration string
 
+// PanelAnalytics defines model for PanelAnalytics.
+type PanelAnalytics struct {
+	// Counters Identifier per provider. `yandex_metrica` is a counter number; `google_analytics` is a measurement ID such as G-XXXXXXX.
+	Counters *map[string]string `json:"counters,omitempty"`
+
+	// Enabled False on a fresh installation. Nothing renders or is captured until this is on.
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// Providers The counters this build can render, so the screen offers what exists.
+	Providers         []string                 `json:"providers"`
+	UpdatedAt         *time.Time               `json:"updatedAt,omitempty"`
+	UpdatedBy         *openapi_types.UUID      `json:"updatedBy,omitempty"`
+	VerificationNames []string                 `json:"verificationNames"`
+	Verifications     *[]AnalyticsVerification `json:"verifications,omitempty"`
+	Version           int32                    `json:"version"`
+}
+
 // PanelAnomalyMetric defines model for PanelAnomalyMetric.
 type PanelAnomalyMetric string
 
@@ -5775,6 +5929,20 @@ type PanelBulkTarget struct {
 // PanelBulkTargetType defines model for PanelBulkTarget.Type.
 type PanelBulkTargetType string
 
+// PanelChannelResult defines model for PanelChannelResult.
+type PanelChannelResult struct {
+	// AttributedClicks How many of those orders carry a click identifier, which is how many can be uploaded.
+	AttributedClicks int64 `json:"attributedClicks"`
+
+	// Channel The UTM source, the click platform, or `direct`.
+	Channel       string  `json:"channel"`
+	Currency      string  `json:"currency"`
+	Medium        *string `json:"medium,omitempty"`
+	Orders        int64   `json:"orders"`
+	PaidMinor     int64   `json:"paidMinor"`
+	RefundedMinor int64   `json:"refundedMinor"`
+}
+
 // PanelCodeBatch defines model for PanelCodeBatch.
 type PanelCodeBatch struct {
 	BillingPeriod *string             `json:"billingPeriod,omitempty"`
@@ -5875,6 +6043,24 @@ type PanelConsent struct {
 // PanelConsentList defines model for PanelConsentList.
 type PanelConsentList struct {
 	Items *[]PanelConsent `json:"items"`
+}
+
+// PanelConversion defines model for PanelConversion.
+type PanelConversion struct {
+	Campaign      *string            `json:"campaign,omitempty"`
+	ClickId       *string            `json:"clickId,omitempty"`
+	ClickSource   *string            `json:"clickSource,omitempty"`
+	Content       *string            `json:"content,omitempty"`
+	Currency      string             `json:"currency"`
+	Medium        *string            `json:"medium,omitempty"`
+	Operation     string             `json:"operation"`
+	OrderId       openapi_types.UUID `json:"orderId"`
+	PaidAt        time.Time          `json:"paidAt"`
+	PaidMinor     int64              `json:"paidMinor"`
+	RefundedMinor int64              `json:"refundedMinor"`
+	Source        *string            `json:"source,omitempty"`
+	State         string             `json:"state"`
+	Term          *string            `json:"term,omitempty"`
 }
 
 // PanelCustomerPage defines model for PanelCustomerPage.
@@ -7359,6 +7545,16 @@ type PromotionInput struct {
 // PromotionInputKind defines model for PromotionInput.Kind.
 type PromotionInputKind string
 
+// PublicAnalytics defines model for PublicAnalytics.
+type PublicAnalytics struct {
+	// Counters Present only when measurement is enabled. Rendered only after consent.
+	Counters *map[string]string `json:"counters,omitempty"`
+
+	// Measurable False when nothing would run even with consent, which suppresses the consent request.
+	Measurable    bool                     `json:"measurable"`
+	Verifications *[]AnalyticsVerification `json:"verifications,omitempty"`
+}
+
 // PublishedPage defines model for PublishedPage.
 type PublishedPage struct {
 	// Document A parsed document. It is deliberately not HTML and deliberately not the operator's source text: a renderer that emits text nodes from this cannot produce markup, which is why there is no sanitiser anywhere in the path.
@@ -7804,6 +8000,12 @@ type GetAccountOrderParams struct {
 
 // GetAccountOrderParamsLocale defines parameters for GetAccountOrder.
 type GetAccountOrderParamsLocale string
+
+// RecordAccountOrderAttributionParams defines parameters for RecordAccountOrderAttribution.
+type RecordAccountOrderAttributionParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
 
 // CancelAccountOrderParams defines parameters for CancelAccountOrder.
 type CancelAccountOrderParams struct {
@@ -8270,6 +8472,23 @@ type SetPanelAdminRolesParams struct {
 
 // SetPanelAdminStatusParams defines parameters for SetPanelAdminStatus.
 type SetPanelAdminStatusParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// SavePanelAnalyticsJSONBody defines parameters for SavePanelAnalytics.
+type SavePanelAnalyticsJSONBody struct {
+	// Counters Identifier per provider. `yandex_metrica` is a counter number; `google_analytics` is a measurement ID such as G-XXXXXXX.
+	Counters *map[string]string `json:"counters,omitempty"`
+
+	// Enabled False on a fresh installation. Nothing renders or is captured until this is on.
+	Enabled       *bool                    `json:"enabled,omitempty"`
+	Verifications *[]AnalyticsVerification `json:"verifications,omitempty"`
+	Version       int32                    `json:"version"`
+}
+
+// SavePanelAnalyticsParams defines parameters for SavePanelAnalytics.
+type SavePanelAnalyticsParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
@@ -8889,6 +9108,26 @@ type ListPanelIncidentsParams struct {
 	PageSize *PageSize `form:"pageSize,omitempty" json:"pageSize,omitempty"`
 }
 
+// GetPanelChannelReportParams defines parameters for GetPanelChannelReport.
+type GetPanelChannelReportParams struct {
+	Since *time.Time `form:"since,omitempty" json:"since,omitempty"`
+	Until *time.Time `form:"until,omitempty" json:"until,omitempty"`
+}
+
+// GetPanelConversionsParams defines parameters for GetPanelConversions.
+type GetPanelConversionsParams struct {
+	Since  *time.Time                       `form:"since,omitempty" json:"since,omitempty"`
+	Until  *time.Time                       `form:"until,omitempty" json:"until,omitempty"`
+	Source *GetPanelConversionsParamsSource `form:"source,omitempty" json:"source,omitempty"`
+	Format *GetPanelConversionsParamsFormat `form:"format,omitempty" json:"format,omitempty"`
+}
+
+// GetPanelConversionsParamsSource defines parameters for GetPanelConversions.
+type GetPanelConversionsParamsSource string
+
+// GetPanelConversionsParamsFormat defines parameters for GetPanelConversions.
+type GetPanelConversionsParamsFormat string
+
 // GetPanelPaymentHealthParams defines parameters for GetPanelPaymentHealth.
 type GetPanelPaymentHealthParams struct {
 	// Since Start of the period, inclusive. Defaults to thirty days before `until`.
@@ -9201,6 +9440,9 @@ type AddAccountContactJSONRequestBody AddAccountContactJSONBody
 // UpdateAccountProfileJSONRequestBody defines body for UpdateAccountProfile for application/json ContentType.
 type UpdateAccountProfileJSONRequestBody = AccountProfileInput
 
+// RecordAccountOrderAttributionJSONRequestBody defines body for RecordAccountOrderAttribution for application/json ContentType.
+type RecordAccountOrderAttributionJSONRequestBody = AccountAttributionInput
+
 // StartAccountOrderPaymentJSONRequestBody defines body for StartAccountOrderPayment for application/json ContentType.
 type StartAccountOrderPaymentJSONRequestBody StartAccountOrderPaymentJSONBody
 
@@ -9290,6 +9532,9 @@ type SetPanelAdminRolesJSONRequestBody = RolesInput
 
 // SetPanelAdminStatusJSONRequestBody defines body for SetPanelAdminStatus for application/json ContentType.
 type SetPanelAdminStatusJSONRequestBody = AdminStatusInput
+
+// SavePanelAnalyticsJSONRequestBody defines body for SavePanelAnalytics for application/json ContentType.
+type SavePanelAnalyticsJSONRequestBody SavePanelAnalyticsJSONBody
 
 // PanelVerifyChallengeJSONRequestBody defines body for PanelVerifyChallenge for application/json ContentType.
 type PanelVerifyChallengeJSONRequestBody = ChallengeInput
@@ -9546,6 +9791,9 @@ type ServerInterface interface {
 	// (GET /v1/account/orders/{orderID})
 	GetAccountOrder(w http.ResponseWriter, r *http.Request, orderID OrderID, params GetAccountOrderParams)
 
+	// (POST /v1/account/orders/{orderID}/attribution)
+	RecordAccountOrderAttribution(w http.ResponseWriter, r *http.Request, orderID openapi_types.UUID, params RecordAccountOrderAttributionParams)
+
 	// (POST /v1/account/orders/{orderID}/cancel)
 	CancelAccountOrder(w http.ResponseWriter, r *http.Request, orderID OrderID, params CancelAccountOrderParams)
 
@@ -9771,6 +10019,9 @@ type ServerInterface interface {
 	// (GET /v1/admin/webhooks)
 	ListWebhookEvents(w http.ResponseWriter, r *http.Request, params ListWebhookEventsParams)
 
+	// (GET /v1/analytics)
+	GetPublicAnalytics(w http.ResponseWriter, r *http.Request)
+
 	// (GET /v1/branding)
 	GetBranding(w http.ResponseWriter, r *http.Request)
 
@@ -9800,6 +10051,12 @@ type ServerInterface interface {
 
 	// (POST /v1/panel/admins/{adminID}/status)
 	SetPanelAdminStatus(w http.ResponseWriter, r *http.Request, adminID AdminID, params SetPanelAdminStatusParams)
+
+	// (GET /v1/panel/analytics)
+	GetPanelAnalytics(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /v1/panel/analytics)
+	SavePanelAnalytics(w http.ResponseWriter, r *http.Request, params SavePanelAnalyticsParams)
 
 	// (GET /v1/panel/audit)
 	SearchPanelAudit(w http.ResponseWriter, r *http.Request, params SearchPanelAuditParams)
@@ -10131,6 +10388,12 @@ type ServerInterface interface {
 	// (GET /v1/panel/rbac/catalog)
 	GetPanelRbacCatalog(w http.ResponseWriter, r *http.Request)
 
+	// (GET /v1/panel/reports/channels)
+	GetPanelChannelReport(w http.ResponseWriter, r *http.Request, params GetPanelChannelReportParams)
+
+	// (GET /v1/panel/reports/conversions)
+	GetPanelConversions(w http.ResponseWriter, r *http.Request, params GetPanelConversionsParams)
+
 	// (GET /v1/panel/reports/payments)
 	GetPanelPaymentHealth(w http.ResponseWriter, r *http.Request, params GetPanelPaymentHealthParams)
 
@@ -10435,6 +10698,11 @@ func (_ Unimplemented) ListAccountOrders(w http.ResponseWriter, r *http.Request,
 
 // (GET /v1/account/orders/{orderID})
 func (_ Unimplemented) GetAccountOrder(w http.ResponseWriter, r *http.Request, orderID OrderID, params GetAccountOrderParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/orders/{orderID}/attribution)
+func (_ Unimplemented) RecordAccountOrderAttribution(w http.ResponseWriter, r *http.Request, orderID openapi_types.UUID, params RecordAccountOrderAttributionParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -10813,6 +11081,11 @@ func (_ Unimplemented) ListWebhookEvents(w http.ResponseWriter, r *http.Request,
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /v1/analytics)
+func (_ Unimplemented) GetPublicAnalytics(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /v1/branding)
 func (_ Unimplemented) GetBranding(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -10860,6 +11133,16 @@ func (_ Unimplemented) SetPanelAdminRoles(w http.ResponseWriter, r *http.Request
 
 // (POST /v1/panel/admins/{adminID}/status)
 func (_ Unimplemented) SetPanelAdminStatus(w http.ResponseWriter, r *http.Request, adminID AdminID, params SetPanelAdminStatusParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/analytics)
+func (_ Unimplemented) GetPanelAnalytics(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /v1/panel/analytics)
+func (_ Unimplemented) SavePanelAnalytics(w http.ResponseWriter, r *http.Request, params SavePanelAnalyticsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -11410,6 +11693,16 @@ func (_ Unimplemented) ListPanelIncidents(w http.ResponseWriter, r *http.Request
 
 // (GET /v1/panel/rbac/catalog)
 func (_ Unimplemented) GetPanelRbacCatalog(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/reports/channels)
+func (_ Unimplemented) GetPanelChannelReport(w http.ResponseWriter, r *http.Request, params GetPanelChannelReportParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/reports/conversions)
+func (_ Unimplemented) GetPanelConversions(w http.ResponseWriter, r *http.Request, params GetPanelConversionsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -12815,6 +13108,60 @@ func (siw *ServerInterfaceWrapper) GetAccountOrder(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAccountOrder(w, r, orderID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RecordAccountOrderAttribution operation middleware
+func (siw *ServerInterfaceWrapper) RecordAccountOrderAttribution(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "orderID" -------------
+	var orderID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "orderID", chi.URLParam(r, "orderID"), &orderID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orderID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RecordAccountOrderAttributionParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RecordAccountOrderAttribution(w, r, orderID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -15929,6 +16276,20 @@ func (siw *ServerInterfaceWrapper) ListWebhookEvents(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// GetPublicAnalytics operation middleware
+func (siw *ServerInterfaceWrapper) GetPublicAnalytics(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPublicAnalytics(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetBranding operation middleware
 func (siw *ServerInterfaceWrapper) GetBranding(w http.ResponseWriter, r *http.Request) {
 
@@ -16322,6 +16683,65 @@ func (siw *ServerInterfaceWrapper) SetPanelAdminStatus(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SetPanelAdminStatus(w, r, adminID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPanelAnalytics operation middleware
+func (siw *ServerInterfaceWrapper) GetPanelAnalytics(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPanelAnalytics(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SavePanelAnalytics operation middleware
+func (siw *ServerInterfaceWrapper) SavePanelAnalytics(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SavePanelAnalyticsParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SavePanelAnalytics(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -21361,6 +21781,124 @@ func (siw *ServerInterfaceWrapper) GetPanelRbacCatalog(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// GetPanelChannelReport operation middleware
+func (siw *ServerInterfaceWrapper) GetPanelChannelReport(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPanelChannelReportParams
+
+	// ------------- Optional query parameter "since" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "since", r.URL.Query(), &params.Since, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "since"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "since", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "until" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "until", r.URL.Query(), &params.Until, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "until"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "until", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPanelChannelReport(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPanelConversions operation middleware
+func (siw *ServerInterfaceWrapper) GetPanelConversions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPanelConversionsParams
+
+	// ------------- Optional query parameter "since" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "since", r.URL.Query(), &params.Since, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "since"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "since", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "until" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "until", r.URL.Query(), &params.Until, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "until"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "until", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "source" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "source", r.URL.Query(), &params.Source, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "source"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "source", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "format", r.URL.Query(), &params.Format, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPanelConversions(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetPanelPaymentHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetPanelPaymentHealth(w http.ResponseWriter, r *http.Request) {
 
@@ -23660,6 +24198,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/v1/pages/{slug}", wrapper.GetPublishedPage)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/analytics", wrapper.GetPublicAnalytics)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/branding", wrapper.GetBranding)
 	})
 	r.Group(func(r chi.Router) {
@@ -24077,6 +24618,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/v1/panel/notices/{code}/tests", wrapper.ListPanelNoticeTests)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/analytics", wrapper.GetPanelAnalytics)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/panel/analytics", wrapper.SavePanelAnalytics)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/reports/channels", wrapper.GetPanelChannelReport)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/reports/conversions", wrapper.GetPanelConversions)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/reports/sales", wrapper.GetPanelSalesReport)
 	})
 	r.Group(func(r chi.Router) {
@@ -24435,6 +24988,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/account/news/{postID}/read", wrapper.MarkAccountNewsRead)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/orders/{orderID}/attribution", wrapper.RecordAccountOrderAttribution)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/notifications", wrapper.ListAccountNotifications)
@@ -25626,6 +26182,68 @@ func (response GetAccountOrder404ApplicationProblemPlusJSONResponse) VisitGetAcc
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RecordAccountOrderAttributionRequestObject struct {
+	OrderID openapi_types.UUID `json:"orderID"`
+	Params  RecordAccountOrderAttributionParams
+	Body    *RecordAccountOrderAttributionJSONRequestBody
+}
+
+type RecordAccountOrderAttributionResponseObject interface {
+	VisitRecordAccountOrderAttributionResponse(w http.ResponseWriter) error
+}
+
+type RecordAccountOrderAttribution204Response struct {
+}
+
+func (response RecordAccountOrderAttribution204Response) VisitRecordAccountOrderAttributionResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type RecordAccountOrderAttribution401ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RecordAccountOrderAttribution401ApplicationProblemPlusJSONResponse) VisitRecordAccountOrderAttributionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RecordAccountOrderAttribution404ApplicationProblemPlusJSONResponse Problem
+
+func (response RecordAccountOrderAttribution404ApplicationProblemPlusJSONResponse) VisitRecordAccountOrderAttributionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RecordAccountOrderAttribution422ApplicationProblemPlusJSONResponse Problem
+
+func (response RecordAccountOrderAttribution422ApplicationProblemPlusJSONResponse) VisitRecordAccountOrderAttributionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -28831,6 +29449,27 @@ func (response ListWebhookEvents500ApplicationProblemPlusJSONResponse) VisitList
 	return err
 }
 
+type GetPublicAnalyticsRequestObject struct {
+}
+
+type GetPublicAnalyticsResponseObject interface {
+	VisitGetPublicAnalyticsResponse(w http.ResponseWriter) error
+}
+
+type GetPublicAnalytics200JSONResponse PublicAnalytics
+
+func (response GetPublicAnalytics200JSONResponse) VisitGetPublicAnalyticsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetBrandingRequestObject struct {
 }
 
@@ -29270,6 +29909,110 @@ func (response SetPanelAdminStatus409ApplicationProblemPlusJSONResponse) VisitSe
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelAnalyticsRequestObject struct {
+}
+
+type GetPanelAnalyticsResponseObject interface {
+	VisitGetPanelAnalyticsResponse(w http.ResponseWriter) error
+}
+
+type GetPanelAnalytics200JSONResponse PanelAnalytics
+
+func (response GetPanelAnalytics200JSONResponse) VisitGetPanelAnalyticsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelAnalytics403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetPanelAnalytics403ApplicationProblemPlusJSONResponse) VisitGetPanelAnalyticsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelAnalyticsRequestObject struct {
+	Params SavePanelAnalyticsParams
+	Body   *SavePanelAnalyticsJSONRequestBody
+}
+
+type SavePanelAnalyticsResponseObject interface {
+	VisitSavePanelAnalyticsResponse(w http.ResponseWriter) error
+}
+
+type SavePanelAnalytics200JSONResponse PanelAnalytics
+
+func (response SavePanelAnalytics200JSONResponse) VisitSavePanelAnalyticsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelAnalytics403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SavePanelAnalytics403ApplicationProblemPlusJSONResponse) VisitSavePanelAnalyticsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelAnalytics409ApplicationProblemPlusJSONResponse Problem
+
+func (response SavePanelAnalytics409ApplicationProblemPlusJSONResponse) VisitSavePanelAnalyticsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelAnalytics422ApplicationProblemPlusJSONResponse Problem
+
+func (response SavePanelAnalytics422ApplicationProblemPlusJSONResponse) VisitSavePanelAnalyticsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -34100,6 +34843,106 @@ func (response GetPanelRbacCatalog200JSONResponse) VisitGetPanelRbacCatalogRespo
 	return err
 }
 
+type GetPanelChannelReportRequestObject struct {
+	Params GetPanelChannelReportParams
+}
+
+type GetPanelChannelReportResponseObject interface {
+	VisitGetPanelChannelReportResponse(w http.ResponseWriter) error
+}
+
+type GetPanelChannelReport200JSONResponse struct {
+	Channels []PanelChannelResult `json:"channels"`
+}
+
+func (response GetPanelChannelReport200JSONResponse) VisitGetPanelChannelReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelChannelReport403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetPanelChannelReport403ApplicationProblemPlusJSONResponse) VisitGetPanelChannelReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelConversionsRequestObject struct {
+	Params GetPanelConversionsParams
+}
+
+type GetPanelConversionsResponseObject interface {
+	VisitGetPanelConversionsResponse(w http.ResponseWriter) error
+}
+
+type GetPanelConversions200JSONResponse struct {
+	Conversions []PanelConversion `json:"conversions"`
+}
+
+func (response GetPanelConversions200JSONResponse) VisitGetPanelConversionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelConversions200TextcsvResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response GetPanelConversions200TextcsvResponse) VisitGetPanelConversionsResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "text/csv")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type GetPanelConversions403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetPanelConversions403ApplicationProblemPlusJSONResponse) VisitGetPanelConversionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetPanelPaymentHealthRequestObject struct {
 	Params GetPanelPaymentHealthParams
 }
@@ -36518,6 +37361,9 @@ type StrictServerInterface interface {
 	// (GET /v1/account/orders/{orderID})
 	GetAccountOrder(ctx context.Context, request GetAccountOrderRequestObject) (GetAccountOrderResponseObject, error)
 
+	// (POST /v1/account/orders/{orderID}/attribution)
+	RecordAccountOrderAttribution(ctx context.Context, request RecordAccountOrderAttributionRequestObject) (RecordAccountOrderAttributionResponseObject, error)
+
 	// (POST /v1/account/orders/{orderID}/cancel)
 	CancelAccountOrder(ctx context.Context, request CancelAccountOrderRequestObject) (CancelAccountOrderResponseObject, error)
 
@@ -36743,6 +37589,9 @@ type StrictServerInterface interface {
 	// (GET /v1/admin/webhooks)
 	ListWebhookEvents(ctx context.Context, request ListWebhookEventsRequestObject) (ListWebhookEventsResponseObject, error)
 
+	// (GET /v1/analytics)
+	GetPublicAnalytics(ctx context.Context, request GetPublicAnalyticsRequestObject) (GetPublicAnalyticsResponseObject, error)
+
 	// (GET /v1/branding)
 	GetBranding(ctx context.Context, request GetBrandingRequestObject) (GetBrandingResponseObject, error)
 
@@ -36772,6 +37621,12 @@ type StrictServerInterface interface {
 
 	// (POST /v1/panel/admins/{adminID}/status)
 	SetPanelAdminStatus(ctx context.Context, request SetPanelAdminStatusRequestObject) (SetPanelAdminStatusResponseObject, error)
+
+	// (GET /v1/panel/analytics)
+	GetPanelAnalytics(ctx context.Context, request GetPanelAnalyticsRequestObject) (GetPanelAnalyticsResponseObject, error)
+
+	// (PUT /v1/panel/analytics)
+	SavePanelAnalytics(ctx context.Context, request SavePanelAnalyticsRequestObject) (SavePanelAnalyticsResponseObject, error)
 
 	// (GET /v1/panel/audit)
 	SearchPanelAudit(ctx context.Context, request SearchPanelAuditRequestObject) (SearchPanelAuditResponseObject, error)
@@ -37102,6 +37957,12 @@ type StrictServerInterface interface {
 
 	// (GET /v1/panel/rbac/catalog)
 	GetPanelRbacCatalog(ctx context.Context, request GetPanelRbacCatalogRequestObject) (GetPanelRbacCatalogResponseObject, error)
+
+	// (GET /v1/panel/reports/channels)
+	GetPanelChannelReport(ctx context.Context, request GetPanelChannelReportRequestObject) (GetPanelChannelReportResponseObject, error)
+
+	// (GET /v1/panel/reports/conversions)
+	GetPanelConversions(ctx context.Context, request GetPanelConversionsRequestObject) (GetPanelConversionsResponseObject, error)
 
 	// (GET /v1/panel/reports/payments)
 	GetPanelPaymentHealth(ctx context.Context, request GetPanelPaymentHealthRequestObject) (GetPanelPaymentHealthResponseObject, error)
@@ -38131,6 +38992,40 @@ func (sh *strictHandler) GetAccountOrder(w http.ResponseWriter, r *http.Request,
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetAccountOrderResponseObject); ok {
 		if err := validResponse.VisitGetAccountOrderResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RecordAccountOrderAttribution operation middleware
+func (sh *strictHandler) RecordAccountOrderAttribution(w http.ResponseWriter, r *http.Request, orderID openapi_types.UUID, params RecordAccountOrderAttributionParams) {
+	var request RecordAccountOrderAttributionRequestObject
+
+	request.OrderID = orderID
+	request.Params = params
+
+	var body RecordAccountOrderAttributionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RecordAccountOrderAttribution(ctx, request.(RecordAccountOrderAttributionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RecordAccountOrderAttribution")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RecordAccountOrderAttributionResponseObject); ok {
+		if err := validResponse.VisitRecordAccountOrderAttributionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -40287,6 +41182,30 @@ func (sh *strictHandler) ListWebhookEvents(w http.ResponseWriter, r *http.Reques
 	}
 }
 
+// GetPublicAnalytics operation middleware
+func (sh *strictHandler) GetPublicAnalytics(w http.ResponseWriter, r *http.Request) {
+	var request GetPublicAnalyticsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPublicAnalytics(ctx, request.(GetPublicAnalyticsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPublicAnalytics")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPublicAnalyticsResponseObject); ok {
+		if err := validResponse.VisitGetPublicAnalyticsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetBranding operation middleware
 func (sh *strictHandler) GetBranding(w http.ResponseWriter, r *http.Request) {
 	var request GetBrandingRequestObject
@@ -40563,6 +41482,63 @@ func (sh *strictHandler) SetPanelAdminStatus(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(SetPanelAdminStatusResponseObject); ok {
 		if err := validResponse.VisitSetPanelAdminStatusResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPanelAnalytics operation middleware
+func (sh *strictHandler) GetPanelAnalytics(w http.ResponseWriter, r *http.Request) {
+	var request GetPanelAnalyticsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPanelAnalytics(ctx, request.(GetPanelAnalyticsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPanelAnalytics")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPanelAnalyticsResponseObject); ok {
+		if err := validResponse.VisitGetPanelAnalyticsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SavePanelAnalytics operation middleware
+func (sh *strictHandler) SavePanelAnalytics(w http.ResponseWriter, r *http.Request, params SavePanelAnalyticsParams) {
+	var request SavePanelAnalyticsRequestObject
+
+	request.Params = params
+
+	var body SavePanelAnalyticsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SavePanelAnalytics(ctx, request.(SavePanelAnalyticsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SavePanelAnalytics")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SavePanelAnalyticsResponseObject); ok {
+		if err := validResponse.VisitSavePanelAnalyticsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -43692,6 +44668,58 @@ func (sh *strictHandler) GetPanelRbacCatalog(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetPanelRbacCatalogResponseObject); ok {
 		if err := validResponse.VisitGetPanelRbacCatalogResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPanelChannelReport operation middleware
+func (sh *strictHandler) GetPanelChannelReport(w http.ResponseWriter, r *http.Request, params GetPanelChannelReportParams) {
+	var request GetPanelChannelReportRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPanelChannelReport(ctx, request.(GetPanelChannelReportRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPanelChannelReport")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPanelChannelReportResponseObject); ok {
+		if err := validResponse.VisitGetPanelChannelReportResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPanelConversions operation middleware
+func (sh *strictHandler) GetPanelConversions(w http.ResponseWriter, r *http.Request, params GetPanelConversionsParams) {
+	var request GetPanelConversionsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPanelConversions(ctx, request.(GetPanelConversionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPanelConversions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPanelConversionsResponseObject); ok {
+		if err := validResponse.VisitGetPanelConversionsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

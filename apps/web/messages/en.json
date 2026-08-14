@@ -950,7 +950,23 @@
       },
       "tabs": {
         "sales": "Sales",
-        "payments": "Payment health"
+        "payments": "Payment health",
+        "channels": "Channels"
+      },
+      "channels": {
+        "failed": "The channel report could not be loaded.",
+        "empty": "No attributed orders in this period.",
+        "emptyAbout": "An order appears here once a visitor arrived through a tagged link and agreed to measurement.",
+        "about": "Keyed on when the money arrived, not when the order was created.",
+        "export": "Export for upload",
+        "column": {
+          "channel": "Channel",
+          "medium": "Medium",
+          "orders": "Orders",
+          "uploadable": "Uploadable",
+          "revenue": "Revenue",
+          "refunded": "Refunded"
+        }
       }
     },
     "paymentHealth": {
@@ -2310,6 +2326,10 @@
         "notices": {
           "title": "Message wording",
           "description": "The transactional notices the installation sends on its own — expiry, traffic, renewal, dunning — in both languages, with a preview and a test send."
+        },
+        "analytics": {
+          "title": "Measurement",
+          "description": "Your own advertising analytics: counters, site verification, and the click identifier that connects an advertisement to the order it produced. Off by default, and never reported to the Omniflow project."
         }
       }
     },
@@ -2421,6 +2441,27 @@
         "fulfillment_failed": "Sent when provisioning is taking long enough to deserve an explanation. The payment is not at risk.",
         "dunning_retry": "Sent when an automatic charge failed and will be retried.",
         "dunning_abandoned": "Sent when automatic renewal has stopped trying."
+      }
+    },
+    "analytics": {
+      "failed": "The measurement settings could not be loaded.",
+      "measurement": "Counters",
+      "measurementAbout": "Your own analytics of your own storefront. Nothing here is ever reported to the Omniflow project.",
+      "enabled": "Measure visits",
+      "consentNote": "Counters load only for visitors who agree to them. A visitor who declines is not measured and their advertising parameters are forgotten.",
+      "verification": "Site verification",
+      "verificationAbout": "Tags that prove to a webmaster tool that you control this domain. They set no cookie and observe nobody, so they are present for every visitor whether or not measurement is on.",
+      "noVerifications": "No verification tags.",
+      "remove": "Remove",
+      "save": "Save",
+      "saved": "Measurement settings saved.",
+      "provider": {
+        "yandex_metrica": "Yandex Metrica counter",
+        "google_analytics": "Google Analytics measurement ID"
+      },
+      "placeholder": {
+        "yandex_metrica": "12345678",
+        "google_analytics": "G-XXXXXXX"
       }
     }
   },
@@ -3686,5 +3727,11 @@
     "title": "Information",
     "empty": "Nothing has been published yet.",
     "updated": "Updated {date}"
+  },
+  "analytics": {
+    "title": "Measurement",
+    "request": "We would like to measure how people find this site, so we know which advertising is worth paying for. Nothing about your subscription is involved either way.",
+    "accept": "Allow",
+    "decline": "No thanks"
   }
 }

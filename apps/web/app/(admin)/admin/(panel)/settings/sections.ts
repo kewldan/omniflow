@@ -38,7 +38,7 @@ export type SectionField = {
 export type SettingsGroupKey = "commerce" | "integrations" | "operations" | "brand";
 
 export type SettingsGroup = {
-  key: SettingsGroupKey | "signIn" | "ai" | "connect" | "notices";
+  key: SettingsGroupKey | "signIn" | "ai" | "connect" | "notices" | "analytics";
   href: string;
   /** The permission the route itself requires. */
   permission: string;
@@ -55,6 +55,10 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
   // decision to make: these reach every customer, and how the installation
   // speaks is a configuration of it rather than a campaign.
   { key: "notices", href: "/admin/settings/notices", permission: "settings.read" },
+  // The operator's own advertising measurement, off by default and never
+  // project telemetry. It is a settings area rather than a marketing one
+  // because there is no audience decision in it.
+  { key: "analytics", href: "/admin/settings/analytics", permission: "settings.read" },
   { key: "signIn", href: "/admin/settings/sign-in", permission: "settings.read" },
   { key: "ai", href: "/admin/settings/ai", permission: "settings.read" },
 ];

@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/omniflow/omniflow/internal/accountcheckout"
+	"github.com/omniflow/omniflow/internal/adtracking"
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/commercepg"
 )
@@ -35,6 +36,11 @@ func (handlers *AccountHandlers) mountCheckout(router chi.Router) {
 	router.Post("/checkout/addons/{addonVersionID}", handlers.toggleCheckoutAddon)
 	router.Post("/checkout/confirm", handlers.confirmCheckout)
 
+	// Where an order came from, for the operator's own advertising measurement.
+	// The browser sends it once, against one order, and only when the visitor
+	// agreed to measurement — see `internal/adtracking`.
+	router.Post("/orders/{orderID}/attribution", handlers.recordAttribution)
+
 	router.Get("/orders", handlers.listOrders)
 	router.Get("/orders/{orderID}", handlers.readOrder)
 	router.Post("/orders/{orderID}/payment", handlers.startOrderPayment)
@@ -43,6 +49,47 @@ func (handlers *AccountHandlers) mountCheckout(router chi.Router) {
 
 	router.Get("/wallet", handlers.readWallet)
 	router.Post("/wallet/top-up", handlers.startTopUp)
+}
+
+// recordAttribution attaches an advertising origin to one of the customer's own
+// orders.
+//
+// It is a separate call rather than a field on the checkout because a checkout
+// is created from the bot as well as from the browser, and the bot has no URL
+// to have carried anything. Widening the purchase path with a field that is
+// always empty on one of its two callers would put an advertising concern into
+// the middle of buying something.
+//
+// An order that is not the caller's answers 404, the same as one that does not
+// exist. The two are deliberately indistinguishable: a different answer would
+// confirm that somebody else's order exists.
+func (handlers *AccountHandlers) recordAttribution(
+	writer http.ResponseWriter, request *http.Request,
+) {
+	var body adtracking.Attribution
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	principal, _ := CustomerFrom(request.Context())
+	err := handlers.checkout.RecordAttribution(
+		request.Context(), principal.Customer.ID, chi.URLParam(request, "orderID"), body)
+	switch {
+	case errors.Is(err, accountcheckout.ErrNotYourOrder):
+		writeProblem(writer, request, http.StatusNotFound, "not_found", "Order not found")
+	case errors.Is(err, adtracking.ErrNoAttribution),
+		errors.Is(err, adtracking.ErrMalformedClickID),
+		errors.Is(err, adtracking.ErrUnknownClickSource):
+		// Refused rather than silently dropped. The storefront only ever sends
+		// this when it captured something, so a refusal means the two disagree
+		// about what an advertising parameter looks like — which is worth
+		// finding out from a response rather than from an empty report.
+		writeProblem(writer, request, http.StatusUnprocessableEntity,
+			"validation_failed", "No usable advertising parameters")
+	case err != nil:
+		handlers.writeCheckoutError(writer, request, err)
+	default:
+		writer.WriteHeader(http.StatusNoContent)
+	}
 }
 
 // ---------------------------------------------------------------------------

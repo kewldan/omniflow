@@ -86,6 +86,24 @@ paths:
       responses:
         "200": {description: The page, content: {application/json: {schema: {$ref: "#/components/schemas/PublishedPage"}}}}
         "404": {$ref: "#/components/responses/Problem"}
+  /v1/analytics:
+    get:
+      operationId: getPublicAnalytics
+      tags: [public]
+      description: >-
+        What an anonymous visitor's browser renders. Public, because the
+        storefront is read before anybody signs in and the answer is the
+        operator's configuration rather than anything about a person.
+
+        `measurable` is false when nothing would run even with consent, which is
+        what suppresses the consent request entirely — asking somebody to agree
+        to nothing is worse than not asking. Counter identifiers appear only
+        when measurement is enabled, and the browser renders them only after
+        consent: this endpoint publishes what would run rather than deciding.
+
+        Verification tags are present either way. They observe nobody.
+      responses:
+        "200": {description: Analytics, content: {application/json: {schema: {$ref: "#/components/schemas/PublicAnalytics"}}}}
   /v1/branding:
     get:
       operationId: getBranding
@@ -1929,6 +1947,121 @@ paths:
                 properties:
                   items: {type: array, items: {$ref: "#/components/schemas/PanelNoticeTest"}}
         "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/analytics:
+    get:
+      operationId: getPanelAnalytics
+      tags: [panel]
+      description: >-
+        Requires settings.read. The operator's own advertising measurement:
+        counter identifiers, webmaster verification tags, and the closed set of
+        each this build can render.
+
+        This is never project telemetry. Nothing here is reported to anybody,
+        and an installation that configures none of it renders nothing and
+        stores nothing.
+      responses:
+        "200": {description: Settings, content: {application/json: {schema: {$ref: "#/components/schemas/PanelAnalytics"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+    put:
+      operationId: savePanelAnalytics
+      tags: [panel]
+      description: >-
+        Requires settings.write and the current `version`.
+
+        A counter is a provider this repository knows and an identifier
+        validated against its shape — never a snippet. The flexibility given up
+        is exactly the ability to run arbitrary code in a customer's browser,
+        and a customer's browser holds subscription links. `enabled` is separate
+        from having identifiers so turning measurement off does not mean finding
+        the numbers again to turn it back on.
+
+        Verification tags are a name from an allowlist and an opaque token. They
+        set no cookie, load no script, and observe nobody, which is why they
+        render regardless of `enabled` and regardless of consent — a
+        verification that only appeared for consenting visitors would verify
+        nothing, because the fetcher is a webmaster tool rather than a person.
+      parameters:
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/AnalyticsSettingsInput"
+                - type: object
+                  required: [version]
+                  properties:
+                    version: {type: integer, format: int32}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelAnalytics"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/reports/channels:
+    get:
+      operationId: getPanelChannelReport
+      tags: [panel]
+      description: >-
+        Requires finance.read. What each channel brought in over the period,
+        which is the question an operator asks before exporting anything.
+
+        Keyed on settlement rather than on the order's creation: an
+        advertisement is credited when the money arrived.
+      parameters:
+        - {in: query, name: since, schema: {type: string, format: date-time}}
+        - {in: query, name: until, schema: {type: string, format: date-time}}
+      responses:
+        "200":
+          description: Channels
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [channels]
+                properties:
+                  channels: {type: array, items: {$ref: "#/components/schemas/PanelChannelResult"}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/reports/conversions:
+    get:
+      operationId: getPanelConversions
+      tags: [panel]
+      description: >-
+        Requires finance.read. The offline-conversion export: settled orders
+        that came from an advertisement, with the click identifier the platform
+        issued.
+
+        Payment happens on the backend, often a day after the click, so the
+        browser session that carried the identifier is long gone by the time
+        there is money to attribute. This is what makes the upload possible.
+
+        Nothing is uploaded by this software. `format=csv` returns a file the
+        operator downloads and hands to the platform themselves — sending a
+        customer's purchase to an advertising network because a settings toggle
+        was on is not something anybody should have to discover from behaviour.
+
+        Refunded orders are present with their refunded amount rather than
+        dropped. A platform that optimised bidding on a sale that was later
+        returned is being taught the wrong thing, and an operator can only
+        correct for that if the export says it happened.
+      parameters:
+        - {in: query, name: since, schema: {type: string, format: date-time}}
+        - {in: query, name: until, schema: {type: string, format: date-time}}
+        - {in: query, name: source, schema: {type: string, enum: [google, yandex, meta, microsoft, tiktok, x]}}
+        - {in: query, name: format, schema: {type: string, enum: [json, csv]}}
+      responses:
+        "200":
+          description: Conversions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [conversions]
+                properties:
+                  conversions: {type: array, items: {$ref: "#/components/schemas/PanelConversion"}}
+            text/csv:
+              schema: {type: string}
+        "403": {$ref: "#/components/responses/Problem"}
   /v1/panel/reports/sales:
     get:
       operationId: getPanelSalesReport
@@ -3643,6 +3776,40 @@ paths:
       responses:
         "204": {description: Marked read}
         "404": {$ref: "#/components/responses/Problem"}
+  /v1/account/orders/{orderID}/attribution:
+    post:
+      operationId: recordAccountOrderAttribution
+      tags: [account]
+      description: >-
+        Records where one of the caller's own orders came from, for the
+        operator's own advertising measurement.
+
+        A separate call rather than a field on the checkout: a checkout is
+        created from the bot as well as from the browser, and the bot has no URL
+        to have carried anything. The storefront sends this only when the
+        visitor agreed to measurement.
+
+        An order that is not the caller's answers 404, the same as one that does
+        not exist — a different answer would confirm that somebody else's order
+        exists.
+
+        Attribution hangs off the order rather than the customer. An order is a
+        conversion with an amount and a date; a click identifier held against a
+        person for the life of their account is a profile, which none of this
+        needs.
+      parameters:
+        - {in: path, name: orderID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/AccountAttributionInput"}
+      responses:
+        "204": {description: Recorded}
+        "401": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/account/notifications:
     get:
       operationId: listAccountNotifications
@@ -5439,6 +5606,95 @@ components:
         errorCode: {type: string}
         requestedAt: {type: string, format: date-time}
         resolvedAt: {type: string, format: date-time}
+    AnalyticsVerification:
+      type: object
+      required: [name, content]
+      properties:
+        name:
+          type: string
+          enum: [google-site-verification, yandex-verification, msvalidate.01, facebook-domain-verification]
+        content: {type: string, minLength: 8, maxLength: 128}
+    AnalyticsSettingsInput:
+      type: object
+      properties:
+        enabled: {type: boolean, description: "False on a fresh installation. Nothing renders or is captured until this is on."}
+        counters:
+          type: object
+          description: "Identifier per provider. `yandex_metrica` is a counter number; `google_analytics` is a measurement ID such as G-XXXXXXX."
+          additionalProperties: {type: string}
+        verifications:
+          type: array
+          maxItems: 8
+          items: {$ref: "#/components/schemas/AnalyticsVerification"}
+    PanelAnalytics:
+      allOf:
+        - $ref: "#/components/schemas/AnalyticsSettingsInput"
+        - type: object
+          required: [version, providers, verificationNames]
+          properties:
+            version: {type: integer, format: int32}
+            updatedAt: {type: string, format: date-time}
+            updatedBy: {type: string, format: uuid}
+            providers:
+              type: array
+              description: "The counters this build can render, so the screen offers what exists."
+              items: {type: string}
+            verificationNames: {type: array, items: {type: string}}
+    PublicAnalytics:
+      type: object
+      required: [measurable]
+      properties:
+        measurable:
+          type: boolean
+          description: "False when nothing would run even with consent, which suppresses the consent request."
+        counters:
+          type: object
+          description: "Present only when measurement is enabled. Rendered only after consent."
+          additionalProperties: {type: string}
+        verifications: {type: array, items: {$ref: "#/components/schemas/AnalyticsVerification"}}
+    AccountAttributionInput:
+      type: object
+      description: "At least one field must be present."
+      properties:
+        clickId: {type: string, description: "The advertising platform's own identifier for the click it sold."}
+        clickSource: {type: string, enum: [google, yandex, meta, microsoft, tiktok, x]}
+        source: {type: string, maxLength: 120}
+        medium: {type: string, maxLength: 120}
+        campaign: {type: string, maxLength: 120}
+        content: {type: string, maxLength: 120}
+        term: {type: string, maxLength: 120}
+    PanelConversion:
+      type: object
+      required: [orderId, operation, state, currency, paidMinor, refundedMinor, paidAt]
+      properties:
+        orderId: {type: string, format: uuid}
+        operation: {type: string}
+        state: {type: string}
+        currency: {type: string}
+        paidMinor: {type: integer, format: int64}
+        refundedMinor: {type: integer, format: int64}
+        paidAt: {type: string, format: date-time}
+        clickId: {type: string}
+        clickSource: {type: string}
+        source: {type: string}
+        medium: {type: string}
+        campaign: {type: string}
+        content: {type: string}
+        term: {type: string}
+    PanelChannelResult:
+      type: object
+      required: [channel, orders, attributedClicks, currency, paidMinor, refundedMinor]
+      properties:
+        channel: {type: string, description: "The UTM source, the click platform, or `direct`."}
+        medium: {type: string}
+        orders: {type: integer, format: int64}
+        attributedClicks:
+          type: integer
+          format: int64
+          description: "How many of those orders carry a click identifier, which is how many can be uploaded."
+        currency: {type: string}
+        paidMinor: {type: integer, format: int64}
+        refundedMinor: {type: integer, format: int64}
     PanelCommerceSettings:
       type: object
       required: [topUp, subscriptions, updatedAt]

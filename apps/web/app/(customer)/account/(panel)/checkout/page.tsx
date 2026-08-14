@@ -20,6 +20,7 @@ import type { CheckoutView, OrderSummary } from "@/components/account/commerce/t
 import { useOpenCheckout } from "@/components/account/commerce/use-checkout";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
 import { apiFetch } from "@/lib/api";
+import { attachAttribution } from "@/lib/attach-attribution";
 import { useBytes, useDuration, useMoney } from "@/lib/format";
 
 /** The payment methods this build has copy for; anything else keeps its code. */
@@ -130,6 +131,11 @@ function Checkout({
         method: "POST",
       });
       confirmation.settle();
+      // Where this purchase came from, if an advertisement brought them here
+      // and they agreed to measurement. Deliberately not awaited and never
+      // allowed to fail the purchase: a customer who has just paid must reach
+      // their order whatever the operator's analytics is doing.
+      void attachAttribution(order.id);
       // The chosen method travels to the order screen because a freshly created
       // order has no payment intent yet, and so no provider of its own to read.
       router.push(`/account/orders/${order.id}?provider=${encodeURIComponent(checkout.provider)}`);

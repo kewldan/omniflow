@@ -40,6 +40,12 @@ const DailyChart = dynamic(() => import("./daily-chart").then((module) => module
  * is asking about one period, and two sets of date fields would let the two
  * answers silently describe different weeks.
  */
+// The channel report is lazy for the same reason payment health is: the page's
+// first-load budget is spent on the sales tab an operator arrives for.
+const ChannelReport = dynamic(() => import("./channels").then((module) => module.ChannelReport), {
+  ssr: false,
+});
+
 const PaymentHealthScreen = dynamic(
   () => import("./payment-health").then((module) => module.PaymentHealthScreen),
   { ssr: false },
@@ -161,6 +167,7 @@ export function SalesReportScreen() {
         <TabsList>
           <TabsTrigger value="sales">{translate("tabs.sales")}</TabsTrigger>
           <TabsTrigger value="payments">{translate("tabs.payments")}</TabsTrigger>
+          <TabsTrigger value="channels">{translate("tabs.channels")}</TabsTrigger>
         </TabsList>
 
         <TabsContent className="flex flex-col gap-5 pt-4" value="sales">
@@ -175,6 +182,13 @@ export function SalesReportScreen() {
               <RefundCard locale={locale} report={data} />
             </>
           )}
+        </TabsContent>
+
+        {/* Where the revenue came from, over the same period. Sharing the
+            controls above matters here too: "we sold this much" and "this
+            channel brought it" must never describe different weeks. */}
+        <TabsContent className="flex flex-col gap-5 pt-4" value="channels">
+          <ChannelReport query={query} />
         </TabsContent>
 
         <TabsContent className="flex flex-col gap-5 pt-4" value="payments">

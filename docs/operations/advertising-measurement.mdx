@@ -1,0 +1,186 @@
+---
+title: Advertising measurement
+description: Counters, site verification, and the click identifier that connects an advertisement to the order it produced — your own analytics, off by default, never reported to the project
+---
+
+`/admin/settings/analytics` turns on measurement of your own storefront, and
+`/admin/reports` → **Channels** shows what it found.
+
+Two things before anything else.
+
+**This is your analytics, not the project's.** Nothing here is reported to the
+Omniflow project or to anybody else. It is separate from
+[telemetry](/operations/telemetry), which is the project's and is also off by
+default, and the two are deliberately different screens so neither is mistaken
+for the other.
+
+**Nothing is uploaded to an advertising network by this software.** The
+conversion export is a file you download and hand to the platform yourself.
+Sending a customer's purchase to Google because a settings toggle was on is not
+something anybody should have to discover from behaviour.
+
+## Why a counter alone attributes nothing
+
+A counter script watches the storefront. It sees the visit.
+
+It never sees the sale. Payment here happens on the backend — often a day after
+the click, sometimes through a transfer you confirm by hand — and by then the
+browser session that carried the advertising platform's click identifier is
+long gone. The platform sold you a click tagged `gclid` or `yclid` and has no
+way of learning that the click turned into money.
+
+That is why the roadmap said *no advertising channel can be attributed at all*,
+and it was true even for an installation that had pasted a counter in.
+
+So the identifier is carried:
+
+1. A visitor arrives on a link carrying `gclid`, `yclid`, `fbclid`, `msclkid`,
+   `ttclid`, `twclid`, or `utm_*` parameters.
+2. If they have agreed to measurement, the browser holds those parameters
+   first-party for thirty days. First write wins — somebody who lands from an
+   advertisement, thinks for a week, and returns through a friend's link was
+   brought here by the advertisement.
+3. When they confirm a purchase, the parameters are attached to **that order**.
+4. When the order settles, it appears in the export with its click identifier
+   and its amount.
+
+The attachment is to the order, not to the customer. An order is a conversion
+with an amount and a date, which is exactly what an offline upload takes. A
+click identifier held against a person for the life of their account is a
+profile — a different thing, with different obligations, that none of this
+needs.
+
+## A counter is a number, never a snippet
+
+There is no field here to paste counter code into, and that is deliberate.
+
+A textarea that accepted a script would be a way to run arbitrary code in every
+customer's browser, gated only by an operator write permission — and a
+customer's browser holds subscription links, which are credentials. So the
+script that ends up on the page is written in this repository and the only thing
+you supply is an identifier, validated against that provider's shape:
+
+| Provider | Identifier |
+| --- | --- |
+| Yandex Metrica | The counter number, 5–12 digits |
+| Google Analytics 4 | The measurement ID, `G-` and 6–16 characters |
+
+It is less flexible than a snippet field. What that flexibility costs is the
+thing it gives up.
+
+**Enabled is separate from having identifiers.** Turning measurement off in a
+hurry — a regulator asked, a customer complained — should not mean finding the
+numbers again to turn it back on, so the identifiers stay and nothing renders.
+
+## Consent
+
+Counters load only for a visitor who agreed to them, and so does the click
+capture. A visitor who declines is not measured, and whatever their landing page
+carried is forgotten rather than held waiting for a purchase.
+
+The request appears only when there is something to agree to. An installation
+that has configured no counter shows nobody a banner: asking somebody to agree
+to nothing is worse than not asking.
+
+Both buttons carry the same weight. A design where declining is a small grey
+link beside a large coloured accept collects a consent nobody gave, and an
+installation selling privacy software is the last place that should ship one.
+
+## Site verification
+
+`<meta name="google-site-verification">` and its equivalents prove to a
+webmaster tool that you control the domain. They are **not** counters: they set
+no cookie, load no script, and observe nobody.
+
+So they render for every visitor, regardless of the measurement switch and
+regardless of consent. A verification tag that only appeared after somebody
+consented would verify nothing — the thing fetching the page is a tool, not a
+person who can consent.
+
+Four are supported: `google-site-verification`, `yandex-verification`,
+`msvalidate.01`, and `facebook-domain-verification`. The name comes from that
+allowlist and the content must be an opaque token; "any meta tag an operator
+wants" is a much larger feature than "prove you own this domain".
+
+## The channel report and the export
+
+`/admin/reports` → **Channels**, over the same period as the sales report and
+keyed the same way: on when the money arrived.
+
+| Column | What it means |
+| --- | --- |
+| Channel | The `utm_source`, or the platform that issued the click identifier, or `direct` |
+| Orders | Settled orders attributed to that channel |
+| Uploadable | How many of those carry a click identifier |
+| Revenue | What was paid |
+| Refunded | What came back |
+
+**Uploadable is the column worth reading.** An order is attributed to a channel
+as soon as it carried a UTM tag, but only an order carrying the platform's own
+click identifier can be matched back to the click you paid for. Twenty orders
+and three uploadable ones means the links are losing the identifier somewhere —
+usually a redirect that strips the query — and that is worth knowing before
+anybody concludes the advertising is not working.
+
+**Export for upload** downloads a CSV in the column set an offline-conversion
+import expects:
+
+```
+order_id,click_id,click_source,conversion_time,state,currency,value_minor,refunded_minor,utm_source,utm_medium,utm_campaign,utm_content,utm_term
+```
+
+Refunded orders are in it, with their refunded amount, rather than being
+dropped. A platform that optimised bidding on a sale that was later returned is
+being taught the wrong thing, and you can only correct for that if the export
+says it happened.
+
+## What is deliberately absent
+
+- **No server-side conversion API calls.** Nothing here reaches an advertising
+  network. Adding that would mean this software sending a customer's purchase to
+  a third party on a schedule, and that decision belongs to you and to a file you
+  hand over knowingly.
+- **No cross-visit identity.** Nothing joins two visits by the same person. The
+  click is attached to one order and forgotten.
+- **No measurement in the operator panel.** Nobody advertises their way to an
+  admin login, and an operator is not a person to be measured.
+
+## Permissions
+
+| Action | Permission |
+| --- | --- |
+| Read the configuration | `settings.read` |
+| Change it | `settings.write` |
+| Read the channel report and the export | `finance.read` |
+
+`finance.read` rather than a permission of its own: a conversion export is
+revenue data with an advertising label on it, and the person who reads the sales
+report is the person who reads this.
+
+## Reference
+
+| Route | Method | Notes |
+| --- | --- | --- |
+| `/v1/analytics` | `GET` | Public. What a visitor's browser renders; `measurable` false means nothing would run even with consent |
+| `/v1/panel/analytics` | `GET` | `settings.read` |
+| `/v1/panel/analytics` | `PUT` | `settings.write`, with the current `version` |
+| `/v1/panel/reports/channels` | `GET` | `finance.read`; `?since&until` |
+| `/v1/panel/reports/conversions` | `GET` | `finance.read`; `?since&until&source&format=csv` |
+| `/v1/account/orders/{id}/attribution` | `POST` | The customer's own order; an order that is not theirs answers 404 |
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Sales reporting" icon="chart-line" href="/operations/sales-reporting">
+    What was sold over a period, which this explains the origin of.
+  </Card>
+  <Card title="Telemetry" icon="satellite-dish" href="/operations/telemetry">
+    The project's, not yours. Also off by default, and a different thing entirely.
+  </Card>
+  <Card title="Campaigns" icon="bullhorn" href="/commerce/campaigns">
+    Reaching your own customers, as opposed to measuring how new ones arrive.
+  </Card>
+  <Card title="Personal data" icon="file-shield" href="/customer/privacy">
+    What is held about a customer, and what a deletion takes with it.
+  </Card>
+</CardGroup>

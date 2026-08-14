@@ -189,6 +189,7 @@ func TestAccountCommerceRoutesRequireASession(t *testing.T) {
 		{http.MethodGet, "/v1/account/support/attachments/" + uuid},
 		{http.MethodGet, "/v1/account/news"},
 		{http.MethodPost, "/v1/account/news/" + uuid + "/read"},
+		{http.MethodPost, "/v1/account/orders/" + uuid + "/attribution"},
 		{http.MethodGet, "/v1/account/notifications"},
 		{http.MethodGet, "/v1/account/preferences"},
 		{http.MethodPatch, "/v1/account/preferences"},

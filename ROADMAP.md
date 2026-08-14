@@ -1644,14 +1644,46 @@ below this section are directions; these are specific absences.
       And time-to-settle is measured from the settlement event rather than from
       `updated_at`, which a later reconciliation moves — the same class of
       mistake `orders.paid_at` was added to fix.
-- [ ] Advertising measurement — no counter integration, no offline-conversion
-      upload, and no click identifier carried from a first visit into the order
-      that settles later. Payment happens on the backend, sometimes a day after
-      the click, so without it no advertising channel can be attributed at all.
-      Site-verification meta tags for webmaster tools are absent for the same
-      reason: nothing renders them. This is the operator's own analytics, never
-      project telemetry, so it stays per-installation, off by default, and inside
-      the consent the marketing surfaces already enforce.
+- [x] Advertising measurement — done, at `/admin/settings/analytics` and
+      `/admin/reports` → Channels, documented under
+      [`operations/advertising-measurement`](./docs/operations/advertising-measurement.mdx).
+      The three absences had one cause: payment settles on the backend, often a
+      day after the click and sometimes through a transfer somebody confirms by
+      hand, so the browser session carrying the platform's click identifier is
+      gone by the time there is money to attribute. A counter script sees the
+      visit and never sees the sale, which is why no channel could be attributed
+      even on an installation that had already pasted a counter in.
+
+      So the identifier is carried rather than observed: captured on the landing
+      page from a closed list of parameters, held first-party for thirty days on
+      a first-write-wins basis, attached to the order at confirmation, and
+      exported when that order settles. It hangs off the order and not the
+      customer — an order is a conversion with an amount and a date, which is
+      what an upload takes, while a click identifier held against a person for
+      the life of their account is a profile nothing here needs.
+
+      Three limits, each giving something up on purpose. A counter is a provider
+      this repository knows and an identifier validated against its shape, never
+      a snippet: the flexibility surrendered is exactly the ability to run
+      arbitrary code in a customer's browser, and a customer's browser holds
+      subscription links. Nothing is uploaded to any advertising network by this
+      software — the export is a CSV in the column set an offline import expects,
+      downloaded and handed over knowingly, because sending a customer's purchase
+      to a third party on a schedule is not a thing to discover from behaviour.
+      And counters plus the click capture render only for a visitor who agreed;
+      declining is remembered and clears whatever was already held.
+
+      Verification tags are deliberately outside all of that. They set no cookie,
+      load no script, and observe nobody, so they render regardless of the switch
+      and regardless of consent — a tag that only appeared for consenting
+      visitors would verify nothing, because the thing fetching the page is a
+      webmaster tool rather than a person who can consent.
+
+      The channel report's honest column is "uploadable": an order is attributed
+      by a UTM tag but only an order carrying the platform's own identifier can
+      be matched back to the click that was paid for, and the gap between the two
+      counts is usually a redirect stripping the query rather than advertising
+      that does not work.
 - [x] Traffic reporting per node — done, at `/admin/traffic` and documented at
       [`operations/traffic-reporting`](./docs/operations/traffic-reporting.mdx).
       Node saturation sorted by pressure, the fifty heaviest users with the

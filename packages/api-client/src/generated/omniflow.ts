@@ -2452,6 +2452,121 @@ export interface PanelNoticeTest {
   resolvedAt?: string;
 }
 
+export type AnalyticsVerificationName =
+  (typeof AnalyticsVerificationName)[keyof typeof AnalyticsVerificationName];
+
+export const AnalyticsVerificationName = {
+  "google-site-verification": "google-site-verification",
+  "yandex-verification": "yandex-verification",
+  msvalidate01: "msvalidate.01",
+  "facebook-domain-verification": "facebook-domain-verification",
+} as const;
+
+export interface AnalyticsVerification {
+  name: AnalyticsVerificationName;
+  /**
+   * @minLength 8
+   * @maxLength 128
+   */
+  content: string;
+}
+
+/**
+ * Identifier per provider. `yandex_metrica` is a counter number; `google_analytics` is a measurement ID such as G-XXXXXXX.
+ */
+export type AnalyticsSettingsInputCounters = { [key: string]: string };
+
+export interface AnalyticsSettingsInput {
+  /** False on a fresh installation. Nothing renders or is captured until this is on. */
+  enabled?: boolean;
+  /** Identifier per provider. `yandex_metrica` is a counter number; `google_analytics` is a measurement ID such as G-XXXXXXX. */
+  counters?: AnalyticsSettingsInputCounters;
+  /** @maxItems 8 */
+  verifications?: AnalyticsVerification[];
+}
+
+export type PanelAnalytics = AnalyticsSettingsInput & {
+  version: number;
+  updatedAt?: string;
+  updatedBy?: string;
+  /** The counters this build can render, so the screen offers what exists. */
+  providers: string[];
+  verificationNames: string[];
+};
+
+/**
+ * Present only when measurement is enabled. Rendered only after consent.
+ */
+export type PublicAnalyticsCounters = { [key: string]: string };
+
+export interface PublicAnalytics {
+  /** False when nothing would run even with consent, which suppresses the consent request. */
+  measurable: boolean;
+  /** Present only when measurement is enabled. Rendered only after consent. */
+  counters?: PublicAnalyticsCounters;
+  verifications?: AnalyticsVerification[];
+}
+
+export type AccountAttributionInputClickSource =
+  (typeof AccountAttributionInputClickSource)[keyof typeof AccountAttributionInputClickSource];
+
+export const AccountAttributionInputClickSource = {
+  google: "google",
+  yandex: "yandex",
+  meta: "meta",
+  microsoft: "microsoft",
+  tiktok: "tiktok",
+  x: "x",
+} as const;
+
+/**
+ * At least one field must be present.
+ */
+export interface AccountAttributionInput {
+  /** The advertising platform's own identifier for the click it sold. */
+  clickId?: string;
+  clickSource?: AccountAttributionInputClickSource;
+  /** @maxLength 120 */
+  source?: string;
+  /** @maxLength 120 */
+  medium?: string;
+  /** @maxLength 120 */
+  campaign?: string;
+  /** @maxLength 120 */
+  content?: string;
+  /** @maxLength 120 */
+  term?: string;
+}
+
+export interface PanelConversion {
+  orderId: string;
+  operation: string;
+  state: string;
+  currency: string;
+  paidMinor: number;
+  refundedMinor: number;
+  paidAt: string;
+  clickId?: string;
+  clickSource?: string;
+  source?: string;
+  medium?: string;
+  campaign?: string;
+  content?: string;
+  term?: string;
+}
+
+export interface PanelChannelResult {
+  /** The UTM source, the click platform, or `direct`. */
+  channel: string;
+  medium?: string;
+  orders: number;
+  /** How many of those orders carry a click identifier, which is how many can be uploaded. */
+  attributedClicks: number;
+  currency: string;
+  paidMinor: number;
+  refundedMinor: number;
+}
+
 export interface PanelCommerceSettings {
   topUp: PanelTopUpSettings;
   subscriptions: PanelSubscriptionSettings;
@@ -5070,6 +5185,50 @@ export type ListPanelNoticeTests200 = {
   items: PanelNoticeTest[];
 };
 
+export type SavePanelAnalyticsBody = AnalyticsSettingsInput & {
+  version: number;
+};
+
+export type GetPanelChannelReportParams = {
+  since?: string;
+  until?: string;
+};
+
+export type GetPanelChannelReport200 = {
+  channels: PanelChannelResult[];
+};
+
+export type GetPanelConversionsParams = {
+  since?: string;
+  until?: string;
+  source?: GetPanelConversionsSource;
+  format?: GetPanelConversionsFormat;
+};
+
+export type GetPanelConversionsSource =
+  (typeof GetPanelConversionsSource)[keyof typeof GetPanelConversionsSource];
+
+export const GetPanelConversionsSource = {
+  google: "google",
+  yandex: "yandex",
+  meta: "meta",
+  microsoft: "microsoft",
+  tiktok: "tiktok",
+  x: "x",
+} as const;
+
+export type GetPanelConversionsFormat =
+  (typeof GetPanelConversionsFormat)[keyof typeof GetPanelConversionsFormat];
+
+export const GetPanelConversionsFormat = {
+  json: "json",
+  csv: "csv",
+} as const;
+
+export type GetPanelConversions200One = {
+  conversions: PanelConversion[];
+};
+
 export type GetPanelSalesReportParams = {
   /**
    * Start of the period, inclusive. Defaults to thirty days before `until`.
@@ -6172,6 +6331,67 @@ export const useGetPublishedPage = <TError = Promise<ProblemResponse>>(
   const swrKey =
     swrOptions?.swrKey ?? (() => (isEnabled ? getGetPublishedPageKey(slug, params) : null));
   const swrFn = () => getPublishedPage(slug, params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPublicAnalyticsResponse200 = {
+  data: PublicAnalytics;
+  status: 200;
+};
+
+export type getPublicAnalyticsResponseSuccess = getPublicAnalyticsResponse200 & {
+  headers: Headers;
+};
+
+export type getPublicAnalyticsResponse = getPublicAnalyticsResponseSuccess;
+
+export const getGetPublicAnalyticsUrl = () => {
+  return `/v1/analytics`;
+};
+
+/**
+ * What an anonymous visitor's browser renders. Public, because the storefront is read before anybody signs in and the answer is the operator's configuration rather than anything about a person.
+ * `measurable` is false when nothing would run even with consent, which is what suppresses the consent request entirely — asking somebody to agree to nothing is worse than not asking. Counter identifiers appear only when measurement is enabled, and the browser renders them only after consent: this endpoint publishes what would run rather than deciding.
+ * Verification tags are present either way. They observe nobody.
+ */
+export const getPublicAnalytics = async (
+  options?: RequestInit,
+): Promise<getPublicAnalyticsResponse> => {
+  const res = await fetch(getGetPublicAnalyticsUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPublicAnalyticsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPublicAnalyticsResponse;
+};
+
+export const getGetPublicAnalyticsKey = () => [`/v1/analytics`] as const;
+
+export type GetPublicAnalyticsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPublicAnalytics>>
+>;
+
+export const useGetPublicAnalytics = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getPublicAnalytics>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetPublicAnalyticsKey() : null));
+  const swrFn = () => getPublicAnalytics(fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 
@@ -17783,6 +18003,362 @@ export const useListPanelNoticeTests = <TError = Promise<ProblemResponse>>(
   };
 };
 
+export type getPanelAnalyticsResponse200 = {
+  data: PanelAnalytics;
+  status: 200;
+};
+
+export type getPanelAnalyticsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelAnalyticsResponseSuccess = getPanelAnalyticsResponse200 & {
+  headers: Headers;
+};
+export type getPanelAnalyticsResponseError = getPanelAnalyticsResponse403 & {
+  headers: Headers;
+};
+
+export type getPanelAnalyticsResponse =
+  | getPanelAnalyticsResponseSuccess
+  | getPanelAnalyticsResponseError;
+
+export const getGetPanelAnalyticsUrl = () => {
+  return `/v1/panel/analytics`;
+};
+
+/**
+ * Requires settings.read. The operator's own advertising measurement: counter identifiers, webmaster verification tags, and the closed set of each this build can render.
+ * This is never project telemetry. Nothing here is reported to anybody, and an installation that configures none of it renders nothing and stores nothing.
+ */
+export const getPanelAnalytics = async (
+  options?: RequestInit,
+): Promise<getPanelAnalyticsResponse> => {
+  const res = await fetch(getGetPanelAnalyticsUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelAnalyticsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelAnalyticsResponse;
+};
+
+export const getGetPanelAnalyticsKey = () => [`/v1/panel/analytics`] as const;
+
+export type GetPanelAnalyticsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelAnalytics>>
+>;
+
+export const useGetPanelAnalytics = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelAnalytics>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelAnalyticsKey() : null));
+  const swrFn = () => getPanelAnalytics(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelAnalyticsResponse200 = {
+  data: PanelAnalytics;
+  status: 200;
+};
+
+export type savePanelAnalyticsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelAnalyticsResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type savePanelAnalyticsResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelAnalyticsResponseSuccess = savePanelAnalyticsResponse200 & {
+  headers: Headers;
+};
+export type savePanelAnalyticsResponseError = (
+  | savePanelAnalyticsResponse403
+  | savePanelAnalyticsResponse409
+  | savePanelAnalyticsResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelAnalyticsResponse =
+  | savePanelAnalyticsResponseSuccess
+  | savePanelAnalyticsResponseError;
+
+export const getSavePanelAnalyticsUrl = () => {
+  return `/v1/panel/analytics`;
+};
+
+/**
+ * Requires settings.write and the current `version`.
+ * A counter is a provider this repository knows and an identifier validated against its shape — never a snippet. The flexibility given up is exactly the ability to run arbitrary code in a customer's browser, and a customer's browser holds subscription links. `enabled` is separate from having identifiers so turning measurement off does not mean finding the numbers again to turn it back on.
+ * Verification tags are a name from an allowlist and an opaque token. They set no cookie, load no script, and observe nobody, which is why they render regardless of `enabled` and regardless of consent — a verification that only appeared for consenting visitors would verify nothing, because the fetcher is a webmaster tool rather than a person.
+ */
+export const savePanelAnalytics = async (
+  savePanelAnalyticsBody: SavePanelAnalyticsBody,
+  options?: RequestInit,
+): Promise<savePanelAnalyticsResponse> => {
+  const res = await fetch(getSavePanelAnalyticsUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(savePanelAnalyticsBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelAnalyticsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as savePanelAnalyticsResponse;
+};
+
+export const getSavePanelAnalyticsMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: SavePanelAnalyticsBody }) => {
+    return savePanelAnalytics(arg, options);
+  };
+};
+export const getSavePanelAnalyticsMutationKey = () => [`/v1/panel/analytics`] as const;
+
+export type SavePanelAnalyticsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelAnalytics>>
+>;
+
+export const useSavePanelAnalytics = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof savePanelAnalytics>>,
+    TError,
+    Key,
+    SavePanelAnalyticsBody,
+    Awaited<ReturnType<typeof savePanelAnalytics>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelAnalyticsMutationKey();
+  const swrFn = getSavePanelAnalyticsMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelChannelReportResponse200 = {
+  data: GetPanelChannelReport200;
+  status: 200;
+};
+
+export type getPanelChannelReportResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelChannelReportResponseSuccess = getPanelChannelReportResponse200 & {
+  headers: Headers;
+};
+export type getPanelChannelReportResponseError = getPanelChannelReportResponse403 & {
+  headers: Headers;
+};
+
+export type getPanelChannelReportResponse =
+  | getPanelChannelReportResponseSuccess
+  | getPanelChannelReportResponseError;
+
+export const getGetPanelChannelReportUrl = (params?: GetPanelChannelReportParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/reports/channels?${stringifiedParams}`
+    : `/v1/panel/reports/channels`;
+};
+
+/**
+ * Requires finance.read. What each channel brought in over the period, which is the question an operator asks before exporting anything.
+ * Keyed on settlement rather than on the order's creation: an advertisement is credited when the money arrived.
+ */
+export const getPanelChannelReport = async (
+  params?: GetPanelChannelReportParams,
+  options?: RequestInit,
+): Promise<getPanelChannelReportResponse> => {
+  const res = await fetch(getGetPanelChannelReportUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelChannelReportResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelChannelReportResponse;
+};
+
+export const getGetPanelChannelReportKey = (params?: GetPanelChannelReportParams) =>
+  [`/v1/panel/reports/channels`, ...(params ? [params] : [])] as const;
+
+export type GetPanelChannelReportQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelChannelReport>>
+>;
+
+export const useGetPanelChannelReport = <TError = Promise<ProblemResponse>>(
+  params?: GetPanelChannelReportParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelChannelReport>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelChannelReportKey(params) : null));
+  const swrFn = () => getPanelChannelReport(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelConversionsResponse200ApplicationJson = {
+  data: GetPanelConversions200One;
+  status: 200;
+};
+
+export type getPanelConversionsResponse200TextCsv = {
+  data: string;
+  status: 200;
+};
+
+export type getPanelConversionsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelConversionsResponseSuccess = (
+  | getPanelConversionsResponse200ApplicationJson
+  | getPanelConversionsResponse200TextCsv
+) & {
+  headers: Headers;
+};
+export type getPanelConversionsResponseError = getPanelConversionsResponse403 & {
+  headers: Headers;
+};
+
+export type getPanelConversionsResponse =
+  | getPanelConversionsResponseSuccess
+  | getPanelConversionsResponseError;
+
+export const getGetPanelConversionsUrl = (params?: GetPanelConversionsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/reports/conversions?${stringifiedParams}`
+    : `/v1/panel/reports/conversions`;
+};
+
+/**
+ * Requires finance.read. The offline-conversion export: settled orders that came from an advertisement, with the click identifier the platform issued.
+ * Payment happens on the backend, often a day after the click, so the browser session that carried the identifier is long gone by the time there is money to attribute. This is what makes the upload possible.
+ * Nothing is uploaded by this software. `format=csv` returns a file the operator downloads and hands to the platform themselves — sending a customer's purchase to an advertising network because a settings toggle was on is not something anybody should have to discover from behaviour.
+ * Refunded orders are present with their refunded amount rather than dropped. A platform that optimised bidding on a sale that was later returned is being taught the wrong thing, and an operator can only correct for that if the export says it happened.
+ */
+export const getPanelConversions = async (
+  params?: GetPanelConversionsParams,
+  options?: RequestInit,
+): Promise<getPanelConversionsResponse> => {
+  const res = await fetch(getGetPanelConversionsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const contentType = (res.headers.get("content-type") ?? "").toLowerCase();
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelConversionsResponse["data"] = body
+    ? contentType.includes("json")
+      ? JSON.parse(body)
+      : body
+    : {};
+  return { data, status: res.status, headers: res.headers } as getPanelConversionsResponse;
+};
+
+export const getGetPanelConversionsKey = (params?: GetPanelConversionsParams) =>
+  [`/v1/panel/reports/conversions`, ...(params ? [params] : [])] as const;
+
+export type GetPanelConversionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelConversions>>
+>;
+
+export const useGetPanelConversions = <TError = Promise<ProblemResponse>>(
+  params?: GetPanelConversionsParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelConversions>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelConversionsKey(params) : null));
+  const swrFn = () => getPanelConversions(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
 export type getPanelSalesReportResponse200 = {
   data: PanelSalesReport;
   status: 200;
@@ -27997,6 +28573,115 @@ export const useMarkAccountNewsRead = <TError = Promise<ProblemResponse>>(
 
   const swrKey = swrOptions?.swrKey ?? getMarkAccountNewsReadMutationKey(postID);
   const swrFn = getMarkAccountNewsReadMutationFetcher(postID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type recordAccountOrderAttributionResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type recordAccountOrderAttributionResponse401 = {
+  data: ProblemResponse;
+  status: 401;
+};
+
+export type recordAccountOrderAttributionResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type recordAccountOrderAttributionResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type recordAccountOrderAttributionResponseSuccess =
+  recordAccountOrderAttributionResponse204 & {
+    headers: Headers;
+  };
+export type recordAccountOrderAttributionResponseError = (
+  | recordAccountOrderAttributionResponse401
+  | recordAccountOrderAttributionResponse404
+  | recordAccountOrderAttributionResponse422
+) & {
+  headers: Headers;
+};
+
+export type recordAccountOrderAttributionResponse =
+  | recordAccountOrderAttributionResponseSuccess
+  | recordAccountOrderAttributionResponseError;
+
+export const getRecordAccountOrderAttributionUrl = (orderID: string) => {
+  return `/v1/account/orders/${orderID}/attribution`;
+};
+
+/**
+ * Records where one of the caller's own orders came from, for the operator's own advertising measurement.
+ * A separate call rather than a field on the checkout: a checkout is created from the bot as well as from the browser, and the bot has no URL to have carried anything. The storefront sends this only when the visitor agreed to measurement.
+ * An order that is not the caller's answers 404, the same as one that does not exist — a different answer would confirm that somebody else's order exists.
+ * Attribution hangs off the order rather than the customer. An order is a conversion with an amount and a date; a click identifier held against a person for the life of their account is a profile, which none of this needs.
+ */
+export const recordAccountOrderAttribution = async (
+  orderID: string,
+  accountAttributionInput: AccountAttributionInput,
+  options?: RequestInit,
+): Promise<recordAccountOrderAttributionResponse> => {
+  const res = await fetch(getRecordAccountOrderAttributionUrl(orderID), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(accountAttributionInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: recordAccountOrderAttributionResponse["data"] = body ? JSON.parse(body) : undefined;
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as recordAccountOrderAttributionResponse;
+};
+
+export const getRecordAccountOrderAttributionMutationFetcher = (
+  orderID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: AccountAttributionInput }) => {
+    return recordAccountOrderAttribution(orderID, arg, options);
+  };
+};
+export const getRecordAccountOrderAttributionMutationKey = (orderID: string) =>
+  [`/v1/account/orders/${orderID}/attribution`] as const;
+
+export type RecordAccountOrderAttributionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof recordAccountOrderAttribution>>
+>;
+
+export const useRecordAccountOrderAttribution = <TError = Promise<ProblemResponse>>(
+  orderID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof recordAccountOrderAttribution>>,
+      TError,
+      Key,
+      AccountAttributionInput,
+      Awaited<ReturnType<typeof recordAccountOrderAttribution>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRecordAccountOrderAttributionMutationKey(orderID);
+  const swrFn = getRecordAccountOrderAttributionMutationFetcher(orderID, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

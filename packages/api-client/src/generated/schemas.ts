@@ -138,6 +138,42 @@ export const GetPublishedPageResponse = zod.object({
 });
 
 /**
+ * What an anonymous visitor's browser renders. Public, because the storefront is read before anybody signs in and the answer is the operator's configuration rather than anything about a person.
+ * `measurable` is false when nothing would run even with consent, which is what suppresses the consent request entirely — asking somebody to agree to nothing is worse than not asking. Counter identifiers appear only when measurement is enabled, and the browser renders them only after consent: this endpoint publishes what would run rather than deciding.
+ * Verification tags are present either way. They observe nobody.
+ */
+export const getPublicAnalyticsResponseVerificationsItemContentMin = 8;
+export const getPublicAnalyticsResponseVerificationsItemContentMax = 128;
+
+export const GetPublicAnalyticsResponse = zod.object({
+  measurable: zod
+    .boolean()
+    .describe(
+      "False when nothing would run even with consent, which suppresses the consent request.",
+    ),
+  counters: zod
+    .record(zod.string(), zod.string())
+    .optional()
+    .describe("Present only when measurement is enabled. Rendered only after consent."),
+  verifications: zod
+    .array(
+      zod.object({
+        name: zod.enum([
+          "google-site-verification",
+          "yandex-verification",
+          "msvalidate.01",
+          "facebook-domain-verification",
+        ]),
+        content: zod
+          .string()
+          .min(getPublicAnalyticsResponseVerificationsItemContentMin)
+          .max(getPublicAnalyticsResponseVerificationsItemContentMax),
+      }),
+    )
+    .optional(),
+});
+
+/**
  * Public. What an installation looks like, read by both panels before they paint: the service name, the operator's palette rendered as ready-to-inline declarations, and the addresses of the brand images. It deliberately carries nothing else, because everything here is readable by anyone who can reach the installation. Absent when no operator panel is configured, in which case the shipped design is used.
  */
 export const GetBrandingResponse = zod.object({
@@ -4247,6 +4283,217 @@ export const ListPanelNoticeTestsResponse = zod.object({
       errorCode: zod.string().optional(),
       requestedAt: zod.iso.datetime({ offset: true }),
       resolvedAt: zod.iso.datetime({ offset: true }).optional(),
+    }),
+  ),
+});
+
+/**
+ * Requires settings.read. The operator's own advertising measurement: counter identifiers, webmaster verification tags, and the closed set of each this build can render.
+ * This is never project telemetry. Nothing here is reported to anybody, and an installation that configures none of it renders nothing and stores nothing.
+ */
+export const getPanelAnalyticsResponseOneVerificationsItemContentMin = 8;
+export const getPanelAnalyticsResponseOneVerificationsItemContentMax = 128;
+
+export const getPanelAnalyticsResponseOneVerificationsMax = 8;
+
+export const GetPanelAnalyticsResponse = zod
+  .object({
+    enabled: zod
+      .boolean()
+      .optional()
+      .describe("False on a fresh installation. Nothing renders or is captured until this is on."),
+    counters: zod
+      .record(zod.string(), zod.string())
+      .optional()
+      .describe(
+        "Identifier per provider. `yandex_metrica` is a counter number; `google_analytics` is a measurement ID such as G-XXXXXXX.",
+      ),
+    verifications: zod
+      .array(
+        zod.object({
+          name: zod.enum([
+            "google-site-verification",
+            "yandex-verification",
+            "msvalidate.01",
+            "facebook-domain-verification",
+          ]),
+          content: zod
+            .string()
+            .min(getPanelAnalyticsResponseOneVerificationsItemContentMin)
+            .max(getPanelAnalyticsResponseOneVerificationsItemContentMax),
+        }),
+      )
+      .max(getPanelAnalyticsResponseOneVerificationsMax)
+      .optional(),
+  })
+  .and(
+    zod.object({
+      version: zod.int(),
+      updatedAt: zod.iso.datetime({ offset: true }).optional(),
+      updatedBy: zod.uuid().optional(),
+      providers: zod
+        .array(zod.string())
+        .describe("The counters this build can render, so the screen offers what exists."),
+      verificationNames: zod.array(zod.string()),
+    }),
+  );
+
+/**
+ * Requires settings.write and the current `version`.
+ * A counter is a provider this repository knows and an identifier validated against its shape — never a snippet. The flexibility given up is exactly the ability to run arbitrary code in a customer's browser, and a customer's browser holds subscription links. `enabled` is separate from having identifiers so turning measurement off does not mean finding the numbers again to turn it back on.
+ * Verification tags are a name from an allowlist and an opaque token. They set no cookie, load no script, and observe nobody, which is why they render regardless of `enabled` and regardless of consent — a verification that only appeared for consenting visitors would verify nothing, because the fetcher is a webmaster tool rather than a person.
+ */
+export const SavePanelAnalyticsHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const savePanelAnalyticsBodyOneVerificationsItemContentMin = 8;
+export const savePanelAnalyticsBodyOneVerificationsItemContentMax = 128;
+
+export const savePanelAnalyticsBodyOneVerificationsMax = 8;
+
+export const SavePanelAnalyticsBody = zod
+  .object({
+    enabled: zod
+      .boolean()
+      .optional()
+      .describe("False on a fresh installation. Nothing renders or is captured until this is on."),
+    counters: zod
+      .record(zod.string(), zod.string())
+      .optional()
+      .describe(
+        "Identifier per provider. `yandex_metrica` is a counter number; `google_analytics` is a measurement ID such as G-XXXXXXX.",
+      ),
+    verifications: zod
+      .array(
+        zod.object({
+          name: zod.enum([
+            "google-site-verification",
+            "yandex-verification",
+            "msvalidate.01",
+            "facebook-domain-verification",
+          ]),
+          content: zod
+            .string()
+            .min(savePanelAnalyticsBodyOneVerificationsItemContentMin)
+            .max(savePanelAnalyticsBodyOneVerificationsItemContentMax),
+        }),
+      )
+      .max(savePanelAnalyticsBodyOneVerificationsMax)
+      .optional(),
+  })
+  .and(
+    zod.object({
+      version: zod.int(),
+    }),
+  );
+
+export const savePanelAnalyticsResponseOneVerificationsItemContentMin = 8;
+export const savePanelAnalyticsResponseOneVerificationsItemContentMax = 128;
+
+export const savePanelAnalyticsResponseOneVerificationsMax = 8;
+
+export const SavePanelAnalyticsResponse = zod
+  .object({
+    enabled: zod
+      .boolean()
+      .optional()
+      .describe("False on a fresh installation. Nothing renders or is captured until this is on."),
+    counters: zod
+      .record(zod.string(), zod.string())
+      .optional()
+      .describe(
+        "Identifier per provider. `yandex_metrica` is a counter number; `google_analytics` is a measurement ID such as G-XXXXXXX.",
+      ),
+    verifications: zod
+      .array(
+        zod.object({
+          name: zod.enum([
+            "google-site-verification",
+            "yandex-verification",
+            "msvalidate.01",
+            "facebook-domain-verification",
+          ]),
+          content: zod
+            .string()
+            .min(savePanelAnalyticsResponseOneVerificationsItemContentMin)
+            .max(savePanelAnalyticsResponseOneVerificationsItemContentMax),
+        }),
+      )
+      .max(savePanelAnalyticsResponseOneVerificationsMax)
+      .optional(),
+  })
+  .and(
+    zod.object({
+      version: zod.int(),
+      updatedAt: zod.iso.datetime({ offset: true }).optional(),
+      updatedBy: zod.uuid().optional(),
+      providers: zod
+        .array(zod.string())
+        .describe("The counters this build can render, so the screen offers what exists."),
+      verificationNames: zod.array(zod.string()),
+    }),
+  );
+
+/**
+ * Requires finance.read. What each channel brought in over the period, which is the question an operator asks before exporting anything.
+ * Keyed on settlement rather than on the order's creation: an advertisement is credited when the money arrived.
+ */
+export const GetPanelChannelReportQueryParams = zod.object({
+  since: zod.iso.datetime({ offset: true }).optional(),
+  until: zod.iso.datetime({ offset: true }).optional(),
+});
+
+export const GetPanelChannelReportResponse = zod.object({
+  channels: zod.array(
+    zod.object({
+      channel: zod.string().describe("The UTM source, the click platform, or `direct`."),
+      medium: zod.string().optional(),
+      orders: zod.int(),
+      attributedClicks: zod
+        .int()
+        .describe(
+          "How many of those orders carry a click identifier, which is how many can be uploaded.",
+        ),
+      currency: zod.string(),
+      paidMinor: zod.int(),
+      refundedMinor: zod.int(),
+    }),
+  ),
+});
+
+/**
+ * Requires finance.read. The offline-conversion export: settled orders that came from an advertisement, with the click identifier the platform issued.
+ * Payment happens on the backend, often a day after the click, so the browser session that carried the identifier is long gone by the time there is money to attribute. This is what makes the upload possible.
+ * Nothing is uploaded by this software. `format=csv` returns a file the operator downloads and hands to the platform themselves — sending a customer's purchase to an advertising network because a settings toggle was on is not something anybody should have to discover from behaviour.
+ * Refunded orders are present with their refunded amount rather than dropped. A platform that optimised bidding on a sale that was later returned is being taught the wrong thing, and an operator can only correct for that if the export says it happened.
+ */
+export const GetPanelConversionsQueryParams = zod.object({
+  since: zod.iso.datetime({ offset: true }).optional(),
+  until: zod.iso.datetime({ offset: true }).optional(),
+  source: zod.enum(["google", "yandex", "meta", "microsoft", "tiktok", "x"]).optional(),
+  format: zod.enum(["json", "csv"]).optional(),
+});
+
+export const GetPanelConversionsResponse = zod.object({
+  conversions: zod.array(
+    zod.object({
+      orderId: zod.uuid(),
+      operation: zod.string(),
+      state: zod.string(),
+      currency: zod.string(),
+      paidMinor: zod.int(),
+      refundedMinor: zod.int(),
+      paidAt: zod.iso.datetime({ offset: true }),
+      clickId: zod.string().optional(),
+      clickSource: zod.string().optional(),
+      source: zod.string().optional(),
+      medium: zod.string().optional(),
+      campaign: zod.string().optional(),
+      content: zod.string().optional(),
+      term: zod.string().optional(),
     }),
   ),
 });
@@ -9289,6 +9536,49 @@ export const MarkAccountNewsReadHeader = zod.object({
 });
 
 export const MarkAccountNewsReadResponse = zod.void();
+
+/**
+ * Records where one of the caller's own orders came from, for the operator's own advertising measurement.
+ * A separate call rather than a field on the checkout: a checkout is created from the bot as well as from the browser, and the bot has no URL to have carried anything. The storefront sends this only when the visitor agreed to measurement.
+ * An order that is not the caller's answers 404, the same as one that does not exist — a different answer would confirm that somebody else's order exists.
+ * Attribution hangs off the order rather than the customer. An order is a conversion with an amount and a date; a click identifier held against a person for the life of their account is a profile, which none of this needs.
+ */
+export const RecordAccountOrderAttributionParams = zod.object({
+  orderID: zod.uuid(),
+});
+
+export const RecordAccountOrderAttributionHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const recordAccountOrderAttributionBodySourceMax = 120;
+
+export const recordAccountOrderAttributionBodyMediumMax = 120;
+
+export const recordAccountOrderAttributionBodyCampaignMax = 120;
+
+export const recordAccountOrderAttributionBodyContentMax = 120;
+
+export const recordAccountOrderAttributionBodyTermMax = 120;
+
+export const RecordAccountOrderAttributionBody = zod
+  .object({
+    clickId: zod
+      .string()
+      .optional()
+      .describe("The advertising platform's own identifier for the click it sold."),
+    clickSource: zod.enum(["google", "yandex", "meta", "microsoft", "tiktok", "x"]).optional(),
+    source: zod.string().max(recordAccountOrderAttributionBodySourceMax).optional(),
+    medium: zod.string().max(recordAccountOrderAttributionBodyMediumMax).optional(),
+    campaign: zod.string().max(recordAccountOrderAttributionBodyCampaignMax).optional(),
+    content: zod.string().max(recordAccountOrderAttributionBodyContentMax).optional(),
+    term: zod.string().max(recordAccountOrderAttributionBodyTermMax).optional(),
+  })
+  .describe("At least one field must be present.");
+
+export const RecordAccountOrderAttributionResponse = zod.void();
 
 /**
  * What this customer was actually sent, newest first.

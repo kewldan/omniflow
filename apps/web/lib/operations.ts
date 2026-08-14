@@ -833,6 +833,63 @@ export type NoticeTest = {
   resolvedAt?: string;
 };
 
+/**
+ * The operator's own advertising measurement.
+ *
+ * `enabled` is separate from having identifiers on purpose: turning measurement
+ * off in a hurry should not mean finding the counter numbers again to turn it
+ * back on. `providers` and `verificationNames` are the closed sets this build
+ * can render, so the screen offers what exists rather than a text field that
+ * fails on save.
+ */
+export type AnalyticsVerification = { name: string; content: string };
+
+export type AnalyticsSettingsView = {
+  enabled?: boolean;
+  counters?: Record<string, string>;
+  verifications?: AnalyticsVerification[];
+  version: number;
+  updatedAt?: string;
+  updatedBy?: string;
+  providers?: string[];
+  verificationNames?: string[];
+};
+
+/**
+ * One settled order with the advertisement it came from.
+ *
+ * `clickId` is what an advertising platform's offline upload matches on, and it
+ * is why this exists: payment happens on the backend, so the browser session
+ * that carried it is long gone by the time there is money to attribute.
+ */
+export type Conversion = {
+  orderId: string;
+  operation: string;
+  state: string;
+  currency: string;
+  paidMinor: number;
+  refundedMinor: number;
+  paidAt: string;
+  clickId?: string;
+  clickSource?: string;
+  source?: string;
+  medium?: string;
+  campaign?: string;
+  content?: string;
+  term?: string;
+};
+
+export type ChannelResult = {
+  channel: string;
+  medium?: string;
+  orders: number;
+  /** How many of those orders carry a click identifier — how many can be uploaded. */
+  attributedClicks: number;
+  currency: string;
+  paidMinor: number;
+  refundedMinor: number;
+};
+
 export type Page<Item> = { items: Item[] | null; nextCursor?: string };
 export type Listing<Item> = { items: Item[] | null };
 

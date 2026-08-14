@@ -181,6 +181,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 	// like before there is a session to authorise anything.
 	handlers.mountPublicBranding(router)
 	handlers.mountPublicContent(router)
+	handlers.mountPublicAnalytics(router)
 
 	router.Route("/v1/panel", func(panel chi.Router) {
 		panel.Use(SecurityHeaders)
@@ -255,6 +256,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 			handlers.mountCustomerMerge(secure)
 			handlers.mountNotificationHistory(secure)
 			handlers.mountNotices(secure)
+			handlers.mountAnalytics(secure)
 			handlers.mountCustomerAuth(secure)
 		})
 	})

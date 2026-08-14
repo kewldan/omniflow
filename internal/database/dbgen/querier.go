@@ -43,6 +43,9 @@ type Querier interface {
 	AssignSupportTicket(ctx context.Context, arg AssignSupportTicketParams) (SupportTicket, error)
 	AttachAccessCodeEntitlement(ctx context.Context, arg AttachAccessCodeEntitlementParams) error
 	AttachReferralSignal(ctx context.Context, arg AttachReferralSignalParams) error
+	// What each channel brought in, which is the question an operator asks before
+	// they export anything.
+	AttributionSummary(ctx context.Context, arg AttributionSummaryParams) ([]AttributionSummaryRow, error)
 	// A backup nobody has ever restored is a backup nobody knows works, so the last
 	// restore is part of the status rather than a separate screen.
 	BackupStatus(ctx context.Context) (BackupStatusRow, error)
@@ -111,6 +114,21 @@ type Querier interface {
 	// `consumed_at IS NULL` predicate is evaluated under the row lock the UPDATE
 	// takes, so two browsers racing on one link produce exactly one winner.
 	ConsumeCustomerMagicLink(ctx context.Context, arg ConsumeCustomerMagicLinkParams) (CustomerMagicLink, error)
+	// Advertising attribution and the offline-conversion export.
+	// The write lives in `internal/accountcheckout` beside the rest of the purchase
+	// path rather than here: that package owns its own SQL, and the ownership check
+	// the write is gated on is a checkout concern rather than a reporting one.
+	// The offline-conversion export: settled orders that came from an advertisement.
+	//
+	// Keyed on `paid_at`, not `created_at`. An advertising platform is being told
+	// when the money arrived so it can attribute the click it sold; the date an
+	// abandoned draft was created answers a different question.
+	//
+	// Refunded orders are included with their refunded amount reported separately
+	// rather than being dropped. A platform that optimised bidding on a sale that
+	// was later returned is being taught the wrong thing, and an operator can only
+	// correct for that if the export says it happened.
+	ConversionsInPeriod(ctx context.Context, arg ConversionsInPeriodParams) ([]ConversionsInPeriodRow, error)
 	// Callers must hold LockCustomerSubscriptions for this count to be meaningful.
 	CountActiveSubscriptions(ctx context.Context, arg CountActiveSubscriptionsParams) (CountActiveSubscriptionsRow, error)
 	CountAdminOIDCIdentities(ctx context.Context, adminUserID pgtype.UUID) (int64, error)

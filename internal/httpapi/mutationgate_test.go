@@ -190,6 +190,12 @@ func TestTheNewSurfacesAreInsideTheAuthenticatedGroup(t *testing.T) {
 		// A merge combines two people's records irreversibly.
 		{http.MethodGet, "/v1/panel/customers/00000000-0000-0000-0000-000000000000/merge/preview"},
 		{http.MethodPost, "/v1/panel/customers/00000000-0000-0000-0000-000000000000/merge"},
+		// A counter identifier lands in every visitor's browser, and the
+		// conversion export is revenue data.
+		{http.MethodGet, "/v1/panel/analytics"},
+		{http.MethodPut, "/v1/panel/analytics"},
+		{http.MethodGet, "/v1/panel/reports/channels"},
+		{http.MethodGet, "/v1/panel/reports/conversions"},
 		// Notice wording reaches every customer of the installation, and the
 		// preview and test routes run a renderer over caller-supplied text.
 		{http.MethodGet, "/v1/panel/notices"},

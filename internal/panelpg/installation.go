@@ -54,6 +54,11 @@ var settingSections = map[string]bool{
 	// an audit event — but it is never edited through the generic settings
 	// renderer, because a colour is not a text field. See branding.go.
 	"theme": true,
+	// Advertising measurement is a section like any other and is never edited
+	// through the generic renderer either: a counter identifier has a shape per
+	// provider and a verification tag is a name from an allowlist. See
+	// analytics.go.
+	"analytics": true,
 }
 
 // SettingSections reads every section without its secrets.
