@@ -23,6 +23,7 @@ import (
 
 	"crypto/rand"
 
+	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -63,6 +64,12 @@ type Service struct {
 	// enumeration oracle. It is produced with the live parameters so the work
 	// performed matches a real verification.
 	decoyHash string
+
+	// webauthn is nil when the installation has no public URL. A passkey is
+	// bound to an origin, so without one there is nothing to bind to and every
+	// passkey route reports itself unavailable rather than producing a
+	// credential the browser will later refuse to offer.
+	webauthn *webauthn.WebAuthn
 }
 
 // Options configures a Service. Zero values fall back to the domain defaults.
@@ -71,6 +78,14 @@ type Options struct {
 	LockoutPolicy  adminauth.LockoutPolicy
 	PasswordParams adminauth.PasswordParams
 	Clock          func() time.Time
+	// PublicURL is the address operators reach the panel at. A passkey is bound
+	// to an origin, so this is what a credential is created for — and changing
+	// it invalidates every existing key, because a browser will not offer a
+	// credential to a site it was not created for. Empty leaves passkeys off.
+	PublicURL string
+	// ServiceName is what an authenticator shows the person when it asks them
+	// to confirm. It defaults to Omniflow.
+	ServiceName string
 }
 
 // New builds the adapter. The encryption key is the same 32-byte
@@ -111,6 +126,21 @@ func New(pool *pgxpool.Pool, encryptionKey []byte, options Options) (*Service, e
 	}
 	if service.clock == nil {
 		service.clock = time.Now
+	}
+
+	// Passkeys are available exactly when there is an origin to bind them to.
+	// A misconfiguration here is silent in the browser — it simply declines to
+	// produce a credential — so the absence is decided once, here, and every
+	// passkey route reports it rather than offering a button that does nothing.
+	if party, partyErr := adminauth.NewRelyingParty(
+		options.PublicURL, options.ServiceName,
+	); partyErr == nil {
+		service.webauthn, err = webauthn.New(&webauthn.Config{
+			RPID: party.ID, RPDisplayName: party.Name, RPOrigins: []string{party.Origin},
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Built once at construction so the cost is paid at startup rather than on

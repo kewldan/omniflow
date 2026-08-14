@@ -906,6 +906,41 @@ export interface RecoveryCodes {
   recoveryCodes: string[];
 }
 
+/**
+ * One registered credential. It carries neither the public key nor the credential identifier: neither is secret, and neither is any use to an operator reading a list.
+ */
+export interface Passkey {
+  id: string;
+  /**
+   * Chosen by the owner, to tell one device from another.
+   * @maxLength 60
+   */
+  label: string;
+  createdAt: string;
+  /** Absent until the key has signed in. */
+  lastUsedAt?: string;
+  /** Whether the key can sign in without the account being named first. */
+  discoverable: boolean;
+}
+
+export interface PasskeyList {
+  items: Passkey[];
+  /** False when the installation has no public URL to bind credentials to. */
+  available: boolean;
+}
+
+export interface PasskeyAvailability {
+  available: boolean;
+}
+
+export interface PasskeyLabelInput {
+  /**
+   * @minLength 1
+   * @maxLength 60
+   */
+  label: string;
+}
+
 export type AuditEventActorType = (typeof AuditEventActorType)[keyof typeof AuditEventActorType];
 
 export const AuditEventActorType = {
@@ -3830,6 +3865,21 @@ export type ListBackupsParams = {
 export type PanelLogoutAll200 = {
   revokedSessions: number;
 };
+
+export type BeginPanelPasskeyLogin200 = { [key: string]: unknown };
+
+export type FinishPanelPasskeyLoginBody = { [key: string]: unknown };
+
+export type BeginPanelPasskeyRegistration200 = { [key: string]: unknown };
+
+export type FinishPanelPasskeyRegistrationParams = {
+  /**
+   * @maxLength 60
+   */
+  label?: string;
+};
+
+export type FinishPanelPasskeyRegistrationBody = { [key: string]: unknown };
 
 export type ListPanelAdminsParams = {
   /**
@@ -8712,6 +8762,670 @@ export const useRegeneratePanelRecoveryCodes = <TError = Promise<unknown>>(optio
 
   const swrKey = swrOptions?.swrKey ?? getRegeneratePanelRecoveryCodesMutationKey();
   const swrFn = getRegeneratePanelRecoveryCodesMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type panelPasskeyAvailabilityResponse200 = {
+  data: PasskeyAvailability;
+  status: 200;
+};
+
+export type panelPasskeyAvailabilityResponseSuccess = panelPasskeyAvailabilityResponse200 & {
+  headers: Headers;
+};
+
+export type panelPasskeyAvailabilityResponse = panelPasskeyAvailabilityResponseSuccess;
+
+export const getPanelPasskeyAvailabilityUrl = () => {
+  return `/v1/panel/auth/passkey`;
+};
+
+/**
+ * Whether this installation can offer passkeys. A credential is bound to an origin, so an installation without a public URL has none and the sign-in screen omits the button rather than offering a broken one.
+ */
+export const panelPasskeyAvailability = async (
+  options?: RequestInit,
+): Promise<panelPasskeyAvailabilityResponse> => {
+  const res = await fetch(getPanelPasskeyAvailabilityUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: panelPasskeyAvailabilityResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as panelPasskeyAvailabilityResponse;
+};
+
+export const getPanelPasskeyAvailabilityKey = () => [`/v1/panel/auth/passkey`] as const;
+
+export type PanelPasskeyAvailabilityQueryResult = NonNullable<
+  Awaited<ReturnType<typeof panelPasskeyAvailability>>
+>;
+
+export const usePanelPasskeyAvailability = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof panelPasskeyAvailability>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getPanelPasskeyAvailabilityKey() : null));
+  const swrFn = () => panelPasskeyAvailability(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type beginPanelPasskeyLoginResponse200 = {
+  data: BeginPanelPasskeyLogin200;
+  status: 200;
+};
+
+export type beginPanelPasskeyLoginResponse429 = {
+  data: ProblemResponse;
+  status: 429;
+};
+
+export type beginPanelPasskeyLoginResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
+export type beginPanelPasskeyLoginResponseSuccess = beginPanelPasskeyLoginResponse200 & {
+  headers: Headers;
+};
+export type beginPanelPasskeyLoginResponseError = (
+  | beginPanelPasskeyLoginResponse429
+  | beginPanelPasskeyLoginResponse503
+) & {
+  headers: Headers;
+};
+
+export type beginPanelPasskeyLoginResponse =
+  | beginPanelPasskeyLoginResponseSuccess
+  | beginPanelPasskeyLoginResponseError;
+
+export const getBeginPanelPasskeyLoginUrl = () => {
+  return `/v1/panel/auth/passkey/login/begin`;
+};
+
+/**
+ * Issues a WebAuthn assertion challenge. Public by necessity: the assertion is what proves who the operator is. The challenge is returned to the browser and also sealed into a short-lived cookie, so the second step answers the challenge this step issued.
+ */
+export const beginPanelPasskeyLogin = async (
+  options?: RequestInit,
+): Promise<beginPanelPasskeyLoginResponse> => {
+  const res = await fetch(getBeginPanelPasskeyLoginUrl(), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: beginPanelPasskeyLoginResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as beginPanelPasskeyLoginResponse;
+};
+
+export const getBeginPanelPasskeyLoginMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return beginPanelPasskeyLogin(options);
+  };
+};
+export const getBeginPanelPasskeyLoginMutationKey = () =>
+  [`/v1/panel/auth/passkey/login/begin`] as const;
+
+export type BeginPanelPasskeyLoginMutationResult = NonNullable<
+  Awaited<ReturnType<typeof beginPanelPasskeyLogin>>
+>;
+
+export const useBeginPanelPasskeyLogin = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof beginPanelPasskeyLogin>>,
+    TError,
+    Key,
+    Arguments,
+    Awaited<ReturnType<typeof beginPanelPasskeyLogin>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getBeginPanelPasskeyLoginMutationKey();
+  const swrFn = getBeginPanelPasskeyLoginMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type finishPanelPasskeyLoginResponse200 = {
+  data: LoginResult;
+  status: 200;
+};
+
+export type finishPanelPasskeyLoginResponse400 = {
+  data: ProblemResponse;
+  status: 400;
+};
+
+export type finishPanelPasskeyLoginResponse401 = {
+  data: ProblemResponse;
+  status: 401;
+};
+
+export type finishPanelPasskeyLoginResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
+export type finishPanelPasskeyLoginResponseSuccess = finishPanelPasskeyLoginResponse200 & {
+  headers: Headers;
+};
+export type finishPanelPasskeyLoginResponseError = (
+  | finishPanelPasskeyLoginResponse400
+  | finishPanelPasskeyLoginResponse401
+  | finishPanelPasskeyLoginResponse503
+) & {
+  headers: Headers;
+};
+
+export type finishPanelPasskeyLoginResponse =
+  | finishPanelPasskeyLoginResponseSuccess
+  | finishPanelPasskeyLoginResponseError;
+
+export const getFinishPanelPasskeyLoginUrl = () => {
+  return `/v1/panel/auth/passkey/login/finish`;
+};
+
+/**
+ * Verifies the assertion and starts a complete session. challengeRequired is always false: the authenticator proved possession and verified the person, so no second factor remains to ask for.
+ */
+export const finishPanelPasskeyLogin = async (
+  finishPanelPasskeyLoginBody: FinishPanelPasskeyLoginBody,
+  options?: RequestInit,
+): Promise<finishPanelPasskeyLoginResponse> => {
+  const res = await fetch(getFinishPanelPasskeyLoginUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(finishPanelPasskeyLoginBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: finishPanelPasskeyLoginResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as finishPanelPasskeyLoginResponse;
+};
+
+export const getFinishPanelPasskeyLoginMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: FinishPanelPasskeyLoginBody }) => {
+    return finishPanelPasskeyLogin(arg, options);
+  };
+};
+export const getFinishPanelPasskeyLoginMutationKey = () =>
+  [`/v1/panel/auth/passkey/login/finish`] as const;
+
+export type FinishPanelPasskeyLoginMutationResult = NonNullable<
+  Awaited<ReturnType<typeof finishPanelPasskeyLogin>>
+>;
+
+export const useFinishPanelPasskeyLogin = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof finishPanelPasskeyLogin>>,
+    TError,
+    Key,
+    FinishPanelPasskeyLoginBody,
+    Awaited<ReturnType<typeof finishPanelPasskeyLogin>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getFinishPanelPasskeyLoginMutationKey();
+  const swrFn = getFinishPanelPasskeyLoginMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelPasskeysResponse200 = {
+  data: PasskeyList;
+  status: 200;
+};
+
+export type listPanelPasskeysResponseSuccess = listPanelPasskeysResponse200 & {
+  headers: Headers;
+};
+
+export type listPanelPasskeysResponse = listPanelPasskeysResponseSuccess;
+
+export const getListPanelPasskeysUrl = () => {
+  return `/v1/panel/auth/passkeys`;
+};
+
+/**
+ * The signed-in operator's own credentials. No public key is returned.
+ */
+export const listPanelPasskeys = async (
+  options?: RequestInit,
+): Promise<listPanelPasskeysResponse> => {
+  const res = await fetch(getListPanelPasskeysUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelPasskeysResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelPasskeysResponse;
+};
+
+export const getListPanelPasskeysKey = () => [`/v1/panel/auth/passkeys`] as const;
+
+export type ListPanelPasskeysQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelPasskeys>>
+>;
+
+export const useListPanelPasskeys = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelPasskeys>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelPasskeysKey() : null));
+  const swrFn = () => listPanelPasskeys(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type beginPanelPasskeyRegistrationResponse200 = {
+  data: BeginPanelPasskeyRegistration200;
+  status: 200;
+};
+
+export type beginPanelPasskeyRegistrationResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
+export type beginPanelPasskeyRegistrationResponseSuccess =
+  beginPanelPasskeyRegistrationResponse200 & {
+    headers: Headers;
+  };
+export type beginPanelPasskeyRegistrationResponseError =
+  beginPanelPasskeyRegistrationResponse503 & {
+    headers: Headers;
+  };
+
+export type beginPanelPasskeyRegistrationResponse =
+  | beginPanelPasskeyRegistrationResponseSuccess
+  | beginPanelPasskeyRegistrationResponseError;
+
+export const getBeginPanelPasskeyRegistrationUrl = () => {
+  return `/v1/panel/auth/passkeys/register/begin`;
+};
+
+/**
+ * Issues a WebAuthn creation challenge for a discoverable credential with user verification required, which is what lets the key sign in alone.
+ */
+export const beginPanelPasskeyRegistration = async (
+  options?: RequestInit,
+): Promise<beginPanelPasskeyRegistrationResponse> => {
+  const res = await fetch(getBeginPanelPasskeyRegistrationUrl(), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: beginPanelPasskeyRegistrationResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as beginPanelPasskeyRegistrationResponse;
+};
+
+export const getBeginPanelPasskeyRegistrationMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return beginPanelPasskeyRegistration(options);
+  };
+};
+export const getBeginPanelPasskeyRegistrationMutationKey = () =>
+  [`/v1/panel/auth/passkeys/register/begin`] as const;
+
+export type BeginPanelPasskeyRegistrationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof beginPanelPasskeyRegistration>>
+>;
+
+export const useBeginPanelPasskeyRegistration = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof beginPanelPasskeyRegistration>>,
+    TError,
+    Key,
+    Arguments,
+    Awaited<ReturnType<typeof beginPanelPasskeyRegistration>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getBeginPanelPasskeyRegistrationMutationKey();
+  const swrFn = getBeginPanelPasskeyRegistrationMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type finishPanelPasskeyRegistrationResponse200 = {
+  data: Passkey;
+  status: 200;
+};
+
+export type finishPanelPasskeyRegistrationResponse400 = {
+  data: ProblemResponse;
+  status: 400;
+};
+
+export type finishPanelPasskeyRegistrationResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type finishPanelPasskeyRegistrationResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
+export type finishPanelPasskeyRegistrationResponseSuccess =
+  finishPanelPasskeyRegistrationResponse200 & {
+    headers: Headers;
+  };
+export type finishPanelPasskeyRegistrationResponseError = (
+  | finishPanelPasskeyRegistrationResponse400
+  | finishPanelPasskeyRegistrationResponse422
+  | finishPanelPasskeyRegistrationResponse503
+) & {
+  headers: Headers;
+};
+
+export type finishPanelPasskeyRegistrationResponse =
+  | finishPanelPasskeyRegistrationResponseSuccess
+  | finishPanelPasskeyRegistrationResponseError;
+
+export const getFinishPanelPasskeyRegistrationUrl = (
+  params?: FinishPanelPasskeyRegistrationParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/auth/passkeys/register/finish?${stringifiedParams}`
+    : `/v1/panel/auth/passkeys/register/finish`;
+};
+
+/**
+ * Stores the new credential. The label travels in the query because the body is the credential and has a shape fixed by WebAuthn.
+ */
+export const finishPanelPasskeyRegistration = async (
+  finishPanelPasskeyRegistrationBody: FinishPanelPasskeyRegistrationBody,
+  params?: FinishPanelPasskeyRegistrationParams,
+  options?: RequestInit,
+): Promise<finishPanelPasskeyRegistrationResponse> => {
+  const res = await fetch(getFinishPanelPasskeyRegistrationUrl(params), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(finishPanelPasskeyRegistrationBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: finishPanelPasskeyRegistrationResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as finishPanelPasskeyRegistrationResponse;
+};
+
+export const getFinishPanelPasskeyRegistrationMutationFetcher = (
+  params?: FinishPanelPasskeyRegistrationParams,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: FinishPanelPasskeyRegistrationBody }) => {
+    return finishPanelPasskeyRegistration(arg, params, options);
+  };
+};
+export const getFinishPanelPasskeyRegistrationMutationKey = (
+  params?: FinishPanelPasskeyRegistrationParams,
+) => [`/v1/panel/auth/passkeys/register/finish`, ...(params ? [params] : [])] as const;
+
+export type FinishPanelPasskeyRegistrationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof finishPanelPasskeyRegistration>>
+>;
+
+export const useFinishPanelPasskeyRegistration = <TError = Promise<ProblemResponse>>(
+  params?: FinishPanelPasskeyRegistrationParams,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof finishPanelPasskeyRegistration>>,
+      TError,
+      Key,
+      FinishPanelPasskeyRegistrationBody,
+      Awaited<ReturnType<typeof finishPanelPasskeyRegistration>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getFinishPanelPasskeyRegistrationMutationKey(params);
+  const swrFn = getFinishPanelPasskeyRegistrationMutationFetcher(params, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type renamePanelPasskeyResponse200 = {
+  data: Passkey;
+  status: 200;
+};
+
+export type renamePanelPasskeyResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type renamePanelPasskeyResponseSuccess = renamePanelPasskeyResponse200 & {
+  headers: Headers;
+};
+export type renamePanelPasskeyResponseError = renamePanelPasskeyResponse404 & {
+  headers: Headers;
+};
+
+export type renamePanelPasskeyResponse =
+  | renamePanelPasskeyResponseSuccess
+  | renamePanelPasskeyResponseError;
+
+export const getRenamePanelPasskeyUrl = (passkeyID: string) => {
+  return `/v1/panel/auth/passkeys/${passkeyID}`;
+};
+
+export const renamePanelPasskey = async (
+  passkeyID: string,
+  passkeyLabelInput: PasskeyLabelInput,
+  options?: RequestInit,
+): Promise<renamePanelPasskeyResponse> => {
+  const res = await fetch(getRenamePanelPasskeyUrl(passkeyID), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(passkeyLabelInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: renamePanelPasskeyResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as renamePanelPasskeyResponse;
+};
+
+export const getRenamePanelPasskeyMutationFetcher = (passkeyID: string, options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PasskeyLabelInput }) => {
+    return renamePanelPasskey(passkeyID, arg, options);
+  };
+};
+export const getRenamePanelPasskeyMutationKey = (passkeyID: string) =>
+  [`/v1/panel/auth/passkeys/${passkeyID}`] as const;
+
+export type RenamePanelPasskeyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof renamePanelPasskey>>
+>;
+
+export const useRenamePanelPasskey = <TError = Promise<ProblemResponse>>(
+  passkeyID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof renamePanelPasskey>>,
+      TError,
+      Key,
+      PasskeyLabelInput,
+      Awaited<ReturnType<typeof renamePanelPasskey>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRenamePanelPasskeyMutationKey(passkeyID);
+  const swrFn = getRenamePanelPasskeyMutationFetcher(passkeyID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type revokePanelPasskeyResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type revokePanelPasskeyResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type revokePanelPasskeyResponseSuccess = revokePanelPasskeyResponse204 & {
+  headers: Headers;
+};
+export type revokePanelPasskeyResponseError = revokePanelPasskeyResponse404 & {
+  headers: Headers;
+};
+
+export type revokePanelPasskeyResponse =
+  | revokePanelPasskeyResponseSuccess
+  | revokePanelPasskeyResponseError;
+
+export const getRevokePanelPasskeyUrl = (passkeyID: string) => {
+  return `/v1/panel/auth/passkeys/${passkeyID}`;
+};
+
+/**
+ * Removes one credential. Never an account-recovery event: the password and its second factor are untouched, so the last key can go too.
+ */
+export const revokePanelPasskey = async (
+  passkeyID: string,
+  options?: RequestInit,
+): Promise<revokePanelPasskeyResponse> => {
+  const res = await fetch(getRevokePanelPasskeyUrl(passkeyID), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: revokePanelPasskeyResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as revokePanelPasskeyResponse;
+};
+
+export const getRevokePanelPasskeyMutationFetcher = (passkeyID: string, options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return revokePanelPasskey(passkeyID, options);
+  };
+};
+export const getRevokePanelPasskeyMutationKey = (passkeyID: string) =>
+  [`/v1/panel/auth/passkeys/${passkeyID}`] as const;
+
+export type RevokePanelPasskeyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof revokePanelPasskey>>
+>;
+
+export const useRevokePanelPasskey = <TError = Promise<ProblemResponse>>(
+  passkeyID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof revokePanelPasskey>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof revokePanelPasskey>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRevokePanelPasskeyMutationKey(passkeyID);
+  const swrFn = getRevokePanelPasskeyMutationFetcher(passkeyID, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

@@ -1261,6 +1261,181 @@ export const RegeneratePanelRecoveryCodesResponse = zod.object({
 });
 
 /**
+ * Whether this installation can offer passkeys. A credential is bound to an origin, so an installation without a public URL has none and the sign-in screen omits the button rather than offering a broken one.
+ */
+export const PanelPasskeyAvailabilityResponse = zod.object({
+  available: zod.boolean(),
+});
+
+/**
+ * Issues a WebAuthn assertion challenge. Public by necessity: the assertion is what proves who the operator is. The challenge is returned to the browser and also sealed into a short-lived cookie, so the second step answers the challenge this step issued.
+ */
+export const BeginPanelPasskeyLoginResponse = zod.record(zod.string(), zod.unknown());
+
+/**
+ * Verifies the assertion and starts a complete session. challengeRequired is always false: the authenticator proved possession and verified the person, so no second factor remains to ask for.
+ */
+export const FinishPanelPasskeyLoginBody = zod.record(zod.string(), zod.unknown());
+
+export const FinishPanelPasskeyLoginResponse = zod.object({
+  challengeRequired: zod
+    .boolean()
+    .optional()
+    .describe("When true, the session authorizes nothing until the second factor passes."),
+  csrfToken: zod.string(),
+  expiresAt: zod.iso.datetime({ offset: true }),
+  account: zod.object({
+    id: zod.uuid(),
+    email: zod.email(),
+    displayName: zod.string(),
+    status: zod.enum(["active", "suspended", "disabled"]),
+    locale: zod.enum(["en", "ru"]),
+    timezone: zod.string(),
+    roles: zod.array(
+      zod.enum(["owner", "administrator", "support", "finance", "marketing", "auditor"]),
+    ),
+    totpEnabled: zod.boolean(),
+    lastLoginAt: zod.iso.datetime({ offset: true }).optional(),
+    createdAt: zod.iso.datetime({ offset: true }),
+  }),
+});
+
+/**
+ * The signed-in operator's own credentials. No public key is returned.
+ */
+export const listPanelPasskeysResponseItemsItemLabelMax = 60;
+
+export const ListPanelPasskeysResponse = zod.object({
+  items: zod.array(
+    zod
+      .object({
+        id: zod.uuid(),
+        label: zod
+          .string()
+          .max(listPanelPasskeysResponseItemsItemLabelMax)
+          .describe("Chosen by the owner, to tell one device from another."),
+        createdAt: zod.iso.datetime({ offset: true }),
+        lastUsedAt: zod.iso
+          .datetime({ offset: true })
+          .optional()
+          .describe("Absent until the key has signed in."),
+        discoverable: zod
+          .boolean()
+          .describe("Whether the key can sign in without the account being named first."),
+      })
+      .describe(
+        "One registered credential. It carries neither the public key nor the credential identifier: neither is secret, and neither is any use to an operator reading a list.",
+      ),
+  ),
+  available: zod
+    .boolean()
+    .describe("False when the installation has no public URL to bind credentials to."),
+});
+
+/**
+ * Issues a WebAuthn creation challenge for a discoverable credential with user verification required, which is what lets the key sign in alone.
+ */
+export const BeginPanelPasskeyRegistrationHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const BeginPanelPasskeyRegistrationResponse = zod.record(zod.string(), zod.unknown());
+
+/**
+ * Stores the new credential. The label travels in the query because the body is the credential and has a shape fixed by WebAuthn.
+ */
+export const finishPanelPasskeyRegistrationQueryLabelMax = 60;
+
+export const FinishPanelPasskeyRegistrationQueryParams = zod.object({
+  label: zod.string().max(finishPanelPasskeyRegistrationQueryLabelMax).optional(),
+});
+
+export const FinishPanelPasskeyRegistrationHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const FinishPanelPasskeyRegistrationBody = zod.record(zod.string(), zod.unknown());
+
+export const finishPanelPasskeyRegistrationResponseLabelMax = 60;
+
+export const FinishPanelPasskeyRegistrationResponse = zod
+  .object({
+    id: zod.uuid(),
+    label: zod
+      .string()
+      .max(finishPanelPasskeyRegistrationResponseLabelMax)
+      .describe("Chosen by the owner, to tell one device from another."),
+    createdAt: zod.iso.datetime({ offset: true }),
+    lastUsedAt: zod.iso
+      .datetime({ offset: true })
+      .optional()
+      .describe("Absent until the key has signed in."),
+    discoverable: zod
+      .boolean()
+      .describe("Whether the key can sign in without the account being named first."),
+  })
+  .describe(
+    "One registered credential. It carries neither the public key nor the credential identifier: neither is secret, and neither is any use to an operator reading a list.",
+  );
+
+export const RenamePanelPasskeyParams = zod.object({
+  passkeyID: zod.uuid(),
+});
+
+export const RenamePanelPasskeyHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const renamePanelPasskeyBodyLabelMax = 60;
+
+export const RenamePanelPasskeyBody = zod.object({
+  label: zod.string().min(1).max(renamePanelPasskeyBodyLabelMax),
+});
+
+export const renamePanelPasskeyResponseLabelMax = 60;
+
+export const RenamePanelPasskeyResponse = zod
+  .object({
+    id: zod.uuid(),
+    label: zod
+      .string()
+      .max(renamePanelPasskeyResponseLabelMax)
+      .describe("Chosen by the owner, to tell one device from another."),
+    createdAt: zod.iso.datetime({ offset: true }),
+    lastUsedAt: zod.iso
+      .datetime({ offset: true })
+      .optional()
+      .describe("Absent until the key has signed in."),
+    discoverable: zod
+      .boolean()
+      .describe("Whether the key can sign in without the account being named first."),
+  })
+  .describe(
+    "One registered credential. It carries neither the public key nor the credential identifier: neither is secret, and neither is any use to an operator reading a list.",
+  );
+
+/**
+ * Removes one credential. Never an account-recovery event: the password and its second factor are untouched, so the last key can go too.
+ */
+export const RevokePanelPasskeyParams = zod.object({
+  passkeyID: zod.uuid(),
+});
+
+export const RevokePanelPasskeyHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const RevokePanelPasskeyResponse = zod.void();
+
+/**
  * Requires admins.read.
  */
 export const listPanelAdminsQueryPageSizeDefault = 100;

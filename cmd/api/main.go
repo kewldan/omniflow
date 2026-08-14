@@ -236,7 +236,12 @@ func buildAdminPanel(
 	limiter *platform.RateLimiter, providers []payments.Provider, health *platform.Health,
 	fulfillmentService *fulfillment.Service, remnawaveClient *remnawave.Client,
 ) (*apihttp.AdminHandlers, error) {
-	service, err := adminauthpg.New(pool, cfg.DataEncryptionKey, adminauthpg.Options{})
+	// The public URL is what a passkey is bound to. Without one the service
+	// leaves passkeys off rather than minting credentials the browser will
+	// later decline to offer, which is a failure with no error message.
+	service, err := adminauthpg.New(pool, cfg.DataEncryptionKey, adminauthpg.Options{
+		PublicURL: cfg.PublicURL, ServiceName: cfg.AdminPanel.Issuer,
+	})
 	if err != nil {
 		return nil, err
 	}

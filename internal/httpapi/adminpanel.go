@@ -187,6 +187,9 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 		panel.Post("/auth/password-reset", handlers.requestPasswordReset)
 		panel.Post("/auth/password-reset/complete", handlers.completePasswordReset)
 		handlers.mountOIDCPublic(panel)
+		// Public by necessity: a passkey signs in, so its challenge and the
+		// assertion answering it both happen before anybody is authenticated.
+		handlers.mountPasskeyPublic(panel)
 
 		// Authenticated.
 		panel.Group(func(secure chi.Router) {
@@ -228,6 +231,10 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 
 			secure.Get("/rbac/catalog", handlers.permissionCatalog)
 			handlers.mountOIDCSecure(secure)
+			// Managing keys needs no permission beyond a session: they are the
+			// operator's own way in, like their password and their second
+			// factor, and every route is scoped to the account that asked.
+			handlers.mountPasskeySecure(secure)
 			handlers.mountOperations(secure)
 			handlers.mountSupport(secure)
 			handlers.mountLoyalty(secure)

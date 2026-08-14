@@ -25,6 +25,7 @@ const (
 	adminSessionCookieBase   = "omniflow_admin"
 	accountSessionCookieBase = "omniflow_account"
 	adminOIDCCookieBase      = "omniflow_oidc"
+	adminPasskeyCookieBase   = "omniflow_passkey"
 	accountOIDCCookieBase    = "omniflow_account_oidc"
 
 	hostPrefix = "__Host-"

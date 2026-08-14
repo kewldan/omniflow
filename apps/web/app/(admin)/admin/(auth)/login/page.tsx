@@ -6,7 +6,7 @@ import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@omniflow/ui/card";
 import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Fingerprint } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useState } from "react";
@@ -15,6 +15,7 @@ import useSWR from "swr";
 import { z } from "zod";
 
 import { ApiError, apiFetch, fetcher, setCsrfToken } from "@/lib/api";
+import { passkeyDismissed, passkeysSupported, signInWithPasskey } from "@/lib/passkey";
 
 const credentialsSchema = z.object({
   email: z.email(),
@@ -42,6 +43,7 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const [stage, setStage] = useState<"credentials" | "challenge">("credentials");
   const [formError, setFormError] = useState<string | null>(null);
+  const [passkeyBusy, setPasskeyBusy] = useState(false);
   const emailId = useId();
   const passwordId = useId();
   const codeId = useId();
@@ -50,6 +52,22 @@ export default function LoginPage() {
   const { data: bootstrap } = useSWR<{ setupRequired: boolean }>("/v1/panel/bootstrap", fetcher, {
     revalidateOnFocus: false,
   });
+
+  // Two conditions, and both have to hold: the installation must have a public
+  // URL to bind credentials to, and this browser must be able to run the
+  // ceremony. Either one missing means the button would open nothing.
+  const { data: passkeySupport } = useSWR<{ available: boolean }>(
+    "/v1/panel/auth/passkey",
+    fetcher,
+    { revalidateOnFocus: false },
+  );
+  const [browserSupportsPasskeys, setBrowserSupportsPasskeys] = useState(false);
+  useEffect(() => {
+    // In an effect because it reads `window`, which the server render has not
+    // got; deciding during render would mark the markup as mismatched.
+    setBrowserSupportsPasskeys(passkeysSupported());
+  }, []);
+  const passkeyOffered = Boolean(passkeySupport?.available) && browserSupportsPasskeys;
 
   useEffect(() => {
     if (bootstrap?.setupRequired) {
@@ -80,6 +98,15 @@ export default function LoginPage() {
           return translate("errors.rateLimited");
         case "invalid_code":
           return translate("errors.invalidCode");
+        case "passkey_cloned":
+          // Said plainly rather than folded into the generic refusal. A cloned
+          // key means somebody else holds a copy, and the person reading this
+          // screen is the only one who can act on that.
+          return translate("errors.passkeyCloned");
+        case "passkeys_unavailable":
+          return translate("errors.passkeyUnavailable");
+        case "flow_expired":
+          return translate("errors.passkeyExpired");
         default:
           return translate("errors.generic");
       }
@@ -102,6 +129,26 @@ export default function LoginPage() {
       router.replace(next);
     } catch (error) {
       setFormError(describe(error));
+    }
+  }
+
+  async function submitPasskey() {
+    setFormError(null);
+    setPasskeyBusy(true);
+    try {
+      const result = await signInWithPasskey();
+      setCsrfToken(result.csrfToken);
+      // Straight in. The authenticator proved possession of the key and
+      // verified the person holding it, so there is no second factor left to
+      // ask for and no challenge stage to pass through.
+      router.replace(next);
+    } catch (error) {
+      // Closing the browser's dialog is a decision, not a failure.
+      if (!passkeyDismissed(error)) {
+        setFormError(describe(error));
+      }
+    } finally {
+      setPasskeyBusy(false);
     }
   }
 
@@ -180,6 +227,31 @@ export default function LoginPage() {
               <Button disabled={credentialsForm.formState.isSubmitting} type="submit">
                 {translate("submit")}
               </Button>
+
+              {passkeyOffered && (
+                <>
+                  {/* Below the password rather than above it. A passkey signs in
+                      on its own and is the better route, but only for an
+                      operator who has registered one — and this screen cannot
+                      know that before the browser is asked. Leading with it
+                      would hand everybody else a button that opens a dialog
+                      with nothing in it. */}
+                  <div className="flex items-center gap-3">
+                    <span className="h-px flex-1 bg-border" />
+                    <span className="text-muted-foreground text-xs">{translate("or")}</span>
+                    <span className="h-px flex-1 bg-border" />
+                  </div>
+                  <Button
+                    disabled={passkeyBusy}
+                    onClick={submitPasskey}
+                    type="button"
+                    variant="outline"
+                  >
+                    <Fingerprint />
+                    {translate("passkey")}
+                  </Button>
+                </>
+              )}
             </form>
           ) : (
             <form

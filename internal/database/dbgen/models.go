@@ -72,6 +72,24 @@ type AdminOidcProvider struct {
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
 }
 
+type AdminPasskey struct {
+	ID           pgtype.UUID `json:"id"`
+	AdminUserID  pgtype.UUID `json:"admin_user_id"`
+	CredentialID []byte      `json:"credential_id"`
+	// The credential public key. The private half never leaves the authenticator, so this column holds nothing an attacker can use.
+	PublicKey []byte `json:"public_key"`
+	Label     string `json:"label"`
+	// Last signature counter seen. A decrease indicates a cloned authenticator; a permanent zero means the authenticator does not implement one.
+	SignCount    int64              `json:"sign_count"`
+	Aaguid       []byte             `json:"aaguid"`
+	Discoverable bool               `json:"discoverable"`
+	UserVerified bool               `json:"user_verified"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	CreatedIp    *netip.Addr        `json:"created_ip"`
+	LastUsedAt   pgtype.Timestamptz `json:"last_used_at"`
+	LastUsedIp   *netip.Addr        `json:"last_used_ip"`
+}
+
 type AdminPasswordReset struct {
 	ID          pgtype.UUID        `json:"id"`
 	AdminUserID pgtype.UUID        `json:"admin_user_id"`

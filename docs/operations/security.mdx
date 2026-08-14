@@ -1,6 +1,6 @@
 ---
 title: "Security"
-description: "The whole security posture: the three credential surfaces, password and TOTP handling, session storage and rotation, CSRF, secret sealing, trusted proxies, headers, and what is never logged"
+description: "The whole security posture: the three credential surfaces, password, TOTP and passkey handling, session storage and rotation, CSRF, secret sealing, trusted proxies, headers, and what is never logged"
 ---
 
 Omniflow holds three things worth attacking: operator access to a panel that
@@ -157,6 +157,88 @@ apps. Secrets are sealed with `APP_DATA_ENCRYPTION_KEY`.
   expectation, checked from the operator list at `/admin/operators`, which shows
   each account's two-factor state.
 </Note>
+
+## Passkeys
+
+A passkey signs an operator in on its own — no password, and no second factor
+after it. That is not a shortcut: the authenticator proves possession of a
+private key and verifies the person holding it with a PIN or a biometric, so a
+single assertion already carries two factors. Demanding a TOTP code on top would
+be asking for a third.
+
+Registration requires both properties and refuses a credential that lacks
+either. `residentKey: required` makes the credential **discoverable**, which is
+what lets the sign-in screen offer it before anyone has typed an email address;
+a non-discoverable credential would work as a second factor and then silently
+fail to appear at sign-in. `userVerification: required` is checked twice — asked
+for in the request, and verified in the response before the row is written — so
+an authenticator with no PIN is rejected at registration rather than stored and
+rejected at every sign-in.
+
+Only the public key is stored. The private half never leaves the authenticator,
+so `admin_passkeys` is a table a database dump yields nothing useful from.
+Neither the public key nor the credential identifier is returned by the API:
+they are not secret, but a list screen has no use for them.
+
+### What binds a passkey, and what breaks it
+
+A credential is bound to a **relying-party identifier**, derived from
+`APP_PUBLIC_URL` rather than configured separately so the two cannot disagree.
+This has a consequence worth planning around:
+
+<Warning>
+  **Changing the panel's domain invalidates every registered passkey.** The
+  browser will not offer a credential to a site it was not created for, and
+  there is no migration for this — it is what makes a passkey unphishable.
+  Operators re-register after a domain change, signing in with their password
+  first. An installation with no `APP_PUBLIC_URL` has no origin to bind to, so
+  passkeys are switched off entirely and the sign-in screen omits the button
+  rather than offering one that opens nothing.
+</Warning>
+
+### Clone detection
+
+Every assertion carries a signature counter. An authenticator that implements
+one increments it on each use, so a counter that fails to advance means two
+devices are answering for one credential — the signature of a copied key. That
+assertion is refused and the account is notified, because the person holding the
+original has no other way to learn a copy exists.
+
+Many authenticators — most platform ones — never implement a counter and report
+zero forever. That is legal, and treating it as a clone would lock out the most
+common hardware there is, so zero-to-zero is accepted and only a counter that
+went backwards is refused. The stored value advances with `GREATEST`, so a
+replayed assertion cannot roll it back to make the next replay look fresh.
+
+### The challenge, and the two halves of the API
+
+The WebAuthn exchange is two requests, and the challenge issued by the first must
+reach the second unaltered. It travels in a sealed, HttpOnly, `SameSite=Strict`
+cookie with a five-minute lifetime, exactly as the OIDC flow state does — a
+challenge the browser could choose is not a challenge. It is cleared before the
+assertion is validated, so a failed attempt leaves nothing behind to replay.
+
+Sign-in is public by necessity: the assertion is what proves who the operator is,
+so `POST /v1/panel/auth/passkey/login/begin` and `/finish` run before any session
+exists. Key management is not: listing, registering, renaming, and revoking sit
+behind the session gate under `/v1/panel/auth/passkeys`, and every one is scoped
+to the owner in SQL, so another operator holding a valid session and a valid
+passkey identifier gets `404`.
+
+A session started by a passkey records `passkey` in its authentication methods,
+which is what lets an audit reader tell one sign-in route from another.
+
+### The password stays
+
+Passkeys are added alongside the password and its second factor, never in place
+of them. That is deliberate on both sides: it means the password remains the way
+back in when every key is lost, and therefore that **revoking a passkey is never
+an account-recovery event** — the last one can be removed without locking anybody
+out. Registering a key, renaming one, and revoking one each queue a security
+notice, because registering a way into the account is exactly what somebody on a
+stolen session would do.
+
+Operators manage their own keys at `/admin/security`.
 
 ## Sessions
 

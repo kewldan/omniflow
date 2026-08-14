@@ -434,3 +434,58 @@ LIMIT sqlc.arg(page_size);
 -- name: ListAuditEventActions :many
 -- Populates the action filter without scanning the whole table from the client.
 SELECT DISTINCT action FROM audit_events ORDER BY action;
+
+-- ---------------------------------------------------------------------------
+-- Passkeys
+--
+-- A passkey signs in on its own, so these queries are on the sign-in path and
+-- carry no secret: the private half never leaves the authenticator, and the
+-- public key stored here is useless to whoever reads it.
+-- ---------------------------------------------------------------------------
+
+-- name: ListAdminPasskeys :many
+SELECT * FROM admin_passkeys
+WHERE admin_user_id = sqlc.arg(admin_user_id)
+ORDER BY created_at DESC;
+
+-- name: CountAdminPasskeys :one
+SELECT count(*) FROM admin_passkeys WHERE admin_user_id = sqlc.arg(admin_user_id);
+
+-- name: GetAdminPasskeyByCredential :one
+-- The lookup an assertion performs. It is by credential alone because a
+-- discoverable passkey names its own account: the operator never types who they
+-- are, which is the whole point of the passwordless path.
+SELECT * FROM admin_passkeys WHERE credential_id = sqlc.arg(credential_id);
+
+-- name: CreateAdminPasskey :one
+INSERT INTO admin_passkeys (
+  admin_user_id, credential_id, public_key, label,
+  sign_count, aaguid, discoverable, user_verified, created_ip
+) VALUES (
+  sqlc.arg(admin_user_id), sqlc.arg(credential_id), sqlc.arg(public_key), sqlc.arg(label),
+  sqlc.arg(sign_count), sqlc.narg(aaguid), sqlc.arg(discoverable), sqlc.arg(user_verified),
+  sqlc.narg(created_ip)
+)
+RETURNING *;
+
+-- name: RecordAdminPasskeyUse :exec
+-- The counter only ever moves forward. A replayed assertion carrying an older
+-- value must not roll it back, or the clone detection it exists for would be
+-- defeated by the very thing it is watching for.
+UPDATE admin_passkeys
+SET sign_count = GREATEST(sign_count, sqlc.arg(sign_count)),
+    last_used_at = now(),
+    last_used_ip = sqlc.narg(last_used_ip)
+WHERE id = sqlc.arg(passkey_id);
+
+-- name: RenameAdminPasskey :one
+UPDATE admin_passkeys SET label = sqlc.arg(label)
+WHERE id = sqlc.arg(passkey_id) AND admin_user_id = sqlc.arg(admin_user_id)
+RETURNING *;
+
+-- name: DeleteAdminPasskey :one
+-- Scoped to the owner: a passkey identifier is not a secret, and an operator
+-- must not be able to revoke somebody else's key by knowing one.
+DELETE FROM admin_passkeys
+WHERE id = sqlc.arg(passkey_id) AND admin_user_id = sqlc.arg(admin_user_id)
+RETURNING *;

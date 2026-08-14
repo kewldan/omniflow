@@ -59,6 +59,11 @@ var openPaths = map[string]bool{
 	// Starting and completing the OIDC exchange.
 	"/v1/panel/auth/oidc":          true,
 	"/v1/panel/auth/oidc/callback": true,
+	// Passkey sign-in. The assertion is what proves who the operator is, so
+	// both halves necessarily run before a session exists. Registering a
+	// passkey is a different thing entirely and stays behind the gate.
+	"/v1/panel/auth/passkey/login/begin":  true,
+	"/v1/panel/auth/passkey/login/finish": true,
 }
 
 // concreteFor turns a chi pattern into a path a request can be made against.

@@ -79,6 +79,15 @@ Each operator can review their live sessions at `/admin/security`, end any one o
 them, or sign out everywhere else. Changing a password ends every other session;
 completing a password reset ends all of them.
 
+The same screen registers and revokes **passkeys**. A passkey signs in on its own
+— the authenticator proves possession and verifies the person, so the sign-in
+screen goes straight in with no password and no code. Each key carries a name the
+operator chooses, which is what makes revoking the right one possible months
+later; the list also shows when each was last used. Keys never replace the
+password, so removing the last one locks nobody out. The button is absent when
+the installation has no `APP_PUBLIC_URL` to bind credentials to, or when the
+browser cannot run the ceremony. See [Security](/operations/security).
+
 The new-password field carries a strength meter. It estimates entropy over the
 alphabet the password actually uses and then subtracts for the patterns that
 make that alphabet a lie — too few distinct characters, a run from the keyboard

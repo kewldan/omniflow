@@ -547,6 +547,100 @@ paths:
       description: Replaces the whole set, invalidating any unused code.
       responses:
         "200": {description: New codes, content: {application/json: {schema: {$ref: "#/components/schemas/RecoveryCodes"}}}}
+  /v1/panel/auth/passkey:
+    get:
+      operationId: panelPasskeyAvailability
+      tags: [panel]
+      description: >-
+        Whether this installation can offer passkeys. A credential is bound to
+        an origin, so an installation without a public URL has none and the
+        sign-in screen omits the button rather than offering a broken one.
+      responses:
+        "200": {description: Availability, content: {application/json: {schema: {$ref: "#/components/schemas/PasskeyAvailability"}}}}
+  /v1/panel/auth/passkey/login/begin:
+    post:
+      operationId: beginPanelPasskeyLogin
+      tags: [panel]
+      description: >-
+        Issues a WebAuthn assertion challenge. Public by necessity: the
+        assertion is what proves who the operator is. The challenge is returned
+        to the browser and also sealed into a short-lived cookie, so the second
+        step answers the challenge this step issued.
+      responses:
+        "200": {description: Assertion options, content: {application/json: {schema: {type: object, additionalProperties: true}}}}
+        "429": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
+  /v1/panel/auth/passkey/login/finish:
+    post:
+      operationId: finishPanelPasskeyLogin
+      tags: [panel]
+      description: >-
+        Verifies the assertion and starts a complete session. challengeRequired
+        is always false: the authenticator proved possession and verified the
+        person, so no second factor remains to ask for.
+      requestBody: {required: true, content: {application/json: {schema: {type: object, additionalProperties: true}}}}
+      responses:
+        "200": {description: Signed in, content: {application/json: {schema: {$ref: "#/components/schemas/LoginResult"}}}}
+        "400": {$ref: "#/components/responses/Problem"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
+  /v1/panel/auth/passkeys:
+    get:
+      operationId: listPanelPasskeys
+      tags: [panel]
+      description: The signed-in operator's own credentials. No public key is returned.
+      responses:
+        "200": {description: Registered passkeys, content: {application/json: {schema: {$ref: "#/components/schemas/PasskeyList"}}}}
+  /v1/panel/auth/passkeys/register/begin:
+    post:
+      operationId: beginPanelPasskeyRegistration
+      tags: [panel]
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      description: >-
+        Issues a WebAuthn creation challenge for a discoverable credential with
+        user verification required, which is what lets the key sign in alone.
+      responses:
+        "200": {description: Creation options, content: {application/json: {schema: {type: object, additionalProperties: true}}}}
+        "503": {$ref: "#/components/responses/Problem"}
+  /v1/panel/auth/passkeys/register/finish:
+    post:
+      operationId: finishPanelPasskeyRegistration
+      tags: [panel]
+      description: >-
+        Stores the new credential. The label travels in the query because the
+        body is the credential and has a shape fixed by WebAuthn.
+      parameters:
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {in: query, name: label, schema: {type: string, maxLength: 60}}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, additionalProperties: true}}}}
+      responses:
+        "200": {description: Passkey registered, content: {application/json: {schema: {$ref: "#/components/schemas/Passkey"}}}}
+        "400": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
+  /v1/panel/auth/passkeys/{passkeyID}:
+    patch:
+      operationId: renamePanelPasskey
+      tags: [panel]
+      parameters:
+        - {in: path, name: passkeyID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PasskeyLabelInput"}}}}
+      responses:
+        "200": {description: Passkey renamed, content: {application/json: {schema: {$ref: "#/components/schemas/Passkey"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+    delete:
+      operationId: revokePanelPasskey
+      tags: [panel]
+      description: >-
+        Removes one credential. Never an account-recovery event: the password
+        and its second factor are untouched, so the last key can go too.
+      parameters:
+        - {in: path, name: passkeyID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "204": {description: Passkey removed}
+        "404": {$ref: "#/components/responses/Problem"}
   /v1/panel/admins:
     get:
       operationId: listPanelAdmins
@@ -3291,6 +3385,36 @@ components:
           type: array
           items: {type: string}
           description: "Returned exactly once. Only digests are stored."
+
+    Passkey:
+      type: object
+      required: [id, label, createdAt, discoverable]
+      description: >-
+        One registered credential. It carries neither the public key nor the
+        credential identifier: neither is secret, and neither is any use to an
+        operator reading a list.
+      properties:
+        id: {type: string, format: uuid}
+        label: {type: string, maxLength: 60, description: "Chosen by the owner, to tell one device from another."}
+        createdAt: {type: string, format: date-time}
+        lastUsedAt: {type: string, format: date-time, description: "Absent until the key has signed in."}
+        discoverable: {type: boolean, description: "Whether the key can sign in without the account being named first."}
+    PasskeyList:
+      type: object
+      required: [items, available]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/Passkey"}}
+        available: {type: boolean, description: "False when the installation has no public URL to bind credentials to."}
+    PasskeyAvailability:
+      type: object
+      required: [available]
+      properties:
+        available: {type: boolean}
+    PasskeyLabelInput:
+      type: object
+      required: [label]
+      properties:
+        label: {type: string, minLength: 1, maxLength: 60}
 
     AuditEvent:
       type: object

@@ -18,9 +18,9 @@ import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { toast } from "@omniflow/ui/toast";
-import { KeyRound, Monitor, ShieldCheck, TriangleAlert } from "lucide-react";
+import { Fingerprint, KeyRound, Monitor, ShieldCheck, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import useSWR from "swr";
 import { z } from "zod";
@@ -29,8 +29,17 @@ import { PasswordStrength } from "@/components/admin/password-strength";
 import { StateNotice } from "@/components/admin/state-notice";
 import { QrCode } from "@/components/qr-code";
 import { ApiError, apiFetch, fetcher } from "@/lib/api";
+import { passkeyDismissed, passkeysSupported, registerPasskey } from "@/lib/passkey";
 import { useSession } from "@/lib/session";
 import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
+
+type Passkey = {
+  id: string;
+  label: string;
+  createdAt: string;
+  lastUsedAt?: string;
+  discoverable: boolean;
+};
 
 type AdminSession = {
   id: string;
@@ -63,10 +72,257 @@ export default function SecurityPage() {
         <p className="max-w-2xl text-muted-foreground text-sm">{translate("description")}</p>
       </header>
 
+      <PasskeysCard />
       <TwoFactorCard onChanged={refresh} enabled={Boolean(session?.account.totpEnabled)} />
       <PasswordCard />
       <SessionsCard />
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Passkeys
+// ---------------------------------------------------------------------------
+
+/**
+ * Registered passkeys, and the controls to add and remove them.
+ *
+ * A passkey signs in on its own, so this card sits above the second factor: it
+ * is the route that replaces both steps rather than an addition to them. The
+ * password stays underneath as the way back in when every key is lost, which is
+ * why removing the last one is allowed at all.
+ */
+function PasskeysCard() {
+  const translate = useTranslations("admin.security.passkeys");
+  const { data, error, isLoading, mutate } = useSWR<
+    { items: Passkey[]; available: boolean },
+    ApiError
+  >("/v1/panel/auth/passkeys", fetcher);
+
+  const [browserSupported, setBrowserSupported] = useState(false);
+  const [label, setLabel] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [renaming, setRenaming] = useState<{ id: string; label: string } | null>(null);
+  const [removing, setRemoving] = useState<Passkey | null>(null);
+  const labelId = useId();
+
+  // Read in an effect: `window` does not exist during the server render, and
+  // deciding during render would make the markup disagree with itself.
+  useEffect(() => {
+    setBrowserSupported(passkeysSupported());
+  }, []);
+
+  const keys = data?.items ?? [];
+  const configured = data?.available ?? false;
+
+  async function register() {
+    setBusy(true);
+    try {
+      await registerPasskey(label.trim() || translate("defaultLabel"));
+      setLabel("");
+      await mutate();
+      toast.success(translate("registered"));
+    } catch (registerError) {
+      // Cancelling the browser's dialog is a choice, not a failure worth a
+      // red toast.
+      if (passkeyDismissed(registerError)) {
+        return;
+      }
+      toast.error(
+        registerError instanceof ApiError && registerError.code === "passkey_unverified"
+          ? translate("errors.unverified")
+          : translate("errors.register"),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function rename() {
+    if (!renaming) {
+      return;
+    }
+    setBusy(true);
+    try {
+      await apiFetch(`/v1/panel/auth/passkeys/${renaming.id}`, {
+        body: JSON.stringify({ label: renaming.label.trim() }),
+        method: "PATCH",
+      });
+      setRenaming(null);
+      await mutate();
+      toast.success(translate("renamed"));
+    } catch {
+      toast.error(translate("errors.rename"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(id: string) {
+    setBusy(true);
+    try {
+      await apiFetch(`/v1/panel/auth/passkeys/${id}`, { method: "DELETE" });
+      setRemoving(null);
+      await mutate();
+      toast.success(translate("removed"));
+    } catch {
+      toast.error(translate("errors.remove"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center">
+        <div className="flex flex-col gap-1.5">
+          <CardTitle>{translate("title")}</CardTitle>
+          <CardDescription>{translate("description")}</CardDescription>
+        </div>
+        <CardAction>
+          <Badge variant={keys.length > 0 ? "success" : "outline"}>
+            {translate("count", { count: keys.length })}
+          </Badge>
+        </CardAction>
+      </CardHeader>
+
+      <CardContent className="flex flex-col gap-4">
+        {!configured && !isLoading && (
+          // The installation has no public URL, so there is no origin to bind a
+          // credential to. Said here rather than left for the button to fail on.
+          <Alert variant="warning">
+            <TriangleAlert />
+            <AlertTitle>{translate("unavailable")}</AlertTitle>
+            <AlertDescription>{translate("unavailableDescription")}</AlertDescription>
+          </Alert>
+        )}
+        {configured && !browserSupported && (
+          <Alert variant="warning">
+            <TriangleAlert />
+            <AlertTitle>{translate("unsupportedBrowser")}</AlertTitle>
+            <AlertDescription>{translate("unsupportedBrowserDescription")}</AlertDescription>
+          </Alert>
+        )}
+
+        {isLoading ? (
+          <div aria-busy="true" className="flex flex-col gap-2">
+            <Skeleton className="h-12 w-full" />
+          </div>
+        ) : error ? (
+          <StateNotice
+            action={
+              <Button onClick={() => mutate()} size="sm" variant="outline">
+                {translate("retry")}
+              </Button>
+            }
+            title={translate("errors.load")}
+            variant="danger"
+          />
+        ) : keys.length === 0 ? (
+          <p className="text-muted-foreground text-sm">{translate("empty")}</p>
+        ) : (
+          <ul className="flex flex-col divide-y divide-border">
+            {keys.map((item) => (
+              <li className="flex items-center gap-3 py-3" key={item.id}>
+                <Fingerprint aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  {renaming?.id === item.id ? (
+                    <Input
+                      aria-label={translate("labelField")}
+                      className="max-w-64"
+                      maxLength={60}
+                      onChange={(event) => setRenaming({ id: item.id, label: event.target.value })}
+                      value={renaming.label}
+                    />
+                  ) : (
+                    <p className="truncate text-sm">{item.label}</p>
+                  )}
+                  <p className="font-mono text-[11px] text-subtle-foreground" data-numeric>
+                    {translate("added", { date: new Date(item.createdAt).toLocaleDateString() })}
+                    {" · "}
+                    {item.lastUsedAt
+                      ? translate("lastUsed", {
+                          date: new Date(item.lastUsedAt).toLocaleDateString(),
+                        })
+                      : translate("neverUsed")}
+                  </p>
+                </div>
+                {renaming?.id === item.id ? (
+                  <>
+                    <Button
+                      disabled={busy || renaming.label.trim().length === 0}
+                      onClick={rename}
+                      size="sm"
+                    >
+                      {translate("save")}
+                    </Button>
+                    <Button onClick={() => setRenaming(null)} size="sm" variant="ghost">
+                      {translate("cancel")}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      disabled={busy}
+                      onClick={() => setRenaming({ id: item.id, label: item.label })}
+                      size="sm"
+                      variant="ghost"
+                    >
+                      {translate("rename")}
+                    </Button>
+                    <Button
+                      disabled={busy}
+                      onClick={() => setRemoving(item)}
+                      size="sm"
+                      variant="ghost"
+                    >
+                      {translate("remove")}
+                    </Button>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {configured && browserSupported && (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={labelId}>{translate("labelField")}</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                className="max-w-64"
+                id={labelId}
+                maxLength={60}
+                onChange={(event) => setLabel(event.target.value)}
+                placeholder={translate("labelPlaceholder")}
+                value={label}
+              />
+              <Button disabled={busy} onClick={register}>
+                <Fingerprint />
+                {translate("add")}
+              </Button>
+            </div>
+            <p className="text-muted-foreground text-xs">{translate("labelHint")}</p>
+          </div>
+        )}
+      </CardContent>
+
+      <ConfirmDialog
+        cancelLabel={translate("cancel")}
+        confirmLabel={translate("remove")}
+        description={translate("removeWarning", { label: removing?.label ?? "" })}
+        destructive
+        onConfirm={() => removing && remove(removing.id)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRemoving(null);
+          }
+        }}
+        open={Boolean(removing)}
+        pending={busy}
+        title={translate("removeTitle")}
+      />
+    </Card>
   );
 }
 

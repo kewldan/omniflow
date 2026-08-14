@@ -102,6 +102,7 @@ type Querier interface {
 	// that could actually sign in count, so suspending the last owner is refused
 	// for the same reason revoking the role is.
 	CountAdminOwners(ctx context.Context, excludingAdminUserID pgtype.UUID) (int64, error)
+	CountAdminPasskeys(ctx context.Context, adminUserID pgtype.UUID) (int64, error)
 	// How many times this operator has signed in from an address before. Zero means
 	// the current sign-in is from somewhere new, which is what makes a security
 	// notice worth sending rather than noise on every successful login.
@@ -127,6 +128,7 @@ type Querier interface {
 	CountUnusedAdminRecoveryCodes(ctx context.Context, adminUserID pgtype.UUID) (int64, error)
 	CreateAddonPrice(ctx context.Context, arg CreateAddonPriceParams) (AddonPrice, error)
 	CreateAddonVersion(ctx context.Context, arg CreateAddonVersionParams) (AddonVersion, error)
+	CreateAdminPasskey(ctx context.Context, arg CreateAdminPasskeyParams) (AdminPasskey, error)
 	// ---------------------------------------------------------------------------
 	// Password resets
 	// ---------------------------------------------------------------------------
@@ -267,6 +269,9 @@ type Querier interface {
 	DeleteAIProvider(ctx context.Context, slug string) error
 	DeleteAIUsageLimit(ctx context.Context, id pgtype.UUID) error
 	DeleteAdminOIDCProvider(ctx context.Context, slug string) error
+	// Scoped to the owner: a passkey identifier is not a secret, and an operator
+	// must not be able to revoke somebody else's key by knowing one.
+	DeleteAdminPasskey(ctx context.Context, arg DeleteAdminPasskeyParams) (AdminPasskey, error)
 	// ---------------------------------------------------------------------------
 	// Recovery codes
 	// ---------------------------------------------------------------------------
@@ -352,6 +357,10 @@ type Querier interface {
 	GetAddonVersionForOrder(ctx context.Context, arg GetAddonVersionForOrderParams) (GetAddonVersionForOrderRow, error)
 	GetAdminOIDCIdentity(ctx context.Context, arg GetAdminOIDCIdentityParams) (GetAdminOIDCIdentityRow, error)
 	GetAdminOIDCProviderBySlug(ctx context.Context, slug string) (AdminOidcProvider, error)
+	// The lookup an assertion performs. It is by credential alone because a
+	// discoverable passkey names its own account: the operator never types who they
+	// are, which is the whole point of the passwordless path.
+	GetAdminPasskeyByCredential(ctx context.Context, credentialID []byte) (AdminPasskey, error)
 	GetAdminPasswordReset(ctx context.Context, tokenHash []byte) (GetAdminPasswordResetRow, error)
 	// Returns the session and its owner in one round trip. Liveness is decided in
 	// Go so an expired session can be distinguished from a missing one and revoked
@@ -551,6 +560,14 @@ type Querier interface {
 	// Optional OIDC configuration
 	// ---------------------------------------------------------------------------
 	ListAdminOIDCProviders(ctx context.Context) ([]AdminOidcProvider, error)
+	// ---------------------------------------------------------------------------
+	// Passkeys
+	//
+	// A passkey signs in on its own, so these queries are on the sign-in path and
+	// carry no secret: the private half never leaves the authenticator, and the
+	// public key stored here is useless to whoever reads it.
+	// ---------------------------------------------------------------------------
+	ListAdminPasskeys(ctx context.Context, adminUserID pgtype.UUID) ([]AdminPasskey, error)
 	ListAdminRoles(ctx context.Context, adminUserID pgtype.UUID) ([]string, error)
 	ListAdminRolesForUsers(ctx context.Context, adminUserIds []pgtype.UUID) ([]ListAdminRolesForUsersRow, error)
 	ListAdminSessions(ctx context.Context, arg ListAdminSessionsParams) ([]AdminSession, error)
@@ -905,6 +922,10 @@ type Querier interface {
 	RecordAdminLoginFailure(ctx context.Context, arg RecordAdminLoginFailureParams) (AdminUser, error)
 	RecordAdminLoginSuccess(ctx context.Context, adminUserID pgtype.UUID) (AdminUser, error)
 	RecordAdminOIDCLogin(ctx context.Context, id pgtype.UUID) error
+	// The counter only ever moves forward. A replayed assertion carrying an older
+	// value must not roll it back, or the clone detection it exists for would be
+	// defeated by the very thing it is watching for.
+	RecordAdminPasskeyUse(ctx context.Context, arg RecordAdminPasskeyUseParams) error
 	RecordBlocklistRefresh(ctx context.Context, arg RecordBlocklistRefreshParams) (BlocklistSource, error)
 	RecordCartFailure(ctx context.Context, arg RecordCartFailureParams) (Cart, error)
 	// Discovery refreshes the description and schemas and leaves the owner's
@@ -950,6 +971,7 @@ type Querier interface {
 	// The label is what every screen and notification uses to name a subscription,
 	// which is what makes several concurrent ones legible.
 	RenameAccountSubscription(ctx context.Context, arg RenameAccountSubscriptionParams) (Subscription, error)
+	RenameAdminPasskey(ctx context.Context, arg RenameAdminPasskeyParams) (AdminPasskey, error)
 	RenameSubscription(ctx context.Context, arg RenameSubscriptionParams) (Subscription, error)
 	// An operator retry only ever moves a terminal-looking row back into the queue.
 	// It cannot skip the idempotency key, so the retried attempt is the same

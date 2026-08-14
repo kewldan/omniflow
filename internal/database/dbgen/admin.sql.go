@@ -200,6 +200,17 @@ func (q *Queries) CountAdminOwners(ctx context.Context, excludingAdminUserID pgt
 	return column_1, err
 }
 
+const countAdminPasskeys = `-- name: CountAdminPasskeys :one
+SELECT count(*) FROM admin_passkeys WHERE admin_user_id = $1
+`
+
+func (q *Queries) CountAdminPasskeys(ctx context.Context, adminUserID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countAdminPasskeys, adminUserID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countAdminSessionsFromAddress = `-- name: CountAdminSessionsFromAddress :one
 SELECT count(*)::bigint FROM admin_sessions
 WHERE admin_user_id = $1
@@ -250,6 +261,61 @@ func (q *Queries) CountUnusedAdminRecoveryCodes(ctx context.Context, adminUserID
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const createAdminPasskey = `-- name: CreateAdminPasskey :one
+INSERT INTO admin_passkeys (
+  admin_user_id, credential_id, public_key, label,
+  sign_count, aaguid, discoverable, user_verified, created_ip
+) VALUES (
+  $1, $2, $3, $4,
+  $5, $6, $7, $8,
+  $9
+)
+RETURNING id, admin_user_id, credential_id, public_key, label, sign_count, aaguid, discoverable, user_verified, created_at, created_ip, last_used_at, last_used_ip
+`
+
+type CreateAdminPasskeyParams struct {
+	AdminUserID  pgtype.UUID `json:"admin_user_id"`
+	CredentialID []byte      `json:"credential_id"`
+	PublicKey    []byte      `json:"public_key"`
+	Label        string      `json:"label"`
+	SignCount    int64       `json:"sign_count"`
+	Aaguid       []byte      `json:"aaguid"`
+	Discoverable bool        `json:"discoverable"`
+	UserVerified bool        `json:"user_verified"`
+	CreatedIp    *netip.Addr `json:"created_ip"`
+}
+
+func (q *Queries) CreateAdminPasskey(ctx context.Context, arg CreateAdminPasskeyParams) (AdminPasskey, error) {
+	row := q.db.QueryRow(ctx, createAdminPasskey,
+		arg.AdminUserID,
+		arg.CredentialID,
+		arg.PublicKey,
+		arg.Label,
+		arg.SignCount,
+		arg.Aaguid,
+		arg.Discoverable,
+		arg.UserVerified,
+		arg.CreatedIp,
+	)
+	var i AdminPasskey
+	err := row.Scan(
+		&i.ID,
+		&i.AdminUserID,
+		&i.CredentialID,
+		&i.PublicKey,
+		&i.Label,
+		&i.SignCount,
+		&i.Aaguid,
+		&i.Discoverable,
+		&i.UserVerified,
+		&i.CreatedAt,
+		&i.CreatedIp,
+		&i.LastUsedAt,
+		&i.LastUsedIp,
+	)
+	return i, err
 }
 
 const createAdminPasswordReset = `-- name: CreateAdminPasswordReset :one
@@ -452,6 +518,40 @@ func (q *Queries) DeleteAdminOIDCProvider(ctx context.Context, slug string) erro
 	return err
 }
 
+const deleteAdminPasskey = `-- name: DeleteAdminPasskey :one
+DELETE FROM admin_passkeys
+WHERE id = $1 AND admin_user_id = $2
+RETURNING id, admin_user_id, credential_id, public_key, label, sign_count, aaguid, discoverable, user_verified, created_at, created_ip, last_used_at, last_used_ip
+`
+
+type DeleteAdminPasskeyParams struct {
+	PasskeyID   pgtype.UUID `json:"passkey_id"`
+	AdminUserID pgtype.UUID `json:"admin_user_id"`
+}
+
+// Scoped to the owner: a passkey identifier is not a secret, and an operator
+// must not be able to revoke somebody else's key by knowing one.
+func (q *Queries) DeleteAdminPasskey(ctx context.Context, arg DeleteAdminPasskeyParams) (AdminPasskey, error) {
+	row := q.db.QueryRow(ctx, deleteAdminPasskey, arg.PasskeyID, arg.AdminUserID)
+	var i AdminPasskey
+	err := row.Scan(
+		&i.ID,
+		&i.AdminUserID,
+		&i.CredentialID,
+		&i.PublicKey,
+		&i.Label,
+		&i.SignCount,
+		&i.Aaguid,
+		&i.Discoverable,
+		&i.UserVerified,
+		&i.CreatedAt,
+		&i.CreatedIp,
+		&i.LastUsedAt,
+		&i.LastUsedIp,
+	)
+	return i, err
+}
+
 const deleteAdminRecoveryCodes = `-- name: DeleteAdminRecoveryCodes :exec
 
 DELETE FROM admin_recovery_codes WHERE admin_user_id = $1
@@ -587,6 +687,34 @@ func (q *Queries) GetAdminOIDCProviderBySlug(ctx context.Context, slug string) (
 		&i.AutoProvisionRole,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getAdminPasskeyByCredential = `-- name: GetAdminPasskeyByCredential :one
+SELECT id, admin_user_id, credential_id, public_key, label, sign_count, aaguid, discoverable, user_verified, created_at, created_ip, last_used_at, last_used_ip FROM admin_passkeys WHERE credential_id = $1
+`
+
+// The lookup an assertion performs. It is by credential alone because a
+// discoverable passkey names its own account: the operator never types who they
+// are, which is the whole point of the passwordless path.
+func (q *Queries) GetAdminPasskeyByCredential(ctx context.Context, credentialID []byte) (AdminPasskey, error) {
+	row := q.db.QueryRow(ctx, getAdminPasskeyByCredential, credentialID)
+	var i AdminPasskey
+	err := row.Scan(
+		&i.ID,
+		&i.AdminUserID,
+		&i.CredentialID,
+		&i.PublicKey,
+		&i.Label,
+		&i.SignCount,
+		&i.Aaguid,
+		&i.Discoverable,
+		&i.UserVerified,
+		&i.CreatedAt,
+		&i.CreatedIp,
+		&i.LastUsedAt,
+		&i.LastUsedIp,
 	)
 	return i, err
 }
@@ -880,6 +1008,54 @@ func (q *Queries) ListAdminOIDCProviders(ctx context.Context) ([]AdminOidcProvid
 			&i.AutoProvisionRole,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAdminPasskeys = `-- name: ListAdminPasskeys :many
+
+SELECT id, admin_user_id, credential_id, public_key, label, sign_count, aaguid, discoverable, user_verified, created_at, created_ip, last_used_at, last_used_ip FROM admin_passkeys
+WHERE admin_user_id = $1
+ORDER BY created_at DESC
+`
+
+// ---------------------------------------------------------------------------
+// Passkeys
+//
+// A passkey signs in on its own, so these queries are on the sign-in path and
+// carry no secret: the private half never leaves the authenticator, and the
+// public key stored here is useless to whoever reads it.
+// ---------------------------------------------------------------------------
+func (q *Queries) ListAdminPasskeys(ctx context.Context, adminUserID pgtype.UUID) ([]AdminPasskey, error) {
+	rows, err := q.db.Query(ctx, listAdminPasskeys, adminUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AdminPasskey{}
+	for rows.Next() {
+		var i AdminPasskey
+		if err := rows.Scan(
+			&i.ID,
+			&i.AdminUserID,
+			&i.CredentialID,
+			&i.PublicKey,
+			&i.Label,
+			&i.SignCount,
+			&i.Aaguid,
+			&i.Discoverable,
+			&i.UserVerified,
+			&i.CreatedAt,
+			&i.CreatedIp,
+			&i.LastUsedAt,
+			&i.LastUsedIp,
 		); err != nil {
 			return nil, err
 		}
@@ -1218,6 +1394,61 @@ UPDATE admin_oidc_identities SET last_login_at = now() WHERE id = $1
 func (q *Queries) RecordAdminOIDCLogin(ctx context.Context, id pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, recordAdminOIDCLogin, id)
 	return err
+}
+
+const recordAdminPasskeyUse = `-- name: RecordAdminPasskeyUse :exec
+UPDATE admin_passkeys
+SET sign_count = GREATEST(sign_count, $1),
+    last_used_at = now(),
+    last_used_ip = $2
+WHERE id = $3
+`
+
+type RecordAdminPasskeyUseParams struct {
+	SignCount  int64       `json:"sign_count"`
+	LastUsedIp *netip.Addr `json:"last_used_ip"`
+	PasskeyID  pgtype.UUID `json:"passkey_id"`
+}
+
+// The counter only ever moves forward. A replayed assertion carrying an older
+// value must not roll it back, or the clone detection it exists for would be
+// defeated by the very thing it is watching for.
+func (q *Queries) RecordAdminPasskeyUse(ctx context.Context, arg RecordAdminPasskeyUseParams) error {
+	_, err := q.db.Exec(ctx, recordAdminPasskeyUse, arg.SignCount, arg.LastUsedIp, arg.PasskeyID)
+	return err
+}
+
+const renameAdminPasskey = `-- name: RenameAdminPasskey :one
+UPDATE admin_passkeys SET label = $1
+WHERE id = $2 AND admin_user_id = $3
+RETURNING id, admin_user_id, credential_id, public_key, label, sign_count, aaguid, discoverable, user_verified, created_at, created_ip, last_used_at, last_used_ip
+`
+
+type RenameAdminPasskeyParams struct {
+	Label       string      `json:"label"`
+	PasskeyID   pgtype.UUID `json:"passkey_id"`
+	AdminUserID pgtype.UUID `json:"admin_user_id"`
+}
+
+func (q *Queries) RenameAdminPasskey(ctx context.Context, arg RenameAdminPasskeyParams) (AdminPasskey, error) {
+	row := q.db.QueryRow(ctx, renameAdminPasskey, arg.Label, arg.PasskeyID, arg.AdminUserID)
+	var i AdminPasskey
+	err := row.Scan(
+		&i.ID,
+		&i.AdminUserID,
+		&i.CredentialID,
+		&i.PublicKey,
+		&i.Label,
+		&i.SignCount,
+		&i.Aaguid,
+		&i.Discoverable,
+		&i.UserVerified,
+		&i.CreatedAt,
+		&i.CreatedIp,
+		&i.LastUsedAt,
+		&i.LastUsedIp,
+	)
+	return i, err
 }
 
 const revokeAdminRole = `-- name: RevokeAdminRole :exec

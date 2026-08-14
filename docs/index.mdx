@@ -24,7 +24,7 @@ cancel them.
 | --- | --- | --- | --- |
 | Telegram bot | A customer | A private chat with your bot | The Telegram account behind the update |
 | Customer web panel | A customer | `/account`, backed by `/v1/account` | Session cookie plus CSRF token |
-| Operator panel | An operator | `/admin`, backed by `/v1/panel` | Session cookie, CSRF, TOTP, and 27 RBAC permissions |
+| Operator panel | An operator | `/admin`, backed by `/v1/panel` | Session cookie, CSRF, TOTP or a passkey, and 27 RBAC permissions |
 | Bearer-token API | Your own code, and the bot's `/ops` tooling | `/v1/admin` | `Authorization: Bearer <APP_OPERATOR_TOKEN>` |
 
 The three `/v1` prefixes are kept apart deliberately. `/v1/panel` is a browser surface and therefore

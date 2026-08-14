@@ -100,13 +100,18 @@
       "codeHint": "You can also use one of your recovery codes.",
       "submit": "Sign in",
       "verify": "Verify",
+      "or": "or",
+      "passkey": "Sign in with a passkey",
       "errors": {
         "invalidCredentials": "Those details are not correct.",
         "locked": "Too many failed attempts. Try again later.",
         "rateLimited": "Too many attempts. Wait a moment and try again.",
         "invalidCode": "That code is not valid.",
         "generic": "Sign-in failed. Try again.",
-        "network": "The API could not be reached."
+        "network": "The API could not be reached.",
+        "passkeyCloned": "That passkey was refused: another device answered for it. The account has been notified.",
+        "passkeyUnavailable": "Passkeys are not configured on this installation.",
+        "passkeyExpired": "That took too long. Try again."
       }
     },
     "setup": {
@@ -218,6 +223,41 @@
     "security": {
       "title": "Security",
       "description": "Your password, two-factor authentication, and the devices signed in to your account.",
+      "passkeys": {
+        "title": "Passkeys",
+        "description": "A passkey signs you in on its own, without a password or a code.",
+        "count": "{count, plural, =0 {None} one {# key} other {# keys}}",
+        "empty": "No passkeys yet. Add one to sign in without typing a password.",
+        "add": "Add a passkey",
+        "labelField": "Name",
+        "labelPlaceholder": "Work laptop",
+        "labelHint": "Only you see this name. It is there to tell one device from another when you revoke a key.",
+        "defaultLabel": "Passkey",
+        "added": "Added {date}",
+        "lastUsed": "last used {date}",
+        "neverUsed": "never used",
+        "rename": "Rename",
+        "remove": "Remove",
+        "save": "Save",
+        "cancel": "Cancel",
+        "retry": "Try again",
+        "registered": "Passkey added.",
+        "renamed": "Passkey renamed.",
+        "removed": "Passkey removed.",
+        "removeTitle": "Remove this passkey?",
+        "removeWarning": "“{label}” will no longer sign you in. Your password and second factor still work.",
+        "unavailable": "Passkeys are switched off",
+        "unavailableDescription": "A passkey is bound to a public address, and this installation has not set APP_PUBLIC_URL.",
+        "unsupportedBrowser": "This browser cannot use passkeys",
+        "unsupportedBrowserDescription": "Your keys are still listed here and still work in a browser that supports them.",
+        "errors": {
+          "load": "Your passkeys could not be read.",
+          "register": "That passkey could not be added.",
+          "unverified": "That authenticator did not check who was using it, so it cannot sign in on its own. Turn on a PIN or a fingerprint for it and try again.",
+          "rename": "That name could not be saved.",
+          "remove": "That passkey could not be removed."
+        }
+      },
       "twoFactor": {
         "title": "Two-factor authentication",
         "description": "A code from your authenticator app, required at every sign-in.",

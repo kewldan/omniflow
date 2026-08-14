@@ -137,7 +137,7 @@ domain, is in [Telegram integration](/integrations/telegram).
 
 | Variable | Default | Read by | Required | Secret | What it changes |
 | --- | --- | --- | --- | --- | --- |
-| `APP_PUBLIC_URL` | — | api, bot | for YooKassa and for the sign-in link | no | Base URL for provider return links, referral links, and the absolute sign-in URL the bot sends |
+| `APP_PUBLIC_URL` | — | api, bot | for YooKassa and for the sign-in link | no | Base URL for provider return links, referral links, the absolute sign-in URL the bot sends, and the origin operator passkeys are bound to |
 | `APP_TERMS_URL` | — | api, bot | no | no | Terms link on plan and checkout screens. Validated as an `http`/`https` URL when set |
 | `APP_UPDATE_FEED_URL` | — | api | no | no | Release feed the diagnostics bundle compares the running version against. Empty means no check and no request. Validated as an `http`/`https` URL when set |
 
@@ -161,6 +161,13 @@ Two startup refusals depend on `APP_PUBLIC_URL`, and both exist because the alte
 that leads nowhere: the bot refuses to start with YooKassa configured and no public URL
 (`APP_PUBLIC_URL is required for YooKassa hosted checkout return links`), and both the bot and the
 API refuse when `APP_CUSTOMER_MAGIC_LINK_ENABLED=true` and no public URL is set.
+
+Operator passkeys are the third thing that depends on it, and the one that does **not** refuse to
+start. A passkey is bound to an origin, so without a public URL there is nothing to bind one to and
+the feature is simply off: the sign-in screen omits the button rather than offering one that opens
+nothing. The consequence to plan for is the reverse — changing this value after operators have
+registered keys invalidates every one of them, because a browser will not offer a credential to a
+site it was not created for. See [Security](/operations/security).
 
 Use `XTR` for a Telegram-Stars-only installation. A plan is only purchasable through a payment
 method that settles one of the currencies the plan is priced in, so price a plan in `XTR` to sell it
