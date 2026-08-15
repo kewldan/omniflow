@@ -905,7 +905,11 @@ Goal: expose the proven customer capabilities through the shared web application
       the login widget in a browser, and the Mini App's signed `initData` when
       the panel is opened inside Telegram
 - [x] Time-limited magic-link fallback where enabled by the operator, delivered
-      by the bot rather than requested from a web form
+      by the bot rather than requested from a web form — the issuer pointed at a
+      path the web application served no route for until the UX pass below, so
+      every delivered link answered 404 after its one-time token had already been
+      spent. It now points at the handler that redeems it, and the old path is
+      served as a forward so links already in a chat history still work
 - [x] Generic OIDC sign-in configured from a discovery document, with no provider-specific code paths
 - [x] Several OIDC providers enabled at once with operator-controlled label, icon, and ordering
 - [x] Tested configuration presets for Google, Yandex, and Discord that remain ordinary OIDC entries
@@ -1954,8 +1958,11 @@ under Panel and customer experience.
 
 ### Panel and customer experience
 
-- [ ] Command palette — the panel is around thirty screens reachable only by
-      navigating to them.
+- [ ] Command palette over records — `⌘K` exists and moves between the panel's
+      thirty-odd screens, which is the half of this that was built. It matches
+      nothing else: a customer handle, an email, an order, or a payment reference
+      returns "nothing matched", so the panel's most frequent action is the one
+      the palette cannot start. It offers no commands either, only destinations.
 - [ ] Live updates — every panel and account surface polls. A ticket reply, a
       settled payment, and a bulk operation's progress all arrive on the next
       request, and `/v1/panel/bulk/{operationID}/items` is a list somebody
@@ -1964,6 +1971,95 @@ under Panel and customer experience.
       own currency, which is the correct storage and is not the gap. What is
       missing is a rate source and a presentation currency, so an installation
       that sells in one currency cannot quote a price in another.
+
+---
+
+## 🔬 Operator and customer walkthrough, 15 August 2026
+
+Both panels were driven end to end from a browser as the two people who use
+them: an operator running a VPN service, and a subscriber of one. Every page was
+opened, every control pressed, and a purchase taken as far as an unpaid order.
+What that produced is recorded in `panel-ux-audit.md` and `customer-ux-audit.md`
+at the repository root — the findings verbatim, including the ones still open.
+
+Reading a screen is not the same as reading the code that renders it, and three
+of the defects below had been invisible in review for exactly that reason: each
+is a component that was written correctly and then called wrongly.
+
+### Defects found and fixed
+
+- **Every magic link answered 404.** `customerauthpg` built the delivered URL as
+  `/account/sign-in/link`, a path the web application served no route for; the
+  redemption handler is `GET /v1/account/auth/link`. The failure landed *after*
+  delivery, so a customer spent a one-time credential to reach a blank page. With
+  the Telegram widget refusing to render on any host the bot is not bound to,
+  this left installations with no working web sign-in at all.
+- **The sign-in screen had no interactive element.** Telegram draws its own
+  "Bot domain invalid" error inside its own iframe — text this application cannot
+  read and did not write — and the only alternative was a sentence telling the
+  customer to send `/login` to a bot it declined to name. The bot route is now a
+  control, and a widget that never produces its frame is reported in our words.
+- **The catalogue offered every lifecycle action against every plan.**
+  `applyEligibility` compared the customer against nothing, so the plan somebody
+  was already on invited them to upgrade to it and the dearest plan invited them
+  to move down to it. It now ranks each row against what the customer holds.
+- **The plan version editor was written to pre-fill and was never given anything
+  to pre-fill from.** Publishing the next version of a plan began as an empty
+  form, so changing a price meant retyping the duration, the traffic cap, the
+  device limit, the squads, and four policies from memory — and the panel showed
+  those values on no other screen.
+- **The audit log could not answer who.** The trail carried `actorType`,
+  `actorId`, and `reason` from the beginning; the table rendered neither.
+- **"Load more" appeared under the last page.** The account order and wallet
+  listings published a cursor for every non-empty page, so the control rendered
+  and did nothing when pressed.
+- **A subscription being provisioned reported a crash.** `/account/devices`
+  treated the API's 409 — an ordinary stage of a new purchase — as an error,
+  which is what a customer saw on the first screen they opened.
+- **Payment providers could not be configured.** The settings table listed only
+  stored rows, so a fresh installation showed column headings and no way to begin
+  the single most important setup step. The same response has always carried the
+  adapters compiled into the build; those now appear as rows that open the editor.
+
+### What the pass added
+
+- **A desktop layout for the customer panel.** It was a phone layout served to
+  every viewport: a 410px column and a thumb-sized tab bar in the middle of a
+  1440px window, for the one customer who by definition is not on a phone. Above
+  `md` there is now a sidebar carrying every destination, the account identifier
+  support asks for, and a sign-out control the panel did not previously have at
+  all. The phone layout is unchanged.
+- **Nine charts, and the tiles became links.** Composition rings for customer,
+  entitlement, and payment state; a sorted backlog bar; orders per day and
+  revenue by plan; settled/failed/abandoned per provider; node pressure and the
+  heaviest consumers. Each carries its figures as a table, which is this
+  repository's chart contract rather than a courtesy — one series colour sits
+  below the contrast floor on the light surface.
+- The customer first-load budget moved from 1050 kB to 1075 kB. What was
+  avoidable was removed before the ceiling was touched, and the reason is
+  recorded beside the number in `apps/web/scripts/perf-budget.mjs`.
+
+### Still open
+
+Named here so the audit files are not the only record. Each is a feature with an
+API and a migration behind it rather than a fix:
+
+- [ ] Operator invitations and role assignment — `/admin/operators` lists who can
+      sign in and offers only "suspend". A support agent cannot be added.
+- [ ] Record-level search — `⌘K` finds screens. Finding a customer by handle,
+      email, or payment reference is the panel's most frequent action and has no
+      route.
+- [ ] Creating promotions, audience segments, and shop products — each is
+      required by a screen that already exists, so personal offers, campaigns,
+      and the digital-goods shop are all reachable and all unusable.
+- [ ] Applying a previewed customer import — a job reaches "ready" and there is
+      no control that commits it, and no upload control that starts one.
+- [ ] Customer-page actions — granting or extending a subscription, adjusting a
+      wallet, resetting devices, and messaging a customer are all absent from the
+      page an operator opens to do them.
+- [ ] Order refunds from the panel, and operator-configurable transfer details
+      for the manual payment route, which currently tells a customer their
+      transfer is being checked without ever saying where to send it.
 
 ---
 
