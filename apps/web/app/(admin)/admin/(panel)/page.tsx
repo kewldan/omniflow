@@ -8,6 +8,7 @@ import { ArrowRight } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
+import type { ReactNode } from "react";
 import useSWR from "swr";
 
 import { PageHeader } from "@/components/admin/resource-table";
@@ -36,6 +37,57 @@ const RevenueChart = dynamic(
   () => import("@/components/admin/revenue-chart").then((module) => module.RevenueChart),
   { loading: () => <Skeleton className="h-56 w-full" />, ssr: false },
 );
+
+const CustomerMix = dynamic(
+  () => import("@/components/admin/dashboard-charts").then((module) => module.CustomerMix),
+  { loading: () => <Skeleton className="h-56 w-full" />, ssr: false },
+);
+const SubscriptionMix = dynamic(
+  () => import("@/components/admin/dashboard-charts").then((module) => module.SubscriptionMix),
+  { loading: () => <Skeleton className="h-56 w-full" />, ssr: false },
+);
+const PaymentMix = dynamic(
+  () => import("@/components/admin/dashboard-charts").then((module) => module.PaymentMix),
+  { loading: () => <Skeleton className="h-56 w-full" />, ssr: false },
+);
+const OperationsBacklog = dynamic(
+  () => import("@/components/admin/dashboard-charts").then((module) => module.OperationsBacklog),
+  { loading: () => <Skeleton className="h-56 w-full" />, ssr: false },
+);
+
+/**
+ * Where a tile leads when it is pressed.
+ *
+ * Every number on this page is a question whose answer is a list, and until now
+ * the operator had to know which page held it. The mapping is presentation
+ * rather than policy — it names panel routes, not permissions — so it lives here
+ * beside the tiles instead of travelling through the API.
+ *
+ * A metric with no entry is not a link. A tile that navigated somewhere merely
+ * plausible would be worse than one that does not move.
+ */
+const METRIC_LINKS: Record<string, string> = {
+  activeCustomers: "/admin/customers?status=active",
+  activeEntitlements: "/admin/customers?segment=active",
+  deletedCustomers: "/admin/customers?status=deleted",
+  jobsFailed: "/admin/system",
+  lapsedEntitlements: "/admin/customers?segment=lapsed",
+  limitedEntitlements: "/admin/customers?segment=limited",
+  missingRemote: "/admin/system",
+  newCustomers: "/admin/customers",
+  openDrifts: "/admin/system",
+  openTickets: "/admin/support",
+  outboxUnpublished: "/admin/system",
+  paymentsFailed: "/admin/finance",
+  paymentsInFlight: "/admin/finance",
+  paymentsStuck: "/admin/finance",
+  paymentsSucceeded: "/admin/finance",
+  staleTickets: "/admin/support",
+  suspendedCustomers: "/admin/customers?status=suspended",
+  webhooksFailed: "/admin/system",
+  webhooksUnprocessed: "/admin/system",
+  webhooksUnverified: "/admin/system",
+};
 
 /**
  * The operations dashboard.
@@ -102,12 +154,21 @@ export default function AdminHome() {
             })}
           </p>
 
-          <MetricGroup metrics={data.customers} title={translate("dashboard.groups.customers")} />
           <MetricGroup
+            chart={<CustomerMix metrics={data.customers} />}
+            metrics={data.customers}
+            title={translate("dashboard.groups.customers")}
+          />
+          <MetricGroup
+            chart={<SubscriptionMix metrics={data.subscriptions} />}
             metrics={data.subscriptions}
             title={translate("dashboard.groups.subscriptions")}
           />
-          <MetricGroup metrics={data.payments} title={translate("dashboard.groups.payments")} />
+          <MetricGroup
+            chart={<PaymentMix metrics={data.payments} />}
+            metrics={data.payments}
+            title={translate("dashboard.groups.payments")}
+          />
 
           <section aria-labelledby="revenue-heading" className="flex flex-col gap-3">
             <h2 className="font-semibold text-[15px] tracking-tight" id="revenue-heading">
@@ -134,7 +195,11 @@ export default function AdminHome() {
           </section>
 
           <MetricGroup metrics={data.support} title={translate("dashboard.groups.support")} />
-          <MetricGroup metrics={data.operations} title={translate("dashboard.groups.operations")} />
+          <MetricGroup
+            chart={<OperationsBacklog metrics={data.operations} />}
+            metrics={data.operations}
+            title={translate("dashboard.groups.operations")}
+          />
           <Incidents />
         </>
       ) : null}
@@ -254,8 +319,15 @@ function Attention({
  * part an operator has to read once and then trusts, and a tooltip is exactly
  * the affordance nobody discovers.
  */
-function MetricGroup({ metrics, title }: { metrics: Metric[]; title: string }) {
-  const translate = useTranslations("admin.dashboard");
+function MetricGroup({
+  chart,
+  metrics,
+  title,
+}: {
+  chart?: ReactNode;
+  metrics: Metric[];
+  title: string;
+}) {
   const headingId = `metrics-${title.replace(/\s+/g, "-").toLowerCase()}`;
 
   return (
@@ -265,21 +337,66 @@ function MetricGroup({ metrics, title }: { metrics: Metric[]; title: string }) {
       </h2>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {metrics.map((metric) => (
-          <Card className="p-4" key={metric.key}>
-            <CardTitle className="font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.12em]">
-              {translate(`metrics.${metric.key}`)}
-            </CardTitle>
-            <p className="mt-1 flex items-baseline gap-2">
-              <span className="font-semibold text-2xl tabular-nums">{renderMetric(metric)}</span>
-              <Comparison metric={metric} />
-            </p>
-            <p className="mt-1 text-muted-foreground text-xs">
-              {translate(`definitions.${metric.definition}`)}
-            </p>
-          </Card>
+          <MetricTile key={metric.key} metric={metric} />
         ))}
       </div>
+      {/* The picture sits under the numbers it is made of, rather than in a
+          charts section of its own. A shape is read against the figures beside
+          it; separated from them it becomes decoration. */}
+      {chart ? (
+        <Card>
+          <CardContent className="pt-6">{chart}</CardContent>
+        </Card>
+      ) : null}
     </section>
+  );
+}
+
+/**
+ * One tile, and the list behind it.
+ *
+ * Every figure here is the head of a query — "zero stuck payments" is only
+ * reassuring if "three stuck payments" can be opened — so a metric with a known
+ * destination is a link. One without stays a plain card: sending an operator to
+ * a page that merely looks related is worse than not moving at all.
+ */
+function MetricTile({ metric }: { metric: Metric }) {
+  const translate = useTranslations("admin.dashboard");
+  const href = METRIC_LINKS[metric.key];
+
+  const body = (
+    <>
+      <CardTitle className="flex items-center gap-1 font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.12em]">
+        {translate(`metrics.${metric.key}`)}
+        {href ? (
+          <ArrowRight
+            aria-hidden
+            className="size-3 opacity-0 transition-opacity group-hover:opacity-70"
+          />
+        ) : null}
+      </CardTitle>
+      <p className="mt-1 flex items-baseline gap-2">
+        <span className="font-semibold text-2xl tabular-nums">{renderMetric(metric)}</span>
+        <Comparison metric={metric} />
+      </p>
+      <p className="mt-1 text-muted-foreground text-xs">
+        {translate(`definitions.${metric.definition}`)}
+      </p>
+    </>
+  );
+
+  if (!href) {
+    return <Card className="p-4">{body}</Card>;
+  }
+  return (
+    <Card className="group p-0 transition-colors hover:border-foreground/25">
+      <Link
+        className="flex flex-col p-4 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+        href={href}
+      >
+        {body}
+      </Link>
+    </Card>
   );
 }
 

@@ -73,10 +73,21 @@ ever readable by colour alone.
 **Traffic is observed, not authoritative.** Remnawave owns traffic. Omniflow
 holds the counter it last observed, and the tile is labelled accordingly.
 
+**Shape sits under the counts.** Under each group is the same data as a picture:
+customer records, entitlements, and payment intents as rings, and the operations
+queues as one bar chart sorted by size. Only compositions are drawn as rings, and
+a measure that is a subset of another is deliberately left out — stale tickets
+sit inside open ones and stuck payments inside those in flight, so a slice for
+either would assert a whole that does not exist. The queues are a bar chart
+rather than a ring for the same reason in reverse: they are unrelated piles that
+happen to be measured at one moment, and adding them produces a number nothing
+is. Every chart carries its figures as a table beneath it.
+
 The "needs action" list is derived from the same figures the tiles show, so an
 alert can never contradict the tile beside it. Each entry deep-links into the
 ordinary surface that resolves it rather than offering a shortcut that bypasses
-the usual confirmation and audit.
+the usual confirmation and audit. Every tile with a list behind it is a link to
+that list, so a number that looks wrong can be opened rather than searched for.
 
 ## Customers
 

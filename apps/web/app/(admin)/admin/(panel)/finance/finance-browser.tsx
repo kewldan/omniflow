@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@omniflow/ui/tabs";
-import { Download, RotateCcw } from "lucide-react";
+import { ArrowRight, Download, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useId, useState } from "react";
@@ -206,6 +206,7 @@ function OrderSearch() {
           translate("columns.state"),
           translate("columns.paid"),
           translate("columns.refunded"),
+          "",
         ]}
         error={error}
         filtersActive={filtersActive}
@@ -254,6 +255,17 @@ function OrderSearch() {
               {order.refundedMinor > 0
                 ? formatMoney(order.refundedMinor, order.currency, locale)
                 : "—"}
+            </TableCell>
+            {/* The order detail was only ever reachable by pressing the
+                timestamp, which is not where anybody looks for a way in. The
+                arrow says the row opens; the timestamp link stays because it
+                still works and removing it would break a habit for no gain. */}
+            <TableCell className="w-10 text-right">
+              <Button asChild size="icon-sm" variant="ghost">
+                <Link aria-label={translate("openOrder")} href={`/admin/finance/${order.id}`}>
+                  <ArrowRight aria-hidden />
+                </Link>
+              </Button>
             </TableCell>
           </TableRow>
         )}

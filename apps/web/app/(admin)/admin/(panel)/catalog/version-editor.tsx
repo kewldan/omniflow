@@ -4,10 +4,13 @@ import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
 import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
+import { Skeleton } from "@omniflow/ui/skeleton";
 import { Switch } from "@omniflow/ui/switch";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
+import useSWR from "swr";
 
+import { type ApiError, fetcher } from "@/lib/api";
 import type { PlanVersion } from "@/lib/operations";
 import { useOperatorAction } from "@/lib/operations";
 
@@ -19,15 +22,54 @@ const CANCELLATION_POLICIES = ["immediate", "at_expiry"] as const;
 const TRIAL_ELIGIBILITY = ["new_customer", "never", "any_customer"] as const;
 
 /**
- * Publishes the next version of a plan.
+ * Publishes the next version of a plan, starting from the current one.
  *
- * There is no edit. A plan version is immutable once an order references it, so
- * an editor that changed one would silently re-price history; this publishes
- * the next version and leaves the old one costing what it cost. The form is
- * pre-filled from the current version because a price change is usually the
- * only thing that differs.
+ * The form was always written to pre-fill from `current`, and nothing ever
+ * passed it: the caller rendered the editor with a plan id alone, so every
+ * "publish the next version" began as an empty form. Changing a price then meant
+ * retyping the duration, the traffic cap, the device limit, the squads, and the
+ * policies from memory — and the panel showed none of them anywhere else, so
+ * "from memory" was literal.
+ *
+ * The plan detail is fetched here rather than by the caller because this is the
+ * only screen that needs it, and the form is keyed on the version it starts from
+ * so the fields initialise once the answer is known instead of mounting empty
+ * and being reset underneath the operator.
  */
 export function PlanVersionEditor({
+  current,
+  onPublished,
+  planId,
+}: {
+  current?: PlanVersion;
+  onPublished: () => void;
+  planId: string;
+}) {
+  const { data, isLoading } = useSWR<{ versions: PlanVersion[] }, ApiError>(
+    current ? null : `/v1/panel/catalog/plans/${planId}`,
+    fetcher,
+  );
+
+  if (current) {
+    return <VersionForm current={current} onPublished={onPublished} planId={planId} />;
+  }
+  if (isLoading) {
+    return <Skeleton className="h-96 w-full" />;
+  }
+
+  // The newest version that has not been retired is what the next one continues
+  // from. A retired version is one the operator has already withdrawn, and
+  // starting from it would re-publish something they took down on purpose.
+  const live = (data?.versions ?? [])
+    .filter((version) => !version.retiredAt)
+    .sort((left, right) => right.version - left.version)[0];
+
+  return (
+    <VersionForm current={live} key={live?.id ?? "new"} onPublished={onPublished} planId={planId} />
+  );
+}
+
+function VersionForm({
   current,
   onPublished,
   planId,

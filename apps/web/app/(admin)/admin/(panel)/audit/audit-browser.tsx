@@ -198,7 +198,7 @@ export function AuditBrowser() {
 
       <Card className="overflow-hidden">
         {isLoading && !data ? (
-          <SkeletonTable columns={5} rows={8} />
+          <SkeletonTable columns={7} rows={8} />
         ) : error ? (
           <div className="p-6">
             <StateNotice
@@ -255,9 +255,15 @@ export function AuditBrowser() {
                       </TableSortButton>
                     </TableHead>
                     <TableHead>{translate("columns.action")}</TableHead>
+                    {/* Who did it. The trail has always carried the actor and the
+                        reason; the table simply never showed them, which left an
+                        audit log that could not answer the one question an audit
+                        log exists for. */}
+                    <TableHead>{translate("columns.actor")}</TableHead>
                     <TableHead>{translate("columns.category")}</TableHead>
                     <TableHead>{translate("columns.outcome")}</TableHead>
                     <TableHead>{translate("columns.target")}</TableHead>
+                    <TableHead>{translate("columns.reason")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -267,6 +273,18 @@ export function AuditBrowser() {
                         {new Date(event.occurredAt).toLocaleString()}
                       </TableCell>
                       <TableCell className="font-mono text-[12px]">{event.action}</TableCell>
+                      <TableCell className="max-w-44 font-mono text-[11px]">
+                        <span className="block text-muted-foreground">
+                          {translate(`actorTypes.${event.actorType}`, {
+                            fallback: event.actorType,
+                          })}
+                        </span>
+                        {event.actorId ? (
+                          <span className="block truncate text-subtle-foreground">
+                            {event.actorId}
+                          </span>
+                        ) : null}
+                      </TableCell>
                       <TableCell className="text-muted-foreground">
                         {translate(`categories.${event.category}`)}
                       </TableCell>
@@ -277,6 +295,9 @@ export function AuditBrowser() {
                       </TableCell>
                       <TableCell className="max-w-56 truncate font-mono text-[11px] text-muted-foreground">
                         {event.targetType}:{event.targetId}
+                      </TableCell>
+                      <TableCell className="max-w-56 truncate text-[12px] text-muted-foreground">
+                        {event.reason || "—"}
                       </TableCell>
                     </TableRow>
                   ))}

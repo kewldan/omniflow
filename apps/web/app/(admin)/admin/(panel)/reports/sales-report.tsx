@@ -31,6 +31,17 @@ import { formatMoney, type SalesReport } from "@/lib/operations";
  * first.
  */
 const DailyChart = dynamic(() => import("./daily-chart").then((module) => module.DailyChart), {
+  loading: () => <Skeleton className="h-56 w-full" />,
+  ssr: false,
+});
+
+const OrdersChart = dynamic(() => import("./daily-chart").then((module) => module.OrdersChart), {
+  loading: () => <Skeleton className="h-56 w-full" />,
+  ssr: false,
+});
+
+const PlanChart = dynamic(() => import("./daily-chart").then((module) => module.PlanChart), {
+  loading: () => <Skeleton className="h-56 w-full" />,
   ssr: false,
 });
 
@@ -178,7 +189,13 @@ export function SalesReportScreen() {
               <TrialCard report={data} />
               <OperationCard locale={locale} report={data} />
               <PlanCard locale={locale} report={data} />
-              <DailyChart locale={locale} report={data} />
+              <Card>
+                <CardContent className="flex flex-col gap-8 pt-6">
+                  <OrdersChart report={data} />
+                  <DailyChart locale={locale} report={data} />
+                  <PlanChart locale={locale} report={data} />
+                </CardContent>
+              </Card>
               <RefundCard locale={locale} report={data} />
             </>
           )}

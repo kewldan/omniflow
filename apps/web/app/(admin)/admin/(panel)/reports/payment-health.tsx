@@ -2,9 +2,11 @@
 
 import { Badge } from "@omniflow/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
+import { ChartFigure, chartAxis, chartColor, chartGrid } from "@omniflow/ui/chart";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { useLocale, useTranslations } from "next-intl";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import useSWR from "swr";
 
 import { StateNotice } from "@/components/admin/state-notice";
@@ -58,6 +60,12 @@ export function PaymentHealthScreen({ query }: { query: string }) {
 
   return (
     <>
+      <Card>
+        <CardContent className="pt-6">
+          <OutcomeChart providers={data.providers} />
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>{translate("title")}</CardTitle>
@@ -161,6 +169,96 @@ export function PaymentHealthScreen({ query }: { query: string }) {
 
       <DailyTable report={data} />
     </>
+  );
+}
+
+/**
+ * What happened to every intent, per provider, as one stacked bar each.
+ *
+ * Stacked is right here and wrong on the dashboard's revenue chart, and the
+ * difference is whether the total means anything. Settled, failed, and abandoned
+ * are disjoint fates of the same population, so the bar's length is the number
+ * of intents that reached one — a figure worth seeing. Intents still in flight
+ * are left out: an intent created five minutes ago has not failed, and giving it
+ * a segment would make a busy afternoon look like a broken acquirer.
+ *
+ * Providers are read on the vertical axis because their names are words. A
+ * category axis of words along the bottom is where labels start rotating.
+ */
+function OutcomeChart({ providers }: { providers: ProviderHealthLine[] }) {
+  const translate = useTranslations("admin.paymentHealth");
+
+  const rows = providers.map((line) => ({
+    abandoned: line.abandoned,
+    failed: line.failed,
+    key: `${line.provider}-${line.currency}`,
+    label: `${translate(`adapter.${line.provider}`)} · ${line.currency}`,
+    settled: line.settled,
+  }));
+
+  const series = [
+    { fill: chartColor("chart-1"), key: "settled" as const },
+    { fill: chartColor("chart-2"), key: "failed" as const },
+    { fill: chartColor("chart-3"), key: "abandoned" as const },
+  ];
+
+  return (
+    <ChartFigure
+      description={translate("outcomes.description")}
+      empty={translate("outcomes.empty")}
+      height={Math.max(180, rows.length * 46)}
+      isEmpty={rows.every((row) => row.settled + row.failed + row.abandoned === 0)}
+      table={
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{translate("provider")}</TableHead>
+              {series.map((entry) => (
+                <TableHead className="text-right" key={entry.key}>
+                  {translate(entry.key)}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row) => (
+              <TableRow key={row.key}>
+                <TableCell>{row.label}</TableCell>
+                {series.map((entry) => (
+                  <TableCell className="text-right tabular-nums" key={entry.key}>
+                    <span className="inline-flex items-center justify-end gap-2">
+                      <span
+                        aria-hidden
+                        className="size-2.5 shrink-0 rounded-[3px]"
+                        style={{ background: entry.fill }}
+                      />
+                      {row[entry.key]}
+                    </span>
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      }
+      title={translate("outcomes.title")}
+    >
+      <BarChart data={rows} layout="vertical" margin={{ left: 8, right: 16, top: 4 }}>
+        <CartesianGrid {...chartGrid} horizontal={false} vertical />
+        <XAxis {...chartAxis} allowDecimals={false} type="number" />
+        <YAxis {...chartAxis} dataKey="label" type="category" width={140} />
+        {series.map((entry, index) => (
+          <Bar
+            dataKey={entry.key}
+            fill={entry.fill}
+            key={entry.key}
+            maxBarSize={24}
+            radius={index === series.length - 1 ? [0, 4, 4, 0] : undefined}
+            stackId="outcome"
+          />
+        ))}
+      </BarChart>
+    </ChartFigure>
   );
 }
 

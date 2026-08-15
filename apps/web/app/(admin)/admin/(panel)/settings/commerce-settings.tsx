@@ -279,15 +279,43 @@ function ProviderCard() {
   const translate = useTranslations("admin.settings");
   const { can } = useSession();
   const [editing, setEditing] = useState("");
-  const { data, isLoading, mutate } = useSWR<Listing<ProviderSettings>, ApiError>(
-    "/v1/panel/settings/providers",
-    fetcher,
-  );
+  const { data, isLoading, mutate } = useSWR<
+    Listing<ProviderSettings> & { adapters?: Record<string, boolean> },
+    ApiError
+  >("/v1/panel/settings/providers", fetcher);
 
   if (isLoading) {
     return <Skeleton className="h-40 w-full" />;
   }
-  const items = data?.items ?? [];
+  const configured = data?.items ?? [];
+
+  // Every adapter compiled into this build, whether or not the operator has
+  // configured one yet.
+  //
+  // The listing only returns rows that exist, so a fresh installation rendered a
+  // table of column headings and nothing else — the single most important setup
+  // step in the panel, with no control to start it. The response has always also
+  // carried `adapters`, which is exactly the list of things that *could* be
+  // configured, so the unconfigured ones are shown as empty rows that open the
+  // same editor.
+  const placeholders: ProviderSettings[] = Object.entries(data?.adapters ?? {})
+    .filter(([name]) => !configured.some((provider) => provider.provider === name))
+    .map(([name, recurring]) => ({
+      adapterRecurring: recurring,
+      connectionStatus: "unconfigured",
+      credentialsSet: false,
+      displayOrder: 0,
+      enabled: false,
+      merchantId: "",
+      provider: name,
+      recurringEnabled: false,
+      recurringTestStatus: "untested",
+      webhookSecretSet: false,
+      webhookStatus: "unconfigured",
+    }))
+    .sort((left, right) => left.provider.localeCompare(right.provider));
+
+  const items = [...configured, ...placeholders];
 
   return (
     <Card>

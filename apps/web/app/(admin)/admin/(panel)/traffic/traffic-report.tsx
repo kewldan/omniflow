@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omni
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { Download } from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
@@ -16,6 +17,23 @@ import { type ApiError, fetcher } from "@/lib/api";
 import type { TrafficReport } from "@/lib/operations";
 
 const ENDPOINT = "/v1/panel/reports/traffic";
+
+/**
+ * The charts arrive after the tables.
+ *
+ * The tables carry the same figures and are the accessible reading the charts
+ * are required to have anyway, so nothing is waiting on the charting library.
+ * `ssr: false` because a chart measures its own container, which has no size on
+ * the server.
+ */
+const NodePressureChart = dynamic(
+  () => import("./traffic-charts").then((module) => module.NodePressureChart),
+  { loading: () => <Skeleton className="h-56 w-full" />, ssr: false },
+);
+const ConsumerChart = dynamic(
+  () => import("./traffic-charts").then((module) => module.ConsumerChart),
+  { loading: () => <Skeleton className="h-56 w-full" />, ssr: false },
+);
 
 /**
  * Traffic, read live from Remnawave.
@@ -52,6 +70,12 @@ export function TrafficReportScreen() {
         <Skeleton className="h-96 w-full" />
       ) : (
         <>
+          <Card>
+            <CardContent className="flex flex-col gap-8 pt-6">
+              <NodePressureChart report={data} />
+              <ConsumerChart report={data} />
+            </CardContent>
+          </Card>
           <NodeCard report={data} />
           <ConsumerCard report={data} />
         </>
