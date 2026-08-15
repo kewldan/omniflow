@@ -10,7 +10,7 @@ import { toast } from "@omniflow/ui/toast";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { OPERATIONS, usePeriodLabel } from "@/components/account/commerce/plan-card";
 import { QuoteBreakdown } from "@/components/account/commerce/quote-breakdown";
 import { useProblemMessage, usePromoRejection } from "@/components/account/commerce/reasons";
@@ -197,27 +197,32 @@ function Checkout({
 
       <PromoField checkout={checkout} disabled={busy} onApply={apply} />
 
-      <section className="space-y-2">
-        <SectionLabel>{translate("checkout.wallet.title")}</SectionLabel>
-        <div className="flex items-start justify-between gap-4 rounded-lg border border-border bg-card p-4">
-          <div className="min-w-0">
-            <Label className="font-medium text-[13.5px]" htmlFor="apply-wallet">
-              {translate("checkout.wallet.label")}
-            </Label>
-            <p className="mt-1 text-[12px] text-muted-foreground leading-relaxed">
-              {translate("checkout.wallet.available", {
-                amount: money(checkout.quote.walletBalanceMinor, checkout.quote.currency),
-              })}
-            </p>
+      {/* An empty wallet has nothing to spend, so the control that would spend it
+          is not a decision — it is a switch whose two positions do the same
+          thing, sitting above a balance of zero. */}
+      {checkout.quote.walletBalanceMinor > 0 && (
+        <section className="space-y-2">
+          <SectionLabel>{translate("checkout.wallet.title")}</SectionLabel>
+          <div className="flex items-start justify-between gap-4 rounded-lg border border-border bg-card p-4">
+            <div className="min-w-0">
+              <Label className="font-medium text-[13.5px]" htmlFor="apply-wallet">
+                {translate("checkout.wallet.label")}
+              </Label>
+              <p className="mt-1 text-[12px] text-muted-foreground leading-relaxed">
+                {translate("checkout.wallet.available", {
+                  amount: money(checkout.quote.walletBalanceMinor, checkout.quote.currency),
+                })}
+              </p>
+            </div>
+            <Switch
+              checked={checkout.applyWallet}
+              disabled={busy}
+              id="apply-wallet"
+              onCheckedChange={(next) => patch({ applyWallet: next })}
+            />
           </div>
-          <Switch
-            checked={checkout.applyWallet}
-            disabled={busy}
-            id="apply-wallet"
-            onCheckedChange={(next) => patch({ applyWallet: next })}
-          />
-        </div>
-      </section>
+        </section>
+      )}
 
       <ProviderPicker checkout={checkout} disabled={busy} onChange={patch} />
 
@@ -593,6 +598,23 @@ function ProviderPicker({
 }) {
   const translate = useTranslations("account.commerce");
   const money = useMoney();
+  const single = checkout.providers.length === 1 ? checkout.providers[0].provider : null;
+  const chosen = checkout.provider;
+  const claimed = useRef(false);
+
+  // One way to pay is not a choice, and presenting it as one produces a screen
+  // whose confirm button is disabled under a note telling the customer to pick
+  // the only option on it. The ref keeps this to a single request: the response
+  // sets `checkout.provider`, which is what stops it from firing again.
+  useEffect(() => {
+    if (!single || chosen || disabled || claimed.current) {
+      return;
+    }
+    claimed.current = true;
+    void onChange({ provider: single }).catch(() => {
+      claimed.current = false;
+    });
+  }, [chosen, disabled, onChange, single]);
 
   return (
     <fieldset className="space-y-2">

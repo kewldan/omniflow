@@ -62,10 +62,35 @@ export default function StorePage() {
       </div>
       <PlanList error={error} isLoading={isLoading} plans={data?.items} />
 
-      {/* The digital-goods catalogue is a separate errand with its own screens,
-          owned elsewhere in the panel. It is linked rather than embedded because
-          many installations sell no goods at all, and that page is the one that
-          knows whether this one does. */}
+      <ShopLink />
+    </div>
+  );
+}
+
+/**
+ * The way into the digital-goods catalogue, offered only when there is one.
+ *
+ * It used to be linked unconditionally, on the reasoning that the shop page is
+ * the one that knows whether anything is on sale. That is true and it is why the
+ * link was wrong: an installation selling no goods advertised a shop that
+ * answered "digital goods are not sold here", so the store contradicted its own
+ * destination one tap later. Asking the same question this page asks about plans
+ * costs one request and removes the contradiction.
+ */
+function ShopLink() {
+  const translate = useTranslations("account.commerce");
+  const { data } = useSWR<{ items: unknown[] }, ApiError>("/v1/account/shop/products", fetcher, {
+    // The catalogue changes when the operator changes it, not while somebody is
+    // looking at the store.
+    revalidateOnFocus: false,
+  });
+
+  if (!data || data.items.length === 0) {
+    return null;
+  }
+
+  return (
+    <>
       <SectionLabel>{translate("store.shop.section")}</SectionLabel>
       <Link
         className="flex items-center gap-3 rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/50 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
@@ -81,7 +106,7 @@ export default function StorePage() {
           </span>
         </span>
       </Link>
-    </div>
+    </>
   );
 }
 

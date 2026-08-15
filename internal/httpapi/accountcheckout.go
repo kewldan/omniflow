@@ -170,6 +170,7 @@ func planPayload(plan accountcheckout.PlanOffer) map[string]any {
 		"configurableSquads": plan.ConfigurableSquads,
 		"operations":         plan.Operations,
 		"eligible":           plan.Eligible,
+		"held":               plan.Held,
 		"trafficAllowanceBytes": func() any {
 			if plan.TrafficAllowanceBytes == nil {
 				return nil
@@ -463,7 +464,10 @@ func (handlers *AccountHandlers) listOrders(writer http.ResponseWriter, request 
 		items = append(items, orderPayload(order, nil))
 	}
 	payload := map[string]any{"items": items}
-	if len(orders) > 0 {
+	// A cursor only when the page came back full. Publishing one for every
+	// non-empty page told the panel that more existed after the last order the
+	// customer had, which rendered a "load more" button that did nothing.
+	if len(orders) > 0 && len(orders) == accountcheckout.BoundLimit(limit) {
 		last := orders[len(orders)-1]
 		payload["nextCursor"] = last.CreatedAt.Format(time.RFC3339Nano)
 		payload["nextCursorId"] = last.ID
@@ -653,7 +657,8 @@ func (handlers *AccountHandlers) readWallet(writer http.ResponseWriter, request 
 		},
 		"entries": items,
 	}
-	if len(entries) > 0 {
+	// Same contract as the order list: a short page is the last one, so no cursor.
+	if len(entries) > 0 && len(entries) == accountcheckout.BoundLimit(limit) {
 		last := entries[len(entries)-1]
 		payload["nextCursor"] = last.OccurredAt.Format(time.RFC3339Nano)
 		payload["nextCursorId"] = last.ID

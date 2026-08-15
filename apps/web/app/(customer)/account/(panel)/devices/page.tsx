@@ -130,14 +130,29 @@ function DeviceList({ subscription }: { subscription: AccountSubscription }) {
     return <ListSkeleton />;
   }
   if (error) {
+    // A subscription that is not provisioned yet has no device list to read, and
+    // the API says so with a 409. That is an ordinary stage of a new purchase,
+    // not a failure, and reporting it as "something went wrong" is how the very
+    // first screen a new customer opens tells them the product is broken.
+    const pending = error.status === 409;
     const offline = error.status === 503;
     return (
       <AccountNotice
         description={
-          offline ? translate("states.upstreamDescription") : translate("states.errorDescription")
+          pending
+            ? translate("connect.provisioningDescription")
+            : offline
+              ? translate("states.upstreamDescription")
+              : translate("states.errorDescription")
         }
-        title={offline ? translate("states.upstream") : translate("states.error")}
-        variant={offline ? "offline" : "danger"}
+        title={
+          pending
+            ? translate("connect.provisioning")
+            : offline
+              ? translate("states.upstream")
+              : translate("states.error")
+        }
+        variant={offline || pending ? "offline" : "danger"}
       />
     );
   }

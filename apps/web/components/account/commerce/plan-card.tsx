@@ -126,6 +126,10 @@ export function PlanCard({ plan }: { plan: PlanOffer }) {
     <article
       className={cn(
         "animate-step-in space-y-4 rounded-lg border border-border bg-card p-4",
+        // The plan the customer is on is the one they are comparing everything
+        // else against, so it is marked rather than left to be inferred from a
+        // button label.
+        plan.held && "border-foreground/30 ring-1 ring-foreground/10",
         !plan.eligible && "opacity-80",
       )}
     >
@@ -149,6 +153,7 @@ export function PlanCard({ plan }: { plan: PlanOffer }) {
       </div>
 
       <div className="flex flex-wrap gap-1.5">
+        {plan.held && <Badge variant="success">{translate("kind.current")}</Badge>}
         {plan.kind === "trial" && <Badge variant="info">{translate("kind.trial")}</Badge>}
         {plan.recurringCapable && <Badge variant="outline">{translate("kind.recurring")}</Badge>}
         {plan.configurableSquads && <Badge variant="outline">{translate("kind.squads")}</Badge>}

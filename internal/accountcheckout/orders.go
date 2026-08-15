@@ -245,6 +245,13 @@ func optionalTime(value time.Time) any {
 
 // boundLimit keeps a page size inside what the panel can render and the database
 // should be asked for, whatever a query string claims.
+// BoundLimit is the page size a request of this size actually receives.
+//
+// The transport needs it to decide whether to publish a cursor: a page that came
+// back short is the last one, and saying otherwise renders a "load more" control
+// that does nothing when it is pressed.
+func BoundLimit(limit int) int { return boundLimit(limit) }
+
 func boundLimit(limit int) int {
 	if limit <= 0 {
 		return 20

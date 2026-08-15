@@ -118,6 +118,57 @@ export function TrafficMeter({ traffic }: { traffic: AccountSubscription["traffi
 }
 
 /**
+ * The state a subscription is in, in words, with the days left beside it.
+ *
+ * Shared between the dashboard card and the subscription page so the two can
+ * never disagree. The detail page used to show neither: a customer who opened it
+ * to find out when their subscription ends was told its name and its traffic and
+ * left to guess the rest.
+ */
+export function SubscriptionStatus({ subscription }: { subscription: AccountSubscription }) {
+  const translate = useTranslations("account");
+  const format = useFormatter();
+  const tone = PHASE_TONE[subscription.phase];
+
+  const status = subscription.endsAt
+    ? translate(`subscription.phase.${subscription.phase}`, {
+        date: format.dateTime(new Date(subscription.endsAt), {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        }),
+      })
+    : translate(`subscription.phase.${subscription.phase}`, { date: "" });
+
+  const devices = subscription.devices.unlimited
+    ? translate("subscription.devicesUnlimited", { used: subscription.devices.used })
+    : translate("subscription.devicesUsed", {
+        limit: subscription.devices.limit ?? 0,
+        used: subscription.devices.used,
+      });
+
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0 space-y-1.5">
+        <p className={cn("flex items-center gap-2 font-mono text-[11.5px]", TONE_CLASS[tone])}>
+          <span aria-hidden className={cn("size-[7px] shrink-0 rounded-full", DOT_CLASS[tone])} />
+          {status}
+        </p>
+        <p className="font-mono text-[11px] text-subtle-foreground">{devices}</p>
+      </div>
+      <div className="shrink-0 text-right">
+        <div className="font-bold text-[26px] leading-none tracking-[-0.04em]" data-numeric>
+          {subscription.daysLeft}
+        </div>
+        <div className="mt-1 font-mono text-[10px] text-subtle-foreground">
+          {translate("subscription.days")}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
  * One subscription, as the dashboard lists it.
  *
  * The remaining-days figure is the headline because it is the question the

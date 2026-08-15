@@ -41,6 +41,8 @@ export type PlanOffer = {
   /** The lifecycle actions this customer may start right now, server-decided. */
   operations: string[];
   eligible: boolean;
+  /** The customer already holds this plan, so the card can say so. */
+  held?: boolean;
   /** The stable machine reason the plan is refused, present only when it is. */
   ineligibleReason?: string;
   /** `null` means unlimited, which is not the same as a limit of zero. */

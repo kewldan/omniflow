@@ -2,6 +2,7 @@
 
 import { Button } from "@omniflow/ui/button";
 import { cn } from "@omniflow/ui/lib/utils";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR from "swr";
@@ -54,7 +55,15 @@ export default function AccountDashboard() {
   }
   if (!data || data.subscriptions.length === 0) {
     return (
+      // The one thing somebody without a subscription can do here is get one, so
+      // the empty state offers it rather than describing it and leaving them to
+      // find the store in the tab bar.
       <AccountNotice
+        action={
+          <Button asChild>
+            <Link href="/account/store">{translate("dashboard.emptyAction")}</Link>
+          </Button>
+        }
         description={translate("dashboard.emptyDescription")}
         title={translate("dashboard.empty")}
       />

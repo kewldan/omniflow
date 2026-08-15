@@ -13,7 +13,11 @@ import { useState } from "react";
 import useSWR from "swr";
 
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
-import { type AccountSubscription, TrafficMeter } from "@/components/account/subscription-card";
+import {
+  type AccountSubscription,
+  SubscriptionStatus,
+  TrafficMeter,
+} from "@/components/account/subscription-card";
 import { useAccount } from "@/lib/account-session";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 
@@ -48,6 +52,7 @@ export default function SubscriptionPage() {
           <h1 className="font-semibold text-[19px] tracking-[-0.02em]">{data.label}</h1>
           <span className="font-mono text-[11px] text-subtle-foreground">{data.plan}</span>
         </div>
+        <SubscriptionStatus subscription={data} />
         <TrafficMeter traffic={data.traffic} />
       </section>
 

@@ -45,6 +45,10 @@ type PlanOffer struct {
 	// account of itself.
 	Eligible         bool
 	IneligibleReason string
+	// Held reports that the customer is already entitled to this plan, so the
+	// catalogue can mark it as the one they are on rather than presenting every
+	// row as an equally unfamiliar choice.
+	Held bool
 	// ConfigurableSquads tells the panel a selection step comes before payment.
 	ConfigurableSquads bool
 }
@@ -272,6 +276,13 @@ func scanPlan(row pgx.Row) (planRecord, error) {
 	return record, nil
 }
 
+// heldPlan is one plan the customer is currently entitled to, with the price it
+// is carried at, which is what makes "higher" and "lower" mean anything.
+type heldPlan struct {
+	planID      string
+	amountMinor int64
+}
+
 // eligibility is what the catalogue needs to know about one customer, gathered
 // once for the whole page rather than per row.
 type eligibility struct {
@@ -279,8 +290,52 @@ type eligibility struct {
 	// activeSubscriptions is how many subscriptions the customer currently holds,
 	// which is what decides whether another one may be opened.
 	activeSubscriptions int
-	trial               commerce.TrialRequest
-	policy              commerce.SubscriptionPolicy
+	// held is what those subscriptions are for. Without it every plan looks the
+	// same distance from the customer, and the catalogue ends up offering an
+	// upgrade to the cheapest row and a downgrade to the dearest one.
+	held   []heldPlan
+	trial  commerce.TrialRequest
+	policy commerce.SubscriptionPolicy
+}
+
+// holds reports whether the customer is already entitled to this plan.
+func (state eligibility) holds(planID string) bool {
+	for _, plan := range state.held {
+		if plan.planID == planID {
+			return true
+		}
+	}
+	return false
+}
+
+// cheapestHeld and dearestHeld bound what the customer already pays. A plan
+// above the dearest is unambiguously an upgrade and one below the cheapest is
+// unambiguously a downgrade; a plan between two concurrent subscriptions is
+// neither, so it is offered as both and the customer picks the target.
+func (state eligibility) cheapestHeld() (int64, bool) {
+	if len(state.held) == 0 {
+		return 0, false
+	}
+	lowest := state.held[0].amountMinor
+	for _, plan := range state.held[1:] {
+		if plan.amountMinor < lowest {
+			lowest = plan.amountMinor
+		}
+	}
+	return lowest, true
+}
+
+func (state eligibility) dearestHeld() (int64, bool) {
+	if len(state.held) == 0 {
+		return 0, false
+	}
+	highest := state.held[0].amountMinor
+	for _, plan := range state.held[1:] {
+		if plan.amountMinor > highest {
+			highest = plan.amountMinor
+		}
+	}
+	return highest, true
 }
 
 func (service *Service) eligibilityContext(ctx context.Context, customerID string) (eligibility, error) {
@@ -290,11 +345,42 @@ func (service *Service) eligibilityContext(ctx context.Context, customerID strin
 		return eligibility{}, err
 	}
 	result.activeSubscriptions = len(targets)
+	if result.held, err = service.store.HeldPlans(ctx, customerID, service.settings.Currency); err != nil {
+		return eligibility{}, err
+	}
 	if result.trial, err = service.store.TrialContext(ctx, customerID); err != nil {
 		return eligibility{}, err
 	}
 	result.trial.MinimumAccountAge = service.settings.MinimumTrialAccountAge
 	return result, nil
+}
+
+// HeldPlans reads the plans behind the customer's live entitlements, priced in
+// the settlement currency.
+//
+// A plan whose current version has no price in that currency contributes no
+// amount: it is still held, but it cannot be compared, so it only ever produces
+// "you already have this" and never an upgrade or downgrade claim.
+func (store *Store) HeldPlans(ctx context.Context, customerID, currency string) ([]heldPlan, error) {
+	rows, err := store.pool.Query(ctx, `SELECT DISTINCT v.plan_id::text, COALESCE(pr.amount_minor, 0)
+		FROM subscriptions s
+		JOIN entitlements e ON e.subscription_id = s.id AND e.status <> 'superseded'
+		JOIN plan_versions v ON v.id = e.plan_version_id
+		LEFT JOIN plan_prices pr ON pr.plan_version_id = v.id AND pr.currency = $2
+		WHERE s.user_id = $1::uuid AND s.status = 'active'`, customerID, currency)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	held := make([]heldPlan, 0, 4)
+	for rows.Next() {
+		var plan heldPlan
+		if err = rows.Scan(&plan.planID, &plan.amountMinor); err != nil {
+			return nil, err
+		}
+		held = append(held, plan)
+	}
+	return held, rows.Err()
 }
 
 // applyEligibility decides what this customer may do with one catalogue row.
@@ -336,15 +422,41 @@ func applyEligibility(record planRecord, state eligibility) PlanOffer {
 		if err := state.policy.AllowAdditional(state.activeSubscriptions, 0, nil); err == nil {
 			operations = append(operations, "purchase")
 		}
-		operations = append(operations, "extension")
-		if commerce.AllowedOperation("upgrade", record.upgradePolicy, record.downgradePolicy) {
-			operations = append(operations, "upgrade")
-		}
-		if commerce.AllowedOperation("downgrade", record.upgradePolicy, record.downgradePolicy) {
-			operations = append(operations, "downgrade")
+		// Where the plan sits relative to what the customer already pays for.
+		//
+		// Offering every lifecycle action against every row is what this used to
+		// do, and it produced a catalogue where the plan the customer is on
+		// invited them to upgrade to it and the dearest plan invited them to move
+		// down to it. An extension renews the plan they hold; an upgrade goes to
+		// something dearer than anything they hold; a downgrade goes to something
+		// cheaper than everything they hold. A row that is dearer than one of two
+		// concurrent subscriptions and cheaper than the other is genuinely both,
+		// and the target picker on the plan page is where that is resolved.
+		holds := state.holds(record.offer.PlanID)
+		dearest, hasDearest := state.dearestHeld()
+		cheapest, hasCheapest := state.cheapestHeld()
+		switch {
+		case holds:
+			operations = append(operations, "extension")
+		case len(state.held) == 0:
+			// A subscription exists but carries no entitlement — a purchase that
+			// has not been provisioned, or one that has lapsed away entirely.
+			// There is nothing to move up or down from, so the honest action is
+			// to fill the slot rather than to claim a direction.
+			operations = append(operations, "extension")
+		default:
+			if hasDearest && record.offer.AmountMinor > dearest &&
+				commerce.AllowedOperation("upgrade", record.upgradePolicy, record.downgradePolicy) {
+				operations = append(operations, "upgrade")
+			}
+			if hasCheapest && record.offer.AmountMinor < cheapest &&
+				commerce.AllowedOperation("downgrade", record.upgradePolicy, record.downgradePolicy) {
+				operations = append(operations, "downgrade")
+			}
 		}
 	}
 	offer.Operations = operations
+	offer.Held = state.holds(record.offer.PlanID)
 	offer.Eligible = len(operations) > 0
 	if !offer.Eligible {
 		offer.IneligibleReason = commerce.SubscriptionLimitReached

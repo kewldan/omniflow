@@ -4,6 +4,7 @@ import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { cn } from "@omniflow/ui/lib/utils";
 import { ExternalLink, MessageSquare, ShieldCheck, Wallet } from "lucide-react";
+import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
@@ -217,6 +218,15 @@ export function PaymentHandoff({ payment }: { payment: OrderPayment }) {
             <ExternalLink aria-hidden />
             {translate(`order.handoff.${kind}.action`)}
           </a>
+        </Button>
+      )}
+      {/* A manual transfer with nowhere to go is the one handoff that can leave
+          the customer holding an amount and no way to send it. The operator
+          approves the transfer by hand, so the way to ask where to send it is the
+          same desk that will approve it. */}
+      {kind === "manual" && !payment.checkoutUrl && (
+        <Button asChild className="w-full" size="lg" variant="outline">
+          <Link href="/account/support/new">{translate("order.handoff.manual.ask")}</Link>
         </Button>
       )}
       {payment.receiptUrl && (

@@ -3,7 +3,7 @@
 import { Button } from "@omniflow/ui/button";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { toast } from "@omniflow/ui/toast";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, Send } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
@@ -25,6 +25,13 @@ type SignInMethods = {
  * It renders from what the installation actually offers rather than from what
  * the code can do, so an installation with no bot token never shows a Telegram
  * button that cannot work and one with three OIDC providers shows three.
+ *
+ * The widget is not trusted to succeed. Telegram refuses to render it unless the
+ * bot's configured domain matches the host it is loaded from, and it reports
+ * that refusal by drawing its own error inside its own iframe — text this page
+ * cannot read and did not write. The bot route is therefore rendered as a real
+ * control rather than as a sentence describing one, so the screen always leaves
+ * at least one way in even when the widget shows something we cannot see.
  */
 export default function SignInPage() {
   const translate = useTranslations("account");
@@ -32,6 +39,7 @@ export default function SignInPage() {
   const router = useRouter();
   const { data, isLoading } = useSWR<SignInMethods, ApiError>("/v1/account/auth/methods", fetcher);
   const [busy, setBusy] = useState(false);
+  const [widgetFailed, setWidgetFailed] = useState(false);
 
   const reason = search.get("error");
 
@@ -51,6 +59,8 @@ export default function SignInPage() {
       .then(() => router.replace("/account"))
       .catch(() => setBusy(false));
   }, [busy, router]);
+
+  const botRoute = data?.magicLink && data.telegramBot ? data.telegramBot : undefined;
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-6 py-16">
@@ -83,8 +93,22 @@ export default function SignInPage() {
       ) : (
         <div className="space-y-3">
           {data?.telegram && data.telegramBot && (
-            <TelegramButton botUsername={data.telegramBot} disabled={busy} />
+            <TelegramButton
+              botUsername={data.telegramBot}
+              disabled={busy}
+              onFailed={() => setWidgetFailed(true)}
+            />
           )}
+
+          {widgetFailed && (
+            <p
+              className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-[12.5px] leading-relaxed"
+              role="alert"
+            >
+              {translate("signIn.telegramUnavailable")}
+            </p>
+          )}
+
           {(data?.oidc ?? []).map((provider) => (
             <Button asChild className="w-full" key={provider.slug} size="lg" variant="outline">
               <a href={`/v1/account/auth/oidc/${provider.slug}/start`}>
@@ -92,12 +116,37 @@ export default function SignInPage() {
               </a>
             </Button>
           ))}
-          {data?.magicLink && (
+
+          {/* The bot route as a control. `?start=login` opens the chat with the
+              command already staged, so the customer taps twice rather than
+              typing a command they have to be told about. */}
+          {botRoute && (
+            <div className="space-y-2">
+              <Button asChild className="w-full" size="lg" variant="outline">
+                <a
+                  href={`https://t.me/${botRoute}?start=login`}
+                  rel="noreferrer noopener"
+                  target="_blank"
+                >
+                  <Send aria-hidden className="size-4" />
+                  {translate("signIn.magicLinkAction")}
+                </a>
+              </Button>
+              <p className="text-[12.5px] text-muted-foreground leading-relaxed">
+                {translate("signIn.magicLinkHint")}
+              </p>
+            </div>
+          )}
+
+          {/* Magic link without a known bot name is the one case that still has
+              to be described rather than offered. */}
+          {data?.magicLink && !botRoute && (
             <p className="rounded-lg border border-border bg-card p-4 text-[12.5px] text-muted-foreground leading-relaxed">
               {translate("signIn.magicLinkHint")}
             </p>
           )}
-          {!data?.telegram && (data?.oidc ?? []).length === 0 && (
+
+          {!data?.telegram && (data?.oidc ?? []).length === 0 && !data?.magicLink && (
             <p className="rounded-lg border border-border bg-card p-4 text-[12.5px] leading-relaxed">
               {translate("signIn.noMethods")}
             </p>
@@ -114,8 +163,23 @@ export default function SignInPage() {
  * Telegram serves the widget as a script that injects its own iframe and calls a
  * global callback, so it cannot be a React component — it is mounted into a
  * container and the callback posts the signed payload to the API.
+ *
+ * `onFailed` covers the two ways this ends badly. The script itself can fail to
+ * load, which fires an error we can hear; and the script can load against a host
+ * the bot has not been bound to, which it reports only inside its own frame.
+ * Nothing here can read that frame, so the second case is inferred from silence:
+ * a widget that has not produced its iframe within a few seconds is treated as
+ * one that will not.
  */
-function TelegramButton({ botUsername, disabled }: { botUsername: string; disabled: boolean }) {
+function TelegramButton({
+  botUsername,
+  disabled,
+  onFailed,
+}: {
+  botUsername: string;
+  disabled: boolean;
+  onFailed: () => void;
+}) {
   const translate = useTranslations("account");
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -146,13 +210,22 @@ function TelegramButton({ botUsername, disabled }: { botUsername: string; disabl
     script.dataset.radius = "9";
     script.dataset.onauth = "onTelegramAuth(user)";
     script.dataset.requestAccess = "write";
+    script.addEventListener("error", onFailed);
     container.appendChild(script);
     setMounted(true);
 
+    const settled = window.setTimeout(() => {
+      if (!container.querySelector("iframe")) {
+        onFailed();
+      }
+    }, 5000);
+
     return () => {
+      window.clearTimeout(settled);
+      script.removeEventListener("error", onFailed);
       delete (window as unknown as Record<string, unknown>).onTelegramAuth;
     };
-  }, [botUsername, router]);
+  }, [botUsername, onFailed, router]);
 
   return (
     <div className="space-y-2">

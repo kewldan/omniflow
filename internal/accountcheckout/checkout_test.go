@@ -87,55 +87,96 @@ func TestPromoRejectionOnlyClaimsPromotionFailures(t *testing.T) {
 	}
 }
 
-func TestEligibilityOffersEveryLifecycleOperationTheCatalogueAllows(t *testing.T) {
-	t.Parallel()
-	record := planRecord{
-		offer:         PlanOffer{Kind: "one_time"},
+// plans priced so that "dearer" and "cheaper" are unambiguous, which is what
+// makes an upgrade an upgrade rather than a direction the catalogue guessed.
+func rankedPlan(planID string, amountMinor int64) planRecord {
+	return planRecord{
+		offer:         PlanOffer{Kind: "one_time", PlanID: planID, AmountMinor: amountMinor},
 		upgradePolicy: "extend", downgradePolicy: "at_expiry",
 	}
+}
+
+func TestEligibilityRenewsTheHeldPlanAndRanksTheRest(t *testing.T) {
+	t.Parallel()
+	held, dearer, cheaper := rankedPlan("mid", 500), rankedPlan("high", 900), rankedPlan("low", 100)
+
 	// With nothing yet bought there is only one thing to do.
-	first := applyEligibility(record, eligibility{policy: commerce.SubscriptionPolicy{}})
+	first := applyEligibility(held, eligibility{policy: commerce.SubscriptionPolicy{}})
 	if len(first.Operations) != 1 || first.Operations[0] != "purchase" {
 		t.Fatalf("a first purchase offered %v", first.Operations)
 	}
 
-	// With a subscription in hand and concurrency off, buying again extends what
-	// exists rather than opening a second subscription.
-	existing := applyEligibility(record, eligibility{
-		activeSubscriptions: 1, policy: commerce.SubscriptionPolicy{},
-	})
-	if contains(existing.Operations, "purchase") {
-		t.Fatalf("a single-subscription installation offered a second purchase: %v", existing.Operations)
+	state := eligibility{
+		activeSubscriptions: 1,
+		held:                []heldPlan{{amountMinor: 500, planID: "mid"}},
+		policy:              commerce.SubscriptionPolicy{},
 	}
-	for _, operation := range []string{"extension", "upgrade", "downgrade"} {
-		if !contains(existing.Operations, operation) {
-			t.Fatalf("%s was not offered: %v", operation, existing.Operations)
+
+	// The plan already held renews. Offering to "upgrade" somebody to the plan
+	// they are on is the catalogue talking about itself rather than about them.
+	own := applyEligibility(held, state)
+	if !own.Held {
+		t.Fatalf("the held plan was not marked as held: %+v", own)
+	}
+	if contains(own.Operations, "purchase") {
+		t.Fatalf("a single-subscription installation offered a second purchase: %v", own.Operations)
+	}
+	if !contains(own.Operations, "extension") {
+		t.Fatalf("the held plan did not offer a renewal: %v", own.Operations)
+	}
+	for _, operation := range []string{"upgrade", "downgrade"} {
+		if contains(own.Operations, operation) {
+			t.Fatalf("the held plan offered %s to itself: %v", operation, own.Operations)
 		}
 	}
 
-	// A forbidding policy removes exactly the operation it forbids.
-	record.upgradePolicy = "forbid"
-	restricted := applyEligibility(record, eligibility{
-		activeSubscriptions: 1, policy: commerce.SubscriptionPolicy{},
-	})
-	if contains(restricted.Operations, "upgrade") {
-		t.Fatalf("a forbidden upgrade was offered: %v", restricted.Operations)
+	// A dearer plan is an upgrade and only an upgrade; a cheaper one only a
+	// downgrade. Neither renews something the customer does not have.
+	up := applyEligibility(dearer, state)
+	if !contains(up.Operations, "upgrade") || contains(up.Operations, "downgrade") ||
+		contains(up.Operations, "extension") {
+		t.Fatalf("a dearer plan offered %v", up.Operations)
 	}
-	if !contains(restricted.Operations, "downgrade") {
-		t.Fatalf("forbidding an upgrade removed the downgrade too: %v", restricted.Operations)
+	down := applyEligibility(cheaper, state)
+	if !contains(down.Operations, "downgrade") || contains(down.Operations, "upgrade") ||
+		contains(down.Operations, "extension") {
+		t.Fatalf("a cheaper plan offered %v", down.Operations)
+	}
+
+	// A forbidding policy removes exactly the operation it forbids, and nothing
+	// invents a replacement for it: a dearer plan whose upgrade is forbidden is a
+	// plan this customer cannot move to, and it says so rather than offering a
+	// downgrade to something that costs more.
+	dearer.upgradePolicy = "forbid"
+	restricted := applyEligibility(dearer, state)
+	if len(restricted.Operations) != 0 {
+		t.Fatalf("a forbidden upgrade left something behind: %v", restricted.Operations)
+	}
+	if restricted.Eligible || restricted.IneligibleReason == "" {
+		t.Fatalf("a plan with no available operation was not explained: %+v", restricted)
+	}
+
+	// The forbidden upgrade is not a blanket refusal: the cheaper plan still
+	// offers its downgrade.
+	cheaper.upgradePolicy = "forbid"
+	stillDown := applyEligibility(cheaper, state)
+	if !contains(stillDown.Operations, "downgrade") {
+		t.Fatalf("forbidding an upgrade removed an unrelated downgrade: %v", stillDown.Operations)
 	}
 }
 
 func TestEligibilityOffersAnAdditionalSubscriptionOnlyWithinThePolicy(t *testing.T) {
 	t.Parallel()
-	record := planRecord{offer: PlanOffer{Kind: "one_time"}, upgradePolicy: "extend", downgradePolicy: "at_expiry"}
+	record := rankedPlan("mid", 500)
+	held := []heldPlan{{amountMinor: 500, planID: "mid"}}
 	policy := commerce.SubscriptionPolicy{MultiEnabled: true, MaxPerCustomer: 2}
-	if offer := applyEligibility(record, eligibility{activeSubscriptions: 1, policy: policy}); !contains(offer.Operations, "purchase") {
+	offer := applyEligibility(record, eligibility{activeSubscriptions: 1, held: held, policy: policy})
+	if !contains(offer.Operations, "purchase") {
 		t.Fatalf("an allowed additional subscription was not offered: %v", offer.Operations)
 	}
 	// At the limit the purchase disappears, but changing what is already held
-	// must not: a customer at their cap can still renew or upgrade.
-	atLimit := applyEligibility(record, eligibility{activeSubscriptions: 2, policy: policy})
+	// must not: a customer at their cap can still renew.
+	atLimit := applyEligibility(record, eligibility{activeSubscriptions: 2, held: held, policy: policy})
 	if contains(atLimit.Operations, "purchase") {
 		t.Fatalf("a purchase was offered past the limit: %v", atLimit.Operations)
 	}

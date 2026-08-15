@@ -171,7 +171,13 @@ func (service *Service) IssueMagicLink(
 	if err != nil {
 		return "", err
 	}
-	return service.publicURL + "/account/sign-in/link?token=" + url.QueryEscape(token), nil
+	// The redemption route, not a page that would have to forward to it.
+	//
+	// This is the address of the handler that consumes the token and sets the
+	// cookie. Pointing at a page instead costs a redirect and, until the page
+	// exists, hands the customer a 404 after the one-time credential has already
+	// been spent — the failure lands after delivery, where there is no way back.
+	return service.publicURL + "/v1/account/auth/link?token=" + url.QueryEscape(token), nil
 }
 
 // CompleteMagicLink redeems a delivered link.

@@ -307,7 +307,9 @@
         "action": "Action",
         "category": "Category",
         "outcome": "Outcome",
-        "target": "Target"
+        "target": "Target",
+        "actor": "Who",
+        "reason": "Reason"
       },
       "categories": {
         "authentication": "Authentication",
@@ -323,6 +325,14 @@
         "success": "Success",
         "failure": "Failure",
         "denied": "Denied"
+      },
+      "actorTypes": {
+        "admin": "Operator",
+        "anonymous": "Anonymous",
+        "customer": "Customer",
+        "operator": "Operator",
+        "provider": "Provider",
+        "system": "System"
       }
     },
     "security": {
@@ -506,11 +516,11 @@
         "openTickets": "Open",
         "staleTickets": "Stale",
         "jobsQueued": "Queued",
-        "jobsFailed": "Failed",
+        "jobsFailed": "Fulfilment failed",
         "jobsOverdue": "Overdue",
-        "webhooksUnprocessed": "Unprocessed",
-        "webhooksFailed": "Failed",
-        "webhooksUnverified": "Unverified",
+        "webhooksUnprocessed": "Callbacks unprocessed",
+        "webhooksFailed": "Callbacks failed",
+        "webhooksUnverified": "Callbacks unverified",
         "openDrifts": "Open drift",
         "missingRemote": "Missing in Remnawave",
         "outboxUnpublished": "Outbox backlog",
@@ -589,6 +599,23 @@
         "remnawave": "Remnawave unavailable",
         "database": "database unavailable",
         "valkey": "Valkey unavailable"
+      },
+      "charts": {
+        "total": "Total",
+        "measure": "Measure",
+        "count": "Count",
+        "share": "Share",
+        "queue": "Queue",
+        "empty": "Nothing counted in this window.",
+        "customerMix": "Customer records",
+        "customerMixDescription": "Every customer record by the state it is in. A record is not the same as a live subscription.",
+        "subscriptionMix": "Entitlements",
+        "subscriptionMixDescription": "Entitlements by lifecycle state. Renewals due are inside the active share and are not drawn twice.",
+        "paymentMix": "Payment intents",
+        "paymentMixDescription": "Intents in the window by outcome. Stuck intents are inside the in-flight share.",
+        "backlog": "Backlog",
+        "backlogDescription": "What is waiting, largest first. These are separate queues, so the lengths compare but never add.",
+        "backlogEmpty": "Every queue is empty."
       }
     },
     "customers": {
@@ -870,7 +897,8 @@
         "overpayment": "Overpayment",
         "underpayment": "Underpayment",
         "reconciled": "Reconciled"
-      }
+      },
+      "openOrder": "Open the order"
     },
     "reports": {
       "title": "Sales",
@@ -967,6 +995,16 @@
           "revenue": "Revenue",
           "refunded": "Refunded"
         }
+      },
+      "plan": "Plan",
+      "gross": "Gross",
+      "ordersDaily": {
+        "title": "Orders per day",
+        "description": "How many orders were placed each day, across every currency. An order is an order whatever it settled in."
+      },
+      "planChart": {
+        "title": "Revenue by plan",
+        "description": "The eight highest-earning plan versions. Everything else stays in the table."
       }
     },
     "paymentHealth": {
@@ -1003,6 +1041,11 @@
         "cryptobot": "CryptoBot",
         "yookassa": "YooKassa",
         "manual": "Manual"
+      },
+      "outcomes": {
+        "title": "What happened to each intent",
+        "description": "Settled, failed, and abandoned per provider. Intents still in flight are not plotted: one created minutes ago has not failed.",
+        "empty": "No intent has reached an outcome in this period."
       }
     },
     "traffic": {
@@ -1045,6 +1088,15 @@
         "unattributed": "Not linked",
         "empty": "No users",
         "emptyHint": "The panel reported no users, so there is nothing to rank."
+      },
+      "charts": {
+        "pressure": "Node pressure",
+        "pressureDescription": "How full each limited node is right now. Nodes without a limit are not plotted: they cannot fill up.",
+        "pressureEmpty": "No limited node is carrying traffic.",
+        "share": "Share",
+        "consumers": "Heaviest consumers",
+        "consumersDescription": "The ten largest of the {scanned} users scanned, out of {total}.",
+        "consumersEmpty": "Nobody in the scanned set has used anything."
       }
     },
     "content": {
@@ -2476,7 +2528,15 @@
       "profile": "Account",
       "store": "Store",
       "wallet": "Wallet",
-      "support": "Support"
+      "support": "Support",
+      "more": "More",
+      "orders": "Orders",
+      "referrals": "Invite a friend",
+      "news": "Announcements",
+      "security": "Security",
+      "accountId": "Account id",
+      "signOut": "Sign out",
+      "signOutFailed": "Could not sign out. Try again."
     },
     "actions": {
       "cancel": "Cancel",
@@ -2505,7 +2565,9 @@
       "description": "Use the account you already have. Nothing new to remember.",
       "withProvider": "Continue with {provider}",
       "telegramHint": "Loading the Telegram button…",
-      "magicLinkHint": "No Telegram button? Send /login to the bot and it will message you a one-time sign-in link.",
+      "magicLinkHint": "The bot sends a one-time link that opens this panel. It works even when the Telegram button does not.",
+      "magicLinkAction": "Sign in through the bot",
+      "telegramUnavailable": "The Telegram button could not load. That is usually the bot domain not matching this address; sign in through the bot instead.",
       "noMethods": "No sign-in method is configured yet. Contact support.",
       "errors": {
         "generic": "Sign-in could not be completed. Try again.",
@@ -2523,7 +2585,8 @@
       "switcher": "Choose a subscription",
       "all": "All",
       "empty": "No subscription yet",
-      "emptyDescription": "Once you buy one it appears here with its traffic, devices, and expiry."
+      "emptyDescription": "Once you buy one it appears here with its traffic, devices, and expiry.",
+      "emptyAction": "Browse plans"
     },
     "subscription": {
       "days": "days",
@@ -2595,10 +2658,11 @@
       "appearance": "Theme",
       "theme": {
         "dark": "Dark",
-        "light": "Light"
+        "light": "Light",
+        "system": "System"
       },
       "language": "Language",
-      "languageHint": "Applies here and to the messages the bot sends. Current: {current}.",
+      "languageHint": "Sets this panel, and the language the bot writes in unless Notifications names a different one. Current: {current}.",
       "languageSaved": "Language saved",
       "security": "Security",
       "sessions": "Sessions and security",
@@ -3387,7 +3451,8 @@
       "kind": {
         "trial": "Trial",
         "recurring": "Can renew itself",
-        "squads": "Choose your servers"
+        "squads": "Choose your servers",
+        "current": "Your plan"
       },
       "specs": {
         "period": "Period",
@@ -3629,7 +3694,7 @@
           "paid": "Paid",
           "provisioning": "Setting up",
           "ready": "Ready",
-          "summary": "Step {done} of {total}"
+          "summary": "{done} of {total} done"
         },
         "fulfillment": {
           "title": "Setting up your subscription",
@@ -3658,8 +3723,9 @@
           },
           "manual": {
             "title": "Waiting for an operator",
-            "description": "Your transfer is checked by a person, so this can take a few hours. You do not need to do anything else.",
-            "action": "Open the payment details"
+            "description": "Your transfer is checked by a person, so this can take a few hours. If you have not been told where to send it, ask below.",
+            "action": "Open the payment details",
+            "ask": "Ask where to send the payment"
           },
           "none": {
             "title": "Nothing left to pay",

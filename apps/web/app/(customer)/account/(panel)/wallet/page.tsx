@@ -139,22 +139,26 @@ function BalanceCard({ balance }: { balance: WalletBalance }) {
           {money(balance.availableMinor, balance.currency)}
         </span>
       </div>
-      <dl className="space-y-1.5 border-border border-t pt-3">
-        <div className="flex items-baseline justify-between gap-3">
-          <dt className="text-[12px] text-muted-foreground">{translate("wallet.total")}</dt>
-          <dd className="font-medium text-[12.5px]" data-numeric>
-            {money(balance.totalMinor, balance.currency)}
-          </dd>
-        </div>
-        {balance.reservedMinor > 0 && (
+      {/* Total and reserved are the breakdown of the headline. With nothing
+          reserved they are the same figure twice, and printing a number beside
+          itself under two different words invites the reader to look for the
+          difference. */}
+      {balance.reservedMinor > 0 && (
+        <dl className="space-y-1.5 border-border border-t pt-3">
+          <div className="flex items-baseline justify-between gap-3">
+            <dt className="text-[12px] text-muted-foreground">{translate("wallet.total")}</dt>
+            <dd className="font-medium text-[12.5px]" data-numeric>
+              {money(balance.totalMinor, balance.currency)}
+            </dd>
+          </div>
           <div className="flex items-baseline justify-between gap-3">
             <dt className="text-[12px] text-muted-foreground">{translate("wallet.reserved")}</dt>
             <dd className="font-medium text-[12.5px] text-warning" data-numeric>
               {money(balance.reservedMinor, balance.currency)}
             </dd>
           </div>
-        )}
-      </dl>
+        </dl>
+      )}
       {balance.reservedMinor > 0 && (
         <p className="text-[11.5px] text-subtle-foreground leading-relaxed">
           {translate("wallet.reservedHint")}
@@ -190,7 +194,11 @@ function TopUpForm({
   const submission = useSubmission();
 
   const [amount, setAmount] = useState("");
-  const [provider, setProvider] = useState("");
+  // One way to pay is not a choice. Starting empty left the submit button
+  // disabled with nothing on screen saying which of the one options to pick.
+  const [provider, setProvider] = useState(() =>
+    policy.providers.length === 1 ? policy.providers[0].provider : "",
+  );
   const [busy, setBusy] = useState(false);
   const [started, setStarted] = useState<TopUpResult | null>(null);
 

@@ -6331,8 +6331,11 @@ components:
         operations:
           type: array
           description: "The lifecycle actions the configured plan policy allows for this customer."
-          items: {type: string, enum: [purchase, renew, upgrade, downgrade]}
+          items: {type: string, enum: [purchase, extension, upgrade, downgrade]}
         eligible: {type: boolean}
+        held:
+          type: boolean
+          description: "The customer already holds an entitlement for this plan, so the catalogue can mark it as the one they are on."
         ineligibleReason: {type: string}
         trafficAllowanceBytes:
           type: integer
