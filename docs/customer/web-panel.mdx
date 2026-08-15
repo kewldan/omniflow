@@ -59,13 +59,23 @@ web stops being unread in Telegram. There is one product with two surfaces.
 
 ## How the panel is laid out
 
-The layout is a single column that a wider viewport centres, rather than a
-desktop layout that collapses on a phone. That is not a slogan: the customer
+The panel is designed for a phone first and becomes an application on a desktop,
+rather than a desktop layout that collapses. That is not a slogan: the customer
 product is opened on a phone, frequently from inside Telegram.
 
-Five tabs sit in a floating bar, chosen by frequency of need rather than by API
-division — the plan store and the digital-goods shop share one tab because from
-the customer's side they are the same errand.
+On a narrow viewport it is a single column with five tabs in a floating bar,
+chosen by frequency of need rather than by API division — the plan store and the
+digital-goods shop share one tab because from the customer's side they are the
+same errand.
+
+At `md` and above the bar is replaced by a sidebar. It carries the same five
+destinations plus the ones a phone keeps one level down under the account tab —
+orders, devices, invites, announcements, and security — because the constraint
+that justified hiding them is that five is all a thumb bar can hold, and a column
+with room to spare does not have it. The sidebar also carries the account
+identifier, which is what support asks for, and a sign-out control. Somebody
+opening the *web* panel rather than the bot is, by definition, the customer who
+is not on a phone.
 
 | Tab | Route | What it holds |
 | --- | --- | --- |
@@ -208,13 +218,15 @@ them applied would confirm that a token once existed. Failures redirect to
 `account_unavailable`, or `sign_in_failed`, and the sign-in screen renders copy
 for each.
 
-<Warning>
-  The link the bot delivers points at `<APP_PUBLIC_URL>/account/sign-in/link?token=…`,
-  and the shipped web application serves no route at that path — the token is
-  consumed by the API at `GET /v1/account/auth/link`. On the shipped
-  configuration the two do not meet, so verify the flow end to end before
-  offering magic links to customers.
-</Warning>
+<Note>
+  The link the bot delivers points at `<APP_PUBLIC_URL>/v1/account/auth/link?token=…`,
+  which is the handler that consumes the token. Earlier releases pointed it at
+  `/account/sign-in/link`, a path the web application served no route for, so the
+  link answered 404 after the one-time token had already been delivered. The web
+  application now also serves `/account/sign-in/link` and forwards it to the API,
+  so a link sitting in a chat history from an older release still works for the
+  ten minutes it was promised.
+</Note>
 
 <Note>
   The link is a bearer credential for ten minutes. The bot says so in the message

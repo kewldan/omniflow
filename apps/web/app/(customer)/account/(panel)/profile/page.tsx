@@ -8,6 +8,7 @@ import {
   BellRing,
   FileText,
   Gift,
+  LogOut,
   MonitorSmartphone,
   Moon,
   Shield,
@@ -50,6 +51,9 @@ export default function ProfilePage() {
 
   return (
     <div className="animate-step-in space-y-5">
+      {/* Who is signed in, and the reference support will ask for. The panel used
+          to name the method and nothing else, which told a customer how they got
+          in but not which account they got into. */}
       <section className="rounded-xl border border-border bg-card p-4">
         <p className="font-mono text-[11px] text-subtle-foreground">
           {translate("profile.signedIn")}
@@ -59,6 +63,16 @@ export default function ProfilePage() {
             provider: session?.session.authProvider ?? "",
           })}
         </p>
+        {customer?.id && (
+          <p className="mt-3 border-border border-t pt-3">
+            <span className="block font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em]">
+              {translate("nav.accountId")}
+            </span>
+            <span className="mt-1 block break-all font-mono text-[11.5px] text-muted-foreground">
+              {customer.id}
+            </span>
+          </p>
+        )}
       </section>
 
       <ThemeChoice />
@@ -136,7 +150,45 @@ export default function ProfilePage() {
         ]}
         label={hub("hub.data")}
       />
+
+      <SignOutButton />
     </div>
+  );
+}
+
+/**
+ * Leaving.
+ *
+ * The panel had no way out that was not "sign out everywhere", two levels down
+ * under sessions — which is the wrong default on a shared computer and the wrong
+ * place to look for it. Ending this session is one button on the account page;
+ * ending all of them stays where it belongs, beside the list of them.
+ */
+function SignOutButton() {
+  const translate = useTranslations("account");
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <Button
+      className="w-full text-destructive"
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          await apiFetch("/v1/account/auth/logout", { method: "POST" });
+          router.replace("/account/sign-in");
+        } catch {
+          toast.error(translate("nav.signOutFailed"));
+          setBusy(false);
+        }
+      }}
+      size="lg"
+      variant="outline"
+    >
+      <LogOut aria-hidden />
+      {translate("nav.signOut")}
+    </Button>
   );
 }
 
@@ -154,10 +206,14 @@ function ThemeChoice() {
 
   // An installation offering one mode has nothing to choose here. A pair of
   // buttons where one of them cannot take effect is worse than no buttons.
-  const options = (["dark", "light"] as const).filter((option) => allowedThemes.includes(option));
-  if (options.length < 2) {
+  const modes = (["dark", "light"] as const).filter((option) => allowedThemes.includes(option));
+  if (modes.length < 2) {
     return null;
   }
+  // "System" is only offered where both modes are, because following the device
+  // means being able to land on either. It is listed last rather than first: a
+  // customer who came here came to override something.
+  const options = [...modes, "system"] as const;
 
   // The heading belongs to the control rather than to the page, so an
   // installation with one mode loses both together instead of leaving a
@@ -176,7 +232,13 @@ function ThemeChoice() {
             size="sm"
             variant={theme === option ? "secondary" : "ghost"}
           >
-            {option === "dark" ? <Moon aria-hidden /> : <Sun aria-hidden />}
+            {option === "dark" ? (
+              <Moon aria-hidden />
+            ) : option === "light" ? (
+              <Sun aria-hidden />
+            ) : (
+              <MonitorSmartphone aria-hidden />
+            )}
             {translate(`profile.theme.${option}`)}
           </Button>
         ))}
