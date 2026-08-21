@@ -2584,6 +2584,15 @@
         "unverified_email": "That provider did not confirm your email address, so it cannot be used to sign in here."
       }
     },
+    "timezone": {
+      "label": "Your timezone",
+      "hint": "Quiet hours and the times shown on this panel follow it. Search by city or by offset.",
+      "search": "Search timezones",
+      "empty": "No timezone matches.",
+      "detected": "Detected from this device",
+      "all": "All timezones",
+      "saved": "Timezone set to {zone}"
+    },
     "dashboard": {
       "subscriptions": "My subscriptions",
       "switcher": "Choose a subscription",

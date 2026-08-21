@@ -906,6 +906,14 @@ sending a window whose start and end are equal — omitting the field would mean
 "leave the window alone", which is the opposite of what the customer just asked
 for.
 
+The timezone they are counted in is `users.timezone`, and the same screen sets
+it: a searchable picker beside the quiet-hours window, listing the IANA zones
+the browser knows with each one's current offset and the zone the device
+reports at the top. It writes through `PATCH /v1/account/me` together with the
+account's current language, because that route takes both and a timezone change
+must not reset the language. Every account starts on `UTC`, which is why the
+control is next to the window it governs rather than on the profile screen.
+
 Consent is append-only: a change records a new decision with the surface and
 policy version that made it, so the question "when did this person opt in, and
 where" always has an answer, and a row is written on every unsubscribe even when

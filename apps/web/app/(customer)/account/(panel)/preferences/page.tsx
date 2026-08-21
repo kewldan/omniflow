@@ -20,6 +20,7 @@ import {
   PREFERENCES_KEY,
   type PreferencesPatch,
 } from "@/components/account/support/types";
+import { TimezoneField } from "@/components/account/timezone-field";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 
 /** The hours a quiet window can start or end on. */
@@ -117,6 +118,10 @@ export default function PreferencesPage() {
 
       <SectionLabel>{translate("preferences.quietHours.title")}</SectionLabel>
       <QuietHours busy={busy} onChange={patch} window={data.quietHours} />
+      {/* Quiet hours are computed in the account's timezone, so the control
+          that sets it sits beside them rather than on a profile screen the
+          customer has no reason to connect with a window of hours. */}
+      <TimezoneField />
 
       {/* The card carries its own heading, so it needs no section label above it. */}
       <BrowserNotificationSetting />
