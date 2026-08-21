@@ -79,6 +79,41 @@ func (store *PostgresStore) EnsureCustomer(ctx context.Context, telegramID int64
 	return customer, nil
 }
 
+// LinkRemnawaveUser attaches a Remnawave user that already carries the
+// customer's Telegram ID to the canonical customer, and gives the customer's
+// first subscription slot that user.
+//
+// This is the lazy link the pre-commerce bot made through its own store, which
+// creates a fresh `users` row when no mapping exists. With commerce enabled the
+// canonical customer already exists — identity, wallet, and support hang off
+// it — so the mapping has to be written against that customer, or an imported
+// installation would gain a second customer per Telegram account on the first
+// /start. The slot-1 subscription is written for the same reason the v0.5
+// migration wrote one per mapping: a purchase targets it, and a provisioning
+// run that found no Remnawave user on the subscription would create a second
+// one beside the imported account.
+func (store *PostgresStore) LinkRemnawaveUser(ctx context.Context, customerID string, telegramID, remnawaveID int64) error {
+	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err = tx.Exec(ctx, `INSERT INTO remnawave_users (user_id, remnawave_id, telegram_id, reconciled_at)
+		VALUES ($1::uuid, $2, $3, now())
+		ON CONFLICT (user_id) DO UPDATE SET remnawave_id = EXCLUDED.remnawave_id,
+			telegram_id = EXCLUDED.telegram_id, reconciled_at = now()`, customerID, remnawaveID, telegramID); err != nil {
+		return fmt.Errorf("link Remnawave user: %w", err)
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO subscriptions (user_id, slot, label, remnawave_user_id, reconciled_at)
+		VALUES ($1::uuid, 1, 'Subscription 1', $2, now())
+		ON CONFLICT (user_id, slot) DO UPDATE SET
+			remnawave_user_id = COALESCE(subscriptions.remnawave_user_id, EXCLUDED.remnawave_user_id),
+			updated_at = now()`, customerID, remnawaveID); err != nil {
+		return fmt.Errorf("attach Remnawave user to the first subscription: %w", err)
+	}
+	return tx.Commit(ctx)
+}
+
 func scanCustomer(row pgx.Row) (Customer, error) {
 	var customer Customer
 	err := row.Scan(&customer.ID, &customer.Locale, &customer.Status, &customer.Timezone, &customer.CreatedAt, &customer.RemnawaveID)

@@ -802,11 +802,61 @@ func (app *App) loadCustomerView(ctx context.Context, telegramID int64, locale L
 		}
 		return app.connectPlatformsScreen(ctx, session.Locale, subscription)
 	}
+	if route == routeReferral {
+		// The referral code belongs to the customer, not to the VPN user: a
+		// customer who has not bought anything yet can still invite a friend,
+		// and the friend's first purchase is what the programme rewards.
+		return app.referralScreen(ctx, session)
+	}
 	menu := app.menuState(ctx, session.Customer.ID, session.Locale)
 	if session.Customer.RemnawaveID <= 0 {
-		return app.noSubscriptionView(ctx, session, route, menu)
+		// The Remnawave link is made lazily and only by exact Telegram ID: an
+		// upgraded or imported installation carries VPN users that know the
+		// Telegram account but have no mapping row yet. Without this lookup
+		// such a customer was told they had no subscription and offered a
+		// purchase, while their access was live in Remnawave all along.
+		linked, found := app.linkRemnawaveByTelegramID(ctx, session)
+		if !found {
+			return app.noSubscriptionView(ctx, session, route, menu)
+		}
+		session.Customer.RemnawaveID = linked
 	}
 	return app.loadRemnawaveView(ctx, telegramID, session.Locale, route, menu)
+}
+
+// linkRemnawaveByTelegramID looks for a Remnawave user carrying the customer's
+// Telegram ID and links it. It reports whether one was found and linked; any
+// failure counts as not found, so the customer sees the purchase surface rather
+// than an error, and the next screen tries again.
+func (app *App) linkRemnawaveByTelegramID(ctx context.Context, session commerceContext) (int64, bool) {
+	user, err := app.remnawave.UserByTelegramID(ctx, session.TelegramID)
+	if errors.Is(err, remnawave.ErrNotFound) {
+		return 0, false
+	}
+	if err != nil {
+		app.logger.Warn("Remnawave Telegram identity lookup failed", "error", err)
+		return 0, false
+	}
+	if user.ID <= 0 {
+		return 0, false
+	}
+	if err := app.customers.LinkRemnawaveUser(ctx, session.Customer.ID, session.TelegramID, user.ID); err != nil {
+		app.logger.Error("Telegram identity link failed", "error", err)
+		return 0, false
+	}
+	app.logger.Info("Remnawave user linked by Telegram ID", "customer_id", session.Customer.ID)
+	return user.ID, true
+}
+
+// referralScreen renders the customer's invite code and invited count from
+// the customer record, which exists before any VPN user does.
+func (app *App) referralScreen(ctx context.Context, session commerceContext) View {
+	summary, err := app.customers.ReferralSummary(ctx, session.Customer.ID)
+	if err != nil {
+		app.logger.Error("referral lookup failed", "error", err)
+		return app.errorView(session.Locale, routeReferral)
+	}
+	return referralView(session.Locale, app.botUsername, summary.Code, summary.Invited)
 }
 
 // noSubscriptionView is what a customer sees before their first purchase: the

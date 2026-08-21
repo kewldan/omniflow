@@ -120,8 +120,19 @@ a linked Telegram identity; failing that it adopts a pre-existing Remnawave
 mapping for the same ID, so an upgraded installation does not gain a second
 customer; failing that it creates one.
 
-The Remnawave link is made lazily and **only by exact Telegram ID**. If no
-Remnawave user carries that ID, the bot says so and stops:
+The Remnawave link is made lazily and **only by exact Telegram ID**. When the
+customer has no Remnawave user on record, the bot asks Remnawave for one
+carrying that Telegram ID and, finding one, links it to the customer and gives
+the customer's first subscription slot that user — so an upgraded or imported
+installation whose VPN users already know their Telegram accounts shows each
+customer their live access on the first `/start`, rather than "no subscription"
+and a purchase button. The lookup is repeated on the next screen if Remnawave
+could not be asked.
+
+If no Remnawave user carries that ID, what happens next depends on the
+installation. With purchases configured, the customer simply has no
+subscription yet and sees the purchase surface. Without them, the bot says so
+and stops:
 
 > Your Telegram account is not linked to a subscription yet. Contact support and
 > an operator will link it securely.
@@ -161,10 +172,11 @@ unconfigured screen teaches customers the bot is unreliable.
 
 <Note>
   A customer whose Remnawave user has not been provisioned yet cannot reach the
-  subscription, devices, or referral screens: those routes fall back to the home
-  screen with a lifecycle notice explaining the state. `🚀 Connect` is the one
-  that explains itself directly — it says the subscription link appears once
-  access is active.
+  subscription or devices screens: those routes fall back to the home screen
+  with a lifecycle notice explaining the state. `🚀 Connect` explains itself
+  directly — it says the subscription link appears once access is active — and
+  `🎁 Invite` works regardless, because the referral code belongs to the
+  customer, not to the VPN user.
 </Note>
 
 ## Subscription and traffic
