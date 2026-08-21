@@ -457,7 +457,16 @@ func (service *Service) CancelOrder(ctx context.Context, customerID, orderID str
 // customer's own orders.
 //
 // The order is read through the ownership-scoped query first, so the payment
-// service is only ever handed an order this customer may pay for.
+// service is only ever handed an order this customer may pay for. The order
+// has to be payable and the method has to settle its currency before the
+// payment service is asked: both are things the service would refuse, but it
+// refuses them as plain errors, and a customer whose order expired between the
+// page rendering and the button being pressed deserves a conflict they can
+// read rather than a failure they cannot.
+//
+// The method defaults to the one the order's payment intent already names,
+// then to the one the checkout recorded, so the page can resume a payment
+// without having been told the method in its URL.
 func (service *Service) StartOrderPayment(
 	ctx context.Context, customerID, orderID, locale, provider string,
 ) (PaymentHandle, error) {
@@ -465,14 +474,22 @@ func (service *Service) StartOrderPayment(
 	if err != nil {
 		return PaymentHandle{}, err
 	}
-	if order.ExternalMinor == 0 {
-		return PaymentHandle{}, ErrPaymentNotRequired
+	if err = OrderPayable(order, service.clock()); err != nil {
+		return PaymentHandle{}, err
 	}
 	if provider == "" {
 		provider = order.Provider
 	}
 	if provider == "" {
+		if provider, err = service.store.RecordedOrderProvider(ctx, customerID, orderID); err != nil {
+			return PaymentHandle{}, err
+		}
+	}
+	if provider == "" {
 		return PaymentHandle{}, invalidInput("a payment method is required")
+	}
+	if err = service.ProviderSettles(provider, order.Currency); err != nil {
+		return PaymentHandle{}, err
 	}
 	return service.StartPayment(ctx, PaymentRequest{
 		OrderID: order.ID, Provider: provider, Description: order.PlanName, Channel: "customer_web",

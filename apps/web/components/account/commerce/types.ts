@@ -260,6 +260,15 @@ export type OrderSummary = {
   fulfillment?: OrderFulfillment;
   /** Present on the detail response only; the list omits it. */
   refunds?: OrderRefund[];
+  /**
+   * The methods that can settle this order, in its currency. Present on the
+   * detail response while the order is pending and owes something, so the page
+   * can offer a method without depending on the URL the checkout redirected
+   * to.
+   */
+  paymentChoices?: PaymentChoice[];
+  /** The method the checkout recorded, when that checkout is still attached. */
+  preferredProvider?: string;
 };
 
 /** `GET /v1/account/orders` */

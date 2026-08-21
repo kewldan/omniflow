@@ -22,6 +22,26 @@ type SignInMethodView struct {
 	Removable bool
 }
 
+// HasTelegramIdentity reports whether the customer holds an active Telegram
+// identity — the condition for anything that has to reach them in a chat, such
+// as a Telegram Stars invoice.
+func (service *Service) HasTelegramIdentity(ctx context.Context, customerID string) (bool, error) {
+	userID, err := parseUUID(customerID)
+	if err != nil {
+		return false, err
+	}
+	rows, err := dbgen.New(service.pool).ListCustomerSignInIdentities(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	for _, row := range rows {
+		if row.Provider == customerauth.ProviderTelegram {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // ListSignInMethods returns every way this customer can currently sign in.
 func (service *Service) ListSignInMethods(
 	ctx context.Context, customerID string,

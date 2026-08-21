@@ -8259,6 +8259,25 @@ export const ConfirmAccountCheckoutResponse = zod.object({
       }),
     )
     .optional(),
+  paymentChoices: zod
+    .array(
+      zod.object({
+        provider: zod.string(),
+        currency: zod.string(),
+        amountMinor: zod.int().optional(),
+        recurring: zod.boolean(),
+      }),
+    )
+    .optional()
+    .describe(
+      "The methods that can settle this order in its currency, each priced at what the order still owes. Present on the detail response while the order is pending and owes something, so the page can offer a method without depending on the URL the checkout redirected to. Telegram Stars appears only for a customer with a Telegram identity.",
+    ),
+  preferredProvider: zod
+    .string()
+    .optional()
+    .describe(
+      "The method the checkout recorded, while that checkout is still attached to the order.",
+    ),
 });
 
 export const listAccountOrdersQueryLimitMax = 100;
@@ -8332,6 +8351,25 @@ export const ListAccountOrdersResponse = zod.object({
           }),
         )
         .optional(),
+      paymentChoices: zod
+        .array(
+          zod.object({
+            provider: zod.string(),
+            currency: zod.string(),
+            amountMinor: zod.int().optional(),
+            recurring: zod.boolean(),
+          }),
+        )
+        .optional()
+        .describe(
+          "The methods that can settle this order in its currency, each priced at what the order still owes. Present on the detail response while the order is pending and owes something, so the page can offer a method without depending on the URL the checkout redirected to. Telegram Stars appears only for a customer with a Telegram identity.",
+        ),
+      preferredProvider: zod
+        .string()
+        .optional()
+        .describe(
+          "The method the checkout recorded, while that checkout is still attached to the order.",
+        ),
     }),
   ),
   nextCursor: zod.string().optional(),
@@ -8409,10 +8447,29 @@ export const GetAccountOrderResponse = zod.object({
       }),
     )
     .optional(),
+  paymentChoices: zod
+    .array(
+      zod.object({
+        provider: zod.string(),
+        currency: zod.string(),
+        amountMinor: zod.int().optional(),
+        recurring: zod.boolean(),
+      }),
+    )
+    .optional()
+    .describe(
+      "The methods that can settle this order in its currency, each priced at what the order still owes. Present on the detail response while the order is pending and owes something, so the page can offer a method without depending on the URL the checkout redirected to. Telegram Stars appears only for a customer with a Telegram identity.",
+    ),
+  preferredProvider: zod
+    .string()
+    .optional()
+    .describe(
+      "The method the checkout recorded, while that checkout is still attached to the order.",
+    ),
 });
 
 /**
- * Creates or resumes the provider payment. The key is scoped to the order and the chosen adapter, so switching provider is a new payment while pressing the same button twice is not.
+ * Creates or resumes the provider payment. The key is scoped to the order and the chosen adapter, so switching provider is a new payment while pressing the same button twice is not. The provider defaults to the one the order's payment already names, then to the one the checkout that became this order recorded. An order that is no longer pending, or whose expiry has passed, answers `409 order_not_payable`; a configured method that does not settle the order's currency answers `422 provider_currency_unsupported`.
  */
 export const StartAccountOrderPaymentParams = zod.object({
   orderID: zod.uuid(),
@@ -8522,6 +8579,25 @@ export const RefreshAccountOrderResponse = zod.object({
       }),
     )
     .optional(),
+  paymentChoices: zod
+    .array(
+      zod.object({
+        provider: zod.string(),
+        currency: zod.string(),
+        amountMinor: zod.int().optional(),
+        recurring: zod.boolean(),
+      }),
+    )
+    .optional()
+    .describe(
+      "The methods that can settle this order in its currency, each priced at what the order still owes. Present on the detail response while the order is pending and owes something, so the page can offer a method without depending on the URL the checkout redirected to. Telegram Stars appears only for a customer with a Telegram identity.",
+    ),
+  preferredProvider: zod
+    .string()
+    .optional()
+    .describe(
+      "The method the checkout recorded, while that checkout is still attached to the order.",
+    ),
 });
 
 export const CancelAccountOrderParams = zod.object({
@@ -8676,6 +8752,25 @@ export const StartAccountTopUpResponse = zod.object({
       }),
     )
     .optional(),
+  paymentChoices: zod
+    .array(
+      zod.object({
+        provider: zod.string(),
+        currency: zod.string(),
+        amountMinor: zod.int().optional(),
+        recurring: zod.boolean(),
+      }),
+    )
+    .optional()
+    .describe(
+      "The methods that can settle this order in its currency, each priced at what the order still owes. Present on the detail response while the order is pending and owes something, so the page can offer a method without depending on the URL the checkout redirected to. Telegram Stars appears only for a customer with a Telegram identity.",
+    ),
+  preferredProvider: zod
+    .string()
+    .optional()
+    .describe(
+      "The method the checkout recorded, while that checkout is still attached to the order.",
+    ),
 });
 
 /**

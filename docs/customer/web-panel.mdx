@@ -602,6 +602,20 @@ Confirming a checkout creates an order and charges nothing. Starting the provide
 payment is a separate step, so a customer who closed the tab between the two
 finds an order waiting rather than a payment nobody can account for.
 
+An order that is still pending and owes money carries `paymentChoices` — the
+methods that settle its currency, each priced at what is owed — and
+`preferredProvider`, the method the checkout recorded, so the order screen offers
+a picker of its own rather than depending on the `?provider=` the checkout
+redirected with. Arriving from the order list, reloading without the query
+string, or opening the order in a second tab all still lead to a payment.
+`POST /orders/{id}/payment` defaults to the intent's provider, then to the
+recorded one; it refuses a method that does not settle the order's currency with
+`422 provider_currency_unsupported`, and an order that stopped being pending —
+or whose hour passed, whether or not the expiry sweep has run yet — with
+`409 order_not_payable`, so a button pressed a moment too late reads as a
+conflict rather than a failure. Telegram Stars is offered only to a customer
+with a Telegram identity, because it settles through an invoice in a chat.
+
 The checkout screen always offers **Discard this purchase**, including when the
 checkout itself could not be read. A customer has at most one checkout and it
 blocks every other purchase, so a way out that lived only on the happy path would

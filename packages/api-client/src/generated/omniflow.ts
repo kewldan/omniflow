@@ -3828,6 +3828,10 @@ export interface AccountOrder {
   /** Provisioning progress, read from the fulfillment operation rather than carried by the client. */
   fulfillment?: AccountOrderFulfillment;
   refunds?: AccountOrderRefundsItem[];
+  /** The methods that can settle this order in its currency, each priced at what the order still owes. Present on the detail response while the order is pending and owes something, so the page can offer a method without depending on the URL the checkout redirected to. Telegram Stars appears only for a customer with a Telegram identity. */
+  paymentChoices?: AccountPaymentChoice[];
+  /** The method the checkout recorded, while that checkout is still attached to the order. */
+  preferredProvider?: string;
 }
 
 export interface AccountOrderPage {
@@ -25964,7 +25968,7 @@ export const getStartAccountOrderPaymentUrl = (orderID: string) => {
 };
 
 /**
- * Creates or resumes the provider payment. The key is scoped to the order and the chosen adapter, so switching provider is a new payment while pressing the same button twice is not.
+ * Creates or resumes the provider payment. The key is scoped to the order and the chosen adapter, so switching provider is a new payment while pressing the same button twice is not. The provider defaults to the one the order's payment already names, then to the one the checkout that became this order recorded. An order that is no longer pending, or whose expiry has passed, answers `409 order_not_payable`; a configured method that does not settle the order's currency answers `422 provider_currency_unsupported`.
  */
 export const startAccountOrderPayment = async (
   orderID: string,

@@ -3498,6 +3498,7 @@
         "not_provisioned": "This subscription is still being set up. Try again in a moment.",
         "operation_forbidden": "This plan does not allow that change.",
         "order_not_cancellable": "Only an unpaid order can be cancelled. Contact support about a refund.",
+        "order_not_payable": "This order can no longer be paid — it has expired, been cancelled, or already settled. The page has been refreshed.",
         "payment_not_required": "Nothing more is owed on this order.",
         "plan_limit_reached": "You already hold as many subscriptions on this plan as it allows.",
         "plan_unavailable": "That plan is no longer available. Pick another from the store.",
@@ -3506,6 +3507,7 @@
         "promo_invalid": "That code cannot be used here.",
         "promo_unknown": "That code is not recognised.",
         "provider_unavailable": "That payment method is not available right now. Choose another.",
+        "provider_currency_unsupported": "That payment method does not take this order's currency. Choose another.",
         "request_failed": "Something went wrong on our side. Try again in a moment.",
         "squad_not_offered": "One of the servers you chose is not offered with this plan.",
         "squad_selection_not_allowed": "The servers for this plan are assigned automatically.",
@@ -3742,7 +3744,7 @@
         "payment": {
           "title": "Payment",
           "description": "The amount above is still outstanding. Start the payment when you are ready.",
-          "noMethod": "No payment method was chosen for this order, so it cannot be paid as it stands. Cancel it and order again from the store.",
+          "noMethod": "No payment method can settle this order right now. Cancel it and order again from the store, or contact support.",
           "start": "Pay now",
           "retry": "Try the payment again",
           "nothingDue": "Nothing more was owed on this order."

@@ -4465,11 +4465,17 @@ type AccountOrder struct {
 		Status      string                     `json:"status"`
 	} `json:"payment,omitempty"`
 
+	// PaymentChoices The methods that can settle this order in its currency, each priced at what the order still owes. Present on the detail response while the order is pending and owes something, so the page can offer a method without depending on the URL the checkout redirected to. Telegram Stars appears only for a customer with a Telegram identity.
+	PaymentChoices *[]AccountPaymentChoice `json:"paymentChoices,omitempty"`
+
 	// Phase The combined payment and provisioning state the panel renders: what the customer is waiting for, rather than which table changed.
-	Phase         string `json:"phase"`
-	Plan          string `json:"plan"`
-	RefundedMinor int64  `json:"refundedMinor"`
-	Refunds       *[]struct {
+	Phase string `json:"phase"`
+	Plan  string `json:"plan"`
+
+	// PreferredProvider The method the checkout recorded, while that checkout is still attached to the order.
+	PreferredProvider *string `json:"preferredProvider,omitempty"`
+	RefundedMinor     int64   `json:"refundedMinor"`
+	Refunds           *[]struct {
 		AmountMinor int64     `json:"amountMinor"`
 		CreatedAt   time.Time `json:"createdAt"`
 		Currency    string    `json:"currency"`

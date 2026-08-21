@@ -378,10 +378,7 @@ func (handlers *AccountHandlers) confirmCheckout(writer http.ResponseWriter, req
 func checkoutPayload(view accountcheckout.CheckoutView) map[string]any {
 	providers := make([]map[string]any, 0, len(view.Providers))
 	for _, choice := range view.Providers {
-		providers = append(providers, map[string]any{
-			"provider": choice.Provider, "currency": choice.Currency,
-			"amountMinor": choice.AmountMinor, "recurring": choice.Recurring,
-		})
+		providers = append(providers, paymentChoicePayload(choice))
 	}
 	addons := make([]map[string]any, 0, len(view.Addons))
 	for _, addon := range view.Addons {
@@ -491,7 +488,46 @@ func (handlers *AccountHandlers) readOrder(writer http.ResponseWriter, request *
 	if handlers.writeCheckoutError(writer, request, err) {
 		return
 	}
-	writeJSON(writer, http.StatusOK, orderPayload(order, refunds))
+	payload := orderPayload(order, refunds)
+	// A pending order with no payment yet needs a way to start one that does
+	// not depend on the URL the checkout redirected to: the methods that can
+	// settle this order, in its currency, and the one the checkout recorded so
+	// the page can preselect it.
+	if accountcheckout.OrderPayable(order, time.Now()) == nil {
+		choices := handlers.checkout.OrderPaymentChoices(order, handlers.starsAvailable(request))
+		items := make([]map[string]any, 0, len(choices))
+		for _, choice := range choices {
+			items = append(items, paymentChoicePayload(choice))
+		}
+		payload["paymentChoices"] = items
+		recorded, recordErr := handlers.checkout.Store().RecordedOrderProvider(
+			request.Context(), principal.Customer.ID, order.ID,
+		)
+		if recordErr != nil {
+			handlers.logger.Warn("recorded order provider could not be read", "error", recordErr)
+		}
+		if recorded != "" {
+			payload["preferredProvider"] = recorded
+		}
+	}
+	writeJSON(writer, http.StatusOK, payload)
+}
+
+// starsAvailable reports whether the Telegram Stars method may be offered to
+// this customer. Stars settles through an invoice in a Telegram chat, so it is
+// offered only when the session belongs to a customer the bot can reach — one
+// with a Telegram identity.
+func (handlers *AccountHandlers) starsAvailable(request *http.Request) bool {
+	principal, ok := CustomerFrom(request.Context())
+	if !ok || handlers.auth == nil {
+		return false
+	}
+	linked, err := handlers.auth.HasTelegramIdentity(request.Context(), principal.Customer.ID)
+	if err != nil {
+		handlers.logger.Warn("telegram identity lookup failed", "error", err)
+		return false
+	}
+	return linked
 }
 
 func (handlers *AccountHandlers) startOrderPayment(writer http.ResponseWriter, request *http.Request) {
@@ -594,6 +630,15 @@ func orderPayload(order accountcheckout.OrderSummary, refunds []accountcheckout.
 		payload["refunds"] = items
 	}
 	return payload
+}
+
+// paymentChoicePayload is one offered method with the currency and price it
+// would charge, the shape both the checkout and the order screens read.
+func paymentChoicePayload(choice accountcheckout.PaymentChoice) map[string]any {
+	return map[string]any{
+		"provider": choice.Provider, "currency": choice.Currency,
+		"amountMinor": choice.AmountMinor, "recurring": choice.Recurring,
+	}
 }
 
 func paymentPayload(handle accountcheckout.PaymentHandle) map[string]any {
@@ -785,6 +830,16 @@ func (handlers *AccountHandlers) writeCheckoutError(
 		writeProblem(
 			writer, request, http.StatusUnprocessableEntity,
 			"provider_unavailable", "That payment method is not available",
+		)
+	case errors.Is(err, accountcheckout.ErrOrderNotPayable):
+		writeProblem(
+			writer, request, http.StatusConflict,
+			"order_not_payable", "This order can no longer be paid; reload it to see its state",
+		)
+	case errors.Is(err, accountcheckout.ErrProviderCurrency):
+		writeProblem(
+			writer, request, http.StatusUnprocessableEntity,
+			"provider_currency_unsupported", "That payment method cannot settle this order's currency",
 		)
 	case errors.Is(err, accountcheckout.ErrPaymentNotRequired):
 		writeProblem(

@@ -280,6 +280,10 @@ const (
 	HandoffNone     = "none"
 )
 
+// ProviderTelegramStars is the adapter name for Telegram Stars, which settles
+// only through an invoice in a Telegram chat.
+const ProviderTelegramStars = "telegram_stars"
+
 // StartPayment creates or resumes the provider payment for an order.
 //
 // It is idempotent per order and provider: the key is scoped to both, because
