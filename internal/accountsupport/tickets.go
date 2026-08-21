@@ -383,7 +383,7 @@ func (service *Service) Reply(ctx context.Context, input NewMessage) (Conversati
 		return Conversation{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if err = lockWritableTicket(ctx, tx, input.CustomerID, input.TicketID); err != nil {
+	if err = service.lockWritableTicket(ctx, tx, input.CustomerID, input.TicketID); err != nil {
 		return Conversation{}, err
 	}
 	if _, err = appendCustomerMessage(
@@ -399,7 +399,12 @@ func (service *Service) Reply(ctx context.Context, input NewMessage) (Conversati
 
 // lockWritableTicket takes the ticket row and reports whether the customer may
 // write into it, so the status cannot change between the check and the insert.
-func lockWritableTicket(ctx context.Context, tx pgx.Tx, customerID, ticketID string) error {
+//
+// A message on a resolved ticket reopens it, which takes an open slot, so the
+// open-conversation quota is checked here too. Without that, the quota could be
+// stepped around by resolving and re-answering: five open tickets plus as many
+// resolved ones as the customer cared to wake up.
+func (service *Service) lockWritableTicket(ctx context.Context, tx pgx.Tx, customerID, ticketID string) error {
 	var status string
 	err := tx.QueryRow(ctx, `SELECT status FROM support_tickets
 		WHERE id = $2::uuid AND user_id = $1::uuid FOR UPDATE`, customerID, ticketID).Scan(&status)
@@ -411,6 +416,25 @@ func lockWritableTicket(ctx context.Context, tx pgx.Tx, customerID, ticketID str
 	}
 	if !TicketAcceptsReply(status) {
 		return ErrTicketClosed
+	}
+	if status == StatusResolved {
+		return service.ensureOpenSlot(ctx, tx, customerID, ticketID)
+	}
+	return nil
+}
+
+// ensureOpenSlot refuses a transition that would take an open slot the customer
+// does not have. The ticket itself is excluded from the count, because the
+// caller holds its row and it is the one about to change.
+func (service *Service) ensureOpenSlot(ctx context.Context, tx pgx.Tx, customerID, ticketID string) error {
+	var open int
+	if err := tx.QueryRow(ctx, `SELECT count(*)::integer FROM support_tickets
+		WHERE user_id = $1::uuid AND status IN ('open', 'pending') AND id <> $2::uuid`,
+		customerID, ticketID).Scan(&open); err != nil {
+		return err
+	}
+	if open >= service.limits.MaxOpenTickets {
+		return ErrTooManyOpenTickets
 	}
 	return nil
 }
@@ -544,6 +568,11 @@ func (service *Service) setStatus(
 			SET status = 'closed', closed_at = now(), updated_at = now()
 			WHERE id = $1::uuid`, ticketID)
 	case target == StatusOpen && (status == StatusClosed || status == StatusResolved):
+		// Reopening takes an open slot, and the quota applies to it exactly as
+		// it applies to creating a ticket; otherwise the bound is a suggestion.
+		if err = service.ensureOpenSlot(ctx, tx, customerID, ticketID); err != nil {
+			return Ticket{}, err
+		}
 		// Reopening counts, because a ticket that keeps coming back is the signal
 		// the support report is built to surface.
 		_, err = tx.Exec(ctx, `UPDATE support_tickets

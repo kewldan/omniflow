@@ -66,7 +66,38 @@ func (handlers *AccountHandlers) supportLimits(writer http.ResponseWriter, reque
 		"maxOpenTickets":     limits.MaxOpenTickets,
 		"maxMessageLength":   accountsupport.MaxMessageLength,
 		"maxSubjectLength":   accountsupport.MaxSubjectLength,
+		// Files per conversation from the web. Each upload is already bounded in
+		// size; this is the bound on how many of them one conversation can hold.
+		"maxAttachmentsPerTicket": limits.MaxAttachmentsPerTicket,
 	})
+}
+
+// The write budgets for the support surface, per customer.
+//
+// They are wide enough that nobody typing by hand ever meets them and narrow
+// enough that a loop cannot fill the operator queue or the attachment directory
+// before anybody notices. They share the privacy surface's limiter, so a Valkey
+// outage fails closed here exactly as it does for an export.
+const (
+	supportTicketBudget  = 10
+	supportMessageBudget = 60
+	supportUploadBudget  = 20
+	supportBudgetWindow  = time.Hour
+)
+
+// allowSupportWrite applies one of the budgets above and answers 429 when it is
+// spent, reporting whether the request may proceed.
+func (handlers *AccountHandlers) allowSupportWrite(
+	writer http.ResponseWriter, request *http.Request, scope, customerID string, budget int64,
+) bool {
+	if handlers.allowPrivacyRate(request, scope, customerID, budget, supportBudgetWindow) {
+		return true
+	}
+	writeProblem(
+		writer, request, http.StatusTooManyRequests,
+		"rate_limited", "Too many support requests in a short time. Try again later",
+	)
+	return false
 }
 
 func (handlers *AccountHandlers) listSupportTickets(
@@ -147,6 +178,9 @@ func (handlers *AccountHandlers) createSupportTicket(
 	if !decodeJSON(writer, request, &body) {
 		return
 	}
+	if !handlers.allowSupportWrite(writer, request, "account_support_ticket", principal.Customer.ID, supportTicketBudget) {
+		return
+	}
 	// The header is optional here, unlike on an operator reply. A customer whose
 	// browser resubmits a form should not be shown a validation error about a
 	// header they have never heard of; supplying one buys deduplication, and
@@ -182,6 +216,9 @@ func (handlers *AccountHandlers) replySupportTicket(
 		Message string `json:"message"`
 	}
 	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	if !handlers.allowSupportWrite(writer, request, "account_support_message", principal.Customer.ID, supportMessageBudget) {
 		return
 	}
 	conversation, err := handlers.support.Reply(request.Context(), accountsupport.NewMessage{
@@ -247,6 +284,12 @@ func (handlers *AccountHandlers) uploadSupportAttachment(
 	writer http.ResponseWriter, request *http.Request,
 ) {
 	principal, _ := CustomerFrom(request.Context())
+	// The budget is checked before the body is read. A refused upload that was
+	// first received in full would have spent the bandwidth the limit exists to
+	// protect.
+	if !handlers.allowSupportWrite(writer, request, "account_support_upload", principal.Customer.ID, supportUploadBudget) {
+		return
+	}
 	limits := handlers.support.Limits()
 	const multipartOverhead = 64 << 10
 	request.Body = http.MaxBytesReader(writer, request.Body, limits.MaxAttachmentBytes+multipartOverhead)
@@ -290,10 +333,11 @@ func (handlers *AccountHandlers) uploadSupportAttachment(
 	}
 	attachment, err := handlers.support.Attach(request.Context(), accountsupport.NewAttachment{
 		CustomerID: principal.Customer.ID, TicketID: chi.URLParam(request, "ticketID"),
-		Body:      request.FormValue("message"),
-		FileName:  header.Filename,
-		MediaType: header.Header.Get("Content-Type"),
-		Content:   content,
+		Body:           request.FormValue("message"),
+		FileName:       header.Filename,
+		MediaType:      header.Header.Get("Content-Type"),
+		Content:        content,
+		IdempotencyKey: idempotencyKey(request),
 	})
 	if handlers.writeSupportError(writer, request, err) {
 		return
@@ -606,6 +650,14 @@ func (handlers *AccountHandlers) writeSupportError(
 			fmt.Sprintf(
 				"You already have %d open conversations. Continue one of them instead",
 				handlers.support.Limits().MaxOpenTickets,
+			),
+		)
+	case errors.Is(err, accountsupport.ErrTooManyAttachments):
+		writeProblem(
+			writer, request, http.StatusConflict, "too_many_attachments",
+			fmt.Sprintf(
+				"This conversation already carries %d files. Start a new conversation for more",
+				handlers.support.Limits().MaxAttachmentsPerTicket,
 			),
 		)
 	case errors.Is(err, accountsupport.ErrAttachmentTooLarge):

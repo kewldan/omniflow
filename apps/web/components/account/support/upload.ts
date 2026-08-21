@@ -2,6 +2,7 @@
 
 import { apiFetch } from "@/lib/api";
 
+import { idempotentHeaders } from "./idempotency";
 import type { SupportAttachment, SupportLimits } from "./types";
 
 /**
@@ -17,6 +18,7 @@ export async function uploadSupportAttachment(
   ticketId: string,
   file: File,
   message: string,
+  idempotencyKey = "",
 ): Promise<SupportAttachment> {
   const body = new FormData();
   body.append("file", file);
@@ -26,7 +28,7 @@ export async function uploadSupportAttachment(
 
   return apiFetch<SupportAttachment>(
     `/v1/account/support/tickets/${encodeURIComponent(ticketId)}/attachments`,
-    { body, method: "POST" },
+    { body, headers: idempotentHeaders(idempotencyKey), method: "POST" },
   );
 }
 

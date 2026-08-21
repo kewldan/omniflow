@@ -106,7 +106,8 @@ export function AttachmentLimits({ limits }: { limits: SupportLimits }) {
       {translate("attachments.hint", {
         size: formatBytes(limits.maxAttachmentBytes),
         types: limits.allowedMediaTypes.join(", "),
-      })}
+      })}{" "}
+      {translate("attachments.perTicket", { count: limits.maxAttachmentsPerTicket })}
     </p>
   );
 }

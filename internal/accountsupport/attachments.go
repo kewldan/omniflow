@@ -66,6 +66,10 @@ type NewAttachment struct {
 	FileName  string
 	MediaType string
 	Content   []byte
+	// IdempotencyKey is the request's Idempotency-Key. A resubmitted upload
+	// reaches the message and attachment it already created rather than hanging
+	// the same file on the conversation twice — the same rule a reply follows.
+	IdempotencyKey string
 }
 
 // AttachmentStore holds the bytes of an upload that arrived through the web.
@@ -217,10 +221,28 @@ func (service *Service) Attach(ctx context.Context, input NewAttachment) (Attach
 		return Attachment{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if err = lockWritableTicket(ctx, tx, input.CustomerID, input.TicketID); err != nil {
+	if err = service.lockWritableTicket(ctx, tx, input.CustomerID, input.TicketID); err != nil {
 		return Attachment{}, err
 	}
-	messageID, err := appendCustomerMessage(ctx, tx, input.TicketID, body, "")
+	// The count is taken under the ticket's row lock, so two uploads racing at
+	// the limit cannot both pass it. Rows past retention are not counted; they
+	// are about to be swept and hold no disk the customer can still see.
+	var held int
+	if err = tx.QueryRow(ctx, `SELECT count(*)::integer FROM support_attachments a
+		JOIN support_messages m ON m.id = a.message_id
+		WHERE m.ticket_id = $1::uuid AND a.origin = 'local' AND a.retain_until > now()`,
+		input.TicketID).Scan(&held); err != nil {
+		return Attachment{}, err
+	}
+	if held >= service.limits.MaxAttachmentsPerTicket {
+		return Attachment{}, ErrTooManyAttachments
+	}
+	// The idempotency key is the message's dedupe key, exactly as for a reply.
+	// A replay finds the message it already wrote, and the attachment insert
+	// below then finds the file already hanging on it through the unique index
+	// on (message, storage key) — so a retried upload is one message and one
+	// file, not two of either.
+	messageID, err := appendCustomerMessage(ctx, tx, input.TicketID, body, strings.TrimSpace(input.IdempotencyKey))
 	if err != nil {
 		return Attachment{}, err
 	}
@@ -228,13 +250,20 @@ func (service *Service) Attach(ctx context.Context, input NewAttachment) (Attach
 		MessageID: messageID, Kind: accepted.Kind, FileName: accepted.FileName,
 		MediaType: accepted.MediaType, SizeBytes: accepted.SizeBytes, Downloadable: true,
 	}
-	if err = tx.QueryRow(ctx, `INSERT INTO support_attachments
+	err = tx.QueryRow(ctx, `INSERT INTO support_attachments
 		(message_id, kind, origin, storage_key, file_name, mime_type, size_bytes)
 		VALUES ($1, $2, 'local', $3, NULLIF($4, ''), NULLIF($5, ''), $6)
+		ON CONFLICT (message_id, storage_key) WHERE storage_key IS NOT NULL DO NOTHING
 		RETURNING id::text, created_at`,
 		messageID, accepted.Kind, key, accepted.FileName,
 		accepted.MediaType, accepted.SizeBytes).
-		Scan(&attachment.ID, &attachment.CreatedAt); err != nil {
+		Scan(&attachment.ID, &attachment.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		err = tx.QueryRow(ctx, `SELECT id::text, created_at FROM support_attachments
+			WHERE message_id = $1 AND storage_key = $2`, messageID, key).
+			Scan(&attachment.ID, &attachment.CreatedAt)
+	}
+	if err != nil {
 		return Attachment{}, err
 	}
 	attachment.CreatedAt = attachment.CreatedAt.UTC()

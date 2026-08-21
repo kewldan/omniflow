@@ -18,6 +18,8 @@ export type SupportLimits = {
   maxOpenTickets: number;
   maxMessageLength: number;
   maxSubjectLength: number;
+  /** Files one conversation may carry from the web. */
+  maxAttachmentsPerTicket: number;
 };
 
 export type TicketStatus = "open" | "pending" | "resolved" | "closed" | "merged";

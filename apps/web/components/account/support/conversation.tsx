@@ -1,11 +1,15 @@
 "use client";
 
 import { cn } from "@omniflow/ui/lib/utils";
+import { toast } from "@omniflow/ui/toast";
 import { Download, FileText, ImageIcon, Send } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
+import { useState } from "react";
 
 import { useBytes } from "@/lib/format";
 
+import { downloadSupportAttachment } from "./download";
+import { useProblemMessage } from "./problem";
 import type { SupportAttachment, SupportMessage } from "./types";
 
 /**
@@ -122,7 +126,9 @@ function ConversationTurn({ message }: { message: SupportMessage }) {
  */
 function AttachmentRow({ attachment }: { attachment: SupportAttachment }) {
   const translate = useTranslations("account.support");
+  const describeProblem = useProblemMessage();
   const formatBytes = useBytes();
+  const [busy, setBusy] = useState(false);
   const Icon = attachment.kind === "photo" ? ImageIcon : FileText;
   const name = attachment.fileName || translate("attachments.unnamed");
 
@@ -144,11 +150,24 @@ function AttachmentRow({ attachment }: { attachment: SupportAttachment }) {
     );
   }
 
+  // A button rather than a link: the file is fetched through the API so a
+  // refusal — the file was purged, storage is down — is shown as a message
+  // instead of being saved to disk as a problem document named like the file.
   return (
-    <a
-      className="flex items-center gap-2 rounded-md border border-border px-2.5 py-2 transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
-      download={name}
-      href={`/v1/account/support/attachments/${attachment.id}`}
+    <button
+      className="flex w-full items-center gap-2 rounded-md border border-border px-2.5 py-2 text-left transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-60"
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          await downloadSupportAttachment(attachment.id, name);
+        } catch (downloadError) {
+          toast.error(describeProblem(downloadError));
+        } finally {
+          setBusy(false);
+        }
+      }}
+      type="button"
     >
       <Icon aria-hidden className="size-[13px] shrink-0 text-muted-foreground" />
       <span className="min-w-0 flex-1 truncate font-medium text-[12.5px]">{name}</span>
@@ -156,7 +175,9 @@ function AttachmentRow({ attachment }: { attachment: SupportAttachment }) {
         {formatBytes(attachment.sizeBytes)}
       </span>
       <Download aria-hidden className="size-[13px] shrink-0 text-subtle-foreground" />
-      <span className="sr-only">{translate("attachments.download")}</span>
-    </a>
+      <span className="sr-only">
+        {busy ? translate("attachments.downloading") : translate("attachments.download")}
+      </span>
+    </button>
   );
 }

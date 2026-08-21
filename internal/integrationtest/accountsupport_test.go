@@ -508,3 +508,90 @@ func TestAnInvalidMessageIsRejectedBeforeItReachesTheQueue(t *testing.T) {
 		t.Fatalf("an overlong message reported %v", err)
 	}
 }
+
+// TestTheOpenQuotaCannotBeSteppedAroundByReopening closes the two side doors
+// the create-time quota left open: an explicit reopen, and a reply on a
+// resolved ticket that reopens it. Both now take a slot the customer must have.
+func TestTheOpenQuotaCannotBeSteppedAroundByReopening(t *testing.T) {
+	ctx := context.Background()
+	harness := newHarness(t)
+	operations := newOperations(t, harness)
+	actor := harness.operator(ctx, t, "quota@example.test")
+	support, err := accountsupport.New(harness.pool, accountsupport.Options{
+		AttachmentDirectory: t.TempDir(),
+		Logger:              slog.New(slog.DiscardHandler),
+		Limits: accountsupport.Limits{
+			MaxAttachmentBytes: 1 << 20, AllowedMediaTypes: []string{"text/plain"},
+			MaxOpenTickets: 2, MaxAttachmentsPerTicket: 1,
+		},
+	})
+	if err != nil {
+		t.Fatalf("build support surface: %v", err)
+	}
+	customerID := harness.customer(ctx, t)
+
+	first := newCustomerTicket(ctx, t, support, customerID, "First")
+	newCustomerTicket(ctx, t, support, customerID, "Second")
+	if _, err = operations.SetTicketStatus(ctx, first, "resolved", actor); err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	// A resolved ticket frees its slot, so a third conversation opens.
+	third := newCustomerTicket(ctx, t, support, customerID, "Third")
+
+	// Both slots are taken again. Neither way of waking the resolved ticket
+	// may take a third.
+	if _, err = support.Reply(ctx, accountsupport.NewMessage{
+		CustomerID: customerID, TicketID: first, Body: "It is back",
+	}); !errors.Is(err, accountsupport.ErrTooManyOpenTickets) {
+		t.Fatalf("a reply that would reopen past the quota returned %v", err)
+	}
+	if _, err = support.Reopen(ctx, customerID, first); !errors.Is(err, accountsupport.ErrTooManyOpenTickets) {
+		t.Fatalf("a reopen past the quota returned %v", err)
+	}
+	if _, err = support.Attach(ctx, accountsupport.NewAttachment{
+		CustomerID: customerID, TicketID: first, FileName: "log.txt",
+		MediaType: "text/plain", Content: []byte("still broken"),
+	}); !errors.Is(err, accountsupport.ErrTooManyOpenTickets) {
+		t.Fatalf("an upload that would reopen past the quota returned %v", err)
+	}
+
+	// Closing one makes room, and the reply then reopens as it always did.
+	if _, err = support.Close(ctx, customerID, third); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	conversation, err := support.Reply(ctx, accountsupport.NewMessage{
+		CustomerID: customerID, TicketID: first, Body: "It is back",
+	})
+	if err != nil {
+		t.Fatalf("reply once a slot is free: %v", err)
+	}
+	if conversation.Ticket.Status != accountsupport.StatusOpen {
+		t.Fatalf("the reply left the ticket %s, want open", conversation.Ticket.Status)
+	}
+
+	// Files per conversation are bounded too, and a replayed upload with the
+	// same key is the same file rather than a second one against the bound.
+	attached, err := support.Attach(ctx, accountsupport.NewAttachment{
+		CustomerID: customerID, TicketID: first, FileName: "log.txt",
+		MediaType: "text/plain", Content: []byte("the log"), IdempotencyKey: "upload-1",
+	})
+	if err != nil {
+		t.Fatalf("first upload: %v", err)
+	}
+	replayed, err := support.Attach(ctx, accountsupport.NewAttachment{
+		CustomerID: customerID, TicketID: first, FileName: "log.txt",
+		MediaType: "text/plain", Content: []byte("the log"), IdempotencyKey: "upload-1",
+	})
+	if err != nil {
+		t.Fatalf("replayed upload: %v", err)
+	}
+	if replayed.ID != attached.ID || replayed.MessageID != attached.MessageID {
+		t.Fatalf("a replayed upload produced a second attachment: %+v vs %+v", replayed, attached)
+	}
+	if _, err = support.Attach(ctx, accountsupport.NewAttachment{
+		CustomerID: customerID, TicketID: first, FileName: "more.txt",
+		MediaType: "text/plain", Content: []byte("another"), IdempotencyKey: "upload-2",
+	}); !errors.Is(err, accountsupport.ErrTooManyAttachments) {
+		t.Fatalf("a second distinct file past the bound returned %v", err)
+	}
+}

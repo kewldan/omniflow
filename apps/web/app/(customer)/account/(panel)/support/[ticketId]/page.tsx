@@ -48,9 +48,18 @@ export default function SupportTicketPage() {
   const { ticketId } = useParams<{ ticketId: string }>();
   const { mutate: mutateGlobal } = useSWRConfig();
   const conversationKey = `/v1/account/support/tickets/${ticketId}`;
+  // The thread polls while it is still alive, so an operator's reply or a
+  // system notice appears without a reload; a closed or merged conversation is
+  // finished and is read once. Fifteen seconds matches the desk's own refresh.
   const { data, error, isLoading, mutate } = useSWR<SupportConversation, ApiError>(
     conversationKey,
     fetcher,
+    {
+      refreshInterval: (latest) =>
+        latest && (latest.ticket.status === "closed" || latest.ticket.status === "merged")
+          ? 0
+          : 15_000,
+    },
   );
   const { data: limits } = useSWR<SupportLimits, ApiError>(SUPPORT_LIMITS_KEY, fetcher);
 
@@ -181,7 +190,18 @@ export default function SupportTicketPage() {
       {ticket.canReply ? (
         <div className="space-y-5">
           <ReplyForm conversationKey={conversationKey} onSent={mutate} />
-          {limits && <AttachmentForm limits={limits} onSent={mutate} ticketId={ticketId} />}
+          {limits && (
+            <AttachmentForm
+              limits={limits}
+              onSent={async () => {
+                // An upload is a message: it moves the ticket in the list the
+                // same way a typed reply does, so the list is revalidated too.
+                await mutate();
+                await mutateGlobal(isTicketListKey);
+              }}
+              ticketId={ticketId}
+            />
+          )}
         </div>
       ) : (
         !ticket.mergedIntoTicketId && (
@@ -311,6 +331,7 @@ function AttachmentForm({
   const translate = useTranslations("account.support");
   const describeProblem = useProblemMessage();
   const formatBytes = useBytes();
+  const idempotencyKey = useIdempotencyKey();
   const fileId = useId();
   const noteId = useId();
   // The picker is remounted rather than reset through a ref: the shared Input
@@ -356,7 +377,15 @@ function AttachmentForm({
     }
     setBusy(true);
     try {
-      await uploadSupportAttachment(ticketId, file, note);
+      // The key is derived from the file and the note, so a double-tapped Send
+      // or a replayed form reaches the message that already exists, while a
+      // different file or a rewritten note is a new upload.
+      await uploadSupportAttachment(
+        ticketId,
+        file,
+        note,
+        idempotencyKey(`${file.name}|${file.size}|${file.lastModified}|${note.trim()}`),
+      );
       setFile(null);
       setNote("");
       setPickerKey((generation) => generation + 1);

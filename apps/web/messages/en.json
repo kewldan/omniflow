@@ -3278,7 +3278,9 @@
         "remote": "Sent through Telegram",
         "remoteDescription": "This file lives in the Telegram chat and can only be opened there.",
         "tooLargeLocal": "That file is {size}, which is over the {limit} limit here.",
-        "mediaTypeLocal": "Files of type {type} are not accepted. Accepted: {types}."
+        "mediaTypeLocal": "Files of type {type} are not accepted. Accepted: {types}.",
+        "downloading": "Downloading",
+        "perTicket": "Up to {count} files per conversation."
       },
       "news": {
         "title": "Announcements",
@@ -3417,7 +3419,9 @@
         "file_required": "Choose a file before sending.",
         "upload_failed": "The upload did not finish. Check your connection and try again.",
         "invalid_input": "Something in the form was not accepted. Check the fields and try again.",
-        "unknown": "That did not work. Try again in a moment."
+        "unknown": "That did not work. Try again in a moment.",
+        "too_many_attachments": "This conversation already carries as many files as we keep. Start a new conversation for more.",
+        "rate_limited": "That was a lot of messages in a short time. Wait a little and try again."
       },
       "history": {
         "title": "What we sent you",

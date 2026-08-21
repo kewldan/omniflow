@@ -351,6 +351,7 @@ have refused.
 | | Web panel | Telegram bot |
 | --- | --- | --- |
 | Files per message | 1 | 5 |
+| Files per conversation | 20 | — |
 | Maximum size | 5 MiB | 10 MiB |
 | Accepted types | `image/png`, `image/jpeg`, `image/webp`, `application/pdf`, `text/plain` | Photos and documents |
 | Where the bytes live | `APP_SUPPORT_ATTACHMENT_DIR` on disk | Telegram |
@@ -393,7 +394,25 @@ Uploads are refused precisely rather than defensively. An over-size body is 413
 content type outside the allowlist — or missing, or unparsable — is 415
 `attachment_media_type`, with no sniffing, because a guess is precisely what an
 allowlist must not accept. An empty file is 422. Uploading to a closed or merged
-ticket is 409; uploading to a resolved one reopens it, exactly like a reply.
+ticket is 409; uploading to a resolved one reopens it, exactly like a reply — and
+like a reply, it is refused with 409 `too_many_open_tickets` when reopening would
+take an open slot the customer does not have. A conversation already carrying
+20 web uploads (`maxAttachmentsPerTicket` in `/v1/account/support/limits`)
+answers 409 `too_many_attachments`; the count is taken under the ticket's row
+lock so two uploads racing at the limit cannot both pass it.
+
+An upload takes the same optional `Idempotency-Key` header a reply does. The key
+becomes the message's dedupe key, and a replay finds both the message and the
+file it already hung on it — one message, one file, however many times the form
+was submitted. The panel derives the key from the file's name, size, and
+modification time plus the note, so a double-tapped Send is one upload and a
+different file is another.
+
+The three customer writes are rate-limited per customer in the API, sharing the
+privacy surface's limiter: 10 new conversations, 60 messages, and 20 uploads per
+hour. Past a budget the route answers 429 `rate_limited`, and an upload is
+refused before its body is read. A limiter outage fails closed, as it does for a
+data export.
 
 Ownership is checked before any bytes are written and again under a row lock
 inside the transaction, so a stranger cannot spend the installation's disk on a
@@ -489,7 +508,10 @@ Every mutation is audited: `panel.support_ticket.assigned`, `.released`, `.moved
 A sixth open ticket is 409 `too_many_open_tickets` with the number in the detail.
 The quota exists so a loop in a client cannot fill the operator queue faster than
 people can empty it. A **resolved** ticket is not open and does not consume a
-slot, and it can still be replied to — which reopens it.
+slot, and it can still be replied to — which reopens it, and therefore takes a
+slot: the reply, an upload, and the explicit **Reopen** are all refused with the
+same 409 when the customer already holds the maximum. Without that, the quota
+was a rule about creating tickets and nothing else.
 
 Counting is in runes rather than bytes, so a Russian-language message is not
 penalised for its encoding. Both `open` and `canReply` are computed server-side

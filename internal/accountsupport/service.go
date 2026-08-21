@@ -46,7 +46,14 @@ var (
 	// ErrTooManyOpenTickets reports that the customer already holds as many open
 	// conversations as Limits.MaxOpenTickets allows. The bound exists so a loop
 	// in a client cannot fill the operator queue faster than people can empty it.
+	// It is answered on create, on reopen, and on a reply that would reopen a
+	// resolved ticket — every path that turns a slot from free to taken.
 	ErrTooManyOpenTickets = errors.New("too many open conversations")
+	// ErrTooManyAttachments reports a conversation that already carries as many
+	// files as Limits.MaxAttachmentsPerTicket allows. Each upload is bounded in
+	// size; without a count bound, a loop could still fill the disk one
+	// accepted file at a time.
+	ErrTooManyAttachments = errors.New("too many attachments on this conversation")
 	// ErrAttachmentTooLarge and ErrAttachmentMediaType are separate because the
 	// remedies are separate: one file can be made smaller, the other cannot be
 	// made into an accepted type.
@@ -90,6 +97,9 @@ type Limits struct {
 	// MaxOpenTickets bounds how many conversations one customer may have open,
 	// so a loop cannot fill the operator queue.
 	MaxOpenTickets int
+	// MaxAttachmentsPerTicket bounds how many files one conversation may carry
+	// from the web, so a loop cannot fill the disk one accepted file at a time.
+	MaxAttachmentsPerTicket int
 }
 
 // DefaultLimits are the values used when an installation configures none.
@@ -99,7 +109,8 @@ func DefaultLimits() Limits {
 		AllowedMediaTypes: []string{
 			"image/png", "image/jpeg", "image/webp", "application/pdf", "text/plain",
 		},
-		MaxOpenTickets: 5,
+		MaxOpenTickets:          5,
+		MaxAttachmentsPerTicket: 20,
 	}
 }
 
@@ -167,6 +178,9 @@ func New(pool *pgxpool.Pool, options Options) (*Service, error) {
 	}
 	if limits.MaxOpenTickets <= 0 {
 		limits.MaxOpenTickets = DefaultLimits().MaxOpenTickets
+	}
+	if limits.MaxAttachmentsPerTicket <= 0 {
+		limits.MaxAttachmentsPerTicket = DefaultLimits().MaxAttachmentsPerTicket
 	}
 	store := options.Attachments
 	if store == nil {
