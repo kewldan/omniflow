@@ -426,8 +426,16 @@ func (store *Store) CreateOrder(ctx context.Context, input CreateOrderInput) (db
 	if plan.Kind == "trial" {
 		// A trial is claimed in the same transaction as the order it belongs to,
 		// so a duplicate tap or a concurrent update can never mint a second one.
+		// A claim whose order closed unpaid is a claim that never happened, so
+		// it is taken over rather than refused; a claim behind a live or paid
+		// order stands.
 		claim, claimErr := tx.Exec(ctx, `INSERT INTO trial_claims (user_id, plan_id, order_id)
-			VALUES ($1, $2, $3) ON CONFLICT (user_id) DO NOTHING`, userID, plan.PlanID, order.ID)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (user_id) DO UPDATE
+			SET plan_id = EXCLUDED.plan_id, order_id = EXCLUDED.order_id, claimed_at = now()
+			WHERE EXISTS (SELECT 1 FROM orders closed
+				WHERE closed.id = trial_claims.order_id AND closed.state IN ('cancelled', 'expired'))`,
+			userID, plan.PlanID, order.ID)
 		if claimErr != nil {
 			return dbgen.Order{}, claimErr
 		}

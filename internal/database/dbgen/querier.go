@@ -153,6 +153,11 @@ type Querier interface {
 	CountOpenAnomalySignals(ctx context.Context) (int64, error)
 	CountOpenBlocklistMatches(ctx context.Context) (int64, error)
 	CountPlanVersionSquads(ctx context.Context, arg CountPlanVersionSquadsParams) (int32, error)
+	// A redemption is written when the order is created, before any money moves,
+	// so a redemption whose order closed unpaid — cancelled by the customer or
+	// expired by the sweep — is a redemption that never happened and does not
+	// count against any limit. A live pending order still counts: it is what
+	// stops two parallel checkouts from both passing a limit of one.
 	CountPromoRedemptions(ctx context.Context, arg CountPromoRedemptionsParams) (CountPromoRedemptionsRow, error)
 	// Feeds the per-customer request limit, so asking for a link repeatedly cannot
 	// be used to flood somebody's Telegram chat.

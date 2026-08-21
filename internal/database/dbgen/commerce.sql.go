@@ -302,10 +302,12 @@ func (q *Queries) CompleteWebhookEvent(ctx context.Context, arg CompleteWebhookE
 
 const countPromoRedemptions = `-- name: CountPromoRedemptions :one
 SELECT count(*)::integer AS total_count,
-       count(*) FILTER (WHERE user_id = $1)::integer AS customer_count,
-       count(*) FILTER (WHERE promo_code_id = $2)::integer AS code_count
-FROM promo_redemptions
-WHERE promotion_id = $3
+       count(*) FILTER (WHERE r.user_id = $1)::integer AS customer_count,
+       count(*) FILTER (WHERE r.promo_code_id = $2)::integer AS code_count
+FROM promo_redemptions r
+JOIN orders o ON o.id = r.order_id
+WHERE r.promotion_id = $3
+  AND o.state NOT IN ('cancelled', 'expired')
 `
 
 type CountPromoRedemptionsParams struct {
@@ -320,6 +322,11 @@ type CountPromoRedemptionsRow struct {
 	CodeCount     int32 `json:"code_count"`
 }
 
+// A redemption is written when the order is created, before any money moves,
+// so a redemption whose order closed unpaid — cancelled by the customer or
+// expired by the sweep — is a redemption that never happened and does not
+// count against any limit. A live pending order still counts: it is what
+// stops two parallel checkouts from both passing a limit of one.
 func (q *Queries) CountPromoRedemptions(ctx context.Context, arg CountPromoRedemptionsParams) (CountPromoRedemptionsRow, error) {
 	row := q.db.QueryRow(ctx, countPromoRedemptions, arg.UserID, arg.PromoCodeID, arg.PromotionID)
 	var i CountPromoRedemptionsRow

@@ -371,6 +371,12 @@ Redemption is not a separate step. It happens inside the order's own transaction
 
 Previewing a price runs the same reads at `ReadCommitted` and then rolls back, so a preview can never consume a redemption or reserve wallet credit. That is what makes the price a customer confirms the price the order is created from.
 
+**A redemption whose order closes unpaid does not count.** The redemption row is written when the order is created, before any money moves, and it is never deleted — it is a financial record. What the counters in step 3 count is therefore qualified by the order's state: a redemption behind an order that was cancelled or expired is left out of the promotion's total, the customer's count, and the code's count, so a one-per-customer offer survives "pressed Pay, changed my mind" and a limited public code is not exhausted by checkouts that never paid. A redemption behind a live `pending` order still counts, which is what stops two parallel checkouts from both passing a limit of one. The same rule applies to the one trial a customer gets: a trial claim whose order closed unpaid is taken over by the next trial order rather than refusing it.
+
+<Note>
+  The redemption counts shown in `/admin/catalog` → **Promotions** and returned by the promo-code listing count every redemption row, closed orders included. They describe how often a code was entered, not how many uses it has left.
+</Note>
+
 ### Rate limiting
 
 | Surface | Limit | On failure |
