@@ -226,6 +226,58 @@ func (service *Service) submit(
 	})
 }
 
+// CancelIntents withdraws the open payment intents of an order at their
+// providers, as far as each provider allows. It belongs in the path that
+// cancels an order: the customer has just been told nothing will be charged,
+// and a checkout tab they left open should stop being able to contradict that.
+//
+// It is best effort. An adapter with no cancellation (Telegram Stars, YooKassa)
+// leaves its intent open; a provider that refuses or cannot be reached leaves
+// its intent open too, and the refusal is returned so the caller can log it.
+// An intent the provider did withdraw is marked cancelled locally with a
+// payment event. A payment that arrives regardless — through any of these
+// paths — is still settled, as a payment after cancellation, and brought to an
+// operator. The order's own cancellation must never be made to depend on this
+// call succeeding.
+func (service *Service) CancelIntents(ctx context.Context, orderID string) error {
+	id, err := parseUUID(orderID)
+	if err != nil {
+		return err
+	}
+	queries := dbgen.New(service.pool)
+	open, err := queries.ListOpenIntentsForOrder(ctx, id)
+	if err != nil {
+		return err
+	}
+	var refusals []error
+	for _, intent := range open {
+		provider, ok := service.providers[intent.Provider]
+		if !ok {
+			continue
+		}
+		canceller, ok := provider.(payments.Canceller)
+		if !ok || !intent.ProviderReference.Valid {
+			continue
+		}
+		if cancelErr := canceller.CancelIntent(ctx, intent.ProviderReference.String); cancelErr != nil {
+			refusals = append(refusals, fmt.Errorf("%s intent %s: %w", intent.Provider, uuidString(intent.ID), cancelErr))
+			continue
+		}
+		if _, err = queries.UpdatePaymentIntentStatus(ctx, dbgen.UpdatePaymentIntentStatusParams{PaymentIntentID: intent.ID, Status: "cancelled"}); err != nil {
+			return err
+		}
+		if _, err = queries.InsertPaymentEvent(ctx, dbgen.InsertPaymentEventParams{
+			PaymentIntentID: intent.ID, Type: "status_changed",
+			PreviousStatus: pgtype.Text{String: intent.Status, Valid: true}, Status: pgtype.Text{String: "cancelled", Valid: true},
+			AmountMinor: pgtype.Int8{Int64: intent.AmountMinor, Valid: true}, Currency: pgtype.Text{String: intent.Currency, Valid: true},
+			ProviderEventID: pgtype.Text{String: "cancel:" + orderID, Valid: true}, Details: []byte(`{"reason":"order_cancelled"}`),
+		}); err != nil {
+			return err
+		}
+	}
+	return errors.Join(refusals...)
+}
+
 func (service *Service) Reconcile(ctx context.Context, paymentIntentID string) (dbgen.PaymentIntent, error) {
 	id, err := parseUUID(paymentIntentID)
 	if err != nil {

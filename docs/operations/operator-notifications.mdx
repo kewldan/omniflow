@@ -52,7 +52,7 @@ happened — it simply has nobody to tell.
 | 👛 Wallet top-ups | `topup` | Credited top-ups, including over- and underpayments | Top-up settlement |
 | ↩️ Refunds | `refund` | Recorded refunds | Refund recording |
 | ⚠️ Fulfillment failures | `fulfillment_failure` | Provisioning runs that stopped being a blip, digital-goods delivery failures, and add-ons that settled with no live entitlement | Fulfillment worker, goods worker, settlement |
-| 🚨 Incidents | `incident` | Maintenance transitions | *nothing today* |
+| 🚨 Incidents | `incident` | Payments that need a look: a duplicate, under- or overpayment, currency mismatch, or wallet shortfall that left money at the provider with the order open, and a payment that settled an order the customer had cancelled. Maintenance transitions are implemented but not attached | Payment settlement |
 | 💾 Backups | `backup` | Backup outcomes | *nothing today* |
 | 🔐 Admin security | `security` | Operator sign-ins from a new address, password changes and resets, two-factor removal, and owner grants | Operator identity service |
 | 📣 Campaign previews | `campaign_test` | One copy of a campaign's message, asked for before the audience is committed to | Campaign test send |
@@ -60,14 +60,20 @@ happened — it simply has nobody to tell.
 
 The last two carry something the others deliberately do not: a rendered message body. Everything else here is a set of allowlisted, non-personal fields, and a preview is by definition the copy itself. Both say plainly that nobody else received them — a preview mistaken for a real send is somebody reaching for the pause button. See [Campaigns](/commerce/campaigns) and [Message wording](/operations/message-wording).
 
-Two topics are created and stay empty. The incident announcer that would post maintenance
-transitions is implemented but not attached — maintenance detection runs in the `api`
-process and the notifier lives in the `bot`, and nothing bridges them — so a maintenance
-change is visible in the panel's Health tab and in `maintenance_events`, not in the group.
-Nothing queues a backup outcome either; backup status lives on the `backups` table, the
-`/ops` panel, and the taking process's log. Watch those places rather than the group. See
-[Maintenance mode](/operations/maintenance-mode) and
-[Backup and restore](/operations/backup-restore).
+The incidents topic carries payment anomalies and nothing else today. Each notice names the
+order, the provider, the operation, the classification, the currency and amount, and the
+order's state at the time, and is deduplicated per payment intent and classification — a
+replayed webhook adds nothing. What each classification means and how it is resolved is in
+[Orders and payments](/commerce/orders-payments#when-a-payment-does-not-settle). The
+incident announcer that would post maintenance transitions is implemented but not attached
+— maintenance detection runs in the `api` process and the notifier lives in the `bot`, and
+nothing bridges them — so a maintenance change is visible in the panel's Health tab and in
+`maintenance_events`, not in the group.
+
+The backups topic is created and stays empty. Nothing queues a backup outcome; backup
+status lives on the `backups` table, the `/ops` panel, and the taking process's log. Watch
+those places rather than the group. See [Maintenance mode](/operations/maintenance-mode)
+and [Backup and restore](/operations/backup-restore).
 
 <Note>
   The anomaly evaluator writes notices under a ninth kind, `anomaly`, which the database

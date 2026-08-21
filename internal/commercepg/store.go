@@ -468,7 +468,7 @@ func (store *Store) RecordProviderPayment(ctx context.Context, paymentIntentID, 
 	if applyErr == nil && order.Operation == "topup" && (classification == "overpayment" || classification == "underpayment") {
 		updated.PaidMinor, updated.State = amount.Amount, commerce.OrderPaid
 	}
-	if applyErr == nil && (classification == "paid" || classification == "late") && order.WalletMinor > 0 {
+	if applyErr == nil && updated.State == commerce.OrderPaid && order.WalletMinor > 0 {
 		walletBalance, balanceErr := queries.GetWalletBalance(ctx, dbgen.GetWalletBalanceParams{UserID: order.UserID, Currency: order.Currency})
 		if balanceErr != nil {
 			return dbgen.Order{}, "", balanceErr
@@ -477,21 +477,32 @@ func (store *Store) RecordProviderPayment(ctx context.Context, paymentIntentID, 
 			classification = "wallet_unavailable"
 		}
 	}
-	eventType := classification
-	if eventType == "paid" {
-		eventType = "status_changed"
-	} else if eventType == "currency_mismatch" {
-		eventType = "amount_mismatch"
-	}
-	if _, err = queries.InsertPaymentEvent(ctx, dbgen.InsertPaymentEventParams{PaymentIntentID: intent.ID, Type: eventType, PreviousStatus: pgtype.Text{String: intent.Status, Valid: true}, Status: pgtype.Text{String: "succeeded", Valid: true}, AmountMinor: pgtype.Int8{Int64: amount.Amount, Valid: true}, Currency: pgtype.Text{String: amount.Currency, Valid: true}, ProviderEventID: pgtype.Text{String: providerEventID, Valid: true}, Details: []byte(`{}`)}); err != nil {
+	// payment_events.type is a closed set. A payment after cancellation is
+	// recorded as the late settlement it is, with the classification and the
+	// order's previous state in the details so the timeline still says what
+	// happened.
+	eventType := paymentEventType(classification)
+	details, _ := json.Marshal(map[string]any{"classification": classification, "previousState": order.State})
+	if _, err = queries.InsertPaymentEvent(ctx, dbgen.InsertPaymentEventParams{PaymentIntentID: intent.ID, Type: eventType, PreviousStatus: pgtype.Text{String: intent.Status, Valid: true}, Status: pgtype.Text{String: "succeeded", Valid: true}, AmountMinor: pgtype.Int8{Int64: amount.Amount, Valid: true}, Currency: pgtype.Text{String: amount.Currency, Valid: true}, ProviderEventID: pgtype.Text{String: providerEventID, Valid: true}, Details: details}); err != nil {
 		return dbgen.Order{}, "", err
 	}
 	settles := updated.State == commerce.OrderPaid
-	if applyErr != nil || !settles || classification == "currency_mismatch" || classification == "wallet_unavailable" || classification == "duplicate" {
+	if applyErr != nil || !settles || classification == commerce.ClassificationCurrency || classification == commerce.ClassificationWallet || classification == commerce.ClassificationDuplicate {
+		// Money arrived and the order did not settle. Nothing automatic
+		// resolves that, so the operator is told inside the same commit.
+		if commerce.NeedsOperator(classification) {
+			store.notifyPaymentAttention(ctx, queries, intent, order, amount, classification)
+		}
 		if err = tx.Commit(ctx); err != nil {
 			return dbgen.Order{}, "", err
 		}
 		return order, classification, applyErr
+	}
+	if classification == commerce.ClassificationPaidAfterCancellation {
+		// It settles — the customer paid — but they had been told nothing
+		// would be charged, so an operator sees it rather than discovering it
+		// from a complaint.
+		store.notifyPaymentAttention(ctx, queries, intent, order, amount, classification)
 	}
 	if _, err = queries.UpdatePaymentIntentStatus(ctx, dbgen.UpdatePaymentIntentStatusParams{PaymentIntentID: intent.ID, Status: "succeeded"}); err != nil {
 		return dbgen.Order{}, "", err
@@ -514,6 +525,33 @@ func (store *Store) RecordProviderPayment(ctx context.Context, paymentIntentID, 
 		}
 	}
 	return order, classification, nil
+}
+
+// paymentEventType maps a classification onto the closed set of
+// payment_events.type values.
+func paymentEventType(classification string) string {
+	switch classification {
+	case commerce.ClassificationPaid:
+		return "status_changed"
+	case commerce.ClassificationCurrency:
+		return "amount_mismatch"
+	case commerce.ClassificationPaidAfterCancellation:
+		return "late"
+	default:
+		return classification
+	}
+}
+
+// notifyPaymentAttention queues an incident notice for a payment an operator
+// has to look at. It carries identifiers, the classification, and the amount
+// class — never a provider payload or customer content — and is deduplicated
+// per intent and classification, so a replayed webhook adds nothing.
+func (store *Store) notifyPaymentAttention(ctx context.Context, queries *dbgen.Queries, intent dbgen.PaymentIntent, order dbgen.Order, amount commerce.Money, classification string) {
+	store.notifyOperator(ctx, queries, "incident", "payment:"+uuidString(intent.ID)+":"+classification, map[string]any{
+		"orderId": uuidString(order.ID), "provider": intent.Provider, "operation": order.Operation,
+		"classification": classification, "currency": amount.Currency, "amountMinor": amount.Amount,
+		"status": "payment_needs_attention", "reason": "order_" + order.State,
+	})
 }
 
 func (store *Store) RecordRefund(ctx context.Context, paymentIntentID, refundID, idempotencyKey string, amount commerce.Money) (dbgen.Order, error) {

@@ -101,6 +101,20 @@ type Recoverer interface {
 	Recover(context.Context, string) (Intent, bool, error)
 }
 
+// Canceller is implemented by adapters that can withdraw an open checkout at
+// the provider, so a customer who cancelled an order cannot pay an invoice
+// that is still sitting in another tab.
+//
+// It is best effort by nature: an adapter that has no such call — a Telegram
+// Stars invoice link cannot be revoked, and a YooKassa payment created with
+// immediate capture has nothing to cancel — simply does not implement it, and
+// a payment that arrives anyway is settled as late and brought to an
+// operator. CancelIntent returns nil once the provider holds no payable
+// checkout for the reference, including when it had already been cancelled.
+type Canceller interface {
+	CancelIntent(ctx context.Context, providerReference string) error
+}
+
 // CurrencySupport is implemented by adapters that settle only some currencies.
 // An adapter that does not implement it accepts whatever the order carries.
 type CurrencySupport interface {
@@ -160,6 +174,12 @@ func (Manual) Refund(_ context.Context, request RefundRequest) (Refund, error) {
 func (Manual) VerifyWebhook(http.Header, []byte) (WebhookEvent, error) {
 	return WebhookEvent{}, ErrUnsupported
 }
+
+// CancelIntent succeeds trivially: a manual transfer has no checkout at any
+// provider, so there is nothing to withdraw beyond the local intent. An
+// operator approving the transfer afterwards still settles the order, as a
+// payment after cancellation.
+func (Manual) CancelIntent(context.Context, string) error { return nil }
 
 // ConnectionProbe is implemented by adapters that can verify their credentials
 // without moving money.

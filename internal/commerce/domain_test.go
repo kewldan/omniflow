@@ -58,6 +58,62 @@ func TestPaymentClassifiesUnderOverAndLateWithoutUnsafeSettlement(t *testing.T) 
 	}
 }
 
+// A payment that lands on a closed order is money the customer sent. It
+// settles, so they get what they paid for, but it is named so that nobody
+// reads it as an ordinary sale: a cancelled order was one the customer was
+// told would not be charged.
+func TestPaymentOnAClosedOrderSettlesAsLateAndIsNamed(t *testing.T) {
+	price, _ := NewMoney(1000, "RUB")
+	order, _ := NewOrder("order", "customer", price, 0, 0)
+
+	order.State = OrderCancelled
+	paid, reason, err := order.ApplyPayment(PaymentResult{Amount: price})
+	if err != nil || reason != ClassificationPaidAfterCancellation || paid.State != OrderPaid || paid.PaidMinor != 1000 {
+		t.Fatalf("payment on a cancelled order: %#v %q %v", paid, reason, err)
+	}
+	if !NeedsOperator(reason) {
+		t.Fatal("a payment after cancellation must reach an operator")
+	}
+
+	// An expired order is late whatever the caller knew about the window.
+	order.State = OrderExpired
+	paid, reason, err = order.ApplyPayment(PaymentResult{Amount: price, Late: false})
+	if err != nil || reason != ClassificationLate || paid.State != OrderPaid {
+		t.Fatalf("payment on an expired order: %#v %q %v", paid, reason, err)
+	}
+	if NeedsOperator(reason) {
+		t.Fatal("an ordinary late payment settles without an operator")
+	}
+
+	// The amount rules still apply first: a short payment on a cancelled
+	// order is an underpayment, not a settlement.
+	order.State = OrderCancelled
+	under, _ := NewMoney(999, "RUB")
+	unchanged, reason, err := order.ApplyPayment(PaymentResult{Amount: under})
+	if err != nil || reason != ClassificationUnderpayment || unchanged.State != OrderCancelled {
+		t.Fatalf("short payment on a cancelled order: %#v %q %v", unchanged, reason, err)
+	}
+
+	// The documented transition map agrees with the settlement rule.
+	for _, from := range []OrderState{OrderCancelled, OrderExpired} {
+		if _, err := (Order{State: from}).Transition(OrderPaid); err != nil {
+			t.Fatalf("%s -> paid must be a documented transition: %v", from, err)
+		}
+	}
+}
+
+func TestOperatorAttentionClassifications(t *testing.T) {
+	for classification, want := range map[string]bool{
+		ClassificationPaid: false, ClassificationLate: false,
+		ClassificationDuplicate: true, ClassificationUnderpayment: true, ClassificationOverpayment: true,
+		ClassificationCurrency: true, ClassificationWallet: true, ClassificationPaidAfterCancellation: true,
+	} {
+		if got := NeedsOperator(classification); got != want {
+			t.Errorf("NeedsOperator(%q) = %v, want %v", classification, got, want)
+		}
+	}
+}
+
 func TestLedgerMustBalancePerCurrency(t *testing.T) {
 	valid := []LedgerEntry{
 		{AccountType: "customer_wallet", CustomerID: "customer", Currency: "RUB", AmountMinor: 500},
