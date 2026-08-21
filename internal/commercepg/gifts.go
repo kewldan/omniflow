@@ -38,6 +38,8 @@ type GiftOrderInput struct {
 	Lifetime            time.Duration
 	IdempotencyKey      string
 	SkipWallet          bool
+	// Provider, when known at order time, sets the payment window.
+	Provider string
 }
 
 // GiftPurchase is the result of opening a gift order.
@@ -129,7 +131,7 @@ func (store *Store) CreateGiftOrder(
 		SubtotalMinor: amountMinor, DiscountMinor: 0,
 		WalletMinor: walletMinor, ExternalMinor: externalMinor,
 		IdempotencyKey:   input.IdempotencyKey,
-		ExpiresAt:        pgtype.Timestamptz{Time: store.clock().Add(time.Hour), Valid: true},
+		ExpiresAt:        pgtype.Timestamptz{Time: store.paymentDeadline(time.Time{}, input.Provider), Valid: true},
 		SelectedSquadIds: noSquads(),
 	})
 	if err != nil {
@@ -348,13 +350,9 @@ func (store *Store) grantGiftSubscription(
 		return pgtype.UUID{}, err
 	}
 	now := store.clock().UTC()
-	var currentEndsAt *time.Time
-	if current, currentErr := queries.GetLatestEntitlementForChange(ctx,
-		dbgen.GetLatestEntitlementForChangeParams{UserID: recipientID, SubscriptionID: subscriptionID},
-	); currentErr == nil {
-		currentEndsAt = &current.EndsAt.Time
-	} else if !errors.Is(currentErr, pgx.ErrNoRows) {
-		return pgtype.UUID{}, currentErr
+	currentEndsAt, err := store.changeBase(ctx, queries, recipientID, subscriptionID, now)
+	if err != nil {
+		return pgtype.UUID{}, err
 	}
 	// A gift extends what the recipient already has rather than replacing it.
 	// Replacing would mean a present that shortens somebody's subscription.
@@ -386,6 +384,7 @@ func (store *Store) grantGiftSubscription(
 		"trafficAllowanceBytes": nullableInt8(entitlement.TrafficAllowanceBytes),
 		"deviceLimit":           nullableInt4(entitlement.DeviceLimit),
 		"squadIds":              databaseutil.UUIDStrings(entitlement.RemnawaveSquadIds),
+		"resetTraffic":          commerce.ResetsTraffic(operation),
 	})
 	operationRow, err := queries.CreateFulfillmentOperation(ctx, dbgen.CreateFulfillmentOperationParams{
 		EntitlementID: entitlement.ID, Operation: "create",

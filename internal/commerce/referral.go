@@ -25,8 +25,10 @@ type ReferralAttribution struct {
 	AttributedAt time.Time
 	// OrderState is the state of the order being evaluated for qualification.
 	OrderState OrderState
-	// OrderPaidMinor is the amount actually settled, so a fully wallet-funded
-	// order does not mint new value out of a referral.
+	// OrderPaidMinor is the amount a payment provider actually settled — the
+	// order's paid total net of the wallet part — so a fully wallet-funded
+	// order does not mint new value out of a referral. The wallet may hold
+	// this very referral's invitee credit; only money from outside qualifies.
 	OrderPaidMinor int64
 	OrderCurrency  string
 	// InviterRewardCount counts rewards the inviter has already received.
@@ -41,6 +43,22 @@ type ReferralReward struct {
 	Role      string
 	Amount    Money
 	ExpiresAt *time.Time
+}
+
+// SubscriptionOperation reports whether an order operation buys subscription
+// time. Only these count as a customer's "first order" — for qualifying a
+// referral, and for deciding whether a promotion's "new customer" has bought
+// before. A top-up moves money into a wallet, a goods order buys something
+// else, a gift is for somebody else, and a code was paid for by a distributor:
+// none of them is the purchase a referral or a welcome offer is about, so none
+// of them may qualify one or, just as importantly, block one.
+func SubscriptionOperation(operation string) bool {
+	switch operation {
+	case "purchase", "extension", "renewal", "upgrade", "downgrade":
+		return true
+	default:
+		return false
+	}
 }
 
 // QualifyReferral decides which rewards a referral attribution has earned. It is

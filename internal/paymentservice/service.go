@@ -127,6 +127,15 @@ func (service *Service) CreateIntent(ctx context.Context, input CreateIntentInpu
 	if order.State != "pending" || order.ExternalMinor <= 0 {
 		return dbgen.PaymentIntent{}, errors.New("order does not require an external payment")
 	}
+	// The provider is chosen here, after the order was opened with the default
+	// window. A manual transfer is confirmed by a person in days, so the order
+	// is given the window that provider warrants; the extension only ever
+	// lengthens it, and only while the order is still pending.
+	if window := commerce.PaymentWindow(provider.Name()); window > commerce.DefaultPaymentWindow {
+		if err = service.commerce.ExtendOrderExpiry(ctx, input.OrderID, service.clock().Add(window)); err != nil {
+			return dbgen.PaymentIntent{}, err
+		}
+	}
 	amount := commerce.Money{Amount: order.ExternalMinor, Currency: order.Currency}
 	capabilities, _ := json.Marshal(provider.Capabilities())
 	receipt, _ := json.Marshal(input.ReceiptMetadata)
@@ -161,7 +170,42 @@ func (service *Service) CreateIntent(ctx context.Context, input CreateIntentInpu
 	if err != nil {
 		return dbgen.PaymentIntent{}, err
 	}
-	return queries.UpdatePaymentIntentStatus(ctx, dbgen.UpdatePaymentIntentStatusParams{PaymentIntentID: intent.ID, Status: created.Status, ProviderReference: optionalText(created.ProviderReference), CheckoutUrl: optionalText(created.CheckoutURL)})
+	if created.Status != "succeeded" {
+		return queries.UpdatePaymentIntentStatus(ctx, dbgen.UpdatePaymentIntentStatusParams{PaymentIntentID: intent.ID, Status: created.Status, ProviderReference: optionalText(created.ProviderReference), CheckoutUrl: optionalText(created.CheckoutURL)})
+	}
+	// The provider settled synchronously — a saved-method charge with capture
+	// does. The money has moved, so it goes through the same classification
+	// and settlement a webhook would produce; writing `succeeded` on the intent
+	// alone would record a charge that bought nothing. The reference is stored
+	// first, still as processing, so a webhook or the reconciler can find the
+	// intent should the settlement below not commit.
+	intent, err = queries.UpdatePaymentIntentStatus(ctx, dbgen.UpdatePaymentIntentStatusParams{PaymentIntentID: intent.ID, Status: "processing", ProviderReference: optionalText(created.ProviderReference), CheckoutUrl: optionalText(created.CheckoutURL)})
+	if err != nil {
+		return dbgen.PaymentIntent{}, err
+	}
+	late := order.ExpiresAt.Valid && service.clock().After(order.ExpiresAt.Time)
+	settlementAmount := created.Amount
+	if settlementAmount.Amount == 0 && settlementAmount.Currency == "" {
+		settlementAmount = amount
+	}
+	_, classification, err := service.commerce.RecordProviderPayment(ctx, uuidString(intent.ID), SynchronousEventID(created.ProviderReference, uuidString(intent.ID)), settlementAmount, late)
+	service.observePayment(provider.Name(), order.Operation, classification)
+	if err != nil {
+		return dbgen.PaymentIntent{}, err
+	}
+	return queries.GetPaymentIntent(ctx, intent.ID)
+}
+
+// SynchronousEventID names the payment event a synchronous settlement writes.
+// It is derived from the provider's reference so the event reads as the charge
+// it records, and falls back to the intent when the provider returned none. A
+// webhook that later reports the same charge carries its own event ID and is
+// classified as a duplicate against the order this already settled.
+func SynchronousEventID(providerReference, intentID string) string {
+	if providerReference != "" {
+		return "charge:" + providerReference
+	}
+	return "charge:" + intentID
 }
 
 // submit asks the provider to move the money, by whichever of the two routes
@@ -189,6 +233,58 @@ func (service *Service) submit(
 		OrderID: input.OrderID, IdempotencyKey: input.IdempotencyKey,
 		MethodToken: input.SavedMethodToken, Amount: amount, Description: input.Description,
 	})
+}
+
+// CancelIntents withdraws the open payment intents of an order at their
+// providers, as far as each provider allows. It belongs in the path that
+// cancels an order: the customer has just been told nothing will be charged,
+// and a checkout tab they left open should stop being able to contradict that.
+//
+// It is best effort. An adapter with no cancellation (Telegram Stars, YooKassa)
+// leaves its intent open; a provider that refuses or cannot be reached leaves
+// its intent open too, and the refusal is returned so the caller can log it.
+// An intent the provider did withdraw is marked cancelled locally with a
+// payment event. A payment that arrives regardless — through any of these
+// paths — is still settled, as a payment after cancellation, and brought to an
+// operator. The order's own cancellation must never be made to depend on this
+// call succeeding.
+func (service *Service) CancelIntents(ctx context.Context, orderID string) error {
+	id, err := parseUUID(orderID)
+	if err != nil {
+		return err
+	}
+	queries := dbgen.New(service.pool)
+	open, err := queries.ListOpenIntentsForOrder(ctx, id)
+	if err != nil {
+		return err
+	}
+	var refusals []error
+	for _, intent := range open {
+		provider, ok := service.providers[intent.Provider]
+		if !ok {
+			continue
+		}
+		canceller, ok := provider.(payments.Canceller)
+		if !ok || !intent.ProviderReference.Valid {
+			continue
+		}
+		if cancelErr := canceller.CancelIntent(ctx, intent.ProviderReference.String); cancelErr != nil {
+			refusals = append(refusals, fmt.Errorf("%s intent %s: %w", intent.Provider, uuidString(intent.ID), cancelErr))
+			continue
+		}
+		if _, err = queries.UpdatePaymentIntentStatus(ctx, dbgen.UpdatePaymentIntentStatusParams{PaymentIntentID: intent.ID, Status: "cancelled"}); err != nil {
+			return err
+		}
+		if _, err = queries.InsertPaymentEvent(ctx, dbgen.InsertPaymentEventParams{
+			PaymentIntentID: intent.ID, Type: "status_changed",
+			PreviousStatus: pgtype.Text{String: intent.Status, Valid: true}, Status: pgtype.Text{String: "cancelled", Valid: true},
+			AmountMinor: pgtype.Int8{Int64: intent.AmountMinor, Valid: true}, Currency: pgtype.Text{String: intent.Currency, Valid: true},
+			ProviderEventID: pgtype.Text{String: "cancel:" + orderID, Valid: true}, Details: []byte(`{"reason":"order_cancelled"}`),
+		}); err != nil {
+			return err
+		}
+	}
+	return errors.Join(refusals...)
 }
 
 func (service *Service) Reconcile(ctx context.Context, paymentIntentID string) (dbgen.PaymentIntent, error) {

@@ -249,13 +249,25 @@ WHERE pc.normalized_code = sqlc.arg(normalized_code) AND pc.active AND p.active
 FOR UPDATE OF pc, p;
 
 -- name: CountPromoRedemptions :one
+-- A redemption is written when the order is created, before any money moves,
+-- so a redemption whose order closed unpaid — cancelled by the customer or
+-- expired by the sweep — is a redemption that never happened and does not
+-- count against any limit. A live pending order still counts: it is what
+-- stops two parallel checkouts from both passing a limit of one.
 SELECT count(*)::integer AS total_count,
-       count(*) FILTER (WHERE user_id = sqlc.arg(user_id))::integer AS customer_count,
-       count(*) FILTER (WHERE promo_code_id = sqlc.arg(promo_code_id))::integer AS code_count
-FROM promo_redemptions
-WHERE promotion_id = sqlc.arg(promotion_id);
+       count(*) FILTER (WHERE r.user_id = sqlc.arg(user_id))::integer AS customer_count,
+       count(*) FILTER (WHERE r.promo_code_id = sqlc.arg(promo_code_id))::integer AS code_count
+FROM promo_redemptions r
+JOIN orders o ON o.id = r.order_id
+WHERE r.promotion_id = sqlc.arg(promotion_id)
+  AND o.state NOT IN ('cancelled', 'expired');
 
 -- name: CheckPromotionCustomerEligibility :one
+-- A "new customer" is one who has never settled a subscription order. A
+-- wallet top-up, a shop purchase, a gift bought for somebody else, or a code
+-- a distributor paid for is not the purchase a welcome offer is about, so the
+-- completed-order counts look at subscription operations only — the same
+-- predicate referral qualification uses.
 SELECT
   (NOT (sqlc.arg(eligibility)::jsonb ? 'locales') OR (sqlc.arg(eligibility)::jsonb -> 'locales') ? u.locale)
   AND (NOT COALESCE((sqlc.arg(eligibility)::jsonb ->> 'newCustomerOnly')::boolean, false)
@@ -264,6 +276,7 @@ SELECT
        >= COALESCE((sqlc.arg(eligibility)::jsonb ->> 'minimumCompletedOrders')::integer, 0) AS eligible
 FROM users u
 LEFT JOIN orders o ON o.user_id = u.id
+  AND o.operation IN ('purchase','extension','renewal','upgrade','downgrade')
 WHERE u.id = sqlc.arg(user_id)
 GROUP BY u.id;
 
@@ -311,12 +324,21 @@ VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: CreateOrder :one
+-- An order the wallet covers in full is born paid, and it is paid by the
+-- wallet amount at the instant it is created. Writing paid_minor and paid_at
+-- here rather than leaving them for the worker's `fulfilled` transition is
+-- what lets reporting place the sale in the period it happened and lets
+-- referral qualification read the settled amount inside the same transaction.
 INSERT INTO orders (
   user_id, state, operation, currency, subtotal_minor, discount_minor,
   wallet_minor, external_minor, idempotency_key, expires_at,
-  subscription_id, selected_squad_ids
+  subscription_id, selected_squad_ids, paid_minor, paid_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+VALUES (
+  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+  CASE WHEN $2::text = 'paid' THEN $7::bigint ELSE 0 END,
+  CASE WHEN $2::text = 'paid' THEN now() ELSE NULL END
+)
 ON CONFLICT (user_id, idempotency_key) DO UPDATE SET idempotency_key = EXCLUDED.idempotency_key
 RETURNING *;
 
@@ -334,11 +356,24 @@ FROM order_lines ol
 JOIN plan_versions pv ON pv.id = ol.plan_version_id
 WHERE ol.order_id = $1;
 
+-- name: GetPlanVersionGracePeriod :one
+-- The grace window the fulfillment worker adds to the paid end when it pushes
+-- an expiry to Remnawave. It is read per operation rather than copied into the
+-- desired state, so every creator of an operation agrees on it by construction.
+SELECT grace_period_seconds FROM plan_versions WHERE id = $1;
+
 -- name: GetLatestEntitlementForChange :one
+-- The entitlement a change to the subscription builds on and supersedes.
+--
+-- A paused entitlement is included: it is the subscription's live entitlement
+-- with its clock stopped, and a change that ignored it would open a second
+-- live entitlement beside it and let a later resume hand the paused days out
+-- again. The caller measures the paused remainder from now rather than
+-- reading ends_at, which is frozen at the pause instant.
 SELECT * FROM entitlements
 WHERE user_id = sqlc.arg(user_id)
   AND (sqlc.narg(subscription_id)::uuid IS NULL OR subscription_id = sqlc.narg(subscription_id)::uuid)
-  AND status IN ('pending', 'active', 'limited', 'disabled')
+  AND status IN ('pending', 'active', 'limited', 'disabled', 'paused')
 ORDER BY ends_at DESC
 LIMIT 1
 FOR UPDATE;
@@ -390,6 +425,16 @@ SET state = $2,
 WHERE id = $1
 RETURNING *;
 
+-- name: ExtendOrderExpiry :one
+-- Lengthens a pending order's payment window for a provider chosen after the
+-- order was created. GREATEST keeps it from ever shortening one, the state
+-- guard keeps a closed order closed, and a goods order is excluded because its
+-- deadline is the gateway quote's validity rather than a payment window.
+UPDATE orders
+SET expires_at = GREATEST(expires_at, sqlc.arg(expires_at)::timestamptz), updated_at = now()
+WHERE id = sqlc.arg(order_id) AND state = 'pending' AND operation <> 'goods'
+RETURNING *;
+
 -- name: CancelOrder :one
 WITH mutation AS (
   INSERT INTO order_mutations (order_id, action, idempotency_key, reason)
@@ -439,10 +484,22 @@ SELECT * FROM payment_intents WHERE provider = $1 AND provider_reference = $2;
 SELECT * FROM payment_intents WHERE order_id = $1 AND provider = $2 ORDER BY created_at DESC LIMIT 1;
 
 -- name: ListPaymentIntentsForReconciliation :many
-SELECT * FROM payment_intents
-WHERE status IN ('pending','processing') AND provider IN ('cryptobot','yookassa')
-  AND provider_reference IS NOT NULL AND updated_at < now() - interval '1 minute'
-ORDER BY updated_at
+-- Intents the provider may have settled without Omniflow hearing about it.
+--
+-- A `succeeded` intent on an order that is still `pending` is included on
+-- purpose: it is a charge that was recorded without being settled, and polling
+-- it again routes it through settlement. The order predicate is what keeps a
+-- legitimately settled intent out of the batch once its order has moved on.
+SELECT pi.* FROM payment_intents pi
+WHERE pi.provider IN ('cryptobot','yookassa')
+  AND pi.provider_reference IS NOT NULL AND pi.updated_at < now() - interval '1 minute'
+  AND (
+    pi.status IN ('pending','processing')
+    OR (pi.status = 'succeeded' AND EXISTS (
+      SELECT 1 FROM orders o WHERE o.id = pi.order_id AND o.state = 'pending'
+    ))
+  )
+ORDER BY pi.updated_at
 LIMIT $1;
 
 -- name: UpdatePaymentIntentStatus :one
@@ -573,11 +630,16 @@ RETURNING *;
 SELECT * FROM entitlements WHERE id = $1;
 
 -- name: ListEntitlementsForReconciliation :many
+-- An entitlement that ended before the horizon is history rather than state:
+-- Remnawave expired the user on its own, and the only thing a reconcile could
+-- still do is re-push an expiry that has passed or recreate a user an operator
+-- deleted on purpose. The horizon is chosen by the scheduler, not here.
 SELECT * FROM entitlements
 WHERE status IN ('active', 'limited', 'disabled', 'expired')
+  AND ends_at >= sqlc.arg(ended_after)::timestamptz
   AND (reconciled_at IS NULL OR reconciled_at < now() - interval '15 minutes')
 ORDER BY reconciled_at NULLS FIRST
-LIMIT $1;
+LIMIT sqlc.arg(page_size);
 
 -- name: GetRemnawaveMappingByCustomer :one
 SELECT * FROM remnawave_users WHERE user_id = $1;
@@ -601,6 +663,18 @@ RETURNING *;
 
 -- name: LockFulfillmentOperation :one
 SELECT * FROM fulfillment_operations WHERE id = $1 FOR UPDATE;
+
+-- name: ListStalledFulfillmentOperations :many
+-- Operations that should have run by now and have not: a settlement whose
+-- process could not insert the job, or a job the queue discarded after its
+-- last attempt. The worker re-inserts the job for each; River's uniqueness on
+-- the operation ID makes that a no-op when the job is merely queued.
+SELECT * FROM fulfillment_operations
+WHERE status IN ('pending', 'retrying')
+  AND next_attempt_at < sqlc.arg(before)::timestamptz
+  AND created_at < sqlc.arg(before)::timestamptz
+ORDER BY next_attempt_at
+LIMIT sqlc.arg(page_size);
 
 -- name: UpdateFulfillmentOperation :one
 UPDATE fulfillment_operations
@@ -638,12 +712,24 @@ RETURNING *;
 -- name: SupersedePreviousEntitlements :exec
 -- Superseding is scoped to one subscription so buying a second subscription
 -- never retires the first one's entitlement.
+--
+-- A paused entitlement is retired too, and its pause is closed in the same
+-- write: the instant is cleared, because the table refuses `superseded` next
+-- to a pause instant, and the elapsed pause is added to paused_seconds so the
+-- row still explains itself. The time the pause was preserving is not lost —
+-- the entitlement replacing this one was built on it.
 UPDATE entitlements
-SET status = 'superseded', updated_at = now()
+SET status = 'superseded',
+    paused_seconds = paused_seconds + CASE
+      WHEN paused_at IS NOT NULL THEN GREATEST(0, extract(epoch FROM (now() - paused_at))::bigint)
+      ELSE 0
+    END,
+    paused_at = NULL,
+    updated_at = now()
 WHERE user_id = sqlc.arg(user_id)
   AND id <> sqlc.arg(current_entitlement_id)
   AND subscription_id IS NOT DISTINCT FROM sqlc.narg(subscription_id)::uuid
-  AND status IN ('pending', 'active', 'limited', 'disabled');
+  AND status IN ('pending', 'active', 'limited', 'disabled', 'paused');
 
 -- name: InsertEntitlementDrift :one
 INSERT INTO entitlement_drifts (entitlement_id, kind, expected, observed)

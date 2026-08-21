@@ -42,7 +42,8 @@ The store runs the whole creation in a serializable transaction:
    summed.
 4. **Limits.** The requested amount is validated against the configured bounds.
 5. **The order and the `wallet_topups` row** are written, with a payment window of one hour unless
-   the caller supplied one.
+   the caller supplied one or named the `manual` provider, which gets seventy-two hours — see
+   [the payment window](/commerce/orders-payments#the-payment-window).
 
 ### Exactly-once credit
 

@@ -53,11 +53,29 @@ func (worker *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 }
 
 type desiredState struct {
-	EffectiveAt           time.Time `json:"effectiveAt"`
+	EffectiveAt time.Time `json:"effectiveAt"`
+	// EndsAt is the paid end of the entitlement. It is not what Remnawave is
+	// told: the worker adds the plan's grace period to it first, and that sum
+	// is both what is pushed and what drift is measured against.
 	EndsAt                time.Time `json:"endsAt"`
 	TrafficAllowanceBytes *int64    `json:"trafficAllowanceBytes"`
 	DeviceLimit           *int      `json:"deviceLimit"`
 	SquadIDs              []string  `json:"squadIds"`
+	// ResetTraffic asks for the user's traffic counter to start afresh once
+	// the new state is applied. Settlement sets it for an extension, a
+	// renewal, and an upgrade: the customer paid for a new period, and a
+	// LIMITED user who renews must come back as ACTIVE rather than stay
+	// LIMITED on last period's usage.
+	ResetTraffic bool `json:"resetTraffic,omitempty"`
+	// remoteExpireAt is EndsAt plus the grace period, resolved by the worker
+	// per operation rather than stored, so every creator agrees on it.
+	remoteExpireAt time.Time
+}
+
+// withGrace resolves the expiry Remnawave is asked to enforce.
+func (desired desiredState) withGrace(grace time.Duration) desiredState {
+	desired.remoteExpireAt = commerce.RemoteExpiry(desired.EndsAt, grace)
+	return desired
 }
 
 func (worker *Worker) work(ctx context.Context, job *river.Job[JobArgs]) error {
@@ -85,6 +103,16 @@ func (worker *Worker) work(ctx context.Context, job *river.Job[JobArgs]) error {
 	if err != nil {
 		return err
 	}
+	// An operation outlives the entitlement it was written for when a newer
+	// entitlement of the same subscription is provisioned first — a reconcile
+	// queued before a renewal settled, for instance. Applying it now would
+	// push the old expiry over the new one and write `active` back onto a row
+	// that has been retired, which is two live entitlements and an expiry
+	// that flickers every fifteen minutes. It is cancelled, with the reason,
+	// before anything is asked of Remnawave.
+	if reason, obsolete := obsoleteOperation(entitlement.Status); obsolete {
+		return worker.cancel(ctx, tx, queries, operation, reason)
+	}
 	var desired desiredState
 	if err := json.Unmarshal(operation.DesiredState, &desired); err != nil {
 		return worker.failPermanent(ctx, tx, queries, operation, "invalid_desired_state")
@@ -92,6 +120,14 @@ func (worker *Worker) work(ctx context.Context, job *river.Job[JobArgs]) error {
 	if !desired.EffectiveAt.IsZero() && worker.clock().Before(desired.EffectiveAt) {
 		return river.JobSnooze(desired.EffectiveAt.Sub(worker.clock()))
 	}
+	// The grace period is the plan's promise that access outlives the paid end
+	// by a little, so the customer can renew without a gap. It only means
+	// anything if Remnawave is told, so it is folded into the expiry here.
+	graceSeconds, err := queries.GetPlanVersionGracePeriod(ctx, entitlement.PlanVersionID)
+	if err != nil {
+		return err
+	}
+	desired = desired.withGrace(time.Duration(graceSeconds) * time.Second)
 	operation, err = queries.UpdateFulfillmentOperation(ctx, dbgen.UpdateFulfillmentOperationParams{OperationID: operation.ID, Status: "running", AttemptCount: operation.AttemptCount + 1, NextAttemptAt: pgtype.Timestamptz{Time: worker.clock(), Valid: true}})
 	if err != nil {
 		return err
@@ -203,13 +239,16 @@ func (worker *Worker) detectDrift(ctx context.Context, queries *dbgen.Queries, e
 		expected, observed any
 	}
 	mismatches := make([]mismatch, 0, 4)
-	if !remote.ExpireAt.Equal(desired.EndsAt) {
-		mismatches = append(mismatches, mismatch{"expiry", desired.EndsAt, remote.ExpireAt})
+	if !remote.ExpireAt.Equal(desired.remoteExpireAt) {
+		mismatches = append(mismatches, mismatch{"expiry", desired.remoteExpireAt, remote.ExpireAt})
 	}
-	if desired.TrafficAllowanceBytes != nil && remote.TrafficLimitBytes != *desired.TrafficAllowanceBytes {
-		mismatches = append(mismatches, mismatch{"traffic", *desired.TrafficAllowanceBytes, remote.TrafficLimitBytes})
+	// A nil desired limit means unlimited, and unlimited is a value Remnawave
+	// can disagree with: a user still carrying the previous plan's cap is
+	// drift, not "nothing configured".
+	if !trafficLimitAgrees(desired.TrafficAllowanceBytes, remote.TrafficLimitBytes) {
+		mismatches = append(mismatches, mismatch{"traffic", desired.TrafficAllowanceBytes, remote.TrafficLimitBytes})
 	}
-	if desired.DeviceLimit != nil && (remote.HWIDDeviceLimit == nil || *remote.HWIDDeviceLimit != *desired.DeviceLimit) {
+	if !deviceLimitAgrees(desired.DeviceLimit, remote.HWIDDeviceLimit) {
 		mismatches = append(mismatches, mismatch{"device_limit", desired.DeviceLimit, remote.HWIDDeviceLimit})
 	}
 	remoteSquads := make([]string, 0, len(remote.ActiveInternalSquads))
@@ -230,6 +269,25 @@ func (worker *Worker) detectDrift(ctx context.Context, queries *dbgen.Queries, e
 		}
 	}
 	return nil
+}
+
+// trafficLimitAgrees reports whether Remnawave's traffic cap matches the
+// desired allowance, where a nil allowance is unlimited and Remnawave spells
+// unlimited as zero.
+func trafficLimitAgrees(desired *int64, remote int64) bool {
+	if desired == nil {
+		return remote == 0
+	}
+	return remote == *desired
+}
+
+// deviceLimitAgrees is the same comparison for the device limit, where
+// Remnawave spells unlimited as null or zero.
+func deviceLimitAgrees(desired *int, remote *int) bool {
+	if desired == nil {
+		return remote == nil || *remote == 0
+	}
+	return remote != nil && *remote == *desired
 }
 
 // maintenanceSnooze is how long a held fulfillment job waits before it looks at
@@ -313,32 +371,44 @@ func (worker *Worker) apply(ctx context.Context, queries *dbgen.Queries, operati
 			candidates = append(candidates, legacyUsername(entitlement.UserID))
 		}
 	}
-	provision := remnawave.ProvisionUser{Username: username, ExpireAt: desired.EndsAt, TrafficLimitBytes: desired.TrafficAllowanceBytes, HWIDDeviceLimit: desired.DeviceLimit, InternalSquadIDs: desired.SquadIDs}
+	provision := remnawave.ProvisionUser{Username: username, ExpireAt: desired.remoteExpireAt, TrafficLimitBytes: desired.TrafficAllowanceBytes, HWIDDeviceLimit: desired.DeviceLimit, InternalSquadIDs: desired.SquadIDs}
 	remoteID, err := worker.remoteUserID(ctx, queries, entitlement, subscription)
 	if err != nil {
 		return remnawave.User{}, err
 	}
-	createOrRecover := func() (remnawave.User, error) {
+	// createOrRecover reports whether the user was created fresh: a brand-new
+	// user has no traffic to reset and nothing to re-enable.
+	createOrRecover := func() (remnawave.User, bool, error) {
 		for _, candidate := range candidates {
 			existing, lookupErr := worker.provisioner.UserByUsername(ctx, candidate)
 			if lookupErr == nil {
-				return worker.provisioner.UpdateUser(ctx, existing.ID, provision)
+				updated, updateErr := worker.provisioner.UpdateUser(ctx, existing.ID, provision)
+				return updated, false, updateErr
 			}
 			if !errors.Is(lookupErr, remnawave.ErrNotFound) {
-				return remnawave.User{}, lookupErr
+				return remnawave.User{}, false, lookupErr
 			}
 		}
-		return worker.provisioner.CreateUser(ctx, provision)
-	}
-	if (operation == "create" || operation == "reconcile") && remoteID == 0 {
-		return createOrRecover()
+		created, createErr := worker.provisioner.CreateUser(ctx, provision)
+		return created, true, createErr
 	}
 	if operation == "create" || operation == "reconcile" {
-		updated, updateErr := worker.provisioner.UpdateUser(ctx, remoteID, provision)
-		if errors.Is(updateErr, remnawave.ErrNotFound) {
-			return createOrRecover()
+		var (
+			remote  remnawave.User
+			created bool
+		)
+		if remoteID == 0 {
+			remote, created, err = createOrRecover()
+		} else {
+			remote, err = worker.provisioner.UpdateUser(ctx, remoteID, provision)
+			if errors.Is(err, remnawave.ErrNotFound) {
+				remote, created, err = createOrRecover()
+			}
 		}
-		return updated, updateErr
+		if err != nil || operation != "create" || created {
+			return remote, err
+		}
+		return worker.finishPaidChange(ctx, remote, entitlement, desired)
 	}
 	if remoteID == 0 {
 		return remnawave.User{}, remnawave.ErrNotFound
@@ -378,9 +448,65 @@ func (worker *Worker) apply(ctx context.Context, queries *dbgen.Queries, operati
 	return worker.provisioner.User(ctx, remoteID)
 }
 
+// finishPaidChange completes a `create` against a user that already existed:
+// the traffic counter is reset when the operation asks for it, and a user
+// Remnawave holds as DISABLED is re-enabled. Both are what a paid renewal of
+// an expired-then-disabled or limited user needs to actually restore access;
+// without them the PATCH moved the expiry and the tunnel stayed dead.
+//
+// A paused entitlement is the one case where DISABLED is deliberate and must
+// stay. Its clock is stopped by Omniflow, and only a resume may re-enable it.
+func (worker *Worker) finishPaidChange(ctx context.Context, remote remnawave.User, entitlement dbgen.Entitlement, desired desiredState) (remnawave.User, error) {
+	refresh := false
+	if desired.ResetTraffic {
+		if err := worker.provisioner.ResetUserTraffic(ctx, remote.ID); err != nil {
+			return remnawave.User{}, err
+		}
+		refresh = true
+	}
+	if shouldEnable(remote.Status, entitlement.Status) {
+		if err := worker.provisioner.EnableUser(ctx, remote.ID); err != nil {
+			return remnawave.User{}, err
+		}
+		refresh = true
+	}
+	if !refresh {
+		return remote, nil
+	}
+	return worker.provisioner.User(ctx, remote.ID)
+}
+
+// shouldEnable reports whether a paid change must switch the remote user back
+// on: Remnawave holds it DISABLED and the entitlement is not a pause.
+func shouldEnable(remoteStatus, entitlementStatus string) bool {
+	return strings.EqualFold(remoteStatus, "DISABLED") && entitlementStatus != "paused"
+}
+
 // operatorAlertAttempts is how many failed attempts a fulfillment run makes
 // before an operator is told. Below it, ordinary backoff is expected to recover.
 const operatorAlertAttempts = 3
+
+// obsoleteOperation reports whether an operation's entitlement has been
+// retired, and why, so the operation must be cancelled rather than applied.
+func obsoleteOperation(entitlementStatus string) (string, bool) {
+	if entitlementStatus == "superseded" {
+		return "entitlement_superseded", true
+	}
+	return "", false
+}
+
+// cancel closes an operation that must not be applied. It is not a failure:
+// nothing went wrong, the work is simply no longer wanted, so no operator is
+// told and the job completes normally.
+func (worker *Worker) cancel(ctx context.Context, tx pgx.Tx, queries *dbgen.Queries, operation dbgen.FulfillmentOperation, reason string) error {
+	if _, err := queries.UpdateFulfillmentOperation(ctx, dbgen.UpdateFulfillmentOperationParams{OperationID: operation.ID, Status: "cancelled", AttemptCount: operation.AttemptCount, NextAttemptAt: pgtype.Timestamptz{Time: worker.clock(), Valid: true}, LastErrorCode: pgtype.Text{String: reason, Valid: true}}); err != nil {
+		return err
+	}
+	if _, err := queries.InsertFulfillmentHistory(ctx, dbgen.InsertFulfillmentHistoryParams{OperationID: operation.ID, Status: "cancelled", CorrelationID: operation.CorrelationID, RequestSummary: []byte(`{}`), ResponseSummary: []byte(`{}`), ErrorCode: pgtype.Text{String: reason, Valid: true}}); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
 
 func (worker *Worker) failPermanent(ctx context.Context, tx pgx.Tx, queries *dbgen.Queries, operation dbgen.FulfillmentOperation, code string) error {
 	_, _ = queries.UpdateFulfillmentOperation(ctx, dbgen.UpdateFulfillmentOperationParams{OperationID: operation.ID, Status: "failed", AttemptCount: operation.AttemptCount + 1, NextAttemptAt: pgtype.Timestamptz{Time: worker.clock(), Valid: true}, LastErrorCode: pgtype.Text{String: code, Valid: true}})
@@ -410,7 +536,7 @@ func notifyFulfillmentFailure(ctx context.Context, queries *dbgen.Queries, opera
 }
 
 func safeDesiredSummary(desired desiredState) []byte {
-	value, _ := json.Marshal(map[string]any{"endsAt": desired.EndsAt, "trafficLimitConfigured": desired.TrafficAllowanceBytes != nil, "deviceLimitConfigured": desired.DeviceLimit != nil, "squadCount": len(desired.SquadIDs)})
+	value, _ := json.Marshal(map[string]any{"endsAt": desired.EndsAt, "remoteExpireAt": desired.remoteExpireAt, "trafficLimitConfigured": desired.TrafficAllowanceBytes != nil, "deviceLimitConfigured": desired.DeviceLimit != nil, "squadCount": len(desired.SquadIDs)})
 	return value
 }
 

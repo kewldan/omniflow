@@ -42,7 +42,7 @@ happened while they were asleep. See [Recurring payments](/commerce/recurring-pa
 | `discount_minor` | the promotion discount, never more than the subtotal |
 | `wallet_minor` | credit taken from the customer's wallet |
 | `external_minor` | what a payment provider must settle |
-| `paid_minor` | the wallet part plus what the provider actually settled |
+| `paid_minor` | the wallet part plus what the provider actually settled. An order the wallet covers in full is born with it equal to `wallet_minor`, and with `paid_at` set, at creation |
 | `refunded_minor` | refunded so far, never more than `paid_minor` |
 
 The load-bearing constraint is `wallet_minor + external_minor = subtotal_minor - discount_minor`.
@@ -61,6 +61,8 @@ stateDiagram-v2
     pending --> paid: provider settled the exact amount
     pending --> cancelled: customer or operator cancelled
     pending --> expired: payment window elapsed
+    cancelled --> paid: provider settled after cancellation (late)
+    expired --> paid: provider settled after the window (late)
     paid --> fulfilled: provisioning succeeded
     paid --> partially_refunded
     paid --> refunded
@@ -88,8 +90,9 @@ or `paid` directly, so a customer will not normally see it.
 | Transition | Written by | Guard |
 | --- | --- | --- |
 | → `pending` | order creation | the order needs an external payment (`external_minor > 0`) |
-| → `paid` at creation | order creation | `external_minor = 0`, the wallet covered everything |
+| → `paid` at creation | order creation | `external_minor = 0`, the wallet covered everything; `paid_minor` and `paid_at` are written in the same insert |
 | `pending` → `paid` | the settlement path | the order row is locked `FOR UPDATE` and the payment classified as settling |
+| `cancelled` / `expired` → `paid` | the settlement path | the same lock; the payment is classified `paid_after_cancellation` or `late` |
 | `paid` → `fulfilled` | the fulfillment worker, or the add-on applier | a successful Remnawave `create`, or the add-on capacity applied |
 | → `cancelled` | the cancel statement | current state is `draft`, `pending` or already `cancelled` |
 | → `expired` | the expiry sweep | `state IN ('draft','pending') AND expires_at <= now()`, `FOR UPDATE SKIP LOCKED` |
@@ -97,6 +100,39 @@ or `paid` directly, so a customer will not normally see it.
 
 Cancelling is idempotent: the statement accepts `cancelled` as a source state and the mutation row
 is upserted on `(order_id, action, idempotency_key)`, so a double-tap closes one order once.
+
+**A closed order can still be paid.** A provider's checkout outlives the order that opened it: a
+CryptoBot invoice or a YooKassa page left open in another tab accepts money after the customer
+pressed **Cancel**, and a manual transfer can be approved after the window. Money that arrives is
+money the customer sent, so a payment that matches `external_minor` settles the order — the
+entitlement is created and provisioning queued exactly as for a normal sale — but it is classified
+apart: `late` on an expired order, `paid_after_cancellation` on a cancelled one. The second also
+queues an operator notice, because the customer had been told nothing would be charged.
+
+The cancel path reduces how often that happens by withdrawing the order's open payment intents at
+the provider where the adapter can: CryptoBot deletes the invoice, and a manual intent is simply
+closed. Telegram Stars invoice links cannot be revoked and a YooKassa payment created with immediate
+capture has nothing to cancel, so those intents stay open and rely on the late-settlement rule. The
+withdrawal is best effort — a provider refusal never blocks the cancellation itself — and an intent
+the provider did withdraw is marked `cancelled` with a `status_changed` payment event.
+
+### The payment window
+
+`expires_at` is set when the order is created and follows the payment provider:
+
+| Provider | Window | Why |
+| --- | --- | --- |
+| CryptoBot, YooKassa, Telegram Stars, or not yet chosen | 1 hour | a hosted checkout is paid in minutes or abandoned, and an open order holds a wallet reservation |
+| `manual` | 72 hours | a bank transfer lands when the bank processes it and an operator confirms it when they next look; three days covers a weekend |
+| a renewal cycle's order | 76 hours | every attempt of the dunning schedule settles the same order — see [Recurring payments](/commerce/recurring-payments) |
+| `goods` | the gateway quote's validity | the price was quoted by the delivery gateway and must not be paid after the quote lapsed |
+
+A surface that knows the provider when it opens the order names it, and the window is right from
+the start. A surface that lets the customer pick the provider afterwards opens the order with the
+one-hour default, and creating the payment intent then extends the window to what the chosen
+provider warrants. The extension only ever lengthens a window, only while the order is `pending`,
+and never touches a goods order, so a closed order is never reopened and a stale quote is never
+paid. Choosing a card provider after a manual one leaves the longer window in place.
 
 <Warning>
   The expiry sweep, wallet-credit expiry and the saved-cart sweep all run in one loop that only the
@@ -372,15 +408,18 @@ from two status values.
 | Classification | Condition | Order settles? |
 | --- | --- | --- |
 | `paid` | the amount equals `external_minor`, inside the payment window | yes |
-| `late` | the amount matches but the window had elapsed | yes |
+| `late` | the amount matches but the window had elapsed, or the order had already expired | yes |
+| `paid_after_cancellation` | the amount matches but the order had been cancelled | yes, and an operator is told |
 | `duplicate` | the order is already paid, fulfilled or refunded | no |
 | `underpayment` | less than `external_minor` arrived | no |
 | `overpayment` | more than `external_minor` arrived (`paid_minor` is still recorded) | no |
 | `currency_mismatch` | the payment currency differs from the order currency | no |
 | `wallet_unavailable` | the payment would settle, but the wallet balance has fallen below the order's reserved amount | no |
 
-`payment_events.type` is a closed set, and the mapping renames `paid` to `status_changed` and
-`currency_mismatch` to `amount_mismatch`. The row is unique on
+`payment_events.type` is a closed set, and the mapping renames `paid` to `status_changed`,
+`currency_mismatch` to `amount_mismatch`, and `paid_after_cancellation` to `late`; every event's
+`details` carries the classification and the order's state before the payment, so the timeline still
+distinguishes a late payment from one that landed on a cancelled order. The row is unique on
 `(payment_intent_id, provider_event_id, type)` with nulls not distinct, so the same provider event
 cannot append the same event twice.
 
@@ -394,13 +433,21 @@ top-up notice.
 A non-settling classification still commits. The payment event is durable and the order keeps its
 state, so nothing is silently dropped.
 
+Every one of them — `duplicate`, `underpayment`, `overpayment`, `currency_mismatch`, and
+`wallet_unavailable` — also queues an operator notice in the same transaction, under the
+`incident` kind, carrying the order, the provider, the classification, and the amount class. It is
+deduplicated per payment intent and classification, so a replayed webhook adds nothing. The same
+notice is queued for `paid_after_cancellation`, which does settle. See
+[Operator notifications](/operations/operator-notifications).
+
 <Warning>
-  `wallet_unavailable` is the one that needs an operator. The provider has taken money against an
-  order that stays `pending`, and nothing automatic resolves it. It appears in the order's event
+  `wallet_unavailable` is the one that needs an operator most. The provider has taken money against
+  an order that stays `pending`, and nothing automatic resolves it. It appears in the order's event
   timeline in `/admin/finance/{orderId}` and in
   `omniflow_payments_total{classification="wallet_unavailable"}`. Resolving it means either
   crediting the difference back to the wallet with an adjustment, or refunding the provider
-  payment.
+  payment. An `underpayment` or `overpayment` on a subscription order leaves money at the provider
+  in the same way, and is resolved the same way.
 </Warning>
 
 ## Settlement: what a paid order produces
@@ -472,7 +519,10 @@ the intent is not a manual one. It is stored unique per intent, so a second deci
 with the first is refused with "manual payment already has a different final decision". An approval
 settles the **full** intent amount; a rejection records the decision and settles nothing.
 
-While it waits, the customer sees the `manual` handoff and is told an operator will confirm it.
+While it waits, the customer sees the `manual` handoff and is told an operator will confirm it. The
+order stays payable for seventy-two hours from the moment the manual intent is created — see
+[the payment window](#the-payment-window) — and an approval after even that window still settles it,
+classified `late`.
 
 ## Refunds
 

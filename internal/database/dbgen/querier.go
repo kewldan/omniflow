@@ -91,6 +91,11 @@ type Querier interface {
 	CancelMergedCustomerCart(ctx context.Context, source pgtype.UUID) error
 	CancelOrder(ctx context.Context, arg CancelOrderParams) (Order, error)
 	ChannelGateSettings(ctx context.Context) (ChannelGateSettingsRow, error)
+	// A "new customer" is one who has never settled a subscription order. A
+	// wallet top-up, a shop purchase, a gift bought for somebody else, or a code
+	// a distributor paid for is not the purchase a welcome offer is about, so the
+	// completed-order counts look at subscription operations only — the same
+	// predicate referral qualification uses.
 	CheckPromotionCustomerEligibility(ctx context.Context, arg CheckPromotionCustomerEligibilityParams) (pgtype.Bool, error)
 	// Single redemption by construction: the predicate only matches a deliverable,
 	// unexpired gift, so a second claim of the same code updates no row.
@@ -168,6 +173,11 @@ type Querier interface {
 	CountOpenAnomalySignals(ctx context.Context) (int64, error)
 	CountOpenBlocklistMatches(ctx context.Context) (int64, error)
 	CountPlanVersionSquads(ctx context.Context, arg CountPlanVersionSquadsParams) (int32, error)
+	// A redemption is written when the order is created, before any money moves,
+	// so a redemption whose order closed unpaid — cancelled by the customer or
+	// expired by the sweep — is a redemption that never happened and does not
+	// count against any limit. A live pending order still counts: it is what
+	// stops two parallel checkouts from both passing a limit of one.
 	CountPromoRedemptions(ctx context.Context, arg CountPromoRedemptionsParams) (CountPromoRedemptionsRow, error)
 	// Feeds the per-customer request limit, so asking for a link repeatedly cannot
 	// be used to flood somebody's Telegram chat.
@@ -248,6 +258,11 @@ type Querier interface {
 	CreateLedgerTransaction(ctx context.Context, arg CreateLedgerTransactionParams) (LedgerTransaction, error)
 	CreateLoyaltyProgram(ctx context.Context, arg CreateLoyaltyProgramParams) (LoyaltyProgram, error)
 	CreateLoyaltyTier(ctx context.Context, arg CreateLoyaltyTierParams) (LoyaltyTier, error)
+	// An order the wallet covers in full is born paid, and it is paid by the
+	// wallet amount at the instant it is created. Writing paid_minor and paid_at
+	// here rather than leaving them for the worker's `fulfilled` transition is
+	// what lets reporting place the sale in the period it happened and lets
+	// referral qualification read the settled amount inside the same transaction.
 	CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error)
 	CreatePaymentIntent(ctx context.Context, arg CreatePaymentIntentParams) (PaymentIntent, error)
 	// ---------------------------------------------------------------------------
@@ -361,6 +376,25 @@ type Querier interface {
 	DeleteExpiredCustomerSessions(ctx context.Context, retention pgtype.Interval) (int64, error)
 	DeleteExpiredSupportAttachments(ctx context.Context) (int64, error)
 	DeleteExpiredWebhookEvents(ctx context.Context) (int64, error)
+	// Removes a customer's subscriptions that exist only because an order once
+	// opened them and that order then closed unpaid.
+	//
+	// A subscription row is created when an order for a new subscription is
+	// created, before any money moves, so a cancelled or expired order leaves a
+	// subscription that never had an entitlement and never will. Left alone, each
+	// one takes a slot toward the concurrency limit and a place in every picker.
+	//
+	// The predicate is deliberately strict: nothing may reference the row except
+	// orders that closed unpaid. An entitlement, a live order, a Remnawave user,
+	// an auto-renew setting, a notification, a cart, a checkout session, or a
+	// dunning attempt each keeps it — those are the records a customer or an
+	// operator can still reach it through. The closed orders are detached first,
+	// because the foreign key would otherwise refuse the delete, and a closed
+	// order targets nothing any more.
+	//
+	// Callers hold LockCustomerSubscriptions so a concurrent purchase cannot
+	// resolve a subscription this statement is about to remove.
+	DeleteGhostSubscriptions(ctx context.Context, userID pgtype.UUID) ([]Subscription, error)
 	DeleteInfoPage(ctx context.Context, slug string) (int64, error)
 	DeleteInfoPageLocalization(ctx context.Context, arg DeleteInfoPageLocalizationParams) error
 	DeleteMCPServer(ctx context.Context, slug string) error
@@ -415,6 +449,11 @@ type Querier interface {
 	// and the schema is stable: a new column is appended, never inserted, so a
 	// spreadsheet or importer built against an older export keeps working.
 	ExportFinanceRows(ctx context.Context, arg ExportFinanceRowsParams) ([]ExportFinanceRowsRow, error)
+	// Lengthens a pending order's payment window for a provider chosen after the
+	// order was created. GREATEST keeps it from ever shortening one, the state
+	// guard keeps a closed order closed, and a goods order is excluded because its
+	// deadline is the gateway quote's validity rather than a payment window.
+	ExtendOrderExpiry(ctx context.Context, arg ExtendOrderExpiryParams) (Order, error)
 	FailBackup(ctx context.Context, arg FailBackupParams) (Backup, error)
 	FailGoodsDelivery(ctx context.Context, arg FailGoodsDeliveryParams) (GoodsDelivery, error)
 	FailOperatorTopic(ctx context.Context, arg FailOperatorTopicParams) (OperatorTopic, error)
@@ -521,6 +560,13 @@ type Querier interface {
 	GetInfoPageLocalizations(ctx context.Context, pageSlug string) ([]GetInfoPageLocalizationsRow, error)
 	GetLatestBackup(ctx context.Context) (Backup, error)
 	GetLatestConsents(ctx context.Context, userID pgtype.UUID) ([]ConsentRecord, error)
+	// The entitlement a change to the subscription builds on and supersedes.
+	//
+	// A paused entitlement is included: it is the subscription's live entitlement
+	// with its clock stopped, and a change that ignored it would open a second
+	// live entitlement beside it and let a later resume hand the paused days out
+	// again. The caller measures the paused remainder from now rather than
+	// reading ends_at, which is frozen at the pause instant.
 	GetLatestEntitlementForChange(ctx context.Context, arg GetLatestEntitlementForChangeParams) (Entitlement, error)
 	GetLedgerTransactionByIdempotency(ctx context.Context, idempotencyKey string) (LedgerTransaction, error)
 	GetLoyaltyStanding(ctx context.Context, userID pgtype.UUID) (GetLoyaltyStandingRow, error)
@@ -542,6 +588,10 @@ type Querier interface {
 	GetPersonalOffer(ctx context.Context, id pgtype.UUID) (PersonalOffer, error)
 	GetPlanAdmin(ctx context.Context, id pgtype.UUID) (Plan, error)
 	GetPlanVersionForOrder(ctx context.Context, arg GetPlanVersionForOrderParams) (GetPlanVersionForOrderRow, error)
+	// The grace window the fulfillment worker adds to the paid end when it pushes
+	// an expiry to Remnawave. It is read per operation rather than copied into the
+	// desired state, so every creator of an operation agrees on it by construction.
+	GetPlanVersionGracePeriod(ctx context.Context, id pgtype.UUID) (int64, error)
 	GetPrimarySubscription(ctx context.Context, userID pgtype.UUID) (Subscription, error)
 	GetPromoForRedemption(ctx context.Context, normalizedCode string) (GetPromoForRedemptionRow, error)
 	GetPromotionAdmin(ctx context.Context, id pgtype.UUID) (Promotion, error)
@@ -790,7 +840,11 @@ type Querier interface {
 	// What an installation actually exposes: enabled tools on enabled servers whose
 	// schema this build can enforce.
 	ListEnabledMCPTools(ctx context.Context) ([]McpTool, error)
-	ListEntitlementsForReconciliation(ctx context.Context, limit int32) ([]Entitlement, error)
+	// An entitlement that ended before the horizon is history rather than state:
+	// Remnawave expired the user on its own, and the only thing a reconcile could
+	// still do is re-push an expiry that has passed or recreate a user an operator
+	// deleted on purpose. The horizon is chosen by the scheduler, not here.
+	ListEntitlementsForReconciliation(ctx context.Context, arg ListEntitlementsForReconciliationParams) ([]Entitlement, error)
 	ListExpiredBackups(ctx context.Context, limit int32) ([]Backup, error)
 	ListExpiredWalletCredits(ctx context.Context, limit int32) ([]ListExpiredWalletCreditsRow, error)
 	ListFulfillmentHistoryForOperation(ctx context.Context, operationID pgtype.UUID) ([]FulfillmentHistory, error)
@@ -863,6 +917,12 @@ type Querier interface {
 	ListOrderAddonLines(ctx context.Context, orderID pgtype.UUID) ([]OrderAddonLine, error)
 	ListOrderPaymentIntents(ctx context.Context, orderID pgtype.UUID) ([]PaymentIntent, error)
 	ListPaymentEventsForIntent(ctx context.Context, paymentIntentID pgtype.UUID) ([]PaymentEvent, error)
+	// Intents the provider may have settled without Omniflow hearing about it.
+	//
+	// A `succeeded` intent on an order that is still `pending` is included on
+	// purpose: it is a charge that was recorded without being settled, and polling
+	// it again routes it through settlement. The order predicate is what keeps a
+	// legitimately settled intent out of the batch once its order has moved on.
 	ListPaymentIntentsForReconciliation(ctx context.Context, limit int32) ([]PaymentIntent, error)
 	// Saved payment methods, auto-renew, and the dunning schedule.
 	//
@@ -930,6 +990,11 @@ type Querier interface {
 	// Every section without its secrets. This is the query the settings screens
 	// read, and it cannot return a credential because the column is not selected.
 	ListSettingSections(ctx context.Context) ([]ListSettingSectionsRow, error)
+	// Operations that should have run by now and have not: a settlement whose
+	// process could not insert the job, or a job the queue discarded after its
+	// last attempt. The worker re-inserts the job for each; River's uniqueness on
+	// the operation ID makes that a no-op when the job is merely queued.
+	ListStalledFulfillmentOperations(ctx context.Context, arg ListStalledFulfillmentOperationsParams) ([]FulfillmentOperation, error)
 	// Intents that have been in flight longer than a provider should take. The
 	// panel offers reconciliation and retry from this list; neither mutates money
 	// directly, both go through the existing idempotent payment service.
@@ -1488,6 +1553,12 @@ type Querier interface {
 	SummariseNotificationDeliveries(ctx context.Context, userID pgtype.UUID) ([]SummariseNotificationDeliveriesRow, error)
 	// Superseding is scoped to one subscription so buying a second subscription
 	// never retires the first one's entitlement.
+	//
+	// A paused entitlement is retired too, and its pause is closed in the same
+	// write: the instant is cleared, because the table refuses `superseded` next
+	// to a pause instant, and the elapsed pause is added to paused_seconds so the
+	// row still explains itself. The time the pause was preserving is not lost —
+	// the entitlement replacing this one was built on it.
 	SupersedePreviousEntitlements(ctx context.Context, arg SupersedePreviousEntitlementsParams) error
 	// The language a system notice is written in: the bot preference when the
 	// customer set one, otherwise the account language. It is resolved at write

@@ -114,6 +114,28 @@ func TestTheWholeRetryScheduleFitsInsideTheDefaultLeadTime(t *testing.T) {
 	}
 }
 
+// Every attempt on a cycle converges on one order, so that order must still be
+// payable when the last attempt runs. The lifetime is asserted against the
+// schedule it protects rather than written down as a number, so a change to
+// either one that breaks the relationship fails here.
+func TestTheCycleOrderOutlivesTheWholeDunningSchedule(t *testing.T) {
+	window := DunningWindow()
+	if window != RetryDelay(2)+RetryDelay(3)+RetryDelay(4) {
+		t.Fatalf("the dunning window must be the sum of the retry delays, got %v", window)
+	}
+	// The last attempt, plus one more deferral of a pending provider payment,
+	// must still land on a payable order.
+	lastPossible := window + RetryDelay(MaxAttempts+1)
+	if lifetime := CycleOrderLifetime(); lifetime <= lastPossible {
+		t.Fatalf("the cycle order lives %v, which does not cover a schedule that can run %v", lifetime, lastPossible)
+	}
+	// And it must still be shorter than the lead time it runs inside, or the
+	// order would outlive the period it renews.
+	if CycleOrderLifetime() >= DefaultLeadTime+CycleOrderMargin {
+		t.Fatalf("the cycle order lifetime %v runs far past the default lead time %v", CycleOrderLifetime(), DefaultLeadTime)
+	}
+}
+
 func TestScheduleNextAdvancesThenAbandons(t *testing.T) {
 	now := time.Date(2026, 8, 13, 9, 0, 0, 0, time.UTC)
 

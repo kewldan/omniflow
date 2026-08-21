@@ -112,6 +112,20 @@ func ScheduleEntitlement(now time.Time, duration time.Duration, operation, upgra
 	}
 }
 
+// ResetsTraffic reports whether settling the operation starts the customer's
+// traffic period afresh in Remnawave. An extension, a renewal, and an upgrade
+// buy a new period, so the counter restarts and a LIMITED user comes back as
+// ACTIVE. A purchase provisions a new user with nothing to reset, and a
+// downgrade keeps whatever the policy says about the current period.
+func ResetsTraffic(operation string) bool {
+	switch operation {
+	case "extension", "renewal", "upgrade":
+		return true
+	default:
+		return false
+	}
+}
+
 func (version PlanVersion) Price(currency string) (Money, error) {
 	amount, ok := version.Prices[strings.ToUpper(currency)]
 	if !ok {
@@ -239,8 +253,14 @@ func NewOrder(id, customerID string, subtotal Money, discountMinor, walletBalanc
 
 func (order Order) Transition(next OrderState) (Order, error) {
 	allowed := map[OrderState]map[OrderState]bool{
-		OrderDraft:             {OrderPending: true, OrderPaid: true, OrderCancelled: true, OrderExpired: true},
-		OrderPending:           {OrderPaid: true, OrderCancelled: true, OrderExpired: true},
+		OrderDraft:   {OrderPending: true, OrderPaid: true, OrderCancelled: true, OrderExpired: true},
+		OrderPending: {OrderPaid: true, OrderCancelled: true, OrderExpired: true},
+		// A closed order can still be paid: the provider's checkout outlives
+		// the order, and money that arrives is money the customer sent. The
+		// settlement is classified as late so nobody mistakes it for a normal
+		// sale, and the product is delivered because it was paid for.
+		OrderCancelled:         {OrderPaid: true},
+		OrderExpired:           {OrderPaid: true},
 		OrderPaid:              {OrderFulfilled: true, OrderPartiallyRefunded: true, OrderRefunded: true},
 		OrderFulfilled:         {OrderPartiallyRefunded: true, OrderRefunded: true},
 		OrderPartiallyRefunded: {OrderPartiallyRefunded: true, OrderRefunded: true},
@@ -257,25 +277,64 @@ type PaymentResult struct {
 	Late   bool
 }
 
+// Payment classifications. Every settled provider payment is classified
+// against its order, and the classification is what a support operator reads
+// instead of inferring what happened from two status values.
+const (
+	ClassificationPaid         = "paid"
+	ClassificationLate         = "late"
+	ClassificationDuplicate    = "duplicate"
+	ClassificationUnderpayment = "underpayment"
+	ClassificationOverpayment  = "overpayment"
+	ClassificationCurrency     = "currency_mismatch"
+	ClassificationWallet       = "wallet_unavailable"
+	// ClassificationPaidAfterCancellation is a matching payment that landed
+	// on an order the customer or an operator had already cancelled. It
+	// settles — the customer paid and gets what they paid for — but it is
+	// named apart from an ordinary late payment because an operator should
+	// look at it: the customer was told nothing would be charged.
+	ClassificationPaidAfterCancellation = "paid_after_cancellation"
+)
+
+// NeedsOperator reports whether a classification is one an operator has to
+// act on or at least know about: money arrived and the order did not simply
+// settle as a sale.
+func NeedsOperator(classification string) bool {
+	switch classification {
+	case ClassificationDuplicate, ClassificationUnderpayment, ClassificationOverpayment,
+		ClassificationCurrency, ClassificationWallet, ClassificationPaidAfterCancellation:
+		return true
+	default:
+		return false
+	}
+}
+
 func (order Order) ApplyPayment(payment PaymentResult) (Order, string, error) {
 	if payment.Amount.Currency != order.Subtotal.Currency {
-		return order, "currency_mismatch", ErrCurrencyMismatch
+		return order, ClassificationCurrency, ErrCurrencyMismatch
 	}
 	if order.State == OrderPaid || order.State == OrderFulfilled || order.State == OrderPartiallyRefunded || order.State == OrderRefunded {
-		return order, "duplicate", nil
+		return order, ClassificationDuplicate, nil
 	}
 	if payment.Amount.Amount < order.ExternalMinor {
-		return order, "underpayment", nil
+		return order, ClassificationUnderpayment, nil
 	}
 	order.PaidMinor = payment.Amount.Amount + order.WalletMinor
 	if payment.Amount.Amount > order.ExternalMinor {
-		return order, "overpayment", nil
+		return order, ClassificationOverpayment, nil
 	}
+	previous := order.State
 	order.State = OrderPaid
-	if payment.Late {
-		return order, "late", nil
+	switch {
+	case previous == OrderCancelled:
+		return order, ClassificationPaidAfterCancellation, nil
+	case previous == OrderExpired || payment.Late:
+		// An expired order is late by definition, whatever the caller knew
+		// about the payment window.
+		return order, ClassificationLate, nil
+	default:
+		return order, ClassificationPaid, nil
 	}
-	return order, "paid", nil
 }
 
 type LedgerEntry struct {

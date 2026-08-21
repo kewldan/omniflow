@@ -11,6 +11,7 @@ import (
 
 	telegram "github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omniflow/omniflow/internal/backup"
 	"github.com/omniflow/omniflow/internal/botapp"
@@ -18,8 +19,10 @@ import (
 	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/config"
 	"github.com/omniflow/omniflow/internal/customerauthpg"
+	"github.com/omniflow/omniflow/internal/fulfillment"
 	"github.com/omniflow/omniflow/internal/goodsdelivery"
 	apihttp "github.com/omniflow/omniflow/internal/httpapi"
+	"github.com/omniflow/omniflow/internal/jobs"
 	"github.com/omniflow/omniflow/internal/operator"
 	"github.com/omniflow/omniflow/internal/payments"
 	"github.com/omniflow/omniflow/internal/paymentservice"
@@ -269,16 +272,26 @@ func buildLimiter(valkeyURL string) (*platform.RateLimiter, error) {
 	return platform.NewRateLimiter(client), nil
 }
 
-// buildCommerce wires the checkout surface. The bot creates orders and payment
-// intents but never enqueues fulfillment itself: the worker owns provisioning,
-// and settlement writes the durable job through the outbox and River records the
-// API process already commits.
+// buildCommerce wires the checkout surface. Settlements that close inside this
+// process — a Telegram Stars payment, an order the wallet covered, a trial, a
+// claimed gift or access code — insert their fulfillment job in the same
+// transaction, exactly as the API does. The River client here only inserts;
+// the worker process is still the only one that runs jobs.
 func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.BotConfig, store *botapp.PostgresStore) (*botapp.Commerce, *pgxpool.Pool, func(), error) {
 	pool, err := platform.TracedPool(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return nil, nil, func() {}, err
 	}
-	orders := commercepg.New(pool, nil, commercepg.Options{
+	riverClient, err := jobs.NewClient(pool)
+	if err != nil {
+		pool.Close()
+		return nil, nil, func() {}, err
+	}
+	enqueue := func(ctx context.Context, tx pgx.Tx, operationID string) error {
+		_, insertErr := riverClient.InsertTx(ctx, tx, fulfillment.JobArgs{OperationID: operationID}, fulfillment.InsertOpts())
+		return insertErr
+	}
+	orders := commercepg.New(pool, enqueue, commercepg.Options{
 		Subscriptions: cfg.Subscriptions.Policy(),
 		TopUp:         cfg.TopUp.Limits(),
 		Logger:        logger,

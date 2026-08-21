@@ -93,13 +93,9 @@ func (store *Store) RedeemAccessCode(
 	}
 
 	now := store.clock().UTC()
-	var currentEndsAt *time.Time
-	if current, currentErr := queries.GetLatestEntitlementForChange(ctx,
-		dbgen.GetLatestEntitlementForChangeParams{UserID: userID, SubscriptionID: subscriptionID},
-	); currentErr == nil {
-		currentEndsAt = &current.EndsAt.Time
-	} else if !errors.Is(currentErr, pgx.ErrNoRows) {
-		return RedeemedCode{}, currentErr
+	currentEndsAt, err := store.changeBase(ctx, queries, userID, subscriptionID, now)
+	if err != nil {
+		return RedeemedCode{}, err
 	}
 	// A code extends what the customer already has rather than replacing it, for
 	// the same reason a gift does: replacing would mean a code that shortens
@@ -160,6 +156,7 @@ func (store *Store) RedeemAccessCode(
 		"trafficAllowanceBytes": nullableInt8(entitlement.TrafficAllowanceBytes),
 		"deviceLimit":           nullableInt4(entitlement.DeviceLimit),
 		"squadIds":              databaseutil.UUIDStrings(entitlement.RemnawaveSquadIds),
+		"resetTraffic":          commerce.ResetsTraffic(operation),
 	})
 	operationRow, err := queries.CreateFulfillmentOperation(ctx, dbgen.CreateFulfillmentOperationParams{
 		EntitlementID: entitlement.ID, Operation: "create",

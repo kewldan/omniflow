@@ -75,15 +75,34 @@ enqueues them.
 | Operation | What the worker calls |
 | --- | --- |
 | `create` (no known remote user) | `GET /api/users/by-username/{candidate}` for each candidate; on `404` for all, `POST /api/users/` |
-| `create` (known remote user) | `PATCH /api/users/`; a `404` falls back to the create-or-recover path |
+| `create` (known remote user) | `PATCH /api/users/`; a `404` falls back to the create-or-recover path. Then, for an existing user: `POST /api/users/{id}/actions/reset-traffic` when the operation asks for it, `POST /api/users/{id}/actions/enable` when Remnawave holds the user `DISABLED`, and a re-read |
 | `extend`, `set_limits`, `set_squads` | `PATCH /api/users/` |
 | `enable` | `POST /api/users/{id}/actions/enable`, then re-read the user |
 | `disable` | `POST /api/users/{id}/actions/disable`, then re-read |
 | `reset_traffic` | `POST /api/users/{id}/actions/reset-traffic`, then re-read |
-| `reconcile` | Compare first, then the same path as `create` |
+| `reconcile` | Compare first, then the same `PATCH` as `create`, without the reset or the enable |
 
 Anything outside that set is cancelled permanently rather than retried, because an operation the
 worker cannot perform will not become performable by waiting.
+
+Every `PATCH` and `POST /api/users/` carries both limits explicitly — `trafficLimitBytes` as `0`
+and `hwidDeviceLimit` as `null` when the plan has none — because Remnawave reads an absent field as
+"leave it as it is". Omitting them was how a move to an unlimited plan left the previous plan's cap
+on the user.
+
+### What a paid change does beyond the expiry
+
+Settlement marks the desired state of an `extension`, a `renewal`, and an `upgrade` with
+`resetTraffic`, and the worker resets the user's traffic counter once the new state is applied: the
+customer paid for a new period, and a user Remnawave holds `LIMITED` on last period's usage comes
+back `ACTIVE`. A `purchase` provisions a new user with nothing to reset; a `downgrade` keeps the
+current period's count.
+
+A `create` against a user Remnawave holds `DISABLED` re-enables it, unless the entitlement is
+`paused` — a pause is a deliberate disable whose clock Omniflow stopped, and only a resume may lift
+it. This is what makes a paid renewal of a user that expired and was then disabled actually restore
+access rather than only move its expiry. A `reconcile` does neither: it is a repair of the state the
+customer paid for, not a new purchase, and an operator's `disable` must survive it.
 
 ### The deterministic username, and recovering a remote user
 
@@ -134,11 +153,20 @@ The job runs in a `Serializable` transaction and takes `SELECT … FOR UPDATE` o
 two workers cannot apply the same operation at once. An operation already `succeeded` or `cancelled`
 commits and does nothing.
 
+An operation whose entitlement has since been `superseded` is cancelled before Remnawave is asked
+anything, with `last_error_code = "entitlement_superseded"` and a `cancelled` history row. This is
+the guard against a stale reconcile: a `reconcile` queued for the old entitlement and run after the
+renewal's `create` would otherwise push the old expiry over the new one and write `active` back
+onto a retired row. It is not a failure and notifies nobody — the work is simply no longer wanted.
+
 Each failure writes the operation back to `retrying` with the classified error code and a recorded
 next-attempt time of `5s × 2^min(attempt, 8)` — five seconds, then ten, twenty, and so on to a
 ceiling of 1280 seconds. The queue allows the job twelve attempts before it stops retrying on its
 own. The operation row keeps the status `retrying` and its last error code when that happens, which
-matters when you go looking for it — see [the dead-letter path](#the-dead-letter-path).
+matters when you go looking for it — see [the dead-letter path](#the-dead-letter-path). It is not
+abandoned: the [revival scan](#revival-of-stalled-operations) inserts a fresh job for it once it has
+sat for ten minutes past its recorded next attempt, so a Remnawave outage longer than the twelve
+attempts costs a delay rather than a manual retry.
 
 | Error code | Meaning |
 | --- | --- |
@@ -205,15 +233,48 @@ surfaces read.
   reconcile never snoozes.
 - `pending` entitlements are **not** selected. They are still waiting on their first `create`, and
   the sweep is not a substitute for it.
+- An entitlement whose `ends_at` is more than **thirty days** in the past is not selected either.
+  Remnawave expired the user on its own at the pushed expiry, and the only thing a reconcile could
+  still do is re-push a date that has passed or recreate a user an operator deleted on purpose —
+  every fifteen minutes, forever. Thirty days outlasts the grace and recovery windows, after which
+  the row is history rather than state; a customer who returns later buys a new entitlement, which
+  is provisioned by its own `create`.
 - `reconciled_at` is stamped only after a successful apply, so a permanently failing entitlement is
-  re-queued in every bucket and produces one new operation row per fifteen minutes.
+  re-queued in every bucket and produces one new operation row per fifteen minutes, until it falls
+  past the horizon.
 
-The interval and the batch size are hard-coded. There is no environment variable for either.
+The interval, the batch size, and the horizon are hard-coded. There is no environment variable for
+any of them.
 
 <Warning>
   Reconciliation and provisioning run only in the worker process. An installation running the API and
   the bot without `cmd/worker` takes payments and never provisions anything.
 </Warning>
+
+### Revival of stalled operations
+
+Every five minutes the same worker loop looks for operations that should have run and have not: rows
+in `pending` or `retrying` whose creation time and recorded `next_attempt_at` both lie more than ten
+minutes in the past. For each one it inserts a `fulfillment` job with the same arguments and the same
+uniqueness options the original settlement used.
+
+The insert is what makes the scan safe to run blindly. River enforces uniqueness on the operation
+ID across queued, scheduled, running, retryable, and completed jobs, so an operation whose job is
+merely waiting out its backoff gets nothing new; only an operation with no live job — one whose
+settling process had no job inserter, or one whose job was discarded after its twelfth attempt —
+receives one. The window is measured from the attempt the worker itself scheduled, never from the
+operation's age, so a retry at the backoff ceiling is not mistaken for an orphan.
+
+Two consequences are worth knowing:
+
+- A settlement that closes inside the bot — a Telegram Stars payment, an order the wallet covered,
+  a trial, a claimed gift or access code — inserts its job in the paying transaction exactly as the
+  API does. Should a process ever settle without one, this scan provisions the customer within about
+  fifteen minutes rather than never.
+- A run that exhausted its twelve attempts is retried again once Remnawave is back, with a fresh
+  attempt budget. An operation that keeps failing therefore keeps being retried every quarter hour or
+  so until an operator cancels it; the `fulfillment_failure` notice is deduplicated on the operation,
+  so that produces one message, not one per revival.
 
 ## Drift detection
 
@@ -228,9 +289,9 @@ rather than a silent overwrite.
 | Kind | Detected when |
 | --- | --- |
 | `missing_remote` | No known remote user, or `GET /api/users/{id}` returns `404` |
-| `expiry` | The remote expiry instant differs from the desired end |
-| `traffic` | A configured allowance differs from the remote traffic limit |
-| `device_limit` | A configured limit differs from the remote device limit, including a remote null |
+| `expiry` | The remote expiry instant differs from the desired end plus the plan's grace period — the same instant the worker pushes |
+| `traffic` | The remote traffic limit differs from the allowance, where no allowance means a remote limit of `0` |
+| `device_limit` | The remote device limit differs from the configured one, where no configured limit means a remote `null` or `0` |
 | `squads` | The remote active squad set differs from the desired set, compared order-insensitively |
 | `status` | The mapped remote status differs from the stored entitlement status |
 
@@ -346,14 +407,14 @@ The stored `request_summary` and `response_summary` are never returned by either
 for the worker and can contain a subscription link. Queue-level errors are passed through the
 redactor before leaving the process, and job arguments are summarised rather than echoed.
 
-<Warning>
-  **The panel's Retry moves the row but does not re-run it.** `POST /v1/panel/system/jobs/{id}/retry`
-  sets the operation back to `pending` and writes an audit event; nothing re-inserts a queue job, and
-  no scanner picks operations up by status. A retried operation therefore waits until the
-  fifteen-minute reconciliation sweep happens to cover that entitlement — which creates a *different*
-  operation — rather than being re-attempted itself. The retry that actually re-runs a job is
+<Note>
+  **The panel's Retry moves the row; the revival scan re-runs it.**
+  `POST /v1/panel/system/jobs/{id}/retry` sets the operation back to `pending` with a fresh
+  `next_attempt_at` and writes an audit event. It does not insert a queue job itself; the
+  [revival scan](#revival-of-stalled-operations) does that once the row has sat for ten minutes, so
+  expect the re-attempt within about fifteen minutes. The retry that re-runs a job immediately is
   `POST /v1/admin/jobs/{jobID}/retry` on the operator-token surface.
-</Warning>
+</Note>
 
 ## The queue schema
 
@@ -388,7 +449,8 @@ Metrics are emitted as `omniflow_jobs_total{kind="fulfillment",outcome}` and
 | `APP_RETENTION_DRIFT_DAYS` | `90` | How long resolved drift rows are kept |
 
 Everything else in this page is fixed in code: the reconciliation interval (15 minutes), its batch
-size (500), the queue's attempt ceiling (12), the backoff ceiling (1280 seconds), the operator-alert
+size (500), its horizon (30 days past the end), the revival scan's interval (5 minutes) and stale
+window (10 minutes), the queue's attempt ceiling (12), the backoff ceiling (1280 seconds), the operator-alert
 threshold (3 attempts), the maintenance snooze (1 minute), the Remnawave request timeout (10 seconds),
 and the 1 MiB cap on a Remnawave response body. None of them is exposed as an environment variable.
 

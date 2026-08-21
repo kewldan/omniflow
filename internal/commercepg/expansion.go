@@ -193,6 +193,8 @@ type TopUpInput struct {
 	AmountMinor    int64
 	IdempotencyKey string
 	ExpiresAt      time.Time
+	// Provider, when known at order time, sets the payment window.
+	Provider string
 }
 
 // CreateTopUpOrder records a wallet top-up as an ordinary order so the whole
@@ -227,10 +229,7 @@ func (store *Store) CreateTopUpOrder(ctx context.Context, input TopUpInput) (dbg
 	if reason, validateErr := store.options.TopUp.Validate(input.AmountMinor, credited); validateErr != nil {
 		return dbgen.Order{}, fmt.Errorf("%w: %s", validateErr, reason)
 	}
-	expiresAt := input.ExpiresAt
-	if expiresAt.IsZero() {
-		expiresAt = store.clock().Add(time.Hour)
-	}
+	expiresAt := store.paymentDeadline(input.ExpiresAt, input.Provider)
 	order, err := queries.CreateOrder(ctx, dbgen.CreateOrderParams{
 		UserID: userID, State: string(commerce.OrderPending), Operation: "topup",
 		Currency: input.Currency, SubtotalMinor: input.AmountMinor, DiscountMinor: 0,
@@ -356,7 +355,9 @@ type AddonOrderInput struct {
 	Addons         []AddonSelection
 	IdempotencyKey string
 	ExpiresAt      time.Time
-	SkipWallet     bool
+	// Provider, when known at order time, sets the payment window.
+	Provider   string
+	SkipWallet bool
 }
 
 // CreateAddonOrder prices and records a mid-period add-on purchase. Prices come
@@ -403,6 +404,13 @@ func (store *Store) CreateAddonOrder(ctx context.Context, input AddonOrderInput)
 	if err != nil {
 		return dbgen.Order{}, err
 	}
+	// An add-on is priced against the time the current period has left, and a
+	// paused entitlement's clock is stopped with its end frozen in the past:
+	// there is no remaining period to price against. It is refused as having
+	// nothing live to attach to, rather than charged the full price.
+	if entitlement.Status == "paused" {
+		return dbgen.Order{}, ErrNoActiveSubscription
+	}
 	if !subscriptionID.Valid {
 		subscriptionID = entitlement.SubscriptionID
 	}
@@ -424,10 +432,7 @@ func (store *Store) CreateAddonOrder(ctx context.Context, input AddonOrderInput)
 	if domainOrder.ExternalMinor == 0 {
 		state = string(commerce.OrderPaid)
 	}
-	expiresAt := input.ExpiresAt
-	if expiresAt.IsZero() {
-		expiresAt = store.clock().Add(time.Hour)
-	}
+	expiresAt := store.paymentDeadline(input.ExpiresAt, input.Provider)
 	order, err := queries.CreateOrder(ctx, dbgen.CreateOrderParams{
 		UserID: userID, State: state, Operation: "addon", Currency: input.Currency,
 		SubtotalMinor: subtotal, DiscountMinor: 0, WalletMinor: domainOrder.WalletMinor,

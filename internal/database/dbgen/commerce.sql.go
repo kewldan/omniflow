@@ -251,6 +251,7 @@ SELECT
        >= COALESCE(($1::jsonb ->> 'minimumCompletedOrders')::integer, 0) AS eligible
 FROM users u
 LEFT JOIN orders o ON o.user_id = u.id
+  AND o.operation IN ('purchase','extension','renewal','upgrade','downgrade')
 WHERE u.id = $2
 GROUP BY u.id
 `
@@ -260,6 +261,11 @@ type CheckPromotionCustomerEligibilityParams struct {
 	UserID      pgtype.UUID `json:"user_id"`
 }
 
+// A "new customer" is one who has never settled a subscription order. A
+// wallet top-up, a shop purchase, a gift bought for somebody else, or a code
+// a distributor paid for is not the purchase a welcome offer is about, so the
+// completed-order counts look at subscription operations only — the same
+// predicate referral qualification uses.
 func (q *Queries) CheckPromotionCustomerEligibility(ctx context.Context, arg CheckPromotionCustomerEligibilityParams) (pgtype.Bool, error) {
 	row := q.db.QueryRow(ctx, checkPromotionCustomerEligibility, arg.Eligibility, arg.UserID)
 	var eligible pgtype.Bool
@@ -302,10 +308,12 @@ func (q *Queries) CompleteWebhookEvent(ctx context.Context, arg CompleteWebhookE
 
 const countPromoRedemptions = `-- name: CountPromoRedemptions :one
 SELECT count(*)::integer AS total_count,
-       count(*) FILTER (WHERE user_id = $1)::integer AS customer_count,
-       count(*) FILTER (WHERE promo_code_id = $2)::integer AS code_count
-FROM promo_redemptions
-WHERE promotion_id = $3
+       count(*) FILTER (WHERE r.user_id = $1)::integer AS customer_count,
+       count(*) FILTER (WHERE r.promo_code_id = $2)::integer AS code_count
+FROM promo_redemptions r
+JOIN orders o ON o.id = r.order_id
+WHERE r.promotion_id = $3
+  AND o.state NOT IN ('cancelled', 'expired')
 `
 
 type CountPromoRedemptionsParams struct {
@@ -320,6 +328,11 @@ type CountPromoRedemptionsRow struct {
 	CodeCount     int32 `json:"code_count"`
 }
 
+// A redemption is written when the order is created, before any money moves,
+// so a redemption whose order closed unpaid — cancelled by the customer or
+// expired by the sweep — is a redemption that never happened and does not
+// count against any limit. A live pending order still counts: it is what
+// stops two parallel checkouts from both passing a limit of one.
 func (q *Queries) CountPromoRedemptions(ctx context.Context, arg CountPromoRedemptionsParams) (CountPromoRedemptionsRow, error) {
 	row := q.db.QueryRow(ctx, countPromoRedemptions, arg.UserID, arg.PromoCodeID, arg.PromotionID)
 	var i CountPromoRedemptionsRow
@@ -545,9 +558,13 @@ const createOrder = `-- name: CreateOrder :one
 INSERT INTO orders (
   user_id, state, operation, currency, subtotal_minor, discount_minor,
   wallet_minor, external_minor, idempotency_key, expires_at,
-  subscription_id, selected_squad_ids
+  subscription_id, selected_squad_ids, paid_minor, paid_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+VALUES (
+  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+  CASE WHEN $2::text = 'paid' THEN $7::bigint ELSE 0 END,
+  CASE WHEN $2::text = 'paid' THEN now() ELSE NULL END
+)
 ON CONFLICT (user_id, idempotency_key) DO UPDATE SET idempotency_key = EXCLUDED.idempotency_key
 RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at
 `
@@ -567,6 +584,11 @@ type CreateOrderParams struct {
 	SelectedSquadIds []pgtype.UUID      `json:"selected_squad_ids"`
 }
 
+// An order the wallet covers in full is born paid, and it is paid by the
+// wallet amount at the instant it is created. Writing paid_minor and paid_at
+// here rather than leaving them for the worker's `fulfilled` transition is
+// what lets reporting place the sale in the period it happened and lets
+// referral qualification read the settled amount inside the same transaction.
 func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error) {
 	row := q.db.QueryRow(ctx, createOrder,
 		arg.UserID,
@@ -964,6 +986,48 @@ func (q *Queries) ExpirePendingOrders(ctx context.Context) ([]Order, error) {
 	return items, nil
 }
 
+const extendOrderExpiry = `-- name: ExtendOrderExpiry :one
+UPDATE orders
+SET expires_at = GREATEST(expires_at, $1::timestamptz), updated_at = now()
+WHERE id = $2 AND state = 'pending' AND operation <> 'goods'
+RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at
+`
+
+type ExtendOrderExpiryParams struct {
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	OrderID   pgtype.UUID        `json:"order_id"`
+}
+
+// Lengthens a pending order's payment window for a provider chosen after the
+// order was created. GREATEST keeps it from ever shortening one, the state
+// guard keeps a closed order closed, and a goods order is excluded because its
+// deadline is the gateway quote's validity rather than a payment window.
+func (q *Queries) ExtendOrderExpiry(ctx context.Context, arg ExtendOrderExpiryParams) (Order, error) {
+	row := q.db.QueryRow(ctx, extendOrderExpiry, arg.ExpiresAt, arg.OrderID)
+	var i Order
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.State,
+		&i.Operation,
+		&i.Currency,
+		&i.SubtotalMinor,
+		&i.DiscountMinor,
+		&i.WalletMinor,
+		&i.ExternalMinor,
+		&i.PaidMinor,
+		&i.RefundedMinor,
+		&i.IdempotencyKey,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SubscriptionID,
+		&i.SelectedSquadIds,
+		&i.PaidAt,
+	)
+	return i, err
+}
+
 const getAvailableWalletBalance = `-- name: GetAvailableWalletBalance :one
 SELECT GREATEST(
   COALESCE((SELECT sum(wallet_entry.amount_minor)
@@ -1128,7 +1192,7 @@ const getLatestEntitlementForChange = `-- name: GetLatestEntitlementForChange :o
 SELECT id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id, paused_at, paused_seconds FROM entitlements
 WHERE user_id = $1
   AND ($2::uuid IS NULL OR subscription_id = $2::uuid)
-  AND status IN ('pending', 'active', 'limited', 'disabled')
+  AND status IN ('pending', 'active', 'limited', 'disabled', 'paused')
 ORDER BY ends_at DESC
 LIMIT 1
 FOR UPDATE
@@ -1139,6 +1203,13 @@ type GetLatestEntitlementForChangeParams struct {
 	SubscriptionID pgtype.UUID `json:"subscription_id"`
 }
 
+// The entitlement a change to the subscription builds on and supersedes.
+//
+// A paused entitlement is included: it is the subscription's live entitlement
+// with its clock stopped, and a change that ignored it would open a second
+// live entitlement beside it and let a later resume hand the paused days out
+// again. The caller measures the paused remainder from now rather than
+// reading ends_at, which is frozen at the pause instant.
 func (q *Queries) GetLatestEntitlementForChange(ctx context.Context, arg GetLatestEntitlementForChangeParams) (Entitlement, error) {
 	row := q.db.QueryRow(ctx, getLatestEntitlementForChange, arg.UserID, arg.SubscriptionID)
 	var i Entitlement
@@ -1471,6 +1542,20 @@ func (q *Queries) GetPlanVersionForOrder(ctx context.Context, arg GetPlanVersion
 		&i.AmountMinor,
 	)
 	return i, err
+}
+
+const getPlanVersionGracePeriod = `-- name: GetPlanVersionGracePeriod :one
+SELECT grace_period_seconds FROM plan_versions WHERE id = $1
+`
+
+// The grace window the fulfillment worker adds to the paid end when it pushes
+// an expiry to Remnawave. It is read per operation rather than copied into the
+// desired state, so every creator of an operation agrees on it by construction.
+func (q *Queries) GetPlanVersionGracePeriod(ctx context.Context, id pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, getPlanVersionGracePeriod, id)
+	var grace_period_seconds int64
+	err := row.Scan(&grace_period_seconds)
+	return grace_period_seconds, err
 }
 
 const getPromoForRedemption = `-- name: GetPromoForRedemption :one
@@ -2278,13 +2363,23 @@ func (q *Queries) ListCustomerImportTelegramIDs(ctx context.Context, importID pg
 const listEntitlementsForReconciliation = `-- name: ListEntitlementsForReconciliation :many
 SELECT id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id, paused_at, paused_seconds FROM entitlements
 WHERE status IN ('active', 'limited', 'disabled', 'expired')
+  AND ends_at >= $1::timestamptz
   AND (reconciled_at IS NULL OR reconciled_at < now() - interval '15 minutes')
 ORDER BY reconciled_at NULLS FIRST
-LIMIT $1
+LIMIT $2
 `
 
-func (q *Queries) ListEntitlementsForReconciliation(ctx context.Context, limit int32) ([]Entitlement, error) {
-	rows, err := q.db.Query(ctx, listEntitlementsForReconciliation, limit)
+type ListEntitlementsForReconciliationParams struct {
+	EndedAfter pgtype.Timestamptz `json:"ended_after"`
+	PageSize   int32              `json:"page_size"`
+}
+
+// An entitlement that ended before the horizon is history rather than state:
+// Remnawave expired the user on its own, and the only thing a reconcile could
+// still do is re-push an expiry that has passed or recreate a user an operator
+// deleted on purpose. The horizon is chosen by the scheduler, not here.
+func (q *Queries) ListEntitlementsForReconciliation(ctx context.Context, arg ListEntitlementsForReconciliationParams) ([]Entitlement, error) {
+	rows, err := q.db.Query(ctx, listEntitlementsForReconciliation, arg.EndedAfter, arg.PageSize)
 	if err != nil {
 		return nil, err
 	}
@@ -2461,13 +2556,25 @@ func (q *Queries) ListOpenEntitlementDrifts(ctx context.Context, limit int32) ([
 }
 
 const listPaymentIntentsForReconciliation = `-- name: ListPaymentIntentsForReconciliation :many
-SELECT id, order_id, provider, status, amount_minor, currency, provider_reference, checkout_url, idempotency_key, capabilities, receipt_metadata, created_at, updated_at FROM payment_intents
-WHERE status IN ('pending','processing') AND provider IN ('cryptobot','yookassa')
-  AND provider_reference IS NOT NULL AND updated_at < now() - interval '1 minute'
-ORDER BY updated_at
+SELECT pi.id, pi.order_id, pi.provider, pi.status, pi.amount_minor, pi.currency, pi.provider_reference, pi.checkout_url, pi.idempotency_key, pi.capabilities, pi.receipt_metadata, pi.created_at, pi.updated_at FROM payment_intents pi
+WHERE pi.provider IN ('cryptobot','yookassa')
+  AND pi.provider_reference IS NOT NULL AND pi.updated_at < now() - interval '1 minute'
+  AND (
+    pi.status IN ('pending','processing')
+    OR (pi.status = 'succeeded' AND EXISTS (
+      SELECT 1 FROM orders o WHERE o.id = pi.order_id AND o.state = 'pending'
+    ))
+  )
+ORDER BY pi.updated_at
 LIMIT $1
 `
 
+// Intents the provider may have settled without Omniflow hearing about it.
+//
+// A `succeeded` intent on an order that is still `pending` is included on
+// purpose: it is a charge that was recorded without being settled, and polling
+// it again routes it through settlement. The order predicate is what keeps a
+// legitimately settled intent out of the batch once its order has moved on.
 func (q *Queries) ListPaymentIntentsForReconciliation(ctx context.Context, limit int32) ([]PaymentIntent, error) {
 	rows, err := q.db.Query(ctx, listPaymentIntentsForReconciliation, limit)
 	if err != nil {
@@ -2521,6 +2628,58 @@ func (q *Queries) ListRemnawaveMappings(ctx context.Context) ([]ListRemnawaveMap
 	for rows.Next() {
 		var i ListRemnawaveMappingsRow
 		if err := rows.Scan(&i.RemnawaveID, &i.TelegramID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStalledFulfillmentOperations = `-- name: ListStalledFulfillmentOperations :many
+SELECT id, entitlement_id, operation, status, idempotency_key, correlation_id, desired_state, attempt_count, next_attempt_at, last_error_code, created_at, updated_at, completed_at FROM fulfillment_operations
+WHERE status IN ('pending', 'retrying')
+  AND next_attempt_at < $1::timestamptz
+  AND created_at < $1::timestamptz
+ORDER BY next_attempt_at
+LIMIT $2
+`
+
+type ListStalledFulfillmentOperationsParams struct {
+	Before   pgtype.Timestamptz `json:"before"`
+	PageSize int32              `json:"page_size"`
+}
+
+// Operations that should have run by now and have not: a settlement whose
+// process could not insert the job, or a job the queue discarded after its
+// last attempt. The worker re-inserts the job for each; River's uniqueness on
+// the operation ID makes that a no-op when the job is merely queued.
+func (q *Queries) ListStalledFulfillmentOperations(ctx context.Context, arg ListStalledFulfillmentOperationsParams) ([]FulfillmentOperation, error) {
+	rows, err := q.db.Query(ctx, listStalledFulfillmentOperations, arg.Before, arg.PageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FulfillmentOperation{}
+	for rows.Next() {
+		var i FulfillmentOperation
+		if err := rows.Scan(
+			&i.ID,
+			&i.EntitlementID,
+			&i.Operation,
+			&i.Status,
+			&i.IdempotencyKey,
+			&i.CorrelationID,
+			&i.DesiredState,
+			&i.AttemptCount,
+			&i.NextAttemptAt,
+			&i.LastErrorCode,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CompletedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -2909,11 +3068,17 @@ func (q *Queries) SetPlanVisibility(ctx context.Context, arg SetPlanVisibilityPa
 
 const supersedePreviousEntitlements = `-- name: SupersedePreviousEntitlements :exec
 UPDATE entitlements
-SET status = 'superseded', updated_at = now()
+SET status = 'superseded',
+    paused_seconds = paused_seconds + CASE
+      WHEN paused_at IS NOT NULL THEN GREATEST(0, extract(epoch FROM (now() - paused_at))::bigint)
+      ELSE 0
+    END,
+    paused_at = NULL,
+    updated_at = now()
 WHERE user_id = $1
   AND id <> $2
   AND subscription_id IS NOT DISTINCT FROM $3::uuid
-  AND status IN ('pending', 'active', 'limited', 'disabled')
+  AND status IN ('pending', 'active', 'limited', 'disabled', 'paused')
 `
 
 type SupersedePreviousEntitlementsParams struct {
@@ -2924,6 +3089,12 @@ type SupersedePreviousEntitlementsParams struct {
 
 // Superseding is scoped to one subscription so buying a second subscription
 // never retires the first one's entitlement.
+//
+// A paused entitlement is retired too, and its pause is closed in the same
+// write: the instant is cleared, because the table refuses `superseded` next
+// to a pause instant, and the elapsed pause is added to paused_seconds so the
+// row still explains itself. The time the pause was preserving is not lost —
+// the entitlement replacing this one was built on it.
 func (q *Queries) SupersedePreviousEntitlements(ctx context.Context, arg SupersedePreviousEntitlementsParams) error {
 	_, err := q.db.Exec(ctx, supersedePreviousEntitlements, arg.UserID, arg.CurrentEntitlementID, arg.SubscriptionID)
 	return err

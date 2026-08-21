@@ -43,12 +43,38 @@ type Importer interface {
 	ListUsers(context.Context, int, int) ([]User, int, error)
 }
 
+// ProvisionUser is the desired state pushed to Remnawave for one user.
+//
+// The two limits are always on the wire. Remnawave treats `trafficLimitBytes:
+// 0` as unlimited and `hwidDeviceLimit: null` as unlimited, and an absent
+// field as "leave it as it is" — which is how a plan with no limit used to
+// keep the previous plan's limit after a renewal. A nil limit here therefore
+// encodes as the explicit unlimited value rather than being omitted.
 type ProvisionUser struct {
+	Username          string
+	ExpireAt          time.Time
+	TrafficLimitBytes *int64
+	HWIDDeviceLimit   *int
+	InternalSquadIDs  []string
+}
+
+// provisionWire is the request body Remnawave receives. The limits carry no
+// omitempty on purpose: see ProvisionUser.
+type provisionWire struct {
+	ID                *int64    `json:"id,omitempty"`
 	Username          string    `json:"username"`
 	ExpireAt          time.Time `json:"expireAt"`
-	TrafficLimitBytes *int64    `json:"trafficLimitBytes,omitempty"`
-	HWIDDeviceLimit   *int      `json:"hwidDeviceLimit,omitempty"`
+	TrafficLimitBytes int64     `json:"trafficLimitBytes"`
+	HWIDDeviceLimit   *int      `json:"hwidDeviceLimit"`
 	InternalSquadIDs  []string  `json:"activeInternalSquads,omitempty"`
+}
+
+func (desired ProvisionUser) wire(userID *int64) provisionWire {
+	encoded := provisionWire{ID: userID, Username: desired.Username, ExpireAt: desired.ExpireAt, HWIDDeviceLimit: desired.HWIDDeviceLimit, InternalSquadIDs: desired.InternalSquadIDs}
+	if desired.TrafficLimitBytes != nil {
+		encoded.TrafficLimitBytes = *desired.TrafficLimitBytes
+	}
+	return encoded
 }
 
 type InternalSquad struct {
@@ -198,19 +224,15 @@ func (client *Client) CreateUser(ctx context.Context, desired ProvisionUser) (Us
 	var envelope struct {
 		Response User `json:"response"`
 	}
-	err := client.do(ctx, http.MethodPost, "/api/users/", desired, &envelope)
+	err := client.do(ctx, http.MethodPost, "/api/users/", desired.wire(nil), &envelope)
 	return envelope.Response, err
 }
 
 func (client *Client) UpdateUser(ctx context.Context, userID int64, desired ProvisionUser) (User, error) {
-	body := struct {
-		ID int64 `json:"id"`
-		ProvisionUser
-	}{ID: userID, ProvisionUser: desired}
 	var envelope struct {
 		Response User `json:"response"`
 	}
-	err := client.do(ctx, http.MethodPatch, "/api/users/", body, &envelope)
+	err := client.do(ctx, http.MethodPatch, "/api/users/", desired.wire(&userID), &envelope)
 	return envelope.Response, err
 }
 

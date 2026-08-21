@@ -160,6 +160,30 @@ func (provider *CryptoBot) Refund(context.Context, RefundRequest) (Refund, error
 	return Refund{}, ErrUnsupported
 }
 
+// CancelIntent deletes an unpaid invoice through `deleteInvoice`, so the
+// checkout link the customer was given stops accepting money. Crypto Pay
+// answers `ok: false` for an invoice that no longer exists, which is the
+// outcome this call wants; a paid invoice cannot be deleted and is left for
+// the webhook or the reconciler to settle as late.
+func (provider *CryptoBot) CancelIntent(ctx context.Context, reference string) error {
+	var envelope struct {
+		OK    bool `json:"ok"`
+		Error struct {
+			Code int    `json:"code"`
+			Name string `json:"name"`
+		} `json:"error"`
+	}
+	// Crypto Pay reports a missing invoice as HTTP 400 with a named error, so
+	// the error body has to be read rather than discarded.
+	if err := provider.callDecodingErrors(ctx, "deleteInvoice", url.Values{"invoice_id": {reference}}, &envelope); err != nil {
+		return err
+	}
+	if envelope.OK || envelope.Error.Name == "INVOICE_NOT_FOUND" {
+		return nil
+	}
+	return fmt.Errorf("%w: deleteInvoice %s", ErrProviderResponse, envelope.Error.Name)
+}
+
 func (provider *CryptoBot) VerifyWebhook(headers http.Header, body []byte) (WebhookEvent, error) {
 	provided, err := hex.DecodeString(headers.Get("crypto-pay-api-signature"))
 	if err != nil {
@@ -198,6 +222,16 @@ func (provider *CryptoBot) VerifyWebhook(headers http.Header, body []byte) (Webh
 }
 
 func (provider *CryptoBot) call(ctx context.Context, method string, form url.Values, target any) error {
+	return provider.post(ctx, method, form, target, false)
+}
+
+// callDecodingErrors is call for the methods whose error body carries the
+// answer: a 4xx is decoded into the target instead of being rejected.
+func (provider *CryptoBot) callDecodingErrors(ctx context.Context, method string, form url.Values, target any) error {
+	return provider.post(ctx, method, form, target, true)
+}
+
+func (provider *CryptoBot) post(ctx context.Context, method string, form url.Values, target any, decodeClientErrors bool) error {
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, provider.baseURL+"/"+method, strings.NewReader(form.Encode()))
 	if err != nil {
 		return err
@@ -209,7 +243,10 @@ func (provider *CryptoBot) call(ctx context.Context, method string, form url.Val
 		return fmt.Errorf("call CryptoBot: %w", err)
 	}
 	defer response.Body.Close()
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
+	ok := response.StatusCode >= 200 && response.StatusCode < 300
+	clientError := response.StatusCode >= 400 && response.StatusCode < 500
+	if !ok && !(decodeClientErrors && clientError) {
+		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, maxProviderBody))
 		return fmt.Errorf("%w: HTTP %d", ErrProviderResponse, response.StatusCode)
 	}
 	return json.NewDecoder(io.LimitReader(response.Body, maxProviderBody)).Decode(target)
