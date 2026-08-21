@@ -129,17 +129,60 @@ func (notifier *Notifier) RunOnce(ctx context.Context) {
 	notifier.deliverTests(ctx)
 	notifier.deliverDunning(ctx)
 	notifier.deliverCampaigns(ctx)
-	candidates, err := notifier.store.notificationCandidates(ctx, notifier.settings.MarketingWindow)
+	notifier.deliverNews(ctx)
+	// Every reachable customer is visited, one page at a time. The page is what
+	// bounds memory; the walk is what makes the pass reach the customer whose
+	// identifier sorts last, which a single bounded read never did.
+	err := walkCandidatePages(ctx, notificationBatch, func(ctx context.Context, after string, limit int) ([]notificationCandidate, error) {
+		return notifier.store.notificationCandidates(ctx, notifier.settings.MarketingWindow, after, limit)
+	}, func(candidate notificationCandidate) bool {
+		notifier.deliverLifecycle(ctx, candidate)
+		return ctx.Err() == nil
+	})
 	if err != nil {
 		notifier.logger.Error("notification candidate lookup failed", "error", err)
-		return
 	}
-	notifier.deliverNews(ctx, candidates)
-	for _, candidate := range candidates {
+}
+
+// walkCandidatePages reads every candidate in identifier order, a page at a
+// time, and hands each one to visit until visit declines to continue or a page
+// comes back short.
+//
+// The cursor is the last identifier of the previous page rather than an
+// offset, so a customer who appears or disappears mid-pass shifts nothing for
+// the customers after them. Memory is bounded by one page whatever the size of
+// the installation.
+func walkCandidatePages(
+	ctx context.Context, batch int,
+	page func(ctx context.Context, after string, limit int) ([]notificationCandidate, error),
+	visit func(candidate notificationCandidate) bool,
+) error {
+	if batch <= 0 {
+		batch = notificationBatch
+	}
+	after := ""
+	for {
 		if ctx.Err() != nil {
-			return
+			return nil
 		}
-		notifier.deliverLifecycle(ctx, candidate)
+		candidates, err := page(ctx, after, batch)
+		if err != nil {
+			return err
+		}
+		for _, candidate := range candidates {
+			if !visit(candidate) {
+				return nil
+			}
+		}
+		if len(candidates) < batch {
+			return nil
+		}
+		last := candidates[len(candidates)-1].UserID
+		if last == "" || last == after {
+			// A page that cannot move the cursor would be read forever.
+			return nil
+		}
+		after = last
 	}
 }
 
@@ -308,21 +351,20 @@ func (notifier *Notifier) deliverCampaigns(ctx context.Context) {
 	if len(messages) == 0 {
 		return
 	}
-	candidates, err := notifier.store.notificationCandidates(ctx, notifier.settings.MarketingWindow)
-	if err != nil {
-		notifier.logger.Error("notification candidate lookup failed", "error", err)
-		return
-	}
-	byCustomer := make(map[string]notificationCandidate, len(candidates))
-	for _, candidate := range candidates {
-		byCustomer[candidate.UserID] = candidate
-	}
+	// Recipients are resolved one at a time rather than through a snapshot of
+	// every reachable customer: the batch is already bounded, and a snapshot
+	// bounded to the same size would silently miss whoever sorted past it.
+	lookup := notifier.candidateLookup()
 
 	for _, message := range messages {
 		if ctx.Err() != nil {
 			return
 		}
-		candidate, known := byCustomer[message.CustomerID]
+		candidate, known, err := lookup(ctx, message.CustomerID)
+		if err != nil {
+			notifier.logger.Error("notification candidate lookup failed", "error", err)
+			return
+		}
 		if !known {
 			// The customer is no longer reachable through Telegram at all.
 			notifier.resolveCampaign(ctx, message, "suppressed", "no_telegram", "")
@@ -428,7 +470,7 @@ func (notifier *Notifier) deliverDunning(ctx context.Context) {
 	}
 }
 
-func (notifier *Notifier) deliverNews(ctx context.Context, candidates []notificationCandidate) {
+func (notifier *Notifier) deliverNews(ctx context.Context) {
 	announcements, err := notifier.store.PendingNewsAnnouncements(ctx, 7*24*time.Hour, notificationBatch)
 	if err != nil {
 		notifier.logger.Error("news announcement lookup failed", "error", err)
@@ -437,13 +479,17 @@ func (notifier *Notifier) deliverNews(ctx context.Context, candidates []notifica
 	if len(announcements) == 0 {
 		return
 	}
-	byCustomer := make(map[string]notificationCandidate, len(candidates))
-	for _, candidate := range candidates {
-		byCustomer[candidate.UserID] = candidate
-	}
+	lookup := notifier.candidateLookup()
 	for _, announcement := range announcements {
-		candidate, found := byCustomer[announcement.CustomerID]
-		if !found || ctx.Err() != nil {
+		if ctx.Err() != nil {
+			return
+		}
+		candidate, found, lookupErr := lookup(ctx, announcement.CustomerID)
+		if lookupErr != nil {
+			notifier.logger.Error("notification candidate lookup failed", "error", lookupErr)
+			return
+		}
+		if !found {
 			continue
 		}
 		locale := localeFrom(announcement.Locale)
@@ -508,10 +554,68 @@ const telegramRecipients = `WITH recipient AS (
 	SELECT r.user_id, r.telegram_id FROM remnawave_users r WHERE r.telegram_id IS NOT NULL
 )`
 
-func (store *PostgresStore) notificationCandidates(ctx context.Context, marketingWindow time.Duration) ([]notificationCandidate, error) {
+// candidateLookup resolves one customer at a time, remembering what it has
+// already resolved so a batch that names the same customer twice costs one
+// query. The cache lives for one pass and is dropped with it.
+func (notifier *Notifier) candidateLookup() func(ctx context.Context, userID string) (notificationCandidate, bool, error) {
+	type resolved struct {
+		candidate notificationCandidate
+		found     bool
+	}
+	cache := map[string]resolved{}
+	return func(ctx context.Context, userID string) (notificationCandidate, bool, error) {
+		if entry, seen := cache[userID]; seen {
+			return entry.candidate, entry.found, nil
+		}
+		candidate, found, err := notifier.store.notificationCandidate(ctx, notifier.settings.MarketingWindow, userID)
+		if err != nil {
+			return notificationCandidate{}, false, err
+		}
+		cache[userID] = resolved{candidate: candidate, found: found}
+		return candidate, found, nil
+	}
+}
+
+// notificationCandidate resolves a single customer, or reports that they are
+// not reachable through Telegram at all.
+func (store *PostgresStore) notificationCandidate(ctx context.Context, marketingWindow time.Duration, userID string) (notificationCandidate, bool, error) {
+	candidates, err := store.candidateRows(ctx, marketingWindow, "", userID, 1)
+	if err != nil || len(candidates) == 0 {
+		return notificationCandidate{}, false, err
+	}
+	return candidates[0], true, nil
+}
+
+// notificationCandidates reads one page of reachable customers in identifier
+// order, starting after the given identifier. An empty cursor starts at the
+// beginning; a page shorter than the limit is the last one.
+func (store *PostgresStore) notificationCandidates(ctx context.Context, marketingWindow time.Duration, after string, limit int) ([]notificationCandidate, error) {
+	if limit <= 0 {
+		limit = notificationBatch
+	}
+	return store.candidateRows(ctx, marketingWindow, after, "", limit)
+}
+
+func (store *PostgresStore) candidateRows(ctx context.Context, marketingWindow time.Duration, after, only string, limit int) ([]notificationCandidate, error) {
 	if marketingWindow <= 0 {
 		marketingWindow = 7 * 24 * time.Hour
 	}
+	var cursor, single pgtype.UUID
+	if after != "" {
+		if err := cursor.Scan(after); err != nil {
+			return nil, err
+		}
+	}
+	if only != "" {
+		if err := single.Scan(only); err != nil {
+			// An identifier that is not a UUID names nobody, which is a fact
+			// about the caller's input rather than a database failure.
+			return []notificationCandidate{}, nil
+		}
+	}
+	// DISTINCT ON with the matching ORDER BY collapses a customer who is reachable
+	// through both the canonical identity and the v0.2 mapping into one row, and
+	// the identifier order is what makes the keyset cursor sound.
 	rows, err := store.pool.Query(ctx, telegramRecipients+`
 		SELECT DISTINCT ON (u.id) u.id::text, recipient.telegram_id, COALESCE(r.remnawave_id, 0),
 		CASE WHEN COALESCE(p.locale, 'auto') = 'auto' THEN u.locale ELSE p.locale END,
@@ -529,12 +633,15 @@ func (store *PostgresStore) notificationCandidates(ctx context.Context, marketin
 		LEFT JOIN bot_delivery_state d ON d.user_id = u.id
 		WHERE u.status = 'active'
 		  AND COALESCE(d.status, 'active') NOT IN ('blocked', 'deactivated')
-		LIMIT $2`, marketingWindow, notificationBatch)
+		  AND ($2::uuid IS NULL OR u.id > $2::uuid)
+		  AND ($3::uuid IS NULL OR u.id = $3::uuid)
+		ORDER BY u.id
+		LIMIT $4`, marketingWindow, cursor, single, limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	candidates := make([]notificationCandidate, 0, notificationBatch)
+	candidates := make([]notificationCandidate, 0, limit)
 	for rows.Next() {
 		var candidate notificationCandidate
 		if err := rows.Scan(&candidate.UserID, &candidate.TelegramID, &candidate.RemnawaveID, &candidate.Locale,

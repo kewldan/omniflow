@@ -14,9 +14,12 @@ recognise rather than defaulting to "send". Adding a notification without
 deciding whether it is transactional or marketing is therefore impossible: the
 new kind would simply never be delivered, which is a visible failure rather than
 a silent disclosure. Delivery itself runs in the bot process once every 15
-minutes; each stage of a pass — support replies, dunning notices, campaign
-recipients, announcements, and lifecycle candidates — is bounded to 200 items, so
-a large installation degrades in throughput rather than in latency for everyone.
+minutes. The queued stages of a pass — dunning notices, campaign recipients, and
+announcements — each take up to 200 items per pass, so a large installation
+degrades in throughput rather than in latency for everyone. The lifecycle stage
+is different: it walks **every** reachable customer in identifier order, 200 at
+a time, until the last page comes back short, so the customer whose identifier
+sorts last receives their expiry warning in the same pass as the first.
 
 ## The two classes
 
