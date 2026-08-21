@@ -211,6 +211,27 @@ func (q *Queries) RenameAccountSubscription(ctx context.Context, arg RenameAccou
 	return i, err
 }
 
+const setBotPreferenceLocale = `-- name: SetBotPreferenceLocale :exec
+INSERT INTO bot_preferences (user_id, locale)
+VALUES ($1, $2)
+ON CONFLICT (user_id) DO UPDATE
+SET locale = EXCLUDED.locale, updated_at = now()
+`
+
+type SetBotPreferenceLocaleParams struct {
+	UserID pgtype.UUID `json:"user_id"`
+	Locale string      `json:"locale"`
+}
+
+// The bot reads bot_preferences.locale before it reads users.locale, so a
+// language chosen on the profile screen is written here too; otherwise the
+// profile claimed to set the bot's language and did not. An upsert, because a
+// customer the web created before this row existed has none yet.
+func (q *Queries) SetBotPreferenceLocale(ctx context.Context, arg SetBotPreferenceLocaleParams) error {
+	_, err := q.db.Exec(ctx, setBotPreferenceLocale, arg.UserID, arg.Locale)
+	return err
+}
+
 const updateAccountProfile = `-- name: UpdateAccountProfile :one
 UPDATE users
 SET locale = $1, timezone = $2, updated_at = now()

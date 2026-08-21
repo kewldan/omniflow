@@ -187,28 +187,3 @@ func (q *Queries) ReactivateCustomerIdentity(ctx context.Context, arg Reactivate
 	)
 	return i, err
 }
-
-const setCustomerLocaleEverywhere = `-- name: SetCustomerLocaleEverywhere :exec
-WITH account AS (
-  UPDATE users
-  SET locale = $2, updated_at = now()
-  WHERE id = $1 AND status <> 'deleted'
-)
-INSERT INTO bot_preferences (user_id, locale)
-VALUES ($1, $2)
-ON CONFLICT (user_id) DO UPDATE
-SET locale = EXCLUDED.locale, updated_at = now()
-`
-
-type SetCustomerLocaleEverywhereParams struct {
-	UserID pgtype.UUID `json:"user_id"`
-	Locale string      `json:"locale"`
-}
-
-// The language the customer chose on the web, written to both places the two
-// surfaces read it from. The bot consults bot_preferences.locale first and
-// users.locale last; writing only the latter left the web's setting ignored.
-func (q *Queries) SetCustomerLocaleEverywhere(ctx context.Context, arg SetCustomerLocaleEverywhereParams) error {
-	_, err := q.db.Exec(ctx, setCustomerLocaleEverywhere, arg.UserID, arg.Locale)
-	return err
-}

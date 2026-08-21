@@ -60,17 +60,3 @@ WHERE mapping.user_id = sqlc.arg(user_id) AND mapping.telegram_id IS NULL
 INSERT INTO bot_preferences (user_id, locale)
 VALUES (sqlc.arg(user_id), sqlc.arg(locale))
 ON CONFLICT (user_id) DO NOTHING;
-
--- name: SetCustomerLocaleEverywhere :exec
--- The language the customer chose on the web, written to both places the two
--- surfaces read it from. The bot consults bot_preferences.locale first and
--- users.locale last; writing only the latter left the web's setting ignored.
-WITH account AS (
-  UPDATE users
-  SET locale = sqlc.arg(locale), updated_at = now()
-  WHERE id = sqlc.arg(user_id) AND status <> 'deleted'
-)
-INSERT INTO bot_preferences (user_id, locale)
-VALUES (sqlc.arg(user_id), sqlc.arg(locale))
-ON CONFLICT (user_id) DO UPDATE
-SET locale = EXCLUDED.locale, updated_at = now();

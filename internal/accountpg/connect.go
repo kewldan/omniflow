@@ -116,6 +116,13 @@ func (service *Service) RotateSubscriptionLink(
 }
 
 // UpdateProfile stores the customer's locale and timezone.
+//
+// The locale is written to both places the two surfaces read it from. The bot
+// resolves its language as bot_preferences.locale, then the Telegram client's
+// language, then users.locale — so a profile screen that wrote only the last
+// of those promised to change the bot's language and, for any customer whose
+// preferences row said anything at all, did not. Both writes share one
+// transaction: the two surfaces must never disagree about a single choice.
 func (service *Service) UpdateProfile(
 	ctx context.Context, customerID, locale, timezone string,
 ) (Customer, error) {
@@ -126,11 +133,25 @@ func (service *Service) UpdateProfile(
 	if err != nil {
 		return Customer{}, err
 	}
-	updated, err := dbgen.New(service.pool).UpdateAccountProfile(ctx, dbgen.UpdateAccountProfileParams{
+	tx, err := service.pool.Begin(ctx)
+	if err != nil {
+		return Customer{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	queries := dbgen.New(tx)
+	updated, err := queries.UpdateAccountProfile(ctx, dbgen.UpdateAccountProfileParams{
 		UserID: userID, Locale: locale, Timezone: timezone,
 	})
 	if err != nil {
 		return Customer{}, ErrNotFound
+	}
+	if err = queries.SetBotPreferenceLocale(ctx, dbgen.SetBotPreferenceLocaleParams{
+		UserID: userID, Locale: locale,
+	}); err != nil {
+		return Customer{}, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return Customer{}, err
 	}
 	return Customer{
 		ID: customerID, Locale: updated.Locale, Timezone: updated.Timezone, Status: updated.Status,

@@ -71,6 +71,16 @@ SET locale = sqlc.arg(locale), timezone = sqlc.arg(timezone), updated_at = now()
 WHERE id = sqlc.arg(user_id) AND status = 'active'
 RETURNING *;
 
+-- name: SetBotPreferenceLocale :exec
+-- The bot reads bot_preferences.locale before it reads users.locale, so a
+-- language chosen on the profile screen is written here too; otherwise the
+-- profile claimed to set the bot's language and did not. An upsert, because a
+-- customer the web created before this row existed has none yet.
+INSERT INTO bot_preferences (user_id, locale)
+VALUES (sqlc.arg(user_id), sqlc.arg(locale))
+ON CONFLICT (user_id) DO UPDATE
+SET locale = EXCLUDED.locale, updated_at = now();
+
 -- name: RenameAccountSubscription :one
 -- The label is what every screen and notification uses to name a subscription,
 -- which is what makes several concurrent ones legible.

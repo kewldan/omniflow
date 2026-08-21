@@ -2666,7 +2666,7 @@
         "system": "System"
       },
       "language": "Language",
-      "languageHint": "Sets this panel, and the language the bot writes in unless Notifications names a different one. Current: {current}.",
+      "languageHint": "Sets this panel and the language the bot writes in. Notifications can still pick a different language for messages alone. Current: {current}.",
       "languageSaved": "Language saved",
       "security": "Security",
       "sessions": "Sessions and security",

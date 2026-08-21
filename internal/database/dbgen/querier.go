@@ -1431,6 +1431,11 @@ type Querier interface {
 	SetAdminUserPassword(ctx context.Context, arg SetAdminUserPasswordParams) (AdminUser, error)
 	SetAdminUserStatus(ctx context.Context, arg SetAdminUserStatusParams) (AdminUser, error)
 	SetAutoRenewState(ctx context.Context, arg SetAutoRenewStateParams) (AutoRenewSetting, error)
+	// The bot reads bot_preferences.locale before it reads users.locale, so a
+	// language chosen on the profile screen is written here too; otherwise the
+	// profile claimed to set the bot's language and did not. An upsert, because a
+	// customer the web created before this row existed has none yet.
+	SetBotPreferenceLocale(ctx context.Context, arg SetBotPreferenceLocaleParams) error
 	SetBulkOperationTotal(ctx context.Context, arg SetBulkOperationTotalParams) (BulkOperation, error)
 	// The permitted transitions are enforced here rather than in the caller: a
 	// campaign that could jump from draft to completed would report a reach it never
@@ -1442,10 +1447,6 @@ type Querier interface {
 	// a cart that changed kind must not keep the other kind's contents.
 	SetCartGoods(ctx context.Context, arg SetCartGoodsParams) error
 	SetChannelEnforcement(ctx context.Context, arg SetChannelEnforcementParams) (ChannelEnforcement, error)
-	// The language the customer chose on the web, written to both places the two
-	// surfaces read it from. The bot consults bot_preferences.locale first and
-	// users.locale last; writing only the latter left the web's setting ignored.
-	SetCustomerLocaleEverywhere(ctx context.Context, arg SetCustomerLocaleEverywhereParams) error
 	SetDefaultPaymentMethod(ctx context.Context, arg SetDefaultPaymentMethodParams) (PaymentMethod, error)
 	// Clearing and setting run in one transaction, because the partial unique index
 	// allows exactly one default: doing them apart would leave a window in which a

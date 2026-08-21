@@ -793,6 +793,17 @@ writes one field: the route is a genuine PATCH where an omitted field is left
 untouched, because sending the whole document back would let this page overwrite
 a choice the customer made in Telegram between the fetch and the toggle.
 
+There are two language controls, and they write to different places on purpose.
+The **profile** language (`PATCH /v1/account/me`) is the account's language: it
+is written to `users.locale` and, in the same transaction, to
+`bot_preferences.locale`, because the bot reads the latter first and a profile
+setting that touched only the former claimed to change the bot's language and did
+not. The **notification** language on this screen writes `bot_preferences.locale`
+alone and may be `auto`, which lets the bot follow the Telegram client's language
+for messages while the panel keeps the account's. Setting the profile language
+afterwards replaces `auto` with the chosen language, so the two surfaces never
+disagree about a choice the customer made once.
+
 Quiet hours are whole hours in the customer's own timezone, and are cleared by
 sending a window whose start and end are equal — omitting the field would mean
 "leave the window alone", which is the opposite of what the customer just asked
