@@ -160,6 +160,27 @@ export type SubscriptionTarget = {
   endsAt?: string;
 };
 
+/**
+ * Whether a target still carries an entitlement with time left.
+ *
+ * Mirrors `accountcheckout.TargetLive`: a purchase schedules from now and
+ * supersedes what is there, so it is offered only for an empty slot or a new
+ * subscription, never for one the customer is still paying for — the server
+ * refuses that with `operation_forbidden`, and the pickers do not offer it.
+ */
+export function targetLive(target: SubscriptionTarget, now = Date.now()): boolean {
+  if (["", "expired", "superseded", "failed"].includes(target.status)) {
+    return false;
+  }
+  if (!target.endsAt) {
+    return true;
+  }
+  return new Date(target.endsAt).getTime() > now;
+}
+
+/** The dashboard's phases under which a subscription holds no live entitlement. */
+export const UNHELD_PHASES = ["none", "expired", "failed"];
+
 /** One add-on attached to the open checkout. */
 export type CheckoutAddon = {
   addonVersionId: string;

@@ -10,7 +10,11 @@ import useSWR from "swr";
 
 import { OPERATIONS, PlanSpecs, usePeriodLabel } from "@/components/account/commerce/plan-card";
 import { useIneligibility, useProblemMessage } from "@/components/account/commerce/reasons";
-import type { CheckoutView, PlanDetail } from "@/components/account/commerce/types";
+import {
+  type CheckoutView,
+  type PlanDetail,
+  UNHELD_PHASES,
+} from "@/components/account/commerce/types";
 import { useOpenCheckout } from "@/components/account/commerce/use-checkout";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
@@ -18,7 +22,7 @@ import { useBytes, useMoney } from "@/lib/format";
 
 /** The subscriptions a lifecycle change can act on, from the dashboard's own read. */
 type Overview = {
-  subscriptions: { id: string; label: string; plan: string }[];
+  subscriptions: { id: string; label: string; plan: string; phase: string }[];
   /** True only where the installation allows concurrent subscriptions. */
   showSwitcher: boolean;
 };
@@ -79,12 +83,21 @@ export default function PlanPage() {
   const preferred = offered.includes(requested) ? requested : (offered[0] ?? "");
   const selected = operation && offered.includes(operation) ? operation : preferred;
 
-  const subscriptions = overview?.subscriptions ?? [];
+  const canOpenNew = selected === "purchase";
+  // A purchase never targets a subscription that still has time left: those
+  // are what extension, upgrade, and downgrade are for, and the server refuses
+  // a purchase aimed at one. Only an empty slot — an unpaid or lapsed
+  // subscription — is offered alongside "a new subscription".
+  const subscriptions = (overview?.subscriptions ?? []).filter(
+    (subscription) => !canOpenNew || UNHELD_PHASES.includes(subscription.phase),
+  );
   // The picker exists only where there is genuinely a choice. An installation
   // running one subscription per customer has nothing to ask, and asking anyway
   // would add a step whose only possible answer is the one already on screen.
-  const asksForTarget = Boolean(overview?.showSwitcher) && subscriptions.length > 0;
-  const canOpenNew = selected === "purchase";
+  // A purchase with no empty slot has one answer, a new subscription, and it is
+  // taken rather than asked.
+  const asksForTarget = Boolean(overview?.showSwitcher) && (subscriptions.length > 0 || canOpenNew);
+  const onlyNew = canOpenNew && subscriptions.length === 0;
 
   async function start(event: React.FormEvent) {
     event.preventDefault();
@@ -92,10 +105,10 @@ export default function PlanPage() {
     try {
       await apiFetch<CheckoutView>("/v1/account/checkout", {
         body: JSON.stringify({
-          newSubscription: asksForTarget ? target === "new" : false,
+          newSubscription: asksForTarget ? onlyNew || target === "new" : false,
           operation: selected,
           planVersionId: params.planVersionId,
-          subscriptionId: asksForTarget && target !== "new" ? target : "",
+          subscriptionId: asksForTarget && !onlyNew && target !== "new" ? target : "",
         }),
         method: "POST",
       });
@@ -249,7 +262,7 @@ export default function PlanPage() {
             </fieldset>
           )}
 
-          {asksForTarget && (
+          {asksForTarget && !onlyNew && (
             <fieldset className="space-y-2">
               <legend className="px-1 pb-2 font-medium font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em]">
                 {translate("plan.target")}

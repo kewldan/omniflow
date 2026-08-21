@@ -47,6 +47,15 @@ var (
 	// an order in a currency it does not take. The method exists and works; it
 	// is the pairing that is wrong, so the remedy is another method.
 	ErrProviderCurrency = errors.New("that payment method cannot settle this order's currency")
+	// ErrPurchaseOnLiveSubscription reports a purchase aimed at a subscription
+	// whose entitlement still has time left. A purchase schedules from now and
+	// supersedes what is there, so it would discard that time; the customer is
+	// offered an extension, an upgrade, or a downgrade for a live subscription
+	// and a purchase only for an empty slot or a new one.
+	ErrPurchaseOnLiveSubscription = fmt.Errorf(
+		"operation_forbidden: a purchase cannot target a subscription with time left: %w",
+		accountpg.ErrInvalidInput,
+	)
 	// ErrSubscriptionTargetRequired reports a lifecycle flow that did not say
 	// which subscription it acts on, in an installation where that is ambiguous.
 	// It is its own state rather than a generic validation failure because the

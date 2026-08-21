@@ -107,9 +107,11 @@ func TestEligibilityRenewsTheHeldPlanAndRanksTheRest(t *testing.T) {
 	}
 
 	state := eligibility{
-		activeSubscriptions: 1,
-		held:                []heldPlan{{amountMinor: 500, planID: "mid"}},
-		policy:              commerce.SubscriptionPolicy{},
+		operations: OperationContext{
+			Subscriptions: 1,
+			Held:          []HeldPlan{{AmountMinor: 500, PlanID: "mid"}},
+		},
+		policy: commerce.SubscriptionPolicy{},
 	}
 
 	// The plan already held renews. Offering to "upgrade" somebody to the plan
@@ -168,15 +170,19 @@ func TestEligibilityRenewsTheHeldPlanAndRanksTheRest(t *testing.T) {
 func TestEligibilityOffersAnAdditionalSubscriptionOnlyWithinThePolicy(t *testing.T) {
 	t.Parallel()
 	record := rankedPlan("mid", 500)
-	held := []heldPlan{{amountMinor: 500, planID: "mid"}}
+	held := []HeldPlan{{AmountMinor: 500, PlanID: "mid"}}
 	policy := commerce.SubscriptionPolicy{MultiEnabled: true, MaxPerCustomer: 2}
-	offer := applyEligibility(record, eligibility{activeSubscriptions: 1, held: held, policy: policy})
+	offer := applyEligibility(record, eligibility{
+		operations: OperationContext{Subscriptions: 1, Held: held, AdditionalAllowed: true}, policy: policy,
+	})
 	if !contains(offer.Operations, "purchase") {
 		t.Fatalf("an allowed additional subscription was not offered: %v", offer.Operations)
 	}
 	// At the limit the purchase disappears, but changing what is already held
 	// must not: a customer at their cap can still renew.
-	atLimit := applyEligibility(record, eligibility{activeSubscriptions: 2, held: held, policy: policy})
+	atLimit := applyEligibility(record, eligibility{
+		operations: OperationContext{Subscriptions: 2, Held: held, AdditionalAllowed: false}, policy: policy,
+	})
 	if contains(atLimit.Operations, "purchase") {
 		t.Fatalf("a purchase was offered past the limit: %v", atLimit.Operations)
 	}

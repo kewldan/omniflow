@@ -18,7 +18,11 @@ import {
   useProblemMessage,
   usePromoRejection,
 } from "@/components/account/commerce/reasons";
-import type { CheckoutView, OrderSummary } from "@/components/account/commerce/types";
+import {
+  type CheckoutView,
+  type OrderSummary,
+  targetLive,
+} from "@/components/account/commerce/types";
 import { useOpenCheckout } from "@/components/account/commerce/use-checkout";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
 import { apiFetch } from "@/lib/api";
@@ -380,6 +384,13 @@ function TargetPicker({
   onChange: (body: Record<string, unknown>) => Promise<void>;
 }) {
   const translate = useTranslations("account.commerce");
+  // A purchase never targets a subscription that still has time left; those
+  // are served by extension, upgrade, and downgrade, and offering them here
+  // would hand the customer a refusal after they chose.
+  const targets =
+    checkout.operation === "purchase"
+      ? checkout.subscriptions.filter((subscription) => !targetLive(subscription))
+      : checkout.subscriptions;
   return (
     <fieldset className="space-y-2">
       <legend className="px-1 pb-2 font-medium font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em]">
@@ -399,7 +410,7 @@ function TargetPicker({
             <span className="font-medium text-[13.5px]">{translate("checkout.target.new")}</span>
           </label>
         )}
-        {checkout.subscriptions.map((subscription) => (
+        {targets.map((subscription) => (
           <label
             className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 has-[:checked]:border-primary"
             key={subscription.id}

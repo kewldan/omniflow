@@ -862,6 +862,11 @@ func (handlers *AccountHandlers) writeCheckoutError(
 			writer, request, http.StatusServiceUnavailable,
 			"maintenance_active", "Purchases are paused while maintenance is in progress",
 		)
+	case errors.Is(err, accountcheckout.ErrPurchaseOnLiveSubscription):
+		writeProblem(
+			writer, request, http.StatusUnprocessableEntity,
+			"operation_forbidden", "A purchase cannot target a subscription that still has time left; extend or change it instead",
+		)
 	case errors.Is(err, commercepg.ErrOperationForbidden):
 		writeProblem(
 			writer, request, http.StatusUnprocessableEntity,

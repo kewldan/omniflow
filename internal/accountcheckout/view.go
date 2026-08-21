@@ -128,27 +128,45 @@ func (service *Service) resolveTarget(
 	if err != nil {
 		return "", err
 	}
+	multi := service.orders.SubscriptionPolicy().MultiEnabled
+	purchase := commerce.TargetsNewSubscription(operation)
 	if identifier := strings.TrimSpace(request.SubscriptionID); identifier != "" {
 		for _, target := range targets {
-			if target.ID == identifier {
-				return identifier, nil
+			if target.ID != identifier {
+				continue
 			}
+			// A purchase schedules from now and supersedes what is there, so
+			// aimed at a subscription with time left it would throw that time
+			// away. The lifecycle actions exist for exactly that case; a
+			// purchase is only ever for an empty slot or a new one.
+			if purchase && TargetLive(target, service.clock()) {
+				return "", ErrPurchaseOnLiveSubscription
+			}
+			return identifier, nil
 		}
 		return "", ErrOrderNotFound
 	}
 	if len(targets) == 0 {
 		return "", nil
 	}
-	multi := service.orders.SubscriptionPolicy().MultiEnabled
-	if commerce.TargetsNewSubscription(operation) && multi && request.NewSubscription {
+	if purchase && multi && request.NewSubscription {
 		return "", nil
 	}
 	if multi && len(targets) > 1 {
 		return "", ErrSubscriptionTargetRequired
 	}
-	// A single-subscription installation, or a customer who holds exactly one:
-	// buying again acts on what they already have rather than opening a second
-	// subscription they never asked for.
+	// A single-subscription installation, or a customer who holds exactly one.
+	// A lifecycle change acts on what they already have. A purchase fills the
+	// one slot only while it is empty — an unpaid order's leftover, a lapsed
+	// subscription — and is refused against a live one; the catalogue offers
+	// extension there, and with concurrent subscriptions enabled a purchase
+	// asks for a new slot instead of being guessed onto the existing one.
+	if purchase && TargetLive(targets[0], service.clock()) {
+		if multi {
+			return "", nil
+		}
+		return "", ErrPurchaseOnLiveSubscription
+	}
 	return targets[0].ID, nil
 }
 
