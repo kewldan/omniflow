@@ -387,15 +387,24 @@ method that can settle the currency, priced at what is owed. See
 ### The channel gate
 
 If the operator requires membership of one or more Telegram channels before a
-purchase, the check runs when `💳 Pay` is tapped — not when the plan is chosen.
-A customer can leave a channel between browsing and paying, and this is the last
-moment before money moves. The checkout is left intact, so joining and pressing
-the button again resumes exactly where they were:
+purchase, the check runs at the moment money moves — when `💳 Pay` is tapped on
+a checkout, `🛒 Buy now` on a saved cart, `✅ Confirm` on an add-on, a gift's
+plan or amount is chosen and again when its order is created, and
+`Confirm and pay` on a shop item — not when the plan is chosen. A customer can
+leave a channel between browsing and paying, and this is the last moment before
+money moves. The purchase is left intact, so joining and pressing the button
+again resumes exactly where they were:
 
 > 📣 Please subscribe first — To continue with your purchase, subscribe to:
 
 with an `Open <channel>` button per channel and `I have subscribed`, which
-returns to the checkout rather than to the catalogue.
+returns to the purchase that was interrupted rather than to the catalogue.
+
+`I have subscribed` asks Telegram again. A recent answer that the customer is a
+member is trusted for five minutes so a flow does not cost one Telegram call per
+screen, but an answer that they are **not** is never trusted — the customer on
+this screen has most likely just joined — and the live answer is recorded so
+the background worker and the next purchase see it too.
 
 The gate **fails open**. A channel Telegram could not be asked about, or one with
 no invite link the customer could use, does not block the sale — losing a real

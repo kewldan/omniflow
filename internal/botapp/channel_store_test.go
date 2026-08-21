@@ -77,7 +77,7 @@ func TestARecentCachedAnswerIsUsedWithoutCallingTelegram(t *testing.T) {
 			CheckedAt: pgtype.Timestamptz{Time: now.Add(-time.Minute), Valid: true},
 		},
 	}
-	member, answered := app.membershipNow(context.Background(), channel, known, 42, now)
+	member, answered := app.membershipNow(context.Background(), nil, pgtype.UUID{}, channel, known, 42, now)
 	if !member || !answered {
 		t.Fatalf("a fresh cached membership was not used: %v %v", member, answered)
 	}
@@ -86,7 +86,8 @@ func TestARecentCachedAnswerIsUsedWithoutCallingTelegram(t *testing.T) {
 	}
 }
 
-// A stale answer is re-asked, because somebody who just joined should not be
+// A stale answer is re-asked — and so is a fresh absence, see
+// channel_recheck_test.go — because somebody who just joined should not be
 // told to join again.
 func TestAStaleCachedAnswerIsRefreshed(t *testing.T) {
 	stub := &stubVerifier{member: true}
@@ -101,7 +102,7 @@ func TestAStaleCachedAnswerIsRefreshed(t *testing.T) {
 			CheckedAt: pgtype.Timestamptz{Time: now.Add(-time.Hour), Valid: true},
 		},
 	}
-	member, answered := app.membershipNow(context.Background(), channel, known, 42, now)
+	member, answered := app.membershipNow(context.Background(), nil, pgtype.UUID{}, channel, known, 42, now)
 	if !member || !answered {
 		t.Fatalf("the stale answer was used instead of a fresh one: %v %v", member, answered)
 	}
@@ -119,7 +120,7 @@ func TestAnUnanswerableCheckPermitsThePurchase(t *testing.T) {
 	channel.ID = pgtype.UUID{Bytes: [16]byte{3}, Valid: true}
 
 	member, answered := app.membershipNow(
-		context.Background(), channel, nil, 42, clockFixture())
+		context.Background(), nil, pgtype.UUID{}, channel, nil, 42, clockFixture())
 	if answered {
 		t.Fatal("a failed call was reported as an answer")
 	}

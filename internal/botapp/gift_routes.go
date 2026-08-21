@@ -96,6 +96,13 @@ func (app *App) giftCreditScreen(ctx context.Context, session commerceContext) V
 // sender, the plan, and the note, as this used to, made the first gift of a
 // plan the only gift of that plan the sender could ever buy.
 func (app *App) giftAskMessage(ctx context.Context, session commerceContext, token string) View {
+	// The membership gate is applied before the note is asked for, so a
+	// customer is not made to write a message and then told to join a channel.
+	// It is applied again when the order is created, because the note can sit
+	// unsent for a while.
+	if gate := app.checkPurchaseChannels(ctx, session.Customer.ID, session.TelegramID); !gate.Allowed() {
+		return channelGateView(session.Locale, gate, "gift-message:"+token)
+	}
 	key, err := newIdempotencyKey()
 	if err != nil {
 		app.logger.Error("gift key could not be minted", "error", err)
@@ -168,6 +175,9 @@ func (app *App) buyGift(
 	// The key is the flow's own, minted when the gift was started. A replay of
 	// the same flow reaches the same order; a new gift is a new order.
 	input.IdempotencyKey = key
+	if gate := app.checkPurchaseChannels(ctx, session.Customer.ID, session.TelegramID); !gate.Allowed() {
+		return channelGateView(session.Locale, gate, "gift-message:"+kind+":"+payload)
+	}
 
 	purchase, err := app.commerce.BuyGift(ctx, input)
 	switch {

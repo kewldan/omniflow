@@ -223,6 +223,11 @@ func (app *App) clearCart(ctx context.Context, session commerceContext) View {
 // purchaseCart charges a saved cart on demand. It shares the automatic path's
 // idempotency key, so tapping it while the sweep is running cannot double-charge.
 func (app *App) purchaseCart(ctx context.Context, session commerceContext) View {
+	// The same membership gate every purchase passes at the moment money moves.
+	// The cart is left intact, so joining and tapping again resumes here.
+	if gate := app.checkPurchaseChannels(ctx, session.Customer.ID, session.TelegramID); !gate.Allowed() {
+		return channelGateView(session.Locale, gate, "cart-buy")
+	}
 	purchase, err := app.commerce.PurchaseCart(ctx, session.Customer.ID)
 	if err != nil {
 		app.logger.Error("cart purchase failed", "error", err)

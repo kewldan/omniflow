@@ -279,6 +279,12 @@ func (app *App) shopPurchase(
 	if err != nil || !found {
 		return app.shopScreen(ctx, session)
 	}
+	// The same membership gate every purchase passes at the moment money moves.
+	// The review screen is one tap away, so joining and confirming again
+	// resumes here with the same recipient.
+	if gate := app.checkPurchaseChannels(ctx, session.Customer.ID, session.TelegramID); !gate.Allowed() {
+		return channelGateView(session.Locale, gate, "shop-buy:"+productID+":"+recipient)
+	}
 	quote, err := app.commerce.QuoteGoods(ctx, product, 1)
 	if err != nil {
 		return shopItemView(session.Locale, product, ShopQuote{}, true)
