@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -367,7 +368,7 @@ func (handlers *AccountHandlers) confirmCheckout(writer http.ResponseWriter, req
 	if handlers.writeCheckoutError(writer, request, err) {
 		return
 	}
-	writeJSON(writer, http.StatusCreated, orderPayload(order, nil))
+	writeJSON(writer, http.StatusCreated, handlers.orderPayload(request.Context(), order, nil))
 }
 
 // checkoutPayload is the whole confirmation screen.
@@ -465,7 +466,7 @@ func (handlers *AccountHandlers) listOrders(writer http.ResponseWriter, request 
 	}
 	items := make([]map[string]any, 0, len(orders))
 	for _, order := range orders {
-		items = append(items, orderPayload(order, nil))
+		items = append(items, handlers.orderPayload(request.Context(), order, nil))
 	}
 	payload := map[string]any{"items": items}
 	// A cursor only when the page came back full. Publishing one for every
@@ -488,13 +489,16 @@ func (handlers *AccountHandlers) readOrder(writer http.ResponseWriter, request *
 	if handlers.writeCheckoutError(writer, request, err) {
 		return
 	}
-	payload := orderPayload(order, refunds)
+	payload := handlers.orderPayload(request.Context(), order, refunds)
 	// A pending order with no payment yet needs a way to start one that does
 	// not depend on the URL the checkout redirected to: the methods that can
 	// settle this order, in its currency, and the one the checkout recorded so
 	// the page can preselect it.
 	if accountcheckout.OrderPayable(order, time.Now()) == nil {
-		choices := handlers.checkout.OrderPaymentChoices(order, handlers.starsAvailable(request))
+		choices, choiceErr := handlers.checkout.OrderPaymentChoices(request.Context(), principal.Customer.ID, order)
+		if handlers.writeCheckoutError(writer, request, choiceErr) {
+			return
+		}
 		items := make([]map[string]any, 0, len(choices))
 		for _, choice := range choices {
 			items = append(items, paymentChoicePayload(choice))
@@ -511,23 +515,6 @@ func (handlers *AccountHandlers) readOrder(writer http.ResponseWriter, request *
 		}
 	}
 	writeJSON(writer, http.StatusOK, payload)
-}
-
-// starsAvailable reports whether the Telegram Stars method may be offered to
-// this customer. Stars settles through an invoice in a Telegram chat, so it is
-// offered only when the session belongs to a customer the bot can reach — one
-// with a Telegram identity.
-func (handlers *AccountHandlers) starsAvailable(request *http.Request) bool {
-	principal, ok := CustomerFrom(request.Context())
-	if !ok || handlers.auth == nil {
-		return false
-	}
-	linked, err := handlers.auth.HasTelegramIdentity(request.Context(), principal.Customer.ID)
-	if err != nil {
-		handlers.logger.Warn("telegram identity lookup failed", "error", err)
-		return false
-	}
-	return linked
 }
 
 func (handlers *AccountHandlers) startOrderPayment(writer http.ResponseWriter, request *http.Request) {
@@ -560,7 +547,7 @@ func (handlers *AccountHandlers) refreshOrder(writer http.ResponseWriter, reques
 	if handlers.writeCheckoutError(writer, request, err) {
 		return
 	}
-	writeJSON(writer, http.StatusOK, orderPayload(order, nil))
+	writeJSON(writer, http.StatusOK, handlers.orderPayload(request.Context(), order, nil))
 }
 
 func (handlers *AccountHandlers) cancelOrder(writer http.ResponseWriter, request *http.Request) {
@@ -581,7 +568,20 @@ func (handlers *AccountHandlers) cancelOrder(writer http.ResponseWriter, request
 // never carried by the client: a page that remembered "we are setting this up"
 // would forget it the moment it reloaded, which is exactly when the customer
 // most wants to know.
-func orderPayload(order accountcheckout.OrderSummary, refunds []accountcheckout.RefundStatus) map[string]any {
+//
+// The payment handoff is decided by the checkout service rather than here,
+// because a Telegram Stars payment has no URL of its own and its link is built
+// from the bot's name — see accountcheckout.Handoff.
+func (handlers *AccountHandlers) orderPayload(
+	ctx context.Context, order accountcheckout.OrderSummary, refunds []accountcheckout.RefundStatus,
+) map[string]any {
+	handoff, checkoutURL := handlers.checkout.Handoff(ctx, order.Provider, order.CheckoutURL, order.ID)
+	return orderPayloadWith(order, refunds, handoff, checkoutURL)
+}
+
+func orderPayloadWith(
+	order accountcheckout.OrderSummary, refunds []accountcheckout.RefundStatus, handoff, checkoutURL string,
+) map[string]any {
 	payload := map[string]any{
 		"id": order.ID, "state": string(order.State), "operation": order.Operation,
 		"phase": string(order.Phase), "currency": order.Currency,
@@ -597,10 +597,10 @@ func orderPayload(order accountcheckout.OrderSummary, refunds []accountcheckout.
 	if order.PaymentIntentID != "" {
 		payment := map[string]any{
 			"id": order.PaymentIntentID, "provider": order.Provider, "status": order.PaymentStatus,
-			"handoff": accountcheckout.HandoffFor(order.Provider, order.CheckoutURL),
+			"handoff": handoff,
 		}
-		if order.CheckoutURL != "" {
-			payment["checkoutUrl"] = order.CheckoutURL
+		if checkoutURL != "" {
+			payment["checkoutUrl"] = checkoutURL
 		}
 		if order.ReceiptURL != "" {
 			payment["receiptUrl"] = order.ReceiptURL

@@ -177,6 +177,9 @@ const HANDOFF_ICON: Record<string, ReactNode> = {
   manual: <ShieldCheck aria-hidden className="size-[18px]" />,
   none: <Wallet aria-hidden className="size-[18px]" />,
   telegram_invoice: <MessageSquare aria-hidden className="size-[18px]" />,
+  // A payment that has to be finished in the bot, when no link to it could
+  // be built. Not a real handoff kind on the wire; derived below.
+  unreachable: <MessageSquare aria-hidden className="size-[18px]" />,
 };
 
 /**
@@ -190,9 +193,14 @@ const HANDOFF_ICON: Record<string, ReactNode> = {
  * into one "complete your payment" message would leave three of the four
  * customers waiting for something that is never going to appear.
  */
-export function PaymentHandoff({ payment }: { payment: OrderPayment }) {
+export function PaymentHandoff({ owes, payment }: { owes: boolean; payment: OrderPayment }) {
   const translate = useTranslations("account.commerce");
-  const kind = payment.handoff in HANDOFF_ICON ? payment.handoff : "none";
+  // "Nothing left to pay" is only true when the order owes nothing. A payment
+  // with no handoff on an order that still owes money — a Stars intent whose
+  // bot link could not be built — has to be finished in the chat, and saying
+  // the wallet covered it would be a lie about the customer's money.
+  const reported = payment.handoff in HANDOFF_ICON ? payment.handoff : "none";
+  const kind = reported === "none" && owes ? "unreachable" : reported;
 
   return (
     <section className="space-y-3 rounded-lg border border-border bg-card p-4">

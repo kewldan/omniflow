@@ -154,8 +154,12 @@ func (service *Service) Wallet(ctx context.Context, customerID string) (WalletVi
 		// The presets are filtered by the domain against what the customer has
 		// already credited, so an amount that is offered is one that would be
 		// accepted.
-		Presets:   limits.OfferedPresets(credited),
-		Providers: service.externalChoices(service.settings.Currency),
+		Presets: limits.OfferedPresets(credited),
+	}
+	if view.Providers, err = service.forCustomer(
+		ctx, customerID, service.externalChoices(service.settings.Currency),
+	); err != nil {
+		return WalletView{}, err
 	}
 	if view.Presets == nil {
 		view.Presets = []int64{}

@@ -637,9 +637,17 @@ four customers waiting for something that is never going to appear:
 | Handoff | What the customer does |
 | --- | --- |
 | `hosted` | Opens the provider's own checkout page in a new tab |
-| `telegram_invoice` | Waits for the invoice in the chat — the browser is the wrong place to wait |
+| `telegram_invoice` | Opens the bot through `https://t.me/<bot>?start=pay_<orderID>`; the bot sends the invoice for that order and the customer pays it in the chat |
 | `manual` | Waits for an operator to confirm the transfer, which can take hours |
-| `none` | Nothing: the wallet already covered it |
+| `none` | Nothing, when the order owes nothing: the wallet covered it. On an order that still owes money it means the bot link could not be built, and the page says to finish the payment from the bot's order list |
+
+Telegram Stars settles only inside a Telegram chat, so it is offered — in the
+checkout, on the order screen, and for a wallet top-up — only to a customer who
+holds a Telegram identity, and a Stars payment started by anyone else is refused
+as `provider_unavailable`. The link is built from the bot's username, resolved
+by the same lookup the sign-in screen uses; `/start pay_<orderID>` is the bot's
+cue to send the invoice for that order. "Nothing left to pay" is shown only when
+`externalMinor` is zero.
 
 A **refresh** control re-reads the provider rather than merely re-fetching
 Omniflow's own record, so a customer who returns before the webhook arrives still

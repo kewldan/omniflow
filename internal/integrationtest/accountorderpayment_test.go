@@ -101,7 +101,10 @@ func TestStartingAnOrderPaymentGuardsStateCurrencyAndRecordedMethod(t *testing.T
 	if err != nil {
 		t.Fatalf("read order: %v", err)
 	}
-	choices := service.OrderPaymentChoices(order, false)
+	choices, err := service.OrderPaymentChoices(ctx, customerID, order)
+	if err != nil {
+		t.Fatalf("order payment choices: %v", err)
+	}
 	if len(choices) != 1 || choices[0].Provider != "yookassa" || choices[0].AmountMinor != order.ExternalMinor {
 		t.Fatalf("order payment choices = %+v; want yookassa alone, priced at what is owed", choices)
 	}
@@ -150,7 +153,7 @@ func TestStartingAnOrderPaymentGuardsStateCurrencyAndRecordedMethod(t *testing.T
 	if expired.State != commerce.OrderExpired {
 		t.Fatalf("order state = %s", expired.State)
 	}
-	if got := service.OrderPaymentChoices(expired, false); len(got) != 0 {
+	if got, _ := service.OrderPaymentChoices(ctx, customerID, expired); len(got) != 0 {
 		t.Fatalf("an expired order still offers %d payment methods", len(got))
 	}
 }

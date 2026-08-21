@@ -22,6 +22,7 @@
 package accountcheckout
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"time"
@@ -58,6 +59,10 @@ type Service struct {
 	settings Settings
 	logger   *slog.Logger
 	clock    func() time.Time
+
+	// botUsername resolves the bot's @name for the Telegram Stars handoff.
+	// Nil leaves a Stars payment with no link; see stars.go.
+	botUsername func(context.Context) string
 }
 
 // Options configures a Service.

@@ -257,7 +257,7 @@ function TopUpForm({
               })}
             </p>
           </div>
-          <PaymentHandoff payment={started.payment} />
+          <PaymentHandoff owes={started.amountMinor > 0} payment={started.payment} />
           <Button
             className="w-full"
             onClick={() => {

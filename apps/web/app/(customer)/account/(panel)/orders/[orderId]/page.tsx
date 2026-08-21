@@ -208,7 +208,7 @@ export default function OrderPage() {
       </header>
 
       {data.payment ? (
-        <PaymentHandoff payment={data.payment} />
+        <PaymentHandoff owes={owes} payment={data.payment} />
       ) : (
         payable && (
           <section className="space-y-3 rounded-lg border border-border bg-card p-4">

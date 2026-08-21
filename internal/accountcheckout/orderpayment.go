@@ -37,17 +37,14 @@ func OrderPayable(order OrderSummary, now time.Time) error {
 // checkout may still choose its currency, but an order has been priced, and a
 // method that cannot settle that currency is not offered rather than offered
 // at a different price. The Telegram Stars method is offered only to a
-// customer who can actually receive the invoice — see StarsAvailable.
-func (service *Service) OrderPaymentChoices(order OrderSummary, starsAvailable bool) []PaymentChoice {
+// customer who can actually receive the invoice — see stars.go.
+func (service *Service) OrderPaymentChoices(ctx context.Context, customerID string, order OrderSummary) ([]PaymentChoice, error) {
 	choices := make([]PaymentChoice, 0)
 	if service.payments == nil || OrderPayable(order, service.clock()) != nil {
-		return choices
+		return choices, nil
 	}
 	for _, option := range service.payments.Options() {
 		if !option.Enabled || !option.Supports(order.Currency) {
-			continue
-		}
-		if option.Provider == ProviderTelegramStars && !starsAvailable {
 			continue
 		}
 		choices = append(choices, PaymentChoice{
@@ -55,7 +52,7 @@ func (service *Service) OrderPaymentChoices(order OrderSummary, starsAvailable b
 			AmountMinor: order.ExternalMinor, Recurring: option.Recurring,
 		})
 	}
-	return choices
+	return service.forCustomer(ctx, customerID, choices)
 }
 
 // ProviderSettles reports whether a configured method can take this order's

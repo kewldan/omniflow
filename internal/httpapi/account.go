@@ -80,6 +80,12 @@ func NewAccountHandlers(options AccountOptions) *AccountHandlers {
 			options.Auth.SetRotationGrace(store)
 		}
 	}
+	// A Telegram Stars payment is completed through the bot, and its link is
+	// built from the bot's @name — resolved by the same lookup the sign-in
+	// screen uses, so the two never name different bots.
+	if options.Auth != nil && options.Checkout != nil {
+		options.Checkout.SetBotUsername(options.Auth.BotUsername)
+	}
 	return &AccountHandlers{
 		auth: options.Auth, account: options.Account, limiter: options.Limiter,
 		logger: logger, proxies: proxies,

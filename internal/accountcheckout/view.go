@@ -382,6 +382,9 @@ func (service *Service) view(ctx context.Context, session Session, locale string
 	if err != nil {
 		return CheckoutView{}, err
 	}
+	if choices, err = service.forCustomer(ctx, session.CustomerID, choices); err != nil {
+		return CheckoutView{}, err
+	}
 	squads, err := service.store.PlanSquads(ctx, session.PlanVersionID, locale)
 	if err != nil {
 		return CheckoutView{}, err
@@ -491,7 +494,23 @@ func (service *Service) StartOrderPayment(
 	if err = service.ProviderSettles(provider, order.Currency); err != nil {
 		return PaymentHandle{}, err
 	}
-	return service.StartPayment(ctx, PaymentRequest{
+	// Stars is refused, not merely hidden, for a customer the bot cannot
+	// reach: an intent nobody can pay would hold the order until it expired.
+	if provider == ProviderTelegramStars {
+		linked, linkErr := service.store.HasTelegramIdentity(ctx, customerID)
+		if linkErr != nil {
+			return PaymentHandle{}, linkErr
+		}
+		if !linked {
+			return PaymentHandle{}, ErrProviderUnavailable
+		}
+	}
+	handle, err := service.StartPayment(ctx, PaymentRequest{
 		OrderID: order.ID, Provider: provider, Description: order.PlanName, Channel: "customer_web",
 	})
+	if err != nil {
+		return PaymentHandle{}, err
+	}
+	handle.Handoff, handle.CheckoutURL = service.Handoff(ctx, handle.Provider, handle.CheckoutURL, order.ID)
+	return handle, nil
 }

@@ -3725,9 +3725,13 @@
             "action": "Open the payment page"
           },
           "telegram_invoice": {
-            "title": "The invoice is in your chat",
-            "description": "An invoice has been sent to you in Telegram. Pay it there, then come back — this page updates on its own.",
+            "title": "Pay in Telegram",
+            "description": "Telegram Stars are paid inside the chat. Open the bot and it sends you the invoice for this order; pay it there, then come back — this page updates on its own.",
             "action": "Open the invoice"
+          },
+          "unreachable": {
+            "title": "Finish this payment in the bot",
+            "description": "This method is paid inside Telegram, and the link to the bot could not be built right now. Open the bot from Telegram and pay the order from its orders list."
           },
           "manual": {
             "title": "Waiting for an operator",
