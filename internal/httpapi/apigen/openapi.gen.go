@@ -118,6 +118,24 @@ func (e AccountCheckoutPromoRejection) Valid() bool {
 	}
 }
 
+// Defines values for AccountCheckoutSquadSelectionReason.
+const (
+	SquadSelectionRequired AccountCheckoutSquadSelectionReason = "squad_selection_required"
+	SquadSelectionTooFew   AccountCheckoutSquadSelectionReason = "squad_selection_too_few"
+)
+
+// Valid indicates whether the value is a known member of the AccountCheckoutSquadSelectionReason enum.
+func (e AccountCheckoutSquadSelectionReason) Valid() bool {
+	switch e {
+	case SquadSelectionRequired:
+		return true
+	case SquadSelectionTooFew:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AccountContactKind.
 const (
 	AccountContactKindEmail    AccountContactKind = "email"
@@ -4140,14 +4158,23 @@ type AccountCheckout struct {
 	Providers      []AccountPaymentChoice         `json:"providers"`
 
 	// Quote The exact application breakdown. Every figure is computed on the server, so the number a customer is asked to approve and the number they are charged cannot be arrived at two different ways.
-	Quote          AccountCheckoutQuote `json:"quote"`
+	Quote AccountCheckoutQuote `json:"quote"`
+
+	// QuoteAvailable False while the quote is withheld; `quote` then carries only the currency.
+	QuoteAvailable bool `json:"quoteAvailable"`
 	SelectedAddons []struct {
 		AddonVersionId openapi_types.UUID `json:"addonVersionId"`
 		Quantity       int                `json:"quantity"`
 	} `json:"selectedAddons"`
 	SelectedSquadIds []openapi_types.UUID `json:"selectedSquadIds"`
-	Squads           AccountSquadOffer    `json:"squads"`
-	SubscriptionId   *string              `json:"subscriptionId,omitempty"`
+
+	// SquadSelection Whether the server choice still stands between this checkout and a price. A plan that asks the customer to choose servers opens with `required: true` and no quote rather than failing; `reason` is the commerce vocabulary the panel already explains.
+	SquadSelection struct {
+		Reason   *AccountCheckoutSquadSelectionReason `json:"reason,omitempty"`
+		Required bool                                 `json:"required"`
+	} `json:"squadSelection"`
+	Squads         AccountSquadOffer `json:"squads"`
+	SubscriptionId *string           `json:"subscriptionId,omitempty"`
 
 	// Subscriptions The subscriptions this checkout could target.
 	Subscriptions []struct {
@@ -4169,6 +4196,9 @@ type AccountCheckoutOperation string
 
 // AccountCheckoutPromoRejection Why the entered code does not apply. Present on a 200, not an error.
 type AccountCheckoutPromoRejection string
+
+// AccountCheckoutSquadSelectionReason defines model for AccountCheckout.SquadSelection.Reason.
+type AccountCheckoutSquadSelectionReason string
 
 // AccountCheckoutQuote The exact application breakdown. Every figure is computed on the server, so the number a customer is asked to approve and the number they are charged cannot be arrived at two different ways.
 type AccountCheckoutQuote struct {

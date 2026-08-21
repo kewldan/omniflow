@@ -425,6 +425,8 @@ func checkoutPayload(view accountcheckout.CheckoutView) map[string]any {
 		"multiSubscription": view.MultiSubscription,
 		"squads":            squadPayload(view.Squads),
 		"selectedSquadIds":  view.SelectedSquadIDs,
+		"squadSelection":    map[string]any{"required": view.SquadSelection.Required},
+		"quoteAvailable":    !view.SquadSelection.Required,
 		"addons":            addons,
 		"selectedAddons":    selected,
 		"termsUrl":          view.TermsURL,
@@ -434,6 +436,11 @@ func checkoutPayload(view accountcheckout.CheckoutView) map[string]any {
 	}
 	if view.PromoRejection != "" {
 		payload["promoRejection"] = view.PromoRejection
+	}
+	if view.SquadSelection.Required {
+		payload["squadSelection"] = map[string]any{
+			"required": true, "reason": view.SquadSelection.Reason,
+		}
 	}
 	if !view.ExpiresAt.IsZero() {
 		payload["expiresAt"] = view.ExpiresAt.Format(time.RFC3339)

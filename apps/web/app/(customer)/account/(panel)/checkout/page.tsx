@@ -13,7 +13,11 @@ import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { OPERATIONS, usePeriodLabel } from "@/components/account/commerce/plan-card";
 import { QuoteBreakdown } from "@/components/account/commerce/quote-breakdown";
-import { useProblemMessage, usePromoRejection } from "@/components/account/commerce/reasons";
+import {
+  useProblemCode,
+  useProblemMessage,
+  usePromoRejection,
+} from "@/components/account/commerce/reasons";
 import type { CheckoutView, OrderSummary } from "@/components/account/commerce/types";
 import { useOpenCheckout } from "@/components/account/commerce/use-checkout";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
@@ -40,6 +44,9 @@ const PROVIDERS = ["telegram_stars", "cryptobot", "yookassa", "manual"];
 export default function CheckoutPage() {
   const translate = useTranslations("account.commerce");
   const { checkout, error, loading, missing, mutate } = useOpenCheckout();
+  const router = useRouter();
+  const describeProblem = useProblemMessage();
+  const [discarding, setDiscarding] = useState(false);
 
   if (loading) {
     return <ListSkeleton rows={3} />;
@@ -61,9 +68,31 @@ export default function CheckoutPage() {
     );
   }
   if (error || !checkout) {
+    // A checkout that cannot be read is still a checkout the customer holds,
+    // and it blocks every other purchase until it is gone. The way out has to
+    // be on this screen, because the store shows only a "resume" banner that
+    // leads straight back here.
     return (
       <AccountNotice
-        description={translate("store.errorDescription")}
+        action={
+          <Button
+            disabled={discarding}
+            onClick={async () => {
+              setDiscarding(true);
+              try {
+                await apiFetch("/v1/account/checkout", { method: "DELETE" });
+                router.push("/account/store");
+              } catch (failure) {
+                toast.error(describeProblem(failure));
+                setDiscarding(false);
+              }
+            }}
+            variant="outline"
+          >
+            {translate("checkout.discard")}
+          </Button>
+        }
+        description={translate("checkout.unreadableDescription")}
         title={translate("store.error")}
         variant="danger"
       />
@@ -84,6 +113,7 @@ function Checkout({
   const money = useMoney();
   const period = usePeriodLabel();
   const describeProblem = useProblemMessage();
+  const describeCode = useProblemCode();
   const confirmation = useSubmission();
 
   const [busy, setBusy] = useState(false);
@@ -161,12 +191,18 @@ function Checkout({
   }
 
   const operation = OPERATIONS.includes(checkout.operation) ? checkout.operation : "unknown";
-  const needsPayment = checkout.quote.externalMinor > 0;
+  // Until the server has a price there is nothing to pay for yet; the button
+  // reads as a confirmation and stays disabled, rather than promising a free
+  // order because a withheld quote says zero.
+  const unresolved = checkout.squadSelection.required || !checkout.quoteAvailable;
+  const needsPayment = unresolved || checkout.quote.externalMinor > 0;
   // A checkout that still owes money and names no method would become an order
   // nobody can pay: the payment route needs a provider, and a created order
   // carries none until one is started. The guard is here rather than in a
   // refusal after the fact, which would leave the customer holding that order.
-  const blocked = (needsPayment && !checkout.provider) || checkout.targetRequired;
+  // An unfinished server choice blocks the same way: the server has said what
+  // it still needs, and Confirm waits for it.
+  const blocked = unresolved || (needsPayment && !checkout.provider) || checkout.targetRequired;
 
   return (
     <div className="animate-step-in space-y-5" aria-busy={busy}>
@@ -229,9 +265,24 @@ function Checkout({
       <section className="space-y-2">
         <SectionLabel>{translate("checkout.total")}</SectionLabel>
         <div className="rounded-lg border border-border bg-card p-4">
-          <QuoteBreakdown quote={checkout.quote} />
+          {checkout.quoteAvailable ? (
+            <QuoteBreakdown quote={checkout.quote} />
+          ) : (
+            <p className="text-[12.5px] text-muted-foreground leading-relaxed" role="status">
+              {translate("checkout.squads.incomplete")}
+            </p>
+          )}
         </div>
       </section>
+
+      {checkout.squadSelection.required && (
+        <p
+          className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-[12.5px] leading-relaxed"
+          role="status"
+        >
+          {describeCode(checkout.squadSelection.reason)}
+        </p>
+      )}
 
       {checkout.targetRequired && (
         <p
@@ -246,7 +297,7 @@ function Checkout({
         <Button className="w-full" disabled={busy || blocked} onClick={confirm} size="lg">
           {translate(needsPayment ? "checkout.confirm" : "checkout.confirmFree")}
         </Button>
-        {blocked && !checkout.targetRequired && (
+        {blocked && !checkout.targetRequired && !unresolved && (
           <p className="px-1 text-center text-[11.5px] text-warning" role="status">
             {translate("checkout.provider.required")}
           </p>

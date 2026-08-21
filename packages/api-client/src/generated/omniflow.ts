@@ -3680,6 +3680,22 @@ export type AccountCheckoutSubscriptionsItem = {
   endsAt?: string;
 };
 
+export type AccountCheckoutSquadSelectionReason =
+  (typeof AccountCheckoutSquadSelectionReason)[keyof typeof AccountCheckoutSquadSelectionReason];
+
+export const AccountCheckoutSquadSelectionReason = {
+  squad_selection_required: "squad_selection_required",
+  squad_selection_too_few: "squad_selection_too_few",
+} as const;
+
+/**
+ * Whether the server choice still stands between this checkout and a price. A plan that asks the customer to choose servers opens with `required: true` and no quote rather than failing; `reason` is the commerce vocabulary the panel already explains.
+ */
+export type AccountCheckoutSquadSelection = {
+  required: boolean;
+  reason?: AccountCheckoutSquadSelectionReason;
+};
+
 export type AccountCheckoutSelectedAddonsItem = {
   addonVersionId: string;
   quantity: number;
@@ -3708,6 +3724,10 @@ export interface AccountCheckout {
   multiSubscription: boolean;
   squads: AccountSquadOffer;
   selectedSquadIds: string[];
+  /** Whether the server choice still stands between this checkout and a price. A plan that asks the customer to choose servers opens with `required: true` and no quote rather than failing; `reason` is the commerce vocabulary the panel already explains. */
+  squadSelection: AccountCheckoutSquadSelection;
+  /** False while the quote is withheld; `quote` then carries only the currency. */
+  quoteAvailable: boolean;
   addons: AccountAddonOffer[];
   selectedAddons: AccountCheckoutSelectedAddonsItem[];
   termsUrl?: string;

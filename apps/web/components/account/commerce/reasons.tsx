@@ -126,6 +126,15 @@ export function useIneligibility(): (code?: string) => string {
 }
 
 /**
+ * Explains a problem code the server carried in a 200 body rather than in a
+ * refusal — the checkout's unfinished server choice, for one — using the same
+ * copy a refusal with that code would get.
+ */
+export function useProblemCode(): (code?: string) => string {
+  return useCodeCopy("problems", PROBLEMS);
+}
+
+/**
  * Explains a failed mutation.
  *
  * A transport failure — the request never reached the API — is deliberately its

@@ -6462,7 +6462,7 @@ components:
         recurring: {type: boolean}
     AccountCheckout:
       type: object
-      required: [id, planVersionId, plan, operation, currency, providers, applyWallet, quote, subscriptions, targetRequired, multiSubscription, squads, selectedSquadIds, addons, selectedAddons]
+      required: [id, planVersionId, plan, operation, currency, providers, applyWallet, quote, subscriptions, targetRequired, multiSubscription, squads, selectedSquadIds, squadSelection, quoteAvailable, addons, selectedAddons]
       properties:
         id: {type: string, format: uuid}
         planVersionId: {type: string, format: uuid}
@@ -6497,6 +6497,18 @@ components:
         multiSubscription: {type: boolean, description: "False means the panel renders no picker at all."}
         squads: {$ref: "#/components/schemas/AccountSquadOffer"}
         selectedSquadIds: {type: array, items: {type: string, format: uuid}}
+        squadSelection:
+          type: object
+          description: >-
+            Whether the server choice still stands between this checkout and a
+            price. A plan that asks the customer to choose servers opens with
+            `required: true` and no quote rather than failing; `reason` is the
+            commerce vocabulary the panel already explains.
+          required: [required]
+          properties:
+            required: {type: boolean}
+            reason: {type: string, enum: [squad_selection_required, squad_selection_too_few]}
+        quoteAvailable: {type: boolean, description: "False while the quote is withheld; `quote` then carries only the currency."}
         addons: {type: array, items: {$ref: "#/components/schemas/AccountAddonOffer"}}
         selectedAddons:
           type: array

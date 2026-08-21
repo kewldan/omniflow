@@ -41,10 +41,16 @@ type CheckoutView struct {
 	MultiSubscription bool
 	Squads            SquadOffer
 	SelectedSquadIDs  []string
-	Addons            []AddonOffer
-	SelectedAddons    []CheckoutAddon
-	ExpiresAt         time.Time
-	TermsURL          string
+	// SquadSelection reports a server choice the customer has not finished.
+	// While it is required the quote is withheld rather than the checkout
+	// failing: a plan that asks the customer to choose servers has nothing to
+	// price until they do, and the earlier behaviour — a 422 on every read —
+	// left the screen unable to show the very control that would resolve it.
+	SquadSelection SquadSelectionState
+	Addons         []AddonOffer
+	SelectedAddons []CheckoutAddon
+	ExpiresAt      time.Time
+	TermsURL       string
 }
 
 // OpenRequest is what the panel submits to start a checkout.
@@ -199,6 +205,18 @@ func (service *Service) Update(
 		}
 	}
 	if request.SquadIDs != nil {
+		// Validated before it is stored. A set the plan could never accept —
+		// a server it does not offer, more than it allows — is refused here
+		// with the session untouched, so the customer keeps a checkout they
+		// can still finish; an incomplete set is stored and reported through
+		// the view, because the screen sends the whole set on every tap.
+		offer, offerErr := service.store.PlanSquads(ctx, session.PlanVersionID, locale)
+		if offerErr != nil {
+			return CheckoutView{}, offerErr
+		}
+		if err = ValidateSquadEdit(offer, *request.SquadIDs); err != nil {
+			return CheckoutView{}, err
+		}
 		if session, err = service.store.SetCheckoutSquads(ctx, session.ID, *request.SquadIDs); err != nil {
 			return CheckoutView{}, err
 		}
@@ -350,6 +368,13 @@ func (service *Service) view(ctx context.Context, session Session, locale string
 		return CheckoutView{}, err
 	}
 	quote, err := service.Quote(ctx, session)
+	var selection SquadSelectionState
+	if reason, incomplete := SquadSelectionIncomplete(err); incomplete {
+		// Not a failure of the checkout: the customer has not chosen servers
+		// yet. The screen renders the configurator and no price.
+		selection = SquadSelectionState{Required: true, Reason: reason}
+		quote, err = incompleteQuote(session), nil
+	}
 	if err != nil {
 		return CheckoutView{}, err
 	}
@@ -385,7 +410,8 @@ func (service *Service) view(ctx context.Context, session Session, locale string
 			session.SubscriptionID == "" && !session.NewSubscription,
 		MultiSubscription: multi,
 		Squads:            squads, SelectedSquadIDs: session.SelectedSquadIDs,
-		Addons: addons, SelectedAddons: selected,
+		SquadSelection: selection,
+		Addons:         addons, SelectedAddons: selected,
 		ExpiresAt: session.ExpiresAt, TermsURL: service.settings.TermsURL,
 	}, nil
 }

@@ -566,6 +566,16 @@ confirming a price the catalogue has since moved away from.
     selection are stated as guidance and enforced by the server: a second
     implementation of the counting rule in React is exactly what would eventually
     let through a set the order then refuses.
+
+    A plan that requires a choice opens **without a price**: the checkout
+    carries `squadSelection: {required: true, reason}` and `quoteAvailable:
+    false`, the configurator renders first, the breakdown says to choose, and
+    Confirm stays disabled until the server reports that the selection resolves.
+    Each tap sends the whole set, so an incomplete set is stored and reported as
+    `squad_selection_too_few`; a set the plan could never accept — a server it
+    does not offer, more than it allows, any choice on an automatic plan — is
+    refused with `422` **before** it is stored, so the checkout is never left in
+    a state the customer cannot repair from the screen.
   </Step>
   <Step title="Apply a promo code">
     A refused code is answered with a reason — unknown, ineligible, exhausted,
@@ -591,6 +601,11 @@ confirming a price the catalogue has since moved away from.
 Confirming a checkout creates an order and charges nothing. Starting the provider
 payment is a separate step, so a customer who closed the tab between the two
 finds an order waiting rather than a payment nobody can account for.
+
+The checkout screen always offers **Discard this purchase**, including when the
+checkout itself could not be read. A customer has at most one checkout and it
+blocks every other purchase, so a way out that lived only on the happy path would
+leave somebody holding a purchase they can neither finish nor abandon.
 
 ### When a payment does not land cleanly
 

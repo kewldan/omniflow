@@ -3591,6 +3591,7 @@
         "confirmFree": "Confirm",
         "discard": "Discard this purchase",
         "discardDescription": "The plan, the extras, and the code you entered are forgotten. Nothing has been charged.",
+        "unreadableDescription": "Your open purchase could not be loaded. You can discard it and start again from the store; nothing has been charged.",
         "target": {
           "title": "Which subscription",
           "new": "A new subscription",
@@ -3599,7 +3600,8 @@
         "squads": {
           "title": "Servers",
           "minimum": "Choose at least {minimum}.",
-          "range": "Choose between {minimum} and {maximum}."
+          "range": "Choose between {minimum} and {maximum}.",
+          "incomplete": "Choose your servers above and the price appears here."
         },
         "addons": {
           "title": "Extras",

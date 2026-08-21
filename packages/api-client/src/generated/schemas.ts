@@ -7361,6 +7361,17 @@ export const GetAccountCheckoutResponse = zod.object({
     ),
   }),
   selectedSquadIds: zod.array(zod.uuid()),
+  squadSelection: zod
+    .object({
+      required: zod.boolean(),
+      reason: zod.enum(["squad_selection_required", "squad_selection_too_few"]).optional(),
+    })
+    .describe(
+      "Whether the server choice still stands between this checkout and a price. A plan that asks the customer to choose servers opens with `required: true` and no quote rather than failing; `reason` is the commerce vocabulary the panel already explains.",
+    ),
+  quoteAvailable: zod
+    .boolean()
+    .describe("False while the quote is withheld; `quote` then carries only the currency."),
   addons: zod.array(
     zod.object({
       addonId: zod.uuid(),
@@ -7510,6 +7521,17 @@ export const OpenAccountCheckoutResponse = zod.object({
     ),
   }),
   selectedSquadIds: zod.array(zod.uuid()),
+  squadSelection: zod
+    .object({
+      required: zod.boolean(),
+      reason: zod.enum(["squad_selection_required", "squad_selection_too_few"]).optional(),
+    })
+    .describe(
+      "Whether the server choice still stands between this checkout and a price. A plan that asks the customer to choose servers opens with `required: true` and no quote rather than failing; `reason` is the commerce vocabulary the panel already explains.",
+    ),
+  quoteAvailable: zod
+    .boolean()
+    .describe("False while the quote is withheld; `quote` then carries only the currency."),
   addons: zod.array(
     zod.object({
       addonId: zod.uuid(),
@@ -7658,6 +7680,17 @@ export const UpdateAccountCheckoutResponse = zod.object({
     ),
   }),
   selectedSquadIds: zod.array(zod.uuid()),
+  squadSelection: zod
+    .object({
+      required: zod.boolean(),
+      reason: zod.enum(["squad_selection_required", "squad_selection_too_few"]).optional(),
+    })
+    .describe(
+      "Whether the server choice still stands between this checkout and a price. A plan that asks the customer to choose servers opens with `required: true` and no quote rather than failing; `reason` is the commerce vocabulary the panel already explains.",
+    ),
+  quoteAvailable: zod
+    .boolean()
+    .describe("False while the quote is withheld; `quote` then carries only the currency."),
   addons: zod.array(
     zod.object({
       addonId: zod.uuid(),
@@ -7810,6 +7843,17 @@ export const ApplyAccountPromoCodeResponse = zod.object({
     ),
   }),
   selectedSquadIds: zod.array(zod.uuid()),
+  squadSelection: zod
+    .object({
+      required: zod.boolean(),
+      reason: zod.enum(["squad_selection_required", "squad_selection_too_few"]).optional(),
+    })
+    .describe(
+      "Whether the server choice still stands between this checkout and a price. A plan that asks the customer to choose servers opens with `required: true` and no quote rather than failing; `reason` is the commerce vocabulary the panel already explains.",
+    ),
+  quoteAvailable: zod
+    .boolean()
+    .describe("False while the quote is withheld; `quote` then carries only the currency."),
   addons: zod.array(
     zod.object({
       addonId: zod.uuid(),
@@ -7947,6 +7991,17 @@ export const RemoveAccountPromoCodeResponse = zod.object({
     ),
   }),
   selectedSquadIds: zod.array(zod.uuid()),
+  squadSelection: zod
+    .object({
+      required: zod.boolean(),
+      reason: zod.enum(["squad_selection_required", "squad_selection_too_few"]).optional(),
+    })
+    .describe(
+      "Whether the server choice still stands between this checkout and a price. A plan that asks the customer to choose servers opens with `required: true` and no quote rather than failing; `reason` is the commerce vocabulary the panel already explains.",
+    ),
+  quoteAvailable: zod
+    .boolean()
+    .describe("False while the quote is withheld; `quote` then carries only the currency."),
   addons: zod.array(
     zod.object({
       addonId: zod.uuid(),
@@ -8088,6 +8143,17 @@ export const ToggleAccountCheckoutAddonResponse = zod.object({
     ),
   }),
   selectedSquadIds: zod.array(zod.uuid()),
+  squadSelection: zod
+    .object({
+      required: zod.boolean(),
+      reason: zod.enum(["squad_selection_required", "squad_selection_too_few"]).optional(),
+    })
+    .describe(
+      "Whether the server choice still stands between this checkout and a price. A plan that asks the customer to choose servers opens with `required: true` and no quote rather than failing; `reason` is the commerce vocabulary the panel already explains.",
+    ),
+  quoteAvailable: zod
+    .boolean()
+    .describe("False while the quote is withheld; `quote` then carries only the currency."),
   addons: zod.array(
     zod.object({
       addonId: zod.uuid(),

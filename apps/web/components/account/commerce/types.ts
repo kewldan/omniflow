@@ -189,6 +189,14 @@ export type CheckoutView = {
   multiSubscription: boolean;
   squads: SquadOffer;
   selectedSquadIds: string[];
+  /**
+   * The server choice is not finished, so there is no price yet. The reason is
+   * the commerce vocabulary the problem copy already explains —
+   * `squad_selection_required`, `squad_selection_too_few`.
+   */
+  squadSelection: { required: boolean; reason?: string };
+  /** False while the quote is withheld; the breakdown must not render zeros as a price. */
+  quoteAvailable: boolean;
   addons: AddonOffer[];
   selectedAddons: CheckoutAddon[];
   termsUrl: string;
