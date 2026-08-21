@@ -829,8 +829,11 @@ second button copies the full link rather than the bare code.
 Attribution is recorded the moment the invitee sends `/start ref_<code>`, before
 anything is rendered, and it is first-write-wins and permanent: the invited
 customer can only ever have one inviter. Self-referral is impossible by
-construction rather than by a check that could be bypassed. A code is minted once
-and stays stable. If Omniflow could not resolve the bot's own username at
+construction rather than by a check that could be bypassed. Two conditions
+apply: the referral programme has to be switched on, and the invitee has to be
+new — a customer with a paid order on record is not attributed, because a
+referral rewards bringing a customer in and a paying customer was not brought
+in by the link they tapped today. A code is minted once and stays stable. If Omniflow could not resolve the bot's own username at
 startup, the share and copy buttons are omitted rather than pointing at a link
 that cannot work.
 

@@ -132,11 +132,30 @@ func (store *PostgresStore) ReferralRewards(ctx context.Context, customerID stri
 // AttributeReferralForCustomer records an immutable inviter/invitee pair. The
 // primary key on the invited customer makes attribution first-write-wins, and
 // self-referral is impossible by construction.
+//
+// Two further conditions keep the pair honest. The programme has to be on:
+// an attribution written while it is off would pay out the day an operator
+// turns it on, for an invitation nobody was offering. And the invitee has to be
+// new — no paid order on record — because a referral rewards bringing a
+// customer in, and a customer who has already paid was not brought in by the
+// link they tapped today.
 func (store *PostgresStore) AttributeReferralForCustomer(ctx context.Context, customerID, code string) error {
-	_, err := store.pool.Exec(ctx, `INSERT INTO referral_attributions (referred_user_id, referrer_user_id, code)
+	program, _, err := store.ReferralProgram(ctx)
+	if err != nil {
+		return err
+	}
+	if !program.Enabled {
+		return nil
+	}
+	_, err = store.pool.Exec(ctx, `INSERT INTO referral_attributions (referred_user_id, referrer_user_id, code)
 		SELECT $1::uuid, owner.user_id, owner.code
 		FROM referral_codes owner
 		WHERE owner.code = $2 AND owner.user_id <> $1::uuid
+		  AND NOT EXISTS (
+			SELECT 1 FROM orders o
+			WHERE o.user_id = $1::uuid
+			  AND o.state IN ('paid', 'fulfilled', 'partially_refunded', 'refunded')
+		  )
 		ON CONFLICT (referred_user_id) DO NOTHING`, customerID, strings.ToUpper(strings.TrimSpace(code)))
 	return err
 }
