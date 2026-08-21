@@ -144,6 +144,7 @@ unconfigured screen teaches customers the bot is unreliable.
 
 | Row | Entries | Shown when |
 | --- | --- | --- |
+| 0 | `♻️ Restore subscription` | The latest subscription has expired or is in its grace period. It opens a renewal of that subscription, so the plan and settings are kept — this is the "one tap" the lifecycle notice promises |
 | 1 | `🛒 Plans` and `📊 Subscription` | Always. `📊 Subscription` becomes `🗂 My subscriptions` when concurrent subscriptions are enabled |
 | 2 | `🚀 Connect` and `📱 Devices` | Always |
 | 3 | `🧾 My orders` and `👛 Wallet` | Always |
@@ -259,6 +260,18 @@ account limit reached, or that plan's own limit reached. With a single
 subscription and concurrency off, the switcher route opens the one detail screen
 directly — the mode is invisible to installations that do not use it. See
 [Subscriptions](/commerce/subscriptions).
+
+`♻️ Renew` and `🧩 Add-ons` act on **that** subscription's own plan — a customer
+holding two subscriptions on different plans renews the second on its plan, not
+on the first one's.
+
+A lapsed subscription is revived, not duplicated. Where concurrency is enabled,
+`🛒 Buy` on a plan the customer already holds on an expired subscription opens
+a renewal of that subscription rather than a new slot beside it — otherwise
+every expiry would mint a new subscription, a new Remnawave user, and a new
+link, until the account hit its limit and could buy nothing. Only
+`➕ Add a subscription` opens a new slot: the catalogue it shows carries that
+intent through to the checkout, and its plan pages offer `🛒 Buy` alone.
 
 ## Buying a plan
 

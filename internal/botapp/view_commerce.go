@@ -12,7 +12,10 @@ import (
 
 // plansView lists the catalog with the comparison facts a customer needs before
 // opening a plan: period, traffic, devices, and price in one line each.
-func plansView(locale Locale, plans []Plan, currency string) View {
+//
+// `forNew` marks the catalogue opened from "Add a subscription"; each plan
+// button then carries the flag so the intent survives to the checkout.
+func plansView(locale Locale, plans []Plan, currency string, forNew bool) View {
 	if len(plans) == 0 {
 		return View{Text: text(locale, "plans.empty", currency), Keyboard: keyboard(row(callbackButton(text(locale, "action.back"), routeHome))), RetryRoute: routePlans}
 	}
@@ -31,7 +34,7 @@ func plansView(locale Locale, plans []Plan, currency string) View {
 			text(locale, "plans.devices", deviceAllowance(locale, plan.DeviceLimit)),
 			text(locale, "plans.price", formatMoney(plan.AmountMinor, plan.Currency))))
 		label := text(locale, "plans.row", truncateRunes(plan.Name, 24), formatMoney(plan.AmountMinor, plan.Currency))
-		rows = append(rows, row(actionButton(label, "plan:"+plan.PlanVersionID)))
+		rows = append(rows, row(actionButton(label, withNewSubscriptionFlag("plan:"+plan.PlanVersionID, forNew))))
 	}
 	rows = append(rows, row(callbackButton(text(locale, "action.refresh"), routePlans), callbackButton(text(locale, "action.back"), routeHome)))
 	return View{Text: strings.Join(lines, "\n"), Keyboard: keyboard(rows...), RetryRoute: routePlans}
@@ -39,7 +42,7 @@ func plansView(locale Locale, plans []Plan, currency string) View {
 
 // planView shows one plan with its eligibility, policies, and the actions the
 // configured policy actually permits.
-func planView(locale Locale, plan Plan, entitlement Entitlement, termsURL string, trialReason string) View {
+func planView(locale Locale, plan Plan, entitlement Entitlement, termsURL string, trialReason string, forNew bool) View {
 	sections := []string{
 		text(locale, "plan.title", html.EscapeString(plan.Name)),
 	}
@@ -67,26 +70,45 @@ func planView(locale Locale, plan Plan, entitlement Entitlement, termsURL string
 	sections = append(sections, text(locale, "plan.terms"))
 
 	rows := make([][]models.InlineKeyboardButton, 0, 5)
-	for _, choice := range planActions(locale, plan, entitlement, trialReason) {
-		rows = append(rows, row(actionButton(choice.label, "buy:"+plan.PlanVersionID+":"+choice.operation)))
+	for _, choice := range planActions(locale, plan, entitlement, trialReason, forNew) {
+		rows = append(rows, row(actionButton(choice.label, withNewSubscriptionFlag("buy:"+plan.PlanVersionID+":"+choice.operation, forNew))))
 	}
 	if safeURL(termsURL) {
 		rows = append(rows, row(models.InlineKeyboardButton{Text: text(locale, "action.terms"), URL: termsURL}))
 	}
-	rows = append(rows, row(callbackButton(text(locale, "action.back"), routePlans)))
+	back := callbackButton(text(locale, "action.back"), routePlans)
+	if forNew {
+		back = actionButton(text(locale, "action.back"), "sub-new")
+	}
+	rows = append(rows, row(back))
 	return View{Text: strings.Join(sections, "\n\n"), Keyboard: keyboard(rows...), RetryRoute: routePlans}
+}
+
+// withNewSubscriptionFlag appends the new-subscription marker to a callback
+// when the flow was opened from "Add a subscription".
+func withNewSubscriptionFlag(action string, forNew bool) string {
+	if !forNew {
+		return action
+	}
+	return action + ":" + newSubscriptionFlag
 }
 
 type planAction struct{ label, operation string }
 
 // planActions decides which purchase paths a plan offers. A policy of "forbid"
 // removes the action entirely rather than failing after the customer taps it.
-func planActions(locale Locale, plan Plan, entitlement Entitlement, trialReason string) []planAction {
+//
+// With `forNew` the customer asked for an additional subscription, so the only
+// sensible action is a purchase: there is nothing yet to extend or switch.
+func planActions(locale Locale, plan Plan, entitlement Entitlement, trialReason string, forNew bool) []planAction {
 	if plan.Kind == "trial" {
 		if trialReason != "" {
 			return nil
 		}
 		return []planAction{{text(locale, "plan.trial"), "purchase"}}
+	}
+	if forNew {
+		return []planAction{{text(locale, "plan.buy"), "purchase"}}
 	}
 	if !entitlement.Found || entitlement.Status == "expired" || entitlement.EndsAt.Before(time.Now()) {
 		return []planAction{{text(locale, "plan.buy"), "purchase"}}

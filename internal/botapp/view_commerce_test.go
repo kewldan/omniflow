@@ -33,7 +33,7 @@ func TestPlansViewComparesPeriodTrafficDevicesAndPrice(t *testing.T) {
 		Name:          "Pro <plan>", Kind: "one_time", Duration: 30 * 24 * time.Hour,
 		TrafficAllowanceBytes: &traffic, DeviceLimit: &devices,
 		Currency: "RUB", AmountMinor: 49900,
-	}}, "RUB")
+	}}, "RUB", false)
 	for _, fragment := range []string{"1 month", "100.0 GiB", "3", "499 RUB", "Pro &lt;plan&gt;"} {
 		if !strings.Contains(view.Text, fragment) {
 			t.Fatalf("plan comparison is missing %q: %s", fragment, view.Text)
@@ -46,7 +46,7 @@ func TestPlansViewComparesPeriodTrafficDevicesAndPrice(t *testing.T) {
 
 func TestPlansViewEmptyStateNamesTheCurrency(t *testing.T) {
 	t.Parallel()
-	view := plansView(LocaleRussian, nil, "USD")
+	view := plansView(LocaleRussian, nil, "USD", false)
 	if !strings.Contains(view.Text, "USD") {
 		t.Fatalf("empty catalog must name the currency: %s", view.Text)
 	}
@@ -56,20 +56,20 @@ func TestPlanActionsFollowThePlanPolicy(t *testing.T) {
 	t.Parallel()
 	plan := Plan{PlanVersionID: "a", UpgradePolicy: "forbid", DowngradePolicy: "forbid"}
 	active := Entitlement{Found: true, PlanVersionID: "b", Status: "active", EndsAt: time.Now().Add(time.Hour)}
-	if actions := planActions(LocaleEnglish, plan, active, ""); len(actions) != 0 {
+	if actions := planActions(LocaleEnglish, plan, active, "", false); len(actions) != 0 {
 		t.Fatalf("a plan forbidding both changes must offer nothing: %+v", actions)
 	}
 	plan.UpgradePolicy = "extend"
-	actions := planActions(LocaleEnglish, plan, active, "")
+	actions := planActions(LocaleEnglish, plan, active, "", false)
 	if len(actions) != 1 || actions[0].operation != "upgrade" {
 		t.Fatalf("only the permitted change must be offered: %+v", actions)
 	}
 	same := Entitlement{Found: true, PlanVersionID: "a", Status: "active", EndsAt: time.Now().Add(time.Hour)}
-	if actions = planActions(LocaleEnglish, plan, same, ""); len(actions) != 1 || actions[0].operation != "extension" {
+	if actions = planActions(LocaleEnglish, plan, same, "", false); len(actions) != 1 || actions[0].operation != "extension" {
 		t.Fatalf("the current plan must offer an extension: %+v", actions)
 	}
 	trial := Plan{Kind: "trial"}
-	if actions = planActions(LocaleEnglish, trial, Entitlement{}, "trial_already_used"); len(actions) != 0 {
+	if actions = planActions(LocaleEnglish, trial, Entitlement{}, "trial_already_used", false); len(actions) != 0 {
 		t.Fatalf("an ineligible trial must not be purchasable: %+v", actions)
 	}
 }

@@ -19,6 +19,10 @@ type SubscriptionSummary struct {
 	Label       string
 	RemnawaveID int64
 	PlanName    string
+	// PlanID is the plan behind the current entitlement, so a purchase of the
+	// same plan can recognise an expired subscription it should revive instead
+	// of opening a slot beside it.
+	PlanID      string
 	Status      string
 	EndsAt      time.Time
 	GracePeriod time.Duration
@@ -30,7 +34,7 @@ type SubscriptionSummary struct {
 func (summary SubscriptionSummary) Provisioned() bool { return summary.RemnawaveID > 0 }
 
 const subscriptionColumns = `s.id::text, s.slot, s.label, COALESCE(s.remnawave_user_id, 0),
-	COALESCE(l.name, p.code, ''), COALESCE(e.status, ''), e.ends_at, COALESCE(v.grace_period_seconds, 0)`
+	COALESCE(l.name, p.code, ''), COALESCE(p.id::text, ''), COALESCE(e.status, ''), e.ends_at, COALESCE(v.grace_period_seconds, 0)`
 
 const subscriptionJoins = `FROM subscriptions s
 	LEFT JOIN LATERAL (
@@ -98,7 +102,7 @@ func scanSubscription(row pgx.Row) (SubscriptionSummary, error) {
 		graceSeconds int64
 	)
 	err := row.Scan(&summary.ID, &slot, &summary.Label, &summary.RemnawaveID,
-		&summary.PlanName, &summary.Status, &endsAt, &graceSeconds)
+		&summary.PlanName, &summary.PlanID, &summary.Status, &endsAt, &graceSeconds)
 	if err != nil {
 		return SubscriptionSummary{}, err
 	}

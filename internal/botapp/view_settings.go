@@ -91,11 +91,18 @@ func commerceMainKeyboard(locale Locale, menu MenuState) *models.InlineKeyboardM
 	if menu.MultiSubscription {
 		subscription, subscriptionRoute = text(locale, "menu.subs"), routeSubscriptions
 	}
-	rows := [][]models.InlineKeyboardButton{
+	rows := make([][]models.InlineKeyboardButton, 0, 10)
+	if menu.RecoverSubscriptionID != "" {
+		// The lifecycle notice above the keyboard says access can be restored in
+		// one tap. This is the tap: a renewal of the lapsed subscription, which
+		// keeps its plan and settings rather than opening a new one.
+		rows = append(rows, row(actionButton(text(locale, "life.recover"), "sub-renew:"+menu.RecoverSubscriptionID)))
+	}
+	rows = append(rows,
 		row(callbackButton(text(locale, "menu.plans"), routePlans), callbackButton(subscription, subscriptionRoute)),
 		row(callbackButton(connect, routeConnect), callbackButton(devices, routeDevices)),
 		row(callbackButton(text(locale, "menu.orders"), routeOrders), callbackButton(text(locale, "menu.wallet"), routeWallet)),
-	}
+	)
 	// The wallet and cart rows only appear when they can actually be used.
 	walletRow := make([]models.InlineKeyboardButton, 0, 2)
 	if menu.TopUpEnabled {

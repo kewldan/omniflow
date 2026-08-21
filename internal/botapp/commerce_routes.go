@@ -33,6 +33,10 @@ type MenuState struct {
 	// the screen behind it can actually be used.
 	TopUpEnabled bool
 	HasCart      bool
+	// RecoverSubscriptionID names the subscription whose access has lapsed and
+	// can be restored with a renewal. The home screen promises "restore access
+	// in one tap" whenever a subscription has expired; this is the tap.
+	RecoverSubscriptionID string
 }
 
 // commerceContext is everything a commerce screen needs about the caller. It is
@@ -94,7 +98,25 @@ func (app *App) menuState(ctx context.Context, customerID string, locale Locale)
 	if offers, err := app.customers.ActiveOffers(ctx, customerID, locale, 1); err == nil {
 		state.OfferCount = len(offers)
 	}
+	state.RecoverSubscriptionID = app.recoverableSubscription(ctx, customerID, locale)
 	return state
+}
+
+// recoverableSubscription finds the subscription a "restore access" button
+// should renew: the customer's latest entitlement when it has expired or is in
+// its grace period. It is empty when access is simply healthy or when there is
+// nothing to renew, and a lookup failure leaves the button out rather than the
+// screen broken.
+func (app *App) recoverableSubscription(ctx context.Context, customerID string, locale Locale) string {
+	entitlement, err := app.customers.Entitlement(ctx, customerID, locale, app.settings.Currency)
+	if err != nil || !entitlement.Found || entitlement.SubscriptionID == "" {
+		return ""
+	}
+	phase := commerce.EvaluatePhase(time.Now().UTC(), commerce.Subscription{Status: entitlement.Status, EndsAt: entitlement.EndsAt, GracePeriod: entitlement.GracePeriod})
+	if phase == commerce.PhaseExpired || phase == commerce.PhaseGrace {
+		return entitlement.SubscriptionID
+	}
+	return ""
 }
 
 // loadCommerceView renders the routes the commerce surface owns. The second
@@ -108,7 +130,7 @@ func (app *App) loadCommerceView(ctx context.Context, session commerceContext, r
 	}
 	switch route {
 	case routePlans:
-		return app.plansScreen(ctx, session), true
+		return app.plansScreen(ctx, session, false), true
 	case routeOrders:
 		return app.ordersScreen(ctx, session), true
 	case routeWallet:
@@ -135,7 +157,14 @@ func (app *App) loadCommerceView(ctx context.Context, session commerceContext, r
 	}
 }
 
-func (app *App) plansScreen(ctx context.Context, session commerceContext) View {
+// newSubscriptionFlag is the trailing callback segment that carries "the
+// customer asked for an additional subscription" from the catalogue through
+// the plan page to the checkout. Without it the intent behind "Add a
+// subscription" was lost at the first tap and a purchase could revive an
+// expired subscription the customer meant to keep beside a new one.
+const newSubscriptionFlag = "new"
+
+func (app *App) plansScreen(ctx context.Context, session commerceContext, forNew bool) View {
 	// Maintenance stops the purchase surface at its entry point rather than at
 	// the payment step, so a customer is told before they choose anything.
 	if view, blocked := app.blockedByMaintenance(ctx, session); blocked {
@@ -146,10 +175,10 @@ func (app *App) plansScreen(ctx context.Context, session commerceContext) View {
 		app.logger.Error("plan catalog lookup failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
 	}
-	return plansView(session.Locale, plans, app.settings.Currency)
+	return plansView(session.Locale, plans, app.settings.Currency, forNew)
 }
 
-func (app *App) planScreen(ctx context.Context, session commerceContext, planVersionID string) View {
+func (app *App) planScreen(ctx context.Context, session commerceContext, planVersionID string, forNew bool) View {
 	plan, err := app.customers.Plan(ctx, planVersionID, session.Locale, app.settings.Currency)
 	if errors.Is(err, ErrPlanUnavailable) {
 		return View{Text: text(session.Locale, "plan.gone"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "action.back"), routePlans)))}
@@ -176,12 +205,12 @@ func (app *App) planScreen(ctx context.Context, session commerceContext, planVer
 			trialReason = reason
 		}
 	}
-	return planView(session.Locale, plan, entitlement, app.termsURL, trialReason)
+	return planView(session.Locale, plan, entitlement, app.termsURL, trialReason, forNew)
 }
 
 // paymentMethodScreen starts a checkout and asks which configured adapter should
 // settle it. Choosing the method is what fixes the order currency.
-func (app *App) paymentMethodScreen(ctx context.Context, session commerceContext, planVersionID, operation, subscriptionID string) View {
+func (app *App) paymentMethodScreen(ctx context.Context, session commerceContext, planVersionID, operation, subscriptionID string, forceNew bool) View {
 	plan, err := app.customers.Plan(ctx, planVersionID, session.Locale, app.settings.Currency)
 	if errors.Is(err, ErrPlanUnavailable) {
 		return View{Text: text(session.Locale, "plan.gone"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "action.back"), routePlans)))}
@@ -197,7 +226,7 @@ func (app *App) paymentMethodScreen(ctx context.Context, session commerceContext
 	// A change to an existing subscription must name it. A plain purchase in a
 	// single-subscription installation targets the one the customer already has,
 	// so buying again renews it instead of silently opening a second one.
-	target, err := app.checkoutTarget(ctx, session, normalized, subscriptionID)
+	target, normalized, err := app.checkoutTarget(ctx, session, plan, normalized, subscriptionID, forceNew)
 	if err != nil {
 		app.logger.Error("subscription target lookup failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
@@ -219,27 +248,63 @@ func (app *App) paymentMethodScreen(ctx context.Context, session commerceContext
 	return paymentMethodView(session.Locale, plan, choices, "plan:"+plan.PlanVersionID)
 }
 
-// checkoutTarget resolves which subscription a checkout changes. An explicit
-// identifier always wins; otherwise a change targets the primary subscription
-// and a purchase opens a new one only when concurrency is enabled.
-func (app *App) checkoutTarget(ctx context.Context, session commerceContext, operation, subscriptionID string) (string, error) {
+// checkoutTarget resolves which subscription a checkout changes, and with it
+// the operation that change really is.
+//
+// An explicit identifier always wins. Otherwise a change targets the primary
+// subscription. A purchase opens a new subscription only where concurrency is
+// enabled — and even there, a purchase of a plan the customer already holds on
+// an expired subscription revives that subscription with an extension instead
+// of opening a slot beside it: every expiry would otherwise mint a new
+// subscription, a new Remnawave user, and a new link, until the account hit its
+// concurrency limit and could buy nothing at all. `forceNew` is the "Add a
+// subscription" path, the one place a new slot is what was asked for.
+func (app *App) checkoutTarget(ctx context.Context, session commerceContext, plan Plan, operation, subscriptionID string, forceNew bool) (string, string, error) {
 	if subscriptionID != "" {
 		if _, err := app.customers.Subscription(ctx, session.Customer.ID, subscriptionID, session.Locale); err != nil {
-			return "", err
+			return "", operation, err
 		}
-		return subscriptionID, nil
+		return subscriptionID, operation, nil
 	}
 	if commerce.TargetsNewSubscription(operation) && app.commerce.SubscriptionPolicy().MultiEnabled {
-		return "", nil
+		if forceNew {
+			return "", operation, nil
+		}
+		subscriptions, err := app.customers.Subscriptions(ctx, session.Customer.ID, session.Locale)
+		if err != nil {
+			return "", operation, err
+		}
+		if revive := expiredSubscriptionOfPlan(subscriptions, plan.PlanID, time.Now().UTC()); revive != "" {
+			return revive, "extension", nil
+		}
+		return "", operation, nil
 	}
 	primary, err := app.customers.PrimarySubscription(ctx, session.Customer.ID, session.Locale)
 	if errors.Is(err, ErrSubscriptionNotFound) {
-		return "", nil
+		return "", operation, nil
 	}
 	if err != nil {
-		return "", err
+		return "", operation, err
 	}
-	return primary.ID, nil
+	return primary.ID, operation, nil
+}
+
+// expiredSubscriptionOfPlan finds the subscription a purchase of `planID`
+// should revive: one that holds that plan and has run out. The lowest slot wins
+// when several qualify, which is the order the list arrives in.
+func expiredSubscriptionOfPlan(subscriptions []SubscriptionSummary, planID string, now time.Time) string {
+	if planID == "" {
+		return ""
+	}
+	for _, subscription := range subscriptions {
+		if !subscription.Found || subscription.PlanID != planID {
+			continue
+		}
+		if subscription.Phase(now, 0, 0) == commerce.PhaseExpired {
+			return subscription.ID
+		}
+	}
+	return ""
 }
 
 // checkoutScreen renders the confirmation summary for the open checkout.
@@ -722,12 +787,12 @@ func (app *App) handleCommerceAction(ctx context.Context, session commerceContex
 	}
 	switch parts[0] {
 	case "plan":
-		return app.planScreen(ctx, session, argument), true
+		return app.planScreen(ctx, session, argument, argumentAt(parts, 2) == newSubscriptionFlag), true
 	case "buy":
-		if len(parts) != 3 {
+		if len(parts) != 3 && len(parts) != 4 {
 			return app.errorView(session.Locale, routePlans), true
 		}
-		return app.paymentMethodScreen(ctx, session, parts[1], parts[2], ""), true
+		return app.paymentMethodScreen(ctx, session, parts[1], parts[2], "", argumentAt(parts, 3) == newSubscriptionFlag), true
 	case "pm":
 		if len(parts) != 3 {
 			return app.errorView(session.Locale, routePlans), true

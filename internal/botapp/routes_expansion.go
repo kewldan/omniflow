@@ -281,9 +281,10 @@ func (app *App) subscriptionDetailScreen(ctx context.Context, session commerceCo
 	return subscriptionDetailView(session.Locale, subscription, time.Now().UTC(), hasAddons)
 }
 
-// addonsFor lists the add-ons offered for a subscription's current plan.
+// addonsFor lists the add-ons offered for a subscription's current plan — that
+// subscription's, not whichever of the customer's subscriptions ends last.
 func (app *App) addonsFor(ctx context.Context, session commerceContext, subscription SubscriptionSummary) ([]Addon, error) {
-	entitlement, err := app.customers.Entitlement(ctx, session.Customer.ID, session.Locale, app.settings.Currency)
+	entitlement, err := app.customers.EntitlementForSubscription(ctx, session.Customer.ID, subscription.ID, session.Locale, app.settings.Currency)
 	if err != nil || !entitlement.Found {
 		return nil, err
 	}
@@ -538,20 +539,28 @@ func (app *App) plansScreenForNewSubscription(ctx context.Context, session comme
 			Keyboard: keyboard(row(callbackButton(text(session.Locale, "subs.back"), routeSubscriptions))),
 		}
 	}
-	return app.plansScreen(ctx, session)
+	// The catalogue is opened with the new-subscription intent, which every
+	// plan button then carries to the checkout: this is the one path that must
+	// open a slot rather than revive an expired subscription of the same plan.
+	return app.plansScreen(ctx, session, true)
 }
 
 // renewSubscription starts a renewal checkout aimed at one named subscription.
+//
+// The plan renewed is that subscription's own: a customer holding two
+// subscriptions on different plans who renews the second must not be handed
+// the first one's plan, which is what reading the account-wide entitlement —
+// the latest by end date across every subscription — used to do.
 func (app *App) renewSubscription(ctx context.Context, session commerceContext, subscriptionID string) View {
 	subscription, err := app.customers.Subscription(ctx, session.Customer.ID, subscriptionID, session.Locale)
 	if err != nil || !subscription.Found {
 		return View{Text: text(session.Locale, "subs.gone"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "subs.back"), routeSubscriptions)))}
 	}
-	entitlement, err := app.customers.Entitlement(ctx, session.Customer.ID, session.Locale, app.settings.Currency)
+	entitlement, err := app.customers.EntitlementForSubscription(ctx, session.Customer.ID, subscriptionID, session.Locale, app.settings.Currency)
 	if err != nil || !entitlement.Found {
-		return app.plansScreen(ctx, session)
+		return app.plansScreen(ctx, session, false)
 	}
-	return app.paymentMethodScreen(ctx, session, entitlement.PlanVersionID, "extension", subscriptionID)
+	return app.paymentMethodScreen(ctx, session, entitlement.PlanVersionID, "extension", subscriptionID, false)
 }
 
 // paymentMethodsForCheckout offers the payment methods for the open checkout.
