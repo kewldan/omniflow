@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -74,17 +75,24 @@ func (handlers *AccountHandlers) signInMethods(writer http.ResponseWriter, reque
 }
 
 // signInWithTelegram accepts a Login Widget payload.
+//
+// The widget posts `id` and `auth_date` as JSON numbers, so the body is decoded
+// by customerauth.WidgetValuesFromJSON rather than into a map of strings: the
+// earlier shape answered 400 to every real browser before the signature was
+// ever examined.
 func (handlers *AccountHandlers) signInWithTelegram(writer http.ResponseWriter, request *http.Request) {
 	if !handlers.ready(writer, request) {
 		return
 	}
-	var body map[string]string
-	if !decodeJSON(writer, request, &body) {
+	raw, err := io.ReadAll(http.MaxBytesReader(writer, request.Body, maxJSONBody))
+	if err != nil {
+		writeProblem(writer, request, http.StatusBadRequest, "invalid_request", "Invalid JSON request")
 		return
 	}
-	values := url.Values{}
-	for key, value := range body {
-		values.Set(key, value)
+	values, err := customerauth.WidgetValuesFromJSON(raw)
+	if err != nil {
+		writeProblem(writer, request, http.StatusBadRequest, "invalid_request", "Invalid JSON request")
+		return
 	}
 	result, err := handlers.auth.SignInWithTelegram(request.Context(), values, handlers.requestContext(request))
 	handlers.finishSignIn(writer, request, result, err)
@@ -132,12 +140,22 @@ func (handlers *AccountHandlers) finishSignIn(
 	case errors.Is(err, customerauthpg.ErrSignInRejected):
 		writeProblem(writer, request, http.StatusUnauthorized, "sign_in_rejected", "Sign-in could not be completed")
 		return
+	case errors.Is(err, customerauth.ErrIdentityTaken):
+		// Two records claim this Telegram account — an unlinked identity on one
+		// customer and a Remnawave mapping on another — and neither may be
+		// chosen silently. The refusal says the identity is in use and no more.
+		writeProblem(
+			writer, request, http.StatusConflict,
+			"identity_taken", "This sign-in method is attached to another account",
+		)
+		return
 	case err != nil:
 		handlers.logger.Error("customer sign-in failed", "error", err)
 		writeProblem(writer, request, http.StatusInternalServerError, "sign_in_unavailable", "Sign-in is unavailable")
 		return
 	}
 
+	handlers.supersedePriorSession(request, result)
 	handlers.setSessionCookie(writer, result.Token, result.ExpiresAt)
 	writeJSON(writer, http.StatusOK, map[string]any{
 		"customer": map[string]any{
@@ -146,6 +164,35 @@ func (handlers *AccountHandlers) finishSignIn(
 		},
 		"expiresAt": result.ExpiresAt.Format(time.RFC3339),
 	})
+}
+
+// supersedePriorSession ends the session the browser already held, when the
+// sign-in that just completed belongs to the same customer.
+//
+// That is the re-authentication case: a customer sent back to the sign-in
+// screen because their session was too old for a sensitive action. They asked
+// for a fresher session, not for a second one. A cookie for a different
+// customer — somebody signing into another account on a shared machine — is
+// left alone; the new cookie replaces it in the browser and the old session
+// ends on its own schedule, because ending it would let one customer sign
+// another out by knowing nothing more than the address of this screen.
+//
+// Best-effort throughout: a failure here must not turn a successful sign-in
+// into an error.
+func (handlers *AccountHandlers) supersedePriorSession(
+	request *http.Request, result customerauthpg.SignInResult,
+) {
+	cookie, err := request.Cookie(handlers.cookieName)
+	if err != nil || cookie.Value == "" {
+		return
+	}
+	prior, err := handlers.auth.Resolve(request.Context(), cookie.Value)
+	if err != nil || prior.Customer.ID != result.Customer.ID || prior.SessionID == result.SessionID {
+		return
+	}
+	if err = handlers.auth.SupersedeSession(request.Context(), prior.Customer.ID, prior.SessionID); err != nil {
+		handlers.logger.Warn("prior customer session could not be superseded", "error", err)
+	}
 }
 
 // completeMagicLink redeems a link the bot delivered.
@@ -178,6 +225,7 @@ func (handlers *AccountHandlers) completeMagicLink(writer http.ResponseWriter, r
 		handlers.redirectToSignIn(writer, request, "sign_in_failed")
 		return
 	}
+	handlers.supersedePriorSession(request, result)
 	handlers.setSessionCookie(writer, result.Token, result.ExpiresAt)
 	http.Redirect(writer, request, "/account", http.StatusFound)
 }
@@ -289,6 +337,7 @@ func (handlers *AccountHandlers) callbackOIDC(writer http.ResponseWriter, reques
 		return
 	}
 
+	handlers.supersedePriorSession(request, result)
 	handlers.setSessionCookie(writer, result.Token, result.ExpiresAt)
 	next := flow.Next
 	if next == "" {

@@ -60,6 +60,7 @@ const INELIGIBILITY = [
  */
 const PROBLEMS = [
   "addon_unavailable",
+  "channel_required",
   "checkout_settled",
   "idempotency_key_required",
   "invalid_cursor",
@@ -72,6 +73,8 @@ const PROBLEMS = [
   "not_provisioned",
   "operation_forbidden",
   "order_not_cancellable",
+  "order_not_payable",
+  "payment_failed",
   "payment_not_required",
   "plan_limit_reached",
   "plan_unavailable",
@@ -79,6 +82,7 @@ const PROBLEMS = [
   "promo_ineligible",
   "promo_invalid",
   "promo_unknown",
+  "provider_currency_unsupported",
   "provider_unavailable",
   "request_failed",
   "squad_not_offered",
@@ -123,6 +127,15 @@ export function usePromoRejection(): (code?: string) => string {
 /** Explains why a plan cannot be started by this customer. */
 export function useIneligibility(): (code?: string) => string {
   return useCodeCopy("eligibility", INELIGIBILITY);
+}
+
+/**
+ * Explains a problem code the server carried in a 200 body rather than in a
+ * refusal — the checkout's unfinished server choice, for one — using the same
+ * copy a refusal with that code would get.
+ */
+export function useProblemCode(): (code?: string) => string {
+  return useCodeCopy("problems", PROBLEMS);
 }
 
 /**

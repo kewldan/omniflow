@@ -24,13 +24,23 @@ SELECT s.id, s.slot, s.label, s.remnawave_user_id,
        COALESCE(v.grace_period_seconds, 0)::bigint AS grace_period_seconds,
        v.traffic_allowance_bytes,
        v.device_limit,
-       v.billing_period
+       v.billing_period,
+       -- The unpaid order that opened this subscription, when one is still
+       -- waiting. A subscription row is created with its order and survives the
+       -- order going unpaid, so without this the dashboard shows "not active"
+       -- with no way to the payment that would make it so.
+       COALESCE(po.id::text, '')::text AS pending_order_id
 FROM subscriptions s
 LEFT JOIN LATERAL (
   SELECT * FROM entitlements ent
   WHERE ent.subscription_id = s.id AND ent.status <> 'superseded'
   ORDER BY ent.ends_at DESC LIMIT 1
 ) e ON true
+LEFT JOIN LATERAL (
+  SELECT o.id FROM orders o
+  WHERE o.subscription_id = s.id AND o.state = 'pending'
+  ORDER BY o.created_at DESC LIMIT 1
+) po ON true
 LEFT JOIN plan_versions v ON v.id = e.plan_version_id
 LEFT JOIN plans p ON p.id = v.plan_id
 LEFT JOIN plan_localizations l ON l.plan_id = p.id AND l.locale = sqlc.arg(locale)
@@ -51,13 +61,23 @@ SELECT s.id, s.slot, s.label, s.remnawave_user_id,
        COALESCE(v.grace_period_seconds, 0)::bigint AS grace_period_seconds,
        v.traffic_allowance_bytes,
        v.device_limit,
-       v.billing_period
+       v.billing_period,
+       -- The unpaid order that opened this subscription, when one is still
+       -- waiting. A subscription row is created with its order and survives the
+       -- order going unpaid, so without this the dashboard shows "not active"
+       -- with no way to the payment that would make it so.
+       COALESCE(po.id::text, '')::text AS pending_order_id
 FROM subscriptions s
 LEFT JOIN LATERAL (
   SELECT * FROM entitlements ent
   WHERE ent.subscription_id = s.id AND ent.status <> 'superseded'
   ORDER BY ent.ends_at DESC LIMIT 1
 ) e ON true
+LEFT JOIN LATERAL (
+  SELECT o.id FROM orders o
+  WHERE o.subscription_id = s.id AND o.state = 'pending'
+  ORDER BY o.created_at DESC LIMIT 1
+) po ON true
 LEFT JOIN plan_versions v ON v.id = e.plan_version_id
 LEFT JOIN plans p ON p.id = v.plan_id
 LEFT JOIN plan_localizations l ON l.plan_id = p.id AND l.locale = sqlc.arg(locale)
@@ -70,6 +90,16 @@ UPDATE users
 SET locale = sqlc.arg(locale), timezone = sqlc.arg(timezone), updated_at = now()
 WHERE id = sqlc.arg(user_id) AND status = 'active'
 RETURNING *;
+
+-- name: SetBotPreferenceLocale :exec
+-- The bot reads bot_preferences.locale before it reads users.locale, so a
+-- language chosen on the profile screen is written here too; otherwise the
+-- profile claimed to set the bot's language and did not. An upsert, because a
+-- customer the web created before this row existed has none yet.
+INSERT INTO bot_preferences (user_id, locale)
+VALUES (sqlc.arg(user_id), sqlc.arg(locale))
+ON CONFLICT (user_id) DO UPDATE
+SET locale = EXCLUDED.locale, updated_at = now();
 
 -- name: RenameAccountSubscription :one
 -- The label is what every screen and notification uses to name a subscription,

@@ -6592,9 +6592,23 @@ export const ListAccountSignInMethodsResponse = zod.object({
 });
 
 /**
- * Verifies a Telegram Login Widget payload. The hash is checked against the bot token and the auth_date must be recent, so a captured payload cannot be replayed indefinitely.
+ * Verifies a Telegram Login Widget payload. The hash is checked against the bot token and the auth_date must be recent, so a captured payload cannot be replayed indefinitely. The body is the object the widget hands to its `data-onauth` callback, posted as is: `id` and `auth_date` are JSON numbers, the other fields strings.
  */
-export const AccountSignInWithTelegramBody = zod.record(zod.string(), zod.string());
+export const AccountSignInWithTelegramBody = zod
+  .object({
+    id: zod.int().describe("The Telegram user ID."),
+    auth_date: zod.int().describe("Unix seconds at which Telegram signed the payload."),
+    hash: zod
+      .string()
+      .describe("HMAC-SHA256 over the other fields under SHA-256 of the bot token."),
+    first_name: zod.string().optional(),
+    last_name: zod.string().optional(),
+    username: zod.string().optional(),
+    photo_url: zod.string().optional(),
+  })
+  .describe(
+    "The document Telegram's Login Widget produces. Every field except `hash` participates in the signature in its textual form, so the server keeps the digits of the numeric fields verbatim rather than parsing them as floating point.",
+  );
 
 export const AccountSignInWithTelegramResponse = zod.object({
   customer: zod.object({
@@ -6879,6 +6893,12 @@ export const GetAccountOverviewResponse = zod.object({
         limit: zod.int().nullish(),
         unlimited: zod.boolean(),
       }),
+      pendingOrderId: zod
+        .uuid()
+        .optional()
+        .describe(
+          'The unpaid order that opened this subscription, present only while no entitlement has been provisioned. The panel renders the card as "payment pending" with a way to the order rather than as a subscription that is not active.',
+        ),
     }),
   ),
   notice: zod
@@ -6956,6 +6976,12 @@ export const GetAccountSubscriptionResponse = zod.object({
     limit: zod.int().nullish(),
     unlimited: zod.boolean(),
   }),
+  pendingOrderId: zod
+    .uuid()
+    .optional()
+    .describe(
+      'The unpaid order that opened this subscription, present only while no entitlement has been provisioned. The panel renders the card as "payment pending" with a way to the order rather than as a subscription that is not active.',
+    ),
 });
 
 /**
@@ -7347,6 +7373,17 @@ export const GetAccountCheckoutResponse = zod.object({
     ),
   }),
   selectedSquadIds: zod.array(zod.uuid()),
+  squadSelection: zod
+    .object({
+      required: zod.boolean(),
+      reason: zod.enum(["squad_selection_required", "squad_selection_too_few"]).optional(),
+    })
+    .describe(
+      "Whether the server choice still stands between this checkout and a price. A plan that asks the customer to choose servers opens with `required: true` and no quote rather than failing; `reason` is the commerce vocabulary the panel already explains.",
+    ),
+  quoteAvailable: zod
+    .boolean()
+    .describe("False while the quote is withheld; `quote` then carries only the currency."),
   addons: zod.array(
     zod.object({
       addonId: zod.uuid(),
@@ -7496,6 +7533,17 @@ export const OpenAccountCheckoutResponse = zod.object({
     ),
   }),
   selectedSquadIds: zod.array(zod.uuid()),
+  squadSelection: zod
+    .object({
+      required: zod.boolean(),
+      reason: zod.enum(["squad_selection_required", "squad_selection_too_few"]).optional(),
+    })
+    .describe(
+      "Whether the server choice still stands between this checkout and a price. A plan that asks the customer to choose servers opens with `required: true` and no quote rather than failing; `reason` is the commerce vocabulary the panel already explains.",
+    ),
+  quoteAvailable: zod
+    .boolean()
+    .describe("False while the quote is withheld; `quote` then carries only the currency."),
   addons: zod.array(
     zod.object({
       addonId: zod.uuid(),
@@ -7644,6 +7692,17 @@ export const UpdateAccountCheckoutResponse = zod.object({
     ),
   }),
   selectedSquadIds: zod.array(zod.uuid()),
+  squadSelection: zod
+    .object({
+      required: zod.boolean(),
+      reason: zod.enum(["squad_selection_required", "squad_selection_too_few"]).optional(),
+    })
+    .describe(
+      "Whether the server choice still stands between this checkout and a price. A plan that asks the customer to choose servers opens with `required: true` and no quote rather than failing; `reason` is the commerce vocabulary the panel already explains.",
+    ),
+  quoteAvailable: zod
+    .boolean()
+    .describe("False while the quote is withheld; `quote` then carries only the currency."),
   addons: zod.array(
     zod.object({
       addonId: zod.uuid(),
@@ -7796,6 +7855,17 @@ export const ApplyAccountPromoCodeResponse = zod.object({
     ),
   }),
   selectedSquadIds: zod.array(zod.uuid()),
+  squadSelection: zod
+    .object({
+      required: zod.boolean(),
+      reason: zod.enum(["squad_selection_required", "squad_selection_too_few"]).optional(),
+    })
+    .describe(
+      "Whether the server choice still stands between this checkout and a price. A plan that asks the customer to choose servers opens with `required: true` and no quote rather than failing; `reason` is the commerce vocabulary the panel already explains.",
+    ),
+  quoteAvailable: zod
+    .boolean()
+    .describe("False while the quote is withheld; `quote` then carries only the currency."),
   addons: zod.array(
     zod.object({
       addonId: zod.uuid(),
@@ -7933,6 +8003,17 @@ export const RemoveAccountPromoCodeResponse = zod.object({
     ),
   }),
   selectedSquadIds: zod.array(zod.uuid()),
+  squadSelection: zod
+    .object({
+      required: zod.boolean(),
+      reason: zod.enum(["squad_selection_required", "squad_selection_too_few"]).optional(),
+    })
+    .describe(
+      "Whether the server choice still stands between this checkout and a price. A plan that asks the customer to choose servers opens with `required: true` and no quote rather than failing; `reason` is the commerce vocabulary the panel already explains.",
+    ),
+  quoteAvailable: zod
+    .boolean()
+    .describe("False while the quote is withheld; `quote` then carries only the currency."),
   addons: zod.array(
     zod.object({
       addonId: zod.uuid(),
@@ -8074,6 +8155,17 @@ export const ToggleAccountCheckoutAddonResponse = zod.object({
     ),
   }),
   selectedSquadIds: zod.array(zod.uuid()),
+  squadSelection: zod
+    .object({
+      required: zod.boolean(),
+      reason: zod.enum(["squad_selection_required", "squad_selection_too_few"]).optional(),
+    })
+    .describe(
+      "Whether the server choice still stands between this checkout and a price. A plan that asks the customer to choose servers opens with `required: true` and no quote rather than failing; `reason` is the commerce vocabulary the panel already explains.",
+    ),
+  quoteAvailable: zod
+    .boolean()
+    .describe("False while the quote is withheld; `quote` then carries only the currency."),
   addons: zod.array(
     zod.object({
       addonId: zod.uuid(),
@@ -8179,6 +8271,25 @@ export const ConfirmAccountCheckoutResponse = zod.object({
       }),
     )
     .optional(),
+  paymentChoices: zod
+    .array(
+      zod.object({
+        provider: zod.string(),
+        currency: zod.string(),
+        amountMinor: zod.int().optional(),
+        recurring: zod.boolean(),
+      }),
+    )
+    .optional()
+    .describe(
+      "The methods that can settle this order in its currency, each priced at what the order still owes. Present on the detail response while the order is pending and owes something, so the page can offer a method without depending on the URL the checkout redirected to. Telegram Stars appears only for a customer with a Telegram identity.",
+    ),
+  preferredProvider: zod
+    .string()
+    .optional()
+    .describe(
+      "The method the checkout recorded, while that checkout is still attached to the order.",
+    ),
 });
 
 export const listAccountOrdersQueryLimitMax = 100;
@@ -8252,6 +8363,25 @@ export const ListAccountOrdersResponse = zod.object({
           }),
         )
         .optional(),
+      paymentChoices: zod
+        .array(
+          zod.object({
+            provider: zod.string(),
+            currency: zod.string(),
+            amountMinor: zod.int().optional(),
+            recurring: zod.boolean(),
+          }),
+        )
+        .optional()
+        .describe(
+          "The methods that can settle this order in its currency, each priced at what the order still owes. Present on the detail response while the order is pending and owes something, so the page can offer a method without depending on the URL the checkout redirected to. Telegram Stars appears only for a customer with a Telegram identity.",
+        ),
+      preferredProvider: zod
+        .string()
+        .optional()
+        .describe(
+          "The method the checkout recorded, while that checkout is still attached to the order.",
+        ),
     }),
   ),
   nextCursor: zod.string().optional(),
@@ -8329,10 +8459,29 @@ export const GetAccountOrderResponse = zod.object({
       }),
     )
     .optional(),
+  paymentChoices: zod
+    .array(
+      zod.object({
+        provider: zod.string(),
+        currency: zod.string(),
+        amountMinor: zod.int().optional(),
+        recurring: zod.boolean(),
+      }),
+    )
+    .optional()
+    .describe(
+      "The methods that can settle this order in its currency, each priced at what the order still owes. Present on the detail response while the order is pending and owes something, so the page can offer a method without depending on the URL the checkout redirected to. Telegram Stars appears only for a customer with a Telegram identity.",
+    ),
+  preferredProvider: zod
+    .string()
+    .optional()
+    .describe(
+      "The method the checkout recorded, while that checkout is still attached to the order.",
+    ),
 });
 
 /**
- * Creates or resumes the provider payment. The key is scoped to the order and the chosen adapter, so switching provider is a new payment while pressing the same button twice is not.
+ * Creates or resumes the provider payment. The key is scoped to the order and the chosen adapter, so switching provider is a new payment while pressing the same button twice is not. The provider defaults to the one the order's payment already names, then to the one the checkout that became this order recorded. An order that is no longer pending, or whose expiry has passed, answers `409 order_not_payable`; a configured method that does not settle the order's currency answers `422 provider_currency_unsupported`.
  */
 export const StartAccountOrderPaymentParams = zod.object({
   orderID: zod.uuid(),
@@ -8442,6 +8591,25 @@ export const RefreshAccountOrderResponse = zod.object({
       }),
     )
     .optional(),
+  paymentChoices: zod
+    .array(
+      zod.object({
+        provider: zod.string(),
+        currency: zod.string(),
+        amountMinor: zod.int().optional(),
+        recurring: zod.boolean(),
+      }),
+    )
+    .optional()
+    .describe(
+      "The methods that can settle this order in its currency, each priced at what the order still owes. Present on the detail response while the order is pending and owes something, so the page can offer a method without depending on the URL the checkout redirected to. Telegram Stars appears only for a customer with a Telegram identity.",
+    ),
+  preferredProvider: zod
+    .string()
+    .optional()
+    .describe(
+      "The method the checkout recorded, while that checkout is still attached to the order.",
+    ),
 });
 
 export const CancelAccountOrderParams = zod.object({
@@ -8510,12 +8678,99 @@ export const GetAccountWalletResponse = zod.object({
       occurredAt: zod.iso.datetime({ offset: true }),
     }),
   ),
+  pendingTopUps: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        state: zod.enum([
+          "draft",
+          "pending",
+          "paid",
+          "fulfilled",
+          "cancelled",
+          "expired",
+          "partially_refunded",
+          "refunded",
+        ]),
+        operation: zod.string(),
+        phase: zod
+          .string()
+          .describe(
+            "The combined payment and provisioning state the panel renders: what the customer is waiting for, rather than which table changed.",
+          ),
+        currency: zod.string(),
+        subtotalMinor: zod.int(),
+        discountMinor: zod.int(),
+        walletMinor: zod.int(),
+        externalMinor: zod.int(),
+        paidMinor: zod.int(),
+        refundedMinor: zod.int(),
+        plan: zod.string(),
+        subscriptionId: zod.string().optional(),
+        createdAt: zod.iso.datetime({ offset: true }),
+        expiresAt: zod.iso.datetime({ offset: true }).optional(),
+        payment: zod
+          .object({
+            id: zod.uuid(),
+            provider: zod.string(),
+            status: zod.string(),
+            handoff: zod.enum(["hosted", "telegram_invoice", "manual", "none"]),
+            checkoutUrl: zod.string().optional(),
+            receiptUrl: zod.string().optional(),
+          })
+          .optional(),
+        fulfillment: zod
+          .object({
+            status: zod.string(),
+            attempts: zod.int(),
+            errorCode: zod.string().optional(),
+            updatedAt: zod.iso.datetime({ offset: true }).optional(),
+          })
+          .optional()
+          .describe(
+            "Provisioning progress, read from the fulfillment operation rather than carried by the client.",
+          ),
+        refunds: zod
+          .array(
+            zod.object({
+              status: zod.string(),
+              amountMinor: zod.int(),
+              currency: zod.string(),
+              createdAt: zod.iso.datetime({ offset: true }),
+            }),
+          )
+          .optional(),
+        paymentChoices: zod
+          .array(
+            zod.object({
+              provider: zod.string(),
+              currency: zod.string(),
+              amountMinor: zod.int().optional(),
+              recurring: zod.boolean(),
+            }),
+          )
+          .optional()
+          .describe(
+            "The methods that can settle this order in its currency, each priced at what the order still owes. Present on the detail response while the order is pending and owes something, so the page can offer a method without depending on the URL the checkout redirected to. Telegram Stars appears only for a customer with a Telegram identity.",
+          ),
+        preferredProvider: zod
+          .string()
+          .optional()
+          .describe(
+            "The method the checkout recorded, while that checkout is still attached to the order.",
+          ),
+      }),
+    )
+    .optional()
+    .describe(
+      "Top-up orders still waiting to be paid, newest first. A top-up is not in the order history — it buys nothing — so this is where a customer finds one whose provider page they closed or whose intent the provider refused, with its payment handoff.",
+    ),
   nextCursor: zod.string().optional(),
   nextCursorId: zod.uuid().optional(),
 });
 
 /**
- * Opens a top-up order through the same order, webhook, and reconciliation pipeline a plan uses. The caller's key becomes the order's key, so a retried request credits the same top-up rather than a second one.
+ * Opens a top-up order through the same order, webhook, and reconciliation pipeline a plan uses. The caller's key becomes the order's key, so a retried request credits the same top-up rather than a second one. The order and its payment are two steps: when the order exists but the provider refused the intent, the response is still `201` with the order and `paymentProblem` in place of `payment`, because the order is the customer's and can be paid from its own screen by any method that settles it.
  */
 export const startAccountTopUpHeaderIdempotencyKeyMin = 8;
 export const startAccountTopUpHeaderIdempotencyKeyMax = 128;
@@ -8537,65 +8792,39 @@ export const StartAccountTopUpBody = zod.object({
 });
 
 export const StartAccountTopUpResponse = zod.object({
-  id: zod.uuid(),
-  state: zod.enum([
-    "draft",
-    "pending",
-    "paid",
-    "fulfilled",
-    "cancelled",
-    "expired",
-    "partially_refunded",
-    "refunded",
-  ]),
-  operation: zod.string(),
-  phase: zod
-    .string()
-    .describe(
-      "The combined payment and provisioning state the panel renders: what the customer is waiting for, rather than which table changed.",
-    ),
+  orderId: zod.uuid(),
   currency: zod.string(),
-  subtotalMinor: zod.int(),
-  discountMinor: zod.int(),
-  walletMinor: zod.int(),
-  externalMinor: zod.int(),
-  paidMinor: zod.int(),
-  refundedMinor: zod.int(),
-  plan: zod.string(),
-  subscriptionId: zod.string().optional(),
-  createdAt: zod.iso.datetime({ offset: true }),
-  expiresAt: zod.iso.datetime({ offset: true }).optional(),
+  amountMinor: zod.int(),
+  state: zod.string(),
   payment: zod
     .object({
       id: zod.uuid(),
       provider: zod.string(),
       status: zod.string(),
-      handoff: zod.enum(["hosted", "telegram_invoice", "manual", "none"]),
+      amountMinor: zod.int(),
+      currency: zod.string(),
+      handoff: zod
+        .enum(["hosted", "telegram_invoice", "manual", "none"])
+        .describe(
+          "How the customer completes the payment. `none` means nothing further is owed, which is what a wallet-covered order looks like.",
+        ),
       checkoutUrl: zod.string().optional(),
-      receiptUrl: zod.string().optional(),
     })
     .optional(),
-  fulfillment: zod
+  paymentProblem: zod
     .object({
-      status: zod.string(),
-      attempts: zod.int(),
-      errorCode: zod.string().optional(),
-      updatedAt: zod.iso.datetime({ offset: true }).optional(),
+      code: zod.enum([
+        "provider_unavailable",
+        "provider_currency_unsupported",
+        "order_not_payable",
+        "payment_failed",
+      ]),
+      detail: zod.string(),
     })
     .optional()
     .describe(
-      "Provisioning progress, read from the fulfillment operation rather than carried by the client.",
+      "Present instead of `payment` when the order was created but its payment could not be started.",
     ),
-  refunds: zod
-    .array(
-      zod.object({
-        status: zod.string(),
-        amountMinor: zod.int(),
-        currency: zod.string(),
-        createdAt: zod.iso.datetime({ offset: true }),
-      }),
-    )
-    .optional(),
 });
 
 /**
@@ -8650,6 +8879,27 @@ export const GetAccountReferralsResponse = zod.object({
     ),
     nextCursor: zod.string().optional(),
   }),
+});
+
+/**
+ * Records the inviter behind a web sign-up from the `?ref=` code the sign-in screen carried, under the same rule the bot applies to `/start ref_<code>`: first write wins, self-referral is impossible, and the row is written only while the programme is enabled and only for a customer who has not yet paid for anything. Always 200 with an outcome, because a link that did not count is not a failure of the request.
+ */
+export const attributeAccountReferralBodyCodeMax = 32;
+
+export const AttributeAccountReferralBody = zod.object({
+  code: zod.string().max(attributeAccountReferralBodyCodeMax),
+});
+
+export const AttributeAccountReferralResponse = zod.object({
+  attributed: zod.boolean(),
+  reason: zod.enum([
+    "recorded",
+    "already_attributed",
+    "program_disabled",
+    "unknown_code",
+    "self_referral",
+    "not_new",
+  ]),
 });
 
 export const GetAccountLoyaltyResponse = zod

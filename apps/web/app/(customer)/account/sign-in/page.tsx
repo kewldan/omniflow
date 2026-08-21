@@ -6,10 +6,12 @@ import { toast } from "@omniflow/ui/toast";
 import { MessageCircle, Send } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
+import { rememberReferralCode } from "@/lib/referral";
+import { safeNext } from "@/lib/sign-in-path";
 
 type SignInMethods = {
   telegram: boolean;
@@ -40,25 +42,46 @@ export default function SignInPage() {
   const { data, isLoading } = useSWR<SignInMethods, ApiError>("/v1/account/auth/methods", fetcher);
   const [busy, setBusy] = useState(false);
   const [widgetFailed, setWidgetFailed] = useState(false);
+  const [miniAppFailed, setMiniAppFailed] = useState(false);
+  // One attempt per page. The effect below used to re-run whenever `busy`
+  // dropped back to false, which on a refused sign-in meant an unbounded loop
+  // of POSTs against the same initData; the ref makes the first attempt the
+  // only one, and a failure falls through to the other sign-in methods.
+  const miniAppAttempted = useRef(false);
 
   const reason = search.get("error");
+  // Where to go once signed in. The shell and the re-authentication screens
+  // send the customer here with the path they were on; an absent or unsafe
+  // value lands on the dashboard.
+  const next = safeNext(search.get("next"));
+
+  // An invite link lands here as `?ref=<code>`. The code is held until a
+  // session exists and then attributed, the way the bot attributes
+  // `/start ref_<code>`; the shell posts it on its first authenticated render.
+  useEffect(() => {
+    rememberReferralCode(search.get("ref"));
+  }, [search]);
 
   // Opened inside Telegram, the surrounding client has already signed the
   // customer's identity, so the widget is unnecessary and this signs in
   // immediately. Outside Telegram the global is absent and nothing happens.
   useEffect(() => {
     const initData = readMiniAppInitData();
-    if (!initData || busy) {
+    if (!initData || miniAppAttempted.current) {
       return;
     }
+    miniAppAttempted.current = true;
     setBusy(true);
     apiFetch("/v1/account/auth/telegram/miniapp", {
       body: JSON.stringify({ initData }),
       method: "POST",
     })
-      .then(() => router.replace("/account"))
-      .catch(() => setBusy(false));
-  }, [busy, router]);
+      .then(() => router.replace(next))
+      .catch(() => {
+        setMiniAppFailed(true);
+        setBusy(false);
+      });
+  }, [next, router]);
 
   const botRoute = data?.magicLink && data.telegramBot ? data.telegramBot : undefined;
 
@@ -85,6 +108,18 @@ export default function SignInPage() {
         </p>
       )}
 
+      {/* A Mini App sign-in that was refused is said once, and the ordinary
+          methods below remain: the customer is inside Telegram, so the bot
+          route in particular is one tap away. */}
+      {miniAppFailed && (
+        <p
+          className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-[13px]"
+          role="alert"
+        >
+          {translate("signIn.errors.miniapp_failed")}
+        </p>
+      )}
+
       {isLoading ? (
         <div className="space-y-3">
           <Skeleton className="h-11 w-full rounded-md" />
@@ -96,6 +131,7 @@ export default function SignInPage() {
             <TelegramButton
               botUsername={data.telegramBot}
               disabled={busy}
+              next={next}
               onFailed={() => setWidgetFailed(true)}
             />
           )}
@@ -109,9 +145,16 @@ export default function SignInPage() {
             </p>
           )}
 
+          {/* The provider round trip carries `next` in the sealed flow cookie,
+              so the callback lands where the customer was rather than on the
+              dashboard. */}
           {(data?.oidc ?? []).map((provider) => (
             <Button asChild className="w-full" key={provider.slug} size="lg" variant="outline">
-              <a href={`/v1/account/auth/oidc/${provider.slug}/start`}>
+              <a
+                href={`/v1/account/auth/oidc/${provider.slug}/start${
+                  next === "/account" ? "" : `?next=${encodeURIComponent(next)}`
+                }`}
+              >
                 {translate("signIn.withProvider", { provider: provider.displayName })}
               </a>
             </Button>
@@ -174,15 +217,24 @@ export default function SignInPage() {
 function TelegramButton({
   botUsername,
   disabled,
+  next,
   onFailed,
 }: {
   botUsername: string;
   disabled: boolean;
+  next: string;
   onFailed: () => void;
 }) {
   const translate = useTranslations("account");
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  // The widget's callback is registered once and must not be re-registered
+  // when the translator's identity changes, so the latest translator is read
+  // through a ref rather than listed as a dependency.
+  const translateRef = useRef(translate);
+  useEffect(() => {
+    translateRef.current = translate;
+  }, [translate]);
 
   useEffect(() => {
     const container = document.getElementById("telegram-login");
@@ -193,13 +245,23 @@ function TelegramButton({
     // The callback is a global because that is the only interface the widget
     // offers. It is removed on unmount so a remounted screen cannot end up with
     // two live handlers.
+    // The payload is posted exactly as the widget hands it over — `id` and
+    // `auth_date` are numbers — because the signature covers the fields as
+    // Telegram serialised them.
     (window as unknown as Record<string, unknown>).onTelegramAuth = (payload: unknown) => {
       apiFetch("/v1/account/auth/telegram", {
         body: JSON.stringify(payload),
         method: "POST",
       })
-        .then(() => router.replace("/account"))
-        .catch((signInError: ApiError) => toast.error(signInError.message));
+        .then(() => router.replace(next))
+        .catch((signInError: ApiError) => {
+          // A refusal with a code the catalogue explains is shown in the
+          // customer's language; anything else falls back to the problem's
+          // own title.
+          const key = `signIn.errors.${signInError.code ?? ""}`;
+          const describe = translateRef.current;
+          toast.error(describe.has(key) ? describe(key) : signInError.message);
+        });
     };
 
     const script = document.createElement("script");
@@ -225,7 +287,7 @@ function TelegramButton({
       script.removeEventListener("error", onFailed);
       delete (window as unknown as Record<string, unknown>).onTelegramAuth;
     };
-  }, [botUsername, onFailed, router]);
+  }, [botUsername, next, onFailed, router]);
 
   return (
     <div className="space-y-2">

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -367,7 +368,7 @@ func (handlers *AccountHandlers) confirmCheckout(writer http.ResponseWriter, req
 	if handlers.writeCheckoutError(writer, request, err) {
 		return
 	}
-	writeJSON(writer, http.StatusCreated, orderPayload(order, nil))
+	writeJSON(writer, http.StatusCreated, handlers.orderPayload(request.Context(), order, nil))
 }
 
 // checkoutPayload is the whole confirmation screen.
@@ -378,10 +379,7 @@ func (handlers *AccountHandlers) confirmCheckout(writer http.ResponseWriter, req
 func checkoutPayload(view accountcheckout.CheckoutView) map[string]any {
 	providers := make([]map[string]any, 0, len(view.Providers))
 	for _, choice := range view.Providers {
-		providers = append(providers, map[string]any{
-			"provider": choice.Provider, "currency": choice.Currency,
-			"amountMinor": choice.AmountMinor, "recurring": choice.Recurring,
-		})
+		providers = append(providers, paymentChoicePayload(choice))
 	}
 	addons := make([]map[string]any, 0, len(view.Addons))
 	for _, addon := range view.Addons {
@@ -425,6 +423,8 @@ func checkoutPayload(view accountcheckout.CheckoutView) map[string]any {
 		"multiSubscription": view.MultiSubscription,
 		"squads":            squadPayload(view.Squads),
 		"selectedSquadIds":  view.SelectedSquadIDs,
+		"squadSelection":    map[string]any{"required": view.SquadSelection.Required},
+		"quoteAvailable":    !view.SquadSelection.Required,
 		"addons":            addons,
 		"selectedAddons":    selected,
 		"termsUrl":          view.TermsURL,
@@ -434,6 +434,11 @@ func checkoutPayload(view accountcheckout.CheckoutView) map[string]any {
 	}
 	if view.PromoRejection != "" {
 		payload["promoRejection"] = view.PromoRejection
+	}
+	if view.SquadSelection.Required {
+		payload["squadSelection"] = map[string]any{
+			"required": true, "reason": view.SquadSelection.Reason,
+		}
 	}
 	if !view.ExpiresAt.IsZero() {
 		payload["expiresAt"] = view.ExpiresAt.Format(time.RFC3339)
@@ -461,7 +466,7 @@ func (handlers *AccountHandlers) listOrders(writer http.ResponseWriter, request 
 	}
 	items := make([]map[string]any, 0, len(orders))
 	for _, order := range orders {
-		items = append(items, orderPayload(order, nil))
+		items = append(items, handlers.orderPayload(request.Context(), order, nil))
 	}
 	payload := map[string]any{"items": items}
 	// A cursor only when the page came back full. Publishing one for every
@@ -484,7 +489,32 @@ func (handlers *AccountHandlers) readOrder(writer http.ResponseWriter, request *
 	if handlers.writeCheckoutError(writer, request, err) {
 		return
 	}
-	writeJSON(writer, http.StatusOK, orderPayload(order, refunds))
+	payload := handlers.orderPayload(request.Context(), order, refunds)
+	// A pending order with no payment yet needs a way to start one that does
+	// not depend on the URL the checkout redirected to: the methods that can
+	// settle this order, in its currency, and the one the checkout recorded so
+	// the page can preselect it.
+	if accountcheckout.OrderPayable(order, time.Now()) == nil {
+		choices, choiceErr := handlers.checkout.OrderPaymentChoices(request.Context(), principal.Customer.ID, order)
+		if handlers.writeCheckoutError(writer, request, choiceErr) {
+			return
+		}
+		items := make([]map[string]any, 0, len(choices))
+		for _, choice := range choices {
+			items = append(items, paymentChoicePayload(choice))
+		}
+		payload["paymentChoices"] = items
+		recorded, recordErr := handlers.checkout.Store().RecordedOrderProvider(
+			request.Context(), principal.Customer.ID, order.ID,
+		)
+		if recordErr != nil {
+			handlers.logger.Warn("recorded order provider could not be read", "error", recordErr)
+		}
+		if recorded != "" {
+			payload["preferredProvider"] = recorded
+		}
+	}
+	writeJSON(writer, http.StatusOK, payload)
 }
 
 func (handlers *AccountHandlers) startOrderPayment(writer http.ResponseWriter, request *http.Request) {
@@ -517,7 +547,7 @@ func (handlers *AccountHandlers) refreshOrder(writer http.ResponseWriter, reques
 	if handlers.writeCheckoutError(writer, request, err) {
 		return
 	}
-	writeJSON(writer, http.StatusOK, orderPayload(order, nil))
+	writeJSON(writer, http.StatusOK, handlers.orderPayload(request.Context(), order, nil))
 }
 
 func (handlers *AccountHandlers) cancelOrder(writer http.ResponseWriter, request *http.Request) {
@@ -538,7 +568,20 @@ func (handlers *AccountHandlers) cancelOrder(writer http.ResponseWriter, request
 // never carried by the client: a page that remembered "we are setting this up"
 // would forget it the moment it reloaded, which is exactly when the customer
 // most wants to know.
-func orderPayload(order accountcheckout.OrderSummary, refunds []accountcheckout.RefundStatus) map[string]any {
+//
+// The payment handoff is decided by the checkout service rather than here,
+// because a Telegram Stars payment has no URL of its own and its link is built
+// from the bot's name — see accountcheckout.Handoff.
+func (handlers *AccountHandlers) orderPayload(
+	ctx context.Context, order accountcheckout.OrderSummary, refunds []accountcheckout.RefundStatus,
+) map[string]any {
+	handoff, checkoutURL := handlers.checkout.Handoff(ctx, order.Provider, order.CheckoutURL, order.ID)
+	return orderPayloadWith(order, refunds, handoff, checkoutURL)
+}
+
+func orderPayloadWith(
+	order accountcheckout.OrderSummary, refunds []accountcheckout.RefundStatus, handoff, checkoutURL string,
+) map[string]any {
 	payload := map[string]any{
 		"id": order.ID, "state": string(order.State), "operation": order.Operation,
 		"phase": string(order.Phase), "currency": order.Currency,
@@ -554,10 +597,10 @@ func orderPayload(order accountcheckout.OrderSummary, refunds []accountcheckout.
 	if order.PaymentIntentID != "" {
 		payment := map[string]any{
 			"id": order.PaymentIntentID, "provider": order.Provider, "status": order.PaymentStatus,
-			"handoff": accountcheckout.HandoffFor(order.Provider, order.CheckoutURL),
+			"handoff": handoff,
 		}
-		if order.CheckoutURL != "" {
-			payment["checkoutUrl"] = order.CheckoutURL
+		if checkoutURL != "" {
+			payment["checkoutUrl"] = checkoutURL
 		}
 		if order.ReceiptURL != "" {
 			payment["receiptUrl"] = order.ReceiptURL
@@ -587,6 +630,15 @@ func orderPayload(order accountcheckout.OrderSummary, refunds []accountcheckout.
 		payload["refunds"] = items
 	}
 	return payload
+}
+
+// paymentChoicePayload is one offered method with the currency and price it
+// would charge, the shape both the checkout and the order screens read.
+func paymentChoicePayload(choice accountcheckout.PaymentChoice) map[string]any {
+	return map[string]any{
+		"provider": choice.Provider, "currency": choice.Currency,
+		"amountMinor": choice.AmountMinor, "recurring": choice.Recurring,
+	}
 }
 
 func paymentPayload(handle accountcheckout.PaymentHandle) map[string]any {
@@ -637,6 +689,10 @@ func (handlers *AccountHandlers) readWallet(writer http.ResponseWriter, request 
 			"provider": choice.Provider, "currency": choice.Currency, "recurring": choice.Recurring,
 		})
 	}
+	pendingTopUps := make([]map[string]any, 0, len(view.PendingTopUps))
+	for _, order := range view.PendingTopUps {
+		pendingTopUps = append(pendingTopUps, handlers.orderPayload(request.Context(), order, nil))
+	}
 	items := make([]map[string]any, 0, len(entries))
 	for _, entry := range entries {
 		item := map[string]any{
@@ -655,7 +711,8 @@ func (handlers *AccountHandlers) readWallet(writer http.ResponseWriter, request 
 			"maximumMinor": view.MaximumMinor, "presets": view.Presets,
 			"remainingWindowMinor": view.RemainingWindowMinor, "providers": providers,
 		},
-		"entries": items,
+		"pendingTopUps": pendingTopUps,
+		"entries":       items,
 	}
 	// Same contract as the order list: a short page is the last one, so no cursor.
 	if len(entries) > 0 && len(entries) == accountcheckout.BoundLimit(limit) {
@@ -690,14 +747,50 @@ func (handlers *AccountHandlers) startTopUp(writer http.ResponseWriter, request 
 		request.Context(), principal.Customer.ID, strings.ToUpper(strings.TrimSpace(body.Currency)),
 		body.AmountMinor, strings.TrimSpace(body.Provider), key,
 	)
-	if handlers.writeCheckoutError(writer, request, err) {
+	if err != nil && topUp.OrderID == "" {
+		// Nothing was created: the amount, the window, or the method was
+		// refused before an order existed.
+		handlers.writeCheckoutError(writer, request, err)
 		return
 	}
-	writeJSON(writer, http.StatusCreated, map[string]any{
+	payload := map[string]any{
 		"orderId": topUp.OrderID, "currency": topUp.Currency,
 		"amountMinor": topUp.AmountMinor, "state": topUp.State,
-		"payment": paymentPayload(topUp.Payment),
-	})
+	}
+	if err != nil {
+		// The order was created and the provider refused the intent. The order
+		// is still the customer's — it holds a place in the rolling window and
+		// can be paid from its own screen by any method that settles it — so it
+		// is returned as created, with the refusal beside it rather than
+		// instead of it. Dropping the order here, as an earlier release did,
+		// left a top-up that existed but could not be seen or retried.
+		handlers.logger.Warn("top-up payment could not be started",
+			"order", topUp.OrderID, "provider", body.Provider, "error", err)
+		payload["payment"] = nil
+		payload["paymentProblem"] = map[string]any{
+			"code":   topUpPaymentProblem(err),
+			"detail": "The payment could not be started; open the order to try another method",
+		}
+		writeJSON(writer, http.StatusCreated, payload)
+		return
+	}
+	payload["payment"] = paymentPayload(topUp.Payment)
+	writeJSON(writer, http.StatusCreated, payload)
+}
+
+// topUpPaymentProblem names why a top-up's payment could not start, in the
+// same vocabulary a refused order payment uses.
+func topUpPaymentProblem(err error) string {
+	switch {
+	case errors.Is(err, accountcheckout.ErrProviderUnavailable):
+		return "provider_unavailable"
+	case errors.Is(err, accountcheckout.ErrProviderCurrency):
+		return "provider_currency_unsupported"
+	case errors.Is(err, accountcheckout.ErrOrderNotPayable):
+		return "order_not_payable"
+	default:
+		return "payment_failed"
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -779,6 +872,16 @@ func (handlers *AccountHandlers) writeCheckoutError(
 			writer, request, http.StatusUnprocessableEntity,
 			"provider_unavailable", "That payment method is not available",
 		)
+	case errors.Is(err, accountcheckout.ErrOrderNotPayable):
+		writeProblem(
+			writer, request, http.StatusConflict,
+			"order_not_payable", "This order can no longer be paid; reload it to see its state",
+		)
+	case errors.Is(err, accountcheckout.ErrProviderCurrency):
+		writeProblem(
+			writer, request, http.StatusUnprocessableEntity,
+			"provider_currency_unsupported", "That payment method cannot settle this order's currency",
+		)
 	case errors.Is(err, accountcheckout.ErrPaymentNotRequired):
 		writeProblem(
 			writer, request, http.StatusConflict,
@@ -799,6 +902,33 @@ func (handlers *AccountHandlers) writeCheckoutError(
 		writeProblem(
 			writer, request, http.StatusServiceUnavailable,
 			"maintenance_active", "Purchases are paused while maintenance is in progress",
+		)
+	case errors.Is(err, accountcheckout.ErrChannelRequired):
+		// The same refusal the bot shows: which channels, and where to join
+		// each. It travels as problem extension members, so the panel renders
+		// the list rather than a sentence about it.
+		var refusal accountcheckout.ChannelRefusal
+		channels := make([]map[string]any, 0)
+		if errors.As(err, &refusal) {
+			for _, channel := range refusal.Missing {
+				channels = append(channels, map[string]any{
+					"title": channel.Title, "inviteUrl": channel.InviteURL,
+				})
+			}
+		}
+		writer.Header().Set("Content-Type", "application/problem+json")
+		writeJSON(writer, http.StatusUnprocessableEntity, map[string]any{
+			"type":       "https://omniflow.dev/problems/channel_required",
+			"title":      http.StatusText(http.StatusUnprocessableEntity),
+			"status":     http.StatusUnprocessableEntity,
+			"detail":     "Join the required channel before purchasing",
+			"request_id": middlewareRequestID(request),
+			"channels":   channels,
+		})
+	case errors.Is(err, accountcheckout.ErrPurchaseOnLiveSubscription):
+		writeProblem(
+			writer, request, http.StatusUnprocessableEntity,
+			"operation_forbidden", "A purchase cannot target a subscription that still has time left; extend or change it instead",
 		)
 	case errors.Is(err, commercepg.ErrOperationForbidden):
 		writeProblem(

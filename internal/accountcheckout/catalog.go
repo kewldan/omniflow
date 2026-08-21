@@ -277,65 +277,19 @@ func scanPlan(row pgx.Row) (planRecord, error) {
 }
 
 // heldPlan is one plan the customer is currently entitled to, with the price it
-// is carried at, which is what makes "higher" and "lower" mean anything.
-type heldPlan struct {
-	planID      string
-	amountMinor int64
-}
+// is carried at, which is what makes "higher" and "lower" mean anything. The
+// type itself lives in operations.go beside the rule that compares it.
 
 // eligibility is what the catalogue needs to know about one customer, gathered
 // once for the whole page rather than per row.
 type eligibility struct {
 	customerID string
-	// activeSubscriptions is how many subscriptions the customer currently holds,
-	// which is what decides whether another one may be opened.
-	activeSubscriptions int
-	// held is what those subscriptions are for. Without it every plan looks the
-	// same distance from the customer, and the catalogue ends up offering an
-	// upgrade to the cheapest row and a downgrade to the dearest one.
-	held   []heldPlan
-	trial  commerce.TrialRequest
-	policy commerce.SubscriptionPolicy
-}
-
-// holds reports whether the customer is already entitled to this plan.
-func (state eligibility) holds(planID string) bool {
-	for _, plan := range state.held {
-		if plan.planID == planID {
-			return true
-		}
-	}
-	return false
-}
-
-// cheapestHeld and dearestHeld bound what the customer already pays. A plan
-// above the dearest is unambiguously an upgrade and one below the cheapest is
-// unambiguously a downgrade; a plan between two concurrent subscriptions is
-// neither, so it is offered as both and the customer picks the target.
-func (state eligibility) cheapestHeld() (int64, bool) {
-	if len(state.held) == 0 {
-		return 0, false
-	}
-	lowest := state.held[0].amountMinor
-	for _, plan := range state.held[1:] {
-		if plan.amountMinor < lowest {
-			lowest = plan.amountMinor
-		}
-	}
-	return lowest, true
-}
-
-func (state eligibility) dearestHeld() (int64, bool) {
-	if len(state.held) == 0 {
-		return 0, false
-	}
-	highest := state.held[0].amountMinor
-	for _, plan := range state.held[1:] {
-		if plan.amountMinor > highest {
-			highest = plan.amountMinor
-		}
-	}
-	return highest, true
+	// operations is the state the lifecycle rule judges every row against:
+	// how many subscriptions exist, which plans are live behind them, and
+	// whether the policy has room for one more.
+	operations OperationContext
+	trial      commerce.TrialRequest
+	policy     commerce.SubscriptionPolicy
 }
 
 func (service *Service) eligibilityContext(ctx context.Context, customerID string) (eligibility, error) {
@@ -344,10 +298,12 @@ func (service *Service) eligibilityContext(ctx context.Context, customerID strin
 	if err != nil {
 		return eligibility{}, err
 	}
-	result.activeSubscriptions = len(targets)
-	if result.held, err = service.store.HeldPlans(ctx, customerID, service.settings.Currency); err != nil {
+	result.operations.Subscriptions = len(targets)
+	if result.operations.Held, err = service.store.HeldPlans(ctx, customerID, service.settings.Currency); err != nil {
 		return eligibility{}, err
 	}
+	result.operations.AdditionalAllowed = len(targets) > 0 &&
+		result.policy.AllowAdditional(len(targets), 0, nil) == nil
 	if result.trial, err = service.store.TrialContext(ctx, customerID); err != nil {
 		return eligibility{}, err
 	}
@@ -358,24 +314,36 @@ func (service *Service) eligibilityContext(ctx context.Context, customerID strin
 // HeldPlans reads the plans behind the customer's live entitlements, priced in
 // the settlement currency.
 //
+// Live means the current entitlement of a subscription that has neither been
+// superseded nor run out. An expired entitlement is deliberately not held:
+// the customer has nothing to move up or down from, only something to buy
+// again, and counting it made the catalogue offer an "upgrade" away from a
+// plan they no longer paid for while refusing to sell them that plan itself.
+//
 // A plan whose current version has no price in that currency contributes no
 // amount: it is still held, but it cannot be compared, so it only ever produces
 // "you already have this" and never an upgrade or downgrade claim.
-func (store *Store) HeldPlans(ctx context.Context, customerID, currency string) ([]heldPlan, error) {
+func (store *Store) HeldPlans(ctx context.Context, customerID, currency string) ([]HeldPlan, error) {
 	rows, err := store.pool.Query(ctx, `SELECT DISTINCT v.plan_id::text, COALESCE(pr.amount_minor, 0)
 		FROM subscriptions s
-		JOIN entitlements e ON e.subscription_id = s.id AND e.status <> 'superseded'
+		JOIN LATERAL (
+			SELECT * FROM entitlements ent
+			WHERE ent.subscription_id = s.id AND ent.status <> 'superseded'
+			ORDER BY ent.ends_at DESC LIMIT 1
+		) e ON true
 		JOIN plan_versions v ON v.id = e.plan_version_id
 		LEFT JOIN plan_prices pr ON pr.plan_version_id = v.id AND pr.currency = $2
-		WHERE s.user_id = $1::uuid AND s.status = 'active'`, customerID, currency)
+		WHERE s.user_id = $1::uuid AND s.status = 'active'
+		  AND e.status NOT IN ('expired', 'failed')
+		  AND (e.ends_at IS NULL OR e.ends_at > now())`, customerID, currency)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	held := make([]heldPlan, 0, 4)
+	held := make([]HeldPlan, 0, 4)
 	for rows.Next() {
-		var plan heldPlan
-		if err = rows.Scan(&plan.planID, &plan.amountMinor); err != nil {
+		var plan HeldPlan
+		if err = rows.Scan(&plan.PlanID, &plan.AmountMinor); err != nil {
 			return nil, err
 		}
 		held = append(held, plan)
@@ -411,54 +379,18 @@ func applyEligibility(record planRecord, state eligibility) PlanOffer {
 		return offer
 	}
 
-	operations := make([]string, 0, 4)
-	// A first subscription is always a purchase. A further one is a purchase only
-	// where the installation allows concurrent subscriptions; where it does not,
-	// buying again extends what the customer already has, which is an extension
-	// and is offered as one rather than as a purchase that quietly renews.
-	if state.activeSubscriptions == 0 {
-		operations = append(operations, "purchase")
-	} else {
-		if err := state.policy.AllowAdditional(state.activeSubscriptions, 0, nil); err == nil {
-			operations = append(operations, "purchase")
-		}
-		// Where the plan sits relative to what the customer already pays for.
-		//
-		// Offering every lifecycle action against every row is what this used to
-		// do, and it produced a catalogue where the plan the customer is on
-		// invited them to upgrade to it and the dearest plan invited them to move
-		// down to it. An extension renews the plan they hold; an upgrade goes to
-		// something dearer than anything they hold; a downgrade goes to something
-		// cheaper than everything they hold. A row that is dearer than one of two
-		// concurrent subscriptions and cheaper than the other is genuinely both,
-		// and the target picker on the plan page is where that is resolved.
-		holds := state.holds(record.offer.PlanID)
-		dearest, hasDearest := state.dearestHeld()
-		cheapest, hasCheapest := state.cheapestHeld()
-		switch {
-		case holds:
-			operations = append(operations, "extension")
-		case len(state.held) == 0:
-			// A subscription exists but carries no entitlement — a purchase that
-			// has not been provisioned, or one that has lapsed away entirely.
-			// There is nothing to move up or down from, so the honest action is
-			// to fill the slot rather than to claim a direction.
-			operations = append(operations, "extension")
-		default:
-			if hasDearest && record.offer.AmountMinor > dearest &&
-				commerce.AllowedOperation("upgrade", record.upgradePolicy, record.downgradePolicy) {
-				operations = append(operations, "upgrade")
-			}
-			if hasCheapest && record.offer.AmountMinor < cheapest &&
-				commerce.AllowedOperation("downgrade", record.upgradePolicy, record.downgradePolicy) {
-				operations = append(operations, "downgrade")
-			}
-		}
-	}
-	offer.Operations = operations
-	offer.Held = state.holds(record.offer.PlanID)
-	offer.Eligible = len(operations) > 0
+	// The one lifecycle rule, shared with the bot: see OfferedOperations.
+	offer.Operations = OfferedOperations(PlanPricing{
+		PlanID: record.offer.PlanID, AmountMinor: record.offer.AmountMinor,
+		UpgradePolicy: record.upgradePolicy, DowngradePolicy: record.downgradePolicy,
+	}, state.operations)
+	offer.Held = state.operations.Holds(record.offer.PlanID)
+	offer.Eligible = len(offer.Operations) > 0
 	if !offer.Eligible {
+		// Nothing applies only when the customer holds something and this plan
+		// refuses to be moved to from it; "limit reached" is the closest of the
+		// reasons both panels explain, and it says the catalogue, not the
+		// customer, is what stands in the way.
 		offer.IneligibleReason = commerce.SubscriptionLimitReached
 	}
 	return offer

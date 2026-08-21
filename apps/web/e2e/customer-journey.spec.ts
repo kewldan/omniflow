@@ -39,12 +39,18 @@ const TELEGRAM_ID = process.env.CUSTOMER_TELEGRAM_ID ?? "770001";
  * with HMAC-SHA256 under the SHA-256 of the bot token. That is Telegram's scheme
  * and `internal/customerauth` verifies exactly it, so a mistake here fails the
  * test rather than weakening the check.
+ *
+ * The document is posted in the widget's own shape: `id` and `auth_date` are
+ * JSON numbers, not strings. An earlier version of this helper sent strings and
+ * passed while every real browser was refused with 400, because the API decoded
+ * the body into a map of strings — a suite that does not post what the widget
+ * posts cannot catch that.
  */
-function signedWidget(botToken: string): Record<string, string> {
-  const fields: Record<string, string> = {
-    auth_date: String(Math.floor(Date.now() / 1000)),
+function signedWidget(botToken: string): Record<string, string | number> {
+  const fields: Record<string, string | number> = {
+    auth_date: Math.floor(Date.now() / 1000),
     first_name: "Playwright",
-    id: TELEGRAM_ID,
+    id: Number(TELEGRAM_ID),
   };
   const payload = Object.keys(fields)
     .sort()

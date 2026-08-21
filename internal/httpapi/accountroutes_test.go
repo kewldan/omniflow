@@ -196,6 +196,7 @@ func TestAccountCommerceRoutesRequireASession(t *testing.T) {
 		{http.MethodPost, "/v1/account/preferences/unsubscribe"},
 
 		{http.MethodGet, "/v1/account/referrals"},
+		{http.MethodPost, "/v1/account/referrals/attribution"},
 		{http.MethodGet, "/v1/account/loyalty"},
 		{http.MethodGet, "/v1/account/contacts"},
 		{http.MethodPost, "/v1/account/contacts"},

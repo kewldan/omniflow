@@ -136,6 +136,24 @@ func (e AccountCheckoutPromoRejection) Valid() bool {
 	}
 }
 
+// Defines values for AccountCheckoutSquadSelectionReason.
+const (
+	SquadSelectionRequired AccountCheckoutSquadSelectionReason = "squad_selection_required"
+	SquadSelectionTooFew   AccountCheckoutSquadSelectionReason = "squad_selection_too_few"
+)
+
+// Valid indicates whether the value is a known member of the AccountCheckoutSquadSelectionReason enum.
+func (e AccountCheckoutSquadSelectionReason) Valid() bool {
+	switch e {
+	case SquadSelectionRequired:
+		return true
+	case SquadSelectionTooFew:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AccountContactKind.
 const (
 	AccountContactKindEmail    AccountContactKind = "email"
@@ -631,6 +649,36 @@ func (e AccountProfileInputLocale) Valid() bool {
 	}
 }
 
+// Defines values for AccountReferralAttributionReason.
+const (
+	AlreadyAttributed AccountReferralAttributionReason = "already_attributed"
+	NotNew            AccountReferralAttributionReason = "not_new"
+	ProgramDisabled   AccountReferralAttributionReason = "program_disabled"
+	Recorded          AccountReferralAttributionReason = "recorded"
+	SelfReferral      AccountReferralAttributionReason = "self_referral"
+	UnknownCode       AccountReferralAttributionReason = "unknown_code"
+)
+
+// Valid indicates whether the value is a known member of the AccountReferralAttributionReason enum.
+func (e AccountReferralAttributionReason) Valid() bool {
+	switch e {
+	case AlreadyAttributed:
+		return true
+	case NotNew:
+		return true
+	case ProgramDisabled:
+		return true
+	case Recorded:
+		return true
+	case SelfReferral:
+		return true
+	case UnknownCode:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AccountReferralsLinkReason.
 const (
 	NoCode                 AccountReferralsLinkReason = "no_code"
@@ -982,6 +1030,30 @@ func (e AccountTicketStatus) Valid() bool {
 	case AccountTicketStatusPending:
 		return true
 	case AccountTicketStatusResolved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountTopUpStartedPaymentProblemCode.
+const (
+	AccountTopUpStartedPaymentProblemCodeOrderNotPayable             AccountTopUpStartedPaymentProblemCode = "order_not_payable"
+	AccountTopUpStartedPaymentProblemCodePaymentFailed               AccountTopUpStartedPaymentProblemCode = "payment_failed"
+	AccountTopUpStartedPaymentProblemCodeProviderCurrencyUnsupported AccountTopUpStartedPaymentProblemCode = "provider_currency_unsupported"
+	AccountTopUpStartedPaymentProblemCodeProviderUnavailable         AccountTopUpStartedPaymentProblemCode = "provider_unavailable"
+)
+
+// Valid indicates whether the value is a known member of the AccountTopUpStartedPaymentProblemCode enum.
+func (e AccountTopUpStartedPaymentProblemCode) Valid() bool {
+	switch e {
+	case AccountTopUpStartedPaymentProblemCodeOrderNotPayable:
+		return true
+	case AccountTopUpStartedPaymentProblemCodePaymentFailed:
+		return true
+	case AccountTopUpStartedPaymentProblemCodeProviderCurrencyUnsupported:
+		return true
+	case AccountTopUpStartedPaymentProblemCodeProviderUnavailable:
 		return true
 	default:
 		return false
@@ -4405,14 +4477,23 @@ type AccountCheckout struct {
 	Providers      []AccountPaymentChoice         `json:"providers"`
 
 	// Quote The exact application breakdown. Every figure is computed on the server, so the number a customer is asked to approve and the number they are charged cannot be arrived at two different ways.
-	Quote          AccountCheckoutQuote `json:"quote"`
+	Quote AccountCheckoutQuote `json:"quote"`
+
+	// QuoteAvailable False while the quote is withheld; `quote` then carries only the currency.
+	QuoteAvailable bool `json:"quoteAvailable"`
 	SelectedAddons []struct {
 		AddonVersionId openapi_types.UUID `json:"addonVersionId"`
 		Quantity       int                `json:"quantity"`
 	} `json:"selectedAddons"`
 	SelectedSquadIds []openapi_types.UUID `json:"selectedSquadIds"`
-	Squads           AccountSquadOffer    `json:"squads"`
-	SubscriptionId   *string              `json:"subscriptionId,omitempty"`
+
+	// SquadSelection Whether the server choice still stands between this checkout and a price. A plan that asks the customer to choose servers opens with `required: true` and no quote rather than failing; `reason` is the commerce vocabulary the panel already explains.
+	SquadSelection struct {
+		Reason   *AccountCheckoutSquadSelectionReason `json:"reason,omitempty"`
+		Required bool                                 `json:"required"`
+	} `json:"squadSelection"`
+	Squads         AccountSquadOffer `json:"squads"`
+	SubscriptionId *string           `json:"subscriptionId,omitempty"`
 
 	// Subscriptions The subscriptions this checkout could target.
 	Subscriptions []struct {
@@ -4434,6 +4515,9 @@ type AccountCheckoutOperation string
 
 // AccountCheckoutPromoRejection Why the entered code does not apply. Present on a 200, not an error.
 type AccountCheckoutPromoRejection string
+
+// AccountCheckoutSquadSelectionReason defines model for AccountCheckout.SquadSelection.Reason.
+type AccountCheckoutSquadSelectionReason string
 
 // AccountCheckoutQuote The exact application breakdown. Every figure is computed on the server, so the number a customer is asked to approve and the number they are charged cannot be arrived at two different ways.
 type AccountCheckoutQuote struct {
@@ -4693,11 +4777,17 @@ type AccountOrder struct {
 		Status      string                     `json:"status"`
 	} `json:"payment,omitempty"`
 
+	// PaymentChoices The methods that can settle this order in its currency, each priced at what the order still owes. Present on the detail response while the order is pending and owes something, so the page can offer a method without depending on the URL the checkout redirected to. Telegram Stars appears only for a customer with a Telegram identity.
+	PaymentChoices *[]AccountPaymentChoice `json:"paymentChoices,omitempty"`
+
 	// Phase The combined payment and provisioning state the panel renders: what the customer is waiting for, rather than which table changed.
-	Phase         string `json:"phase"`
-	Plan          string `json:"plan"`
-	RefundedMinor int64  `json:"refundedMinor"`
-	Refunds       *[]struct {
+	Phase string `json:"phase"`
+	Plan  string `json:"plan"`
+
+	// PreferredProvider The method the checkout recorded, while that checkout is still attached to the order.
+	PreferredProvider *string `json:"preferredProvider,omitempty"`
+	RefundedMinor     int64   `json:"refundedMinor"`
+	Refunds           *[]struct {
 		AmountMinor int64     `json:"amountMinor"`
 		CreatedAt   time.Time `json:"createdAt"`
 		Currency    string    `json:"currency"`
@@ -4962,6 +5052,15 @@ type AccountProfileInput struct {
 
 // AccountProfileInputLocale defines model for AccountProfileInput.Locale.
 type AccountProfileInputLocale string
+
+// AccountReferralAttribution defines model for AccountReferralAttribution.
+type AccountReferralAttribution struct {
+	Attributed bool                             `json:"attributed"`
+	Reason     AccountReferralAttributionReason `json:"reason"`
+}
+
+// AccountReferralAttributionReason defines model for AccountReferralAttribution.Reason.
+type AccountReferralAttributionReason string
 
 // AccountReferrals defines model for AccountReferrals.
 type AccountReferrals struct {
@@ -5243,12 +5342,15 @@ type AccountSubscription struct {
 	Label    string             `json:"label"`
 
 	// Live The traffic and device figures were read from Remnawave. When false they are the last observed values and the panel says so.
-	Live        bool                     `json:"live"`
-	Phase       AccountSubscriptionPhase `json:"phase"`
-	Plan        string                   `json:"plan"`
-	Provisioned bool                     `json:"provisioned"`
-	Slot        int                      `json:"slot"`
-	Traffic     AccountTraffic           `json:"traffic"`
+	Live bool `json:"live"`
+
+	// PendingOrderId The unpaid order that opened this subscription, present only while no entitlement has been provisioned. The panel renders the card as "payment pending" with a way to the order rather than as a subscription that is not active.
+	PendingOrderId *openapi_types.UUID      `json:"pendingOrderId,omitempty"`
+	Phase          AccountSubscriptionPhase `json:"phase"`
+	Plan           string                   `json:"plan"`
+	Provisioned    bool                     `json:"provisioned"`
+	Slot           int                      `json:"slot"`
+	Traffic        AccountTraffic           `json:"traffic"`
 }
 
 // AccountSubscriptionPhase defines model for AccountSubscription.Phase.
@@ -5299,6 +5401,24 @@ type AccountTicketPage struct {
 	TelegramLinked bool `json:"telegramLinked"`
 }
 
+// AccountTopUpStarted defines model for AccountTopUpStarted.
+type AccountTopUpStarted struct {
+	AmountMinor int64                 `json:"amountMinor"`
+	Currency    string                `json:"currency"`
+	OrderId     openapi_types.UUID    `json:"orderId"`
+	Payment     *AccountPaymentHandle `json:"payment,omitempty"`
+
+	// PaymentProblem Present instead of `payment` when the order was created but its payment could not be started.
+	PaymentProblem *struct {
+		Code   AccountTopUpStartedPaymentProblemCode `json:"code"`
+		Detail string                                `json:"detail"`
+	} `json:"paymentProblem,omitempty"`
+	State string `json:"state"`
+}
+
+// AccountTopUpStartedPaymentProblemCode defines model for AccountTopUpStarted.PaymentProblem.Code.
+type AccountTopUpStartedPaymentProblemCode string
+
 // AccountTraffic defines model for AccountTraffic.
 type AccountTraffic struct {
 	LimitBytes *int64 `json:"limitBytes,omitempty"`
@@ -5329,7 +5449,10 @@ type AccountWallet struct {
 	} `json:"entries"`
 	NextCursor   *string             `json:"nextCursor,omitempty"`
 	NextCursorId *openapi_types.UUID `json:"nextCursorId,omitempty"`
-	TopUp        struct {
+
+	// PendingTopUps Top-up orders still waiting to be paid, newest first. A top-up is not in the order history — it buys nothing — so this is where a customer finds one whose provider page they closed or whose intent the provider refused, with its payment handoff.
+	PendingTopUps *[]AccountOrder `json:"pendingTopUps,omitempty"`
+	TopUp         struct {
 		Enabled      bool                   `json:"enabled"`
 		MaximumMinor int64                  `json:"maximumMinor"`
 		MinimumMinor int64                  `json:"minimumMinor"`
@@ -8111,6 +8234,23 @@ type SessionList struct {
 	Items []AdminSession `json:"items"`
 }
 
+// TelegramLoginWidgetPayload The document Telegram's Login Widget produces. Every field except `hash` participates in the signature in its textual form, so the server keeps the digits of the numeric fields verbatim rather than parsing them as floating point.
+type TelegramLoginWidgetPayload struct {
+	// AuthDate Unix seconds at which Telegram signed the payload.
+	AuthDate  int64   `json:"auth_date"`
+	FirstName *string `json:"first_name,omitempty"`
+
+	// Hash HMAC-SHA256 over the other fields under SHA-256 of the bot token.
+	Hash string `json:"hash"`
+
+	// Id The Telegram user ID.
+	Id                   int64                  `json:"id"`
+	LastName             *string                `json:"last_name,omitempty"`
+	PhotoUrl             *string                `json:"photo_url,omitempty"`
+	Username             *string                `json:"username,omitempty"`
+	AdditionalProperties map[string]interface{} `json:"-"`
+}
+
 // TelemetryEvent defines model for TelemetryEvent.
 type TelemetryEvent struct {
 	Architecture   string                `json:"architecture"`
@@ -8330,9 +8470,6 @@ type CompleteAccountOidcParams struct {
 type StartAccountOidcParams struct {
 	Next *string `form:"next,omitempty" json:"next,omitempty"`
 }
-
-// AccountSignInWithTelegramJSONBody defines parameters for AccountSignInWithTelegram.
-type AccountSignInWithTelegramJSONBody map[string]string
 
 // AccountSignInWithMiniAppJSONBody defines parameters for AccountSignInWithMiniApp.
 type AccountSignInWithMiniAppJSONBody struct {
@@ -8583,6 +8720,11 @@ type ExportAccountPersonalDataParams struct {
 type GetAccountReferralsParams struct {
 	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// AttributeAccountReferralJSONBody defines parameters for AttributeAccountReferral.
+type AttributeAccountReferralJSONBody struct {
+	Code string `json:"code"`
 }
 
 // ListAccountSecurityEventsParams defines parameters for ListAccountSecurityEvents.
@@ -10066,7 +10208,7 @@ type ReceivePaymentWebhookJSONBody map[string]interface{}
 type AccountLogoutAllJSONRequestBody AccountLogoutAllJSONBody
 
 // AccountSignInWithTelegramJSONRequestBody defines body for AccountSignInWithTelegram for application/json ContentType.
-type AccountSignInWithTelegramJSONRequestBody AccountSignInWithTelegramJSONBody
+type AccountSignInWithTelegramJSONRequestBody = TelegramLoginWidgetPayload
 
 // AccountSignInWithMiniAppJSONRequestBody defines body for AccountSignInWithMiniApp for application/json ContentType.
 type AccountSignInWithMiniAppJSONRequestBody AccountSignInWithMiniAppJSONBody
@@ -10097,6 +10239,9 @@ type UpdateAccountPreferencesJSONRequestBody = AccountPreferencesUpdate
 
 // RequestAccountDeletionJSONRequestBody defines body for RequestAccountDeletion for application/json ContentType.
 type RequestAccountDeletionJSONRequestBody RequestAccountDeletionJSONBody
+
+// AttributeAccountReferralJSONRequestBody defines body for AttributeAccountReferral for application/json ContentType.
+type AttributeAccountReferralJSONRequestBody AttributeAccountReferralJSONBody
 
 // PurchaseAccountShopProductJSONRequestBody defines body for PurchaseAccountShopProduct for application/json ContentType.
 type PurchaseAccountShopProductJSONRequestBody PurchaseAccountShopProductJSONBody
@@ -10371,6 +10516,158 @@ type ReceivePaymentWebhookJSONRequestBody ReceivePaymentWebhookJSONBody
 // CollectTelemetryEventJSONRequestBody defines body for CollectTelemetryEvent for application/json ContentType.
 type CollectTelemetryEventJSONRequestBody = TelemetryEvent
 
+// Getter for additional properties for TelegramLoginWidgetPayload. Returns the specified
+// element and whether it was found
+func (a TelegramLoginWidgetPayload) Get(fieldName string) (value interface{}, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for TelegramLoginWidgetPayload
+func (a *TelegramLoginWidgetPayload) Set(fieldName string, value interface{}) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]interface{})
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for TelegramLoginWidgetPayload to handle AdditionalProperties
+func (a *TelegramLoginWidgetPayload) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["auth_date"]; found {
+		err = json.Unmarshal(raw, &a.AuthDate)
+		if err != nil {
+			return fmt.Errorf("error reading 'auth_date': %w", err)
+		}
+		delete(object, "auth_date")
+	}
+
+	if raw, found := object["first_name"]; found {
+		err = json.Unmarshal(raw, &a.FirstName)
+		if err != nil {
+			return fmt.Errorf("error reading 'first_name': %w", err)
+		}
+		delete(object, "first_name")
+	}
+
+	if raw, found := object["hash"]; found {
+		err = json.Unmarshal(raw, &a.Hash)
+		if err != nil {
+			return fmt.Errorf("error reading 'hash': %w", err)
+		}
+		delete(object, "hash")
+	}
+
+	if raw, found := object["id"]; found {
+		err = json.Unmarshal(raw, &a.Id)
+		if err != nil {
+			return fmt.Errorf("error reading 'id': %w", err)
+		}
+		delete(object, "id")
+	}
+
+	if raw, found := object["last_name"]; found {
+		err = json.Unmarshal(raw, &a.LastName)
+		if err != nil {
+			return fmt.Errorf("error reading 'last_name': %w", err)
+		}
+		delete(object, "last_name")
+	}
+
+	if raw, found := object["photo_url"]; found {
+		err = json.Unmarshal(raw, &a.PhotoUrl)
+		if err != nil {
+			return fmt.Errorf("error reading 'photo_url': %w", err)
+		}
+		delete(object, "photo_url")
+	}
+
+	if raw, found := object["username"]; found {
+		err = json.Unmarshal(raw, &a.Username)
+		if err != nil {
+			return fmt.Errorf("error reading 'username': %w", err)
+		}
+		delete(object, "username")
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]interface{})
+		for fieldName, fieldBuf := range object {
+			var fieldVal interface{}
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for TelegramLoginWidgetPayload to handle AdditionalProperties
+func (a TelegramLoginWidgetPayload) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	object["auth_date"], err = json.Marshal(a.AuthDate)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'auth_date': %w", err)
+	}
+
+	if a.FirstName != nil {
+		object["first_name"], err = json.Marshal(a.FirstName)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'first_name': %w", err)
+		}
+	}
+
+	object["hash"], err = json.Marshal(a.Hash)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'hash': %w", err)
+	}
+
+	object["id"], err = json.Marshal(a.Id)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'id': %w", err)
+	}
+
+	if a.LastName != nil {
+		object["last_name"], err = json.Marshal(a.LastName)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'last_name': %w", err)
+		}
+	}
+
+	if a.PhotoUrl != nil {
+		object["photo_url"], err = json.Marshal(a.PhotoUrl)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'photo_url': %w", err)
+		}
+	}
+
+	if a.Username != nil {
+		object["username"], err = json.Marshal(a.Username)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'username': %w", err)
+		}
+	}
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
@@ -10511,6 +10808,9 @@ type ServerInterface interface {
 
 	// (GET /v1/account/referrals)
 	GetAccountReferrals(w http.ResponseWriter, r *http.Request, params GetAccountReferralsParams)
+
+	// (POST /v1/account/referrals/attribution)
+	AttributeAccountReferral(w http.ResponseWriter, r *http.Request)
 
 	// (GET /v1/account/security-events)
 	ListAccountSecurityEvents(w http.ResponseWriter, r *http.Request, params ListAccountSecurityEventsParams)
@@ -11512,6 +11812,11 @@ func (_ Unimplemented) ExportAccountPersonalData(w http.ResponseWriter, r *http.
 
 // (GET /v1/account/referrals)
 func (_ Unimplemented) GetAccountReferrals(w http.ResponseWriter, r *http.Request, params GetAccountReferralsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/referrals/attribution)
+func (_ Unimplemented) AttributeAccountReferral(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -14598,6 +14903,20 @@ func (siw *ServerInterfaceWrapper) GetAccountReferrals(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAccountReferrals(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AttributeAccountReferral operation middleware
+func (siw *ServerInterfaceWrapper) AttributeAccountReferral(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AttributeAccountReferral(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -26818,6 +27137,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/v1/account/referrals", wrapper.GetAccountReferrals)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/referrals/attribution", wrapper.AttributeAccountReferral)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/loyalty", wrapper.GetAccountLoyalty)
 	})
 	r.Group(func(r chi.Router) {
@@ -28722,6 +29044,44 @@ func (response GetAccountReferrals200JSONResponse) VisitGetAccountReferralsRespo
 	return err
 }
 
+type AttributeAccountReferralRequestObject struct {
+	Body *AttributeAccountReferralJSONRequestBody
+}
+
+type AttributeAccountReferralResponseObject interface {
+	VisitAttributeAccountReferralResponse(w http.ResponseWriter) error
+}
+
+type AttributeAccountReferral200JSONResponse AccountReferralAttribution
+
+func (response AttributeAccountReferral200JSONResponse) VisitAttributeAccountReferralResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AttributeAccountReferral400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response AttributeAccountReferral400ApplicationProblemPlusJSONResponse) VisitAttributeAccountReferralResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListAccountSecurityEventsRequestObject struct {
 	Params ListAccountSecurityEventsParams
 }
@@ -30331,7 +30691,7 @@ type StartAccountTopUpResponseObject interface {
 	VisitStartAccountTopUpResponse(w http.ResponseWriter) error
 }
 
-type StartAccountTopUp201JSONResponse AccountOrder
+type StartAccountTopUp201JSONResponse AccountTopUpStarted
 
 func (response StartAccountTopUp201JSONResponse) VisitStartAccountTopUpResponse(w http.ResponseWriter) error {
 
@@ -40630,6 +40990,9 @@ type StrictServerInterface interface {
 	// (GET /v1/account/referrals)
 	GetAccountReferrals(ctx context.Context, request GetAccountReferralsRequestObject) (GetAccountReferralsResponseObject, error)
 
+	// (POST /v1/account/referrals/attribution)
+	AttributeAccountReferral(ctx context.Context, request AttributeAccountReferralRequestObject) (AttributeAccountReferralResponseObject, error)
+
 	// (GET /v1/account/security-events)
 	ListAccountSecurityEvents(ctx context.Context, request ListAccountSecurityEventsRequestObject) (ListAccountSecurityEventsResponseObject, error)
 
@@ -42698,6 +43061,37 @@ func (sh *strictHandler) GetAccountReferrals(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetAccountReferralsResponseObject); ok {
 		if err := validResponse.VisitGetAccountReferralsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AttributeAccountReferral operation middleware
+func (sh *strictHandler) AttributeAccountReferral(w http.ResponseWriter, r *http.Request) {
+	var request AttributeAccountReferralRequestObject
+
+	var body AttributeAccountReferralJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AttributeAccountReferral(ctx, request.(AttributeAccountReferralRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AttributeAccountReferral")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AttributeAccountReferralResponseObject); ok {
+		if err := validResponse.VisitAttributeAccountReferralResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

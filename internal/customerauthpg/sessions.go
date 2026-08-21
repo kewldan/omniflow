@@ -96,6 +96,33 @@ func (service *Service) RevokeSession(
 	})
 }
 
+// SupersedeSession ends the session a browser was already holding when it
+// signed in again.
+//
+// Re-authentication exists so a stale session can perform a sensitive action
+// after a fresh sign-in; it is not a request for a second session. Leaving the
+// old one live would list two devices for one browser on the security screen
+// and keep a token alive that the customer believes they have just replaced.
+// No security event is written: the new sign-in already recorded itself, and
+// the old session's end is the same act.
+func (service *Service) SupersedeSession(ctx context.Context, customerID, sessionID string) error {
+	userID, err := parseUUID(customerID)
+	if err != nil {
+		return err
+	}
+	target, err := parseUUID(sessionID)
+	if err != nil {
+		return err
+	}
+	_, err = dbgen.New(service.pool).RevokeCustomerSession(ctx, dbgen.RevokeCustomerSessionParams{
+		SessionID: target, UserID: userID, RevokedReason: pgtype.Text{String: "reauthenticated", Valid: true},
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	return err
+}
+
 // SignOut ends the calling session only.
 func (service *Service) SignOut(
 	ctx context.Context, customerID, sessionID string, request RequestContext,

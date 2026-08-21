@@ -51,9 +51,10 @@ func CustomerSecurityHeaders(next http.Handler) http.Handler {
 // security events.
 func (handlers *AccountHandlers) requestContext(request *http.Request) customerauthpg.RequestContext {
 	return customerauthpg.RequestContext{
-		IP:        handlers.proxies.ClientIP(request),
-		UserAgent: request.UserAgent(),
-		RequestID: middleware.GetReqID(request.Context()),
+		IP:             handlers.proxies.ClientIP(request),
+		UserAgent:      request.UserAgent(),
+		RequestID:      middleware.GetReqID(request.Context()),
+		AcceptLanguage: request.Header.Get("Accept-Language"),
 	}
 }
 
@@ -96,7 +97,12 @@ func (handlers *AccountHandlers) requireCustomerSession(next http.Handler) http.
 		switch {
 		case errors.Is(err, customerauthpg.ErrSessionInvalid):
 			// The cookie is cleared so a browser holding a dead session stops
-			// presenting it on every subsequent request.
+			// presenting it on every subsequent request. The service answers
+			// this only when it positively knows the token is dead: a token
+			// that rotated away moments ago resolves through the grace path
+			// and arrives here as a principal with a replacement token, and a
+			// grace store that could not be asked is the generic error below,
+			// which leaves the cookie alone.
 			handlers.clearSessionCookie(writer)
 			writeProblem(writer, request, http.StatusUnauthorized, "unauthenticated", "Sign-in is required")
 			return

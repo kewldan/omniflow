@@ -38,6 +38,24 @@ var (
 	// ErrOrderNotCancellable reports a cancellation of an order that money has
 	// already moved against. Refunds are an operator action, not a customer one.
 	ErrOrderNotCancellable = errors.New("only an unpaid order can be cancelled")
+	// ErrOrderNotPayable reports a payment started against an order that is no
+	// longer pending — cancelled, expired, or already settled. It is a conflict
+	// rather than a failure: the order moved on between the page rendering and
+	// the button being pressed, and the page has to re-read it.
+	ErrOrderNotPayable = errors.New("this order can no longer be paid")
+	// ErrProviderCurrency reports a configured payment method asked to settle
+	// an order in a currency it does not take. The method exists and works; it
+	// is the pairing that is wrong, so the remedy is another method.
+	ErrProviderCurrency = errors.New("that payment method cannot settle this order's currency")
+	// ErrPurchaseOnLiveSubscription reports a purchase aimed at a subscription
+	// whose entitlement still has time left. A purchase schedules from now and
+	// supersedes what is there, so it would discard that time; the customer is
+	// offered an extension, an upgrade, or a downgrade for a live subscription
+	// and a purchase only for an empty slot or a new one.
+	ErrPurchaseOnLiveSubscription = fmt.Errorf(
+		"operation_forbidden: a purchase cannot target a subscription with time left: %w",
+		accountpg.ErrInvalidInput,
+	)
 	// ErrSubscriptionTargetRequired reports a lifecycle flow that did not say
 	// which subscription it acts on, in an installation where that is ambiguous.
 	// It is its own state rather than a generic validation failure because the

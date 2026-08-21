@@ -9,17 +9,19 @@ import { RefreshCw, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import useSWR from "swr";
 
+import { ReauthNotice, useReauthentication } from "@/components/account/reauth";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
 import {
   type AccountSubscription,
+  primaryAction,
   SubscriptionStatus,
   TrafficMeter,
 } from "@/components/account/subscription-card";
 import { useAccount } from "@/lib/account-session";
-import { type ApiError, apiFetch, fetcher } from "@/lib/api";
+import { ApiError, apiFetch, fetcher } from "@/lib/api";
 
 /**
  * One subscription in detail: what it is, what it is called, and the one
@@ -56,14 +58,54 @@ export default function SubscriptionPage() {
         <TrafficMeter traffic={data.traffic} />
       </section>
 
-      <Button asChild className="w-full" size="lg">
-        <Link href={`${page}/connect`}>{translate("subscription.connect")}</Link>
-      </Button>
+      {/* The same decision the dashboard card makes: Connect only for a
+          subscription that can be connected, the order for one waiting to be
+          paid, the store for one that has lapsed or was never provisioned. */}
+      <PrimaryAction page={page} subscription={data} />
 
       <RenameForm current={data.label} onRenamed={mutate} subscriptionId={data.id} />
-      <RotateLink subscriptionId={data.id} />
+      {/* Rotating a link is only meaningful for a provisioned subscription. */}
+      {data.provisioned && <RotateLink subscriptionId={data.id} />}
     </div>
   );
+}
+
+function PrimaryAction({
+  page,
+  subscription,
+}: {
+  page: string;
+  subscription: AccountSubscription;
+}) {
+  const translate = useTranslations("account");
+  switch (primaryAction(subscription)) {
+    case "pay":
+      return (
+        <Button asChild className="w-full" size="lg">
+          <Link href={`/account/orders/${subscription.pendingOrderId}`}>
+            {translate("subscription.openOrder")}
+          </Link>
+        </Button>
+      );
+    case "connect":
+      return (
+        <Button asChild className="w-full" size="lg">
+          <Link href={`${page}/connect`}>{translate("subscription.connect")}</Link>
+        </Button>
+      );
+    case "renew":
+      return (
+        <Button asChild className="w-full" size="lg">
+          <Link href="/account/store">{translate("subscription.renew")}</Link>
+        </Button>
+      );
+    default:
+      return (
+        <Button asChild className="w-full" size="lg">
+          <Link href="/account/store">{translate("subscription.browsePlans")}</Link>
+        </Button>
+      );
+  }
 }
 
 /** The customer's own name for a subscription, which every screen then uses. */
@@ -130,8 +172,19 @@ function RotateLink({ subscriptionId }: { subscriptionId: string }) {
   const [rotated, setRotated] = useState<string | null>(null);
 
   const needsReauth = session?.session.reauthenticationRequired ?? false;
+  const { redirectIfRequired } = useReauthentication();
+  // One rotation per confirmation. A rotation invalidates every device's
+  // link, so a submit that ran twice — a double press, a dialog re-firing its
+  // confirm while the request was in flight — would invalidate the link the
+  // customer was just handed. The ref closes the window between the press
+  // and the busy state catching up with it.
+  const inFlight = useRef(false);
 
   async function rotate() {
+    if (inFlight.current) {
+      return;
+    }
+    inFlight.current = true;
     setBusy(true);
     try {
       const result = await apiFetch<{ subscriptionUrl: string }>(
@@ -141,13 +194,18 @@ function RotateLink({ subscriptionId }: { subscriptionId: string }) {
       setRotated(result.subscriptionUrl);
       toast.success(translate("subscription.rotated"));
     } catch (rotateError) {
-      const problem = rotateError as ApiError;
-      toast.error(
-        problem.code === "reauthentication_required"
-          ? translate("states.reauthenticate")
-          : problem.message,
-      );
+      // A rotation that was performed but whose answer was lost in transit
+      // has still happened; the customer is told to fetch the link from the
+      // connect screen rather than being prompted to rotate a third time.
+      if (!redirectIfRequired(rotateError)) {
+        toast.error(
+          rotateError instanceof ApiError
+            ? rotateError.message
+            : translate("subscription.rotateUnconfirmed"),
+        );
+      }
     } finally {
+      inFlight.current = false;
       setBusy(false);
       setOpen(false);
     }
@@ -167,11 +225,7 @@ function RotateLink({ subscriptionId }: { subscriptionId: string }) {
 
       {/* The stale-session case is explained before the button is pressed, so the
           customer is not sent through a confirmation only to be refused. */}
-      {needsReauth && (
-        <p className="px-1 font-mono text-[11px] text-warning" role="status">
-          {translate("states.reauthenticate")}
-        </p>
-      )}
+      {needsReauth && <ReauthNotice />}
 
       <Button
         className="w-full text-destructive"

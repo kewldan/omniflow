@@ -280,11 +280,38 @@ func TestDeletionIsRecordedAndNeverExecuted(t *testing.T) {
 			status, deleted, retention, anonymized)
 	}
 
+	// The operator is told, in the same transaction, and told nothing the
+	// customer wrote: the notice names the event and the account, not the
+	// reason.
+	var notices int
+	var payload string
+	if err := harness.pool.QueryRow(ctx, `SELECT count(*), COALESCE(min(payload::text), '')
+		FROM operator_notifications WHERE kind = 'security' AND dedupe_key LIKE 'customer_deletion_requested:%'`).
+		Scan(&notices, &payload); err != nil {
+		t.Fatalf("count operator notices: %v", err)
+	}
+	if notices != 1 {
+		t.Fatalf("%d operator notices were queued for one request, want 1", notices)
+	}
+	if !strings.Contains(payload, "customer_deletion_requested") || !strings.Contains(payload, customerID) {
+		t.Fatalf("the operator notice does not name the event and the account: %s", payload)
+	}
+	if strings.Contains(payload, "no longer need") {
+		t.Fatalf("the operator notice carries the customer's own words: %s", payload)
+	}
+
 	// Repeating the request is refused rather than piling up records an operator
-	// has to reconcile.
+	// has to reconcile — and queues no second notice.
 	if _, err := service.RequestDeletion(ctx, customerID, "again",
 		accountreferral.RequestContext{}); !errors.Is(err, accountreferral.ErrDeletionPending) {
 		t.Fatalf("expected a pending-request refusal, got %v", err)
+	}
+	if err := harness.pool.QueryRow(ctx, `SELECT count(*) FROM operator_notifications
+		WHERE kind = 'security' AND dedupe_key LIKE 'customer_deletion_requested:%'`).Scan(&notices); err != nil {
+		t.Fatalf("count operator notices: %v", err)
+	}
+	if notices != 1 {
+		t.Fatalf("a refused repeat queued a notice: %d", notices)
 	}
 
 	privacy, err := service.Privacy(ctx, customerID)

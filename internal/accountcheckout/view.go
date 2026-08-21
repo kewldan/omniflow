@@ -41,10 +41,16 @@ type CheckoutView struct {
 	MultiSubscription bool
 	Squads            SquadOffer
 	SelectedSquadIDs  []string
-	Addons            []AddonOffer
-	SelectedAddons    []CheckoutAddon
-	ExpiresAt         time.Time
-	TermsURL          string
+	// SquadSelection reports a server choice the customer has not finished.
+	// While it is required the quote is withheld rather than the checkout
+	// failing: a plan that asks the customer to choose servers has nothing to
+	// price until they do, and the earlier behaviour — a 422 on every read —
+	// left the screen unable to show the very control that would resolve it.
+	SquadSelection SquadSelectionState
+	Addons         []AddonOffer
+	SelectedAddons []CheckoutAddon
+	ExpiresAt      time.Time
+	TermsURL       string
 }
 
 // OpenRequest is what the panel submits to start a checkout.
@@ -122,27 +128,45 @@ func (service *Service) resolveTarget(
 	if err != nil {
 		return "", err
 	}
+	multi := service.orders.SubscriptionPolicy().MultiEnabled
+	purchase := commerce.TargetsNewSubscription(operation)
 	if identifier := strings.TrimSpace(request.SubscriptionID); identifier != "" {
 		for _, target := range targets {
-			if target.ID == identifier {
-				return identifier, nil
+			if target.ID != identifier {
+				continue
 			}
+			// A purchase schedules from now and supersedes what is there, so
+			// aimed at a subscription with time left it would throw that time
+			// away. The lifecycle actions exist for exactly that case; a
+			// purchase is only ever for an empty slot or a new one.
+			if purchase && TargetLive(target, service.clock()) {
+				return "", ErrPurchaseOnLiveSubscription
+			}
+			return identifier, nil
 		}
 		return "", ErrOrderNotFound
 	}
 	if len(targets) == 0 {
 		return "", nil
 	}
-	multi := service.orders.SubscriptionPolicy().MultiEnabled
-	if commerce.TargetsNewSubscription(operation) && multi && request.NewSubscription {
+	if purchase && multi && request.NewSubscription {
 		return "", nil
 	}
 	if multi && len(targets) > 1 {
 		return "", ErrSubscriptionTargetRequired
 	}
-	// A single-subscription installation, or a customer who holds exactly one:
-	// buying again acts on what they already have rather than opening a second
-	// subscription they never asked for.
+	// A single-subscription installation, or a customer who holds exactly one.
+	// A lifecycle change acts on what they already have. A purchase fills the
+	// one slot only while it is empty — an unpaid order's leftover, a lapsed
+	// subscription — and is refused against a live one; the catalogue offers
+	// extension there, and with concurrent subscriptions enabled a purchase
+	// asks for a new slot instead of being guessed onto the existing one.
+	if purchase && TargetLive(targets[0], service.clock()) {
+		if multi {
+			return "", nil
+		}
+		return "", ErrPurchaseOnLiveSubscription
+	}
 	return targets[0].ID, nil
 }
 
@@ -199,6 +223,18 @@ func (service *Service) Update(
 		}
 	}
 	if request.SquadIDs != nil {
+		// Validated before it is stored. A set the plan could never accept —
+		// a server it does not offer, more than it allows — is refused here
+		// with the session untouched, so the customer keeps a checkout they
+		// can still finish; an incomplete set is stored and reported through
+		// the view, because the screen sends the whole set on every tap.
+		offer, offerErr := service.store.PlanSquads(ctx, session.PlanVersionID, locale)
+		if offerErr != nil {
+			return CheckoutView{}, offerErr
+		}
+		if err = ValidateSquadEdit(offer, *request.SquadIDs); err != nil {
+			return CheckoutView{}, err
+		}
 		if session, err = service.store.SetCheckoutSquads(ctx, session.ID, *request.SquadIDs); err != nil {
 			return CheckoutView{}, err
 		}
@@ -336,6 +372,11 @@ func (service *Service) ConfirmCheckout(ctx context.Context, customerID, locale 
 	if !found {
 		return OrderSummary{}, ErrNoCheckout
 	}
+	// The same gate the bot applies before "Pay": a required channel the
+	// customer is known to have left refuses the purchase, with the list.
+	if err = service.ChannelGate(ctx, customerID); err != nil {
+		return OrderSummary{}, err
+	}
 	orderID, err := service.Confirm(ctx, session)
 	if err != nil {
 		return OrderSummary{}, err
@@ -350,11 +391,21 @@ func (service *Service) view(ctx context.Context, session Session, locale string
 		return CheckoutView{}, err
 	}
 	quote, err := service.Quote(ctx, session)
+	var selection SquadSelectionState
+	if reason, incomplete := SquadSelectionIncomplete(err); incomplete {
+		// Not a failure of the checkout: the customer has not chosen servers
+		// yet. The screen renders the configurator and no price.
+		selection = SquadSelectionState{Required: true, Reason: reason}
+		quote, err = incompleteQuote(session), nil
+	}
 	if err != nil {
 		return CheckoutView{}, err
 	}
 	choices, err := service.PaymentChoices(ctx, session.PlanVersionID)
 	if err != nil {
+		return CheckoutView{}, err
+	}
+	if choices, err = service.forCustomer(ctx, session.CustomerID, choices); err != nil {
 		return CheckoutView{}, err
 	}
 	squads, err := service.store.PlanSquads(ctx, session.PlanVersionID, locale)
@@ -385,7 +436,8 @@ func (service *Service) view(ctx context.Context, session Session, locale string
 			session.SubscriptionID == "" && !session.NewSubscription,
 		MultiSubscription: multi,
 		Squads:            squads, SelectedSquadIDs: session.SelectedSquadIDs,
-		Addons: addons, SelectedAddons: selected,
+		SquadSelection: selection,
+		Addons:         addons, SelectedAddons: selected,
 		ExpiresAt: session.ExpiresAt, TermsURL: service.settings.TermsURL,
 	}, nil
 }
@@ -424,14 +476,28 @@ func (service *Service) RefreshOrder(ctx context.Context, customerID, orderID, l
 
 // CancelOrder cancels one of the customer's own unpaid orders.
 func (service *Service) CancelOrder(ctx context.Context, customerID, orderID string) error {
-	return service.store.CancelOrder(ctx, customerID, orderID, "cancelled by the customer in the web panel")
+	if err := service.store.CancelOrder(ctx, customerID, orderID, "cancelled by the customer in the web panel"); err != nil {
+		return err
+	}
+	// TODO(merge): call paymentservice.(*Service).CancelIntents(ctx, orderID) so a provider page left open cannot settle a cancelled order.
+	// TODO(merge): call the commercepg method that deletes the subscription row an unpaid order left behind, and the one that releases its promo redemption.
+	return nil
 }
 
 // StartOrderPayment starts or resumes a provider payment for one of the
 // customer's own orders.
 //
 // The order is read through the ownership-scoped query first, so the payment
-// service is only ever handed an order this customer may pay for.
+// service is only ever handed an order this customer may pay for. The order
+// has to be payable and the method has to settle its currency before the
+// payment service is asked: both are things the service would refuse, but it
+// refuses them as plain errors, and a customer whose order expired between the
+// page rendering and the button being pressed deserves a conflict they can
+// read rather than a failure they cannot.
+//
+// The method defaults to the one the order's payment intent already names,
+// then to the one the checkout recorded, so the page can resume a payment
+// without having been told the method in its URL.
 func (service *Service) StartOrderPayment(
 	ctx context.Context, customerID, orderID, locale, provider string,
 ) (PaymentHandle, error) {
@@ -439,16 +505,40 @@ func (service *Service) StartOrderPayment(
 	if err != nil {
 		return PaymentHandle{}, err
 	}
-	if order.ExternalMinor == 0 {
-		return PaymentHandle{}, ErrPaymentNotRequired
+	if err = OrderPayable(order, service.clock()); err != nil {
+		return PaymentHandle{}, err
 	}
 	if provider == "" {
 		provider = order.Provider
 	}
 	if provider == "" {
+		if provider, err = service.store.RecordedOrderProvider(ctx, customerID, orderID); err != nil {
+			return PaymentHandle{}, err
+		}
+	}
+	if provider == "" {
 		return PaymentHandle{}, invalidInput("a payment method is required")
 	}
-	return service.StartPayment(ctx, PaymentRequest{
+	if err = service.ProviderSettles(provider, order.Currency); err != nil {
+		return PaymentHandle{}, err
+	}
+	// Stars is refused, not merely hidden, for a customer the bot cannot
+	// reach: an intent nobody can pay would hold the order until it expired.
+	if provider == ProviderTelegramStars {
+		linked, linkErr := service.store.HasTelegramIdentity(ctx, customerID)
+		if linkErr != nil {
+			return PaymentHandle{}, linkErr
+		}
+		if !linked {
+			return PaymentHandle{}, ErrProviderUnavailable
+		}
+	}
+	handle, err := service.StartPayment(ctx, PaymentRequest{
 		OrderID: order.ID, Provider: provider, Description: order.PlanName, Channel: "customer_web",
 	})
+	if err != nil {
+		return PaymentHandle{}, err
+	}
+	handle.Handoff, handle.CheckoutURL = service.Handoff(ctx, handle.Provider, handle.CheckoutURL, order.ID)
+	return handle, nil
 }

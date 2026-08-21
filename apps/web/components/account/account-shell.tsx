@@ -13,13 +13,15 @@ import {
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { type ReactNode, useEffect, useState } from "react";
 
 import { AccountNotice } from "@/components/account/state";
 import { useAccount } from "@/lib/account-session";
 import { apiFetch } from "@/lib/api";
+import { flushReferralAttribution, rememberReferralCode } from "@/lib/referral";
+import { signInPath } from "@/lib/sign-in-path";
 
 /**
  * The tabs that carry the product.
@@ -87,15 +89,29 @@ export function AccountShell({ children }: { children: ReactNode }) {
   const translate = useTranslations("account");
   const { error, loading, session, signedOut, unavailable } = useAccount();
   const pathname = usePathname();
+  const search = useSearchParams();
   const router = useRouter();
 
   // Signing in is the only thing a signed-out visitor can do here, so the panel
   // sends them to do it instead of rendering a card whose single button does.
+  // The path they were on travels along, so a customer whose session ended on
+  // an order page comes back to that order rather than to the dashboard.
   useEffect(() => {
     if (signedOut) {
-      router.replace("/account/sign-in");
+      const query = search.toString();
+      router.replace(signInPath(query ? `${pathname}?${query}` : pathname));
     }
-  }, [router, signedOut]);
+  }, [pathname, router, search, signedOut]);
+
+  // A referral code carried through sign-in is attributed on the first render
+  // that has a session, and an invite link that opened a panel page directly
+  // is picked up here too. The helper forgets the code either way.
+  useEffect(() => {
+    rememberReferralCode(search.get("ref"));
+    if (session) {
+      void flushReferralAttribution();
+    }
+  }, [search, session]);
 
   if (loading || signedOut) {
     return <ShellSkeleton />;

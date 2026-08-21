@@ -56,6 +56,12 @@ type Subscription struct {
 	// observed and the panel says so rather than presenting stale numbers as
 	// current.
 	Live bool
+	// PendingOrderID names the unpaid order that opened this subscription,
+	// when there is one and no entitlement has been provisioned yet. The
+	// dashboard renders that as "payment pending" with a way to the order,
+	// rather than as a subscription that is not active and cannot be
+	// connected.
+	PendingOrderID string
 }
 
 // Notice is a service-wide message the dashboard shows above everything else.
@@ -226,6 +232,7 @@ type record struct {
 	TrafficLimited bool
 	DeviceLimit    int
 	DeviceLimited  bool
+	PendingOrderID string
 }
 
 func subscriptionRow(row dbgen.ListAccountSubscriptionsRow) record {
@@ -237,6 +244,7 @@ func subscriptionRow(row dbgen.ListAccountSubscriptionsRow) record {
 		RemnawaveID:  row.RemnawaveUserID.Int64,
 		TrafficLimit: row.TrafficAllowanceBytes.Int64, TrafficLimited: row.TrafficAllowanceBytes.Valid,
 		DeviceLimit: int(row.DeviceLimit.Int32), DeviceLimited: row.DeviceLimit.Valid,
+		PendingOrderID: row.PendingOrderID,
 	}
 }
 
@@ -276,6 +284,17 @@ func (service *Service) projectSubscription(ctx context.Context, row record) (Su
 		Provisioned: row.RemnawaveID > 0,
 		Traffic:     Traffic{LimitBytes: row.TrafficLimit, Unlimited: !row.TrafficLimited || row.TrafficLimit <= 0},
 		Devices:     DeviceUsage{Limit: row.DeviceLimit, Unlimited: !row.DeviceLimited},
+	}
+	// Only a subscription with no entitlement is "waiting for payment". Once
+	// an entitlement exists the pending order is a renewal in flight, and the
+	// card describes the entitlement it already has.
+	//
+	// TODO(merge): once commercepg deletes the subscription row an unpaid order
+	// leaves behind when that order is cancelled or expires, a row with neither
+	// an entitlement nor a pending order can no longer occur and the panel's
+	// "browse plans" fallback for it becomes unreachable.
+	if row.Status == "" {
+		subscription.PendingOrderID = row.PendingOrderID
 	}
 
 	live := false

@@ -2861,8 +2861,10 @@ paths:
       description: >-
         Verifies a Telegram Login Widget payload. The hash is checked against the
         bot token and the auth_date must be recent, so a captured payload cannot
-        be replayed indefinitely.
-      requestBody: {required: true, content: {application/json: {schema: {type: object, additionalProperties: {type: string}}}}}
+        be replayed indefinitely. The body is the object the widget hands to its
+        `data-onauth` callback, posted as is: `id` and `auth_date` are JSON
+        numbers, the other fields strings.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/TelegramLoginWidgetPayload"}}}}
       responses:
         "200": {description: Signed in, content: {application/json: {schema: {$ref: "#/components/schemas/AccountSignIn"}}}}
         "401": {$ref: "#/components/responses/Problem"}
@@ -3282,7 +3284,12 @@ paths:
       description: >-
         Creates or resumes the provider payment. The key is scoped to the order
         and the chosen adapter, so switching provider is a new payment while
-        pressing the same button twice is not.
+        pressing the same button twice is not. The provider defaults to the one
+        the order's payment already names, then to the one the checkout that
+        became this order recorded. An order that is no longer pending, or whose
+        expiry has passed, answers `409 order_not_payable`; a configured method
+        that does not settle the order's currency answers
+        `422 provider_currency_unsupported`.
       parameters:
         - {$ref: "#/components/parameters/OrderID"}
         - {$ref: "#/components/parameters/CSRFToken"}
@@ -3339,7 +3346,12 @@ paths:
       description: >-
         Opens a top-up order through the same order, webhook, and reconciliation
         pipeline a plan uses. The caller's key becomes the order's key, so a
-        retried request credits the same top-up rather than a second one.
+        retried request credits the same top-up rather than a second one. The
+        order and its payment are two steps: when the order exists but the
+        provider refused the intent, the response is still `201` with the order
+        and `paymentProblem` in place of `payment`, because the order is the
+        customer's and can be paid from its own screen by any method that
+        settles it.
       parameters:
         - {$ref: "#/components/parameters/CSRFToken"}
         - {$ref: "#/components/parameters/IdempotencyKey"}
@@ -3355,7 +3367,7 @@ paths:
                 currency: {type: string}
                 provider: {type: string}
       responses:
-        "201": {description: Top-up opened, content: {application/json: {schema: {$ref: "#/components/schemas/AccountOrder"}}}}
+        "201": {description: Top-up opened, content: {application/json: {schema: {$ref: "#/components/schemas/AccountTopUpStarted"}}}}
         "422": {$ref: "#/components/responses/Problem"}
   /v1/account/referrals:
     get:
@@ -3371,6 +3383,21 @@ paths:
         - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 100}}
       responses:
         "200": {description: Referrals, content: {application/json: {schema: {$ref: "#/components/schemas/AccountReferrals"}}}}
+  /v1/account/referrals/attribution:
+    post:
+      operationId: attributeAccountReferral
+      tags: [account]
+      description: >-
+        Records the inviter behind a web sign-up from the `?ref=` code the
+        sign-in screen carried, under the same rule the bot applies to
+        `/start ref_<code>`: first write wins, self-referral is impossible, and
+        the row is written only while the programme is enabled and only for a
+        customer who has not yet paid for anything. Always 200 with an outcome,
+        because a link that did not count is not a failure of the request.
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [code], properties: {code: {type: string, maxLength: 32}}}}}}
+      responses:
+        "200": {description: Outcome, content: {application/json: {schema: {$ref: "#/components/schemas/AccountReferralAttribution"}}}}
+        "400": {$ref: "#/components/responses/Problem"}
   /v1/account/loyalty:
     get:
       operationId: getAccountLoyalty
@@ -6436,6 +6463,23 @@ components:
         locale: {type: string, enum: [ru, en]}
         timezone: {type: string}
         status: {type: string, enum: [active, suspended, deleted]}
+    TelegramLoginWidgetPayload:
+      type: object
+      description: >-
+        The document Telegram's Login Widget produces. Every field except `hash`
+        participates in the signature in its textual form, so the server keeps
+        the digits of the numeric fields verbatim rather than parsing them as
+        floating point.
+      required: [id, auth_date, hash]
+      properties:
+        id: {type: integer, format: int64, description: "The Telegram user ID."}
+        auth_date: {type: integer, format: int64, description: "Unix seconds at which Telegram signed the payload."}
+        hash: {type: string, description: "HMAC-SHA256 over the other fields under SHA-256 of the bot token."}
+        first_name: {type: string}
+        last_name: {type: string}
+        username: {type: string}
+        photo_url: {type: string}
+      additionalProperties: true
     AccountSignIn:
       type: object
       required: [customer, expiresAt]
@@ -6570,6 +6614,14 @@ components:
             they are the last observed values and the panel says so.
         traffic: {$ref: "#/components/schemas/AccountTraffic"}
         devices: {$ref: "#/components/schemas/AccountDeviceUsage"}
+        pendingOrderId:
+          type: string
+          format: uuid
+          description: >-
+            The unpaid order that opened this subscription, present only while
+            no entitlement has been provisioned. The panel renders the card as
+            "payment pending" with a way to the order rather than as a
+            subscription that is not active.
     AccountNotice:
       type: object
       required: [active, message]
@@ -6766,7 +6818,7 @@ components:
         recurring: {type: boolean}
     AccountCheckout:
       type: object
-      required: [id, planVersionId, plan, operation, currency, providers, applyWallet, quote, subscriptions, targetRequired, multiSubscription, squads, selectedSquadIds, addons, selectedAddons]
+      required: [id, planVersionId, plan, operation, currency, providers, applyWallet, quote, subscriptions, targetRequired, multiSubscription, squads, selectedSquadIds, squadSelection, quoteAvailable, addons, selectedAddons]
       properties:
         id: {type: string, format: uuid}
         planVersionId: {type: string, format: uuid}
@@ -6801,6 +6853,18 @@ components:
         multiSubscription: {type: boolean, description: "False means the panel renders no picker at all."}
         squads: {$ref: "#/components/schemas/AccountSquadOffer"}
         selectedSquadIds: {type: array, items: {type: string, format: uuid}}
+        squadSelection:
+          type: object
+          description: >-
+            Whether the server choice still stands between this checkout and a
+            price. A plan that asks the customer to choose servers opens with
+            `required: true` and no quote rather than failing; `reason` is the
+            commerce vocabulary the panel already explains.
+          required: [required]
+          properties:
+            required: {type: boolean}
+            reason: {type: string, enum: [squad_selection_required, squad_selection_too_few]}
+        quoteAvailable: {type: boolean, description: "False while the quote is withheld; `quote` then carries only the currency."}
         addons: {type: array, items: {$ref: "#/components/schemas/AccountAddonOffer"}}
         selectedAddons:
           type: array
@@ -6880,6 +6944,18 @@ components:
               amountMinor: {type: integer, format: int64}
               currency: {type: string}
               createdAt: {type: string, format: date-time}
+        paymentChoices:
+          type: array
+          description: >-
+            The methods that can settle this order in its currency, each priced
+            at what the order still owes. Present on the detail response while
+            the order is pending and owes something, so the page can offer a
+            method without depending on the URL the checkout redirected to.
+            Telegram Stars appears only for a customer with a Telegram identity.
+          items: {$ref: "#/components/schemas/AccountPaymentChoice"}
+        preferredProvider:
+          type: string
+          description: "The method the checkout recorded, while that checkout is still attached to the order."
     AccountOrderPage:
       type: object
       required: [items]
@@ -6925,8 +7001,40 @@ components:
               currency: {type: string}
               reason: {type: string}
               occurredAt: {type: string, format: date-time}
+        pendingTopUps:
+          type: array
+          description: >-
+            Top-up orders still waiting to be paid, newest first. A top-up is
+            not in the order history — it buys nothing — so this is where a
+            customer finds one whose provider page they closed or whose intent
+            the provider refused, with its payment handoff.
+          items: {$ref: "#/components/schemas/AccountOrder"}
         nextCursor: {type: string}
         nextCursorId: {type: string, format: uuid}
+    AccountTopUpStarted:
+      type: object
+      required: [orderId, currency, amountMinor, state]
+      properties:
+        orderId: {type: string, format: uuid}
+        currency: {type: string}
+        amountMinor: {type: integer, format: int64}
+        state: {type: string}
+        payment: {$ref: "#/components/schemas/AccountPaymentHandle"}
+        paymentProblem:
+          type: object
+          description: "Present instead of `payment` when the order was created but its payment could not be started."
+          required: [code, detail]
+          properties:
+            code: {type: string, enum: [provider_unavailable, provider_currency_unsupported, order_not_payable, payment_failed]}
+            detail: {type: string}
+    AccountReferralAttribution:
+      type: object
+      required: [attributed, reason]
+      properties:
+        attributed: {type: boolean}
+        reason:
+          type: string
+          enum: [recorded, already_attributed, program_disabled, unknown_code, self_referral, not_new]
     AccountReferrals:
       type: object
       required: [program, code, link, linkAvailable, invited, qualified, pending, rejected, rewardedMinor, reversedMinor, rewardCount, currency, rewards]

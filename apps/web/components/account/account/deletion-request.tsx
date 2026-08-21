@@ -5,13 +5,13 @@ import { ConfirmDialog } from "@omniflow/ui/confirm-dialog";
 import { Textarea } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { toast } from "@omniflow/ui/toast";
-import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { useProblemMessage } from "@/components/account/account/problem";
 import type { DeletionState } from "@/components/account/account/types";
+import { ReauthNotice } from "@/components/account/reauth";
 import { useAccount } from "@/lib/account-session";
 import { type ApiError, apiFetch } from "@/lib/api";
 
@@ -215,14 +215,7 @@ export function DeletionRequest({
           </p>
         </div>
 
-        {staleSession && (
-          <p className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2.5 text-[12.5px] leading-relaxed">
-            {translate("errors.reauthentication_required")}{" "}
-            <Link className="underline underline-offset-2" href="/account/sign-in">
-              {translate("deletion.signInAgain")}
-            </Link>
-          </p>
-        )}
+        {staleSession && <ReauthNotice />}
 
         {failure && !staleSession && (
           <p className="text-[12.5px] text-destructive leading-relaxed" role="alert">

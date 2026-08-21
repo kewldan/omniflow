@@ -304,6 +304,9 @@ func subscriptionPayload(subscription accountpg.Subscription) map[string]any {
 	if !subscription.EndsAt.IsZero() {
 		payload["endsAt"] = subscription.EndsAt.Format(time.RFC3339)
 	}
+	if subscription.PendingOrderID != "" {
+		payload["pendingOrderId"] = subscription.PendingOrderID
+	}
 	return payload
 }
 

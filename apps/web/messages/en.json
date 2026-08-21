@@ -2583,7 +2583,8 @@
       "upstream": "Temporarily unavailable",
       "upstreamDescription": "Live traffic and device figures cannot be read right now. Your subscription is unaffected.",
       "stale": "Live traffic and device figures are unavailable right now, so the numbers below may be out of date.",
-      "reauthenticate": "Sign in again to confirm this action.",
+      "reauthenticate": "Sign in again to confirm this action. You will be brought back here afterwards.",
+      "signInAgain": "Sign in again",
       "maintenance": "Maintenance in progress",
       "maintenanceDescription": "We are working on the service. Your subscription and its remaining time are unaffected.",
       "maintenanceReturn": "Expected back around {time}"
@@ -2606,8 +2607,20 @@
         "sign_in_expired": "The sign-in took too long. Start again.",
         "sign_in_denied": "You cancelled at the provider.",
         "sign_in_failed": "Sign-in could not be completed. Try again.",
+        "miniapp_failed": "Telegram could not sign you in automatically. Use one of the methods below.",
+        "identity_taken": "This Telegram account is attached to a different customer record. Contact support to have the two reconciled.",
+        "sign_in_rejected": "Telegram's answer could not be verified. Try again.",
         "unverified_email": "That provider did not confirm your email address, so it cannot be used to sign in here."
       }
+    },
+    "timezone": {
+      "label": "Your timezone",
+      "hint": "Quiet hours and the times shown on this panel follow it. Search by city or by offset.",
+      "search": "Search timezones",
+      "empty": "No timezone matches.",
+      "detected": "Detected from this device",
+      "all": "All timezones",
+      "saved": "Timezone set to {zone}"
     },
     "dashboard": {
       "subscriptions": "My subscriptions",
@@ -2620,12 +2633,16 @@
     "subscription": {
       "days": "days",
       "connect": "Connect",
+      "openOrder": "Open the order",
+      "renew": "Renew",
+      "browsePlans": "Browse plans",
       "manage": "Manage this subscription",
       "name": "Name",
       "renamed": "Name saved",
       "security": "Access link",
       "rotate": "Issue a new link",
       "rotatePhrase": "NEW LINK",
+      "rotateUnconfirmed": "The answer did not arrive. The link may already have been replaced — open the connect screen to fetch the current one before trying again.",
       "rotatePrompt": "Type NEW LINK to confirm",
       "rotateWarning": "The old link stops working on every device. You will need to add the subscription again in your app. Your traffic and expiry are unaffected.",
       "rotated": "A new link has been issued",
@@ -2644,7 +2661,8 @@
         "disabled": "Disabled",
         "expired": "Expired {date}",
         "failed": "Setup failed — contact support",
-        "paused": "Paused — your days are kept"
+        "paused": "Paused — your days are kept",
+        "payment_pending": "Payment pending — the order is waiting to be paid"
       }
     },
     "devices": {
@@ -2691,7 +2709,7 @@
         "system": "System"
       },
       "language": "Language",
-      "languageHint": "Sets this panel, and the language the bot writes in unless Notifications names a different one. Current: {current}.",
+      "languageHint": "Sets this panel and the language the bot writes in. Notifications can still pick a different language for messages alone. Current: {current}.",
       "languageSaved": "Language saved",
       "security": "Security",
       "sessions": "Sessions and security",
@@ -2966,7 +2984,7 @@
       "deletion": {
         "title": "Delete my account",
         "description": "Sending this does not delete anything straight away. It records a request, and your account keeps working until the request is carried out.",
-        "executedBy": "Requests are reviewed and carried out by the operator's retention process, not by this page. Until that happens you can cancel at any time.",
+        "executedBy": "Requests are reviewed and carried out by the operator's retention process, not by this page. Sending one notifies the operator and signs out your other devices; this session stays so you can cancel at any time until the request is carried out.",
         "reason": "Why are you leaving?",
         "reasonPlaceholder": "In your own words",
         "reasonHint": "{remaining} characters left. This goes to the person who reviews the request.",
@@ -3517,6 +3535,7 @@
       },
       "problems": {
         "addon_unavailable": "That extra is not offered with this plan.",
+        "channel_required": "Join the required channel before purchasing.",
         "checkout_settled": "This checkout has already become an order. Open it from your orders.",
         "idempotency_key_required": "That action could not be sent safely. Try again.",
         "invalid_cursor": "That page of history could not be loaded. Reload the page.",
@@ -3529,6 +3548,8 @@
         "not_provisioned": "This subscription is still being set up. Try again in a moment.",
         "operation_forbidden": "This plan does not allow that change.",
         "order_not_cancellable": "Only an unpaid order can be cancelled. Contact support about a refund.",
+        "order_not_payable": "This order can no longer be paid — it has expired, been cancelled, or already settled. The page has been refreshed.",
+        "payment_failed": "The payment provider did not accept the request. The order was kept; open it to try another method.",
         "payment_not_required": "Nothing more is owed on this order.",
         "plan_limit_reached": "You already hold as many subscriptions on this plan as it allows.",
         "plan_unavailable": "That plan is no longer available. Pick another from the store.",
@@ -3537,6 +3558,7 @@
         "promo_invalid": "That code cannot be used here.",
         "promo_unknown": "That code is not recognised.",
         "provider_unavailable": "That payment method is not available right now. Choose another.",
+        "provider_currency_unsupported": "That payment method does not take this order's currency. Choose another.",
         "request_failed": "Something went wrong on our side. Try again in a moment.",
         "squad_not_offered": "One of the servers you chose is not offered with this plan.",
         "squad_selection_not_allowed": "The servers for this plan are assigned automatically.",
@@ -3622,6 +3644,7 @@
         "confirmFree": "Confirm",
         "discard": "Discard this purchase",
         "discardDescription": "The plan, the extras, and the code you entered are forgotten. Nothing has been charged.",
+        "unreadableDescription": "Your open purchase could not be loaded. You can discard it and start again from the store; nothing has been charged.",
         "target": {
           "title": "Which subscription",
           "new": "A new subscription",
@@ -3630,7 +3653,14 @@
         "squads": {
           "title": "Servers",
           "minimum": "Choose at least {minimum}.",
-          "range": "Choose between {minimum} and {maximum}."
+          "range": "Choose between {minimum} and {maximum}.",
+          "incomplete": "Choose your servers above and the price appears here."
+        },
+        "channels": {
+          "title": "Join the channel first",
+          "description": "This service asks customers to be in its Telegram channel before buying. Join, then confirm again.",
+          "join": "Join {channel}",
+          "recheck": "Membership is re-read on a schedule. If you have just joined and this still appears, press \"I joined\" in the bot or try again in a few minutes."
         },
         "addons": {
           "title": "Extras",
@@ -3752,9 +3782,17 @@
             "action": "Open the payment page"
           },
           "telegram_invoice": {
-            "title": "The invoice is in your chat",
-            "description": "An invoice has been sent to you in Telegram. Pay it there, then come back — this page updates on its own.",
+            "title": "Pay in Telegram",
+            "description": "Telegram Stars are paid inside the chat. Open the bot and it sends you the invoice for this order; pay it there, then come back — this page updates on its own.",
             "action": "Open the invoice"
+          },
+          "incomplete": {
+            "title": "The payment has not started",
+            "description": "The provider did not accept the request when this order was opened. Try the payment again below, or choose another method from the order."
+          },
+          "unreachable": {
+            "title": "Finish this payment in the bot",
+            "description": "This method is paid inside Telegram, and the link to the bot could not be built right now. Open the bot from Telegram and pay the order from its orders list."
           },
           "manual": {
             "title": "Waiting for an operator",
@@ -3771,7 +3809,7 @@
         "payment": {
           "title": "Payment",
           "description": "The amount above is still outstanding. Start the payment when you are ready.",
-          "noMethod": "No payment method was chosen for this order, so it cannot be paid as it stands. Cancel it and order again from the store.",
+          "noMethod": "No payment method can settle this order right now. Cancel it and order again from the store, or contact support.",
           "start": "Pay now",
           "retry": "Try the payment again",
           "nothingDue": "Nothing more was owed on this order."
@@ -3817,9 +3855,13 @@
           "limits": "From {minimum} to {maximum} at a time.",
           "remaining": "You may still add {amount} in this period.",
           "submit": "Add to wallet",
-          "started": "Payment started",
-          "startedDescription": "{amount} lands in your wallet as soon as the payment is confirmed. This page does not need to stay open.",
-          "another": "Add another amount"
+          "startedDescription": "{amount} lands in your wallet as soon as the payment is confirmed. This page does not need to stay open."
+        },
+        "pending": {
+          "title": "Waiting to be paid",
+          "amount": "Top-up of {amount}",
+          "open": "Open the order",
+          "noPayment": "The payment for this top-up has not been started. Open the order to choose a method."
         }
       }
     }

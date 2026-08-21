@@ -160,6 +160,27 @@ export type SubscriptionTarget = {
   endsAt?: string;
 };
 
+/**
+ * Whether a target still carries an entitlement with time left.
+ *
+ * Mirrors `accountcheckout.TargetLive`: a purchase schedules from now and
+ * supersedes what is there, so it is offered only for an empty slot or a new
+ * subscription, never for one the customer is still paying for — the server
+ * refuses that with `operation_forbidden`, and the pickers do not offer it.
+ */
+export function targetLive(target: SubscriptionTarget, now = Date.now()): boolean {
+  if (["", "expired", "superseded", "failed"].includes(target.status)) {
+    return false;
+  }
+  if (!target.endsAt) {
+    return true;
+  }
+  return new Date(target.endsAt).getTime() > now;
+}
+
+/** The dashboard's phases under which a subscription holds no live entitlement. */
+export const UNHELD_PHASES = ["none", "expired", "failed"];
+
 /** One add-on attached to the open checkout. */
 export type CheckoutAddon = {
   addonVersionId: string;
@@ -189,6 +210,14 @@ export type CheckoutView = {
   multiSubscription: boolean;
   squads: SquadOffer;
   selectedSquadIds: string[];
+  /**
+   * The server choice is not finished, so there is no price yet. The reason is
+   * the commerce vocabulary the problem copy already explains —
+   * `squad_selection_required`, `squad_selection_too_few`.
+   */
+  squadSelection: { required: boolean; reason?: string };
+  /** False while the quote is withheld; the breakdown must not render zeros as a price. */
+  quoteAvailable: boolean;
   addons: AddonOffer[];
   selectedAddons: CheckoutAddon[];
   termsUrl: string;
@@ -252,6 +281,15 @@ export type OrderSummary = {
   fulfillment?: OrderFulfillment;
   /** Present on the detail response only; the list omits it. */
   refunds?: OrderRefund[];
+  /**
+   * The methods that can settle this order, in its currency. Present on the
+   * detail response while the order is pending and owes something, so the page
+   * can offer a method without depending on the URL the checkout redirected
+   * to.
+   */
+  paymentChoices?: PaymentChoice[];
+  /** The method the checkout recorded, when that checkout is still attached. */
+  preferredProvider?: string;
 };
 
 /** `GET /v1/account/orders` */
@@ -311,11 +349,18 @@ export type TopUpPolicy = {
   providers: PaymentChoice[];
 };
 
-/** `GET /v1/account/wallet` — balances, policy, and one page of the ledger. */
+/** `GET /v1/account/wallet` — balances, policy, pending top-ups, and one page of the ledger. */
 export type WalletView = {
   balances: WalletBalance[];
   currency: string;
   topUp: TopUpPolicy;
+  /**
+   * Top-up orders still waiting to be paid. A top-up is not in the order
+   * history, so this is the only place a customer finds one whose provider
+   * page they closed — and it is what the wallet renders the handoff from,
+   * so it survives a reload.
+   */
+  pendingTopUps: OrderSummary[];
   entries: WalletEntry[];
   nextCursor?: string;
   nextCursorId?: string;
@@ -327,5 +372,8 @@ export type TopUpResult = {
   currency: string;
   amountMinor: number;
   state: string;
-  payment: PaymentHandle;
+  /** Absent when the order was created but its payment could not be started. */
+  payment?: PaymentHandle | null;
+  /** Present instead of `payment`: why the payment did not start. */
+  paymentProblem?: { code: string; detail: string };
 };

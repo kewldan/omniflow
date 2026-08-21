@@ -363,6 +363,63 @@ func (q *Queries) GetCustomerOIDCProvider(ctx context.Context, slug string) (Cus
 	return i, err
 }
 
+const getCustomerSessionByID = `-- name: GetCustomerSessionByID :one
+SELECT s.id, s.user_id, s.token_hash, s.csrf_secret, s.auth_method, s.auth_provider, s.ip, s.user_agent, s.created_at, s.last_seen_at, s.rotated_at, s.idle_expires_at, s.absolute_expires_at, s.revoked_at, s.revoked_reason, u.status AS user_status, u.locale AS user_locale, u.timezone AS user_timezone
+FROM customer_sessions s
+JOIN users u ON u.id = s.user_id
+WHERE s.id = $1
+`
+
+type GetCustomerSessionByIDRow struct {
+	ID                pgtype.UUID        `json:"id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	TokenHash         []byte             `json:"token_hash"`
+	CsrfSecret        []byte             `json:"csrf_secret"`
+	AuthMethod        string             `json:"auth_method"`
+	AuthProvider      pgtype.Text        `json:"auth_provider"`
+	Ip                *netip.Addr        `json:"ip"`
+	UserAgent         pgtype.Text        `json:"user_agent"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	LastSeenAt        pgtype.Timestamptz `json:"last_seen_at"`
+	RotatedAt         pgtype.Timestamptz `json:"rotated_at"`
+	IdleExpiresAt     pgtype.Timestamptz `json:"idle_expires_at"`
+	AbsoluteExpiresAt pgtype.Timestamptz `json:"absolute_expires_at"`
+	RevokedAt         pgtype.Timestamptz `json:"revoked_at"`
+	RevokedReason     pgtype.Text        `json:"revoked_reason"`
+	UserStatus        string             `json:"user_status"`
+	UserLocale        string             `json:"user_locale"`
+	UserTimezone      string             `json:"user_timezone"`
+}
+
+// The grace path after a rotation: a request that arrived with the superseded
+// cookie resolves the session by the identifier the short-lived forwarding
+// entry names, rather than by a digest the table no longer holds.
+func (q *Queries) GetCustomerSessionByID(ctx context.Context, sessionID pgtype.UUID) (GetCustomerSessionByIDRow, error) {
+	row := q.db.QueryRow(ctx, getCustomerSessionByID, sessionID)
+	var i GetCustomerSessionByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.TokenHash,
+		&i.CsrfSecret,
+		&i.AuthMethod,
+		&i.AuthProvider,
+		&i.Ip,
+		&i.UserAgent,
+		&i.CreatedAt,
+		&i.LastSeenAt,
+		&i.RotatedAt,
+		&i.IdleExpiresAt,
+		&i.AbsoluteExpiresAt,
+		&i.RevokedAt,
+		&i.RevokedReason,
+		&i.UserStatus,
+		&i.UserLocale,
+		&i.UserTimezone,
+	)
+	return i, err
+}
+
 const getCustomerSessionByToken = `-- name: GetCustomerSessionByToken :one
 SELECT s.id, s.user_id, s.token_hash, s.csrf_secret, s.auth_method, s.auth_provider, s.ip, s.user_agent, s.created_at, s.last_seen_at, s.rotated_at, s.idle_expires_at, s.absolute_expires_at, s.revoked_at, s.revoked_reason, u.status AS user_status, u.locale AS user_locale, u.timezone AS user_timezone
 FROM customer_sessions s
@@ -806,21 +863,37 @@ SET token_hash = $1,
     rotated_at = now(),
     last_seen_at = now(),
     idle_expires_at = LEAST(now() + $2::interval, absolute_expires_at)
-WHERE id = $3 AND revoked_at IS NULL
+WHERE id = $3
+  AND token_hash = $4
+  AND revoked_at IS NULL
 RETURNING id, user_id, token_hash, csrf_secret, auth_method, auth_provider, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason
 `
 
 type RotateCustomerSessionTokenParams struct {
-	TokenHash  []byte          `json:"token_hash"`
-	IdleWindow pgtype.Interval `json:"idle_window"`
-	SessionID  pgtype.UUID     `json:"session_id"`
+	TokenHash        []byte          `json:"token_hash"`
+	IdleWindow       pgtype.Interval `json:"idle_window"`
+	SessionID        pgtype.UUID     `json:"session_id"`
+	CurrentTokenHash []byte          `json:"current_token_hash"`
 }
 
 // Swapping the token behind a live session shortens the window in which one
 // captured from a log or a proxy stays replayable. The unique index on
 // `token_hash` means a colliding rotation fails rather than merging sessions.
+//
+// The swap is a compare-and-set on the current digest. A browser fires several
+// requests at once when a page opens, and when the session is due for rotation
+// every one of them arrives holding the same cookie; without the predicate each
+// would install its own token and the last writer would silently invalidate the
+// cookie the others had already told the browser to keep. With it exactly one
+// request rotates and the rest find zero rows and carry on with the token they
+// came with.
 func (q *Queries) RotateCustomerSessionToken(ctx context.Context, arg RotateCustomerSessionTokenParams) (CustomerSession, error) {
-	row := q.db.QueryRow(ctx, rotateCustomerSessionToken, arg.TokenHash, arg.IdleWindow, arg.SessionID)
+	row := q.db.QueryRow(ctx, rotateCustomerSessionToken,
+		arg.TokenHash,
+		arg.IdleWindow,
+		arg.SessionID,
+		arg.CurrentTokenHash,
+	)
 	var i CustomerSession
 	err := row.Scan(
 		&i.ID,

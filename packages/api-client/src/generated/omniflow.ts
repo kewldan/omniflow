@@ -3277,6 +3277,23 @@ export interface AccountCustomer {
   status: AccountCustomerStatus;
 }
 
+/**
+ * The document Telegram's Login Widget produces. Every field except `hash` participates in the signature in its textual form, so the server keeps the digits of the numeric fields verbatim rather than parsing them as floating point.
+ */
+export interface TelegramLoginWidgetPayload {
+  /** The Telegram user ID. */
+  id: number;
+  /** Unix seconds at which Telegram signed the payload. */
+  auth_date: number;
+  /** HMAC-SHA256 over the other fields under SHA-256 of the bot token. */
+  hash: string;
+  first_name?: string;
+  last_name?: string;
+  username?: string;
+  photo_url?: string;
+  [key: string]: unknown;
+}
+
 export interface AccountSignIn {
   customer: AccountCustomer;
   expiresAt: string;
@@ -3435,6 +3452,8 @@ export interface AccountSubscription {
   live: boolean;
   traffic: AccountTraffic;
   devices: AccountDeviceUsage;
+  /** The unpaid order that opened this subscription, present only while no entitlement has been provisioned. The panel renders the card as "payment pending" with a way to the order rather than as a subscription that is not active. */
+  pendingOrderId?: string;
 }
 
 export interface AccountNotice {
@@ -3663,6 +3682,22 @@ export type AccountCheckoutSubscriptionsItem = {
   endsAt?: string;
 };
 
+export type AccountCheckoutSquadSelectionReason =
+  (typeof AccountCheckoutSquadSelectionReason)[keyof typeof AccountCheckoutSquadSelectionReason];
+
+export const AccountCheckoutSquadSelectionReason = {
+  squad_selection_required: "squad_selection_required",
+  squad_selection_too_few: "squad_selection_too_few",
+} as const;
+
+/**
+ * Whether the server choice still stands between this checkout and a price. A plan that asks the customer to choose servers opens with `required: true` and no quote rather than failing; `reason` is the commerce vocabulary the panel already explains.
+ */
+export type AccountCheckoutSquadSelection = {
+  required: boolean;
+  reason?: AccountCheckoutSquadSelectionReason;
+};
+
 export type AccountCheckoutSelectedAddonsItem = {
   addonVersionId: string;
   quantity: number;
@@ -3691,6 +3726,10 @@ export interface AccountCheckout {
   multiSubscription: boolean;
   squads: AccountSquadOffer;
   selectedSquadIds: string[];
+  /** Whether the server choice still stands between this checkout and a price. A plan that asks the customer to choose servers opens with `required: true` and no quote rather than failing; `reason` is the commerce vocabulary the panel already explains. */
+  squadSelection: AccountCheckoutSquadSelection;
+  /** False while the quote is withheld; `quote` then carries only the currency. */
+  quoteAvailable: boolean;
   addons: AccountAddonOffer[];
   selectedAddons: AccountCheckoutSelectedAddonsItem[];
   termsUrl?: string;
@@ -3791,6 +3830,10 @@ export interface AccountOrder {
   /** Provisioning progress, read from the fulfillment operation rather than carried by the client. */
   fulfillment?: AccountOrderFulfillment;
   refunds?: AccountOrderRefundsItem[];
+  /** The methods that can settle this order in its currency, each priced at what the order still owes. Present on the detail response while the order is pending and owes something, so the page can offer a method without depending on the URL the checkout redirected to. Telegram Stars appears only for a customer with a Telegram identity. */
+  paymentChoices?: AccountPaymentChoice[];
+  /** The method the checkout recorded, while that checkout is still attached to the order. */
+  preferredProvider?: string;
 }
 
 export interface AccountOrderPage {
@@ -3831,8 +3874,55 @@ export interface AccountWallet {
   currency: string;
   topUp: AccountWalletTopUp;
   entries: AccountWalletEntriesItem[];
+  /** Top-up orders still waiting to be paid, newest first. A top-up is not in the order history — it buys nothing — so this is where a customer finds one whose provider page they closed or whose intent the provider refused, with its payment handoff. */
+  pendingTopUps?: AccountOrder[];
   nextCursor?: string;
   nextCursorId?: string;
+}
+
+export type AccountTopUpStartedPaymentProblemCode =
+  (typeof AccountTopUpStartedPaymentProblemCode)[keyof typeof AccountTopUpStartedPaymentProblemCode];
+
+export const AccountTopUpStartedPaymentProblemCode = {
+  provider_unavailable: "provider_unavailable",
+  provider_currency_unsupported: "provider_currency_unsupported",
+  order_not_payable: "order_not_payable",
+  payment_failed: "payment_failed",
+} as const;
+
+/**
+ * Present instead of `payment` when the order was created but its payment could not be started.
+ */
+export type AccountTopUpStartedPaymentProblem = {
+  code: AccountTopUpStartedPaymentProblemCode;
+  detail: string;
+};
+
+export interface AccountTopUpStarted {
+  orderId: string;
+  currency: string;
+  amountMinor: number;
+  state: string;
+  payment?: AccountPaymentHandle;
+  /** Present instead of `payment` when the order was created but its payment could not be started. */
+  paymentProblem?: AccountTopUpStartedPaymentProblem;
+}
+
+export type AccountReferralAttributionReason =
+  (typeof AccountReferralAttributionReason)[keyof typeof AccountReferralAttributionReason];
+
+export const AccountReferralAttributionReason = {
+  recorded: "recorded",
+  already_attributed: "already_attributed",
+  program_disabled: "program_disabled",
+  unknown_code: "unknown_code",
+  self_referral: "self_referral",
+  not_new: "not_new",
+} as const;
+
+export interface AccountReferralAttribution {
+  attributed: boolean;
+  reason: AccountReferralAttributionReason;
 }
 
 export type AccountReferralsProgram = {
@@ -5687,8 +5777,6 @@ export type ListPanelBulkItemsParams = {
   pageSize?: PageSizeParameter;
 };
 
-export type AccountSignInWithTelegramBody = { [key: string]: string };
-
 export type AccountSignInWithMiniAppBody = {
   initData: string;
 };
@@ -5919,6 +6007,11 @@ export type GetAccountReferralsParams = {
    * @maximum 100
    */
   limit?: number;
+};
+
+export type AttributeAccountReferralBody = {
+  /** @maxLength 32 */
+  code: string;
 };
 
 export type AddAccountContactBodyKind =
@@ -23370,17 +23463,17 @@ export const getAccountSignInWithTelegramUrl = () => {
 };
 
 /**
- * Verifies a Telegram Login Widget payload. The hash is checked against the bot token and the auth_date must be recent, so a captured payload cannot be replayed indefinitely.
+ * Verifies a Telegram Login Widget payload. The hash is checked against the bot token and the auth_date must be recent, so a captured payload cannot be replayed indefinitely. The body is the object the widget hands to its `data-onauth` callback, posted as is: `id` and `auth_date` are JSON numbers, the other fields strings.
  */
 export const accountSignInWithTelegram = async (
-  accountSignInWithTelegramBody: AccountSignInWithTelegramBody,
+  telegramLoginWidgetPayload: TelegramLoginWidgetPayload,
   options?: RequestInit,
 ): Promise<accountSignInWithTelegramResponse> => {
   const res = await fetch(getAccountSignInWithTelegramUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(accountSignInWithTelegramBody),
+    body: JSON.stringify(telegramLoginWidgetPayload),
   });
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
@@ -23390,7 +23483,7 @@ export const accountSignInWithTelegram = async (
 };
 
 export const getAccountSignInWithTelegramMutationFetcher = (options?: RequestInit) => {
-  return (_: Key, { arg }: { arg: AccountSignInWithTelegramBody }) => {
+  return (_: Key, { arg }: { arg: TelegramLoginWidgetPayload }) => {
     return accountSignInWithTelegram(arg, options);
   };
 };
@@ -23405,7 +23498,7 @@ export const useAccountSignInWithTelegram = <TError = Promise<ProblemResponse>>(
     Awaited<ReturnType<typeof accountSignInWithTelegram>>,
     TError,
     Key,
-    AccountSignInWithTelegramBody,
+    TelegramLoginWidgetPayload,
     Awaited<ReturnType<typeof accountSignInWithTelegram>>
   > & { swrKey?: string };
   fetch?: RequestInit;
@@ -26266,7 +26359,7 @@ export const getStartAccountOrderPaymentUrl = (orderID: string) => {
 };
 
 /**
- * Creates or resumes the provider payment. The key is scoped to the order and the chosen adapter, so switching provider is a new payment while pressing the same button twice is not.
+ * Creates or resumes the provider payment. The key is scoped to the order and the chosen adapter, so switching provider is a new payment while pressing the same button twice is not. The provider defaults to the one the order's payment already names, then to the one the checkout that became this order recorded. An order that is no longer pending, or whose expiry has passed, answers `409 order_not_payable`; a configured method that does not settle the order's currency answers `422 provider_currency_unsupported`.
  */
 export const startAccountOrderPayment = async (
   orderID: string,
@@ -26579,7 +26672,7 @@ export const useGetAccountWallet = <TError = Promise<ProblemResponse>>(
 };
 
 export type startAccountTopUpResponse201 = {
-  data: AccountOrder;
+  data: AccountTopUpStarted;
   status: 201;
 };
 
@@ -26604,7 +26697,7 @@ export const getStartAccountTopUpUrl = () => {
 };
 
 /**
- * Opens a top-up order through the same order, webhook, and reconciliation pipeline a plan uses. The caller's key becomes the order's key, so a retried request credits the same top-up rather than a second one.
+ * Opens a top-up order through the same order, webhook, and reconciliation pipeline a plan uses. The caller's key becomes the order's key, so a retried request credits the same top-up rather than a second one. The order and its payment are two steps: when the order exists but the provider refused the intent, the response is still `201` with the order and `paymentProblem` in place of `payment`, because the order is the customer's and can be paid from its own screen by any method that settles it.
  */
 export const startAccountTopUp = async (
   startAccountTopUpBody: StartAccountTopUpBody,
@@ -26727,6 +26820,86 @@ export const useGetAccountReferrals = <TError = Promise<unknown>>(
   const swrFn = () => getAccountReferrals(params, fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type attributeAccountReferralResponse200 = {
+  data: AccountReferralAttribution;
+  status: 200;
+};
+
+export type attributeAccountReferralResponse400 = {
+  data: ProblemResponse;
+  status: 400;
+};
+
+export type attributeAccountReferralResponseSuccess = attributeAccountReferralResponse200 & {
+  headers: Headers;
+};
+export type attributeAccountReferralResponseError = attributeAccountReferralResponse400 & {
+  headers: Headers;
+};
+
+export type attributeAccountReferralResponse =
+  | attributeAccountReferralResponseSuccess
+  | attributeAccountReferralResponseError;
+
+export const getAttributeAccountReferralUrl = () => {
+  return `/v1/account/referrals/attribution`;
+};
+
+/**
+ * Records the inviter behind a web sign-up from the `?ref=` code the sign-in screen carried, under the same rule the bot applies to `/start ref_<code>`: first write wins, self-referral is impossible, and the row is written only while the programme is enabled and only for a customer who has not yet paid for anything. Always 200 with an outcome, because a link that did not count is not a failure of the request.
+ */
+export const attributeAccountReferral = async (
+  attributeAccountReferralBody: AttributeAccountReferralBody,
+  options?: RequestInit,
+): Promise<attributeAccountReferralResponse> => {
+  const res = await fetch(getAttributeAccountReferralUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(attributeAccountReferralBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: attributeAccountReferralResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as attributeAccountReferralResponse;
+};
+
+export const getAttributeAccountReferralMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: AttributeAccountReferralBody }) => {
+    return attributeAccountReferral(arg, options);
+  };
+};
+export const getAttributeAccountReferralMutationKey = () =>
+  [`/v1/account/referrals/attribution`] as const;
+
+export type AttributeAccountReferralMutationResult = NonNullable<
+  Awaited<ReturnType<typeof attributeAccountReferral>>
+>;
+
+export const useAttributeAccountReferral = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof attributeAccountReferral>>,
+    TError,
+    Key,
+    AttributeAccountReferralBody,
+    Awaited<ReturnType<typeof attributeAccountReferral>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getAttributeAccountReferralMutationKey();
+  const swrFn = getAttributeAccountReferralMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,

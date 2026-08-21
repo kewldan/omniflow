@@ -60,13 +60,32 @@ RETURNING *;
 -- Swapping the token behind a live session shortens the window in which one
 -- captured from a log or a proxy stays replayable. The unique index on
 -- `token_hash` means a colliding rotation fails rather than merging sessions.
+--
+-- The swap is a compare-and-set on the current digest. A browser fires several
+-- requests at once when a page opens, and when the session is due for rotation
+-- every one of them arrives holding the same cookie; without the predicate each
+-- would install its own token and the last writer would silently invalidate the
+-- cookie the others had already told the browser to keep. With it exactly one
+-- request rotates and the rest find zero rows and carry on with the token they
+-- came with.
 UPDATE customer_sessions
 SET token_hash = sqlc.arg(token_hash),
     rotated_at = now(),
     last_seen_at = now(),
     idle_expires_at = LEAST(now() + sqlc.arg(idle_window)::interval, absolute_expires_at)
-WHERE id = sqlc.arg(session_id) AND revoked_at IS NULL
+WHERE id = sqlc.arg(session_id)
+  AND token_hash = sqlc.arg(current_token_hash)
+  AND revoked_at IS NULL
 RETURNING *;
+
+-- name: GetCustomerSessionByID :one
+-- The grace path after a rotation: a request that arrived with the superseded
+-- cookie resolves the session by the identifier the short-lived forwarding
+-- entry names, rather than by a digest the table no longer holds.
+SELECT s.*, u.status AS user_status, u.locale AS user_locale, u.timezone AS user_timezone
+FROM customer_sessions s
+JOIN users u ON u.id = s.user_id
+WHERE s.id = sqlc.arg(session_id);
 
 -- name: RevokeCustomerSession :one
 -- Guarded by `user_id` as well as `id`, so a customer can only ever end one of

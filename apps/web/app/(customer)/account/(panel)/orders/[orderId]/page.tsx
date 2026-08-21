@@ -7,7 +7,7 @@ import { RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import useSWR from "swr";
 import {
   FulfillmentNote,
@@ -20,10 +20,18 @@ import {
 } from "@/components/account/commerce/order-status";
 import { OPERATIONS } from "@/components/account/commerce/plan-card";
 import { useProblemMessage } from "@/components/account/commerce/reasons";
-import type { OrderSummary, PaymentHandle } from "@/components/account/commerce/types";
+import type {
+  OrderSummary,
+  PaymentChoice,
+  PaymentHandle,
+} from "@/components/account/commerce/types";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
+import { useMoney } from "@/lib/format";
 import { useSubmission } from "@/lib/idempotency";
+
+/** The payment methods this build has copy for; anything else keeps its code. */
+const PROVIDERS = ["telegram_stars", "cryptobot", "yookassa", "manual"];
 
 /** Phases that are still moving, and so are worth re-reading on a timer. */
 const LIVE_PHASES = ["pending", "awaiting_action", "succeeded", "provisioning"];
@@ -70,6 +78,25 @@ export default function OrderPage() {
 
   const [busy, setBusy] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  // The method the customer picked on this page. It starts from whatever the
+  // server knows — the intent's own provider, then the one the checkout
+  // recorded — and, only for the redirect straight from the checkout, the URL.
+  const [chosenProvider, setChosenProvider] = useState<string>("");
+
+  const choices = data?.paymentChoices ?? [];
+  const serverProvider = data?.payment?.provider || data?.preferredProvider || "";
+  const urlProvider = search.get("provider") ?? "";
+  useEffect(() => {
+    if (chosenProvider) {
+      return;
+    }
+    const candidate = serverProvider || urlProvider;
+    if (candidate && (choices.length === 0 || choices.some((c) => c.provider === candidate))) {
+      setChosenProvider(candidate);
+    } else if (choices.length === 1) {
+      setChosenProvider(choices[0].provider);
+    }
+  }, [choices, chosenProvider, serverProvider, urlProvider]);
 
   if (isLoading) {
     return <ListSkeleton rows={3} />;
@@ -90,12 +117,12 @@ export default function OrderPage() {
   }
 
   const phase = knownPhase(data.phase);
-  // A freshly confirmed order has no payment intent, and so no provider of its
-  // own to read: the checkout passes the chosen method along in the URL for
-  // exactly that gap. Once an intent exists the order's own record wins, because
-  // it is what the provider will actually settle against.
-  const provider = data.payment?.provider || (search.get("provider") ?? "");
+  // Once an intent exists the order's own record wins, because it is what the
+  // provider will actually settle against. Before that, the method is whatever
+  // the customer chose from the server's list of what can settle this order.
+  const provider = data.payment?.provider || chosenProvider;
   const owes = data.externalMinor > 0;
+  const payable = owes && CANCELLABLE.includes(data.state);
 
   async function startPayment() {
     setBusy(true);
@@ -109,8 +136,11 @@ export default function OrderPage() {
       payment.settle();
       // The handoff is rendered from the order rather than from this response, so
       // the same panel appears on a reload. Re-reading is how it gets there.
-      await mutate();
-      if (handle.handoff === "none") {
+      const fresh = await mutate();
+      // "Nothing left to pay" is true only when the order owes nothing. A
+      // provider that produced no handoff for an order that still owes money
+      // is a different situation, and the re-read order says which.
+      if (handle.handoff === "none" && (fresh?.externalMinor ?? data?.externalMinor ?? 0) === 0) {
         toast.success(translate("order.payment.nothingDue"));
       }
     } catch (failure) {
@@ -178,20 +208,36 @@ export default function OrderPage() {
       </header>
 
       {data.payment ? (
-        <PaymentHandoff payment={data.payment} />
+        <PaymentHandoff owes={owes} payment={data.payment} />
       ) : (
-        owes && (
+        payable && (
           <section className="space-y-3 rounded-lg border border-border bg-card p-4">
             <div>
               <p className="font-semibold text-[13.5px]">{translate("order.payment.title")}</p>
               <p className="mt-1 text-[12.5px] text-muted-foreground leading-relaxed">
-                {provider
+                {choices.length > 0
                   ? translate("order.payment.description")
                   : translate("order.payment.noMethod")}
               </p>
             </div>
-            {provider && (
-              <Button className="w-full" disabled={busy} onClick={startPayment} size="lg">
+            {/* The methods come from the server, priced in this order's
+                currency, so an arrival from the order list, a reload without the
+                checkout's query string, or a second tab can all still pay. */}
+            {choices.length > 0 && (
+              <OrderMethodPicker
+                choices={choices}
+                chosen={provider}
+                disabled={busy}
+                onChange={setChosenProvider}
+              />
+            )}
+            {choices.length > 0 && (
+              <Button
+                className="w-full"
+                disabled={busy || !provider}
+                onClick={startPayment}
+                size="lg"
+              >
                 {translate("order.payment.start")}
               </Button>
             )}
@@ -205,7 +251,7 @@ export default function OrderPage() {
           order and provider, so this resumes the intent that exists rather than
           opening a second one, and the retry carries a new key because the last
           attempt ended in an answer rather than in silence. */}
-      {data.payment && owes && provider && CANCELLABLE.includes(data.state) && (
+      {data.payment && payable && provider && (
         <Button className="w-full" disabled={busy} onClick={startPayment} size="lg">
           {translate("order.payment.retry")}
         </Button>
@@ -269,5 +315,61 @@ export default function OrderPage() {
         title={translate("order.cancel")}
       />
     </div>
+  );
+}
+
+/**
+ * Which method settles this order.
+ *
+ * The list is the server's, already filtered to what can take this order's
+ * currency and priced at what the order still owes, so every option shown is
+ * one the payment route will accept.
+ */
+function OrderMethodPicker({
+  choices,
+  chosen,
+  disabled,
+  onChange,
+}: {
+  choices: PaymentChoice[];
+  chosen: string;
+  disabled: boolean;
+  onChange: (provider: string) => void;
+}) {
+  const translate = useTranslations("account.commerce");
+  const money = useMoney();
+  return (
+    <fieldset className="space-y-2">
+      <legend className="sr-only">{translate("checkout.provider.title")}</legend>
+      {choices.map((choice) => (
+        <label
+          className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 has-[:checked]:border-primary"
+          key={choice.provider}
+        >
+          <input
+            checked={chosen === choice.provider}
+            className="size-4 accent-[color:var(--primary)]"
+            disabled={disabled}
+            name="order-provider"
+            onChange={() => onChange(choice.provider)}
+            type="radio"
+          />
+          <span className="min-w-0 flex-1">
+            <span className="block font-medium text-[13.5px]">
+              {translate(
+                `checkout.provider.names.${
+                  PROVIDERS.includes(choice.provider) ? choice.provider : "unknown"
+                }`,
+              )}
+            </span>
+          </span>
+          {choice.amountMinor !== undefined && (
+            <span className="shrink-0 font-medium text-[13px]" data-numeric>
+              {money(choice.amountMinor, choice.currency)}
+            </span>
+          )}
+        </label>
+      ))}
+    </fieldset>
   );
 }

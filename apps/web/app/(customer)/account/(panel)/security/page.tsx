@@ -9,6 +9,7 @@ import { useFormatter, useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR from "swr";
 
+import { ReauthNotice, useReauthentication } from "@/components/account/reauth";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
 import { useAccount } from "@/lib/account-session";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
@@ -197,6 +198,7 @@ function SignInMethods() {
   );
   const [pending, setPending] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const { redirectIfRequired } = useReauthentication();
 
   async function unlink(id: string) {
     setBusy(true);
@@ -205,12 +207,11 @@ function SignInMethods() {
       await mutate();
       toast.success(translate("security.methodRemoved"));
     } catch (unlinkError) {
-      const problem = unlinkError as ApiError;
-      toast.error(
-        problem.code === "reauthentication_required"
-          ? translate("states.reauthenticate")
-          : problem.message,
-      );
+      // A stale session is sent to sign in again and comes back here; every
+      // other refusal is reported in place.
+      if (!redirectIfRequired(unlinkError)) {
+        toast.error((unlinkError as ApiError).message);
+      }
     } finally {
       setBusy(false);
       setPending(null);
@@ -227,6 +228,7 @@ function SignInMethods() {
   const needsReauth = session?.session.reauthenticationRequired ?? false;
   return (
     <div className="space-y-2">
+      {needsReauth && <ReauthNotice />}
       <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
         {(data?.items ?? []).map((method) => (
           <li className="flex items-center gap-3 px-4 py-3.5" key={method.id}>

@@ -32,6 +32,17 @@ They are separate because they are different promises. Only the activation
 requirement can suspend; gating a purchase never takes anything away from
 anybody.
 
+The purchase requirement is applied on both surfaces, by the same rule. The bot
+checks it when the customer presses **Pay**, asking Telegram live when its
+cached answer is older than five minutes. The web checkout checks it when the
+customer presses **Confirm**, but the API process has no Telegram transport of
+its own, so it reads only the memberships the worker has recorded: an answer
+older than twenty-four hours, or no answer at all, is *unknown*, and unknown
+never blocks. A customer the web refuses is shown the channels with a join
+button for each; once they join, the worker's next sweep — or **I joined** in
+the bot — records the new state and the confirmation goes through. A customer
+with no Telegram identity cannot be in a Telegram channel and is not asked.
+
 ## Leaving is warned about before it costs anything
 
 The sequence is compliant → warned → suspended, and it is driven by a grace
