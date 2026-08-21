@@ -77,6 +77,15 @@ test.describe("customer account access", () => {
       // Nothing behind the gate may appear: no subscription card, no device
       // list, no tab bar into the rest of the panel.
       await expect(page.getByRole("navigation", { name: /sections|разделы/i })).toHaveCount(0);
+
+      // The path the visitor was on travels with them, so signing in returns
+      // them to it rather than to the dashboard. The dashboard itself needs no
+      // marker: it is where sign-in lands anyway.
+      await expect(page).toHaveURL(
+        (url) =>
+          url.pathname === "/account/sign-in" &&
+          url.searchParams.get("next") === (route === "/account" ? null : route),
+      );
     }
   });
 

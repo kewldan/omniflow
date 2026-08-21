@@ -12,6 +12,7 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR from "swr";
 
+import { ReauthNotice, useReauthentication } from "@/components/account/reauth";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
 import {
   type AccountSubscription,
@@ -130,6 +131,7 @@ function RotateLink({ subscriptionId }: { subscriptionId: string }) {
   const [rotated, setRotated] = useState<string | null>(null);
 
   const needsReauth = session?.session.reauthenticationRequired ?? false;
+  const { redirectIfRequired } = useReauthentication();
 
   async function rotate() {
     setBusy(true);
@@ -141,12 +143,9 @@ function RotateLink({ subscriptionId }: { subscriptionId: string }) {
       setRotated(result.subscriptionUrl);
       toast.success(translate("subscription.rotated"));
     } catch (rotateError) {
-      const problem = rotateError as ApiError;
-      toast.error(
-        problem.code === "reauthentication_required"
-          ? translate("states.reauthenticate")
-          : problem.message,
-      );
+      if (!redirectIfRequired(rotateError)) {
+        toast.error((rotateError as ApiError).message);
+      }
     } finally {
       setBusy(false);
       setOpen(false);
@@ -167,11 +166,7 @@ function RotateLink({ subscriptionId }: { subscriptionId: string }) {
 
       {/* The stale-session case is explained before the button is pressed, so the
           customer is not sent through a confirmation only to be refused. */}
-      {needsReauth && (
-        <p className="px-1 font-mono text-[11px] text-warning" role="status">
-          {translate("states.reauthenticate")}
-        </p>
-      )}
+      {needsReauth && <ReauthNotice />}
 
       <Button
         className="w-full text-destructive"

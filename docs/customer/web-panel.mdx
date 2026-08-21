@@ -187,10 +187,12 @@ username cannot be resolved the button is simply not rendered.
 
 Opened as a Telegram Mini App the panel signs in with no button at all: the
 surrounding client hands the page a signed `initData`, which is verified the same
-way under a different key derivation. A Telegram subject that has no identity row
-provisions a new customer — unlike the OIDC rule below, because a Telegram
-subject is not an address somebody else can assert, so there is no account here
-to take over.
+way under a different key derivation. The attempt is made once; if it is refused
+the screen says so and offers the ordinary methods, rather than retrying the same
+`initData` until the customer closes the app. A Telegram subject that has no
+identity row provisions a new customer — unlike the OIDC rule below, because a
+Telegram subject is not an address somebody else can assert, so there is no
+account here to take over.
 
 Every non-operational failure collapses into a fixed answer set, because the
 installation must not become an oracle for which Telegram accounts it knows:
@@ -358,7 +360,20 @@ A session older than fifteen minutes is refused with **401**
 `reauthentication_required` — 401 rather than 403 because the remedy is something
 the customer can actually do, and the panel needs to tell them that instead of
 showing a flat refusal. Every one of those screens says so before the button is
-pressed rather than after.
+pressed rather than after, and a refusal sends the customer to
+`/account/sign-in?next=<path>`; every sign-in route — the widget, the Mini App,
+an OIDC provider — returns them to that path once the fresh session exists. The
+same `next` is carried when the shell finds the session gone, so a customer whose
+session ended on an order page comes back to that order. Only a same-site path
+under `/account` is honoured; anything else lands on the dashboard.
+
+Signing in again from a browser that still holds a live session for the same
+customer **replaces** that session rather than adding a second one: the earlier
+row is revoked with `reauthenticated` as its reason. A customer who was asked for
+a fresh sign-in asked for a fresher session, not for two devices on the security
+screen. A cookie belonging to a different customer is left alone — the new cookie
+simply takes its place in the browser — because ending it would let one person
+sign another out by knowing nothing more than the address of the screen.
 
 Every unsafe request carries a double-submit CSRF token derived from a
 per-session secret, so a token minted for one session cannot be replayed in

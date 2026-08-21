@@ -10,8 +10,10 @@ import { useFormatter, useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR from "swr";
 
+import { ReauthNotice, useReauthentication } from "@/components/account/reauth";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
 import type { AccountSubscription } from "@/components/account/subscription-card";
+import { useAccount } from "@/lib/account-session";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 
 type Device = { handle: string; name?: string; platform?: string; lastSeen: string };
@@ -90,6 +92,9 @@ function DeviceList({ subscription }: { subscription: AccountSubscription }) {
   const [pendingHandle, setPendingHandle] = useState<string | null>(null);
   const [removeAllOpen, setRemoveAllOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const { session } = useAccount();
+  const { redirectIfRequired } = useReauthentication();
+  const needsReauth = session?.session.reauthenticationRequired ?? false;
 
   async function removeDevice(handle: string) {
     setBusy(true);
@@ -112,14 +117,11 @@ function DeviceList({ subscription }: { subscription: AccountSubscription }) {
       await mutate();
       toast.success(translate("devices.removedAll"));
     } catch (removeError) {
-      const problem = removeError as ApiError;
-      // A stale session is a distinct outcome with a distinct remedy, so it is
-      // reported as "sign in again" rather than as a generic failure.
-      toast.error(
-        problem.code === "reauthentication_required"
-          ? translate("states.reauthenticate")
-          : problem.message,
-      );
+      // A stale session is a distinct outcome with a distinct remedy: the
+      // customer is sent to sign in again and returned here.
+      if (!redirectIfRequired(removeError)) {
+        toast.error((removeError as ApiError).message);
+      }
     } finally {
       setBusy(false);
       setRemoveAllOpen(false);
@@ -231,6 +233,7 @@ function DeviceList({ subscription }: { subscription: AccountSubscription }) {
         </ul>
       )}
 
+      {devices.length > 1 && needsReauth && <ReauthNotice />}
       {devices.length > 1 && (
         <Button
           className="w-full text-destructive"

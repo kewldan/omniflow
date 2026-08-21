@@ -2554,7 +2554,8 @@
       "upstream": "Temporarily unavailable",
       "upstreamDescription": "Live traffic and device figures cannot be read right now. Your subscription is unaffected.",
       "stale": "Live traffic and device figures are unavailable right now, so the numbers below may be out of date.",
-      "reauthenticate": "Sign in again to confirm this action.",
+      "reauthenticate": "Sign in again to confirm this action. You will be brought back here afterwards.",
+      "signInAgain": "Sign in again",
       "maintenance": "Maintenance in progress",
       "maintenanceDescription": "We are working on the service. Your subscription and its remaining time are unaffected.",
       "maintenanceReturn": "Expected back around {time}"
@@ -2577,6 +2578,7 @@
         "sign_in_expired": "The sign-in took too long. Start again.",
         "sign_in_denied": "You cancelled at the provider.",
         "sign_in_failed": "Sign-in could not be completed. Try again.",
+        "miniapp_failed": "Telegram could not sign you in automatically. Use one of the methods below.",
         "unverified_email": "That provider did not confirm your email address, so it cannot be used to sign in here."
       }
     },

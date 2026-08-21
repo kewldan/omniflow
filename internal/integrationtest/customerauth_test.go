@@ -367,6 +367,70 @@ func TestMiddlewareForwardsASupersededCookieInsteadOfClearingIt(t *testing.T) {
 	}
 }
 
+// Re-authentication replaces the session the browser already held; it does
+// not add a second one. A cookie for a different customer is left alone.
+func TestSigningInAgainSupersedesTheBrowsersOwnSessionOnly(t *testing.T) {
+	ctx := context.Background()
+	harness := newHarness(t)
+	clock := time.Now().UTC()
+	service := newCustomerService(t, harness, func() time.Time { return clock })
+	router := mountAccount(newAccountHandlersForTest(service))
+
+	first, err := service.SignInWithTelegram(ctx, signedWidget(700270, clock), customerauthpg.RequestContext{})
+	if err != nil {
+		t.Fatalf("first sign-in: %v", err)
+	}
+	other, err := service.SignInWithTelegram(ctx, signedWidget(700271, clock), customerauthpg.RequestContext{})
+	if err != nil {
+		t.Fatalf("other customer's sign-in: %v", err)
+	}
+
+	signInAgain := func(cookie string) *httptest.ResponseRecorder {
+		payload := signedWidget(700270, clock)
+		body := "{"
+		for key, values := range payload {
+			if key == "id" || key == "auth_date" {
+				body += `"` + key + `":` + values[0] + ","
+			} else {
+				body += `"` + key + `":"` + values[0] + `",`
+			}
+		}
+		body = strings.TrimSuffix(body, ",") + "}"
+		recorder := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodPost, "/v1/account/auth/telegram", strings.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		if cookie != "" {
+			request.AddCookie(&http.Cookie{Name: "__Host-omniflow_account", Value: cookie})
+		}
+		router.ServeHTTP(recorder, request)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("sign in again answered %d: %s", recorder.Code, recorder.Body.String())
+		}
+		return recorder
+	}
+
+	// Holding its own earlier session, the browser's re-sign-in ends it.
+	signInAgain(first.Token)
+	if _, err = service.Resolve(ctx, first.Token); !errors.Is(err, customerauthpg.ErrSessionInvalid) {
+		t.Fatalf("the superseded session still resolves: %v", err)
+	}
+	var reason string
+	if err = harness.pool.QueryRow(ctx,
+		`SELECT revoked_reason FROM customer_sessions WHERE id = $1`, first.SessionID,
+	).Scan(&reason); err != nil {
+		t.Fatalf("read revoked reason: %v", err)
+	}
+	if reason != "reauthenticated" {
+		t.Fatalf("revoked_reason = %q, want reauthenticated", reason)
+	}
+
+	// Holding somebody else's session, it leaves that session alone.
+	signInAgain(other.Token)
+	if _, err = service.Resolve(ctx, other.Token); err != nil {
+		t.Fatalf("another customer's session was ended by a stranger's sign-in: %v", err)
+	}
+}
+
 func TestSuspendedCustomersCannotUseALiveSession(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)

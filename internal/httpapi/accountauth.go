@@ -146,6 +146,7 @@ func (handlers *AccountHandlers) finishSignIn(
 		return
 	}
 
+	handlers.supersedePriorSession(request, result)
 	handlers.setSessionCookie(writer, result.Token, result.ExpiresAt)
 	writeJSON(writer, http.StatusOK, map[string]any{
 		"customer": map[string]any{
@@ -154,6 +155,35 @@ func (handlers *AccountHandlers) finishSignIn(
 		},
 		"expiresAt": result.ExpiresAt.Format(time.RFC3339),
 	})
+}
+
+// supersedePriorSession ends the session the browser already held, when the
+// sign-in that just completed belongs to the same customer.
+//
+// That is the re-authentication case: a customer sent back to the sign-in
+// screen because their session was too old for a sensitive action. They asked
+// for a fresher session, not for a second one. A cookie for a different
+// customer — somebody signing into another account on a shared machine — is
+// left alone; the new cookie replaces it in the browser and the old session
+// ends on its own schedule, because ending it would let one customer sign
+// another out by knowing nothing more than the address of this screen.
+//
+// Best-effort throughout: a failure here must not turn a successful sign-in
+// into an error.
+func (handlers *AccountHandlers) supersedePriorSession(
+	request *http.Request, result customerauthpg.SignInResult,
+) {
+	cookie, err := request.Cookie(handlers.cookieName)
+	if err != nil || cookie.Value == "" {
+		return
+	}
+	prior, err := handlers.auth.Resolve(request.Context(), cookie.Value)
+	if err != nil || prior.Customer.ID != result.Customer.ID || prior.SessionID == result.SessionID {
+		return
+	}
+	if err = handlers.auth.SupersedeSession(request.Context(), prior.Customer.ID, prior.SessionID); err != nil {
+		handlers.logger.Warn("prior customer session could not be superseded", "error", err)
+	}
 }
 
 // completeMagicLink redeems a link the bot delivered.
@@ -186,6 +216,7 @@ func (handlers *AccountHandlers) completeMagicLink(writer http.ResponseWriter, r
 		handlers.redirectToSignIn(writer, request, "sign_in_failed")
 		return
 	}
+	handlers.supersedePriorSession(request, result)
 	handlers.setSessionCookie(writer, result.Token, result.ExpiresAt)
 	http.Redirect(writer, request, "/account", http.StatusFound)
 }
@@ -297,6 +328,7 @@ func (handlers *AccountHandlers) callbackOIDC(writer http.ResponseWriter, reques
 		return
 	}
 
+	handlers.supersedePriorSession(request, result)
 	handlers.setSessionCookie(writer, result.Token, result.ExpiresAt)
 	next := flow.Next
 	if next == "" {
