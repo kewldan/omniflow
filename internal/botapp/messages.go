@@ -187,15 +187,33 @@ var catalog = map[string]phrase{
 	// Payment states.
 	"payment.pending": {ru: "⏳ <b>Ожидаем оплату</b>\n\nЗаказ <code>%s</code>\nК оплате: <b>%s</b>\n\nОплатите по кнопке ниже. Экран можно обновить в любой момент — статус не потеряется.",
 		en: "⏳ <b>Waiting for payment</b>\n\nOrder <code>%s</code>\nDue: <b>%s</b>\n\nPay using the button below. You can refresh this screen at any time without losing the order."},
-	"payment.open":      {ru: "💳 Перейти к оплате", en: "💳 Open payment page"},
-	"payment.invoice":   {ru: "⭐ Оплатить в Telegram", en: "⭐ Pay in Telegram"},
-	"payment.expires":   {ru: "\n\nСсылка действует до <b>%s</b>.", en: "\n\nThis payment window closes at <b>%s</b>."},
-	"payment.manual":    {ru: "\n\nОператор подтвердит оплату вручную. Мы сообщим, когда заказ будет активирован.", en: "\n\nAn operator will confirm this payment manually. You will be notified once the order is activated."},
-	"payment.succeeded": {ru: "✅ <b>Оплата получена</b>\n\nЗаказ <code>%s</code> оплачен. Готовим подписку…", en: "✅ <b>Payment received</b>\n\nOrder <code>%s</code> is paid. Preparing your subscription…"},
+	"payment.open":        {ru: "💳 Перейти к оплате", en: "💳 Open payment page"},
+	"payment.otherMethod": {ru: "💱 Другой способ оплаты", en: "💱 Pay another way"},
+	"payment.invoice":     {ru: "⭐ Оплатить в Telegram", en: "⭐ Pay in Telegram"},
+	"payment.expires":     {ru: "\n\nСсылка действует до <b>%s</b>.", en: "\n\nThis payment window closes at <b>%s</b>."},
+	"payment.manual":      {ru: "\n\nОператор подтвердит оплату вручную. Мы сообщим, когда заказ будет активирован.", en: "\n\nAn operator will confirm this payment manually. You will be notified once the order is activated."},
+	"payment.succeeded":   {ru: "✅ <b>Оплата получена</b>\n\nЗаказ <code>%s</code> оплачен. Готовим подписку…", en: "✅ <b>Payment received</b>\n\nOrder <code>%s</code> is paid. Preparing your subscription…"},
 	"payment.provisioning": {ru: "⚙️ <b>Активируем подписку</b>\n\nОплата получена, доступ настраивается. Это занимает до минуты — обновите экран.",
 		en: "⚙️ <b>Activating your subscription</b>\n\nPayment received and access is being provisioned. This takes up to a minute — refresh to check."},
 	"payment.completed": {ru: "🎉 <b>Готово</b>\n\nПодписка активна. Откройте раздел подключения, чтобы добавить её в приложение.",
 		en: "🎉 <b>All set</b>\n\nYour subscription is active. Open the connect screen to add it to your app."},
+	// A provisioning run that has needed more than one attempt, and one that
+	// gave up. Neither names the worker's error code: that is operator
+	// vocabulary, and the customer's next move is the same either way.
+	"payment.provisionSlow": {ru: "Активация занимает больше времени, чем обычно. Мы продолжаем попытки автоматически — оплата сохранена.",
+		en: "Activation is taking longer than usual. We keep retrying automatically — your payment is safe."},
+	"payment.provisionFailed": {ru: "⚠️ <b>Активация не завершилась</b>\n\nОплата получена и сохранена, но доступ настроить не удалось. Напишите в поддержку — мы разберёмся и активируем подписку.",
+		en: "⚠️ <b>Activation did not finish</b>\n\nYour payment was received and is safe, but access could not be set up. Contact support and we will sort it out and activate the subscription."},
+	// What a paid order bought, when it was not a subscription. Only the worker
+	// ever moves a subscription order past paid; a top-up, a gift, and a shop
+	// purchase stay at paid for good, so "activating" would be shown forever.
+	"payment.topupCredited": {ru: "✅ <b>Кошелёк пополнен</b>\n\nНа баланс зачислено <b>%s</b>.", en: "✅ <b>Wallet topped up</b>\n\n<b>%s</b> was credited to your wallet."},
+	"payment.giftPaid":      {ru: "🎁 <b>Подарок оплачен</b>\n\nЕго можно активировать кодом, который вы сохранили.", en: "🎁 <b>Gift paid</b>\n\nIt can be redeemed with the code you saved."},
+	"payment.giftState":     {ru: "Код <code>••%s</code> · %s", en: "Code <code>••%s</code> · %s"},
+	"payment.goodsPaid":     {ru: "✅ <b>Покупка оплачена</b>\n\nДоставка идёт на указанный аккаунт.", en: "✅ <b>Purchase paid</b>\n\nDelivery is on its way to the account you named."},
+	"payment.addonApplying": {ru: "⚙️ <b>Подключаем дополнение</b>\n\nОплата получена, дополнение применяется к подписке. Это занимает до минуты — обновите экран.",
+		en: "⚙️ <b>Applying your add-on</b>\n\nPayment received and the add-on is being applied to your subscription. This takes up to a minute — refresh to check."},
+	"payment.addonApplied": {ru: "🎉 <b>Дополнение подключено</b>\n\nОно уже действует на вашей подписке.", en: "🎉 <b>Add-on applied</b>\n\nIt is already active on your subscription."},
 	"payment.failed": {ru: "⚠️ <b>Оплата не прошла</b>\n\nДеньги не списаны или будут возвращены платёжным сервисом. Попробуйте другой способ оплаты или напишите в поддержку.",
 		en: "⚠️ <b>Payment did not go through</b>\n\nNothing was charged, or the provider will return it. Try another method or contact support."},
 	"payment.cancelled": {ru: "🚫 <b>Заказ отменён</b>\n\nОплата не производилась.", en: "🚫 <b>Order cancelled</b>\n\nNothing was charged."},
@@ -295,6 +313,16 @@ var catalog = map[string]phrase{
 		en: "⚠️ The last charge did not go through. We will try again automatically."},
 	"renew.suspended": {ru: "⚠️ Автосписание остановлено после нескольких неудачных попыток. Продлите вручную или измените способ оплаты.",
 		en: "⚠️ Automatic charging stopped after several failed attempts. Renew by hand or change your payment method."},
+	// Stated whenever no card is on file. A customer cannot add one from here —
+	// no code path saves a method yet — so the screen says the wallet is the only
+	// source rather than hinting at a button that is not there.
+	"renew.walletOnly": {ru: "Сохранённой карты нет — списание возможно только с баланса кошелька.",
+		en: "No card is saved — the charge can only come from your wallet balance."},
+	// Auto-renew is per subscription. With several, the customer names the one
+	// to configure before anything is shown.
+	"renew.pick": {ru: "♻️ <b>Автопродление</b>\n\nВыберите подписку, которую нужно настроить.",
+		en: "♻️ <b>Auto-renew</b>\n\nChoose the subscription to configure."},
+	"renew.autoRenew": {ru: "♻️ Автопродление", en: "♻️ Auto-renew"},
 
 	// Saved methods.
 	"methods.title":       {ru: "💳 <b>Способы оплаты</b>", en: "💳 <b>Payment methods</b>"},
@@ -371,11 +399,12 @@ var catalog = map[string]phrase{
 	"gift.created": {ru: "🎁 <b>Подарок готов</b>\n\nКод активации:", en: "🎁 <b>Your gift is ready</b>\n\nRedemption code:"},
 	"gift.codeNotice": {ru: "Мы показываем код один раз и не храним его — сохраните и передайте получателю сами.",
 		en: "The code is shown once and not stored — save it and pass it on yourself."},
+	"gift.exists": {ru: "🎁 <b>Этот подарок уже создан</b>\n\nКод <code>••%s</code> был показан один раз и не хранится. Откройте заказ, чтобы проверить его состояние, или создайте новый подарок.",
+		en: "🎁 <b>This gift already exists</b>\n\nCode <code>••%s</code> was shown once and is not stored. Open the order to check its state, or create a new gift."},
 	"gift.expires": {ru: "Действует до: <b>%s</b>", en: "Valid until: <b>%s</b>"},
 	"gift.awaitingPayment": {ru: "Подарок станет активируемым сразу после оплаты заказа.",
 		en: "The gift becomes redeemable as soon as the order is paid."},
-	"gift.paymentLabel": {ru: "Подарок", en: "Gift"},
-	"gift.claimPrompt":  {ru: "Отправьте код активации подарка.", en: "Send the gift redemption code."},
+	"gift.claimPrompt": {ru: "Отправьте код активации подарка.", en: "Send the gift redemption code."},
 	"gift.claimRefused": {ru: "⚠️ Этот код нельзя активировать. Проверьте его или попросите отправителя выдать новый.",
 		en: "⚠️ This code cannot be redeemed. Check it, or ask the sender to issue a new one."},
 	"gift.claimed":             {ru: "🎁 <b>Подарок активирован</b>", en: "🎁 <b>Gift redeemed</b>"},
@@ -634,6 +663,18 @@ var catalog = map[string]phrase{
 		en: "Selected add-ons are charged with the plan in one payment and last the whole period."},
 	"addon.noSubscription": {ru: "⚠️ Дополнение можно купить только к активной подписке.",
 		en: "⚠️ An add-on can only be bought for an active subscription."},
+	// The confirmation shown before an add-on is charged. The wallet settles an
+	// add-on it can cover the moment the order is created, so the amount and
+	// where it comes from are stated before the tap that spends it.
+	"addon.confirmTitle": {ru: "🧩 <b>Подтвердите дополнение</b>", en: "🧩 <b>Confirm the add-on</b>"},
+	"addon.charge":       {ru: "К оплате сейчас: <b>%s</b>", en: "Charged now: <b>%s</b>"},
+	"addon.walletCovers": {ru: "👛 Спишем с баланса кошелька (доступно %s) — дополнение подключится сразу.",
+		en: "👛 Paid from your wallet (available %s) — the add-on is applied right away."},
+	"addon.walletPartial": {ru: "👛 С баланса спишем %s, остаток <b>%s</b> оплатите выбранным способом.",
+		en: "👛 %s comes from your wallet; the remaining <b>%s</b> is paid with a method you choose next."},
+	"addon.walletNone": {ru: "Способ оплаты вы выберете на следующем шаге.",
+		en: "You choose the payment method on the next step."},
+	"addon.confirm": {ru: "✅ Подтвердить", en: "✅ Confirm"},
 	"addon.proration.full_price": {ru: "Оплачивается полностью, срок совпадает с текущим периодом.",
 		en: "Charged in full and lasts to the end of the current period."},
 	"addon.proration.remaining_period": {ru: "Оплачивается пропорционально оставшемуся времени периода.",
@@ -646,6 +687,15 @@ var catalog = map[string]phrase{
 	"maintenance.body": {ru: "Покупки и активация временно недоступны. Уже оплаченные заказы и активные подписки не затронуты — доступ продолжает работать.",
 		en: "Purchases and activation are paused. Orders you already paid for and active subscriptions are untouched, and your access keeps working."},
 	"maintenance.until": {ru: "Ожидаемое время возобновления: <b>%s</b>.", en: "Expected back at <b>%s</b>."},
+
+	// A customer an operator suspended or deleted. Support stays reachable: an
+	// operator suspends a customer to talk to them, and the customer wants to
+	// talk back.
+	"account.suspended": {ru: "⛔ <b>Аккаунт приостановлен</b>\n\nДоступ к покупкам и подписке временно закрыт администратором сервиса. Напишите в поддержку — мы разберёмся.",
+		en: "⛔ <b>Account suspended</b>\n\nPurchases and your subscription are on hold by the service administrator. Contact support and we will sort it out."},
+	"account.deleted": {ru: "⛔ <b>Аккаунт удалён</b>\n\nЭтот аккаунт был удалён. Если это ошибка, напишите в поддержку.",
+		en: "⛔ <b>Account deleted</b>\n\nThis account has been deleted. If that is a mistake, contact support."},
+	"account.contact": {ru: "💬 Написать в поддержку", en: "💬 Contact support"},
 
 	// Errors.
 	"error.generic":   {ru: "⚠️ <b>Не удалось выполнить действие</b>\n\nПопробуйте ещё раз через минуту.", en: "⚠️ <b>That action did not complete</b>\n\nPlease try again in a moment."},

@@ -127,15 +127,20 @@ func (service *Commerce) SetCartAutoPurchase(ctx context.Context, customerID str
 	return service.orders.SetCartAutoPurchase(ctx, customerID, enabled)
 }
 
-// PurchaseCart charges a saved cart now if the balance covers it.
+// PurchaseCart charges a saved cart now if the balance covers it. It is the
+// customer's own tap, so the automatic-purchase switch does not apply — that
+// switch governs the unattended sweep, not a customer who is present.
 func (service *Commerce) PurchaseCart(ctx context.Context, customerID string) (commercepg.CartPurchase, error) {
-	return service.orders.TryPurchaseCart(ctx, customerID)
+	return service.orders.PurchaseCartNow(ctx, customerID)
 }
 
-// BuyAddon purchases one mid-period add-on for a subscription. Pricing, the
-// proration rule, and the entitlement change all come from the add-on version
-// that is current at the moment of purchase.
-func (service *Commerce) BuyAddon(ctx context.Context, customerID, subscriptionID, currency, addonVersionID string, quantity int, provider string, telegramID int64) (OrderSummary, error) {
+// BuyAddon opens the order for one mid-period add-on on a subscription.
+// Pricing, the proration rule, and the entitlement change all come from the
+// add-on version that is current at the moment of purchase. The wallet is
+// applied inside the order; whatever remains is paid with a method the customer
+// picks afterwards, on the order's own method screen, rather than with one
+// chosen for them here.
+func (service *Commerce) BuyAddon(ctx context.Context, customerID, subscriptionID, currency, addonVersionID string, quantity int) (OrderSummary, error) {
 	key, err := newIdempotencyKey()
 	if err != nil {
 		return OrderSummary{}, err
@@ -148,17 +153,7 @@ func (service *Commerce) BuyAddon(ctx context.Context, customerID, subscriptionI
 	if err != nil {
 		return OrderSummary{}, err
 	}
-	summary, err := service.store.Order(ctx, customerID, uuidText(order.ID), LocaleEnglish)
-	if err != nil {
-		return OrderSummary{}, err
-	}
-	if summary.ExternalMinor == 0 {
-		return summary, nil
-	}
-	if _, err = service.StartPayment(ctx, summary, provider, telegramID, "Subscription add-on"); err != nil {
-		return summary, err
-	}
-	return service.store.Order(ctx, customerID, summary.ID, LocaleEnglish)
+	return service.store.Order(ctx, customerID, uuidText(order.ID), LocaleEnglish)
 }
 
 // Maintenance reads the installation-wide maintenance record.

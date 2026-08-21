@@ -65,7 +65,7 @@ hidden.
 
 | Command | What it opens |
 | --- | --- |
-| `/start` | A new home message. Accepts one argument, `ref_<code>`, which records referral attribution before anything is rendered |
+| `/start` | A new home message. Accepts one deep-link argument: `ref_<code>` records referral attribution before anything is rendered, `login` behaves exactly like `/login`, and `pay_<orderID>` resumes a Telegram Stars payment begun in the browser — see [Deep links](#deep-links) |
 | `/menu` | The same home message |
 | `/plans` | The plan catalogue |
 | `/orders` | Order and payment history |
@@ -79,13 +79,31 @@ hidden.
 Any other message beginning with `/` opens the menu rather than producing an
 error. `/cancel` exists because every free-text step — a promo code, a support
 message, a top-up amount, a subscription name, a gift note, a gift code, a shop
-recipient — is a state a customer has to be able to escape.
+recipient or promo code — is a state a customer has to be able to escape.
+Tapping **any** button while such a step is open escapes it too: the prompt's
+own `Cancel`, a menu entry, a push notification's button. A customer who walks
+away from a prompt and later types "500" gets the menu, not a top-up method
+screen. The state would otherwise have lived for thirty minutes.
 
 <Note>
   The Russian command list published to Telegram omits `/login`, so a
   Russian-locale client sees eight entries where an English one sees nine. The
   command itself works in both languages.
 </Note>
+
+### Deep links
+
+A `t.me/<bot>?start=<payload>` link opens the chat and sends `/start <payload>`.
+Three payloads are understood; anything else opens the menu.
+
+| Payload | What happens |
+| --- | --- |
+| `ref_<code>` | Referral attribution is recorded, then the home screen is sent. See [Referrals](#referrals) |
+| `login` | Exactly what `/login` does: a one-time web sign-in link is minted and sent. The web sign-in page's "Sign in through the bot" button points here |
+| `pay_<orderID>` | For your own order that is still open, priced in Telegram Stars, with an amount left to pay and no payment settled against it, the Stars invoice is sent into the chat and the order screen follows. In any other state only the order screen is shown. The web panel sends you here for a Stars payment started in the browser, because only the bot can send an invoice |
+
+The order identifier has to be a well-formed UUID, and an order that is not yours
+renders the home screen — the bot does not reveal whether such an order exists.
 
 ## The first /start
 
@@ -102,8 +120,19 @@ a linked Telegram identity; failing that it adopts a pre-existing Remnawave
 mapping for the same ID, so an upgraded installation does not gain a second
 customer; failing that it creates one.
 
-The Remnawave link is made lazily and **only by exact Telegram ID**. If no
-Remnawave user carries that ID, the bot says so and stops:
+The Remnawave link is made lazily and **only by exact Telegram ID**. When the
+customer has no Remnawave user on record, the bot asks Remnawave for one
+carrying that Telegram ID and, finding one, links it to the customer and gives
+the customer's first subscription slot that user — so an upgraded or imported
+installation whose VPN users already know their Telegram accounts shows each
+customer their live access on the first `/start`, rather than "no subscription"
+and a purchase button. The lookup is repeated on the next screen if Remnawave
+could not be asked.
+
+If no Remnawave user carries that ID, what happens next depends on the
+installation. With purchases configured, the customer simply has no
+subscription yet and sees the purchase surface. Without them, the bot says so
+and stops:
 
 > Your Telegram account is not linked to a subscription yet. Contact support and
 > an operator will link it securely.
@@ -130,6 +159,7 @@ unconfigured screen teaches customers the bot is unreliable.
 
 | Row | Entries | Shown when |
 | --- | --- | --- |
+| 0 | `♻️ Restore subscription` | The latest subscription has expired or is in its grace period. It opens a renewal of that subscription, so the plan and settings are kept — this is the "one tap" the lifecycle notice promises |
 | 1 | `🛒 Plans` and `📊 Subscription` | Always. `📊 Subscription` becomes `🗂 My subscriptions` when concurrent subscriptions are enabled |
 | 2 | `🚀 Connect` and `📱 Devices` | Always |
 | 3 | `🧾 My orders` and `👛 Wallet` | Always |
@@ -142,10 +172,11 @@ unconfigured screen teaches customers the bot is unreliable.
 
 <Note>
   A customer whose Remnawave user has not been provisioned yet cannot reach the
-  subscription, devices, or referral screens: those routes fall back to the home
-  screen with a lifecycle notice explaining the state. `🚀 Connect` is the one
-  that explains itself directly — it says the subscription link appears once
-  access is active.
+  subscription or devices screens: those routes fall back to the home screen
+  with a lifecycle notice explaining the state. `🚀 Connect` explains itself
+  directly — it says the subscription link appears once access is active — and
+  `🎁 Invite` works regardless, because the referral code belongs to the
+  customer, not to the VPN user.
 </Note>
 
 ## Subscription and traffic
@@ -228,7 +259,7 @@ When an operator enables concurrent subscriptions, the first menu row becomes
 validity date, plus `➕ Add a subscription` while the limit allows one. Opening
 one gives plan name, phase, valid-until, and — once provisioned — `🚀 Connect`,
 `📱 Devices`, `🔄 Rotate link`, alongside `♻️ Renew`, `🧩 Add-ons` where the plan
-offers any, and `✏️ Rename`.
+offers any, `♻️ Auto-renew`, and `✏️ Rename`.
 
 Phase badges are `No subscription`, `⚙️ Activating`, `🟢 Active`,
 `🟡 Expiring soon`, `🟠 Grace period`, `🟠 Limit reached`, `⚪️ Disabled`,
@@ -245,6 +276,18 @@ account limit reached, or that plan's own limit reached. With a single
 subscription and concurrency off, the switcher route opens the one detail screen
 directly — the mode is invisible to installations that do not use it. See
 [Subscriptions](/commerce/subscriptions).
+
+`♻️ Renew` and `🧩 Add-ons` act on **that** subscription's own plan — a customer
+holding two subscriptions on different plans renews the second on its plan, not
+on the first one's.
+
+A lapsed subscription is revived, not duplicated. Where concurrency is enabled,
+`🛒 Buy` on a plan the customer already holds on an expired subscription opens
+a renewal of that subscription rather than a new slot beside it — otherwise
+every expiry would mint a new subscription, a new Remnawave user, and a new
+link, until the account hit its limit and could buy nothing. Only
+`➕ Add a subscription` opens a new slot: the catalogue it shows carries that
+intent through to the checkout, and its plan pages offer `🛒 Buy` alone.
 
 ## Buying a plan
 
@@ -268,13 +311,22 @@ directly — the mode is invisible to installations that do not use it. See
     `📄 Terms of service` button appears when the operator configured a terms
     URL.
 
-    Only the operations the policy permits are offered: `🛒 Buy`,
-    `♻️ Extend this plan`, `⬆️ Switch to this plan`, `⬇️ Switch to this plan`, or
-    `🎁 Start free trial`. A forbidden operation is removed rather than left to
-    fail after the tap, and it is the same guard the backend applies when the
-    order is created. A trial the account is not eligible for shows the reason —
-    already used, a subscription is active, the account is too new, and so on —
-    and no button.
+    One action is offered, chosen by the same rule the
+    [web panel](/customer/web-panel) applies, so the two surfaces never
+    disagree about what a plan is to you:
+
+    | You hold | This plan | Button |
+    | --- | --- | --- |
+    | Nothing, or an expired subscription | any | `🛒 Buy` |
+    | A live subscription | the same plan — by plan, not plan version, so a newly published version of your plan still reads as yours | `♻️ Extend this plan` |
+    | A live subscription | a dearer plan, or one at the same price | `⬆️ Switch to this plan`, when its upgrade policy allows |
+    | A live subscription | a cheaper plan | `⬇️ Switch to this plan`, when its downgrade policy allows |
+    | — | a trial | `🎁 Start free trial` |
+
+    A forbidden operation is removed rather than left to fail after the tap;
+    the backend re-checks the policy when the order is created. A trial the
+    account is not eligible for shows the reason — already used, a
+    subscription is active, the account is too new, and so on — and no button.
   </Step>
   <Step title="Choose locations, if the plan offers them">
     A plan whose version exposes selectable squads asks before it asks for money;
@@ -303,6 +355,11 @@ directly — the mode is invisible to installations that do not use it. See
     Controls: `💳 Pay`, the promo row, `👛 Use wallet` when there is any balance,
     `🧩 Add-ons` when the plan has any, `🛍 Save and top up` when an external
     amount remains, `💱 Change method`, and `Cancel`.
+
+    `💱 Change method` reopens the method list for **this** checkout and its
+    `‹ Back` returns to the summary. The promo code, add-ons, wallet toggle,
+    location selection, and the subscription being renewed are all kept —
+    only the method, and with it the currency, changes.
   </Step>
 </Steps>
 
@@ -328,22 +385,38 @@ and lasts the whole period. Bought mid-period from a subscription's `🧩 Add-on
 screen, the price depends on how much of the period is left, and the rule is
 printed under each add-on rather than discovered on the receipt: charged in full,
 charged in proportion to the time left, or charged at a daily rate for the days
-left. A mid-period add-on settles from the wallet when the balance covers it and
-otherwise starts a payment. See
+left.
+
+Tapping an add-on opens a confirmation, not a charge. It names the
+subscription, the add-on, the proration rule, the exact amount charged now, and
+where it comes from: the wallet when the balance covers it — in which case
+`✅ Confirm` applies the add-on at once — or the wallet for what it can cover
+and a payment method you choose next for the rest. That method screen is the
+same one every order with an amount left to pay gets, listing every configured
+method that can settle the currency, priced at what is owed. See
 [Add-ons and the configurator](/commerce/addons-configurator).
 
 ### The channel gate
 
 If the operator requires membership of one or more Telegram channels before a
-purchase, the check runs when `💳 Pay` is tapped — not when the plan is chosen.
-A customer can leave a channel between browsing and paying, and this is the last
-moment before money moves. The checkout is left intact, so joining and pressing
-the button again resumes exactly where they were:
+purchase, the check runs at the moment money moves — when `💳 Pay` is tapped on
+a checkout, `🛒 Buy now` on a saved cart, `✅ Confirm` on an add-on, a gift's
+plan or amount is chosen and again when its order is created, and
+`Confirm and pay` on a shop item — not when the plan is chosen. A customer can
+leave a channel between browsing and paying, and this is the last moment before
+money moves. The purchase is left intact, so joining and pressing the button
+again resumes exactly where they were:
 
 > 📣 Please subscribe first — To continue with your purchase, subscribe to:
 
 with an `Open <channel>` button per channel and `I have subscribed`, which
-returns to the checkout rather than to the catalogue.
+returns to the purchase that was interrupted rather than to the catalogue.
+
+`I have subscribed` asks Telegram again. A recent answer that the customer is a
+member is trusted for five minutes so a flow does not cost one Telegram call per
+screen, but an answer that they are **not** is never trusted — the customer on
+this screen has most likely just joined — and the live answer is recorded so
+the background worker and the next purchase see it too.
 
 The gate **fails open**. A channel Telegram could not be asked about, or one with
 no invite link the customer could use, does not block the sale — losing a real
@@ -368,11 +441,17 @@ Refusals at confirmation each get their own screen: maintenance, a rejected
 additional subscription with its reason, an unresolvable location selection, a
 trial that is no longer eligible, an operation the plan forbids, or a generic
 "The order was not created. Try again or choose another payment method." A
-payment that could not be started keeps the order and offers `🔄 Try again`.
+payment that could not be started keeps the order — and its wallet reservation
+— and offers `🔄 Try again`, which starts the payment again with the method the
+checkout recorded, and `💱 Pay another way`, which opens the method picker for
+that order. The picker lists every configured method that can settle the
+order's currency, priced at what the order still owes, minus any method whose
+payment already failed for it: the payment service resumes an existing payment
+per order and method, so a failed one would come back unchanged.
 
-`💳 Pay` is the only action that is both replay-protected and rate-limited — six
-per minute — so a double tap or a redelivered Telegram update cannot become a
-second order.
+`💳 Pay`, `🔄 Try again`, and the order's method picker are replay-protected
+and share one rate limit — six per minute — so a double tap or a redelivered
+Telegram update cannot become a second order or a second payment.
 
 <Note>
   The bot creates orders and payment intents. It never enqueues fulfillment: the
@@ -392,14 +471,30 @@ Each phase has its own screen:
 
 | Phase | What it says | Extra actions |
 | --- | --- | --- |
-| Awaiting payment | The amount due, when the payment window closes, and that confirmation can take a few minutes | `💳 Open payment page` or `⭐ Pay in Telegram`, `🚫 Cancel order` |
+| Awaiting payment | The amount due, when the payment window closes, and that confirmation can take a few minutes | `💳 Open payment page` or `⭐ Pay in Telegram`; `💳 Pay` instead when no payment has been started or the provider refused to start one; `🚫 Cancel order` |
 | Payment received | The order is paid, the subscription is being prepared | — |
-| Activating | Takes up to a minute, refresh to check | — |
+| Activating | Takes up to a minute, refresh to check. After more than one provisioning attempt the screen adds that activation is taking longer than usual and that the payment is safe | — |
 | Completed | `🎉 All set — Your subscription is active.` | `🚀 Connect` |
-| Failed | Nothing was charged, or the provider will return it | `🛒 Plans` |
+| Activation failed | The payment was received and is safe, but access could not be set up — never "nothing was charged" on a paid order | `💬 Support` |
+| Failed | Nothing was charged, or the provider will return it | `💱 Pay another way` and `🚫 Cancel order` while the order is still open, `🛒 Plans` |
 | Cancelled | Nothing was charged | — |
 | Payment window closed | The order was closed and nothing was charged | `🛒 Plans` |
 | Refunded | The refund amount recorded against the order | — |
+
+The paid states above are a subscription order's. An order that bought
+something else says what the money did, because only the worker ever moves a
+subscription order to completed — a top-up, a gift, or a shop purchase stays at
+paid for good and would read as "activating" forever:
+
+| Operation | Once paid | Button |
+| --- | --- | --- |
+| Wallet top-up | `✅ Wallet topped up — <amount> was credited to your wallet` | `👛 Wallet` |
+| Gift | `🎁 Gift paid`, with the code's last characters and the gift's state — redeemable, redeemed, expired — when the order is opened from the list | `🎁 Gifts` |
+| Shop purchase | `✅ Purchase paid`, with the delivery state, and the "checking by hand" note when a delivery is under review | `🧾 My purchases` |
+| Add-on | `⚙️ Applying your add-on`, then `🎉 Add-on applied` | `🗂 My subscriptions` |
+
+A pending gift order adds that the gift becomes redeemable as soon as the order
+is paid.
 
 Every screen ends with `🔄 Refresh`, `🧾 My orders`, and `‹ Menu`. Refresh does
 more than re-read Omniflow's own record: for a pending order with a payment
@@ -458,7 +553,11 @@ disappeared shows "This cart is out of date — clear the cart and build it agai
 Buttons are `🛒 Buy now` when the balance covers it, `➕ Top up wallet` when it
 does not, `🤖 Automatic purchase on/off`, `🗑 Clear`, and `‹ Menu`. `Buy now`
 shares the automatic sweep's idempotency key, so tapping it while the sweep is
-running cannot charge twice.
+running cannot charge twice. It works with automatic purchase **off**: that
+switch decides whether the cart may be bought while you are away, and a
+customer tapping the button is not away. Every other check — the cart has not
+expired, purchases are not paused, the balance covers the total — applies to
+both.
 
 There is **one open cart per customer**, shared with the shop: saving a shop item
 replaces a saved plan. A saved shop selection is never bought automatically,
@@ -510,12 +609,10 @@ The recipient's handle is stored on the shop order, where delivery and support
 genuinely need it, and never on the customer record. See
 [Gifts and digital goods](/commerce/gifts-and-goods).
 
-<Note>
-  The `🏷 Promo code` button on the shop review screen does not currently work —
-  the flow state it opens is rejected, and the screen shows the generic load
-  error. Promo codes on digital goods are usable from the
-  [web panel](/customer/web-panel).
-</Note>
+`🏷 Promo code` on the review screen opens a free-text step: send the code in
+one message and the review is re-rendered with the discount, or with the reason
+the code was refused. It is the same step the [web panel](/customer/web-panel)
+offers for digital goods.
 
 ## Gifts
 
@@ -537,10 +634,19 @@ The claim code is then shown **once**:
 
 Only the SHA-256 of the code is kept, so a database read never yields a
 redeemable code — and a sender who loses it cannot have it recovered, which is
-the deliberate trade. A gift bought against an unpaid order adds "The gift
-becomes redeemable as soon as the order is paid" and links to that order. Gifts
-are valid for thirty days, so the sender's money is not held against an outcome
+the deliberate trade. A gift the wallet did not cover adds "The gift becomes
+redeemable as soon as the order is paid", with `💳 Pay` — which opens the
+order's method picker, so the sender chooses how to pay rather than being
+handed the first configured method — and a link to the order. Gifts are valid
+for thirty days, so the sender's money is not held against an outcome
 indefinitely.
+
+Each gift flow is one gift. The flow is given its own idempotency key when the
+note is asked for, so a note Telegram delivers twice lands on the same order —
+and a second gift of the same plan to somebody else is a second order, not a
+replay of the first. Should a replay ever reach the screen, it says "This gift
+already exists", names the code's last characters, and links to the order; it
+never renders an empty code.
 
 `🔑 Redeem a gift` takes the code and answers either "`<amount>` was added to
 your wallet" or "Your subscription is being activated — this takes under a
@@ -702,15 +808,32 @@ method supports recurring charges. We will remind you before expiry instead."
 Today YooKassa is the only adapter that advertises recurring support, so
 auto-renew requires YooKassa to be configured.
 
+Auto-renew is a setting **of one subscription**, not of the account. On a
+single-subscription installation the screen is that subscription's and the
+distinction is invisible. With concurrent subscriptions enabled, `♻️ Renew`
+first asks which subscription to configure — "Choose the subscription to
+configure" — and the chosen one's name heads the screen that follows; the same
+screen opens from `♻️ Auto-renew` on a subscription's own detail page. Every
+button on it names the subscription it changes, so arming one subscription
+never arms another.
+
 Off, the screen reads "♻️ Auto-renew is off — We will remind you 7, 3, and 1 day
-before expiry", with `Turn auto-renew on` and `💳 Payment methods`. On, it shows
-the plan, the method, `Charged to: <wallet or card label>`, the lead time, and
-lead-time buttons for 1, 3, and 7 days, plus a dunning notice when the last
-charge failed: "The last charge did not go through. We will try again
+before expiry", with `Turn auto-renew on` — offered only when the subscription
+holds a plan to renew — and `💳 Payment methods` when any method is saved. On,
+it shows the plan, the method, `Charged to: <wallet or card label>`, the lead
+time, and lead-time buttons for 1, 3, and 7 days, plus a dunning notice when the
+last charge failed: "The last charge did not go through. We will try again
 automatically", or, after several failures, "Automatic charging stopped after
 several failed attempts. Renew by hand or change your payment method." The
 provider's own failure code is deliberately not shown — "insufficient funds" and
 "declined" are operator vocabulary.
+
+The funding row offers `Wallet` always and `Saved card` only when a method is
+actually saved. With none, the screen says so instead — "No card is saved — the
+charge can only come from your wallet balance" — rather than rendering a button
+whose only outcome is a refusal. Today no code path saves a payment method, so
+on every installation the wallet is the only source a customer can pick; the
+saved-card controls exist for the day one is.
 
 `💳 Payment methods` lists each saved method with its provider label, which one
 is the default, and its status, under the notice:
@@ -718,8 +841,6 @@ is the default, and its status, under the notice:
 > We store only a reference issued by the payment provider — no card number and
 > no expiry date are kept.
 
-Choosing the saved-card funding source with no saved method is a normal outcome
-with its own message: one appears after paying by card with auto-renew on.
 Removing the last method promotes nothing, falls the funding source back to the
 wallet, and suspends auto-renew while keeping the consent record. Turning
 auto-renew off clears the plan, provider, currency, and consent but deliberately
@@ -737,8 +858,11 @@ second button copies the full link rather than the bare code.
 Attribution is recorded the moment the invitee sends `/start ref_<code>`, before
 anything is rendered, and it is first-write-wins and permanent: the invited
 customer can only ever have one inviter. Self-referral is impossible by
-construction rather than by a check that could be bypassed. A code is minted once
-and stays stable. If Omniflow could not resolve the bot's own username at
+construction rather than by a check that could be bypassed. Two conditions
+apply: the referral programme has to be switched on, and the invitee has to be
+new — a customer with a paid order on record is not attributed, because a
+referral rewards bringing a customer in and a paying customer was not brought
+in by the link they tapped today. A code is minted once and stays stable. If Omniflow could not resolve the bot's own username at
 startup, the share and copy buttons are omitted rather than pointing at a link
 that cannot work.
 
@@ -771,6 +895,24 @@ operator has not enabled it, or the encryption key is not configured), too many
 sign-in links requested, and the link could not be created. Two independent
 limits apply — the bot's own per-account budget and the identity service's five
 links per hour per customer.
+
+## When the account is suspended or deleted
+
+A customer an operator has suspended, or whose account has been deleted, sees
+one screen in place of every other:
+
+> ⛔ Account suspended — Purchases and your subscription are on hold by the
+> service administrator. Contact support and we will sort it out.
+
+or, for a deleted account, "This account has been deleted. If that is a
+mistake, contact support." It carries `💬 Support` and, when the operator
+configured a support URL, `💬 Contact support`. Every command, button, and
+free-text step answers with it — the menu, plans, wallet, orders, devices, link
+rotation, `/login` — except the support desk: the ticket list, opening a
+ticket, and writing into one keep working, because an operator suspends a
+customer to talk to them and the customer wants to talk back. This is the
+bot's side of the rule the [web panel](/customer/web-panel) applies with its
+`403 account_unavailable`.
 
 ## When purchases are not configured
 
@@ -819,8 +961,9 @@ unbounded checkout attempts.
 Separately, every consequential button — paying, cancelling an order, choosing a
 provider, toggling the wallet, sending a Stars invoice, deleting devices,
 rotating a link, closing or reopening a ticket, enabling auto-renew, starting a
-top-up, buying or clearing a cart, buying an add-on — is claimed exactly once. A
-redelivered Telegram update or a second tap resolves to "This action has already
+top-up, buying or clearing a cart, buying an add-on, buying a gift without a note,
+confirming a shop purchase, changing an auto-renew setting — is claimed exactly
+once. A redelivered Telegram update or a second tap resolves to "This action has already
 been completed" rather than to a second order, payment, or deletion. Actions not
 covered by that claim carry their own idempotency keys instead.
 

@@ -212,6 +212,24 @@ type SentGift struct {
 	CreatedAt time.Time
 }
 
+// GiftByOrder reads the gift a customer's order bought, so the order screen can
+// say what became of it. Ownership is part of the predicate: the order
+// identifier arrives in callback data.
+func (store *PostgresStore) GiftByOrder(ctx context.Context, customerID, orderID string) (SentGift, bool, error) {
+	var gift SentGift
+	err := store.pool.QueryRow(ctx,
+		`SELECT id::text, kind, status, code_hint, currency, expires_at, created_at
+		 FROM gifts WHERE sender_user_id = $1::uuid AND order_id = $2::uuid`, customerID, orderID).
+		Scan(&gift.ID, &gift.Kind, &gift.Status, &gift.CodeHint, &gift.Currency, &gift.ExpiresAt, &gift.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return SentGift{}, false, nil
+	}
+	if err != nil {
+		return SentGift{}, false, err
+	}
+	return gift, true, nil
+}
+
 // GiftsSent lists the customer's own gifts, newest first.
 func (store *PostgresStore) GiftsSent(
 	ctx context.Context, customerID string, limit int,

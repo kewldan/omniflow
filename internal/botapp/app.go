@@ -14,6 +14,7 @@ import (
 	telegram "github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 	"github.com/omniflow/omniflow/internal/commerce"
+	databaseutil "github.com/omniflow/omniflow/internal/database"
 	"github.com/omniflow/omniflow/internal/platform"
 	"github.com/omniflow/omniflow/internal/remnawave"
 )
@@ -139,13 +140,20 @@ func (app *App) claimCallback(ctx context.Context, queryID string) bool {
 // consequentialActions must never run twice for one Telegram callback.
 var consequentialActions = map[string]bool{
 	"confirm": true, "order-cancel": true, "pm": true, "wallet-toggle": true,
+	"pay": true, "order-pm": true, "gift-buy": true, "shop-buy": true,
 	"promo-clear": true, "invoice": true, "device-delete": true, "devices-delete": true,
 	"revoke": true, "ticket-close": true, "ticket-open": true, "autorenew": true,
 	// v0.5 actions that move money, provisioning, or database state.
 	"topup-pm": true, "cart-buy": true, "cart-clear": true, "cart-save": true,
-	"cart-auto": true, "addon-buy": true, "sub-revoke": true,
+	"cart-auto": true, "addon-confirm": true, "sub-revoke": true,
+	"renew-funding": true, "renew-lead": true, "method-default": true, "method-remove": true,
 	"ops-backup": true, "ops-restore": true,
 }
+
+// checkoutBudgetActions are the callbacks that create a provider payment. They
+// share the checkout budget with the free-text top-up amount, so a customer
+// cannot start payments faster than they could confirm checkouts.
+var checkoutBudgetActions = map[string]bool{"confirm": true, "pay": true, "order-pm": true}
 
 func (app *App) Register(client *telegram.Bot) {
 	client.RegisterHandler(telegram.HandlerTypeMessageText, "start", telegram.MatchTypeCommandStartOnly, app.HandleStart)
@@ -173,13 +181,129 @@ func (app *App) HandleStart(ctx context.Context, client *telegram.Bot, update *m
 	}
 	locale := app.locale(ctx, message.From.ID, message.From.LanguageCode)
 	_, _ = client.SendChatAction(ctx, &telegram.SendChatActionParams{ChatID: message.Chat.ID, Action: models.ChatActionTyping})
-	if parts := strings.Fields(message.Text); len(parts) == 2 && strings.HasPrefix(parts[1], "ref_") {
-		app.attributeReferral(ctx, message.From.ID, message.From.LanguageCode, strings.TrimPrefix(parts[1], "ref_"))
+	payload := parseStartPayload(message.Text)
+	switch payload.Kind {
+	case startPayloadReferral:
+		app.attributeReferral(ctx, message.From.ID, message.From.LanguageCode, payload.Value)
+	case startPayloadLogin:
+		// The web sign-in page sends a customer here with `?start=login`. It has
+		// to behave exactly like /login, or the button on the website is a dead
+		// end that opens the menu.
+		app.HandleWebLogin(ctx, client, update)
+		return
+	case startPayloadPay:
+		if app.commerceEnabled() {
+			app.handleStartPayment(ctx, client, update, locale, payload.Value)
+			return
+		}
 	}
 	view := app.loadView(ctx, message.From.ID, locale, routeHome)
 	if _, err := client.SendMessage(ctx, sendParams(message.Chat.ID, view)); err != nil {
 		app.withCorrelation(update).Error("telegram view send failed", "view", routeHome, "error", err)
 	}
+}
+
+// startPayload is the argument Telegram appends to /start from a deep link.
+type startPayload struct {
+	Kind  string
+	Value string
+}
+
+// The deep-link payloads the bot understands. Anything else opens the menu.
+const (
+	startPayloadReferral = "ref"
+	startPayloadLogin    = "login"
+	startPayloadPay      = "pay"
+)
+
+// parseStartPayload reads the deep-link argument of a /start command.
+//
+// Three forms are recognised: `ref_<code>` records referral attribution,
+// `login` mints a web sign-in link, and `pay_<orderID>` resumes a Telegram
+// Stars payment the customer began in the browser. The order identifier has to
+// parse as a UUID so that whatever else a link carries is never used to
+// address an order.
+func parseStartPayload(messageText string) startPayload {
+	parts := strings.Fields(messageText)
+	if len(parts) != 2 {
+		return startPayload{}
+	}
+	argument := parts[1]
+	switch {
+	case argument == "login":
+		return startPayload{Kind: startPayloadLogin}
+	case strings.HasPrefix(argument, "ref_"):
+		if code := strings.TrimPrefix(argument, "ref_"); code != "" {
+			return startPayload{Kind: startPayloadReferral, Value: code}
+		}
+	case strings.HasPrefix(argument, "pay_"):
+		if parsed, err := databaseutil.ParseUUIDs([]string{strings.TrimPrefix(argument, "pay_")}); err == nil {
+			return startPayload{Kind: startPayloadPay, Value: databaseutil.UUIDStrings(parsed)[0]}
+		}
+	}
+	return startPayload{}
+}
+
+// handleStartPayment resumes a payment the customer started on the web.
+//
+// The browser cannot send a Telegram Stars invoice; only the bot can, into the
+// chat of the account that owns the order. So the web hands the customer to
+// `t.me/<bot>?start=pay_<orderID>`, and this is the other end: for the caller's
+// own order that is still open, priced in Stars, with something left to pay and
+// no settled payment, the invoice is sent and the order screen follows. In any
+// other state only the order screen is shown. An order that is not the
+// caller's renders the home screen — "not yours" and "does not exist" must look
+// the same from the outside.
+func (app *App) handleStartPayment(ctx context.Context, client *telegram.Bot, update *models.Update, locale Locale, orderID string) {
+	message := update.Message
+	logger := app.withCorrelation(update).With("action", "start-pay")
+	session, err := app.commerceContext(ctx, message.From.ID, message.From.LanguageCode, message.From.Username)
+	if err != nil {
+		logger.Error("customer resolution failed", "error", err)
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, app.errorView(locale, routeHome)))
+		return
+	}
+	if !accountActive(session.Customer) {
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, accountUnavailableView(session.Locale, session.Customer, app.supportURL)))
+		return
+	}
+	order, err := app.customers.Order(ctx, session.Customer.ID, orderID, session.Locale)
+	if errors.Is(err, ErrOrderNotFound) {
+		view := app.loadView(ctx, message.From.ID, session.Locale, routeHome)
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, view))
+		return
+	}
+	if err != nil {
+		logger.Error("order lookup failed", "error", err)
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, app.errorView(session.Locale, routeOrders)))
+		return
+	}
+	if starsInvoiceDue(order) {
+		// The invoice settles against a payment intent, so one is created or
+		// resumed first. Both steps are idempotent: a second tap on the link
+		// finds the same intent and sends a second copy of the same invoice,
+		// and Telegram's pre-checkout probe refuses an order that was paid
+		// in between.
+		if _, err = app.commerce.StartPayment(ctx, order, "telegram_stars", session.TelegramID, order.PlanName); err != nil {
+			logger.Error("Telegram Stars payment could not be resumed", "error", err)
+			_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{Text: text(session.Locale, "error.payment")}))
+		} else if err = app.StarsInvoice(ctx, client, session, message.Chat.ID, order.ID); err != nil {
+			logger.Error("Telegram Stars invoice failed", "error", err)
+			_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{Text: text(session.Locale, "error.payment")}))
+		}
+	}
+	view := app.orderScreen(ctx, session, order.ID)
+	if _, err := client.SendMessage(ctx, sendParams(message.Chat.ID, view)); err != nil {
+		logger.Error("telegram view send failed", "view", "order", "error", err)
+	}
+}
+
+// starsInvoiceDue reports whether an order can still be paid with a Telegram
+// Stars invoice: open, priced in Stars, with an external amount left, and no
+// payment already settled against it.
+func starsInvoiceDue(order OrderSummary) bool {
+	open := order.State == commerce.OrderPending || order.State == commerce.OrderDraft
+	return open && order.Currency == "XTR" && order.ExternalMinor > 0 && order.PaymentStatus != "succeeded"
 }
 
 // attributeReferral records the immutable inviter/invitee pair. With commerce
@@ -351,7 +475,7 @@ func (app *App) handleFlowMessage(ctx context.Context, client *telegram.Bot, upd
 	}
 	switch state {
 	case "promo_code", "support_reply", "topup_amount", "subscription_label",
-		"goods_recipient", "gift_message", "gift_claim":
+		"goods_recipient", "goods_promo", "gift_message", "gift_claim":
 	default:
 		return false
 	}
@@ -359,6 +483,13 @@ func (app *App) handleFlowMessage(ctx context.Context, client *telegram.Bot, upd
 	if err != nil {
 		app.logger.Error("customer resolution failed", "error", err)
 		return false
+	}
+	if !accountActive(session.Customer) && state != "support_reply" {
+		// The prompt was opened before the account was suspended, or the state
+		// outlived it. Only a support message still has somewhere to go.
+		_ = app.customers.CancelSession(ctx, session.TelegramID)
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, accountUnavailableView(session.Locale, session.Customer, app.supportURL)))
+		return true
 	}
 	switch state {
 	case "promo_code":
@@ -392,11 +523,12 @@ func (app *App) handleFlowMessage(ctx context.Context, client *telegram.Bot, upd
 			app.SubmitShopPromo(ctx, session, productID, recipient, message.Text)))
 	case "gift_message":
 		token, _ := flowContext["gift"].(string)
+		key, _ := flowContext["key"].(string)
 		if err := app.customers.CancelSession(ctx, session.TelegramID); err != nil {
 			app.logger.Warn("session cleanup failed", "error", err)
 		}
 		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID,
-			app.SubmitGiftMessage(ctx, session, token, message.Text)))
+			app.SubmitGiftMessage(ctx, session, token, key, message.Text)))
 	case "gift_claim":
 		if err := app.customers.CancelSession(ctx, session.TelegramID); err != nil {
 			app.logger.Warn("session cleanup failed", "error", err)
@@ -585,6 +717,15 @@ func (app *App) HandleCallback(ctx context.Context, client *telegram.Bot, update
 		return
 	}
 	message := query.Message.Message
+	// A tap while a free-text prompt is open is the customer leaving it — every
+	// prompt's Cancel button is a callback, and so is any other button they
+	// might reach for instead. The open flow is discarded before the tap is
+	// handled, so the next ordinary message is not parsed as an amount, a
+	// promo code, a gift code, or a name for half an hour. A button that opens
+	// a prompt re-creates the state afterwards, so nothing is lost there.
+	if err := app.store.CancelSession(ctx, query.From.ID); err != nil {
+		app.logger.Warn("flow state cleanup failed", "error", err)
+	}
 	if strings.HasPrefix(query.Data, actionPrefix) {
 		action := strings.SplitN(strings.TrimPrefix(query.Data, actionPrefix), ":", 2)[0]
 		// A consequential action is claimed once per callback, so a redelivered
@@ -593,7 +734,7 @@ func (app *App) HandleCallback(ctx context.Context, client *telegram.Bot, update
 			_, _ = client.AnswerCallbackQuery(ctx, &telegram.AnswerCallbackQueryParams{CallbackQueryID: query.ID, Text: text(locale, "menu.replay")})
 			return
 		}
-		if action == "confirm" && !app.allow(ctx, "bot:checkout", query.From.ID, checkoutBudget) {
+		if checkoutBudgetActions[action] && !app.allow(ctx, "bot:checkout", query.From.ID, checkoutBudget) {
 			_, _ = client.AnswerCallbackQuery(ctx, &telegram.AnswerCallbackQueryParams{CallbackQueryID: query.ID, Text: text(locale, "menu.rateLimit"), ShowAlert: true})
 			return
 		}
@@ -617,6 +758,15 @@ func (app *App) HandleCallback(ctx context.Context, client *telegram.Bot, update
 
 func (app *App) handleAction(ctx context.Context, client *telegram.Bot, query *models.CallbackQuery, chatID int64, messageID int, locale Locale, update *models.Update) {
 	parts := strings.Split(strings.TrimPrefix(query.Data, actionPrefix), ":")
+	// A suspended or deleted customer keeps the support desk and nothing else;
+	// that includes the v0.2 actions below, which rotate links and delete
+	// devices.
+	if app.commerceEnabled() && !allowedWhileInactive(parts[0]) {
+		if session, err := app.commerceContext(ctx, query.From.ID, query.From.LanguageCode); err == nil && !accountActive(session.Customer) {
+			app.replaceScreen(ctx, client, chatID, messageID, accountUnavailableView(session.Locale, session.Customer, app.supportURL), app.withCorrelation(update))
+			return
+		}
+	}
 	if handled := app.dispatchCommerceAction(ctx, client, query, chatID, messageID, parts, update); handled {
 		return
 	}
@@ -750,6 +900,10 @@ func (app *App) loadCustomerView(ctx context.Context, telegramID int64, locale L
 		app.logger.Error("customer resolution failed", "error", err)
 		return app.errorView(locale, route)
 	}
+	// A suspended or deleted customer keeps the support desk and nothing else.
+	if !accountActive(session.Customer) && !allowedWhileInactive(route) {
+		return accountUnavailableView(session.Locale, session.Customer, app.supportURL)
+	}
 	if route == routeSettings {
 		return app.settingsScreen(ctx, session)
 	}
@@ -764,11 +918,61 @@ func (app *App) loadCustomerView(ctx context.Context, telegramID int64, locale L
 		}
 		return app.connectPlatformsScreen(ctx, session.Locale, subscription)
 	}
+	if route == routeReferral {
+		// The referral code belongs to the customer, not to the VPN user: a
+		// customer who has not bought anything yet can still invite a friend,
+		// and the friend's first purchase is what the programme rewards.
+		return app.referralScreen(ctx, session)
+	}
 	menu := app.menuState(ctx, session.Customer.ID, session.Locale)
 	if session.Customer.RemnawaveID <= 0 {
-		return app.noSubscriptionView(ctx, session, route, menu)
+		// The Remnawave link is made lazily and only by exact Telegram ID: an
+		// upgraded or imported installation carries VPN users that know the
+		// Telegram account but have no mapping row yet. Without this lookup
+		// such a customer was told they had no subscription and offered a
+		// purchase, while their access was live in Remnawave all along.
+		linked, found := app.linkRemnawaveByTelegramID(ctx, session)
+		if !found {
+			return app.noSubscriptionView(ctx, session, route, menu)
+		}
+		session.Customer.RemnawaveID = linked
 	}
 	return app.loadRemnawaveView(ctx, telegramID, session.Locale, route, menu)
+}
+
+// linkRemnawaveByTelegramID looks for a Remnawave user carrying the customer's
+// Telegram ID and links it. It reports whether one was found and linked; any
+// failure counts as not found, so the customer sees the purchase surface rather
+// than an error, and the next screen tries again.
+func (app *App) linkRemnawaveByTelegramID(ctx context.Context, session commerceContext) (int64, bool) {
+	user, err := app.remnawave.UserByTelegramID(ctx, session.TelegramID)
+	if errors.Is(err, remnawave.ErrNotFound) {
+		return 0, false
+	}
+	if err != nil {
+		app.logger.Warn("Remnawave Telegram identity lookup failed", "error", err)
+		return 0, false
+	}
+	if user.ID <= 0 {
+		return 0, false
+	}
+	if err := app.customers.LinkRemnawaveUser(ctx, session.Customer.ID, session.TelegramID, user.ID); err != nil {
+		app.logger.Error("Telegram identity link failed", "error", err)
+		return 0, false
+	}
+	app.logger.Info("Remnawave user linked by Telegram ID", "customer_id", session.Customer.ID)
+	return user.ID, true
+}
+
+// referralScreen renders the customer's invite code and invited count from
+// the customer record, which exists before any VPN user does.
+func (app *App) referralScreen(ctx context.Context, session commerceContext) View {
+	summary, err := app.customers.ReferralSummary(ctx, session.Customer.ID)
+	if err != nil {
+		app.logger.Error("referral lookup failed", "error", err)
+		return app.errorView(session.Locale, routeReferral)
+	}
+	return referralView(session.Locale, app.botUsername, summary.Code, summary.Invited)
 }
 
 // noSubscriptionView is what a customer sees before their first purchase: the

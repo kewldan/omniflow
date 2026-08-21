@@ -19,6 +19,10 @@ type SubscriptionSummary struct {
 	Label       string
 	RemnawaveID int64
 	PlanName    string
+	// PlanID is the plan behind the current entitlement, so a purchase of the
+	// same plan can recognise an expired subscription it should revive instead
+	// of opening a slot beside it.
+	PlanID      string
 	Status      string
 	EndsAt      time.Time
 	GracePeriod time.Duration
@@ -30,7 +34,7 @@ type SubscriptionSummary struct {
 func (summary SubscriptionSummary) Provisioned() bool { return summary.RemnawaveID > 0 }
 
 const subscriptionColumns = `s.id::text, s.slot, s.label, COALESCE(s.remnawave_user_id, 0),
-	COALESCE(l.name, p.code, ''), COALESCE(e.status, ''), e.ends_at, COALESCE(v.grace_period_seconds, 0)`
+	COALESCE(l.name, p.code, ''), COALESCE(p.id::text, ''), COALESCE(e.status, ''), e.ends_at, COALESCE(v.grace_period_seconds, 0)`
 
 const subscriptionJoins = `FROM subscriptions s
 	LEFT JOIN LATERAL (
@@ -79,6 +83,19 @@ func (store *PostgresStore) Subscription(ctx context.Context, customerID, subscr
 	return summary, err
 }
 
+// SubscriptionBySlot reads one of the customer's own subscriptions by its slot
+// number. Callback data is capped at 64 bytes by Telegram, and an action that
+// has to name both an add-on version and a subscription cannot fit two UUIDs;
+// the slot is one or two digits and is unique per customer.
+func (store *PostgresStore) SubscriptionBySlot(ctx context.Context, customerID string, slot int, locale Locale) (SubscriptionSummary, error) {
+	summary, err := scanSubscription(store.pool.QueryRow(ctx, `SELECT `+subscriptionColumns+` `+subscriptionJoins+`
+		WHERE s.user_id = $1::uuid AND s.slot = $3 AND s.status = 'active'`, customerID, string(locale), slot))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return SubscriptionSummary{}, ErrSubscriptionNotFound
+	}
+	return summary, err
+}
+
 // PrimarySubscription is the lowest-slot active subscription, which is the one a
 // single-subscription installation always uses.
 func (store *PostgresStore) PrimarySubscription(ctx context.Context, customerID string, locale Locale) (SubscriptionSummary, error) {
@@ -98,7 +115,7 @@ func scanSubscription(row pgx.Row) (SubscriptionSummary, error) {
 		graceSeconds int64
 	)
 	err := row.Scan(&summary.ID, &slot, &summary.Label, &summary.RemnawaveID,
-		&summary.PlanName, &summary.Status, &endsAt, &graceSeconds)
+		&summary.PlanName, &summary.PlanID, &summary.Status, &endsAt, &graceSeconds)
 	if err != nil {
 		return SubscriptionSummary{}, err
 	}

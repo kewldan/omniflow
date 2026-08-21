@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/omniflow/omniflow/internal/channelgate"
 	databaseutil "github.com/omniflow/omniflow/internal/database"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
@@ -127,7 +128,7 @@ func (app *App) checkPurchaseChannels(
 			continue
 		}
 
-		member, answered := app.membershipNow(ctx, channel, known, telegramID, now)
+		member, answered := app.membershipNow(ctx, queries, customer, channel, known, telegramID, now)
 		if answered && !member {
 			gate.Missing = append(gate.Missing, ChannelRequirement{
 				Title: channel.Title, InviteURL: invite,
@@ -138,21 +139,23 @@ func (app *App) checkPurchaseChannels(
 }
 
 // membershipNow resolves one channel's membership, preferring a recent cached
-// answer and asking Telegram when there is not one.
+// "member" and asking Telegram otherwise.
+//
+// Only a cached membership is trusted. A cached absence is re-asked every
+// time: the customer on this screen has most likely just joined and tapped
+// "I have subscribed", and bouncing them for up to five minutes because the
+// cache still says they are out is the gate refusing the very thing it asked
+// for. A live answer is written back so the worker and the next purchase see
+// it too.
 func (app *App) membershipNow(
-	ctx context.Context, channel dbgen.RequiredChannel,
+	ctx context.Context, queries *dbgen.Queries, customer pgtype.UUID, channel dbgen.RequiredChannel,
 	known map[string]dbgen.ChannelMembership, telegramID int64, now time.Time,
 ) (member bool, answered bool) {
 	// The periodic worker keeps the cache warm, and re-asking Telegram on every
 	// checkout is how a bot gets rate-limited at exactly the wrong moment.
 	if cached, present := known[uuidText(channel.ID)]; present && cached.CheckedAt.Valid {
-		if now.Sub(cached.CheckedAt.Time) < purchaseCacheWindow {
-			switch cached.State {
-			case channelgate.StateMember:
-				return true, true
-			case channelgate.StateAbsent:
-				return false, true
-			}
+		if cached.State == channelgate.StateMember && now.Sub(cached.CheckedAt.Time) < purchaseCacheWindow {
+			return true, true
 		}
 	}
 
@@ -164,6 +167,18 @@ func (app *App) membershipNow(
 		app.logger.Warn("purchase channel check failed",
 			"channel", channel.Title, "error", err)
 		return false, false
+	}
+	state := channelgate.StateAbsent
+	if member {
+		state = channelgate.StateMember
+	}
+	if queries != nil {
+		if _, err := queries.RecordMembership(ctx, dbgen.RecordMembershipParams{
+			UserID: customer, ChannelID: channel.ID, State: state,
+		}); err != nil {
+			// The answer is still used for this purchase; only the cache missed it.
+			app.logger.Warn("membership record failed", "channel", channel.Title, "error", err)
+		}
 	}
 	return member, true
 }

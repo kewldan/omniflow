@@ -83,6 +83,11 @@ func (store *PostgresStore) DismissOffer(ctx context.Context, customerID, offerI
 }
 
 // handleOfferAction serves the offer callback actions.
+// offerActions is the closed set of callback actions the offer surface owns.
+// It is folded into commerceActions, which is what lets a tap reach the
+// handler below at all.
+var offerActions = map[string]bool{"offer-take": true, "offer-dismiss": true}
+
 func (app *App) handleOfferAction(
 	ctx context.Context, session commerceContext, parts []string,
 ) (View, bool) {

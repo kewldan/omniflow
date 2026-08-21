@@ -82,17 +82,36 @@ func giftMessagePromptView(locale Locale) View {
 
 // giftCodeView shows the claim code — the one and only time it exists outside
 // the sender's own message.
+//
+// A purchase that resolved to an order already created — a replayed flow —
+// carries no code, because only the hash was kept. That screen says the gift
+// already exists and links to its order rather than rendering an empty code,
+// which would read as a gift with no way to redeem it.
 func giftCodeView(locale Locale, purchase GiftPurchase, order OrderSummary) View {
+	if purchase.Code == "" {
+		return View{
+			Text: text(locale, "gift.exists", html.EscapeString(purchase.CodeHint)),
+			Keyboard: keyboard(
+				row(actionButton(text(locale, "menu.orders"), "order:"+order.ID)),
+				row(callbackButton(text(locale, "action.back"), routeGifts)),
+			),
+			Protect: true,
+		}
+	}
 	body := text(locale, "gift.created") +
 		"\n\n<code>" + html.EscapeString(purchase.Code) + "</code>\n\n" +
 		text(locale, "gift.codeNotice") +
 		"\n" + text(locale, "gift.expires", formatDate(purchase.ExpiresAt))
-	rows := make([][]models.InlineKeyboardButton, 0, 3)
+	rows := make([][]models.InlineKeyboardButton, 0, 4)
 	if order.ExternalMinor > 0 {
 		// Unpaid: the code exists but the gift is not deliverable, and saying so
-		// is better than letting a recipient try and be refused.
+		// is better than letting a recipient try and be refused. Paying opens
+		// the order's own method picker, so the sender chooses how to pay.
 		body += "\n\n" + text(locale, "gift.awaitingPayment")
-		rows = append(rows, row(actionButton(text(locale, "menu.orders"), "order:"+order.ID)))
+		rows = append(rows,
+			row(actionButton(text(locale, "checkout.pay"), "pay:"+order.ID+":pick")),
+			row(actionButton(text(locale, "menu.orders"), "order:"+order.ID)),
+		)
 	}
 	rows = append(rows,
 		row(callbackButton(text(locale, "action.back"), routeGifts)),

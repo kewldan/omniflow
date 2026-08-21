@@ -24,6 +24,13 @@ func (app *App) handleGiftRoute(ctx context.Context, session commerceContext, ro
 	}
 }
 
+// giftActions is the closed set of callback actions the gift surface owns. It
+// is folded into commerceActions, which is what lets a tap reach the handler
+// below at all.
+var giftActions = map[string]bool{
+	"gift-plan": true, "gift-credit": true, "gift-buy": true, "gift-message": true, "gift-claim": true,
+}
+
 // handleGiftAction serves the gift callback actions.
 func (app *App) handleGiftAction(ctx context.Context, session commerceContext, parts []string) (View, bool) {
 	argument := ""
@@ -81,9 +88,28 @@ func (app *App) giftCreditScreen(ctx context.Context, session commerceContext) V
 }
 
 // giftAskMessage collects the note that travels with the gift.
+//
+// The flow is minted an idempotency key of its own here, before the note is
+// asked for, and the key travels in the flow context. One flow is one gift: a
+// redelivered note lands on the same order, and a second gift of the same plan
+// to somebody else — a different flow — is a different order. Keying on the
+// sender, the plan, and the note, as this used to, made the first gift of a
+// plan the only gift of that plan the sender could ever buy.
 func (app *App) giftAskMessage(ctx context.Context, session commerceContext, token string) View {
+	// The membership gate is applied before the note is asked for, so a
+	// customer is not made to write a message and then told to join a channel.
+	// It is applied again when the order is created, because the note can sit
+	// unsent for a while.
+	if gate := app.checkPurchaseChannels(ctx, session.Customer.ID, session.TelegramID); !gate.Allowed() {
+		return channelGateView(session.Locale, gate, "gift-message:"+token)
+	}
+	key, err := newIdempotencyKey()
+	if err != nil {
+		app.logger.Error("gift key could not be minted", "error", err)
+		return app.errorView(session.Locale, routeGifts)
+	}
 	if err := app.customers.BeginSessionState(
-		ctx, session.TelegramID, "gift_message", map[string]any{"gift": token},
+		ctx, session.TelegramID, "gift_message", map[string]any{"gift": token, "key": key},
 	); err != nil {
 		app.logger.Error("gift message prompt failed", "error", err)
 		return app.errorView(session.Locale, routeGifts)
@@ -91,22 +117,35 @@ func (app *App) giftAskMessage(ctx context.Context, session commerceContext, tok
 	return giftMessagePromptView(session.Locale)
 }
 
-// SubmitGiftMessage completes the gift purchase with the sender's note.
+// SubmitGiftMessage completes the gift purchase with the sender's note, under
+// the key the flow was opened with.
 func (app *App) SubmitGiftMessage(
-	ctx context.Context, session commerceContext, token, message string,
+	ctx context.Context, session commerceContext, token, key, message string,
 ) View {
 	kind, payload, ok := strings.Cut(token, ":")
 	if !ok {
 		return app.giftsScreen(ctx, session)
 	}
-	return app.buyGift(ctx, session, kind, payload, message)
+	if key == "" {
+		// A flow opened before keys travelled in the context. Rather than guess
+		// a key, refuse the old flow; the customer starts the gift again.
+		return app.giftsScreen(ctx, session)
+	}
+	return app.buyGift(ctx, session, kind, payload, message, key)
 }
 
-// giftPurchase buys a gift without a note.
+// giftPurchase buys a gift without a note. The callback itself is claimed
+// once, so a double tap or a redelivered update never reaches here twice, and
+// each arrival that does is a new gift under a fresh key.
 func (app *App) giftPurchase(
 	ctx context.Context, session commerceContext, kind, payload string,
 ) View {
-	return app.buyGift(ctx, session, kind, payload, "")
+	key, err := newIdempotencyKey()
+	if err != nil {
+		app.logger.Error("gift key could not be minted", "error", err)
+		return app.errorView(session.Locale, routeGifts)
+	}
+	return app.buyGift(ctx, session, kind, payload, "", key)
 }
 
 // buyGift opens the gift order and shows the claim code exactly once.
@@ -115,7 +154,7 @@ func (app *App) giftPurchase(
 // so a database read never yields a redeemable code — and a sender who loses it
 // cannot have it recovered, which is the deliberate trade.
 func (app *App) buyGift(
-	ctx context.Context, session commerceContext, kind, payload, message string,
+	ctx context.Context, session commerceContext, kind, payload, message, key string,
 ) View {
 	input := commercepg.GiftOrderInput{
 		SenderID: session.Customer.ID, Currency: app.settings.Currency,
@@ -133,10 +172,12 @@ func (app *App) buyGift(
 	default:
 		return app.giftsScreen(ctx, session)
 	}
-	// The key names the sender, what is being given, and the note. Tapping
-	// confirm twice reaches one gift rather than two.
-	input.IdempotencyKey = "gift:" + session.Customer.ID + ":" + kind + ":" + payload + ":" +
-		strconv.Itoa(len(message))
+	// The key is the flow's own, minted when the gift was started. A replay of
+	// the same flow reaches the same order; a new gift is a new order.
+	input.IdempotencyKey = key
+	if gate := app.checkPurchaseChannels(ctx, session.Customer.ID, session.TelegramID); !gate.Allowed() {
+		return channelGateView(session.Locale, gate, "gift-message:"+kind+":"+payload)
+	}
 
 	purchase, err := app.commerce.BuyGift(ctx, input)
 	switch {
@@ -155,35 +196,12 @@ func (app *App) buyGift(
 		app.logger.Error("order lookup failed", "error", err)
 		return app.errorView(session.Locale, routeOrders)
 	}
-	if order.ExternalMinor == 0 {
-		// Covered by the wallet, so the gift is already claimable and the code
-		// can be shown now.
-		return giftCodeView(session.Locale, purchase, order)
-	}
-	choices := app.commerce.ExternalPaymentChoices(order.Currency)
-	if len(choices) == 0 {
-		return View{
-			Text:     text(session.Locale, "pay.none"),
-			Keyboard: keyboard(row(callbackButton(text(session.Locale, "action.back"), routeGifts))),
-		}
-	}
-	if _, err = app.commerce.StartPayment(
-		ctx, order, choices[0].Provider, session.TelegramID, text(session.Locale, "gift.paymentLabel"),
-	); err != nil {
-		app.logger.Error("gift payment intent failed", "error", err)
-		return View{
-			Text:     text(session.Locale, "error.payment"),
-			Keyboard: keyboard(row(actionButton(text(session.Locale, "action.retry"), "order:"+order.ID))),
-		}
-	}
-	// The code is shown with the payment instruction rather than withheld until
-	// settlement: the sender needs it to pass on, and it cannot be claimed until
-	// the order is paid because the gift is not deliverable before then.
-	refreshed, err := app.customers.Order(ctx, session.Customer.ID, order.ID, session.Locale)
-	if err != nil {
-		refreshed = order
-	}
-	return giftCodeView(session.Locale, purchase, refreshed)
+	// The code is shown now in either case: it exists only in this response.
+	// An order the wallet covered is already claimable. One with an amount left
+	// offers to pay it, and the payment method is the customer's to pick on the
+	// order's own method screen — not the first adapter in alphabetical order,
+	// which is what used to be chosen for them.
+	return giftCodeView(session.Locale, purchase, order)
 }
 
 // giftAskCode opens the redemption prompt.
