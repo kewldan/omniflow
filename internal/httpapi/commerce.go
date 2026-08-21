@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -120,10 +121,22 @@ func (handlers *CommerceHandlers) cancelOrder(writer http.ResponseWriter, reques
 		writeProblem(writer, request, 400, "missing_idempotency_key", "Idempotency-Key is required")
 		return
 	}
-	order, err := handlers.queries.CancelOrder(request.Context(), dbgen.CancelOrderParams{OrderID: id, IdempotencyKey: key, Reason: pgtype.Text{String: body.Reason, Valid: body.Reason != ""}})
+	// The store's cancellation also releases a subscription row the unpaid
+	// order opened, in the same transaction, so an operator cancelling a
+	// never-paid order does not leave a ghost subscription on the dashboard.
+	order, err := handlers.commerce.CancelOrder(request.Context(), uuidString(id), key, body.Reason)
 	if err != nil {
 		writeProblem(writer, request, 409, "order_cancellation_rejected", "Order cannot be cancelled")
 		return
+	}
+	// Withdrawing the provider payment is best effort: a provider that cannot
+	// be asked leaves the intent open, and a payment that lands anyway is still
+	// settled and brought to an operator. The cancellation itself stands.
+	if handlers.payments != nil {
+		if cancelErr := handlers.payments.CancelIntents(request.Context(), uuidString(order.ID)); cancelErr != nil {
+			slog.Default().Warn("provider payment withdrawal failed after cancellation",
+				"order_id", uuidString(order.ID), "error", cancelErr)
+		}
 	}
 	writeJSON(writer, 200, orderResponse(order))
 }
