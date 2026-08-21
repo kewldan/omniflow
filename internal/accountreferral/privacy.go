@@ -2,12 +2,15 @@ package accountreferral
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/omniflow/omniflow/internal/database/dbgen"
 )
 
 // The audit actions this surface writes. They are the record of what a customer
@@ -120,7 +123,7 @@ func (service *Service) Privacy(ctx context.Context, customerID string) (Privacy
 	return privacy, nil
 }
 
-// RequestDeletion records the customer's request and nothing more.
+// RequestDeletion records the customer's request and tells the operator.
 //
 // Nothing is deleted, suspended, or anonymized here. The row appended to
 // `customer_lifecycle_events` is a request with the customer as its actor; the
@@ -128,6 +131,12 @@ func (service *Service) Privacy(ctx context.Context, customerID string) (Privacy
 // irreversible action must never happen on the strength of one browser session,
 // however recently that session authenticated — recent authentication is what
 // stops a borrowed laptop from making the request, not a licence to execute it.
+//
+// What makes the request more than a line in a log is the operator notice
+// queued in the same transaction: a request nobody is told about is a request
+// nobody acts on. The notice names the event and the customer's identifier and
+// nothing else — not the reason, which is the customer's own words and belongs
+// in the record the operator opens, not in a group chat.
 func (service *Service) RequestDeletion(
 	ctx context.Context, customerID, reason string, request RequestContext,
 ) (Deletion, error) {
@@ -177,6 +186,9 @@ func (service *Service) RequestDeletion(
 	); err != nil {
 		return Deletion{}, err
 	}
+	if err = notifyOperatorOfDeletion(ctx, dbgen.New(transaction), customerID, requestedAt.Time); err != nil {
+		return Deletion{}, err
+	}
 	if err = transaction.Commit(ctx); err != nil {
 		return Deletion{}, err
 	}
@@ -185,6 +197,33 @@ func (service *Service) RequestDeletion(
 	return Deletion{
 		Pending: true, RequestedAt: &moment, Reason: reason, ExecutedBy: DeletionExecutor,
 	}, nil
+}
+
+// notifyOperatorOfDeletion queues the operator notice for a deletion request.
+//
+// It rides the `security` stream because that is the stream an operator
+// watches for account-level events, and because the set of streams is fixed by
+// the schema. The dedupe key is the customer and the moment, so a retried
+// transaction cannot queue two notices for one request and a later request
+// after a withdrawal is a new notice.
+func notifyOperatorOfDeletion(ctx context.Context, queries *dbgen.Queries, customerID string, at time.Time) error {
+	payload, err := json.Marshal(map[string]any{
+		"event":      "customer_deletion_requested",
+		"status":     "awaiting_operator",
+		"customerId": customerID,
+	})
+	if err != nil {
+		return err
+	}
+	_, err = queries.EnqueueOperatorNotification(ctx, dbgen.EnqueueOperatorNotificationParams{
+		Kind:      "security",
+		DedupeKey: fmt.Sprintf("customer_deletion_requested:%s:%d", customerID, at.UTC().Unix()),
+		Payload:   payload,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	return err
 }
 
 // CancelDeletion withdraws a pending request.

@@ -1020,6 +1020,19 @@ rather than a menu, because a closed list would put the operator's categories in
 the customer's mouth. It can be withdrawn until it is executed, and cancelling it
 needs no re-authentication: cancelling only ever prevents the irreversible thing.
 
+Three things happen on the request, in this order, so that "recorded" means
+more than a line in a log. The lifecycle event is written with the customer as
+its actor. In the same transaction an operator notice is queued on the
+`security` stream — `customer_deletion_requested` with the account identifier,
+and never the customer's reason, which is their own words and belongs in the
+record the operator opens rather than in a group chat. Then every *other*
+session the customer holds is ended: the request is the customer saying they
+are done with the account, and a session left open on another device would
+otherwise keep using it, or withdraw the request, without them. The session that
+asked is kept, because cancelling is done from it. There is no worker that acts
+on the request; the operator does, from the customer's record in the panel,
+which is what the notice points them at.
+
 A second request while one is open is refused with `409 deletion_pending`. The
 lifecycle event is never removed on cancellation — "this was asked for and then
 withdrawn" is a different fact from "this was never asked for" — but a withdrawn

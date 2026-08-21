@@ -2946,7 +2946,7 @@
       "deletion": {
         "title": "Delete my account",
         "description": "Sending this does not delete anything straight away. It records a request, and your account keeps working until the request is carried out.",
-        "executedBy": "Requests are reviewed and carried out by the operator's retention process, not by this page. Until that happens you can cancel at any time.",
+        "executedBy": "Requests are reviewed and carried out by the operator's retention process, not by this page. Sending one notifies the operator and signs out your other devices; this session stays so you can cancel at any time until the request is carried out.",
         "reason": "Why are you leaving?",
         "reasonPlaceholder": "In your own words",
         "reasonHint": "{remaining} characters left. This goes to the person who reviews the request.",

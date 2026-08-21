@@ -351,6 +351,19 @@ func (handlers *AccountHandlers) requestDeletion(writer http.ResponseWriter, req
 	if handlers.writeReferralError(writer, request, err) {
 		return
 	}
+	// Every other session ends now. The request is the customer saying they
+	// are done with the account; a session left open on another device would
+	// otherwise keep using it — or cancel the request — without them. The
+	// session that asked is kept, because cancelling is done from it. Best
+	// effort: the request is already recorded, and failing the response here
+	// would tell the customer it was not.
+	if handlers.auth != nil {
+		if _, revokeErr := handlers.auth.SignOutEverywhere(
+			request.Context(), principal.Customer.ID, principal.SessionID, true, handlers.requestContext(request),
+		); revokeErr != nil {
+			handlers.logger.Warn("other sessions could not be ended after a deletion request", "error", revokeErr)
+		}
+	}
 	// 202: the request has been recorded and something else will act on it. A
 	// 200 would suggest the deletion happened.
 	writeJSON(writer, http.StatusAccepted, privacyDeletionPayload(deletion))
