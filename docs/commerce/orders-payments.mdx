@@ -116,6 +116,24 @@ capture has nothing to cancel, so those intents stay open and rely on the late-s
 withdrawal is best effort — a provider refusal never blocks the cancellation itself — and an intent
 the provider did withdraw is marked `cancelled` with a `status_changed` payment event.
 
+### The payment window
+
+`expires_at` is set when the order is created and follows the payment provider:
+
+| Provider | Window | Why |
+| --- | --- | --- |
+| CryptoBot, YooKassa, Telegram Stars, or not yet chosen | 1 hour | a hosted checkout is paid in minutes or abandoned, and an open order holds a wallet reservation |
+| `manual` | 72 hours | a bank transfer lands when the bank processes it and an operator confirms it when they next look; three days covers a weekend |
+| a renewal cycle's order | 76 hours | every attempt of the dunning schedule settles the same order — see [Recurring payments](/commerce/recurring-payments) |
+| `goods` | the gateway quote's validity | the price was quoted by the delivery gateway and must not be paid after the quote lapsed |
+
+A surface that knows the provider when it opens the order names it, and the window is right from
+the start. A surface that lets the customer pick the provider afterwards opens the order with the
+one-hour default, and creating the payment intent then extends the window to what the chosen
+provider warrants. The extension only ever lengthens a window, only while the order is `pending`,
+and never touches a goods order, so a closed order is never reopened and a stale quote is never
+paid. Choosing a card provider after a manual one leaves the longer window in place.
+
 <Warning>
   The expiry sweep, wallet-credit expiry and the saved-cart sweep all run in one loop that only the
   API process starts. An installation deployed as bot plus worker with no API process never expires
@@ -501,7 +519,10 @@ the intent is not a manual one. It is stored unique per intent, so a second deci
 with the first is refused with "manual payment already has a different final decision". An approval
 settles the **full** intent amount; a rejection records the decision and settles nothing.
 
-While it waits, the customer sees the `manual` handoff and is told an operator will confirm it.
+While it waits, the customer sees the `manual` handoff and is told an operator will confirm it. The
+order stays payable for seventy-two hours from the moment the manual intent is created — see
+[the payment window](#the-payment-window) — and an approval after even that window still settles it,
+classified `late`.
 
 ## Refunds
 

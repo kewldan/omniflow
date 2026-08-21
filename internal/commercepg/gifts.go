@@ -38,6 +38,8 @@ type GiftOrderInput struct {
 	Lifetime            time.Duration
 	IdempotencyKey      string
 	SkipWallet          bool
+	// Provider, when known at order time, sets the payment window.
+	Provider string
 }
 
 // GiftPurchase is the result of opening a gift order.
@@ -129,7 +131,7 @@ func (store *Store) CreateGiftOrder(
 		SubtotalMinor: amountMinor, DiscountMinor: 0,
 		WalletMinor: walletMinor, ExternalMinor: externalMinor,
 		IdempotencyKey:   input.IdempotencyKey,
-		ExpiresAt:        pgtype.Timestamptz{Time: store.clock().Add(time.Hour), Valid: true},
+		ExpiresAt:        pgtype.Timestamptz{Time: store.paymentDeadline(time.Time{}, input.Provider), Valid: true},
 		SelectedSquadIds: noSquads(),
 	})
 	if err != nil {

@@ -127,6 +127,15 @@ func (service *Service) CreateIntent(ctx context.Context, input CreateIntentInpu
 	if order.State != "pending" || order.ExternalMinor <= 0 {
 		return dbgen.PaymentIntent{}, errors.New("order does not require an external payment")
 	}
+	// The provider is chosen here, after the order was opened with the default
+	// window. A manual transfer is confirmed by a person in days, so the order
+	// is given the window that provider warrants; the extension only ever
+	// lengthens it, and only while the order is still pending.
+	if window := commerce.PaymentWindow(provider.Name()); window > commerce.DefaultPaymentWindow {
+		if err = service.commerce.ExtendOrderExpiry(ctx, input.OrderID, service.clock().Add(window)); err != nil {
+			return dbgen.PaymentIntent{}, err
+		}
+	}
 	amount := commerce.Money{Amount: order.ExternalMinor, Currency: order.Currency}
 	capabilities, _ := json.Marshal(provider.Capabilities())
 	receipt, _ := json.Marshal(input.ReceiptMetadata)

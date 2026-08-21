@@ -115,7 +115,15 @@ type CreateOrderInput struct {
 	Operation      string
 	PromoCode      string
 	IdempotencyKey string
-	ExpiresAt      time.Time
+	// ExpiresAt is when the payment window closes. Zero lets the store choose
+	// from Provider.
+	ExpiresAt time.Time
+	// Provider is the payment provider the customer already chose, when the
+	// surface knows it at order time. It only sets the payment window: a
+	// manual transfer is given days rather than an hour. A surface that picks
+	// the provider later leaves it empty, and the window is extended when the
+	// intent is created.
+	Provider string
 	// SkipWallet keeps the customer's wallet balance out of this order. The
 	// zero value applies the wallet first, which is the documented default.
 	SkipWallet bool
@@ -381,10 +389,7 @@ func (store *Store) CreateOrder(ctx context.Context, input CreateOrderInput) (db
 	if domainOrder.ExternalMinor == 0 {
 		state = string(commerce.OrderPaid)
 	}
-	expiresAt := input.ExpiresAt
-	if expiresAt.IsZero() {
-		expiresAt = store.clock().Add(time.Hour)
-	}
+	expiresAt := store.paymentDeadline(input.ExpiresAt, input.Provider)
 	order, err := queries.CreateOrder(ctx, dbgen.CreateOrderParams{
 		UserID: userID, State: state, Operation: input.Operation, Currency: plan.Currency,
 		SubtotalMinor: plan.AmountMinor + quote.AddonMinor, DiscountMinor: discount,
@@ -439,6 +444,34 @@ func (store *Store) CreateOrder(ctx context.Context, input CreateOrderInput) (db
 		return dbgen.Order{}, err
 	}
 	return order, nil
+}
+
+// paymentDeadline is when an order's payment window closes: the explicit
+// instant a caller supplied, or now plus the window the provider warrants.
+func (store *Store) paymentDeadline(explicit time.Time, provider string) time.Time {
+	if !explicit.IsZero() {
+		return explicit
+	}
+	return store.clock().Add(commerce.PaymentWindow(provider))
+}
+
+// ExtendOrderExpiry moves a pending order's payment window out to `until`, for
+// a provider chosen after the order was created. It only ever lengthens the
+// window — an order already open for longer keeps its deadline — and it
+// refuses an order that is not pending, so a settled, cancelled, or already
+// expired order is never reopened. A goods order is left alone: its deadline
+// is the gateway quote's validity, and a stale quote must not be paid.
+func (store *Store) ExtendOrderExpiry(ctx context.Context, orderID string, until time.Time) error {
+	id, err := parseUUID(orderID)
+	if err != nil {
+		return err
+	}
+	_, err = dbgen.New(store.pool).ExtendOrderExpiry(ctx, dbgen.ExtendOrderExpiryParams{OrderID: id, ExpiresAt: pgtype.Timestamptz{Time: until, Valid: true}})
+	if errors.Is(err, pgx.ErrNoRows) {
+		// Not pending, or a goods order: nothing to extend, and nothing wrong.
+		return nil
+	}
+	return err
 }
 
 func (store *Store) RecordProviderPayment(ctx context.Context, paymentIntentID, providerEventID string, amount commerce.Money, late bool) (dbgen.Order, string, error) {

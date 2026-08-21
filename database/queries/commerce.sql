@@ -390,6 +390,16 @@ SET state = $2,
 WHERE id = $1
 RETURNING *;
 
+-- name: ExtendOrderExpiry :one
+-- Lengthens a pending order's payment window for a provider chosen after the
+-- order was created. GREATEST keeps it from ever shortening one, the state
+-- guard keeps a closed order closed, and a goods order is excluded because its
+-- deadline is the gateway quote's validity rather than a payment window.
+UPDATE orders
+SET expires_at = GREATEST(expires_at, sqlc.arg(expires_at)::timestamptz), updated_at = now()
+WHERE id = sqlc.arg(order_id) AND state = 'pending' AND operation <> 'goods'
+RETURNING *;
+
 -- name: CancelOrder :one
 WITH mutation AS (
   INSERT INTO order_mutations (order_id, action, idempotency_key, reason)

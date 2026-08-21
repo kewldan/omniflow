@@ -964,6 +964,48 @@ func (q *Queries) ExpirePendingOrders(ctx context.Context) ([]Order, error) {
 	return items, nil
 }
 
+const extendOrderExpiry = `-- name: ExtendOrderExpiry :one
+UPDATE orders
+SET expires_at = GREATEST(expires_at, $1::timestamptz), updated_at = now()
+WHERE id = $2 AND state = 'pending' AND operation <> 'goods'
+RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at
+`
+
+type ExtendOrderExpiryParams struct {
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	OrderID   pgtype.UUID        `json:"order_id"`
+}
+
+// Lengthens a pending order's payment window for a provider chosen after the
+// order was created. GREATEST keeps it from ever shortening one, the state
+// guard keeps a closed order closed, and a goods order is excluded because its
+// deadline is the gateway quote's validity rather than a payment window.
+func (q *Queries) ExtendOrderExpiry(ctx context.Context, arg ExtendOrderExpiryParams) (Order, error) {
+	row := q.db.QueryRow(ctx, extendOrderExpiry, arg.ExpiresAt, arg.OrderID)
+	var i Order
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.State,
+		&i.Operation,
+		&i.Currency,
+		&i.SubtotalMinor,
+		&i.DiscountMinor,
+		&i.WalletMinor,
+		&i.ExternalMinor,
+		&i.PaidMinor,
+		&i.RefundedMinor,
+		&i.IdempotencyKey,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SubscriptionID,
+		&i.SelectedSquadIds,
+		&i.PaidAt,
+	)
+	return i, err
+}
+
 const getAvailableWalletBalance = `-- name: GetAvailableWalletBalance :one
 SELECT GREATEST(
   COALESCE((SELECT sum(wallet_entry.amount_minor)

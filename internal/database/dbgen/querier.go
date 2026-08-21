@@ -400,6 +400,11 @@ type Querier interface {
 	// and the schema is stable: a new column is appended, never inserted, so a
 	// spreadsheet or importer built against an older export keeps working.
 	ExportFinanceRows(ctx context.Context, arg ExportFinanceRowsParams) ([]ExportFinanceRowsRow, error)
+	// Lengthens a pending order's payment window for a provider chosen after the
+	// order was created. GREATEST keeps it from ever shortening one, the state
+	// guard keeps a closed order closed, and a goods order is excluded because its
+	// deadline is the gateway quote's validity rather than a payment window.
+	ExtendOrderExpiry(ctx context.Context, arg ExtendOrderExpiryParams) (Order, error)
 	FailBackup(ctx context.Context, arg FailBackupParams) (Backup, error)
 	FailGoodsDelivery(ctx context.Context, arg FailGoodsDeliveryParams) (GoodsDelivery, error)
 	FailOperatorTopic(ctx context.Context, arg FailOperatorTopicParams) (OperatorTopic, error)
