@@ -329,7 +329,7 @@ func (store *Store) HeldPlans(ctx context.Context, customerID, currency string) 
 		JOIN LATERAL (
 			SELECT * FROM entitlements ent
 			WHERE ent.subscription_id = s.id AND ent.status <> 'superseded'
-			ORDER BY ent.ends_at DESC LIMIT 1
+			ORDER BY (ent.starts_at <= now()) DESC, ent.ends_at DESC LIMIT 1
 		) e ON true
 		JOIN plan_versions v ON v.id = e.plan_version_id
 		LEFT JOIN plan_prices pr ON pr.plan_version_id = v.id AND pr.currency = $2
@@ -562,7 +562,7 @@ func (store *Store) SubscriptionTargets(ctx context.Context, customerID, locale 
 		LEFT JOIN LATERAL (
 			SELECT * FROM entitlements ent
 			WHERE ent.subscription_id = s.id AND ent.status <> 'superseded'
-			ORDER BY ent.ends_at DESC LIMIT 1
+			ORDER BY (ent.starts_at <= now()) DESC, ent.ends_at DESC LIMIT 1
 		) e ON true
 		LEFT JOIN plan_versions v ON v.id = e.plan_version_id
 		LEFT JOIN plans p ON p.id = v.plan_id

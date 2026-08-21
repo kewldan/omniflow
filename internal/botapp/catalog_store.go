@@ -195,7 +195,7 @@ func (store *PostgresStore) entitlement(ctx context.Context, customerID, subscri
 		LEFT JOIN plan_prices pr ON pr.plan_version_id = v.id AND pr.currency = $3
 		WHERE e.user_id = $1::uuid AND e.status <> 'superseded'
 		  AND ($4 = '' OR e.subscription_id = $4::uuid)
-		ORDER BY e.ends_at DESC LIMIT 1`, customerID, string(locale), currency, subscriptionID).
+		ORDER BY (e.starts_at <= now()) DESC, e.ends_at DESC LIMIT 1`, customerID, string(locale), currency, subscriptionID).
 		Scan(&entitlement.ID, &entitlement.Status, &entitlement.StartsAt, &entitlement.EndsAt,
 			&graceSeconds, &entitlement.PlanVersionID, &entitlement.PlanID, &entitlement.PlanCode, &planName, &price, &subscription)
 	if errors.Is(err, pgx.ErrNoRows) {

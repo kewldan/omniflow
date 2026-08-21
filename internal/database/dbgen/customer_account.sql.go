@@ -35,7 +35,10 @@ FROM subscriptions s
 LEFT JOIN LATERAL (
   SELECT id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id, paused_at, paused_seconds FROM entitlements ent
   WHERE ent.subscription_id = s.id AND ent.status <> 'superseded'
-  ORDER BY ent.ends_at DESC LIMIT 1
+  -- The entitlement in force today wins over one scheduled to start later,
+  -- so a downgrade deferred to the end of the period does not hide the plan
+  -- the customer is actually using until it takes over.
+  ORDER BY (ent.starts_at <= now()) DESC, ent.ends_at DESC LIMIT 1
 ) e ON true
 LEFT JOIN LATERAL (
   SELECT o.id FROM orders o
@@ -118,7 +121,10 @@ FROM subscriptions s
 LEFT JOIN LATERAL (
   SELECT id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id, paused_at, paused_seconds FROM entitlements ent
   WHERE ent.subscription_id = s.id AND ent.status <> 'superseded'
-  ORDER BY ent.ends_at DESC LIMIT 1
+  -- The entitlement in force today wins over one scheduled to start later,
+  -- so a downgrade deferred to the end of the period does not hide the plan
+  -- the customer is actually using until it takes over.
+  ORDER BY (ent.starts_at <= now()) DESC, ent.ends_at DESC LIMIT 1
 ) e ON true
 LEFT JOIN LATERAL (
   SELECT o.id FROM orders o

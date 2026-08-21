@@ -34,7 +34,10 @@ FROM subscriptions s
 LEFT JOIN LATERAL (
   SELECT * FROM entitlements ent
   WHERE ent.subscription_id = s.id AND ent.status <> 'superseded'
-  ORDER BY ent.ends_at DESC LIMIT 1
+  -- The entitlement in force today wins over one scheduled to start later,
+  -- so a downgrade deferred to the end of the period does not hide the plan
+  -- the customer is actually using until it takes over.
+  ORDER BY (ent.starts_at <= now()) DESC, ent.ends_at DESC LIMIT 1
 ) e ON true
 LEFT JOIN LATERAL (
   SELECT o.id FROM orders o
@@ -71,7 +74,10 @@ FROM subscriptions s
 LEFT JOIN LATERAL (
   SELECT * FROM entitlements ent
   WHERE ent.subscription_id = s.id AND ent.status <> 'superseded'
-  ORDER BY ent.ends_at DESC LIMIT 1
+  -- The entitlement in force today wins over one scheduled to start later,
+  -- so a downgrade deferred to the end of the period does not hide the plan
+  -- the customer is actually using until it takes over.
+  ORDER BY (ent.starts_at <= now()) DESC, ent.ends_at DESC LIMIT 1
 ) e ON true
 LEFT JOIN LATERAL (
   SELECT o.id FROM orders o

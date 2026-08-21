@@ -157,7 +157,7 @@ An order's operation plus the plan version's policies decide three instants — 
 
 **There is no proration anywhere in this table.** An upgrade charges the new plan's full catalogue price; `replace` discards the remaining time and `extend` keeps it. Omniflow never guesses what a mid-period plan change is worth, which is why the choice is a per-version policy an operator sets rather than a formula.
 
-An `at_expiry` downgrade is what the deferred provisioning instant exists for: the fulfillment job snoozes until that moment rather than occupying a worker, and the previous entitlement is superseded only after the replacement has actually been provisioned.
+An `at_expiry` downgrade is what the deferred provisioning instant exists for: the fulfillment job snoozes until that moment rather than occupying a worker, and the previous entitlement is superseded only after the replacement has actually been provisioned. Until then both surfaces keep showing the plan in force: every customer-facing read prefers the entitlement whose start has passed over one scheduled for later, so a deferred downgrade does not appear as "being set up" for the rest of the period it has not yet begun.
 
 `extension` and `renewal` do identical arithmetic and remain separate operations because the *reason* differs — one the customer asked for, one an automatic charge produced — and support has to be able to tell them apart.
 
