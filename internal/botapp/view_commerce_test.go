@@ -188,11 +188,11 @@ func TestConnectViewWithoutASubscriptionExplainsItself(t *testing.T) {
 
 func TestPaymentMethodViewOnlyOffersConfiguredAdapters(t *testing.T) {
 	t.Parallel()
-	view := paymentMethodView(LocaleEnglish, Plan{PlanVersionID: "a"}, nil)
+	view := paymentMethodView(LocaleEnglish, Plan{PlanVersionID: "a"}, nil, "")
 	if !strings.Contains(view.Text, "No payment method is available") {
 		t.Fatalf("an installation without providers must say so: %s", view.Text)
 	}
-	view = paymentMethodView(LocaleEnglish, Plan{PlanVersionID: "a"}, []PaymentChoice{{Provider: "telegram_stars", Currency: "XTR", AmountMinor: 250}})
+	view = paymentMethodView(LocaleEnglish, Plan{PlanVersionID: "a"}, []PaymentChoice{{Provider: "telegram_stars", Currency: "XTR", AmountMinor: 250}}, "")
 	if !strings.Contains(buttonLabels(view), "Telegram Stars") || !strings.Contains(buttonLabels(view), "⭐ 250") {
 		t.Fatalf("the offered method must show its price: %s", buttonLabels(view))
 	}

@@ -216,7 +216,7 @@ func (app *App) paymentMethodScreen(ctx context.Context, session commerceContext
 		app.logger.Error("payment method lookup failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
 	}
-	return paymentMethodView(session.Locale, plan, choices)
+	return paymentMethodView(session.Locale, plan, choices, "plan:"+plan.PlanVersionID)
 }
 
 // checkoutTarget resolves which subscription a checkout changes. An explicit

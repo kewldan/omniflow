@@ -105,8 +105,12 @@ func planActions(locale Locale, plan Plan, entitlement Entitlement, trialReason 
 }
 
 // paymentMethodView offers only the adapters that are enabled and can settle a
-// currency the plan is priced in.
-func paymentMethodView(locale Locale, plan Plan, choices []PaymentChoice) View {
+// currency the plan is priced in. `back` is the action the Back button leads
+// to; empty means the plan page.
+func paymentMethodView(locale Locale, plan Plan, choices []PaymentChoice, back string) View {
+	if back == "" {
+		back = "plan:" + plan.PlanVersionID
+	}
 	if len(choices) == 0 {
 		return View{Text: text(locale, "pay.none"), Keyboard: keyboard(row(callbackButton(text(locale, "action.back"), routePlans)))}
 	}
@@ -115,7 +119,7 @@ func paymentMethodView(locale Locale, plan Plan, choices []PaymentChoice) View {
 		label := text(locale, "pay.option", providerLabel(locale, choice.Provider), formatMoney(choice.AmountMinor, choice.Currency))
 		rows = append(rows, row(actionButton(label, "pm:"+choice.Provider+":"+choice.Currency)))
 	}
-	rows = append(rows, row(actionButton(text(locale, "action.back"), "plan:"+plan.PlanVersionID)))
+	rows = append(rows, row(actionButton(text(locale, "action.back"), back)))
 	return View{Text: text(locale, "pay.choose"), Keyboard: keyboard(rows...)}
 }
 
@@ -182,7 +186,10 @@ func checkoutView(locale Locale, plan Plan, session CheckoutSession, quote comme
 		rows = append(rows, row(actionButton(text(locale, "cart.save"), "cart-save")))
 	}
 	rows = append(rows,
-		row(actionButton(text(locale, "checkout.changeMethod"), "buy:"+session.PlanVersionID+":"+session.Operation)),
+		// Changing the method keeps the checkout: reopening it through the plan
+		// page would lose the promo code, add-ons, wallet toggle, squads, and the
+		// subscription being renewed.
+		row(actionButton(text(locale, "checkout.changeMethod"), "pm-change")),
 		row(callbackButton(text(locale, "action.cancel"), routePlans)),
 	)
 	return View{Text: strings.Join(lines, "\n"), Keyboard: keyboard(rows...), Protect: true}

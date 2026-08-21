@@ -428,7 +428,7 @@ var expansionActions = map[string]bool{
 	"sub": true, "sub-new": true, "sub-rename": true, "sub-connect": true,
 	"sub-devices": true, "sub-renew": true, "sub-revoke-confirm": true, "sub-revoke": true,
 	"squad": true, "addons": true, "addon-buy": true, "maintenance": true,
-	"methods": true, "checkout-addons": true, "addon-toggle": true,
+	"methods": true, "pm-change": true, "checkout-addons": true, "addon-toggle": true,
 	"ops": true, "ops-backup": true, "ops-restore-confirm": true, "ops-restore": true,
 }
 
@@ -499,7 +499,9 @@ func (app *App) handleExpansionAction(ctx context.Context, session commerceConte
 	case "squad":
 		return app.toggleSquad(ctx, session, argument), true
 	case "methods":
-		return app.paymentMethodsForCheckout(ctx, session), true
+		return app.paymentMethodsForCheckout(ctx, session, ""), true
+	case "pm-change":
+		return app.paymentMethodsForCheckout(ctx, session, "checkout"), true
 	case "checkout-addons":
 		return app.checkoutAddonScreen(ctx, session), true
 	case "addon-toggle":
@@ -554,8 +556,16 @@ func (app *App) renewSubscription(ctx context.Context, session commerceContext, 
 
 // paymentMethodsForCheckout offers the payment methods for the open checkout.
 // The squad configurator hands off here, so a configured plan reaches the same
-// method list a plain plan does.
-func (app *App) paymentMethodsForCheckout(ctx context.Context, session commerceContext) View {
+// method list a plain plan does, and the summary's "Change method" lands here
+// too: the checkout — its promo code, add-ons, wallet toggle, squads, and the
+// subscription it targets — is left exactly as it is, and only the method
+// changes. Reopening the checkout to change the method would throw all of that
+// away and silently retarget a renewal at the primary subscription.
+//
+// `back` names the action the Back button returns to: the plan page when the
+// method is being chosen for the first time, the summary when it is being
+// changed.
+func (app *App) paymentMethodsForCheckout(ctx context.Context, session commerceContext, back string) View {
 	checkout, found, err := app.customers.Checkout(ctx, session.Customer.ID)
 	if err != nil || !found {
 		return View{Text: text(session.Locale, "checkout.expired"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "menu.plans"), routePlans)))}
@@ -576,7 +586,7 @@ func (app *App) paymentMethodsForCheckout(ctx context.Context, session commerceC
 		app.logger.Error("payment method lookup failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
 	}
-	return paymentMethodView(session.Locale, plan, choices)
+	return paymentMethodView(session.Locale, plan, choices, back)
 }
 
 // squadPolicyFor projects the bot's configurator model onto the domain policy
