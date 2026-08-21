@@ -476,7 +476,12 @@ func (service *Service) RefreshOrder(ctx context.Context, customerID, orderID, l
 
 // CancelOrder cancels one of the customer's own unpaid orders.
 func (service *Service) CancelOrder(ctx context.Context, customerID, orderID string) error {
-	return service.store.CancelOrder(ctx, customerID, orderID, "cancelled by the customer in the web panel")
+	if err := service.store.CancelOrder(ctx, customerID, orderID, "cancelled by the customer in the web panel"); err != nil {
+		return err
+	}
+	// TODO(merge): call paymentservice.(*Service).CancelIntents(ctx, orderID) so a provider page left open cannot settle a cancelled order.
+	// TODO(merge): call the commercepg method that deletes the subscription row an unpaid order left behind, and the one that releases its promo redemption.
+	return nil
 }
 
 // StartOrderPayment starts or resumes a provider payment for one of the
