@@ -53,11 +53,23 @@ func (worker *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 }
 
 type desiredState struct {
-	EffectiveAt           time.Time `json:"effectiveAt"`
+	EffectiveAt time.Time `json:"effectiveAt"`
+	// EndsAt is the paid end of the entitlement. It is not what Remnawave is
+	// told: the worker adds the plan's grace period to it first, and that sum
+	// is both what is pushed and what drift is measured against.
 	EndsAt                time.Time `json:"endsAt"`
 	TrafficAllowanceBytes *int64    `json:"trafficAllowanceBytes"`
 	DeviceLimit           *int      `json:"deviceLimit"`
 	SquadIDs              []string  `json:"squadIds"`
+	// remoteExpireAt is EndsAt plus the grace period, resolved by the worker
+	// per operation rather than stored, so every creator agrees on it.
+	remoteExpireAt time.Time
+}
+
+// withGrace resolves the expiry Remnawave is asked to enforce.
+func (desired desiredState) withGrace(grace time.Duration) desiredState {
+	desired.remoteExpireAt = commerce.RemoteExpiry(desired.EndsAt, grace)
+	return desired
 }
 
 func (worker *Worker) work(ctx context.Context, job *river.Job[JobArgs]) error {
@@ -92,6 +104,14 @@ func (worker *Worker) work(ctx context.Context, job *river.Job[JobArgs]) error {
 	if !desired.EffectiveAt.IsZero() && worker.clock().Before(desired.EffectiveAt) {
 		return river.JobSnooze(desired.EffectiveAt.Sub(worker.clock()))
 	}
+	// The grace period is the plan's promise that access outlives the paid end
+	// by a little, so the customer can renew without a gap. It only means
+	// anything if Remnawave is told, so it is folded into the expiry here.
+	graceSeconds, err := queries.GetPlanVersionGracePeriod(ctx, entitlement.PlanVersionID)
+	if err != nil {
+		return err
+	}
+	desired = desired.withGrace(time.Duration(graceSeconds) * time.Second)
 	operation, err = queries.UpdateFulfillmentOperation(ctx, dbgen.UpdateFulfillmentOperationParams{OperationID: operation.ID, Status: "running", AttemptCount: operation.AttemptCount + 1, NextAttemptAt: pgtype.Timestamptz{Time: worker.clock(), Valid: true}})
 	if err != nil {
 		return err
@@ -203,8 +223,8 @@ func (worker *Worker) detectDrift(ctx context.Context, queries *dbgen.Queries, e
 		expected, observed any
 	}
 	mismatches := make([]mismatch, 0, 4)
-	if !remote.ExpireAt.Equal(desired.EndsAt) {
-		mismatches = append(mismatches, mismatch{"expiry", desired.EndsAt, remote.ExpireAt})
+	if !remote.ExpireAt.Equal(desired.remoteExpireAt) {
+		mismatches = append(mismatches, mismatch{"expiry", desired.remoteExpireAt, remote.ExpireAt})
 	}
 	if desired.TrafficAllowanceBytes != nil && remote.TrafficLimitBytes != *desired.TrafficAllowanceBytes {
 		mismatches = append(mismatches, mismatch{"traffic", *desired.TrafficAllowanceBytes, remote.TrafficLimitBytes})
@@ -313,7 +333,7 @@ func (worker *Worker) apply(ctx context.Context, queries *dbgen.Queries, operati
 			candidates = append(candidates, legacyUsername(entitlement.UserID))
 		}
 	}
-	provision := remnawave.ProvisionUser{Username: username, ExpireAt: desired.EndsAt, TrafficLimitBytes: desired.TrafficAllowanceBytes, HWIDDeviceLimit: desired.DeviceLimit, InternalSquadIDs: desired.SquadIDs}
+	provision := remnawave.ProvisionUser{Username: username, ExpireAt: desired.remoteExpireAt, TrafficLimitBytes: desired.TrafficAllowanceBytes, HWIDDeviceLimit: desired.DeviceLimit, InternalSquadIDs: desired.SquadIDs}
 	remoteID, err := worker.remoteUserID(ctx, queries, entitlement, subscription)
 	if err != nil {
 		return remnawave.User{}, err
@@ -410,7 +430,7 @@ func notifyFulfillmentFailure(ctx context.Context, queries *dbgen.Queries, opera
 }
 
 func safeDesiredSummary(desired desiredState) []byte {
-	value, _ := json.Marshal(map[string]any{"endsAt": desired.EndsAt, "trafficLimitConfigured": desired.TrafficAllowanceBytes != nil, "deviceLimitConfigured": desired.DeviceLimit != nil, "squadCount": len(desired.SquadIDs)})
+	value, _ := json.Marshal(map[string]any{"endsAt": desired.EndsAt, "remoteExpireAt": desired.remoteExpireAt, "trafficLimitConfigured": desired.TrafficAllowanceBytes != nil, "deviceLimitConfigured": desired.DeviceLimit != nil, "squadCount": len(desired.SquadIDs)})
 	return value
 }
 

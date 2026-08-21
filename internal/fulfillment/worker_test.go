@@ -44,6 +44,27 @@ func TestDesiredSummaryContainsNoSquadIdentifiers(t *testing.T) {
 	}
 }
 
+// What Remnawave is told to expire is the paid end plus the plan's grace. The
+// paid end itself is untouched: it is what renewal arithmetic and reminders
+// read, and pushing it without the grace is how a promised grace period turned
+// out to be cosmetic.
+func TestDesiredStateCarriesTheGraceOnlyInTheRemoteExpiry(t *testing.T) {
+	endsAt := time.Date(2026, time.September, 1, 0, 0, 0, 0, time.UTC)
+	desired := desiredState{EndsAt: endsAt}.withGrace(48 * time.Hour)
+	if !desired.EndsAt.Equal(endsAt) {
+		t.Fatalf("the paid end moved to %s", desired.EndsAt)
+	}
+	if !desired.remoteExpireAt.Equal(endsAt.Add(48 * time.Hour)) {
+		t.Fatalf("the remote expiry is %s, want the paid end plus the grace", desired.remoteExpireAt)
+	}
+	if plain := (desiredState{EndsAt: endsAt}).withGrace(0); !plain.remoteExpireAt.Equal(endsAt) {
+		t.Fatalf("a plan without grace must push the paid end, got %s", plain.remoteExpireAt)
+	}
+	if summary := string(safeDesiredSummary(desired)); !strings.Contains(summary, `"remoteExpireAt":"2026-09-03T00:00:00Z"`) {
+		t.Fatalf("the history summary must record what was pushed: %s", summary)
+	}
+}
+
 func TestSquadComparisonIgnoresProviderOrdering(t *testing.T) {
 	if !sameStringSet([]string{"a", "b"}, []string{"b", "a"}) || sameStringSet([]string{"a"}, []string{"b"}) {
 		t.Fatal("unexpected squad-set comparison")

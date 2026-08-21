@@ -181,9 +181,10 @@ One function reduces an entitlement plus the observed Remnawave traffic into a s
 | `provisioning` | Status `pending` — settled, waiting on the first Remnawave push |
 | `failed` | Status `failed` |
 | `disabled` | Status `disabled` |
+| `expired` | Remnawave reports the user expired, whatever the clock says about the grace window |
 | `paused` | Status `paused` — suspended by an operator with the remaining days preserved |
-| `grace` | Past the end, with a grace period configured and not yet elapsed |
-| `expired` | Past the end with no grace left, or Remnawave reports expired |
+| `grace` | Past the end, with a grace period configured and not yet elapsed, while Remnawave still reports the user active or limited |
+| `expired` | Past the end with no grace left |
 | `limited` | Status `limited`, or used bytes have reached a positive limit |
 | `expiring_soon` | Within 7 days of the end |
 | `active` | Otherwise |
@@ -197,6 +198,8 @@ Days left are computed on the server and **rounded up**, because a subscription 
 `plan_versions.grace_period_seconds` defaults to `0`, and zero means expiry is immediate. There is no implicit grace anywhere. It is set per plan version in the version editor, entered in whole days, and exists so that expiry copy is not guesswork: it keeps access alive after the end so the customer can be told exactly how long they have left to renew.
 
 Grace is carried to the customer as `gracePeriodSeconds` on the plan payloads, and the phase ladder reports `grace` for as long as it lasts.
+
+It is also carried to Remnawave, which is what makes the promise real. The entitlement's `ends_at` stays the paid end — renewal arithmetic, reminders, and reporting read it — but the expiry the fulfillment worker pushes to Remnawave is `ends_at` plus the plan version's grace, for every operation: the first `create`, an extension, a resume after a pause, and the reconciliation sweep. Drift is measured against that same sum, so a remote expiry that carries the grace is agreement rather than a `expiry` drift. Because Remnawave then keeps the user alive through the window, a reported `EXPIRED` status means the window is truly over, and the phase ladder trusts it over the clock: an entitlement whose remote user is expired is `expired`, never `grace`.
 
 ## Pausing
 

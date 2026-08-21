@@ -256,7 +256,7 @@ rather than a silent overwrite.
 | Kind | Detected when |
 | --- | --- |
 | `missing_remote` | No known remote user, or `GET /api/users/{id}` returns `404` |
-| `expiry` | The remote expiry instant differs from the desired end |
+| `expiry` | The remote expiry instant differs from the desired end plus the plan's grace period — the same instant the worker pushes |
 | `traffic` | A configured allowance differs from the remote traffic limit |
 | `device_limit` | A configured limit differs from the remote device limit, including a remote null |
 | `squads` | The remote active squad set differs from the desired set, compared order-insensitively |

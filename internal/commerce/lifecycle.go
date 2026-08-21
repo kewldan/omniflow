@@ -61,6 +61,18 @@ func ClockNow(now time.Time, subscription Subscription) time.Time {
 	return now
 }
 
+// RemoteExpiry is the instant Remnawave is asked to expire the user: the paid
+// end plus the plan's grace period. The entitlement's own `ends_at` stays the
+// paid end — it is what renewal arithmetic, reminders, and reporting read —
+// and only the expiry pushed to Remnawave carries the grace, which is what
+// makes "access is kept until" true on the customer's screen.
+func RemoteExpiry(endsAt time.Time, grace time.Duration) time.Time {
+	if grace <= 0 {
+		return endsAt
+	}
+	return endsAt.Add(grace)
+}
+
 // EvaluatePhase reduces an entitlement to one phase the bot can explain.
 func EvaluatePhase(now time.Time, subscription Subscription) SubscriptionPhase {
 	now = ClockNow(now, subscription)
@@ -75,6 +87,13 @@ func EvaluatePhase(now time.Time, subscription Subscription) SubscriptionPhase {
 		return PhaseNone
 	case "disabled":
 		return PhaseDisabled
+	case "expired":
+		// Remnawave has already switched the user off. The grace window below
+		// is the time Remnawave is asked to keep access alive past the paid
+		// end; once Remnawave itself reports the user expired, that window is
+		// over whatever the clock says, and telling the customer "access is
+		// kept until" a date while the tunnel is dead would be a lie.
+		return PhaseExpired
 	case "paused":
 		// Returned before any date arithmetic below, and that ordering is the
 		// point. A pause freezes `ends_at` where it stood and real time walks
@@ -84,16 +103,13 @@ func EvaluatePhase(now time.Time, subscription Subscription) SubscriptionPhase {
 		return PhasePaused
 	}
 	if !subscription.EndsAt.IsZero() && !now.Before(subscription.EndsAt) {
-		if subscription.GracePeriod > 0 && now.Before(subscription.EndsAt.Add(subscription.GracePeriod)) {
+		if subscription.GracePeriod > 0 && now.Before(RemoteExpiry(subscription.EndsAt, subscription.GracePeriod)) {
 			return PhaseGrace
 		}
 		return PhaseExpired
 	}
 	if subscription.Status == "limited" || subscription.TrafficLimitBytes > 0 && subscription.TrafficUsedBytes >= subscription.TrafficLimitBytes {
 		return PhaseLimited
-	}
-	if subscription.Status == "expired" {
-		return PhaseExpired
 	}
 	if !subscription.EndsAt.IsZero() && subscription.EndsAt.Sub(now) <= expiringSoonWindow {
 		return PhaseExpiringSoon

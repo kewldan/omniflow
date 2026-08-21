@@ -334,6 +334,12 @@ FROM order_lines ol
 JOIN plan_versions pv ON pv.id = ol.plan_version_id
 WHERE ol.order_id = $1;
 
+-- name: GetPlanVersionGracePeriod :one
+-- The grace window the fulfillment worker adds to the paid end when it pushes
+-- an expiry to Remnawave. It is read per operation rather than copied into the
+-- desired state, so every creator of an operation agrees on it by construction.
+SELECT grace_period_seconds FROM plan_versions WHERE id = $1;
+
 -- name: GetLatestEntitlementForChange :one
 SELECT * FROM entitlements
 WHERE user_id = sqlc.arg(user_id)

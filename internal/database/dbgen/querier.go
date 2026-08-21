@@ -532,6 +532,10 @@ type Querier interface {
 	GetPersonalOffer(ctx context.Context, id pgtype.UUID) (PersonalOffer, error)
 	GetPlanAdmin(ctx context.Context, id pgtype.UUID) (Plan, error)
 	GetPlanVersionForOrder(ctx context.Context, arg GetPlanVersionForOrderParams) (GetPlanVersionForOrderRow, error)
+	// The grace window the fulfillment worker adds to the paid end when it pushes
+	// an expiry to Remnawave. It is read per operation rather than copied into the
+	// desired state, so every creator of an operation agrees on it by construction.
+	GetPlanVersionGracePeriod(ctx context.Context, id pgtype.UUID) (int64, error)
 	GetPrimarySubscription(ctx context.Context, userID pgtype.UUID) (Subscription, error)
 	GetPromoForRedemption(ctx context.Context, normalizedCode string) (GetPromoForRedemptionRow, error)
 	GetPromotionAdmin(ctx context.Context, id pgtype.UUID) (Promotion, error)

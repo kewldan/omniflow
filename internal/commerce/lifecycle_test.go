@@ -19,6 +19,42 @@ func TestEvaluatePhaseUsesGracePeriodBeforeExpiry(t *testing.T) {
 	}
 }
 
+// Grace is the window Remnawave is asked to keep access alive past the paid
+// end. Once Remnawave itself reports the user expired, the window is over
+// whatever the clock says, and the screen must not promise access until a date
+// while the tunnel is dead.
+func TestEvaluatePhaseTrustsRemnawaveOverTheGraceWindow(t *testing.T) {
+	now := time.Date(2026, 8, 11, 12, 0, 0, 0, time.UTC)
+	endsAt := now.Add(-2 * time.Hour)
+	grace := 24 * time.Hour
+	if got := EvaluatePhase(now, Subscription{Status: "expired", EndsAt: endsAt, GracePeriod: grace}); got != PhaseExpired {
+		t.Fatalf("remote expired inside the grace window: phase = %q, want %q", got, PhaseExpired)
+	}
+	if got := EvaluatePhase(now, Subscription{Status: "disabled", EndsAt: endsAt, GracePeriod: grace}); got != PhaseDisabled {
+		t.Fatalf("remote disabled inside the grace window: phase = %q, want %q", got, PhaseDisabled)
+	}
+	// While Remnawave still reports the user active, the grace window holds.
+	if got := EvaluatePhase(now, Subscription{Status: "active", EndsAt: endsAt, GracePeriod: grace}); got != PhaseGrace {
+		t.Fatalf("remote active inside the grace window: phase = %q, want %q", got, PhaseGrace)
+	}
+	if got := EvaluatePhase(now, Subscription{Status: "limited", EndsAt: endsAt, GracePeriod: grace}); got != PhaseGrace {
+		t.Fatalf("remote limited inside the grace window: phase = %q, want %q", got, PhaseGrace)
+	}
+}
+
+// The expiry pushed to Remnawave carries the grace; the paid end does not.
+func TestRemoteExpiryAddsTheGraceOnly(t *testing.T) {
+	endsAt := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	if got := RemoteExpiry(endsAt, 48*time.Hour); !got.Equal(endsAt.Add(48 * time.Hour)) {
+		t.Fatalf("remote expiry = %s", got)
+	}
+	for _, grace := range []time.Duration{0, -time.Hour} {
+		if got := RemoteExpiry(endsAt, grace); !got.Equal(endsAt) {
+			t.Fatalf("a plan with grace %s must push the paid end, got %s", grace, got)
+		}
+	}
+}
+
 func TestEvaluatePhaseReportsLimitedAndProvisioning(t *testing.T) {
 	now := time.Date(2026, 8, 11, 12, 0, 0, 0, time.UTC)
 	limited := EvaluatePhase(now, Subscription{Status: "active", EndsAt: now.Add(30 * 24 * time.Hour), TrafficUsedBytes: 100, TrafficLimitBytes: 100})

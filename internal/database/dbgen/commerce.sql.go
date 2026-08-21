@@ -1515,6 +1515,20 @@ func (q *Queries) GetPlanVersionForOrder(ctx context.Context, arg GetPlanVersion
 	return i, err
 }
 
+const getPlanVersionGracePeriod = `-- name: GetPlanVersionGracePeriod :one
+SELECT grace_period_seconds FROM plan_versions WHERE id = $1
+`
+
+// The grace window the fulfillment worker adds to the paid end when it pushes
+// an expiry to Remnawave. It is read per operation rather than copied into the
+// desired state, so every creator of an operation agrees on it by construction.
+func (q *Queries) GetPlanVersionGracePeriod(ctx context.Context, id pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, getPlanVersionGracePeriod, id)
+	var grace_period_seconds int64
+	err := row.Scan(&grace_period_seconds)
+	return grace_period_seconds, err
+}
+
 const getPromoForRedemption = `-- name: GetPromoForRedemption :one
 SELECT pc.id, pc.promotion_id, pc.normalized_code, pc.redemption_limit, pc.active, pc.created_at, p.kind, p.value, p.currency, p.starts_at, p.ends_at,
        p.redemption_limit AS promotion_redemption_limit, p.per_customer_limit, p.eligibility,
