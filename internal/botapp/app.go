@@ -262,6 +262,10 @@ func (app *App) handleStartPayment(ctx context.Context, client *telegram.Bot, up
 		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, app.errorView(locale, routeHome)))
 		return
 	}
+	if !accountActive(session.Customer) {
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, accountUnavailableView(session.Locale, session.Customer, app.supportURL)))
+		return
+	}
 	order, err := app.customers.Order(ctx, session.Customer.ID, orderID, session.Locale)
 	if errors.Is(err, ErrOrderNotFound) {
 		view := app.loadView(ctx, message.From.ID, session.Locale, routeHome)
@@ -385,6 +389,13 @@ func (app *App) handleFlowMessage(ctx context.Context, client *telegram.Bot, upd
 	if err != nil {
 		app.logger.Error("customer resolution failed", "error", err)
 		return false
+	}
+	if !accountActive(session.Customer) && state != "support_reply" {
+		// The prompt was opened before the account was suspended, or the state
+		// outlived it. Only a support message still has somewhere to go.
+		_ = app.customers.CancelSession(ctx, session.TelegramID)
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, accountUnavailableView(session.Locale, session.Customer, app.supportURL)))
+		return true
 	}
 	switch state {
 	case "promo_code":
@@ -631,6 +642,15 @@ func (app *App) HandleCallback(ctx context.Context, client *telegram.Bot, update
 
 func (app *App) handleAction(ctx context.Context, client *telegram.Bot, query *models.CallbackQuery, chatID int64, messageID int, locale Locale, update *models.Update) {
 	parts := strings.Split(strings.TrimPrefix(query.Data, actionPrefix), ":")
+	// A suspended or deleted customer keeps the support desk and nothing else;
+	// that includes the v0.2 actions below, which rotate links and delete
+	// devices.
+	if app.commerceEnabled() && !allowedWhileInactive(parts[0]) {
+		if session, err := app.commerceContext(ctx, query.From.ID, query.From.LanguageCode); err == nil && !accountActive(session.Customer) {
+			app.replaceScreen(ctx, client, chatID, messageID, accountUnavailableView(session.Locale, session.Customer, app.supportURL), app.withCorrelation(update))
+			return
+		}
+	}
 	if handled := app.dispatchCommerceAction(ctx, client, query, chatID, messageID, parts, update); handled {
 		return
 	}
@@ -763,6 +783,10 @@ func (app *App) loadCustomerView(ctx context.Context, telegramID int64, locale L
 	if err != nil {
 		app.logger.Error("customer resolution failed", "error", err)
 		return app.errorView(locale, route)
+	}
+	// A suspended or deleted customer keeps the support desk and nothing else.
+	if !accountActive(session.Customer) && !allowedWhileInactive(route) {
+		return accountUnavailableView(session.Locale, session.Customer, app.supportURL)
 	}
 	if route == routeSettings {
 		return app.settingsScreen(ctx, session)

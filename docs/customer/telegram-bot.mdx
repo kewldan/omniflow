@@ -852,6 +852,24 @@ sign-in links requested, and the link could not be created. Two independent
 limits apply — the bot's own per-account budget and the identity service's five
 links per hour per customer.
 
+## When the account is suspended or deleted
+
+A customer an operator has suspended, or whose account has been deleted, sees
+one screen in place of every other:
+
+> ⛔ Account suspended — Purchases and your subscription are on hold by the
+> service administrator. Contact support and we will sort it out.
+
+or, for a deleted account, "This account has been deleted. If that is a
+mistake, contact support." It carries `💬 Support` and, when the operator
+configured a support URL, `💬 Contact support`. Every command, button, and
+free-text step answers with it — the menu, plans, wallet, orders, devices, link
+rotation, `/login` — except the support desk: the ticket list, opening a
+ticket, and writing into one keep working, because an operator suspends a
+customer to talk to them and the customer wants to talk back. This is the
+bot's side of the rule the [web panel](/customer/web-panel) applies with its
+`403 account_unavailable`.
+
 ## When purchases are not configured
 
 The commerce surface is optional. On an installation where it could not be built,

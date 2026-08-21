@@ -688,6 +688,15 @@ var catalog = map[string]phrase{
 		en: "Purchases and activation are paused. Orders you already paid for and active subscriptions are untouched, and your access keeps working."},
 	"maintenance.until": {ru: "Ожидаемое время возобновления: <b>%s</b>.", en: "Expected back at <b>%s</b>."},
 
+	// A customer an operator suspended or deleted. Support stays reachable: an
+	// operator suspends a customer to talk to them, and the customer wants to
+	// talk back.
+	"account.suspended": {ru: "⛔ <b>Аккаунт приостановлен</b>\n\nДоступ к покупкам и подписке временно закрыт администратором сервиса. Напишите в поддержку — мы разберёмся.",
+		en: "⛔ <b>Account suspended</b>\n\nPurchases and your subscription are on hold by the service administrator. Contact support and we will sort it out."},
+	"account.deleted": {ru: "⛔ <b>Аккаунт удалён</b>\n\nЭтот аккаунт был удалён. Если это ошибка, напишите в поддержку.",
+		en: "⛔ <b>Account deleted</b>\n\nThis account has been deleted. If that is a mistake, contact support."},
+	"account.contact": {ru: "💬 Написать в поддержку", en: "💬 Contact support"},
+
 	// Errors.
 	"error.generic":   {ru: "⚠️ <b>Не удалось выполнить действие</b>\n\nПопробуйте ещё раз через минуту.", en: "⚠️ <b>That action did not complete</b>\n\nPlease try again in a moment."},
 	"error.load":      {ru: "⚠️ <b>Не удалось загрузить данные</b>\n\nПроверьте соединение и повторите запрос.", en: "⚠️ <b>Could not load your data</b>\n\nCheck your connection and try again."},

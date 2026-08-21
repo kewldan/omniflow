@@ -60,6 +60,12 @@ func (app *App) HandleWebLogin(ctx context.Context, client *telegram.Bot, update
 		app.sendWebLoginNotice(ctx, client, message.Chat.ID, locale, "weblogin.failed")
 		return
 	}
+	if !accountActive(customer) {
+		// The web panel refuses a suspended or deleted account at the door; a
+		// link that can only lead there is not worth minting.
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, accountUnavailableView(locale, customer, app.supportURL)))
+		return
+	}
 
 	link, err := app.webSignIn.IssueMagicLink(ctx, customer.ID)
 	switch {
