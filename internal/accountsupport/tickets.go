@@ -421,8 +421,10 @@ func lockWritableTicket(ctx context.Context, tx pgx.Tx, customerID, ticketID str
 // The operator-side unread counter is raised only when a row is actually
 // inserted, so a replayed submission does not make the queue show work that has
 // not arrived. A message on a resolved ticket reopens it, because a customer who
-// writes back has not had their question answered — the same rule the bot
-// applies, so the two surfaces cannot leave a ticket in different states.
+// writes back has not had their question answered, and a message on a pending
+// ticket — one waiting on the customer — moves it back to open, because the
+// wait is over. The bot applies the same rules, so the two surfaces cannot leave
+// a ticket in different states.
 func appendCustomerMessage(
 	ctx context.Context, tx pgx.Tx, ticketID, body, dedupeKey string,
 ) (int64, error) {
@@ -442,18 +444,24 @@ func appendCustomerMessage(
 	if err != nil {
 		return 0, err
 	}
-	if _, err = tx.Exec(ctx, `UPDATE support_tickets
-		SET updated_at = now(), last_message_at = now(),
-		    operator_unread_count = operator_unread_count + 1,
-		    status = CASE WHEN status = 'resolved' THEN 'open' ELSE status END,
-		    reopened_count = CASE WHEN status = 'resolved' THEN reopened_count + 1 ELSE reopened_count END,
-		    resolved_at = CASE WHEN status = 'resolved' THEN NULL ELSE resolved_at END,
-		    subject = CASE WHEN subject = '' THEN left($2, 120) ELSE subject END
-		WHERE id = $1::uuid`, ticketID, firstLine(body)); err != nil {
+	if _, err = tx.Exec(ctx, customerMessageTicketUpdate, ticketID, firstLine(body)); err != nil {
 		return 0, err
 	}
 	return messageID, nil
 }
+
+// customerMessageTicketUpdate is the ticket transition a customer message
+// causes. It is one statement, shared by the bot through the same wording, so
+// the two surfaces cannot drift: resolved and pending both return to open, only
+// a resolved one counts as a reopen and clears its resolution stamp.
+const customerMessageTicketUpdate = `UPDATE support_tickets
+	SET updated_at = now(), last_message_at = now(),
+	    operator_unread_count = operator_unread_count + 1,
+	    status = CASE WHEN status IN ('resolved', 'pending') THEN 'open' ELSE status END,
+	    reopened_count = CASE WHEN status = 'resolved' THEN reopened_count + 1 ELSE reopened_count END,
+	    resolved_at = CASE WHEN status = 'resolved' THEN NULL ELSE resolved_at END,
+	    subject = CASE WHEN subject = '' THEN left($2, 120) ELSE subject END
+	WHERE id = $1::uuid`
 
 // MarkRead clears the customer's unread state for one conversation.
 //

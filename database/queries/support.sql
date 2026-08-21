@@ -198,11 +198,46 @@ UPDATE support_tickets
 SET status = 'merged',
     merged_into_ticket_id = sqlc.arg(survivor_id),
     resolved_at = COALESCE(resolved_at, now()),
+    customer_unread_count = 0,
+    operator_unread_count = 0,
     updated_at = now()
 WHERE id = sqlc.arg(ticket_id)
   AND status <> 'merged'
   AND id <> sqlc.arg(survivor_id)
 RETURNING *;
+
+-- name: AbsorbSupportTicketCounters :one
+-- The survivor takes on what the absorbed ticket was carrying: its unread
+-- counts on both sides, its latest activity, and — when the absorbed ticket was
+-- still waiting on an operator and the survivor was not — the open state, so a
+-- live question cannot be merged into a finished thread and disappear from the
+-- queue. Runs before MergeSupportTicket zeroes the absorbed row.
+UPDATE support_tickets s
+SET customer_unread_count = s.customer_unread_count + a.customer_unread_count,
+    operator_unread_count = s.operator_unread_count + a.operator_unread_count,
+    last_message_at = GREATEST(s.last_message_at, a.last_message_at),
+    status = CASE
+      WHEN s.status IN ('resolved', 'closed') AND a.status IN ('open', 'pending') THEN 'open'
+      ELSE s.status
+    END,
+    resolved_at = CASE
+      WHEN s.status IN ('resolved', 'closed') AND a.status IN ('open', 'pending') THEN NULL
+      ELSE s.resolved_at
+    END,
+    closed_at = CASE
+      WHEN s.status IN ('resolved', 'closed') AND a.status IN ('open', 'pending') THEN NULL
+      ELSE s.closed_at
+    END,
+    reopened_count = CASE
+      WHEN s.status IN ('resolved', 'closed') AND a.status IN ('open', 'pending')
+        AND s.resolved_at IS NOT NULL THEN s.reopened_count + 1
+      ELSE s.reopened_count
+    END,
+    updated_at = now()
+FROM support_tickets a
+WHERE s.id = sqlc.arg(survivor_id) AND a.id = sqlc.arg(ticket_id)
+  AND s.status <> 'merged'
+RETURNING s.*;
 
 -- name: MoveSupportMessages :exec
 -- Moves the absorbed ticket's messages onto the survivor so the conversation
@@ -249,13 +284,48 @@ ORDER BY m.created_at
 LIMIT sqlc.arg(page_size);
 
 -- name: AppendOperatorMessage :one
+-- The insert is conditional on the ticket not being merged. An absorbed ticket
+-- has no reader: its customer was pointed at the survivor, and a reply written
+-- here would be delivered to them about a conversation they can no longer open.
+-- The caller locks the ticket first and tells "merged" apart from "deduplicated",
+-- which both come back as no row.
 INSERT INTO support_messages (ticket_id, sender, body, author_id, canned_response_id, dedupe_key)
-VALUES (
-  sqlc.arg(ticket_id), 'operator', sqlc.arg(body), sqlc.arg(author_id),
-  sqlc.narg(canned_response_id), sqlc.arg(dedupe_key)
-)
+SELECT t.id, 'operator', sqlc.arg(body), sqlc.arg(author_id),
+       sqlc.narg(canned_response_id), sqlc.arg(dedupe_key)
+FROM support_tickets t
+WHERE t.id = sqlc.arg(ticket_id) AND t.status <> 'merged'
 ON CONFLICT (ticket_id, dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
 RETURNING *;
+
+-- name: AppendSupportSystemMessage :one
+-- A notice about the conversation itself — closed, resolved, or merged by an
+-- operator — written in the customer's language and delivered through the same
+-- path as a reply. It has no author: nobody said it, the desk did.
+INSERT INTO support_messages (ticket_id, sender, body)
+SELECT t.id, 'system', sqlc.arg(body)
+FROM support_tickets t
+WHERE t.id = sqlc.arg(ticket_id) AND t.status <> 'merged'
+RETURNING *;
+
+-- name: TouchSupportTicketActivity :exec
+-- A message from the desk is activity on the ticket. Without this a web-only
+-- customer's answered ticket never rose in their inbox, because the bot's
+-- delivery mark — which does bump these — only runs for customers it can push
+-- to.
+UPDATE support_tickets
+SET last_message_at = now(), updated_at = now()
+WHERE id = sqlc.arg(ticket_id);
+
+-- name: SupportCustomerLocale :one
+-- The language a system notice is written in: the bot preference when the
+-- customer set one, otherwise the account language. It is resolved at write
+-- time because the message body is stored text, not a key.
+SELECT (CASE WHEN COALESCE(p.locale, 'auto') = 'auto' THEN u.locale ELSE p.locale END)::text AS locale,
+       t.subject
+FROM support_tickets t
+JOIN users u ON u.id = t.user_id
+LEFT JOIN bot_preferences p ON p.user_id = u.id
+WHERE t.id = sqlc.arg(ticket_id);
 
 -- name: ListSupportNotes :many
 SELECT sqlc.embed(n), COALESCE(a.display_name, '') AS author_name

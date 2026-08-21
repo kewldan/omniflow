@@ -294,11 +294,14 @@ func (store *PostgresStore) AppendCustomerMessage(ctx context.Context, customerI
 	// The operator-side unread counter is the mirror of the customer's, and it
 	// is what makes a queue show what has arrived since anybody looked. A
 	// customer message on a resolved ticket reopens it, because a customer who
-	// writes back has not had their question answered.
+	// writes back has not had their question answered; one on a pending ticket
+	// returns it to open, because the wait for the customer is over. The
+	// statement is word for word the web panel's (accountsupport), so the two
+	// surfaces cannot leave a ticket in different states.
 	if _, err = tx.Exec(ctx, `UPDATE support_tickets
 		SET updated_at = now(), last_message_at = now(),
 		    operator_unread_count = operator_unread_count + 1,
-		    status = CASE WHEN status = 'resolved' THEN 'open' ELSE status END,
+		    status = CASE WHEN status IN ('resolved', 'pending') THEN 'open' ELSE status END,
 		    reopened_count = CASE WHEN status = 'resolved' THEN reopened_count + 1 ELSE reopened_count END,
 		    resolved_at = CASE WHEN status = 'resolved' THEN NULL ELSE resolved_at END,
 		    subject = CASE WHEN subject = '' THEN left($2, 120) ELSE subject END

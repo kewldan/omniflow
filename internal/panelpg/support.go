@@ -416,6 +416,10 @@ func (service *Service) SetTicketStatus(
 	}
 	var ticket SupportTicket
 	err = service.inTx(ctx, func(queries *dbgen.Queries) error {
+		before, txErr := queries.LockSupportTicket(ctx, id)
+		if txErr != nil {
+			return notFound(txErr)
+		}
 		row, txErr := queries.SetSupportTicketStatus(ctx, dbgen.SetSupportTicketStatusParams{
 			TicketID: id, Status: status,
 		})
@@ -423,12 +427,78 @@ func (service *Service) SetTicketStatus(
 			return notFound(txErr)
 		}
 		ticket = ticketFrom(row)
+		// The customer is told when the desk finishes with their question. A
+		// ticket that quietly turns resolved is a ticket the customer keeps
+		// waiting on; the notice is a message, so it reaches them the same way
+		// a reply does. It is written only on a real transition.
+		if before.Status != status && (status == "resolved" || status == "closed") {
+			if txErr = service.noteToCustomer(ctx, queries, id, status, ""); txErr != nil {
+				return txErr
+			}
+		}
 		return appendAudit(ctx, queries, actor.audit(
 			"panel.support_ticket.status_changed", "support", "support_ticket", ticketID,
 			map[string]any{"status": status, "reopenedCount": ticket.Reopened},
 		))
 	})
 	return ticket, err
+}
+
+// noteToCustomer writes a system message in the customer's language about an
+// event on the conversation and counts it as activity on the ticket. The bot's
+// support loop delivers it like a reply; the web panel renders it as a system
+// turn.
+func (service *Service) noteToCustomer(
+	ctx context.Context, queries *dbgen.Queries, ticketID pgtype.UUID, event, subject string,
+) error {
+	customer, err := queries.SupportCustomerLocale(ctx, ticketID)
+	if err != nil {
+		return notFound(err)
+	}
+	body := supportSystemNotice(customer.Locale, event, subject)
+	if body == "" {
+		return nil
+	}
+	if _, err = queries.AppendSupportSystemMessage(ctx, dbgen.AppendSupportSystemMessageParams{
+		TicketID: ticketID, Body: body,
+	}); err != nil {
+		return notFound(err)
+	}
+	return queries.TouchSupportTicketActivity(ctx, ticketID)
+}
+
+// supportSystemNotice is the wording of a system message, in the customer's
+// language. The body is stored text rather than a key because the message table
+// holds what was said, and a customer reading it next year should read what
+// they were told, not what the current catalogue would say.
+func supportSystemNotice(locale, event, subject string) string {
+	russian := strings.EqualFold(strings.TrimSpace(locale), "ru")
+	switch event {
+	case "resolved":
+		if russian {
+			return "Поддержка отметила обращение как решённое. Если вопрос не решён, просто ответьте — обращение откроется заново."
+		}
+		return "Support marked this request as resolved. If this did not solve it, just reply and the request reopens."
+	case "closed":
+		if russian {
+			return "Поддержка закрыла обращение. Вы можете открыть его заново или создать новое."
+		}
+		return "Support closed this request. You can reopen it or start a new one."
+	case "merged":
+		name := strings.TrimSpace(subject)
+		if russian {
+			if name == "" {
+				return "Ваше другое обращение объединено с этим разговором — продолжение здесь."
+			}
+			return "Ваше обращение «" + name + "» объединено с этим разговором — продолжение здесь."
+		}
+		if name == "" {
+			return "Your other request was merged into this conversation; it continues here."
+		}
+		return "Your request “" + name + "” was merged into this conversation; it continues here."
+	default:
+		return ""
+	}
 }
 
 // MergeTicket folds one ticket into another.
@@ -466,10 +536,23 @@ func (service *Service) MergeTicket(
 			// another's conversation. It is refused rather than warned about.
 			return ErrValidaton
 		}
+		if target.Status == "merged" {
+			// A survivor that was itself absorbed would send the customer's
+			// words somewhere nobody reads.
+			return ErrRejected
+		}
 		if txErr = queries.MoveSupportMessages(ctx, dbgen.MoveSupportMessagesParams{
 			SurvivorID: survivor, TicketID: id,
 		}); txErr != nil {
 			return txErr
+		}
+		// The unread counts travel with the messages, so what the customer had
+		// not read on the absorbed ticket is still unread on the survivor, and
+		// a question an operator had not looked at is still new work.
+		if _, txErr = queries.AbsorbSupportTicketCounters(ctx, dbgen.AbsorbSupportTicketCountersParams{
+			SurvivorID: survivor, TicketID: id,
+		}); txErr != nil {
+			return notFound(txErr)
 		}
 		row, txErr := queries.MergeSupportTicket(ctx, dbgen.MergeSupportTicketParams{
 			TicketID: id, SurvivorID: survivor,
@@ -478,6 +561,11 @@ func (service *Service) MergeTicket(
 			return notFound(txErr)
 		}
 		ticket = ticketFrom(row)
+		// The customer is told on the surviving thread, which is the one they
+		// can still open; the absorbed one points at it.
+		if txErr = service.noteToCustomer(ctx, queries, survivor, "merged", absorbed.Subject); txErr != nil {
+			return txErr
+		}
 		return appendAudit(ctx, queries, actor.audit(
 			"panel.support_ticket.merged", "support", "support_ticket", ticketID,
 			map[string]any{"survivorId": survivorID},
@@ -518,6 +606,16 @@ func (service *Service) Reply(
 
 	var message SupportMessage
 	err = service.inTx(ctx, func(queries *dbgen.Queries) error {
+		// The ticket is locked and read first so that "no row" from the insert
+		// can only mean the dedupe key: a merged ticket is refused here, with a
+		// status that says so, rather than silently producing nothing.
+		ticket, txErr := queries.LockSupportTicket(ctx, id)
+		if txErr != nil {
+			return notFound(txErr)
+		}
+		if ticket.Status == "merged" {
+			return ErrRejected
+		}
 		row, txErr := queries.AppendOperatorMessage(ctx, dbgen.AppendOperatorMessageParams{
 			TicketID: id, Body: strings.TrimSpace(input.Body), AuthorID: authorID,
 			CannedResponseID: optionalUUID(input.CannedResponseID),
@@ -532,8 +630,14 @@ func (service *Service) Reply(
 			return txErr
 		}
 		message = SupportMessage{
-			ID: row.ID, Sender: row.Sender, Body: row.Body,
+			ID: row.ID, Sender: row.Sender, Body: row.Body, Delivery: "queued",
 			CreatedAt: timeValue(row.CreatedAt),
+		}
+		// A reply is activity. Without this a web-only customer's answered
+		// ticket never rose in their inbox, because only the bot's delivery
+		// mark moved these stamps and it never runs for them.
+		if txErr = queries.TouchSupportTicketActivity(ctx, id); txErr != nil {
+			return txErr
 		}
 		// Only the first reply sets the measure, so it survives a conversation
 		// that goes back and forth for a week.

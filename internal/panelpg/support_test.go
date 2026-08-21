@@ -32,3 +32,26 @@ func TestDeliveryStateNamesWhatTheDeskNeedsToKnow(t *testing.T) {
 		})
 	}
 }
+
+// TestSupportSystemNoticeSpeaksTheCustomersLanguage checks that every event
+// the desk announces has wording in both languages, that the language follows
+// the customer rather than the operator, and that an unknown event produces
+// nothing rather than an empty message.
+func TestSupportSystemNoticeSpeaksTheCustomersLanguage(t *testing.T) {
+	for _, event := range []string{"resolved", "closed", "merged"} {
+		english := supportSystemNotice("en", event, "Billing")
+		russian := supportSystemNotice("RU", event, "Оплата")
+		if english == "" || russian == "" || english == russian {
+			t.Fatalf("event %s: en=%q ru=%q", event, english, russian)
+		}
+	}
+	if got := supportSystemNotice("en", "merged", "Billing"); got != "Your request “Billing” was merged into this conversation; it continues here." {
+		t.Fatalf("merged notice names the absorbed subject: %q", got)
+	}
+	if got := supportSystemNotice("en", "merged", "   "); got == "" || got == supportSystemNotice("en", "merged", "Billing") {
+		t.Fatalf("a merged notice without a subject still reads sensibly: %q", got)
+	}
+	if got := supportSystemNotice("en", "assigned", ""); got != "" {
+		t.Fatalf("an event the customer is not told about produced %q", got)
+	}
+}

@@ -159,7 +159,27 @@ answered" survives a queue's target being changed afterwards:
   question.
 
 A customer replying on a resolved ticket auto-reopens it and bumps
-`reopened_count`, and the same rule applies in the bot and the web panel.
+`reopened_count`; a customer replying on a pending ticket returns it to `open`,
+because the wait for them is over. The same rules apply in the bot and the web
+panel, word for word.
+
+### The customer is told
+
+Setting `resolved` or `closed` writes a `system` message into the conversation
+— "Support marked this request as resolved. If this did not solve it, just
+reply and the request reopens." or "Support closed this request. You can reopen
+it or start a new one." — in the customer's language, resolved from their bot
+preference and then their account language at the moment it is written. It
+counts as activity on the ticket, the web panel renders it as a system turn, the
+bot shows it as `⚙️ System`, and the bot's support loop pushes it to Telegram
+exactly as it pushes a reply, headed `⚙️ Request updated`. Setting the same
+status again is not a transition and writes nothing. A move to `pending` is not
+announced: it is the desk's own bookkeeping, and the operator's reply that
+normally accompanies it says what is needed.
+
+An operator reply is activity too: it bumps `last_message_at` and `updated_at`
+at write time, so a web-only customer's answered ticket rises to the top of
+their inbox without waiting for a push that will never come for them.
 Customers get explicit **Close** and **Reopen** controls too
 (`POST /v1/account/support/tickets/{ticketID}/close` and `/reopen`). Closing an
 already-closed ticket succeeds and changes nothing — the customer asked for a
@@ -307,9 +327,20 @@ Both rows are locked before anything moves. The refusals:
   into another's conversation is not a mistake worth warning about afterwards.
 - Merging a ticket into itself is refused, both in Go and by a database `CHECK`.
 - A ticket already `merged` cannot be merged again.
+- Merging **into** a ticket that was itself merged is refused with 409
+  `state_conflict`; the survivor must be a live conversation.
 
-The absorbed ticket is stamped `resolved_at` and accepts no further customer
-reply. The action audits as `panel.support_ticket.merged` with the survivor's id.
+The absorbed ticket is stamped `resolved_at`, its unread counters are zeroed,
+and it accepts no further customer reply. What it was carrying moves to the
+survivor: both unread counts are added on, the later `last_message_at` wins,
+and a survivor that was `resolved` or `closed` while the absorbed ticket was
+still `open` or `pending` becomes `open` again (counting as a reopen), so a
+live question cannot be merged into a finished thread and vanish from the
+queue. A `system` message on the survivor tells the customer that their other
+request — named by its subject — was merged into this conversation. Replying to
+the absorbed ticket from the desk is refused with 409 `state_conflict`, because
+nobody reads it any more. The action audits as `panel.support_ticket.merged`
+with the survivor's id.
 
 ## Attachments
 

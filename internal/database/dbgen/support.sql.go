@@ -11,31 +11,101 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const absorbSupportTicketCounters = `-- name: AbsorbSupportTicketCounters :one
+UPDATE support_tickets s
+SET customer_unread_count = s.customer_unread_count + a.customer_unread_count,
+    operator_unread_count = s.operator_unread_count + a.operator_unread_count,
+    last_message_at = GREATEST(s.last_message_at, a.last_message_at),
+    status = CASE
+      WHEN s.status IN ('resolved', 'closed') AND a.status IN ('open', 'pending') THEN 'open'
+      ELSE s.status
+    END,
+    resolved_at = CASE
+      WHEN s.status IN ('resolved', 'closed') AND a.status IN ('open', 'pending') THEN NULL
+      ELSE s.resolved_at
+    END,
+    closed_at = CASE
+      WHEN s.status IN ('resolved', 'closed') AND a.status IN ('open', 'pending') THEN NULL
+      ELSE s.closed_at
+    END,
+    reopened_count = CASE
+      WHEN s.status IN ('resolved', 'closed') AND a.status IN ('open', 'pending')
+        AND s.resolved_at IS NOT NULL THEN s.reopened_count + 1
+      ELSE s.reopened_count
+    END,
+    updated_at = now()
+FROM support_tickets a
+WHERE s.id = $1 AND a.id = $2
+  AND s.status <> 'merged'
+RETURNING s.id, s.user_id, s.status, s.created_at, s.updated_at, s.subject, s.priority, s.last_message_at, s.customer_unread_count, s.closed_at, s.queue_id, s.assignee_id, s.assigned_at, s.first_response_at, s.resolved_at, s.reopened_count, s.operator_unread_count, s.merged_into_ticket_id
+`
+
+type AbsorbSupportTicketCountersParams struct {
+	SurvivorID pgtype.UUID `json:"survivor_id"`
+	TicketID   pgtype.UUID `json:"ticket_id"`
+}
+
+// The survivor takes on what the absorbed ticket was carrying: its unread
+// counts on both sides, its latest activity, and — when the absorbed ticket was
+// still waiting on an operator and the survivor was not — the open state, so a
+// live question cannot be merged into a finished thread and disappear from the
+// queue. Runs before MergeSupportTicket zeroes the absorbed row.
+func (q *Queries) AbsorbSupportTicketCounters(ctx context.Context, arg AbsorbSupportTicketCountersParams) (SupportTicket, error) {
+	row := q.db.QueryRow(ctx, absorbSupportTicketCounters, arg.SurvivorID, arg.TicketID)
+	var i SupportTicket
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Subject,
+		&i.Priority,
+		&i.LastMessageAt,
+		&i.CustomerUnreadCount,
+		&i.ClosedAt,
+		&i.QueueID,
+		&i.AssigneeID,
+		&i.AssignedAt,
+		&i.FirstResponseAt,
+		&i.ResolvedAt,
+		&i.ReopenedCount,
+		&i.OperatorUnreadCount,
+		&i.MergedIntoTicketID,
+	)
+	return i, err
+}
+
 const appendOperatorMessage = `-- name: AppendOperatorMessage :one
 INSERT INTO support_messages (ticket_id, sender, body, author_id, canned_response_id, dedupe_key)
-VALUES (
-  $1, 'operator', $2, $3,
-  $4, $5
-)
+SELECT t.id, 'operator', $1, $2,
+       $3, $4
+FROM support_tickets t
+WHERE t.id = $5 AND t.status <> 'merged'
 ON CONFLICT (ticket_id, dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
 RETURNING id, ticket_id, sender, body, telegram_message_id, created_at, dedupe_key, delivered_at, read_at, author_id, canned_response_id
 `
 
 type AppendOperatorMessageParams struct {
-	TicketID         pgtype.UUID `json:"ticket_id"`
 	Body             string      `json:"body"`
 	AuthorID         pgtype.UUID `json:"author_id"`
 	CannedResponseID pgtype.UUID `json:"canned_response_id"`
 	DedupeKey        pgtype.Text `json:"dedupe_key"`
+	TicketID         pgtype.UUID `json:"ticket_id"`
 }
 
+// The insert is conditional on the ticket not being merged. An absorbed ticket
+// has no reader: its customer was pointed at the survivor, and a reply written
+// here would be delivered to them about a conversation they can no longer open.
+// The caller locks the ticket first and tells "merged" apart from "deduplicated",
+// which both come back as no row.
 func (q *Queries) AppendOperatorMessage(ctx context.Context, arg AppendOperatorMessageParams) (SupportMessage, error) {
 	row := q.db.QueryRow(ctx, appendOperatorMessage,
-		arg.TicketID,
 		arg.Body,
 		arg.AuthorID,
 		arg.CannedResponseID,
 		arg.DedupeKey,
+		arg.TicketID,
 	)
 	var i SupportMessage
 	err := row.Scan(
@@ -75,6 +145,41 @@ func (q *Queries) AppendSupportNote(ctx context.Context, arg AppendSupportNotePa
 		&i.AuthorID,
 		&i.Body,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const appendSupportSystemMessage = `-- name: AppendSupportSystemMessage :one
+INSERT INTO support_messages (ticket_id, sender, body)
+SELECT t.id, 'system', $1
+FROM support_tickets t
+WHERE t.id = $2 AND t.status <> 'merged'
+RETURNING id, ticket_id, sender, body, telegram_message_id, created_at, dedupe_key, delivered_at, read_at, author_id, canned_response_id
+`
+
+type AppendSupportSystemMessageParams struct {
+	Body     string      `json:"body"`
+	TicketID pgtype.UUID `json:"ticket_id"`
+}
+
+// A notice about the conversation itself — closed, resolved, or merged by an
+// operator — written in the customer's language and delivered through the same
+// path as a reply. It has no author: nobody said it, the desk did.
+func (q *Queries) AppendSupportSystemMessage(ctx context.Context, arg AppendSupportSystemMessageParams) (SupportMessage, error) {
+	row := q.db.QueryRow(ctx, appendSupportSystemMessage, arg.Body, arg.TicketID)
+	var i SupportMessage
+	err := row.Scan(
+		&i.ID,
+		&i.TicketID,
+		&i.Sender,
+		&i.Body,
+		&i.TelegramMessageID,
+		&i.CreatedAt,
+		&i.DedupeKey,
+		&i.DeliveredAt,
+		&i.ReadAt,
+		&i.AuthorID,
+		&i.CannedResponseID,
 	)
 	return i, err
 }
@@ -1049,6 +1154,8 @@ UPDATE support_tickets
 SET status = 'merged',
     merged_into_ticket_id = $1,
     resolved_at = COALESCE(resolved_at, now()),
+    customer_unread_count = 0,
+    operator_unread_count = 0,
     updated_at = now()
 WHERE id = $2
   AND status <> 'merged'
@@ -1700,6 +1807,30 @@ func (q *Queries) SetSupportTicketStatus(ctx context.Context, arg SetSupportTick
 	return i, err
 }
 
+const supportCustomerLocale = `-- name: SupportCustomerLocale :one
+SELECT (CASE WHEN COALESCE(p.locale, 'auto') = 'auto' THEN u.locale ELSE p.locale END)::text AS locale,
+       t.subject
+FROM support_tickets t
+JOIN users u ON u.id = t.user_id
+LEFT JOIN bot_preferences p ON p.user_id = u.id
+WHERE t.id = $1
+`
+
+type SupportCustomerLocaleRow struct {
+	Locale  string `json:"locale"`
+	Subject string `json:"subject"`
+}
+
+// The language a system notice is written in: the bot preference when the
+// customer set one, otherwise the account language. It is resolved at write
+// time because the message body is stored text, not a key.
+func (q *Queries) SupportCustomerLocale(ctx context.Context, ticketID pgtype.UUID) (SupportCustomerLocaleRow, error) {
+	row := q.db.QueryRow(ctx, supportCustomerLocale, ticketID)
+	var i SupportCustomerLocaleRow
+	err := row.Scan(&i.Locale, &i.Subject)
+	return i, err
+}
+
 const supportDeskSummary = `-- name: SupportDeskSummary :one
 SELECT
   (SELECT count(*)::bigint FROM support_tickets WHERE status IN ('open', 'pending')) AS open_tickets,
@@ -1831,6 +1962,21 @@ type TagSupportTicketParams struct {
 
 func (q *Queries) TagSupportTicket(ctx context.Context, arg TagSupportTicketParams) error {
 	_, err := q.db.Exec(ctx, tagSupportTicket, arg.TicketID, arg.TagID, arg.TaggedBy)
+	return err
+}
+
+const touchSupportTicketActivity = `-- name: TouchSupportTicketActivity :exec
+UPDATE support_tickets
+SET last_message_at = now(), updated_at = now()
+WHERE id = $1
+`
+
+// A message from the desk is activity on the ticket. Without this a web-only
+// customer's answered ticket never rose in their inbox, because the bot's
+// delivery mark — which does bump these — only runs for customers it can push
+// to.
+func (q *Queries) TouchSupportTicketActivity(ctx context.Context, ticketID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, touchSupportTicketActivity, ticketID)
 	return err
 }
 

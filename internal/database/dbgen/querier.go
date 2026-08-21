@@ -16,13 +16,28 @@ type Querier interface {
 	// Token, request, latency, error, and estimated-cost reporting, grouped by the
 	// dimensions an owner reads. No prompt content appears because none is stored.
 	AIUsageReport(ctx context.Context, arg AIUsageReportParams) ([]AIUsageReportRow, error)
+	// The survivor takes on what the absorbed ticket was carrying: its unread
+	// counts on both sides, its latest activity, and — when the absorbed ticket was
+	// still waiting on an operator and the survivor was not — the open state, so a
+	// live question cannot be merged into a finished thread and disappear from the
+	// queue. Runs before MergeSupportTicket zeroes the absorbed row.
+	AbsorbSupportTicketCounters(ctx context.Context, arg AbsorbSupportTicketCountersParams) (SupportTicket, error)
 	AcquirePaymentMutationLock(ctx context.Context, hashtextextended string) error
 	AddBlocklistAllowlistEntry(ctx context.Context, arg AddBlocklistAllowlistEntryParams) (BlocklistAllowlist, error)
 	AddPromotionPlan(ctx context.Context, arg AddPromotionPlanParams) error
 	AnonymizeCustomerData(ctx context.Context, targetUserID pgtype.UUID) error
 	AppealBlocklistMatch(ctx context.Context, arg AppealBlocklistMatchParams) (BlocklistMatch, error)
+	// The insert is conditional on the ticket not being merged. An absorbed ticket
+	// has no reader: its customer was pointed at the survivor, and a reply written
+	// here would be delivered to them about a conversation they can no longer open.
+	// The caller locks the ticket first and tells "merged" apart from "deduplicated",
+	// which both come back as no row.
 	AppendOperatorMessage(ctx context.Context, arg AppendOperatorMessageParams) (SupportMessage, error)
 	AppendSupportNote(ctx context.Context, arg AppendSupportNoteParams) (SupportNote, error)
+	// A notice about the conversation itself — closed, resolved, or merged by an
+	// operator — written in the customer's language and delivered through the same
+	// path as a reply. It has no author: nobody said it, the desk did.
+	AppendSupportSystemMessage(ctx context.Context, arg AppendSupportSystemMessageParams) (SupportMessage, error)
 	ApplyCustomerImportItem(ctx context.Context, arg ApplyCustomerImportItemParams) (CustomerImportItem, error)
 	ApplyCustomerLifecycle(ctx context.Context, arg ApplyCustomerLifecycleParams) (User, error)
 	// Add-on capacity is folded into the entitlement itself, so the existing
@@ -1466,6 +1481,10 @@ type Querier interface {
 	// Superseding is scoped to one subscription so buying a second subscription
 	// never retires the first one's entitlement.
 	SupersedePreviousEntitlements(ctx context.Context, arg SupersedePreviousEntitlementsParams) error
+	// The language a system notice is written in: the bot preference when the
+	// customer set one, otherwise the account language. It is resolved at write
+	// time because the message body is stored text, not a key.
+	SupportCustomerLocale(ctx context.Context, ticketID pgtype.UUID) (SupportCustomerLocaleRow, error)
 	// The desk at a glance: what is waiting, what is overdue, and how quickly the
 	// desk is answering.
 	SupportDeskSummary(ctx context.Context, since pgtype.Timestamptz) (SupportDeskSummaryRow, error)
@@ -1492,6 +1511,11 @@ type Querier interface {
 	// horizon would extend a session the absolute limit had already ended.
 	TouchCustomerSession(ctx context.Context, arg TouchCustomerSessionParams) (CustomerSession, error)
 	TouchPaymentMethodUsed(ctx context.Context, id pgtype.UUID) error
+	// A message from the desk is activity on the ticket. Without this a web-only
+	// customer's answered ticket never rose in their inbox, because the bot's
+	// delivery mark — which does bump these — only runs for customers it can push
+	// to.
+	TouchSupportTicketActivity(ctx context.Context, ticketID pgtype.UUID) error
 	// Of the trials claimed in this period, how many of those customers have since
 	// paid for something.
 	//

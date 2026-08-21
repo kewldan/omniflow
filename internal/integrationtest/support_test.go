@@ -4,10 +4,13 @@ package integrationtest
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/omniflow/omniflow/internal/accountsupport"
 	"github.com/omniflow/omniflow/internal/botapp"
 	"github.com/omniflow/omniflow/internal/panelpg"
 )
@@ -341,5 +344,147 @@ func TestAnUnreachableCustomerDoesNotParkTheReplyQueue(t *testing.T) {
 	}
 	if pending, err = store.PendingOperatorReplies(ctx, 10); err != nil || len(pending) != 0 {
 		t.Fatalf("a delivered reply is still pending: %+v (%v)", pending, err)
+	}
+}
+
+// TestTheCustomerIsToldWhenTheDeskFinishes covers the system notices: a
+// resolve, a close, and a merge each leave a message the customer can read on
+// either surface and that the bot's support loop will push, and a customer
+// answering a pending ticket takes it out of the waiting state.
+func TestTheCustomerIsToldWhenTheDeskFinishes(t *testing.T) {
+	ctx := context.Background()
+	harness := newHarness(t)
+	operations := newOperations(t, harness)
+	support := newAccountSupport(t, harness)
+	store, err := botapp.NewPostgresStore(ctx, harness.url)
+	if err != nil {
+		t.Fatalf("build bot store: %v", err)
+	}
+	actor := harness.operator(ctx, t, "finish@example.test")
+	customerID := harness.customer(ctx, t)
+	ticketID := newCustomerTicket(ctx, t, support, customerID, "Connection drops")
+
+	systemTurns := func(id string) []string {
+		t.Helper()
+		conversation, readErr := support.Conversation(ctx, customerID, id)
+		if readErr != nil {
+			t.Fatalf("read conversation: %v", readErr)
+		}
+		bodies := []string{}
+		for _, message := range conversation.Messages {
+			if message.Author == accountsupport.AuthorSystem {
+				bodies = append(bodies, message.Body)
+			}
+		}
+		return bodies
+	}
+
+	// Pending is the desk waiting on the customer. Their answer ends the wait.
+	if _, err = operations.SetTicketStatus(ctx, ticketID, "pending", actor); err != nil {
+		t.Fatalf("set pending: %v", err)
+	}
+	if len(systemTurns(ticketID)) != 0 {
+		t.Fatal("a pending transition is not announced to the customer")
+	}
+	if _, err = support.Reply(ctx, accountsupport.NewMessage{
+		CustomerID: customerID, TicketID: ticketID, Body: "Here is the log you asked for",
+	}); err != nil {
+		t.Fatalf("customer reply: %v", err)
+	}
+	detail, err := operations.Ticket(ctx, ticketID)
+	if err != nil {
+		t.Fatalf("read ticket: %v", err)
+	}
+	if detail.Ticket.Status != "open" {
+		t.Fatalf("a customer answer left the ticket %s, want open", detail.Ticket.Status)
+	}
+
+	// Resolving tells the customer, in their language, that a reply reopens.
+	if _, err = operations.SetTicketStatus(ctx, ticketID, "resolved", actor); err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	turns := systemTurns(ticketID)
+	if len(turns) != 1 || !strings.Contains(turns[0], "resolved") {
+		t.Fatalf("after resolve the customer sees %v", turns)
+	}
+	// Setting the same status again is not a new event.
+	if _, err = operations.SetTicketStatus(ctx, ticketID, "resolved", actor); err != nil {
+		t.Fatalf("resolve again: %v", err)
+	}
+	if len(systemTurns(ticketID)) != 1 {
+		t.Fatal("a repeated resolve produced a second notice")
+	}
+	// The bot answers the same question from the same rows.
+	if _, messages, readErr := store.Ticket(ctx, customerID, ticketID); readErr != nil || len(messages) == 0 ||
+		messages[len(messages)-1].Sender != "system" {
+		t.Fatalf("the bot does not see the system notice last: %v", readErr)
+	}
+	// And the notice is in the push queue, like a reply would be.
+	pending, err := store.PendingOperatorReplies(ctx, 10)
+	if err != nil {
+		t.Fatalf("claim pending pushes: %v", err)
+	}
+	sawSystem := false
+	for _, reply := range pending {
+		if reply.TicketID == ticketID && reply.Sender == "system" {
+			sawSystem = true
+		}
+	}
+	if !sawSystem {
+		t.Fatalf("the system notice is not queued for delivery: %+v", pending)
+	}
+
+	// The customer is told on the surviving thread when a duplicate is merged
+	// into it, the unread counts move with the messages, and an operator can no
+	// longer write into the absorbed ticket.
+	duplicate := newCustomerTicket(ctx, t, support, customerID, "Same thing again")
+	if _, err = operations.Reply(ctx, panelpg.ReplyInput{
+		TicketID: duplicate, Body: "Looking into it", DedupeKey: "finish-1",
+	}, actor); err != nil {
+		t.Fatalf("operator reply before merge: %v", err)
+	}
+	if _, err = operations.MergeTicket(ctx, duplicate, ticketID, actor); err != nil {
+		t.Fatalf("merge: %v", err)
+	}
+	turns = systemTurns(ticketID)
+	if len(turns) != 2 || !strings.Contains(turns[1], "Same thing again") {
+		t.Fatalf("after merge the survivor carries %v", turns)
+	}
+	survivor, err := operations.Ticket(ctx, ticketID)
+	if err != nil {
+		t.Fatalf("read survivor: %v", err)
+	}
+	if survivor.Ticket.Status != "open" {
+		t.Fatalf("merging a live question into a resolved thread left it %s", survivor.Ticket.Status)
+	}
+	if survivor.Ticket.Unread == 0 {
+		t.Fatal("the absorbed ticket's operator unread count did not move to the survivor")
+	}
+	if _, err = operations.Reply(ctx, panelpg.ReplyInput{
+		TicketID: duplicate, Body: "Still there?", DedupeKey: "finish-2",
+	}, actor); !errors.Is(err, panelpg.ErrRejected) {
+		t.Fatalf("a reply into a merged ticket returned %v, want ErrRejected", err)
+	}
+
+	// An operator reply is activity: a web-only customer's inbox must move.
+	before, err := support.Tickets(ctx, customerID, "", 10)
+	if err != nil {
+		t.Fatalf("list before reply: %v", err)
+	}
+	other := newCustomerTicket(ctx, t, support, customerID, "Unrelated")
+	if before.Items[0].ID == other {
+		t.Fatal("test setup: the new ticket should be newest")
+	}
+	if _, err = operations.Reply(ctx, panelpg.ReplyInput{
+		TicketID: ticketID, Body: "Fixed on our side", DedupeKey: "finish-3",
+	}, actor); err != nil {
+		t.Fatalf("operator reply: %v", err)
+	}
+	after, err := support.Tickets(ctx, customerID, "", 10)
+	if err != nil {
+		t.Fatalf("list after reply: %v", err)
+	}
+	if after.Items[0].ID != ticketID {
+		t.Fatalf("an answered ticket did not rise to the top of the inbox: %+v", after.Items)
 	}
 }
