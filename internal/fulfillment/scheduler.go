@@ -41,6 +41,18 @@ const staleOperationAge = 10 * time.Minute
 // reviveBatchSize bounds one revival pass.
 const reviveBatchSize = 500
 
+// ReconciliationHorizon is how long after its end an entitlement keeps being
+// reconciled.
+//
+// Remnawave expires the user on its own at the pushed expiry; after that the
+// only thing a reconcile can do is re-push an expiry that has already passed,
+// or recreate a user an operator deleted on purpose — forever, every fifteen
+// minutes, one operation row and one job each time. Thirty days outlasts the
+// grace and recovery windows an installation configures, after which the row
+// is history rather than state. A customer who returns later buys a new
+// entitlement, which is provisioned by its own `create`.
+const ReconciliationHorizon = 30 * 24 * time.Hour
+
 type Scheduler struct {
 	pool   *pgxpool.Pool
 	client JobInserter
@@ -87,7 +99,10 @@ func (scheduler *Scheduler) Run(ctx context.Context) {
 }
 
 func (scheduler *Scheduler) Schedule(ctx context.Context) error {
-	rows, err := dbgen.New(scheduler.pool).ListEntitlementsForReconciliation(ctx, 500)
+	rows, err := dbgen.New(scheduler.pool).ListEntitlementsForReconciliation(ctx, dbgen.ListEntitlementsForReconciliationParams{
+		EndedAfter: pgtype.Timestamptz{Time: scheduler.clock().UTC().Add(-ReconciliationHorizon), Valid: true},
+		PageSize:   500,
+	})
 	if err != nil {
 		return err
 	}

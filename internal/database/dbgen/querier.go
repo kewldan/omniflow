@@ -803,7 +803,11 @@ type Querier interface {
 	// What an installation actually exposes: enabled tools on enabled servers whose
 	// schema this build can enforce.
 	ListEnabledMCPTools(ctx context.Context) ([]McpTool, error)
-	ListEntitlementsForReconciliation(ctx context.Context, limit int32) ([]Entitlement, error)
+	// An entitlement that ended before the horizon is history rather than state:
+	// Remnawave expired the user on its own, and the only thing a reconcile could
+	// still do is re-push an expiry that has passed or recreate a user an operator
+	// deleted on purpose. The horizon is chosen by the scheduler, not here.
+	ListEntitlementsForReconciliation(ctx context.Context, arg ListEntitlementsForReconciliationParams) ([]Entitlement, error)
 	ListExpiredBackups(ctx context.Context, limit int32) ([]Backup, error)
 	ListExpiredWalletCredits(ctx context.Context, limit int32) ([]ListExpiredWalletCreditsRow, error)
 	ListFulfillmentHistoryForOperation(ctx context.Context, operationID pgtype.UUID) ([]FulfillmentHistory, error)

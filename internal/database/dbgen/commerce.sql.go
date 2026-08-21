@@ -2363,13 +2363,23 @@ func (q *Queries) ListCustomerImportTelegramIDs(ctx context.Context, importID pg
 const listEntitlementsForReconciliation = `-- name: ListEntitlementsForReconciliation :many
 SELECT id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id, paused_at, paused_seconds FROM entitlements
 WHERE status IN ('active', 'limited', 'disabled', 'expired')
+  AND ends_at >= $1::timestamptz
   AND (reconciled_at IS NULL OR reconciled_at < now() - interval '15 minutes')
 ORDER BY reconciled_at NULLS FIRST
-LIMIT $1
+LIMIT $2
 `
 
-func (q *Queries) ListEntitlementsForReconciliation(ctx context.Context, limit int32) ([]Entitlement, error) {
-	rows, err := q.db.Query(ctx, listEntitlementsForReconciliation, limit)
+type ListEntitlementsForReconciliationParams struct {
+	EndedAfter pgtype.Timestamptz `json:"ended_after"`
+	PageSize   int32              `json:"page_size"`
+}
+
+// An entitlement that ended before the horizon is history rather than state:
+// Remnawave expired the user on its own, and the only thing a reconcile could
+// still do is re-push an expiry that has passed or recreate a user an operator
+// deleted on purpose. The horizon is chosen by the scheduler, not here.
+func (q *Queries) ListEntitlementsForReconciliation(ctx context.Context, arg ListEntitlementsForReconciliationParams) ([]Entitlement, error) {
+	rows, err := q.db.Query(ctx, listEntitlementsForReconciliation, arg.EndedAfter, arg.PageSize)
 	if err != nil {
 		return nil, err
 	}

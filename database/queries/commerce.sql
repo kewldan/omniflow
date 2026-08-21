@@ -630,11 +630,16 @@ RETURNING *;
 SELECT * FROM entitlements WHERE id = $1;
 
 -- name: ListEntitlementsForReconciliation :many
+-- An entitlement that ended before the horizon is history rather than state:
+-- Remnawave expired the user on its own, and the only thing a reconcile could
+-- still do is re-push an expiry that has passed or recreate a user an operator
+-- deleted on purpose. The horizon is chosen by the scheduler, not here.
 SELECT * FROM entitlements
 WHERE status IN ('active', 'limited', 'disabled', 'expired')
+  AND ends_at >= sqlc.arg(ended_after)::timestamptz
   AND (reconciled_at IS NULL OR reconciled_at < now() - interval '15 minutes')
 ORDER BY reconciled_at NULLS FIRST
-LIMIT $1;
+LIMIT sqlc.arg(page_size);
 
 -- name: GetRemnawaveMappingByCustomer :one
 SELECT * FROM remnawave_users WHERE user_id = $1;

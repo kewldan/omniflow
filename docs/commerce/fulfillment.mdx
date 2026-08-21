@@ -233,10 +233,18 @@ surfaces read.
   reconcile never snoozes.
 - `pending` entitlements are **not** selected. They are still waiting on their first `create`, and
   the sweep is not a substitute for it.
+- An entitlement whose `ends_at` is more than **thirty days** in the past is not selected either.
+  Remnawave expired the user on its own at the pushed expiry, and the only thing a reconcile could
+  still do is re-push a date that has passed or recreate a user an operator deleted on purpose —
+  every fifteen minutes, forever. Thirty days outlasts the grace and recovery windows, after which
+  the row is history rather than state; a customer who returns later buys a new entitlement, which
+  is provisioned by its own `create`.
 - `reconciled_at` is stamped only after a successful apply, so a permanently failing entitlement is
-  re-queued in every bucket and produces one new operation row per fifteen minutes.
+  re-queued in every bucket and produces one new operation row per fifteen minutes, until it falls
+  past the horizon.
 
-The interval and the batch size are hard-coded. There is no environment variable for either.
+The interval, the batch size, and the horizon are hard-coded. There is no environment variable for
+any of them.
 
 <Warning>
   Reconciliation and provisioning run only in the worker process. An installation running the API and
@@ -441,7 +449,8 @@ Metrics are emitted as `omniflow_jobs_total{kind="fulfillment",outcome}` and
 | `APP_RETENTION_DRIFT_DAYS` | `90` | How long resolved drift rows are kept |
 
 Everything else in this page is fixed in code: the reconciliation interval (15 minutes), its batch
-size (500), the queue's attempt ceiling (12), the backoff ceiling (1280 seconds), the operator-alert
+size (500), its horizon (30 days past the end), the revival scan's interval (5 minutes) and stale
+window (10 minutes), the queue's attempt ceiling (12), the backoff ceiling (1280 seconds), the operator-alert
 threshold (3 attempts), the maintenance snooze (1 minute), the Remnawave request timeout (10 seconds),
 and the 1 MiB cap on a Remnawave response body. None of them is exposed as an environment variable.
 
