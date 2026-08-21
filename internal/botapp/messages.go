@@ -677,6 +677,10 @@ var catalog = map[string]phrase{
 	// a database error. Saying "1–4000 characters" here blamed the customer for
 	// an installation fault.
 	"support.unavailable": {ru: "⚠️ <b>Поддержка сейчас недоступна</b>\n\nСообщение не сохранено. Попробуйте через минуту.", en: "⚠️ <b>Support is unavailable right now</b>\n\nYour message was not saved. Please try again in a minute."},
+	// A bare message typed after a support push went to the request it
+	// answers. The confirmation names the request, because the customer did not
+	// choose it explicitly and must be able to tell if the bot guessed wrong.
+	"support.routed": {ru: "✅ <b>Сообщение добавлено в обращение</b>\n\n«%s» — поддержка увидит его в этой переписке.", en: "✅ <b>Added to your request</b>\n\n“%s” — support will see it in that conversation."},
 }
 
 // formatMoney renders an integer minor-unit amount for display. Telegram Stars

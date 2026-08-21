@@ -622,6 +622,19 @@ menu rather than back into the same refusal.
 a second one — that is what a customer typing into the chat means. The ticket
 list and the web panel are where a second thread is chosen deliberately.
 
+The same reading applies to a message typed with no flow in progress. When a
+customer receives `🛟 Support reply` and simply types an answer — text, or a
+photo or document with a caption — the bot appends it to their most recently
+active request that can still take a message (open, waiting for the customer,
+or resolved), provided that request was active within the last 72 hours, and
+confirms with `✅ Added to your request` naming the subject, with an
+`💬 Open request` button. Writing into a resolved request reopens it, and into
+a waiting one puts it back in front of the operator. A closed or merged request
+is never continued this way, and a customer with no recent conversation gets the
+main menu, as before. The confirmation names the request precisely because the
+customer did not choose it: if the bot guessed wrong, the button is one tap
+from the right thread.
+
 An operator reply arrives as a push message titled `🛟 Support reply` with the
 subject and body and an `💬 Open request` button. The unread counter is raised
 only after Telegram accepted the message, so a retried delivery cannot

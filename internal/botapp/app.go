@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"html"
 	"log/slog"
 	"net/url"
 	"strconv"
@@ -243,7 +244,100 @@ func (app *App) HandleDefault(ctx context.Context, client *telegram.Bot, update 
 		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, supportSubmittedView(locale)))
 		return
 	}
+	// A customer who just received "🛟 Support reply" and types an answer means
+	// the conversation, not the main menu. With no flow in progress, plain text
+	// continues their most recent live request when it was active recently.
+	if app.commerceEnabled() && app.continueRecentTicket(ctx, client, message) {
+		return
+	}
 	app.HandleStart(ctx, client, update)
+}
+
+// freeTextWindow bounds how long after the last activity a bare message is
+// still read as part of a conversation. A reply typed the day after a support
+// push belongs to the thread; "hello" typed a month later does not, and a
+// resolved request should not be reopened by it.
+const freeTextWindow = 72 * time.Hour
+
+// freeTextTicket chooses the request a bare message continues: the most
+// recently active conversation that can still take a message, provided it was
+// active inside the window. A closed or merged request is never chosen, because
+// writing into one is refused and the customer did not ask to reopen it.
+func freeTextTicket(now time.Time, tickets []Ticket) (Ticket, bool) {
+	var chosen Ticket
+	found := false
+	for _, ticket := range tickets {
+		if !ticketAcceptsReply(ticket.Status) {
+			continue
+		}
+		active := ticket.LastMessageAt
+		if ticket.UpdatedAt.After(active) {
+			active = ticket.UpdatedAt
+		}
+		if active.IsZero() || now.Sub(active) > freeTextWindow {
+			continue
+		}
+		if !found || active.After(chosenActivity(chosen)) {
+			chosen, found = ticket, true
+		}
+	}
+	return chosen, found
+}
+
+func chosenActivity(ticket Ticket) time.Time {
+	if ticket.UpdatedAt.After(ticket.LastMessageAt) {
+		return ticket.UpdatedAt
+	}
+	return ticket.LastMessageAt
+}
+
+// continueRecentTicket appends a bare message to the customer's most recent
+// live request and reports whether it did. It declines — leaving the message to
+// the menu — when there is no such request, when the message carries nothing a
+// ticket can hold, or when the customer cannot be resolved.
+func (app *App) continueRecentTicket(ctx context.Context, client *telegram.Bot, message *models.Message) bool {
+	body := message.Text
+	if body == "" {
+		body = message.Caption
+	}
+	attachments, err := collectAttachments(message)
+	if err != nil || (strings.TrimSpace(body) == "" && len(attachments) == 0) {
+		return false
+	}
+	session, err := app.commerceContext(ctx, message.From.ID, message.From.LanguageCode, message.From.Username)
+	if err != nil {
+		app.logger.Warn("customer resolution failed for a free-text message", "error", err)
+		return false
+	}
+	tickets, err := app.customers.Tickets(ctx, session.Customer.ID, 10)
+	if err != nil {
+		app.logger.Warn("support ticket lookup failed for a free-text message", "error", err)
+		return false
+	}
+	ticket, found := freeTextTicket(time.Now().UTC(), tickets)
+	if !found {
+		return false
+	}
+	resolved, err := app.customers.AppendCustomerMessage(ctx, session.Customer.ID, ticket.ID, firstLine(body), body, message.ID, attachments)
+	if _, final := supportSubmitOutcome(session.Locale, err); final {
+		// The request changed state between the read and the write. The menu
+		// is the honest answer, as it would have been a second earlier.
+		return false
+	}
+	if err != nil {
+		app.logger.Error("support message could not be stored", "error", err)
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{Text: text(session.Locale, "support.unavailable")}))
+		return true
+	}
+	subject := ticket.Subject
+	if strings.TrimSpace(subject) == "" {
+		subject = shortID(resolved)
+	}
+	_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{
+		Text:     text(session.Locale, "support.routed", html.EscapeString(truncateRunes(subject, 60))),
+		Keyboard: keyboard(row(actionButton(text(session.Locale, "support.open"), "ticket:"+resolved)), row(callbackButton(text(session.Locale, "action.menu"), routeHome))),
+	}))
+	return true
 }
 
 // handleFlowMessage completes a multi-step flow — promo entry or a support
