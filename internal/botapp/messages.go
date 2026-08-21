@@ -654,6 +654,15 @@ var catalog = map[string]phrase{
 	"error.payment":   {ru: "⚠️ <b>Платёж не создан</b>\n\nПлатёжный сервис недоступен. Попробуйте позже или выберите другой способ.", en: "⚠️ <b>Payment could not be started</b>\n\nThe provider is unavailable. Try later or pick another method."},
 	"error.notFound":  {ru: "⚠️ Запись не найдена.", en: "⚠️ That record was not found."},
 	"error.forbidden": {ru: "⚠️ Эта операция недоступна для выбранного тарифа.", en: "⚠️ This operation is not allowed for the selected plan."},
+
+	// ---------------------------------------------------------------------
+	// Support delivery and ticket state (kept together; see notifier.go,
+	// support_store.go, and view_support.go).
+	// ---------------------------------------------------------------------
+
+	// A system notice about the conversation itself — closed, resolved, or
+	// merged by an operator — pushed through the same path as a reply.
+	"support.systemAlert": {ru: "⚙️ <b>Обращение обновлено</b>\n\n%s\n\n%s", en: "⚙️ <b>Request updated</b>\n\n%s\n\n%s"},
 }
 
 // formatMoney renders an integer minor-unit amount for display. Telegram Stars

@@ -762,9 +762,16 @@ func (q *Queries) ListReferralRewardsForPair(ctx context.Context, referredUserID
 
 const listSupportMessages = `-- name: ListSupportMessages :many
 
-SELECT m.id, m.ticket_id, m.sender, m.body, m.telegram_message_id, m.created_at, m.dedupe_key, m.delivered_at, m.read_at, m.author_id, m.canned_response_id, COALESCE(a.display_name, '') AS author_name
+SELECT m.id, m.ticket_id, m.sender, m.body, m.telegram_message_id, m.created_at, m.dedupe_key, m.delivered_at, m.read_at, m.author_id, m.canned_response_id, COALESCE(a.display_name, '') AS author_name,
+  COALESCE(d.status, '')::text AS delivery_status,
+  COALESCE(d.error_code, '')::text AS delivery_error,
+  COALESCE(d.failure_count, 0)::integer AS delivery_failures
 FROM support_messages m
+JOIN support_tickets t ON t.id = m.ticket_id
 LEFT JOIN admin_users a ON a.id = m.author_id
+LEFT JOIN notification_deliveries d
+  ON d.user_id = t.user_id AND d.kind = 'support' AND d.subscription_id IS NULL
+ AND d.dedupe_key = 'support-message:' || m.id::text
 WHERE m.ticket_id = $1
 ORDER BY m.created_at
 LIMIT $2
@@ -776,13 +783,21 @@ type ListSupportMessagesParams struct {
 }
 
 type ListSupportMessagesRow struct {
-	SupportMessage SupportMessage `json:"support_message"`
-	AuthorName     string         `json:"author_name"`
+	SupportMessage   SupportMessage `json:"support_message"`
+	AuthorName       string         `json:"author_name"`
+	DeliveryStatus   string         `json:"delivery_status"`
+	DeliveryError    string         `json:"delivery_error"`
+	DeliveryFailures int32          `json:"delivery_failures"`
 }
 
 // ---------------------------------------------------------------------------
 // Messages, notes, and tags
 // ---------------------------------------------------------------------------
+// The delivery row is the bot's record of what happened to the push: `sent`
+// once Telegram accepted it, `failed` with a count while it is being retried,
+// and `suppressed` with a reason when it never will be — the customer blocked
+// the bot, deleted their account, or has no Telegram identity. Reading it here
+// is what lets the desk say "undeliverable" instead of "queued" forever.
 func (q *Queries) ListSupportMessages(ctx context.Context, arg ListSupportMessagesParams) ([]ListSupportMessagesRow, error) {
 	rows, err := q.db.Query(ctx, listSupportMessages, arg.TicketID, arg.PageSize)
 	if err != nil {
@@ -805,6 +820,9 @@ func (q *Queries) ListSupportMessages(ctx context.Context, arg ListSupportMessag
 			&i.SupportMessage.AuthorID,
 			&i.SupportMessage.CannedResponseID,
 			&i.AuthorName,
+			&i.DeliveryStatus,
+			&i.DeliveryError,
+			&i.DeliveryFailures,
 		); err != nil {
 			return nil, err
 		}

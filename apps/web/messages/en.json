@@ -1978,6 +1978,23 @@
         },
         "workload": "Replies per operator",
         "noOperators": "Nobody has replied inside this window."
+      },
+      "delivery": {
+        "queued": "queued",
+        "retrying": "retrying",
+        "delivered": "delivered",
+        "undeliverable": "undeliverable",
+        "failed": "delivery failed"
+      },
+      "deliveryReason": {
+        "bot_blocked": "the customer blocked the bot",
+        "user_deactivated": "the Telegram account is deactivated",
+        "chat_not_found": "the Telegram chat no longer exists",
+        "no_telegram": "no Telegram identity; the customer reads replies in the web panel",
+        "flood_wait": "Telegram asked the bot to slow down",
+        "timeout": "Telegram did not answer in time",
+        "telegram_unavailable": "Telegram was unreachable",
+        "rejected": "Telegram rejected the message"
       }
     },
     "aiSettings": {

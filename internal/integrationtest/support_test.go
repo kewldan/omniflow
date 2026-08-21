@@ -4,9 +4,11 @@ package integrationtest
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
+	"github.com/omniflow/omniflow/internal/botapp"
 	"github.com/omniflow/omniflow/internal/panelpg"
 )
 
@@ -210,5 +212,134 @@ func TestMergeKeepsBothConversations(t *testing.T) {
 	// explains where the customer's words went.
 	if _, err = operations.Ticket(ctx, duplicate); err != nil {
 		t.Fatalf("the absorbed ticket should still be readable: %v", err)
+	}
+}
+
+// TestAnUnreachableCustomerDoesNotParkTheReplyQueue is the head-of-line
+// defect: a reply to somebody the bot cannot push to used to stay pending
+// forever, and once two hundred of them accumulated nobody behind them was ever
+// delivered. A reply now leaves the queue in a terminal state either way, and
+// the outcome is recorded where both the desk and the customer can read it.
+func TestAnUnreachableCustomerDoesNotParkTheReplyQueue(t *testing.T) {
+	ctx := context.Background()
+	harness := newHarness(t)
+	operations := newOperations(t, harness)
+	actor := harness.operator(ctx, t, "queue@example.test")
+	store, err := botapp.NewPostgresStore(ctx, harness.url)
+	if err != nil {
+		t.Fatalf("build bot store: %v", err)
+	}
+
+	// The first customer signed in by magic link and has no Telegram identity;
+	// the second is reachable in the chat.
+	webOnly := harness.customer(ctx, t)
+	reachable := harness.customer(ctx, t)
+	crossSurfaceLinkTelegram(ctx, t, harness, reachable, "777001")
+	webTicket := harness.ticket(ctx, t, webOnly, "Magic-link customer")
+	chatTicket := harness.ticket(ctx, t, reachable, "Telegram customer")
+
+	for index, ticketID := range []string{webTicket, chatTicket} {
+		if _, err = operations.Reply(ctx, panelpg.ReplyInput{
+			TicketID: ticketID, Body: "Here is the answer", DedupeKey: fmt.Sprintf("queue-%d", index),
+		}, actor); err != nil {
+			t.Fatalf("operator reply: %v", err)
+		}
+	}
+
+	pending, err := store.PendingOperatorReplies(ctx, 10)
+	if err != nil {
+		t.Fatalf("claim pending replies: %v", err)
+	}
+	if len(pending) != 2 {
+		t.Fatalf("the queue holds %d replies, want both", len(pending))
+	}
+	// The web-only customer is in the claim with no chat to push to, so the
+	// loop can record the outcome instead of never seeing the message.
+	var webMessage, chatMessage int64
+	for _, reply := range pending {
+		switch reply.TicketID {
+		case webTicket:
+			webMessage = reply.MessageID
+			if reply.TelegramID != 0 {
+				t.Fatalf("a customer with no Telegram identity was claimed with chat %d", reply.TelegramID)
+			}
+		case chatTicket:
+			chatMessage = reply.MessageID
+			if reply.TelegramID != 777001 {
+				t.Fatalf("the reachable customer was claimed with chat %d", reply.TelegramID)
+			}
+		}
+	}
+
+	if err = store.MarkOperatorReplyUndeliverable(ctx, webMessage, "no_telegram"); err != nil {
+		t.Fatalf("record undeliverable: %v", err)
+	}
+	if err = store.MarkOperatorReplyFailed(ctx, chatMessage, "telegram_unavailable"); err != nil {
+		t.Fatalf("record a transport failure: %v", err)
+	}
+
+	// The undeliverable message is out of the queue for good; the failed one is
+	// retried because it has retries left.
+	pending, err = store.PendingOperatorReplies(ctx, 10)
+	if err != nil {
+		t.Fatalf("claim pending replies again: %v", err)
+	}
+	if len(pending) != 1 || pending[0].MessageID != chatMessage {
+		t.Fatalf("after one pass the queue holds %+v, want only the retryable reply", pending)
+	}
+
+	for range 2 {
+		if err = store.MarkOperatorReplyFailed(ctx, chatMessage, "telegram_unavailable"); err != nil {
+			t.Fatalf("record a transport failure: %v", err)
+		}
+	}
+	pending, err = store.PendingOperatorReplies(ctx, 10)
+	if err != nil {
+		t.Fatalf("claim pending replies after the retry limit: %v", err)
+	}
+	if len(pending) != 0 {
+		t.Fatalf("a reply out of retries is still claimed: %+v", pending)
+	}
+
+	// The desk reads the outcome back beside the message rather than "queued".
+	detail, err := operations.Ticket(ctx, webTicket)
+	if err != nil {
+		t.Fatalf("read the web-only ticket: %v", err)
+	}
+	var reply panelpg.SupportMessage
+	for _, message := range detail.Messages {
+		if message.Sender == "operator" {
+			reply = message
+		}
+	}
+	if reply.Delivery != "undeliverable" || reply.DeliveryReason != "no_telegram" {
+		t.Fatalf("the desk shows %q (%q), want undeliverable because of no_telegram", reply.Delivery, reply.DeliveryReason)
+	}
+
+	// And a successful push writes the history row the customer's notification
+	// screen reads, once.
+	thirdTicket := harness.ticket(ctx, t, reachable, "Second question")
+	if _, err = operations.Reply(ctx, panelpg.ReplyInput{
+		TicketID: thirdTicket, Body: "Answered", DedupeKey: "queue-c",
+	}, actor); err != nil {
+		t.Fatalf("operator reply: %v", err)
+	}
+	pending, err = store.PendingOperatorReplies(ctx, 10)
+	if err != nil || len(pending) != 1 {
+		t.Fatalf("expected exactly the new reply to be pending, got %d (%v)", len(pending), err)
+	}
+	if err = store.MarkOperatorReplyDelivered(ctx, pending[0].MessageID); err != nil {
+		t.Fatalf("record delivery: %v", err)
+	}
+	var sent int
+	if err = harness.pool.QueryRow(ctx, `SELECT count(*)::integer FROM notification_deliveries
+		WHERE user_id = $1::uuid AND kind = 'support' AND status = 'sent'`, reachable).Scan(&sent); err != nil {
+		t.Fatalf("count support deliveries: %v", err)
+	}
+	if sent != 1 {
+		t.Fatalf("a delivered reply left %d sent rows, want 1", sent)
+	}
+	if pending, err = store.PendingOperatorReplies(ctx, 10); err != nil || len(pending) != 0 {
+		t.Fatalf("a delivered reply is still pending: %+v (%v)", pending, err)
 	}
 }

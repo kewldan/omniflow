@@ -16,6 +16,11 @@ import (
 
 const notificationInterval = 15 * time.Minute
 
+// supportReplyInterval is how often pending support replies are pushed. A reply
+// is the one message a customer is actively waiting for, so it does not wait
+// for the lifecycle pass.
+const supportReplyInterval = 30 * time.Second
+
 // notificationBatch bounds one pass so a large installation degrades in
 // throughput rather than in latency for everyone.
 const notificationBatch = 200
@@ -103,8 +108,10 @@ func NewNotifier(logger *slog.Logger, sender *Sender, store *PostgresStore, serv
 	return &Notifier{logger: logger, sender: sender, store: store, remnawave: service, commerce: commerceService, settings: settings, clock: time.Now}
 }
 
-// Run delivers notifications until the context is cancelled.
+// Run delivers notifications until the context is cancelled. Support replies
+// run on their own, shorter loop beside the lifecycle pass.
 func (notifier *Notifier) Run(ctx context.Context) {
+	go notifier.runSupportReplies(ctx)
 	notifier.RunOnce(ctx)
 	ticker := time.NewTicker(notificationInterval)
 	defer ticker.Stop()
@@ -118,14 +125,15 @@ func (notifier *Notifier) Run(ctx context.Context) {
 	}
 }
 
-// RunOnce executes one full notification pass.
+// RunOnce executes one full lifecycle pass. Support replies are not part of
+// it: they are pushed by runSupportReplies, and a second deliverer here would
+// race it for the same messages.
 func (notifier *Notifier) RunOnce(ctx context.Context) {
 	// The operator's wording is read once and used for every message in this
 	// pass. A save halfway through a batch takes effect on the next one, which
 	// is both cheaper than a query per message and more coherent: a hundred
 	// expiry warnings sent together say the same thing.
 	notifier.refreshNotices(ctx)
-	notifier.deliverSupportReplies(ctx)
 	notifier.deliverTests(ctx)
 	notifier.deliverDunning(ctx)
 	notifier.deliverCampaigns(ctx)
@@ -307,6 +315,34 @@ func subscriptionLabelFor(subscription SubscriptionSummary, named bool) string {
 	return subscription.Label
 }
 
+// runSupportReplies pushes operator and system messages on their own cadence.
+//
+// A support reply is the one message a customer is actively waiting for, and
+// fifteen minutes is the wrong unit for it. The loop is separate from the
+// lifecycle pass rather than a shorter interval on the whole pass, because the
+// lifecycle pass walks every customer and calls Remnawave for each one, which is
+// not something to do every half minute.
+func (notifier *Notifier) runSupportReplies(ctx context.Context) {
+	notifier.deliverSupportReplies(ctx)
+	ticker := time.NewTicker(supportReplyInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			notifier.deliverSupportReplies(ctx)
+		}
+	}
+}
+
+// deliverSupportReplies pushes one batch of pending support messages.
+//
+// Every message leaves the batch in a durable state. A message to a customer
+// the bot cannot reach — no Telegram identity, a blocked bot, a deleted
+// account — is recorded as undeliverable rather than left for the next pass,
+// which is what keeps one unreachable customer from parking the whole queue.
+// The message itself stays unread on the web, where that customer will read it.
 func (notifier *Notifier) deliverSupportReplies(ctx context.Context) {
 	replies, err := notifier.store.PendingOperatorReplies(ctx, notificationBatch)
 	if err != nil {
@@ -317,17 +353,52 @@ func (notifier *Notifier) deliverSupportReplies(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
-		locale := localeFrom(reply.Locale)
-		view := supportReplyView(locale, reply)
-		if err := notifier.sender.Send(ctx, reply.CustomerID, reply.TelegramID, view); err != nil {
-			notifier.logger.Warn("operator reply delivery failed", "ticket_id", reply.TicketID, "error", err)
+		if reply.TelegramID == 0 {
+			notifier.resolveSupportReply(ctx, reply, "suppressed", "no_telegram")
 			continue
 		}
-		// Delivery is marked only after Telegram accepted the message, and the
-		// mark is what raises the unread counter, so a retry cannot double-count.
-		if err := notifier.store.MarkOperatorReplyDelivered(ctx, reply.MessageID); err != nil {
-			notifier.logger.Error("operator reply delivery bookkeeping failed", "ticket_id", reply.TicketID, "error", err)
+		view := supportReplyView(localeFrom(reply.Locale), reply)
+		sendErr := notifier.sender.Send(ctx, reply.CustomerID, reply.TelegramID, view)
+		if sendErr == nil {
+			// Delivery is marked only after Telegram accepted the message, and
+			// the mark is what raises the unread counter, so a retry cannot
+			// double-count.
+			if err := notifier.store.MarkOperatorReplyDelivered(ctx, reply.MessageID); err != nil {
+				notifier.logger.Error("operator reply delivery bookkeeping failed", "ticket_id", reply.TicketID, "error", err)
+			}
+			continue
 		}
+		status, code := classifySupportFailure(sendErr)
+		notifier.logger.Warn("operator reply delivery failed",
+			"ticket_id", reply.TicketID, "code", code, "outcome", status)
+		notifier.resolveSupportReply(ctx, reply, status, code)
+	}
+}
+
+// classifySupportFailure decides whether a failed push is worth another try.
+// The codes that end retrying are the ones the delivery-state table also treats
+// as final: a customer who blocked the bot cannot be reached by trying harder.
+func classifySupportFailure(err error) (status, code string) {
+	code = "telegram_unavailable"
+	var classified *DeliveryError
+	if errors.As(err, &classified) {
+		code = classified.Code
+	}
+	if _, retryable := commerce.ClassifyTelegramFailure(code); retryable {
+		return "failed", code
+	}
+	return "suppressed", code
+}
+
+func (notifier *Notifier) resolveSupportReply(ctx context.Context, reply PendingOperatorReply, status, code string) {
+	var err error
+	if status == "suppressed" {
+		err = notifier.store.MarkOperatorReplyUndeliverable(ctx, reply.MessageID, code)
+	} else {
+		err = notifier.store.MarkOperatorReplyFailed(ctx, reply.MessageID, code)
+	}
+	if err != nil {
+		notifier.logger.Error("operator reply delivery bookkeeping failed", "ticket_id", reply.TicketID, "error", err)
 	}
 }
 

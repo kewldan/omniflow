@@ -927,6 +927,11 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	// Messages, notes, and tags
 	// ---------------------------------------------------------------------------
+	// The delivery row is the bot's record of what happened to the push: `sent`
+	// once Telegram accepted it, `failed` with a count while it is being retried,
+	// and `suppressed` with a reason when it never will be — the customer blocked
+	// the bot, deleted their account, or has no Telegram identity. Reading it here
+	// is what lets the desk say "undeliverable" instead of "queued" forever.
 	ListSupportMessages(ctx context.Context, arg ListSupportMessagesParams) ([]ListSupportMessagesRow, error)
 	ListSupportNotes(ctx context.Context, arg ListSupportNotesParams) ([]ListSupportNotesRow, error)
 	// The support desk.

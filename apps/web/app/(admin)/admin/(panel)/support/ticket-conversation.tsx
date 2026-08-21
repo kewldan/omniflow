@@ -16,7 +16,13 @@ import { useSubmission } from "@/lib/idempotency";
 import { type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 
-import type { CannedResponse, SupportQueue, SupportTag, TicketDetail } from "./types";
+import type {
+  CannedResponse,
+  DeliveryState,
+  SupportQueue,
+  SupportTag,
+  TicketDetail,
+} from "./types";
 
 const PRIORITIES = ["low", "normal", "high", "urgent"] as const;
 const STATUSES = ["open", "pending", "resolved", "closed"] as const;
@@ -142,10 +148,11 @@ export function TicketConversation({
                     : ""}
                 </span>
                 <span className="flex items-center gap-2">
-                  {entry.value.sender === "operator" && "delivered" in entry.value && (
-                    <span className="text-[10px] text-muted-foreground">
-                      {translate(entry.value.delivered ? "delivered" : "queued")}
-                    </span>
+                  {"delivery" in entry.value && entry.value.delivery && (
+                    <DeliveryMark
+                      reason={entry.value.deliveryReason}
+                      state={entry.value.delivery}
+                    />
                   )}
                   <span className="font-mono text-[11px] text-muted-foreground">
                     {new Date(entry.value.createdAt).toLocaleString(locale)}
@@ -170,6 +177,43 @@ export function TicketConversation({
     </Card>
   );
 }
+
+/**
+ * The push outcome beside an operator or system message.
+ *
+ * `undeliverable` and `failed` are coloured and carry the reason, because they
+ * change what the operator does next: a customer who blocked the bot has to be
+ * told to open the web panel, and nothing about waiting will fix it. The other
+ * states are quiet, since they describe the normal course of a push.
+ */
+function DeliveryMark({ reason, state }: { reason?: string; state: DeliveryState }) {
+  const translate = useTranslations("admin.support");
+  const attention = state === "undeliverable" || state === "failed";
+  const reasonKnown = reason && KNOWN_DELIVERY_REASONS.has(reason);
+  return (
+    <span
+      className={`text-[10px] ${attention ? "text-danger-foreground" : "text-muted-foreground"}`}
+      title={reasonKnown ? translate(`deliveryReason.${reason}`) : reason}
+    >
+      {translate(`delivery.${state}`)}
+      {attention && reason
+        ? ` · ${reasonKnown ? translate(`deliveryReason.${reason}`) : reason}`
+        : ""}
+    </span>
+  );
+}
+
+/** The reason codes the catalogue has words for; anything else is shown raw. */
+const KNOWN_DELIVERY_REASONS = new Set([
+  "bot_blocked",
+  "user_deactivated",
+  "chat_not_found",
+  "no_telegram",
+  "flood_wait",
+  "timeout",
+  "telegram_unavailable",
+  "rejected",
+]);
 
 /** Assignment, queue, priority, status, tags, and merge. */
 function TicketControls({

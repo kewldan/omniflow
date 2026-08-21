@@ -229,9 +229,21 @@ RETURNING *;
 -- ---------------------------------------------------------------------------
 
 -- name: ListSupportMessages :many
-SELECT sqlc.embed(m), COALESCE(a.display_name, '') AS author_name
+-- The delivery row is the bot's record of what happened to the push: `sent`
+-- once Telegram accepted it, `failed` with a count while it is being retried,
+-- and `suppressed` with a reason when it never will be — the customer blocked
+-- the bot, deleted their account, or has no Telegram identity. Reading it here
+-- is what lets the desk say "undeliverable" instead of "queued" forever.
+SELECT sqlc.embed(m), COALESCE(a.display_name, '') AS author_name,
+  COALESCE(d.status, '')::text AS delivery_status,
+  COALESCE(d.error_code, '')::text AS delivery_error,
+  COALESCE(d.failure_count, 0)::integer AS delivery_failures
 FROM support_messages m
+JOIN support_tickets t ON t.id = m.ticket_id
 LEFT JOIN admin_users a ON a.id = m.author_id
+LEFT JOIN notification_deliveries d
+  ON d.user_id = t.user_id AND d.kind = 'support' AND d.subscription_id IS NULL
+ AND d.dedupe_key = 'support-message:' || m.id::text
 WHERE m.ticket_id = $1
 ORDER BY m.created_at
 LIMIT sqlc.arg(page_size);

@@ -208,12 +208,36 @@ instead of duplicated into the panel.
     `idempotency_key_required`.
   </Step>
   <Step title="Watch it flip from queued to delivered">
-    The message appears immediately labelled `queued`. The bot's delivery pass
-    runs every 15 minutes, claims up to 200 undelivered operator messages, sends
-    them, and only then stamps `delivered_at` — at which point the panel shows
-    `delivered` and the customer's unread counter goes up exactly once.
+    The message appears immediately labelled `queued`. The bot's support-reply
+    loop runs every 30 seconds — on its own, independent of the 15-minute
+    lifecycle pass — claims up to 200 undelivered operator and system messages
+    in order, sends them, and only then stamps `delivered_at`, at which point
+    the panel shows `delivered` and the customer's unread counter goes up
+    exactly once.
   </Step>
 </Steps>
+
+### What the delivery label means
+
+Every push leaves a row in `notification_deliveries` with kind `support`, keyed
+`support-message:<id>`, and the desk reads that row back beside the message.
+The customer's own notification history shows the same row, so "did you send
+it" has one answer on both sides.
+
+| Label | Meaning |
+| --- | --- |
+| `queued` | Written, not yet attempted |
+| `retrying` | Telegram was unreachable or asked for a pause; it is tried again on a later loop, up to three times |
+| `delivered` | Telegram accepted it; `delivered_at` is stamped |
+| `undeliverable` | It will never be pushed: the customer blocked the bot (`bot_blocked`), deleted their account (`user_deactivated`, `chat_not_found`), or has no Telegram identity at all (`no_telegram`) |
+| `delivery failed` | Three transport failures; it is not tried again |
+
+An undeliverable or failed message is not lost. It stays in the conversation,
+unread, and the customer sees it when they open `/account/support`. The label
+exists so an operator knows to say so rather than waiting for a push that is not
+coming — and so that one customer who blocked the bot cannot hold the head of
+the queue: a message in a terminal state is excluded from the next claim, and
+the replies behind it go out.
 
 The idempotency key becomes the message's dedupe key, unique per ticket, so a
 resubmitted form reaches the message that already exists rather than sending the
@@ -229,13 +253,13 @@ it into the audit trail would duplicate customer content into a second retention
 regime.
 
 <Warning>
-  **A customer with no Telegram identity is never pushed a reply.** The delivery
-  pass draws from customers with an active Telegram identity. Someone who signed
-  in by magic link or OIDC sees the reply when they open `/account/support`, and
-  nothing is sent anywhere. Support replies also bypass the delivery-policy
-  machinery entirely — they write no delivery row, so there is no suppression
-  record and no retry accounting for them, and deduplication comes from
-  `delivered_at` instead.
+  **A customer with no Telegram identity is never pushed a reply.** Someone who
+  signed in by magic link or OIDC sees the reply when they open
+  `/account/support`; the loop records the message as `undeliverable` with
+  reason `no_telegram` and sends nothing anywhere. Support replies still bypass
+  the consent, quiet-hours, and frequency-cap checks — a reply is something the
+  customer asked for — but they do write a delivery row, which is where the
+  retry count and the undeliverable reason live.
 </Warning>
 
 ### Canned responses

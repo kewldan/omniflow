@@ -42,12 +42,23 @@ export type SupportTicket = {
   resolvedAt?: string;
 };
 
+/**
+ * The push outcome for an operator or system message. Absent on a customer
+ * message, which is never pushed. `undeliverable` is the one worth reading: the
+ * customer will only see this in the web panel, and `queued` used to be shown
+ * forever in its place.
+ */
+export type DeliveryState = "queued" | "retrying" | "delivered" | "undeliverable" | "failed";
+
 export type SupportMessage = {
   id: number;
   sender: string;
   body: string;
   authorName?: string;
   delivered: boolean;
+  delivery?: DeliveryState;
+  /** The classified code behind an undeliverable, failed, or retrying push. */
+  deliveryReason?: string;
   createdAt: string;
 };
 

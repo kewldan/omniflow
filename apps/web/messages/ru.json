@@ -1978,6 +1978,23 @@
         },
         "workload": "Ответов на оператора",
         "noOperators": "Внутри этого окна никто не отвечал."
+      },
+      "delivery": {
+        "queued": "в очереди",
+        "retrying": "повтор",
+        "delivered": "доставлено",
+        "undeliverable": "не доставить",
+        "failed": "доставка не удалась"
+      },
+      "deliveryReason": {
+        "bot_blocked": "клиент заблокировал бота",
+        "user_deactivated": "аккаунт Telegram деактивирован",
+        "chat_not_found": "чат Telegram больше не существует",
+        "no_telegram": "нет Telegram-идентичности; клиент читает ответы в веб-кабинете",
+        "flood_wait": "Telegram попросил бота замедлиться",
+        "timeout": "Telegram не ответил вовремя",
+        "telegram_unavailable": "Telegram был недоступен",
+        "rejected": "Telegram отклонил сообщение"
       }
     },
     "aiSettings": {

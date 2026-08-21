@@ -88,14 +88,21 @@ func supportComposeTicketView(locale Locale, ticketID string) View {
 	return View{Text: text(locale, "support.compose"), Keyboard: keyboard(row(back))}
 }
 
-// supportReplyView is the push notification that carries an operator reply.
+// supportReplyView is the push notification that carries an operator reply, or
+// a system notice about the conversation when the operator closed, resolved, or
+// merged it. The two are headed differently so a customer can tell an answer
+// from an announcement about the thread.
 func supportReplyView(locale Locale, reply PendingOperatorReply) View {
 	subject := reply.Subject
 	if strings.TrimSpace(subject) == "" {
 		subject = shortID(reply.TicketID)
 	}
+	key := "support.replyAlert"
+	if reply.Sender == "system" {
+		key = "support.systemAlert"
+	}
 	return View{
-		Text: text(locale, "support.replyAlert", html.EscapeString(truncateRunes(subject, 60)), html.EscapeString(truncateRunes(reply.Body, 2000))),
+		Text: text(locale, key, html.EscapeString(truncateRunes(subject, 60)), html.EscapeString(truncateRunes(reply.Body, 2000))),
 		Keyboard: keyboard(
 			row(actionButton(text(locale, "support.open"), "ticket:"+reply.TicketID)),
 			row(callbackButton(text(locale, "action.menu"), routeHome)),

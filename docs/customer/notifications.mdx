@@ -70,10 +70,12 @@ pass for a week.
 
 Two paths deliberately bypass the policy machinery:
 
-- **Support replies** are sent directly by the delivery pass, without a
-  suppression record and without consulting quiet hours. They would be urgent
-  anyway; deduplication comes from the message's own `delivered_at` timestamp
-  rather than from a delivery row.
+- **Support replies** are pushed by their own 30-second loop without consulting
+  consent, quiet hours, or the frequency cap — a reply is something the customer
+  asked for. They do leave a `support` delivery row, so the history below shows
+  each one as delivered, waiting, or held back with the reason (`bot_blocked`,
+  `no_telegram`); the message itself stays readable on `/account/support` either
+  way.
 - **Dunning notices** — a failed automatic charge — are sent regardless of
   preferences and quiet hours. A customer about to lose access because a card
   was declined is not served by holding the message until morning, and there is

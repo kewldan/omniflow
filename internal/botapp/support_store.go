@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -333,32 +334,58 @@ func (store *PostgresStore) SetTicketStatus(ctx context.Context, customerID, tic
 	return nil
 }
 
-// PendingOperatorReply is one operator message that still has to reach Telegram.
+// PendingOperatorReply is one operator or system message that still has to
+// reach Telegram. TelegramID is zero when the customer has no Telegram identity
+// at all, which the delivery pass records rather than skips.
 type PendingOperatorReply struct {
 	MessageID  int64
 	TicketID   string
 	CustomerID string
 	TelegramID int64
 	Subject    string
+	Sender     string
 	Body       string
 	Locale     string
 	CreatedAt  time.Time
 }
 
-// PendingOperatorReplies claims operator messages that have not been delivered.
-// Delivery is deduplicated by the message identifier, so a retried run cannot
-// send the same reply twice.
+// supportDeliveryRetries is how many transport failures a support reply
+// survives before it is left alone. It matches the policy machinery's limit so
+// the two histories read the same way.
+const supportDeliveryRetries = 3
+
+// supportDeliveryKey is the dedupe key of the delivery row that records what
+// happened to one support message. The row is what makes the customer's
+// notification history show the reply, and its terminal states are what keep
+// an undeliverable message from holding the head of the queue forever.
+const supportDeliveryKey = `'support-message:' || m.id::text`
+
+// PendingOperatorReplies reads the messages that still have to be pushed.
+//
+// A message leaves this set in exactly one of three ways: it was delivered
+// (`delivered_at`), it was recorded as undeliverable (a `suppressed` delivery
+// row, written when the customer has blocked the bot, deleted their account, or
+// has no Telegram identity), or it failed its last retry (a `failed` row at the
+// retry limit). Without the last two, one customer who blocked the bot would
+// sit at the head of the queue and the replies behind them would never move.
 func (store *PostgresStore) PendingOperatorReplies(ctx context.Context, limit int) ([]PendingOperatorReply, error) {
 	rows, err := store.pool.Query(ctx, telegramRecipients+`
-		SELECT DISTINCT ON (m.id) m.id, t.id::text, t.user_id::text, recipient.telegram_id, t.subject, m.body,
+		SELECT DISTINCT ON (m.id) m.id, t.id::text, t.user_id::text, COALESCE(recipient.telegram_id, 0),
+		t.subject, m.sender, m.body,
 		CASE WHEN COALESCE(p.locale, 'auto') = 'auto' THEN u.locale ELSE p.locale END, m.created_at
 		FROM support_messages m
 		JOIN support_tickets t ON t.id = m.ticket_id
 		JOIN users u ON u.id = t.user_id
-		JOIN recipient ON recipient.user_id = t.user_id
+		LEFT JOIN recipient ON recipient.user_id = t.user_id
 		LEFT JOIN bot_preferences p ON p.user_id = t.user_id
-		WHERE m.sender = 'operator' AND m.delivered_at IS NULL AND u.status = 'active'
-		ORDER BY m.id, m.created_at LIMIT $1`, limit)
+		WHERE m.sender IN ('operator', 'system') AND m.delivered_at IS NULL AND u.status = 'active'
+		  AND NOT EXISTS (
+			SELECT 1 FROM notification_deliveries n
+			WHERE n.user_id = t.user_id AND n.kind = 'support' AND n.subscription_id IS NULL
+			  AND n.dedupe_key = `+supportDeliveryKey+`
+			  AND (n.status IN ('sent', 'suppressed')
+			       OR (n.status = 'failed' AND n.failure_count >= $2)))
+		ORDER BY m.id, recipient.telegram_id LIMIT $1`, limit, supportDeliveryRetries)
 	if err != nil {
 		return nil, err
 	}
@@ -367,7 +394,7 @@ func (store *PostgresStore) PendingOperatorReplies(ctx context.Context, limit in
 	for rows.Next() {
 		var reply PendingOperatorReply
 		if err := rows.Scan(&reply.MessageID, &reply.TicketID, &reply.CustomerID, &reply.TelegramID,
-			&reply.Subject, &reply.Body, &reply.Locale, &reply.CreatedAt); err != nil {
+			&reply.Subject, &reply.Sender, &reply.Body, &reply.Locale, &reply.CreatedAt); err != nil {
 			return nil, err
 		}
 		replies = append(replies, reply)
@@ -375,8 +402,9 @@ func (store *PostgresStore) PendingOperatorReplies(ctx context.Context, limit in
 	return replies, rows.Err()
 }
 
-// MarkOperatorReplyDelivered records a successful delivery and raises the
-// customer's unread counter exactly once per message.
+// MarkOperatorReplyDelivered records a successful delivery, raises the
+// customer's unread counter exactly once per message, and writes the delivery
+// row the customer's notification history reads.
 func (store *PostgresStore) MarkOperatorReplyDelivered(ctx context.Context, messageID int64) error {
 	tx, err := store.pool.Begin(ctx)
 	if err != nil {
@@ -396,7 +424,48 @@ func (store *PostgresStore) MarkOperatorReplyDelivered(ctx context.Context, mess
 		WHERE id = (SELECT ticket_id FROM support_messages WHERE id = $1)`, messageID); err != nil {
 		return err
 	}
+	if err = recordSupportDelivery(ctx, tx, messageID, "sent", ""); err != nil {
+		return err
+	}
 	return tx.Commit(ctx)
+}
+
+// MarkOperatorReplyUndeliverable records that a message can never be pushed to
+// this customer: the bot is blocked, the account is gone, or there is no
+// Telegram identity to push to. The message stays unread in the web panel and
+// the ticket keeps its state; only the push is given up on.
+func (store *PostgresStore) MarkOperatorReplyUndeliverable(ctx context.Context, messageID int64, code string) error {
+	return recordSupportDelivery(ctx, store.pool, messageID, "suppressed", code)
+}
+
+// MarkOperatorReplyFailed counts one transport failure. The message is retried
+// on a later pass until it has failed supportDeliveryRetries times.
+func (store *PostgresStore) MarkOperatorReplyFailed(ctx context.Context, messageID int64, code string) error {
+	return recordSupportDelivery(ctx, store.pool, messageID, "failed", code)
+}
+
+type execer interface {
+	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+}
+
+// recordSupportDelivery upserts the delivery row for one support message. The
+// customer is resolved through the ticket so a caller cannot file a delivery
+// against somebody else's history.
+func recordSupportDelivery(ctx context.Context, db execer, messageID int64, status, code string) error {
+	_, err := db.Exec(ctx, `INSERT INTO notification_deliveries
+		(user_id, kind, dedupe_key, class, status, error_code, sent_at, failure_count)
+		SELECT t.user_id, 'support', `+supportDeliveryKey+`, 'transactional', $2, NULLIF($3, ''),
+		       CASE WHEN $2 = 'sent' THEN now() END,
+		       CASE WHEN $2 = 'failed' THEN 1 ELSE 0 END
+		FROM support_messages m
+		JOIN support_tickets t ON t.id = m.ticket_id
+		WHERE m.id = $1
+		ON CONFLICT (user_id, kind, subscription_id, dedupe_key) DO UPDATE
+		SET status = EXCLUDED.status, error_code = EXCLUDED.error_code,
+		    sent_at = COALESCE(EXCLUDED.sent_at, notification_deliveries.sent_at),
+		    failure_count = notification_deliveries.failure_count + EXCLUDED.failure_count`,
+		messageID, status, code)
+	return err
 }
 
 // Attachment retention is not here. It was, back when only the reference was

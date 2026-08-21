@@ -53,12 +53,48 @@ type SupportTicket struct {
 
 // SupportMessage is one turn of the conversation the customer can see.
 type SupportMessage struct {
-	ID         int64     `json:"id"`
-	Sender     string    `json:"sender"`
-	Body       string    `json:"body"`
-	AuthorName string    `json:"authorName,omitempty"`
-	Delivered  bool      `json:"delivered"`
-	CreatedAt  time.Time `json:"createdAt"`
+	ID         int64  `json:"id"`
+	Sender     string `json:"sender"`
+	Body       string `json:"body"`
+	AuthorName string `json:"authorName,omitempty"`
+	Delivered  bool   `json:"delivered"`
+	// Delivery is the push outcome for an operator or system message: `queued`,
+	// `retrying`, `delivered`, `undeliverable`, or `failed`. It is empty for a
+	// customer message, which is never pushed anywhere. `undeliverable` is the
+	// state the desk most needs to see — it means the customer will only read
+	// this in the web panel, and `queued` would have said "any minute now".
+	Delivery string `json:"delivery,omitempty"`
+	// DeliveryReason is the classified code behind an undeliverable or failed
+	// push: `bot_blocked`, `user_deactivated`, `chat_not_found`, `no_telegram`,
+	// or a transport code.
+	DeliveryReason string    `json:"deliveryReason,omitempty"`
+	CreatedAt      time.Time `json:"createdAt"`
+}
+
+// supportDeliveryRetries mirrors the bot's retry limit for a support push. A
+// message that has failed this many times is no longer tried.
+const supportDeliveryRetries = 3
+
+// deliveryState reduces the message stamp and the delivery row to one word the
+// desk can show. The stamp wins: a message Telegram accepted is delivered
+// whatever the row says, because the stamp is written in the same transaction
+// as the row and is what raised the customer's unread counter.
+func deliveryState(sender string, delivered bool, status string, failures int32) string {
+	if sender == "customer" {
+		return ""
+	}
+	switch {
+	case delivered || status == "sent":
+		return "delivered"
+	case status == "suppressed":
+		return "undeliverable"
+	case status == "failed" && failures >= supportDeliveryRetries:
+		return "failed"
+	case status == "failed":
+		return "retrying"
+	default:
+		return "queued"
+	}
 }
 
 // SupportNote is an operator's private note.
@@ -248,11 +284,21 @@ func (service *Service) Ticket(ctx context.Context, ticketID string) (TicketDeta
 		Notes:    []SupportNote{},
 	}
 	for _, message := range messageRows {
+		state := deliveryState(
+			message.SupportMessage.Sender, message.SupportMessage.DeliveredAt.Valid,
+			message.DeliveryStatus, message.DeliveryFailures,
+		)
+		reason := ""
+		if state == "undeliverable" || state == "failed" || state == "retrying" {
+			reason = message.DeliveryError
+		}
 		detail.Messages = append(detail.Messages, SupportMessage{
 			ID: message.SupportMessage.ID, Sender: message.SupportMessage.Sender,
 			Body: message.SupportMessage.Body, AuthorName: message.AuthorName,
-			Delivered: message.SupportMessage.DeliveredAt.Valid,
-			CreatedAt: timeValue(message.SupportMessage.CreatedAt),
+			Delivered:      message.SupportMessage.DeliveredAt.Valid,
+			Delivery:       state,
+			DeliveryReason: reason,
+			CreatedAt:      timeValue(message.SupportMessage.CreatedAt),
 		})
 	}
 
