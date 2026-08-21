@@ -1235,8 +1235,10 @@ var commerceActions = func() map[string]bool {
 		"method-default": true, "method-remove": true,
 		"quiet": true, "quiet-menu": true, "invoice": true,
 	}
-	for action := range expansionActions {
-		actions[action] = true
+	for _, owned := range []map[string]bool{expansionActions, giftActions, shopActions, offerActions} {
+		for action := range owned {
+			actions[action] = true
+		}
 	}
 	return actions
 }()

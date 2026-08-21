@@ -139,7 +139,7 @@ func (app *App) claimCallback(ctx context.Context, queryID string) bool {
 // consequentialActions must never run twice for one Telegram callback.
 var consequentialActions = map[string]bool{
 	"confirm": true, "order-cancel": true, "pm": true, "wallet-toggle": true,
-	"pay": true, "order-pm": true, "gift-buy": true,
+	"pay": true, "order-pm": true, "gift-buy": true, "shop-buy": true,
 	"promo-clear": true, "invoice": true, "device-delete": true, "devices-delete": true,
 	"revoke": true, "ticket-close": true, "ticket-open": true, "autorenew": true,
 	// v0.5 actions that move money, provisioning, or database state.

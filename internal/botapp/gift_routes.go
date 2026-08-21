@@ -24,6 +24,13 @@ func (app *App) handleGiftRoute(ctx context.Context, session commerceContext, ro
 	}
 }
 
+// giftActions is the closed set of callback actions the gift surface owns. It
+// is folded into commerceActions, which is what lets a tap reach the handler
+// below at all.
+var giftActions = map[string]bool{
+	"gift-plan": true, "gift-credit": true, "gift-buy": true, "gift-message": true, "gift-claim": true,
+}
+
 // handleGiftAction serves the gift callback actions.
 func (app *App) handleGiftAction(ctx context.Context, session commerceContext, parts []string) (View, bool) {
 	argument := ""

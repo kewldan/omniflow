@@ -29,6 +29,14 @@ func (app *App) handleShopRoute(ctx context.Context, session commerceContext, ro
 	}
 }
 
+// shopActions is the closed set of callback actions the shop owns. It is
+// folded into commerceActions, which is what lets a tap reach the handler
+// below at all.
+var shopActions = map[string]bool{
+	"shop-item": true, "shop-self": true, "shop-other": true, "shop-buy": true,
+	"shop-promo": true, "shop-unpromo": true, "shop-save": true, "shop-order": true,
+}
+
 // handleShopAction serves the shop's callback actions.
 func (app *App) handleShopAction(ctx context.Context, session commerceContext, parts []string) (View, bool) {
 	argument := ""

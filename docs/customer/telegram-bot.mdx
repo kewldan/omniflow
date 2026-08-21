@@ -881,8 +881,9 @@ unbounded checkout attempts.
 Separately, every consequential button — paying, cancelling an order, choosing a
 provider, toggling the wallet, sending a Stars invoice, deleting devices,
 rotating a link, closing or reopening a ticket, enabling auto-renew, starting a
-top-up, buying or clearing a cart, buying an add-on — is claimed exactly once. A
-redelivered Telegram update or a second tap resolves to "This action has already
+top-up, buying or clearing a cart, buying an add-on, buying a gift without a note,
+confirming a shop purchase, changing an auto-renew setting — is claimed exactly
+once. A redelivered Telegram update or a second tap resolves to "This action has already
 been completed" rather than to a second order, payment, or deletion. Actions not
 covered by that claim carry their own idempotency keys instead.
 
