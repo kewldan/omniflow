@@ -51,9 +51,9 @@ message that arrives at eight the next morning.
 
 | Message | Kind | When |
 | --- | --- | --- |
-| Expiry reminder | `expiry` | 7, 3, 1, and 0 days before the subscription ends |
+| Expiry reminder | `expiry` | 7, 3, 1, and 0 days before the subscription ends — only for a subscription with no entitlement behind it (imported before commerce) |
 | Traffic warning | `traffic` | at 80% and at 100% of the traffic allowance |
-| Renewal reminder | `renewal` | 7, 3, 1, and 0 whole days before the entitlement ends |
+| Renewal reminder | `renewal` | 7, 3, 1, and 0 whole days before the entitlement ends — for every subscription Omniflow sold |
 | Grace notice | `grace` | while the subscription is past its end date but inside its grace period |
 | Recovery offer | `recovery` | while the expired subscription is still inside the recovery window |
 | Provisioning result | `fulfillment` | once per entitlement when provisioning succeeded, and once when it failed |
@@ -61,6 +61,14 @@ message that arrives at eight the next morning.
 | Failed automatic charge | dunning | when a recurring charge is declined |
 | Announcement push | the post's category | once per customer per newly published post |
 | Campaign | `marketing` | when an operator runs a campaign |
+
+A subscription gets exactly one end-of-term countdown. One that Omniflow sold
+has an entitlement, and the `renewal` reminder is computed from the
+entitlement's end and can offer renewal; a legacy subscription imported before
+commerce has only Remnawave's expiry to go on and gets the `expiry` reminder
+instead. They are never both sent: the two count the same days two ways and
+used to arrive as two messages about one event, up to eight over the last
+week.
 
 Alerts are keyed per subscription, so a busy subscription cannot suppress a
 quiet one's expiry notice. Each one carries its own dedupe key — the expiry

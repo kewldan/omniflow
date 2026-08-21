@@ -136,6 +136,27 @@ func TestApplySuppressionVetoesOnlyMarketing(t *testing.T) {
 	}
 }
 
+// TestReminderPlanSendsOneCountdown is the duplicate-reminder defect: a
+// customer with an entitlement used to get the Remnawave expiry countdown and
+// the entitlement renewal countdown for the same end date. Exactly one schedule
+// applies, chosen by whether the subscription has an entitlement behind it.
+func TestReminderPlanSendsOneCountdown(t *testing.T) {
+	sold := reminderPlan(true)
+	if sold.ExpiryFromRemnawave || !sold.RenewalFromEntitlement {
+		t.Fatalf("a subscription with an entitlement plans %+v", sold)
+	}
+	legacy := reminderPlan(false)
+	if !legacy.ExpiryFromRemnawave || legacy.RenewalFromEntitlement {
+		t.Fatalf("a legacy subscription plans %+v", legacy)
+	}
+	for _, has := range []bool{true, false} {
+		plan := reminderPlan(has)
+		if plan.ExpiryFromRemnawave == plan.RenewalFromEntitlement {
+			t.Fatalf("hasEntitlement=%v plans both or neither: %+v", has, plan)
+		}
+	}
+}
+
 // TestWalkCandidatePagesReportsAStoreFailure makes sure a failing page is
 // surfaced rather than read as the end of the list.
 func TestWalkCandidatePagesReportsAStoreFailure(t *testing.T) {

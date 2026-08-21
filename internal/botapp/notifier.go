@@ -227,22 +227,34 @@ func (notifier *Notifier) deliverLifecycle(ctx context.Context, candidate notifi
 }
 
 func (notifier *Notifier) deliverSubscriptionAlerts(ctx context.Context, candidate notificationCandidate, subscription SubscriptionSummary, locale Locale, named bool) {
+	// The entitlement is resolved first because it decides which end-of-term
+	// reminder the customer gets. Both schedules used to run, and a customer
+	// with an entitlement received an "expiry" countdown from Remnawave's
+	// expireAt and a "renewal" countdown from the entitlement's endsAt — eight
+	// messages for one event, two of them on most days.
+	var entitlement Entitlement
+	if notifier.commerce != nil {
+		resolved, err := notifier.store.EntitlementForSubscription(ctx, candidate.UserID, subscription.ID, locale, notifier.settings.Currency)
+		if err != nil {
+			notifier.logger.Warn("entitlement lookup failed for notifications", "error", err)
+			// An unreadable entitlement is not an absent one. Nothing is sent
+			// from either schedule this pass rather than risk the duplicate.
+			return
+		}
+		entitlement = resolved
+	}
+	plan := reminderPlan(entitlement.Found)
+
 	if subscription.RemnawaveID > 0 {
 		user, lookupErr := notifier.remnawave.User(ctx, subscription.RemnawaveID)
 		if lookupErr != nil {
 			notifier.logger.Warn("notification user lookup failed", "error", lookupErr)
 		} else {
-			notifier.maybeSendExpiry(ctx, candidate, subscription, user, locale, named)
+			if plan.ExpiryFromRemnawave {
+				notifier.maybeSendExpiry(ctx, candidate, subscription, user, locale, named)
+			}
 			notifier.maybeSendTraffic(ctx, candidate, subscription, user, locale, named)
 		}
-	}
-	if notifier.commerce == nil {
-		return
-	}
-	entitlement, err := notifier.store.EntitlementForSubscription(ctx, candidate.UserID, subscription.ID, locale, notifier.settings.Currency)
-	if err != nil {
-		notifier.logger.Warn("entitlement lookup failed for notifications", "error", err)
-		return
 	}
 	if !entitlement.Found {
 		return
@@ -251,7 +263,7 @@ func (notifier *Notifier) deliverSubscriptionAlerts(ctx context.Context, candida
 		entitlement.SubscriptionLabel = subscription.Label
 	}
 	now := notifier.clock().UTC()
-	if offset, due := commerce.RenewalReminderDue(now, entitlement.EndsAt); due {
+	if offset, due := commerce.RenewalReminderDue(now, entitlement.EndsAt); due && plan.RenewalFromEntitlement {
 		dedupe := fmt.Sprintf("%s:%d", entitlement.ID, offset)
 		notifier.deliver(ctx, candidate, subscription.ID, "renewal", dedupe, renewalReminderView(notifier.notices, locale, entitlement, offset))
 	}
@@ -262,6 +274,31 @@ func (notifier *Notifier) deliverSubscriptionAlerts(ctx context.Context, candida
 		notifier.deliver(ctx, candidate, subscription.ID, "recovery", entitlement.ID, recoveryView(notifier.notices, locale, entitlement))
 	}
 	notifier.deliverFulfillment(ctx, candidate, subscription.ID, entitlement, locale)
+}
+
+// reminderSchedule names which end-of-term countdown a subscription gets.
+type reminderSchedule struct {
+	// ExpiryFromRemnawave sends the `expiry` reminders computed from Remnawave's
+	// expireAt, rounded up to whole days.
+	ExpiryFromRemnawave bool
+	// RenewalFromEntitlement sends the `renewal` reminders computed from the
+	// entitlement's endsAt, in whole days remaining.
+	RenewalFromEntitlement bool
+}
+
+// reminderPlan picks exactly one countdown for a subscription.
+//
+// A subscription Omniflow sold has an entitlement, and the entitlement is the
+// record of what the customer paid for and when it ends; its reminder can offer
+// renewal and name the plan. A legacy subscription imported before commerce —
+// a Remnawave user with no entitlement behind it — has only Remnawave's expiry
+// to go on. The two are never both sent: they count the same days two ways and
+// would arrive as two messages about one event.
+func reminderPlan(hasEntitlement bool) reminderSchedule {
+	return reminderSchedule{
+		ExpiryFromRemnawave:    !hasEntitlement,
+		RenewalFromEntitlement: hasEntitlement,
+	}
 }
 
 // deliverFulfillment tells a customer when provisioning finished, or when it is
