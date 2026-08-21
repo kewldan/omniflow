@@ -2604,6 +2604,7 @@
       "security": "Access link",
       "rotate": "Issue a new link",
       "rotatePhrase": "NEW LINK",
+      "rotateUnconfirmed": "The answer did not arrive. The link may already have been replaced — open the connect screen to fetch the current one before trying again.",
       "rotatePrompt": "Type NEW LINK to confirm",
       "rotateWarning": "The old link stops working on every device. You will need to add the subscription again in your app. Your traffic and expiry are unaffected.",
       "rotated": "A new link has been issued",

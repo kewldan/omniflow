@@ -477,12 +477,26 @@ link with a copy button. The client list comes from the same table the bot
 renders, so a customer who reads one recommendation in the chat and a different
 one in the browser is impossible by construction.
 
+A subscription that is still being provisioned answers `409 not_provisioned`,
+and the screen treats that as a stage rather than a failure: it says the
+subscription is being set up and re-reads every five seconds until the link
+exists, so a customer who arrives straight from a payment watches the screen
+turn into the link rather than being told to come back. No other refusal is
+polled — an outage does not clear on a timer.
+
 ### Rotating the access link
 
 Rotation invalidates the old link on every device, and every device must import
 the new one before it connects again. Traffic and expiry are unaffected. It is
 the remedy when a link has been shared or leaked, and it sits behind a typed
 confirmation as well as a recent sign-in.
+
+One confirmation is one rotation. The screen refuses to submit a second request
+while the first is in flight, so a double press cannot invalidate the link the
+customer was just handed; and when the request was sent but its answer never
+arrived, the screen says the link may already have been replaced and points to
+the connect screen, rather than asking for a third confirmation that would
+rotate again.
 
 ## Devices and privacy
 

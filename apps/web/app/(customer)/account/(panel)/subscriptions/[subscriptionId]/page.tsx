@@ -9,7 +9,7 @@ import { RefreshCw, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import useSWR from "swr";
 
 import { ReauthNotice, useReauthentication } from "@/components/account/reauth";
@@ -21,7 +21,7 @@ import {
   TrafficMeter,
 } from "@/components/account/subscription-card";
 import { useAccount } from "@/lib/account-session";
-import { type ApiError, apiFetch, fetcher } from "@/lib/api";
+import { ApiError, apiFetch, fetcher } from "@/lib/api";
 
 /**
  * One subscription in detail: what it is, what it is called, and the one
@@ -173,8 +173,18 @@ function RotateLink({ subscriptionId }: { subscriptionId: string }) {
 
   const needsReauth = session?.session.reauthenticationRequired ?? false;
   const { redirectIfRequired } = useReauthentication();
+  // One rotation per confirmation. A rotation invalidates every device's
+  // link, so a submit that ran twice — a double press, a dialog re-firing its
+  // confirm while the request was in flight — would invalidate the link the
+  // customer was just handed. The ref closes the window between the press
+  // and the busy state catching up with it.
+  const inFlight = useRef(false);
 
   async function rotate() {
+    if (inFlight.current) {
+      return;
+    }
+    inFlight.current = true;
     setBusy(true);
     try {
       const result = await apiFetch<{ subscriptionUrl: string }>(
@@ -184,10 +194,18 @@ function RotateLink({ subscriptionId }: { subscriptionId: string }) {
       setRotated(result.subscriptionUrl);
       toast.success(translate("subscription.rotated"));
     } catch (rotateError) {
+      // A rotation that was performed but whose answer was lost in transit
+      // has still happened; the customer is told to fetch the link from the
+      // connect screen rather than being prompted to rotate a third time.
       if (!redirectIfRequired(rotateError)) {
-        toast.error((rotateError as ApiError).message);
+        toast.error(
+          rotateError instanceof ApiError
+            ? rotateError.message
+            : translate("subscription.rotateUnconfirmed"),
+        );
       }
     } finally {
+      inFlight.current = false;
       setBusy(false);
       setOpen(false);
     }

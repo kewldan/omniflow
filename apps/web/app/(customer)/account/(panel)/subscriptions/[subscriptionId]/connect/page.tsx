@@ -52,6 +52,20 @@ export default function ConnectPage() {
   const { data, error, isLoading } = useSWR<Connection, ApiError>(
     `/v1/account/subscriptions/${params.subscriptionId}/connection${query}`,
     fetcher,
+    {
+      // "Still being set up" is a stage, not a failure. A customer who just
+      // paid lands here while the worker is provisioning, and the screen has
+      // to turn into the link on its own when it is ready rather than sit on
+      // a notice that tells them to come back later. Nothing else is worth
+      // polling: an outage or a genuine error does not clear on a timer.
+      shouldRetryOnError: (failure: ApiError) => failure.status === 409,
+      onErrorRetry: (failure: ApiError, _key, _config, revalidate, { retryCount }) => {
+        if (failure.status !== 409) {
+          return;
+        }
+        setTimeout(() => void revalidate({ retryCount }), 5_000);
+      },
+    },
   );
 
   if (isLoading) {
