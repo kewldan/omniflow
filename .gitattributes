@@ -1,0 +1,3 @@
+# Biome and gofmt check line endings; a Windows checkout with core.autocrlf=true
+# would otherwise fail both. Every text file is stored and checked out with LF.
+* text=auto eol=lf
