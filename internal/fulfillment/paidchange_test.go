@@ -101,6 +101,21 @@ func TestAPaidChangeResetsTrafficAndReEnablesTheUser(t *testing.T) {
 	}
 }
 
+// An operation written for an entitlement that has since been retired must
+// not run: applying it would push the old expiry over the new one and write
+// `active` back onto a superseded row. Everything else is still live work.
+func TestOnlyASupersededEntitlementMakesAnOperationObsolete(t *testing.T) {
+	reason, obsolete := obsoleteOperation("superseded")
+	if !obsolete || reason != "entitlement_superseded" {
+		t.Fatalf("superseded: (%q, %v)", reason, obsolete)
+	}
+	for _, status := range []string{"pending", "active", "limited", "disabled", "paused", "expired", "failed"} {
+		if _, obsolete := obsoleteOperation(status); obsolete {
+			t.Fatalf("an operation on a %s entitlement is live work and must run", status)
+		}
+	}
+}
+
 func TestShouldEnableLeavesAPauseAlone(t *testing.T) {
 	if !shouldEnable("DISABLED", "pending") || !shouldEnable("disabled", "active") {
 		t.Fatal("a disabled user behind a paid change must be re-enabled")

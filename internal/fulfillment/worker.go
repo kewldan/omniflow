@@ -103,6 +103,16 @@ func (worker *Worker) work(ctx context.Context, job *river.Job[JobArgs]) error {
 	if err != nil {
 		return err
 	}
+	// An operation outlives the entitlement it was written for when a newer
+	// entitlement of the same subscription is provisioned first — a reconcile
+	// queued before a renewal settled, for instance. Applying it now would
+	// push the old expiry over the new one and write `active` back onto a row
+	// that has been retired, which is two live entitlements and an expiry
+	// that flickers every fifteen minutes. It is cancelled, with the reason,
+	// before anything is asked of Remnawave.
+	if reason, obsolete := obsoleteOperation(entitlement.Status); obsolete {
+		return worker.cancel(ctx, tx, queries, operation, reason)
+	}
 	var desired desiredState
 	if err := json.Unmarshal(operation.DesiredState, &desired); err != nil {
 		return worker.failPermanent(ctx, tx, queries, operation, "invalid_desired_state")
@@ -475,6 +485,28 @@ func shouldEnable(remoteStatus, entitlementStatus string) bool {
 // operatorAlertAttempts is how many failed attempts a fulfillment run makes
 // before an operator is told. Below it, ordinary backoff is expected to recover.
 const operatorAlertAttempts = 3
+
+// obsoleteOperation reports whether an operation's entitlement has been
+// retired, and why, so the operation must be cancelled rather than applied.
+func obsoleteOperation(entitlementStatus string) (string, bool) {
+	if entitlementStatus == "superseded" {
+		return "entitlement_superseded", true
+	}
+	return "", false
+}
+
+// cancel closes an operation that must not be applied. It is not a failure:
+// nothing went wrong, the work is simply no longer wanted, so no operator is
+// told and the job completes normally.
+func (worker *Worker) cancel(ctx context.Context, tx pgx.Tx, queries *dbgen.Queries, operation dbgen.FulfillmentOperation, reason string) error {
+	if _, err := queries.UpdateFulfillmentOperation(ctx, dbgen.UpdateFulfillmentOperationParams{OperationID: operation.ID, Status: "cancelled", AttemptCount: operation.AttemptCount, NextAttemptAt: pgtype.Timestamptz{Time: worker.clock(), Valid: true}, LastErrorCode: pgtype.Text{String: reason, Valid: true}}); err != nil {
+		return err
+	}
+	if _, err := queries.InsertFulfillmentHistory(ctx, dbgen.InsertFulfillmentHistoryParams{OperationID: operation.ID, Status: "cancelled", CorrelationID: operation.CorrelationID, RequestSummary: []byte(`{}`), ResponseSummary: []byte(`{}`), ErrorCode: pgtype.Text{String: reason, Valid: true}}); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
 
 func (worker *Worker) failPermanent(ctx context.Context, tx pgx.Tx, queries *dbgen.Queries, operation dbgen.FulfillmentOperation, code string) error {
 	_, _ = queries.UpdateFulfillmentOperation(ctx, dbgen.UpdateFulfillmentOperationParams{OperationID: operation.ID, Status: "failed", AttemptCount: operation.AttemptCount + 1, NextAttemptAt: pgtype.Timestamptz{Time: worker.clock(), Valid: true}, LastErrorCode: pgtype.Text{String: code, Valid: true}})

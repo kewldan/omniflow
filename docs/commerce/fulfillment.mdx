@@ -153,6 +153,12 @@ The job runs in a `Serializable` transaction and takes `SELECT … FOR UPDATE` o
 two workers cannot apply the same operation at once. An operation already `succeeded` or `cancelled`
 commits and does nothing.
 
+An operation whose entitlement has since been `superseded` is cancelled before Remnawave is asked
+anything, with `last_error_code = "entitlement_superseded"` and a `cancelled` history row. This is
+the guard against a stale reconcile: a `reconcile` queued for the old entitlement and run after the
+renewal's `create` would otherwise push the old expiry over the new one and write `active` back
+onto a retired row. It is not a failure and notifies nobody — the work is simply no longer wanted.
+
 Each failure writes the operation back to `retrying` with the classified error code and a recorded
 next-attempt time of `5s × 2^min(attempt, 8)` — five seconds, then ten, twenty, and so on to a
 ceiling of 1280 seconds. The queue allows the job twelve attempts before it stops retrying on its
