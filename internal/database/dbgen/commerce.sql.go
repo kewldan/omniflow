@@ -558,9 +558,13 @@ const createOrder = `-- name: CreateOrder :one
 INSERT INTO orders (
   user_id, state, operation, currency, subtotal_minor, discount_minor,
   wallet_minor, external_minor, idempotency_key, expires_at,
-  subscription_id, selected_squad_ids
+  subscription_id, selected_squad_ids, paid_minor, paid_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+VALUES (
+  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+  CASE WHEN $2::text = 'paid' THEN $7::bigint ELSE 0 END,
+  CASE WHEN $2::text = 'paid' THEN now() ELSE NULL END
+)
 ON CONFLICT (user_id, idempotency_key) DO UPDATE SET idempotency_key = EXCLUDED.idempotency_key
 RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at
 `
@@ -580,6 +584,11 @@ type CreateOrderParams struct {
 	SelectedSquadIds []pgtype.UUID      `json:"selected_squad_ids"`
 }
 
+// An order the wallet covers in full is born paid, and it is paid by the
+// wallet amount at the instant it is created. Writing paid_minor and paid_at
+// here rather than leaving them for the worker's `fulfilled` transition is
+// what lets reporting place the sale in the period it happened and lets
+// referral qualification read the settled amount inside the same transaction.
 func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error) {
 	row := q.db.QueryRow(ctx, createOrder,
 		arg.UserID,

@@ -42,7 +42,7 @@ happened while they were asleep. See [Recurring payments](/commerce/recurring-pa
 | `discount_minor` | the promotion discount, never more than the subtotal |
 | `wallet_minor` | credit taken from the customer's wallet |
 | `external_minor` | what a payment provider must settle |
-| `paid_minor` | the wallet part plus what the provider actually settled |
+| `paid_minor` | the wallet part plus what the provider actually settled. An order the wallet covers in full is born with it equal to `wallet_minor`, and with `paid_at` set, at creation |
 | `refunded_minor` | refunded so far, never more than `paid_minor` |
 
 The load-bearing constraint is `wallet_minor + external_minor = subtotal_minor - discount_minor`.
@@ -90,7 +90,7 @@ or `paid` directly, so a customer will not normally see it.
 | Transition | Written by | Guard |
 | --- | --- | --- |
 | → `pending` | order creation | the order needs an external payment (`external_minor > 0`) |
-| → `paid` at creation | order creation | `external_minor = 0`, the wallet covered everything |
+| → `paid` at creation | order creation | `external_minor = 0`, the wallet covered everything; `paid_minor` and `paid_at` are written in the same insert |
 | `pending` → `paid` | the settlement path | the order row is locked `FOR UPDATE` and the payment classified as settling |
 | `cancelled` / `expired` → `paid` | the settlement path | the same lock; the payment is classified `paid_after_cancellation` or `late` |
 | `paid` → `fulfilled` | the fulfillment worker, or the add-on applier | a successful Remnawave `create`, or the add-on capacity applied |

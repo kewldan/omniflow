@@ -25,8 +25,10 @@ type ReferralAttribution struct {
 	AttributedAt time.Time
 	// OrderState is the state of the order being evaluated for qualification.
 	OrderState OrderState
-	// OrderPaidMinor is the amount actually settled, so a fully wallet-funded
-	// order does not mint new value out of a referral.
+	// OrderPaidMinor is the amount a payment provider actually settled — the
+	// order's paid total net of the wallet part — so a fully wallet-funded
+	// order does not mint new value out of a referral. The wallet may hold
+	// this very referral's invitee credit; only money from outside qualifies.
 	OrderPaidMinor int64
 	OrderCurrency  string
 	// InviterRewardCount counts rewards the inviter has already received.

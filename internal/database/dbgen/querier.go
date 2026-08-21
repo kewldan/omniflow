@@ -243,6 +243,11 @@ type Querier interface {
 	CreateLedgerTransaction(ctx context.Context, arg CreateLedgerTransactionParams) (LedgerTransaction, error)
 	CreateLoyaltyProgram(ctx context.Context, arg CreateLoyaltyProgramParams) (LoyaltyProgram, error)
 	CreateLoyaltyTier(ctx context.Context, arg CreateLoyaltyTierParams) (LoyaltyTier, error)
+	// An order the wallet covers in full is born paid, and it is paid by the
+	// wallet amount at the instant it is created. Writing paid_minor and paid_at
+	// here rather than leaving them for the worker's `fulfilled` transition is
+	// what lets reporting place the sale in the period it happened and lets
+	// referral qualification read the settled amount inside the same transaction.
 	CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error)
 	CreatePaymentIntent(ctx context.Context, arg CreatePaymentIntentParams) (PaymentIntent, error)
 	// ---------------------------------------------------------------------------

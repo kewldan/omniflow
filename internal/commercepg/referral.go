@@ -148,9 +148,14 @@ func (store *Store) grantReferralRewards(ctx context.Context, tx pgx.Tx, queries
 		WHERE beneficiary_user_id = $1 AND role = 'inviter'`, inviterID).Scan(&inviterRewardCount); err != nil {
 		return err
 	}
+	// paid_minor is the wallet part plus what the provider settled, and it is
+	// written the moment a wallet-covered order is created. Only the provider
+	// part qualifies a referral: the wallet may hold this very referral's
+	// invitee credit, and crediting an inviter for it would mint value.
+	providerSettled := max(order.PaidMinor-order.WalletMinor, 0)
 	rewards, err := commerce.QualifyReferral(store.clock().UTC(), program, commerce.ReferralAttribution{
 		AttributedAt: attributedAt, OrderState: commerce.OrderState(order.State),
-		OrderPaidMinor: order.PaidMinor, OrderCurrency: order.Currency,
+		OrderPaidMinor: providerSettled, OrderCurrency: order.Currency,
 		InviterRewardCount: inviterRewardCount, GrantedRoles: granted,
 	})
 	if err != nil {
