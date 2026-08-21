@@ -38,6 +38,12 @@ type Verifier interface {
 // Config tunes the loop. The zero value is the documented default.
 type Config struct {
 	Interval time.Duration
+	// Enforcer takes access away and gives it back. Nil records and warns but
+	// never suspends, which is the only safe default for a worker that could
+	// otherwise disable a paying customer on a misconfiguration.
+	Enforcer Enforcer
+	// Notifier tells the customer. Nil keeps the decision in the database.
+	Notifier Notifier
 }
 
 // Worker re-verifies membership and applies the grace rules.
@@ -209,16 +215,84 @@ func (worker *Worker) verify(
 	// The consequential half. Suspension and restoration go through the
 	// ordinary entitlement path rather than writing Remnawave directly, so a
 	// customer suspended for leaving a channel carries the same history as one
-	// suspended for anything else.
+	// suspended for anything else. The enforcement row is already written: a
+	// consequence that fails is retried on the next pass because the state it
+	// records is what the next decision is made against, and it is logged so
+	// an operator can see a customer the worker decided about but could not
+	// act on.
 	if transition.Suspend {
 		worker.logger.Info("channel membership lapsed",
 			"customerId", uuidString(customer.UserID), "missing", len(status.Missing))
+		if worker.config.Enforcer != nil {
+			if err := worker.config.Enforcer.Suspend(ctx, customer.UserID, now); err != nil {
+				worker.logger.Error("channel suspension failed",
+					"customerId", uuidString(customer.UserID), "error", err)
+			}
+		}
 	}
 	if transition.Restore {
 		worker.logger.Info("channel membership restored",
 			"customerId", uuidString(customer.UserID))
+		if worker.config.Enforcer != nil {
+			if err := worker.config.Enforcer.Restore(ctx, customer.UserID, now); err != nil {
+				worker.logger.Error("channel restoration failed",
+					"customerId", uuidString(customer.UserID), "error", err)
+			}
+		}
 	}
+	worker.notify(ctx, customer, channels, status, transition)
 	return nil
+}
+
+// notify tells the customer what just happened to them, once per change.
+//
+// A warning names the channels and the deadline; a suspension says access is
+// off and how to get it back; a restoration says it is back. Nothing is sent
+// when nothing changed, and a delivery failure is logged rather than returned,
+// because the decision has been recorded and the message is not what makes it
+// true.
+func (worker *Worker) notify(
+	ctx context.Context, customer dbgen.ListCustomersForChannelRecheckRow,
+	channels []dbgen.RequiredChannel, status channelgate.Status, transition channelgate.Transition,
+) {
+	if worker.config.Notifier == nil {
+		return
+	}
+	event := ChannelEvent{
+		CustomerID: uuidString(customer.UserID), TelegramID: customer.TelegramID.Int64,
+		GraceUntil: transition.GraceUntil,
+	}
+	switch {
+	case transition.Suspend:
+		event.Kind = EventSuspended
+	case transition.Warn:
+		event.Kind = EventWarned
+	case transition.Restore:
+		event.Kind = EventRestored
+	default:
+		return
+	}
+	missing := make(map[string]bool, len(status.Missing))
+	for _, id := range status.Missing {
+		missing[id] = true
+	}
+	for _, channel := range channels {
+		if !missing[uuidString(channel.ID)] {
+			continue
+		}
+		invite := ""
+		switch {
+		case channel.InviteUrl.Valid && channel.InviteUrl.String != "":
+			invite = channel.InviteUrl.String
+		case channel.Username.Valid && channel.Username.String != "":
+			invite = "https://t.me/" + channel.Username.String
+		}
+		event.Missing = append(event.Missing, MissingChannel{Title: channel.Title, InviteURL: invite})
+	}
+	if err := worker.config.Notifier.NotifyChannelEvent(ctx, event); err != nil {
+		worker.logger.Warn("channel notice delivery failed",
+			"customerId", event.CustomerID, "kind", event.Kind, "error", err)
+	}
 }
 
 func uuidString(id pgtype.UUID) string {

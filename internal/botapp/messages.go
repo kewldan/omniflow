@@ -170,9 +170,12 @@ var catalog = map[string]phrase{
 	"shop.savedNotice":      {ru: "Мы ничего не спишем автоматически: цена у поставщика меняется, поэтому вы подтвердите её сами, когда вернётесь.", en: "Nothing will be charged automatically. The provider price moves, so you confirm it yourself when you come back."},
 	"shop.resume":           {ru: "Вернуться к покупке", en: "Resume purchase"},
 
-	"channels.required": {ru: "📣 <b>Сначала подпишитесь</b>\n\nЧтобы продолжить покупку, подпишитесь на:", en: "📣 <b>Please subscribe first</b>\n\nTo continue with your purchase, subscribe to:"},
-	"channels.retry":    {ru: "Я подписался", en: "I have subscribed"},
-	"channels.open":     {ru: "Открыть %s", en: "Open %s"},
+	"channels.required":  {ru: "📣 <b>Сначала подпишитесь</b>\n\nЧтобы продолжить покупку, подпишитесь на:", en: "📣 <b>Please subscribe first</b>\n\nTo continue with your purchase, subscribe to:"},
+	"channels.retry":     {ru: "Я подписался", en: "I have subscribed"},
+	"channels.open":      {ru: "Открыть %s", en: "Open %s"},
+	"channels.warned":    {ru: "📣 <b>Подписка на канал обязательна</b>\n\nВы вышли из канала, без которого подписка не работает. Подпишитесь снова до %s, иначе доступ будет приостановлен:", en: "📣 <b>A channel subscription is required</b>\n\nYou left a channel your subscription depends on. Subscribe again before %s, or access will be suspended:"},
+	"channels.suspended": {ru: "⛔️ <b>Доступ приостановлен</b>\n\nВы не подписаны на обязательный канал. Подпишитесь — доступ вернётся автоматически после следующей проверки:", en: "⛔️ <b>Access is suspended</b>\n\nYou are not subscribed to a required channel. Subscribe and access returns automatically at the next check:"},
+	"channels.restored":  {ru: "✅ <b>Доступ восстановлен</b>\n\nСпасибо, что подписались снова. Подписка снова работает.", en: "✅ <b>Access is restored</b>\n\nThanks for subscribing again. Your subscription is working again."},
 
 	// Promo codes.
 	"promo.prompt":           {ru: "🏷 <b>Промокод</b>\n\nОтправьте код одним сообщением. Для отмены: /cancel", en: "🏷 <b>Promo code</b>\n\nSend the code in one message. To cancel: /cancel"},

@@ -82,7 +82,7 @@ func main() {
 
 	sender := botapp.NewSender(client, identities, logger)
 	settings := commerceSettings(cfg)
-	commerceService, pool, closeCommerce, err := buildCommerce(ctx, logger, cfg, identities)
+	commerceService, pool, fulfillmentService, closeCommerce, err := buildCommerce(ctx, logger, cfg, identities)
 	if err != nil {
 		logger.Error("bot commerce initialization failed", "error", err)
 		os.Exit(1)
@@ -125,11 +125,15 @@ func main() {
 	}
 
 	// Channel membership is verified in two places, and both need the bot's
-	// token. The worker re-checks everybody periodically and takes access away
-	// after a grace period; the app checks live at checkout, before money moves.
+	// token. The worker re-checks everybody periodically, warns, and takes
+	// access away after a grace period through the fulfillment pipeline; the
+	// app checks live at checkout, before money moves.
 	membership := botapp.NewTelegramMembership(client)
 	application.UseMembershipVerifier(membership)
-	go channelworker.New(pool, membership, logger, channelworker.Config{}).Run(ctx)
+	go channelworker.New(pool, membership, logger, channelworker.Config{
+		Enforcer: channelworker.NewFulfillmentEnforcer(pool, fulfillmentService),
+		Notifier: application,
+	}).Run(ctx)
 
 	notifier := operator.New(pool, client, logger, operator.Config{
 		ChatID: cfg.Operator.ChatID, NotificationCap: cfg.Operator.NotificationCap, Window: cfg.Operator.Window,
@@ -277,15 +281,15 @@ func buildLimiter(valkeyURL string) (*platform.RateLimiter, error) {
 // claimed gift or access code — insert their fulfillment job in the same
 // transaction, exactly as the API does. The River client here only inserts;
 // the worker process is still the only one that runs jobs.
-func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.BotConfig, store *botapp.PostgresStore) (*botapp.Commerce, *pgxpool.Pool, func(), error) {
+func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.BotConfig, store *botapp.PostgresStore) (*botapp.Commerce, *pgxpool.Pool, *fulfillment.Service, func(), error) {
 	pool, err := platform.TracedPool(ctx, cfg.DatabaseURL)
 	if err != nil {
-		return nil, nil, func() {}, err
+		return nil, nil, nil, func() {}, err
 	}
 	riverClient, err := jobs.NewClient(pool)
 	if err != nil {
 		pool.Close()
-		return nil, nil, func() {}, err
+		return nil, nil, nil, func() {}, err
 	}
 	enqueue := func(ctx context.Context, tx pgx.Tx, operationID string) error {
 		_, insertErr := riverClient.InsertTx(ctx, tx, fulfillment.JobArgs{OperationID: operationID}, fulfillment.InsertOpts())
@@ -299,14 +303,14 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.BotConfi
 	starsAdapter, err := payments.NewTelegramStars(cfg.TelegramToken, paymentservice.NewStarsPayerResolver(pool))
 	if err != nil {
 		pool.Close()
-		return nil, nil, func() {}, err
+		return nil, nil, nil, func() {}, err
 	}
 	providers := []payments.Provider{starsAdapter, payments.Manual{}}
 	if cfg.CryptoBotToken != "" {
 		provider, providerErr := payments.NewCryptoBot(cfg.CryptoBotToken, cfg.CryptoBotTestnet)
 		if providerErr != nil {
 			pool.Close()
-			return nil, nil, func() {}, providerErr
+			return nil, nil, nil, func() {}, providerErr
 		}
 		providers = append(providers, provider)
 	}
@@ -314,7 +318,7 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.BotConfi
 		provider, providerErr := payments.NewYooKassa(cfg.YooKassaShopID, cfg.YooKassaSecret)
 		if providerErr != nil {
 			pool.Close()
-			return nil, nil, func() {}, providerErr
+			return nil, nil, nil, func() {}, providerErr
 		}
 		providers = append(providers, provider)
 	}
@@ -328,13 +332,15 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.BotConfi
 		registry, registryErr := goodsdelivery.NewRegistry(pool, cfg.DataEncryptionKey, cfg.DefaultCurrency)
 		if registryErr != nil {
 			pool.Close()
-			return nil, nil, func() {}, registryErr
+			return nil, nil, nil, func() {}, registryErr
 		}
 		commerceService.EnableShop(registry)
 	} else {
 		logger.Info("digital goods shop disabled", "reason", "APP_DATA_ENCRYPTION_KEY is not set")
 	}
-	return commerceService, pool, pool.Close, nil
+	// The channel worker suspends and restores through the fulfillment
+	// pipeline, which needs the same insert-only River client.
+	return commerceService, pool, fulfillment.NewService(pool, riverClient), pool.Close, nil
 }
 
 // webSignIn adapts the identity service to the narrow interface the bot needs.

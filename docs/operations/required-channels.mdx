@@ -61,6 +61,26 @@ A zero grace period is a legitimate configuration and suspends at once — but i
 still sends the warning, because a customer suspended without warning is one who
 cannot tell why.
 
+### What the customer receives, and what is done
+
+Each change of state sends one message to the customer's chat. The warning names
+every channel still missing, with a join button for each, and the moment access
+stops unless they rejoin before it. The suspension says access is off and that
+rejoining brings it back at the next check. The restoration says it is back.
+Nothing is sent on a check that changes nothing.
+
+Suspension and restoration are not written to Remnawave directly. The worker
+enqueues a `disable` fulfillment operation for every entitlement still inside
+its paid period, and an `enable` for every one Remnawave reports disabled when
+the customer returns, under an idempotency key that names the entitlement and
+the moment of the decision. A customer suspended for leaving a channel therefore
+carries the same operation history as one an operator disabled by hand, and an
+operator reading the fulfillment log sees `channel-gate` as the correlation. An
+entitlement an operator paused is never touched: it is off by a decision a
+rejoin must not undo. The enforcement state is recorded before the consequence
+is attempted, so a consequence that could not be enqueued is retried by the next
+pass rather than lost.
+
 ## Rejoining restores automatically
 
 A customer who fixes the problem should not have to ask somebody to undo the

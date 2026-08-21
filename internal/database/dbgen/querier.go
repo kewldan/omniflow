@@ -861,6 +861,13 @@ type Querier interface {
 	// What an installation actually exposes: enabled tools on enabled servers whose
 	// schema this build can enforce.
 	ListEnabledMCPTools(ctx context.Context) ([]McpTool, error)
+	// Channel enforcement: what a membership lapse takes away and a rejoin gives
+	// back.
+	//
+	// Only entitlements still inside their paid period are listed. An expired or
+	// superseded one has nothing to suspend, and a paused one is already off by an
+	// operator's decision that a rejoin must not undo.
+	ListEntitlementsForChannelEnforcement(ctx context.Context, userID pgtype.UUID) ([]ListEntitlementsForChannelEnforcementRow, error)
 	// An entitlement that ended before the horizon is history rather than state:
 	// Remnawave expired the user on its own, and the only thing a reconcile could
 	// still do is re-push an expiry that has passed or recreate a user an operator
