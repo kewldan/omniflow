@@ -3624,6 +3624,9 @@ paths:
     get:
       operationId: listAccountSupportTickets
       tags: [account]
+      description: >-
+        The customer's conversations, newest activity first, with whether an
+        operator's reply can be pushed to them in Telegram at all.
       parameters:
         - {$ref: "#/components/parameters/Cursor"}
         - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 100}}
@@ -3634,9 +3637,10 @@ paths:
       operationId: createAccountSupportTicket
       tags: [account]
       description: >-
-        Opens a conversation. The number a customer may hold open at once is
-        bounded, so a loop in a client cannot fill the operator queue faster
-        than people can empty it.
+        Opens a conversation and answers it whole, with its first message. The
+        number a customer may hold open at once is bounded, so a loop in a
+        client cannot fill the operator queue faster than people can empty it,
+        and the route is rate-limited per customer on top.
       parameters:
         - {$ref: "#/components/parameters/CSRFToken"}
         - {$ref: "#/components/parameters/IdempotencyKeyOptional"}
@@ -3651,9 +3655,11 @@ paths:
                 subject: {type: string, minLength: 1}
                 message: {type: string, minLength: 1}
       responses:
-        "201": {description: Opened, content: {application/json: {schema: {$ref: "#/components/schemas/AccountTicket"}}}}
+        "201": {description: Opened, content: {application/json: {schema: {$ref: "#/components/schemas/AccountConversation"}}}}
         "409": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+        "429": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
   /v1/account/support/tickets/{ticketID}:
     get:
       operationId: getAccountSupportTicket
@@ -3673,12 +3679,18 @@ paths:
         - {$ref: "#/components/parameters/AccountTicketID"}
         - {$ref: "#/components/parameters/CSRFToken"}
         - {$ref: "#/components/parameters/IdempotencyKeyOptional"}
+      description: >-
+        Appends a message and answers the whole conversation. A message on a
+        resolved ticket reopens it, which takes an open slot and is refused with
+        409 `too_many_open_tickets` when the customer has none; a closed or
+        merged ticket answers 409 `ticket_closed`.
       requestBody: {required: true, content: {application/json: {schema: {type: object, required: [message], properties: {message: {type: string, minLength: 1}}}}}}
       responses:
-        "201": {description: Sent, content: {application/json: {schema: {$ref: "#/components/schemas/AccountConversation"}}}}
+        "200": {description: Sent, content: {application/json: {schema: {$ref: "#/components/schemas/AccountConversation"}}}}
         "404": {$ref: "#/components/responses/Problem"}
         "409": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+        "429": {$ref: "#/components/responses/Problem"}
   /v1/account/support/tickets/{ticketID}/read:
     post:
       operationId: markAccountSupportTicketRead
@@ -3707,22 +3719,33 @@ paths:
     post:
       operationId: reopenAccountSupportTicket
       tags: [account]
+      description: >-
+        Reopening takes an open slot and is refused with 409
+        `too_many_open_tickets` when the customer already holds the maximum; a
+        merged ticket answers 422.
       parameters:
         - {$ref: "#/components/parameters/AccountTicketID"}
         - {$ref: "#/components/parameters/CSRFToken"}
       responses:
         "200": {description: Reopened, content: {application/json: {schema: {$ref: "#/components/schemas/AccountTicket"}}}}
         "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/account/support/tickets/{ticketID}/attachments:
     post:
       operationId: attachToAccountSupportTicket
       tags: [account]
       description: >-
-        Uploads one file. The accepted media types are an allowlist, so an
-        unknown type is refused rather than guessed at.
+        Uploads one file as a new message on the conversation and answers the
+        attachment it created. The accepted media types are an allowlist, so an
+        unknown type is refused rather than guessed at. The idempotency key
+        becomes the message's dedupe key, so a replayed upload finds the message
+        and the file it already hung on it. A conversation already carrying
+        `maxAttachmentsPerTicket` web uploads answers 409 `too_many_attachments`.
       parameters:
         - {$ref: "#/components/parameters/AccountTicketID"}
         - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/IdempotencyKeyOptional"}
       requestBody:
         required: true
         content:
@@ -3734,11 +3757,13 @@ paths:
                 file: {type: string, format: binary}
                 message: {type: string}
       responses:
-        "201": {description: Attached, content: {application/json: {schema: {$ref: "#/components/schemas/AccountConversation"}}}}
+        "201": {description: Attached, content: {application/json: {schema: {$ref: "#/components/schemas/AccountAttachment"}}}}
         "404": {$ref: "#/components/responses/Problem"}
         "409": {$ref: "#/components/responses/Problem"}
         "413": {$ref: "#/components/responses/Problem"}
         "415": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+        "429": {$ref: "#/components/responses/Problem"}
         "503": {$ref: "#/components/responses/Problem"}
   /v1/account/support/attachments/{attachmentID}:
     get:
@@ -3873,6 +3898,318 @@ paths:
       parameters: [{$ref: "#/components/parameters/CSRFToken"}]
       responses:
         "200": {description: Unsubscribed, content: {application/json: {schema: {$ref: "#/components/schemas/AccountPreferences"}}}}
+  /v1/panel/support/queues:
+    get:
+      operationId: listPanelSupportQueues
+      tags: [panel]
+      description: Requires support.read. Every live queue with its open, unassigned, and breached counts.
+      responses:
+        "200":
+          description: Queues
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: {type: array, items: {$ref: "#/components/schemas/PanelSupportQueue"}}
+        "403": {$ref: "#/components/responses/Problem"}
+    put:
+      operationId: savePanelSupportQueue
+      tags: [panel]
+      description: >-
+        Requires settings.write, not support.write: a queue's targets are the
+        promise an operator works under, not day-to-day support work. Upserts
+        by code; `isDefault: true` clears the previous default in the same
+        transaction.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSupportQueueInput"}}}}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSupportQueue"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/support/tickets:
+    get:
+      operationId: listPanelSupportTickets
+      tags: [panel]
+      description: >-
+        Requires support.read. The queue, oldest activity first, on a keyset
+        cursor over (lastMessageAt, id). The breach flag is computed in SQL so
+        "overdue" means the same thing here, in the queue counters, and in the
+        report.
+      parameters:
+        - {in: query, name: queueId, schema: {type: string, format: uuid}}
+        - {in: query, name: status, schema: {type: string, enum: [open, pending, resolved, closed, merged]}}
+        - {in: query, name: priority, schema: {type: string, enum: [low, normal, high, urgent]}}
+        - {in: query, name: assigneeId, schema: {type: string, format: uuid}}
+        - {in: query, name: unassigned, schema: {type: boolean}}
+        - {in: query, name: customerId, schema: {type: string, format: uuid}}
+        - {in: query, name: tag, schema: {type: string}}
+        - {$ref: "#/components/parameters/Cursor"}
+        - {in: query, name: pageSize, schema: {type: integer, minimum: 1, maximum: 200, default: 25}}
+      responses:
+        "200": {description: Tickets, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSupportTicketPage"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/support/tickets/{ticketID}:
+    get:
+      operationId: getPanelSupportTicket
+      tags: [panel]
+      description: >-
+        Requires support.read. The conversation with its messages, each
+        carrying its attachments and the push outcome, and the operators'
+        internal notes as a separate list so no client can mistake one for the
+        other.
+      parameters: [{$ref: "#/components/parameters/PanelTicketID"}]
+      responses:
+        "200": {description: Ticket, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSupportTicketDetail"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/panel/support/tickets/{ticketID}/attachments/{attachmentID}:
+    get:
+      operationId: downloadPanelSupportAttachment
+      tags: [panel]
+      description: >-
+        Requires support.read. Serves a file the customer uploaded through the
+        web panel, scoped to its ticket, with an attachment disposition and
+        `nosniff`. A file that arrived through Telegram answers 409
+        `attachment_remote` and is never fetched: Omniflow holds a reference,
+        not the bytes, and will not proxy Telegram's file API with the bot
+        token on an operator's behalf. A purged file answers 404; a process
+        with no attachment store answers 503.
+      parameters:
+        - {$ref: "#/components/parameters/PanelTicketID"}
+        - {in: path, name: attachmentID, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200": {description: File, content: {application/octet-stream: {schema: {type: string, format: binary}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
+  /v1/panel/support/tickets/{ticketID}/assign:
+    post:
+      operationId: assignPanelSupportTicket
+      tags: [panel]
+      description: Requires support.write. An empty assigneeId releases the ticket.
+      parameters:
+        - {$ref: "#/components/parameters/PanelTicketID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [assigneeId], properties: {assigneeId: {type: string}}}}}}
+      responses:
+        "200": {description: Ticket, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSupportTicket"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/panel/support/tickets/{ticketID}/queue:
+    post:
+      operationId: movePanelSupportTicket
+      tags: [panel]
+      description: Requires support.write.
+      parameters:
+        - {$ref: "#/components/parameters/PanelTicketID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [queueId], properties: {queueId: {type: string, format: uuid}}}}}}
+      responses:
+        "200": {description: Ticket, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSupportTicket"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/panel/support/tickets/{ticketID}/priority:
+    post:
+      operationId: setPanelSupportTicketPriority
+      tags: [panel]
+      description: Requires support.write. Priority does not change the SLA target, which belongs to the queue.
+      parameters:
+        - {$ref: "#/components/parameters/PanelTicketID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [priority], properties: {priority: {type: string, enum: [low, normal, high, urgent]}}}}}}
+      responses:
+        "200": {description: Ticket, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSupportTicket"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/support/tickets/{ticketID}/status:
+    post:
+      operationId: setPanelSupportTicketStatus
+      tags: [panel]
+      description: >-
+        Requires support.write. `merged` cannot be set here; merging is its own
+        action. Setting `resolved` or `closed` writes a system message in the
+        customer's language that the bot pushes like a reply.
+      parameters:
+        - {$ref: "#/components/parameters/PanelTicketID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [status], properties: {status: {type: string, enum: [open, pending, resolved, closed]}}}}}}
+      responses:
+        "200": {description: Ticket, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSupportTicket"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/support/tickets/{ticketID}/merge:
+    post:
+      operationId: mergePanelSupportTicket
+      tags: [panel]
+      description: >-
+        Requires support.write. Folds this ticket into the survivor: messages
+        and unread counts move, the absorbed row stays with status `merged`
+        and a pointer, and the customer is told on the survivor. A merge across
+        customers or into itself is 422; into a ticket that was itself merged
+        is 409.
+      parameters:
+        - {$ref: "#/components/parameters/PanelTicketID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [survivorId], properties: {survivorId: {type: string, format: uuid}}}}}}
+      responses:
+        "200": {description: Absorbed ticket, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSupportTicket"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/support/tickets/{ticketID}/reply:
+    post:
+      operationId: replyToPanelSupportTicket
+      tags: [panel]
+      description: >-
+        Requires support.write and an Idempotency-Key, which becomes the
+        message's dedupe key; a repeated key answers 200 with an empty message.
+        The reply is written here and pushed by the bot's support loop. A
+        merged ticket is refused with 409.
+      parameters:
+        - {$ref: "#/components/parameters/PanelTicketID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [body], properties: {body: {type: string, minLength: 1, maxLength: 4000}, cannedResponseId: {type: string, format: uuid}}}}}}
+      responses:
+        "200": {description: Message, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSupportMessage"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/support/tickets/{ticketID}/notes:
+    post:
+      operationId: addPanelSupportNote
+      tags: [panel]
+      description: Requires support.write. A private note, never delivered; its body is not copied into the audit trail.
+      parameters:
+        - {$ref: "#/components/parameters/PanelTicketID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [body], properties: {body: {type: string, minLength: 1, maxLength: 4000}}}}}}
+      responses:
+        "200": {description: Note, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSupportNote"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/support/tickets/{ticketID}/read:
+    post:
+      operationId: markPanelSupportTicketRead
+      tags: [panel]
+      description: Requires support.write. Clears the operator-side unread counter.
+      parameters:
+        - {$ref: "#/components/parameters/PanelTicketID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "204": {description: Cleared}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/panel/support/tickets/{ticketID}/tags/{tag}:
+    put:
+      operationId: tagPanelSupportTicket
+      tags: [panel]
+      description: Requires support.write. The path parameter is the tag code; attaching twice is a no-op.
+      parameters:
+        - {$ref: "#/components/parameters/PanelTicketID"}
+        - {in: path, name: tag, required: true, schema: {type: string}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "204": {description: Attached}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+    delete:
+      operationId: untagPanelSupportTicket
+      tags: [panel]
+      description: Requires support.write.
+      parameters:
+        - {$ref: "#/components/parameters/PanelTicketID"}
+        - {in: path, name: tag, required: true, schema: {type: string}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "204": {description: Detached}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/panel/support/tags:
+    get:
+      operationId: listPanelSupportTags
+      tags: [panel]
+      description: Requires support.read.
+      responses:
+        "200":
+          description: Tags
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: {type: array, items: {$ref: "#/components/schemas/PanelSupportTag"}}
+        "403": {$ref: "#/components/responses/Problem"}
+    put:
+      operationId: savePanelSupportTag
+      tags: [panel]
+      description: Requires settings.write. Upserts by code.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [code, nameEn, nameRu], properties: {code: {type: string}, nameEn: {type: string}, nameRu: {type: string}}}}}}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSupportTag"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/support/canned:
+    get:
+      operationId: listPanelCannedResponses
+      tags: [panel]
+      description: >-
+        Requires support.read. Most-used first; a response whose
+        `requiresPermission` the signed-in operator lacks is filtered out
+        server-side rather than shown disabled.
+      responses:
+        "200":
+          description: Canned responses
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: {type: array, items: {$ref: "#/components/schemas/PanelCannedResponse"}}
+        "403": {$ref: "#/components/responses/Problem"}
+    put:
+      operationId: savePanelCannedResponse
+      tags: [panel]
+      description: Requires settings.write. Both languages are mandatory. Upserts by code.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelCannedResponseInput"}}}}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelCannedResponse"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/support/canned/{responseID}:
+    delete:
+      operationId: archivePanelCannedResponse
+      tags: [panel]
+      description: Requires settings.write. Archives rather than deletes; archiving twice is 404.
+      parameters:
+        - {in: path, name: responseID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "204": {description: Archived}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/panel/support/report:
+    get:
+      operationId: getPanelSupportReport
+      tags: [panel]
+      description: Requires support.read. The workload and response-time figures over a window capped at 90 days.
+      parameters:
+        - {in: query, name: windowDays, schema: {type: integer, minimum: 1, maximum: 90, default: 7}}
+      responses:
+        "200": {description: Report, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSupportReport"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
   /v1/panel/settings/customer-oidc:
     get:
       operationId: listPanelCustomerOidcProviders
@@ -3995,6 +4332,7 @@ components:
       schema: {type: string, minLength: 8, maxLength: 128}
     AccountProductID: {in: path, name: productID, required: true, schema: {type: string, format: uuid}}
     AccountTicketID: {in: path, name: ticketID, required: true, schema: {type: string, format: uuid}}
+    PanelTicketID: {in: path, name: ticketID, required: true, schema: {type: string, format: uuid}}
     PageSize: {in: query, name: pageSize, schema: {type: integer, minimum: 1, maximum: 500, default: 100}}
     OperatorReason:
       in: header
@@ -6879,32 +7217,56 @@ components:
         nextCursorId: {type: string, format: uuid}
     AccountSupportLimits:
       type: object
-      required: [maxAttachmentBytes, allowedMediaTypes, maxOpenTickets, maxSubjectLength, maxMessageLength]
+      required: [maxAttachmentBytes, allowedMediaTypes, maxOpenTickets, maxAttachmentsPerTicket, maxSubjectLength, maxMessageLength]
       properties:
         maxAttachmentBytes: {type: integer, format: int64}
         allowedMediaTypes: {type: array, items: {type: string}}
         maxOpenTickets: {type: integer}
+        maxAttachmentsPerTicket: {type: integer, description: "Web uploads one conversation may carry."}
         maxSubjectLength: {type: integer}
         maxMessageLength: {type: integer}
     AccountTicket:
       type: object
-      required: [id, subject, status, open, canReply, unreadCount, createdAt, updatedAt]
+      required: [id, subject, status, priority, open, canReply, unreadCount, messageCount, createdAt, updatedAt, lastMessageAt]
       properties:
         id: {type: string, format: uuid}
         subject: {type: string}
         status: {type: string, enum: [open, pending, resolved, closed, merged]}
+        priority: {type: string, enum: [low, normal, high, urgent]}
         open: {type: boolean, description: "Counts against the open-conversation quota."}
         canReply: {type: boolean}
         unreadCount: {type: integer}
+        messageCount: {type: integer}
         mergedIntoTicketId: {type: string, format: uuid}
         createdAt: {type: string, format: date-time}
         updatedAt: {type: string, format: date-time}
+        lastMessageAt: {type: string, format: date-time}
     AccountTicketPage:
       type: object
-      required: [items]
+      required: [items, telegramLinked]
       properties:
         items: {type: array, items: {$ref: "#/components/schemas/AccountTicket"}}
         nextCursor: {type: string}
+        telegramLinked:
+          type: boolean
+          description: >-
+            Whether an operator's reply can be pushed to this customer in
+            Telegram: an active Telegram identity, or the imported Remnawave
+            mapping the delivery query also accepts.
+    AccountAttachment:
+      type: object
+      required: [id, kind, fileName, mediaType, sizeBytes, downloadable, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        messageId: {type: integer, format: int64, description: "Present on the upload response; the message the file was hung on."}
+        kind: {type: string, enum: [photo, document]}
+        fileName: {type: string}
+        mediaType: {type: string}
+        sizeBytes: {type: integer, format: int64}
+        downloadable:
+          type: boolean
+          description: "False for a file that lives in Telegram rather than here."
+        createdAt: {type: string, format: date-time}
     AccountConversation:
       type: object
       required: [ticket, messages]
@@ -6914,26 +7276,16 @@ components:
           type: array
           items:
             type: object
-            required: [id, author, body, unread, createdAt]
+            required: [id, author, body, unread, createdAt, attachments]
             properties:
-              id: {type: string}
+              id: {type: integer, format: int64}
               author: {type: string, enum: [customer, operator, system]}
               body: {type: string}
               unread: {type: boolean}
               createdAt: {type: string, format: date-time}
               attachments:
                 type: array
-                items:
-                  type: object
-                  required: [id, fileName, sizeBytes, downloadable]
-                  properties:
-                    id: {type: string, format: uuid}
-                    fileName: {type: string}
-                    mimeType: {type: string}
-                    sizeBytes: {type: integer, format: int64}
-                    downloadable:
-                      type: boolean
-                      description: "False for a file that lives in Telegram rather than here."
+                items: {$ref: "#/components/schemas/AccountAttachment"}
     AccountNewsPage:
       type: object
       required: [items, unreadCount, locale]
@@ -7154,5 +7506,166 @@ components:
             already points at this provider — that is the configuration worth
             proving. A provider nothing points at yet has none to infer, and the
             request is refused rather than guessed.
+    PanelSupportQueue:
+      type: object
+      required: [id, code, nameEn, nameRu, firstResponseTargetSeconds, resolutionTargetSeconds, isDefault, sortOrder, openCount, unassignedCount, breachedCount]
+      properties:
+        id: {type: string, format: uuid}
+        code: {type: string}
+        nameEn: {type: string}
+        nameRu: {type: string}
+        firstResponseTargetSeconds: {type: integer, format: int64}
+        resolutionTargetSeconds: {type: integer, format: int64}
+        isDefault: {type: boolean}
+        sortOrder: {type: integer}
+        openCount: {type: integer, format: int64}
+        unassignedCount: {type: integer, format: int64}
+        breachedCount: {type: integer, format: int64}
+    PanelSupportQueueInput:
+      type: object
+      required: [code, nameEn, nameRu]
+      properties:
+        code: {type: string, pattern: "^[a-z][a-z0-9_-]{1,63}$"}
+        nameEn: {type: string}
+        nameRu: {type: string}
+        firstResponseTargetSeconds: {type: integer, format: int64, minimum: 0}
+        resolutionTargetSeconds: {type: integer, format: int64, minimum: 0}
+        isDefault: {type: boolean}
+        sortOrder: {type: integer}
+    PanelSupportTicket:
+      type: object
+      required: [id, customerId, queueId, queueCode, subject, status, priority, tags, messageCount, unreadCount, reopenedCount, firstResponseBreached, createdAt, lastMessageAt]
+      properties:
+        id: {type: string, format: uuid}
+        customerId: {type: string, format: uuid}
+        queueId: {type: string, format: uuid}
+        queueCode: {type: string}
+        subject: {type: string}
+        status: {type: string, enum: [open, pending, resolved, closed, merged]}
+        priority: {type: string, enum: [low, normal, high, urgent]}
+        assigneeId: {type: string, format: uuid}
+        assigneeName: {type: string}
+        tags: {type: array, items: {type: string}}
+        messageCount: {type: integer, format: int64}
+        unreadCount: {type: integer, description: "Customer messages and reopens since an operator last marked the ticket read."}
+        reopenedCount: {type: integer}
+        firstResponseBreached: {type: boolean}
+        mergedIntoTicketId: {type: string, format: uuid}
+        createdAt: {type: string, format: date-time}
+        lastMessageAt: {type: string, format: date-time}
+        firstResponseAt: {type: string, format: date-time}
+        resolvedAt: {type: string, format: date-time}
+    PanelSupportTicketPage:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/PanelSupportTicket"}}
+        nextCursor: {type: string}
+    PanelSupportAttachment:
+      type: object
+      required: [id, messageId, kind, fileName, mediaType, sizeBytes, origin, downloadable, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        messageId: {type: integer, format: int64}
+        kind: {type: string, enum: [photo, document]}
+        fileName: {type: string}
+        mediaType: {type: string}
+        sizeBytes: {type: integer, format: int64}
+        origin:
+          type: string
+          enum: [web, telegram]
+          description: "`web` for a file this installation holds; `telegram` for a reference to a file in the customer's chat."
+        downloadable: {type: boolean}
+        createdAt: {type: string, format: date-time}
+    PanelSupportMessage:
+      type: object
+      required: [id, sender, body, delivered, createdAt, attachments]
+      properties:
+        id: {type: integer, format: int64}
+        sender: {type: string, enum: [customer, operator, system]}
+        body: {type: string}
+        authorName: {type: string}
+        delivered: {type: boolean, description: "Telegram accepted the push."}
+        delivery:
+          type: string
+          enum: [queued, retrying, delivered, undeliverable, failed]
+          description: >-
+            The push outcome for an operator or system message, absent on a
+            customer message. `undeliverable` means the customer blocked the
+            bot, deleted their account, or has no Telegram identity; they read
+            the message in the web panel.
+        deliveryReason: {type: string, description: "The classified code behind an undeliverable, failed, or retrying push."}
+        createdAt: {type: string, format: date-time}
+        attachments: {type: array, items: {$ref: "#/components/schemas/PanelSupportAttachment"}}
+    PanelSupportNote:
+      type: object
+      required: [id, authorName, body, createdAt]
+      properties:
+        id: {type: integer, format: int64}
+        authorName: {type: string}
+        body: {type: string}
+        createdAt: {type: string, format: date-time}
+    PanelSupportTicketDetail:
+      type: object
+      required: [ticket, messages, notes]
+      properties:
+        ticket: {$ref: "#/components/schemas/PanelSupportTicket"}
+        messages: {type: array, items: {$ref: "#/components/schemas/PanelSupportMessage"}}
+        notes:
+          type: array
+          description: Internal notes, never delivered to the customer, as a separate list on purpose.
+          items: {$ref: "#/components/schemas/PanelSupportNote"}
+    PanelSupportTag:
+      type: object
+      required: [id, code, nameEn, nameRu]
+      properties:
+        id: {type: string, format: uuid}
+        code: {type: string}
+        nameEn: {type: string}
+        nameRu: {type: string}
+    PanelCannedResponse:
+      type: object
+      required: [id, code, titleEn, titleRu, bodyEn, bodyRu, requiresPermission, usageCount]
+      properties:
+        id: {type: string, format: uuid}
+        code: {type: string}
+        titleEn: {type: string}
+        titleRu: {type: string}
+        bodyEn: {type: string}
+        bodyRu: {type: string}
+        requiresPermission: {type: string}
+        usageCount: {type: integer, format: int64}
+    PanelCannedResponseInput:
+      type: object
+      required: [code, titleEn, titleRu, bodyEn, bodyRu]
+      properties:
+        code: {type: string}
+        titleEn: {type: string}
+        titleRu: {type: string}
+        bodyEn: {type: string}
+        bodyRu: {type: string}
+        requiresPermission: {type: string, description: "Defaults to support.write."}
+    PanelSupportReport:
+      type: object
+      required: [openTickets, unassignedTickets, breachedTickets, resolvedInWindow, medianFirstResponseSeconds, windowSeconds, operators]
+      properties:
+        openTickets: {type: integer, format: int64}
+        unassignedTickets: {type: integer, format: int64}
+        breachedTickets: {type: integer, format: int64}
+        resolvedInWindow: {type: integer, format: int64}
+        medianFirstResponseSeconds: {type: integer, format: int64}
+        windowSeconds: {type: integer, format: int64}
+        operators:
+          type: array
+          items:
+            type: object
+            required: [operatorId, displayName, replies, openTickets, resolvedTickets, medianFirstResponseSeconds]
+            properties:
+              operatorId: {type: string, format: uuid}
+              displayName: {type: string}
+              replies: {type: integer, format: int64}
+              openTickets: {type: integer, format: int64}
+              resolvedTickets: {type: integer, format: int64}
+              medianFirstResponseSeconds: {type: integer, format: int64}
   responses:
     Problem: {description: Request failed, content: {application/problem+json: {schema: {$ref: "#/components/schemas/Problem"}}}}

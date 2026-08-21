@@ -3509,7 +3509,7 @@ export type AccountPlanOperationsItem =
 
 export const AccountPlanOperationsItem = {
   purchase: "purchase",
-  renew: "renew",
+  extension: "extension",
   upgrade: "upgrade",
   downgrade: "downgrade",
 } as const;
@@ -3531,6 +3531,8 @@ export interface AccountPlan {
   /** The lifecycle actions the configured plan policy allows for this customer. */
   operations: AccountPlanOperationsItem[];
   eligible: boolean;
+  /** The customer already holds an entitlement for this plan, so the catalogue can mark it as the one they are on. */
+  held?: boolean;
   ineligibleReason?: string;
   /**
    * Null means unlimited. Nullable rather than zero because unlimited and none are different offers.
@@ -4234,6 +4236,8 @@ export interface AccountSupportLimits {
   maxAttachmentBytes: number;
   allowedMediaTypes: string[];
   maxOpenTickets: number;
+  /** Web uploads one conversation may carry. */
+  maxAttachmentsPerTicket: number;
   maxSubjectLength: number;
   maxMessageLength: number;
 }
@@ -4248,22 +4252,58 @@ export const AccountTicketStatus = {
   merged: "merged",
 } as const;
 
+export type AccountTicketPriority =
+  (typeof AccountTicketPriority)[keyof typeof AccountTicketPriority];
+
+export const AccountTicketPriority = {
+  low: "low",
+  normal: "normal",
+  high: "high",
+  urgent: "urgent",
+} as const;
+
 export interface AccountTicket {
   id: string;
   subject: string;
   status: AccountTicketStatus;
+  priority: AccountTicketPriority;
   /** Counts against the open-conversation quota. */
   open: boolean;
   canReply: boolean;
   unreadCount: number;
+  messageCount: number;
   mergedIntoTicketId?: string;
   createdAt: string;
   updatedAt: string;
+  lastMessageAt: string;
 }
 
 export interface AccountTicketPage {
   items: AccountTicket[];
   nextCursor?: string;
+  /** Whether an operator's reply can be pushed to this customer in Telegram: an active Telegram identity, or the imported Remnawave mapping the delivery query also accepts. */
+  telegramLinked: boolean;
+}
+
+export type AccountAttachmentKind =
+  (typeof AccountAttachmentKind)[keyof typeof AccountAttachmentKind];
+
+export const AccountAttachmentKind = {
+  photo: "photo",
+  document: "document",
+} as const;
+
+export interface AccountAttachment {
+  id: string;
+  /** Present on the upload response; the message the file was hung on. */
+  messageId?: number;
+  kind: AccountAttachmentKind;
+  fileName: string;
+  mediaType: string;
+  sizeBytes: number;
+  /** False for a file that lives in Telegram rather than here. */
+  downloadable: boolean;
+  createdAt: string;
 }
 
 export type AccountConversationMessagesItemAuthor =
@@ -4275,22 +4315,13 @@ export const AccountConversationMessagesItemAuthor = {
   system: "system",
 } as const;
 
-export type AccountConversationMessagesItemAttachmentsItem = {
-  id: string;
-  fileName: string;
-  mimeType?: string;
-  sizeBytes: number;
-  /** False for a file that lives in Telegram rather than here. */
-  downloadable: boolean;
-};
-
 export type AccountConversationMessagesItem = {
-  id: string;
+  id: number;
   author: AccountConversationMessagesItemAuthor;
   body: string;
   unread: boolean;
   createdAt: string;
-  attachments?: AccountConversationMessagesItemAttachmentsItem[];
+  attachments: AccountAttachment[];
 };
 
 export interface AccountConversation {
@@ -4573,6 +4604,213 @@ export interface PanelAIProviderTestInput {
    * @maxLength 120
    */
   model?: string;
+}
+
+export interface PanelSupportQueue {
+  id: string;
+  code: string;
+  nameEn: string;
+  nameRu: string;
+  firstResponseTargetSeconds: number;
+  resolutionTargetSeconds: number;
+  isDefault: boolean;
+  sortOrder: number;
+  openCount: number;
+  unassignedCount: number;
+  breachedCount: number;
+}
+
+export interface PanelSupportQueueInput {
+  /** @pattern ^[a-z][a-z0-9_-]{1,63}$ */
+  code: string;
+  nameEn: string;
+  nameRu: string;
+  /** @minimum 0 */
+  firstResponseTargetSeconds?: number;
+  /** @minimum 0 */
+  resolutionTargetSeconds?: number;
+  isDefault?: boolean;
+  sortOrder?: number;
+}
+
+export type PanelSupportTicketStatus =
+  (typeof PanelSupportTicketStatus)[keyof typeof PanelSupportTicketStatus];
+
+export const PanelSupportTicketStatus = {
+  open: "open",
+  pending: "pending",
+  resolved: "resolved",
+  closed: "closed",
+  merged: "merged",
+} as const;
+
+export type PanelSupportTicketPriority =
+  (typeof PanelSupportTicketPriority)[keyof typeof PanelSupportTicketPriority];
+
+export const PanelSupportTicketPriority = {
+  low: "low",
+  normal: "normal",
+  high: "high",
+  urgent: "urgent",
+} as const;
+
+export interface PanelSupportTicket {
+  id: string;
+  customerId: string;
+  queueId: string;
+  queueCode: string;
+  subject: string;
+  status: PanelSupportTicketStatus;
+  priority: PanelSupportTicketPriority;
+  assigneeId?: string;
+  assigneeName?: string;
+  tags: string[];
+  messageCount: number;
+  /** Customer messages and reopens since an operator last marked the ticket read. */
+  unreadCount: number;
+  reopenedCount: number;
+  firstResponseBreached: boolean;
+  mergedIntoTicketId?: string;
+  createdAt: string;
+  lastMessageAt: string;
+  firstResponseAt?: string;
+  resolvedAt?: string;
+}
+
+export interface PanelSupportTicketPage {
+  items: PanelSupportTicket[];
+  nextCursor?: string;
+}
+
+export type PanelSupportAttachmentKind =
+  (typeof PanelSupportAttachmentKind)[keyof typeof PanelSupportAttachmentKind];
+
+export const PanelSupportAttachmentKind = {
+  photo: "photo",
+  document: "document",
+} as const;
+
+/**
+ * `web` for a file this installation holds; `telegram` for a reference to a file in the customer's chat.
+ */
+export type PanelSupportAttachmentOrigin =
+  (typeof PanelSupportAttachmentOrigin)[keyof typeof PanelSupportAttachmentOrigin];
+
+export const PanelSupportAttachmentOrigin = {
+  web: "web",
+  telegram: "telegram",
+} as const;
+
+export interface PanelSupportAttachment {
+  id: string;
+  messageId: number;
+  kind: PanelSupportAttachmentKind;
+  fileName: string;
+  mediaType: string;
+  sizeBytes: number;
+  /** `web` for a file this installation holds; `telegram` for a reference to a file in the customer's chat. */
+  origin: PanelSupportAttachmentOrigin;
+  downloadable: boolean;
+  createdAt: string;
+}
+
+export type PanelSupportMessageSender =
+  (typeof PanelSupportMessageSender)[keyof typeof PanelSupportMessageSender];
+
+export const PanelSupportMessageSender = {
+  customer: "customer",
+  operator: "operator",
+  system: "system",
+} as const;
+
+/**
+ * The push outcome for an operator or system message, absent on a customer message. `undeliverable` means the customer blocked the bot, deleted their account, or has no Telegram identity; they read the message in the web panel.
+ */
+export type PanelSupportMessageDelivery =
+  (typeof PanelSupportMessageDelivery)[keyof typeof PanelSupportMessageDelivery];
+
+export const PanelSupportMessageDelivery = {
+  queued: "queued",
+  retrying: "retrying",
+  delivered: "delivered",
+  undeliverable: "undeliverable",
+  failed: "failed",
+} as const;
+
+export interface PanelSupportMessage {
+  id: number;
+  sender: PanelSupportMessageSender;
+  body: string;
+  authorName?: string;
+  /** Telegram accepted the push. */
+  delivered: boolean;
+  /** The push outcome for an operator or system message, absent on a customer message. `undeliverable` means the customer blocked the bot, deleted their account, or has no Telegram identity; they read the message in the web panel. */
+  delivery?: PanelSupportMessageDelivery;
+  /** The classified code behind an undeliverable, failed, or retrying push. */
+  deliveryReason?: string;
+  createdAt: string;
+  attachments: PanelSupportAttachment[];
+}
+
+export interface PanelSupportNote {
+  id: number;
+  authorName: string;
+  body: string;
+  createdAt: string;
+}
+
+export interface PanelSupportTicketDetail {
+  ticket: PanelSupportTicket;
+  messages: PanelSupportMessage[];
+  /** Internal notes, never delivered to the customer, as a separate list on purpose. */
+  notes: PanelSupportNote[];
+}
+
+export interface PanelSupportTag {
+  id: string;
+  code: string;
+  nameEn: string;
+  nameRu: string;
+}
+
+export interface PanelCannedResponse {
+  id: string;
+  code: string;
+  titleEn: string;
+  titleRu: string;
+  bodyEn: string;
+  bodyRu: string;
+  requiresPermission: string;
+  usageCount: number;
+}
+
+export interface PanelCannedResponseInput {
+  code: string;
+  titleEn: string;
+  titleRu: string;
+  bodyEn: string;
+  bodyRu: string;
+  /** Defaults to support.write. */
+  requiresPermission?: string;
+}
+
+export type PanelSupportReportOperatorsItem = {
+  operatorId: string;
+  displayName: string;
+  replies: number;
+  openTickets: number;
+  resolvedTickets: number;
+  medianFirstResponseSeconds: number;
+};
+
+export interface PanelSupportReport {
+  openTickets: number;
+  unassignedTickets: number;
+  breachedTickets: number;
+  resolvedInWindow: number;
+  medianFirstResponseSeconds: number;
+  windowSeconds: number;
+  operators: PanelSupportReportOperatorsItem[];
 }
 
 /**
@@ -5857,6 +6095,129 @@ export type ListAccountNotificationsParams = {
 
 export type ListAccountNotifications200 = {
   items: AccountDelivery[];
+};
+
+export type ListPanelSupportQueues200 = {
+  items: PanelSupportQueue[];
+};
+
+export type ListPanelSupportTicketsParams = {
+  queueId?: string;
+  status?: ListPanelSupportTicketsStatus;
+  priority?: ListPanelSupportTicketsPriority;
+  assigneeId?: string;
+  unassigned?: boolean;
+  customerId?: string;
+  tag?: string;
+  /**
+   * Opaque keyset cursor from the previous page.
+   */
+  cursor?: CursorParameter;
+  /**
+   * @minimum 1
+   * @maximum 200
+   */
+  pageSize?: number;
+};
+
+export type ListPanelSupportTicketsStatus =
+  (typeof ListPanelSupportTicketsStatus)[keyof typeof ListPanelSupportTicketsStatus];
+
+export const ListPanelSupportTicketsStatus = {
+  open: "open",
+  pending: "pending",
+  resolved: "resolved",
+  closed: "closed",
+  merged: "merged",
+} as const;
+
+export type ListPanelSupportTicketsPriority =
+  (typeof ListPanelSupportTicketsPriority)[keyof typeof ListPanelSupportTicketsPriority];
+
+export const ListPanelSupportTicketsPriority = {
+  low: "low",
+  normal: "normal",
+  high: "high",
+  urgent: "urgent",
+} as const;
+
+export type AssignPanelSupportTicketBody = {
+  assigneeId: string;
+};
+
+export type MovePanelSupportTicketBody = {
+  queueId: string;
+};
+
+export type SetPanelSupportTicketPriorityBodyPriority =
+  (typeof SetPanelSupportTicketPriorityBodyPriority)[keyof typeof SetPanelSupportTicketPriorityBodyPriority];
+
+export const SetPanelSupportTicketPriorityBodyPriority = {
+  low: "low",
+  normal: "normal",
+  high: "high",
+  urgent: "urgent",
+} as const;
+
+export type SetPanelSupportTicketPriorityBody = {
+  priority: SetPanelSupportTicketPriorityBodyPriority;
+};
+
+export type SetPanelSupportTicketStatusBodyStatus =
+  (typeof SetPanelSupportTicketStatusBodyStatus)[keyof typeof SetPanelSupportTicketStatusBodyStatus];
+
+export const SetPanelSupportTicketStatusBodyStatus = {
+  open: "open",
+  pending: "pending",
+  resolved: "resolved",
+  closed: "closed",
+} as const;
+
+export type SetPanelSupportTicketStatusBody = {
+  status: SetPanelSupportTicketStatusBodyStatus;
+};
+
+export type MergePanelSupportTicketBody = {
+  survivorId: string;
+};
+
+export type ReplyToPanelSupportTicketBody = {
+  /**
+   * @minLength 1
+   * @maxLength 4000
+   */
+  body: string;
+  cannedResponseId?: string;
+};
+
+export type AddPanelSupportNoteBody = {
+  /**
+   * @minLength 1
+   * @maxLength 4000
+   */
+  body: string;
+};
+
+export type ListPanelSupportTags200 = {
+  items: PanelSupportTag[];
+};
+
+export type SavePanelSupportTagBody = {
+  code: string;
+  nameEn: string;
+  nameRu: string;
+};
+
+export type ListPanelCannedResponses200 = {
+  items: PanelCannedResponse[];
+};
+
+export type GetPanelSupportReportParams = {
+  /**
+   * @minimum 1
+   * @maximum 90
+   */
+  windowDays?: number;
 };
 
 export type getHealthResponse200 = {
@@ -27655,6 +28016,9 @@ export const getListAccountSupportTicketsUrl = (params?: ListAccountSupportTicke
     : `/v1/account/support/tickets`;
 };
 
+/**
+ * The customer's conversations, newest activity first, with whether an operator's reply can be pushed to them in Telegram at all.
+ */
 export const listAccountSupportTickets = async (
   params?: ListAccountSupportTicketsParams,
   options?: RequestInit,
@@ -27703,7 +28067,7 @@ export const useListAccountSupportTickets = <TError = Promise<ProblemResponse>>(
 };
 
 export type createAccountSupportTicketResponse201 = {
-  data: AccountTicket;
+  data: AccountConversation;
   status: 201;
 };
 
@@ -27717,12 +28081,24 @@ export type createAccountSupportTicketResponse422 = {
   status: 422;
 };
 
+export type createAccountSupportTicketResponse429 = {
+  data: ProblemResponse;
+  status: 429;
+};
+
+export type createAccountSupportTicketResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
 export type createAccountSupportTicketResponseSuccess = createAccountSupportTicketResponse201 & {
   headers: Headers;
 };
 export type createAccountSupportTicketResponseError = (
   | createAccountSupportTicketResponse409
   | createAccountSupportTicketResponse422
+  | createAccountSupportTicketResponse429
+  | createAccountSupportTicketResponse503
 ) & {
   headers: Headers;
 };
@@ -27736,7 +28112,7 @@ export const getCreateAccountSupportTicketUrl = () => {
 };
 
 /**
- * Opens a conversation. The number a customer may hold open at once is bounded, so a loop in a client cannot fill the operator queue faster than people can empty it.
+ * Opens a conversation and answers it whole, with its first message. The number a customer may hold open at once is bounded, so a loop in a client cannot fill the operator queue faster than people can empty it, and the route is rate-limited per customer on top.
  */
 export const createAccountSupportTicket = async (
   createAccountSupportTicketBody: CreateAccountSupportTicketBody,
@@ -27865,9 +28241,9 @@ export const useGetAccountSupportTicket = <TError = Promise<ProblemResponse>>(
   };
 };
 
-export type replyToAccountSupportTicketResponse201 = {
+export type replyToAccountSupportTicketResponse200 = {
   data: AccountConversation;
-  status: 201;
+  status: 200;
 };
 
 export type replyToAccountSupportTicketResponse404 = {
@@ -27885,13 +28261,19 @@ export type replyToAccountSupportTicketResponse422 = {
   status: 422;
 };
 
-export type replyToAccountSupportTicketResponseSuccess = replyToAccountSupportTicketResponse201 & {
+export type replyToAccountSupportTicketResponse429 = {
+  data: ProblemResponse;
+  status: 429;
+};
+
+export type replyToAccountSupportTicketResponseSuccess = replyToAccountSupportTicketResponse200 & {
   headers: Headers;
 };
 export type replyToAccountSupportTicketResponseError = (
   | replyToAccountSupportTicketResponse404
   | replyToAccountSupportTicketResponse409
   | replyToAccountSupportTicketResponse422
+  | replyToAccountSupportTicketResponse429
 ) & {
   headers: Headers;
 };
@@ -27904,6 +28286,9 @@ export const getReplyToAccountSupportTicketUrl = (ticketID: string) => {
   return `/v1/account/support/tickets/${ticketID}/messages`;
 };
 
+/**
+ * Appends a message and answers the whole conversation. A message on a resolved ticket reopens it, which takes an open slot and is refused with 409 `too_many_open_tickets` when the customer has none; a closed or merged ticket answers 409 `ticket_closed`.
+ */
 export const replyToAccountSupportTicket = async (
   ticketID: string,
   replyToAccountSupportTicketBody: ReplyToAccountSupportTicketBody,
@@ -28139,10 +28524,24 @@ export type reopenAccountSupportTicketResponse404 = {
   status: 404;
 };
 
+export type reopenAccountSupportTicketResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type reopenAccountSupportTicketResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
 export type reopenAccountSupportTicketResponseSuccess = reopenAccountSupportTicketResponse200 & {
   headers: Headers;
 };
-export type reopenAccountSupportTicketResponseError = reopenAccountSupportTicketResponse404 & {
+export type reopenAccountSupportTicketResponseError = (
+  | reopenAccountSupportTicketResponse404
+  | reopenAccountSupportTicketResponse409
+  | reopenAccountSupportTicketResponse422
+) & {
   headers: Headers;
 };
 
@@ -28154,6 +28553,9 @@ export const getReopenAccountSupportTicketUrl = (ticketID: string) => {
   return `/v1/account/support/tickets/${ticketID}/reopen`;
 };
 
+/**
+ * Reopening takes an open slot and is refused with 409 `too_many_open_tickets` when the customer already holds the maximum; a merged ticket answers 422.
+ */
 export const reopenAccountSupportTicket = async (
   ticketID: string,
   options?: RequestInit,
@@ -28211,7 +28613,7 @@ export const useReopenAccountSupportTicket = <TError = Promise<ProblemResponse>>
 };
 
 export type attachToAccountSupportTicketResponse201 = {
-  data: AccountConversation;
+  data: AccountAttachment;
   status: 201;
 };
 
@@ -28235,6 +28637,16 @@ export type attachToAccountSupportTicketResponse415 = {
   status: 415;
 };
 
+export type attachToAccountSupportTicketResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type attachToAccountSupportTicketResponse429 = {
+  data: ProblemResponse;
+  status: 429;
+};
+
 export type attachToAccountSupportTicketResponse503 = {
   data: ProblemResponse;
   status: 503;
@@ -28249,6 +28661,8 @@ export type attachToAccountSupportTicketResponseError = (
   | attachToAccountSupportTicketResponse409
   | attachToAccountSupportTicketResponse413
   | attachToAccountSupportTicketResponse415
+  | attachToAccountSupportTicketResponse422
+  | attachToAccountSupportTicketResponse429
   | attachToAccountSupportTicketResponse503
 ) & {
   headers: Headers;
@@ -28263,7 +28677,7 @@ export const getAttachToAccountSupportTicketUrl = (ticketID: string) => {
 };
 
 /**
- * Uploads one file. The accepted media types are an allowlist, so an unknown type is refused rather than guessed at.
+ * Uploads one file as a new message on the conversation and answers the attachment it created. The accepted media types are an allowlist, so an unknown type is refused rather than guessed at. The idempotency key becomes the message's dedupe key, so a replayed upload finds the message and the file it already hung on it. A conversation already carrying `maxAttachmentsPerTicket` web uploads answers 409 `too_many_attachments`.
  */
 export const attachToAccountSupportTicket = async (
   ticketID: string,
@@ -28978,6 +29392,1923 @@ export const useUnsubscribeAccount = <TError = Promise<unknown>>(options?: {
   const swrFn = getUnsubscribeAccountMutationFetcher(fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelSupportQueuesResponse200 = {
+  data: ListPanelSupportQueues200;
+  status: 200;
+};
+
+export type listPanelSupportQueuesResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelSupportQueuesResponseSuccess = listPanelSupportQueuesResponse200 & {
+  headers: Headers;
+};
+export type listPanelSupportQueuesResponseError = listPanelSupportQueuesResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelSupportQueuesResponse =
+  | listPanelSupportQueuesResponseSuccess
+  | listPanelSupportQueuesResponseError;
+
+export const getListPanelSupportQueuesUrl = () => {
+  return `/v1/panel/support/queues`;
+};
+
+/**
+ * Requires support.read. Every live queue with its open, unassigned, and breached counts.
+ */
+export const listPanelSupportQueues = async (
+  options?: RequestInit,
+): Promise<listPanelSupportQueuesResponse> => {
+  const res = await fetch(getListPanelSupportQueuesUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelSupportQueuesResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelSupportQueuesResponse;
+};
+
+export const getListPanelSupportQueuesKey = () => [`/v1/panel/support/queues`] as const;
+
+export type ListPanelSupportQueuesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelSupportQueues>>
+>;
+
+export const useListPanelSupportQueues = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelSupportQueues>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelSupportQueuesKey() : null));
+  const swrFn = () => listPanelSupportQueues(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelSupportQueueResponse200 = {
+  data: PanelSupportQueue;
+  status: 200;
+};
+
+export type savePanelSupportQueueResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelSupportQueueResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelSupportQueueResponseSuccess = savePanelSupportQueueResponse200 & {
+  headers: Headers;
+};
+export type savePanelSupportQueueResponseError = (
+  | savePanelSupportQueueResponse403
+  | savePanelSupportQueueResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelSupportQueueResponse =
+  | savePanelSupportQueueResponseSuccess
+  | savePanelSupportQueueResponseError;
+
+export const getSavePanelSupportQueueUrl = () => {
+  return `/v1/panel/support/queues`;
+};
+
+/**
+ * Requires settings.write, not support.write: a queue's targets are the promise an operator works under, not day-to-day support work. Upserts by code; `isDefault: true` clears the previous default in the same transaction.
+ */
+export const savePanelSupportQueue = async (
+  panelSupportQueueInput: PanelSupportQueueInput,
+  options?: RequestInit,
+): Promise<savePanelSupportQueueResponse> => {
+  const res = await fetch(getSavePanelSupportQueueUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(panelSupportQueueInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelSupportQueueResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as savePanelSupportQueueResponse;
+};
+
+export const getSavePanelSupportQueueMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PanelSupportQueueInput }) => {
+    return savePanelSupportQueue(arg, options);
+  };
+};
+export const getSavePanelSupportQueueMutationKey = () => [`/v1/panel/support/queues`] as const;
+
+export type SavePanelSupportQueueMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelSupportQueue>>
+>;
+
+export const useSavePanelSupportQueue = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof savePanelSupportQueue>>,
+    TError,
+    Key,
+    PanelSupportQueueInput,
+    Awaited<ReturnType<typeof savePanelSupportQueue>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelSupportQueueMutationKey();
+  const swrFn = getSavePanelSupportQueueMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelSupportTicketsResponse200 = {
+  data: PanelSupportTicketPage;
+  status: 200;
+};
+
+export type listPanelSupportTicketsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelSupportTicketsResponseSuccess = listPanelSupportTicketsResponse200 & {
+  headers: Headers;
+};
+export type listPanelSupportTicketsResponseError = listPanelSupportTicketsResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelSupportTicketsResponse =
+  | listPanelSupportTicketsResponseSuccess
+  | listPanelSupportTicketsResponseError;
+
+export const getListPanelSupportTicketsUrl = (params?: ListPanelSupportTicketsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/support/tickets?${stringifiedParams}`
+    : `/v1/panel/support/tickets`;
+};
+
+/**
+ * Requires support.read. The queue, oldest activity first, on a keyset cursor over (lastMessageAt, id). The breach flag is computed in SQL so "overdue" means the same thing here, in the queue counters, and in the report.
+ */
+export const listPanelSupportTickets = async (
+  params?: ListPanelSupportTicketsParams,
+  options?: RequestInit,
+): Promise<listPanelSupportTicketsResponse> => {
+  const res = await fetch(getListPanelSupportTicketsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelSupportTicketsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelSupportTicketsResponse;
+};
+
+export const getListPanelSupportTicketsKey = (params?: ListPanelSupportTicketsParams) =>
+  [`/v1/panel/support/tickets`, ...(params ? [params] : [])] as const;
+
+export type ListPanelSupportTicketsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelSupportTickets>>
+>;
+
+export const useListPanelSupportTickets = <TError = Promise<ProblemResponse>>(
+  params?: ListPanelSupportTicketsParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelSupportTickets>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelSupportTicketsKey(params) : null));
+  const swrFn = () => listPanelSupportTickets(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelSupportTicketResponse200 = {
+  data: PanelSupportTicketDetail;
+  status: 200;
+};
+
+export type getPanelSupportTicketResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelSupportTicketResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getPanelSupportTicketResponseSuccess = getPanelSupportTicketResponse200 & {
+  headers: Headers;
+};
+export type getPanelSupportTicketResponseError = (
+  | getPanelSupportTicketResponse403
+  | getPanelSupportTicketResponse404
+) & {
+  headers: Headers;
+};
+
+export type getPanelSupportTicketResponse =
+  | getPanelSupportTicketResponseSuccess
+  | getPanelSupportTicketResponseError;
+
+export const getGetPanelSupportTicketUrl = (ticketID: string) => {
+  return `/v1/panel/support/tickets/${ticketID}`;
+};
+
+/**
+ * Requires support.read. The conversation with its messages, each carrying its attachments and the push outcome, and the operators' internal notes as a separate list so no client can mistake one for the other.
+ */
+export const getPanelSupportTicket = async (
+  ticketID: string,
+  options?: RequestInit,
+): Promise<getPanelSupportTicketResponse> => {
+  const res = await fetch(getGetPanelSupportTicketUrl(ticketID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelSupportTicketResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelSupportTicketResponse;
+};
+
+export const getGetPanelSupportTicketKey = (ticketID: string) =>
+  [`/v1/panel/support/tickets/${ticketID}`] as const;
+
+export type GetPanelSupportTicketQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelSupportTicket>>
+>;
+
+export const useGetPanelSupportTicket = <TError = Promise<ProblemResponse>>(
+  ticketID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelSupportTicket>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false && ticketID !== null && ticketID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelSupportTicketKey(ticketID) : null));
+  const swrFn = () => getPanelSupportTicket(ticketID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type downloadPanelSupportAttachmentResponse200 = {
+  data: Blob;
+  status: 200;
+};
+
+export type downloadPanelSupportAttachmentResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type downloadPanelSupportAttachmentResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type downloadPanelSupportAttachmentResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type downloadPanelSupportAttachmentResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
+export type downloadPanelSupportAttachmentResponseSuccess =
+  downloadPanelSupportAttachmentResponse200 & {
+    headers: Headers;
+  };
+export type downloadPanelSupportAttachmentResponseError = (
+  | downloadPanelSupportAttachmentResponse403
+  | downloadPanelSupportAttachmentResponse404
+  | downloadPanelSupportAttachmentResponse409
+  | downloadPanelSupportAttachmentResponse503
+) & {
+  headers: Headers;
+};
+
+export type downloadPanelSupportAttachmentResponse =
+  | downloadPanelSupportAttachmentResponseSuccess
+  | downloadPanelSupportAttachmentResponseError;
+
+export const getDownloadPanelSupportAttachmentUrl = (ticketID: string, attachmentID: string) => {
+  return `/v1/panel/support/tickets/${ticketID}/attachments/${attachmentID}`;
+};
+
+/**
+ * Requires support.read. Serves a file the customer uploaded through the web panel, scoped to its ticket, with an attachment disposition and `nosniff`. A file that arrived through Telegram answers 409 `attachment_remote` and is never fetched: Omniflow holds a reference, not the bytes, and will not proxy Telegram's file API with the bot token on an operator's behalf. A purged file answers 404; a process with no attachment store answers 503.
+ */
+export const downloadPanelSupportAttachment = async (
+  ticketID: string,
+  attachmentID: string,
+  options?: RequestInit,
+): Promise<downloadPanelSupportAttachmentResponse> => {
+  const res = await fetch(getDownloadPanelSupportAttachmentUrl(ticketID, attachmentID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.blob();
+  const data: downloadPanelSupportAttachmentResponse["data"] =
+    body as downloadPanelSupportAttachmentResponse["data"];
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as downloadPanelSupportAttachmentResponse;
+};
+
+export const getDownloadPanelSupportAttachmentKey = (ticketID: string, attachmentID: string) =>
+  [`/v1/panel/support/tickets/${ticketID}/attachments/${attachmentID}`] as const;
+
+export type DownloadPanelSupportAttachmentQueryResult = NonNullable<
+  Awaited<ReturnType<typeof downloadPanelSupportAttachment>>
+>;
+
+export const useDownloadPanelSupportAttachment = <TError = Promise<ProblemResponse>>(
+  ticketID: string,
+  attachmentID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof downloadPanelSupportAttachment>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false &&
+    ticketID !== null &&
+    ticketID !== undefined &&
+    attachmentID !== null &&
+    attachmentID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ??
+    (() => (isEnabled ? getDownloadPanelSupportAttachmentKey(ticketID, attachmentID) : null));
+  const swrFn = () => downloadPanelSupportAttachment(ticketID, attachmentID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type assignPanelSupportTicketResponse200 = {
+  data: PanelSupportTicket;
+  status: 200;
+};
+
+export type assignPanelSupportTicketResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type assignPanelSupportTicketResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type assignPanelSupportTicketResponseSuccess = assignPanelSupportTicketResponse200 & {
+  headers: Headers;
+};
+export type assignPanelSupportTicketResponseError = (
+  | assignPanelSupportTicketResponse403
+  | assignPanelSupportTicketResponse404
+) & {
+  headers: Headers;
+};
+
+export type assignPanelSupportTicketResponse =
+  | assignPanelSupportTicketResponseSuccess
+  | assignPanelSupportTicketResponseError;
+
+export const getAssignPanelSupportTicketUrl = (ticketID: string) => {
+  return `/v1/panel/support/tickets/${ticketID}/assign`;
+};
+
+/**
+ * Requires support.write. An empty assigneeId releases the ticket.
+ */
+export const assignPanelSupportTicket = async (
+  ticketID: string,
+  assignPanelSupportTicketBody: AssignPanelSupportTicketBody,
+  options?: RequestInit,
+): Promise<assignPanelSupportTicketResponse> => {
+  const res = await fetch(getAssignPanelSupportTicketUrl(ticketID), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(assignPanelSupportTicketBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: assignPanelSupportTicketResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as assignPanelSupportTicketResponse;
+};
+
+export const getAssignPanelSupportTicketMutationFetcher = (
+  ticketID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: AssignPanelSupportTicketBody }) => {
+    return assignPanelSupportTicket(ticketID, arg, options);
+  };
+};
+export const getAssignPanelSupportTicketMutationKey = (ticketID: string) =>
+  [`/v1/panel/support/tickets/${ticketID}/assign`] as const;
+
+export type AssignPanelSupportTicketMutationResult = NonNullable<
+  Awaited<ReturnType<typeof assignPanelSupportTicket>>
+>;
+
+export const useAssignPanelSupportTicket = <TError = Promise<ProblemResponse>>(
+  ticketID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof assignPanelSupportTicket>>,
+      TError,
+      Key,
+      AssignPanelSupportTicketBody,
+      Awaited<ReturnType<typeof assignPanelSupportTicket>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getAssignPanelSupportTicketMutationKey(ticketID);
+  const swrFn = getAssignPanelSupportTicketMutationFetcher(ticketID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type movePanelSupportTicketResponse200 = {
+  data: PanelSupportTicket;
+  status: 200;
+};
+
+export type movePanelSupportTicketResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type movePanelSupportTicketResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type movePanelSupportTicketResponseSuccess = movePanelSupportTicketResponse200 & {
+  headers: Headers;
+};
+export type movePanelSupportTicketResponseError = (
+  | movePanelSupportTicketResponse403
+  | movePanelSupportTicketResponse404
+) & {
+  headers: Headers;
+};
+
+export type movePanelSupportTicketResponse =
+  | movePanelSupportTicketResponseSuccess
+  | movePanelSupportTicketResponseError;
+
+export const getMovePanelSupportTicketUrl = (ticketID: string) => {
+  return `/v1/panel/support/tickets/${ticketID}/queue`;
+};
+
+/**
+ * Requires support.write.
+ */
+export const movePanelSupportTicket = async (
+  ticketID: string,
+  movePanelSupportTicketBody: MovePanelSupportTicketBody,
+  options?: RequestInit,
+): Promise<movePanelSupportTicketResponse> => {
+  const res = await fetch(getMovePanelSupportTicketUrl(ticketID), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(movePanelSupportTicketBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: movePanelSupportTicketResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as movePanelSupportTicketResponse;
+};
+
+export const getMovePanelSupportTicketMutationFetcher = (
+  ticketID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: MovePanelSupportTicketBody }) => {
+    return movePanelSupportTicket(ticketID, arg, options);
+  };
+};
+export const getMovePanelSupportTicketMutationKey = (ticketID: string) =>
+  [`/v1/panel/support/tickets/${ticketID}/queue`] as const;
+
+export type MovePanelSupportTicketMutationResult = NonNullable<
+  Awaited<ReturnType<typeof movePanelSupportTicket>>
+>;
+
+export const useMovePanelSupportTicket = <TError = Promise<ProblemResponse>>(
+  ticketID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof movePanelSupportTicket>>,
+      TError,
+      Key,
+      MovePanelSupportTicketBody,
+      Awaited<ReturnType<typeof movePanelSupportTicket>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getMovePanelSupportTicketMutationKey(ticketID);
+  const swrFn = getMovePanelSupportTicketMutationFetcher(ticketID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type setPanelSupportTicketPriorityResponse200 = {
+  data: PanelSupportTicket;
+  status: 200;
+};
+
+export type setPanelSupportTicketPriorityResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type setPanelSupportTicketPriorityResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type setPanelSupportTicketPriorityResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type setPanelSupportTicketPriorityResponseSuccess =
+  setPanelSupportTicketPriorityResponse200 & {
+    headers: Headers;
+  };
+export type setPanelSupportTicketPriorityResponseError = (
+  | setPanelSupportTicketPriorityResponse403
+  | setPanelSupportTicketPriorityResponse404
+  | setPanelSupportTicketPriorityResponse422
+) & {
+  headers: Headers;
+};
+
+export type setPanelSupportTicketPriorityResponse =
+  | setPanelSupportTicketPriorityResponseSuccess
+  | setPanelSupportTicketPriorityResponseError;
+
+export const getSetPanelSupportTicketPriorityUrl = (ticketID: string) => {
+  return `/v1/panel/support/tickets/${ticketID}/priority`;
+};
+
+/**
+ * Requires support.write. Priority does not change the SLA target, which belongs to the queue.
+ */
+export const setPanelSupportTicketPriority = async (
+  ticketID: string,
+  setPanelSupportTicketPriorityBody: SetPanelSupportTicketPriorityBody,
+  options?: RequestInit,
+): Promise<setPanelSupportTicketPriorityResponse> => {
+  const res = await fetch(getSetPanelSupportTicketPriorityUrl(ticketID), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(setPanelSupportTicketPriorityBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: setPanelSupportTicketPriorityResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as setPanelSupportTicketPriorityResponse;
+};
+
+export const getSetPanelSupportTicketPriorityMutationFetcher = (
+  ticketID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: SetPanelSupportTicketPriorityBody }) => {
+    return setPanelSupportTicketPriority(ticketID, arg, options);
+  };
+};
+export const getSetPanelSupportTicketPriorityMutationKey = (ticketID: string) =>
+  [`/v1/panel/support/tickets/${ticketID}/priority`] as const;
+
+export type SetPanelSupportTicketPriorityMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setPanelSupportTicketPriority>>
+>;
+
+export const useSetPanelSupportTicketPriority = <TError = Promise<ProblemResponse>>(
+  ticketID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof setPanelSupportTicketPriority>>,
+      TError,
+      Key,
+      SetPanelSupportTicketPriorityBody,
+      Awaited<ReturnType<typeof setPanelSupportTicketPriority>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSetPanelSupportTicketPriorityMutationKey(ticketID);
+  const swrFn = getSetPanelSupportTicketPriorityMutationFetcher(ticketID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type setPanelSupportTicketStatusResponse200 = {
+  data: PanelSupportTicket;
+  status: 200;
+};
+
+export type setPanelSupportTicketStatusResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type setPanelSupportTicketStatusResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type setPanelSupportTicketStatusResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type setPanelSupportTicketStatusResponseSuccess = setPanelSupportTicketStatusResponse200 & {
+  headers: Headers;
+};
+export type setPanelSupportTicketStatusResponseError = (
+  | setPanelSupportTicketStatusResponse403
+  | setPanelSupportTicketStatusResponse404
+  | setPanelSupportTicketStatusResponse422
+) & {
+  headers: Headers;
+};
+
+export type setPanelSupportTicketStatusResponse =
+  | setPanelSupportTicketStatusResponseSuccess
+  | setPanelSupportTicketStatusResponseError;
+
+export const getSetPanelSupportTicketStatusUrl = (ticketID: string) => {
+  return `/v1/panel/support/tickets/${ticketID}/status`;
+};
+
+/**
+ * Requires support.write. `merged` cannot be set here; merging is its own action. Setting `resolved` or `closed` writes a system message in the customer's language that the bot pushes like a reply.
+ */
+export const setPanelSupportTicketStatus = async (
+  ticketID: string,
+  setPanelSupportTicketStatusBody: SetPanelSupportTicketStatusBody,
+  options?: RequestInit,
+): Promise<setPanelSupportTicketStatusResponse> => {
+  const res = await fetch(getSetPanelSupportTicketStatusUrl(ticketID), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(setPanelSupportTicketStatusBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: setPanelSupportTicketStatusResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as setPanelSupportTicketStatusResponse;
+};
+
+export const getSetPanelSupportTicketStatusMutationFetcher = (
+  ticketID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: SetPanelSupportTicketStatusBody }) => {
+    return setPanelSupportTicketStatus(ticketID, arg, options);
+  };
+};
+export const getSetPanelSupportTicketStatusMutationKey = (ticketID: string) =>
+  [`/v1/panel/support/tickets/${ticketID}/status`] as const;
+
+export type SetPanelSupportTicketStatusMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setPanelSupportTicketStatus>>
+>;
+
+export const useSetPanelSupportTicketStatus = <TError = Promise<ProblemResponse>>(
+  ticketID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof setPanelSupportTicketStatus>>,
+      TError,
+      Key,
+      SetPanelSupportTicketStatusBody,
+      Awaited<ReturnType<typeof setPanelSupportTicketStatus>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSetPanelSupportTicketStatusMutationKey(ticketID);
+  const swrFn = getSetPanelSupportTicketStatusMutationFetcher(ticketID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type mergePanelSupportTicketResponse200 = {
+  data: PanelSupportTicket;
+  status: 200;
+};
+
+export type mergePanelSupportTicketResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type mergePanelSupportTicketResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type mergePanelSupportTicketResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type mergePanelSupportTicketResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type mergePanelSupportTicketResponseSuccess = mergePanelSupportTicketResponse200 & {
+  headers: Headers;
+};
+export type mergePanelSupportTicketResponseError = (
+  | mergePanelSupportTicketResponse403
+  | mergePanelSupportTicketResponse404
+  | mergePanelSupportTicketResponse409
+  | mergePanelSupportTicketResponse422
+) & {
+  headers: Headers;
+};
+
+export type mergePanelSupportTicketResponse =
+  | mergePanelSupportTicketResponseSuccess
+  | mergePanelSupportTicketResponseError;
+
+export const getMergePanelSupportTicketUrl = (ticketID: string) => {
+  return `/v1/panel/support/tickets/${ticketID}/merge`;
+};
+
+/**
+ * Requires support.write. Folds this ticket into the survivor: messages and unread counts move, the absorbed row stays with status `merged` and a pointer, and the customer is told on the survivor. A merge across customers or into itself is 422; into a ticket that was itself merged is 409.
+ */
+export const mergePanelSupportTicket = async (
+  ticketID: string,
+  mergePanelSupportTicketBody: MergePanelSupportTicketBody,
+  options?: RequestInit,
+): Promise<mergePanelSupportTicketResponse> => {
+  const res = await fetch(getMergePanelSupportTicketUrl(ticketID), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(mergePanelSupportTicketBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: mergePanelSupportTicketResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as mergePanelSupportTicketResponse;
+};
+
+export const getMergePanelSupportTicketMutationFetcher = (
+  ticketID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: MergePanelSupportTicketBody }) => {
+    return mergePanelSupportTicket(ticketID, arg, options);
+  };
+};
+export const getMergePanelSupportTicketMutationKey = (ticketID: string) =>
+  [`/v1/panel/support/tickets/${ticketID}/merge`] as const;
+
+export type MergePanelSupportTicketMutationResult = NonNullable<
+  Awaited<ReturnType<typeof mergePanelSupportTicket>>
+>;
+
+export const useMergePanelSupportTicket = <TError = Promise<ProblemResponse>>(
+  ticketID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof mergePanelSupportTicket>>,
+      TError,
+      Key,
+      MergePanelSupportTicketBody,
+      Awaited<ReturnType<typeof mergePanelSupportTicket>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getMergePanelSupportTicketMutationKey(ticketID);
+  const swrFn = getMergePanelSupportTicketMutationFetcher(ticketID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type replyToPanelSupportTicketResponse200 = {
+  data: PanelSupportMessage;
+  status: 200;
+};
+
+export type replyToPanelSupportTicketResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type replyToPanelSupportTicketResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type replyToPanelSupportTicketResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type replyToPanelSupportTicketResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type replyToPanelSupportTicketResponseSuccess = replyToPanelSupportTicketResponse200 & {
+  headers: Headers;
+};
+export type replyToPanelSupportTicketResponseError = (
+  | replyToPanelSupportTicketResponse403
+  | replyToPanelSupportTicketResponse404
+  | replyToPanelSupportTicketResponse409
+  | replyToPanelSupportTicketResponse422
+) & {
+  headers: Headers;
+};
+
+export type replyToPanelSupportTicketResponse =
+  | replyToPanelSupportTicketResponseSuccess
+  | replyToPanelSupportTicketResponseError;
+
+export const getReplyToPanelSupportTicketUrl = (ticketID: string) => {
+  return `/v1/panel/support/tickets/${ticketID}/reply`;
+};
+
+/**
+ * Requires support.write and an Idempotency-Key, which becomes the message's dedupe key; a repeated key answers 200 with an empty message. The reply is written here and pushed by the bot's support loop. A merged ticket is refused with 409.
+ */
+export const replyToPanelSupportTicket = async (
+  ticketID: string,
+  replyToPanelSupportTicketBody: ReplyToPanelSupportTicketBody,
+  options?: RequestInit,
+): Promise<replyToPanelSupportTicketResponse> => {
+  const res = await fetch(getReplyToPanelSupportTicketUrl(ticketID), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(replyToPanelSupportTicketBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: replyToPanelSupportTicketResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as replyToPanelSupportTicketResponse;
+};
+
+export const getReplyToPanelSupportTicketMutationFetcher = (
+  ticketID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: ReplyToPanelSupportTicketBody }) => {
+    return replyToPanelSupportTicket(ticketID, arg, options);
+  };
+};
+export const getReplyToPanelSupportTicketMutationKey = (ticketID: string) =>
+  [`/v1/panel/support/tickets/${ticketID}/reply`] as const;
+
+export type ReplyToPanelSupportTicketMutationResult = NonNullable<
+  Awaited<ReturnType<typeof replyToPanelSupportTicket>>
+>;
+
+export const useReplyToPanelSupportTicket = <TError = Promise<ProblemResponse>>(
+  ticketID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof replyToPanelSupportTicket>>,
+      TError,
+      Key,
+      ReplyToPanelSupportTicketBody,
+      Awaited<ReturnType<typeof replyToPanelSupportTicket>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getReplyToPanelSupportTicketMutationKey(ticketID);
+  const swrFn = getReplyToPanelSupportTicketMutationFetcher(ticketID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type addPanelSupportNoteResponse200 = {
+  data: PanelSupportNote;
+  status: 200;
+};
+
+export type addPanelSupportNoteResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type addPanelSupportNoteResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type addPanelSupportNoteResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type addPanelSupportNoteResponseSuccess = addPanelSupportNoteResponse200 & {
+  headers: Headers;
+};
+export type addPanelSupportNoteResponseError = (
+  | addPanelSupportNoteResponse403
+  | addPanelSupportNoteResponse404
+  | addPanelSupportNoteResponse422
+) & {
+  headers: Headers;
+};
+
+export type addPanelSupportNoteResponse =
+  | addPanelSupportNoteResponseSuccess
+  | addPanelSupportNoteResponseError;
+
+export const getAddPanelSupportNoteUrl = (ticketID: string) => {
+  return `/v1/panel/support/tickets/${ticketID}/notes`;
+};
+
+/**
+ * Requires support.write. A private note, never delivered; its body is not copied into the audit trail.
+ */
+export const addPanelSupportNote = async (
+  ticketID: string,
+  addPanelSupportNoteBody: AddPanelSupportNoteBody,
+  options?: RequestInit,
+): Promise<addPanelSupportNoteResponse> => {
+  const res = await fetch(getAddPanelSupportNoteUrl(ticketID), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(addPanelSupportNoteBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: addPanelSupportNoteResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as addPanelSupportNoteResponse;
+};
+
+export const getAddPanelSupportNoteMutationFetcher = (ticketID: string, options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: AddPanelSupportNoteBody }) => {
+    return addPanelSupportNote(ticketID, arg, options);
+  };
+};
+export const getAddPanelSupportNoteMutationKey = (ticketID: string) =>
+  [`/v1/panel/support/tickets/${ticketID}/notes`] as const;
+
+export type AddPanelSupportNoteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addPanelSupportNote>>
+>;
+
+export const useAddPanelSupportNote = <TError = Promise<ProblemResponse>>(
+  ticketID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof addPanelSupportNote>>,
+      TError,
+      Key,
+      AddPanelSupportNoteBody,
+      Awaited<ReturnType<typeof addPanelSupportNote>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getAddPanelSupportNoteMutationKey(ticketID);
+  const swrFn = getAddPanelSupportNoteMutationFetcher(ticketID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type markPanelSupportTicketReadResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type markPanelSupportTicketReadResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type markPanelSupportTicketReadResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type markPanelSupportTicketReadResponseSuccess = markPanelSupportTicketReadResponse204 & {
+  headers: Headers;
+};
+export type markPanelSupportTicketReadResponseError = (
+  | markPanelSupportTicketReadResponse403
+  | markPanelSupportTicketReadResponse404
+) & {
+  headers: Headers;
+};
+
+export type markPanelSupportTicketReadResponse =
+  | markPanelSupportTicketReadResponseSuccess
+  | markPanelSupportTicketReadResponseError;
+
+export const getMarkPanelSupportTicketReadUrl = (ticketID: string) => {
+  return `/v1/panel/support/tickets/${ticketID}/read`;
+};
+
+/**
+ * Requires support.write. Clears the operator-side unread counter.
+ */
+export const markPanelSupportTicketRead = async (
+  ticketID: string,
+  options?: RequestInit,
+): Promise<markPanelSupportTicketReadResponse> => {
+  const res = await fetch(getMarkPanelSupportTicketReadUrl(ticketID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: markPanelSupportTicketReadResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as markPanelSupportTicketReadResponse;
+};
+
+export const getMarkPanelSupportTicketReadMutationFetcher = (
+  ticketID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return markPanelSupportTicketRead(ticketID, options);
+  };
+};
+export const getMarkPanelSupportTicketReadMutationKey = (ticketID: string) =>
+  [`/v1/panel/support/tickets/${ticketID}/read`] as const;
+
+export type MarkPanelSupportTicketReadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof markPanelSupportTicketRead>>
+>;
+
+export const useMarkPanelSupportTicketRead = <TError = Promise<ProblemResponse>>(
+  ticketID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof markPanelSupportTicketRead>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof markPanelSupportTicketRead>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getMarkPanelSupportTicketReadMutationKey(ticketID);
+  const swrFn = getMarkPanelSupportTicketReadMutationFetcher(ticketID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type tagPanelSupportTicketResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type tagPanelSupportTicketResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type tagPanelSupportTicketResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type tagPanelSupportTicketResponseSuccess = tagPanelSupportTicketResponse204 & {
+  headers: Headers;
+};
+export type tagPanelSupportTicketResponseError = (
+  | tagPanelSupportTicketResponse403
+  | tagPanelSupportTicketResponse404
+) & {
+  headers: Headers;
+};
+
+export type tagPanelSupportTicketResponse =
+  | tagPanelSupportTicketResponseSuccess
+  | tagPanelSupportTicketResponseError;
+
+export const getTagPanelSupportTicketUrl = (ticketID: string, tag: string) => {
+  return `/v1/panel/support/tickets/${ticketID}/tags/${tag}`;
+};
+
+/**
+ * Requires support.write. The path parameter is the tag code; attaching twice is a no-op.
+ */
+export const tagPanelSupportTicket = async (
+  ticketID: string,
+  tag: string,
+  options?: RequestInit,
+): Promise<tagPanelSupportTicketResponse> => {
+  const res = await fetch(getTagPanelSupportTicketUrl(ticketID, tag), {
+    ...options,
+    method: "PUT",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: tagPanelSupportTicketResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as tagPanelSupportTicketResponse;
+};
+
+export const getTagPanelSupportTicketMutationFetcher = (
+  ticketID: string,
+  tag: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return tagPanelSupportTicket(ticketID, tag, options);
+  };
+};
+export const getTagPanelSupportTicketMutationKey = (ticketID: string, tag: string) =>
+  [`/v1/panel/support/tickets/${ticketID}/tags/${tag}`] as const;
+
+export type TagPanelSupportTicketMutationResult = NonNullable<
+  Awaited<ReturnType<typeof tagPanelSupportTicket>>
+>;
+
+export const useTagPanelSupportTicket = <TError = Promise<ProblemResponse>>(
+  ticketID: string,
+  tag: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof tagPanelSupportTicket>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof tagPanelSupportTicket>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getTagPanelSupportTicketMutationKey(ticketID, tag);
+  const swrFn = getTagPanelSupportTicketMutationFetcher(ticketID, tag, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type untagPanelSupportTicketResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type untagPanelSupportTicketResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type untagPanelSupportTicketResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type untagPanelSupportTicketResponseSuccess = untagPanelSupportTicketResponse204 & {
+  headers: Headers;
+};
+export type untagPanelSupportTicketResponseError = (
+  | untagPanelSupportTicketResponse403
+  | untagPanelSupportTicketResponse404
+) & {
+  headers: Headers;
+};
+
+export type untagPanelSupportTicketResponse =
+  | untagPanelSupportTicketResponseSuccess
+  | untagPanelSupportTicketResponseError;
+
+export const getUntagPanelSupportTicketUrl = (ticketID: string, tag: string) => {
+  return `/v1/panel/support/tickets/${ticketID}/tags/${tag}`;
+};
+
+/**
+ * Requires support.write.
+ */
+export const untagPanelSupportTicket = async (
+  ticketID: string,
+  tag: string,
+  options?: RequestInit,
+): Promise<untagPanelSupportTicketResponse> => {
+  const res = await fetch(getUntagPanelSupportTicketUrl(ticketID, tag), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: untagPanelSupportTicketResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as untagPanelSupportTicketResponse;
+};
+
+export const getUntagPanelSupportTicketMutationFetcher = (
+  ticketID: string,
+  tag: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return untagPanelSupportTicket(ticketID, tag, options);
+  };
+};
+export const getUntagPanelSupportTicketMutationKey = (ticketID: string, tag: string) =>
+  [`/v1/panel/support/tickets/${ticketID}/tags/${tag}`] as const;
+
+export type UntagPanelSupportTicketMutationResult = NonNullable<
+  Awaited<ReturnType<typeof untagPanelSupportTicket>>
+>;
+
+export const useUntagPanelSupportTicket = <TError = Promise<ProblemResponse>>(
+  ticketID: string,
+  tag: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof untagPanelSupportTicket>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof untagPanelSupportTicket>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getUntagPanelSupportTicketMutationKey(ticketID, tag);
+  const swrFn = getUntagPanelSupportTicketMutationFetcher(ticketID, tag, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelSupportTagsResponse200 = {
+  data: ListPanelSupportTags200;
+  status: 200;
+};
+
+export type listPanelSupportTagsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelSupportTagsResponseSuccess = listPanelSupportTagsResponse200 & {
+  headers: Headers;
+};
+export type listPanelSupportTagsResponseError = listPanelSupportTagsResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelSupportTagsResponse =
+  | listPanelSupportTagsResponseSuccess
+  | listPanelSupportTagsResponseError;
+
+export const getListPanelSupportTagsUrl = () => {
+  return `/v1/panel/support/tags`;
+};
+
+/**
+ * Requires support.read.
+ */
+export const listPanelSupportTags = async (
+  options?: RequestInit,
+): Promise<listPanelSupportTagsResponse> => {
+  const res = await fetch(getListPanelSupportTagsUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelSupportTagsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelSupportTagsResponse;
+};
+
+export const getListPanelSupportTagsKey = () => [`/v1/panel/support/tags`] as const;
+
+export type ListPanelSupportTagsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelSupportTags>>
+>;
+
+export const useListPanelSupportTags = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelSupportTags>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelSupportTagsKey() : null));
+  const swrFn = () => listPanelSupportTags(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelSupportTagResponse200 = {
+  data: PanelSupportTag;
+  status: 200;
+};
+
+export type savePanelSupportTagResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelSupportTagResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelSupportTagResponseSuccess = savePanelSupportTagResponse200 & {
+  headers: Headers;
+};
+export type savePanelSupportTagResponseError = (
+  | savePanelSupportTagResponse403
+  | savePanelSupportTagResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelSupportTagResponse =
+  | savePanelSupportTagResponseSuccess
+  | savePanelSupportTagResponseError;
+
+export const getSavePanelSupportTagUrl = () => {
+  return `/v1/panel/support/tags`;
+};
+
+/**
+ * Requires settings.write. Upserts by code.
+ */
+export const savePanelSupportTag = async (
+  savePanelSupportTagBody: SavePanelSupportTagBody,
+  options?: RequestInit,
+): Promise<savePanelSupportTagResponse> => {
+  const res = await fetch(getSavePanelSupportTagUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(savePanelSupportTagBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelSupportTagResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as savePanelSupportTagResponse;
+};
+
+export const getSavePanelSupportTagMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: SavePanelSupportTagBody }) => {
+    return savePanelSupportTag(arg, options);
+  };
+};
+export const getSavePanelSupportTagMutationKey = () => [`/v1/panel/support/tags`] as const;
+
+export type SavePanelSupportTagMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelSupportTag>>
+>;
+
+export const useSavePanelSupportTag = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof savePanelSupportTag>>,
+    TError,
+    Key,
+    SavePanelSupportTagBody,
+    Awaited<ReturnType<typeof savePanelSupportTag>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelSupportTagMutationKey();
+  const swrFn = getSavePanelSupportTagMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelCannedResponsesResponse200 = {
+  data: ListPanelCannedResponses200;
+  status: 200;
+};
+
+export type listPanelCannedResponsesResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelCannedResponsesResponseSuccess = listPanelCannedResponsesResponse200 & {
+  headers: Headers;
+};
+export type listPanelCannedResponsesResponseError = listPanelCannedResponsesResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelCannedResponsesResponse =
+  | listPanelCannedResponsesResponseSuccess
+  | listPanelCannedResponsesResponseError;
+
+export const getListPanelCannedResponsesUrl = () => {
+  return `/v1/panel/support/canned`;
+};
+
+/**
+ * Requires support.read. Most-used first; a response whose `requiresPermission` the signed-in operator lacks is filtered out server-side rather than shown disabled.
+ */
+export const listPanelCannedResponses = async (
+  options?: RequestInit,
+): Promise<listPanelCannedResponsesResponse> => {
+  const res = await fetch(getListPanelCannedResponsesUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelCannedResponsesResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelCannedResponsesResponse;
+};
+
+export const getListPanelCannedResponsesKey = () => [`/v1/panel/support/canned`] as const;
+
+export type ListPanelCannedResponsesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelCannedResponses>>
+>;
+
+export const useListPanelCannedResponses = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelCannedResponses>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelCannedResponsesKey() : null));
+  const swrFn = () => listPanelCannedResponses(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelCannedResponseResponse200 = {
+  data: PanelCannedResponse;
+  status: 200;
+};
+
+export type savePanelCannedResponseResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelCannedResponseResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelCannedResponseResponseSuccess = savePanelCannedResponseResponse200 & {
+  headers: Headers;
+};
+export type savePanelCannedResponseResponseError = (
+  | savePanelCannedResponseResponse403
+  | savePanelCannedResponseResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelCannedResponseResponse =
+  | savePanelCannedResponseResponseSuccess
+  | savePanelCannedResponseResponseError;
+
+export const getSavePanelCannedResponseUrl = () => {
+  return `/v1/panel/support/canned`;
+};
+
+/**
+ * Requires settings.write. Both languages are mandatory. Upserts by code.
+ */
+export const savePanelCannedResponse = async (
+  panelCannedResponseInput: PanelCannedResponseInput,
+  options?: RequestInit,
+): Promise<savePanelCannedResponseResponse> => {
+  const res = await fetch(getSavePanelCannedResponseUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(panelCannedResponseInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelCannedResponseResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as savePanelCannedResponseResponse;
+};
+
+export const getSavePanelCannedResponseMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PanelCannedResponseInput }) => {
+    return savePanelCannedResponse(arg, options);
+  };
+};
+export const getSavePanelCannedResponseMutationKey = () => [`/v1/panel/support/canned`] as const;
+
+export type SavePanelCannedResponseMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelCannedResponse>>
+>;
+
+export const useSavePanelCannedResponse = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof savePanelCannedResponse>>,
+    TError,
+    Key,
+    PanelCannedResponseInput,
+    Awaited<ReturnType<typeof savePanelCannedResponse>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelCannedResponseMutationKey();
+  const swrFn = getSavePanelCannedResponseMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type archivePanelCannedResponseResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type archivePanelCannedResponseResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type archivePanelCannedResponseResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type archivePanelCannedResponseResponseSuccess = archivePanelCannedResponseResponse204 & {
+  headers: Headers;
+};
+export type archivePanelCannedResponseResponseError = (
+  | archivePanelCannedResponseResponse403
+  | archivePanelCannedResponseResponse404
+) & {
+  headers: Headers;
+};
+
+export type archivePanelCannedResponseResponse =
+  | archivePanelCannedResponseResponseSuccess
+  | archivePanelCannedResponseResponseError;
+
+export const getArchivePanelCannedResponseUrl = (responseID: string) => {
+  return `/v1/panel/support/canned/${responseID}`;
+};
+
+/**
+ * Requires settings.write. Archives rather than deletes; archiving twice is 404.
+ */
+export const archivePanelCannedResponse = async (
+  responseID: string,
+  options?: RequestInit,
+): Promise<archivePanelCannedResponseResponse> => {
+  const res = await fetch(getArchivePanelCannedResponseUrl(responseID), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: archivePanelCannedResponseResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as archivePanelCannedResponseResponse;
+};
+
+export const getArchivePanelCannedResponseMutationFetcher = (
+  responseID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return archivePanelCannedResponse(responseID, options);
+  };
+};
+export const getArchivePanelCannedResponseMutationKey = (responseID: string) =>
+  [`/v1/panel/support/canned/${responseID}`] as const;
+
+export type ArchivePanelCannedResponseMutationResult = NonNullable<
+  Awaited<ReturnType<typeof archivePanelCannedResponse>>
+>;
+
+export const useArchivePanelCannedResponse = <TError = Promise<ProblemResponse>>(
+  responseID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof archivePanelCannedResponse>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof archivePanelCannedResponse>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getArchivePanelCannedResponseMutationKey(responseID);
+  const swrFn = getArchivePanelCannedResponseMutationFetcher(responseID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelSupportReportResponse200 = {
+  data: PanelSupportReport;
+  status: 200;
+};
+
+export type getPanelSupportReportResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelSupportReportResponseSuccess = getPanelSupportReportResponse200 & {
+  headers: Headers;
+};
+export type getPanelSupportReportResponseError = getPanelSupportReportResponse403 & {
+  headers: Headers;
+};
+
+export type getPanelSupportReportResponse =
+  | getPanelSupportReportResponseSuccess
+  | getPanelSupportReportResponseError;
+
+export const getGetPanelSupportReportUrl = (params?: GetPanelSupportReportParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/support/report?${stringifiedParams}`
+    : `/v1/panel/support/report`;
+};
+
+/**
+ * Requires support.read. The workload and response-time figures over a window capped at 90 days.
+ */
+export const getPanelSupportReport = async (
+  params?: GetPanelSupportReportParams,
+  options?: RequestInit,
+): Promise<getPanelSupportReportResponse> => {
+  const res = await fetch(getGetPanelSupportReportUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelSupportReportResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelSupportReportResponse;
+};
+
+export const getGetPanelSupportReportKey = (params?: GetPanelSupportReportParams) =>
+  [`/v1/panel/support/report`, ...(params ? [params] : [])] as const;
+
+export type GetPanelSupportReportQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelSupportReport>>
+>;
+
+export const useGetPanelSupportReport = <TError = Promise<ProblemResponse>>(
+  params?: GetPanelSupportReportParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelSupportReport>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelSupportReportKey(params) : null));
+  const swrFn = () => getPanelSupportReport(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,

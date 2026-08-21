@@ -7121,9 +7121,15 @@ export const ListAccountPlansResponse = zod.object({
       recurringCapable: zod.boolean().optional(),
       configurableSquads: zod.boolean().optional(),
       operations: zod
-        .array(zod.enum(["purchase", "renew", "upgrade", "downgrade"]))
+        .array(zod.enum(["purchase", "extension", "upgrade", "downgrade"]))
         .describe("The lifecycle actions the configured plan policy allows for this customer."),
       eligible: zod.boolean(),
+      held: zod
+        .boolean()
+        .optional()
+        .describe(
+          "The customer already holds an entitlement for this plan, so the catalogue can mark it as the one they are on.",
+        ),
       ineligibleReason: zod.string().optional(),
       trafficAllowanceBytes: zod
         .int()
@@ -7164,9 +7170,15 @@ export const GetAccountPlanResponse = zod
     recurringCapable: zod.boolean().optional(),
     configurableSquads: zod.boolean().optional(),
     operations: zod
-      .array(zod.enum(["purchase", "renew", "upgrade", "downgrade"]))
+      .array(zod.enum(["purchase", "extension", "upgrade", "downgrade"]))
       .describe("The lifecycle actions the configured plan policy allows for this customer."),
     eligible: zod.boolean(),
+    held: zod
+      .boolean()
+      .optional()
+      .describe(
+        "The customer already holds an entitlement for this plan, so the catalogue can mark it as the one they are on.",
+      ),
     ineligibleReason: zod.string().optional(),
     trafficAllowanceBytes: zod
       .int()
@@ -7254,9 +7266,15 @@ export const GetAccountCheckoutResponse = zod.object({
     recurringCapable: zod.boolean().optional(),
     configurableSquads: zod.boolean().optional(),
     operations: zod
-      .array(zod.enum(["purchase", "renew", "upgrade", "downgrade"]))
+      .array(zod.enum(["purchase", "extension", "upgrade", "downgrade"]))
       .describe("The lifecycle actions the configured plan policy allows for this customer."),
     eligible: zod.boolean(),
+    held: zod
+      .boolean()
+      .optional()
+      .describe(
+        "The customer already holds an entitlement for this plan, so the catalogue can mark it as the one they are on.",
+      ),
     ineligibleReason: zod.string().optional(),
     trafficAllowanceBytes: zod
       .int()
@@ -7397,9 +7415,15 @@ export const OpenAccountCheckoutResponse = zod.object({
     recurringCapable: zod.boolean().optional(),
     configurableSquads: zod.boolean().optional(),
     operations: zod
-      .array(zod.enum(["purchase", "renew", "upgrade", "downgrade"]))
+      .array(zod.enum(["purchase", "extension", "upgrade", "downgrade"]))
       .describe("The lifecycle actions the configured plan policy allows for this customer."),
     eligible: zod.boolean(),
+    held: zod
+      .boolean()
+      .optional()
+      .describe(
+        "The customer already holds an entitlement for this plan, so the catalogue can mark it as the one they are on.",
+      ),
     ineligibleReason: zod.string().optional(),
     trafficAllowanceBytes: zod
       .int()
@@ -7539,9 +7563,15 @@ export const UpdateAccountCheckoutResponse = zod.object({
     recurringCapable: zod.boolean().optional(),
     configurableSquads: zod.boolean().optional(),
     operations: zod
-      .array(zod.enum(["purchase", "renew", "upgrade", "downgrade"]))
+      .array(zod.enum(["purchase", "extension", "upgrade", "downgrade"]))
       .describe("The lifecycle actions the configured plan policy allows for this customer."),
     eligible: zod.boolean(),
+    held: zod
+      .boolean()
+      .optional()
+      .describe(
+        "The customer already holds an entitlement for this plan, so the catalogue can mark it as the one they are on.",
+      ),
     ineligibleReason: zod.string().optional(),
     trafficAllowanceBytes: zod
       .int()
@@ -7685,9 +7715,15 @@ export const ApplyAccountPromoCodeResponse = zod.object({
     recurringCapable: zod.boolean().optional(),
     configurableSquads: zod.boolean().optional(),
     operations: zod
-      .array(zod.enum(["purchase", "renew", "upgrade", "downgrade"]))
+      .array(zod.enum(["purchase", "extension", "upgrade", "downgrade"]))
       .describe("The lifecycle actions the configured plan policy allows for this customer."),
     eligible: zod.boolean(),
+    held: zod
+      .boolean()
+      .optional()
+      .describe(
+        "The customer already holds an entitlement for this plan, so the catalogue can mark it as the one they are on.",
+      ),
     ineligibleReason: zod.string().optional(),
     trafficAllowanceBytes: zod
       .int()
@@ -7816,9 +7852,15 @@ export const RemoveAccountPromoCodeResponse = zod.object({
     recurringCapable: zod.boolean().optional(),
     configurableSquads: zod.boolean().optional(),
     operations: zod
-      .array(zod.enum(["purchase", "renew", "upgrade", "downgrade"]))
+      .array(zod.enum(["purchase", "extension", "upgrade", "downgrade"]))
       .describe("The lifecycle actions the configured plan policy allows for this customer."),
     eligible: zod.boolean(),
+    held: zod
+      .boolean()
+      .optional()
+      .describe(
+        "The customer already holds an entitlement for this plan, so the catalogue can mark it as the one they are on.",
+      ),
     ineligibleReason: zod.string().optional(),
     trafficAllowanceBytes: zod
       .int()
@@ -7951,9 +7993,15 @@ export const ToggleAccountCheckoutAddonResponse = zod.object({
     recurringCapable: zod.boolean().optional(),
     configurableSquads: zod.boolean().optional(),
     operations: zod
-      .array(zod.enum(["purchase", "renew", "upgrade", "downgrade"]))
+      .array(zod.enum(["purchase", "extension", "upgrade", "downgrade"]))
       .describe("The lifecycle actions the configured plan policy allows for this customer."),
     eligible: zod.boolean(),
+    held: zod
+      .boolean()
+      .optional()
+      .describe(
+        "The customer already holds an entitlement for this plan, so the catalogue can mark it as the one they are on.",
+      ),
     ineligibleReason: zod.string().optional(),
     trafficAllowanceBytes: zod
       .int()
@@ -9199,10 +9247,14 @@ export const GetAccountSupportLimitsResponse = zod.object({
   maxAttachmentBytes: zod.int(),
   allowedMediaTypes: zod.array(zod.string()),
   maxOpenTickets: zod.int(),
+  maxAttachmentsPerTicket: zod.int().describe("Web uploads one conversation may carry."),
   maxSubjectLength: zod.int(),
   maxMessageLength: zod.int(),
 });
 
+/**
+ * The customer's conversations, newest activity first, with whether an operator's reply can be pushed to them in Telegram at all.
+ */
 export const listAccountSupportTicketsQueryLimitMax = 100;
 
 export const ListAccountSupportTicketsQueryParams = zod.object({
@@ -9216,19 +9268,27 @@ export const ListAccountSupportTicketsResponse = zod.object({
       id: zod.uuid(),
       subject: zod.string(),
       status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+      priority: zod.enum(["low", "normal", "high", "urgent"]),
       open: zod.boolean().describe("Counts against the open-conversation quota."),
       canReply: zod.boolean(),
       unreadCount: zod.int(),
+      messageCount: zod.int(),
       mergedIntoTicketId: zod.uuid().optional(),
       createdAt: zod.iso.datetime({ offset: true }),
       updatedAt: zod.iso.datetime({ offset: true }),
+      lastMessageAt: zod.iso.datetime({ offset: true }),
     }),
   ),
   nextCursor: zod.string().optional(),
+  telegramLinked: zod
+    .boolean()
+    .describe(
+      "Whether an operator's reply can be pushed to this customer in Telegram: an active Telegram identity, or the imported Remnawave mapping the delivery query also accepts.",
+    ),
 });
 
 /**
- * Opens a conversation. The number a customer may hold open at once is bounded, so a loop in a client cannot fill the operator queue faster than people can empty it.
+ * Opens a conversation and answers it whole, with its first message. The number a customer may hold open at once is bounded, so a loop in a client cannot fill the operator queue faster than people can empty it, and the route is rate-limited per customer on top.
  */
 export const createAccountSupportTicketHeaderIdempotencyKeyMin = 8;
 export const createAccountSupportTicketHeaderIdempotencyKeyMax = 128;
@@ -9253,15 +9313,46 @@ export const CreateAccountSupportTicketBody = zod.object({
 });
 
 export const CreateAccountSupportTicketResponse = zod.object({
-  id: zod.uuid(),
-  subject: zod.string(),
-  status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
-  open: zod.boolean().describe("Counts against the open-conversation quota."),
-  canReply: zod.boolean(),
-  unreadCount: zod.int(),
-  mergedIntoTicketId: zod.uuid().optional(),
-  createdAt: zod.iso.datetime({ offset: true }),
-  updatedAt: zod.iso.datetime({ offset: true }),
+  ticket: zod.object({
+    id: zod.uuid(),
+    subject: zod.string(),
+    status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+    priority: zod.enum(["low", "normal", "high", "urgent"]),
+    open: zod.boolean().describe("Counts against the open-conversation quota."),
+    canReply: zod.boolean(),
+    unreadCount: zod.int(),
+    messageCount: zod.int(),
+    mergedIntoTicketId: zod.uuid().optional(),
+    createdAt: zod.iso.datetime({ offset: true }),
+    updatedAt: zod.iso.datetime({ offset: true }),
+    lastMessageAt: zod.iso.datetime({ offset: true }),
+  }),
+  messages: zod.array(
+    zod.object({
+      id: zod.int(),
+      author: zod.enum(["customer", "operator", "system"]),
+      body: zod.string(),
+      unread: zod.boolean(),
+      createdAt: zod.iso.datetime({ offset: true }),
+      attachments: zod.array(
+        zod.object({
+          id: zod.uuid(),
+          messageId: zod
+            .int()
+            .optional()
+            .describe("Present on the upload response; the message the file was hung on."),
+          kind: zod.enum(["photo", "document"]),
+          fileName: zod.string(),
+          mediaType: zod.string(),
+          sizeBytes: zod.int(),
+          downloadable: zod
+            .boolean()
+            .describe("False for a file that lives in Telegram rather than here."),
+          createdAt: zod.iso.datetime({ offset: true }),
+        }),
+      ),
+    }),
+  ),
 });
 
 /**
@@ -9276,37 +9367,47 @@ export const GetAccountSupportTicketResponse = zod.object({
     id: zod.uuid(),
     subject: zod.string(),
     status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+    priority: zod.enum(["low", "normal", "high", "urgent"]),
     open: zod.boolean().describe("Counts against the open-conversation quota."),
     canReply: zod.boolean(),
     unreadCount: zod.int(),
+    messageCount: zod.int(),
     mergedIntoTicketId: zod.uuid().optional(),
     createdAt: zod.iso.datetime({ offset: true }),
     updatedAt: zod.iso.datetime({ offset: true }),
+    lastMessageAt: zod.iso.datetime({ offset: true }),
   }),
   messages: zod.array(
     zod.object({
-      id: zod.string(),
+      id: zod.int(),
       author: zod.enum(["customer", "operator", "system"]),
       body: zod.string(),
       unread: zod.boolean(),
       createdAt: zod.iso.datetime({ offset: true }),
-      attachments: zod
-        .array(
-          zod.object({
-            id: zod.uuid(),
-            fileName: zod.string(),
-            mimeType: zod.string().optional(),
-            sizeBytes: zod.int(),
-            downloadable: zod
-              .boolean()
-              .describe("False for a file that lives in Telegram rather than here."),
-          }),
-        )
-        .optional(),
+      attachments: zod.array(
+        zod.object({
+          id: zod.uuid(),
+          messageId: zod
+            .int()
+            .optional()
+            .describe("Present on the upload response; the message the file was hung on."),
+          kind: zod.enum(["photo", "document"]),
+          fileName: zod.string(),
+          mediaType: zod.string(),
+          sizeBytes: zod.int(),
+          downloadable: zod
+            .boolean()
+            .describe("False for a file that lives in Telegram rather than here."),
+          createdAt: zod.iso.datetime({ offset: true }),
+        }),
+      ),
     }),
   ),
 });
 
+/**
+ * Appends a message and answers the whole conversation. A message on a resolved ticket reopens it, which takes an open slot and is refused with 409 `too_many_open_tickets` when the customer has none; a closed or merged ticket answers 409 `ticket_closed`.
+ */
 export const ReplyToAccountSupportTicketParams = zod.object({
   ticketID: zod.uuid(),
 });
@@ -9337,33 +9438,40 @@ export const ReplyToAccountSupportTicketResponse = zod.object({
     id: zod.uuid(),
     subject: zod.string(),
     status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+    priority: zod.enum(["low", "normal", "high", "urgent"]),
     open: zod.boolean().describe("Counts against the open-conversation quota."),
     canReply: zod.boolean(),
     unreadCount: zod.int(),
+    messageCount: zod.int(),
     mergedIntoTicketId: zod.uuid().optional(),
     createdAt: zod.iso.datetime({ offset: true }),
     updatedAt: zod.iso.datetime({ offset: true }),
+    lastMessageAt: zod.iso.datetime({ offset: true }),
   }),
   messages: zod.array(
     zod.object({
-      id: zod.string(),
+      id: zod.int(),
       author: zod.enum(["customer", "operator", "system"]),
       body: zod.string(),
       unread: zod.boolean(),
       createdAt: zod.iso.datetime({ offset: true }),
-      attachments: zod
-        .array(
-          zod.object({
-            id: zod.uuid(),
-            fileName: zod.string(),
-            mimeType: zod.string().optional(),
-            sizeBytes: zod.int(),
-            downloadable: zod
-              .boolean()
-              .describe("False for a file that lives in Telegram rather than here."),
-          }),
-        )
-        .optional(),
+      attachments: zod.array(
+        zod.object({
+          id: zod.uuid(),
+          messageId: zod
+            .int()
+            .optional()
+            .describe("Present on the upload response; the message the file was hung on."),
+          kind: zod.enum(["photo", "document"]),
+          fileName: zod.string(),
+          mediaType: zod.string(),
+          sizeBytes: zod.int(),
+          downloadable: zod
+            .boolean()
+            .describe("False for a file that lives in Telegram rather than here."),
+          createdAt: zod.iso.datetime({ offset: true }),
+        }),
+      ),
     }),
   ),
 });
@@ -9385,12 +9493,15 @@ export const MarkAccountSupportTicketReadResponse = zod.object({
   id: zod.uuid(),
   subject: zod.string(),
   status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+  priority: zod.enum(["low", "normal", "high", "urgent"]),
   open: zod.boolean().describe("Counts against the open-conversation quota."),
   canReply: zod.boolean(),
   unreadCount: zod.int(),
+  messageCount: zod.int(),
   mergedIntoTicketId: zod.uuid().optional(),
   createdAt: zod.iso.datetime({ offset: true }),
   updatedAt: zod.iso.datetime({ offset: true }),
+  lastMessageAt: zod.iso.datetime({ offset: true }),
 });
 
 export const CloseAccountSupportTicketParams = zod.object({
@@ -9407,14 +9518,20 @@ export const CloseAccountSupportTicketResponse = zod.object({
   id: zod.uuid(),
   subject: zod.string(),
   status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+  priority: zod.enum(["low", "normal", "high", "urgent"]),
   open: zod.boolean().describe("Counts against the open-conversation quota."),
   canReply: zod.boolean(),
   unreadCount: zod.int(),
+  messageCount: zod.int(),
   mergedIntoTicketId: zod.uuid().optional(),
   createdAt: zod.iso.datetime({ offset: true }),
   updatedAt: zod.iso.datetime({ offset: true }),
+  lastMessageAt: zod.iso.datetime({ offset: true }),
 });
 
+/**
+ * Reopening takes an open slot and is refused with 409 `too_many_open_tickets` when the customer already holds the maximum; a merged ticket answers 422.
+ */
 export const ReopenAccountSupportTicketParams = zod.object({
   ticketID: zod.uuid(),
 });
@@ -9429,25 +9546,39 @@ export const ReopenAccountSupportTicketResponse = zod.object({
   id: zod.uuid(),
   subject: zod.string(),
   status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+  priority: zod.enum(["low", "normal", "high", "urgent"]),
   open: zod.boolean().describe("Counts against the open-conversation quota."),
   canReply: zod.boolean(),
   unreadCount: zod.int(),
+  messageCount: zod.int(),
   mergedIntoTicketId: zod.uuid().optional(),
   createdAt: zod.iso.datetime({ offset: true }),
   updatedAt: zod.iso.datetime({ offset: true }),
+  lastMessageAt: zod.iso.datetime({ offset: true }),
 });
 
 /**
- * Uploads one file. The accepted media types are an allowlist, so an unknown type is refused rather than guessed at.
+ * Uploads one file as a new message on the conversation and answers the attachment it created. The accepted media types are an allowlist, so an unknown type is refused rather than guessed at. The idempotency key becomes the message's dedupe key, so a replayed upload finds the message and the file it already hung on it. A conversation already carrying `maxAttachmentsPerTicket` web uploads answers 409 `too_many_attachments`.
  */
 export const AttachToAccountSupportTicketParams = zod.object({
   ticketID: zod.uuid(),
 });
 
+export const attachToAccountSupportTicketHeaderIdempotencyKeyMin = 8;
+export const attachToAccountSupportTicketHeaderIdempotencyKeyMax = 128;
+
 export const AttachToAccountSupportTicketHeader = zod.object({
   "X-CSRF-Token": zod
     .string()
     .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "Idempotency-Key": zod
+    .string()
+    .min(attachToAccountSupportTicketHeaderIdempotencyKeyMin)
+    .max(attachToAccountSupportTicketHeaderIdempotencyKeyMax)
+    .optional()
+    .describe(
+      "Optional here. Supplying one makes a repeated submission resolve to the record already created instead of a second one.",
+    ),
 });
 
 export const AttachToAccountSupportTicketBody = zod.object({
@@ -9456,39 +9587,17 @@ export const AttachToAccountSupportTicketBody = zod.object({
 });
 
 export const AttachToAccountSupportTicketResponse = zod.object({
-  ticket: zod.object({
-    id: zod.uuid(),
-    subject: zod.string(),
-    status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
-    open: zod.boolean().describe("Counts against the open-conversation quota."),
-    canReply: zod.boolean(),
-    unreadCount: zod.int(),
-    mergedIntoTicketId: zod.uuid().optional(),
-    createdAt: zod.iso.datetime({ offset: true }),
-    updatedAt: zod.iso.datetime({ offset: true }),
-  }),
-  messages: zod.array(
-    zod.object({
-      id: zod.string(),
-      author: zod.enum(["customer", "operator", "system"]),
-      body: zod.string(),
-      unread: zod.boolean(),
-      createdAt: zod.iso.datetime({ offset: true }),
-      attachments: zod
-        .array(
-          zod.object({
-            id: zod.uuid(),
-            fileName: zod.string(),
-            mimeType: zod.string().optional(),
-            sizeBytes: zod.int(),
-            downloadable: zod
-              .boolean()
-              .describe("False for a file that lives in Telegram rather than here."),
-          }),
-        )
-        .optional(),
-    }),
-  ),
+  id: zod.uuid(),
+  messageId: zod
+    .int()
+    .optional()
+    .describe("Present on the upload response; the message the file was hung on."),
+  kind: zod.enum(["photo", "document"]),
+  fileName: zod.string(),
+  mediaType: zod.string(),
+  sizeBytes: zod.int(),
+  downloadable: zod.boolean().describe("False for a file that lives in Telegram rather than here."),
+  createdAt: zod.iso.datetime({ offset: true }),
 });
 
 /**
@@ -9822,6 +9931,684 @@ export const UnsubscribeAccountResponse = zod.object({
       createdAt: zod.iso.datetime({ offset: true }),
     })
     .optional(),
+});
+
+/**
+ * Requires support.read. Every live queue with its open, unassigned, and breached counts.
+ */
+export const ListPanelSupportQueuesResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      code: zod.string(),
+      nameEn: zod.string(),
+      nameRu: zod.string(),
+      firstResponseTargetSeconds: zod.int(),
+      resolutionTargetSeconds: zod.int(),
+      isDefault: zod.boolean(),
+      sortOrder: zod.int(),
+      openCount: zod.int(),
+      unassignedCount: zod.int(),
+      breachedCount: zod.int(),
+    }),
+  ),
+});
+
+/**
+ * Requires settings.write, not support.write: a queue's targets are the promise an operator works under, not day-to-day support work. Upserts by code; `isDefault: true` clears the previous default in the same transaction.
+ */
+export const SavePanelSupportQueueHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const savePanelSupportQueueBodyCodeRegExp = /^[a-z][a-z0-9_-]{1,63}$/;
+export const savePanelSupportQueueBodyFirstResponseTargetSecondsMin = 0;
+
+export const savePanelSupportQueueBodyResolutionTargetSecondsMin = 0;
+
+export const SavePanelSupportQueueBody = zod.object({
+  code: zod.string().regex(savePanelSupportQueueBodyCodeRegExp),
+  nameEn: zod.string(),
+  nameRu: zod.string(),
+  firstResponseTargetSeconds: zod
+    .int()
+    .min(savePanelSupportQueueBodyFirstResponseTargetSecondsMin)
+    .optional(),
+  resolutionTargetSeconds: zod
+    .int()
+    .min(savePanelSupportQueueBodyResolutionTargetSecondsMin)
+    .optional(),
+  isDefault: zod.boolean().optional(),
+  sortOrder: zod.int().optional(),
+});
+
+export const SavePanelSupportQueueResponse = zod.object({
+  id: zod.uuid(),
+  code: zod.string(),
+  nameEn: zod.string(),
+  nameRu: zod.string(),
+  firstResponseTargetSeconds: zod.int(),
+  resolutionTargetSeconds: zod.int(),
+  isDefault: zod.boolean(),
+  sortOrder: zod.int(),
+  openCount: zod.int(),
+  unassignedCount: zod.int(),
+  breachedCount: zod.int(),
+});
+
+/**
+ * Requires support.read. The queue, oldest activity first, on a keyset cursor over (lastMessageAt, id). The breach flag is computed in SQL so "overdue" means the same thing here, in the queue counters, and in the report.
+ */
+export const listPanelSupportTicketsQueryPageSizeDefault = 25;
+export const listPanelSupportTicketsQueryPageSizeMax = 200;
+
+export const ListPanelSupportTicketsQueryParams = zod.object({
+  queueId: zod.uuid().optional(),
+  status: zod.enum(["open", "pending", "resolved", "closed", "merged"]).optional(),
+  priority: zod.enum(["low", "normal", "high", "urgent"]).optional(),
+  assigneeId: zod.uuid().optional(),
+  unassigned: zod.boolean().optional(),
+  customerId: zod.uuid().optional(),
+  tag: zod.string().optional(),
+  cursor: zod.string().optional(),
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(listPanelSupportTicketsQueryPageSizeMax)
+    .default(listPanelSupportTicketsQueryPageSizeDefault),
+});
+
+export const ListPanelSupportTicketsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      customerId: zod.uuid(),
+      queueId: zod.uuid(),
+      queueCode: zod.string(),
+      subject: zod.string(),
+      status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+      priority: zod.enum(["low", "normal", "high", "urgent"]),
+      assigneeId: zod.uuid().optional(),
+      assigneeName: zod.string().optional(),
+      tags: zod.array(zod.string()),
+      messageCount: zod.int(),
+      unreadCount: zod
+        .int()
+        .describe("Customer messages and reopens since an operator last marked the ticket read."),
+      reopenedCount: zod.int(),
+      firstResponseBreached: zod.boolean(),
+      mergedIntoTicketId: zod.uuid().optional(),
+      createdAt: zod.iso.datetime({ offset: true }),
+      lastMessageAt: zod.iso.datetime({ offset: true }),
+      firstResponseAt: zod.iso.datetime({ offset: true }).optional(),
+      resolvedAt: zod.iso.datetime({ offset: true }).optional(),
+    }),
+  ),
+  nextCursor: zod.string().optional(),
+});
+
+/**
+ * Requires support.read. The conversation with its messages, each carrying its attachments and the push outcome, and the operators' internal notes as a separate list so no client can mistake one for the other.
+ */
+export const GetPanelSupportTicketParams = zod.object({
+  ticketID: zod.uuid(),
+});
+
+export const GetPanelSupportTicketResponse = zod.object({
+  ticket: zod.object({
+    id: zod.uuid(),
+    customerId: zod.uuid(),
+    queueId: zod.uuid(),
+    queueCode: zod.string(),
+    subject: zod.string(),
+    status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+    priority: zod.enum(["low", "normal", "high", "urgent"]),
+    assigneeId: zod.uuid().optional(),
+    assigneeName: zod.string().optional(),
+    tags: zod.array(zod.string()),
+    messageCount: zod.int(),
+    unreadCount: zod
+      .int()
+      .describe("Customer messages and reopens since an operator last marked the ticket read."),
+    reopenedCount: zod.int(),
+    firstResponseBreached: zod.boolean(),
+    mergedIntoTicketId: zod.uuid().optional(),
+    createdAt: zod.iso.datetime({ offset: true }),
+    lastMessageAt: zod.iso.datetime({ offset: true }),
+    firstResponseAt: zod.iso.datetime({ offset: true }).optional(),
+    resolvedAt: zod.iso.datetime({ offset: true }).optional(),
+  }),
+  messages: zod.array(
+    zod.object({
+      id: zod.int(),
+      sender: zod.enum(["customer", "operator", "system"]),
+      body: zod.string(),
+      authorName: zod.string().optional(),
+      delivered: zod.boolean().describe("Telegram accepted the push."),
+      delivery: zod
+        .enum(["queued", "retrying", "delivered", "undeliverable", "failed"])
+        .optional()
+        .describe(
+          "The push outcome for an operator or system message, absent on a customer message. `undeliverable` means the customer blocked the bot, deleted their account, or has no Telegram identity; they read the message in the web panel.",
+        ),
+      deliveryReason: zod
+        .string()
+        .optional()
+        .describe("The classified code behind an undeliverable, failed, or retrying push."),
+      createdAt: zod.iso.datetime({ offset: true }),
+      attachments: zod.array(
+        zod.object({
+          id: zod.uuid(),
+          messageId: zod.int(),
+          kind: zod.enum(["photo", "document"]),
+          fileName: zod.string(),
+          mediaType: zod.string(),
+          sizeBytes: zod.int(),
+          origin: zod
+            .enum(["web", "telegram"])
+            .describe(
+              "`web` for a file this installation holds; `telegram` for a reference to a file in the customer's chat.",
+            ),
+          downloadable: zod.boolean(),
+          createdAt: zod.iso.datetime({ offset: true }),
+        }),
+      ),
+    }),
+  ),
+  notes: zod
+    .array(
+      zod.object({
+        id: zod.int(),
+        authorName: zod.string(),
+        body: zod.string(),
+        createdAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .describe("Internal notes, never delivered to the customer, as a separate list on purpose."),
+});
+
+/**
+ * Requires support.read. Serves a file the customer uploaded through the web panel, scoped to its ticket, with an attachment disposition and `nosniff`. A file that arrived through Telegram answers 409 `attachment_remote` and is never fetched: Omniflow holds a reference, not the bytes, and will not proxy Telegram's file API with the bot token on an operator's behalf. A purged file answers 404; a process with no attachment store answers 503.
+ */
+export const DownloadPanelSupportAttachmentParams = zod.object({
+  ticketID: zod.uuid(),
+  attachmentID: zod.uuid(),
+});
+
+export const DownloadPanelSupportAttachmentResponse = zod.unknown();
+
+/**
+ * Requires support.write. An empty assigneeId releases the ticket.
+ */
+export const AssignPanelSupportTicketParams = zod.object({
+  ticketID: zod.uuid(),
+});
+
+export const AssignPanelSupportTicketHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const AssignPanelSupportTicketBody = zod.object({
+  assigneeId: zod.string(),
+});
+
+export const AssignPanelSupportTicketResponse = zod.object({
+  id: zod.uuid(),
+  customerId: zod.uuid(),
+  queueId: zod.uuid(),
+  queueCode: zod.string(),
+  subject: zod.string(),
+  status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+  priority: zod.enum(["low", "normal", "high", "urgent"]),
+  assigneeId: zod.uuid().optional(),
+  assigneeName: zod.string().optional(),
+  tags: zod.array(zod.string()),
+  messageCount: zod.int(),
+  unreadCount: zod
+    .int()
+    .describe("Customer messages and reopens since an operator last marked the ticket read."),
+  reopenedCount: zod.int(),
+  firstResponseBreached: zod.boolean(),
+  mergedIntoTicketId: zod.uuid().optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+  lastMessageAt: zod.iso.datetime({ offset: true }),
+  firstResponseAt: zod.iso.datetime({ offset: true }).optional(),
+  resolvedAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+/**
+ * Requires support.write.
+ */
+export const MovePanelSupportTicketParams = zod.object({
+  ticketID: zod.uuid(),
+});
+
+export const MovePanelSupportTicketHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const MovePanelSupportTicketBody = zod.object({
+  queueId: zod.uuid(),
+});
+
+export const MovePanelSupportTicketResponse = zod.object({
+  id: zod.uuid(),
+  customerId: zod.uuid(),
+  queueId: zod.uuid(),
+  queueCode: zod.string(),
+  subject: zod.string(),
+  status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+  priority: zod.enum(["low", "normal", "high", "urgent"]),
+  assigneeId: zod.uuid().optional(),
+  assigneeName: zod.string().optional(),
+  tags: zod.array(zod.string()),
+  messageCount: zod.int(),
+  unreadCount: zod
+    .int()
+    .describe("Customer messages and reopens since an operator last marked the ticket read."),
+  reopenedCount: zod.int(),
+  firstResponseBreached: zod.boolean(),
+  mergedIntoTicketId: zod.uuid().optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+  lastMessageAt: zod.iso.datetime({ offset: true }),
+  firstResponseAt: zod.iso.datetime({ offset: true }).optional(),
+  resolvedAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+/**
+ * Requires support.write. Priority does not change the SLA target, which belongs to the queue.
+ */
+export const SetPanelSupportTicketPriorityParams = zod.object({
+  ticketID: zod.uuid(),
+});
+
+export const SetPanelSupportTicketPriorityHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const SetPanelSupportTicketPriorityBody = zod.object({
+  priority: zod.enum(["low", "normal", "high", "urgent"]),
+});
+
+export const SetPanelSupportTicketPriorityResponse = zod.object({
+  id: zod.uuid(),
+  customerId: zod.uuid(),
+  queueId: zod.uuid(),
+  queueCode: zod.string(),
+  subject: zod.string(),
+  status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+  priority: zod.enum(["low", "normal", "high", "urgent"]),
+  assigneeId: zod.uuid().optional(),
+  assigneeName: zod.string().optional(),
+  tags: zod.array(zod.string()),
+  messageCount: zod.int(),
+  unreadCount: zod
+    .int()
+    .describe("Customer messages and reopens since an operator last marked the ticket read."),
+  reopenedCount: zod.int(),
+  firstResponseBreached: zod.boolean(),
+  mergedIntoTicketId: zod.uuid().optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+  lastMessageAt: zod.iso.datetime({ offset: true }),
+  firstResponseAt: zod.iso.datetime({ offset: true }).optional(),
+  resolvedAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+/**
+ * Requires support.write. `merged` cannot be set here; merging is its own action. Setting `resolved` or `closed` writes a system message in the customer's language that the bot pushes like a reply.
+ */
+export const SetPanelSupportTicketStatusParams = zod.object({
+  ticketID: zod.uuid(),
+});
+
+export const SetPanelSupportTicketStatusHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const SetPanelSupportTicketStatusBody = zod.object({
+  status: zod.enum(["open", "pending", "resolved", "closed"]),
+});
+
+export const SetPanelSupportTicketStatusResponse = zod.object({
+  id: zod.uuid(),
+  customerId: zod.uuid(),
+  queueId: zod.uuid(),
+  queueCode: zod.string(),
+  subject: zod.string(),
+  status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+  priority: zod.enum(["low", "normal", "high", "urgent"]),
+  assigneeId: zod.uuid().optional(),
+  assigneeName: zod.string().optional(),
+  tags: zod.array(zod.string()),
+  messageCount: zod.int(),
+  unreadCount: zod
+    .int()
+    .describe("Customer messages and reopens since an operator last marked the ticket read."),
+  reopenedCount: zod.int(),
+  firstResponseBreached: zod.boolean(),
+  mergedIntoTicketId: zod.uuid().optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+  lastMessageAt: zod.iso.datetime({ offset: true }),
+  firstResponseAt: zod.iso.datetime({ offset: true }).optional(),
+  resolvedAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+/**
+ * Requires support.write. Folds this ticket into the survivor: messages and unread counts move, the absorbed row stays with status `merged` and a pointer, and the customer is told on the survivor. A merge across customers or into itself is 422; into a ticket that was itself merged is 409.
+ */
+export const MergePanelSupportTicketParams = zod.object({
+  ticketID: zod.uuid(),
+});
+
+export const MergePanelSupportTicketHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const MergePanelSupportTicketBody = zod.object({
+  survivorId: zod.uuid(),
+});
+
+export const MergePanelSupportTicketResponse = zod.object({
+  id: zod.uuid(),
+  customerId: zod.uuid(),
+  queueId: zod.uuid(),
+  queueCode: zod.string(),
+  subject: zod.string(),
+  status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+  priority: zod.enum(["low", "normal", "high", "urgent"]),
+  assigneeId: zod.uuid().optional(),
+  assigneeName: zod.string().optional(),
+  tags: zod.array(zod.string()),
+  messageCount: zod.int(),
+  unreadCount: zod
+    .int()
+    .describe("Customer messages and reopens since an operator last marked the ticket read."),
+  reopenedCount: zod.int(),
+  firstResponseBreached: zod.boolean(),
+  mergedIntoTicketId: zod.uuid().optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+  lastMessageAt: zod.iso.datetime({ offset: true }),
+  firstResponseAt: zod.iso.datetime({ offset: true }).optional(),
+  resolvedAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+/**
+ * Requires support.write and an Idempotency-Key, which becomes the message's dedupe key; a repeated key answers 200 with an empty message. The reply is written here and pushed by the bot's support loop. A merged ticket is refused with 409.
+ */
+export const ReplyToPanelSupportTicketParams = zod.object({
+  ticketID: zod.uuid(),
+});
+
+export const replyToPanelSupportTicketHeaderIdempotencyKeyMin = 8;
+export const replyToPanelSupportTicketHeaderIdempotencyKeyMax = 128;
+
+export const ReplyToPanelSupportTicketHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "Idempotency-Key": zod
+    .string()
+    .min(replyToPanelSupportTicketHeaderIdempotencyKeyMin)
+    .max(replyToPanelSupportTicketHeaderIdempotencyKeyMax),
+});
+
+export const replyToPanelSupportTicketBodyBodyMax = 4000;
+
+export const ReplyToPanelSupportTicketBody = zod.object({
+  body: zod.string().min(1).max(replyToPanelSupportTicketBodyBodyMax),
+  cannedResponseId: zod.uuid().optional(),
+});
+
+export const ReplyToPanelSupportTicketResponse = zod.object({
+  id: zod.int(),
+  sender: zod.enum(["customer", "operator", "system"]),
+  body: zod.string(),
+  authorName: zod.string().optional(),
+  delivered: zod.boolean().describe("Telegram accepted the push."),
+  delivery: zod
+    .enum(["queued", "retrying", "delivered", "undeliverable", "failed"])
+    .optional()
+    .describe(
+      "The push outcome for an operator or system message, absent on a customer message. `undeliverable` means the customer blocked the bot, deleted their account, or has no Telegram identity; they read the message in the web panel.",
+    ),
+  deliveryReason: zod
+    .string()
+    .optional()
+    .describe("The classified code behind an undeliverable, failed, or retrying push."),
+  createdAt: zod.iso.datetime({ offset: true }),
+  attachments: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      messageId: zod.int(),
+      kind: zod.enum(["photo", "document"]),
+      fileName: zod.string(),
+      mediaType: zod.string(),
+      sizeBytes: zod.int(),
+      origin: zod
+        .enum(["web", "telegram"])
+        .describe(
+          "`web` for a file this installation holds; `telegram` for a reference to a file in the customer's chat.",
+        ),
+      downloadable: zod.boolean(),
+      createdAt: zod.iso.datetime({ offset: true }),
+    }),
+  ),
+});
+
+/**
+ * Requires support.write. A private note, never delivered; its body is not copied into the audit trail.
+ */
+export const AddPanelSupportNoteParams = zod.object({
+  ticketID: zod.uuid(),
+});
+
+export const AddPanelSupportNoteHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const addPanelSupportNoteBodyBodyMax = 4000;
+
+export const AddPanelSupportNoteBody = zod.object({
+  body: zod.string().min(1).max(addPanelSupportNoteBodyBodyMax),
+});
+
+export const AddPanelSupportNoteResponse = zod.object({
+  id: zod.int(),
+  authorName: zod.string(),
+  body: zod.string(),
+  createdAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Requires support.write. Clears the operator-side unread counter.
+ */
+export const MarkPanelSupportTicketReadParams = zod.object({
+  ticketID: zod.uuid(),
+});
+
+export const MarkPanelSupportTicketReadHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const MarkPanelSupportTicketReadResponse = zod.void();
+
+/**
+ * Requires support.write. The path parameter is the tag code; attaching twice is a no-op.
+ */
+export const TagPanelSupportTicketParams = zod.object({
+  ticketID: zod.uuid(),
+  tag: zod.string(),
+});
+
+export const TagPanelSupportTicketHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const TagPanelSupportTicketResponse = zod.void();
+
+/**
+ * Requires support.write.
+ */
+export const UntagPanelSupportTicketParams = zod.object({
+  ticketID: zod.uuid(),
+  tag: zod.string(),
+});
+
+export const UntagPanelSupportTicketHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const UntagPanelSupportTicketResponse = zod.void();
+
+/**
+ * Requires support.read.
+ */
+export const ListPanelSupportTagsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      code: zod.string(),
+      nameEn: zod.string(),
+      nameRu: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * Requires settings.write. Upserts by code.
+ */
+export const SavePanelSupportTagHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const SavePanelSupportTagBody = zod.object({
+  code: zod.string(),
+  nameEn: zod.string(),
+  nameRu: zod.string(),
+});
+
+export const SavePanelSupportTagResponse = zod.object({
+  id: zod.uuid(),
+  code: zod.string(),
+  nameEn: zod.string(),
+  nameRu: zod.string(),
+});
+
+/**
+ * Requires support.read. Most-used first; a response whose `requiresPermission` the signed-in operator lacks is filtered out server-side rather than shown disabled.
+ */
+export const ListPanelCannedResponsesResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      code: zod.string(),
+      titleEn: zod.string(),
+      titleRu: zod.string(),
+      bodyEn: zod.string(),
+      bodyRu: zod.string(),
+      requiresPermission: zod.string(),
+      usageCount: zod.int(),
+    }),
+  ),
+});
+
+/**
+ * Requires settings.write. Both languages are mandatory. Upserts by code.
+ */
+export const SavePanelCannedResponseHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const SavePanelCannedResponseBody = zod.object({
+  code: zod.string(),
+  titleEn: zod.string(),
+  titleRu: zod.string(),
+  bodyEn: zod.string(),
+  bodyRu: zod.string(),
+  requiresPermission: zod.string().optional().describe("Defaults to support.write."),
+});
+
+export const SavePanelCannedResponseResponse = zod.object({
+  id: zod.uuid(),
+  code: zod.string(),
+  titleEn: zod.string(),
+  titleRu: zod.string(),
+  bodyEn: zod.string(),
+  bodyRu: zod.string(),
+  requiresPermission: zod.string(),
+  usageCount: zod.int(),
+});
+
+/**
+ * Requires settings.write. Archives rather than deletes; archiving twice is 404.
+ */
+export const ArchivePanelCannedResponseParams = zod.object({
+  responseID: zod.uuid(),
+});
+
+export const ArchivePanelCannedResponseHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const ArchivePanelCannedResponseResponse = zod.void();
+
+/**
+ * Requires support.read. The workload and response-time figures over a window capped at 90 days.
+ */
+export const getPanelSupportReportQueryWindowDaysDefault = 7;
+export const getPanelSupportReportQueryWindowDaysMax = 90;
+
+export const GetPanelSupportReportQueryParams = zod.object({
+  windowDays: zod
+    .int()
+    .min(1)
+    .max(getPanelSupportReportQueryWindowDaysMax)
+    .default(getPanelSupportReportQueryWindowDaysDefault),
+});
+
+export const GetPanelSupportReportResponse = zod.object({
+  openTickets: zod.int(),
+  unassignedTickets: zod.int(),
+  breachedTickets: zod.int(),
+  resolvedInWindow: zod.int(),
+  medianFirstResponseSeconds: zod.int(),
+  windowSeconds: zod.int(),
+  operators: zod.array(
+    zod.object({
+      operatorId: zod.uuid(),
+      displayName: zod.string(),
+      replies: zod.int(),
+      openTickets: zod.int(),
+      resolvedTickets: zod.int(),
+      medianFirstResponseSeconds: zod.int(),
+    }),
+  ),
 });
 
 /**
