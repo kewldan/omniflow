@@ -334,12 +334,14 @@ described above is implemented; the creation is not.
 web panel and nowhere in `/admin` beyond the read-only charge history and the
 provider capability switch.
 
-Taken together: an installation can enable recurring for YooKassa and record a
-passing capability test, and no automatic charge will result. Treat renewal as
-manual — the renewal reminders described in
-[Subscriptions](/commerce/subscriptions) are what currently brings a customer
-back, and they are delivered on the same seven, three, one, and zero-day
-schedule whether or not auto-renew exists.
+Taken together: auto-renew funded **from the wallet** works end to end — the bot
+arms it, the worker schedules the cycle, charges the wallet at the lead time,
+retries on the dunning schedule, and suspends after the final failure. Auto-renew
+funded from a **saved card** cannot happen yet, because no saved method is ever
+created; an installation that enables recurring for YooKassa and records a
+passing capability test still sees no card charge. The renewal reminders
+described in [Subscriptions](/commerce/subscriptions) are delivered on the same
+seven, three, one, and zero-day schedule either way.
 
 ## Related pages
 
