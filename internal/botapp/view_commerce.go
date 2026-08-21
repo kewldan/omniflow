@@ -95,11 +95,9 @@ func withNewSubscriptionFlag(action string, forNew bool) string {
 
 type planAction struct{ label, operation string }
 
-// planActions decides which purchase paths a plan offers. A policy of "forbid"
-// removes the action entirely rather than failing after the customer taps it.
-//
-// With `forNew` the customer asked for an additional subscription, so the only
-// sensible action is a purchase: there is nothing yet to extend or switch.
+// planActions decides which purchase paths a plan offers. The rule lives in
+// planOperations; this only attaches the labels and handles the trial, whose
+// availability is a rule of its own evaluated before the page is rendered.
 func planActions(locale Locale, plan Plan, entitlement Entitlement, trialReason string, forNew bool) []planAction {
 	if plan.Kind == "trial" {
 		if trialReason != "" {
@@ -107,21 +105,14 @@ func planActions(locale Locale, plan Plan, entitlement Entitlement, trialReason 
 		}
 		return []planAction{{text(locale, "plan.trial"), "purchase"}}
 	}
-	if forNew {
-		return []planAction{{text(locale, "plan.buy"), "purchase"}}
+	labels := map[string]string{
+		"purchase": "plan.buy", "extension": "plan.renew",
+		"upgrade": "plan.upgrade", "downgrade": "plan.downgrade",
 	}
-	if !entitlement.Found || entitlement.Status == "expired" || entitlement.EndsAt.Before(time.Now()) {
-		return []planAction{{text(locale, "plan.buy"), "purchase"}}
-	}
-	if entitlement.PlanVersionID == plan.PlanVersionID {
-		return []planAction{{text(locale, "plan.renew"), "extension"}}
-	}
-	actions := make([]planAction, 0, 2)
-	if commerce.AllowedOperation("upgrade", plan.UpgradePolicy, plan.DowngradePolicy) {
-		actions = append(actions, planAction{text(locale, "plan.upgrade"), "upgrade"})
-	}
-	if commerce.AllowedOperation("downgrade", plan.UpgradePolicy, plan.DowngradePolicy) {
-		actions = append(actions, planAction{text(locale, "plan.downgrade"), "downgrade"})
+	operations := planOperations(plan, holdingFrom(entitlement, time.Now()), forNew)
+	actions := make([]planAction, 0, len(operations))
+	for _, operation := range operations {
+		actions = append(actions, planAction{text(locale, labels[operation]), operation})
 	}
 	return actions
 }

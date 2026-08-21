@@ -54,8 +54,8 @@ func TestPlansViewEmptyStateNamesTheCurrency(t *testing.T) {
 
 func TestPlanActionsFollowThePlanPolicy(t *testing.T) {
 	t.Parallel()
-	plan := Plan{PlanVersionID: "a", UpgradePolicy: "forbid", DowngradePolicy: "forbid"}
-	active := Entitlement{Found: true, PlanVersionID: "b", Status: "active", EndsAt: time.Now().Add(time.Hour)}
+	plan := Plan{PlanID: "pro", PlanVersionID: "pro-v2", AmountMinor: 900, UpgradePolicy: "forbid", DowngradePolicy: "forbid"}
+	active := Entitlement{Found: true, PlanID: "basic", PlanVersionID: "basic-v1", AmountMinor: 500, Status: "active", EndsAt: time.Now().Add(time.Hour)}
 	if actions := planActions(LocaleEnglish, plan, active, "", false); len(actions) != 0 {
 		t.Fatalf("a plan forbidding both changes must offer nothing: %+v", actions)
 	}
@@ -64,7 +64,9 @@ func TestPlanActionsFollowThePlanPolicy(t *testing.T) {
 	if len(actions) != 1 || actions[0].operation != "upgrade" {
 		t.Fatalf("only the permitted change must be offered: %+v", actions)
 	}
-	same := Entitlement{Found: true, PlanVersionID: "a", Status: "active", EndsAt: time.Now().Add(time.Hour)}
+	// The customer is on version 1 of the plan and version 2 is what the
+	// catalogue now shows: still the same plan, still an extension.
+	same := Entitlement{Found: true, PlanID: "pro", PlanVersionID: "pro-v1", AmountMinor: 900, Status: "active", EndsAt: time.Now().Add(time.Hour)}
 	if actions = planActions(LocaleEnglish, plan, same, "", false); len(actions) != 1 || actions[0].operation != "extension" {
 		t.Fatalf("the current plan must offer an extension: %+v", actions)
 	}

@@ -295,13 +295,22 @@ intent through to the checkout, and its plan pages offer `🛒 Buy` alone.
     `📄 Terms of service` button appears when the operator configured a terms
     URL.
 
-    Only the operations the policy permits are offered: `🛒 Buy`,
-    `♻️ Extend this plan`, `⬆️ Switch to this plan`, `⬇️ Switch to this plan`, or
-    `🎁 Start free trial`. A forbidden operation is removed rather than left to
-    fail after the tap, and it is the same guard the backend applies when the
-    order is created. A trial the account is not eligible for shows the reason —
-    already used, a subscription is active, the account is too new, and so on —
-    and no button.
+    One action is offered, chosen by the same rule the
+    [web panel](/customer/web-panel) applies, so the two surfaces never
+    disagree about what a plan is to you:
+
+    | You hold | This plan | Button |
+    | --- | --- | --- |
+    | Nothing, or an expired subscription | any | `🛒 Buy` |
+    | A live subscription | the same plan — by plan, not plan version, so a newly published version of your plan still reads as yours | `♻️ Extend this plan` |
+    | A live subscription | a dearer plan, or one at the same price | `⬆️ Switch to this plan`, when its upgrade policy allows |
+    | A live subscription | a cheaper plan | `⬇️ Switch to this plan`, when its downgrade policy allows |
+    | — | a trial | `🎁 Start free trial` |
+
+    A forbidden operation is removed rather than left to fail after the tap;
+    the backend re-checks the policy when the order is created. A trial the
+    account is not eligible for shows the reason — already used, a
+    subscription is active, the account is too new, and so on — and no button.
   </Step>
   <Step title="Choose locations, if the plan offers them">
     A plan whose version exposes selectable squads asks before it asks for money;

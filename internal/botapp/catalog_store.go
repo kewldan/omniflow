@@ -142,9 +142,13 @@ func (store *PostgresStore) PlanPrices(ctx context.Context, planVersionID string
 
 // Entitlement is the customer's current subscription as Omniflow records it.
 type Entitlement struct {
-	ID            string
-	PlanName      string
-	PlanCode      string
+	ID       string
+	PlanName string
+	PlanCode string
+	// PlanID is the plan, as opposed to the plan version, behind the
+	// entitlement. Offering an extension has to compare plans: a customer on
+	// version 1 of a plan still holds that plan after version 2 is published.
+	PlanID        string
 	PlanVersionID string
 	Status        string
 	StartsAt      time.Time
@@ -182,7 +186,7 @@ func (store *PostgresStore) entitlement(ctx context.Context, customerID, subscri
 		subscription pgtype.Text
 	)
 	err := store.pool.QueryRow(ctx, `SELECT e.id::text, e.status, e.starts_at, e.ends_at,
-		v.grace_period_seconds, v.id::text, p.code, l.name, pr.amount_minor,
+		v.grace_period_seconds, v.id::text, p.id::text, p.code, l.name, pr.amount_minor,
 		COALESCE(e.subscription_id::text, '')
 		FROM entitlements e
 		JOIN plan_versions v ON v.id = e.plan_version_id
@@ -193,7 +197,7 @@ func (store *PostgresStore) entitlement(ctx context.Context, customerID, subscri
 		  AND ($4 = '' OR e.subscription_id = $4::uuid)
 		ORDER BY e.ends_at DESC LIMIT 1`, customerID, string(locale), currency, subscriptionID).
 		Scan(&entitlement.ID, &entitlement.Status, &entitlement.StartsAt, &entitlement.EndsAt,
-			&graceSeconds, &entitlement.PlanVersionID, &entitlement.PlanCode, &planName, &price, &subscription)
+			&graceSeconds, &entitlement.PlanVersionID, &entitlement.PlanID, &entitlement.PlanCode, &planName, &price, &subscription)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Entitlement{}, nil
 	}
