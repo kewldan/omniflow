@@ -7,7 +7,7 @@ Omniflow moves work off the request path in two different ways, and the differen
 
 Work that is **about one record** and must survive a restart goes on a durable queue: River, running against the same PostgreSQL database, with the job row inserted in the same transaction as the state change that requires it. Work that is **a whole-table pass** — expiring orders, sweeping carts, refreshing blocklists, deleting yesterday's sessions — runs on plain in-process tickers, because a durable queue would add a row and a retry policy to something a ticker already expresses safely.
 
-Only the `worker` process executes jobs. The API creates a River client for *inserting* and never registers a worker; the bot creates orders and payment intents but does not enqueue fulfillment at all.
+Only the `worker` process executes jobs. The API and the bot each create a River client for *inserting* and never register a worker: a settlement that closes in either process — a provider webhook in the API, a Telegram Stars payment or a wallet-covered order in the bot — inserts its fulfillment job in the paying transaction.
 
 ## The durable queue
 

@@ -602,6 +602,18 @@ RETURNING *;
 -- name: LockFulfillmentOperation :one
 SELECT * FROM fulfillment_operations WHERE id = $1 FOR UPDATE;
 
+-- name: ListStalledFulfillmentOperations :many
+-- Operations that should have run by now and have not: a settlement whose
+-- process could not insert the job, or a job the queue discarded after its
+-- last attempt. The worker re-inserts the job for each; River's uniqueness on
+-- the operation ID makes that a no-op when the job is merely queued.
+SELECT * FROM fulfillment_operations
+WHERE status IN ('pending', 'retrying')
+  AND next_attempt_at < sqlc.arg(before)::timestamptz
+  AND created_at < sqlc.arg(before)::timestamptz
+ORDER BY next_attempt_at
+LIMIT sqlc.arg(page_size);
+
 -- name: UpdateFulfillmentOperation :one
 UPDATE fulfillment_operations
 SET status = sqlc.arg(status), attempt_count = sqlc.arg(attempt_count),

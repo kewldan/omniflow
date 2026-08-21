@@ -2531,6 +2531,58 @@ func (q *Queries) ListRemnawaveMappings(ctx context.Context) ([]ListRemnawaveMap
 	return items, nil
 }
 
+const listStalledFulfillmentOperations = `-- name: ListStalledFulfillmentOperations :many
+SELECT id, entitlement_id, operation, status, idempotency_key, correlation_id, desired_state, attempt_count, next_attempt_at, last_error_code, created_at, updated_at, completed_at FROM fulfillment_operations
+WHERE status IN ('pending', 'retrying')
+  AND next_attempt_at < $1::timestamptz
+  AND created_at < $1::timestamptz
+ORDER BY next_attempt_at
+LIMIT $2
+`
+
+type ListStalledFulfillmentOperationsParams struct {
+	Before   pgtype.Timestamptz `json:"before"`
+	PageSize int32              `json:"page_size"`
+}
+
+// Operations that should have run by now and have not: a settlement whose
+// process could not insert the job, or a job the queue discarded after its
+// last attempt. The worker re-inserts the job for each; River's uniqueness on
+// the operation ID makes that a no-op when the job is merely queued.
+func (q *Queries) ListStalledFulfillmentOperations(ctx context.Context, arg ListStalledFulfillmentOperationsParams) ([]FulfillmentOperation, error) {
+	rows, err := q.db.Query(ctx, listStalledFulfillmentOperations, arg.Before, arg.PageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FulfillmentOperation{}
+	for rows.Next() {
+		var i FulfillmentOperation
+		if err := rows.Scan(
+			&i.ID,
+			&i.EntitlementID,
+			&i.Operation,
+			&i.Status,
+			&i.IdempotencyKey,
+			&i.CorrelationID,
+			&i.DesiredState,
+			&i.AttemptCount,
+			&i.NextAttemptAt,
+			&i.LastErrorCode,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CompletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTelegramIdentitySubjects = `-- name: ListTelegramIdentitySubjects :many
 SELECT provider_subject
 FROM identities

@@ -912,6 +912,11 @@ type Querier interface {
 	// Every section without its secrets. This is the query the settings screens
 	// read, and it cannot return a credential because the column is not selected.
 	ListSettingSections(ctx context.Context) ([]ListSettingSectionsRow, error)
+	// Operations that should have run by now and have not: a settlement whose
+	// process could not insert the job, or a job the queue discarded after its
+	// last attempt. The worker re-inserts the job for each; River's uniqueness on
+	// the operation ID makes that a no-op when the job is merely queued.
+	ListStalledFulfillmentOperations(ctx context.Context, arg ListStalledFulfillmentOperationsParams) ([]FulfillmentOperation, error)
 	// Intents that have been in flight longer than a provider should take. The
 	// panel offers reconciliation and retry from this list; neither mutates money
 	// directly, both go through the existing idempotent payment service.

@@ -138,7 +138,10 @@ Each failure writes the operation back to `retrying` with the classified error c
 next-attempt time of `5s × 2^min(attempt, 8)` — five seconds, then ten, twenty, and so on to a
 ceiling of 1280 seconds. The queue allows the job twelve attempts before it stops retrying on its
 own. The operation row keeps the status `retrying` and its last error code when that happens, which
-matters when you go looking for it — see [the dead-letter path](#the-dead-letter-path).
+matters when you go looking for it — see [the dead-letter path](#the-dead-letter-path). It is not
+abandoned: the [revival scan](#revival-of-stalled-operations) inserts a fresh job for it once it has
+sat for ten minutes past its recorded next attempt, so a Remnawave outage longer than the twelve
+attempts costs a delay rather than a manual retry.
 
 | Error code | Meaning |
 | --- | --- |
@@ -214,6 +217,31 @@ The interval and the batch size are hard-coded. There is no environment variable
   Reconciliation and provisioning run only in the worker process. An installation running the API and
   the bot without `cmd/worker` takes payments and never provisions anything.
 </Warning>
+
+### Revival of stalled operations
+
+Every five minutes the same worker loop looks for operations that should have run and have not: rows
+in `pending` or `retrying` whose creation time and recorded `next_attempt_at` both lie more than ten
+minutes in the past. For each one it inserts a `fulfillment` job with the same arguments and the same
+uniqueness options the original settlement used.
+
+The insert is what makes the scan safe to run blindly. River enforces uniqueness on the operation
+ID across queued, scheduled, running, retryable, and completed jobs, so an operation whose job is
+merely waiting out its backoff gets nothing new; only an operation with no live job — one whose
+settling process had no job inserter, or one whose job was discarded after its twelfth attempt —
+receives one. The window is measured from the attempt the worker itself scheduled, never from the
+operation's age, so a retry at the backoff ceiling is not mistaken for an orphan.
+
+Two consequences are worth knowing:
+
+- A settlement that closes inside the bot — a Telegram Stars payment, an order the wallet covered,
+  a trial, a claimed gift or access code — inserts its job in the paying transaction exactly as the
+  API does. Should a process ever settle without one, this scan provisions the customer within about
+  fifteen minutes rather than never.
+- A run that exhausted its twelve attempts is retried again once Remnawave is back, with a fresh
+  attempt budget. An operation that keeps failing therefore keeps being retried every quarter hour or
+  so until an operator cancels it; the `fulfillment_failure` notice is deduplicated on the operation,
+  so that produces one message, not one per revival.
 
 ## Drift detection
 
@@ -346,14 +374,14 @@ The stored `request_summary` and `response_summary` are never returned by either
 for the worker and can contain a subscription link. Queue-level errors are passed through the
 redactor before leaving the process, and job arguments are summarised rather than echoed.
 
-<Warning>
-  **The panel's Retry moves the row but does not re-run it.** `POST /v1/panel/system/jobs/{id}/retry`
-  sets the operation back to `pending` and writes an audit event; nothing re-inserts a queue job, and
-  no scanner picks operations up by status. A retried operation therefore waits until the
-  fifteen-minute reconciliation sweep happens to cover that entitlement — which creates a *different*
-  operation — rather than being re-attempted itself. The retry that actually re-runs a job is
+<Note>
+  **The panel's Retry moves the row; the revival scan re-runs it.**
+  `POST /v1/panel/system/jobs/{id}/retry` sets the operation back to `pending` with a fresh
+  `next_attempt_at` and writes an audit event. It does not insert a queue job itself; the
+  [revival scan](#revival-of-stalled-operations) does that once the row has sat for ten minutes, so
+  expect the re-attempt within about fifteen minutes. The retry that re-runs a job immediately is
   `POST /v1/admin/jobs/{jobID}/retry` on the operator-token surface.
-</Warning>
+</Note>
 
 ## The queue schema
 
