@@ -363,10 +363,16 @@ func (service *Service) Unsubscribe(
 	if err = appendConsent(ctx, tx, customerID, false, request); err != nil {
 		return Preferences{}, err
 	}
+	// A hold an operator placed for a bounce or a complaint is somebody else's
+	// finding about deliverability, and it outranks the customer's own request:
+	// the row is written only when there is none, and refreshed only when the
+	// existing one is the customer's. Overwriting an operator's reason here
+	// would let "re-enable marketing" — which lifts only customer_request rows —
+	// clear a bounce two clicks later.
 	if _, err = tx.Exec(ctx, `INSERT INTO communication_suppressions (user_id, reason)
 		VALUES ($1::uuid, $2)
-		ON CONFLICT (user_id) DO UPDATE SET reason = EXCLUDED.reason,
-			note = NULL, created_by = NULL, created_at = now()`,
+		ON CONFLICT (user_id) DO UPDATE SET created_at = now()
+		WHERE communication_suppressions.reason = EXCLUDED.reason`,
 		customerID, suppressionCustomerRequest); err != nil {
 		return Preferences{}, err
 	}

@@ -41,6 +41,12 @@ type notificationCandidate struct {
 	DeliveryStatus       string
 	RetryAfter           pgtype.Timestamptz
 	MarketingSent        int
+	// Suppressed is true when a row in communication_suppressions names this
+	// customer — their own unsubscribe, or an operator's bounce or complaint
+	// finding. It stops every marketing-class message regardless of what the
+	// consent flag says, because a suppression is exactly the thing that is
+	// meant to survive the flag being toggled back on by accident.
+	Suppressed bool
 }
 
 func (candidate notificationCandidate) quietHours() commerce.QuietHours {
@@ -456,6 +462,7 @@ func (notifier *Notifier) deliverCampaigns(ctx context.Context) {
 			notifier.logger.Error("campaign classification failed", "error", err)
 			continue
 		}
+		decision = applySuppression(decision, candidate)
 		if !decision.Allow {
 			notifier.resolveCampaign(ctx, message, "suppressed", campaignSuppression(decision), "")
 			continue
@@ -504,9 +511,30 @@ func campaignSuppression(decision commerce.DeliveryDecision) string {
 		return "frequency_cap"
 	case "bot_blocked", "user_deactivated":
 		return "delivery_blocked"
+	case "suppressed":
+		return "suppressed"
 	default:
 		return "no_consent"
 	}
+}
+
+// applySuppression is the suppression list's veto over a marketing-class
+// decision. It runs after the policy rather than inside it because the policy
+// is shared with surfaces that have no list to consult, and because a
+// suppression is not a preference: it is recorded with its own reason so the
+// history says "held back by a suppression" rather than "no consent". A
+// transactional message is untouched — a suppressed customer still learns that
+// their subscription ends on Thursday.
+func applySuppression(decision commerce.DeliveryDecision, candidate notificationCandidate) commerce.DeliveryDecision {
+	if decision.Class != commerce.ClassMarketing || !candidate.Suppressed {
+		return decision
+	}
+	// A refusal already on record keeps its own reason; only an allowed or
+	// deferred marketing message is overturned.
+	if !decision.Allow && decision.DeferUntil.IsZero() {
+		return decision
+	}
+	return commerce.DeliveryDecision{Class: decision.Class, Reason: "suppressed"}
 }
 
 // deliverDunning tells customers about failed automatic charges.
@@ -597,6 +625,7 @@ func (notifier *Notifier) deliver(ctx context.Context, candidate notificationCan
 		notifier.logger.Error("notification classification failed", "kind", kind, "error", err)
 		return
 	}
+	decision = applySuppression(decision, candidate)
 	if err := notifier.store.setNotificationClass(ctx, candidate.UserID, subscriptionID, kind, dedupe, string(decision.Class)); err != nil {
 		notifier.logger.Error("notification classification update failed", "kind", kind, "error", err)
 		return
@@ -696,7 +725,8 @@ func (store *PostgresStore) candidateRows(ctx context.Context, marketingWindow t
 		COALESCE(d.status, 'active'), d.retry_after,
 		(SELECT count(*)::integer FROM notification_deliveries n
 			WHERE n.user_id = u.id AND n.class = 'marketing' AND n.status = 'sent'
-			  AND n.sent_at > now() - $1::interval)
+			  AND n.sent_at > now() - $1::interval),
+		EXISTS (SELECT 1 FROM communication_suppressions s WHERE s.user_id = u.id)
 		FROM recipient
 		JOIN users u ON u.id = recipient.user_id
 		LEFT JOIN remnawave_users r ON r.user_id = u.id
@@ -719,7 +749,7 @@ func (store *PostgresStore) candidateRows(ctx context.Context, marketingWindow t
 			&candidate.ExpiryNotifications, &candidate.TrafficNotifications, &candidate.RenewalNotifications,
 			&candidate.NewsNotifications, &candidate.MarketingEnabled, &candidate.QuietHoursStart,
 			&candidate.QuietHoursEnd, &candidate.Timezone, &candidate.DeliveryStatus, &candidate.RetryAfter,
-			&candidate.MarketingSent); err != nil {
+			&candidate.MarketingSent, &candidate.Suppressed); err != nil {
 			return nil, err
 		}
 		candidates = append(candidates, candidate)

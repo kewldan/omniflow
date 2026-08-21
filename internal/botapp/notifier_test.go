@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
+
+	"github.com/omniflow/omniflow/internal/commerce"
 )
 
 // fakeCandidatePages is an in-memory stand-in for the candidate query: it
@@ -97,6 +100,39 @@ func TestWalkCandidatePagesStopsWhenAsked(t *testing.T) {
 	})
 	if err != nil || *calls != 0 {
 		t.Fatalf("a cancelled walk read %d pages with error %v", *calls, err)
+	}
+}
+
+// TestApplySuppressionVetoesOnlyMarketing pins the suppression list's reach: a
+// marketing message to a suppressed customer is held back under its own
+// reason whether the policy allowed or deferred it, a refusal already on
+// record keeps its reason, and a transactional message is untouched.
+func TestApplySuppressionVetoesOnlyMarketing(t *testing.T) {
+	suppressed := notificationCandidate{Suppressed: true}
+	clear := notificationCandidate{}
+	later := time.Now().Add(time.Hour)
+
+	allowed := commerce.DeliveryDecision{Allow: true, Class: commerce.ClassMarketing, Reason: "allowed"}
+	if got := applySuppression(allowed, suppressed); got.Allow || got.Reason != "suppressed" || got.Class != commerce.ClassMarketing {
+		t.Fatalf("an allowed marketing message to a suppressed customer became %+v", got)
+	}
+	deferred := commerce.DeliveryDecision{Class: commerce.ClassMarketing, Reason: "deferred", DeferUntil: later}
+	if got := applySuppression(deferred, suppressed); got.Allow || !got.DeferUntil.IsZero() || got.Reason != "suppressed" {
+		t.Fatalf("a deferred marketing message to a suppressed customer became %+v", got)
+	}
+	refused := commerce.DeliveryDecision{Class: commerce.ClassMarketing, Reason: "frequency_cap"}
+	if got := applySuppression(refused, suppressed); got.Reason != "frequency_cap" {
+		t.Fatalf("a refusal already on record lost its reason: %+v", got)
+	}
+	transactional := commerce.DeliveryDecision{Allow: true, Class: commerce.ClassTransactional, Reason: "allowed"}
+	if got := applySuppression(transactional, suppressed); !got.Allow {
+		t.Fatalf("a transactional message was held back by a suppression: %+v", got)
+	}
+	if got := applySuppression(allowed, clear); !got.Allow {
+		t.Fatalf("a customer with no suppression was held back: %+v", got)
+	}
+	if campaignSuppression(commerce.DeliveryDecision{Reason: "suppressed"}) != "suppressed" {
+		t.Fatal("the campaign record does not name the suppression list")
 	}
 }
 

@@ -233,7 +233,17 @@ also be recorded by an operator for a bounce or a complaint. The preferences
 screen reports an active suppression with its reason and the date it took effect
 and offers no control to lift it — a hold placed because messages kept failing
 to arrive is a finding this screen has no standing to reverse. Turning marketing
-back on deletes only a `customer_request` suppression.
+back on deletes only a `customer_request` suppression, and an unsubscribe
+never overwrites an operator's: when a `bounced`, `complaint`, or `operator`
+row already exists, the customer's unsubscribe leaves it as it is, so the two
+clicks — unsubscribe, then opt back in — cannot turn a bounce finding into a
+lifted hold.
+
+The delivery pass reads the list. A marketing-class message — a campaign, or a
+`news` post — to a suppressed customer is held back with reason `suppressed`
+whatever the consent flag says, and the history shows it under that reason
+rather than as `no_consent`. Transactional messages are untouched: a suppressed
+customer still learns that their subscription ends on Thursday.
 
 Operators see the list under `/admin/marketing` → **Suppressions** and can lift
 an entry there; adding one is an API call rather than a screen. See
@@ -268,6 +278,13 @@ that answers:
 6. The kind is not urgent and the moment falls inside quiet hours → defer to the
    end of the window.
 7. Otherwise, send.
+
+The bot then applies one veto the function itself does not know about: a
+marketing-class message that came out of the sequence as "send" or "defer" is
+refused with reason `suppressed` when `communication_suppressions` names the
+customer. It sits outside the function because a suppression is a record about
+the customer rather than a preference of theirs, and the surfaces that share
+the function have no list to consult.
 
 Every attempt leaves a row in `notification_deliveries`, unique on
 `(user_id, kind, subscription_id, dedupe_key)` with `NULLS NOT DISTINCT`, whose

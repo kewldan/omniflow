@@ -595,3 +595,67 @@ func TestTheOpenQuotaCannotBeSteppedAroundByReopening(t *testing.T) {
 		t.Fatalf("a second distinct file past the bound returned %v", err)
 	}
 }
+
+// TestACustomerCannotLiftAnOperatorsSuppression is the two-click defect: an
+// unsubscribe used to overwrite a bounce or complaint hold with
+// customer_request, and re-enabling marketing — which lifts only
+// customer_request rows — then cleared the operator's finding.
+func TestACustomerCannotLiftAnOperatorsSuppression(t *testing.T) {
+	ctx := context.Background()
+	harness := newHarness(t)
+	support := newAccountSupport(t, harness)
+	customerID := harness.customer(ctx, t)
+
+	if _, err := harness.pool.Exec(ctx, `INSERT INTO communication_suppressions (user_id, reason, note)
+		VALUES ($1::uuid, 'bounced', 'three hard bounces')`, customerID); err != nil {
+		t.Fatalf("place an operator suppression: %v", err)
+	}
+
+	if _, err := support.Unsubscribe(ctx, customerID,
+		accountsupport.RequestContext{RequestID: "request-unsubscribe"}); err != nil {
+		t.Fatalf("unsubscribe: %v", err)
+	}
+	var reason string
+	if err := harness.pool.QueryRow(ctx,
+		`SELECT reason FROM communication_suppressions WHERE user_id = $1::uuid`, customerID).Scan(&reason); err != nil {
+		t.Fatalf("read suppression: %v", err)
+	}
+	if reason != "bounced" {
+		t.Fatalf("an unsubscribe rewrote the operator's suppression to %q", reason)
+	}
+
+	granted := true
+	if _, err := support.UpdatePreferences(ctx, customerID,
+		accountsupport.PreferencesUpdate{Marketing: &granted},
+		accountsupport.RequestContext{RequestID: "request-grant"}); err != nil {
+		t.Fatalf("re-enable marketing: %v", err)
+	}
+	if err := harness.pool.QueryRow(ctx,
+		`SELECT reason FROM communication_suppressions WHERE user_id = $1::uuid`, customerID).Scan(&reason); err != nil {
+		t.Fatalf("the operator's suppression was lifted by the customer: %v", err)
+	}
+	if reason != "bounced" {
+		t.Fatalf("the suppression now reads %q", reason)
+	}
+
+	// A customer with no hold still gets one from their own unsubscribe, and
+	// still lifts it by opting back in — the original behaviour, untouched.
+	other := harness.customer(ctx, t)
+	if _, err := support.Unsubscribe(ctx, other,
+		accountsupport.RequestContext{RequestID: "request-unsubscribe-2"}); err != nil {
+		t.Fatalf("unsubscribe: %v", err)
+	}
+	if _, err := support.UpdatePreferences(ctx, other,
+		accountsupport.PreferencesUpdate{Marketing: &granted},
+		accountsupport.RequestContext{RequestID: "request-grant-2"}); err != nil {
+		t.Fatalf("re-enable marketing: %v", err)
+	}
+	var remaining int
+	if err := harness.pool.QueryRow(ctx,
+		`SELECT count(*)::integer FROM communication_suppressions WHERE user_id = $1::uuid`, other).Scan(&remaining); err != nil {
+		t.Fatalf("count suppressions: %v", err)
+	}
+	if remaining != 0 {
+		t.Fatalf("a customer_request suppression survived the customer opting back in")
+	}
+}
