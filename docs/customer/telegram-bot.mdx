@@ -382,11 +382,17 @@ Refusals at confirmation each get their own screen: maintenance, a rejected
 additional subscription with its reason, an unresolvable location selection, a
 trial that is no longer eligible, an operation the plan forbids, or a generic
 "The order was not created. Try again or choose another payment method." A
-payment that could not be started keeps the order and offers `🔄 Try again`.
+payment that could not be started keeps the order — and its wallet reservation
+— and offers `🔄 Try again`, which starts the payment again with the method the
+checkout recorded, and `💱 Pay another way`, which opens the method picker for
+that order. The picker lists every configured method that can settle the
+order's currency, priced at what the order still owes, minus any method whose
+payment already failed for it: the payment service resumes an existing payment
+per order and method, so a failed one would come back unchanged.
 
-`💳 Pay` is the only action that is both replay-protected and rate-limited — six
-per minute — so a double tap or a redelivered Telegram update cannot become a
-second order.
+`💳 Pay`, `🔄 Try again`, and the order's method picker are replay-protected
+and share one rate limit — six per minute — so a double tap or a redelivered
+Telegram update cannot become a second order or a second payment.
 
 <Note>
   The bot creates orders and payment intents. It never enqueues fulfillment: the
@@ -406,11 +412,11 @@ Each phase has its own screen:
 
 | Phase | What it says | Extra actions |
 | --- | --- | --- |
-| Awaiting payment | The amount due, when the payment window closes, and that confirmation can take a few minutes | `💳 Open payment page` or `⭐ Pay in Telegram`, `🚫 Cancel order` |
+| Awaiting payment | The amount due, when the payment window closes, and that confirmation can take a few minutes | `💳 Open payment page` or `⭐ Pay in Telegram`; `💳 Pay` instead when no payment has been started or the provider refused to start one; `🚫 Cancel order` |
 | Payment received | The order is paid, the subscription is being prepared | — |
 | Activating | Takes up to a minute, refresh to check | — |
 | Completed | `🎉 All set — Your subscription is active.` | `🚀 Connect` |
-| Failed | Nothing was charged, or the provider will return it | `🛒 Plans` |
+| Failed | Nothing was charged, or the provider will return it | `💱 Pay another way` and `🚫 Cancel order` while the order is still open, `🛒 Plans` |
 | Cancelled | Nothing was charged | — |
 | Payment window closed | The order was closed and nothing was charged | `🛒 Plans` |
 | Refunded | The refund amount recorded against the order | — |

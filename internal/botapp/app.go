@@ -139,6 +139,7 @@ func (app *App) claimCallback(ctx context.Context, queryID string) bool {
 // consequentialActions must never run twice for one Telegram callback.
 var consequentialActions = map[string]bool{
 	"confirm": true, "order-cancel": true, "pm": true, "wallet-toggle": true,
+	"pay": true, "order-pm": true,
 	"promo-clear": true, "invoice": true, "device-delete": true, "devices-delete": true,
 	"revoke": true, "ticket-close": true, "ticket-open": true, "autorenew": true,
 	// v0.5 actions that move money, provisioning, or database state.
@@ -147,6 +148,11 @@ var consequentialActions = map[string]bool{
 	"renew-funding": true, "renew-lead": true, "method-default": true, "method-remove": true,
 	"ops-backup": true, "ops-restore": true,
 }
+
+// checkoutBudgetActions are the callbacks that create a provider payment. They
+// share the checkout budget with the free-text top-up amount, so a customer
+// cannot start payments faster than they could confirm checkouts.
+var checkoutBudgetActions = map[string]bool{"confirm": true, "pay": true, "order-pm": true}
 
 func (app *App) Register(client *telegram.Bot) {
 	client.RegisterHandler(telegram.HandlerTypeMessageText, "start", telegram.MatchTypeCommandStartOnly, app.HandleStart)
@@ -591,7 +597,7 @@ func (app *App) HandleCallback(ctx context.Context, client *telegram.Bot, update
 			_, _ = client.AnswerCallbackQuery(ctx, &telegram.AnswerCallbackQueryParams{CallbackQueryID: query.ID, Text: text(locale, "menu.replay")})
 			return
 		}
-		if action == "confirm" && !app.allow(ctx, "bot:checkout", query.From.ID, checkoutBudget) {
+		if checkoutBudgetActions[action] && !app.allow(ctx, "bot:checkout", query.From.ID, checkoutBudget) {
 			_, _ = client.AnswerCallbackQuery(ctx, &telegram.AnswerCallbackQueryParams{CallbackQueryID: query.ID, Text: text(locale, "menu.rateLimit"), ShowAlert: true})
 			return
 		}

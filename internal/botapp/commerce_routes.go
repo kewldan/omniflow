@@ -330,7 +330,10 @@ func (app *App) confirmCheckout(ctx context.Context, session commerceContext) Vi
 	description := plan.Name + " · " + formatDuration(session.Locale, plan.Duration)
 	if _, err = app.commerce.StartPayment(ctx, order, checkout.Provider, session.TelegramID, description); err != nil {
 		app.logger.Error("payment intent creation failed", "provider", checkout.Provider, "error", err)
-		return View{Text: text(session.Locale, "error.payment"), Keyboard: keyboard(row(actionButton(text(session.Locale, "action.retry"), "order:"+order.ID)), row(callbackButton(text(session.Locale, "menu.orders"), routeOrders)))}
+		// The order exists and holds its wallet reservation; only the provider
+		// payment is missing. "Try again" starts that payment rather than
+		// reopening the order screen, which would have nothing to pay with.
+		return paymentStartFailedView(session.Locale, order.ID)
 	}
 	order, err = app.customers.Order(ctx, session.Customer.ID, orderID, session.Locale)
 	if err != nil {
@@ -370,6 +373,115 @@ func (app *App) orderScreen(ctx context.Context, session commerceContext, orderI
 		app.logger.Warn("refund lookup failed", "error", err)
 	}
 	return orderStatusView(session.Locale, order, refunds)
+}
+
+// payOrder starts — or restarts — the payment of an order that has none in
+// flight: a checkout whose payment provider refused the first attempt, or one
+// whose intent failed. The method the checkout recorded is resumed when it is
+// still offered and has not already failed for this order; otherwise the
+// customer picks one from the same list the checkout offered.
+//
+// Nothing here creates an order. The order already exists and holds its wallet
+// reservation; all this does is attach a provider payment to it, which is
+// idempotent per order and provider.
+func (app *App) payOrder(ctx context.Context, session commerceContext, orderID string, pick bool) View {
+	order, err := app.customers.Order(ctx, session.Customer.ID, orderID, session.Locale)
+	if errors.Is(err, ErrOrderNotFound) {
+		return View{Text: text(session.Locale, "error.notFound"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "menu.orders"), routeOrders)))}
+	}
+	if err != nil {
+		app.logger.Error("order lookup failed", "error", err)
+		return app.errorView(session.Locale, routeOrders)
+	}
+	if !orderAwaitsPayment(order) {
+		return app.orderScreen(ctx, session, orderID)
+	}
+	choices := app.orderPaymentChoices(order)
+	provider, err := app.customers.OrderCheckoutProvider(ctx, session.Customer.ID, orderID)
+	if err != nil {
+		app.logger.Warn("checkout provider lookup failed", "error", err)
+	}
+	if !pick && provider != "" && paymentChoiceOffered(choices, provider, order.Currency) {
+		return app.startOrderPayment(ctx, session, order, provider)
+	}
+	return orderPaymentMethodView(session.Locale, order, choices)
+}
+
+// selectOrderProvider starts the payment of an order with the method the
+// customer just picked. The method must be one the screen offered: callback
+// data is customer-controlled and cannot be trusted to name a compatible
+// adapter, and the order's currency is fixed, so the choice is validated
+// against it rather than read from the callback.
+func (app *App) selectOrderProvider(ctx context.Context, session commerceContext, orderID, provider string) View {
+	order, err := app.customers.Order(ctx, session.Customer.ID, orderID, session.Locale)
+	if errors.Is(err, ErrOrderNotFound) {
+		return View{Text: text(session.Locale, "error.notFound"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "menu.orders"), routeOrders)))}
+	}
+	if err != nil {
+		app.logger.Error("order lookup failed", "error", err)
+		return app.errorView(session.Locale, routeOrders)
+	}
+	if !orderAwaitsPayment(order) {
+		return app.orderScreen(ctx, session, orderID)
+	}
+	if !paymentChoiceOffered(app.orderPaymentChoices(order), provider, order.Currency) {
+		return View{Text: text(session.Locale, "pay.none"), Keyboard: keyboard(row(actionButton(text(session.Locale, "action.back"), "order:"+orderID)))}
+	}
+	return app.startOrderPayment(ctx, session, order, provider)
+}
+
+func (app *App) startOrderPayment(ctx context.Context, session commerceContext, order OrderSummary, provider string) View {
+	if _, err := app.commerce.StartPayment(ctx, order, provider, session.TelegramID, order.PlanName); err != nil {
+		app.logger.Error("payment intent creation failed", "provider", provider, "error", err)
+		return paymentStartFailedView(session.Locale, order.ID)
+	}
+	return app.orderScreen(ctx, session, order.ID)
+}
+
+// orderPaymentChoices lists the methods that can still settle an order: every
+// enabled adapter that supports the order's currency, priced at what is left to
+// pay. A method whose payment already failed, was cancelled, or expired for this
+// order is left out — the shared payment service resumes an existing intent per
+// order and provider, so offering it again would return the dead intent
+// unchanged and the customer would tap a button that does nothing.
+func (app *App) orderPaymentChoices(order OrderSummary) []PaymentChoice {
+	offered := app.commerce.ExternalPaymentChoices(order.Currency)
+	choices := make([]PaymentChoice, 0, len(offered))
+	for _, choice := range offered {
+		if choice.Provider == order.Provider && paymentIntentDead(order.PaymentStatus) {
+			continue
+		}
+		choice.AmountMinor = order.ExternalMinor
+		choices = append(choices, choice)
+	}
+	return choices
+}
+
+// orderAwaitsPayment reports whether a provider payment can still be attached
+// to an order: it is pending, with an amount left after the wallet. The shared
+// payment service refuses anything else, so the screen does not offer it.
+func orderAwaitsPayment(order OrderSummary) bool {
+	return order.State == commerce.OrderPending && order.ExternalMinor > 0
+}
+
+// paymentIntentDead reports whether a payment intent status is one nothing
+// further can happen to.
+func paymentIntentDead(status string) bool {
+	switch status {
+	case "failed", "cancelled", "expired":
+		return true
+	default:
+		return false
+	}
+}
+
+func paymentChoiceOffered(choices []PaymentChoice, provider, currency string) bool {
+	for _, choice := range choices {
+		if choice.Provider == provider && choice.Currency == currency {
+			return true
+		}
+	}
+	return false
 }
 
 func (app *App) ordersScreen(ctx context.Context, session commerceContext) View {
@@ -633,6 +745,13 @@ func (app *App) handleCommerceAction(ctx context.Context, session commerceContex
 		return app.toggleWallet(ctx, session), true
 	case "order":
 		return app.orderScreen(ctx, session, argument), true
+	case "pay":
+		return app.payOrder(ctx, session, argument, argumentAt(parts, 2) == "pick"), true
+	case "order-pm":
+		if len(parts) != 3 {
+			return app.errorView(session.Locale, routeOrders), true
+		}
+		return app.selectOrderProvider(ctx, session, parts[1], parts[2]), true
 	case "order-cancel":
 		return app.cancelOrder(ctx, session, argument), true
 	case "news":
@@ -1020,6 +1139,7 @@ var commerceActions = func() map[string]bool {
 	actions := map[string]bool{
 		"plan": true, "buy": true, "pm": true, "checkout": true, "confirm": true,
 		"promo": true, "promo-clear": true, "wallet-toggle": true, "order": true,
+		"pay": true, "order-pm": true,
 		"order-cancel": true, "news": true, "ticket": true, "ticket-reply": true,
 		"ticket-close": true, "ticket-open": true, "support-new": true, "connect": true,
 		"autorenew": true, "renew-settings": true, "renew-funding": true, "renew-lead": true,

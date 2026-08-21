@@ -215,6 +215,13 @@ func orderStatusView(locale Locale, order OrderSummary, refunds []RefundStatus) 
 		if order.Provider == "telegram_stars" {
 			rows = append(rows, row(actionButton(text(locale, "payment.invoice"), "invoice:"+order.ID)))
 		}
+		if orderNeedsPaymentStart(order) {
+			// Nothing above can be tapped: the payment was never started, or the
+			// provider refused it. The order is still open and holds its wallet
+			// reservation, so the honest offer is to start the payment, not to
+			// leave Cancel as the only way out.
+			rows = append(rows, row(actionButton(text(locale, "checkout.pay"), "pay:"+order.ID)))
+		}
 		rows = append(rows, row(actionButton(text(locale, "orders.cancel"), "order-cancel:"+order.ID)))
 	case commerce.PaymentPhaseSucceeded:
 		body = text(locale, "payment.succeeded", shortID(order.ID))
@@ -225,6 +232,12 @@ func orderStatusView(locale Locale, order OrderSummary, refunds []RefundStatus) 
 		rows = append(rows, row(callbackButton(text(locale, "connect.title.short"), routeConnect)))
 	case commerce.PaymentPhaseFailed:
 		body = text(locale, "payment.failed")
+		if orderAwaitsPayment(order) {
+			// The payment failed but the order did not: it can be paid another
+			// way, and the copy just said so.
+			rows = append(rows, row(actionButton(text(locale, "payment.otherMethod"), "pay:"+order.ID+":pick")))
+			rows = append(rows, row(actionButton(text(locale, "orders.cancel"), "order-cancel:"+order.ID)))
+		}
 		rows = append(rows, row(callbackButton(text(locale, "menu.plans"), routePlans)))
 	case commerce.PaymentPhaseCancelled:
 		body = text(locale, "payment.cancelled")
@@ -242,6 +255,57 @@ func orderStatusView(locale Locale, order OrderSummary, refunds []RefundStatus) 
 		row(callbackButton(text(locale, "menu.orders"), routeOrders), callbackButton(text(locale, "action.menu"), routeHome)),
 	)
 	return View{Text: body, Keyboard: keyboard(rows...), Protect: true}
+}
+
+// orderNeedsPaymentStart reports whether a pending order screen would otherwise
+// have nothing to pay with: no hosted page to open, no Stars invoice to send,
+// and no manual payment an operator is waiting to confirm.
+func orderNeedsPaymentStart(order OrderSummary) bool {
+	if !orderAwaitsPayment(order) {
+		return false
+	}
+	if safeURL(order.CheckoutURL) || order.Provider == "telegram_stars" {
+		return false
+	}
+	if order.Provider == "manual" && order.PaymentIntentID != "" && !paymentIntentDead(order.PaymentStatus) {
+		return false
+	}
+	return true
+}
+
+// orderPaymentMethodView asks which method should settle an existing order.
+// It is the checkout's method screen for an order that already exists, which
+// is why the price beside each method is what the order still owes rather
+// than a plan's list price.
+//
+// The callback carries the order and the method but not the currency: the
+// order's currency is fixed, and Telegram caps callback data at 64 bytes, which
+// `order-pm`, a UUID, and the longest provider name exactly fill.
+func orderPaymentMethodView(locale Locale, order OrderSummary, choices []PaymentChoice) View {
+	if len(choices) == 0 {
+		return View{Text: text(locale, "pay.none"), Keyboard: keyboard(row(actionButton(text(locale, "action.back"), "order:"+order.ID)))}
+	}
+	rows := make([][]models.InlineKeyboardButton, 0, len(choices)+1)
+	for _, choice := range choices {
+		label := text(locale, "pay.option", providerLabel(locale, choice.Provider), formatMoney(choice.AmountMinor, choice.Currency))
+		rows = append(rows, row(actionButton(label, "order-pm:"+order.ID+":"+choice.Provider)))
+	}
+	rows = append(rows, row(actionButton(text(locale, "action.back"), "order:"+order.ID)))
+	return View{Text: text(locale, "pay.choose"), Keyboard: keyboard(rows...)}
+}
+
+// paymentStartFailedView is shown when the provider refused to open a payment.
+// The order exists, so "try again" starts the payment again rather than
+// reopening a screen with nothing to pay with.
+func paymentStartFailedView(locale Locale, orderID string) View {
+	return View{
+		Text: text(locale, "error.payment"),
+		Keyboard: keyboard(
+			row(actionButton(text(locale, "action.retry"), "pay:"+orderID)),
+			row(actionButton(text(locale, "payment.otherMethod"), "pay:"+orderID+":pick")),
+			row(callbackButton(text(locale, "menu.orders"), routeOrders)),
+		),
+	}
 }
 
 // ordersView lists order history with the payment and refund state of each.

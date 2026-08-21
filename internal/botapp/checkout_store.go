@@ -88,6 +88,22 @@ func (store *PostgresStore) AttachCheckoutOrder(ctx context.Context, sessionID, 
 	return store.checkout().AttachCheckoutOrder(ctx, sessionID, orderID)
 }
 
+// OrderCheckoutProvider reads the payment method recorded on the checkout that
+// created an order. It is what "try again" resumes with after a payment could
+// not be started: the checkout is attached to the order at confirmation and is
+// no longer the customer's open checkout, so the ordinary lookup cannot see it.
+// An empty string means no checkout, or one that never chose a method.
+func (store *PostgresStore) OrderCheckoutProvider(ctx context.Context, customerID, orderID string) (string, error) {
+	var provider string
+	err := store.pool.QueryRow(ctx, `SELECT COALESCE(provider, '') FROM bot_checkout_sessions
+		WHERE user_id = $1::uuid AND order_id = $2::uuid
+		ORDER BY updated_at DESC LIMIT 1`, customerID, orderID).Scan(&provider)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	return provider, err
+}
+
 // CancelCheckout discards the customer's unfinished checkout.
 func (store *PostgresStore) CancelCheckout(ctx context.Context, customerID string) error {
 	return store.checkout().CancelCheckout(ctx, customerID)
