@@ -304,26 +304,107 @@ func (app *App) addonListScreen(ctx context.Context, session commerceContext, su
 	return addonListView(session.Locale, subscription, addons)
 }
 
-// buyAddon purchases one add-on for a subscription. The wallet settles it when
-// it can; otherwise the customer is handed the ordinary payment screen.
-func (app *App) buyAddon(ctx context.Context, session commerceContext, addonVersionID, subscriptionID string) View {
-	provider := ""
-	if choices := app.commerce.ExternalPaymentChoices(app.settings.Currency); len(choices) > 0 {
-		provider = choices[0].Provider
+// addonSelection resolves the add-on and the subscription an add-on callback
+// names. The subscription arrives as a slot number, because Telegram caps
+// callback data at 64 bytes and two UUIDs do not fit; the slot is looked up
+// for this customer only, so it cannot address anybody else's subscription.
+func (app *App) addonSelection(ctx context.Context, session commerceContext, addonVersionID, slot string) (SubscriptionSummary, Addon, Entitlement, error) {
+	number, err := strconv.Atoi(slot)
+	if err != nil {
+		return SubscriptionSummary{}, Addon{}, Entitlement{}, ErrSubscriptionNotFound
 	}
-	summary, err := app.commerce.BuyAddon(ctx, session.Customer.ID, subscriptionID, app.settings.Currency, addonVersionID, 1, provider, session.TelegramID)
+	subscription, err := app.customers.SubscriptionBySlot(ctx, session.Customer.ID, number, session.Locale)
+	if err != nil {
+		return SubscriptionSummary{}, Addon{}, Entitlement{}, err
+	}
+	entitlement, err := app.customers.EntitlementForSubscription(ctx, session.Customer.ID, subscription.ID, session.Locale, app.settings.Currency)
+	if err != nil {
+		return subscription, Addon{}, Entitlement{}, err
+	}
+	if !entitlement.Found {
+		return subscription, Addon{}, entitlement, commercepg.ErrNoActiveSubscription
+	}
+	addons, err := app.customers.PlanAddons(ctx, entitlement.PlanVersionID, session.Locale, app.settings.Currency)
+	if err != nil {
+		return subscription, Addon{}, entitlement, err
+	}
+	// Callback data is customer-controlled: only an add-on the plan actually
+	// offers may be bought for it.
+	for _, addon := range addons {
+		if addon.AddonVersionID == addonVersionID {
+			return subscription, addon, entitlement, nil
+		}
+	}
+	return subscription, Addon{}, entitlement, commercepg.ErrAddonUnavailable
+}
+
+// addonConfirmScreen shows what a mid-period add-on will cost before anything
+// is charged. The wallet settles an add-on it can cover the moment the order is
+// created, so without this screen one tap on the list spent the money.
+func (app *App) addonConfirmScreen(ctx context.Context, session commerceContext, addonVersionID, slot string) View {
+	subscription, addon, entitlement, err := app.addonSelection(ctx, session, addonVersionID, slot)
+	if view, handled := app.addonSelectionError(ctx, session, subscription, err); handled {
+		return view
+	}
+	charge, err := commerce.PriceAddon(addon.AmountMinor, 1, addon.MaxQuantity, addon.Proration, time.Now().UTC(), entitlement.StartsAt, entitlement.EndsAt)
+	if err != nil {
+		app.logger.Error("add-on pricing failed", "error", err)
+		return app.errorView(session.Locale, routeSubscriptions)
+	}
+	balance, err := app.customers.WalletBalance(ctx, session.Customer.ID, app.settings.Currency)
+	if err != nil {
+		app.logger.Error("wallet balance lookup failed", "error", err)
+		return app.errorView(session.Locale, routeSubscriptions)
+	}
+	return addonConfirmView(session.Locale, subscription, addon, charge, balance, slot)
+}
+
+// buyAddon opens the order for one add-on. The wallet settles it when it can;
+// otherwise the customer picks a payment method for the order, exactly as they
+// would for any other order with an amount left to pay.
+func (app *App) buyAddon(ctx context.Context, session commerceContext, addonVersionID, slot string) View {
+	subscription, addon, _, err := app.addonSelection(ctx, session, addonVersionID, slot)
+	if view, handled := app.addonSelectionError(ctx, session, subscription, err); handled {
+		return view
+	}
+	// Membership is verified at the moment money moves, as it is for every
+	// other purchase; the confirmation screen stays reachable, so joining and
+	// confirming again resumes here.
+	if gate := app.checkPurchaseChannels(ctx, session.Customer.ID, session.TelegramID); !gate.Allowed() {
+		return channelGateView(session.Locale, gate, "addon-buy:"+addon.AddonVersionID+":"+slot)
+	}
+	summary, err := app.commerce.BuyAddon(ctx, session.Customer.ID, subscription.ID, app.settings.Currency, addon.AddonVersionID, 1)
+	if view, handled := app.addonSelectionError(ctx, session, subscription, err); handled {
+		return view
+	}
+	if summary.ExternalMinor == 0 {
+		return orderStatusView(session.Locale, summary, nil)
+	}
+	return orderPaymentMethodView(session.Locale, summary, app.orderPaymentChoices(summary))
+}
+
+// addonSelectionError renders the refusals an add-on purchase can meet. It
+// reports whether the error was one of them.
+func (app *App) addonSelectionError(ctx context.Context, session commerceContext, subscription SubscriptionSummary, err error) (View, bool) {
+	back := callbackButton(text(session.Locale, "subs.back"), routeSubscriptions)
+	if subscription.ID != "" {
+		back = actionButton(text(session.Locale, "action.back"), "addons:"+subscription.ID)
+	}
 	switch {
+	case err == nil:
+		return View{}, false
 	case errors.Is(err, commercepg.ErrMaintenance):
-		return app.maintenanceScreen(ctx, session)
+		return app.maintenanceScreen(ctx, session), true
+	case errors.Is(err, ErrSubscriptionNotFound):
+		return View{Text: text(session.Locale, "subs.gone"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "subs.back"), routeSubscriptions)))}, true
 	case errors.Is(err, commercepg.ErrNoActiveSubscription):
-		return View{Text: text(session.Locale, "addon.noSubscription"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "menu.plans"), routePlans)))}
+		return View{Text: text(session.Locale, "addon.noSubscription"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "menu.plans"), routePlans)))}, true
 	case errors.Is(err, commercepg.ErrAddonUnavailable):
-		return View{Text: text(session.Locale, "addon.unavailable"), Keyboard: keyboard(row(actionButton(text(session.Locale, "action.back"), "addons:"+subscriptionID)))}
-	case err != nil:
+		return View{Text: text(session.Locale, "addon.unavailable"), Keyboard: keyboard(row(back))}, true
+	default:
 		app.logger.Error("add-on purchase failed", "error", err)
-		return View{Text: text(session.Locale, "error.order"), Keyboard: keyboard(row(actionButton(text(session.Locale, "action.back"), "addons:"+subscriptionID)))}
+		return View{Text: text(session.Locale, "error.order"), Keyboard: keyboard(row(back))}, true
 	}
-	return orderStatusView(session.Locale, summary, nil)
 }
 
 // beginSubscriptionRename opens the rename flow for one subscription.
@@ -428,7 +509,7 @@ var expansionActions = map[string]bool{
 	"cart-save": true, "cart-auto": true, "cart-clear": true, "cart-buy": true,
 	"sub": true, "sub-new": true, "sub-rename": true, "sub-connect": true,
 	"sub-devices": true, "sub-renew": true, "sub-revoke-confirm": true, "sub-revoke": true,
-	"squad": true, "addons": true, "addon-buy": true, "maintenance": true,
+	"squad": true, "addons": true, "addon-buy": true, "addon-confirm": true, "maintenance": true,
 	"methods": true, "pm-change": true, "checkout-addons": true, "addon-toggle": true,
 	"ops": true, "ops-backup": true, "ops-restore-confirm": true, "ops-restore": true,
 }
@@ -510,6 +591,11 @@ func (app *App) handleExpansionAction(ctx context.Context, session commerceConte
 	case "addons":
 		return app.addonListScreen(ctx, session, argument), true
 	case "addon-buy":
+		if len(parts) != 3 {
+			return app.errorView(session.Locale, routeSubscriptions), true
+		}
+		return app.addonConfirmScreen(ctx, session, parts[1], parts[2]), true
+	case "addon-confirm":
 		if len(parts) != 3 {
 			return app.errorView(session.Locale, routeSubscriptions), true
 		}

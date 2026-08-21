@@ -404,8 +404,7 @@ var catalog = map[string]phrase{
 	"gift.expires": {ru: "Действует до: <b>%s</b>", en: "Valid until: <b>%s</b>"},
 	"gift.awaitingPayment": {ru: "Подарок станет активируемым сразу после оплаты заказа.",
 		en: "The gift becomes redeemable as soon as the order is paid."},
-	"gift.paymentLabel": {ru: "Подарок", en: "Gift"},
-	"gift.claimPrompt":  {ru: "Отправьте код активации подарка.", en: "Send the gift redemption code."},
+	"gift.claimPrompt": {ru: "Отправьте код активации подарка.", en: "Send the gift redemption code."},
 	"gift.claimRefused": {ru: "⚠️ Этот код нельзя активировать. Проверьте его или попросите отправителя выдать новый.",
 		en: "⚠️ This code cannot be redeemed. Check it, or ask the sender to issue a new one."},
 	"gift.claimed":             {ru: "🎁 <b>Подарок активирован</b>", en: "🎁 <b>Gift redeemed</b>"},
@@ -664,6 +663,18 @@ var catalog = map[string]phrase{
 		en: "Selected add-ons are charged with the plan in one payment and last the whole period."},
 	"addon.noSubscription": {ru: "⚠️ Дополнение можно купить только к активной подписке.",
 		en: "⚠️ An add-on can only be bought for an active subscription."},
+	// The confirmation shown before an add-on is charged. The wallet settles an
+	// add-on it can cover the moment the order is created, so the amount and
+	// where it comes from are stated before the tap that spends it.
+	"addon.confirmTitle": {ru: "🧩 <b>Подтвердите дополнение</b>", en: "🧩 <b>Confirm the add-on</b>"},
+	"addon.charge":       {ru: "К оплате сейчас: <b>%s</b>", en: "Charged now: <b>%s</b>"},
+	"addon.walletCovers": {ru: "👛 Спишем с баланса кошелька (доступно %s) — дополнение подключится сразу.",
+		en: "👛 Paid from your wallet (available %s) — the add-on is applied right away."},
+	"addon.walletPartial": {ru: "👛 С баланса спишем %s, остаток <b>%s</b> оплатите выбранным способом.",
+		en: "👛 %s comes from your wallet; the remaining <b>%s</b> is paid with a method you choose next."},
+	"addon.walletNone": {ru: "Способ оплаты вы выберете на следующем шаге.",
+		en: "You choose the payment method on the next step."},
+	"addon.confirm": {ru: "✅ Подтвердить", en: "✅ Confirm"},
 	"addon.proration.full_price": {ru: "Оплачивается полностью, срок совпадает с текущим периодом.",
 		en: "Charged in full and lasts to the end of the current period."},
 	"addon.proration.remaining_period": {ru: "Оплачивается пропорционально оставшемуся времени периода.",

@@ -186,35 +186,12 @@ func (app *App) buyGift(
 		app.logger.Error("order lookup failed", "error", err)
 		return app.errorView(session.Locale, routeOrders)
 	}
-	if order.ExternalMinor == 0 {
-		// Covered by the wallet, so the gift is already claimable and the code
-		// can be shown now.
-		return giftCodeView(session.Locale, purchase, order)
-	}
-	choices := app.commerce.ExternalPaymentChoices(order.Currency)
-	if len(choices) == 0 {
-		return View{
-			Text:     text(session.Locale, "pay.none"),
-			Keyboard: keyboard(row(callbackButton(text(session.Locale, "action.back"), routeGifts))),
-		}
-	}
-	if _, err = app.commerce.StartPayment(
-		ctx, order, choices[0].Provider, session.TelegramID, text(session.Locale, "gift.paymentLabel"),
-	); err != nil {
-		app.logger.Error("gift payment intent failed", "error", err)
-		return View{
-			Text:     text(session.Locale, "error.payment"),
-			Keyboard: keyboard(row(actionButton(text(session.Locale, "action.retry"), "order:"+order.ID))),
-		}
-	}
-	// The code is shown with the payment instruction rather than withheld until
-	// settlement: the sender needs it to pass on, and it cannot be claimed until
-	// the order is paid because the gift is not deliverable before then.
-	refreshed, err := app.customers.Order(ctx, session.Customer.ID, order.ID, session.Locale)
-	if err != nil {
-		refreshed = order
-	}
-	return giftCodeView(session.Locale, purchase, refreshed)
+	// The code is shown now in either case: it exists only in this response.
+	// An order the wallet covered is already claimable. One with an amount left
+	// offers to pay it, and the payment method is the customer's to pick on the
+	// order's own method screen — not the first adapter in alphabetical order,
+	// which is what used to be chosen for them.
+	return giftCodeView(session.Locale, purchase, order)
 }
 
 // giftAskCode opens the redemption prompt.

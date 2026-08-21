@@ -83,6 +83,19 @@ func (store *PostgresStore) Subscription(ctx context.Context, customerID, subscr
 	return summary, err
 }
 
+// SubscriptionBySlot reads one of the customer's own subscriptions by its slot
+// number. Callback data is capped at 64 bytes by Telegram, and an action that
+// has to name both an add-on version and a subscription cannot fit two UUIDs;
+// the slot is one or two digits and is unique per customer.
+func (store *PostgresStore) SubscriptionBySlot(ctx context.Context, customerID string, slot int, locale Locale) (SubscriptionSummary, error) {
+	summary, err := scanSubscription(store.pool.QueryRow(ctx, `SELECT `+subscriptionColumns+` `+subscriptionJoins+`
+		WHERE s.user_id = $1::uuid AND s.slot = $3 AND s.status = 'active'`, customerID, string(locale), slot))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return SubscriptionSummary{}, ErrSubscriptionNotFound
+	}
+	return summary, err
+}
+
 // PrimarySubscription is the lowest-slot active subscription, which is the one a
 // single-subscription installation always uses.
 func (store *PostgresStore) PrimarySubscription(ctx context.Context, customerID string, locale Locale) (SubscriptionSummary, error) {

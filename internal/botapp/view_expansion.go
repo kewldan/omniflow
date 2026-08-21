@@ -300,10 +300,48 @@ func addonListView(locale Locale, subscription SubscriptionSummary, addons []Add
 		fmt.Fprintf(body, "\n<b>%s</b> — %s\n%s\n%s", html.EscapeString(addon.Name),
 			formatMoney(addon.AmountMinor, addon.Currency), html.EscapeString(addon.Description),
 			text(locale, "addon.proration."+string(addon.Proration)))
-		buttons = append(buttons, row(actionButton(addon.Name+" · "+formatMoney(addon.AmountMinor, addon.Currency), "addon-buy:"+addon.AddonVersionID+":"+subscription.ID)))
+		// The subscription travels as its slot number: Telegram caps callback
+		// data at 64 bytes, and an add-on version UUID beside a subscription
+		// UUID does not fit.
+		buttons = append(buttons, row(actionButton(addon.Name+" · "+formatMoney(addon.AmountMinor, addon.Currency), addonCallback("addon-buy", addon.AddonVersionID, subscription.Slot))))
 	}
 	buttons = append(buttons, row(actionButton(text(locale, "action.back"), "sub:"+subscription.ID)))
 	return View{Text: body.String(), Keyboard: keyboard(buttons...)}
+}
+
+// addonCallback builds an add-on action for one subscription slot.
+func addonCallback(action, addonVersionID string, slot int) string {
+	return action + ":" + addonVersionID + ":" + strconv.Itoa(slot)
+}
+
+// addonConfirmView states what a mid-period add-on will cost before it is
+// charged. The wallet settles an add-on it can cover the moment the order is
+// created, so the amount, the proration rule, and where the money comes from
+// are all shown before the one tap that spends it.
+func addonConfirmView(locale Locale, subscription SubscriptionSummary, addon Addon, charge commerce.AddonCharge, walletBalanceMinor int64, slot string) View {
+	body := &strings.Builder{}
+	body.WriteString(text(locale, "addon.confirmTitle"))
+	body.WriteString("\n\n")
+	body.WriteString(text(locale, "subs.detail", html.EscapeString(subscription.Label)))
+	body.WriteString("\n")
+	fmt.Fprintf(body, "<b>%s</b>\n%s", html.EscapeString(addon.Name), html.EscapeString(addon.Description))
+	body.WriteString("\n\n")
+	body.WriteString(text(locale, "addon.proration."+string(addon.Proration)))
+	body.WriteString("\n")
+	body.WriteString(text(locale, "addon.charge", formatMoney(charge.ChargedMinor, addon.Currency)))
+	body.WriteString("\n")
+	switch {
+	case walletBalanceMinor >= charge.ChargedMinor:
+		body.WriteString(text(locale, "addon.walletCovers", formatMoney(walletBalanceMinor, addon.Currency)))
+	case walletBalanceMinor > 0:
+		body.WriteString(text(locale, "addon.walletPartial", formatMoney(walletBalanceMinor, addon.Currency), formatMoney(charge.ChargedMinor-walletBalanceMinor, addon.Currency)))
+	default:
+		body.WriteString(text(locale, "addon.walletNone"))
+	}
+	return View{Text: body.String(), Keyboard: keyboard(
+		row(actionButton(text(locale, "addon.confirm"), addonCallback("addon-confirm", addon.AddonVersionID, subscription.Slot))),
+		row(actionButton(text(locale, "action.cancel"), "addons:"+subscription.ID)),
+	)}
 }
 
 // maintenanceView is what a customer sees while purchases are paused. The

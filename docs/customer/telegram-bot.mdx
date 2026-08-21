@@ -373,8 +373,15 @@ and lasts the whole period. Bought mid-period from a subscription's `🧩 Add-on
 screen, the price depends on how much of the period is left, and the rule is
 printed under each add-on rather than discovered on the receipt: charged in full,
 charged in proportion to the time left, or charged at a daily rate for the days
-left. A mid-period add-on settles from the wallet when the balance covers it and
-otherwise starts a payment. See
+left.
+
+Tapping an add-on opens a confirmation, not a charge. It names the
+subscription, the add-on, the proration rule, the exact amount charged now, and
+where it comes from: the wallet when the balance covers it — in which case
+`✅ Confirm` applies the add-on at once — or the wallet for what it can cover
+and a payment method you choose next for the rest. That method screen is the
+same one every order with an amount left to pay gets, listing every configured
+method that can settle the currency, priced at what is owed. See
 [Add-ons and the configurator](/commerce/addons-configurator).
 
 ### The channel gate
@@ -606,9 +613,11 @@ The claim code is then shown **once**:
 
 Only the SHA-256 of the code is kept, so a database read never yields a
 redeemable code — and a sender who loses it cannot have it recovered, which is
-the deliberate trade. A gift bought against an unpaid order adds "The gift
-becomes redeemable as soon as the order is paid" and links to that order. Gifts
-are valid for thirty days, so the sender's money is not held against an outcome
+the deliberate trade. A gift the wallet did not cover adds "The gift becomes
+redeemable as soon as the order is paid", with `💳 Pay` — which opens the
+order's method picker, so the sender chooses how to pay rather than being
+handed the first configured method — and a link to the order. Gifts are valid
+for thirty days, so the sender's money is not held against an outcome
 indefinitely.
 
 Each gift flow is one gift. The flow is given its own idempotency key when the

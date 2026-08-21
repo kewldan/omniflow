@@ -382,11 +382,15 @@ func shortID(id string) string {
 // useless: a customer who cannot see what to do simply leaves, and the
 // installation loses the sale it was trying to condition.
 //
-// The retry button returns to the checkout rather than starting over, because
-// the checkout is still there — nothing was cancelled, and re-entering a plan,
-// a promo code, and a payment method to satisfy a subscription requirement is
-// how a requirement becomes an abandonment.
-func channelGateView(locale Locale, gate PurchaseGate) View {
+// The retry button returns to the purchase that was interrupted rather than
+// starting over, because it is still there — nothing was cancelled, and
+// re-entering a plan, a promo code, and a payment method to satisfy a
+// subscription requirement is how a requirement becomes an abandonment.
+// `retry` names that action; empty means the checkout summary.
+func channelGateView(locale Locale, gate PurchaseGate, retry string) View {
+	if retry == "" {
+		retry = "checkout"
+	}
 	lines := []string{text(locale, "channels.required")}
 	rows := make([][]models.InlineKeyboardButton, 0, len(gate.Missing)+1)
 	for _, requirement := range gate.Missing {
@@ -398,6 +402,6 @@ func channelGateView(locale Locale, gate PurchaseGate) View {
 			}))
 		}
 	}
-	rows = append(rows, row(actionButton(text(locale, "channels.retry"), "checkout")))
+	rows = append(rows, row(actionButton(text(locale, "channels.retry"), retry)))
 	return View{Text: strings.Join(lines, "\n"), Keyboard: keyboard(rows...)}
 }
