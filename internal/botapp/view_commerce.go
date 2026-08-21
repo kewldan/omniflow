@@ -333,26 +333,6 @@ func lifecycleNotice(locale Locale, phase commerce.SubscriptionPhase, entitlemen
 	}
 }
 
-// autoRenewView reports auto-renew status, or explains honestly that no
-// configured provider can charge again without a new confirmation.
-func autoRenewView(locale Locale, setting AutoRenew, planName string, supported bool) View {
-	if !supported {
-		return View{Text: text(locale, "renew.unsupported"), Keyboard: keyboard(row(callbackButton(text(locale, "action.back"), routeSettings)))}
-	}
-	if setting.Enabled {
-		return View{
-			Text:     text(locale, "renew.on", html.EscapeString(planName), providerLabel(locale, setting.Provider)),
-			Keyboard: keyboard(row(actionButton(text(locale, "renew.disable"), "autorenew:off")), row(callbackButton(text(locale, "action.back"), routeSettings))),
-		}
-	}
-	rows := make([][]models.InlineKeyboardButton, 0, 2)
-	if planName != "" {
-		rows = append(rows, row(actionButton(text(locale, "renew.enable"), "autorenew:on")))
-	}
-	rows = append(rows, row(callbackButton(text(locale, "action.back"), routeSettings)))
-	return View{Text: text(locale, "renew.off"), Keyboard: keyboard(rows...)}
-}
-
 func trafficAllowance(locale Locale, bytes *int64) string {
 	if bytes == nil || *bytes <= 0 {
 		return text(locale, "plans.unlimited")

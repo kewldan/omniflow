@@ -17,35 +17,75 @@ import (
 // before access lapses.
 var leadChoices = []int{1, 3, 7}
 
+// autoRenewScreen is everything the recurring-billing screen renders from.
+type autoRenewScreen struct {
+	Settings RenewalSettings
+	Methods  []SavedMethod
+	// PlanName is the plan the subscription currently holds. Empty means there
+	// is nothing to renew, and the switch-on button is withheld.
+	PlanName string
+	// SubscriptionLabel names the subscription when the customer holds several,
+	// so the screen never leaves "which one?" to be guessed.
+	SubscriptionLabel string
+	Supported         bool
+	// BackRoute is where "Back" leads: the settings screen on a
+	// single-subscription installation, the subscription picker otherwise.
+	BackRoute string
+}
+
+// renewCallback appends the subscription to an auto-renew callback. The
+// subscription is part of the table's key, so every write names it; a
+// customer with one subscription never sees the difference.
+func renewCallback(action, subscriptionID string) string {
+	if subscriptionID == "" {
+		return action
+	}
+	return action + ":" + subscriptionID
+}
+
 // autoRenewSettingsView is the customer's full recurring-billing screen.
 //
 // It states what will be charged, from where, and when, because those are the
 // three things a person needs to know before agreeing to a charge they will not
 // be present for. Nothing here is on by default.
-func autoRenewSettingsView(
-	locale Locale, settings RenewalSettings, methods []SavedMethod, planName string, supported bool,
-) View {
-	if !supported {
+func autoRenewSettingsView(locale Locale, screen autoRenewScreen) View {
+	back := screen.BackRoute
+	if back == "" {
+		back = routeSettings
+	}
+	if !screen.Supported {
 		return View{
 			Text:     text(locale, "renew.unsupported"),
-			Keyboard: keyboard(row(callbackButton(text(locale, "action.back"), routeSettings))),
+			Keyboard: keyboard(row(callbackButton(text(locale, "action.back"), back))),
 		}
+	}
+	settings, methods := screen.Settings, screen.Methods
+	subscription := settings.SubscriptionID
+	heading := ""
+	if screen.SubscriptionLabel != "" {
+		heading = text(locale, "alert.subscription", html.EscapeString(screen.SubscriptionLabel)) + "\n\n"
 	}
 	if !settings.Enabled {
 		rows := make([][]models.InlineKeyboardButton, 0, 3)
-		if planName != "" {
-			rows = append(rows, row(actionButton(text(locale, "renew.enable"), "autorenew:on")))
+		if screen.PlanName != "" {
+			rows = append(rows, row(actionButton(text(locale, "renew.enable"), renewCallback("autorenew:on", subscription))))
 		}
 		if len(methods) > 0 {
 			rows = append(rows, row(callbackButton(text(locale, "renew.methods"), routeMethods)))
 		}
-		rows = append(rows, row(callbackButton(text(locale, "action.back"), routeSettings)))
-		return View{Text: text(locale, "renew.off"), Keyboard: keyboard(rows...)}
+		rows = append(rows, row(callbackButton(text(locale, "action.back"), back)))
+		return View{Text: heading + text(locale, "renew.off"), Keyboard: keyboard(rows...)}
 	}
 
-	body := text(locale, "renew.on", html.EscapeString(planName), providerLabel(locale, settings.Provider)) +
+	body := heading + text(locale, "renew.on", html.EscapeString(screen.PlanName), providerLabel(locale, settings.Provider)) +
 		"\n\n" + text(locale, "renew.funding", fundingLabel(locale, settings, methods)) +
 		"\n" + text(locale, "renew.lead", leadDays(settings.LeadTime))
+	if len(methods) == 0 {
+		// No card is on file, so the wallet is the only place a charge can come
+		// from. Saying so here is what keeps the screen honest: the saved-method
+		// button is withheld below, and a customer looking for it is told why.
+		body += "\n" + text(locale, "renew.walletOnly")
+	}
 	if settings.State == recurring.StateDunning {
 		// A customer whose card just failed should not have to work out from a
 		// silent screen why nothing happened.
@@ -56,27 +96,46 @@ func autoRenewSettingsView(
 	}
 
 	rows := make([][]models.InlineKeyboardButton, 0, 6)
-	rows = append(rows, row(
-		actionButton(fundingButton(locale, settings.Funding == recurring.FundingWallet, "renew.fromWallet"), "renew-funding:wallet"),
-		actionButton(fundingButton(locale, settings.Funding == recurring.FundingSavedMethod, "renew.fromMethod"), "renew-funding:saved_method"),
-	))
+	// The saved-method source is offered only when there is a saved method to
+	// charge. Offering it otherwise would be a button whose only outcome is
+	// "you have no saved method".
+	fundingRow := []models.InlineKeyboardButton{
+		actionButton(fundingButton(locale, settings.Funding == recurring.FundingWallet, "renew.fromWallet"), renewCallback("renew-funding:wallet", subscription)),
+	}
+	if len(methods) > 0 {
+		fundingRow = append(fundingRow,
+			actionButton(fundingButton(locale, settings.Funding == recurring.FundingSavedMethod, "renew.fromMethod"), renewCallback("renew-funding:saved_method", subscription)))
+	}
+	rows = append(rows, fundingRow)
 	leadRow := make([]models.InlineKeyboardButton, 0, len(leadChoices))
 	for _, days := range leadChoices {
 		label := text(locale, "renew.leadDays", days)
 		if leadDays(settings.LeadTime) == days {
 			label = "• " + label
 		}
-		leadRow = append(leadRow, actionButton(label, fmt.Sprintf("renew-lead:%d", days)))
+		leadRow = append(leadRow, actionButton(label, renewCallback(fmt.Sprintf("renew-lead:%d", days), subscription)))
 	}
 	rows = append(rows, leadRow)
 	if len(methods) > 0 {
 		rows = append(rows, row(callbackButton(text(locale, "renew.methods"), routeMethods)))
 	}
 	rows = append(rows,
-		row(actionButton(text(locale, "renew.disable"), "autorenew:off")),
-		row(callbackButton(text(locale, "action.back"), routeSettings)),
+		row(actionButton(text(locale, "renew.disable"), renewCallback("autorenew:off", subscription))),
+		row(callbackButton(text(locale, "action.back"), back)),
 	)
 	return View{Text: body, Keyboard: keyboard(rows...)}
+}
+
+// autoRenewPickerView asks which subscription to configure when the customer
+// holds more than one. Auto-renew is per subscription, so the question has to
+// be answered before a setting can be shown, let alone changed.
+func autoRenewPickerView(locale Locale, subscriptions []SubscriptionSummary) View {
+	rows := make([][]models.InlineKeyboardButton, 0, len(subscriptions)+1)
+	for _, subscription := range subscriptions {
+		rows = append(rows, row(actionButton(subscription.Label, "renew-settings:"+subscription.ID)))
+	}
+	rows = append(rows, row(callbackButton(text(locale, "action.back"), routeSettings)))
+	return View{Text: text(locale, "renew.pick"), Keyboard: keyboard(rows...)}
 }
 
 // savedMethodsView lists the customer's stored payment methods.

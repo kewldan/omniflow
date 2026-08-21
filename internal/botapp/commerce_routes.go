@@ -443,8 +443,55 @@ func (app *App) ticketScreen(ctx context.Context, session commerceContext, ticke
 	return supportTicketView(session.Locale, ticket, messages)
 }
 
+// autoRenewScreen is the settings entry point. Auto-renew is configured per
+// subscription, so a customer holding several is asked which one first; a
+// customer holding one — every single-subscription installation — goes straight
+// to that subscription's screen.
 func (app *App) autoRenewScreen(ctx context.Context, session commerceContext) View {
-	settings, err := app.customers.RenewalSettings(ctx, session.Customer.ID)
+	if !app.commerce.SubscriptionPolicy().MultiEnabled {
+		return app.autoRenewScreenFor(ctx, session, "")
+	}
+	subscriptions, err := app.customers.Subscriptions(ctx, session.Customer.ID, session.Locale)
+	if err != nil {
+		app.logger.Error("subscription lookup failed", "error", err)
+		return app.errorView(session.Locale, routeSettings)
+	}
+	if len(subscriptions) > 1 {
+		return autoRenewPickerView(session.Locale, subscriptions)
+	}
+	return app.autoRenewScreenFor(ctx, session, "")
+}
+
+// renewalTarget resolves which subscription an auto-renew screen or action is
+// about. An explicit identifier is checked for ownership; none means the
+// primary subscription, which is the only one a single-subscription
+// installation ever has. A customer with no subscription at all gets an empty
+// summary rather than an error: the screen then simply has nothing to switch on.
+func (app *App) renewalTarget(ctx context.Context, session commerceContext, subscriptionID string) (SubscriptionSummary, error) {
+	var (
+		target SubscriptionSummary
+		err    error
+	)
+	if subscriptionID != "" {
+		target, err = app.customers.Subscription(ctx, session.Customer.ID, subscriptionID, session.Locale)
+	} else {
+		target, err = app.customers.PrimarySubscription(ctx, session.Customer.ID, session.Locale)
+	}
+	if errors.Is(err, ErrSubscriptionNotFound) {
+		return SubscriptionSummary{}, nil
+	}
+	return target, err
+}
+
+// autoRenewScreenFor renders the recurring-billing screen of one subscription.
+func (app *App) autoRenewScreenFor(ctx context.Context, session commerceContext, subscriptionID string) View {
+	supported := commerce.SupportsAutoRenew(app.commerce.payments.Options(), app.settings.Currency)
+	target, err := app.renewalTarget(ctx, session, subscriptionID)
+	if err != nil {
+		app.logger.Error("subscription lookup failed", "error", err)
+		return app.errorView(session.Locale, routeSettings)
+	}
+	settings, err := app.customers.RenewalSettings(ctx, session.Customer.ID, target.ID)
 	if err != nil {
 		app.logger.Error("auto-renew lookup failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
@@ -454,13 +501,20 @@ func (app *App) autoRenewScreen(ctx context.Context, session commerceContext) Vi
 		app.logger.Error("saved payment method lookup failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
 	}
-	entitlement, err := app.customers.Entitlement(ctx, session.Customer.ID, session.Locale, app.settings.Currency)
-	if err != nil {
-		app.logger.Error("entitlement lookup failed", "error", err)
-		return app.errorView(session.Locale, routeSettings)
+	screen := autoRenewScreen{Settings: settings, Methods: methods, Supported: supported, BackRoute: routeSettings}
+	if target.ID != "" {
+		entitlement, entitlementErr := app.customers.EntitlementForSubscription(ctx, session.Customer.ID, target.ID, session.Locale, app.settings.Currency)
+		if entitlementErr != nil {
+			app.logger.Error("entitlement lookup failed", "error", entitlementErr)
+			return app.errorView(session.Locale, routeSettings)
+		}
+		screen.PlanName = entitlement.PlanName
 	}
-	supported := commerce.SupportsAutoRenew(app.commerce.payments.Options(), app.settings.Currency)
-	return autoRenewSettingsView(session.Locale, settings, methods, entitlement.PlanName, supported)
+	if app.commerce.SubscriptionPolicy().MultiEnabled && target.ID != "" {
+		screen.SubscriptionLabel = target.Label
+		screen.BackRoute = routeAutoRenew
+	}
+	return autoRenewSettingsView(session.Locale, screen)
 }
 
 func (app *App) savedMethodsScreen(ctx context.Context, session commerceContext) View {
@@ -476,33 +530,43 @@ func (app *App) savedMethodsScreen(ctx context.Context, session commerceContext)
 //
 // Asking to charge a card that is not saved is a normal thing for a customer to
 // try, so it gets its own message rather than a generic failure.
-func (app *App) setRenewalFunding(ctx context.Context, session commerceContext, funding string) View {
-	err := app.customers.SetRenewalFunding(ctx, session.Customer.ID, funding)
+func (app *App) setRenewalFunding(ctx context.Context, session commerceContext, funding, subscriptionID string) View {
+	target, err := app.renewalTarget(ctx, session, subscriptionID)
+	if err != nil {
+		app.logger.Error("subscription lookup failed", "error", err)
+		return app.errorView(session.Locale, routeSettings)
+	}
+	err = app.customers.SetRenewalFunding(ctx, session.Customer.ID, target.ID, funding)
 	if errors.Is(err, errNoSavedMethod) {
 		return View{
 			Text:     text(session.Locale, "renew.noMethod"),
-			Keyboard: keyboard(row(callbackButton(text(session.Locale, "action.back"), routeAutoRenew))),
+			Keyboard: keyboard(row(actionButton(text(session.Locale, "action.back"), renewCallback("renew-settings", target.ID)))),
 		}
 	}
 	if err != nil {
 		app.logger.Error("renewal funding update failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
 	}
-	return app.autoRenewScreen(ctx, session)
+	return app.autoRenewScreenFor(ctx, session, target.ID)
 }
 
-func (app *App) setRenewalLeadTime(ctx context.Context, session commerceContext, days string) View {
+func (app *App) setRenewalLeadTime(ctx context.Context, session commerceContext, days, subscriptionID string) View {
+	target, err := app.renewalTarget(ctx, session, subscriptionID)
+	if err != nil {
+		app.logger.Error("subscription lookup failed", "error", err)
+		return app.errorView(session.Locale, routeSettings)
+	}
 	parsed, err := strconv.Atoi(days)
 	if err != nil || parsed <= 0 {
-		return app.autoRenewScreen(ctx, session)
+		return app.autoRenewScreenFor(ctx, session, target.ID)
 	}
 	if err := app.customers.SetRenewalLeadTime(
-		ctx, session.Customer.ID, time.Duration(parsed)*24*time.Hour,
+		ctx, session.Customer.ID, target.ID, time.Duration(parsed)*24*time.Hour,
 	); err != nil {
 		app.logger.Error("renewal lead time update failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
 	}
-	return app.autoRenewScreen(ctx, session)
+	return app.autoRenewScreenFor(ctx, session, target.ID)
 }
 
 // setDefaultMethod and removeMethod both address a method by an identifier that
@@ -586,11 +650,13 @@ func (app *App) handleCommerceAction(ctx context.Context, session commerceContex
 	case "connect":
 		return app.connectPlatform(ctx, session, argument), true
 	case "autorenew":
-		return app.setAutoRenew(ctx, session, argument == "on"), true
+		return app.setAutoRenew(ctx, session, argument == "on", argumentAt(parts, 2)), true
+	case "renew-settings":
+		return app.autoRenewScreenFor(ctx, session, argument), true
 	case "renew-funding":
-		return app.setRenewalFunding(ctx, session, argument), true
+		return app.setRenewalFunding(ctx, session, argument, argumentAt(parts, 2)), true
 	case "renew-lead":
-		return app.setRenewalLeadTime(ctx, session, argument), true
+		return app.setRenewalLeadTime(ctx, session, argument, argumentAt(parts, 2)), true
 	case "method-default":
 		return app.setDefaultMethod(ctx, session, argument), true
 	case "method-remove":
@@ -699,12 +765,23 @@ func (app *App) connectPlatform(ctx context.Context, session commerceContext, pl
 	return app.connectPlatformScreen(ctx, session.Locale, platform, subscription)
 }
 
-func (app *App) setAutoRenew(ctx context.Context, session commerceContext, enabled bool) View {
-	setting := AutoRenew{Enabled: enabled}
+// setAutoRenew arms or disarms automatic renewal for one subscription. The
+// subscription is part of the setting's key and is what the renewal worker
+// joins the entitlement on, so it is resolved before anything is written.
+func (app *App) setAutoRenew(ctx context.Context, session commerceContext, enabled bool, subscriptionID string) View {
+	target, err := app.renewalTarget(ctx, session, subscriptionID)
+	if err != nil {
+		app.logger.Error("subscription lookup failed", "error", err)
+		return app.errorView(session.Locale, routeSettings)
+	}
+	setting := AutoRenew{Enabled: enabled, SubscriptionID: target.ID}
 	if enabled {
-		entitlement, err := app.customers.Entitlement(ctx, session.Customer.ID, session.Locale, app.settings.Currency)
+		if target.ID == "" {
+			return app.autoRenewScreenFor(ctx, session, "")
+		}
+		entitlement, err := app.customers.EntitlementForSubscription(ctx, session.Customer.ID, target.ID, session.Locale, app.settings.Currency)
 		if err != nil || !entitlement.Found {
-			return app.autoRenewScreen(ctx, session)
+			return app.autoRenewScreenFor(ctx, session, target.ID)
 		}
 		choices, err := app.commerce.PaymentChoices(ctx, entitlement.PlanVersionID)
 		if err != nil {
@@ -718,14 +795,14 @@ func (app *App) setAutoRenew(ctx context.Context, session commerceContext, enabl
 			}
 		}
 		if setting.Provider == "" {
-			return app.autoRenewScreen(ctx, session)
+			return app.autoRenewScreenFor(ctx, session, target.ID)
 		}
 	}
 	if err := app.customers.SetAutoRenew(ctx, session.Customer.ID, setting); err != nil {
 		app.logger.Error("auto-renew update failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
 	}
-	return app.autoRenewScreen(ctx, session)
+	return app.autoRenewScreenFor(ctx, session, target.ID)
 }
 
 func (app *App) setQuietHours(ctx context.Context, session commerceContext, window string) View {
@@ -921,21 +998,33 @@ func (app *App) replaceScreen(ctx context.Context, client *telegram.Bot, chatID 
 }
 
 func argumentOf(parts []string) string {
-	if len(parts) > 1 {
-		return parts[1]
+	return argumentAt(parts, 1)
+}
+
+// argumentAt reads one positional callback argument, or "" when the callback
+// did not carry it.
+func argumentAt(parts []string, index int) string {
+	if len(parts) > index {
+		return parts[index]
 	}
 	return ""
 }
 
 // commerceActions is the closed set of callback actions the commerce surface
 // owns. Anything else falls through to the v0.2 handlers.
+//
+// Every action a commerce screen renders has to be listed here: an action that
+// is handled below but missing from this set never reaches its handler, and
+// the customer sees "Action was not completed" instead.
 var commerceActions = func() map[string]bool {
 	actions := map[string]bool{
 		"plan": true, "buy": true, "pm": true, "checkout": true, "confirm": true,
 		"promo": true, "promo-clear": true, "wallet-toggle": true, "order": true,
 		"order-cancel": true, "news": true, "ticket": true, "ticket-reply": true,
 		"ticket-close": true, "ticket-open": true, "support-new": true, "connect": true,
-		"autorenew": true, "quiet": true, "quiet-menu": true, "invoice": true,
+		"autorenew": true, "renew-settings": true, "renew-funding": true, "renew-lead": true,
+		"method-default": true, "method-remove": true,
+		"quiet": true, "quiet-menu": true, "invoice": true,
 	}
 	for action := range expansionActions {
 		actions[action] = true

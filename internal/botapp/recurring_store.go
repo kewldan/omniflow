@@ -150,13 +150,18 @@ func (store *PostgresStore) RemoveMethod(ctx context.Context, customerID, method
 	return tx.Commit(ctx)
 }
 
-// SetRenewalFunding chooses what an automatic renewal is paid from.
+// SetRenewalFunding chooses what one subscription's automatic renewal is paid
+// from.
 //
 // Choosing a saved method requires one to exist, because the table refuses the
 // pair otherwise — and rightly: consenting to charge a card that is not there
 // is not a state worth representing.
+//
+// The row is addressed by `(user_id, subscription_id)`, the table's key since
+// v0.5. A saved method itself is customer-wide; which subscription spends it is
+// not.
 func (store *PostgresStore) SetRenewalFunding(
-	ctx context.Context, customerID, funding string,
+	ctx context.Context, customerID, subscriptionID, funding string,
 ) error {
 	if funding != recurring.FundingWallet && funding != recurring.FundingSavedMethod {
 		return errors.New("unsupported renewal funding")
@@ -165,7 +170,8 @@ func (store *PostgresStore) SetRenewalFunding(
 		_, err := store.pool.Exec(ctx,
 			`UPDATE auto_renew_settings
 			 SET funding = 'wallet', payment_method_id = NULL, updated_at = now()
-			 WHERE user_id = $1::uuid`, customerID)
+			 WHERE user_id = $1::uuid
+			   AND subscription_id IS NOT DISTINCT FROM NULLIF($2, '')::uuid`, customerID, subscriptionID)
 		return err
 	}
 	var methodID string
@@ -182,7 +188,8 @@ func (store *PostgresStore) SetRenewalFunding(
 	_, err = store.pool.Exec(ctx,
 		`UPDATE auto_renew_settings
 		 SET funding = 'saved_method', payment_method_id = $1::uuid, updated_at = now()
-		 WHERE user_id = $2::uuid`, methodID, customerID)
+		 WHERE user_id = $2::uuid
+		   AND subscription_id IS NOT DISTINCT FROM NULLIF($3, '')::uuid`, methodID, customerID, subscriptionID)
 	return err
 }
 
@@ -196,16 +203,17 @@ var errNoSavedMethod = errors.New("no saved payment method")
 // cannot configure a renewal a month early — that charges for a period they
 // have not reached and may not want.
 func (store *PostgresStore) SetRenewalLeadTime(
-	ctx context.Context, customerID string, lead time.Duration,
+	ctx context.Context, customerID, subscriptionID string, lead time.Duration,
 ) error {
 	seconds := int64(recurring.NormalizeLeadTime(lead).Seconds())
 	_, err := store.pool.Exec(ctx,
 		`UPDATE auto_renew_settings SET lead_time_seconds = $1, updated_at = now()
-		 WHERE user_id = $2::uuid`, seconds, customerID)
+		 WHERE user_id = $2::uuid
+		   AND subscription_id IS NOT DISTINCT FROM NULLIF($3, '')::uuid`, seconds, customerID, subscriptionID)
 	return err
 }
 
-// RenewalSettings is the customer's full auto-renew configuration.
+// RenewalSettings is the full auto-renew configuration of one subscription.
 type RenewalSettings struct {
 	AutoRenew
 	Funding     string
@@ -215,10 +223,10 @@ type RenewalSettings struct {
 	Consented   bool
 }
 
-// RenewalSettings reads the auto-renew configuration and the label of whatever
-// method it would charge.
+// RenewalSettings reads one subscription's auto-renew configuration and the
+// label of whatever method it would charge.
 func (store *PostgresStore) RenewalSettings(
-	ctx context.Context, customerID string,
+	ctx context.Context, customerID, subscriptionID string,
 ) (RenewalSettings, error) {
 	var (
 		settings      RenewalSettings
@@ -235,18 +243,23 @@ func (store *PostgresStore) RenewalSettings(
 		        a.funding, a.lead_time_seconds, a.state, a.consent_at, m.display_label
 		 FROM auto_renew_settings a
 		 LEFT JOIN payment_methods m ON m.id = a.payment_method_id
-		 WHERE a.user_id = $1::uuid`, customerID).
+		 WHERE a.user_id = $1::uuid
+		   AND a.subscription_id IS NOT DISTINCT FROM NULLIF($2, '')::uuid`, customerID, subscriptionID).
 		Scan(&settings.Enabled, &planVersionID, &provider, &currency, &cancelledAt,
 			&settings.Funding, &leadSeconds, &settings.State, &consentAt, &methodLabel)
 	if errors.Is(err, pgx.ErrNoRows) {
 		// No row is the documented default: auto-renew is off, funded from the
 		// wallet, with the standard lead time.
-		return RenewalSettings{Funding: recurring.FundingWallet, LeadTime: recurring.DefaultLeadTime,
-			State: recurring.StateIdle}, nil
+		return RenewalSettings{
+			AutoRenew: AutoRenew{SubscriptionID: subscriptionID},
+			Funding:   recurring.FundingWallet, LeadTime: recurring.DefaultLeadTime,
+			State: recurring.StateIdle,
+		}, nil
 	}
 	if err != nil {
 		return RenewalSettings{}, err
 	}
+	settings.SubscriptionID = subscriptionID
 	settings.PlanVersionID, settings.Provider, settings.Currency = planVersionID.String, provider.String, currency.String
 	settings.CancelledAt = cancelledAt.Time
 	settings.LeadTime = time.Duration(leadSeconds) * time.Second

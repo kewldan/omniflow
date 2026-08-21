@@ -143,6 +143,7 @@ var consequentialActions = map[string]bool{
 	// v0.5 actions that move money, provisioning, or database state.
 	"topup-pm": true, "cart-buy": true, "cart-clear": true, "cart-save": true,
 	"cart-auto": true, "addon-buy": true, "sub-revoke": true,
+	"renew-funding": true, "renew-lead": true, "method-default": true, "method-remove": true,
 	"ops-backup": true, "ops-restore": true,
 }
 

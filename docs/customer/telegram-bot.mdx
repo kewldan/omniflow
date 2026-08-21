@@ -228,7 +228,7 @@ When an operator enables concurrent subscriptions, the first menu row becomes
 validity date, plus `➕ Add a subscription` while the limit allows one. Opening
 one gives plan name, phase, valid-until, and — once provisioned — `🚀 Connect`,
 `📱 Devices`, `🔄 Rotate link`, alongside `♻️ Renew`, `🧩 Add-ons` where the plan
-offers any, and `✏️ Rename`.
+offers any, `♻️ Auto-renew`, and `✏️ Rename`.
 
 Phase badges are `No subscription`, `⚙️ Activating`, `🟢 Active`,
 `🟡 Expiring soon`, `🟠 Grace period`, `🟠 Limit reached`, `⚪️ Disabled`,
@@ -673,15 +673,32 @@ method supports recurring charges. We will remind you before expiry instead."
 Today YooKassa is the only adapter that advertises recurring support, so
 auto-renew requires YooKassa to be configured.
 
+Auto-renew is a setting **of one subscription**, not of the account. On a
+single-subscription installation the screen is that subscription's and the
+distinction is invisible. With concurrent subscriptions enabled, `♻️ Renew`
+first asks which subscription to configure — "Choose the subscription to
+configure" — and the chosen one's name heads the screen that follows; the same
+screen opens from `♻️ Auto-renew` on a subscription's own detail page. Every
+button on it names the subscription it changes, so arming one subscription
+never arms another.
+
 Off, the screen reads "♻️ Auto-renew is off — We will remind you 7, 3, and 1 day
-before expiry", with `Turn auto-renew on` and `💳 Payment methods`. On, it shows
-the plan, the method, `Charged to: <wallet or card label>`, the lead time, and
-lead-time buttons for 1, 3, and 7 days, plus a dunning notice when the last
-charge failed: "The last charge did not go through. We will try again
+before expiry", with `Turn auto-renew on` — offered only when the subscription
+holds a plan to renew — and `💳 Payment methods` when any method is saved. On,
+it shows the plan, the method, `Charged to: <wallet or card label>`, the lead
+time, and lead-time buttons for 1, 3, and 7 days, plus a dunning notice when the
+last charge failed: "The last charge did not go through. We will try again
 automatically", or, after several failures, "Automatic charging stopped after
 several failed attempts. Renew by hand or change your payment method." The
 provider's own failure code is deliberately not shown — "insufficient funds" and
 "declined" are operator vocabulary.
+
+The funding row offers `Wallet` always and `Saved card` only when a method is
+actually saved. With none, the screen says so instead — "No card is saved — the
+charge can only come from your wallet balance" — rather than rendering a button
+whose only outcome is a refusal. Today no code path saves a payment method, so
+on every installation the wallet is the only source a customer can pick; the
+saved-card controls exist for the day one is.
 
 `💳 Payment methods` lists each saved method with its provider label, which one
 is the default, and its status, under the notice:
@@ -689,8 +706,6 @@ is the default, and its status, under the notice:
 > We store only a reference issued by the payment provider — no card number and
 > no expiry date are kept.
 
-Choosing the saved-card funding source with no saved method is a normal outcome
-with its own message: one appears after paying by card with auto-renew on.
 Removing the last method promotes nothing, falls the funding source back to the
 wallet, and suspends auto-renew while keeping the consent record. Turning
 auto-renew off clears the plan, provider, currency, and consent but deliberately

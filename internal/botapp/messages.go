@@ -295,6 +295,16 @@ var catalog = map[string]phrase{
 		en: "⚠️ The last charge did not go through. We will try again automatically."},
 	"renew.suspended": {ru: "⚠️ Автосписание остановлено после нескольких неудачных попыток. Продлите вручную или измените способ оплаты.",
 		en: "⚠️ Automatic charging stopped after several failed attempts. Renew by hand or change your payment method."},
+	// Stated whenever no card is on file. A customer cannot add one from here —
+	// no code path saves a method yet — so the screen says the wallet is the only
+	// source rather than hinting at a button that is not there.
+	"renew.walletOnly": {ru: "Сохранённой карты нет — списание возможно только с баланса кошелька.",
+		en: "No card is saved — the charge can only come from your wallet balance."},
+	// Auto-renew is per subscription. With several, the customer names the one
+	// to configure before anything is shown.
+	"renew.pick": {ru: "♻️ <b>Автопродление</b>\n\nВыберите подписку, которую нужно настроить.",
+		en: "♻️ <b>Auto-renew</b>\n\nChoose the subscription to configure."},
+	"renew.autoRenew": {ru: "♻️ Автопродление", en: "♻️ Auto-renew"},
 
 	// Saved methods.
 	"methods.title":       {ru: "💳 <b>Способы оплаты</b>", en: "💳 <b>Payment methods</b>"},

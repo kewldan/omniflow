@@ -211,6 +211,11 @@ func subscriptionDetailView(locale Locale, subscription SubscriptionSummary, now
 	if hasAddons {
 		buttons = append(buttons, row(actionButton(text(locale, "addon.title.short"), "addons:"+subscription.ID)))
 	}
+	if subscription.Found {
+		// Auto-renew is configured per subscription, and this screen is the one
+		// place that already names which subscription is meant.
+		buttons = append(buttons, row(actionButton(text(locale, "renew.autoRenew"), "renew-settings:"+subscription.ID)))
+	}
 	buttons = append(buttons,
 		row(actionButton(text(locale, "subs.rename"), "sub-rename:"+subscription.ID)),
 		row(callbackButton(text(locale, "subs.back"), routeSubscriptions)),

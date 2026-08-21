@@ -15,12 +15,12 @@ rather than as a description of one code path.
 
 <Warning>
   **Current implementation state.** Auto-renew has one surface — the Telegram
-  bot — and three defects between the bot and the schema mean it cannot
-  currently be armed on a v0.5-or-later installation. The rules, the schedule,
-  and the operator read surfaces described on this page are implemented; the
-  path that creates a chargeable row is not. [What does not work
-  yet](#what-does-not-work-yet) states exactly which parts, so an operator can
-  tell what to expect before enabling a provider for recurring charges.
+  bot — which arms and disarms it per subscription. No code path saves a
+  payment method, so the wallet is the only funding source a customer can
+  choose. The rules, the schedule, and the operator read surfaces described on
+  this page are implemented. [What does not work yet](#what-does-not-work-yet)
+  states exactly which parts are not, so an operator can tell what to expect
+  before enabling a provider for recurring charges.
 </Warning>
 
 ## Auto-renew is opt-in
@@ -217,12 +217,18 @@ expiry. It also names the current state in words when it is not the ordinary
 one, so a customer whose card just failed does not have to work out from a
 silent screen why nothing happened.
 
+Every setting belongs to one subscription — the table is keyed on
+`(user_id, subscription_id)` — so each callback below carries the subscription
+it changes as its last segment. With concurrent subscriptions enabled the route
+first asks which subscription to configure (`renew-settings:<subscriptionID>`);
+on a single-subscription installation it resolves to the primary one.
+
 | Control | Callback | Effect |
 | --- | --- | --- |
-| Enable | `autorenew:on` | Picks the first payment choice whose adapter declares recurring support, records the plan, provider, currency, `consent_at`, and state `scheduled` |
-| Disable | `autorenew:off` | Clears consent, sets state `idle`, stamps `cancelled_at`, and leaves saved methods alone |
-| Funding | `renew-funding:wallet`, `renew-funding:saved_method` | Chooses where the charge comes from |
-| Lead time | `renew-lead:1`, `:3`, `:7` | Days of warning before expiry |
+| Enable | `autorenew:on:<subscriptionID>` | Picks the first payment choice whose adapter declares recurring support, records the subscription, plan, provider, currency, `consent_at`, and state `scheduled` |
+| Disable | `autorenew:off:<subscriptionID>` | Clears consent, sets state `idle`, stamps `cancelled_at`, and leaves saved methods alone |
+| Funding | `renew-funding:wallet:<subscriptionID>`, `renew-funding:saved_method:<subscriptionID>` | Chooses where the charge comes from. The saved-method button is rendered only when a method is saved |
+| Lead time | `renew-lead:1:<subscriptionID>`, `:3:…`, `:7:…` | Days of warning before expiry |
 | Payment methods | `methods` route | List, `method-default:<id>`, `method-remove:<id>` |
 
 If no enabled provider declares recurring support for the customer's currency,
@@ -292,19 +298,6 @@ save a method, so no token is ever returned to bind. Every customer's saved-meth
 list is therefore empty, `funding = 'saved_method'` cannot be selected, and the
 only reachable funding source is the wallet. The removal and revocation logic
 described above is implemented; the creation is not.
-
-**The bot's auto-renew writes target an index that no longer exists.** Both the
-enable and the disable statement use `ON CONFLICT (user_id)`, while the table's
-uniqueness moved to `(user_id, subscription_id)` in the v0.5 migration.
-PostgreSQL will not infer a two-column index from a one-column conflict target,
-so both statements fail at runtime and the bot renders its generic error screen.
-A customer cannot currently arm or disarm auto-renew from the bot.
-
-**The due-renewal query cannot match a bot-written row.** It joins the
-entitlement on `subscription_id IS NOT DISTINCT FROM` the setting's, and the
-bot's insert never sets `subscription_id`. Every entitlement created since v0.5
-carries one, so the join yields nothing and no renewal is scheduled even where a
-row exists.
 
 **Auto-renew has no web or panel surface.** It appears nowhere in the customer
 web panel and nowhere in `/admin` beyond the read-only charge history and the

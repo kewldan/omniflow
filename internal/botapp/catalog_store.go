@@ -295,52 +295,72 @@ func (store *PostgresStore) TrialContext(ctx context.Context, customerID string)
 	return request, nil
 }
 
-// AutoRenew is the customer's recurring-billing intent.
+// AutoRenew is the customer's recurring-billing intent for one subscription.
 type AutoRenew struct {
 	Enabled       bool
 	PlanVersionID string
 	Provider      string
 	Currency      string
 	CancelledAt   time.Time
+	// SubscriptionID names the subscription the setting renews. The table is
+	// keyed on (user_id, subscription_id), so a customer with several
+	// subscriptions may renew one automatically and keep another manual. It is
+	// empty only for a row written before the subscription existed.
+	SubscriptionID string
 }
 
-// AutoRenew reads the customer's auto-renew intent.
-func (store *PostgresStore) AutoRenew(ctx context.Context, customerID string) (AutoRenew, error) {
+// AutoRenew reads the auto-renew intent for one subscription. An empty
+// subscription identifier addresses the row with no subscription, which is what
+// a pre-v0.5 row looks like.
+func (store *PostgresStore) AutoRenew(ctx context.Context, customerID, subscriptionID string) (AutoRenew, error) {
 	var (
 		setting       AutoRenew
 		planVersionID pgtype.Text
 		provider      pgtype.Text
 		currency      pgtype.Text
 		cancelledAt   pgtype.Timestamptz
+		subscription  pgtype.Text
 	)
-	err := store.pool.QueryRow(ctx, `SELECT enabled, plan_version_id::text, provider, currency, cancelled_at
-		FROM auto_renew_settings WHERE user_id = $1::uuid`, customerID).
-		Scan(&setting.Enabled, &planVersionID, &provider, &currency, &cancelledAt)
+	err := store.pool.QueryRow(ctx, `SELECT enabled, plan_version_id::text, provider, currency, cancelled_at,
+			subscription_id::text
+		FROM auto_renew_settings
+		WHERE user_id = $1::uuid AND subscription_id IS NOT DISTINCT FROM NULLIF($2, '')::uuid`,
+		customerID, subscriptionID).
+		Scan(&setting.Enabled, &planVersionID, &provider, &currency, &cancelledAt, &subscription)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return AutoRenew{}, nil
+		return AutoRenew{SubscriptionID: subscriptionID}, nil
 	}
 	if err != nil {
 		return AutoRenew{}, err
 	}
 	setting.PlanVersionID, setting.Provider, setting.Currency = planVersionID.String, provider.String, currency.String
 	setting.CancelledAt = cancelledAt.Time
+	setting.SubscriptionID = subscription.String
 	return setting, nil
 }
 
-// SetAutoRenew records or cancels the customer's auto-renew intent. Enabling it
-// requires a plan, a provider, and a currency; cancelling only needs the
-// customer, so a customer can always turn it off.
+// SetAutoRenew records or cancels the customer's auto-renew intent for one
+// subscription. Enabling it requires a plan, a provider, and a currency;
+// cancelling only needs the customer and the subscription, so a customer can
+// always turn it off.
+//
+// Both statements name `(user_id, subscription_id)` as the conflict target. The
+// table's uniqueness moved there in the v0.5 migration, and the index is
+// declared NULLS NOT DISTINCT, so a row with no subscription is still one row.
+// The renewal worker joins the entitlement on the same pair, which is why the
+// subscription has to be written here: a row without one matches no
+// entitlement and is never renewed.
 func (store *PostgresStore) SetAutoRenew(ctx context.Context, customerID string, setting AutoRenew) error {
 	if !setting.Enabled {
 		// Turning it off returns the state to idle so the worker stops looking at
 		// the row, and clears the consent that made it chargeable. Saved methods
 		// are deliberately left alone: withdrawing agreement to automatic
 		// charging is not the same as asking for a card to be forgotten.
-		_, err := store.pool.Exec(ctx, `INSERT INTO auto_renew_settings (user_id, enabled, cancelled_at)
-			VALUES ($1::uuid, false, now())
-			ON CONFLICT (user_id) DO UPDATE SET enabled = false, plan_version_id = NULL, provider = NULL,
+		_, err := store.pool.Exec(ctx, `INSERT INTO auto_renew_settings (user_id, subscription_id, enabled, cancelled_at)
+			VALUES ($1::uuid, NULLIF($2, '')::uuid, false, now())
+			ON CONFLICT (user_id, subscription_id) DO UPDATE SET enabled = false, plan_version_id = NULL, provider = NULL,
 				currency = NULL, cancelled_at = now(), consent_at = NULL, state = 'idle',
-				updated_at = now()`, customerID)
+				updated_at = now()`, customerID, setting.SubscriptionID)
 		return err
 	}
 	if setting.PlanVersionID == "" || setting.Provider == "" || setting.Currency == "" {
@@ -351,12 +371,12 @@ func (store *PostgresStore) SetAutoRenew(ctx context.Context, customerID string,
 	// written by an import or a migration has a true `enabled` and no evidence
 	// that anybody agreed to anything, and it must not produce a charge.
 	_, err := store.pool.Exec(ctx, `INSERT INTO auto_renew_settings
-			(user_id, enabled, plan_version_id, provider, currency, consent_at, state)
-		VALUES ($1::uuid, true, $2::uuid, $3, $4, now(), 'scheduled')
-		ON CONFLICT (user_id) DO UPDATE SET enabled = true, plan_version_id = EXCLUDED.plan_version_id,
+			(user_id, subscription_id, enabled, plan_version_id, provider, currency, consent_at, state)
+		VALUES ($1::uuid, NULLIF($2, '')::uuid, true, $3::uuid, $4, $5, now(), 'scheduled')
+		ON CONFLICT (user_id, subscription_id) DO UPDATE SET enabled = true, plan_version_id = EXCLUDED.plan_version_id,
 			provider = EXCLUDED.provider, currency = EXCLUDED.currency, cancelled_at = NULL,
 			consent_at = now(), state = 'scheduled', last_failure_code = NULL, updated_at = now()`,
-		customerID, setting.PlanVersionID, setting.Provider, setting.Currency)
+		customerID, setting.SubscriptionID, setting.PlanVersionID, setting.Provider, setting.Currency)
 	return err
 }
 
