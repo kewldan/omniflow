@@ -66,6 +66,11 @@ export default function SupportTicketsPage() {
   // server holds the real rule and refuses accordingly; this is the early warning,
   // not the enforcement.
   const quotaReached = Boolean(limits && openCount >= limits.maxOpenTickets);
+  // The wording about where a reply arrives follows the account. A customer
+  // who signed in by magic link and never opened the bot is not promised a
+  // Telegram push that cannot happen; until the first page answers, the
+  // narrower promise is the safe one.
+  const telegramLinked = pages[0]?.telegramLinked ?? false;
 
   return (
     <div className="animate-step-in space-y-4">
@@ -76,7 +81,7 @@ export default function SupportTicketsPage() {
           {translate("tickets.title")}
         </h1>
         <p className="text-[12.5px] text-muted-foreground leading-relaxed">
-          {translate("tickets.subtitle")}
+          {translate(telegramLinked ? "tickets.subtitle" : "tickets.subtitleWebOnly")}
         </p>
       </header>
 
@@ -120,7 +125,9 @@ export default function SupportTicketsPage() {
         />
       ) : tickets.length === 0 ? (
         <AccountNotice
-          description={translate("tickets.emptyDescription")}
+          description={translate(
+            telegramLinked ? "tickets.emptyDescription" : "tickets.emptyDescriptionWebOnly",
+          )}
           title={translate("tickets.empty")}
         />
       ) : (

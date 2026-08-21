@@ -73,7 +73,17 @@ export type SupportMessage = {
 
 export type SupportConversation = { ticket: SupportTicket; messages: SupportMessage[] };
 
-export type SupportTicketPage = { items: SupportTicket[]; nextCursor?: string };
+export type SupportTicketPage = {
+  items: SupportTicket[];
+  nextCursor?: string;
+  /**
+   * Whether an operator's reply can be pushed to this customer in Telegram. It
+   * is what decides whether the screen says "here and in Telegram" or just
+   * "here" — a promise about a push is only made to somebody who can receive
+   * one.
+   */
+  telegramLinked: boolean;
+};
 
 export type NewsCategory = "news" | "announcement" | "incident" | "maintenance";
 

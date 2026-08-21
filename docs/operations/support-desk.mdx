@@ -280,6 +280,13 @@ regime.
   the consent, quiet-hours, and frequency-cap checks — a reply is something the
   customer asked for — but they do write a delivery row, which is where the
   retry count and the undeliverable reason live.
+
+  The customer is told which case they are in. `GET /v1/account/support/tickets`
+  carries `telegramLinked`, true when the account has an active Telegram
+  identity or the imported Remnawave mapping the delivery query also accepts,
+  and the panel words its support page from it: "answered here and in
+  Telegram" for a linked account, "answered here" with a hint to open the bot
+  for one that is not.
 </Warning>
 
 ### Canned responses

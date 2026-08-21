@@ -111,11 +111,19 @@ func (handlers *AccountHandlers) listSupportTickets(
 	if handlers.writeSupportError(writer, request, err) {
 		return
 	}
+	// Whether a reply can reach this customer in Telegram rides along with the
+	// list, so the panel's wording about where answers arrive is about this
+	// customer. It is a fact about the account rather than about a page, and
+	// it is cheap, so every page carries it rather than only the first.
+	linked, err := handlers.support.TelegramLinked(request.Context(), principal.Customer.ID)
+	if handlers.writeSupportError(writer, request, err) {
+		return
+	}
 	items := make([]map[string]any, 0, len(page.Items))
 	for _, ticket := range page.Items {
 		items = append(items, supportTicketPayload(ticket))
 	}
-	payload := map[string]any{"items": items}
+	payload := map[string]any{"items": items, "telegramLinked": linked}
 	if page.NextCursor != "" {
 		payload["nextCursor"] = page.NextCursor
 	}

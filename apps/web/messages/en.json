@@ -3222,7 +3222,9 @@
         "quota": "You have as many open conversations as we allow",
         "quotaDescription": "This installation allows {limit} at a time. Continue one of the conversations below, or close one you no longer need.",
         "error": "Conversations could not be loaded",
-        "errorDescription": "The list could not be read just now. Try again in a moment."
+        "errorDescription": "The list could not be read just now. Try again in a moment.",
+        "subtitleWebOnly": "Answered here. Link Telegram in the bot to get replies pushed to your chat as well.",
+        "emptyDescriptionWebOnly": "Ask us anything. The reply arrives here; open the Telegram bot with this account if you would also like it pushed to your chat."
       },
       "new": {
         "title": "Start a conversation",

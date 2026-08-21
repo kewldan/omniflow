@@ -227,6 +227,27 @@ func (service *Service) Tickets(
 	return page, nil
 }
 
+// TelegramLinked reports whether an operator's reply can be pushed to this
+// customer at all.
+//
+// It asks the same question the bot's delivery query asks — an active Telegram
+// identity, or the Remnawave mapping an installation imported before the
+// identity table existed — so the panel's "answered here and in Telegram" is a
+// statement about this customer rather than about customers in general. Someone
+// who signed in by magic link or OIDC and never opened the bot is told that
+// replies arrive here, which is the truth.
+func (service *Service) TelegramLinked(ctx context.Context, customerID string) (bool, error) {
+	var linked bool
+	err := service.pool.QueryRow(ctx, `SELECT EXISTS (
+			SELECT 1 FROM identities i
+			WHERE i.user_id = $1::uuid AND i.provider = 'telegram' AND i.status = 'active'
+		) OR EXISTS (
+			SELECT 1 FROM remnawave_users r
+			WHERE r.user_id = $1::uuid AND r.telegram_id IS NOT NULL
+		)`, customerID).Scan(&linked)
+	return linked, err
+}
+
 // Conversation reads one ticket with its customer-visible messages.
 func (service *Service) Conversation(
 	ctx context.Context, customerID, ticketID string,
