@@ -329,6 +329,20 @@ pushes them back to the bot. The absolute horizon and rotation do the security
 work instead, together with re-authentication on the few actions that warrant it.
 Neither panel's lifetimes are configurable — they are the compiled-in defaults.
 
+Rotation is built to survive the way a browser actually loads a page: several
+requests at once, all carrying the cookie the tab held when it opened. When that
+burst lands on the rotation boundary, exactly one request swaps the token — the
+swap is a compare-and-set on the digest it arrived with, so a second request
+cannot overwrite it — and the superseded token keeps resolving for **one minute**
+through a forwarding entry in Valkey that names the session and carries the
+replacement sealed under the installation's data key. A request that arrives on
+the old cookie inside that minute is answered normally and leaves with the new
+cookie; only after the minute is the old token a dead one, and only a dead one
+has its cookie cleared. If Valkey cannot be reached at the moment a rotation is
+due, the rotation is skipped and retried on a later request rather than
+performed without the forwarding entry — a session that rotates a day late is a
+smaller failure than a customer signed out for no reason they can see.
+
 **Re-authentication** applies to the four actions a stolen but still-live cookie
 could otherwise use to lock the real owner out or to make something
 irreversible happen:

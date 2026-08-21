@@ -278,25 +278,68 @@ func (service *Service) openSession(
 // It also performs the two upkeep steps that must not be scattered across
 // handlers: sliding the inactivity deadline forward, and rotating the token once
 // it is due. A rotated token is returned so transport can reissue the cookie.
+//
+// A digest the table does not hold is not yet a dead session: it may have
+// rotated away a moment ago under a concurrent request from the same browser,
+// and the grace path in rotation.go checks for that before refusing.
 func (service *Service) Resolve(ctx context.Context, sessionToken string) (Principal, error) {
 	queries := dbgen.New(service.pool)
-	row, err := queries.GetCustomerSessionByToken(ctx, customerauth.HashSessionToken(sessionToken))
+	digest := customerauth.HashSessionToken(sessionToken)
+	row, err := queries.GetCustomerSessionByToken(ctx, digest)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return Principal{}, ErrSessionInvalid
+		return service.resolveSupersededToken(ctx, queries, digest)
 	}
 	if err != nil {
 		return Principal{}, err
 	}
 
-	now := service.now()
-	state := customerauth.SessionState{
+	principal, err := service.principalFromSession(sessionRow(row))
+	if err != nil {
+		return Principal{}, err
+	}
+
+	state := sessionState(sessionRow(row))
+	if service.sessions.ShouldRotate(state, service.now()) {
+		rotated, rotateErr := service.rotateSessionToken(ctx, queries, row, digest)
+		if rotateErr != nil {
+			return Principal{}, rotateErr
+		}
+		if rotated != "" {
+			principal.RotatedToken = rotated
+			return principal, nil
+		}
+		// Another request is rotating, or the grace store is unavailable. The
+		// session is valid on the token it came with; only the swap waits.
+	}
+
+	// Sliding the deadline is best-effort: a failure here must not turn a valid
+	// request into an authentication error, and the next request retries it.
+	_, _ = queries.TouchCustomerSession(ctx, dbgen.TouchCustomerSessionParams{
+		SessionID: row.ID, IdleWindow: interval(service.sessions.IdleTimeout),
+	})
+	return principal, nil
+}
+
+// sessionRow is the shape both session lookups return; the two generated row
+// types are field-for-field identical, so either converts directly.
+type sessionRow dbgen.GetCustomerSessionByIDRow
+
+func sessionState(row sessionRow) customerauth.SessionState {
+	return customerauth.SessionState{
 		CreatedAt:       row.CreatedAt.Time.UTC(),
 		RotatedAt:       row.RotatedAt.Time.UTC(),
 		IdleExpiresAt:   row.IdleExpiresAt.Time.UTC(),
 		AbsoluteExpires: row.AbsoluteExpiresAt.Time.UTC(),
 		RevokedAt:       timePointer(row.RevokedAt),
 	}
-	if err = service.sessions.Validate(state, now); err != nil {
+}
+
+// principalFromSession judges a session row against the policy and the
+// account behind it, and builds the principal for a request that passes.
+func (service *Service) principalFromSession(row sessionRow) (Principal, error) {
+	now := service.now()
+	state := sessionState(row)
+	if err := service.sessions.Validate(state, now); err != nil {
 		return Principal{}, ErrSessionInvalid
 	}
 	// A suspended or deleted customer holding a live cookie is refused here
@@ -304,8 +347,7 @@ func (service *Service) Resolve(ctx context.Context, sessionToken string) (Princ
 	if row.UserStatus != "active" {
 		return Principal{}, ErrAccountInactive
 	}
-
-	principal := Principal{
+	return Principal{
 		Customer: Customer{
 			ID: uuidString(row.UserID), Status: row.UserStatus,
 			Locale: row.UserLocale, Timezone: row.UserTimezone,
@@ -316,26 +358,5 @@ func (service *Service) Resolve(ctx context.Context, sessionToken string) (Princ
 		CSRFToken:                customerauth.CSRFToken(row.CsrfSecret),
 		ExpiresAt:                state.AbsoluteExpires,
 		ReauthenticationRequired: service.sessions.RequiresReauthentication(state, now),
-	}
-
-	if service.sessions.ShouldRotate(state, now) {
-		rotated, digest, rotateErr := customerauth.NewSessionToken()
-		if rotateErr != nil {
-			return Principal{}, rotateErr
-		}
-		if _, rotateErr = queries.RotateCustomerSessionToken(ctx, dbgen.RotateCustomerSessionTokenParams{
-			SessionID: row.ID, TokenHash: digest, IdleWindow: interval(service.sessions.IdleTimeout),
-		}); rotateErr != nil {
-			return Principal{}, rotateErr
-		}
-		principal.RotatedToken = rotated
-		return principal, nil
-	}
-
-	// Sliding the deadline is best-effort: a failure here must not turn a valid
-	// request into an authentication error, and the next request retries it.
-	_, _ = queries.TouchCustomerSession(ctx, dbgen.TouchCustomerSessionParams{
-		SessionID: row.ID, IdleWindow: interval(service.sessions.IdleTimeout),
-	})
-	return principal, nil
+	}, nil
 }

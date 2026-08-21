@@ -93,6 +93,10 @@ type Service struct {
 
 	// botName caches the bot's own @name for the login widget. See telegram.go.
 	botName telegramBotUsername
+
+	// rotationGrace is the temporary store that makes token rotation safe under
+	// concurrent requests. Nil means rotation is skipped; see rotation.go.
+	rotationGrace RotationGraceStore
 }
 
 // Options configures a Service. Zero values fall back to the domain defaults.

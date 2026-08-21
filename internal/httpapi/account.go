@@ -70,6 +70,16 @@ func NewAccountHandlers(options AccountOptions) *AccountHandlers {
 	if logger == nil {
 		logger = slog.Default()
 	}
+	// Session-token rotation needs a temporary store to be safe under the
+	// burst of parallel requests a page load produces; the limiter already
+	// holds the Valkey connection, so it is lent here rather than a second
+	// one being threaded through the process wiring. Without a store the
+	// identity service skips rotation instead of performing it unsafely.
+	if options.Auth != nil && options.Limiter != nil {
+		if store := options.Limiter.TemporaryStore(); store != nil {
+			options.Auth.SetRotationGrace(store)
+		}
+	}
 	return &AccountHandlers{
 		auth: options.Auth, account: options.Account, limiter: options.Limiter,
 		logger: logger, proxies: proxies,

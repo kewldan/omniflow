@@ -477,6 +477,10 @@ type Querier interface {
 	GetCustomerOverview(ctx context.Context, id pgtype.UUID) (GetCustomerOverviewRow, error)
 	GetCustomerReferralCode(ctx context.Context, userID pgtype.UUID) (GetCustomerReferralCodeRow, error)
 	GetCustomerReferrer(ctx context.Context, referredUserID pgtype.UUID) (GetCustomerReferrerRow, error)
+	// The grace path after a rotation: a request that arrived with the superseded
+	// cookie resolves the session by the identifier the short-lived forwarding
+	// entry names, rather than by a digest the table no longer holds.
+	GetCustomerSessionByID(ctx context.Context, sessionID pgtype.UUID) (GetCustomerSessionByIDRow, error)
 	// Resolves a cookie into a session and the customer behind it in one round trip,
 	// because this runs on every authenticated request.
 	GetCustomerSessionByToken(ctx context.Context, tokenHash []byte) (GetCustomerSessionByTokenRow, error)
@@ -1266,6 +1270,14 @@ type Querier interface {
 	// Swapping the token behind a live session shortens the window in which one
 	// captured from a log or a proxy stays replayable. The unique index on
 	// `token_hash` means a colliding rotation fails rather than merging sessions.
+	//
+	// The swap is a compare-and-set on the current digest. A browser fires several
+	// requests at once when a page opens, and when the session is due for rotation
+	// every one of them arrives holding the same cookie; without the predicate each
+	// would install its own token and the last writer would silently invalidate the
+	// cookie the others had already told the browser to keep. With it exactly one
+	// request rotates and the rest find zero rows and carry on with the token they
+	// came with.
 	RotateCustomerSessionToken(ctx context.Context, arg RotateCustomerSessionTokenParams) (CustomerSession, error)
 	// One row per day with a sale in it.
 	//

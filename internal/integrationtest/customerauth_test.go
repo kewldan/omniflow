@@ -38,7 +38,57 @@ func newCustomerService(t *testing.T, harness *harness, now func() time.Time) *c
 	if err != nil {
 		t.Fatalf("build customer service: %v", err)
 	}
+	// Rotation needs a temporary store and is skipped without one. The suite
+	// runs without Valkey, so an in-memory store with the same single-winner
+	// Claim semantics stands in, driven by the test's own clock so the grace
+	// window can be walked past deterministically.
+	service.SetRotationGrace(newMemoryGraceStore(now))
 	return service
+}
+
+// memoryGraceStore is customerauthpg.RotationGraceStore over a map. Claim is
+// atomic under the mutex, which is the property the rotation election relies
+// on; expiry follows the clock the service itself reads.
+type memoryGraceStore struct {
+	mu      sync.Mutex
+	now     func() time.Time
+	entries map[string]memoryGraceEntry
+}
+
+type memoryGraceEntry struct {
+	value     string
+	expiresAt time.Time
+}
+
+func newMemoryGraceStore(now func() time.Time) *memoryGraceStore {
+	return &memoryGraceStore{now: now, entries: map[string]memoryGraceEntry{}}
+}
+
+func (store *memoryGraceStore) Claim(_ context.Context, key, value string, ttl time.Duration) (bool, error) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if entry, ok := store.entries[key]; ok && store.now().Before(entry.expiresAt) {
+		return false, nil
+	}
+	store.entries[key] = memoryGraceEntry{value: value, expiresAt: store.now().Add(ttl)}
+	return true, nil
+}
+
+func (store *memoryGraceStore) Lookup(_ context.Context, key string) (string, bool, error) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	entry, ok := store.entries[key]
+	if !ok || !store.now().Before(entry.expiresAt) {
+		return "", false, nil
+	}
+	return entry.value, true, nil
+}
+
+func (store *memoryGraceStore) Forget(_ context.Context, key string) error {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	delete(store.entries, key)
+	return nil
 }
 
 // newAccountHandlersForTest builds the customer API over a real service.
@@ -152,8 +202,10 @@ func TestResolveSlidesRotatesAndRefusesRevokedSessions(t *testing.T) {
 		t.Fatal("an old session was not flagged for re-authentication")
 	}
 
-	// Past the rotation window the token is swapped, and the old one stops
-	// resolving so a captured cookie has a bounded life.
+	// Past the rotation window the token is swapped. The old one keeps
+	// resolving for the grace window — and hands back the replacement, so a
+	// browser whose winning response was lost still converges — and then stops,
+	// so a captured cookie has a bounded life.
 	clock = clock.Add(customerauth.DefaultSessionPolicy.RotateAfter + time.Minute)
 	rotated, err := service.Resolve(ctx, result.Token)
 	if err != nil {
@@ -162,8 +214,19 @@ func TestResolveSlidesRotatesAndRefusesRevokedSessions(t *testing.T) {
 	if rotated.RotatedToken == "" {
 		t.Fatal("a session past the rotation window was not rotated")
 	}
+	graced, err := service.Resolve(ctx, result.Token)
+	if err != nil {
+		t.Fatalf("the pre-rotation token was refused inside the grace window: %v", err)
+	}
+	if graced.RotatedToken != rotated.RotatedToken {
+		t.Fatal("the grace path did not reissue the replacement token")
+	}
+	if graced.SessionID != rotated.SessionID {
+		t.Fatal("the grace path resolved a different session")
+	}
+	clock = clock.Add(customerauthpg.RotationGrace + time.Second)
 	if _, err = service.Resolve(ctx, result.Token); !errors.Is(err, customerauthpg.ErrSessionInvalid) {
-		t.Fatalf("the pre-rotation token still resolves: %v", err)
+		t.Fatalf("the pre-rotation token still resolves after the grace window: %v", err)
 	}
 	if _, err = service.Resolve(ctx, rotated.RotatedToken); err != nil {
 		t.Fatalf("the rotated token does not resolve: %v", err)
@@ -177,6 +240,130 @@ func TestResolveSlidesRotatesAndRefusesRevokedSessions(t *testing.T) {
 	}
 	if _, err = service.Resolve(ctx, rotated.RotatedToken); !errors.Is(err, customerauthpg.ErrSessionInvalid) {
 		t.Fatalf("a revoked session still resolves: %v", err)
+	}
+}
+
+// A page load fires several requests at once, all on the same cookie. When
+// that lands on the rotation boundary, every one of them must keep the
+// session: exactly one swaps the token, the rest either carry on with the old
+// one or are forwarded to the new one, and nobody is told to sign in again.
+// Before the compare-and-set and the grace window, the last writer won and the
+// losers had their cookie cleared.
+func TestConcurrentRequestsAtRotationAllKeepTheSession(t *testing.T) {
+	ctx := context.Background()
+	harness := newHarness(t)
+	clock := time.Now().UTC()
+	service := newCustomerService(t, harness, func() time.Time { return clock })
+
+	result, err := service.SignInWithTelegram(ctx, signedWidget(700250, clock), customerauthpg.RequestContext{})
+	if err != nil {
+		t.Fatalf("sign in: %v", err)
+	}
+	clock = clock.Add(customerauth.DefaultSessionPolicy.RotateAfter + time.Minute)
+
+	const parallel = 8
+	var wait sync.WaitGroup
+	var mu sync.Mutex
+	principals := make([]customerauthpg.Principal, 0, parallel)
+	failures := make([]error, 0)
+	for range parallel {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			principal, resolveErr := service.Resolve(ctx, result.Token)
+			mu.Lock()
+			defer mu.Unlock()
+			if resolveErr != nil {
+				failures = append(failures, resolveErr)
+				return
+			}
+			principals = append(principals, principal)
+		}()
+	}
+	wait.Wait()
+
+	if len(failures) != 0 {
+		t.Fatalf("%d of %d parallel requests lost the session: %v", len(failures), parallel, failures)
+	}
+	replacement := ""
+	for _, principal := range principals {
+		if principal.SessionID != result.SessionID {
+			t.Fatalf("a request resolved session %s, want %s", principal.SessionID, result.SessionID)
+		}
+		if principal.RotatedToken == "" {
+			continue
+		}
+		if replacement == "" {
+			replacement = principal.RotatedToken
+		} else if principal.RotatedToken != replacement {
+			t.Fatal("two different replacement tokens were issued for one rotation")
+		}
+	}
+	if replacement == "" {
+		t.Fatal("no request rotated the token")
+	}
+
+	// Afterwards both cookies a browser could be holding resolve: the new one
+	// outright, the old one through the grace entry.
+	if _, err = service.Resolve(ctx, replacement); err != nil {
+		t.Fatalf("the replacement token does not resolve: %v", err)
+	}
+	if _, err = service.Resolve(ctx, result.Token); err != nil {
+		t.Fatalf("the superseded token was refused inside the grace window: %v", err)
+	}
+
+	var tokens int
+	if err = harness.pool.QueryRow(ctx,
+		`SELECT count(*) FROM customer_sessions WHERE token_hash = $1`,
+		customerauth.HashSessionToken(replacement),
+	).Scan(&tokens); err != nil {
+		t.Fatalf("count sessions: %v", err)
+	}
+	if tokens != 1 {
+		t.Fatalf("the table holds %d rows for the replacement token, want 1", tokens)
+	}
+}
+
+// A stale cookie the panel presents after a rotation must not be cleared by
+// the middleware: the customer's browser is forwarded to the new token, and
+// the response carries it.
+func TestMiddlewareForwardsASupersededCookieInsteadOfClearingIt(t *testing.T) {
+	ctx := context.Background()
+	harness := newHarness(t)
+	clock := time.Now().UTC()
+	service := newCustomerService(t, harness, func() time.Time { return clock })
+	router := mountAccount(newAccountHandlersForTest(service))
+
+	result, err := service.SignInWithTelegram(ctx, signedWidget(700260, clock), customerauthpg.RequestContext{})
+	if err != nil {
+		t.Fatalf("sign in: %v", err)
+	}
+	clock = clock.Add(customerauth.DefaultSessionPolicy.RotateAfter + time.Minute)
+	rotated, err := service.Resolve(ctx, result.Token)
+	if err != nil || rotated.RotatedToken == "" {
+		t.Fatalf("rotate: %v (rotated %q)", err, rotated.RotatedToken)
+	}
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/v1/account/me", nil)
+	request.AddCookie(&http.Cookie{Name: "__Host-omniflow_account", Value: result.Token})
+	router.ServeHTTP(recorder, request)
+	if recorder.Code == http.StatusUnauthorized {
+		t.Fatalf("a superseded cookie inside the grace window was refused: %s", recorder.Body.String())
+	}
+	reissued := false
+	for _, cookie := range recorder.Result().Cookies() {
+		if cookie.Name == "__Host-omniflow_account" {
+			if cookie.MaxAge < 0 || cookie.Value == "" {
+				t.Fatal("the middleware cleared a superseded cookie inside the grace window")
+			}
+			if cookie.Value == rotated.RotatedToken {
+				reissued = true
+			}
+		}
+	}
+	if !reissued {
+		t.Fatal("the response did not carry the replacement token")
 	}
 }
 
