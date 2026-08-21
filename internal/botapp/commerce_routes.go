@@ -683,7 +683,13 @@ func (app *App) beginTicketReply(ctx context.Context, session commerceContext, t
 }
 
 func (app *App) setTicketStatus(ctx context.Context, session commerceContext, ticketID, status string) View {
-	if err := app.customers.SetTicketStatus(ctx, session.Customer.ID, ticketID, status); err != nil && !errors.Is(err, ErrTicketNotFound) {
+	err := app.customers.SetTicketStatus(ctx, session.Customer.ID, ticketID, status)
+	if view, final := supportSubmitOutcome(session.Locale, err); final && !errors.Is(err, ErrTicketNotFound) {
+		// A merged or closed conversation explains itself rather than showing a
+		// generic failure for a button that was stale when it was pressed.
+		return view
+	}
+	if err != nil && !errors.Is(err, ErrTicketNotFound) {
 		app.logger.Error("support ticket status update failed", "error", err)
 		return app.errorView(session.Locale, routeSupport)
 	}

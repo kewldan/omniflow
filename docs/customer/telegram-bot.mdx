@@ -596,11 +596,27 @@ is refused.
 
 A thread shows the subject, status, last update, and up to twenty messages
 oldest-first, each prefixed `👤 You`, `🛟 Support`, or `⚙️ System`, with
-attachments listed as `📎 <name> (<size>)`. An open request offers `✍️ Reply` and
-`✅ Close request`; a closed one offers `♻️ Reopen`. Replying to a closed request
-is refused with "This request is closed. Reopen it or create a new one." Writing
-to a request an operator marked resolved reopens it, because a customer who
-writes back has not had their question answered.
+attachments listed as `📎 <name> (<size>)`. The status reads `open`,
+`waiting for you` (the desk's `pending`), `resolved`, `closed`, or `merged`, in
+the customer's language. The buttons follow the same rules the web panel
+enforces:
+
+| Status | Buttons | What writing does |
+| --- | --- | --- |
+| `open` | `✍️ Reply`, `✅ Close request` | Appends to the conversation |
+| `waiting for you` | `✍️ Reply`, `✅ Close request` | Appends and puts the request back in front of the operator |
+| `resolved` | `✍️ Reply`, `♻️ Reopen`, `✅ Close request` | Reopens it — a customer who writes back has not had their question answered |
+| `closed` | `♻️ Reopen` | Refused: "This request is closed. Reopen it or create a new one." |
+| `merged` | none | Refused with a pointer at the request list, where the conversation continues |
+
+Reopening counts towards the ticket's reopen tally and raises the operator's
+unread badge, exactly as it does from the web panel, so a reopen from the chat
+appears as new work in the queue. A storage failure — the installation has no
+default queue, the database is down — is reported as "Support is unavailable
+right now" and the message is not saved; it is never blamed on the message's
+length. When the request the customer was writing to turns out to be closed,
+merged, or gone, the compose session ends, so the next line typed goes to the
+menu rather than back into the same refusal.
 
 `✍️ New request` continues the most recent open conversation rather than opening
 a second one — that is what a customer typing into the chat means. The ticket

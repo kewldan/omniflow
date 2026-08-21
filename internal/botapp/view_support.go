@@ -67,15 +67,53 @@ func supportTicketView(locale Locale, ticket Ticket, messages []TicketMessage) V
 		}
 		lines = append(lines, "")
 	}
-	rows := make([][]models.InlineKeyboardButton, 0, 3)
-	if ticket.Status == "open" {
-		rows = append(rows, row(actionButton(text(locale, "support.reply"), "ticket-reply:"+ticket.ID)))
-		rows = append(rows, row(actionButton(text(locale, "support.close"), "ticket-close:"+ticket.ID)))
-	} else {
-		rows = append(rows, row(actionButton(text(locale, "support.reopen"), "ticket-open:"+ticket.ID)))
+	rows := make([][]models.InlineKeyboardButton, 0, 4)
+	for _, action := range supportTicketActions(ticket.Status) {
+		rows = append(rows, row(actionButton(text(locale, action.label), action.action+":"+ticket.ID)))
+	}
+	switch ticket.Status {
+	case "merged":
+		lines = append(lines, text(locale, "support.mergedHint"))
+	case "pending":
+		lines = append(lines, text(locale, "support.pendingHint"))
+	case "resolved":
+		lines = append(lines, text(locale, "support.resolvedHint"))
 	}
 	rows = append(rows, row(callbackButton(text(locale, "action.back"), routeSupport), callbackButton(text(locale, "action.menu"), routeHome)))
 	return View{Text: strings.Join(lines, "\n"), Keyboard: keyboard(rows...), Protect: true}
+}
+
+// supportTicketAction is one button under a conversation: the catalogue key of
+// its label and the action it dispatches.
+type supportTicketAction struct {
+	label  string
+	action string
+}
+
+// supportTicketActions is the state machine a customer sees under a ticket, and
+// it mirrors the web panel's rules exactly. Open, pending, and resolved
+// conversations can be replied to — writing into a pending one tells the
+// operator the customer answered, writing into a resolved one reopens it.
+// Only a closed or resolved conversation offers Reopen, and a merged one offers
+// nothing, because its conversation continued somewhere else.
+func supportTicketActions(status string) []supportTicketAction {
+	switch status {
+	case "open", "pending":
+		return []supportTicketAction{
+			{label: "support.reply", action: "ticket-reply"},
+			{label: "support.close", action: "ticket-close"},
+		}
+	case "resolved":
+		return []supportTicketAction{
+			{label: "support.reply", action: "ticket-reply"},
+			{label: "support.reopen", action: "ticket-open"},
+			{label: "support.close", action: "ticket-close"},
+		}
+	case "closed":
+		return []supportTicketAction{{label: "support.reopen", action: "ticket-open"}}
+	default:
+		return nil
+	}
 }
 
 // supportComposeTicketView prompts for a message, with a cancel path that always

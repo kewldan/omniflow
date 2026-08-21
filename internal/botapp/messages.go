@@ -663,6 +663,20 @@ var catalog = map[string]phrase{
 	// A system notice about the conversation itself — closed, resolved, or
 	// merged by an operator — pushed through the same path as a reply.
 	"support.systemAlert": {ru: "⚙️ <b>Обращение обновлено</b>\n\n%s\n\n%s", en: "⚙️ <b>Request updated</b>\n\n%s\n\n%s"},
+
+	// The three statuses the desk can set that the bot used to render as raw
+	// catalogue keys. They are the record's own vocabulary, shared with the web.
+	"support.status.pending":  {ru: "ждёт вашего ответа", en: "waiting for you"},
+	"support.status.resolved": {ru: "решено", en: "resolved"},
+	"support.status.merged":   {ru: "объединено", en: "merged"},
+	"support.pendingHint":     {ru: "Поддержка ждёт вашего ответа — напишите, и обращение вернётся в работу.", en: "Support is waiting for you — reply and the request goes back to the operator."},
+	"support.resolvedHint":    {ru: "Если вопрос не решён, просто ответьте — обращение откроется заново.", en: "If this did not solve it, just reply — the request reopens."},
+	"support.mergedHint":      {ru: "Это обращение объединено с другим. Продолжение разговора — в списке обращений.", en: "This request was merged into another one. The conversation continues there — see your request list."},
+	"support.merged":          {ru: "⚠️ Обращение объединено с другим. Откройте список обращений и продолжите там.", en: "⚠️ This request was merged into another one. Open your request list and continue there."},
+	// Storage failed for a reason that is not the customer's: no default queue,
+	// a database error. Saying "1–4000 characters" here blamed the customer for
+	// an installation fault.
+	"support.unavailable": {ru: "⚠️ <b>Поддержка сейчас недоступна</b>\n\nСообщение не сохранено. Попробуйте через минуту.", en: "⚠️ <b>Support is unavailable right now</b>\n\nYour message was not saved. Please try again in a minute."},
 }
 
 // formatMoney renders an integer minor-unit amount for display. Telegram Stars

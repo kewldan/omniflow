@@ -20,11 +20,28 @@ const (
 )
 
 var (
-	ErrTicketNotFound   = errors.New("support ticket not found")
-	ErrTicketClosed     = errors.New("support ticket is closed")
+	ErrTicketNotFound = errors.New("support ticket not found")
+	ErrTicketClosed   = errors.New("support ticket is closed")
+	// ErrTicketMerged reports a write to a conversation an operator folded into
+	// another one. The customer's words moved there, so the right answer is a
+	// pointer rather than a refusal dressed as "closed".
+	ErrTicketMerged     = errors.New("support ticket was merged into another conversation")
 	ErrAttachmentTooBig = errors.New("attachment is larger than the 10 MB limit")
 	ErrAttachmentKind   = errors.New("only photos and documents can be attached")
 )
+
+// ticketAcceptsReply mirrors the web panel's rule: open, pending, and resolved
+// conversations take a customer message; a closed one needs an explicit reopen
+// and a merged one continued somewhere else.
+func ticketAcceptsReply(status string) bool {
+	return status == "open" || status == "pending" || status == "resolved"
+}
+
+// ticketCanReopen mirrors the web panel's reopen rule: only a closed or
+// resolved conversation has anything to reopen.
+func ticketCanReopen(status string) bool {
+	return status == "closed" || status == "resolved"
+}
 
 // Ticket is one customer support conversation.
 type Ticket struct {
@@ -228,7 +245,10 @@ func (store *PostgresStore) AppendCustomerMessage(ctx context.Context, customerI
 		if err != nil {
 			return "", err
 		}
-		if status == "closed" {
+		switch {
+		case status == "merged":
+			return "", ErrTicketMerged
+		case !ticketAcceptsReply(status):
 			return "", ErrTicketClosed
 		}
 	} else {
@@ -314,24 +334,52 @@ func (store *PostgresStore) MarkTicketRead(ctx context.Context, customerID, tick
 }
 
 // SetTicketStatus closes or reopens a conversation the customer owns.
+//
+// It applies the same transitions the web panel does, so a ticket cannot be
+// left in a different state depending on which surface the customer used.
+// Closing an already-closed ticket and reopening one that is already open
+// succeed and change nothing: the customer asked for a state, not a transition.
+// A merged ticket refuses both, because its conversation continued elsewhere.
 func (store *PostgresStore) SetTicketStatus(ctx context.Context, customerID, ticketID, status string) error {
 	if status != "open" && status != "closed" {
 		return errors.New("unsupported ticket status")
 	}
-	closedAt := pgtype.Timestamptz{}
-	if status == "closed" {
-		closedAt = pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}
-	}
-	result, err := store.pool.Exec(ctx, `UPDATE support_tickets
-		SET status = $3, closed_at = $4, updated_at = now()
-		WHERE id = $2::uuid AND user_id = $1::uuid AND status <> $3`, customerID, ticketID, status, closedAt)
+	tx, err := store.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	if result.RowsAffected() == 0 {
+	defer func() { _ = tx.Rollback(ctx) }()
+	var current string
+	err = tx.QueryRow(ctx, `SELECT status FROM support_tickets
+		WHERE id = $2::uuid AND user_id = $1::uuid FOR UPDATE`, customerID, ticketID).Scan(&current)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrTicketNotFound
 	}
-	return nil
+	if err != nil {
+		return err
+	}
+	if current == "merged" {
+		return ErrTicketMerged
+	}
+	switch {
+	case status == "closed" && current != "closed":
+		_, err = tx.Exec(ctx, `UPDATE support_tickets
+			SET status = 'closed', closed_at = now(), updated_at = now()
+			WHERE id = $1::uuid`, ticketID)
+	case status == "open" && ticketCanReopen(current):
+		// Reopening counts, and it puts the ticket back in front of an operator:
+		// a conversation that keeps coming back is the signal the support report
+		// is built to surface, and a reopen nobody sees is not a reopen.
+		_, err = tx.Exec(ctx, `UPDATE support_tickets
+			SET status = 'open', closed_at = NULL, resolved_at = NULL,
+			    reopened_count = reopened_count + 1, updated_at = now(),
+			    operator_unread_count = operator_unread_count + 1
+			WHERE id = $1::uuid`, ticketID)
+	}
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // PendingOperatorReply is one operator or system message that still has to

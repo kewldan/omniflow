@@ -352,25 +352,47 @@ func (app *App) completeSupportMessage(ctx context.Context, client *telegram.Bot
 		return
 	}
 	resolved, err := app.customers.AppendCustomerMessage(ctx, session.Customer.ID, ticketID, firstLine(body), body, message.ID, attachments)
+	if view, final := supportSubmitOutcome(session.Locale, err); final {
+		// A conversation that can no longer take this message is not going to
+		// take the next one either. The compose session ends so the customer's
+		// next line goes to the menu — or to a request that can still hear it —
+		// rather than back into the same refusal.
+		if err := app.customers.CancelSession(ctx, session.TelegramID); err != nil {
+			app.logger.Warn("session cleanup failed", "error", err)
+		}
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, view))
+		return
+	}
 	switch {
-	case errors.Is(err, ErrTicketClosed):
-		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{Text: text(session.Locale, "support.closedHint")}))
-		return
-	case errors.Is(err, ErrTicketNotFound):
-		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{Text: text(session.Locale, "support.notFound")}))
-		return
 	case errors.Is(err, ErrAttachmentTooBig), errors.Is(err, ErrAttachmentKind):
 		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{Text: attachmentErrorText(session.Locale, err)}))
 		return
 	case err != nil:
 		app.logger.Error("support message could not be stored", "error", err)
-		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{Text: text(session.Locale, "support.tooLong")}))
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{Text: text(session.Locale, "support.unavailable")}))
 		return
 	}
 	if err = app.customers.CancelSession(ctx, session.TelegramID); err != nil {
 		app.logger.Warn("session cleanup failed", "error", err)
 	}
 	_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{Text: text(session.Locale, "support.sent"), Keyboard: keyboard(row(actionButton(text(session.Locale, "support.open"), "ticket:"+resolved)))}))
+}
+
+// supportSubmitOutcome maps a refusal that ends the compose session onto the
+// screen that explains it. It reports false for nil and for errors the customer
+// can fix by sending again — a file too large, a storage hiccup.
+func supportSubmitOutcome(locale Locale, err error) (View, bool) {
+	back := keyboard(row(callbackButton(text(locale, "menu.support"), routeSupport)))
+	switch {
+	case errors.Is(err, ErrTicketMerged):
+		return View{Text: text(locale, "support.merged"), Keyboard: back}, true
+	case errors.Is(err, ErrTicketClosed):
+		return View{Text: text(locale, "support.closedHint"), Keyboard: back}, true
+	case errors.Is(err, ErrTicketNotFound):
+		return View{Text: text(locale, "support.notFound"), Keyboard: back}, true
+	default:
+		return View{}, false
+	}
 }
 
 func attachmentErrorText(locale Locale, err error) string {
