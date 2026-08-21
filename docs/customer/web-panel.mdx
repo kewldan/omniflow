@@ -632,6 +632,14 @@ Confirming a checkout creates an order and charges nothing. Starting the provide
 payment is a separate step, so a customer who closed the tab between the two
 finds an order waiting rather than a payment nobody can account for.
 
+Confirmation also applies the operator's
+[required-channel gate](/operations/required-channels), for a customer with a
+Telegram identity, and refuses with `422 channel_required` carrying the channels
+to join — the same list the bot shows before **Pay** — when the customer is
+recorded as absent from one. The web reads the membership the worker recorded
+rather than asking Telegram, so a customer who has just joined waits for the next
+sweep or presses **I joined** in the bot; an unknown or stale answer never blocks.
+
 An order that is still pending and owes money carries `paymentChoices` — the
 methods that settle its currency, each priced at what is owed — and
 `preferredProvider`, the method the checkout recorded, so the order screen offers

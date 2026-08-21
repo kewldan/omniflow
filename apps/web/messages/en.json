@@ -3490,6 +3490,7 @@
       },
       "problems": {
         "addon_unavailable": "That extra is not offered with this plan.",
+        "channel_required": "Join the required channel before purchasing.",
         "checkout_settled": "This checkout has already become an order. Open it from your orders.",
         "idempotency_key_required": "That action could not be sent safely. Try again.",
         "invalid_cursor": "That page of history could not be loaded. Reload the page.",
@@ -3609,6 +3610,12 @@
           "minimum": "Choose at least {minimum}.",
           "range": "Choose between {minimum} and {maximum}.",
           "incomplete": "Choose your servers above and the price appears here."
+        },
+        "channels": {
+          "title": "Join the channel first",
+          "description": "This service asks customers to be in its Telegram channel before buying. Join, then confirm again.",
+          "join": "Join {channel}",
+          "recheck": "Membership is re-read on a schedule. If you have just joined and this still appears, press \"I joined\" in the bot or try again in a few minutes."
         },
         "addons": {
           "title": "Extras",

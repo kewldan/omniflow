@@ -903,6 +903,28 @@ func (handlers *AccountHandlers) writeCheckoutError(
 			writer, request, http.StatusServiceUnavailable,
 			"maintenance_active", "Purchases are paused while maintenance is in progress",
 		)
+	case errors.Is(err, accountcheckout.ErrChannelRequired):
+		// The same refusal the bot shows: which channels, and where to join
+		// each. It travels as problem extension members, so the panel renders
+		// the list rather than a sentence about it.
+		var refusal accountcheckout.ChannelRefusal
+		channels := make([]map[string]any, 0)
+		if errors.As(err, &refusal) {
+			for _, channel := range refusal.Missing {
+				channels = append(channels, map[string]any{
+					"title": channel.Title, "inviteUrl": channel.InviteURL,
+				})
+			}
+		}
+		writer.Header().Set("Content-Type", "application/problem+json")
+		writeJSON(writer, http.StatusUnprocessableEntity, map[string]any{
+			"type":       "https://omniflow.dev/problems/channel_required",
+			"title":      http.StatusText(http.StatusUnprocessableEntity),
+			"status":     http.StatusUnprocessableEntity,
+			"detail":     "Join the required channel before purchasing",
+			"request_id": middlewareRequestID(request),
+			"channels":   channels,
+		})
 	case errors.Is(err, accountcheckout.ErrPurchaseOnLiveSubscription):
 		writeProblem(
 			writer, request, http.StatusUnprocessableEntity,

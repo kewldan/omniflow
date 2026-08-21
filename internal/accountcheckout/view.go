@@ -372,6 +372,11 @@ func (service *Service) ConfirmCheckout(ctx context.Context, customerID, locale 
 	if !found {
 		return OrderSummary{}, ErrNoCheckout
 	}
+	// The same gate the bot applies before "Pay": a required channel the
+	// customer is known to have left refuses the purchase, with the list.
+	if err = service.ChannelGate(ctx, customerID); err != nil {
+		return OrderSummary{}, err
+	}
 	orderID, err := service.Confirm(ctx, session)
 	if err != nil {
 		return OrderSummary{}, err

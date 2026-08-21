@@ -60,6 +60,7 @@ const INELIGIBILITY = [
  */
 const PROBLEMS = [
   "addon_unavailable",
+  "channel_required",
   "checkout_settled",
   "idempotency_key_required",
   "invalid_cursor",

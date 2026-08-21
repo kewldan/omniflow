@@ -25,7 +25,7 @@ import {
 } from "@/components/account/commerce/types";
 import { useOpenCheckout } from "@/components/account/commerce/use-checkout";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
-import { apiFetch } from "@/lib/api";
+import { ApiError, apiFetch } from "@/lib/api";
 import { attachAttribution } from "@/lib/attach-attribution";
 import { useBytes, useDuration, useMoney } from "@/lib/format";
 import { useSubmission } from "@/lib/idempotency";
@@ -122,6 +122,9 @@ function Checkout({
 
   const [busy, setBusy] = useState(false);
   const [discarding, setDiscarding] = useState(false);
+  // The channels a refused confirmation named. Held until the next attempt:
+  // the customer joins from the list and presses Confirm again.
+  const [requiredChannels, setRequiredChannels] = useState<ChannelRequirement[]>([]);
 
   /**
    * Applies one edit and adopts the checkout the API returns.
@@ -174,7 +177,14 @@ function Checkout({
       router.push(`/account/orders/${order.id}?provider=${encodeURIComponent(checkout.provider)}`);
     } catch (failure) {
       confirmation.settle(failure);
-      toast.error(describeProblem(failure));
+      // The same refusal the bot shows before "Pay": the channels to join,
+      // each with its link, rather than a sentence about channels.
+      const channels = requiredChannelsFrom(failure);
+      if (channels) {
+        setRequiredChannels(channels);
+      } else {
+        toast.error(describeProblem(failure));
+      }
       await reload();
     } finally {
       setBusy(false);
@@ -297,6 +307,32 @@ function Checkout({
         </p>
       )}
 
+      {requiredChannels.length > 0 && (
+        <section
+          className="space-y-3 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3"
+          role="alert"
+        >
+          <p className="font-semibold text-[13.5px]">{translate("checkout.channels.title")}</p>
+          <p className="text-[12.5px] leading-relaxed">
+            {translate("checkout.channels.description")}
+          </p>
+          <ul className="space-y-2">
+            {requiredChannels.map((channel) => (
+              <li key={channel.inviteUrl}>
+                <Button asChild className="w-full" size="lg" variant="outline">
+                  <a href={channel.inviteUrl} rel="noopener noreferrer" target="_blank">
+                    {translate("checkout.channels.join", { channel: channel.title })}
+                  </a>
+                </Button>
+              </li>
+            ))}
+          </ul>
+          <p className="text-[11.5px] text-muted-foreground leading-relaxed">
+            {translate("checkout.channels.recheck")}
+          </p>
+        </section>
+      )}
+
       <div className="space-y-2">
         <Button className="w-full" disabled={busy || blocked} onClick={confirm} size="lg">
           {translate(needsPayment ? "checkout.confirm" : "checkout.confirmFree")}
@@ -342,6 +378,34 @@ function Checkout({
       />
     </div>
   );
+}
+
+/** One channel the operator requires before a purchase, with where to join it. */
+type ChannelRequirement = { title: string; inviteUrl: string };
+
+/**
+ * Reads the channel list off a `channel_required` refusal.
+ *
+ * The API carries the list as problem extension members, so the panel can
+ * render the same buttons the bot shows rather than a sentence about them.
+ */
+function requiredChannelsFrom(failure: unknown): ChannelRequirement[] | null {
+  if (!(failure instanceof ApiError) || failure.code !== "channel_required") {
+    return null;
+  }
+  const raw = (failure.problem as { channels?: unknown } | null)?.channels;
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw
+    .filter(
+      (entry): entry is ChannelRequirement =>
+        typeof entry === "object" &&
+        entry !== null &&
+        typeof (entry as ChannelRequirement).title === "string" &&
+        typeof (entry as ChannelRequirement).inviteUrl === "string",
+    )
+    .map((entry) => ({ inviteUrl: entry.inviteUrl, title: entry.title }));
 }
 
 /**
