@@ -254,6 +254,7 @@ var catalog = map[string]phrase{
 	"wallet.title": {ru: "👛 <b>Кошелёк</b>\n\nДоступно: <b>%s</b>\n\nСредства кошелька применяются к заказу автоматически, если вы этого не отключите.",
 		en: "👛 <b>Wallet</b>\n\nAvailable: <b>%s</b>\n\nWallet credit is applied to an order automatically unless you turn it off."},
 	"wallet.empty":           {ru: "\n\nОпераций пока нет.", en: "\n\nNo transactions yet."},
+	"wallet.reserved":        {ru: "\n\nЗарезервировано неоплаченными заказами: <b>%s</b>. Деньги вернутся в доступный баланс, когда заказ будет оплачен или отменён в разделе «Мои заказы».", en: "\n\nReserved by unpaid orders: <b>%s</b>. It returns to the available balance once the order is paid or cancelled under My orders."},
 	"wallet.entry":           {ru: "%s · %s · %s", en: "%s · %s · %s"},
 	"wallet.credit":          {ru: "пополнение", en: "credit"},
 	"wallet.debit":           {ru: "списание", en: "debit"},

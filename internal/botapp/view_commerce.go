@@ -305,8 +305,13 @@ func orderDetailView(locale Locale, order OrderSummary, refunds []RefundStatus) 
 }
 
 // walletView shows the balance and the customer's own ledger history.
-func walletView(locale Locale, balanceMinor int64, currency string, entries []WalletEntry, topUpEnabled bool) View {
+func walletView(locale Locale, balanceMinor, reservedMinor int64, currency string, entries []WalletEntry, topUpEnabled bool) View {
 	body := text(locale, "wallet.title", formatMoney(balanceMinor, currency))
+	if reservedMinor > 0 {
+		// Money an unpaid order holds is not gone, and the customer can get it
+		// back by cancelling that order — which is why the line says so.
+		body += text(locale, "wallet.reserved", formatMoney(reservedMinor, currency))
+	}
 	if len(entries) == 0 {
 		body += text(locale, "wallet.empty")
 	} else {

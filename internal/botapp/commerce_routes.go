@@ -588,12 +588,17 @@ func (app *App) walletScreen(ctx context.Context, session commerceContext) View 
 		app.logger.Error("wallet balance lookup failed", "error", err)
 		return app.errorView(session.Locale, routeWallet)
 	}
+	reserved, err := app.customers.WalletReserved(ctx, session.Customer.ID, app.settings.Currency)
+	if err != nil {
+		app.logger.Error("wallet reservation lookup failed", "error", err)
+		return app.errorView(session.Locale, routeWallet)
+	}
 	entries, err := app.customers.WalletHistory(ctx, session.Customer.ID, app.settings.Currency, 10)
 	if err != nil {
 		app.logger.Error("wallet history lookup failed", "error", err)
 		return app.errorView(session.Locale, routeWallet)
 	}
-	return walletView(session.Locale, balance, app.settings.Currency, entries, app.commerce.TopUpLimits().Enabled)
+	return walletView(session.Locale, balance, reserved, app.settings.Currency, entries, app.commerce.TopUpLimits().Enabled)
 }
 
 func (app *App) newsScreen(ctx context.Context, session commerceContext) View {

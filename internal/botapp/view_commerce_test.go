@@ -202,11 +202,11 @@ func TestPaymentMethodViewOnlyOffersConfiguredAdapters(t *testing.T) {
 
 func TestWalletViewRendersBalanceAndHistory(t *testing.T) {
 	t.Parallel()
-	view := walletView(LocaleEnglish, 25000, "RUB", []WalletEntry{{Type: "referral_reward", AmountMinor: 10000, Currency: "RUB", OccurredAt: time.Now()}}, true)
+	view := walletView(LocaleEnglish, 25000, 0, "RUB", []WalletEntry{{Type: "referral_reward", AmountMinor: 10000, Currency: "RUB", OccurredAt: time.Now()}}, true)
 	if !strings.Contains(view.Text, "250 RUB") || !strings.Contains(view.Text, "referral reward") || !strings.Contains(view.Text, "+100 RUB") {
 		t.Fatalf("wallet view is incomplete: %s", view.Text)
 	}
-	empty := walletView(LocaleRussian, 0, "RUB", nil, false)
+	empty := walletView(LocaleRussian, 0, 0, "RUB", nil, false)
 	if !strings.Contains(empty.Text, "Операций пока нет") {
 		t.Fatalf("empty wallet state is missing: %s", empty.Text)
 	}

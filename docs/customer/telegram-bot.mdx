@@ -517,7 +517,10 @@ payment, refund, referral reward, correction, or expiry.
 
 The balance is the ledger total minus whatever is already reserved by a draft or
 pending order, floored at zero, so money committed to an unfinished purchase
-cannot be spent twice. See [Wallet and ledger](/commerce/wallet-ledger).
+cannot be spent twice. When anything is reserved the screen says so — "Reserved
+by unpaid orders: X" — and that it comes back once the order is paid or
+cancelled under `🧾 My orders`, because a balance that shrank without a word
+reads as money gone missing. See [Wallet and ledger](/commerce/wallet-ledger).
 
 ### Topping up
 

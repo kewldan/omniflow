@@ -240,6 +240,18 @@ func (store *PostgresStore) WalletBalance(ctx context.Context, customerID, curre
 	return balance, err
 }
 
+// WalletReserved is the part of the ledger balance that unpaid orders have
+// already claimed. The wallet screen prints it beside the spendable balance,
+// because a balance that silently shrank while an order waits for payment
+// reads as money gone missing.
+func (store *PostgresStore) WalletReserved(ctx context.Context, customerID, currency string) (int64, error) {
+	var reserved int64
+	err := store.pool.QueryRow(ctx, `SELECT COALESCE(sum(wallet_minor), 0)::bigint FROM orders
+		WHERE user_id = $1::uuid AND currency = $2 AND state IN ('draft','pending')`,
+		customerID, currency).Scan(&reserved)
+	return reserved, err
+}
+
 // WalletEntry is one customer-visible ledger movement.
 type WalletEntry struct {
 	Type        string
