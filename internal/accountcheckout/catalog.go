@@ -599,7 +599,8 @@ func (store *Store) TrialContext(ctx context.Context, customerID string) (commer
 		activeEntitlements int64
 	)
 	err := store.pool.QueryRow(ctx, `SELECT u.created_at,
-		EXISTS (SELECT 1 FROM trial_claims c WHERE c.user_id = u.id),
+		EXISTS (SELECT 1 FROM trial_claims c JOIN orders co ON co.id = c.order_id
+			WHERE c.user_id = u.id AND co.state NOT IN ('cancelled', 'expired')),
 		(SELECT count(*) FROM orders o WHERE o.user_id = u.id
 			AND o.state IN ('paid','fulfilled','partially_refunded','refunded')),
 		(SELECT count(*) FROM entitlements e WHERE e.user_id = u.id
@@ -609,6 +610,8 @@ func (store *Store) TrialContext(ctx context.Context, customerID string) (commer
 			JOIN identities other ON other.provider = mine.provider
 				AND other.provider_subject = mine.provider_subject AND other.user_id <> mine.user_id
 			JOIN trial_claims claimed ON claimed.user_id = other.user_id
+			JOIN orders claimed_order ON claimed_order.id = claimed.order_id
+				AND claimed_order.state NOT IN ('cancelled', 'expired')
 			WHERE mine.user_id = u.id AND mine.status = 'active'
 		)
 		FROM users u WHERE u.id = $1::uuid`, customerID).
