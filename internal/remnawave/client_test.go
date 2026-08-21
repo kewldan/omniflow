@@ -75,6 +75,52 @@ func TestClientProvisioningMatchesRemnawaveV322Contract(t *testing.T) {
 	}
 }
 
+// The limits are always on the wire. Remnawave reads an absent field as "leave
+// it as it is", which is how a plan with no limit used to inherit the previous
+// plan's limit after a renewal; a nil limit has to arrive as the explicit
+// unlimited value — zero bytes, a null device limit.
+func TestClientAlwaysSendsTheLimitsEvenWhenUnlimited(t *testing.T) {
+	t.Parallel()
+	var bodies []map[string]json.RawMessage
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		var body map[string]json.RawMessage
+		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+			t.Errorf("decode body: %v", err)
+		}
+		bodies = append(bodies, body)
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write([]byte(`{"response":{"id":42,"username":"u","status":"ACTIVE"}}`))
+	}))
+	defer server.Close()
+	client, err := NewClient(server.URL, "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.UpdateUser(context.Background(), 42, ProvisionUser{Username: "u"}); err != nil {
+		t.Fatal(err)
+	}
+	limit, devices := int64(1024), 3
+	if _, err := client.CreateUser(context.Background(), ProvisionUser{Username: "u", TrafficLimitBytes: &limit, HWIDDeviceLimit: &devices}); err != nil {
+		t.Fatal(err)
+	}
+	if len(bodies) != 2 {
+		t.Fatalf("expected two requests, got %d", len(bodies))
+	}
+	unlimited, limited := bodies[0], bodies[1]
+	if string(unlimited["id"]) != "42" {
+		t.Fatalf("an update must carry the user id, got %s", unlimited["id"])
+	}
+	if string(unlimited["trafficLimitBytes"]) != "0" || string(unlimited["hwidDeviceLimit"]) != "null" {
+		t.Fatalf("an unlimited plan must send explicit unlimited values, got traffic=%s devices=%s", unlimited["trafficLimitBytes"], unlimited["hwidDeviceLimit"])
+	}
+	if _, present := limited["id"]; present {
+		t.Fatal("a create must not carry an id")
+	}
+	if string(limited["trafficLimitBytes"]) != "1024" || string(limited["hwidDeviceLimit"]) != "3" {
+		t.Fatalf("a limited plan must send its limits, got traffic=%s devices=%s", limited["trafficLimitBytes"], limited["hwidDeviceLimit"])
+	}
+}
+
 func TestClientListUsersMatchesRemnawaveV322Route(t *testing.T) {
 	t.Parallel()
 

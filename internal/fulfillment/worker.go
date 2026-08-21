@@ -61,6 +61,12 @@ type desiredState struct {
 	TrafficAllowanceBytes *int64    `json:"trafficAllowanceBytes"`
 	DeviceLimit           *int      `json:"deviceLimit"`
 	SquadIDs              []string  `json:"squadIds"`
+	// ResetTraffic asks for the user's traffic counter to start afresh once
+	// the new state is applied. Settlement sets it for an extension, a
+	// renewal, and an upgrade: the customer paid for a new period, and a
+	// LIMITED user who renews must come back as ACTIVE rather than stay
+	// LIMITED on last period's usage.
+	ResetTraffic bool `json:"resetTraffic,omitempty"`
 	// remoteExpireAt is EndsAt plus the grace period, resolved by the worker
 	// per operation rather than stored, so every creator agrees on it.
 	remoteExpireAt time.Time
@@ -226,10 +232,13 @@ func (worker *Worker) detectDrift(ctx context.Context, queries *dbgen.Queries, e
 	if !remote.ExpireAt.Equal(desired.remoteExpireAt) {
 		mismatches = append(mismatches, mismatch{"expiry", desired.remoteExpireAt, remote.ExpireAt})
 	}
-	if desired.TrafficAllowanceBytes != nil && remote.TrafficLimitBytes != *desired.TrafficAllowanceBytes {
-		mismatches = append(mismatches, mismatch{"traffic", *desired.TrafficAllowanceBytes, remote.TrafficLimitBytes})
+	// A nil desired limit means unlimited, and unlimited is a value Remnawave
+	// can disagree with: a user still carrying the previous plan's cap is
+	// drift, not "nothing configured".
+	if !trafficLimitAgrees(desired.TrafficAllowanceBytes, remote.TrafficLimitBytes) {
+		mismatches = append(mismatches, mismatch{"traffic", desired.TrafficAllowanceBytes, remote.TrafficLimitBytes})
 	}
-	if desired.DeviceLimit != nil && (remote.HWIDDeviceLimit == nil || *remote.HWIDDeviceLimit != *desired.DeviceLimit) {
+	if !deviceLimitAgrees(desired.DeviceLimit, remote.HWIDDeviceLimit) {
 		mismatches = append(mismatches, mismatch{"device_limit", desired.DeviceLimit, remote.HWIDDeviceLimit})
 	}
 	remoteSquads := make([]string, 0, len(remote.ActiveInternalSquads))
@@ -250,6 +259,25 @@ func (worker *Worker) detectDrift(ctx context.Context, queries *dbgen.Queries, e
 		}
 	}
 	return nil
+}
+
+// trafficLimitAgrees reports whether Remnawave's traffic cap matches the
+// desired allowance, where a nil allowance is unlimited and Remnawave spells
+// unlimited as zero.
+func trafficLimitAgrees(desired *int64, remote int64) bool {
+	if desired == nil {
+		return remote == 0
+	}
+	return remote == *desired
+}
+
+// deviceLimitAgrees is the same comparison for the device limit, where
+// Remnawave spells unlimited as null or zero.
+func deviceLimitAgrees(desired *int, remote *int) bool {
+	if desired == nil {
+		return remote == nil || *remote == 0
+	}
+	return remote != nil && *remote == *desired
 }
 
 // maintenanceSnooze is how long a held fulfillment job waits before it looks at
@@ -338,27 +366,39 @@ func (worker *Worker) apply(ctx context.Context, queries *dbgen.Queries, operati
 	if err != nil {
 		return remnawave.User{}, err
 	}
-	createOrRecover := func() (remnawave.User, error) {
+	// createOrRecover reports whether the user was created fresh: a brand-new
+	// user has no traffic to reset and nothing to re-enable.
+	createOrRecover := func() (remnawave.User, bool, error) {
 		for _, candidate := range candidates {
 			existing, lookupErr := worker.provisioner.UserByUsername(ctx, candidate)
 			if lookupErr == nil {
-				return worker.provisioner.UpdateUser(ctx, existing.ID, provision)
+				updated, updateErr := worker.provisioner.UpdateUser(ctx, existing.ID, provision)
+				return updated, false, updateErr
 			}
 			if !errors.Is(lookupErr, remnawave.ErrNotFound) {
-				return remnawave.User{}, lookupErr
+				return remnawave.User{}, false, lookupErr
 			}
 		}
-		return worker.provisioner.CreateUser(ctx, provision)
-	}
-	if (operation == "create" || operation == "reconcile") && remoteID == 0 {
-		return createOrRecover()
+		created, createErr := worker.provisioner.CreateUser(ctx, provision)
+		return created, true, createErr
 	}
 	if operation == "create" || operation == "reconcile" {
-		updated, updateErr := worker.provisioner.UpdateUser(ctx, remoteID, provision)
-		if errors.Is(updateErr, remnawave.ErrNotFound) {
-			return createOrRecover()
+		var (
+			remote  remnawave.User
+			created bool
+		)
+		if remoteID == 0 {
+			remote, created, err = createOrRecover()
+		} else {
+			remote, err = worker.provisioner.UpdateUser(ctx, remoteID, provision)
+			if errors.Is(err, remnawave.ErrNotFound) {
+				remote, created, err = createOrRecover()
+			}
 		}
-		return updated, updateErr
+		if err != nil || operation != "create" || created {
+			return remote, err
+		}
+		return worker.finishPaidChange(ctx, remote, entitlement, desired)
 	}
 	if remoteID == 0 {
 		return remnawave.User{}, remnawave.ErrNotFound
@@ -396,6 +436,40 @@ func (worker *Worker) apply(ctx context.Context, queries *dbgen.Queries, operati
 		return remnawave.User{}, river.JobCancel(errors.New("unsupported fulfillment operation"))
 	}
 	return worker.provisioner.User(ctx, remoteID)
+}
+
+// finishPaidChange completes a `create` against a user that already existed:
+// the traffic counter is reset when the operation asks for it, and a user
+// Remnawave holds as DISABLED is re-enabled. Both are what a paid renewal of
+// an expired-then-disabled or limited user needs to actually restore access;
+// without them the PATCH moved the expiry and the tunnel stayed dead.
+//
+// A paused entitlement is the one case where DISABLED is deliberate and must
+// stay. Its clock is stopped by Omniflow, and only a resume may re-enable it.
+func (worker *Worker) finishPaidChange(ctx context.Context, remote remnawave.User, entitlement dbgen.Entitlement, desired desiredState) (remnawave.User, error) {
+	refresh := false
+	if desired.ResetTraffic {
+		if err := worker.provisioner.ResetUserTraffic(ctx, remote.ID); err != nil {
+			return remnawave.User{}, err
+		}
+		refresh = true
+	}
+	if shouldEnable(remote.Status, entitlement.Status) {
+		if err := worker.provisioner.EnableUser(ctx, remote.ID); err != nil {
+			return remnawave.User{}, err
+		}
+		refresh = true
+	}
+	if !refresh {
+		return remote, nil
+	}
+	return worker.provisioner.User(ctx, remote.ID)
+}
+
+// shouldEnable reports whether a paid change must switch the remote user back
+// on: Remnawave holds it DISABLED and the entitlement is not a pause.
+func shouldEnable(remoteStatus, entitlementStatus string) bool {
+	return strings.EqualFold(remoteStatus, "DISABLED") && entitlementStatus != "paused"
 }
 
 // operatorAlertAttempts is how many failed attempts a fulfillment run makes

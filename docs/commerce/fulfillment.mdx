@@ -75,15 +75,34 @@ enqueues them.
 | Operation | What the worker calls |
 | --- | --- |
 | `create` (no known remote user) | `GET /api/users/by-username/{candidate}` for each candidate; on `404` for all, `POST /api/users/` |
-| `create` (known remote user) | `PATCH /api/users/`; a `404` falls back to the create-or-recover path |
+| `create` (known remote user) | `PATCH /api/users/`; a `404` falls back to the create-or-recover path. Then, for an existing user: `POST /api/users/{id}/actions/reset-traffic` when the operation asks for it, `POST /api/users/{id}/actions/enable` when Remnawave holds the user `DISABLED`, and a re-read |
 | `extend`, `set_limits`, `set_squads` | `PATCH /api/users/` |
 | `enable` | `POST /api/users/{id}/actions/enable`, then re-read the user |
 | `disable` | `POST /api/users/{id}/actions/disable`, then re-read |
 | `reset_traffic` | `POST /api/users/{id}/actions/reset-traffic`, then re-read |
-| `reconcile` | Compare first, then the same path as `create` |
+| `reconcile` | Compare first, then the same `PATCH` as `create`, without the reset or the enable |
 
 Anything outside that set is cancelled permanently rather than retried, because an operation the
 worker cannot perform will not become performable by waiting.
+
+Every `PATCH` and `POST /api/users/` carries both limits explicitly — `trafficLimitBytes` as `0`
+and `hwidDeviceLimit` as `null` when the plan has none — because Remnawave reads an absent field as
+"leave it as it is". Omitting them was how a move to an unlimited plan left the previous plan's cap
+on the user.
+
+### What a paid change does beyond the expiry
+
+Settlement marks the desired state of an `extension`, a `renewal`, and an `upgrade` with
+`resetTraffic`, and the worker resets the user's traffic counter once the new state is applied: the
+customer paid for a new period, and a user Remnawave holds `LIMITED` on last period's usage comes
+back `ACTIVE`. A `purchase` provisions a new user with nothing to reset; a `downgrade` keeps the
+current period's count.
+
+A `create` against a user Remnawave holds `DISABLED` re-enables it, unless the entitlement is
+`paused` — a pause is a deliberate disable whose clock Omniflow stopped, and only a resume may lift
+it. This is what makes a paid renewal of a user that expired and was then disabled actually restore
+access rather than only move its expiry. A `reconcile` does neither: it is a repair of the state the
+customer paid for, not a new purchase, and an operator's `disable` must survive it.
 
 ### The deterministic username, and recovering a remote user
 
@@ -257,8 +276,8 @@ rather than a silent overwrite.
 | --- | --- |
 | `missing_remote` | No known remote user, or `GET /api/users/{id}` returns `404` |
 | `expiry` | The remote expiry instant differs from the desired end plus the plan's grace period — the same instant the worker pushes |
-| `traffic` | A configured allowance differs from the remote traffic limit |
-| `device_limit` | A configured limit differs from the remote device limit, including a remote null |
+| `traffic` | The remote traffic limit differs from the allowance, where no allowance means a remote limit of `0` |
+| `device_limit` | The remote device limit differs from the configured one, where no configured limit means a remote `null` or `0` |
 | `squads` | The remote active squad set differs from the desired set, compared order-insensitively |
 | `status` | The mapped remote status differs from the stored entitlement status |
 

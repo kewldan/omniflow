@@ -388,6 +388,7 @@ func (store *Store) grantGiftSubscription(
 		"trafficAllowanceBytes": nullableInt8(entitlement.TrafficAllowanceBytes),
 		"deviceLimit":           nullableInt4(entitlement.DeviceLimit),
 		"squadIds":              databaseutil.UUIDStrings(entitlement.RemnawaveSquadIds),
+		"resetTraffic":          commerce.ResetsTraffic(operation),
 	})
 	operationRow, err := queries.CreateFulfillmentOperation(ctx, dbgen.CreateFulfillmentOperationParams{
 		EntitlementID: entitlement.ID, Operation: "create",

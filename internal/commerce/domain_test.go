@@ -102,6 +102,19 @@ func TestPaymentOnAClosedOrderSettlesAsLateAndIsNamed(t *testing.T) {
 	}
 }
 
+// Buying a new period restarts the traffic counter; provisioning a new user
+// has nothing to restart, and a downgrade keeps the current period's count.
+func TestOnlyANewPeriodResetsTraffic(t *testing.T) {
+	for operation, want := range map[string]bool{
+		"extension": true, "renewal": true, "upgrade": true,
+		"purchase": false, "downgrade": false, "addon": false, "topup": false, "gift": false, "code": false,
+	} {
+		if got := ResetsTraffic(operation); got != want {
+			t.Errorf("ResetsTraffic(%q) = %v, want %v", operation, got, want)
+		}
+	}
+}
+
 func TestOperatorAttentionClassifications(t *testing.T) {
 	for classification, want := range map[string]bool{
 		ClassificationPaid: false, ClassificationLate: false,
