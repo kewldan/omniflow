@@ -8666,6 +8666,27 @@ export const GetAccountReferralsResponse = zod.object({
   }),
 });
 
+/**
+ * Records the inviter behind a web sign-up from the `?ref=` code the sign-in screen carried, under the same rule the bot applies to `/start ref_<code>`: first write wins, self-referral is impossible, and the row is written only while the programme is enabled and only for a customer who has not yet paid for anything. Always 200 with an outcome, because a link that did not count is not a failure of the request.
+ */
+export const attributeAccountReferralBodyCodeMax = 32;
+
+export const AttributeAccountReferralBody = zod.object({
+  code: zod.string().max(attributeAccountReferralBodyCodeMax),
+});
+
+export const AttributeAccountReferralResponse = zod.object({
+  attributed: zod.boolean(),
+  reason: zod.enum([
+    "recorded",
+    "already_attributed",
+    "program_disabled",
+    "unknown_code",
+    "self_referral",
+    "not_new",
+  ]),
+});
+
 export const GetAccountLoyaltyResponse = zod
   .object({
     enabled: zod.boolean(),

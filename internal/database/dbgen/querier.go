@@ -46,6 +46,11 @@ type Querier interface {
 	// What each channel brought in, which is the question an operator asks before
 	// they export anything.
 	AttributionSummary(ctx context.Context, arg AttributionSummaryParams) ([]AttributionSummaryRow, error)
+	// Keeps the Remnawave mapping addressable by Telegram ID once an identity is
+	// linked, as the bot does, so notification and self-service queries keyed on
+	// telegram_id keep resolving. Only an empty slot is filled, and only when no
+	// other mapping already claims the ID.
+	BackfillTelegramMapping(ctx context.Context, arg BackfillTelegramMappingParams) error
 	// A backup nobody has ever restored is a backup nobody knows works, so the last
 	// restore is part of the status rather than a separate screen.
 	BackupStatus(ctx context.Context) (BackupStatusRow, error)
@@ -378,6 +383,10 @@ type Querier interface {
 	// again before the group receives it.
 	EnqueueNoticeTestSend(ctx context.Context, arg EnqueueNoticeTestSendParams) (EnqueueNoticeTestSendRow, error)
 	EnqueueOperatorNotification(ctx context.Context, arg EnqueueOperatorNotificationParams) (OperatorNotification, error)
+	// A customer created by the web panel gets the same preferences row a customer
+	// created by the bot gets, with the language both surfaces will read. Nothing
+	// is overwritten: a row the bot already wrote wins.
+	EnsureBotPreferences(ctx context.Context, arg EnsureBotPreferencesParams) error
 	// Retires outstanding tokens by moving their expiry into the past rather than
 	// marking them consumed: `admin_setup_tokens_consumption_complete` requires a
 	// consuming account, and an unredeemed token has none. Both the lookup and the
@@ -468,6 +477,11 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	GetCommerceSettings(ctx context.Context) (CommerceSetting, error)
 	GetCustomer(ctx context.Context, id pgtype.UUID) (User, error)
+	// The v0.2 adoption rule, as the bot applies it: a customer imported from
+	// Remnawave carries their Telegram ID on the mapping row before they ever hold
+	// an identity row. A widget sign-in must land on that customer rather than
+	// provision an empty second one.
+	GetCustomerByTelegramMapping(ctx context.Context, telegramID pgtype.Int8) (User, error)
 	GetCustomerIdentityForUnlink(ctx context.Context, arg GetCustomerIdentityForUnlinkParams) (Identity, error)
 	GetCustomerImport(ctx context.Context, id pgtype.UUID) (CustomerImport, error)
 	GetCustomerImportItemCounts(ctx context.Context, importID pgtype.UUID) (GetCustomerImportItemCountsRow, error)
@@ -506,6 +520,9 @@ type Querier interface {
 	GetGoodsProduct(ctx context.Context, id pgtype.UUID) (GoodsProduct, error)
 	GetGoodsProductByCode(ctx context.Context, code string) (GoodsProduct, error)
 	GetGoodsProvider(ctx context.Context, slug string) (GoodsProvider, error)
+	// The (provider, subject) row whatever its status, with the account behind it.
+	// The unique constraint guarantees at most one.
+	GetIdentityBySubjectAnyStatus(ctx context.Context, arg GetIdentityBySubjectAnyStatusParams) (GetIdentityBySubjectAnyStatusRow, error)
 	GetInfoPage(ctx context.Context, slug string) (InfoPage, error)
 	GetInfoPageLocalizations(ctx context.Context, pageSlug string) ([]GetInfoPageLocalizationsRow, error)
 	GetLatestBackup(ctx context.Context) (Backup, error)
@@ -969,6 +986,17 @@ type Querier interface {
 	LockOpenCart(ctx context.Context, userID pgtype.UUID) (Cart, error)
 	LockOrder(ctx context.Context, id pgtype.UUID) (Order, error)
 	LockSupportTicket(ctx context.Context, id pgtype.UUID) (SupportTicket, error)
+	// Telegram identity resolution for the customer web panel.
+	//
+	// These exist beside LinkCustomerIdentity in commerce.sql because that upsert
+	// only ever touches an *active* row: a Telegram account whose identity was
+	// unlinked from the security screen left a `revoked` row behind, and every
+	// later sign-in with that account hit the unique index and failed. The web
+	// sign-in needs to see the revoked row, decide whose it is, and bring it back.
+	// The same transaction-scoped advisory lock the bot takes in EnsureCustomer,
+	// keyed identically, so a first /start and a first widget sign-in from one
+	// Telegram account cannot race each other into two customers.
+	LockTelegramSubject(ctx context.Context, subject string) error
 	LockWalletTopup(ctx context.Context, orderID pgtype.UUID) (WalletTopup, error)
 	MarkBackupPruned(ctx context.Context, id pgtype.UUID) (Backup, error)
 	MarkCartPurchased(ctx context.Context, arg MarkCartPurchasedParams) (Cart, error)
@@ -1129,6 +1157,10 @@ type Querier interface {
 	// the newest observation. A signal an operator already reviewed stays reviewed,
 	// because the conflict clause never resets `status`.
 	RaiseAnomalySignal(ctx context.Context, arg RaiseAnomalySignalParams) (AnomalySignal, error)
+	// Brings an unlinked identity back for the customer it always belonged to.
+	// Scoped by user_id so it can never move a row between accounts: a caller that
+	// wants another customer's revoked row gets zero rows and must refuse.
+	ReactivateCustomerIdentity(ctx context.Context, arg ReactivateCustomerIdentityParams) (Identity, error)
 	// ---------------------------------------------------------------------------
 	// Maintenance mode
 	// ---------------------------------------------------------------------------
@@ -1410,6 +1442,10 @@ type Querier interface {
 	// a cart that changed kind must not keep the other kind's contents.
 	SetCartGoods(ctx context.Context, arg SetCartGoodsParams) error
 	SetChannelEnforcement(ctx context.Context, arg SetChannelEnforcementParams) (ChannelEnforcement, error)
+	// The language the customer chose on the web, written to both places the two
+	// surfaces read it from. The bot consults bot_preferences.locale first and
+	// users.locale last; writing only the latter left the web's setting ignored.
+	SetCustomerLocaleEverywhere(ctx context.Context, arg SetCustomerLocaleEverywhereParams) error
 	SetDefaultPaymentMethod(ctx context.Context, arg SetDefaultPaymentMethodParams) (PaymentMethod, error)
 	// Clearing and setting run in one transaction, because the partial unique index
 	// allows exactly one default: doing them apart would leave a window in which a

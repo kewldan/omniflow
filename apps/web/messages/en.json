@@ -2579,6 +2579,8 @@
         "sign_in_denied": "You cancelled at the provider.",
         "sign_in_failed": "Sign-in could not be completed. Try again.",
         "miniapp_failed": "Telegram could not sign you in automatically. Use one of the methods below.",
+        "identity_taken": "This Telegram account is attached to a different customer record. Contact support to have the two reconciled.",
+        "sign_in_rejected": "Telegram's answer could not be verified. Try again.",
         "unverified_email": "That provider did not confirm your email address, so it cannot be used to sign in here."
       }
     },

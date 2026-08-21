@@ -65,44 +65,11 @@ func (service *Service) signInWithTelegramIdentity(
 ) (SignInResult, error) {
 	var result SignInResult
 	err := service.inTx(ctx, func(queries *dbgen.Queries) error {
-		existing, err := queries.GetActiveIdentityBySubject(ctx, dbgen.GetActiveIdentityBySubjectParams{
-			Provider: customerauth.ProviderTelegram, ProviderSubject: identity.Subject(),
-		})
-		switch {
-		case err == nil:
-			if existing.UserStatus != "active" {
-				return ErrAccountInactive
-			}
-			result.Customer = Customer{
-				ID:       uuidString(existing.UserID),
-				Status:   existing.UserStatus,
-				Locale:   existing.UserLocale,
-				Timezone: existing.UserTimezone,
-			}
-		case errors.Is(err, pgx.ErrNoRows):
-			locale := "en"
-			if identity.LanguageCode == "ru" {
-				locale = "ru"
-			}
-			created, createErr := queries.CreateCustomerForSignIn(ctx, dbgen.CreateCustomerForSignInParams{
-				Locale: locale, Timezone: "UTC",
-			})
-			if createErr != nil {
-				return createErr
-			}
-			if _, createErr = queries.LinkCustomerIdentity(ctx, dbgen.LinkCustomerIdentityParams{
-				UserID:          created.ID,
-				Provider:        customerauth.ProviderTelegram,
-				ProviderSubject: identity.Subject(),
-				VerifiedAt:      pgtype.Timestamptz{Time: service.now(), Valid: true},
-				Metadata:        []byte("{}"),
-			}); createErr != nil {
-				return createErr
-			}
-			result.Customer = customerFromUser(created)
-		default:
+		customer, err := service.resolveTelegramCustomer(ctx, queries, identity, request)
+		if err != nil {
 			return err
 		}
+		result.Customer = customer
 
 		session, sessionErr := service.openSession(
 			ctx, queries, result.Customer.ID, "telegram", "", request,
@@ -118,6 +85,131 @@ func (service *Service) signInWithTelegramIdentity(
 		return SignInResult{}, err
 	}
 	return result, nil
+}
+
+// resolveTelegramCustomer finds — or, for a first-time visitor, creates — the
+// one customer behind a Telegram account, under the same advisory lock the bot
+// takes, so a first /start and a first widget sign-in cannot race into two.
+//
+// The order of resolution is the bot's, with one addition:
+//
+//  1. An active identity row names the customer outright.
+//  2. Otherwise the Remnawave mapping: an installation imported from v0.2
+//     carries telegram_id on remnawave_users before any identity row exists,
+//     and a customer who never pressed /start must not be given a second,
+//     empty account by the browser.
+//  3. Otherwise a revoked identity row — a customer who unlinked Telegram from
+//     the security screen — names the customer it belonged to. The upsert the
+//     bot uses only updates an active row, so before this step that account
+//     was unreachable from Telegram for good: every sign-in failed on the
+//     unique index and surfaced as a 500.
+//  4. Otherwise a new customer, with the preferences row and the language both
+//     surfaces read.
+//
+// Steps 2 and 3 can disagree, when the mapping names one customer and the
+// revoked row another. Neither may be silently chosen: moving the identity
+// would move a Telegram account between two people's orders and wallets, so it
+// is refused as ErrIdentityTaken and the panel says the identity is in use.
+func (service *Service) resolveTelegramCustomer(
+	ctx context.Context, queries *dbgen.Queries, identity customerauth.TelegramIdentity, request RequestContext,
+) (Customer, error) {
+	subject := identity.Subject()
+	if err := queries.LockTelegramSubject(ctx, subject); err != nil {
+		return Customer{}, err
+	}
+	existing, err := queries.GetIdentityBySubjectAnyStatus(ctx, dbgen.GetIdentityBySubjectAnyStatusParams{
+		Provider: customerauth.ProviderTelegram, ProviderSubject: subject,
+	})
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return Customer{}, err
+	}
+	haveRow := err == nil
+
+	if haveRow && existing.Status == "active" {
+		if existing.UserStatus != "active" {
+			return Customer{}, ErrAccountInactive
+		}
+		return Customer{
+			ID: uuidString(existing.UserID), Status: existing.UserStatus,
+			Locale: existing.UserLocale, Timezone: existing.UserTimezone,
+		}, nil
+	}
+
+	// The account to attach the identity to, if one already exists.
+	var owner dbgen.User
+	haveOwner := false
+	mapped, err := queries.GetCustomerByTelegramMapping(ctx, pgtype.Int8{Int64: identity.ID, Valid: true})
+	switch {
+	case err == nil:
+		owner, haveOwner = mapped, true
+	case !errors.Is(err, pgx.ErrNoRows):
+		return Customer{}, err
+	}
+
+	if haveRow {
+		// A pending or revoked row. A pending row is an OIDC-style half-link
+		// no Telegram path writes; it is treated like a revoked one.
+		if haveOwner && owner.ID != existing.UserID {
+			return Customer{}, customerauth.ErrIdentityTaken
+		}
+		if existing.UserStatus != "active" {
+			return Customer{}, ErrAccountInactive
+		}
+		if _, err = queries.ReactivateCustomerIdentity(ctx, dbgen.ReactivateCustomerIdentityParams{
+			IdentityID: existing.ID, UserID: existing.UserID,
+			VerifiedAt: pgtype.Timestamptz{Time: service.now(), Valid: true},
+		}); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return Customer{}, customerauth.ErrIdentityTaken
+			}
+			return Customer{}, err
+		}
+		return Customer{
+			ID: uuidString(existing.UserID), Status: existing.UserStatus,
+			Locale: existing.UserLocale, Timezone: existing.UserTimezone,
+		}, nil
+	}
+
+	if !haveOwner {
+		locale := customerauth.ResolveSignUpLocale(identity.LanguageCode, request.AcceptLanguage)
+		created, createErr := queries.CreateCustomerForSignIn(ctx, dbgen.CreateCustomerForSignInParams{
+			Locale: locale, Timezone: "UTC",
+		})
+		if createErr != nil {
+			return Customer{}, createErr
+		}
+		if createErr = queries.EnsureBotPreferences(ctx, dbgen.EnsureBotPreferencesParams{
+			UserID: created.ID, Locale: locale,
+		}); createErr != nil {
+			return Customer{}, createErr
+		}
+		owner = created
+	}
+	if owner.Status != "active" {
+		return Customer{}, ErrAccountInactive
+	}
+	if _, err = queries.LinkCustomerIdentity(ctx, dbgen.LinkCustomerIdentityParams{
+		UserID:          owner.ID,
+		Provider:        customerauth.ProviderTelegram,
+		ProviderSubject: subject,
+		VerifiedAt:      pgtype.Timestamptz{Time: service.now(), Valid: true},
+		Metadata:        []byte("{}"),
+	}); err != nil {
+		// The upsert returns no row only when the (provider, subject) pair is
+		// held by another customer's active row, which the lookup above has
+		// already ruled out — so this is a concurrent writer, and the honest
+		// answer is still the same refusal.
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Customer{}, customerauth.ErrIdentityTaken
+		}
+		return Customer{}, err
+	}
+	if err = queries.BackfillTelegramMapping(ctx, dbgen.BackfillTelegramMappingParams{
+		TelegramID: pgtype.Int8{Int64: identity.ID, Valid: true}, UserID: owner.ID,
+	}); err != nil {
+		return Customer{}, err
+	}
+	return customerFromUser(owner), nil
 }
 
 // ---------------------------------------------------------------------------

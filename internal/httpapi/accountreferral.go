@@ -23,6 +23,7 @@ func (handlers *AccountHandlers) mountReferral(router chi.Router) {
 		return
 	}
 	router.Get("/referrals", handlers.referrals)
+	router.Post("/referrals/attribution", handlers.attributeReferral)
 	router.Get("/loyalty", handlers.loyalty)
 
 	router.Get("/contacts", handlers.listContacts)
@@ -39,6 +40,31 @@ func (handlers *AccountHandlers) mountReferral(router chi.Router) {
 // ---------------------------------------------------------------------------
 // Referrals and loyalty
 // ---------------------------------------------------------------------------
+
+// attributeReferral records the inviter behind a web sign-up.
+//
+// The panel posts the code it found in `?ref=` on the sign-in screen once a
+// session exists — the same moment the bot's `/start ref_<code>` fires. The
+// answer is always 200 with an outcome: a link that did not count is not an
+// error the customer can act on, and a problem would surface as a failed
+// sign-in on a screen that just succeeded.
+func (handlers *AccountHandlers) attributeReferral(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := CustomerFrom(request.Context())
+	var body struct {
+		Code string `json:"code"`
+	}
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	result, err := handlers.referral.Attribute(request.Context(), principal.Customer.ID, body.Code)
+	if handlers.writeReferralError(writer, request, err) {
+		return
+	}
+	writeJSON(writer, http.StatusOK, map[string]any{
+		"attributed": result.Attributed,
+		"reason":     result.Reason,
+	})
+}
 
 func (handlers *AccountHandlers) referrals(writer http.ResponseWriter, request *http.Request) {
 	principal, _ := CustomerFrom(request.Context())

@@ -3852,6 +3852,23 @@ export interface AccountWallet {
   nextCursorId?: string;
 }
 
+export type AccountReferralAttributionReason =
+  (typeof AccountReferralAttributionReason)[keyof typeof AccountReferralAttributionReason];
+
+export const AccountReferralAttributionReason = {
+  recorded: "recorded",
+  already_attributed: "already_attributed",
+  program_disabled: "program_disabled",
+  unknown_code: "unknown_code",
+  self_referral: "self_referral",
+  not_new: "not_new",
+} as const;
+
+export interface AccountReferralAttribution {
+  attributed: boolean;
+  reason: AccountReferralAttributionReason;
+}
+
 export type AccountReferralsProgram = {
   enabled: boolean;
   currency: string;
@@ -5698,6 +5715,11 @@ export type GetAccountReferralsParams = {
    * @maximum 100
    */
   limit?: number;
+};
+
+export type AttributeAccountReferralBody = {
+  /** @maxLength 32 */
+  code: string;
 };
 
 export type AddAccountContactBodyKind =
@@ -26383,6 +26405,86 @@ export const useGetAccountReferrals = <TError = Promise<unknown>>(
   const swrFn = () => getAccountReferrals(params, fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type attributeAccountReferralResponse200 = {
+  data: AccountReferralAttribution;
+  status: 200;
+};
+
+export type attributeAccountReferralResponse400 = {
+  data: ProblemResponse;
+  status: 400;
+};
+
+export type attributeAccountReferralResponseSuccess = attributeAccountReferralResponse200 & {
+  headers: Headers;
+};
+export type attributeAccountReferralResponseError = attributeAccountReferralResponse400 & {
+  headers: Headers;
+};
+
+export type attributeAccountReferralResponse =
+  | attributeAccountReferralResponseSuccess
+  | attributeAccountReferralResponseError;
+
+export const getAttributeAccountReferralUrl = () => {
+  return `/v1/account/referrals/attribution`;
+};
+
+/**
+ * Records the inviter behind a web sign-up from the `?ref=` code the sign-in screen carried, under the same rule the bot applies to `/start ref_<code>`: first write wins, self-referral is impossible, and the row is written only while the programme is enabled and only for a customer who has not yet paid for anything. Always 200 with an outcome, because a link that did not count is not a failure of the request.
+ */
+export const attributeAccountReferral = async (
+  attributeAccountReferralBody: AttributeAccountReferralBody,
+  options?: RequestInit,
+): Promise<attributeAccountReferralResponse> => {
+  const res = await fetch(getAttributeAccountReferralUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(attributeAccountReferralBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: attributeAccountReferralResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as attributeAccountReferralResponse;
+};
+
+export const getAttributeAccountReferralMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: AttributeAccountReferralBody }) => {
+    return attributeAccountReferral(arg, options);
+  };
+};
+export const getAttributeAccountReferralMutationKey = () =>
+  [`/v1/account/referrals/attribution`] as const;
+
+export type AttributeAccountReferralMutationResult = NonNullable<
+  Awaited<ReturnType<typeof attributeAccountReferral>>
+>;
+
+export const useAttributeAccountReferral = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof attributeAccountReferral>>,
+    TError,
+    Key,
+    AttributeAccountReferralBody,
+    Awaited<ReturnType<typeof attributeAccountReferral>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getAttributeAccountReferralMutationKey();
+  const swrFn = getAttributeAccountReferralMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,

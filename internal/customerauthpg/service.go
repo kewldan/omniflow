@@ -202,6 +202,9 @@ type RequestContext struct {
 	IP        *netip.Addr
 	UserAgent string
 	RequestID string
+	// AcceptLanguage is the browser's language preference, read only when a
+	// sign-in provisions a new customer and nothing better names their language.
+	AcceptLanguage string
 }
 
 // SignInResult is a freshly established session.

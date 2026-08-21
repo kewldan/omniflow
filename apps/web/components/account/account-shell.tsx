@@ -20,6 +20,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { AccountNotice } from "@/components/account/state";
 import { useAccount } from "@/lib/account-session";
 import { apiFetch } from "@/lib/api";
+import { flushReferralAttribution, rememberReferralCode } from "@/lib/referral";
 import { signInPath } from "@/lib/sign-in-path";
 
 /**
@@ -101,6 +102,16 @@ export function AccountShell({ children }: { children: ReactNode }) {
       router.replace(signInPath(query ? `${pathname}?${query}` : pathname));
     }
   }, [pathname, router, search, signedOut]);
+
+  // A referral code carried through sign-in is attributed on the first render
+  // that has a session, and an invite link that opened a panel page directly
+  // is picked up here too. The helper forgets the code either way.
+  useEffect(() => {
+    rememberReferralCode(search.get("ref"));
+    if (session) {
+      void flushReferralAttribution();
+    }
+  }, [search, session]);
 
   if (loading || signedOut) {
     return <ShellSkeleton />;

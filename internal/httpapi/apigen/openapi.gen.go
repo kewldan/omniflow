@@ -613,6 +613,36 @@ func (e AccountProfileInputLocale) Valid() bool {
 	}
 }
 
+// Defines values for AccountReferralAttributionReason.
+const (
+	AlreadyAttributed AccountReferralAttributionReason = "already_attributed"
+	NotNew            AccountReferralAttributionReason = "not_new"
+	ProgramDisabled   AccountReferralAttributionReason = "program_disabled"
+	Recorded          AccountReferralAttributionReason = "recorded"
+	SelfReferral      AccountReferralAttributionReason = "self_referral"
+	UnknownCode       AccountReferralAttributionReason = "unknown_code"
+)
+
+// Valid indicates whether the value is a known member of the AccountReferralAttributionReason enum.
+func (e AccountReferralAttributionReason) Valid() bool {
+	switch e {
+	case AlreadyAttributed:
+		return true
+	case NotNew:
+		return true
+	case ProgramDisabled:
+		return true
+	case Recorded:
+		return true
+	case SelfReferral:
+		return true
+	case UnknownCode:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AccountReferralsLinkReason.
 const (
 	NoCode                 AccountReferralsLinkReason = "no_code"
@@ -4675,6 +4705,15 @@ type AccountProfileInput struct {
 // AccountProfileInputLocale defines model for AccountProfileInput.Locale.
 type AccountProfileInputLocale string
 
+// AccountReferralAttribution defines model for AccountReferralAttribution.
+type AccountReferralAttribution struct {
+	Attributed bool                             `json:"attributed"`
+	Reason     AccountReferralAttributionReason `json:"reason"`
+}
+
+// AccountReferralAttributionReason defines model for AccountReferralAttribution.Reason.
+type AccountReferralAttributionReason string
+
 // AccountReferrals defines model for AccountReferrals.
 type AccountReferrals struct {
 	Code          string `json:"code"`
@@ -8120,6 +8159,11 @@ type GetAccountReferralsParams struct {
 	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// AttributeAccountReferralJSONBody defines parameters for AttributeAccountReferral.
+type AttributeAccountReferralJSONBody struct {
+	Code string `json:"code"`
+}
+
 // ListAccountSecurityEventsParams defines parameters for ListAccountSecurityEvents.
 type ListAccountSecurityEventsParams struct {
 	Cursor   *time.Time          `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -9472,6 +9516,9 @@ type UpdateAccountPreferencesJSONRequestBody = AccountPreferencesUpdate
 // RequestAccountDeletionJSONRequestBody defines body for RequestAccountDeletion for application/json ContentType.
 type RequestAccountDeletionJSONRequestBody RequestAccountDeletionJSONBody
 
+// AttributeAccountReferralJSONRequestBody defines body for AttributeAccountReferral for application/json ContentType.
+type AttributeAccountReferralJSONRequestBody AttributeAccountReferralJSONBody
+
 // PurchaseAccountShopProductJSONRequestBody defines body for PurchaseAccountShopProduct for application/json ContentType.
 type PurchaseAccountShopProductJSONRequestBody PurchaseAccountShopProductJSONBody
 
@@ -10007,6 +10054,9 @@ type ServerInterface interface {
 
 	// (GET /v1/account/referrals)
 	GetAccountReferrals(w http.ResponseWriter, r *http.Request, params GetAccountReferralsParams)
+
+	// (POST /v1/account/referrals/attribution)
+	AttributeAccountReferral(w http.ResponseWriter, r *http.Request)
 
 	// (GET /v1/account/security-events)
 	ListAccountSecurityEvents(w http.ResponseWriter, r *http.Request, params ListAccountSecurityEventsParams)
@@ -10945,6 +10995,11 @@ func (_ Unimplemented) ExportAccountPersonalData(w http.ResponseWriter, r *http.
 
 // (GET /v1/account/referrals)
 func (_ Unimplemented) GetAccountReferrals(w http.ResponseWriter, r *http.Request, params GetAccountReferralsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/referrals/attribution)
+func (_ Unimplemented) AttributeAccountReferral(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -13926,6 +13981,20 @@ func (siw *ServerInterfaceWrapper) GetAccountReferrals(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAccountReferrals(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AttributeAccountReferral operation middleware
+func (siw *ServerInterfaceWrapper) AttributeAccountReferral(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AttributeAccountReferral(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -25084,6 +25153,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/v1/account/referrals", wrapper.GetAccountReferrals)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/referrals/attribution", wrapper.AttributeAccountReferral)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/loyalty", wrapper.GetAccountLoyalty)
 	})
 	r.Group(func(r chi.Router) {
@@ -26921,6 +26993,44 @@ func (response GetAccountReferrals200JSONResponse) VisitGetAccountReferralsRespo
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AttributeAccountReferralRequestObject struct {
+	Body *AttributeAccountReferralJSONRequestBody
+}
+
+type AttributeAccountReferralResponseObject interface {
+	VisitAttributeAccountReferralResponse(w http.ResponseWriter) error
+}
+
+type AttributeAccountReferral200JSONResponse AccountReferralAttribution
+
+func (response AttributeAccountReferral200JSONResponse) VisitAttributeAccountReferralResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AttributeAccountReferral400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response AttributeAccountReferral400ApplicationProblemPlusJSONResponse) VisitAttributeAccountReferralResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -37578,6 +37688,9 @@ type StrictServerInterface interface {
 	// (GET /v1/account/referrals)
 	GetAccountReferrals(ctx context.Context, request GetAccountReferralsRequestObject) (GetAccountReferralsResponseObject, error)
 
+	// (POST /v1/account/referrals/attribution)
+	AttributeAccountReferral(ctx context.Context, request AttributeAccountReferralRequestObject) (AttributeAccountReferralResponseObject, error)
+
 	// (GET /v1/account/security-events)
 	ListAccountSecurityEvents(ctx context.Context, request ListAccountSecurityEventsRequestObject) (ListAccountSecurityEventsResponseObject, error)
 
@@ -39583,6 +39696,37 @@ func (sh *strictHandler) GetAccountReferrals(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetAccountReferralsResponseObject); ok {
 		if err := validResponse.VisitGetAccountReferralsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AttributeAccountReferral operation middleware
+func (sh *strictHandler) AttributeAccountReferral(w http.ResponseWriter, r *http.Request) {
+	var request AttributeAccountReferralRequestObject
+
+	var body AttributeAccountReferralJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AttributeAccountReferral(ctx, request.(AttributeAccountReferralRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AttributeAccountReferral")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AttributeAccountReferralResponseObject); ok {
+		if err := validResponse.VisitAttributeAccountReferralResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

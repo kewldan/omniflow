@@ -194,14 +194,39 @@ identity row provisions a new customer — unlike the OIDC rule below, because a
 Telegram subject is not an address somebody else can assert, so there is no
 account here to take over.
 
-Every non-operational failure collapses into a fixed answer set, because the
-installation must not become an oracle for which Telegram accounts it knows:
+A verified Telegram account is resolved to a customer under the same advisory
+lock the bot takes on `/start`, in the bot's order, so a first tap in the chat
+and a first sign-in in a browser cannot race into two accounts:
+
+1. An active identity row names the customer.
+2. Otherwise the Remnawave mapping does — an installation imported from an
+   earlier release carries the Telegram ID on `remnawave_users` before any
+   identity row exists, and a customer who never pressed `/start` is adopted
+   rather than given a second, empty account. The identity is linked and the
+   mapping is back-filled, exactly as the bot does it.
+3. Otherwise an identity the customer **unlinked** from the security screen
+   names the customer it belonged to, and is reactivated. Earlier releases left
+   that account unreachable from Telegram for good.
+4. Otherwise a new customer is created — with a `bot_preferences` row and a
+   language taken from the Mini App's `language_code` when there is one, else
+   from the browser's `Accept-Language`, else English — written to both
+   `users.locale` and `bot_preferences.locale`, so the bot greets a customer who
+   signed up in Russian in Russian.
+
+When steps 2 and 3 disagree — the mapping names one customer and the revoked
+identity another — neither is chosen silently. Moving the identity would move a
+Telegram account between two people's orders and wallets, so the sign-in is
+refused as `identity_taken` and the screen says to contact support.
+
+Every other non-operational failure collapses into a fixed answer set, because
+the installation must not become an oracle for which Telegram accounts it knows:
 
 | Condition | Status | Problem code |
 | --- | --- | --- |
 | No Telegram method configured | 404 | `method_unavailable` |
 | The account is suspended or closed | 403 | `account_unavailable` |
 | The payload did not verify, or sign-up is refused | 401 | `sign_in_rejected` |
+| Two customer records claim the Telegram account | 409 | `identity_taken` |
 | Anything else | 500 | `sign_in_unavailable` |
 
 ### The sign-in link
@@ -824,14 +849,21 @@ operator reverses one when a referral turns out to be abuse, and the slot it
 consumed comes back with it. When no public URL is configured the panel shows the
 code and says no link can be built, rather than rendering a link to nowhere.
 
-<Note>
-  The shareable link the panel builds is `<APP_PUBLIC_URL>/account/sign-in?ref=<code>`,
-  but nothing in the panel or under `/v1/account` reads that `ref` parameter
-  today: attribution rows are written only by the bot's `/start` route. A friend
-  who follows a web invite link signs in normally and is not attributed. The code
-  itself is what always works — it is shown large and selectable for exactly that
-  reason.
-</Note>
+The shareable link the panel builds is `<APP_PUBLIC_URL>/account/sign-in?ref=<code>`.
+The sign-in screen holds the code for the duration of the sign-in — in session
+storage, so it survives an OIDC round trip and dies with the tab — and the
+panel posts it to `POST /v1/account/referrals/attribution` on its first
+authenticated render. That is the same moment the bot's `/start ref_<code>`
+attributes, and the rule is the bot's: first write wins, self-referral is
+impossible by construction, and the pair is immutable. Two guards the programme's
+own terms imply are applied on top: nothing is written while the programme is
+disabled, and nothing is written for a customer who has already paid for
+anything, because the qualification is the first paid order and such a row could
+never qualify honestly. The route always answers `200` with an outcome
+(`recorded`, `already_attributed`, `program_disabled`, `unknown_code`,
+`self_referral`, `not_new`) rather than a problem, because a link that did not
+count is not something the invited person can act on, and the panel does not
+surface it.
 
 Loyalty shows the current tier, the progress toward the next, and the rules that
 govern it. Nothing on these screens grants a reward or promotes a tier: the

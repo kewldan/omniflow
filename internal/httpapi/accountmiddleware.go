@@ -51,9 +51,10 @@ func CustomerSecurityHeaders(next http.Handler) http.Handler {
 // security events.
 func (handlers *AccountHandlers) requestContext(request *http.Request) customerauthpg.RequestContext {
 	return customerauthpg.RequestContext{
-		IP:        handlers.proxies.ClientIP(request),
-		UserAgent: request.UserAgent(),
-		RequestID: middleware.GetReqID(request.Context()),
+		IP:             handlers.proxies.ClientIP(request),
+		UserAgent:      request.UserAgent(),
+		RequestID:      middleware.GetReqID(request.Context()),
+		AcceptLanguage: request.Header.Get("Accept-Language"),
 	}
 }
 

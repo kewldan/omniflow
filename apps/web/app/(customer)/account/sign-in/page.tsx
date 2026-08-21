@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
+import { rememberReferralCode } from "@/lib/referral";
 import { safeNext } from "@/lib/sign-in-path";
 
 type SignInMethods = {
@@ -53,6 +54,13 @@ export default function SignInPage() {
   // send the customer here with the path they were on; an absent or unsafe
   // value lands on the dashboard.
   const next = safeNext(search.get("next"));
+
+  // An invite link lands here as `?ref=<code>`. The code is held until a
+  // session exists and then attributed, the way the bot attributes
+  // `/start ref_<code>`; the shell posts it on its first authenticated render.
+  useEffect(() => {
+    rememberReferralCode(search.get("ref"));
+  }, [search]);
 
   // Opened inside Telegram, the surrounding client has already signed the
   // customer's identity, so the widget is unnecessary and this signs in
@@ -220,6 +228,13 @@ function TelegramButton({
   const translate = useTranslations("account");
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  // The widget's callback is registered once and must not be re-registered
+  // when the translator's identity changes, so the latest translator is read
+  // through a ref rather than listed as a dependency.
+  const translateRef = useRef(translate);
+  useEffect(() => {
+    translateRef.current = translate;
+  }, [translate]);
 
   useEffect(() => {
     const container = document.getElementById("telegram-login");
@@ -239,7 +254,14 @@ function TelegramButton({
         method: "POST",
       })
         .then(() => router.replace(next))
-        .catch((signInError: ApiError) => toast.error(signInError.message));
+        .catch((signInError: ApiError) => {
+          // A refusal with a code the catalogue explains is shown in the
+          // customer's language; anything else falls back to the problem's
+          // own title.
+          const key = `signIn.errors.${signInError.code ?? ""}`;
+          const describe = translateRef.current;
+          toast.error(describe.has(key) ? describe(key) : signInError.message);
+        });
     };
 
     const script = document.createElement("script");

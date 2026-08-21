@@ -140,6 +140,15 @@ func (handlers *AccountHandlers) finishSignIn(
 	case errors.Is(err, customerauthpg.ErrSignInRejected):
 		writeProblem(writer, request, http.StatusUnauthorized, "sign_in_rejected", "Sign-in could not be completed")
 		return
+	case errors.Is(err, customerauth.ErrIdentityTaken):
+		// Two records claim this Telegram account — an unlinked identity on one
+		// customer and a Remnawave mapping on another — and neither may be
+		// chosen silently. The refusal says the identity is in use and no more.
+		writeProblem(
+			writer, request, http.StatusConflict,
+			"identity_taken", "This sign-in method is attached to another account",
+		)
+		return
 	case err != nil:
 		handlers.logger.Error("customer sign-in failed", "error", err)
 		writeProblem(writer, request, http.StatusInternalServerError, "sign_in_unavailable", "Sign-in is unavailable")
