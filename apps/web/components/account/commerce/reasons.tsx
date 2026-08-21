@@ -73,6 +73,7 @@ const PROBLEMS = [
   "operation_forbidden",
   "order_not_cancellable",
   "order_not_payable",
+  "payment_failed",
   "payment_not_required",
   "plan_limit_reached",
   "plan_unavailable",

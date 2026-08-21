@@ -53,6 +53,11 @@ type WalletView struct {
 	// rolling window, which is the limit most top-up refusals are about.
 	RemainingWindowMinor int64
 	Providers            []PaymentChoice
+	// PendingTopUps are the customer's top-up orders still waiting to be paid.
+	// A top-up is not in the order history — it buys nothing — so without this
+	// a top-up whose provider page was closed, or whose intent the provider
+	// refused, was reachable from nowhere.
+	PendingTopUps []OrderSummary
 }
 
 // TopUp is a started wallet funding attempt.
@@ -164,6 +169,9 @@ func (service *Service) Wallet(ctx context.Context, customerID string) (WalletVi
 	if view.Presets == nil {
 		view.Presets = []int64{}
 	}
+	if view.PendingTopUps, err = service.store.PendingTopUps(ctx, customerID); err != nil {
+		return WalletView{}, err
+	}
 	if limits.WindowLimitMinor > 0 {
 		remaining := limits.WindowLimitMinor - credited
 		if remaining < 0 {
@@ -180,6 +188,14 @@ func (service *Service) Wallet(ctx context.Context, customerID string) (WalletVi
 // retried request credits one top-up rather than two. Limits, validation, and
 // the ledger movement all stay in commercepg; nothing about how much a customer
 // may credit is decided here.
+//
+// The order and the payment are two steps, and the second can fail after the
+// first has happened. When it does, the order is returned *with* the error:
+// it exists, it is the customer's, it holds a place in the rolling window, and
+// a provider that refused an intent is a retryable state — the order screen
+// offers every method that can settle it. A caller that drops the order on
+// error, as the handler once did, leaves the customer with a top-up they
+// cannot see and cannot retry.
 func (service *Service) StartTopUp(
 	ctx context.Context, customerID, currency string, amountMinor int64,
 	provider, idempotencyKey string,
@@ -187,8 +203,17 @@ func (service *Service) StartTopUp(
 	if currency == "" {
 		currency = service.settings.Currency
 	}
-	if service.payments == nil || !service.payments.Enabled(provider) {
-		return TopUp{}, ErrProviderUnavailable
+	if err := service.ProviderSettles(provider, currency); err != nil {
+		return TopUp{}, err
+	}
+	if provider == ProviderTelegramStars {
+		linked, err := service.store.HasTelegramIdentity(ctx, customerID)
+		if err != nil {
+			return TopUp{}, err
+		}
+		if !linked {
+			return TopUp{}, ErrProviderUnavailable
+		}
 	}
 	order, err := service.orders.CreateTopUpOrder(ctx, commercepg.TopUpInput{
 		CustomerID: customerID, Currency: currency,
@@ -206,12 +231,40 @@ func (service *Service) StartTopUp(
 		Description: "Wallet top-up", Channel: "customer_web",
 	})
 	if err != nil {
-		// The order exists and is the customer's; a provider that refused the
-		// intent is a retryable state, not a reason to hide what was created.
 		return result, err
 	}
+	handle.Handoff, handle.CheckoutURL = service.Handoff(ctx, handle.Provider, handle.CheckoutURL, result.OrderID)
 	result.Payment = handle
 	return result, nil
+}
+
+// PendingTopUps lists the customer's top-up orders that are still waiting to
+// be paid, newest first.
+//
+// A top-up order is the one with no order line: it buys nothing, it moves
+// money in. That is exactly why the order history omits it, and exactly why
+// the wallet has to list it instead.
+func (store *Store) PendingTopUps(ctx context.Context, customerID string) ([]OrderSummary, error) {
+	rows, err := store.pool.Query(ctx, `SELECT `+orderColumns+` `+orderJoins+`
+		WHERE o.user_id = $1::uuid
+		  AND ol.order_id IS NULL
+		  AND o.state = 'pending'
+		  AND o.expires_at > now()
+		ORDER BY o.created_at DESC, o.id DESC
+		LIMIT 10`, customerID, "en")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	orders := make([]OrderSummary, 0, 4)
+	for rows.Next() {
+		summary, scanErr := scanOrder(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		orders = append(orders, summary)
+	}
+	return orders, rows.Err()
 }
 
 func holdsCurrency(balances []WalletBalance, currency string) bool {

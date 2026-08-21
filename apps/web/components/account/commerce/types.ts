@@ -349,11 +349,18 @@ export type TopUpPolicy = {
   providers: PaymentChoice[];
 };
 
-/** `GET /v1/account/wallet` — balances, policy, and one page of the ledger. */
+/** `GET /v1/account/wallet` — balances, policy, pending top-ups, and one page of the ledger. */
 export type WalletView = {
   balances: WalletBalance[];
   currency: string;
   topUp: TopUpPolicy;
+  /**
+   * Top-up orders still waiting to be paid. A top-up is not in the order
+   * history, so this is the only place a customer finds one whose provider
+   * page they closed — and it is what the wallet renders the handoff from,
+   * so it survives a reload.
+   */
+  pendingTopUps: OrderSummary[];
   entries: WalletEntry[];
   nextCursor?: string;
   nextCursorId?: string;
@@ -365,5 +372,8 @@ export type TopUpResult = {
   currency: string;
   amountMinor: number;
   state: string;
-  payment: PaymentHandle;
+  /** Absent when the order was created but its payment could not be started. */
+  payment?: PaymentHandle | null;
+  /** Present instead of `payment`: why the payment did not start. */
+  paymentProblem?: { code: string; detail: string };
 };

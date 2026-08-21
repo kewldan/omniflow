@@ -994,6 +994,30 @@ func (e AccountTicketStatus) Valid() bool {
 	}
 }
 
+// Defines values for AccountTopUpStartedPaymentProblemCode.
+const (
+	AccountTopUpStartedPaymentProblemCodeOrderNotPayable             AccountTopUpStartedPaymentProblemCode = "order_not_payable"
+	AccountTopUpStartedPaymentProblemCodePaymentFailed               AccountTopUpStartedPaymentProblemCode = "payment_failed"
+	AccountTopUpStartedPaymentProblemCodeProviderCurrencyUnsupported AccountTopUpStartedPaymentProblemCode = "provider_currency_unsupported"
+	AccountTopUpStartedPaymentProblemCodeProviderUnavailable         AccountTopUpStartedPaymentProblemCode = "provider_unavailable"
+)
+
+// Valid indicates whether the value is a known member of the AccountTopUpStartedPaymentProblemCode enum.
+func (e AccountTopUpStartedPaymentProblemCode) Valid() bool {
+	switch e {
+	case AccountTopUpStartedPaymentProblemCodeOrderNotPayable:
+		return true
+	case AccountTopUpStartedPaymentProblemCodePaymentFailed:
+		return true
+	case AccountTopUpStartedPaymentProblemCodeProviderCurrencyUnsupported:
+		return true
+	case AccountTopUpStartedPaymentProblemCodeProviderUnavailable:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AdminLocale.
 const (
 	AdminLocaleEn AdminLocale = "en"
@@ -5077,6 +5101,24 @@ type AccountTicketPage struct {
 	NextCursor *string         `json:"nextCursor,omitempty"`
 }
 
+// AccountTopUpStarted defines model for AccountTopUpStarted.
+type AccountTopUpStarted struct {
+	AmountMinor int64                 `json:"amountMinor"`
+	Currency    string                `json:"currency"`
+	OrderId     openapi_types.UUID    `json:"orderId"`
+	Payment     *AccountPaymentHandle `json:"payment,omitempty"`
+
+	// PaymentProblem Present instead of `payment` when the order was created but its payment could not be started.
+	PaymentProblem *struct {
+		Code   AccountTopUpStartedPaymentProblemCode `json:"code"`
+		Detail string                                `json:"detail"`
+	} `json:"paymentProblem,omitempty"`
+	State string `json:"state"`
+}
+
+// AccountTopUpStartedPaymentProblemCode defines model for AccountTopUpStarted.PaymentProblem.Code.
+type AccountTopUpStartedPaymentProblemCode string
+
 // AccountTraffic defines model for AccountTraffic.
 type AccountTraffic struct {
 	LimitBytes *int64 `json:"limitBytes,omitempty"`
@@ -5107,7 +5149,10 @@ type AccountWallet struct {
 	} `json:"entries"`
 	NextCursor   *string             `json:"nextCursor,omitempty"`
 	NextCursorId *openapi_types.UUID `json:"nextCursorId,omitempty"`
-	TopUp        struct {
+
+	// PendingTopUps Top-up orders still waiting to be paid, newest first. A top-up is not in the order history — it buys nothing — so this is where a customer finds one whose provider page they closed or whose intent the provider refused, with its payment handoff.
+	PendingTopUps *[]AccountOrder `json:"pendingTopUps,omitempty"`
+	TopUp         struct {
 		Enabled      bool                   `json:"enabled"`
 		MaximumMinor int64                  `json:"maximumMinor"`
 		MinimumMinor int64                  `json:"minimumMinor"`
@@ -28585,7 +28630,7 @@ type StartAccountTopUpResponseObject interface {
 	VisitStartAccountTopUpResponse(w http.ResponseWriter) error
 }
 
-type StartAccountTopUp201JSONResponse AccountOrder
+type StartAccountTopUp201JSONResponse AccountTopUpStarted
 
 func (response StartAccountTopUp201JSONResponse) VisitStartAccountTopUpResponse(w http.ResponseWriter) error {
 

@@ -5,12 +5,14 @@ import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { cn } from "@omniflow/ui/lib/utils";
 import { toast } from "@omniflow/ui/toast";
+import Link from "next/link";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWRInfinite from "swr/infinite";
 import { PaymentHandoff } from "@/components/account/commerce/order-status";
-import { useProblemMessage } from "@/components/account/commerce/reasons";
+import { useProblemCode, useProblemMessage } from "@/components/account/commerce/reasons";
 import type {
+  OrderSummary,
   TopUpPolicy,
   TopUpResult,
   WalletBalance,
@@ -90,6 +92,19 @@ export default function WalletPage() {
         ))}
       </section>
 
+      {/* Rendered from the wallet read, never from the form's own state: a
+          provider page the customer closed, a reload, and a second tab all
+          find the same handoff here, and a top-up the provider refused is
+          listed with the way to retry it. */}
+      {wallet.pendingTopUps.length > 0 && (
+        <section className="space-y-3">
+          <SectionLabel>{translate("wallet.pending.title")}</SectionLabel>
+          {wallet.pendingTopUps.map((order) => (
+            <PendingTopUp key={order.id} order={order} />
+          ))}
+        </section>
+      )}
+
       <TopUpForm onCredited={() => mutate()} policy={wallet.topUp} currency={wallet.currency} />
 
       <section className="space-y-3">
@@ -121,6 +136,42 @@ export default function WalletPage() {
         )}
       </section>
     </div>
+  );
+}
+
+/**
+ * A top-up that has been opened and not yet paid.
+ *
+ * The handoff is the order's own, so it is the same one on every render of
+ * this page. A top-up with no payment yet — the provider refused the intent —
+ * links to the order screen, which offers every method that can settle it.
+ */
+function PendingTopUp({ order }: { order: OrderSummary }) {
+  const translate = useTranslations("account.commerce");
+  const money = useMoney();
+  return (
+    <article className="animate-step-in space-y-3 rounded-lg border border-border bg-card p-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="font-semibold text-[13.5px]">
+          {translate("wallet.pending.amount", {
+            amount: money(order.externalMinor, order.currency),
+          })}
+        </p>
+        <Link
+          className="font-mono text-[11px] text-subtle-foreground underline underline-offset-2"
+          href={`/account/orders/${order.id}`}
+        >
+          {translate("wallet.pending.open")}
+        </Link>
+      </div>
+      {order.payment ? (
+        <PaymentHandoff owes={order.externalMinor > 0} payment={order.payment} />
+      ) : (
+        <p className="text-[12.5px] text-muted-foreground leading-relaxed">
+          {translate("wallet.pending.noPayment")}
+        </p>
+      )}
+    </article>
   );
 }
 
@@ -191,6 +242,7 @@ function TopUpForm({
   const locale = useLocale();
   const money = useMoney();
   const describeProblem = useProblemMessage();
+  const describeCode = useProblemCode();
   const submission = useSubmission();
 
   const [amount, setAmount] = useState("");
@@ -200,7 +252,6 @@ function TopUpForm({
     policy.providers.length === 1 ? policy.providers[0].provider : "",
   );
   const [busy, setBusy] = useState(false);
-  const [started, setStarted] = useState<TopUpResult | null>(null);
 
   if (!policy.enabled) {
     return (
@@ -233,7 +284,19 @@ function TopUpForm({
         method: "POST",
       });
       submission.settle();
-      setStarted(result);
+      setAmount("");
+      // The handoff is rendered from the wallet's pending list, which the
+      // re-read below populates, rather than from this response — so it is
+      // still there after a reload. The response only decides what to say.
+      if (result.paymentProblem) {
+        toast.error(describeCode(result.paymentProblem.code));
+      } else {
+        toast.success(
+          translate("wallet.topUp.startedDescription", {
+            amount: money(result.amountMinor, result.currency),
+          }),
+        );
+      }
       onCredited();
     } catch (failure) {
       submission.settle(failure);
@@ -247,121 +310,95 @@ function TopUpForm({
     <section className="space-y-2">
       <SectionLabel>{translate("wallet.topUp.title")}</SectionLabel>
 
-      {started ? (
-        <div className="space-y-3">
-          <div className="rounded-lg border border-border bg-card p-4">
-            <p className="font-semibold text-[13.5px]">{translate("wallet.topUp.started")}</p>
-            <p className="mt-1 text-[12.5px] text-muted-foreground leading-relaxed">
-              {translate("wallet.topUp.startedDescription", {
-                amount: money(started.amountMinor, started.currency),
-              })}
-            </p>
+      <form className="space-y-4 rounded-lg border border-border bg-card p-4" onSubmit={submit}>
+        {policy.presets.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {policy.presets.map((preset) => (
+              <Button
+                key={preset}
+                onClick={() => setAmount(String(preset / 10 ** exponent))}
+                size="sm"
+                type="button"
+                variant={minor === preset ? "secondary" : "outline"}
+              >
+                {money(preset, currency)}
+              </Button>
+            ))}
           </div>
-          <PaymentHandoff owes={started.amountMinor > 0} payment={started.payment} />
-          <Button
-            className="w-full"
-            onClick={() => {
-              setStarted(null);
-              setAmount("");
-              onCredited();
-            }}
-            size="lg"
-            variant="outline"
-          >
-            {translate("wallet.topUp.another")}
-          </Button>
+        )}
+
+        <div className="space-y-2">
+          <Label htmlFor="top-up-amount">{translate("wallet.topUp.amount", { currency })}</Label>
+          <Input
+            autoComplete="off"
+            id="top-up-amount"
+            inputMode="decimal"
+            onChange={(event) => setAmount(event.target.value)}
+            placeholder="0"
+            required
+            value={amount}
+          />
+          <p className="text-[11.5px] text-subtle-foreground leading-relaxed">
+            {translate("wallet.topUp.limits", {
+              maximum: money(policy.maximumMinor, currency),
+              minimum: money(policy.minimumMinor, currency),
+            })}
+            {policy.remainingWindowMinor > 0 &&
+              ` ${translate("wallet.topUp.remaining", {
+                amount: money(policy.remainingWindowMinor, currency),
+              })}`}
+          </p>
         </div>
-      ) : (
-        <form className="space-y-4 rounded-lg border border-border bg-card p-4" onSubmit={submit}>
-          {policy.presets.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {policy.presets.map((preset) => (
-                <Button
-                  key={preset}
-                  onClick={() => setAmount(String(preset / 10 ** exponent))}
-                  size="sm"
-                  type="button"
-                  variant={minor === preset ? "secondary" : "outline"}
+
+        <fieldset className="space-y-2">
+          <legend className="pb-2 font-medium font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em]">
+            {translate("checkout.provider.title")}
+          </legend>
+          {policy.providers.length === 0 ? (
+            <p className="text-[12.5px] text-muted-foreground leading-relaxed">
+              {translate("checkout.provider.empty")}
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {policy.providers.map((choice) => (
+                <label
+                  className={cn(
+                    "flex cursor-pointer items-center gap-3 rounded-md border border-border p-3",
+                    "has-[:checked]:border-primary",
+                  )}
+                  key={choice.provider}
                 >
-                  {money(preset, currency)}
-                </Button>
+                  <input
+                    checked={provider === choice.provider}
+                    className="size-4 accent-[color:var(--primary)]"
+                    name="top-up-provider"
+                    onChange={() => setProvider(choice.provider)}
+                    required
+                    type="radio"
+                    value={choice.provider}
+                  />
+                  <span className="font-medium text-[13.5px]">
+                    {translate(
+                      `checkout.provider.names.${
+                        PROVIDERS.includes(choice.provider) ? choice.provider : "unknown"
+                      }`,
+                    )}
+                  </span>
+                </label>
               ))}
             </div>
           )}
+        </fieldset>
 
-          <div className="space-y-2">
-            <Label htmlFor="top-up-amount">{translate("wallet.topUp.amount", { currency })}</Label>
-            <Input
-              autoComplete="off"
-              id="top-up-amount"
-              inputMode="decimal"
-              onChange={(event) => setAmount(event.target.value)}
-              placeholder="0"
-              required
-              value={amount}
-            />
-            <p className="text-[11.5px] text-subtle-foreground leading-relaxed">
-              {translate("wallet.topUp.limits", {
-                maximum: money(policy.maximumMinor, currency),
-                minimum: money(policy.minimumMinor, currency),
-              })}
-              {policy.remainingWindowMinor > 0 &&
-                ` ${translate("wallet.topUp.remaining", {
-                  amount: money(policy.remainingWindowMinor, currency),
-                })}`}
-            </p>
-          </div>
-
-          <fieldset className="space-y-2">
-            <legend className="pb-2 font-medium font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em]">
-              {translate("checkout.provider.title")}
-            </legend>
-            {policy.providers.length === 0 ? (
-              <p className="text-[12.5px] text-muted-foreground leading-relaxed">
-                {translate("checkout.provider.empty")}
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {policy.providers.map((choice) => (
-                  <label
-                    className={cn(
-                      "flex cursor-pointer items-center gap-3 rounded-md border border-border p-3",
-                      "has-[:checked]:border-primary",
-                    )}
-                    key={choice.provider}
-                  >
-                    <input
-                      checked={provider === choice.provider}
-                      className="size-4 accent-[color:var(--primary)]"
-                      name="top-up-provider"
-                      onChange={() => setProvider(choice.provider)}
-                      required
-                      type="radio"
-                      value={choice.provider}
-                    />
-                    <span className="font-medium text-[13.5px]">
-                      {translate(
-                        `checkout.provider.names.${
-                          PROVIDERS.includes(choice.provider) ? choice.provider : "unknown"
-                        }`,
-                      )}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            )}
-          </fieldset>
-
-          <Button
-            className="w-full"
-            disabled={busy || !usable || policy.providers.length === 0}
-            size="lg"
-            type="submit"
-          >
-            {translate("wallet.topUp.submit")}
-          </Button>
-        </form>
-      )}
+        <Button
+          className="w-full"
+          disabled={busy || !usable || policy.providers.length === 0}
+          size="lg"
+          type="submit"
+        >
+          {translate("wallet.topUp.submit")}
+        </Button>
+      </form>
     </section>
   );
 }

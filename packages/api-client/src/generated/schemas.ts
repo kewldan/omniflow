@@ -8678,12 +8678,99 @@ export const GetAccountWalletResponse = zod.object({
       occurredAt: zod.iso.datetime({ offset: true }),
     }),
   ),
+  pendingTopUps: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        state: zod.enum([
+          "draft",
+          "pending",
+          "paid",
+          "fulfilled",
+          "cancelled",
+          "expired",
+          "partially_refunded",
+          "refunded",
+        ]),
+        operation: zod.string(),
+        phase: zod
+          .string()
+          .describe(
+            "The combined payment and provisioning state the panel renders: what the customer is waiting for, rather than which table changed.",
+          ),
+        currency: zod.string(),
+        subtotalMinor: zod.int(),
+        discountMinor: zod.int(),
+        walletMinor: zod.int(),
+        externalMinor: zod.int(),
+        paidMinor: zod.int(),
+        refundedMinor: zod.int(),
+        plan: zod.string(),
+        subscriptionId: zod.string().optional(),
+        createdAt: zod.iso.datetime({ offset: true }),
+        expiresAt: zod.iso.datetime({ offset: true }).optional(),
+        payment: zod
+          .object({
+            id: zod.uuid(),
+            provider: zod.string(),
+            status: zod.string(),
+            handoff: zod.enum(["hosted", "telegram_invoice", "manual", "none"]),
+            checkoutUrl: zod.string().optional(),
+            receiptUrl: zod.string().optional(),
+          })
+          .optional(),
+        fulfillment: zod
+          .object({
+            status: zod.string(),
+            attempts: zod.int(),
+            errorCode: zod.string().optional(),
+            updatedAt: zod.iso.datetime({ offset: true }).optional(),
+          })
+          .optional()
+          .describe(
+            "Provisioning progress, read from the fulfillment operation rather than carried by the client.",
+          ),
+        refunds: zod
+          .array(
+            zod.object({
+              status: zod.string(),
+              amountMinor: zod.int(),
+              currency: zod.string(),
+              createdAt: zod.iso.datetime({ offset: true }),
+            }),
+          )
+          .optional(),
+        paymentChoices: zod
+          .array(
+            zod.object({
+              provider: zod.string(),
+              currency: zod.string(),
+              amountMinor: zod.int().optional(),
+              recurring: zod.boolean(),
+            }),
+          )
+          .optional()
+          .describe(
+            "The methods that can settle this order in its currency, each priced at what the order still owes. Present on the detail response while the order is pending and owes something, so the page can offer a method without depending on the URL the checkout redirected to. Telegram Stars appears only for a customer with a Telegram identity.",
+          ),
+        preferredProvider: zod
+          .string()
+          .optional()
+          .describe(
+            "The method the checkout recorded, while that checkout is still attached to the order.",
+          ),
+      }),
+    )
+    .optional()
+    .describe(
+      "Top-up orders still waiting to be paid, newest first. A top-up is not in the order history — it buys nothing — so this is where a customer finds one whose provider page they closed or whose intent the provider refused, with its payment handoff.",
+    ),
   nextCursor: zod.string().optional(),
   nextCursorId: zod.uuid().optional(),
 });
 
 /**
- * Opens a top-up order through the same order, webhook, and reconciliation pipeline a plan uses. The caller's key becomes the order's key, so a retried request credits the same top-up rather than a second one.
+ * Opens a top-up order through the same order, webhook, and reconciliation pipeline a plan uses. The caller's key becomes the order's key, so a retried request credits the same top-up rather than a second one. The order and its payment are two steps: when the order exists but the provider refused the intent, the response is still `201` with the order and `paymentProblem` in place of `payment`, because the order is the customer's and can be paid from its own screen by any method that settles it.
  */
 export const startAccountTopUpHeaderIdempotencyKeyMin = 8;
 export const startAccountTopUpHeaderIdempotencyKeyMax = 128;
@@ -8705,83 +8792,38 @@ export const StartAccountTopUpBody = zod.object({
 });
 
 export const StartAccountTopUpResponse = zod.object({
-  id: zod.uuid(),
-  state: zod.enum([
-    "draft",
-    "pending",
-    "paid",
-    "fulfilled",
-    "cancelled",
-    "expired",
-    "partially_refunded",
-    "refunded",
-  ]),
-  operation: zod.string(),
-  phase: zod
-    .string()
-    .describe(
-      "The combined payment and provisioning state the panel renders: what the customer is waiting for, rather than which table changed.",
-    ),
+  orderId: zod.uuid(),
   currency: zod.string(),
-  subtotalMinor: zod.int(),
-  discountMinor: zod.int(),
-  walletMinor: zod.int(),
-  externalMinor: zod.int(),
-  paidMinor: zod.int(),
-  refundedMinor: zod.int(),
-  plan: zod.string(),
-  subscriptionId: zod.string().optional(),
-  createdAt: zod.iso.datetime({ offset: true }),
-  expiresAt: zod.iso.datetime({ offset: true }).optional(),
+  amountMinor: zod.int(),
+  state: zod.string(),
   payment: zod
     .object({
       id: zod.uuid(),
       provider: zod.string(),
       status: zod.string(),
-      handoff: zod.enum(["hosted", "telegram_invoice", "manual", "none"]),
+      amountMinor: zod.int(),
+      currency: zod.string(),
+      handoff: zod
+        .enum(["hosted", "telegram_invoice", "manual", "none"])
+        .describe(
+          "How the customer completes the payment. `none` means nothing further is owed, which is what a wallet-covered order looks like.",
+        ),
       checkoutUrl: zod.string().optional(),
-      receiptUrl: zod.string().optional(),
     })
     .optional(),
-  fulfillment: zod
+  paymentProblem: zod
     .object({
-      status: zod.string(),
-      attempts: zod.int(),
-      errorCode: zod.string().optional(),
-      updatedAt: zod.iso.datetime({ offset: true }).optional(),
+      code: zod.enum([
+        "provider_unavailable",
+        "provider_currency_unsupported",
+        "order_not_payable",
+        "payment_failed",
+      ]),
+      detail: zod.string(),
     })
     .optional()
     .describe(
-      "Provisioning progress, read from the fulfillment operation rather than carried by the client.",
-    ),
-  refunds: zod
-    .array(
-      zod.object({
-        status: zod.string(),
-        amountMinor: zod.int(),
-        currency: zod.string(),
-        createdAt: zod.iso.datetime({ offset: true }),
-      }),
-    )
-    .optional(),
-  paymentChoices: zod
-    .array(
-      zod.object({
-        provider: zod.string(),
-        currency: zod.string(),
-        amountMinor: zod.int().optional(),
-        recurring: zod.boolean(),
-      }),
-    )
-    .optional()
-    .describe(
-      "The methods that can settle this order in its currency, each priced at what the order still owes. Present on the detail response while the order is pending and owes something, so the page can offer a method without depending on the URL the checkout redirected to. Telegram Stars appears only for a customer with a Telegram identity.",
-    ),
-  preferredProvider: zod
-    .string()
-    .optional()
-    .describe(
-      "The method the checkout recorded, while that checkout is still attached to the order.",
+      "Present instead of `payment` when the order was created but its payment could not be started.",
     ),
 });
 

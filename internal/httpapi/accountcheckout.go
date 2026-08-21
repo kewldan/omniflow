@@ -689,6 +689,10 @@ func (handlers *AccountHandlers) readWallet(writer http.ResponseWriter, request 
 			"provider": choice.Provider, "currency": choice.Currency, "recurring": choice.Recurring,
 		})
 	}
+	pendingTopUps := make([]map[string]any, 0, len(view.PendingTopUps))
+	for _, order := range view.PendingTopUps {
+		pendingTopUps = append(pendingTopUps, handlers.orderPayload(request.Context(), order, nil))
+	}
 	items := make([]map[string]any, 0, len(entries))
 	for _, entry := range entries {
 		item := map[string]any{
@@ -707,7 +711,8 @@ func (handlers *AccountHandlers) readWallet(writer http.ResponseWriter, request 
 			"maximumMinor": view.MaximumMinor, "presets": view.Presets,
 			"remainingWindowMinor": view.RemainingWindowMinor, "providers": providers,
 		},
-		"entries": items,
+		"pendingTopUps": pendingTopUps,
+		"entries":       items,
 	}
 	// Same contract as the order list: a short page is the last one, so no cursor.
 	if len(entries) > 0 && len(entries) == accountcheckout.BoundLimit(limit) {
@@ -742,14 +747,50 @@ func (handlers *AccountHandlers) startTopUp(writer http.ResponseWriter, request 
 		request.Context(), principal.Customer.ID, strings.ToUpper(strings.TrimSpace(body.Currency)),
 		body.AmountMinor, strings.TrimSpace(body.Provider), key,
 	)
-	if handlers.writeCheckoutError(writer, request, err) {
+	if err != nil && topUp.OrderID == "" {
+		// Nothing was created: the amount, the window, or the method was
+		// refused before an order existed.
+		handlers.writeCheckoutError(writer, request, err)
 		return
 	}
-	writeJSON(writer, http.StatusCreated, map[string]any{
+	payload := map[string]any{
 		"orderId": topUp.OrderID, "currency": topUp.Currency,
 		"amountMinor": topUp.AmountMinor, "state": topUp.State,
-		"payment": paymentPayload(topUp.Payment),
-	})
+	}
+	if err != nil {
+		// The order was created and the provider refused the intent. The order
+		// is still the customer's — it holds a place in the rolling window and
+		// can be paid from its own screen by any method that settles it — so it
+		// is returned as created, with the refusal beside it rather than
+		// instead of it. Dropping the order here, as an earlier release did,
+		// left a top-up that existed but could not be seen or retried.
+		handlers.logger.Warn("top-up payment could not be started",
+			"order", topUp.OrderID, "provider", body.Provider, "error", err)
+		payload["payment"] = nil
+		payload["paymentProblem"] = map[string]any{
+			"code":   topUpPaymentProblem(err),
+			"detail": "The payment could not be started; open the order to try another method",
+		}
+		writeJSON(writer, http.StatusCreated, payload)
+		return
+	}
+	payload["payment"] = paymentPayload(topUp.Payment)
+	writeJSON(writer, http.StatusCreated, payload)
+}
+
+// topUpPaymentProblem names why a top-up's payment could not start, in the
+// same vocabulary a refused order payment uses.
+func topUpPaymentProblem(err error) string {
+	switch {
+	case errors.Is(err, accountcheckout.ErrProviderUnavailable):
+		return "provider_unavailable"
+	case errors.Is(err, accountcheckout.ErrProviderCurrency):
+		return "provider_currency_unsupported"
+	case errors.Is(err, accountcheckout.ErrOrderNotPayable):
+		return "order_not_payable"
+	default:
+		return "payment_failed"
+	}
 }
 
 // ---------------------------------------------------------------------------

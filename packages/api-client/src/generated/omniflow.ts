@@ -3874,8 +3874,38 @@ export interface AccountWallet {
   currency: string;
   topUp: AccountWalletTopUp;
   entries: AccountWalletEntriesItem[];
+  /** Top-up orders still waiting to be paid, newest first. A top-up is not in the order history — it buys nothing — so this is where a customer finds one whose provider page they closed or whose intent the provider refused, with its payment handoff. */
+  pendingTopUps?: AccountOrder[];
   nextCursor?: string;
   nextCursorId?: string;
+}
+
+export type AccountTopUpStartedPaymentProblemCode =
+  (typeof AccountTopUpStartedPaymentProblemCode)[keyof typeof AccountTopUpStartedPaymentProblemCode];
+
+export const AccountTopUpStartedPaymentProblemCode = {
+  provider_unavailable: "provider_unavailable",
+  provider_currency_unsupported: "provider_currency_unsupported",
+  order_not_payable: "order_not_payable",
+  payment_failed: "payment_failed",
+} as const;
+
+/**
+ * Present instead of `payment` when the order was created but its payment could not be started.
+ */
+export type AccountTopUpStartedPaymentProblem = {
+  code: AccountTopUpStartedPaymentProblemCode;
+  detail: string;
+};
+
+export interface AccountTopUpStarted {
+  orderId: string;
+  currency: string;
+  amountMinor: number;
+  state: string;
+  payment?: AccountPaymentHandle;
+  /** Present instead of `payment` when the order was created but its payment could not be started. */
+  paymentProblem?: AccountTopUpStartedPaymentProblem;
 }
 
 export type AccountReferralAttributionReason =
@@ -26283,7 +26313,7 @@ export const useGetAccountWallet = <TError = Promise<ProblemResponse>>(
 };
 
 export type startAccountTopUpResponse201 = {
-  data: AccountOrder;
+  data: AccountTopUpStarted;
   status: 201;
 };
 
@@ -26308,7 +26338,7 @@ export const getStartAccountTopUpUrl = () => {
 };
 
 /**
- * Opens a top-up order through the same order, webhook, and reconciliation pipeline a plan uses. The caller's key becomes the order's key, so a retried request credits the same top-up rather than a second one.
+ * Opens a top-up order through the same order, webhook, and reconciliation pipeline a plan uses. The caller's key becomes the order's key, so a retried request credits the same top-up rather than a second one. The order and its payment are two steps: when the order exists but the provider refused the intent, the response is still `201` with the order and `paymentProblem` in place of `payment`, because the order is the customer's and can be paid from its own screen by any method that settles it.
  */
 export const startAccountTopUp = async (
   startAccountTopUpBody: StartAccountTopUpBody,

@@ -739,9 +739,17 @@ would be accepted. Refusals arrive as `topup_disabled`, `topup_below_minimum`,
 The caller's idempotency key **becomes the order's key** here, unlike everywhere
 else: a top-up mints real money into the wallet, so a retried request credits the
 same top-up rather than a second. If the order is created but the provider
-refuses the intent, the order is still returned — it exists and is the customer's,
-and a provider that refused an intent is a retryable state, not a reason to hide
-what was created.
+refuses the intent, the order is still returned — `201` with `paymentProblem` in
+place of `payment` — because it exists and is the customer's, and a provider that
+refused an intent is a retryable state, not a reason to hide what was created.
+
+`GET /v1/account/wallet` carries `pendingTopUps`: the top-up orders still waiting
+to be paid, each with its payment handoff. The wallet screen renders the handoff
+from that list rather than from the response that started it, so a provider page
+the customer closed, a reload, and a second tab all show the same way back in —
+and a top-up whose payment never started links to the order screen, which offers
+every method that settles it. Top-ups are not in `/account/orders`, so this list
+is the only place they appear.
 
 ## Digital goods
 

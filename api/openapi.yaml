@@ -3346,7 +3346,12 @@ paths:
       description: >-
         Opens a top-up order through the same order, webhook, and reconciliation
         pipeline a plan uses. The caller's key becomes the order's key, so a
-        retried request credits the same top-up rather than a second one.
+        retried request credits the same top-up rather than a second one. The
+        order and its payment are two steps: when the order exists but the
+        provider refused the intent, the response is still `201` with the order
+        and `paymentProblem` in place of `payment`, because the order is the
+        customer's and can be paid from its own screen by any method that
+        settles it.
       parameters:
         - {$ref: "#/components/parameters/CSRFToken"}
         - {$ref: "#/components/parameters/IdempotencyKey"}
@@ -3362,7 +3367,7 @@ paths:
                 currency: {type: string}
                 provider: {type: string}
       responses:
-        "201": {description: Top-up opened, content: {application/json: {schema: {$ref: "#/components/schemas/AccountOrder"}}}}
+        "201": {description: Top-up opened, content: {application/json: {schema: {$ref: "#/components/schemas/AccountTopUpStarted"}}}}
         "422": {$ref: "#/components/responses/Problem"}
   /v1/account/referrals:
     get:
@@ -6658,8 +6663,32 @@ components:
               currency: {type: string}
               reason: {type: string}
               occurredAt: {type: string, format: date-time}
+        pendingTopUps:
+          type: array
+          description: >-
+            Top-up orders still waiting to be paid, newest first. A top-up is
+            not in the order history — it buys nothing — so this is where a
+            customer finds one whose provider page they closed or whose intent
+            the provider refused, with its payment handoff.
+          items: {$ref: "#/components/schemas/AccountOrder"}
         nextCursor: {type: string}
         nextCursorId: {type: string, format: uuid}
+    AccountTopUpStarted:
+      type: object
+      required: [orderId, currency, amountMinor, state]
+      properties:
+        orderId: {type: string, format: uuid}
+        currency: {type: string}
+        amountMinor: {type: integer, format: int64}
+        state: {type: string}
+        payment: {$ref: "#/components/schemas/AccountPaymentHandle"}
+        paymentProblem:
+          type: object
+          description: "Present instead of `payment` when the order was created but its payment could not be started."
+          required: [code, detail]
+          properties:
+            code: {type: string, enum: [provider_unavailable, provider_currency_unsupported, order_not_payable, payment_failed]}
+            detail: {type: string}
     AccountReferralAttribution:
       type: object
       required: [attributed, reason]

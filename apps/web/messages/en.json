@@ -3503,6 +3503,7 @@
         "operation_forbidden": "This plan does not allow that change.",
         "order_not_cancellable": "Only an unpaid order can be cancelled. Contact support about a refund.",
         "order_not_payable": "This order can no longer be paid — it has expired, been cancelled, or already settled. The page has been refreshed.",
+        "payment_failed": "The payment provider did not accept the request. The order was kept; open it to try another method.",
         "payment_not_required": "Nothing more is owed on this order.",
         "plan_limit_reached": "You already hold as many subscriptions on this plan as it allows.",
         "plan_unavailable": "That plan is no longer available. Pick another from the store.",
@@ -3733,6 +3734,10 @@
             "description": "Telegram Stars are paid inside the chat. Open the bot and it sends you the invoice for this order; pay it there, then come back — this page updates on its own.",
             "action": "Open the invoice"
           },
+          "incomplete": {
+            "title": "The payment has not started",
+            "description": "The provider did not accept the request when this order was opened. Try the payment again below, or choose another method from the order."
+          },
           "unreachable": {
             "title": "Finish this payment in the bot",
             "description": "This method is paid inside Telegram, and the link to the bot could not be built right now. Open the bot from Telegram and pay the order from its orders list."
@@ -3798,9 +3803,13 @@
           "limits": "From {minimum} to {maximum} at a time.",
           "remaining": "You may still add {amount} in this period.",
           "submit": "Add to wallet",
-          "started": "Payment started",
-          "startedDescription": "{amount} lands in your wallet as soon as the payment is confirmed. This page does not need to stay open.",
-          "another": "Add another amount"
+          "startedDescription": "{amount} lands in your wallet as soon as the payment is confirmed. This page does not need to stay open."
+        },
+        "pending": {
+          "title": "Waiting to be paid",
+          "amount": "Top-up of {amount}",
+          "open": "Open the order",
+          "noPayment": "The payment for this top-up has not been started. Open the order to choose a method."
         }
       }
     }
