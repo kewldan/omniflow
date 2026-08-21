@@ -404,6 +404,13 @@ func (store *Store) CreateAddonOrder(ctx context.Context, input AddonOrderInput)
 	if err != nil {
 		return dbgen.Order{}, err
 	}
+	// An add-on is priced against the time the current period has left, and a
+	// paused entitlement's clock is stopped with its end frozen in the past:
+	// there is no remaining period to price against. It is refused as having
+	// nothing live to attach to, rather than charged the full price.
+	if entitlement.Status == "paused" {
+		return dbgen.Order{}, ErrNoActiveSubscription
+	}
 	if !subscriptionID.Valid {
 		subscriptionID = entitlement.SubscriptionID
 	}

@@ -363,10 +363,17 @@ WHERE ol.order_id = $1;
 SELECT grace_period_seconds FROM plan_versions WHERE id = $1;
 
 -- name: GetLatestEntitlementForChange :one
+-- The entitlement a change to the subscription builds on and supersedes.
+--
+-- A paused entitlement is included: it is the subscription's live entitlement
+-- with its clock stopped, and a change that ignored it would open a second
+-- live entitlement beside it and let a later resume hand the paused days out
+-- again. The caller measures the paused remainder from now rather than
+-- reading ends_at, which is frozen at the pause instant.
 SELECT * FROM entitlements
 WHERE user_id = sqlc.arg(user_id)
   AND (sqlc.narg(subscription_id)::uuid IS NULL OR subscription_id = sqlc.narg(subscription_id)::uuid)
-  AND status IN ('pending', 'active', 'limited', 'disabled')
+  AND status IN ('pending', 'active', 'limited', 'disabled', 'paused')
 ORDER BY ends_at DESC
 LIMIT 1
 FOR UPDATE;
@@ -700,12 +707,24 @@ RETURNING *;
 -- name: SupersedePreviousEntitlements :exec
 -- Superseding is scoped to one subscription so buying a second subscription
 -- never retires the first one's entitlement.
+--
+-- A paused entitlement is retired too, and its pause is closed in the same
+-- write: the instant is cleared, because the table refuses `superseded` next
+-- to a pause instant, and the elapsed pause is added to paused_seconds so the
+-- row still explains itself. The time the pause was preserving is not lost —
+-- the entitlement replacing this one was built on it.
 UPDATE entitlements
-SET status = 'superseded', updated_at = now()
+SET status = 'superseded',
+    paused_seconds = paused_seconds + CASE
+      WHEN paused_at IS NOT NULL THEN GREATEST(0, extract(epoch FROM (now() - paused_at))::bigint)
+      ELSE 0
+    END,
+    paused_at = NULL,
+    updated_at = now()
 WHERE user_id = sqlc.arg(user_id)
   AND id <> sqlc.arg(current_entitlement_id)
   AND subscription_id IS NOT DISTINCT FROM sqlc.narg(subscription_id)::uuid
-  AND status IN ('pending', 'active', 'limited', 'disabled');
+  AND status IN ('pending', 'active', 'limited', 'disabled', 'paused');
 
 -- name: InsertEntitlementDrift :one
 INSERT INTO entitlement_drifts (entitlement_id, kind, expected, observed)

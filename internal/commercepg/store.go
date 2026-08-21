@@ -755,11 +755,9 @@ func (store *Store) settlePaidOrder(ctx context.Context, tx pgx.Tx, queries *dbg
 		return err
 	}
 	startsAt := store.clock().UTC()
-	var currentEndsAt *time.Time
-	if current, currentErr := queries.GetLatestEntitlementForChange(ctx, dbgen.GetLatestEntitlementForChangeParams{UserID: order.UserID, SubscriptionID: order.SubscriptionID}); currentErr == nil {
-		currentEndsAt = &current.EndsAt.Time
-	} else if !errors.Is(currentErr, pgx.ErrNoRows) {
-		return currentErr
+	currentEndsAt, err := store.changeBase(ctx, queries, order.UserID, order.SubscriptionID, startsAt)
+	if err != nil {
+		return err
 	}
 	schedule, err := commerce.ScheduleEntitlement(startsAt, time.Duration(spec.DurationSeconds)*time.Second, order.Operation, spec.UpgradePolicy, spec.DowngradePolicy, currentEndsAt)
 	if err != nil {
@@ -808,6 +806,23 @@ func (store *Store) settlePaidOrder(ctx context.Context, tx pgx.Tx, queries *dbg
 		}
 	}
 	return nil
+}
+
+// changeBase is the end the subscription's current entitlement gives a change
+// to build on, or nil when there is none. A paused entitlement contributes the
+// time it was preserving, measured from now, so an extension bought while
+// paused resumes the subscription with exactly those days plus the new period;
+// the paused row is then superseded by the new entitlement's provisioning.
+func (store *Store) changeBase(ctx context.Context, queries *dbgen.Queries, userID, subscriptionID pgtype.UUID, now time.Time) (*time.Time, error) {
+	current, err := queries.GetLatestEntitlementForChange(ctx, dbgen.GetLatestEntitlementForChangeParams{UserID: userID, SubscriptionID: subscriptionID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	base := commerce.EffectiveEndsAt(now, current.EndsAt.Time, current.PausedAt.Time)
+	return &base, nil
 }
 
 func parseUUID(value string) (pgtype.UUID, error) {

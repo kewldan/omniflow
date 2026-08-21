@@ -61,6 +61,25 @@ func ClockNow(now time.Time, subscription Subscription) time.Time {
 	return now
 }
 
+// EffectiveEndsAt is the end a change to an entitlement builds on.
+//
+// For a running entitlement it is the stored end. For a paused one the stored
+// end is frozen at the instant the pause began, and what the customer still
+// owns is the time that was left at that instant — so the base is that
+// remainder measured from now. Building an extension on it gives back exactly
+// the paused time, the same amount a resume would, and not a day more: the
+// pause is closed by the change rather than left to hand the days out twice.
+func EffectiveEndsAt(now, endsAt, pausedAt time.Time) time.Time {
+	if pausedAt.IsZero() {
+		return endsAt
+	}
+	remaining := endsAt.Sub(pausedAt)
+	if remaining <= 0 {
+		return endsAt
+	}
+	return now.Add(remaining)
+}
+
 // RemoteExpiry is the instant Remnawave is asked to expire the user: the paid
 // end plus the plan's grace period. The entitlement's own `ends_at` stays the
 // paid end — it is what renewal arithmetic, reminders, and reporting read —

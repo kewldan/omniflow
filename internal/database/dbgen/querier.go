@@ -526,6 +526,13 @@ type Querier interface {
 	GetInfoPageLocalizations(ctx context.Context, pageSlug string) ([]GetInfoPageLocalizationsRow, error)
 	GetLatestBackup(ctx context.Context) (Backup, error)
 	GetLatestConsents(ctx context.Context, userID pgtype.UUID) ([]ConsentRecord, error)
+	// The entitlement a change to the subscription builds on and supersedes.
+	//
+	// A paused entitlement is included: it is the subscription's live entitlement
+	// with its clock stopped, and a change that ignored it would open a second
+	// live entitlement beside it and let a later resume hand the paused days out
+	// again. The caller measures the paused remainder from now rather than
+	// reading ends_at, which is frozen at the pause instant.
 	GetLatestEntitlementForChange(ctx context.Context, arg GetLatestEntitlementForChangeParams) (Entitlement, error)
 	GetLedgerTransactionByIdempotency(ctx context.Context, idempotencyKey string) (LedgerTransaction, error)
 	GetLoyaltyStanding(ctx context.Context, userID pgtype.UUID) (GetLoyaltyStandingRow, error)
@@ -1495,6 +1502,12 @@ type Querier interface {
 	SummariseNotificationDeliveries(ctx context.Context, userID pgtype.UUID) ([]SummariseNotificationDeliveriesRow, error)
 	// Superseding is scoped to one subscription so buying a second subscription
 	// never retires the first one's entitlement.
+	//
+	// A paused entitlement is retired too, and its pause is closed in the same
+	// write: the instant is cleared, because the table refuses `superseded` next
+	// to a pause instant, and the elapsed pause is added to paused_seconds so the
+	// row still explains itself. The time the pause was preserving is not lost —
+	// the entitlement replacing this one was built on it.
 	SupersedePreviousEntitlements(ctx context.Context, arg SupersedePreviousEntitlementsParams) error
 	// The desk at a glance: what is waiting, what is overdue, and how quickly the
 	// desk is answering.

@@ -239,6 +239,26 @@ Resume is **one** fulfillment operation rather than two, and the order is why:
 the new expiry is pushed before the user is re-enabled, so the user is never
 briefly enabled carrying an expiry that has since passed.
 
+### Buying a change while paused
+
+A paused entitlement is still the subscription's live entitlement, and a change
+bought while it is paused — an extension, a gift or access code that extends, an
+upgrade or downgrade — builds on it and retires it, exactly as it would a
+running one. What it builds on is the time the pause was preserving: the new
+entitlement's base is now plus `ends_at − paused_at`, so the customer gets back
+precisely the days a resume would have given them, and the bought period is
+added on top. Provisioning the new entitlement supersedes the paused one and
+closes its pause in the same write — `paused_at` is cleared and the elapsed
+pause is added to `paused_seconds` — so a later resume of the old row is
+refused and the days cannot be handed out twice. The paid change resumes the
+subscription: the new entitlement is enabled in Remnawave like any other paid
+change.
+
+Automatic renewal never fires while paused; it selects active and limited
+entitlements only. An add-on is refused while paused with
+`no_active_subscription`, because it is priced against the time the current
+period has left and a stopped clock has no remaining period to price against.
+
 ### Reconciliation knows about it
 
 A paused subscription and a disabled one are the same thing from Remnawave's

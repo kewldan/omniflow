@@ -1192,7 +1192,7 @@ const getLatestEntitlementForChange = `-- name: GetLatestEntitlementForChange :o
 SELECT id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id, paused_at, paused_seconds FROM entitlements
 WHERE user_id = $1
   AND ($2::uuid IS NULL OR subscription_id = $2::uuid)
-  AND status IN ('pending', 'active', 'limited', 'disabled')
+  AND status IN ('pending', 'active', 'limited', 'disabled', 'paused')
 ORDER BY ends_at DESC
 LIMIT 1
 FOR UPDATE
@@ -1203,6 +1203,13 @@ type GetLatestEntitlementForChangeParams struct {
 	SubscriptionID pgtype.UUID `json:"subscription_id"`
 }
 
+// The entitlement a change to the subscription builds on and supersedes.
+//
+// A paused entitlement is included: it is the subscription's live entitlement
+// with its clock stopped, and a change that ignored it would open a second
+// live entitlement beside it and let a later resume hand the paused days out
+// again. The caller measures the paused remainder from now rather than
+// reading ends_at, which is frozen at the pause instant.
 func (q *Queries) GetLatestEntitlementForChange(ctx context.Context, arg GetLatestEntitlementForChangeParams) (Entitlement, error) {
 	row := q.db.QueryRow(ctx, getLatestEntitlementForChange, arg.UserID, arg.SubscriptionID)
 	var i Entitlement
@@ -3051,11 +3058,17 @@ func (q *Queries) SetPlanVisibility(ctx context.Context, arg SetPlanVisibilityPa
 
 const supersedePreviousEntitlements = `-- name: SupersedePreviousEntitlements :exec
 UPDATE entitlements
-SET status = 'superseded', updated_at = now()
+SET status = 'superseded',
+    paused_seconds = paused_seconds + CASE
+      WHEN paused_at IS NOT NULL THEN GREATEST(0, extract(epoch FROM (now() - paused_at))::bigint)
+      ELSE 0
+    END,
+    paused_at = NULL,
+    updated_at = now()
 WHERE user_id = $1
   AND id <> $2
   AND subscription_id IS NOT DISTINCT FROM $3::uuid
-  AND status IN ('pending', 'active', 'limited', 'disabled')
+  AND status IN ('pending', 'active', 'limited', 'disabled', 'paused')
 `
 
 type SupersedePreviousEntitlementsParams struct {
@@ -3066,6 +3079,12 @@ type SupersedePreviousEntitlementsParams struct {
 
 // Superseding is scoped to one subscription so buying a second subscription
 // never retires the first one's entitlement.
+//
+// A paused entitlement is retired too, and its pause is closed in the same
+// write: the instant is cleared, because the table refuses `superseded` next
+// to a pause instant, and the elapsed pause is added to paused_seconds so the
+// row still explains itself. The time the pause was preserving is not lost —
+// the entitlement replacing this one was built on it.
 func (q *Queries) SupersedePreviousEntitlements(ctx context.Context, arg SupersedePreviousEntitlementsParams) error {
 	_, err := q.db.Exec(ctx, supersedePreviousEntitlements, arg.UserID, arg.CurrentEntitlementID, arg.SubscriptionID)
 	return err
