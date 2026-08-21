@@ -435,6 +435,16 @@ what both surfaces render, rather than the internal subscription status.
 Remaining days round **up**, because a subscription with eight hours left has a
 day left from the customer's point of view, not zero.
 
+A subscription row is created together with the order that opens it, and it
+survives that order going unpaid. Such a row carries `pendingOrderId` while no
+entitlement has been provisioned, and the card renders it as **Payment pending**
+with a way to the order rather than as "not active" with a **Connect** control
+that the connect screen would refuse. Connect is offered only for a provisioned
+subscription in a usable phase; an expired or disabled one offers **Renew**, and
+one that was never provisioned offers **Browse plans**. The same decision drives
+the primary control on `/account/subscriptions/{id}`, where link rotation is
+shown only once something has been provisioned.
+
 The subscription switcher appears when the installation allows concurrent
 subscriptions, and also whenever the customer actually holds more than one even
 if the setting is off: a customer holding two subscriptions under a
@@ -529,9 +539,29 @@ cannot find it assumes the panel is broken rather than that they are ineligible.
 Eligibility and the offered operations arrive decided from the API. The operation
 vocabulary on the wire is `purchase`, `extension`, `upgrade`, and `downgrade`;
 `renewal` and `trial` are accepted input aliases that normalise into those four.
-`upgrade` and `downgrade` appear only when the plan version's policy is not
-`forbid`, and a customer with no room left for another subscription is shown
-`subscription_limit_reached` rather than an empty screen.
+
+The rule is one sentence, and the bot applies the same one: the plan the
+customer holds is extended, a plan priced at or above a held one is an upgrade,
+a plan priced below a held one is a downgrade, and with nothing held the only
+thing to do is buy. "Held" means the plan behind a subscription's current
+entitlement that has neither been superseded nor run out — an expired
+entitlement is not held, so a lapsed customer is offered `purchase` on every
+plan including the one they had, rather than an "upgrade" away from a plan they
+no longer pay for. An equal price is an upgrade, not a refusal. `upgrade` and
+`downgrade` appear only when the plan version's policy is not `forbid`; with
+several live subscriptions a plan is judged against each and may be both, and
+the target picker resolves which one it applies to. `purchase` is offered
+alongside when the policy allows one more subscription. A plan that offers
+nothing — the customer holds something and this plan forbids being moved to —
+carries `subscription_limit_reached`.
+
+A `purchase` never targets a subscription that still has time left. It schedules
+from now and supersedes what is there, so aimed at a live subscription it would
+throw the remaining time away; the plan page and the checkout list only empty
+slots — an unpaid or lapsed subscription — beside "a new subscription", and
+`POST /checkout` refuses the rest with `422 operation_forbidden`. Under a
+single-subscription setting a purchase against a live subscription is refused
+the same way; the catalogue offers `extension` there instead.
 
 <Note>
   The catalogue's eligibility answer is advisory. The plan's concurrency cap and

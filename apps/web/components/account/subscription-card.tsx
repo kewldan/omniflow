@@ -2,7 +2,7 @@
 
 import { Button } from "@omniflow/ui/button";
 import { cn } from "@omniflow/ui/lib/utils";
-import { ArrowUpDown, KeyRound } from "lucide-react";
+import { ArrowUpDown, KeyRound, Receipt, ShoppingBag } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 
@@ -29,7 +29,57 @@ export type AccountSubscription = {
   live: boolean;
   traffic: { usedBytes: number; limitBytes?: number | null; unlimited: boolean; percent: number };
   devices: { used: number; limit?: number | null; unlimited: boolean };
+  /** The unpaid order that opened this subscription, while nothing has been provisioned. */
+  pendingOrderId?: string;
 };
+
+/**
+ * What a subscription's primary control should be.
+ *
+ * "Connect" is the right answer only for a subscription that has been
+ * provisioned and is usable. A card for an unpaid purchase led to a connect
+ * screen that answered 409; an expired one led to a link that no longer
+ * worked, with no way to the store from the place the customer was looking.
+ */
+export function primaryAction(
+  subscription: AccountSubscription,
+): "pay" | "connect" | "renew" | "browse" {
+  if (subscription.pendingOrderId) {
+    return "pay";
+  }
+  if (!subscription.provisioned) {
+    return "browse";
+  }
+  switch (subscription.phase) {
+    case "expired":
+    case "disabled":
+    case "none":
+    case "failed":
+      return "renew";
+    default:
+      return "connect";
+  }
+}
+
+/** The phase sentence, with "payment pending" taking precedence over "not active". */
+export function usePhaseLabel() {
+  const translate = useTranslations("account");
+  const format = useFormatter();
+  return (subscription: AccountSubscription) => {
+    if (subscription.pendingOrderId) {
+      return translate("subscription.phase.payment_pending");
+    }
+    return subscription.endsAt
+      ? translate(`subscription.phase.${subscription.phase}`, {
+          date: format.dateTime(new Date(subscription.endsAt), {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          }),
+        })
+      : translate(`subscription.phase.${subscription.phase}`, { date: "" });
+  };
+}
 
 /**
  * Which tone a phase renders in.
@@ -127,18 +177,10 @@ export function TrafficMeter({ traffic }: { traffic: AccountSubscription["traffi
  */
 export function SubscriptionStatus({ subscription }: { subscription: AccountSubscription }) {
   const translate = useTranslations("account");
-  const format = useFormatter();
-  const tone = PHASE_TONE[subscription.phase];
+  const phaseLabel = usePhaseLabel();
+  const tone = subscription.pendingOrderId ? "warn" : PHASE_TONE[subscription.phase];
 
-  const status = subscription.endsAt
-    ? translate(`subscription.phase.${subscription.phase}`, {
-        date: format.dateTime(new Date(subscription.endsAt), {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        }),
-      })
-    : translate(`subscription.phase.${subscription.phase}`, { date: "" });
+  const status = phaseLabel(subscription);
 
   const devices = subscription.devices.unlimited
     ? translate("subscription.devicesUnlimited", { used: subscription.devices.used })
@@ -176,18 +218,11 @@ export function SubscriptionStatus({ subscription }: { subscription: AccountSubs
  */
 export function SubscriptionCard({ subscription }: { subscription: AccountSubscription }) {
   const translate = useTranslations("account");
-  const format = useFormatter();
-  const tone = PHASE_TONE[subscription.phase];
+  const phaseLabel = usePhaseLabel();
+  const tone = subscription.pendingOrderId ? "warn" : PHASE_TONE[subscription.phase];
 
-  const status = subscription.endsAt
-    ? translate(`subscription.phase.${subscription.phase}`, {
-        date: format.dateTime(new Date(subscription.endsAt), {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        }),
-      })
-    : translate(`subscription.phase.${subscription.phase}`, { date: "" });
+  const status = phaseLabel(subscription);
+  const action = primaryAction(subscription);
 
   const devices = subscription.devices.unlimited
     ? translate("subscription.devicesUnlimited", { used: subscription.devices.used })
@@ -227,12 +262,30 @@ export function SubscriptionCard({ subscription }: { subscription: AccountSubscr
       </div>
 
       <div className="flex gap-2">
-        <Button asChild className="flex-1" size="lg">
-          <Link href={`/account/subscriptions/${subscription.id}/connect`}>
-            <KeyRound aria-hidden />
-            {translate("subscription.connect")}
-          </Link>
-        </Button>
+        {action === "pay" && (
+          <Button asChild className="flex-1" size="lg">
+            <Link href={`/account/orders/${subscription.pendingOrderId}`}>
+              <Receipt aria-hidden />
+              {translate("subscription.openOrder")}
+            </Link>
+          </Button>
+        )}
+        {action === "connect" && (
+          <Button asChild className="flex-1" size="lg">
+            <Link href={`/account/subscriptions/${subscription.id}/connect`}>
+              <KeyRound aria-hidden />
+              {translate("subscription.connect")}
+            </Link>
+          </Button>
+        )}
+        {(action === "renew" || action === "browse") && (
+          <Button asChild className="flex-1" size="lg">
+            <Link href="/account/store">
+              <ShoppingBag aria-hidden />
+              {translate(action === "renew" ? "subscription.renew" : "subscription.browsePlans")}
+            </Link>
+          </Button>
+        )}
         <Button asChild size="lg" variant="outline">
           <Link
             aria-label={translate("subscription.manage")}

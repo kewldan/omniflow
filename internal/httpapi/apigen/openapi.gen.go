@@ -5030,12 +5030,15 @@ type AccountSubscription struct {
 	Label    string             `json:"label"`
 
 	// Live The traffic and device figures were read from Remnawave. When false they are the last observed values and the panel says so.
-	Live        bool                     `json:"live"`
-	Phase       AccountSubscriptionPhase `json:"phase"`
-	Plan        string                   `json:"plan"`
-	Provisioned bool                     `json:"provisioned"`
-	Slot        int                      `json:"slot"`
-	Traffic     AccountTraffic           `json:"traffic"`
+	Live bool `json:"live"`
+
+	// PendingOrderId The unpaid order that opened this subscription, present only while no entitlement has been provisioned. The panel renders the card as "payment pending" with a way to the order rather than as a subscription that is not active.
+	PendingOrderId *openapi_types.UUID      `json:"pendingOrderId,omitempty"`
+	Phase          AccountSubscriptionPhase `json:"phase"`
+	Plan           string                   `json:"plan"`
+	Provisioned    bool                     `json:"provisioned"`
+	Slot           int                      `json:"slot"`
+	Traffic        AccountTraffic           `json:"traffic"`
 }
 
 // AccountSubscriptionPhase defines model for AccountSubscription.Phase.

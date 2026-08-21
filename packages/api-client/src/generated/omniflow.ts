@@ -3452,6 +3452,8 @@ export interface AccountSubscription {
   live: boolean;
   traffic: AccountTraffic;
   devices: AccountDeviceUsage;
+  /** The unpaid order that opened this subscription, present only while no entitlement has been provisioned. The panel renders the card as "payment pending" with a way to the order rather than as a subscription that is not active. */
+  pendingOrderId?: string;
 }
 
 export interface AccountNotice {

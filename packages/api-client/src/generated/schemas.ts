@@ -6893,6 +6893,12 @@ export const GetAccountOverviewResponse = zod.object({
         limit: zod.int().nullish(),
         unlimited: zod.boolean(),
       }),
+      pendingOrderId: zod
+        .uuid()
+        .optional()
+        .describe(
+          'The unpaid order that opened this subscription, present only while no entitlement has been provisioned. The panel renders the card as "payment pending" with a way to the order rather than as a subscription that is not active.',
+        ),
     }),
   ),
   notice: zod
@@ -6970,6 +6976,12 @@ export const GetAccountSubscriptionResponse = zod.object({
     limit: zod.int().nullish(),
     unlimited: zod.boolean(),
   }),
+  pendingOrderId: zod
+    .uuid()
+    .optional()
+    .describe(
+      'The unpaid order that opened this subscription, present only while no entitlement has been provisioned. The panel renders the card as "payment pending" with a way to the order rather than as a subscription that is not active.',
+    ),
 });
 
 /**

@@ -16,6 +16,7 @@ import { ReauthNotice, useReauthentication } from "@/components/account/reauth";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
 import {
   type AccountSubscription,
+  primaryAction,
   SubscriptionStatus,
   TrafficMeter,
 } from "@/components/account/subscription-card";
@@ -57,14 +58,54 @@ export default function SubscriptionPage() {
         <TrafficMeter traffic={data.traffic} />
       </section>
 
-      <Button asChild className="w-full" size="lg">
-        <Link href={`${page}/connect`}>{translate("subscription.connect")}</Link>
-      </Button>
+      {/* The same decision the dashboard card makes: Connect only for a
+          subscription that can be connected, the order for one waiting to be
+          paid, the store for one that has lapsed or was never provisioned. */}
+      <PrimaryAction page={page} subscription={data} />
 
       <RenameForm current={data.label} onRenamed={mutate} subscriptionId={data.id} />
-      <RotateLink subscriptionId={data.id} />
+      {/* Rotating a link is only meaningful for a provisioned subscription. */}
+      {data.provisioned && <RotateLink subscriptionId={data.id} />}
     </div>
   );
+}
+
+function PrimaryAction({
+  page,
+  subscription,
+}: {
+  page: string;
+  subscription: AccountSubscription;
+}) {
+  const translate = useTranslations("account");
+  switch (primaryAction(subscription)) {
+    case "pay":
+      return (
+        <Button asChild className="w-full" size="lg">
+          <Link href={`/account/orders/${subscription.pendingOrderId}`}>
+            {translate("subscription.openOrder")}
+          </Link>
+        </Button>
+      );
+    case "connect":
+      return (
+        <Button asChild className="w-full" size="lg">
+          <Link href={`${page}/connect`}>{translate("subscription.connect")}</Link>
+        </Button>
+      );
+    case "renew":
+      return (
+        <Button asChild className="w-full" size="lg">
+          <Link href="/account/store">{translate("subscription.renew")}</Link>
+        </Button>
+      );
+    default:
+      return (
+        <Button asChild className="w-full" size="lg">
+          <Link href="/account/store">{translate("subscription.browsePlans")}</Link>
+        </Button>
+      );
+  }
 }
 
 /** The customer's own name for a subscription, which every screen then uses. */

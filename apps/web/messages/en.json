@@ -2595,6 +2595,9 @@
     "subscription": {
       "days": "days",
       "connect": "Connect",
+      "openOrder": "Open the order",
+      "renew": "Renew",
+      "browsePlans": "Browse plans",
       "manage": "Manage this subscription",
       "name": "Name",
       "renamed": "Name saved",
@@ -2619,7 +2622,8 @@
         "disabled": "Disabled",
         "expired": "Expired {date}",
         "failed": "Setup failed — contact support",
-        "paused": "Paused — your days are kept"
+        "paused": "Paused — your days are kept",
+        "payment_pending": "Payment pending — the order is waiting to be paid"
       }
     },
     "devices": {
