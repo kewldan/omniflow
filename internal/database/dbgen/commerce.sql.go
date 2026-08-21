@@ -2461,13 +2461,25 @@ func (q *Queries) ListOpenEntitlementDrifts(ctx context.Context, limit int32) ([
 }
 
 const listPaymentIntentsForReconciliation = `-- name: ListPaymentIntentsForReconciliation :many
-SELECT id, order_id, provider, status, amount_minor, currency, provider_reference, checkout_url, idempotency_key, capabilities, receipt_metadata, created_at, updated_at FROM payment_intents
-WHERE status IN ('pending','processing') AND provider IN ('cryptobot','yookassa')
-  AND provider_reference IS NOT NULL AND updated_at < now() - interval '1 minute'
-ORDER BY updated_at
+SELECT pi.id, pi.order_id, pi.provider, pi.status, pi.amount_minor, pi.currency, pi.provider_reference, pi.checkout_url, pi.idempotency_key, pi.capabilities, pi.receipt_metadata, pi.created_at, pi.updated_at FROM payment_intents pi
+WHERE pi.provider IN ('cryptobot','yookassa')
+  AND pi.provider_reference IS NOT NULL AND pi.updated_at < now() - interval '1 minute'
+  AND (
+    pi.status IN ('pending','processing')
+    OR (pi.status = 'succeeded' AND EXISTS (
+      SELECT 1 FROM orders o WHERE o.id = pi.order_id AND o.state = 'pending'
+    ))
+  )
+ORDER BY pi.updated_at
 LIMIT $1
 `
 
+// Intents the provider may have settled without Omniflow hearing about it.
+//
+// A `succeeded` intent on an order that is still `pending` is included on
+// purpose: it is a charge that was recorded without being settled, and polling
+// it again routes it through settlement. The order predicate is what keeps a
+// legitimately settled intent out of the batch once its order has moved on.
 func (q *Queries) ListPaymentIntentsForReconciliation(ctx context.Context, limit int32) ([]PaymentIntent, error) {
 	rows, err := q.db.Query(ctx, listPaymentIntentsForReconciliation, limit)
 	if err != nil {

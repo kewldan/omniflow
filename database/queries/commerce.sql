@@ -439,10 +439,22 @@ SELECT * FROM payment_intents WHERE provider = $1 AND provider_reference = $2;
 SELECT * FROM payment_intents WHERE order_id = $1 AND provider = $2 ORDER BY created_at DESC LIMIT 1;
 
 -- name: ListPaymentIntentsForReconciliation :many
-SELECT * FROM payment_intents
-WHERE status IN ('pending','processing') AND provider IN ('cryptobot','yookassa')
-  AND provider_reference IS NOT NULL AND updated_at < now() - interval '1 minute'
-ORDER BY updated_at
+-- Intents the provider may have settled without Omniflow hearing about it.
+--
+-- A `succeeded` intent on an order that is still `pending` is included on
+-- purpose: it is a charge that was recorded without being settled, and polling
+-- it again routes it through settlement. The order predicate is what keeps a
+-- legitimately settled intent out of the batch once its order has moved on.
+SELECT pi.* FROM payment_intents pi
+WHERE pi.provider IN ('cryptobot','yookassa')
+  AND pi.provider_reference IS NOT NULL AND pi.updated_at < now() - interval '1 minute'
+  AND (
+    pi.status IN ('pending','processing')
+    OR (pi.status = 'succeeded' AND EXISTS (
+      SELECT 1 FROM orders o WHERE o.id = pi.order_id AND o.state = 'pending'
+    ))
+  )
+ORDER BY pi.updated_at
 LIMIT $1;
 
 -- name: UpdatePaymentIntentStatus :one

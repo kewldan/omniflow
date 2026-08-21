@@ -845,6 +845,12 @@ type Querier interface {
 	ListOrderAddonLines(ctx context.Context, orderID pgtype.UUID) ([]OrderAddonLine, error)
 	ListOrderPaymentIntents(ctx context.Context, orderID pgtype.UUID) ([]PaymentIntent, error)
 	ListPaymentEventsForIntent(ctx context.Context, paymentIntentID pgtype.UUID) ([]PaymentEvent, error)
+	// Intents the provider may have settled without Omniflow hearing about it.
+	//
+	// A `succeeded` intent on an order that is still `pending` is included on
+	// purpose: it is a charge that was recorded without being settled, and polling
+	// it again routes it through settlement. The order predicate is what keeps a
+	// legitimately settled intent out of the batch once its order has moved on.
 	ListPaymentIntentsForReconciliation(ctx context.Context, limit int32) ([]PaymentIntent, error)
 	// Saved payment methods, auto-renew, and the dunning schedule.
 	//

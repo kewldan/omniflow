@@ -157,7 +157,8 @@ shown to the customer: `insufficient_wallet_balance` is operator vocabulary.
 | `consent_withdrawn` | Auto-renew was turned off, or suspended, between scheduling and charging |
 | `plan_unavailable` | The stored plan version or currency is missing |
 | `order_failed` | The renewal order could not be created |
-| `insufficient_wallet_balance` | A wallet-funded renewal was created with the balance applied and is still unpaid |
+| `order_expired`, `order_cancelled` | The cycle's order closed without a payment before this attempt ran |
+| `insufficient_wallet_balance` | A wallet-funded renewal found the available balance short of the price; no order was opened |
 | `no_payment_method` | The attempt names no method, or the method row is gone |
 | `payment_method_<status>` | The saved method is not `active` |
 | `recurring_not_enabled` | The operator switch or capability test does not permit it |
@@ -182,12 +183,42 @@ silently never happened.
 instead of billing for a second period. The provider key is
 `renewal:<cycleKey>:<attempt>` instead, so a retry of *this* attempt reaches the
 same provider payment while a later attempt is a genuinely new charge against an
-order that is still unpaid.
+order that is still unpaid. Because one order serves the whole schedule, it is
+opened with a payment window of seventy-six hours — the forty-hour dunning
+window plus a day and a half for deferred attempts — rather than the one-hour
+window a checkout gets, so the fourth attempt still finds it payable. An order
+that has nonetheless expired or been cancelled fails the attempt with
+`order_expired` or `order_cancelled`; nothing can be charged against it.
+
+**A wallet renewal is only opened once the balance covers it.** Each
+wallet-funded attempt prices the renewal first and reads the available balance
+as it stands at that moment. If the balance is short, the attempt fails with
+`insufficient_wallet_balance` and no order is written, so nothing is reserved
+against the customer's wallet for the rest of the schedule and a top-up made
+after the first decline is seen by the next attempt. Only when the balance
+covers the price is the order created — paid in the same transaction, with the
+entitlement extended and provisioning queued.
+
+**A synchronous settlement is a settlement.** A saved-method charge with
+capture can come back from the provider already `succeeded`. That result goes
+through the same classification and settlement path a webhook would produce —
+the order moves to `paid`, the entitlement is extended, and the fulfillment job
+is queued — rather than being written onto the payment intent alone. Should that
+settlement not commit, the intent keeps its provider reference in `processing`
+and the payment reconciler settles it on its next pass; the reconciler also
+picks up a `succeeded` intent whose order is still `pending`, which is what a
+charge recorded without settlement looks like.
 
 **An outstanding payment blocks a new charge.** If the provider has been asked
 and has not answered, the attempt is deferred rather than failed: the honest
 reading of silence is "unknown", and charging again on unknown is how a customer
 gets billed twice.
+
+Every outcome moves the auto-renew row for that subscription: its `state`
+follows the outcome (`scheduled` after success, `dunning` after a failure,
+`suspended` after abandonment), `last_attempt_at` records the moment, and
+`last_failure_code` carries the code above. A settings row that has been
+deleted leaves the attempt's own outcome as the record.
 
 Consent is re-checked at the moment of charging rather than at the moment of
 scheduling, because the second is the one that moves money. A customer who

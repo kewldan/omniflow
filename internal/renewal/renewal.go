@@ -189,25 +189,31 @@ func (worker *Worker) attempt(
 	settings, err := queries.GetAutoRenewSettings(ctx, dbgen.GetAutoRenewSettingsParams{
 		UserID: attempt.UserID, SubscriptionID: attempt.SubscriptionID,
 	})
+	// The customer may have turned auto-renew off between the attempt being
+	// scheduled and it coming due, or the settings row may be gone with the
+	// account. Consent is checked at the moment of charging, not at the moment
+	// of scheduling, because the second is the one that moves money.
+	if errors.Is(err, pgx.ErrNoRows) || err == nil && (!settings.Enabled || settings.State == recurring.StateSuspended) {
+		return worker.resolve(ctx, queries, attempt, recurring.OutcomeAbandoned, "consent_withdrawn", pgtype.UUID{}, false)
+	}
 	if err != nil {
 		return err
-	}
-	// The customer may have turned auto-renew off between the attempt being
-	// scheduled and it coming due. Consent is checked at the moment of charging,
-	// not at the moment of scheduling, because the second is the one that moves
-	// money.
-	if !settings.Enabled || settings.State == recurring.StateSuspended {
-		return worker.resolve(ctx, queries, attempt, recurring.OutcomeAbandoned, "consent_withdrawn", pgtype.UUID{}, false)
 	}
 
 	order, err := worker.cycleOrder(ctx, queries, attempt, settings)
 	if err != nil {
 		return worker.fail(ctx, queries, attempt, orderFailureCode(err))
 	}
-	if order.State == "paid" {
+	switch cycleOrderDisposition(order.State) {
+	case orderSettled:
 		// The wallet covered it, or an earlier attempt's payment settled while
 		// this one was waiting.
 		return worker.succeed(ctx, queries, attempt, order)
+	case orderClosed:
+		// The cycle's one order closed without a payment, so nothing can be
+		// charged against it. This is a failure of the cycle rather than of
+		// the method, and the dunning schedule runs its course.
+		return worker.fail(ctx, queries, attempt, "order_"+order.State)
 	}
 
 	// An outstanding payment means the provider was asked and has not answered.
@@ -221,6 +227,30 @@ func (worker *Worker) attempt(
 	}
 
 	return worker.submit(ctx, queries, attempt, settings, order)
+}
+
+// orderDisposition is what the cycle order's state means for an attempt.
+type orderDisposition int
+
+const (
+	// orderOpen means the order can still be paid, so the attempt charges.
+	orderOpen orderDisposition = iota
+	// orderSettled means the cycle is already paid for.
+	orderSettled
+	// orderClosed means the order ended without a payment and cannot take one.
+	orderClosed
+)
+
+// cycleOrderDisposition classifies the cycle order's state.
+func cycleOrderDisposition(state string) orderDisposition {
+	switch state {
+	case "paid", "fulfilled", "partially_refunded", "refunded":
+		return orderSettled
+	case "expired", "cancelled":
+		return orderClosed
+	default:
+		return orderOpen
+	}
 }
 
 // cycleOrder finds or opens the single order this renewal cycle settles.
@@ -245,7 +275,7 @@ func (worker *Worker) cycleOrder(
 	if !settings.PlanVersionID.Valid || !settings.Currency.Valid {
 		return dbgen.Order{}, errPlanUnavailable
 	}
-	return worker.orders.CreateOrder(ctx, commercepg.CreateOrderInput{
+	input := commercepg.CreateOrderInput{
 		CustomerID:    uuidString(attempt.UserID),
 		PlanVersionID: uuidString(settings.PlanVersionID),
 		Currency:      settings.Currency.String,
@@ -256,7 +286,26 @@ func (worker *Worker) cycleOrder(
 		SkipWallet:     attempt.Funding == recurring.FundingSavedMethod,
 		IdempotencyKey: key,
 		SubscriptionID: uuidString(attempt.SubscriptionID),
-	})
+		// The order outlives the whole dunning schedule. Every attempt on the
+		// cycle settles this one order, so the fourth attempt must still find
+		// it payable.
+		ExpiresAt: worker.clock().UTC().Add(recurring.CycleOrderLifetime()),
+	}
+	if attempt.Funding == recurring.FundingWallet {
+		// A wallet renewal is only opened once the balance covers it. Opening
+		// it short would reserve what the customer has for the whole dunning
+		// window and fix the shortfall into the order, so a top-up made after
+		// the first decline could never settle it. Pricing without creating
+		// re-reads the balance on every attempt instead.
+		quote, err := worker.orders.PreviewOrder(ctx, input)
+		if err != nil {
+			return dbgen.Order{}, err
+		}
+		if quote.ExternalMinor > 0 {
+			return dbgen.Order{}, errInsufficientWallet
+		}
+	}
+	return worker.orders.CreateOrder(ctx, input)
 }
 
 // submit charges the saved method for what the wallet did not cover.
@@ -437,11 +486,23 @@ func (worker *Worker) resolve(
 		}
 		return err
 	}
+	// The settings row is keyed on (customer, subscription), and the match is
+	// `IS NOT DISTINCT FROM` so a pre-subscription row with a null subscription
+	// is still found. Leaving the subscription out matched nothing at all, and
+	// the "no rows" that came back aborted the caller before it could schedule
+	// the next attempt.
 	_, err := queries.SetAutoRenewState(ctx, dbgen.SetAutoRenewStateParams{
 		UserID:          attempt.UserID,
+		SubscriptionID:  attempt.SubscriptionID,
 		State:           recurring.StateAfter(outcome, outcome == recurring.OutcomeAbandoned),
+		LastAttemptAt:   pgtype.Timestamptz{Time: worker.clock().UTC(), Valid: true},
 		LastFailureCode: optionalText(code),
 	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		// The settings row is gone. The attempt's outcome is recorded; there
+		// is no state left to move.
+		return nil
+	}
 	return err
 }
 
@@ -485,19 +546,22 @@ var (
 	errPlanUnavailable     = errors.New("plan_unavailable")
 	errProviderUnavailable = errors.New("provider_unavailable")
 	errRecurringNotEnabled = errors.New("recurring_not_enabled")
+	errInsufficientWallet  = errors.New("insufficient_wallet_balance")
 )
 
 // orderFailureCode reduces an order-creation failure to a stable label.
 //
 // The customer-facing consequence differs: a retired plan version needs an
-// operator, an unavailable provider usually resolves itself, and everything
-// else is worth a look in the log.
+// operator, a short wallet needs the customer, an unavailable provider usually
+// resolves itself, and everything else is worth a look in the log.
 func orderFailureCode(err error) string {
 	switch {
 	case errors.Is(err, errPlanUnavailable):
 		return "plan_unavailable"
 	case errors.Is(err, commercepg.ErrTrialAlreadyClaimed):
 		return "plan_unavailable"
+	case errors.Is(err, errInsufficientWallet):
+		return "insufficient_wallet_balance"
 	default:
 		return "order_failed"
 	}

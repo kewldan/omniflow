@@ -161,7 +161,42 @@ func (service *Service) CreateIntent(ctx context.Context, input CreateIntentInpu
 	if err != nil {
 		return dbgen.PaymentIntent{}, err
 	}
-	return queries.UpdatePaymentIntentStatus(ctx, dbgen.UpdatePaymentIntentStatusParams{PaymentIntentID: intent.ID, Status: created.Status, ProviderReference: optionalText(created.ProviderReference), CheckoutUrl: optionalText(created.CheckoutURL)})
+	if created.Status != "succeeded" {
+		return queries.UpdatePaymentIntentStatus(ctx, dbgen.UpdatePaymentIntentStatusParams{PaymentIntentID: intent.ID, Status: created.Status, ProviderReference: optionalText(created.ProviderReference), CheckoutUrl: optionalText(created.CheckoutURL)})
+	}
+	// The provider settled synchronously — a saved-method charge with capture
+	// does. The money has moved, so it goes through the same classification
+	// and settlement a webhook would produce; writing `succeeded` on the intent
+	// alone would record a charge that bought nothing. The reference is stored
+	// first, still as processing, so a webhook or the reconciler can find the
+	// intent should the settlement below not commit.
+	intent, err = queries.UpdatePaymentIntentStatus(ctx, dbgen.UpdatePaymentIntentStatusParams{PaymentIntentID: intent.ID, Status: "processing", ProviderReference: optionalText(created.ProviderReference), CheckoutUrl: optionalText(created.CheckoutURL)})
+	if err != nil {
+		return dbgen.PaymentIntent{}, err
+	}
+	late := order.ExpiresAt.Valid && service.clock().After(order.ExpiresAt.Time)
+	settlementAmount := created.Amount
+	if settlementAmount.Amount == 0 && settlementAmount.Currency == "" {
+		settlementAmount = amount
+	}
+	_, classification, err := service.commerce.RecordProviderPayment(ctx, uuidString(intent.ID), SynchronousEventID(created.ProviderReference, uuidString(intent.ID)), settlementAmount, late)
+	service.observePayment(provider.Name(), order.Operation, classification)
+	if err != nil {
+		return dbgen.PaymentIntent{}, err
+	}
+	return queries.GetPaymentIntent(ctx, intent.ID)
+}
+
+// SynchronousEventID names the payment event a synchronous settlement writes.
+// It is derived from the provider's reference so the event reads as the charge
+// it records, and falls back to the intent when the provider returned none. A
+// webhook that later reports the same charge carries its own event ID and is
+// classified as a duplicate against the order this already settled.
+func SynchronousEventID(providerReference, intentID string) string {
+	if providerReference != "" {
+		return "charge:" + providerReference
+	}
+	return "charge:" + intentID
 }
 
 // submit asks the provider to move the money, by whichever of the two routes

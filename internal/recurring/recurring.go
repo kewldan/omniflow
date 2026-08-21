@@ -184,6 +184,36 @@ func RetryDelay(attempt int) time.Duration {
 	}
 }
 
+// DunningWindow is how long a cycle can take from its first attempt to its
+// last, when every attempt fails and none is deferred: the sum of the delays
+// before attempts two through MaxAttempts.
+func DunningWindow() time.Duration {
+	var total time.Duration
+	for attempt := 2; attempt <= MaxAttempts; attempt++ {
+		total += RetryDelay(attempt)
+	}
+	return total
+}
+
+// CycleOrderMargin is added to the dunning window when deciding how long the
+// cycle's order stays payable. A pending provider payment defers an attempt by
+// the next delay without resolving it, so a cycle can run past the plain sum
+// of the delays; a day and a half absorbs one such deferral of the last
+// attempt with room to spare for the scheduling granularity.
+const CycleOrderMargin = 36 * time.Hour
+
+// CycleOrderLifetime is how long the single order a renewal cycle settles
+// stays payable.
+//
+// Every attempt on a cycle converges on one order, so that order has to
+// outlive the last attempt. The default payment window is an hour, which is
+// right for a customer sitting at a checkout and wrong for a schedule that
+// reaches its fourth attempt forty hours after its first: the later attempts
+// would find an expired order and could only record a failure.
+func CycleOrderLifetime() time.Duration {
+	return DunningWindow() + CycleOrderMargin
+}
+
 // NextAttempt describes what happens after an attempt resolves.
 type NextAttempt struct {
 	// Attempt is the number of the next charge, or zero when there is none.
