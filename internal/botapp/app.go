@@ -139,7 +139,7 @@ func (app *App) claimCallback(ctx context.Context, queryID string) bool {
 // consequentialActions must never run twice for one Telegram callback.
 var consequentialActions = map[string]bool{
 	"confirm": true, "order-cancel": true, "pm": true, "wallet-toggle": true,
-	"pay": true, "order-pm": true,
+	"pay": true, "order-pm": true, "gift-buy": true,
 	"promo-clear": true, "invoice": true, "device-delete": true, "devices-delete": true,
 	"revoke": true, "ticket-close": true, "ticket-open": true, "autorenew": true,
 	// v0.5 actions that move money, provisioning, or database state.
@@ -418,11 +418,12 @@ func (app *App) handleFlowMessage(ctx context.Context, client *telegram.Bot, upd
 			app.SubmitShopPromo(ctx, session, productID, recipient, message.Text)))
 	case "gift_message":
 		token, _ := flowContext["gift"].(string)
+		key, _ := flowContext["key"].(string)
 		if err := app.customers.CancelSession(ctx, session.TelegramID); err != nil {
 			app.logger.Warn("session cleanup failed", "error", err)
 		}
 		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID,
-			app.SubmitGiftMessage(ctx, session, token, message.Text)))
+			app.SubmitGiftMessage(ctx, session, token, key, message.Text)))
 	case "gift_claim":
 		if err := app.customers.CancelSession(ctx, session.TelegramID); err != nil {
 			app.logger.Warn("session cleanup failed", "error", err)

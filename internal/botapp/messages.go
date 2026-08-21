@@ -399,6 +399,8 @@ var catalog = map[string]phrase{
 	"gift.created": {ru: "🎁 <b>Подарок готов</b>\n\nКод активации:", en: "🎁 <b>Your gift is ready</b>\n\nRedemption code:"},
 	"gift.codeNotice": {ru: "Мы показываем код один раз и не храним его — сохраните и передайте получателю сами.",
 		en: "The code is shown once and not stored — save it and pass it on yourself."},
+	"gift.exists": {ru: "🎁 <b>Этот подарок уже создан</b>\n\nКод <code>••%s</code> был показан один раз и не хранится. Откройте заказ, чтобы проверить его состояние, или создайте новый подарок.",
+		en: "🎁 <b>This gift already exists</b>\n\nCode <code>••%s</code> was shown once and is not stored. Open the order to check its state, or create a new gift."},
 	"gift.expires": {ru: "Действует до: <b>%s</b>", en: "Valid until: <b>%s</b>"},
 	"gift.awaitingPayment": {ru: "Подарок станет активируемым сразу после оплаты заказа.",
 		en: "The gift becomes redeemable as soon as the order is paid."},

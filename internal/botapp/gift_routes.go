@@ -81,9 +81,21 @@ func (app *App) giftCreditScreen(ctx context.Context, session commerceContext) V
 }
 
 // giftAskMessage collects the note that travels with the gift.
+//
+// The flow is minted an idempotency key of its own here, before the note is
+// asked for, and the key travels in the flow context. One flow is one gift: a
+// redelivered note lands on the same order, and a second gift of the same plan
+// to somebody else — a different flow — is a different order. Keying on the
+// sender, the plan, and the note, as this used to, made the first gift of a
+// plan the only gift of that plan the sender could ever buy.
 func (app *App) giftAskMessage(ctx context.Context, session commerceContext, token string) View {
+	key, err := newIdempotencyKey()
+	if err != nil {
+		app.logger.Error("gift key could not be minted", "error", err)
+		return app.errorView(session.Locale, routeGifts)
+	}
 	if err := app.customers.BeginSessionState(
-		ctx, session.TelegramID, "gift_message", map[string]any{"gift": token},
+		ctx, session.TelegramID, "gift_message", map[string]any{"gift": token, "key": key},
 	); err != nil {
 		app.logger.Error("gift message prompt failed", "error", err)
 		return app.errorView(session.Locale, routeGifts)
@@ -91,22 +103,35 @@ func (app *App) giftAskMessage(ctx context.Context, session commerceContext, tok
 	return giftMessagePromptView(session.Locale)
 }
 
-// SubmitGiftMessage completes the gift purchase with the sender's note.
+// SubmitGiftMessage completes the gift purchase with the sender's note, under
+// the key the flow was opened with.
 func (app *App) SubmitGiftMessage(
-	ctx context.Context, session commerceContext, token, message string,
+	ctx context.Context, session commerceContext, token, key, message string,
 ) View {
 	kind, payload, ok := strings.Cut(token, ":")
 	if !ok {
 		return app.giftsScreen(ctx, session)
 	}
-	return app.buyGift(ctx, session, kind, payload, message)
+	if key == "" {
+		// A flow opened before keys travelled in the context. Rather than guess
+		// a key, refuse the old flow; the customer starts the gift again.
+		return app.giftsScreen(ctx, session)
+	}
+	return app.buyGift(ctx, session, kind, payload, message, key)
 }
 
-// giftPurchase buys a gift without a note.
+// giftPurchase buys a gift without a note. The callback itself is claimed
+// once, so a double tap or a redelivered update never reaches here twice, and
+// each arrival that does is a new gift under a fresh key.
 func (app *App) giftPurchase(
 	ctx context.Context, session commerceContext, kind, payload string,
 ) View {
-	return app.buyGift(ctx, session, kind, payload, "")
+	key, err := newIdempotencyKey()
+	if err != nil {
+		app.logger.Error("gift key could not be minted", "error", err)
+		return app.errorView(session.Locale, routeGifts)
+	}
+	return app.buyGift(ctx, session, kind, payload, "", key)
 }
 
 // buyGift opens the gift order and shows the claim code exactly once.
@@ -115,7 +140,7 @@ func (app *App) giftPurchase(
 // so a database read never yields a redeemable code — and a sender who loses it
 // cannot have it recovered, which is the deliberate trade.
 func (app *App) buyGift(
-	ctx context.Context, session commerceContext, kind, payload, message string,
+	ctx context.Context, session commerceContext, kind, payload, message, key string,
 ) View {
 	input := commercepg.GiftOrderInput{
 		SenderID: session.Customer.ID, Currency: app.settings.Currency,
@@ -133,10 +158,9 @@ func (app *App) buyGift(
 	default:
 		return app.giftsScreen(ctx, session)
 	}
-	// The key names the sender, what is being given, and the note. Tapping
-	// confirm twice reaches one gift rather than two.
-	input.IdempotencyKey = "gift:" + session.Customer.ID + ":" + kind + ":" + payload + ":" +
-		strconv.Itoa(len(message))
+	// The key is the flow's own, minted when the gift was started. A replay of
+	// the same flow reaches the same order; a new gift is a new order.
+	input.IdempotencyKey = key
 
 	purchase, err := app.commerce.BuyGift(ctx, input)
 	switch {

@@ -611,6 +611,13 @@ becomes redeemable as soon as the order is paid" and links to that order. Gifts
 are valid for thirty days, so the sender's money is not held against an outcome
 indefinitely.
 
+Each gift flow is one gift. The flow is given its own idempotency key when the
+note is asked for, so a note Telegram delivers twice lands on the same order —
+and a second gift of the same plan to somebody else is a second order, not a
+replay of the first. Should a replay ever reach the screen, it says "This gift
+already exists", names the code's last characters, and links to the order; it
+never renders an empty code.
+
 `🔑 Redeem a gift` takes the code and answers either "`<amount>` was added to
 your wallet" or "Your subscription is being activated — this takes under a
 minute."
