@@ -445,12 +445,28 @@ Each phase has its own screen:
 | --- | --- | --- |
 | Awaiting payment | The amount due, when the payment window closes, and that confirmation can take a few minutes | `💳 Open payment page` or `⭐ Pay in Telegram`; `💳 Pay` instead when no payment has been started or the provider refused to start one; `🚫 Cancel order` |
 | Payment received | The order is paid, the subscription is being prepared | — |
-| Activating | Takes up to a minute, refresh to check | — |
+| Activating | Takes up to a minute, refresh to check. After more than one provisioning attempt the screen adds that activation is taking longer than usual and that the payment is safe | — |
 | Completed | `🎉 All set — Your subscription is active.` | `🚀 Connect` |
+| Activation failed | The payment was received and is safe, but access could not be set up — never "nothing was charged" on a paid order | `💬 Support` |
 | Failed | Nothing was charged, or the provider will return it | `💱 Pay another way` and `🚫 Cancel order` while the order is still open, `🛒 Plans` |
 | Cancelled | Nothing was charged | — |
 | Payment window closed | The order was closed and nothing was charged | `🛒 Plans` |
 | Refunded | The refund amount recorded against the order | — |
+
+The paid states above are a subscription order's. An order that bought
+something else says what the money did, because only the worker ever moves a
+subscription order to completed — a top-up, a gift, or a shop purchase stays at
+paid for good and would read as "activating" forever:
+
+| Operation | Once paid | Button |
+| --- | --- | --- |
+| Wallet top-up | `✅ Wallet topped up — <amount> was credited to your wallet` | `👛 Wallet` |
+| Gift | `🎁 Gift paid`, with the code's last characters and the gift's state — redeemable, redeemed, expired — when the order is opened from the list | `🎁 Gifts` |
+| Shop purchase | `✅ Purchase paid`, with the delivery state, and the "checking by hand" note when a delivery is under review | `🧾 My purchases` |
+| Add-on | `⚙️ Applying your add-on`, then `🎉 Add-on applied` | `🗂 My subscriptions` |
+
+A pending gift order adds that the gift becomes redeemable as soon as the order
+is paid.
 
 Every screen ends with `🔄 Refresh`, `🧾 My orders`, and `‹ Menu`. Refresh does
 more than re-read Omniflow's own record: for a pending order with a payment

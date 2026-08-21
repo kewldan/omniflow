@@ -197,6 +197,23 @@ var catalog = map[string]phrase{
 		en: "⚙️ <b>Activating your subscription</b>\n\nPayment received and access is being provisioned. This takes up to a minute — refresh to check."},
 	"payment.completed": {ru: "🎉 <b>Готово</b>\n\nПодписка активна. Откройте раздел подключения, чтобы добавить её в приложение.",
 		en: "🎉 <b>All set</b>\n\nYour subscription is active. Open the connect screen to add it to your app."},
+	// A provisioning run that has needed more than one attempt, and one that
+	// gave up. Neither names the worker's error code: that is operator
+	// vocabulary, and the customer's next move is the same either way.
+	"payment.provisionSlow": {ru: "Активация занимает больше времени, чем обычно. Мы продолжаем попытки автоматически — оплата сохранена.",
+		en: "Activation is taking longer than usual. We keep retrying automatically — your payment is safe."},
+	"payment.provisionFailed": {ru: "⚠️ <b>Активация не завершилась</b>\n\nОплата получена и сохранена, но доступ настроить не удалось. Напишите в поддержку — мы разберёмся и активируем подписку.",
+		en: "⚠️ <b>Activation did not finish</b>\n\nYour payment was received and is safe, but access could not be set up. Contact support and we will sort it out and activate the subscription."},
+	// What a paid order bought, when it was not a subscription. Only the worker
+	// ever moves a subscription order past paid; a top-up, a gift, and a shop
+	// purchase stay at paid for good, so "activating" would be shown forever.
+	"payment.topupCredited": {ru: "✅ <b>Кошелёк пополнен</b>\n\nНа баланс зачислено <b>%s</b>.", en: "✅ <b>Wallet topped up</b>\n\n<b>%s</b> was credited to your wallet."},
+	"payment.giftPaid":      {ru: "🎁 <b>Подарок оплачен</b>\n\nЕго можно активировать кодом, который вы сохранили.", en: "🎁 <b>Gift paid</b>\n\nIt can be redeemed with the code you saved."},
+	"payment.giftState":     {ru: "Код <code>••%s</code> · %s", en: "Code <code>••%s</code> · %s"},
+	"payment.goodsPaid":     {ru: "✅ <b>Покупка оплачена</b>\n\nДоставка идёт на указанный аккаунт.", en: "✅ <b>Purchase paid</b>\n\nDelivery is on its way to the account you named."},
+	"payment.addonApplying": {ru: "⚙️ <b>Подключаем дополнение</b>\n\nОплата получена, дополнение применяется к подписке. Это занимает до минуты — обновите экран.",
+		en: "⚙️ <b>Applying your add-on</b>\n\nPayment received and the add-on is being applied to your subscription. This takes up to a minute — refresh to check."},
+	"payment.addonApplied": {ru: "🎉 <b>Дополнение подключено</b>\n\nОно уже действует на вашей подписке.", en: "🎉 <b>Add-on applied</b>\n\nIt is already active on your subscription."},
 	"payment.failed": {ru: "⚠️ <b>Оплата не прошла</b>\n\nДеньги не списаны или будут возвращены платёжным сервисом. Попробуйте другой способ оплаты или напишите в поддержку.",
 		en: "⚠️ <b>Payment did not go through</b>\n\nNothing was charged, or the provider will return it. Try another method or contact support."},
 	"payment.cancelled": {ru: "🚫 <b>Заказ отменён</b>\n\nОплата не производилась.", en: "🚫 <b>Order cancelled</b>\n\nNothing was charged."},

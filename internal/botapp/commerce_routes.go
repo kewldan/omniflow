@@ -437,7 +437,31 @@ func (app *App) orderScreen(ctx context.Context, session commerceContext, orderI
 	if err != nil {
 		app.logger.Warn("refund lookup failed", "error", err)
 	}
-	return orderStatusView(session.Locale, order, refunds)
+	return orderView(session.Locale, order, refunds, app.orderExtras(ctx, session, order))
+}
+
+// orderExtras reads what the order screen says about a gift or a shop
+// purchase beyond the order row. A failed lookup degrades the copy rather than
+// the screen.
+func (app *App) orderExtras(ctx context.Context, session commerceContext, order OrderSummary) orderExtras {
+	extras := orderExtras{}
+	switch order.Operation {
+	case "gift":
+		gift, found, err := app.customers.GiftByOrder(ctx, session.Customer.ID, order.ID)
+		if err != nil {
+			app.logger.Warn("gift lookup failed", "error", err)
+		} else if found {
+			extras.Gift = &gift
+		}
+	case "goods":
+		shop, found, err := app.customers.ShopOrderFor(ctx, session.Customer.ID, order.ID, session.Locale)
+		if err != nil {
+			app.logger.Warn("shop order lookup failed", "error", err)
+		} else if found {
+			extras.Shop = &shop
+		}
+	}
+	return extras
 }
 
 // payOrder starts — or restarts — the payment of an order that has none in
