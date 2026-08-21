@@ -3,16 +3,15 @@ package botapp
 import (
 	"time"
 
-	"github.com/omniflow/omniflow/internal/commerce"
+	"github.com/omniflow/omniflow/internal/accountcheckout"
 )
 
 // What a plan page may offer.
 //
-// This file is the bot's copy of the rule the customer web panel applies in
-// internal/accountcheckout/catalog.go. It is kept pure and self-contained —
-// no store, no clock, no locale — so it can be lifted into a shared domain
-// function without changing its meaning. Until then the two copies have to
-// agree, which is what the table test beside this file pins down.
+// The rule is accountcheckout.OfferedOperations, shared with the customer web
+// panel. This file only reduces what the bot knows about the customer to the
+// holding that rule compares; the table test beside it pins the outcomes the
+// bot relies on.
 
 // planHolding is what the customer currently holds, reduced to what the rule
 // compares: the plan (not the version) and its price in the settlement
@@ -41,36 +40,24 @@ func holdingFrom(entitlement Entitlement, now time.Time) planHolding {
 // planOperations decides which checkout operations a non-trial plan page
 // offers.
 //
-//   - Nothing held: a purchase.
-//   - The held plan itself: an extension. The comparison is by plan, not by
-//     plan version, so publishing a new version of the plan a customer is on
-//     turns "extend" into neither "switch up" nor "switch down".
-//   - A dearer plan: an upgrade, when the plan's policy allows one.
-//   - A cheaper plan: a downgrade, when the plan's policy allows one.
-//   - An equally priced plan: offered as an upgrade, when allowed. Neither
-//     direction is more true than the other, and the upgrade arithmetic is the
-//     one that does not end an entitlement early.
-//
-// A policy of "forbid" removes the action rather than leaving it to fail after
-// the tap. With `forNew` — the "Add a subscription" path — the only offer is a
-// purchase, because there is nothing yet to extend or switch.
+// The rule itself lives in accountcheckout.OfferedOperations and is the one
+// both surfaces apply; this is the bot's projection of its own holding onto
+// that rule. A bot plan page always addresses one subscription — the one the
+// customer is looking at, or their only one — so the context carries one held
+// plan at most, and a purchase against an existing holding is never offered
+// here: that is `sub-new`'s job, which passes `forNew`.
 func planOperations(plan Plan, holding planHolding, forNew bool) []string {
 	if forNew || !holding.Held {
 		return []string{"purchase"}
 	}
-	if plan.PlanID == holding.PlanID {
-		return []string{"extension"}
-	}
-	operations := make([]string, 0, 1)
-	switch {
-	case plan.AmountMinor >= holding.AmountMinor:
-		if commerce.AllowedOperation("upgrade", plan.UpgradePolicy, plan.DowngradePolicy) {
-			operations = append(operations, "upgrade")
-		}
-	default:
-		if commerce.AllowedOperation("downgrade", plan.UpgradePolicy, plan.DowngradePolicy) {
-			operations = append(operations, "downgrade")
-		}
-	}
-	return operations
+	return accountcheckout.OfferedOperations(
+		accountcheckout.PlanPricing{
+			PlanID: plan.PlanID, AmountMinor: plan.AmountMinor,
+			UpgradePolicy: plan.UpgradePolicy, DowngradePolicy: plan.DowngradePolicy,
+		},
+		accountcheckout.OperationContext{
+			Subscriptions: 1,
+			Held:          []accountcheckout.HeldPlan{{PlanID: holding.PlanID, AmountMinor: holding.AmountMinor}},
+		},
+	)
 }
