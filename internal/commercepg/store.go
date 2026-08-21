@@ -60,7 +60,7 @@ func (store *Store) RunMaintenance(ctx context.Context, logger *slog.Logger) {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 	for {
-		_, _ = dbgen.New(store.pool).ExpirePendingOrders(ctx)
+		store.expirePendingOrders(ctx)
 		store.expireWalletCredits(ctx)
 		// A saved cart is charged as soon as any wallet credit covers it, not
 		// only when a top-up settles, so a referral reward or an operator
@@ -72,6 +72,92 @@ func (store *Store) RunMaintenance(ctx context.Context, logger *slog.Logger) {
 		case <-ticker.C:
 		}
 	}
+}
+
+// expirePendingOrders closes orders whose payment window elapsed and removes
+// the subscriptions those orders had opened and nothing else ever used.
+func (store *Store) expirePendingOrders(ctx context.Context) {
+	expired, err := dbgen.New(store.pool).ExpirePendingOrders(ctx)
+	if err != nil {
+		return
+	}
+	customers := make(map[pgtype.UUID]struct{}, len(expired))
+	for _, order := range expired {
+		if order.SubscriptionID.Valid {
+			customers[order.UserID] = struct{}{}
+		}
+	}
+	for userID := range customers {
+		if _, err := store.ReleaseGhostSubscriptions(ctx, uuidString(userID)); err != nil {
+			store.options.Logger.Warn("ghost subscription cleanup after expiry failed", "error", err)
+		}
+	}
+}
+
+// CancelOrder closes an order that has not been paid, records the mutation
+// under the caller's idempotency key, and removes any subscription the order
+// had opened that nothing else uses. A repeated call with the same key is a
+// no-op. It is the cancel path for an operator; a customer surface with its
+// own cancel statement calls ReleaseGhostSubscriptions after it commits.
+func (store *Store) CancelOrder(ctx context.Context, orderID, idempotencyKey, reason string) (dbgen.Order, error) {
+	id, err := parseUUID(orderID)
+	if err != nil {
+		return dbgen.Order{}, err
+	}
+	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	if err != nil {
+		return dbgen.Order{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	queries := dbgen.New(tx)
+	order, err := queries.CancelOrder(ctx, dbgen.CancelOrderParams{OrderID: id, IdempotencyKey: idempotencyKey, Reason: optionalText(reason)})
+	if err != nil {
+		return dbgen.Order{}, err
+	}
+	if order.SubscriptionID.Valid {
+		if _, err = store.releaseGhostSubscriptions(ctx, queries, order.UserID); err != nil {
+			return dbgen.Order{}, err
+		}
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return dbgen.Order{}, err
+	}
+	return order, nil
+}
+
+// ReleaseGhostSubscriptions removes a customer's subscriptions that exist only
+// because an order once opened them and that order then closed unpaid. It is
+// safe to call after any cancellation or expiry, and a customer with nothing
+// to release is a no-op. The number of rows removed is returned.
+func (store *Store) ReleaseGhostSubscriptions(ctx context.Context, customerID string) (int, error) {
+	userID, err := parseUUID(customerID)
+	if err != nil {
+		return 0, err
+	}
+	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	released, err := store.releaseGhostSubscriptions(ctx, dbgen.New(tx), userID)
+	if err != nil {
+		return 0, err
+	}
+	return released, tx.Commit(ctx)
+}
+
+// releaseGhostSubscriptions is the transactional core. The customer's
+// subscriptions are locked the same way a purchase locks them, so a checkout
+// resolving its target and this cleanup cannot interleave.
+func (store *Store) releaseGhostSubscriptions(ctx context.Context, queries *dbgen.Queries, userID pgtype.UUID) (int, error) {
+	if err := queries.LockCustomerSubscriptions(ctx, uuidString(userID)); err != nil {
+		return 0, err
+	}
+	removed, err := queries.DeleteGhostSubscriptions(ctx, userID)
+	if err != nil {
+		return 0, err
+	}
+	return len(removed), nil
 }
 
 func (store *Store) expireWalletCredits(ctx context.Context) {

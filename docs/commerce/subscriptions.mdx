@@ -93,6 +93,8 @@ The limit is enforced where the money is, not in the interface. The count is tak
 
 Only a **purchase** may open a new subscription. A renewal, upgrade, or downgrade always names an existing one. The web checkout refuses to guess: with concurrency on and more than one subscription held, opening one of those operations without a `subscriptionId` is refused rather than defaulted, because clearing a subscription target by accident is how a renewal silently becomes a second subscription.
 
+The subscription row is written when the order for it is created, before any money moves, so it can be targeted by the payment and counted against the ceiling while the checkout is open. If that order then closes unpaid — cancelled by the customer or an operator, or expired by the sweep — the row is removed again, provided nothing else ever used it: no entitlement, no other live order, no Remnawave user, no auto-renew setting, notification, cart, checkout session, or dunning attempt. The closed order is detached from it first. An operator's cancel does this in the same transaction; the expiry sweep does it for every customer whose order it closed; a customer's cancel on either surface calls the same cleanup after it commits. A subscription that was ever provisioned is never removed by this — that is the operator procedure under [Reducing a customer to one subscription](#reducing-a-customer-to-one-subscription).
+
 <Warning>
   `/admin` has a concurrent-subscription screen at
   `PUT /v1/panel/settings/commerce/subscriptions` (`settings.write`), and it does

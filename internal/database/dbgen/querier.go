@@ -361,6 +361,25 @@ type Querier interface {
 	DeleteExpiredCustomerSessions(ctx context.Context, retention pgtype.Interval) (int64, error)
 	DeleteExpiredSupportAttachments(ctx context.Context) (int64, error)
 	DeleteExpiredWebhookEvents(ctx context.Context) (int64, error)
+	// Removes a customer's subscriptions that exist only because an order once
+	// opened them and that order then closed unpaid.
+	//
+	// A subscription row is created when an order for a new subscription is
+	// created, before any money moves, so a cancelled or expired order leaves a
+	// subscription that never had an entitlement and never will. Left alone, each
+	// one takes a slot toward the concurrency limit and a place in every picker.
+	//
+	// The predicate is deliberately strict: nothing may reference the row except
+	// orders that closed unpaid. An entitlement, a live order, a Remnawave user,
+	// an auto-renew setting, a notification, a cart, a checkout session, or a
+	// dunning attempt each keeps it — those are the records a customer or an
+	// operator can still reach it through. The closed orders are detached first,
+	// because the foreign key would otherwise refuse the delete, and a closed
+	// order targets nothing any more.
+	//
+	// Callers hold LockCustomerSubscriptions so a concurrent purchase cannot
+	// resolve a subscription this statement is about to remove.
+	DeleteGhostSubscriptions(ctx context.Context, userID pgtype.UUID) ([]Subscription, error)
 	DeleteInfoPage(ctx context.Context, slug string) (int64, error)
 	DeleteInfoPageLocalization(ctx context.Context, arg DeleteInfoPageLocalizationParams) error
 	DeleteMCPServer(ctx context.Context, slug string) error

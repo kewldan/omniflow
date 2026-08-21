@@ -58,6 +58,48 @@ UPDATE subscriptions SET label = sqlc.arg(label), updated_at = now()
 WHERE id = sqlc.arg(subscription_id) AND user_id = sqlc.arg(user_id)
 RETURNING *;
 
+-- name: DeleteGhostSubscriptions :many
+-- Removes a customer's subscriptions that exist only because an order once
+-- opened them and that order then closed unpaid.
+--
+-- A subscription row is created when an order for a new subscription is
+-- created, before any money moves, so a cancelled or expired order leaves a
+-- subscription that never had an entitlement and never will. Left alone, each
+-- one takes a slot toward the concurrency limit and a place in every picker.
+--
+-- The predicate is deliberately strict: nothing may reference the row except
+-- orders that closed unpaid. An entitlement, a live order, a Remnawave user,
+-- an auto-renew setting, a notification, a cart, a checkout session, or a
+-- dunning attempt each keeps it — those are the records a customer or an
+-- operator can still reach it through. The closed orders are detached first,
+-- because the foreign key would otherwise refuse the delete, and a closed
+-- order targets nothing any more.
+--
+-- Callers hold LockCustomerSubscriptions so a concurrent purchase cannot
+-- resolve a subscription this statement is about to remove.
+WITH candidates AS (
+  SELECT s.id
+  FROM subscriptions s
+  WHERE s.user_id = sqlc.arg(user_id)
+    AND s.remnawave_user_id IS NULL
+    AND NOT EXISTS (SELECT 1 FROM entitlements e WHERE e.subscription_id = s.id)
+    AND NOT EXISTS (
+      SELECT 1 FROM orders o
+      WHERE o.subscription_id = s.id AND o.state NOT IN ('cancelled', 'expired')
+    )
+    AND NOT EXISTS (SELECT 1 FROM auto_renew_settings a WHERE a.subscription_id = s.id)
+    AND NOT EXISTS (SELECT 1 FROM notification_deliveries n WHERE n.subscription_id = s.id)
+    AND NOT EXISTS (SELECT 1 FROM carts c WHERE c.subscription_id = s.id)
+    AND NOT EXISTS (SELECT 1 FROM bot_checkout_sessions b WHERE b.subscription_id = s.id)
+    AND NOT EXISTS (SELECT 1 FROM dunning_attempts d WHERE d.subscription_id = s.id)
+  FOR UPDATE OF s
+), detached AS (
+  UPDATE orders SET subscription_id = NULL, updated_at = now()
+  WHERE subscription_id IN (SELECT id FROM candidates)
+)
+DELETE FROM subscriptions WHERE id IN (SELECT id FROM candidates)
+RETURNING *;
+
 -- name: CloseSubscription :one
 UPDATE subscriptions
 SET status = 'closed', closed_at = now(), updated_at = now()
