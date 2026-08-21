@@ -178,10 +178,12 @@ posts the object untouched; a client that reshapes it first gains nothing and
 risks breaking the signature.
 
 The widget is loaded by the bot's username, which Omniflow resolves from the bot
-API on first use and caches for the life of the process. Telegram only renders
-the widget on a domain bound to the bot, so set that domain with `/setdomain` in
-BotFather before enabling it; if the username cannot be resolved the button is
-simply not rendered.
+API on first use. A resolved name is kept for the life of the process; a failed
+lookup is remembered for thirty seconds and then retried, so a bot API that was
+unreachable when the first customer arrived does not hide the button until the
+next restart. Telegram only renders the widget on a domain bound to the bot, so
+set that domain with `/setdomain` in BotFather before enabling it; while the
+username cannot be resolved the button is simply not rendered.
 
 Opened as a Telegram Mini App the panel signs in with no button at all: the
 surrounding client hands the page a signed `initData`, which is verified the same

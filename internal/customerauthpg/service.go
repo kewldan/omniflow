@@ -87,6 +87,10 @@ type Service struct {
 
 	httpClient *http.Client
 
+	// telegramAPI overrides the bot API origin. Empty means Telegram's own; it
+	// exists so a test can stand in for getMe.
+	telegramAPI string
+
 	// botName caches the bot's own @name for the login widget. See telegram.go.
 	botName telegramBotUsername
 }
@@ -99,6 +103,8 @@ type Options struct {
 	MagicLinkEnabled bool
 	PublicURL        string
 	HTTPClient       *http.Client
+	// TelegramAPIURL replaces https://api.telegram.org. Tests only.
+	TelegramAPIURL string
 }
 
 // New builds the adapter. The encryption key is the same 32-byte
@@ -129,6 +135,7 @@ func New(pool *pgxpool.Pool, encryptionKey []byte, options Options) (*Service, e
 		magicLinkEnabled: options.MagicLinkEnabled,
 		publicURL:        strings.TrimRight(strings.TrimSpace(options.PublicURL), "/"),
 		httpClient:       options.HTTPClient,
+		telegramAPI:      strings.TrimSpace(options.TelegramAPIURL),
 	}
 	if service.sessions == (customerauth.SessionPolicy{}) {
 		service.sessions = customerauth.DefaultSessionPolicy
