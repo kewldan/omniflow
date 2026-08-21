@@ -327,6 +327,35 @@ JOIN users u ON u.id = t.user_id
 LEFT JOIN bot_preferences p ON p.user_id = u.id
 WHERE t.id = sqlc.arg(ticket_id);
 
+-- name: ListSupportTicketAttachments :many
+-- The files hanging on a conversation, with where their bytes live. `origin`
+-- is `local` for a web upload this installation holds and `telegram` for a
+-- reference to a file Telegram holds; the storage key is deliberately not
+-- selected here, because a listing has no business carrying it.
+SELECT a.id, a.message_id, a.kind,
+  COALESCE(a.file_name, '')::text AS file_name,
+  COALESCE(a.mime_type, '')::text AS media_type,
+  a.size_bytes, a.origin, a.created_at
+FROM support_attachments a
+JOIN support_messages m ON m.id = a.message_id
+WHERE m.ticket_id = sqlc.arg(ticket_id) AND a.retain_until > now()
+ORDER BY a.created_at, a.id;
+
+-- name: GetSupportTicketAttachment :one
+-- One attachment, scoped to its ticket so a download route cannot be pointed at
+-- a file from another conversation by swapping identifiers.
+SELECT a.id, a.message_id, a.kind,
+  COALESCE(a.file_name, '')::text AS file_name,
+  COALESCE(a.mime_type, '')::text AS media_type,
+  a.size_bytes, a.origin,
+  COALESCE(a.storage_key, '')::text AS storage_key,
+  a.created_at
+FROM support_attachments a
+JOIN support_messages m ON m.id = a.message_id
+WHERE m.ticket_id = sqlc.arg(ticket_id)
+  AND a.id = sqlc.arg(attachment_id)
+  AND a.retain_until > now();
+
 -- name: ListSupportNotes :many
 SELECT sqlc.embed(n), COALESCE(a.display_name, '') AS author_name
 FROM support_notes n

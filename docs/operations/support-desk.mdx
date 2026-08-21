@@ -356,6 +356,33 @@ have refused.
 | Where the bytes live | `APP_SUPPORT_ATTACHMENT_DIR` on disk | Telegram |
 | Downloadable from the panel | Yes | No — 409 `attachment_remote` |
 
+### What the operator sees
+
+Every message in `GET /v1/panel/support/tickets/{ticketID}` carries an
+`attachments` array: id, kind (`photo` or `document`), file name, media type,
+size, `origin`, and `downloadable`. `origin` is `web` for a file this
+installation holds and `telegram` for a reference to a file in the customer's
+chat. The conversation screen lists each file under its message with its size.
+
+A web upload has a **Download** button behind
+`GET /v1/panel/support/tickets/{ticketID}/attachments/{attachmentID}`, which
+needs `support.read` — an operator entitled to read the words is entitled to the
+screenshot that came with them. The file is scoped to its ticket in the query,
+so swapping identifiers cannot reach another conversation's file. It is served
+with `Content-Disposition: attachment`, `nosniff`, and the stored media type
+only while that type is still on the allowlist; a file whose bytes were purged
+answers 404, and a process with no attachment directory answers 503
+`attachment_storage_unavailable`. The panel fetches it through the API and
+hands the bytes to the browser, so a refusal is shown as a message rather than
+saved to disk as a JSON file named like the attachment.
+
+A Telegram file is labelled **in Telegram** and has no button. The route answers
+409 `attachment_remote` for it and never fetches anything: Omniflow holds a
+reference, not the bytes, and proxying Telegram's file API with the bot token on
+an operator's behalf would put a customer's file behind a credential the panel
+was never meant to hold. Ask the customer to re-send the file through the web
+panel if an operator needs it outside the chat.
+
 The customer panel reads its limits from `GET /v1/account/support/limits` before
 the form is usable, so the character counters and the size hint match exactly what
 the API refuses at. **None of these limits are configurable** — only the storage

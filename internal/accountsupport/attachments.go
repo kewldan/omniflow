@@ -103,6 +103,17 @@ type DirectoryStore struct {
 	Root string
 }
 
+// NewDirectoryStore builds the store for a configured directory, applying the
+// same default the customer surface applies when none is configured. The
+// operator panel's download route uses it so both processes read the bytes
+// from one place; two defaults would be two places for a file to be missing.
+func NewDirectoryStore(root string) DirectoryStore {
+	if strings.TrimSpace(root) == "" {
+		root = defaultAttachmentDirectory
+	}
+	return DirectoryStore{Root: root}
+}
+
 func (store DirectoryStore) path(key string) (string, error) {
 	// The key is produced by this package as hex, never by a caller, but it is
 	// still checked before it becomes a path. A store that trusts its key is one

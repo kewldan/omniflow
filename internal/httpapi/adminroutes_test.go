@@ -133,6 +133,7 @@ func TestOperationsRoutesRequireASession(t *testing.T) {
 		{http.MethodGet, "/v1/panel/support/queues"},
 		{http.MethodGet, "/v1/panel/support/tickets"},
 		{http.MethodGet, "/v1/panel/support/tickets/00000000-0000-0000-0000-000000000000"},
+		{http.MethodGet, "/v1/panel/support/tickets/00000000-0000-0000-0000-000000000000/attachments/00000000-0000-0000-0000-000000000000"},
 		{http.MethodGet, "/v1/panel/support/report"},
 		{http.MethodPost, "/v1/panel/support/tickets/00000000-0000-0000-0000-000000000000/assign"},
 		{http.MethodPost, "/v1/panel/support/tickets/00000000-0000-0000-0000-000000000000/reply"},

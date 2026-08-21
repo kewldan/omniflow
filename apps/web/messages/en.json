@@ -1995,6 +1995,18 @@
         "timeout": "Telegram did not answer in time",
         "telegram_unavailable": "Telegram was unreachable",
         "rejected": "Telegram rejected the message"
+      },
+      "attachments": {
+        "kind": {
+          "photo": "photo",
+          "document": "file"
+        },
+        "unnamed": "Attachment",
+        "download": "Download",
+        "telegram": "in Telegram",
+        "telegramHint": "This file was sent in the customer's Telegram chat. Omniflow keeps a reference, not the bytes, so it cannot be downloaded here.",
+        "gone": "That file is no longer stored; it may have passed its retention period.",
+        "downloadFailed": "The file could not be downloaded right now."
       }
     },
     "aiSettings": {

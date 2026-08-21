@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/omniflow/omniflow/internal/accountsupport"
 	"github.com/omniflow/omniflow/internal/adminauth"
 	"github.com/omniflow/omniflow/internal/adminauthpg"
 	"github.com/omniflow/omniflow/internal/airuntime"
@@ -65,6 +66,11 @@ type AdminHandlers struct {
 	// leaves those settings routes unmounted, which is what an installation
 	// running no customer panel gets.
 	customerAuth *customerauthpg.Service
+	// supportFiles holds the bytes of attachments customers uploaded through the
+	// web panel. A nil value leaves the desk's download route answering that
+	// files cannot be served, rather than unmounted: the metadata is still in the
+	// ticket, and an operator should be told why the button does nothing.
+	supportFiles accountsupport.AttachmentStore
 
 	// version is the running build, published in diagnostics and in the
 	// telemetry preview so an operator can see what would be sent.
@@ -114,6 +120,10 @@ type AdminOptions struct {
 	// installation should not reach a third party because somebody opened a
 	// support screen.
 	UpdateFeedURL string
+	// SupportAttachments is where web-uploaded support files are read from for
+	// the desk's download route. It must be the same store the customer API
+	// writes to.
+	SupportAttachments accountsupport.AttachmentStore
 }
 
 // versionOrUnknown renders an unset build version as something an operator will
@@ -163,6 +173,7 @@ func NewAdminHandlers(options AdminOptions) *AdminHandlers {
 		remnawave:        options.Remnawave,
 		version:          versionOrUnknown(options.Version),
 		updates:          updates,
+		supportFiles:     options.SupportAttachments,
 		// The __Host- prefix binds the cookie to this exact origin, so a sibling
 		// subdomain cannot set or overwrite the operator's session. It applies
 		// only when the cookie is Secure, because a browser rejects a __Host-

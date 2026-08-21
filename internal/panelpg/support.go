@@ -67,8 +67,37 @@ type SupportMessage struct {
 	// DeliveryReason is the classified code behind an undeliverable or failed
 	// push: `bot_blocked`, `user_deactivated`, `chat_not_found`, `no_telegram`,
 	// or a transport code.
-	DeliveryReason string    `json:"deliveryReason,omitempty"`
-	CreatedAt      time.Time `json:"createdAt"`
+	DeliveryReason string              `json:"deliveryReason,omitempty"`
+	CreatedAt      time.Time           `json:"createdAt"`
+	Attachments    []SupportAttachment `json:"attachments"`
+}
+
+// SupportAttachment is the metadata of one file on a conversation, as the desk
+// sees it. There is no path, bucket, or Telegram file identifier in it: the
+// download route resolves those from the identifier, behind the permission.
+type SupportAttachment struct {
+	ID        string `json:"id"`
+	MessageID int64  `json:"messageId"`
+	Kind      string `json:"kind"`
+	FileName  string `json:"fileName"`
+	MediaType string `json:"mediaType"`
+	SizeBytes int64  `json:"sizeBytes"`
+	// Origin is `web` for a file this installation holds and `telegram` for a
+	// reference to a file Telegram holds. Only the former can be downloaded
+	// here; the latter is read in the customer's chat.
+	Origin       string    `json:"origin"`
+	Downloadable bool      `json:"downloadable"`
+	CreatedAt    time.Time `json:"createdAt"`
+}
+
+// attachmentOrigin maps the stored origin onto the word the desk uses. The
+// table says `local`, which is true from the database's point of view and
+// meaningless from an operator's.
+func attachmentOrigin(stored string) string {
+	if stored == "local" {
+		return "web"
+	}
+	return stored
 }
 
 // supportDeliveryRetries mirrors the bot's retry limit for a support push. A
@@ -299,7 +328,29 @@ func (service *Service) Ticket(ctx context.Context, ticketID string) (TicketDeta
 			Delivery:       state,
 			DeliveryReason: reason,
 			CreatedAt:      timeValue(message.SupportMessage.CreatedAt),
+			Attachments:    []SupportAttachment{},
 		})
+	}
+
+	// Attachments are read once for the whole conversation and hung on their
+	// messages, so a ticket with forty screenshots costs one query, not forty.
+	attachmentRows, err := queries.ListSupportTicketAttachments(ctx, id)
+	if err != nil {
+		return TicketDetail{}, err
+	}
+	byMessage := make(map[int64][]SupportAttachment, len(attachmentRows))
+	for _, row := range attachmentRows {
+		origin := attachmentOrigin(row.Origin)
+		byMessage[row.MessageID] = append(byMessage[row.MessageID], SupportAttachment{
+			ID: uuidString(row.ID), MessageID: row.MessageID, Kind: row.Kind,
+			FileName: row.FileName, MediaType: row.MediaType, SizeBytes: row.SizeBytes,
+			Origin: origin, Downloadable: origin == "web", CreatedAt: timeValue(row.CreatedAt),
+		})
+	}
+	for index := range detail.Messages {
+		if files, found := byMessage[detail.Messages[index].ID]; found {
+			detail.Messages[index].Attachments = files
+		}
 	}
 
 	noteRows, err := queries.ListSupportNotes(ctx, dbgen.ListSupportNotesParams{
@@ -315,6 +366,40 @@ func (service *Service) Ticket(ctx context.Context, ticketID string) (TicketDeta
 		})
 	}
 	return detail, nil
+}
+
+// TicketAttachment resolves one file on a conversation for the download route,
+// returning its metadata and — for a file this installation holds — the storage
+// key that finds the bytes. The key is empty for a Telegram reference, and the
+// caller answers that case without touching any store: Omniflow never fetches a
+// customer's file from Telegram with the bot token on an operator's behalf.
+func (service *Service) TicketAttachment(
+	ctx context.Context, ticketID, attachmentID string,
+) (SupportAttachment, string, error) {
+	ticket, err := parseUUID(ticketID)
+	if err != nil {
+		return SupportAttachment{}, "", err
+	}
+	attachment, err := parseUUID(attachmentID)
+	if err != nil {
+		return SupportAttachment{}, "", err
+	}
+	row, err := service.queries().GetSupportTicketAttachment(ctx, dbgen.GetSupportTicketAttachmentParams{
+		TicketID: ticket, AttachmentID: attachment,
+	})
+	if err != nil {
+		return SupportAttachment{}, "", notFound(err)
+	}
+	origin := attachmentOrigin(row.Origin)
+	meta := SupportAttachment{
+		ID: uuidString(row.ID), MessageID: row.MessageID, Kind: row.Kind,
+		FileName: row.FileName, MediaType: row.MediaType, SizeBytes: row.SizeBytes,
+		Origin: origin, Downloadable: origin == "web", CreatedAt: timeValue(row.CreatedAt),
+	}
+	if !meta.Downloadable {
+		return meta, "", nil
+	}
+	return meta, row.StorageKey, nil
 }
 
 // AssignTicket takes a ticket or puts it down.

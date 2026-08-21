@@ -651,6 +651,56 @@ func (q *Queries) GetSupportTicket(ctx context.Context, id pgtype.UUID) (GetSupp
 	return i, err
 }
 
+const getSupportTicketAttachment = `-- name: GetSupportTicketAttachment :one
+SELECT a.id, a.message_id, a.kind,
+  COALESCE(a.file_name, '')::text AS file_name,
+  COALESCE(a.mime_type, '')::text AS media_type,
+  a.size_bytes, a.origin,
+  COALESCE(a.storage_key, '')::text AS storage_key,
+  a.created_at
+FROM support_attachments a
+JOIN support_messages m ON m.id = a.message_id
+WHERE m.ticket_id = $1
+  AND a.id = $2
+  AND a.retain_until > now()
+`
+
+type GetSupportTicketAttachmentParams struct {
+	TicketID     pgtype.UUID `json:"ticket_id"`
+	AttachmentID pgtype.UUID `json:"attachment_id"`
+}
+
+type GetSupportTicketAttachmentRow struct {
+	ID         pgtype.UUID        `json:"id"`
+	MessageID  int64              `json:"message_id"`
+	Kind       string             `json:"kind"`
+	FileName   string             `json:"file_name"`
+	MediaType  string             `json:"media_type"`
+	SizeBytes  int64              `json:"size_bytes"`
+	Origin     string             `json:"origin"`
+	StorageKey string             `json:"storage_key"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+// One attachment, scoped to its ticket so a download route cannot be pointed at
+// a file from another conversation by swapping identifiers.
+func (q *Queries) GetSupportTicketAttachment(ctx context.Context, arg GetSupportTicketAttachmentParams) (GetSupportTicketAttachmentRow, error) {
+	row := q.db.QueryRow(ctx, getSupportTicketAttachment, arg.TicketID, arg.AttachmentID)
+	var i GetSupportTicketAttachmentRow
+	err := row.Scan(
+		&i.ID,
+		&i.MessageID,
+		&i.Kind,
+		&i.FileName,
+		&i.MediaType,
+		&i.SizeBytes,
+		&i.Origin,
+		&i.StorageKey,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const listCannedResponses = `-- name: ListCannedResponses :many
 
 SELECT id, code, title_en, title_ru, body_en, body_ru, requires_permission, usage_count, archived_at, created_at, updated_at, updated_by FROM support_canned_responses
@@ -1075,6 +1125,61 @@ func (q *Queries) ListSupportTags(ctx context.Context) ([]SupportTag, error) {
 			&i.NameEn,
 			&i.NameRu,
 			&i.ArchivedAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSupportTicketAttachments = `-- name: ListSupportTicketAttachments :many
+SELECT a.id, a.message_id, a.kind,
+  COALESCE(a.file_name, '')::text AS file_name,
+  COALESCE(a.mime_type, '')::text AS media_type,
+  a.size_bytes, a.origin, a.created_at
+FROM support_attachments a
+JOIN support_messages m ON m.id = a.message_id
+WHERE m.ticket_id = $1 AND a.retain_until > now()
+ORDER BY a.created_at, a.id
+`
+
+type ListSupportTicketAttachmentsRow struct {
+	ID        pgtype.UUID        `json:"id"`
+	MessageID int64              `json:"message_id"`
+	Kind      string             `json:"kind"`
+	FileName  string             `json:"file_name"`
+	MediaType string             `json:"media_type"`
+	SizeBytes int64              `json:"size_bytes"`
+	Origin    string             `json:"origin"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+// The files hanging on a conversation, with where their bytes live. `origin`
+// is `local` for a web upload this installation holds and `telegram` for a
+// reference to a file Telegram holds; the storage key is deliberately not
+// selected here, because a listing has no business carrying it.
+func (q *Queries) ListSupportTicketAttachments(ctx context.Context, ticketID pgtype.UUID) ([]ListSupportTicketAttachmentsRow, error) {
+	rows, err := q.db.Query(ctx, listSupportTicketAttachments, ticketID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSupportTicketAttachmentsRow{}
+	for rows.Next() {
+		var i ListSupportTicketAttachmentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.MessageID,
+			&i.Kind,
+			&i.FileName,
+			&i.MediaType,
+			&i.SizeBytes,
+			&i.Origin,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

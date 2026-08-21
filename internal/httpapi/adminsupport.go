@@ -1,11 +1,16 @@
 package httpapi
 
 import (
+	"errors"
+	"mime"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/omniflow/omniflow/internal/accountsupport"
 	"github.com/omniflow/omniflow/internal/panelpg"
 	"github.com/omniflow/omniflow/internal/rbac"
 )
@@ -25,6 +30,7 @@ func (handlers *AdminHandlers) mountSupport(secure chi.Router) {
 		read.Get("/support/queues", handlers.supportQueues)
 		read.Get("/support/tickets", handlers.searchTickets)
 		read.Get("/support/tickets/{ticketID}", handlers.supportTicket)
+		read.Get("/support/tickets/{ticketID}/attachments/{attachmentID}", handlers.downloadTicketAttachment)
 		read.Get("/support/tags", handlers.supportTags)
 		read.Get("/support/canned", handlers.cannedResponses)
 		read.Get("/support/report", handlers.supportReport)
@@ -78,6 +84,74 @@ func (handlers *AdminHandlers) searchTickets(writer http.ResponseWriter, request
 func (handlers *AdminHandlers) supportTicket(writer http.ResponseWriter, request *http.Request) {
 	detail, err := handlers.operations.Ticket(request.Context(), chi.URLParam(request, "ticketID"))
 	handlers.respond(writer, request, detail, err)
+}
+
+// downloadTicketAttachment serves a file a customer uploaded through the web
+// panel to an operator reading the ticket.
+//
+// It needs only `support.read`: the file is part of the conversation, and an
+// operator entitled to read the words is entitled to read the screenshot that
+// came with them. A file that arrived through Telegram is answered with 409
+// `attachment_remote` and never fetched — Omniflow holds a reference, not the
+// bytes, and proxying Telegram's file API with the bot token on an operator's
+// behalf would put a customer's file behind a credential the panel was never
+// meant to hold. The response headers match the customer download exactly:
+// `attachment` disposition, `nosniff`, and the stored type only while it is on
+// the allowlist.
+func (handlers *AdminHandlers) downloadTicketAttachment(writer http.ResponseWriter, request *http.Request) {
+	attachment, key, err := handlers.operations.TicketAttachment(
+		request.Context(), chi.URLParam(request, "ticketID"), chi.URLParam(request, "attachmentID"),
+	)
+	if err != nil {
+		handlers.operationsError(writer, request, err)
+		return
+	}
+	if !attachment.Downloadable {
+		writeProblem(
+			writer, request, http.StatusConflict, "attachment_remote",
+			"This file was sent through Telegram and lives there; it cannot be downloaded from the panel",
+		)
+		return
+	}
+	if handlers.supportFiles == nil {
+		writeProblem(
+			writer, request, http.StatusServiceUnavailable, "attachment_storage_unavailable",
+			"Attachment storage is not configured for this process",
+		)
+		return
+	}
+	content, err := handlers.supportFiles.Open(request.Context(), key)
+	if errors.Is(err, os.ErrNotExist) {
+		// The row outlived its file: retention or an operator removed the
+		// bytes. That reads as a file that is no longer there.
+		writeProblem(writer, request, http.StatusNotFound, "not_found", "That file is no longer stored")
+		return
+	}
+	if err != nil {
+		handlers.logger.Error("support attachment could not be read", "error", err)
+		writeProblem(
+			writer, request, http.StatusServiceUnavailable, "attachment_storage_unavailable",
+			"Files cannot be read right now",
+		)
+		return
+	}
+	mediaType := "application/octet-stream"
+	if accountsupport.DefaultLimits().MediaTypeAllowed(attachment.MediaType) {
+		mediaType = attachment.MediaType
+	}
+	fileName := strings.TrimSpace(attachment.FileName)
+	if fileName == "" {
+		fileName = "attachment"
+	}
+	writer.Header().Set("Content-Type", mediaType)
+	writer.Header().Set("X-Content-Type-Options", "nosniff")
+	writer.Header().Set("Content-Length", strconv.Itoa(len(content)))
+	writer.Header().Set("Content-Disposition",
+		mime.FormatMediaType("attachment", map[string]string{"filename": fileName}))
+	writer.WriteHeader(http.StatusOK)
+	if _, err = writer.Write(content); err != nil {
+		handlers.logger.Warn("support attachment download was interrupted", "error", err)
+	}
 }
 
 func (handlers *AdminHandlers) assignTicket(writer http.ResponseWriter, request *http.Request) {

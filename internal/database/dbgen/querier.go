@@ -568,6 +568,9 @@ type Querier interface {
 	GetSupportQueue(ctx context.Context, id pgtype.UUID) (SupportQueue, error)
 	GetSupportTagByCode(ctx context.Context, code string) (SupportTag, error)
 	GetSupportTicket(ctx context.Context, id pgtype.UUID) (GetSupportTicketRow, error)
+	// One attachment, scoped to its ticket so a download route cannot be pointed at
+	// a file from another conversation by swapping identifiers.
+	GetSupportTicketAttachment(ctx context.Context, arg GetSupportTicketAttachmentParams) (GetSupportTicketAttachmentRow, error)
 	GetTelemetryInstallationID(ctx context.Context) (pgtype.UUID, error)
 	GetWalletBalance(ctx context.Context, arg GetWalletBalanceParams) (int64, error)
 	GetWebhookEventForReplay(ctx context.Context, id pgtype.UUID) (ProviderWebhookEvent, error)
@@ -959,6 +962,11 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	ListSupportQueues(ctx context.Context) ([]ListSupportQueuesRow, error)
 	ListSupportTags(ctx context.Context) ([]SupportTag, error)
+	// The files hanging on a conversation, with where their bytes live. `origin`
+	// is `local` for a web upload this installation holds and `telegram` for a
+	// reference to a file Telegram holds; the storage key is deliberately not
+	// selected here, because a listing has no business carrying it.
+	ListSupportTicketAttachments(ctx context.Context, ticketID pgtype.UUID) ([]ListSupportTicketAttachmentsRow, error)
 	// ---------------------------------------------------------------------------
 	// Suppression
 	// ---------------------------------------------------------------------------

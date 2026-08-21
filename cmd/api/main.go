@@ -266,6 +266,9 @@ func buildAdminPanel(
 		Fulfillment: fulfillmentService, Remnawave: remnawaveClient,
 		CookieSecure: cfg.AdminPanel.CookieSecure, Issuer: cfg.AdminPanel.Issuer,
 		Version: version, UpdateFeedURL: cfg.UpdateFeedURL,
+		// The desk reads customer uploads from the same directory the customer
+		// API writes them to; see buildCustomerPanel.
+		SupportAttachments: accountsupport.NewDirectoryStore(cfg.SupportAttachmentDir),
 	}), nil
 }
 

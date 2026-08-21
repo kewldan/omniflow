@@ -488,3 +488,75 @@ func TestTheCustomerIsToldWhenTheDeskFinishes(t *testing.T) {
 		t.Fatalf("an answered ticket did not rise to the top of the inbox: %+v", after.Items)
 	}
 }
+
+// TestTheDeskSeesEveryAttachmentAndServesOnlyItsOwn covers both origins: a
+// web upload is listed with its metadata and resolved to a storage key for the
+// download route, a Telegram reference is listed the same way and resolved to
+// no key, and an attachment cannot be reached through another ticket's route.
+func TestTheDeskSeesEveryAttachmentAndServesOnlyItsOwn(t *testing.T) {
+	ctx := context.Background()
+	harness := newHarness(t)
+	operations := newOperations(t, harness)
+	support := newAccountSupport(t, harness)
+	store, err := botapp.NewPostgresStore(ctx, harness.url)
+	if err != nil {
+		t.Fatalf("build bot store: %v", err)
+	}
+	customerID := harness.customer(ctx, t)
+	ticketID := newCustomerTicket(ctx, t, support, customerID, "Screenshots")
+
+	uploaded, err := support.Attach(ctx, accountsupport.NewAttachment{
+		CustomerID: customerID, TicketID: ticketID, FileName: "error.png",
+		MediaType: "image/png", Content: []byte("\x89PNG not really"),
+	})
+	if err != nil {
+		t.Fatalf("upload through the web: %v", err)
+	}
+	if _, err = store.AppendCustomerMessage(ctx, customerID, ticketID, "", "see attached", 42, []botapp.Attachment{{
+		Kind: "document", TelegramFileID: "BQACAgIAAxkBAAI", FileName: "log.txt",
+		MimeType: "text/plain", SizeBytes: 128,
+	}}); err != nil {
+		t.Fatalf("attach through the bot: %v", err)
+	}
+
+	detail, err := operations.Ticket(ctx, ticketID)
+	if err != nil {
+		t.Fatalf("read ticket: %v", err)
+	}
+	byOrigin := map[string]panelpg.SupportAttachment{}
+	for _, message := range detail.Messages {
+		for _, attachment := range message.Attachments {
+			if attachment.MessageID != message.ID {
+				t.Fatalf("attachment %s hangs on message %d but was listed under %d", attachment.ID, attachment.MessageID, message.ID)
+			}
+			byOrigin[attachment.Origin] = attachment
+		}
+	}
+	web, found := byOrigin["web"]
+	if !found || web.ID != uploaded.ID || !web.Downloadable || web.FileName != "error.png" {
+		t.Fatalf("the web upload is missing or wrong in the desk view: %+v", byOrigin)
+	}
+	telegram, found := byOrigin["telegram"]
+	if !found || telegram.Downloadable || telegram.FileName != "log.txt" || telegram.SizeBytes != 128 {
+		t.Fatalf("the Telegram file is missing or wrong in the desk view: %+v", byOrigin)
+	}
+
+	meta, key, err := operations.TicketAttachment(ctx, ticketID, web.ID)
+	if err != nil || key == "" || !meta.Downloadable {
+		t.Fatalf("the web upload did not resolve to a storage key: key=%q err=%v", key, err)
+	}
+	if key != accountsupport.ContentKey([]byte("\x89PNG not really")) {
+		t.Fatalf("the storage key is not the content digest: %s", key)
+	}
+	meta, key, err = operations.TicketAttachment(ctx, ticketID, telegram.ID)
+	if err != nil || key != "" || meta.Downloadable {
+		t.Fatalf("a Telegram reference must resolve to no key: key=%q downloadable=%v err=%v", key, meta.Downloadable, err)
+	}
+
+	// The route is scoped to the ticket: the same attachment through another
+	// conversation's path does not exist.
+	other := newCustomerTicket(ctx, t, support, customerID, "Unrelated")
+	if _, _, err = operations.TicketAttachment(ctx, other, web.ID); !errors.Is(err, panelpg.ErrNotFound) {
+		t.Fatalf("an attachment was reachable through another ticket: %v", err)
+	}
+}

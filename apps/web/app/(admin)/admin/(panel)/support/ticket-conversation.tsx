@@ -5,20 +5,24 @@ import { Button } from "@omniflow/ui/button";
 import { Card } from "@omniflow/ui/card";
 import { Input } from "@omniflow/ui/input";
 import { Skeleton } from "@omniflow/ui/skeleton";
+import { toast } from "@omniflow/ui/toast";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR from "swr";
 
 import { StateNotice } from "@/components/admin/state-notice";
-import { type ApiError, fetcher } from "@/lib/api";
+import { ApiError, fetcher } from "@/lib/api";
+import { useBytes } from "@/lib/format";
 import { useSubmission } from "@/lib/idempotency";
 import { type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 
+import { downloadThroughApi } from "./download";
 import type {
   CannedResponse,
   DeliveryState,
+  SupportAttachment,
   SupportQueue,
   SupportTag,
   TicketDetail,
@@ -160,6 +164,15 @@ export function TicketConversation({
                 </span>
               </div>
               <p className="whitespace-pre-wrap text-sm">{entry.value.body}</p>
+              {"attachments" in entry.value && entry.value.attachments.length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {entry.value.attachments.map((attachment) => (
+                    <li key={attachment.id}>
+                      <AttachmentRow attachment={attachment} ticketId={ticket.id} />
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           ),
         )}
@@ -200,6 +213,70 @@ function DeliveryMark({ reason, state }: { reason?: string; state: DeliveryState
         ? ` · ${reasonKnown ? translate(`deliveryReason.${reason}`) : reason}`
         : ""}
     </span>
+  );
+}
+
+/**
+ * One file a customer attached.
+ *
+ * A web upload is downloadable through the API, so a refused download — the
+ * file was purged, storage is down — is explained rather than saved to disk as
+ * a problem document. A Telegram file is described and not offered: the panel
+ * holds a reference, not the bytes, and a button that can only fail is worse
+ * than a sentence saying where the file is.
+ */
+function AttachmentRow({
+  attachment,
+  ticketId,
+}: {
+  attachment: SupportAttachment;
+  ticketId: string;
+}) {
+  const translate = useTranslations("admin.support");
+  const formatBytes = useBytes();
+  const [busy, setBusy] = useState(false);
+  const name = attachment.fileName || translate("attachments.unnamed");
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-md border border-border border-dashed px-2 py-1 text-xs">
+      <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.12em]">
+        {translate(`attachments.kind.${attachment.kind}`)}
+      </span>
+      <span className="min-w-0 flex-1 truncate">{name}</span>
+      <span className="font-mono text-[11px] text-muted-foreground">
+        {formatBytes(attachment.sizeBytes)}
+      </span>
+      {attachment.downloadable ? (
+        <Button
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await downloadThroughApi(
+                `/v1/panel/support/tickets/${ticketId}/attachments/${attachment.id}`,
+                name,
+              );
+            } catch (downloadError) {
+              toast.error(
+                downloadError instanceof ApiError && downloadError.status === 404
+                  ? translate("attachments.gone")
+                  : translate("attachments.downloadFailed"),
+              );
+            } finally {
+              setBusy(false);
+            }
+          }}
+          size="sm"
+          variant="outline"
+        >
+          {translate("attachments.download")}
+        </Button>
+      ) : (
+        <span className="text-muted-foreground" title={translate("attachments.telegramHint")}>
+          {translate("attachments.telegram")}
+        </span>
+      )}
+    </div>
   );
 }
 

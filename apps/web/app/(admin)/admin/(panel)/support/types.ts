@@ -50,6 +50,23 @@ export type SupportTicket = {
  */
 export type DeliveryState = "queued" | "retrying" | "delivered" | "undeliverable" | "failed";
 
+/**
+ * One file on a conversation. `origin` says where the bytes live: `web` for an
+ * upload this installation holds and can serve, `telegram` for a reference to a
+ * file in the customer's chat, which the panel describes but never fetches.
+ */
+export type SupportAttachment = {
+  id: string;
+  messageId: number;
+  kind: "photo" | "document";
+  fileName: string;
+  mediaType: string;
+  sizeBytes: number;
+  origin: "web" | "telegram";
+  downloadable: boolean;
+  createdAt: string;
+};
+
 export type SupportMessage = {
   id: number;
   sender: string;
@@ -60,6 +77,7 @@ export type SupportMessage = {
   /** The classified code behind an undeliverable, failed, or retrying push. */
   deliveryReason?: string;
   createdAt: string;
+  attachments: SupportAttachment[];
 };
 
 export type SupportNote = {

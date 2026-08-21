@@ -1995,6 +1995,18 @@
         "timeout": "Telegram не ответил вовремя",
         "telegram_unavailable": "Telegram был недоступен",
         "rejected": "Telegram отклонил сообщение"
+      },
+      "attachments": {
+        "kind": {
+          "photo": "фото",
+          "document": "файл"
+        },
+        "unnamed": "Вложение",
+        "download": "Скачать",
+        "telegram": "в Telegram",
+        "telegramHint": "Этот файл отправлен в Telegram-чате клиента. Omniflow хранит ссылку, а не сами байты, поэтому скачать его здесь нельзя.",
+        "gone": "Этот файл больше не хранится; возможно, истёк срок его хранения.",
+        "downloadFailed": "Файл сейчас не удалось скачать."
       }
     },
     "aiSettings": {
