@@ -76,6 +76,11 @@ type Querier interface {
 	CancelMergedCustomerCart(ctx context.Context, source pgtype.UUID) error
 	CancelOrder(ctx context.Context, arg CancelOrderParams) (Order, error)
 	ChannelGateSettings(ctx context.Context) (ChannelGateSettingsRow, error)
+	// A "new customer" is one who has never settled a subscription order. A
+	// wallet top-up, a shop purchase, a gift bought for somebody else, or a code
+	// a distributor paid for is not the purchase a welcome offer is about, so the
+	// completed-order counts look at subscription operations only — the same
+	// predicate referral qualification uses.
 	CheckPromotionCustomerEligibility(ctx context.Context, arg CheckPromotionCustomerEligibilityParams) (pgtype.Bool, error)
 	// Single redemption by construction: the predicate only matches a deliverable,
 	// unexpired gift, so a second claim of the same code updates no row.

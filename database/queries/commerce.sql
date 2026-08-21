@@ -263,6 +263,11 @@ WHERE r.promotion_id = sqlc.arg(promotion_id)
   AND o.state NOT IN ('cancelled', 'expired');
 
 -- name: CheckPromotionCustomerEligibility :one
+-- A "new customer" is one who has never settled a subscription order. A
+-- wallet top-up, a shop purchase, a gift bought for somebody else, or a code
+-- a distributor paid for is not the purchase a welcome offer is about, so the
+-- completed-order counts look at subscription operations only — the same
+-- predicate referral qualification uses.
 SELECT
   (NOT (sqlc.arg(eligibility)::jsonb ? 'locales') OR (sqlc.arg(eligibility)::jsonb -> 'locales') ? u.locale)
   AND (NOT COALESCE((sqlc.arg(eligibility)::jsonb ->> 'newCustomerOnly')::boolean, false)
@@ -271,6 +276,7 @@ SELECT
        >= COALESCE((sqlc.arg(eligibility)::jsonb ->> 'minimumCompletedOrders')::integer, 0) AS eligible
 FROM users u
 LEFT JOIN orders o ON o.user_id = u.id
+  AND o.operation IN ('purchase','extension','renewal','upgrade','downgrade')
 WHERE u.id = sqlc.arg(user_id)
 GROUP BY u.id;
 

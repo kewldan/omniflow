@@ -43,6 +43,22 @@ type ReferralReward struct {
 	ExpiresAt *time.Time
 }
 
+// SubscriptionOperation reports whether an order operation buys subscription
+// time. Only these count as a customer's "first order" — for qualifying a
+// referral, and for deciding whether a promotion's "new customer" has bought
+// before. A top-up moves money into a wallet, a goods order buys something
+// else, a gift is for somebody else, and a code was paid for by a distributor:
+// none of them is the purchase a referral or a welcome offer is about, so none
+// of them may qualify one or, just as importantly, block one.
+func SubscriptionOperation(operation string) bool {
+	switch operation {
+	case "purchase", "extension", "renewal", "upgrade", "downgrade":
+		return true
+	default:
+		return false
+	}
+}
+
 // QualifyReferral decides which rewards a referral attribution has earned. It is
 // deterministic and returns an empty slice — never an error — when a reward was
 // already granted, so a retried job is a no-op instead of a duplicate credit.

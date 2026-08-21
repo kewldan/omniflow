@@ -251,6 +251,7 @@ SELECT
        >= COALESCE(($1::jsonb ->> 'minimumCompletedOrders')::integer, 0) AS eligible
 FROM users u
 LEFT JOIN orders o ON o.user_id = u.id
+  AND o.operation IN ('purchase','extension','renewal','upgrade','downgrade')
 WHERE u.id = $2
 GROUP BY u.id
 `
@@ -260,6 +261,11 @@ type CheckPromotionCustomerEligibilityParams struct {
 	UserID      pgtype.UUID `json:"user_id"`
 }
 
+// A "new customer" is one who has never settled a subscription order. A
+// wallet top-up, a shop purchase, a gift bought for somebody else, or a code
+// a distributor paid for is not the purchase a welcome offer is about, so the
+// completed-order counts look at subscription operations only — the same
+// predicate referral qualification uses.
 func (q *Queries) CheckPromotionCustomerEligibility(ctx context.Context, arg CheckPromotionCustomerEligibilityParams) (pgtype.Bool, error) {
 	row := q.db.QueryRow(ctx, checkPromotionCustomerEligibility, arg.Eligibility, arg.UserID)
 	var eligible pgtype.Bool

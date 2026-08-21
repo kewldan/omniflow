@@ -93,15 +93,21 @@ replayed Stars update, or a manual re-approval cannot credit a wallet twice.
 All of the following must hold:
 
 1. The programme is enabled and its `qualification` is `first_paid_order`.
-2. The order reached `paid` or `fulfilled`.
-3. The order actually settled money — `paid_minor > 0` — so a fully
+2. The order buys subscription time: `purchase`, `extension`, `renewal`,
+   `upgrade`, or `downgrade`. A wallet top-up, a shop purchase, a gift bought for
+   somebody else, and an access code a distributor paid for are not looked at —
+   they neither qualify the referral nor, by settling first, stop a later
+   subscription order from qualifying it.
+3. The order reached `paid` or `fulfilled`.
+4. The order actually settled money — `paid_minor > 0` — so a fully
    wallet-funded order does not mint new value out of a referral.
-4. It is the customer's **first** settled order. Nothing earlier of theirs sits
-   in `paid`, `fulfilled`, `partially_refunded`, or `refunded`.
-5. The attribution is still inside `attributionValidityDays`.
-6. The inviter is under `inviterRewardCap`, counted over the rewards they already
+5. It is the customer's **first** settled subscription order. Nothing earlier of
+   theirs with one of those operations sits in `paid`, `fulfilled`,
+   `partially_refunded`, or `refunded`.
+6. The attribution is still inside `attributionValidityDays`.
+7. The inviter is under `inviterRewardCap`, counted over the rewards they already
    hold as an inviter.
-7. That role has not already been granted for this pair.
+8. That role has not already been granted for this pair.
 
 A disabled programme still records attributions; it simply grants nothing. Turning
 it on later does not retroactively pay for orders that already settled.

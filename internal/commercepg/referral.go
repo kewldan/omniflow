@@ -93,6 +93,12 @@ func (store *Store) grantReferralRewards(ctx context.Context, tx pgx.Tx, queries
 	if !program.Enabled {
 		return nil
 	}
+	// Only an order that buys subscription time can be the first paid order.
+	// Anything else is ignored outright: it neither qualifies the referral
+	// nor, by settling first, stops a later subscription from qualifying it.
+	if !commerce.SubscriptionOperation(order.Operation) {
+		return nil
+	}
 	var (
 		attributedAt time.Time
 		inviterID    pgtype.UUID
@@ -107,11 +113,13 @@ func (store *Store) grantReferralRewards(ctx context.Context, tx pgx.Tx, queries
 	if err != nil {
 		return err
 	}
-	// Qualification is the customer's first settled order. Any earlier settled
-	// order means this one cannot qualify the referral.
+	// Qualification is the customer's first settled subscription order. Any
+	// earlier settled subscription order means this one cannot qualify the
+	// referral; top-ups, goods, gifts, and codes are not looked at.
 	var earlierSettled int64
 	if err = tx.QueryRow(ctx, `SELECT count(*) FROM orders
 		WHERE user_id = $1 AND id <> $2 AND state IN ('paid','fulfilled','partially_refunded','refunded')
+		  AND operation IN ('purchase','extension','renewal','upgrade','downgrade')
 		  AND created_at <= $3`, order.UserID, order.ID, order.CreatedAt.Time).Scan(&earlierSettled); err != nil {
 		return err
 	}

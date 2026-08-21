@@ -288,8 +288,8 @@ The `eligibility` JSON object is evaluated in SQL. Three keys are understood, an
 | Key | Meaning |
 | --- | --- |
 | `locales` | An array; the customer's stored locale must be a member |
-| `newCustomerOnly` | Boolean; the customer must have zero orders in `paid`, `fulfilled`, `partially_refunded`, or `refunded` |
-| `minimumCompletedOrders` | Integer; the customer must have at least that many such orders |
+| `newCustomerOnly` | Boolean; the customer must have zero subscription orders (`purchase`, `extension`, `renewal`, `upgrade`, `downgrade`) in `paid`, `fulfilled`, `partially_refunded`, or `refunded`. A wallet top-up, a shop purchase, a gift, or an access code does not make somebody an existing customer |
+| `minimumCompletedOrders` | Integer; the customer must have at least that many such subscription orders |
 
 The same query advertises a campaign on the plan page and accepts a code at redemption, so a campaign advertised as available is one the order would accept.
 
