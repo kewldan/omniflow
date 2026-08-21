@@ -289,10 +289,10 @@ func (service *Service) projectSubscription(ctx context.Context, row record) (Su
 	// an entitlement exists the pending order is a renewal in flight, and the
 	// card describes the entitlement it already has.
 	//
-	// TODO(merge): once commercepg deletes the subscription row an unpaid order
-	// leaves behind when that order is cancelled or expires, a row with neither
-	// an entitlement nor a pending order can no longer occur and the panel's
-	// "browse plans" fallback for it becomes unreachable.
+	// The store releases the subscription row an unpaid order opened when that
+	// order is cancelled or expires, so a row with neither an entitlement nor a
+	// pending order is not expected; the panel's "browse plans" fallback for it
+	// stays as a safety net for rows that predate that cleanup.
 	if row.Status == "" {
 		subscription.PendingOrderID = row.PendingOrderID
 	}

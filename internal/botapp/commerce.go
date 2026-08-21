@@ -81,6 +81,13 @@ func NewCommerce(logger *slog.Logger, store *PostgresStore, orders *commercepg.S
 
 // PaymentChoice is one offered payment method together with the currency and
 // price that method would charge.
+// CancelOrder cancels a customer's own unpaid order from the chat. It goes
+// through the shared checkout service so the provider payment is withdrawn and
+// a subscription row the order opened is released, exactly as on the web.
+func (service *Commerce) CancelOrder(ctx context.Context, customerID, orderID string) error {
+	return service.checkout.CancelOrderFrom(ctx, customerID, orderID, "cancelled by the customer in Telegram")
+}
+
 type PaymentChoice = accountcheckout.PaymentChoice
 
 // PaymentHandle is the customer-facing result of starting a payment.

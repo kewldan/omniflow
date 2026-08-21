@@ -136,11 +136,6 @@ func (store *PostgresStore) Refunds(ctx context.Context, customerID, orderID str
 	return store.checkout().Refunds(ctx, customerID, orderID)
 }
 
-// CancelOrder cancels a customer's own unpaid order.
-func (store *PostgresStore) CancelOrder(ctx context.Context, customerID, orderID string) error {
-	return store.checkout().CancelOrder(ctx, customerID, orderID, "cancelled by the customer in Telegram")
-}
-
 // BeginSessionState opens a multi-step bot flow. The context never carries
 // secrets: it holds only identifiers the next message needs.
 func (store *PostgresStore) BeginSessionState(ctx context.Context, telegramID int64, state string, sessionContext map[string]any) error {

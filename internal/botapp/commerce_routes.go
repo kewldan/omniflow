@@ -938,7 +938,7 @@ func (app *App) toggleWallet(ctx context.Context, session commerceContext) View 
 }
 
 func (app *App) cancelOrder(ctx context.Context, session commerceContext, orderID string) View {
-	if err := app.customers.CancelOrder(ctx, session.Customer.ID, orderID); err != nil {
+	if err := app.commerce.CancelOrder(ctx, session.Customer.ID, orderID); err != nil {
 		app.logger.Warn("order cancellation rejected", "error", err)
 	}
 	return app.orderScreen(ctx, session, orderID)

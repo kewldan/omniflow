@@ -476,11 +476,40 @@ func (service *Service) RefreshOrder(ctx context.Context, customerID, orderID, l
 
 // CancelOrder cancels one of the customer's own unpaid orders.
 func (service *Service) CancelOrder(ctx context.Context, customerID, orderID string) error {
-	if err := service.store.CancelOrder(ctx, customerID, orderID, "cancelled by the customer in the web panel"); err != nil {
+	return service.CancelOrderFrom(ctx, customerID, orderID, "cancelled by the customer in the web panel")
+}
+
+// CancelOrderFrom cancels a customer's own unpaid order with the reason the
+// surface records, then does the two things the cancellation implies and the
+// store cannot do on its own.
+//
+// The provider payment is withdrawn where the adapter can be asked, so a
+// payment page left open in another tab cannot settle an order the customer
+// has just been told is closed. The subscription row the unpaid order opened
+// is released, so the dashboard does not keep a "not active" card for a
+// purchase that never happened. Both are best effort: the cancellation has
+// already committed, and a provider that cannot be reached or a row that
+// cannot be released is logged rather than turned into an error for a customer
+// whose order is, in fact, cancelled. A payment that lands regardless is still
+// settled as a payment after cancellation and brought to an operator. The promo
+// code an unpaid order held is released by the redemption count itself, which
+// no longer counts cancelled or expired orders.
+func (service *Service) CancelOrderFrom(ctx context.Context, customerID, orderID, reason string) error {
+	if err := service.store.CancelOrder(ctx, customerID, orderID, reason); err != nil {
 		return err
 	}
-	// TODO(merge): call paymentservice.(*Service).CancelIntents(ctx, orderID) so a provider page left open cannot settle a cancelled order.
-	// TODO(merge): call the commercepg method that deletes the subscription row an unpaid order left behind, and the one that releases its promo redemption.
+	if service.payments != nil {
+		if err := service.payments.CancelIntents(ctx, orderID); err != nil {
+			service.logger.Warn("provider payment withdrawal failed after cancellation",
+				"order_id", orderID, "error", err)
+		}
+	}
+	if service.orders != nil {
+		if _, err := service.orders.ReleaseGhostSubscriptions(ctx, customerID); err != nil {
+			service.logger.Warn("ghost subscription release failed after cancellation",
+				"order_id", orderID, "error", err)
+		}
+	}
 	return nil
 }
 
