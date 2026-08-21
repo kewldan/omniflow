@@ -65,7 +65,7 @@ hidden.
 
 | Command | What it opens |
 | --- | --- |
-| `/start` | A new home message. Accepts one argument, `ref_<code>`, which records referral attribution before anything is rendered |
+| `/start` | A new home message. Accepts one deep-link argument: `ref_<code>` records referral attribution before anything is rendered, `login` behaves exactly like `/login`, and `pay_<orderID>` resumes a Telegram Stars payment begun in the browser — see [Deep links](#deep-links) |
 | `/menu` | The same home message |
 | `/plans` | The plan catalogue |
 | `/orders` | Order and payment history |
@@ -86,6 +86,20 @@ recipient — is a state a customer has to be able to escape.
   Russian-locale client sees eight entries where an English one sees nine. The
   command itself works in both languages.
 </Note>
+
+### Deep links
+
+A `t.me/<bot>?start=<payload>` link opens the chat and sends `/start <payload>`.
+Three payloads are understood; anything else opens the menu.
+
+| Payload | What happens |
+| --- | --- |
+| `ref_<code>` | Referral attribution is recorded, then the home screen is sent. See [Referrals](#referrals) |
+| `login` | Exactly what `/login` does: a one-time web sign-in link is minted and sent. The web sign-in page's "Sign in through the bot" button points here |
+| `pay_<orderID>` | For your own order that is still open, priced in Telegram Stars, with an amount left to pay and no payment settled against it, the Stars invoice is sent into the chat and the order screen follows. In any other state only the order screen is shown. The web panel sends you here for a Stars payment started in the browser, because only the bot can send an invoice |
+
+The order identifier has to be a well-formed UUID, and an order that is not yours
+renders the home screen — the bot does not reveal whether such an order exists.
 
 ## The first /start
 

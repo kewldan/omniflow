@@ -13,6 +13,7 @@ import (
 	telegram "github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 	"github.com/omniflow/omniflow/internal/commerce"
+	databaseutil "github.com/omniflow/omniflow/internal/database"
 	"github.com/omniflow/omniflow/internal/platform"
 	"github.com/omniflow/omniflow/internal/remnawave"
 )
@@ -173,13 +174,125 @@ func (app *App) HandleStart(ctx context.Context, client *telegram.Bot, update *m
 	}
 	locale := app.locale(ctx, message.From.ID, message.From.LanguageCode)
 	_, _ = client.SendChatAction(ctx, &telegram.SendChatActionParams{ChatID: message.Chat.ID, Action: models.ChatActionTyping})
-	if parts := strings.Fields(message.Text); len(parts) == 2 && strings.HasPrefix(parts[1], "ref_") {
-		app.attributeReferral(ctx, message.From.ID, message.From.LanguageCode, strings.TrimPrefix(parts[1], "ref_"))
+	payload := parseStartPayload(message.Text)
+	switch payload.Kind {
+	case startPayloadReferral:
+		app.attributeReferral(ctx, message.From.ID, message.From.LanguageCode, payload.Value)
+	case startPayloadLogin:
+		// The web sign-in page sends a customer here with `?start=login`. It has
+		// to behave exactly like /login, or the button on the website is a dead
+		// end that opens the menu.
+		app.HandleWebLogin(ctx, client, update)
+		return
+	case startPayloadPay:
+		if app.commerceEnabled() {
+			app.handleStartPayment(ctx, client, update, locale, payload.Value)
+			return
+		}
 	}
 	view := app.loadView(ctx, message.From.ID, locale, routeHome)
 	if _, err := client.SendMessage(ctx, sendParams(message.Chat.ID, view)); err != nil {
 		app.withCorrelation(update).Error("telegram view send failed", "view", routeHome, "error", err)
 	}
+}
+
+// startPayload is the argument Telegram appends to /start from a deep link.
+type startPayload struct {
+	Kind  string
+	Value string
+}
+
+// The deep-link payloads the bot understands. Anything else opens the menu.
+const (
+	startPayloadReferral = "ref"
+	startPayloadLogin    = "login"
+	startPayloadPay      = "pay"
+)
+
+// parseStartPayload reads the deep-link argument of a /start command.
+//
+// Three forms are recognised: `ref_<code>` records referral attribution,
+// `login` mints a web sign-in link, and `pay_<orderID>` resumes a Telegram
+// Stars payment the customer began in the browser. The order identifier has to
+// parse as a UUID so that whatever else a link carries is never used to
+// address an order.
+func parseStartPayload(messageText string) startPayload {
+	parts := strings.Fields(messageText)
+	if len(parts) != 2 {
+		return startPayload{}
+	}
+	argument := parts[1]
+	switch {
+	case argument == "login":
+		return startPayload{Kind: startPayloadLogin}
+	case strings.HasPrefix(argument, "ref_"):
+		if code := strings.TrimPrefix(argument, "ref_"); code != "" {
+			return startPayload{Kind: startPayloadReferral, Value: code}
+		}
+	case strings.HasPrefix(argument, "pay_"):
+		if parsed, err := databaseutil.ParseUUIDs([]string{strings.TrimPrefix(argument, "pay_")}); err == nil {
+			return startPayload{Kind: startPayloadPay, Value: databaseutil.UUIDStrings(parsed)[0]}
+		}
+	}
+	return startPayload{}
+}
+
+// handleStartPayment resumes a payment the customer started on the web.
+//
+// The browser cannot send a Telegram Stars invoice; only the bot can, into the
+// chat of the account that owns the order. So the web hands the customer to
+// `t.me/<bot>?start=pay_<orderID>`, and this is the other end: for the caller's
+// own order that is still open, priced in Stars, with something left to pay and
+// no settled payment, the invoice is sent and the order screen follows. In any
+// other state only the order screen is shown. An order that is not the
+// caller's renders the home screen — "not yours" and "does not exist" must look
+// the same from the outside.
+func (app *App) handleStartPayment(ctx context.Context, client *telegram.Bot, update *models.Update, locale Locale, orderID string) {
+	message := update.Message
+	logger := app.withCorrelation(update).With("action", "start-pay")
+	session, err := app.commerceContext(ctx, message.From.ID, message.From.LanguageCode, message.From.Username)
+	if err != nil {
+		logger.Error("customer resolution failed", "error", err)
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, app.errorView(locale, routeHome)))
+		return
+	}
+	order, err := app.customers.Order(ctx, session.Customer.ID, orderID, session.Locale)
+	if errors.Is(err, ErrOrderNotFound) {
+		view := app.loadView(ctx, message.From.ID, session.Locale, routeHome)
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, view))
+		return
+	}
+	if err != nil {
+		logger.Error("order lookup failed", "error", err)
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, app.errorView(session.Locale, routeOrders)))
+		return
+	}
+	if starsInvoiceDue(order) {
+		// The invoice settles against a payment intent, so one is created or
+		// resumed first. Both steps are idempotent: a second tap on the link
+		// finds the same intent and sends a second copy of the same invoice,
+		// and Telegram's pre-checkout probe refuses an order that was paid
+		// in between.
+		if _, err = app.commerce.StartPayment(ctx, order, "telegram_stars", session.TelegramID, order.PlanName); err != nil {
+			logger.Error("Telegram Stars payment could not be resumed", "error", err)
+			_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{Text: text(session.Locale, "error.payment")}))
+		} else if err = app.StarsInvoice(ctx, client, session, message.Chat.ID, order.ID); err != nil {
+			logger.Error("Telegram Stars invoice failed", "error", err)
+			_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{Text: text(session.Locale, "error.payment")}))
+		}
+	}
+	view := app.orderScreen(ctx, session, order.ID)
+	if _, err := client.SendMessage(ctx, sendParams(message.Chat.ID, view)); err != nil {
+		logger.Error("telegram view send failed", "view", "order", "error", err)
+	}
+}
+
+// starsInvoiceDue reports whether an order can still be paid with a Telegram
+// Stars invoice: open, priced in Stars, with an external amount left, and no
+// payment already settled against it.
+func starsInvoiceDue(order OrderSummary) bool {
+	open := order.State == commerce.OrderPending || order.State == commerce.OrderDraft
+	return open && order.Currency == "XTR" && order.ExternalMinor > 0 && order.PaymentStatus != "succeeded"
 }
 
 // attributeReferral records the immutable inviter/invitee pair. With commerce
