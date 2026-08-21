@@ -79,7 +79,11 @@ hidden.
 Any other message beginning with `/` opens the menu rather than producing an
 error. `/cancel` exists because every free-text step — a promo code, a support
 message, a top-up amount, a subscription name, a gift note, a gift code, a shop
-recipient — is a state a customer has to be able to escape.
+recipient or promo code — is a state a customer has to be able to escape.
+Tapping **any** button while such a step is open escapes it too: the prompt's
+own `Cancel`, a menu entry, a push notification's button. A customer who walks
+away from a prompt and later types "500" gets the menu, not a top-up method
+screen. The state would otherwise have lived for thirty minutes.
 
 <Note>
   The Russian command list published to Telegram omits `/login`, so a
@@ -557,12 +561,10 @@ The recipient's handle is stored on the shop order, where delivery and support
 genuinely need it, and never on the customer record. See
 [Gifts and digital goods](/commerce/gifts-and-goods).
 
-<Note>
-  The `🏷 Promo code` button on the shop review screen does not currently work —
-  the flow state it opens is rejected, and the screen shows the generic load
-  error. Promo codes on digital goods are usable from the
-  [web panel](/customer/web-panel).
-</Note>
+`🏷 Promo code` on the review screen opens a free-text step: send the code in
+one message and the review is re-rendered with the discount, or with the reason
+the code was refused. It is the same step the [web panel](/customer/web-panel)
+offers for digital goods.
 
 ## Gifts
 

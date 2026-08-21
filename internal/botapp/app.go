@@ -377,7 +377,7 @@ func (app *App) handleFlowMessage(ctx context.Context, client *telegram.Bot, upd
 	}
 	switch state {
 	case "promo_code", "support_reply", "topup_amount", "subscription_label",
-		"goods_recipient", "gift_message", "gift_claim":
+		"goods_recipient", "goods_promo", "gift_message", "gift_claim":
 	default:
 		return false
 	}
@@ -589,6 +589,15 @@ func (app *App) HandleCallback(ctx context.Context, client *telegram.Bot, update
 		return
 	}
 	message := query.Message.Message
+	// A tap while a free-text prompt is open is the customer leaving it — every
+	// prompt's Cancel button is a callback, and so is any other button they
+	// might reach for instead. The open flow is discarded before the tap is
+	// handled, so the next ordinary message is not parsed as an amount, a
+	// promo code, a gift code, or a name for half an hour. A button that opens
+	// a prompt re-creates the state afterwards, so nothing is lost there.
+	if err := app.store.CancelSession(ctx, query.From.ID); err != nil {
+		app.logger.Warn("flow state cleanup failed", "error", err)
+	}
 	if strings.HasPrefix(query.Data, actionPrefix) {
 		action := strings.SplitN(strings.TrimPrefix(query.Data, actionPrefix), ":", 2)[0]
 		// A consequential action is claimed once per callback, so a redelivered
