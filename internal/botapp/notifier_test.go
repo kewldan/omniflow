@@ -109,7 +109,7 @@ func TestWalkCandidatePagesStopsWhenAsked(t *testing.T) {
 // record keeps its reason, and a transactional message is untouched.
 func TestApplySuppressionVetoesOnlyMarketing(t *testing.T) {
 	suppressed := notificationCandidate{Suppressed: true}
-	clear := notificationCandidate{}
+	unsuppressed := notificationCandidate{}
 	later := time.Now().Add(time.Hour)
 
 	allowed := commerce.DeliveryDecision{Allow: true, Class: commerce.ClassMarketing, Reason: "allowed"}
@@ -128,7 +128,7 @@ func TestApplySuppressionVetoesOnlyMarketing(t *testing.T) {
 	if got := applySuppression(transactional, suppressed); !got.Allow {
 		t.Fatalf("a transactional message was held back by a suppression: %+v", got)
 	}
-	if got := applySuppression(allowed, clear); !got.Allow {
+	if got := applySuppression(allowed, unsuppressed); !got.Allow {
 		t.Fatalf("a customer with no suppression was held back: %+v", got)
 	}
 	if campaignSuppression(commerce.DeliveryDecision{Reason: "suppressed"}) != "suppressed" {
