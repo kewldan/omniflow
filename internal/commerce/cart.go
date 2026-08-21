@@ -58,9 +58,9 @@ type AutoPurchaseRequest struct {
 	Maintenance bool
 }
 
-// EvaluateAutoPurchase decides whether a saved cart may be charged now. It
-// returns the stable rejection reason with ErrCartRejected, or "ready" and a
-// nil error.
+// EvaluateAutoPurchase decides whether the unattended sweep may charge a saved
+// cart now. It returns the stable rejection reason with ErrCartRejected, or
+// "ready" and a nil error.
 //
 // The decision is deliberately conservative: the caller still creates the order
 // under the cart's own idempotency key, so even a duplicated or replayed wallet
@@ -69,6 +69,16 @@ func EvaluateAutoPurchase(request AutoPurchaseRequest) (string, error) {
 	if !request.Enabled {
 		return CartAutoPurchaseOff, ErrCartRejected
 	}
+	return EvaluateCartPurchase(request)
+}
+
+// EvaluateCartPurchase decides whether a saved cart may be charged by the
+// customer's own hand, right now. It is the same check as the unattended sweep's
+// minus the automatic-purchase switch: that switch says whether the cart may be
+// bought while the customer is away, and a customer tapping "Buy now" is not
+// away. Refusing them because the switch is off was the screen contradicting
+// its own invitation.
+func EvaluateCartPurchase(request AutoPurchaseRequest) (string, error) {
 	if !request.ExpiresAt.IsZero() && !request.Now.Before(request.ExpiresAt) {
 		return CartExpired, ErrCartRejected
 	}

@@ -127,9 +127,11 @@ func (service *Commerce) SetCartAutoPurchase(ctx context.Context, customerID str
 	return service.orders.SetCartAutoPurchase(ctx, customerID, enabled)
 }
 
-// PurchaseCart charges a saved cart now if the balance covers it.
+// PurchaseCart charges a saved cart now if the balance covers it. It is the
+// customer's own tap, so the automatic-purchase switch does not apply — that
+// switch governs the unattended sweep, not a customer who is present.
 func (service *Commerce) PurchaseCart(ctx context.Context, customerID string) (commercepg.CartPurchase, error) {
-	return service.orders.TryPurchaseCart(ctx, customerID)
+	return service.orders.PurchaseCartNow(ctx, customerID)
 }
 
 // BuyAddon purchases one mid-period add-on for a subscription. Pricing, the

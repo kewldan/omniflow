@@ -525,7 +525,11 @@ disappeared shows "This cart is out of date — clear the cart and build it agai
 Buttons are `🛒 Buy now` when the balance covers it, `➕ Top up wallet` when it
 does not, `🤖 Automatic purchase on/off`, `🗑 Clear`, and `‹ Menu`. `Buy now`
 shares the automatic sweep's idempotency key, so tapping it while the sweep is
-running cannot charge twice.
+running cannot charge twice. It works with automatic purchase **off**: that
+switch decides whether the cart may be bought while you are away, and a
+customer tapping the button is not away. Every other check — the cart has not
+expired, purchases are not paused, the balance covers the total — applies to
+both.
 
 There is **one open cart per customer**, shared with the shop: saving a shop item
 replaces a saved plan. A saved shop selection is never bought automatically,
