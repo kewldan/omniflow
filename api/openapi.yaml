@@ -2861,8 +2861,10 @@ paths:
       description: >-
         Verifies a Telegram Login Widget payload. The hash is checked against the
         bot token and the auth_date must be recent, so a captured payload cannot
-        be replayed indefinitely.
-      requestBody: {required: true, content: {application/json: {schema: {type: object, additionalProperties: {type: string}}}}}
+        be replayed indefinitely. The body is the object the widget hands to its
+        `data-onauth` callback, posted as is: `id` and `auth_date` are JSON
+        numbers, the other fields strings.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/TelegramLoginWidgetPayload"}}}}
       responses:
         "200": {description: Signed in, content: {application/json: {schema: {$ref: "#/components/schemas/AccountSignIn"}}}}
         "401": {$ref: "#/components/responses/Problem"}
@@ -6098,6 +6100,23 @@ components:
         locale: {type: string, enum: [ru, en]}
         timezone: {type: string}
         status: {type: string, enum: [active, suspended, deleted]}
+    TelegramLoginWidgetPayload:
+      type: object
+      description: >-
+        The document Telegram's Login Widget produces. Every field except `hash`
+        participates in the signature in its textual form, so the server keeps
+        the digits of the numeric fields verbatim rather than parsing them as
+        floating point.
+      required: [id, auth_date, hash]
+      properties:
+        id: {type: integer, format: int64, description: "The Telegram user ID."}
+        auth_date: {type: integer, format: int64, description: "Unix seconds at which Telegram signed the payload."}
+        hash: {type: string, description: "HMAC-SHA256 over the other fields under SHA-256 of the bot token."}
+        first_name: {type: string}
+        last_name: {type: string}
+        username: {type: string}
+        photo_url: {type: string}
+      additionalProperties: true
     AccountSignIn:
       type: object
       required: [customer, expiresAt]

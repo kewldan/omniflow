@@ -394,8 +394,8 @@ func (e AccountPlanKind) Valid() bool {
 // Defines values for AccountPlanOperations.
 const (
 	AccountPlanOperationsDowngrade AccountPlanOperations = "downgrade"
+	AccountPlanOperationsExtension AccountPlanOperations = "extension"
 	AccountPlanOperationsPurchase  AccountPlanOperations = "purchase"
-	AccountPlanOperationsRenew     AccountPlanOperations = "renew"
 	AccountPlanOperationsUpgrade   AccountPlanOperations = "upgrade"
 )
 
@@ -404,9 +404,9 @@ func (e AccountPlanOperations) Valid() bool {
 	switch e {
 	case AccountPlanOperationsDowngrade:
 		return true
-	case AccountPlanOperationsPurchase:
+	case AccountPlanOperationsExtension:
 		return true
-	case AccountPlanOperationsRenew:
+	case AccountPlanOperationsPurchase:
 		return true
 	case AccountPlanOperationsUpgrade:
 		return true
@@ -442,8 +442,8 @@ func (e AccountPlanDetailKind) Valid() bool {
 // Defines values for AccountPlanDetailOperations.
 const (
 	AccountPlanDetailOperationsDowngrade AccountPlanDetailOperations = "downgrade"
+	AccountPlanDetailOperationsExtension AccountPlanDetailOperations = "extension"
 	AccountPlanDetailOperationsPurchase  AccountPlanDetailOperations = "purchase"
-	AccountPlanDetailOperationsRenew     AccountPlanDetailOperations = "renew"
 	AccountPlanDetailOperationsUpgrade   AccountPlanDetailOperations = "upgrade"
 )
 
@@ -452,9 +452,9 @@ func (e AccountPlanDetailOperations) Valid() bool {
 	switch e {
 	case AccountPlanDetailOperationsDowngrade:
 		return true
-	case AccountPlanDetailOperationsPurchase:
+	case AccountPlanDetailOperationsExtension:
 		return true
-	case AccountPlanDetailOperationsRenew:
+	case AccountPlanDetailOperationsPurchase:
 		return true
 	case AccountPlanDetailOperationsUpgrade:
 		return true
@@ -4481,13 +4481,16 @@ type AccountPlan struct {
 	Description        *string `json:"description,omitempty"`
 
 	// DeviceLimit Null means unlimited.
-	DeviceLimit        *int            `json:"deviceLimit,omitempty"`
-	DurationSeconds    int64           `json:"durationSeconds"`
-	Eligible           bool            `json:"eligible"`
-	GracePeriodSeconds *int64          `json:"gracePeriodSeconds,omitempty"`
-	IneligibleReason   *string         `json:"ineligibleReason,omitempty"`
-	Kind               AccountPlanKind `json:"kind"`
-	Name               string          `json:"name"`
+	DeviceLimit        *int   `json:"deviceLimit,omitempty"`
+	DurationSeconds    int64  `json:"durationSeconds"`
+	Eligible           bool   `json:"eligible"`
+	GracePeriodSeconds *int64 `json:"gracePeriodSeconds,omitempty"`
+
+	// Held The customer already holds an entitlement for this plan, so the catalogue can mark it as the one they are on.
+	Held             *bool           `json:"held,omitempty"`
+	IneligibleReason *string         `json:"ineligibleReason,omitempty"`
+	Kind             AccountPlanKind `json:"kind"`
+	Name             string          `json:"name"`
 
 	// Operations The lifecycle actions the configured plan policy allows for this customer.
 	Operations       []AccountPlanOperations `json:"operations"`
@@ -4516,13 +4519,16 @@ type AccountPlanDetail struct {
 	Description        *string             `json:"description,omitempty"`
 
 	// DeviceLimit Null means unlimited.
-	DeviceLimit        *int                  `json:"deviceLimit,omitempty"`
-	DurationSeconds    int64                 `json:"durationSeconds"`
-	Eligible           bool                  `json:"eligible"`
-	GracePeriodSeconds *int64                `json:"gracePeriodSeconds,omitempty"`
-	IneligibleReason   *string               `json:"ineligibleReason,omitempty"`
-	Kind               AccountPlanDetailKind `json:"kind"`
-	Name               string                `json:"name"`
+	DeviceLimit        *int   `json:"deviceLimit,omitempty"`
+	DurationSeconds    int64  `json:"durationSeconds"`
+	Eligible           bool   `json:"eligible"`
+	GracePeriodSeconds *int64 `json:"gracePeriodSeconds,omitempty"`
+
+	// Held The customer already holds an entitlement for this plan, so the catalogue can mark it as the one they are on.
+	Held             *bool                 `json:"held,omitempty"`
+	IneligibleReason *string               `json:"ineligibleReason,omitempty"`
+	Kind             AccountPlanDetailKind `json:"kind"`
+	Name             string                `json:"name"`
 
 	// Operations The lifecycle actions the configured plan policy allows for this customer.
 	Operations    []AccountPlanDetailOperations `json:"operations"`
@@ -7629,6 +7635,23 @@ type SessionList struct {
 	Items []AdminSession `json:"items"`
 }
 
+// TelegramLoginWidgetPayload The document Telegram's Login Widget produces. Every field except `hash` participates in the signature in its textual form, so the server keeps the digits of the numeric fields verbatim rather than parsing them as floating point.
+type TelegramLoginWidgetPayload struct {
+	// AuthDate Unix seconds at which Telegram signed the payload.
+	AuthDate  int64   `json:"auth_date"`
+	FirstName *string `json:"first_name,omitempty"`
+
+	// Hash HMAC-SHA256 over the other fields under SHA-256 of the bot token.
+	Hash string `json:"hash"`
+
+	// Id The Telegram user ID.
+	Id                   int64                  `json:"id"`
+	LastName             *string                `json:"last_name,omitempty"`
+	PhotoUrl             *string                `json:"photo_url,omitempty"`
+	Username             *string                `json:"username,omitempty"`
+	AdditionalProperties map[string]interface{} `json:"-"`
+}
+
 // TelemetryEvent defines model for TelemetryEvent.
 type TelemetryEvent struct {
 	Architecture   string                `json:"architecture"`
@@ -7845,9 +7868,6 @@ type CompleteAccountOidcParams struct {
 type StartAccountOidcParams struct {
 	Next *string `form:"next,omitempty" json:"next,omitempty"`
 }
-
-// AccountSignInWithTelegramJSONBody defines parameters for AccountSignInWithTelegram.
-type AccountSignInWithTelegramJSONBody map[string]string
 
 // AccountSignInWithMiniAppJSONBody defines parameters for AccountSignInWithMiniApp.
 type AccountSignInWithMiniAppJSONBody struct {
@@ -9420,7 +9440,7 @@ type ReceivePaymentWebhookJSONBody map[string]interface{}
 type AccountLogoutAllJSONRequestBody AccountLogoutAllJSONBody
 
 // AccountSignInWithTelegramJSONRequestBody defines body for AccountSignInWithTelegram for application/json ContentType.
-type AccountSignInWithTelegramJSONRequestBody AccountSignInWithTelegramJSONBody
+type AccountSignInWithTelegramJSONRequestBody = TelegramLoginWidgetPayload
 
 // AccountSignInWithMiniAppJSONRequestBody defines body for AccountSignInWithMiniApp for application/json ContentType.
 type AccountSignInWithMiniAppJSONRequestBody AccountSignInWithMiniAppJSONBody
@@ -9694,6 +9714,158 @@ type ReceivePaymentWebhookJSONRequestBody ReceivePaymentWebhookJSONBody
 
 // CollectTelemetryEventJSONRequestBody defines body for CollectTelemetryEvent for application/json ContentType.
 type CollectTelemetryEventJSONRequestBody = TelemetryEvent
+
+// Getter for additional properties for TelegramLoginWidgetPayload. Returns the specified
+// element and whether it was found
+func (a TelegramLoginWidgetPayload) Get(fieldName string) (value interface{}, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for TelegramLoginWidgetPayload
+func (a *TelegramLoginWidgetPayload) Set(fieldName string, value interface{}) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]interface{})
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for TelegramLoginWidgetPayload to handle AdditionalProperties
+func (a *TelegramLoginWidgetPayload) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["auth_date"]; found {
+		err = json.Unmarshal(raw, &a.AuthDate)
+		if err != nil {
+			return fmt.Errorf("error reading 'auth_date': %w", err)
+		}
+		delete(object, "auth_date")
+	}
+
+	if raw, found := object["first_name"]; found {
+		err = json.Unmarshal(raw, &a.FirstName)
+		if err != nil {
+			return fmt.Errorf("error reading 'first_name': %w", err)
+		}
+		delete(object, "first_name")
+	}
+
+	if raw, found := object["hash"]; found {
+		err = json.Unmarshal(raw, &a.Hash)
+		if err != nil {
+			return fmt.Errorf("error reading 'hash': %w", err)
+		}
+		delete(object, "hash")
+	}
+
+	if raw, found := object["id"]; found {
+		err = json.Unmarshal(raw, &a.Id)
+		if err != nil {
+			return fmt.Errorf("error reading 'id': %w", err)
+		}
+		delete(object, "id")
+	}
+
+	if raw, found := object["last_name"]; found {
+		err = json.Unmarshal(raw, &a.LastName)
+		if err != nil {
+			return fmt.Errorf("error reading 'last_name': %w", err)
+		}
+		delete(object, "last_name")
+	}
+
+	if raw, found := object["photo_url"]; found {
+		err = json.Unmarshal(raw, &a.PhotoUrl)
+		if err != nil {
+			return fmt.Errorf("error reading 'photo_url': %w", err)
+		}
+		delete(object, "photo_url")
+	}
+
+	if raw, found := object["username"]; found {
+		err = json.Unmarshal(raw, &a.Username)
+		if err != nil {
+			return fmt.Errorf("error reading 'username': %w", err)
+		}
+		delete(object, "username")
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]interface{})
+		for fieldName, fieldBuf := range object {
+			var fieldVal interface{}
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for TelegramLoginWidgetPayload to handle AdditionalProperties
+func (a TelegramLoginWidgetPayload) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	object["auth_date"], err = json.Marshal(a.AuthDate)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'auth_date': %w", err)
+	}
+
+	if a.FirstName != nil {
+		object["first_name"], err = json.Marshal(a.FirstName)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'first_name': %w", err)
+		}
+	}
+
+	object["hash"], err = json.Marshal(a.Hash)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'hash': %w", err)
+	}
+
+	object["id"], err = json.Marshal(a.Id)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'id': %w", err)
+	}
+
+	if a.LastName != nil {
+		object["last_name"], err = json.Marshal(a.LastName)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'last_name': %w", err)
+		}
+	}
+
+	if a.PhotoUrl != nil {
+		object["photo_url"], err = json.Marshal(a.PhotoUrl)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'photo_url': %w", err)
+		}
+	}
+
+	if a.Username != nil {
+		object["username"], err = json.Marshal(a.Username)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'username': %w", err)
+		}
+	}
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
+}
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {

@@ -6592,9 +6592,23 @@ export const ListAccountSignInMethodsResponse = zod.object({
 });
 
 /**
- * Verifies a Telegram Login Widget payload. The hash is checked against the bot token and the auth_date must be recent, so a captured payload cannot be replayed indefinitely.
+ * Verifies a Telegram Login Widget payload. The hash is checked against the bot token and the auth_date must be recent, so a captured payload cannot be replayed indefinitely. The body is the object the widget hands to its `data-onauth` callback, posted as is: `id` and `auth_date` are JSON numbers, the other fields strings.
  */
-export const AccountSignInWithTelegramBody = zod.record(zod.string(), zod.string());
+export const AccountSignInWithTelegramBody = zod
+  .object({
+    id: zod.int().describe("The Telegram user ID."),
+    auth_date: zod.int().describe("Unix seconds at which Telegram signed the payload."),
+    hash: zod
+      .string()
+      .describe("HMAC-SHA256 over the other fields under SHA-256 of the bot token."),
+    first_name: zod.string().optional(),
+    last_name: zod.string().optional(),
+    username: zod.string().optional(),
+    photo_url: zod.string().optional(),
+  })
+  .describe(
+    "The document Telegram's Login Widget produces. Every field except `hash` participates in the signature in its textual form, so the server keeps the digits of the numeric fields verbatim rather than parsing them as floating point.",
+  );
 
 export const AccountSignInWithTelegramResponse = zod.object({
   customer: zod.object({
@@ -7121,9 +7135,15 @@ export const ListAccountPlansResponse = zod.object({
       recurringCapable: zod.boolean().optional(),
       configurableSquads: zod.boolean().optional(),
       operations: zod
-        .array(zod.enum(["purchase", "renew", "upgrade", "downgrade"]))
+        .array(zod.enum(["purchase", "extension", "upgrade", "downgrade"]))
         .describe("The lifecycle actions the configured plan policy allows for this customer."),
       eligible: zod.boolean(),
+      held: zod
+        .boolean()
+        .optional()
+        .describe(
+          "The customer already holds an entitlement for this plan, so the catalogue can mark it as the one they are on.",
+        ),
       ineligibleReason: zod.string().optional(),
       trafficAllowanceBytes: zod
         .int()
@@ -7164,9 +7184,15 @@ export const GetAccountPlanResponse = zod
     recurringCapable: zod.boolean().optional(),
     configurableSquads: zod.boolean().optional(),
     operations: zod
-      .array(zod.enum(["purchase", "renew", "upgrade", "downgrade"]))
+      .array(zod.enum(["purchase", "extension", "upgrade", "downgrade"]))
       .describe("The lifecycle actions the configured plan policy allows for this customer."),
     eligible: zod.boolean(),
+    held: zod
+      .boolean()
+      .optional()
+      .describe(
+        "The customer already holds an entitlement for this plan, so the catalogue can mark it as the one they are on.",
+      ),
     ineligibleReason: zod.string().optional(),
     trafficAllowanceBytes: zod
       .int()
@@ -7254,9 +7280,15 @@ export const GetAccountCheckoutResponse = zod.object({
     recurringCapable: zod.boolean().optional(),
     configurableSquads: zod.boolean().optional(),
     operations: zod
-      .array(zod.enum(["purchase", "renew", "upgrade", "downgrade"]))
+      .array(zod.enum(["purchase", "extension", "upgrade", "downgrade"]))
       .describe("The lifecycle actions the configured plan policy allows for this customer."),
     eligible: zod.boolean(),
+    held: zod
+      .boolean()
+      .optional()
+      .describe(
+        "The customer already holds an entitlement for this plan, so the catalogue can mark it as the one they are on.",
+      ),
     ineligibleReason: zod.string().optional(),
     trafficAllowanceBytes: zod
       .int()
@@ -7397,9 +7429,15 @@ export const OpenAccountCheckoutResponse = zod.object({
     recurringCapable: zod.boolean().optional(),
     configurableSquads: zod.boolean().optional(),
     operations: zod
-      .array(zod.enum(["purchase", "renew", "upgrade", "downgrade"]))
+      .array(zod.enum(["purchase", "extension", "upgrade", "downgrade"]))
       .describe("The lifecycle actions the configured plan policy allows for this customer."),
     eligible: zod.boolean(),
+    held: zod
+      .boolean()
+      .optional()
+      .describe(
+        "The customer already holds an entitlement for this plan, so the catalogue can mark it as the one they are on.",
+      ),
     ineligibleReason: zod.string().optional(),
     trafficAllowanceBytes: zod
       .int()
@@ -7539,9 +7577,15 @@ export const UpdateAccountCheckoutResponse = zod.object({
     recurringCapable: zod.boolean().optional(),
     configurableSquads: zod.boolean().optional(),
     operations: zod
-      .array(zod.enum(["purchase", "renew", "upgrade", "downgrade"]))
+      .array(zod.enum(["purchase", "extension", "upgrade", "downgrade"]))
       .describe("The lifecycle actions the configured plan policy allows for this customer."),
     eligible: zod.boolean(),
+    held: zod
+      .boolean()
+      .optional()
+      .describe(
+        "The customer already holds an entitlement for this plan, so the catalogue can mark it as the one they are on.",
+      ),
     ineligibleReason: zod.string().optional(),
     trafficAllowanceBytes: zod
       .int()
@@ -7685,9 +7729,15 @@ export const ApplyAccountPromoCodeResponse = zod.object({
     recurringCapable: zod.boolean().optional(),
     configurableSquads: zod.boolean().optional(),
     operations: zod
-      .array(zod.enum(["purchase", "renew", "upgrade", "downgrade"]))
+      .array(zod.enum(["purchase", "extension", "upgrade", "downgrade"]))
       .describe("The lifecycle actions the configured plan policy allows for this customer."),
     eligible: zod.boolean(),
+    held: zod
+      .boolean()
+      .optional()
+      .describe(
+        "The customer already holds an entitlement for this plan, so the catalogue can mark it as the one they are on.",
+      ),
     ineligibleReason: zod.string().optional(),
     trafficAllowanceBytes: zod
       .int()
@@ -7816,9 +7866,15 @@ export const RemoveAccountPromoCodeResponse = zod.object({
     recurringCapable: zod.boolean().optional(),
     configurableSquads: zod.boolean().optional(),
     operations: zod
-      .array(zod.enum(["purchase", "renew", "upgrade", "downgrade"]))
+      .array(zod.enum(["purchase", "extension", "upgrade", "downgrade"]))
       .describe("The lifecycle actions the configured plan policy allows for this customer."),
     eligible: zod.boolean(),
+    held: zod
+      .boolean()
+      .optional()
+      .describe(
+        "The customer already holds an entitlement for this plan, so the catalogue can mark it as the one they are on.",
+      ),
     ineligibleReason: zod.string().optional(),
     trafficAllowanceBytes: zod
       .int()
@@ -7951,9 +8007,15 @@ export const ToggleAccountCheckoutAddonResponse = zod.object({
     recurringCapable: zod.boolean().optional(),
     configurableSquads: zod.boolean().optional(),
     operations: zod
-      .array(zod.enum(["purchase", "renew", "upgrade", "downgrade"]))
+      .array(zod.enum(["purchase", "extension", "upgrade", "downgrade"]))
       .describe("The lifecycle actions the configured plan policy allows for this customer."),
     eligible: zod.boolean(),
+    held: zod
+      .boolean()
+      .optional()
+      .describe(
+        "The customer already holds an entitlement for this plan, so the catalogue can mark it as the one they are on.",
+      ),
     ineligibleReason: zod.string().optional(),
     trafficAllowanceBytes: zod
       .int()

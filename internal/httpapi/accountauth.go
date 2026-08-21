@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -74,17 +75,24 @@ func (handlers *AccountHandlers) signInMethods(writer http.ResponseWriter, reque
 }
 
 // signInWithTelegram accepts a Login Widget payload.
+//
+// The widget posts `id` and `auth_date` as JSON numbers, so the body is decoded
+// by customerauth.WidgetValuesFromJSON rather than into a map of strings: the
+// earlier shape answered 400 to every real browser before the signature was
+// ever examined.
 func (handlers *AccountHandlers) signInWithTelegram(writer http.ResponseWriter, request *http.Request) {
 	if !handlers.ready(writer, request) {
 		return
 	}
-	var body map[string]string
-	if !decodeJSON(writer, request, &body) {
+	raw, err := io.ReadAll(http.MaxBytesReader(writer, request.Body, maxJSONBody))
+	if err != nil {
+		writeProblem(writer, request, http.StatusBadRequest, "invalid_request", "Invalid JSON request")
 		return
 	}
-	values := url.Values{}
-	for key, value := range body {
-		values.Set(key, value)
+	values, err := customerauth.WidgetValuesFromJSON(raw)
+	if err != nil {
+		writeProblem(writer, request, http.StatusBadRequest, "invalid_request", "Invalid JSON request")
+		return
 	}
 	result, err := handlers.auth.SignInWithTelegram(request.Context(), values, handlers.requestContext(request))
 	handlers.finishSignIn(writer, request, result, err)

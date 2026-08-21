@@ -171,6 +171,12 @@ this bot. Omniflow additionally bounds `auth_date` to one minute: the hash never
 expires on its own, and without the bound a payload captured from a URL or a
 screenshot would authenticate indefinitely.
 
+`POST /v1/account/auth/telegram` takes the document exactly as the widget's
+`data-onauth` callback delivers it — `id` and `auth_date` are JSON numbers, the
+rest strings — and verifies the signature over the digits as sent. The page
+posts the object untouched; a client that reshapes it first gains nothing and
+risks breaking the signature.
+
 The widget is loaded by the bot's username, which Omniflow resolves from the bot
 API on first use and caches for the life of the process. Telegram only renders
 the widget on a domain bound to the bot, so set that domain with `/setdomain` in

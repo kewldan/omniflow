@@ -3277,6 +3277,23 @@ export interface AccountCustomer {
   status: AccountCustomerStatus;
 }
 
+/**
+ * The document Telegram's Login Widget produces. Every field except `hash` participates in the signature in its textual form, so the server keeps the digits of the numeric fields verbatim rather than parsing them as floating point.
+ */
+export interface TelegramLoginWidgetPayload {
+  /** The Telegram user ID. */
+  id: number;
+  /** Unix seconds at which Telegram signed the payload. */
+  auth_date: number;
+  /** HMAC-SHA256 over the other fields under SHA-256 of the bot token. */
+  hash: string;
+  first_name?: string;
+  last_name?: string;
+  username?: string;
+  photo_url?: string;
+  [key: string]: unknown;
+}
+
 export interface AccountSignIn {
   customer: AccountCustomer;
   expiresAt: string;
@@ -3509,7 +3526,7 @@ export type AccountPlanOperationsItem =
 
 export const AccountPlanOperationsItem = {
   purchase: "purchase",
-  renew: "renew",
+  extension: "extension",
   upgrade: "upgrade",
   downgrade: "downgrade",
 } as const;
@@ -3531,6 +3548,8 @@ export interface AccountPlan {
   /** The lifecycle actions the configured plan policy allows for this customer. */
   operations: AccountPlanOperationsItem[];
   eligible: boolean;
+  /** The customer already holds an entitlement for this plan, so the catalogue can mark it as the one they are on. */
+  held?: boolean;
   ineligibleReason?: string;
   /**
    * Null means unlimited. Nullable rather than zero because unlimited and none are different offers.
@@ -5448,8 +5467,6 @@ export type ListPanelBulkItemsParams = {
    */
   pageSize?: PageSizeParameter;
 };
-
-export type AccountSignInWithTelegramBody = { [key: string]: string };
 
 export type AccountSignInWithMiniAppBody = {
   initData: string;
@@ -23009,17 +23026,17 @@ export const getAccountSignInWithTelegramUrl = () => {
 };
 
 /**
- * Verifies a Telegram Login Widget payload. The hash is checked against the bot token and the auth_date must be recent, so a captured payload cannot be replayed indefinitely.
+ * Verifies a Telegram Login Widget payload. The hash is checked against the bot token and the auth_date must be recent, so a captured payload cannot be replayed indefinitely. The body is the object the widget hands to its `data-onauth` callback, posted as is: `id` and `auth_date` are JSON numbers, the other fields strings.
  */
 export const accountSignInWithTelegram = async (
-  accountSignInWithTelegramBody: AccountSignInWithTelegramBody,
+  telegramLoginWidgetPayload: TelegramLoginWidgetPayload,
   options?: RequestInit,
 ): Promise<accountSignInWithTelegramResponse> => {
   const res = await fetch(getAccountSignInWithTelegramUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(accountSignInWithTelegramBody),
+    body: JSON.stringify(telegramLoginWidgetPayload),
   });
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
@@ -23029,7 +23046,7 @@ export const accountSignInWithTelegram = async (
 };
 
 export const getAccountSignInWithTelegramMutationFetcher = (options?: RequestInit) => {
-  return (_: Key, { arg }: { arg: AccountSignInWithTelegramBody }) => {
+  return (_: Key, { arg }: { arg: TelegramLoginWidgetPayload }) => {
     return accountSignInWithTelegram(arg, options);
   };
 };
@@ -23044,7 +23061,7 @@ export const useAccountSignInWithTelegram = <TError = Promise<ProblemResponse>>(
     Awaited<ReturnType<typeof accountSignInWithTelegram>>,
     TError,
     Key,
-    AccountSignInWithTelegramBody,
+    TelegramLoginWidgetPayload,
     Awaited<ReturnType<typeof accountSignInWithTelegram>>
   > & { swrKey?: string };
   fetch?: RequestInit;
