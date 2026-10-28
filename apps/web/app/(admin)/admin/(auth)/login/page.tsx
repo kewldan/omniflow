@@ -16,6 +16,7 @@ import { z } from "zod";
 
 import { ApiError, apiFetch, fetcher, setCsrfToken } from "@/lib/api";
 import { passkeyDismissed, passkeysSupported, signInWithPasskey } from "@/lib/passkey";
+import { safeAdminNext } from "@/lib/sign-in-path";
 
 const credentialsSchema = z.object({
   email: z.email(),
@@ -75,7 +76,9 @@ export default function LoginPage() {
     }
   }, [bootstrap?.setupRequired, router]);
 
-  const next = searchParams.get("next") ?? "/admin";
+  // Only ever a page inside the panel: the parameter arrives in a link anybody
+  // can craft, and an unchecked value would turn sign-in into an open redirect.
+  const next = safeAdminNext(searchParams.get("next"));
 
   const credentialsForm = useForm<z.infer<typeof credentialsSchema>>({
     defaultValues: { email: "", password: "" },
