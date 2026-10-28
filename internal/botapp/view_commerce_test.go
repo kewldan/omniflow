@@ -276,6 +276,10 @@ func TestClassifyDeliveryStopsRetryingBlockedAccounts(t *testing.T) {
 	if deactivated.Code != "user_deactivated" || retryableDelivery(deactivated.Code) {
 		t.Fatalf("deactivated classification = %+v, want a permanent stop", deactivated)
 	}
+	notStarted := ClassifyDelivery(now, errors.New("Forbidden: bot can't initiate conversation with a user"))
+	if notStarted.Code != "not_started" || retryableDelivery(notStarted.Code) {
+		t.Fatalf("never-started classification = %+v, want a permanent stop recorded apart from a block", notStarted)
+	}
 	flood := ClassifyDelivery(now, &telegram.TooManyRequestsError{Message: "Too Many Requests", RetryAfter: 12})
 	if flood.Code != "flood_wait" || !flood.RetryAfter.Equal(now.Add(12*time.Second)) {
 		t.Fatalf("flood classification = %+v, want a 12 second wait", flood)

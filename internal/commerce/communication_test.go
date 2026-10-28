@@ -99,6 +99,19 @@ func TestClassifyTelegramFailureStopsRetryingBlockedAccounts(t *testing.T) {
 	}
 }
 
+// A customer who never pressed Start is a final state of its own: it is not a
+// block, and it must stop retries and every send the same way one does.
+func TestNeverStartedChatIsFinalAndRefused(t *testing.T) {
+	status, retryable := ClassifyTelegramFailure("not_started")
+	if status != "not_started" || retryable {
+		t.Fatalf("ClassifyTelegramFailure(not_started) = %q, %t; want a final not_started", status, retryable)
+	}
+	decision, err := EvaluateDelivery(time.Now(), "expiry", DeliveryPolicy{KindEnabled: true, DeliveryStatus: "not_started"})
+	if err != nil || decision.Allow || decision.Reason != "not_started" {
+		t.Fatalf("a never-started chat was not refused: %+v, %v", decision, err)
+	}
+}
+
 func TestQuietHoursWrapsMidnight(t *testing.T) {
 	hours := QuietHours{Configured: true, StartHour: 22, EndHour: 8}
 	if !hours.Contains(time.Date(2026, 8, 11, 2, 0, 0, 0, time.UTC)) {

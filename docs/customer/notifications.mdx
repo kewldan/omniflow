@@ -276,7 +276,8 @@ three slots a campaign does.
 that answers:
 
 1. Telegram delivery state is `blocked` → refuse, reason `bot_blocked`;
-   `deactivated` → refuse, reason `user_deactivated`.
+   `deactivated` → refuse, reason `user_deactivated`; `not_started` → refuse,
+   reason `not_started`.
 2. The per-kind preference is off → refuse, reason `kind_disabled`.
 3. The message is marketing and there is no consent → refuse, reason
    `no_marketing_consent`.
@@ -305,7 +306,18 @@ Telegram's own failures are classified into a durable state so a blocked or
 deleted account stops consuming retries: `bot_blocked` marks the recipient
 `blocked` and `user_deactivated` or `chat_not_found` marks them `deactivated`,
 neither of which is retried, while a flood wait, a timeout, or a Telegram outage
-marks them `failing`, which is.
+marks them `failing`, which is. Telegram's "bot can't initiate conversation with
+a user" — somebody who never pressed Start, such as a customer who signed in on
+the web with the Telegram widget — marks them `not_started`, which is final in
+the same way but is not a block.
+
+`blocked`, `deactivated`, and `not_started` keep a customer out of every
+notification pass, so a successful send can never be what clears them. The bot
+clears them instead the moment it hears from the account: any message, button
+tap, or payment from the customer's private chat sets the state back to
+`active`. Telegram's own report that the bot was blocked or restarted in that
+chat (`my_chat_member`) is followed too — a block is recorded as `blocked`
+before any send has failed against it, and a restart clears it.
 
 ## The announcement inbox
 

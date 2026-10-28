@@ -165,18 +165,21 @@ var legacyActions = map[string]bool{
 var checkoutBudgetActions = map[string]bool{"confirm": true, "pay": true, "order-pm": true}
 
 func (app *App) Register(client *telegram.Bot) {
-	client.RegisterHandler(telegram.HandlerTypeMessageText, "start", telegram.MatchTypeCommandStartOnly, app.HandleStart)
-	client.RegisterHandler(telegram.HandlerTypeMessageText, "menu", telegram.MatchTypeCommandStartOnly, app.HandleStart)
-	client.RegisterHandler(telegram.HandlerTypeMessageText, "settings", telegram.MatchTypeCommandStartOnly, app.HandleSettings)
-	client.RegisterHandler(telegram.HandlerTypeMessageText, "support", telegram.MatchTypeCommandStartOnly, app.HandleSupport)
-	client.RegisterHandler(telegram.HandlerTypeMessageText, "plans", telegram.MatchTypeCommandStartOnly, app.HandlePlans)
-	client.RegisterHandler(telegram.HandlerTypeMessageText, "orders", telegram.MatchTypeCommandStartOnly, app.HandleOrders)
-	client.RegisterHandler(telegram.HandlerTypeMessageText, "wallet", telegram.MatchTypeCommandStartOnly, app.HandleWallet)
-	client.RegisterHandler(telegram.HandlerTypeMessageText, "ops", telegram.MatchTypeCommandStartOnly, app.HandleOps)
-	client.RegisterHandler(telegram.HandlerTypeMessageText, "login", telegram.MatchTypeCommandStartOnly, app.HandleWebLogin)
-	client.RegisterHandler(telegram.HandlerTypeMessageText, "cancel", telegram.MatchTypeCommandStartOnly, app.HandleCancel)
-	client.RegisterHandler(telegram.HandlerTypeCallbackQueryData, callbackPrefix, telegram.MatchTypePrefix, app.HandleCallback)
-	client.RegisterHandler(telegram.HandlerTypeCallbackQueryData, actionPrefix, telegram.MatchTypePrefix, app.HandleCallback)
+	// Every registered handler notes the update first, which is what clears a
+	// blocked or never-started delivery state once the customer is heard from.
+	inbound := app.inboundMiddleware
+	client.RegisterHandler(telegram.HandlerTypeMessageText, "start", telegram.MatchTypeCommandStartOnly, app.HandleStart, inbound)
+	client.RegisterHandler(telegram.HandlerTypeMessageText, "menu", telegram.MatchTypeCommandStartOnly, app.HandleStart, inbound)
+	client.RegisterHandler(telegram.HandlerTypeMessageText, "settings", telegram.MatchTypeCommandStartOnly, app.HandleSettings, inbound)
+	client.RegisterHandler(telegram.HandlerTypeMessageText, "support", telegram.MatchTypeCommandStartOnly, app.HandleSupport, inbound)
+	client.RegisterHandler(telegram.HandlerTypeMessageText, "plans", telegram.MatchTypeCommandStartOnly, app.HandlePlans, inbound)
+	client.RegisterHandler(telegram.HandlerTypeMessageText, "orders", telegram.MatchTypeCommandStartOnly, app.HandleOrders, inbound)
+	client.RegisterHandler(telegram.HandlerTypeMessageText, "wallet", telegram.MatchTypeCommandStartOnly, app.HandleWallet, inbound)
+	client.RegisterHandler(telegram.HandlerTypeMessageText, "ops", telegram.MatchTypeCommandStartOnly, app.HandleOps, inbound)
+	client.RegisterHandler(telegram.HandlerTypeMessageText, "login", telegram.MatchTypeCommandStartOnly, app.HandleWebLogin, inbound)
+	client.RegisterHandler(telegram.HandlerTypeMessageText, "cancel", telegram.MatchTypeCommandStartOnly, app.HandleCancel, inbound)
+	client.RegisterHandler(telegram.HandlerTypeCallbackQueryData, callbackPrefix, telegram.MatchTypePrefix, app.HandleCallback, inbound)
+	client.RegisterHandler(telegram.HandlerTypeCallbackQueryData, actionPrefix, telegram.MatchTypePrefix, app.HandleCallback, inbound)
 }
 
 func (app *App) HandleStart(ctx context.Context, client *telegram.Bot, update *models.Update) {
@@ -335,6 +338,13 @@ func (app *App) attributeReferral(ctx context.Context, telegramID int64, telegra
 }
 
 func (app *App) HandleDefault(ctx context.Context, client *telegram.Bot, update *models.Update) {
+	// The default handler is not covered by the middleware registered handlers
+	// carry, so it notes the update itself. A my_chat_member update — the
+	// customer blocking or restarting the bot — ends here.
+	app.noteInbound(ctx, update)
+	if update.MyChatMember != nil {
+		return
+	}
 	if update.CallbackQuery != nil {
 		app.HandleCallback(ctx, client, update)
 		return

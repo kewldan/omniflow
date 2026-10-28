@@ -222,10 +222,6 @@ func newBotFlow(ctx context.Context, t *testing.T, harness *harness) *botFlow {
 	stub := &botTelegram{refuse: map[string]string{}}
 	server := httptest.NewServer(http.HandlerFunc(stub.serve))
 	t.Cleanup(server.Close)
-	client, err := telegram.New("test-token", telegram.WithServerURL(server.URL), telegram.WithSkipGetMe())
-	if err != nil {
-		t.Fatalf("telegram client: %v", err)
-	}
 	store, err := botapp.NewPostgresStore(ctx, harness.url)
 	if err != nil {
 		t.Fatalf("build bot store: %v", err)
@@ -243,18 +239,34 @@ func newBotFlow(ctx context.Context, t *testing.T, harness *harness) *botFlow {
 		paymentservice.New(harness.pool, orders, payments.Manual{}), settings)
 	fake := &botRemnawave{users: map[int64]remnawave.User{}, devices: map[int64][]remnawave.Device{}}
 	app := botapp.New(logger, store, fake, "")
+	// Updates go through the client's own dispatch — registered handlers,
+	// their middleware, and the default handler — exactly as in cmd/bot. The
+	// handlers run synchronously here so a test reads the outcome of one
+	// update before it sends the next.
+	client, err := telegram.New("test-token", telegram.WithServerURL(server.URL), telegram.WithSkipGetMe(),
+		telegram.WithDefaultHandler(app.HandleDefault), telegram.WithNotAsyncHandlers())
+	if err != nil {
+		t.Fatalf("telegram client: %v", err)
+	}
 	app.EnableCommerce(store, surface, nil, botapp.NewSender(client, store, logger), settings)
+	app.Register(client)
 	return &botFlow{
 		harness: harness, app: app, store: store, commerce: surface,
 		client: client, telegram: stub, remnawave: fake,
 	}
 }
 
+// deliver hands one update to the client's dispatch.
+func (flow *botFlow) deliver(ctx context.Context, update *models.Update) {
+	flow.update++
+	update.ID = flow.update
+	flow.client.ProcessUpdate(ctx, update)
+}
+
 // tap delivers a button press on the message with the given identifier.
 func (flow *botFlow) tap(ctx context.Context, telegramID int64, messageID int, data string) {
-	flow.update++
-	flow.app.HandleCallback(ctx, flow.client, &models.Update{ID: flow.update, CallbackQuery: &models.CallbackQuery{
-		ID:   "cb-" + itoa64(flow.update),
+	flow.deliver(ctx, &models.Update{CallbackQuery: &models.CallbackQuery{
+		ID:   "cb-" + itoa64(flow.update+1),
 		From: models.User{ID: telegramID, LanguageCode: "en", Username: "sender"},
 		Data: data,
 		Message: models.MaybeInaccessibleMessage{Message: &models.Message{
@@ -265,9 +277,8 @@ func (flow *botFlow) tap(ctx context.Context, telegramID int64, messageID int, d
 
 // say delivers a plain text message from the customer.
 func (flow *botFlow) say(ctx context.Context, telegramID int64, body string) {
-	flow.update++
-	flow.app.HandleDefault(ctx, flow.client, &models.Update{ID: flow.update, Message: &models.Message{
-		ID:   int(flow.update),
+	flow.deliver(ctx, &models.Update{Message: &models.Message{
+		ID:   int(flow.update + 1),
 		From: &models.User{ID: telegramID, LanguageCode: "en", Username: "sender"},
 		Chat: models.Chat{ID: telegramID, Type: models.ChatTypePrivate},
 		Text: body,

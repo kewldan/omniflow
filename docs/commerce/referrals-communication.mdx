@@ -158,7 +158,9 @@ failure would be a way to lose access without warning.
 ### The decision order
 
 1. The customer blocked the bot — refuse, `bot_blocked`. Their account is
-   deactivated — refuse, `user_deactivated`. Neither is retried.
+   deactivated — refuse, `user_deactivated`. They never started the bot —
+   refuse, `not_started`. None is retried, and all three end when the customer
+   next writes to or taps in the bot.
 2. The kind's preference is off — refuse, `kind_disabled`.
 3. Marketing class with no consent — refuse, `no_marketing_consent`.
 4. Marketing class already over the frequency cap — refuse, `frequency_cap`.
@@ -213,8 +215,11 @@ busy subscription cannot suppress a quiet one's expiry notice.
 
 Telegram failures are classified into a durable delivery state on the account:
 `bot_blocked` becomes `blocked` with no retry, `user_deactivated` and
-`chat_not_found` become `deactivated` with no retry, and flood waits, timeouts,
-and Telegram outages become `failing`, which is retryable.
+`chat_not_found` become `deactivated` with no retry, "bot can't initiate
+conversation" becomes `not_started` with no retry, and flood waits, timeouts,
+and Telegram outages become `failing`, which is retryable. Any update from the
+customer's private chat, and Telegram's `my_chat_member` report of a restart,
+clears the three final states; a `my_chat_member` block records `blocked`.
 
 ### Three deliberate exceptions
 

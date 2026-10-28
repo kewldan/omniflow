@@ -97,6 +97,10 @@ func ClassifyDelivery(now time.Time, err error) *DeliveryError {
 	switch {
 	case strings.Contains(message, "bot was blocked by the user"), strings.Contains(message, "user is blocked"):
 		return &DeliveryError{Code: "bot_blocked", Err: err}
+	case strings.Contains(message, "can't initiate conversation"), strings.Contains(message, "cannot initiate conversation"):
+		// A 403 like a block, and recorded apart from one: this customer never
+		// pressed Start, which is not the same as having turned the bot away.
+		return &DeliveryError{Code: "not_started", Err: err}
 	case strings.Contains(message, "user is deactivated"):
 		return &DeliveryError{Code: "user_deactivated", Err: err}
 	case strings.Contains(message, "chat not found"), errors.Is(err, telegram.ErrorNotFound):

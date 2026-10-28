@@ -170,6 +170,9 @@ func EvaluateDelivery(now time.Time, kind string, policy DeliveryPolicy) (Delive
 	case "deactivated":
 		decision.Reason = "user_deactivated"
 		return decision, nil
+	case "not_started":
+		decision.Reason = "not_started"
+		return decision, nil
 	}
 	if !policy.KindEnabled {
 		decision.Reason = "kind_disabled"
@@ -210,6 +213,11 @@ func ClassifyTelegramFailure(code string) (status string, retryable bool) {
 	switch code {
 	case "bot_blocked":
 		return "blocked", false
+	case "not_started":
+		// The customer never opened the chat. It is final for the same reason
+		// a block is — trying harder reaches nobody — and it ends the same way,
+		// when the customer writes to the bot.
+		return "not_started", false
 	case "user_deactivated", "chat_not_found":
 		return "deactivated", false
 	case "flood_wait", "telegram_unavailable", "timeout":

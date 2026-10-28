@@ -546,7 +546,7 @@ func campaignSuppression(decision commerce.DeliveryDecision) string {
 		return "quiet_hours"
 	case "frequency_cap":
 		return "frequency_cap"
-	case "bot_blocked", "user_deactivated":
+	case "bot_blocked", "user_deactivated", "not_started":
 		return "delivery_blocked"
 	case "suppressed":
 		return "suppressed"
@@ -770,7 +770,7 @@ func (store *PostgresStore) candidateRows(ctx context.Context, marketingWindow t
 		LEFT JOIN bot_preferences p ON p.user_id = u.id
 		LEFT JOIN bot_delivery_state d ON d.user_id = u.id
 		WHERE u.status = 'active'
-		  AND COALESCE(d.status, 'active') NOT IN ('blocked', 'deactivated')
+		  AND COALESCE(d.status, 'active') NOT IN ('blocked', 'deactivated', 'not_started')
 		  AND ($2::uuid IS NULL OR u.id > $2::uuid)
 		  AND ($3::uuid IS NULL OR u.id = $3::uuid)
 		ORDER BY u.id

@@ -273,6 +273,42 @@ func (store *PostgresStore) RecordDeliveryFailure(ctx context.Context, customerI
 	return err
 }
 
+// RecordReachable clears a final delivery state for the customer behind a
+// Telegram account the moment that account is heard from.
+//
+// `blocked`, `deactivated`, and `not_started` stop every notification pass from
+// even trying, so a successful send can never be what clears them: nothing is
+// sent. Any update from the account — a message, a tap, a payment — is proof
+// that the chat works again, and this is the only thing that says so. A
+// `failing` state is left alone: it is about Telegram's side, not the
+// customer's, and its own retry window governs it.
+//
+// The statement writes only when there is something to clear, so the common
+// case — an active customer tapping a button — costs one indexed read.
+func (store *PostgresStore) RecordReachable(ctx context.Context, telegramID int64) error {
+	_, err := store.pool.Exec(ctx, telegramRecipients+`
+		UPDATE bot_delivery_state d
+		SET status = 'active', consecutive_failures = 0, last_error_code = NULL,
+		    retry_after = NULL, updated_at = now()
+		FROM recipient
+		WHERE recipient.user_id = d.user_id AND recipient.telegram_id = $1
+		  AND d.status IN ('blocked', 'deactivated', 'not_started')`, telegramID)
+	return err
+}
+
+// RecordBlockedChat records that the customer behind a Telegram account
+// blocked the bot, as Telegram reports it in a my_chat_member update — before
+// any send has had the chance to fail against it.
+func (store *PostgresStore) RecordBlockedChat(ctx context.Context, telegramID int64) error {
+	_, err := store.pool.Exec(ctx, telegramRecipients+`
+		INSERT INTO bot_delivery_state (user_id, status, last_error_code, consecutive_failures)
+		SELECT DISTINCT recipient.user_id, 'blocked', 'bot_blocked', 0
+		FROM recipient WHERE recipient.telegram_id = $1
+		ON CONFLICT (user_id) DO UPDATE SET status = 'blocked', last_error_code = 'bot_blocked',
+			retry_after = NULL, updated_at = now()`, telegramID)
+	return err
+}
+
 func loadLocation(name string) *time.Location {
 	if name == "" {
 		return time.UTC
