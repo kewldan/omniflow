@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	telegram "github.com/go-telegram/bot"
+	"github.com/go-telegram/bot/models"
 )
 
 // TelegramMembership answers membership questions using the bot's own token.
@@ -23,11 +24,29 @@ func NewTelegramMembership(client *telegram.Bot) *TelegramMembership {
 
 // memberStatuses are the statuses that count as being in the channel.
 //
-// "restricted" counts: a muted member is still a member, and taking somebody's
-// subscription away because a moderator silenced them in a channel would be a
-// consequence nobody intended when they configured a marketing requirement.
+// "restricted" is decided by the member's own `is_member` flag rather than
+// here: see countsAsMember.
 var memberStatuses = map[string]bool{
-	"creator": true, "administrator": true, "member": true, "restricted": true,
+	"creator": true, "administrator": true, "member": true,
+}
+
+// countsAsMember reads one membership answer.
+//
+// A restricted account counts while it is in the chat: a muted member is still
+// a member, and taking somebody's subscription away because a moderator
+// silenced them would be a consequence nobody intended when they configured a
+// marketing requirement. But Telegram keeps the restriction on an account that
+// has left, with `is_member` false, and that account is not in the channel —
+// counting every restricted status as membership let a customer who left
+// keep passing the gate.
+func countsAsMember(member *models.ChatMember) bool {
+	if member == nil {
+		return false
+	}
+	if member.Type == models.ChatMemberTypeRestricted {
+		return member.Restricted != nil && member.Restricted.IsMember
+	}
+	return memberStatuses[string(member.Type)]
 }
 
 // IsMember reports whether an account is in a chat.
@@ -50,10 +69,7 @@ func (membership *TelegramMembership) IsMember(
 		}
 		return false, err
 	}
-	if member == nil {
-		return false, nil
-	}
-	return memberStatuses[string(member.Type)], nil
+	return countsAsMember(member), nil
 }
 
 // isDefiniteAbsence recognises the Telegram errors that mean "not a member"

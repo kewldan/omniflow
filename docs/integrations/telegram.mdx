@@ -217,7 +217,8 @@ command list, so it does not appear in the menu for anyone. See
 
 If you gate access on membership of a channel, the bot is what answers the question, through
 `getChatMember`. Add the bot to each required channel as an administrator so it can read membership.
-A muted (`restricted`) member still counts as a member, and an error is treated as "could not
+A muted (`restricted`) member still counts as a member while Telegram reports `is_member` — a
+restricted account that has left the channel does not — and an error is treated as "could not
 answer" rather than "no": the worker records `unknown` and waits, and the purchase gate lets the
 sale through. Neither guesses. [Required channels](/operations/required-channels) has the policy.
 

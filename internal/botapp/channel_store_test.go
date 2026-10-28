@@ -5,9 +5,12 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
+	telegram "github.com/go-telegram/bot"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/omniflow/omniflow/internal/channelgate"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
@@ -152,15 +155,40 @@ func TestAnEmptyGateAllows(t *testing.T) {
 	}
 }
 
-// A muted member is still a member. Taking somebody's subscription away because
-// a moderator silenced them is a consequence nobody intended.
-func TestRestrictedCountsAsMembership(t *testing.T) {
-	for status, expected := range map[string]bool{
-		"creator": true, "administrator": true, "member": true, "restricted": true,
-		"left": false, "kicked": false,
-	} {
-		if memberStatuses[status] != expected {
-			t.Fatalf("%s counted as %v", status, memberStatuses[status])
+// A muted member is still a member: taking somebody's subscription away
+// because a moderator silenced them is a consequence nobody intended. But a
+// restricted account that has left the chat keeps the `restricted` status with
+// `is_member` false, and it used to count as a member all the same. The answer
+// is read the way Telegram sends it, through the real client.
+func TestRestrictedCountsAsMembershipOnlyWhileInTheChat(t *testing.T) {
+	answers := map[string]string{
+		"creator":            `{"status":"creator","user":{"id":1},"is_anonymous":false}`,
+		"member":             `{"status":"member","user":{"id":1}}`,
+		"restricted present": `{"status":"restricted","user":{"id":1},"is_member":true,"until_date":0}`,
+		"restricted left":    `{"status":"restricted","user":{"id":1},"is_member":false,"until_date":0}`,
+		"left":               `{"status":"left","user":{"id":1}}`,
+		"kicked":             `{"status":"kicked","user":{"id":1},"until_date":0}`,
+	}
+	expected := map[string]bool{
+		"creator": true, "member": true, "restricted present": true,
+		"restricted left": false, "left": false, "kicked": false,
+	}
+	for name, answer := range answers {
+		server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+			writer.Header().Set("Content-Type", "application/json")
+			_, _ = writer.Write([]byte(`{"ok":true,"result":` + answer + `}`))
+		}))
+		client, err := telegram.New("test-token", telegram.WithServerURL(server.URL), telegram.WithSkipGetMe())
+		if err != nil {
+			t.Fatalf("telegram client: %v", err)
+		}
+		member, err := NewTelegramMembership(client).IsMember(context.Background(), -100, 1)
+		server.Close()
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if member != expected[name] {
+			t.Fatalf("%s counted as member = %v, want %v", name, member, expected[name])
 		}
 	}
 }
