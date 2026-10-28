@@ -5,6 +5,9 @@ import { useCallback, useState } from "react";
 import { ApiError, apiFetch } from "./api";
 import type { Submission } from "./idempotency";
 
+// The one money formatter, shared with the customer panel; see lib/money.ts.
+export { formatMoney } from "./money";
+
 /**
  * Shapes returned by the /v1/panel operations endpoints.
  *
@@ -964,46 +967,6 @@ export function useOperatorAction() {
 
   return { run, pending, error, reset: () => setError(null) };
 }
-
-/**
- * Formats an integer minor-unit amount for display.
- *
- * The exponent is per currency because a shop that prices in Stars has no minor
- * unit at all, and rendering 100 Stars as "1.00" would be wrong rather than
- * merely ugly.
- */
-export function formatMoney(
-  minor: number,
-  currency: string,
-  locale: string,
-  // `compact` is for a chart axis, where the full figure would be wider than
-  // the plot it labels. It is never the right form for a number somebody has to
-  // act on, which is why it has to be asked for.
-  options: { compact?: boolean } = {},
-): string {
-  const exponent = ZERO_DECIMAL.has(currency) ? 0 : 2;
-  const amount = minor / 10 ** exponent;
-  const digits = options.compact
-    ? { maximumFractionDigits: 1 }
-    : {
-        maximumFractionDigits: exponent,
-        minimumFractionDigits: exponent,
-      };
-  try {
-    return new Intl.NumberFormat(locale, {
-      style: "currency",
-      currency,
-      notation: options.compact ? "compact" : "standard",
-      ...digits,
-    }).format(amount);
-  } catch {
-    // A currency Intl does not know — Telegram Stars, for one — still has to
-    // render as something an operator can read.
-    return `${amount.toFixed(options.compact ? 0 : exponent)} ${currency}`;
-  }
-}
-
-const ZERO_DECIMAL = new Set(["XTR", "JPY", "KRW"]);
 
 /** Formats a byte count at human scale. */
 export function formatBytes(bytes: number): string {

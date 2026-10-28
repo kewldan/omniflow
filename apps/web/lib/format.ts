@@ -3,73 +3,26 @@
 import { useLocale } from "next-intl";
 import { useCallback, useMemo } from "react";
 
+import { currencyExponent, formatMoney, toMajorUnits } from "./money";
+
 /**
- * The customer panel's value formatting.
+ * The customer panel's value formatting, bound to the customer's locale.
  *
- * Money crosses the wire as an integer count of minor units plus an ISO
- * currency, which is the only representation that survives a round trip without
- * a rounding argument. Turning that into something a person reads needs the
- * currency's own exponent — two for EUR, zero for JPY — and hard-coding 100
- * would silently misprice every zero-decimal currency an operator configures.
- * `Intl.NumberFormat` already knows each exponent, so it is asked rather than
- * guessed at.
+ * Money itself is formatted by `lib/money.ts`, which the operator panel shares,
+ * so the two panels can never again disagree about how many decimals a
+ * currency has.
  */
 
-/** Currencies the runtime does not recognise, with the exponent Omniflow uses. */
-const FALLBACK_EXPONENTS: Record<string, number> = {
-  // Telegram Stars are whole units and are not an ISO currency, so no runtime
-  // carries an exponent for them.
-  XTR: 0,
-};
-
-/** Reads how many decimal places a currency has, without throwing on an unknown code. */
-export function currencyExponent(currency: string, locale = "en"): number {
-  const code = currency.toUpperCase();
-  if (code in FALLBACK_EXPONENTS) {
-    return FALLBACK_EXPONENTS[code];
-  }
-  try {
-    const resolved = new Intl.NumberFormat(locale, {
-      currency: code,
-      style: "currency",
-    }).resolvedOptions();
-    return resolved.maximumFractionDigits ?? 2;
-  } catch {
-    return 2;
-  }
-}
-
-/** Converts minor units to the major-unit number the formatter takes. */
-export function toMajorUnits(minor: number, currency: string, locale = "en"): number {
-  return minor / 10 ** currencyExponent(currency, locale);
-}
+export { currencyExponent, toMajorUnits };
 
 export type MoneyFormatter = (minor: number, currency: string) => string;
 
-/**
- * Formats an integer minor-unit amount in the customer's own locale.
- *
- * An unknown currency code falls back to the plain number followed by the code
- * rather than throwing: an operator may configure a currency this browser has
- * never heard of, and a price that renders as "1200 ABC" is still a price, while
- * a thrown error is a blank screen.
- */
+/** Formats an integer minor-unit amount in the customer's own locale. */
 export function useMoney(): MoneyFormatter {
   const locale = useLocale();
   return useCallback(
-    (minor: number, currency: string) => {
-      const code = currency.toUpperCase();
-      const amount = toMajorUnits(minor, code, locale);
-      try {
-        return new Intl.NumberFormat(locale, {
-          currency: code,
-          currencyDisplay: "narrowSymbol",
-          style: "currency",
-        }).format(amount);
-      } catch {
-        return `${new Intl.NumberFormat(locale).format(amount)} ${code}`;
-      }
-    },
+    (minor: number, currency: string) =>
+      formatMoney(minor, currency, locale, { display: "narrowSymbol" }),
     [locale],
   );
 }

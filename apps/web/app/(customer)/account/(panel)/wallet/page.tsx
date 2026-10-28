@@ -6,7 +6,7 @@ import { Label } from "@omniflow/ui/label";
 import { cn } from "@omniflow/ui/lib/utils";
 import { toast } from "@omniflow/ui/toast";
 import Link from "next/link";
-import { useFormatter, useLocale, useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWRInfinite from "swr/infinite";
 import { PaymentHandoff } from "@/components/account/commerce/order-status";
@@ -21,8 +21,9 @@ import type {
 } from "@/components/account/commerce/types";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
 import { type ApiError, apiFetch, fetcher, toQuery } from "@/lib/api";
-import { currencyExponent, useMoney } from "@/lib/format";
+import { useMoney } from "@/lib/format";
 import { useSubmission } from "@/lib/idempotency";
+import { minorToInput, parseMajorToMinor } from "@/lib/money";
 
 /** The ledger movements this build has copy for, from `ledger_transactions.type`. */
 const ENTRY_TYPES = [
@@ -239,7 +240,6 @@ function TopUpForm({
   policy: TopUpPolicy;
 }) {
   const translate = useTranslations("account.commerce");
-  const locale = useLocale();
   const money = useMoney();
   const describeProblem = useProblemMessage();
   const describeCode = useProblemCode();
@@ -266,12 +266,12 @@ function TopUpForm({
 
   // The input is in the currency's major unit because that is what a person
   // types; the API is in minor units because that is the only representation
-  // that survives a round trip. The exponent comes from Intl rather than from a
-  // hard-coded 100, which would misprice every zero-decimal currency an operator
-  // might configure.
-  const exponent = currencyExponent(currency, locale);
-  const minor = Math.round(Number(amount.replace(",", ".")) * 10 ** exponent);
-  const usable = Number.isFinite(minor) && minor > 0;
+  // that survives a round trip. The conversion is the shared one in
+  // lib/money.ts, which knows each currency's exponent and refuses more
+  // decimals than the currency has rather than rounding them away.
+  const parsed = parseMajorToMinor(amount, currency);
+  const minor = parsed.ok ? parsed.minor : 0;
+  const usable = minor > 0;
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -316,7 +316,7 @@ function TopUpForm({
             {policy.presets.map((preset) => (
               <Button
                 key={preset}
-                onClick={() => setAmount(String(preset / 10 ** exponent))}
+                onClick={() => setAmount(minorToInput(preset, currency))}
                 size="sm"
                 type="button"
                 variant={minor === preset ? "secondary" : "outline"}
