@@ -148,6 +148,12 @@ func (service *Service) SaveOIDCProvider(
 		case errors.Is(lookupErr, pgx.ErrNoRows):
 		case lookupErr != nil:
 			return lookupErr
+		case len(existing.ClientSecretCiphertext) > 0 && sealed == nil &&
+			(existing.Issuer != input.Issuer || existing.DiscoveryUrl != input.DiscoveryURL ||
+				existing.ClientID != input.ClientID):
+			// The secret was entered for the old destination; the upsert drops
+			// it in this case, and refusing here says why.
+			return ErrOIDCSecretRequired
 		case existing.Issuer != input.Issuer || existing.DiscoveryUrl != input.DiscoveryURL:
 			// Customers linked through this provider are bound to its current
 			// issuer. Repointing it would not move them — sign-in pins the

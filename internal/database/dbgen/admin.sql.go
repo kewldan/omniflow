@@ -2056,10 +2056,17 @@ SET display_name = EXCLUDED.display_name,
     discovery_url = EXCLUDED.discovery_url,
     client_id = EXCLUDED.client_id,
     -- A null secret on update means "leave the stored secret alone", so the
-    -- panel can render and re-save the form without ever echoing the secret.
-    client_secret_ciphertext = COALESCE(
-      EXCLUDED.client_secret_ciphertext, admin_oidc_providers.client_secret_ciphertext
-    ),
+    -- panel can render and re-save the form without ever echoing the secret —
+    -- but only while the provider still points where the secret was entered
+    -- for. A new issuer, discovery URL, or client drops it.
+    client_secret_ciphertext = CASE
+      WHEN EXCLUDED.client_secret_ciphertext IS NOT NULL THEN EXCLUDED.client_secret_ciphertext
+      WHEN admin_oidc_providers.issuer = EXCLUDED.issuer
+        AND admin_oidc_providers.discovery_url = EXCLUDED.discovery_url
+        AND admin_oidc_providers.client_id = EXCLUDED.client_id
+      THEN admin_oidc_providers.client_secret_ciphertext
+      ELSE NULL
+    END,
     scopes = EXCLUDED.scopes,
     enabled = EXCLUDED.enabled,
     require_verified_email = EXCLUDED.require_verified_email,

@@ -1153,10 +1153,14 @@ type Querier interface {
 	ListVisibleGoodsProducts(ctx context.Context, locale string) ([]ListVisibleGoodsProductsRow, error)
 	ListVisiblePlans(ctx context.Context, locale string) ([]ListVisiblePlansRow, error)
 	ListWalletTopups(ctx context.Context, arg ListWalletTopupsParams) ([]ListWalletTopupsRow, error)
+	// Where a provider's key is currently sent, read under a row lock by the save
+	// path so it can refuse a new address that would inherit the stored key.
+	LockAIProviderTarget(ctx context.Context, slug string) (LockAIProviderTargetRow, error)
 	// Read under a row lock by the save path, which compares the stored issuer,
 	// discovery URL, and client against the submitted ones before deciding whether
 	// the change is allowed and whether the stored secret may be kept.
 	LockAdminOIDCProviderBySlug(ctx context.Context, slug string) (AdminOidcProvider, error)
+	LockBlocklistSourceBySlug(ctx context.Context, slug string) (BlocklistSource, error)
 	// Read under a row lock by the save path, which compares the stored issuer,
 	// discovery URL, and client against the submitted ones before deciding whether
 	// the change is allowed and whether the stored secret may be kept.
@@ -1814,7 +1818,9 @@ type Querier interface {
 	// every subsequent refresh of the source.
 	UpsertBlocklistMatch(ctx context.Context, arg UpsertBlocklistMatchParams) (BlocklistMatch, error)
 	// A null auth header on update means "keep the stored credential", matching the
-	// write-only treatment every other secret in the schema gets.
+	// write-only treatment every other secret in the schema gets — but only while
+	// the URL is unchanged. A credential entered for one publisher is never sent
+	// to another, so a new URL with no new header drops the stored one.
 	UpsertBlocklistSource(ctx context.Context, arg UpsertBlocklistSourceParams) (BlocklistSource, error)
 	UpsertBrandingAsset(ctx context.Context, arg UpsertBrandingAssetParams) (UpsertBrandingAssetRow, error)
 	UpsertCannedResponse(ctx context.Context, arg UpsertCannedResponseParams) (SupportCannedResponse, error)

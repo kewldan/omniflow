@@ -291,6 +291,17 @@ func (service *Service) SaveAIProvider(
 	}
 
 	err := service.inTx(ctx, func(queries *dbgen.Queries) error {
+		current, lookupErr := queries.LockAIProviderTarget(ctx, provider.Slug)
+		switch {
+		case errors.Is(lookupErr, pgx.ErrNoRows):
+		case lookupErr != nil:
+			return lookupErr
+		case current.HasCredential && strings.TrimSpace(apiKey) == "" &&
+			(current.Kind != provider.Kind || current.BaseUrl != optionalText(provider.BaseURL)):
+			// The upsert would drop the stored key anyway; refusing here says
+			// why instead of leaving a provider that silently has no key.
+			return ErrSecretRequired
+		}
 		if _, err := queries.UpsertAIProvider(ctx, dbgen.UpsertAIProviderParams{
 			Slug: provider.Slug, Kind: provider.Kind, DisplayName: provider.DisplayName,
 			BaseUrl: optionalText(provider.BaseURL), Enabled: provider.Enabled,

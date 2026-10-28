@@ -38,6 +38,11 @@ var (
 	ErrOIDCUnverifiedEmail = errors.New("the provider did not verify this address")
 	// ErrOIDCNoAccount reports a subject that matches no operator account.
 	ErrOIDCNoAccount = errors.New("no operator account is linked to this identity")
+	// ErrOIDCSecretRequired reports a save that moves a provider to a new
+	// issuer, discovery URL, or client while keeping the stored secret.
+	ErrOIDCSecretRequired = errors.New(
+		"the issuer, discovery URL, or client changed; enter the client secret again",
+	)
 	// ErrOIDCProviderBound reports an attempt to repoint a provider that
 	// operators are already linked through at a different issuer.
 	ErrOIDCProviderBound = errors.New(
@@ -153,6 +158,13 @@ func (service *Service) SaveOIDCProvider(
 		case errors.Is(lookupErr, pgx.ErrNoRows):
 		case lookupErr != nil:
 			return lookupErr
+		case len(existing.ClientSecretCiphertext) > 0 && sealed == nil &&
+			(existing.Issuer != input.Issuer || existing.DiscoveryUrl != input.DiscoveryURL ||
+				existing.ClientID != input.ClientID):
+			// The secret was entered for the old destination. Keeping it would
+			// let whoever edits the address collect it at their own token
+			// endpoint; the upsert drops it in this case, and this says why.
+			return ErrOIDCSecretRequired
 		case existing.Issuer != input.Issuer || existing.DiscoveryUrl != input.DiscoveryURL:
 			// A binding means "this subject at this issuer". Repointing a
 			// provider that has bindings would hand every linked operator's

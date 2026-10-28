@@ -47,6 +47,11 @@ var (
 	ErrConflict  = errors.New("record already exists")
 	ErrRejected  = errors.New("operation is not allowed in the current state")
 	ErrValidaton = errors.New("input is not valid")
+	// ErrSecretRequired reports a save that changes where a stored write-only
+	// credential is sent without supplying a new one. A credential entered for
+	// one destination is never forwarded to another, because the person editing
+	// the address may not be the person who entered the secret.
+	ErrSecretRequired = errors.New("the destination changed; enter the credential again")
 )
 
 // DefaultPageSize is used when transport asks for no particular page size.

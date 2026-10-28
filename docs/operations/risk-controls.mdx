@@ -152,7 +152,9 @@ time instead. Each field states the unit it is in.
 
 The source form is HTTPS-only, and an empty authorization header means "keep
 what is stored", so re-saving a source never echoes its credential back into the
-browser.
+browser. That holds only while the URL is unchanged: saving a new URL without
+re-entering the header is refused with `422 secret_required`, because a header
+entered for one publisher must never be sent to another.
 
 The worker downloads a source only from a **public** address. Loopback, private,
 link-local (which includes cloud metadata), and the other non-public ranges are

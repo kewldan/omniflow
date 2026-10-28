@@ -493,6 +493,34 @@ func (q *Queries) ListDueBlocklistSources(ctx context.Context, pageSize int32) (
 	return items, nil
 }
 
+const lockBlocklistSourceBySlug = `-- name: LockBlocklistSourceBySlug :one
+SELECT id, slug, display_name, subject_kind, url, auth_header_ciphertext, enabled, refresh_interval_seconds, entry_count, status, last_error_code, last_refresh_at, next_refresh_at, created_at, updated_at, updated_by FROM blocklist_sources WHERE slug = $1 FOR UPDATE
+`
+
+func (q *Queries) LockBlocklistSourceBySlug(ctx context.Context, slug string) (BlocklistSource, error) {
+	row := q.db.QueryRow(ctx, lockBlocklistSourceBySlug, slug)
+	var i BlocklistSource
+	err := row.Scan(
+		&i.ID,
+		&i.Slug,
+		&i.DisplayName,
+		&i.SubjectKind,
+		&i.Url,
+		&i.AuthHeaderCiphertext,
+		&i.Enabled,
+		&i.RefreshIntervalSeconds,
+		&i.EntryCount,
+		&i.Status,
+		&i.LastErrorCode,
+		&i.LastRefreshAt,
+		&i.NextRefreshAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.UpdatedBy,
+	)
+	return i, err
+}
+
 const matchBlocklistFingerprints = `-- name: MatchBlocklistFingerprints :many
 SELECT e.source_id, e.value_fingerprint, e.reason_code, e.imported_at, s.slug, s.display_name, s.subject_kind
 FROM blocklist_entries e
@@ -1169,9 +1197,11 @@ ON CONFLICT (slug) DO UPDATE
 SET display_name = EXCLUDED.display_name,
     subject_kind = EXCLUDED.subject_kind,
     url = EXCLUDED.url,
-    auth_header_ciphertext = COALESCE(
-      EXCLUDED.auth_header_ciphertext, blocklist_sources.auth_header_ciphertext
-    ),
+    auth_header_ciphertext = CASE
+      WHEN EXCLUDED.auth_header_ciphertext IS NOT NULL THEN EXCLUDED.auth_header_ciphertext
+      WHEN blocklist_sources.url = EXCLUDED.url THEN blocklist_sources.auth_header_ciphertext
+      ELSE NULL
+    END,
     enabled = EXCLUDED.enabled,
     refresh_interval_seconds = EXCLUDED.refresh_interval_seconds,
     updated_by = EXCLUDED.updated_by,
@@ -1191,7 +1221,9 @@ type UpsertBlocklistSourceParams struct {
 }
 
 // A null auth header on update means "keep the stored credential", matching the
-// write-only treatment every other secret in the schema gets.
+// write-only treatment every other secret in the schema gets — but only while
+// the URL is unchanged. A credential entered for one publisher is never sent
+// to another, so a new URL with no new header drops the stored one.
 func (q *Queries) UpsertBlocklistSource(ctx context.Context, arg UpsertBlocklistSourceParams) (BlocklistSource, error) {
 	row := q.db.QueryRow(ctx, upsertBlocklistSource,
 		arg.Slug,

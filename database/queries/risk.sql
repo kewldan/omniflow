@@ -18,9 +18,14 @@ SELECT * FROM blocklist_sources WHERE id = $1;
 -- name: GetBlocklistSourceBySlug :one
 SELECT * FROM blocklist_sources WHERE slug = $1;
 
+-- name: LockBlocklistSourceBySlug :one
+SELECT * FROM blocklist_sources WHERE slug = $1 FOR UPDATE;
+
 -- name: UpsertBlocklistSource :one
 -- A null auth header on update means "keep the stored credential", matching the
--- write-only treatment every other secret in the schema gets.
+-- write-only treatment every other secret in the schema gets — but only while
+-- the URL is unchanged. A credential entered for one publisher is never sent
+-- to another, so a new URL with no new header drops the stored one.
 INSERT INTO blocklist_sources (
   slug, display_name, subject_kind, url, auth_header_ciphertext,
   enabled, refresh_interval_seconds, updated_by
@@ -33,9 +38,11 @@ ON CONFLICT (slug) DO UPDATE
 SET display_name = EXCLUDED.display_name,
     subject_kind = EXCLUDED.subject_kind,
     url = EXCLUDED.url,
-    auth_header_ciphertext = COALESCE(
-      EXCLUDED.auth_header_ciphertext, blocklist_sources.auth_header_ciphertext
-    ),
+    auth_header_ciphertext = CASE
+      WHEN EXCLUDED.auth_header_ciphertext IS NOT NULL THEN EXCLUDED.auth_header_ciphertext
+      WHEN blocklist_sources.url = EXCLUDED.url THEN blocklist_sources.auth_header_ciphertext
+      ELSE NULL
+    END,
     enabled = EXCLUDED.enabled,
     refresh_interval_seconds = EXCLUDED.refresh_interval_seconds,
     updated_by = EXCLUDED.updated_by,

@@ -408,6 +408,12 @@ else's service, so it is stored the way every other credential in Omniflow is.
 - On save, an empty `clientSecret` leaves the stored one untouched. That is what
   makes the form re-saveable: an operator changing `sortOrder` does not have to
   produce the secret again, and the screen never has to echo one.
+- That only holds while the provider still points where the secret was entered
+  for. A save that changes `issuer`, `discoveryUrl`, or `clientId` without a new
+  `clientSecret` is refused (`422 oidc_rejected`, with a message asking for the
+  secret), and the storage layer drops a stored secret whose provider was moved.
+  Otherwise whoever edits the address could collect the secret at a token
+  endpoint they run.
 
 The flow cookie is sealed with the same key and is not readable or forgeable by
 the browser that holds it. It carries `state`, the PKCE verifier, the customer

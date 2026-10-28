@@ -88,6 +88,16 @@ func (service *Service) SaveBlocklistSource(
 
 	var saved BlocklistSource
 	err := service.inTx(ctx, func(queries *dbgen.Queries) error {
+		current, lookupErr := queries.LockBlocklistSourceBySlug(ctx, input.Slug)
+		switch {
+		case errors.Is(lookupErr, pgx.ErrNoRows):
+		case lookupErr != nil:
+			return lookupErr
+		case len(current.AuthHeaderCiphertext) > 0 && input.AuthHeader == nil && current.Url != input.URL:
+			// The stored header was entered for the old publisher. Sending it
+			// to a new URL would hand it to whoever runs that URL.
+			return ErrSecretRequired
+		}
 		row, txErr := queries.UpsertBlocklistSource(ctx, dbgen.UpsertBlocklistSourceParams{
 			Slug:                   input.Slug,
 			DisplayName:            input.DisplayName,

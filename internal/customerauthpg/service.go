@@ -46,6 +46,11 @@ var (
 	ErrNotFound        = errors.New("record not found")
 	ErrOIDCDisabled    = errors.New("no such sign-in provider is enabled")
 	ErrTelegramUnset   = errors.New("telegram sign-in is not configured")
+	// ErrOIDCSecretRequired reports a save that moves a provider to a new
+	// issuer, discovery URL, or client while keeping the stored secret.
+	ErrOIDCSecretRequired = errors.New(
+		"the issuer, discovery URL, or client changed; enter the client secret again",
+	)
 	// ErrOIDCProviderBound reports an attempt to repoint a provider that
 	// customers are linked through at a different issuer.
 	ErrOIDCProviderBound = errors.New(

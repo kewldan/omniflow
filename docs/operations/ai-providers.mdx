@@ -111,6 +111,13 @@ returned by the API. The field is therefore always empty when the screen loads,
 and leaving it empty keeps the stored key — the **Rotate key** button is how you
 replace one.
 
+Leaving it empty keeps the key **only while the provider still points where the
+key was entered for**. A save that changes the **kind** or the **base URL**
+without a new key is refused with `422 secret_required`, and the storage layer
+itself drops a stored key whose provider was moved. Otherwise anyone allowed to
+edit the address could point it at a server they run and collect the key on the
+next request without ever being able to read it.
+
 ## Pointing at a local model
 
 There is no separate adapter for a local model, and that is the point: anything

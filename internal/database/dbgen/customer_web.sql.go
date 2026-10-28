@@ -1066,9 +1066,16 @@ SET display_name = EXCLUDED.display_name,
     issuer = EXCLUDED.issuer,
     discovery_url = EXCLUDED.discovery_url,
     client_id = EXCLUDED.client_id,
-    client_secret_ciphertext = COALESCE(
-      EXCLUDED.client_secret_ciphertext, customer_oidc_providers.client_secret_ciphertext
-    ),
+    -- Kept only while the provider still points where the secret was entered
+    -- for; a new issuer, discovery URL, or client drops it.
+    client_secret_ciphertext = CASE
+      WHEN EXCLUDED.client_secret_ciphertext IS NOT NULL THEN EXCLUDED.client_secret_ciphertext
+      WHEN customer_oidc_providers.issuer = EXCLUDED.issuer
+        AND customer_oidc_providers.discovery_url = EXCLUDED.discovery_url
+        AND customer_oidc_providers.client_id = EXCLUDED.client_id
+      THEN customer_oidc_providers.client_secret_ciphertext
+      ELSE NULL
+    END,
     scopes = EXCLUDED.scopes,
     enabled = EXCLUDED.enabled,
     icon = EXCLUDED.icon,

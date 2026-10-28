@@ -244,6 +244,11 @@ func (handlers *AdminHandlers) operationsError(
 			writer, request, http.StatusConflict,
 			"state_conflict", "That is not allowed while the record is in its current state",
 		)
+	case errors.Is(err, panelpg.ErrSecretRequired):
+		writeProblem(
+			writer, request, http.StatusUnprocessableEntity,
+			"secret_required", "The address changed. Enter the credential again to send it there",
+		)
 	case errors.Is(err, panelpg.ErrValidaton):
 		writeProblem(
 			writer, request, http.StatusUnprocessableEntity,

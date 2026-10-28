@@ -56,6 +56,12 @@ ORDER BY display_name;
 -- name: GetAIProviderCredentials :one
 SELECT kind, base_url, credentials_ciphertext FROM ai_providers WHERE slug = $1 AND enabled;
 
+-- name: LockAIProviderTarget :one
+-- Where a provider's key is currently sent, read under a row lock by the save
+-- path so it can refuse a new address that would inherit the stored key.
+SELECT kind, base_url, (credentials_ciphertext IS NOT NULL)::boolean AS has_credential
+FROM ai_providers WHERE slug = $1 FOR UPDATE;
+
 -- name: UpsertAIProvider :one
 INSERT INTO ai_providers (
   slug, kind, display_name, base_url, enabled, zero_retention, trains_on_data,
@@ -68,6 +74,16 @@ INSERT INTO ai_providers (
 ON CONFLICT (slug) DO UPDATE SET
   kind = EXCLUDED.kind, display_name = EXCLUDED.display_name,
   base_url = EXCLUDED.base_url, enabled = EXCLUDED.enabled,
+  -- A stored key follows its provider only while the provider still points
+  -- where the key was entered for. Changing the kind or the address drops it,
+  -- so a write-only key can never be redirected to a server the editor
+  -- controls; the save path requires a new key in the same request.
+  credentials_ciphertext = CASE
+    WHEN ai_providers.kind = EXCLUDED.kind
+      AND ai_providers.base_url IS NOT DISTINCT FROM EXCLUDED.base_url
+    THEN ai_providers.credentials_ciphertext
+    ELSE NULL
+  END,
   zero_retention = EXCLUDED.zero_retention, trains_on_data = EXCLUDED.trains_on_data,
   retention_notice = EXCLUDED.retention_notice, data_region = EXCLUDED.data_region,
   updated_at = now(), updated_by = EXCLUDED.updated_by
