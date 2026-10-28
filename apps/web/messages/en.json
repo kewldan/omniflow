@@ -1414,7 +1414,7 @@
         },
         "recurringCapable": "Can be charged automatically",
         "prices": "Prices",
-        "pricesHint": "Comma-separated CURRENCY=amount, in the currency's minor unit. For example RUB=49900, USD=599.",
+        "pricesHint": "One row per currency the plan is sold in, with the price as a customer reads it, such as 499.00.",
         "reason": "Reason",
         "reasonHint": "Why this version is being published.",
         "immutability": "Existing orders keep the version they were bought at. Publishing does not change any price a customer has already paid.",
@@ -1460,7 +1460,7 @@
           "quantityHint": "How many of this add-on one order may include.",
           "proration": "Mid-period pricing",
           "prices": "Prices",
-          "pricesHint": "Comma-separated CURRENCY=amount, in the currency's minor unit.",
+          "pricesHint": "One row per currency the add-on is sold in, with the price as a customer reads it, such as 199.00.",
           "visible": "Offer this add-on to customers",
           "reason": "Reason",
           "immutability": "Both languages are required. Saving publishes a new version; orders already placed keep the version they were bought at.",
@@ -1595,7 +1595,7 @@
         "markupBps": "Markup (basis points)",
         "rounding": "Rounding",
         "quoteTtl": "Quote validity (seconds)",
-        "minorUnitsHint": "Amounts are integers in the currency's minor unit. 1500 basis points is a 15% markup, and every rounding mode rounds up.",
+        "minorUnitsHint": "Enter the price as a customer reads it, such as 499.00. 1500 basis points is a 15% markup, and every rounding mode rounds up.",
         "save": "Save pricing"
       },
       "rounding": {
@@ -3855,7 +3855,8 @@
           "limits": "From {minimum} to {maximum} at a time.",
           "remaining": "You may still add {amount} in this period.",
           "submit": "Add to wallet",
-          "startedDescription": "{amount} lands in your wallet as soon as the payment is confirmed. This page does not need to stay open."
+          "startedDescription": "{amount} lands in your wallet as soon as the payment is confirmed. This page does not need to stay open.",
+          "submitting": "Starting the payment…"
         },
         "pending": {
           "title": "Waiting to be paid",
@@ -3882,6 +3883,37 @@
       "account": "Account",
       "admin": "Admin",
       "signIn": "Sign in"
+    },
+    "form": {
+      "errors": {
+        "required": "This field is required.",
+        "maxLength": "Use at most {max} characters.",
+        "integer": "Enter a whole number.",
+        "number": "Enter a number, such as 2.5.",
+        "min": "Must be at least {min}.",
+        "max": "Must be at most {max}.",
+        "currency": "Use a three-letter currency code, such as RUB.",
+        "duplicateCurrency": "This currency is already listed.",
+        "pricesRequired": "Add at least one price.",
+        "money": {
+          "empty": "Enter an amount.",
+          "invalid": "Enter an amount such as 4.99.",
+          "precision": "{decimals, plural, =0 {This currency has no fractional units; enter a whole number.} one {Use at most # decimal place.} other {Use at most # decimal places.}}",
+          "negative": "The amount cannot be negative.",
+          "tooLarge": "The amount is too large.",
+          "min": "The smallest amount is {min}.",
+          "max": "The largest amount is {max}."
+        },
+        "chooseOne": "Choose one of the options."
+      },
+      "prices": {
+        "currency": "Currency",
+        "amount": "Amount in {currency}",
+        "add": "Add a price",
+        "remove": "Remove the {currency} price"
+      },
+      "saving": "Saving…",
+      "unavailable": "Unavailable: {reason}"
     }
   }
 }

@@ -1,18 +1,25 @@
 "use client";
 
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
 import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Switch } from "@omniflow/ui/switch";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
+import { type Control, Controller, FormProvider, useForm, useWatch } from "react-hook-form";
 import useSWR from "swr";
+import * as z from "zod/mini";
 
 import { StateNotice } from "@/components/admin/state-notice";
+import { FormField } from "@/components/forms/field";
+import { PriceListField } from "@/components/forms/price-list-field";
 import { type ApiError, fetcher } from "@/lib/api";
+import { issue, priceList, readPriceList, requiredText, wholeNumber } from "@/lib/form-schema";
 import { type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 
@@ -93,6 +100,59 @@ export function Addons({ active }: { active: boolean }) {
   );
 }
 
+const composerSchema = z
+  .object({
+    code: requiredText(64),
+    kind: z.string(),
+    maxQuantity: wholeNumber({ max: 1000, min: 1 }),
+    nameEn: requiredText(),
+    nameRu: requiredText(),
+    payload: z.string(),
+    prices: priceList(),
+    proration: z.string(),
+    reason: requiredText(),
+    visible: z.boolean(),
+  })
+  .check(
+    // What the add-on grants depends on its kind, so the one payload field is
+    // checked against the kind it is for.
+    z.superRefine((values, context) => {
+      const payload = values.payload.trim().replace(",", ".");
+      let problem: string | null = null;
+      if (values.kind === "traffic") {
+        problem =
+          payload === ""
+            ? issue("required")
+            : !/^\d+(\.\d+)?$/.test(payload)
+              ? issue("number")
+              : Number(payload) <= 0
+                ? issue("min", { min: 0.1 })
+                : null;
+      } else if (values.kind === "devices") {
+        problem =
+          payload === ""
+            ? issue("required")
+            : !/^\d+$/.test(payload)
+              ? issue("integer")
+              : Number(payload) < 1
+                ? issue("min", { min: 1 })
+                : null;
+      } else if (splitList(values.payload).length === 0) {
+        problem = issue("required");
+      }
+      if (problem) {
+        context.issues.push({
+          code: "custom",
+          input: values.payload,
+          message: problem,
+          path: ["payload"],
+        });
+      }
+    }),
+  );
+
+type ComposerValues = z.infer<typeof composerSchema>;
+
 /**
  * Creates an add-on and publishes a version of it.
  *
@@ -103,38 +163,59 @@ export function Addons({ active }: { active: boolean }) {
  */
 function AddonComposer({ onSaved }: { onSaved: () => void }) {
   const translate = useTranslations("admin.catalog.addons");
-  const codeId = useId();
-  const kindId = useId();
-  const nameEnId = useId();
-  const nameRuId = useId();
-  const payloadId = useId();
-  const quantityId = useId();
-  const prorationId = useId();
-  const pricesId = useId();
+  const translateForm = useTranslations("common.form");
   const visibleId = useId();
-  const reasonId = useId();
 
-  const [code, setCode] = useState("");
-  const [kind, setKind] = useState<string>("traffic");
-  const [nameEn, setNameEn] = useState("");
-  const [nameRu, setNameRu] = useState("");
-  const [payload, setPayload] = useState("");
-  const [maxQuantity, setMaxQuantity] = useState("1");
-  const [proration, setProration] = useState<string>("remaining_period");
-  const [prices, setPrices] = useState("");
-  const [visible, setVisible] = useState(false);
-  const [reason, setReason] = useState("");
-
+  const form = useForm<ComposerValues>({
+    defaultValues: {
+      code: "",
+      kind: "traffic",
+      maxQuantity: "1",
+      nameEn: "",
+      nameRu: "",
+      payload: "",
+      prices: [{ amount: "", currency: "RUB" }],
+      proration: "remaining_period",
+      reason: "",
+      visible: false,
+    },
+    resolver: zodResolver(composerSchema),
+  });
+  const { control, formState, handleSubmit, register, resetField } = form;
+  const errors = formState.errors;
+  const kind = useWatch({ control, name: "kind" });
   const { run, pending, error } = useOperatorAction();
-  const parsedPrices = parseAmounts(prices);
-  const ready =
-    code.trim().length > 0 &&
-    nameEn.trim().length > 0 &&
-    nameRu.trim().length > 0 &&
-    payload.trim().length > 0 &&
-    Object.keys(parsedPrices).length > 0 &&
-    reason.trim().length > 0 &&
-    !pending;
+
+  async function save(values: ComposerValues) {
+    const payload = values.payload.trim().replace(",", ".");
+    const ok = await run("/v1/panel/catalog/addons", {
+      body: {
+        code: values.code.trim().toLowerCase(),
+        descriptionEn: "",
+        descriptionRu: "",
+        deviceSlots: values.kind === "devices" ? Number(payload) : null,
+        kind: values.kind,
+        maxQuantity: Number(values.maxQuantity),
+        nameEn: values.nameEn.trim(),
+        nameRu: values.nameRu.trim(),
+        prices: readPriceList(values.prices),
+        proration: values.proration,
+        sortOrder: 0,
+        squadIds: values.kind === "squads" ? splitList(values.payload) : [],
+        // Traffic is entered in gigabytes and stored in bytes, because every
+        // allowance in the product is bytes.
+        trafficBytes:
+          values.kind === "traffic" ? Math.round(Number(payload) * 1_073_741_824) : null,
+        visible: values.visible,
+      },
+      method: "PUT",
+      reason: values.reason.trim(),
+    });
+    if (ok) {
+      resetField("reason");
+      onSaved();
+    }
+  }
 
   return (
     <Card>
@@ -142,173 +223,134 @@ function AddonComposer({ onSaved }: { onSaved: () => void }) {
         <CardTitle>{translate("composer.title")}</CardTitle>
         <CardDescription>{translate("composer.description")}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Row id={codeId} label={translate("composer.code")} onChange={setCode} value={code} />
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor={kindId}>{translate("composer.kind")}</Label>
-            <select
-              className="h-9 rounded-md border border-border bg-transparent px-2 text-sm"
-              id={kindId}
-              onChange={(event) => setKind(event.target.value)}
-              value={kind}
+      <CardContent>
+        <FormProvider {...form}>
+          <form className="flex flex-col gap-3" noValidate onSubmit={handleSubmit(save)}>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <FormField error={errors.code?.message} label={translate("composer.code")}>
+                {(props) => <Input {...props} {...register("code")} />}
+              </FormField>
+              <ClosedList
+                control={control}
+                label={translate("composer.kind")}
+                name="kind"
+                options={KINDS.map((option) => [option, translate(`kind.${option}`)])}
+              />
+              <FormField error={errors.nameEn?.message} label={translate("composer.nameEn")}>
+                {(props) => <Input {...props} {...register("nameEn")} />}
+              </FormField>
+              <FormField error={errors.nameRu?.message} label={translate("composer.nameRu")}>
+                {(props) => <Input {...props} {...register("nameRu")} />}
+              </FormField>
+            </div>
+
+            <FormField
+              error={errors.payload?.message}
+              hint={translate(`composer.payloadHint.${kind}`)}
+              label={translate(`composer.payload.${kind}`)}
             >
-              {KINDS.map((option) => (
-                <option key={option} value={option}>
-                  {translate(`kind.${option}`)}
-                </option>
-              ))}
-            </select>
-          </div>
-          <Row
-            id={nameEnId}
-            label={translate("composer.nameEn")}
-            onChange={setNameEn}
-            value={nameEn}
-          />
-          <Row
-            id={nameRuId}
-            label={translate("composer.nameRu")}
-            onChange={setNameRu}
-            value={nameRu}
-          />
-        </div>
+              {(props) => (
+                <Input
+                  {...props}
+                  inputMode={
+                    kind === "squads" ? "text" : kind === "devices" ? "numeric" : "decimal"
+                  }
+                  {...register("payload")}
+                />
+              )}
+            </FormField>
 
-        <Row
-          hint={translate(`composer.payloadHint.${kind}`)}
-          id={payloadId}
-          label={translate(`composer.payload.${kind}`)}
-          onChange={setPayload}
-          value={payload}
-        />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <FormField
+                error={errors.maxQuantity?.message}
+                hint={translate("composer.quantityHint")}
+                label={translate("composer.quantity")}
+              >
+                {(props) => <Input {...props} inputMode="numeric" {...register("maxQuantity")} />}
+              </FormField>
+              <ClosedList
+                control={control}
+                label={translate("composer.proration")}
+                name="proration"
+                options={PRORATIONS.map((option) => [option, translate(`proration.${option}`)])}
+              />
+            </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Row
-            hint={translate("composer.quantityHint")}
-            id={quantityId}
-            label={translate("composer.quantity")}
-            onChange={setMaxQuantity}
-            value={maxQuantity}
-          />
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor={prorationId}>{translate("composer.proration")}</Label>
-            <select
-              className="h-9 rounded-md border border-border bg-transparent px-2 text-sm"
-              id={prorationId}
-              onChange={(event) => setProration(event.target.value)}
-              value={proration}
-            >
-              {PRORATIONS.map((option) => (
-                <option key={option} value={option}>
-                  {translate(`proration.${option}`)}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+            <PriceListField
+              hint={translate("composer.pricesHint")}
+              label={translate("composer.prices")}
+            />
+            <div className="flex items-center gap-3">
+              <Controller
+                control={control}
+                name="visible"
+                render={({ field }) => (
+                  <Switch checked={field.value} id={visibleId} onCheckedChange={field.onChange} />
+                )}
+              />
+              <Label htmlFor={visibleId}>{translate("composer.visible")}</Label>
+            </div>
+            <FormField error={errors.reason?.message} label={translate("composer.reason")}>
+              {(props) => <Input {...props} {...register("reason")} />}
+            </FormField>
 
-        <Row
-          hint={translate("composer.pricesHint")}
-          id={pricesId}
-          label={translate("composer.prices")}
-          onChange={setPrices}
-          value={prices}
-        />
-        <div className="flex items-center gap-3">
-          <Switch checked={visible} id={visibleId} onCheckedChange={setVisible} />
-          <Label htmlFor={visibleId}>{translate("composer.visible")}</Label>
-        </div>
-        <Row
-          id={reasonId}
-          label={translate("composer.reason")}
-          onChange={setReason}
-          value={reason}
-        />
-
-        <p className="text-muted-foreground text-xs">{translate("composer.immutability")}</p>
-        {error && <p className="text-danger-foreground text-sm">{error.message}</p>}
-        <Button
-          className="self-start"
-          disabled={!ready}
-          onClick={async () => {
-            const ok = await run("/v1/panel/catalog/addons", {
-              body: {
-                code: code.trim().toLowerCase(),
-                descriptionEn: "",
-                descriptionRu: "",
-                deviceSlots: kind === "devices" ? Number(payload) : null,
-                kind,
-                maxQuantity: Number(maxQuantity) || 1,
-                nameEn: nameEn.trim(),
-                nameRu: nameRu.trim(),
-                prices: parsedPrices,
-                proration,
-                sortOrder: 0,
-                // Traffic is entered in gigabytes and stored in bytes, because
-                // every allowance in the product is bytes.
-                squadIds:
-                  kind === "squads"
-                    ? payload
-                        .split(",")
-                        .map((value) => value.trim())
-                        .filter(Boolean)
-                    : [],
-                trafficBytes:
-                  kind === "traffic" ? Math.round(Number(payload) * 1_073_741_824) : null,
-                visible,
-              },
-              method: "PUT",
-              reason: reason.trim(),
-            });
-            if (ok) {
-              setReason("");
-              onSaved();
-            }
-          }}
-          size="sm"
-        >
-          {translate("composer.submit")}
-        </Button>
+            <p className="text-muted-foreground text-xs">{translate("composer.immutability")}</p>
+            {error && (
+              <p className="text-danger-foreground text-sm" role="alert">
+                {error.message}
+              </p>
+            )}
+            <Button className="self-start" disabled={pending} size="sm" type="submit">
+              {pending ? translateForm("saving") : translate("composer.submit")}
+            </Button>
+          </form>
+        </FormProvider>
       </CardContent>
     </Card>
   );
 }
 
-function Row({
-  hint,
-  id,
+/** A closed list, as the shared `Select` rather than the browser's own control. */
+function ClosedList({
+  control,
   label,
-  onChange,
-  value,
+  name,
+  options,
 }: {
-  hint?: string;
-  id: string;
+  control: Control<ComposerValues>;
   label: string;
-  onChange: (value: string) => void;
-  value: string;
+  name: "kind" | "proration";
+  options: [string, string][];
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={id}>{label}</Label>
-      <Input id={id} onChange={(event) => onChange(event.target.value)} value={value} />
-      {hint && <span className="text-muted-foreground text-xs">{hint}</span>}
-    </div>
+    <FormField label={label}>
+      {(props) => (
+        <Controller
+          control={control}
+          name={name}
+          render={({ field }) => (
+            <Select onValueChange={field.onChange} value={field.value}>
+              <SelectTrigger {...props}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {options.map(([value, text]) => (
+                  <SelectItem key={value} value={value}>
+                    {text}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
+      )}
+    </FormField>
   );
 }
 
-/** Parses `RUB=19900, USD=299` into minor-unit integers. */
-function parseAmounts(input: string): Record<string, number> {
-  const amounts: Record<string, number> = {};
-  for (const entry of input.split(",")) {
-    const [currency, amount] = entry.split("=");
-    if (!currency || !amount) {
-      continue;
-    }
-    const minor = Number(amount.trim());
-    if (!Number.isInteger(minor) || minor < 0) {
-      continue;
-    }
-    amounts[currency.trim().toUpperCase()] = minor;
-  }
-  return amounts;
+function splitList(input: string): string[] {
+  return input
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
 }

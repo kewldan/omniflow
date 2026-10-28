@@ -1,17 +1,18 @@
 "use client";
 
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@omniflow/ui/button";
 import { ConfirmDialog } from "@omniflow/ui/confirm-dialog";
 import { Input } from "@omniflow/ui/input";
-import { Label } from "@omniflow/ui/label";
 import { toast } from "@omniflow/ui/toast";
 import { RefreshCw, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
+import { useForm } from "react-hook-form";
 import useSWR from "swr";
-
+import * as z from "zod/mini";
 import { ReauthNotice, useReauthentication } from "@/components/account/reauth";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
 import {
@@ -20,8 +21,10 @@ import {
   SubscriptionStatus,
   TrafficMeter,
 } from "@/components/account/subscription-card";
+import { FormField } from "@/components/forms/field";
 import { useAccount } from "@/lib/account-session";
 import { ApiError, apiFetch, fetcher } from "@/lib/api";
+import { issue, requiredText } from "@/lib/form-schema";
 
 /**
  * One subscription in detail: what it is, what it is called, and the one
@@ -108,6 +111,9 @@ function PrimaryAction({
   }
 }
 
+const renameSchema = z.object({ label: requiredText(40) });
+type RenameValues = z.infer<typeof renameSchema>;
+
 /** The customer's own name for a subscription, which every screen then uses. */
 function RenameForm({
   current,
@@ -119,37 +125,42 @@ function RenameForm({
   subscriptionId: string;
 }) {
   const translate = useTranslations("account");
-  const [label, setLabel] = useState(current);
-  const [busy, setBusy] = useState(false);
+  const { formState, handleSubmit, register, reset, setError } = useForm<RenameValues>({
+    defaultValues: { label: current },
+    resolver: zodResolver(renameSchema),
+  });
 
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    setBusy(true);
+  async function submit(values: RenameValues) {
+    const label = values.label.trim();
+    // Said on the field rather than by a button that silently refuses: the
+    // customer pressed save, so they are told why nothing happened.
+    if (label === current) {
+      setError("label", { message: issue("unchanged") });
+      return;
+    }
     try {
       await apiFetch(`/v1/account/subscriptions/${subscriptionId}`, {
         body: JSON.stringify({ label }),
         method: "PATCH",
       });
+      reset({ label });
       onRenamed();
       toast.success(translate("subscription.renamed"));
     } catch (renameError) {
       toast.error((renameError as ApiError).message);
-    } finally {
-      setBusy(false);
     }
   }
 
   return (
-    <form className="space-y-3 rounded-lg border border-border bg-card p-4" onSubmit={submit}>
-      <Label htmlFor="subscription-label">{translate("subscription.name")}</Label>
-      <Input
-        id="subscription-label"
-        maxLength={40}
-        onChange={(event) => setLabel(event.target.value)}
-        required
-        value={label}
-      />
-      <Button disabled={busy || label.trim() === current} size="sm" type="submit">
+    <form
+      className="space-y-3 rounded-lg border border-border bg-card p-4"
+      noValidate
+      onSubmit={handleSubmit(submit)}
+    >
+      <FormField error={formState.errors.label?.message} label={translate("subscription.name")}>
+        {(props) => <Input {...props} maxLength={40} {...register("label")} />}
+      </FormField>
+      <Button disabled={formState.isSubmitting} size="sm" type="submit">
         {translate("actions.save")}
       </Button>
     </form>

@@ -1,5 +1,6 @@
 "use client";
 
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { ConfirmDialog } from "@omniflow/ui/confirm-dialog";
@@ -11,6 +12,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
+import { useForm } from "react-hook-form";
+import * as z from "zod/mini";
+
 import { OPERATIONS, usePeriodLabel } from "@/components/account/commerce/plan-card";
 import { QuoteBreakdown } from "@/components/account/commerce/quote-breakdown";
 import {
@@ -25,8 +29,10 @@ import {
 } from "@/components/account/commerce/types";
 import { useOpenCheckout } from "@/components/account/commerce/use-checkout";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
+import { FieldMessage } from "@/components/forms/field";
 import { ApiError, apiFetch } from "@/lib/api";
 import { attachAttribution } from "@/lib/attach-attribution";
+import { requiredText } from "@/lib/form-schema";
 import { useBytes, useDuration, useMoney } from "@/lib/format";
 import { useSubmission } from "@/lib/idempotency";
 
@@ -619,6 +625,9 @@ function AddonPicker({
   );
 }
 
+const promoSchema = z.object({ code: requiredText(64) });
+type PromoValues = z.infer<typeof promoSchema>;
+
 /**
  * The promo code and, when it is refused, the reason.
  *
@@ -637,7 +646,10 @@ function PromoField({
 }) {
   const translate = useTranslations("account.commerce");
   const explain = usePromoRejection();
-  const [code, setCode] = useState("");
+  const { formState, handleSubmit, register } = useForm<PromoValues>({
+    defaultValues: { code: "" },
+    resolver: zodResolver(promoSchema),
+  });
 
   return (
     <section className="space-y-2">
@@ -665,30 +677,33 @@ function PromoField({
         </div>
       ) : (
         <form
-          className="flex gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            return onApply(() =>
+          noValidate
+          onSubmit={handleSubmit((values) =>
+            onApply(() =>
               apiFetch<CheckoutView>("/v1/account/checkout/promo", {
-                body: JSON.stringify({ code }),
+                body: JSON.stringify({ code: values.code.trim() }),
                 method: "POST",
               }),
-            );
-          }}
+            ),
+          )}
         >
-          <Label className="sr-only" htmlFor="promo-code">
-            {translate("checkout.promo.label")}
-          </Label>
-          <Input
-            autoComplete="off"
-            id="promo-code"
-            onChange={(event) => setCode(event.target.value)}
-            placeholder={translate("checkout.promo.placeholder")}
-            value={code}
-          />
-          <Button disabled={disabled || code.trim() === ""} type="submit" variant="outline">
-            {translate("checkout.promo.apply")}
-          </Button>
+          <div className="flex gap-2">
+            <Label className="sr-only" htmlFor="promo-code">
+              {translate("checkout.promo.label")}
+            </Label>
+            <Input
+              aria-describedby={formState.errors.code ? "promo-code-error" : undefined}
+              aria-invalid={Boolean(formState.errors.code)}
+              autoComplete="off"
+              id="promo-code"
+              placeholder={translate("checkout.promo.placeholder")}
+              {...register("code")}
+            />
+            <Button disabled={disabled || formState.isSubmitting} type="submit" variant="outline">
+              {translate("checkout.promo.apply")}
+            </Button>
+          </div>
+          <FieldMessage id="promo-code-error" message={formState.errors.code?.message} />
         </form>
       )}
       {checkout.promoRejection && (

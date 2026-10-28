@@ -1,16 +1,32 @@
 "use client";
 
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
 import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Switch } from "@omniflow/ui/switch";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useId } from "react";
+import { type Control, Controller, FormProvider, useForm, useWatch } from "react-hook-form";
 import useSWR from "swr";
+import * as z from "zod/mini";
 
+import { FormField } from "@/components/forms/field";
+import { PriceListField } from "@/components/forms/price-list-field";
 import { type ApiError, fetcher } from "@/lib/api";
+import {
+  decimalNumber,
+  priceList,
+  readDecimal,
+  readPriceList,
+  readWholeNumber,
+  requiredText,
+  wholeNumber,
+} from "@/lib/form-schema";
+import { minorToInput } from "@/lib/money";
 import type { PlanVersion } from "@/lib/operations";
 import { useOperatorAction } from "@/lib/operations";
 
@@ -20,6 +36,31 @@ const UPGRADE_POLICIES = ["forbid", "replace", "extend"] as const;
 const DOWNGRADE_POLICIES = ["forbid", "immediate", "at_expiry"] as const;
 const CANCELLATION_POLICIES = ["immediate", "at_expiry"] as const;
 const TRIAL_ELIGIBILITY = ["new_customer", "never", "any_customer"] as const;
+
+const GIBIBYTE = 1_073_741_824;
+
+const schema = z.object({
+  billingPeriod: z.string(),
+  cancellationPolicy: z.string(),
+  // Empty means unlimited, which is a different thing from zero — zero would
+  // be a plan that permits nothing.
+  deviceLimit: wholeNumber({ min: 1, optional: true }),
+  downgradePolicy: z.string(),
+  durationDays: wholeNumber({ min: 1 }),
+  graceDays: wholeNumber({ min: 0, optional: true }),
+  maxSquads: wholeNumber({ min: 1, optional: true }),
+  minSquads: wholeNumber({ min: 0, optional: true }),
+  prices: priceList(),
+  reason: requiredText(),
+  recurringCapable: z.boolean(),
+  squadIds: z.string(),
+  squadSelection: z.string(),
+  trafficGb: decimalNumber({ min: 0, optional: true }),
+  trialEligibility: z.string(),
+  upgradePolicy: z.string(),
+});
+
+type Values = z.infer<typeof schema>;
 
 /**
  * Publishes the next version of a plan, starting from the current one.
@@ -69,6 +110,33 @@ export function PlanVersionEditor({
   );
 }
 
+function defaults(current?: PlanVersion): Values {
+  return {
+    billingPeriod: current?.billingPeriod ?? "month",
+    cancellationPolicy: current?.cancellationPolicy ?? "at_expiry",
+    deviceLimit: current?.deviceLimit ? String(current.deviceLimit) : "",
+    downgradePolicy: current?.downgradePolicy ?? "at_expiry",
+    durationDays: String(Math.round((current?.durationSeconds ?? 2_592_000) / 86_400)),
+    graceDays: String(Math.round((current?.gracePeriodSeconds ?? 0) / 86_400)),
+    maxSquads: current?.maxSelectableSquads ? String(current.maxSelectableSquads) : "",
+    minSquads: String(current?.minSelectableSquads ?? 0),
+    // Shown in major units, as a customer reads them; stored as minor units.
+    prices: Object.entries(current?.prices ?? {}).map(([currency, amount]) => ({
+      amount: minorToInput(amount, currency),
+      currency,
+    })),
+    reason: "",
+    recurringCapable: current?.recurringCapable ?? false,
+    squadIds: (current?.squadIds ?? []).join(", "),
+    squadSelection: current?.squadSelection ?? "automatic",
+    trafficGb: current?.trafficAllowanceBytes
+      ? String(current.trafficAllowanceBytes / GIBIBYTE)
+      : "",
+    trialEligibility: current?.trialEligibility ?? "new_customer",
+    upgradePolicy: current?.upgradePolicy ?? "extend",
+  };
+}
+
 function VersionForm({
   current,
   onPublished,
@@ -79,60 +147,45 @@ function VersionForm({
   planId: string;
 }) {
   const translate = useTranslations("admin.catalog.version");
-  const periodId = useId();
-  const durationId = useId();
-  const trafficId = useId();
-  const devicesId = useId();
-  const graceId = useId();
-  const squadsId = useId();
-  const minSquadsId = useId();
-  const maxSquadsId = useId();
-  const pricesId = useId();
+  const translateForm = useTranslations("common.form");
   const recurringId = useId();
-  const reasonId = useId();
 
-  const [billingPeriod, setBillingPeriod] = useState(current?.billingPeriod ?? "month");
-  const [durationDays, setDurationDays] = useState(
-    String(Math.round((current?.durationSeconds ?? 2_592_000) / 86_400)),
-  );
-  const [trafficGb, setTrafficGb] = useState(
-    current?.trafficAllowanceBytes ? String(current.trafficAllowanceBytes / 1_073_741_824) : "",
-  );
-  const [deviceLimit, setDeviceLimit] = useState(
-    current?.deviceLimit ? String(current.deviceLimit) : "",
-  );
-  const [squadIds, setSquadIds] = useState((current?.squadIds ?? []).join(", "));
-  const [squadSelection, setSquadSelection] = useState(current?.squadSelection ?? "automatic");
-  const [minSquads, setMinSquads] = useState(String(current?.minSelectableSquads ?? 0));
-  const [maxSquads, setMaxSquads] = useState(
-    current?.maxSelectableSquads ? String(current.maxSelectableSquads) : "",
-  );
-  const [upgradePolicy, setUpgradePolicy] = useState(current?.upgradePolicy ?? "extend");
-  const [downgradePolicy, setDowngradePolicy] = useState(current?.downgradePolicy ?? "at_expiry");
-  const [cancellationPolicy, setCancellationPolicy] = useState(
-    current?.cancellationPolicy ?? "at_expiry",
-  );
-  const [graceDays, setGraceDays] = useState(
-    String(Math.round((current?.gracePeriodSeconds ?? 0) / 86_400)),
-  );
-  const [trialEligibility, setTrialEligibility] = useState(
-    current?.trialEligibility ?? "new_customer",
-  );
-  const [recurringCapable, setRecurringCapable] = useState(current?.recurringCapable ?? false);
-  const [prices, setPrices] = useState(
-    Object.entries(current?.prices ?? {})
-      .map(([currency, amount]) => `${currency}=${amount}`)
-      .join(", "),
-  );
-  const [reason, setReason] = useState("");
-
+  const form = useForm<Values>({ defaultValues: defaults(current), resolver: zodResolver(schema) });
+  const { control, formState, handleSubmit, register, resetField } = form;
+  const squadSelection = useWatch({ control, name: "squadSelection" });
   const { run, pending, error } = useOperatorAction();
-  const parsedPrices = parsePrices(prices);
-  const ready =
-    Number(durationDays) > 0 &&
-    Object.keys(parsedPrices).length > 0 &&
-    reason.trim().length > 0 &&
-    !pending;
+  const errors = formState.errors;
+
+  async function publish(values: Values) {
+    const ok = await run(`/v1/panel/catalog/plans/${planId}/versions`, {
+      body: {
+        billingPeriod: values.billingPeriod,
+        cancellationPolicy: values.cancellationPolicy,
+        deviceLimit: readWholeNumber(values.deviceLimit),
+        downgradePolicy: values.downgradePolicy,
+        durationSeconds: Number(values.durationDays) * 86_400,
+        gracePeriodSeconds: (readWholeNumber(values.graceDays) ?? 0) * 86_400,
+        maxSelectableSquads: readWholeNumber(values.maxSquads),
+        minSelectableSquads: readWholeNumber(values.minSquads) ?? 0,
+        prices: readPriceList(values.prices),
+        recurringCapable: values.recurringCapable,
+        squadIds: splitList(values.squadIds),
+        squadSelection: values.squadSelection,
+        trafficAllowanceBytes: (() => {
+          const gigabytes = readDecimal(values.trafficGb);
+          return gigabytes === null ? null : Math.round(gigabytes * GIBIBYTE);
+        })(),
+        trialEligibility: values.trialEligibility,
+        upgradePolicy: values.upgradePolicy,
+      },
+      method: "POST",
+      reason: values.reason.trim(),
+    });
+    if (ok) {
+      resetField("reason");
+      onPublished();
+    }
+  }
 
   return (
     <Card>
@@ -140,268 +193,198 @@ function VersionForm({
         <CardTitle>{translate("title")}</CardTitle>
         <CardDescription>{translate("description")}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Choice
-            id={periodId}
-            label={translate("billingPeriod")}
-            onChange={setBillingPeriod}
-            options={BILLING_PERIODS}
-            prefix="billingPeriod"
-            value={billingPeriod}
-          />
-          <Field
-            hint={translate("durationHint")}
-            id={durationId}
-            label={translate("duration")}
-            onChange={setDurationDays}
-            value={durationDays}
-          />
-          <Field
-            hint={translate("graceHint")}
-            id={graceId}
-            label={translate("grace")}
-            onChange={setGraceDays}
-            value={graceDays}
-          />
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          {/* Empty means unlimited, which is a different thing from zero — zero
-              would be a plan that permits nothing. */}
-          <Field
-            hint={translate("trafficHint")}
-            id={trafficId}
-            label={translate("traffic")}
-            onChange={setTrafficGb}
-            value={trafficGb}
-          />
-          <Field
-            hint={translate("devicesHint")}
-            id={devicesId}
-            label={translate("devices")}
-            onChange={setDeviceLimit}
-            value={deviceLimit}
-          />
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field
-            hint={translate("squadsHint")}
-            id={squadsId}
-            label={translate("squads")}
-            onChange={setSquadIds}
-            value={squadIds}
-          />
-          <Choice
-            id={`${squadsId}-selection`}
-            label={translate("squadSelection")}
-            onChange={setSquadSelection}
-            options={SQUAD_SELECTIONS}
-            prefix="squadSelection"
-            value={squadSelection}
-          />
-          {squadSelection === "customer_choice" && (
-            <>
-              <Field
-                id={minSquadsId}
-                label={translate("minSquads")}
-                onChange={setMinSquads}
-                value={minSquads}
+      <CardContent>
+        <FormProvider {...form}>
+          <form className="flex flex-col gap-4" noValidate onSubmit={handleSubmit(publish)}>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Choice
+                control={control}
+                label={translate("billingPeriod")}
+                name="billingPeriod"
+                options={BILLING_PERIODS}
+                prefix="billingPeriod"
               />
-              <Field
-                hint={translate("maxSquadsHint")}
-                id={maxSquadsId}
-                label={translate("maxSquads")}
-                onChange={setMaxSquads}
-                value={maxSquads}
+              <FormField
+                error={errors.durationDays?.message}
+                hint={translate("durationHint")}
+                label={translate("duration")}
+              >
+                {(props) => <Input {...props} inputMode="numeric" {...register("durationDays")} />}
+              </FormField>
+              <FormField
+                error={errors.graceDays?.message}
+                hint={translate("graceHint")}
+                label={translate("grace")}
+              >
+                {(props) => <Input {...props} inputMode="numeric" {...register("graceDays")} />}
+              </FormField>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <FormField
+                error={errors.trafficGb?.message}
+                hint={translate("trafficHint")}
+                label={translate("traffic")}
+              >
+                {(props) => <Input {...props} inputMode="decimal" {...register("trafficGb")} />}
+              </FormField>
+              <FormField
+                error={errors.deviceLimit?.message}
+                hint={translate("devicesHint")}
+                label={translate("devices")}
+              >
+                {(props) => <Input {...props} inputMode="numeric" {...register("deviceLimit")} />}
+              </FormField>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <FormField hint={translate("squadsHint")} label={translate("squads")}>
+                {(props) => <Input {...props} {...register("squadIds")} />}
+              </FormField>
+              <Choice
+                control={control}
+                label={translate("squadSelection")}
+                name="squadSelection"
+                options={SQUAD_SELECTIONS}
+                prefix="squadSelection"
               />
-            </>
-          )}
-        </div>
+              {squadSelection === "customer_choice" && (
+                <>
+                  <FormField error={errors.minSquads?.message} label={translate("minSquads")}>
+                    {(props) => <Input {...props} inputMode="numeric" {...register("minSquads")} />}
+                  </FormField>
+                  <FormField
+                    error={errors.maxSquads?.message}
+                    hint={translate("maxSquadsHint")}
+                    label={translate("maxSquads")}
+                  >
+                    {(props) => <Input {...props} inputMode="numeric" {...register("maxSquads")} />}
+                  </FormField>
+                </>
+              )}
+            </div>
 
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Choice
-            id={`${periodId}-upgrade`}
-            label={translate("upgradePolicy")}
-            onChange={setUpgradePolicy}
-            options={UPGRADE_POLICIES}
-            prefix="upgradePolicy"
-            value={upgradePolicy}
-          />
-          <Choice
-            id={`${periodId}-downgrade`}
-            label={translate("downgradePolicy")}
-            onChange={setDowngradePolicy}
-            options={DOWNGRADE_POLICIES}
-            prefix="downgradePolicy"
-            value={downgradePolicy}
-          />
-          <Choice
-            id={`${periodId}-cancellation`}
-            label={translate("cancellationPolicy")}
-            onChange={setCancellationPolicy}
-            options={CANCELLATION_POLICIES}
-            prefix="cancellationPolicy"
-            value={cancellationPolicy}
-          />
-        </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Choice
+                control={control}
+                label={translate("upgradePolicy")}
+                name="upgradePolicy"
+                options={UPGRADE_POLICIES}
+                prefix="upgradePolicy"
+              />
+              <Choice
+                control={control}
+                label={translate("downgradePolicy")}
+                name="downgradePolicy"
+                options={DOWNGRADE_POLICIES}
+                prefix="downgradePolicy"
+              />
+              <Choice
+                control={control}
+                label={translate("cancellationPolicy")}
+                name="cancellationPolicy"
+                options={CANCELLATION_POLICIES}
+                prefix="cancellationPolicy"
+              />
+            </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Choice
-            id={`${periodId}-trial`}
-            label={translate("trialEligibility")}
-            onChange={setTrialEligibility}
-            options={TRIAL_ELIGIBILITY}
-            prefix="trialEligibility"
-            value={trialEligibility}
-          />
-          <div className="flex items-center gap-3 pt-6">
-            <Switch
-              checked={recurringCapable}
-              id={recurringId}
-              onCheckedChange={setRecurringCapable}
-            />
-            <Label htmlFor={recurringId}>{translate("recurringCapable")}</Label>
-          </div>
-        </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Choice
+                control={control}
+                label={translate("trialEligibility")}
+                name="trialEligibility"
+                options={TRIAL_ELIGIBILITY}
+                prefix="trialEligibility"
+              />
+              <div className="flex items-center gap-3 pt-6">
+                <Controller
+                  control={control}
+                  name="recurringCapable"
+                  render={({ field }) => (
+                    <Switch
+                      checked={field.value}
+                      id={recurringId}
+                      onCheckedChange={field.onChange}
+                    />
+                  )}
+                />
+                <Label htmlFor={recurringId}>{translate("recurringCapable")}</Label>
+              </div>
+            </div>
 
-        <Field
-          hint={translate("pricesHint")}
-          id={pricesId}
-          label={translate("prices")}
-          onChange={setPrices}
-          value={prices}
-        />
-        <Field
-          hint={translate("reasonHint")}
-          id={reasonId}
-          label={translate("reason")}
-          onChange={setReason}
-          value={reason}
-        />
+            <PriceListField hint={translate("pricesHint")} label={translate("prices")} />
 
-        <p className="text-muted-foreground text-xs">{translate("immutability")}</p>
-        {error && <p className="text-danger-foreground text-sm">{error.message}</p>}
-        <Button
-          className="self-start"
-          disabled={!ready}
-          onClick={async () => {
-            const ok = await run(`/v1/panel/catalog/plans/${planId}/versions`, {
-              body: {
-                billingPeriod,
-                cancellationPolicy,
-                deviceLimit: deviceLimit === "" ? null : Number(deviceLimit),
-                downgradePolicy,
-                durationSeconds: Number(durationDays) * 86_400,
-                gracePeriodSeconds: Number(graceDays || 0) * 86_400,
-                maxSelectableSquads: maxSquads === "" ? null : Number(maxSquads),
-                minSelectableSquads: Number(minSquads || 0),
-                prices: parsedPrices,
-                recurringCapable,
-                squadIds: splitList(squadIds),
-                squadSelection,
-                trafficAllowanceBytes:
-                  trafficGb === "" ? null : Math.round(Number(trafficGb) * 1_073_741_824),
-                trialEligibility,
-                upgradePolicy,
-              },
-              method: "POST",
-              reason: reason.trim(),
-            });
-            if (ok) {
-              setReason("");
-              onPublished();
-            }
-          }}
-          size="sm"
-        >
-          {translate("publish")}
-        </Button>
+            <FormField
+              error={errors.reason?.message}
+              hint={translate("reasonHint")}
+              label={translate("reason")}
+            >
+              {(props) => <Input {...props} {...register("reason")} />}
+            </FormField>
+
+            <p className="text-muted-foreground text-xs">{translate("immutability")}</p>
+            {error && (
+              <p className="text-danger-foreground text-sm" role="alert">
+                {error.message}
+              </p>
+            )}
+            <Button className="self-start" disabled={pending} size="sm" type="submit">
+              {pending ? translateForm("saving") : translate("publish")}
+            </Button>
+          </form>
+        </FormProvider>
       </CardContent>
     </Card>
   );
 }
 
-function Field({
-  hint,
-  id,
-  label,
-  onChange,
-  value,
-}: {
-  hint?: string;
-  id: string;
-  label: string;
-  onChange: (value: string) => void;
-  value: string;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={id}>{label}</Label>
-      <Input id={id} onChange={(event) => onChange(event.target.value)} value={value} />
-      {hint && <span className="text-muted-foreground text-xs">{hint}</span>}
-    </div>
-  );
-}
+type ChoiceField =
+  | "billingPeriod"
+  | "squadSelection"
+  | "upgradePolicy"
+  | "downgradePolicy"
+  | "cancellationPolicy"
+  | "trialEligibility";
 
+/** A closed list, as the shared `Select` rather than the browser's own control. */
 function Choice({
-  id,
+  control,
   label,
-  onChange,
+  name,
   options,
   prefix,
-  value,
 }: {
-  id: string;
+  control: Control<Values>;
   label: string;
-  onChange: (value: string) => void;
+  name: ChoiceField;
   options: readonly string[];
   prefix: string;
-  value: string;
 }) {
   const translate = useTranslations("admin.catalog.version");
   return (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={id}>{label}</Label>
-      <select
-        className="h-9 rounded-md border border-border bg-transparent px-2 text-sm"
-        id={id}
-        onChange={(event) => onChange(event.target.value)}
-        value={value}
-      >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {translate(`${prefix}Value.${option}`)}
-          </option>
-        ))}
-      </select>
-    </div>
+    <FormField label={label}>
+      {(props) => (
+        <Controller
+          control={control}
+          name={name}
+          render={({ field }) => (
+            <Select onValueChange={field.onChange} value={field.value}>
+              <SelectTrigger {...props}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {options.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {translate(`${prefix}Value.${option}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
+      )}
+    </FormField>
   );
-}
-
-/**
- * Parses `RUB=49900, USD=599` into the map the API expects.
- *
- * Amounts are integers in the currency's minor unit throughout Omniflow, and
- * this deliberately does not accept a decimal: "4.99" is ambiguous about which
- * currency's minor unit it means, and the whole money model exists to avoid
- * that ambiguity.
- */
-function parsePrices(input: string): Record<string, number> {
-  const prices: Record<string, number> = {};
-  for (const entry of splitList(input)) {
-    const [currency, amount] = entry.split("=");
-    if (!currency || !amount) {
-      continue;
-    }
-    const minor = Number(amount.trim());
-    if (!Number.isInteger(minor) || minor < 0) {
-      continue;
-    }
-    prices[currency.trim().toUpperCase()] = minor;
-  }
-  return prices;
 }
 
 function splitList(input: string): string[] {

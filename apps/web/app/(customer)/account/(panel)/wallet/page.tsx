@@ -1,14 +1,14 @@
 "use client";
 
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@omniflow/ui/button";
-import { Input } from "@omniflow/ui/input";
-import { Label } from "@omniflow/ui/label";
 import { cn } from "@omniflow/ui/lib/utils";
 import { toast } from "@omniflow/ui/toast";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
-import { useState } from "react";
+import { useForm, useWatch } from "react-hook-form";
 import useSWRInfinite from "swr/infinite";
+import * as z from "zod/mini";
 import { PaymentHandoff } from "@/components/account/commerce/order-status";
 import { useProblemCode, useProblemMessage } from "@/components/account/commerce/reasons";
 import type {
@@ -20,7 +20,10 @@ import type {
   WalletView,
 } from "@/components/account/commerce/types";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
+import { FieldMessage, FormField } from "@/components/forms/field";
+import { MoneyInput } from "@/components/forms/money-input";
 import { type ApiError, apiFetch, fetcher, toQuery } from "@/lib/api";
+import { issue, moneyIssue } from "@/lib/form-schema";
 import { useMoney } from "@/lib/format";
 import { useSubmission } from "@/lib/idempotency";
 import { minorToInput, parseMajorToMinor } from "@/lib/money";
@@ -245,13 +248,50 @@ function TopUpForm({
   const describeCode = useProblemCode();
   const submission = useSubmission();
 
-  const [amount, setAmount] = useState("");
-  // One way to pay is not a choice. Starting empty left the submit button
-  // disabled with nothing on screen saying which of the one options to pick.
-  const [provider, setProvider] = useState(() =>
-    policy.providers.length === 1 ? policy.providers[0].provider : "",
+  // The input is in the currency's major unit because that is what a person
+  // types; the API is in minor units because that is the only representation
+  // that survives a round trip. The conversion is the shared one in
+  // lib/money.ts, which knows each currency's exponent and refuses more
+  // decimals than the currency has rather than rounding them away. The bounds
+  // are checked here so the customer hears about them before paying; the store
+  // checks them again under the lock that records the credit.
+  const schema = z.object({ amount: z.string(), provider: z.string() }).check(
+    z.superRefine((values, context) => {
+      const problem = moneyIssue(values.amount, currency, {
+        formatted: (minor) => money(minor, currency),
+        maximumMinor: policy.maximumMinor > 0 ? policy.maximumMinor : undefined,
+        minimumMinor: Math.max(policy.minimumMinor, 1),
+      });
+      if (problem) {
+        context.issues.push({
+          code: "custom",
+          input: values.amount,
+          message: problem,
+          path: ["amount"],
+        });
+      }
+      if (!values.provider) {
+        context.issues.push({
+          code: "custom",
+          input: values.provider,
+          message: issue("chooseOne"),
+          path: ["provider"],
+        });
+      }
+    }),
   );
-  const [busy, setBusy] = useState(false);
+  type Values = z.infer<typeof schema>;
+  const { control, formState, handleSubmit, register, reset, setValue } = useForm<Values>({
+    defaultValues: {
+      amount: "",
+      // One way to pay is not a choice. Starting empty left the submit button
+      // disabled with nothing on screen saying which of the one options to pick.
+      provider: policy.providers.length === 1 ? policy.providers[0].provider : "",
+    },
+    resolver: zodResolver(schema),
+  });
+  const parsed = parseMajorToMinor(useWatch({ control, name: "amount" }), currency);
+  const minor = parsed.ok ? parsed.minor : 0;
 
   if (!policy.enabled) {
     return (
@@ -264,27 +304,20 @@ function TopUpForm({
     );
   }
 
-  // The input is in the currency's major unit because that is what a person
-  // types; the API is in minor units because that is the only representation
-  // that survives a round trip. The conversion is the shared one in
-  // lib/money.ts, which knows each currency's exponent and refuses more
-  // decimals than the currency has rather than rounding them away.
-  const parsed = parseMajorToMinor(amount, currency);
-  const minor = parsed.ok ? parsed.minor : 0;
-  const usable = minor > 0;
-
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    setBusy(true);
+  async function submit(values: Values) {
+    const amount = parseMajorToMinor(values.amount, currency);
+    if (!amount.ok) {
+      return;
+    }
     const key = submission.begin();
     try {
       const result = await apiFetch<TopUpResult>("/v1/account/wallet/top-up", {
-        body: JSON.stringify({ amountMinor: minor, currency, provider }),
+        body: JSON.stringify({ amountMinor: amount.minor, currency, provider: values.provider }),
         headers: { "Idempotency-Key": key },
         method: "POST",
       });
       submission.settle();
-      setAmount("");
+      reset({ amount: "", provider: values.provider });
       // The handoff is rendered from the wallet's pending list, which the
       // re-read below populates, rather than from this response — so it is
       // still there after a reload. The response only decides what to say.
@@ -301,22 +334,31 @@ function TopUpForm({
     } catch (failure) {
       submission.settle(failure);
       toast.error(describeProblem(failure));
-    } finally {
-      setBusy(false);
     }
   }
+
+  const busy = formState.isSubmitting;
 
   return (
     <section className="space-y-2">
       <SectionLabel>{translate("wallet.topUp.title")}</SectionLabel>
 
-      <form className="space-y-4 rounded-lg border border-border bg-card p-4" onSubmit={submit}>
+      <form
+        className="space-y-4 rounded-lg border border-border bg-card p-4"
+        noValidate
+        onSubmit={handleSubmit(submit)}
+      >
         {policy.presets.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {policy.presets.map((preset) => (
               <Button
                 key={preset}
-                onClick={() => setAmount(minorToInput(preset, currency))}
+                onClick={() =>
+                  setValue("amount", minorToInput(preset, currency), {
+                    shouldDirty: true,
+                    shouldValidate: formState.isSubmitted,
+                  })
+                }
                 size="sm"
                 type="button"
                 variant={minor === preset ? "secondary" : "outline"}
@@ -327,30 +369,29 @@ function TopUpForm({
           </div>
         )}
 
-        <div className="space-y-2">
-          <Label htmlFor="top-up-amount">{translate("wallet.topUp.amount", { currency })}</Label>
-          <Input
-            autoComplete="off"
-            id="top-up-amount"
-            inputMode="decimal"
-            onChange={(event) => setAmount(event.target.value)}
-            placeholder="0"
-            required
-            value={amount}
-          />
-          <p className="text-[11.5px] text-subtle-foreground leading-relaxed">
-            {translate("wallet.topUp.limits", {
-              maximum: money(policy.maximumMinor, currency),
-              minimum: money(policy.minimumMinor, currency),
-            })}
-            {policy.remainingWindowMinor > 0 &&
-              ` ${translate("wallet.topUp.remaining", {
-                amount: money(policy.remainingWindowMinor, currency),
-              })}`}
-          </p>
-        </div>
+        <FormField
+          error={formState.errors.amount?.message}
+          hint={
+            <>
+              {translate("wallet.topUp.limits", {
+                maximum: money(policy.maximumMinor, currency),
+                minimum: money(policy.minimumMinor, currency),
+              })}
+              {policy.remainingWindowMinor > 0 &&
+                ` ${translate("wallet.topUp.remaining", {
+                  amount: money(policy.remainingWindowMinor, currency),
+                })}`}
+            </>
+          }
+          label={translate("wallet.topUp.amount", { currency })}
+        >
+          {(props) => <MoneyInput {...props} currency={currency} {...register("amount")} />}
+        </FormField>
 
-        <fieldset className="space-y-2">
+        <fieldset
+          aria-describedby={formState.errors.provider ? "top-up-provider-error" : undefined}
+          className="space-y-2"
+        >
           <legend className="pb-2 font-medium font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em]">
             {translate("checkout.provider.title")}
           </legend>
@@ -369,13 +410,10 @@ function TopUpForm({
                   key={choice.provider}
                 >
                   <input
-                    checked={provider === choice.provider}
                     className="size-4 accent-[color:var(--primary)]"
-                    name="top-up-provider"
-                    onChange={() => setProvider(choice.provider)}
-                    required
                     type="radio"
                     value={choice.provider}
+                    {...register("provider")}
                   />
                   <span className="font-medium text-[13.5px]">
                     {translate(
@@ -388,15 +426,20 @@ function TopUpForm({
               ))}
             </div>
           )}
+          <FieldMessage id="top-up-provider-error" message={formState.errors.provider?.message} />
         </fieldset>
 
+        {/* Disabled only when there is truly nothing to pay with, and that is
+            said just above; every other problem is reported on its field when
+            the customer presses the button, rather than by a button that
+            silently refuses. */}
         <Button
           className="w-full"
-          disabled={busy || !usable || policy.providers.length === 0}
+          disabled={busy || policy.providers.length === 0}
           size="lg"
           type="submit"
         >
-          {translate("wallet.topUp.submit")}
+          {busy ? translate("wallet.topUp.submitting") : translate("wallet.topUp.submit")}
         </Button>
       </form>
     </section>

@@ -1,5 +1,6 @@
 "use client";
 
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@omniflow/ui/button";
 import { Checkbox } from "@omniflow/ui/checkbox";
 import { Input } from "@omniflow/ui/input";
@@ -7,14 +8,21 @@ import { Label } from "@omniflow/ui/label";
 import { Switch } from "@omniflow/ui/switch";
 import { BadgeCheck, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { type FormEvent, useId, useState } from "react";
+import { useId, useState } from "react";
+import { useForm } from "react-hook-form";
+import * as z from "zod/mini";
 
 import { useShopProblem } from "@/components/account/shop/problem";
 import type { ShopRecipient } from "@/components/account/shop/types";
+import { FormField } from "@/components/forms/field";
 import { apiFetch } from "@/lib/api";
+import { requiredText } from "@/lib/form-schema";
 
 /** The handle the customer has looked at and agreed to, exactly as it will be sent. */
 export type ConfirmedRecipient = { handle: string; checked: boolean };
+
+const recipientSchema = z.object({ recipient: requiredText(200) });
+type RecipientValues = z.infer<typeof recipientSchema>;
 
 /**
  * The recipient step.
@@ -53,28 +61,25 @@ export function RecipientStep({
 }) {
   const translate = useTranslations("account.shop");
   const describe = useShopProblem();
-  const fieldId = useId();
   const confirmId = useId();
   const selfId = useId();
 
-  const [input, setInput] = useState("");
   const [reviewed, setReviewed] = useState<ShopRecipient | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { formState, handleSubmit, register, setError } = useForm<RecipientValues>({
+    defaultValues: { recipient: "" },
+    resolver: zodResolver(recipientSchema),
+  });
+  const busy = formState.isSubmitting;
 
   function reset() {
     setReviewed(null);
-    setError(null);
     onConfirmedChange(null);
   }
 
-  async function review(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    setError(null);
+  async function review(values: RecipientValues) {
     try {
       const result = await apiFetch<ShopRecipient>("/v1/account/shop/recipient", {
-        body: JSON.stringify({ productId, recipient: input }),
+        body: JSON.stringify({ productId, recipient: values.recipient.trim() }),
         method: "POST",
       });
       setReviewed(result);
@@ -85,9 +90,8 @@ export function RecipientStep({
     } catch (reviewError) {
       setReviewed(null);
       onConfirmedChange(null);
-      setError(describe(reviewError));
-    } finally {
-      setBusy(false);
+      // The refusal is shown on the field it is about, in the panel's words.
+      setError("recipient", { message: describe(reviewError) });
     }
   }
 
@@ -99,35 +103,32 @@ export function RecipientStep({
         {translate("recipient.title")}
       </h2>
 
-      <form className="space-y-2" onSubmit={review}>
-        <Label htmlFor={fieldId}>{translate("recipient.label")}</Label>
-        <div className="flex gap-2">
-          <Input
-            aria-describedby={error ? `${fieldId}-error` : undefined}
-            aria-invalid={error ? true : undefined}
-            autoCapitalize="none"
-            autoComplete="off"
-            disabled={disabled || busy}
-            id={fieldId}
-            onChange={(event) => {
-              setInput(event.target.value);
-              if (reviewed || confirmed) {
-                reset();
-              }
-            }}
-            placeholder={translate("recipient.placeholder")}
-            spellCheck={false}
-            value={input}
-          />
-          <Button disabled={disabled || busy || input.trim() === ""} type="submit">
-            {busy ? translate("recipient.checking") : translate("recipient.check")}
-          </Button>
-        </div>
-        {error && (
-          <p className="text-[12.5px] text-destructive leading-relaxed" id={`${fieldId}-error`}>
-            {error}
-          </p>
-        )}
+      <form noValidate onSubmit={handleSubmit(review)}>
+        <FormField error={formState.errors.recipient?.message} label={translate("recipient.label")}>
+          {(props) => (
+            <div className="flex gap-2">
+              <Input
+                {...props}
+                autoCapitalize="none"
+                autoComplete="off"
+                disabled={disabled || busy}
+                placeholder={translate("recipient.placeholder")}
+                spellCheck={false}
+                {...register("recipient", {
+                  // Editing the handle withdraws a review of the old one.
+                  onChange: () => {
+                    if (reviewed || confirmed) {
+                      reset();
+                    }
+                  },
+                })}
+              />
+              <Button disabled={disabled || busy} type="submit">
+                {busy ? translate("recipient.checking") : translate("recipient.check")}
+              </Button>
+            </div>
+          )}
+        </FormField>
       </form>
 
       {reviewed && (
