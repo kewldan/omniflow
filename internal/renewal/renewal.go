@@ -148,7 +148,7 @@ func (worker *Worker) schedule(ctx context.Context) {
 			Attempt:         1,
 			Funding:         row.Funding,
 			PaymentMethodID: row.PaymentMethodID,
-			ScheduledFor:    pgtype.Timestamptz{Time: worker.clock().UTC(), Valid: true},
+			ScheduledFor:    pgtype.Timestamptz{Time: firstAttemptAt(row, worker.clock()), Valid: true},
 		}); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			// pgx.ErrNoRows is the ON CONFLICT DO NOTHING path: the attempt
 			// already exists, which is exactly what should happen on a
@@ -157,6 +157,28 @@ func (worker *Worker) schedule(ctx context.Context) {
 				"cycleKey", row.CycleKey, "error", err)
 		}
 	}
+}
+
+// firstAttemptAt is when a renewal's first attempt is due: the instant the
+// cycle entered its lead time, never later than now.
+//
+// Stamping it with the worker's clock alone made the first attempt wait a
+// whole pass whenever that clock ran even a millisecond ahead of the
+// database's, because the charge half of the same pass compares
+// scheduled_for with the database's now(). The lead-time boundary is the
+// moment the database itself judged the cycle due, so it is already in the
+// past by the database's clock, and the attempt is charged in the pass that
+// scheduled it, as RunOnce promises.
+func firstAttemptAt(row dbgen.ListAutoRenewDueRow, now time.Time) time.Time {
+	now = now.UTC()
+	if !row.EntitlementEndsAt.Valid {
+		return now
+	}
+	due := row.EntitlementEndsAt.Time.UTC().Add(-time.Duration(row.LeadTimeSeconds) * time.Second)
+	if due.After(now) {
+		return now
+	}
+	return due
 }
 
 // ---------------------------------------------------------------------------
