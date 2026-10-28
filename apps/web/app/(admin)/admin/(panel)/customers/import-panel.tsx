@@ -55,7 +55,9 @@ export function ImportPanel() {
         <CardDescription>{translate("description")}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        {can("customers.read") && (
+        {/* Its own permission (owner and administrator), not customers.read:
+            an export is the whole customer table leaving the installation. */}
+        {can("customers.export") && (
           <Button asChild className="self-start" size="sm" variant="outline">
             <a href="/v1/panel/customers/export">{translate("export")}</a>
           </Button>
