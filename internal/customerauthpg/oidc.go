@@ -141,13 +141,37 @@ func (service *Service) SaveOIDCProvider(
 		}
 	}
 
-	row, err := dbgen.New(service.pool).UpsertCustomerOIDCProvider(ctx, dbgen.UpsertCustomerOIDCProviderParams{
-		Slug: input.Slug, DisplayName: input.DisplayName, Issuer: input.Issuer,
-		DiscoveryUrl: input.DiscoveryURL, ClientID: input.ClientID,
-		ClientSecretCiphertext: sealed, Scopes: input.Scopes, Enabled: input.Enabled,
-		Icon: optionalText(input.Icon), SortOrder: input.SortOrder,
-		RequireVerifiedEmail: input.RequireVerifiedEmail,
-		AllowAutoProvision:   input.AllowAutoProvision,
+	var row dbgen.CustomerOidcProvider
+	err := service.inTx(ctx, func(queries *dbgen.Queries) error {
+		existing, lookupErr := queries.LockCustomerOIDCProvider(ctx, input.Slug)
+		switch {
+		case errors.Is(lookupErr, pgx.ErrNoRows):
+		case lookupErr != nil:
+			return lookupErr
+		case existing.Issuer != input.Issuer || existing.DiscoveryUrl != input.DiscoveryURL:
+			// Customers linked through this provider are bound to its current
+			// issuer. Repointing it would not move them — sign-in pins the
+			// issuer — but it would strand every one of them, so it is
+			// refused while any binding is active. Deleting the provider and
+			// creating a new one is the deliberate path.
+			bound, countErr := queries.CountActiveCustomerOIDCIdentities(ctx, input.Slug)
+			if countErr != nil {
+				return countErr
+			}
+			if bound > 0 {
+				return ErrOIDCProviderBound
+			}
+		}
+		var upsertErr error
+		row, upsertErr = queries.UpsertCustomerOIDCProvider(ctx, dbgen.UpsertCustomerOIDCProviderParams{
+			Slug: input.Slug, DisplayName: input.DisplayName, Issuer: input.Issuer,
+			DiscoveryUrl: input.DiscoveryURL, ClientID: input.ClientID,
+			ClientSecretCiphertext: sealed, Scopes: input.Scopes, Enabled: input.Enabled,
+			Icon: optionalText(input.Icon), SortOrder: input.SortOrder,
+			RequireVerifiedEmail: input.RequireVerifiedEmail,
+			AllowAutoProvision:   input.AllowAutoProvision,
+		})
+		return upsertErr
 	})
 	if err != nil {
 		return OIDCProvider{}, err
@@ -231,6 +255,12 @@ func (service *Service) CompleteOIDCSignIn(
 		})
 		switch {
 		case lookupErr == nil:
+			if !customerauth.BindingMatchesIssuer(existing.OidcIssuer.String, claims.Issuer) {
+				// Linked at another issuer. Whoever controls this one can
+				// mint any subject string, including this customer's, so the
+				// match on subject alone proves nothing.
+				return ErrSignInRejected
+			}
 			if existing.UserStatus != "active" {
 				return ErrAccountInactive
 			}
@@ -259,10 +289,10 @@ func (service *Service) CompleteOIDCSignIn(
 			if createErr != nil {
 				return createErr
 			}
-			if _, createErr = queries.LinkCustomerIdentity(ctx, dbgen.LinkCustomerIdentityParams{
+			if _, createErr = queries.LinkCustomerOIDCIdentity(ctx, dbgen.LinkCustomerOIDCIdentityParams{
 				UserID: created.ID, Provider: provider, ProviderSubject: claims.Subject,
 				VerifiedAt: pgtype.Timestamptz{Time: service.now(), Valid: true},
-				Metadata:   []byte("{}"),
+				OidcIssuer: pgtype.Text{String: claims.Issuer, Valid: true},
 			}); createErr != nil {
 				return createErr
 			}
@@ -315,6 +345,10 @@ func (service *Service) LinkOIDCIdentity(
 		})
 		switch {
 		case lookupErr == nil:
+			if !customerauth.BindingMatchesIssuer(existing.OidcIssuer.String, claims.Issuer) {
+				// The subject is taken at another issuer; it is not this one.
+				return customerauth.ErrIdentityTaken
+			}
 			if uuidString(existing.UserID) == customerID {
 				// Already linked to this customer: linking again is a no-op
 				// rather than an error, so a double submission is harmless.
@@ -325,10 +359,10 @@ func (service *Service) LinkOIDCIdentity(
 			return lookupErr
 		}
 
-		if _, linkErr := queries.LinkCustomerIdentity(ctx, dbgen.LinkCustomerIdentityParams{
+		if _, linkErr := queries.LinkCustomerOIDCIdentity(ctx, dbgen.LinkCustomerOIDCIdentityParams{
 			UserID: userID, Provider: provider, ProviderSubject: claims.Subject,
 			VerifiedAt: pgtype.Timestamptz{Time: service.now(), Valid: true},
-			Metadata:   []byte("{}"),
+			OidcIssuer: pgtype.Text{String: claims.Issuer, Valid: true},
 		}); linkErr != nil {
 			return linkErr
 		}
@@ -346,7 +380,12 @@ func (service *Service) exchangeOIDC(
 		return dbgen.CustomerOidcProvider{}, customerauth.Claims{}, err
 	}
 
-	token, err := config.Exchange(ctx, code, oauth2.SetAuthURLParam("code_verifier", verifier))
+	// The exchange uses the same bounded client as discovery; without it the
+	// oauth2 package falls back to http.DefaultClient, which has no timeout.
+	token, err := config.Exchange(
+		oidc.ClientContext(ctx, service.httpClient), code,
+		oauth2.SetAuthURLParam("code_verifier", verifier),
+	)
 	if err != nil {
 		return dbgen.CustomerOidcProvider{}, customerauth.Claims{}, ErrSignInRejected
 	}
@@ -379,7 +418,7 @@ func (service *Service) exchangeOIDC(
 	}
 
 	claims, err := customerauth.ResolveClaims(customerauth.Claims{
-		Subject: idToken.Subject, Email: raw.Email, EmailVerified: raw.EmailVerified,
+		Issuer: idToken.Issuer, Subject: idToken.Subject, Email: raw.Email, EmailVerified: raw.EmailVerified,
 		Name: raw.Name, Locale: raw.Locale,
 	}, stored.RequireVerifiedEmail)
 	if err != nil {

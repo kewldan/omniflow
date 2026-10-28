@@ -330,6 +330,15 @@ SELECT * FROM admin_oidc_providers WHERE enabled = true ORDER BY display_name;
 -- name: GetAdminOIDCProviderBySlug :one
 SELECT * FROM admin_oidc_providers WHERE slug = $1;
 
+-- name: LockAdminOIDCProviderBySlug :one
+-- Read under a row lock by the save path, which compares the stored issuer,
+-- discovery URL, and client against the submitted ones before deciding whether
+-- the change is allowed and whether the stored secret may be kept.
+SELECT * FROM admin_oidc_providers WHERE slug = $1 FOR UPDATE;
+
+-- name: CountAdminOIDCIdentitiesForProvider :one
+SELECT count(*)::bigint FROM admin_oidc_identities WHERE provider_id = $1;
+
 -- name: UpsertAdminOIDCProvider :one
 INSERT INTO admin_oidc_providers (
   slug, display_name, issuer, discovery_url, client_id, client_secret_ciphertext,
@@ -368,8 +377,10 @@ JOIN admin_users u ON u.id = i.admin_user_id
 WHERE i.provider_id = sqlc.arg(provider_id) AND i.subject = sqlc.arg(subject);
 
 -- name: LinkAdminOIDCIdentity :one
-INSERT INTO admin_oidc_identities (admin_user_id, provider_id, subject)
-VALUES (sqlc.arg(admin_user_id), sqlc.arg(provider_id), sqlc.arg(subject))
+-- The issuer is stored with the subject because a subject is only unique within
+-- one issuer; sign-in refuses a binding whose issuer differs from the token's.
+INSERT INTO admin_oidc_identities (admin_user_id, provider_id, subject, issuer)
+VALUES (sqlc.arg(admin_user_id), sqlc.arg(provider_id), sqlc.arg(subject), sqlc.arg(issuer))
 ON CONFLICT (provider_id, subject) DO NOTHING
 RETURNING *;
 

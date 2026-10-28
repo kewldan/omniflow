@@ -46,6 +46,12 @@ var (
 	ErrNotFound        = errors.New("record not found")
 	ErrOIDCDisabled    = errors.New("no such sign-in provider is enabled")
 	ErrTelegramUnset   = errors.New("telegram sign-in is not configured")
+	// ErrOIDCProviderBound reports an attempt to repoint a provider that
+	// customers are linked through at a different issuer.
+	ErrOIDCProviderBound = errors.New(
+		"customers are linked through this provider; its issuer and discovery URL " +
+			"cannot change — delete the provider and create a new one instead",
+	)
 )
 
 const (

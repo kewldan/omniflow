@@ -2171,7 +2171,7 @@ VALUES ($1, $2, $3, $4, 'active', $5)
 ON CONFLICT (provider, provider_subject) DO UPDATE
 SET verified_at = COALESCE(identities.verified_at, EXCLUDED.verified_at)
 WHERE identities.user_id = EXCLUDED.user_id AND identities.status = 'active'
-RETURNING id, user_id, provider, provider_subject, verified_at, created_at, status, revoked_at, metadata
+RETURNING id, user_id, provider, provider_subject, verified_at, created_at, status, revoked_at, metadata, oidc_issuer
 `
 
 type LinkCustomerIdentityParams struct {
@@ -2201,6 +2201,7 @@ func (q *Queries) LinkCustomerIdentity(ctx context.Context, arg LinkCustomerIden
 		&i.Status,
 		&i.RevokedAt,
 		&i.Metadata,
+		&i.OidcIssuer,
 	)
 	return i, err
 }
@@ -2254,7 +2255,7 @@ func (q *Queries) ListContactChannels(ctx context.Context, userID pgtype.UUID) (
 }
 
 const listCustomerIdentities = `-- name: ListCustomerIdentities :many
-SELECT id, user_id, provider, provider_subject, verified_at, created_at, status, revoked_at, metadata FROM identities WHERE user_id = $1 ORDER BY created_at
+SELECT id, user_id, provider, provider_subject, verified_at, created_at, status, revoked_at, metadata, oidc_issuer FROM identities WHERE user_id = $1 ORDER BY created_at
 `
 
 func (q *Queries) ListCustomerIdentities(ctx context.Context, userID pgtype.UUID) ([]Identity, error) {
@@ -2276,6 +2277,7 @@ func (q *Queries) ListCustomerIdentities(ctx context.Context, userID pgtype.UUID
 			&i.Status,
 			&i.RevokedAt,
 			&i.Metadata,
+			&i.OidcIssuer,
 		); err != nil {
 			return nil, err
 		}
@@ -2967,7 +2969,7 @@ const revokeCustomerIdentity = `-- name: RevokeCustomerIdentity :one
 UPDATE identities
 SET status = 'revoked', revoked_at = now()
 WHERE id = $1 AND user_id = $2 AND status = 'active'
-RETURNING id, user_id, provider, provider_subject, verified_at, created_at, status, revoked_at, metadata
+RETURNING id, user_id, provider, provider_subject, verified_at, created_at, status, revoked_at, metadata, oidc_issuer
 `
 
 type RevokeCustomerIdentityParams struct {
@@ -2988,6 +2990,7 @@ func (q *Queries) RevokeCustomerIdentity(ctx context.Context, arg RevokeCustomer
 		&i.Status,
 		&i.RevokedAt,
 		&i.Metadata,
+		&i.OidcIssuer,
 	)
 	return i, err
 }

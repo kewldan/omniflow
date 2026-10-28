@@ -79,11 +79,25 @@ func CanUnlink(methods []SignInMethod, identityID string) error {
 
 // Claims is the subset of an OIDC ID token this application acts on.
 type Claims struct {
+	// Issuer is the verified `iss` of the token. A subject is only unique
+	// within one issuer, so a binding is the pair, never the subject alone.
+	Issuer        string
 	Subject       string
 	Email         string
 	EmailVerified bool
 	Name          string
 	Locale        string
+}
+
+// BindingMatchesIssuer reports whether an identity linked at boundIssuer may be
+// signed in to by a token from assertedIssuer.
+//
+// A provider row's issuer can be edited, so the issuer the binding was made at
+// is what counts, not the one the provider holds today. A binding with no
+// recorded issuer matches nothing: it predates issuer pinning and its provider
+// row is gone, so there is no issuer it can be proven to belong to.
+func BindingMatchesIssuer(boundIssuer, assertedIssuer string) bool {
+	return boundIssuer != "" && boundIssuer == assertedIssuer
 }
 
 // ResolveClaims applies a provider's configured trust rules to its claims.

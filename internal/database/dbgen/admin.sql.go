@@ -183,6 +183,17 @@ func (q *Queries) CountAdminOIDCIdentities(ctx context.Context, adminUserID pgty
 	return column_1, err
 }
 
+const countAdminOIDCIdentitiesForProvider = `-- name: CountAdminOIDCIdentitiesForProvider :one
+SELECT count(*)::bigint FROM admin_oidc_identities WHERE provider_id = $1
+`
+
+func (q *Queries) CountAdminOIDCIdentitiesForProvider(ctx context.Context, providerID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countAdminOIDCIdentitiesForProvider, providerID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const countAdminOwners = `-- name: CountAdminOwners :one
 SELECT count(*)::bigint
 FROM admin_user_roles r
@@ -617,7 +628,7 @@ func (q *Queries) ExpireAdminSetupTokens(ctx context.Context) (int64, error) {
 }
 
 const getAdminOIDCIdentity = `-- name: GetAdminOIDCIdentity :one
-SELECT i.id, i.admin_user_id, i.provider_id, i.subject, i.linked_at, i.last_login_at, u.id, u.email, u.email_normalized, u.display_name, u.password_hash, u.status, u.locale, u.timezone, u.preferences, u.totp_secret_ciphertext, u.totp_confirmed_at, u.failed_login_count, u.locked_until, u.password_changed_at, u.last_login_at, u.created_at, u.updated_at, u.disabled_at
+SELECT i.id, i.admin_user_id, i.provider_id, i.subject, i.linked_at, i.last_login_at, i.issuer, u.id, u.email, u.email_normalized, u.display_name, u.password_hash, u.status, u.locale, u.timezone, u.preferences, u.totp_secret_ciphertext, u.totp_confirmed_at, u.failed_login_count, u.locked_until, u.password_changed_at, u.last_login_at, u.created_at, u.updated_at, u.disabled_at
 FROM admin_oidc_identities i
 JOIN admin_users u ON u.id = i.admin_user_id
 WHERE i.provider_id = $1 AND i.subject = $2
@@ -643,6 +654,7 @@ func (q *Queries) GetAdminOIDCIdentity(ctx context.Context, arg GetAdminOIDCIden
 		&i.AdminOidcIdentity.Subject,
 		&i.AdminOidcIdentity.LinkedAt,
 		&i.AdminOidcIdentity.LastLoginAt,
+		&i.AdminOidcIdentity.Issuer,
 		&i.AdminUser.ID,
 		&i.AdminUser.Email,
 		&i.AdminUser.EmailNormalized,
@@ -950,20 +962,28 @@ func (q *Queries) InvalidateAdminPasswordResets(ctx context.Context, adminUserID
 }
 
 const linkAdminOIDCIdentity = `-- name: LinkAdminOIDCIdentity :one
-INSERT INTO admin_oidc_identities (admin_user_id, provider_id, subject)
-VALUES ($1, $2, $3)
+INSERT INTO admin_oidc_identities (admin_user_id, provider_id, subject, issuer)
+VALUES ($1, $2, $3, $4)
 ON CONFLICT (provider_id, subject) DO NOTHING
-RETURNING id, admin_user_id, provider_id, subject, linked_at, last_login_at
+RETURNING id, admin_user_id, provider_id, subject, linked_at, last_login_at, issuer
 `
 
 type LinkAdminOIDCIdentityParams struct {
 	AdminUserID pgtype.UUID `json:"admin_user_id"`
 	ProviderID  pgtype.UUID `json:"provider_id"`
 	Subject     string      `json:"subject"`
+	Issuer      string      `json:"issuer"`
 }
 
+// The issuer is stored with the subject because a subject is only unique within
+// one issuer; sign-in refuses a binding whose issuer differs from the token's.
 func (q *Queries) LinkAdminOIDCIdentity(ctx context.Context, arg LinkAdminOIDCIdentityParams) (AdminOidcIdentity, error) {
-	row := q.db.QueryRow(ctx, linkAdminOIDCIdentity, arg.AdminUserID, arg.ProviderID, arg.Subject)
+	row := q.db.QueryRow(ctx, linkAdminOIDCIdentity,
+		arg.AdminUserID,
+		arg.ProviderID,
+		arg.Subject,
+		arg.Issuer,
+	)
 	var i AdminOidcIdentity
 	err := row.Scan(
 		&i.ID,
@@ -972,6 +992,7 @@ func (q *Queries) LinkAdminOIDCIdentity(ctx context.Context, arg LinkAdminOIDCId
 		&i.Subject,
 		&i.LinkedAt,
 		&i.LastLoginAt,
+		&i.Issuer,
 	)
 	return i, err
 }
@@ -1296,6 +1317,35 @@ func (q *Queries) ListEnabledAdminOIDCProviders(ctx context.Context) ([]AdminOid
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockAdminOIDCProviderBySlug = `-- name: LockAdminOIDCProviderBySlug :one
+SELECT id, slug, display_name, issuer, discovery_url, client_id, client_secret_ciphertext, scopes, enabled, require_verified_email, allow_auto_provision, auto_provision_role, created_at, updated_at FROM admin_oidc_providers WHERE slug = $1 FOR UPDATE
+`
+
+// Read under a row lock by the save path, which compares the stored issuer,
+// discovery URL, and client against the submitted ones before deciding whether
+// the change is allowed and whether the stored secret may be kept.
+func (q *Queries) LockAdminOIDCProviderBySlug(ctx context.Context, slug string) (AdminOidcProvider, error) {
+	row := q.db.QueryRow(ctx, lockAdminOIDCProviderBySlug, slug)
+	var i AdminOidcProvider
+	err := row.Scan(
+		&i.ID,
+		&i.Slug,
+		&i.DisplayName,
+		&i.Issuer,
+		&i.DiscoveryUrl,
+		&i.ClientID,
+		&i.ClientSecretCiphertext,
+		&i.Scopes,
+		&i.Enabled,
+		&i.RequireVerifiedEmail,
+		&i.AllowAutoProvision,
+		&i.AutoProvisionRole,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const purgeExpiredAdminSessions = `-- name: PurgeExpiredAdminSessions :execrows

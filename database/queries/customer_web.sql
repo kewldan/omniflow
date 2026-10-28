@@ -232,6 +232,31 @@ SET display_name = EXCLUDED.display_name,
     updated_at = now()
 RETURNING *;
 
+-- name: LockCustomerOIDCProvider :one
+-- Read under a row lock by the save path, which compares the stored issuer,
+-- discovery URL, and client against the submitted ones before deciding whether
+-- the change is allowed and whether the stored secret may be kept.
+SELECT * FROM customer_oidc_providers WHERE slug = $1 FOR UPDATE;
+
+-- name: CountActiveCustomerOIDCIdentities :one
+SELECT count(*)::bigint FROM identities
+WHERE provider = 'oidc:' || sqlc.arg(slug)::text AND status = 'active';
+
+-- name: LinkCustomerOIDCIdentity :one
+-- LinkCustomerIdentity with the issuer recorded. A subject is only unique within
+-- one issuer, so sign-in compares the token's issuer against this column and
+-- refuses a mismatch rather than trusting the provider row's current issuer.
+INSERT INTO identities (user_id, provider, provider_subject, verified_at, status, metadata, oidc_issuer)
+VALUES (
+  sqlc.arg(user_id), sqlc.arg(provider), sqlc.arg(provider_subject), sqlc.arg(verified_at),
+  'active', '{}'::jsonb, sqlc.arg(oidc_issuer)
+)
+ON CONFLICT (provider, provider_subject) DO UPDATE
+SET verified_at = COALESCE(identities.verified_at, EXCLUDED.verified_at)
+WHERE identities.user_id = EXCLUDED.user_id AND identities.status = 'active'
+  AND identities.oidc_issuer = EXCLUDED.oidc_issuer
+RETURNING *;
+
 -- name: DeleteCustomerOIDCProvider :execrows
 DELETE FROM customer_oidc_providers WHERE slug = $1;
 

@@ -44,14 +44,20 @@ func (handlers *AdminHandlers) mountOIDCPublic(panel chi.Router) {
 	panel.Get("/auth/oidc/{slug}/callback", handlers.callbackOIDC)
 }
 
-// mountOIDCSecure registers provider configuration, which is an installation
-// setting and gated like every other one.
+// mountOIDCSecure registers provider configuration.
+//
+// Reading it is an ordinary installation setting. Changing it is not: an
+// operator sign-in provider decides who becomes which operator, and with
+// auto-provisioning which role they arrive with, so it is the same authority
+// as granting roles. Writes therefore also require `admins.roles`, which only
+// the owner holds — otherwise an administrator could repoint a provider at an
+// issuer they control and sign in as anyone linked through it.
 func (handlers *AdminHandlers) mountOIDCSecure(secure chi.Router) {
 	secure.With(handlers.requirePermission(rbac.PermissionSettingsRead)).
 		Get("/settings/oidc", handlers.listOIDCProviders)
-	secure.With(handlers.requirePermission(rbac.PermissionSettingsWrite)).
+	secure.With(handlers.requirePermission(rbac.PermissionSettingsWrite, rbac.PermissionAdminsRoles)).
 		Put("/settings/oidc", handlers.saveOIDCProvider)
-	secure.With(handlers.requirePermission(rbac.PermissionSettingsWrite)).
+	secure.With(handlers.requirePermission(rbac.PermissionSettingsWrite, rbac.PermissionAdminsRoles)).
 		Delete("/settings/oidc/{slug}", handlers.deleteOIDCProvider)
 }
 
@@ -198,6 +204,10 @@ func (handlers *AdminHandlers) saveOIDCProvider(writer http.ResponseWriter, requ
 		RequireVerifiedEmail: body.RequireVerifiedEmail,
 		AllowAutoProvision:   body.AllowAutoProvision, AutoProvisionRole: body.AutoProvisionRole,
 	}, principal.Account.ID, handlers.requestContext(request))
+	if errors.Is(err, adminauthpg.ErrOIDCProviderBound) {
+		writeProblem(writer, request, http.StatusConflict, "oidc_provider_bound", err.Error())
+		return
+	}
 	if err != nil {
 		writeProblem(writer, request, http.StatusUnprocessableEntity, "oidc_rejected", err.Error())
 		return

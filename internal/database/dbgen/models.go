@@ -66,6 +66,7 @@ type AdminOidcIdentity struct {
 	Subject     string             `json:"subject"`
 	LinkedAt    pgtype.Timestamptz `json:"linked_at"`
 	LastLoginAt pgtype.Timestamptz `json:"last_login_at"`
+	Issuer      string             `json:"issuer"`
 }
 
 type AdminOidcProvider struct {
@@ -1025,6 +1026,7 @@ type Identity struct {
 	Status          string             `json:"status"`
 	RevokedAt       pgtype.Timestamptz `json:"revoked_at"`
 	Metadata        []byte             `json:"metadata"`
+	OidcIssuer      pgtype.Text        `json:"oidc_issuer"`
 }
 
 type InfoPage struct {

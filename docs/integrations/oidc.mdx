@@ -21,7 +21,7 @@ cookie.
 | --- | --- | --- |
 | Table | `admin_oidc_providers` | `customer_oidc_providers` |
 | Configured at | `PUT /v1/panel/settings/oidc` (API only in this build) | `/admin/settings` → **Customer sign-in providers** |
-| Permission | `settings.read` / `settings.write` | `settings.read` / `settings.write` |
+| Permission | `settings.read` to read; `settings.write` **and** `admins.roles` (owner only) to change | `settings.read` / `settings.write` |
 | Redirect URI | `https://<host>/v1/panel/auth/oidc/<slug>/callback` | `https://<host>/v1/account/auth/oidc/<slug>/callback` |
 | Providers enabled at once | Any number; the sign-in screen has no buttons for them | Any number, rendered as buttons in `sortOrder` |
 | `requireVerifiedEmail` default | `true` | `true` |
@@ -106,10 +106,24 @@ Plain HTTP is refused for both the issuer and the discovery URL. Auto-provisioni
 into `owner` is refused outright, because it would let anyone the provider
 accepts take full control of the installation.
 
+Changing an operator provider is **owner-only**: `PUT` and `DELETE` need
+`settings.write` and `admins.roles`, and only the owner role holds the latter.
+A provider decides who becomes which operator — and, with auto-provisioning,
+with which role — so it is the same authority as granting roles. An
+administrator who could edit one could point it at an issuer they control.
+
 `DELETE /v1/panel/settings/oidc/{slug}` removes the provider and cascades its
 linked identities. Saving and deleting both write audit rows
 (`admin.oidc.provider_saved`, `admin.oidc.provider_deleted`, category
 `configuration`).
+
+<Warning>
+  The `issuer` and `discoveryUrl` of a provider that operators are linked
+  through **cannot be changed**: the save answers `409 oidc_provider_bound`. To
+  move to a different identity provider, delete the provider (which drops its
+  bindings) and create a new one; each operator then links again. See
+  [Issuer pinning](#issuer-pinning).
+</Warning>
 
 ### The redirect URI
 
@@ -270,6 +284,14 @@ Deleting a provider deliberately **leaves the `identities` rows alone**. They
 are the record that a customer once signed in that way, and removing them would
 silently take a sign-in method away from customers who may have no other one.
 
+While any customer has an active identity through a provider, its `issuer` and
+`discoveryUrl` **cannot be changed** — the save is refused with
+`oidc_rejected` and a message saying so. Moving customers to a different
+identity provider means deleting this one and creating a new one; the old
+bindings stay pinned to the old issuer and never match the new one (see
+[Issuer pinning](#issuer-pinning)), so affected customers sign in another way
+and link the new provider from **Sign-in methods**.
+
 ### How a customer signs in
 
 `/account/sign-in` calls `GET /v1/account/auth/methods` and renders only what
@@ -337,6 +359,25 @@ Both surfaces map claims the same way, and the mapping is deliberately narrow.
 Two consequences follow directly, and both are intentional: an unlinked subject
 cannot take over an account by asserting its address, and an email change at the
 provider is not an identity change and needs no recovery path at all.
+
+### Issuer pinning
+
+A `sub` is only unique **within one issuer**. Every OIDC binding therefore
+records the issuer that asserted it — `admin_oidc_identities.issuer` for
+operators, `identities.oidc_issuer` for customers — and a sign-in matches a
+binding only when the verified ID token's `iss` equals that recorded value.
+The provider row's current `issuer` is not what counts: if it were, editing a
+provider to point at an issuer somebody else runs would let that issuer mint the
+subject of any linked operator or customer and sign in as them, without a
+second factor.
+
+A subject that is linked at a different issuer is refused outright — for an
+operator as `oidc_no_account`, for a customer as `sign_in_failed`, and for a
+customer linking from **Sign-in methods** as `identity_taken`. It is never
+auto-provisioned, because the `(provider, subject)` pair is taken. Bindings
+created before issuer pinning were backfilled with their provider's issuer at
+upgrade time; a customer binding whose provider row had already been deleted
+has no recorded issuer and matches nothing.
 
 Customer OIDC subjects join the single `identities` table under
 `provider = "oidc:<slug>"`. Two providers may legitimately issue the same `sub`,

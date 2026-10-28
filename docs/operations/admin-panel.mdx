@@ -193,7 +193,12 @@ anti-forgery state and the PKCE verifier travel in a short-lived encrypted
 cookie rather than the database, so an abandoned sign-in leaves nothing behind.
 
 Every ID token is verified against the provider's published JWKS, issuer, and
-audience before it is trusted.
+audience before it is trusted. A linked identity records the issuer it was
+linked at and matches only a token from that same issuer, so editing a
+provider's issuer cannot hand its linked operators to somebody else. Changing
+an operator provider is owner-only (`settings.write` plus `admins.roles`), and
+a provider with linked operators cannot be repointed at another issuer at all —
+see [OIDC sign-in](/integrations/oidc#issuer-pinning).
 
 Two policies govern which account a subject reaches:
 

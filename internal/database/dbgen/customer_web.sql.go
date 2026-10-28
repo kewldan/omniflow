@@ -45,6 +45,18 @@ func (q *Queries) ConsumeCustomerMagicLink(ctx context.Context, arg ConsumeCusto
 	return i, err
 }
 
+const countActiveCustomerOIDCIdentities = `-- name: CountActiveCustomerOIDCIdentities :one
+SELECT count(*)::bigint FROM identities
+WHERE provider = 'oidc:' || $1::text AND status = 'active'
+`
+
+func (q *Queries) CountActiveCustomerOIDCIdentities(ctx context.Context, slug string) (int64, error) {
+	row := q.db.QueryRow(ctx, countActiveCustomerOIDCIdentities, slug)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const countRecentCustomerMagicLinks = `-- name: CountRecentCustomerMagicLinks :one
 SELECT count(*)::bigint FROM customer_magic_links
 WHERE user_id = $1 AND created_at > now() - $2::interval
@@ -255,7 +267,7 @@ func (q *Queries) DeleteExpiredCustomerSessions(ctx context.Context, retention p
 const getActiveIdentityBySubject = `-- name: GetActiveIdentityBySubject :one
 
 
-SELECT i.id, i.user_id, i.provider, i.provider_subject, i.verified_at, i.created_at, i.status, i.revoked_at, i.metadata, u.status AS user_status, u.locale AS user_locale, u.timezone AS user_timezone
+SELECT i.id, i.user_id, i.provider, i.provider_subject, i.verified_at, i.created_at, i.status, i.revoked_at, i.metadata, i.oidc_issuer, u.status AS user_status, u.locale AS user_locale, u.timezone AS user_timezone
 FROM identities i
 JOIN users u ON u.id = i.user_id
 WHERE i.provider = $1 AND i.provider_subject = $2
@@ -277,6 +289,7 @@ type GetActiveIdentityBySubjectRow struct {
 	Status          string             `json:"status"`
 	RevokedAt       pgtype.Timestamptz `json:"revoked_at"`
 	Metadata        []byte             `json:"metadata"`
+	OidcIssuer      pgtype.Text        `json:"oidc_issuer"`
 	UserStatus      string             `json:"user_status"`
 	UserLocale      string             `json:"user_locale"`
 	UserTimezone    string             `json:"user_timezone"`
@@ -302,6 +315,7 @@ func (q *Queries) GetActiveIdentityBySubject(ctx context.Context, arg GetActiveI
 		&i.Status,
 		&i.RevokedAt,
 		&i.Metadata,
+		&i.OidcIssuer,
 		&i.UserStatus,
 		&i.UserLocale,
 		&i.UserTimezone,
@@ -310,7 +324,7 @@ func (q *Queries) GetActiveIdentityBySubject(ctx context.Context, arg GetActiveI
 }
 
 const getCustomerIdentityForUnlink = `-- name: GetCustomerIdentityForUnlink :one
-SELECT id, user_id, provider, provider_subject, verified_at, created_at, status, revoked_at, metadata FROM identities WHERE id = $1 AND user_id = $2
+SELECT id, user_id, provider, provider_subject, verified_at, created_at, status, revoked_at, metadata, oidc_issuer FROM identities WHERE id = $1 AND user_id = $2
 `
 
 type GetCustomerIdentityForUnlinkParams struct {
@@ -331,6 +345,7 @@ func (q *Queries) GetCustomerIdentityForUnlink(ctx context.Context, arg GetCusto
 		&i.Status,
 		&i.RevokedAt,
 		&i.Metadata,
+		&i.OidcIssuer,
 	)
 	return i, err
 }
@@ -521,6 +536,54 @@ func (q *Queries) InsertCustomerSecurityEvent(ctx context.Context, arg InsertCus
 	return i, err
 }
 
+const linkCustomerOIDCIdentity = `-- name: LinkCustomerOIDCIdentity :one
+INSERT INTO identities (user_id, provider, provider_subject, verified_at, status, metadata, oidc_issuer)
+VALUES (
+  $1, $2, $3, $4,
+  'active', '{}'::jsonb, $5
+)
+ON CONFLICT (provider, provider_subject) DO UPDATE
+SET verified_at = COALESCE(identities.verified_at, EXCLUDED.verified_at)
+WHERE identities.user_id = EXCLUDED.user_id AND identities.status = 'active'
+  AND identities.oidc_issuer = EXCLUDED.oidc_issuer
+RETURNING id, user_id, provider, provider_subject, verified_at, created_at, status, revoked_at, metadata, oidc_issuer
+`
+
+type LinkCustomerOIDCIdentityParams struct {
+	UserID          pgtype.UUID        `json:"user_id"`
+	Provider        string             `json:"provider"`
+	ProviderSubject string             `json:"provider_subject"`
+	VerifiedAt      pgtype.Timestamptz `json:"verified_at"`
+	OidcIssuer      pgtype.Text        `json:"oidc_issuer"`
+}
+
+// LinkCustomerIdentity with the issuer recorded. A subject is only unique within
+// one issuer, so sign-in compares the token's issuer against this column and
+// refuses a mismatch rather than trusting the provider row's current issuer.
+func (q *Queries) LinkCustomerOIDCIdentity(ctx context.Context, arg LinkCustomerOIDCIdentityParams) (Identity, error) {
+	row := q.db.QueryRow(ctx, linkCustomerOIDCIdentity,
+		arg.UserID,
+		arg.Provider,
+		arg.ProviderSubject,
+		arg.VerifiedAt,
+		arg.OidcIssuer,
+	)
+	var i Identity
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Provider,
+		&i.ProviderSubject,
+		&i.VerifiedAt,
+		&i.CreatedAt,
+		&i.Status,
+		&i.RevokedAt,
+		&i.Metadata,
+		&i.OidcIssuer,
+	)
+	return i, err
+}
+
 const listCustomerOIDCProviders = `-- name: ListCustomerOIDCProviders :many
 
 SELECT id, slug, display_name, issuer, discovery_url, client_id, client_secret_ciphertext, scopes, enabled, icon, sort_order, require_verified_email, allow_auto_provision, created_at, updated_at, disabled_at FROM customer_oidc_providers ORDER BY sort_order, slug
@@ -670,7 +733,7 @@ func (q *Queries) ListCustomerSessions(ctx context.Context, arg ListCustomerSess
 
 const listCustomerSignInIdentities = `-- name: ListCustomerSignInIdentities :many
 
-SELECT id, user_id, provider, provider_subject, verified_at, created_at, status, revoked_at, metadata FROM identities
+SELECT id, user_id, provider, provider_subject, verified_at, created_at, status, revoked_at, metadata, oidc_issuer FROM identities
 WHERE user_id = $1 AND status = 'active'
   AND (provider = 'telegram' OR provider LIKE 'oidc:%')
 ORDER BY created_at
@@ -701,6 +764,7 @@ func (q *Queries) ListCustomerSignInIdentities(ctx context.Context, userID pgtyp
 			&i.Status,
 			&i.RevokedAt,
 			&i.Metadata,
+			&i.OidcIssuer,
 		); err != nil {
 			return nil, err
 		}
@@ -751,6 +815,37 @@ func (q *Queries) ListEnabledCustomerOIDCProviders(ctx context.Context) ([]Custo
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockCustomerOIDCProvider = `-- name: LockCustomerOIDCProvider :one
+SELECT id, slug, display_name, issuer, discovery_url, client_id, client_secret_ciphertext, scopes, enabled, icon, sort_order, require_verified_email, allow_auto_provision, created_at, updated_at, disabled_at FROM customer_oidc_providers WHERE slug = $1 FOR UPDATE
+`
+
+// Read under a row lock by the save path, which compares the stored issuer,
+// discovery URL, and client against the submitted ones before deciding whether
+// the change is allowed and whether the stored secret may be kept.
+func (q *Queries) LockCustomerOIDCProvider(ctx context.Context, slug string) (CustomerOidcProvider, error) {
+	row := q.db.QueryRow(ctx, lockCustomerOIDCProvider, slug)
+	var i CustomerOidcProvider
+	err := row.Scan(
+		&i.ID,
+		&i.Slug,
+		&i.DisplayName,
+		&i.Issuer,
+		&i.DiscoveryUrl,
+		&i.ClientID,
+		&i.ClientSecretCiphertext,
+		&i.Scopes,
+		&i.Enabled,
+		&i.Icon,
+		&i.SortOrder,
+		&i.RequireVerifiedEmail,
+		&i.AllowAutoProvision,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DisabledAt,
+	)
+	return i, err
 }
 
 const revokeCustomerSession = `-- name: RevokeCustomerSession :one

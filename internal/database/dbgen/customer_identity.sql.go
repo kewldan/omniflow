@@ -85,7 +85,7 @@ func (q *Queries) GetCustomerByTelegramMapping(ctx context.Context, telegramID p
 }
 
 const getIdentityBySubjectAnyStatus = `-- name: GetIdentityBySubjectAnyStatus :one
-SELECT i.id, i.user_id, i.provider, i.provider_subject, i.verified_at, i.created_at, i.status, i.revoked_at, i.metadata, u.status AS user_status, u.locale AS user_locale, u.timezone AS user_timezone
+SELECT i.id, i.user_id, i.provider, i.provider_subject, i.verified_at, i.created_at, i.status, i.revoked_at, i.metadata, i.oidc_issuer, u.status AS user_status, u.locale AS user_locale, u.timezone AS user_timezone
 FROM identities i
 JOIN users u ON u.id = i.user_id
 WHERE i.provider = $1 AND i.provider_subject = $2
@@ -106,6 +106,7 @@ type GetIdentityBySubjectAnyStatusRow struct {
 	Status          string             `json:"status"`
 	RevokedAt       pgtype.Timestamptz `json:"revoked_at"`
 	Metadata        []byte             `json:"metadata"`
+	OidcIssuer      pgtype.Text        `json:"oidc_issuer"`
 	UserStatus      string             `json:"user_status"`
 	UserLocale      string             `json:"user_locale"`
 	UserTimezone    string             `json:"user_timezone"`
@@ -126,6 +127,7 @@ func (q *Queries) GetIdentityBySubjectAnyStatus(ctx context.Context, arg GetIden
 		&i.Status,
 		&i.RevokedAt,
 		&i.Metadata,
+		&i.OidcIssuer,
 		&i.UserStatus,
 		&i.UserLocale,
 		&i.UserTimezone,
@@ -159,7 +161,7 @@ SET status = 'active',
     revoked_at = NULL,
     verified_at = COALESCE(verified_at, $1)
 WHERE id = $2 AND user_id = $3 AND status = 'revoked'
-RETURNING id, user_id, provider, provider_subject, verified_at, created_at, status, revoked_at, metadata
+RETURNING id, user_id, provider, provider_subject, verified_at, created_at, status, revoked_at, metadata, oidc_issuer
 `
 
 type ReactivateCustomerIdentityParams struct {
@@ -184,6 +186,7 @@ func (q *Queries) ReactivateCustomerIdentity(ctx context.Context, arg Reactivate
 		&i.Status,
 		&i.RevokedAt,
 		&i.Metadata,
+		&i.OidcIssuer,
 	)
 	return i, err
 }

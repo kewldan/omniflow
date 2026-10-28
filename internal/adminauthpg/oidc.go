@@ -38,6 +38,12 @@ var (
 	ErrOIDCUnverifiedEmail = errors.New("the provider did not verify this address")
 	// ErrOIDCNoAccount reports a subject that matches no operator account.
 	ErrOIDCNoAccount = errors.New("no operator account is linked to this identity")
+	// ErrOIDCProviderBound reports an attempt to repoint a provider that
+	// operators are already linked through at a different issuer.
+	ErrOIDCProviderBound = errors.New(
+		"operators are linked through this provider; its issuer and discovery URL " +
+			"cannot change — delete the provider and create a new one instead",
+	)
 )
 
 // OIDCProvider is a configured identity provider as the API presents it.
@@ -139,10 +145,30 @@ func (service *Service) SaveOIDCProvider(
 		}
 	}
 
+	slug := strings.ToLower(strings.TrimSpace(input.Slug))
 	var provider OIDCProvider
 	err := service.inTx(ctx, func(queries *dbgen.Queries) error {
+		existing, lookupErr := queries.LockAdminOIDCProviderBySlug(ctx, slug)
+		switch {
+		case errors.Is(lookupErr, pgx.ErrNoRows):
+		case lookupErr != nil:
+			return lookupErr
+		case existing.Issuer != input.Issuer || existing.DiscoveryUrl != input.DiscoveryURL:
+			// A binding means "this subject at this issuer". Repointing a
+			// provider that has bindings would hand every linked operator's
+			// subject to whoever controls the new issuer, so it is refused:
+			// the operator deletes the provider (which drops its bindings) and
+			// creates a new one, and each operator links again deliberately.
+			bound, countErr := queries.CountAdminOIDCIdentitiesForProvider(ctx, existing.ID)
+			if countErr != nil {
+				return countErr
+			}
+			if bound > 0 {
+				return ErrOIDCProviderBound
+			}
+		}
 		row, txErr := queries.UpsertAdminOIDCProvider(ctx, dbgen.UpsertAdminOIDCProviderParams{
-			Slug:                   strings.ToLower(strings.TrimSpace(input.Slug)),
+			Slug:                   slug,
 			DisplayName:            input.DisplayName,
 			Issuer:                 input.Issuer,
 			DiscoveryUrl:           input.DiscoveryURL,
@@ -267,7 +293,9 @@ func (service *Service) CompleteOIDC(
 		return LoginResult{}, ErrOIDCUnverifiedEmail
 	}
 
-	account, err := service.resolveOIDCSubject(ctx, stored, idToken.Subject, claims.Email, claims.Name, request)
+	account, err := service.resolveOIDCSubject(
+		ctx, stored, idToken.Issuer, idToken.Subject, claims.Email, claims.Name, request,
+	)
 	if err != nil {
 		return LoginResult{}, err
 	}
@@ -278,19 +306,29 @@ func (service *Service) CompleteOIDC(
 
 // resolveOIDCSubject applies the account-matching policy.
 //
-// A subject already linked signs in. A subject that is not linked never silently
+// A subject already linked signs in, but only when the binding was made at the
+// issuer that asserted it now: a subject is unique within one issuer, not
+// across them, so a binding recorded for another issuer matches nobody. A
+// subject that is not linked never silently
 // adopts an existing account by matching its address — that would let anyone who
 // can make a provider assert an address take over an operator account. It is
 // either auto-provisioned into a fresh account, when the operator has opted in,
 // or refused.
 func (service *Service) resolveOIDCSubject(
-	ctx context.Context, provider dbgen.AdminOidcProvider, subject, email, name string, request RequestContext,
+	ctx context.Context, provider dbgen.AdminOidcProvider, issuer, subject, email, name string,
+	request RequestContext,
 ) (dbgen.AdminUser, error) {
 	queries := dbgen.New(service.pool)
 	linked, err := queries.GetAdminOIDCIdentity(ctx, dbgen.GetAdminOIDCIdentityParams{
 		ProviderID: provider.ID, Subject: subject,
 	})
 	if err == nil {
+		if issuer == "" || linked.AdminOidcIdentity.Issuer != issuer {
+			// The subject is linked, but at a different issuer. It is refused
+			// rather than auto-provisioned: the pair is taken, and a stranger
+			// presenting the same subject string is not the linked operator.
+			return dbgen.AdminUser{}, ErrOIDCNoAccount
+		}
 		if linked.AdminUser.Status != "active" {
 			return dbgen.AdminUser{}, ErrAccountDisabled
 		}
@@ -338,7 +376,7 @@ func (service *Service) resolveOIDCSubject(
 			return txErr
 		}
 		if _, txErr = tx.LinkAdminOIDCIdentity(ctx, dbgen.LinkAdminOIDCIdentityParams{
-			AdminUserID: row.ID, ProviderID: provider.ID, Subject: subject,
+			AdminUserID: row.ID, ProviderID: provider.ID, Subject: subject, Issuer: issuer,
 		}); txErr != nil {
 			return txErr
 		}
@@ -383,7 +421,7 @@ func (service *Service) LinkOIDCIdentity(
 	}
 	return service.inTx(ctx, func(queries *dbgen.Queries) error {
 		if _, txErr := queries.LinkAdminOIDCIdentity(ctx, dbgen.LinkAdminOIDCIdentityParams{
-			AdminUserID: id, ProviderID: provider.ID, Subject: subject,
+			AdminUserID: id, ProviderID: provider.ID, Subject: subject, Issuer: provider.Issuer,
 		}); errors.Is(txErr, pgx.ErrNoRows) {
 			// The subject already belongs to someone.
 			return ErrConflict

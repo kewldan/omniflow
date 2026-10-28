@@ -182,9 +182,11 @@ type Querier interface {
 	// How many active channels still carry marketing consent. A withdrawal is
 	// recorded only when this reaches zero.
 	CountAccountMarketingContacts(ctx context.Context, userID pgtype.UUID) (int64, error)
+	CountActiveCustomerOIDCIdentities(ctx context.Context, slug string) (int64, error)
 	// Callers must hold LockCustomerSubscriptions for this count to be meaningful.
 	CountActiveSubscriptions(ctx context.Context, arg CountActiveSubscriptionsParams) (CountActiveSubscriptionsRow, error)
 	CountAdminOIDCIdentities(ctx context.Context, adminUserID pgtype.UUID) (int64, error)
+	CountAdminOIDCIdentitiesForProvider(ctx context.Context, providerID pgtype.UUID) (int64, error)
 	// Guards the "an installation always keeps one owner" invariant. Only accounts
 	// that could actually sign in count, so suspending the last owner is refused
 	// for the same reason revoking the role is.
@@ -731,8 +733,14 @@ type Querier interface {
 	// written for the shop would pass the wildcard branch and discount every plan.
 	IsPromotionPlanEligible(ctx context.Context, arg IsPromotionPlanEligibleParams) (bool, error)
 	IsSuppressed(ctx context.Context, userID pgtype.UUID) (bool, error)
+	// The issuer is stored with the subject because a subject is only unique within
+	// one issuer; sign-in refuses a binding whose issuer differs from the token's.
 	LinkAdminOIDCIdentity(ctx context.Context, arg LinkAdminOIDCIdentityParams) (AdminOidcIdentity, error)
 	LinkCustomerIdentity(ctx context.Context, arg LinkCustomerIdentityParams) (Identity, error)
+	// LinkCustomerIdentity with the issuer recorded. A subject is only unique within
+	// one issuer, so sign-in compares the token's issuer against this column and
+	// refuses a mismatch rather than trusting the provider row's current issuer.
+	LinkCustomerOIDCIdentity(ctx context.Context, arg LinkCustomerOIDCIdentityParams) (Identity, error)
 	LinkTelegramRemnawaveUser(ctx context.Context, arg LinkTelegramRemnawaveUserParams) (int64, error)
 	ListAIFeatures(ctx context.Context) ([]AiFeature, error)
 	ListAIProviders(ctx context.Context) ([]ListAIProvidersRow, error)
@@ -1145,6 +1153,14 @@ type Querier interface {
 	ListVisibleGoodsProducts(ctx context.Context, locale string) ([]ListVisibleGoodsProductsRow, error)
 	ListVisiblePlans(ctx context.Context, locale string) ([]ListVisiblePlansRow, error)
 	ListWalletTopups(ctx context.Context, arg ListWalletTopupsParams) ([]ListWalletTopupsRow, error)
+	// Read under a row lock by the save path, which compares the stored issuer,
+	// discovery URL, and client against the submitted ones before deciding whether
+	// the change is allowed and whether the stored secret may be kept.
+	LockAdminOIDCProviderBySlug(ctx context.Context, slug string) (AdminOidcProvider, error)
+	// Read under a row lock by the save path, which compares the stored issuer,
+	// discovery URL, and client against the submitted ones before deciding whether
+	// the change is allowed and whether the stored secret may be kept.
+	LockCustomerOIDCProvider(ctx context.Context, slug string) (CustomerOidcProvider, error)
 	// Serialises concurrent purchases for one customer so two taps cannot both
 	// observe a stale count and both pass a concurrency limit check. It is a
 	// statement of its own rather than a CTE, because a planner is free not to
