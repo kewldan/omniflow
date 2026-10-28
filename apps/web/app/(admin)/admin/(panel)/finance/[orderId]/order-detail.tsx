@@ -13,6 +13,7 @@ import useSWR from "swr";
 
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
+import { CopyButton } from "@/components/copy-button";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import { formatMoney, useOperatorAction } from "@/lib/operations";
@@ -106,7 +107,14 @@ export function OrderDetailView({ orderId }: { orderId: string }) {
       <PageHeader
         description={translate("detail.description")}
         eyebrow={translate("title")}
-        title={<span className="font-mono text-xl">{order.id.slice(0, 8)}</span>}
+        title={
+          <span className="inline-flex items-center gap-1">
+            <span className="font-mono text-xl" title={order.id}>
+              {order.id.slice(0, 8)}
+            </span>
+            <CopyButton label={translate("copyId")} value={order.id} />
+          </span>
+        }
       />
 
       <Card>

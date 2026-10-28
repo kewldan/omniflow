@@ -7,6 +7,8 @@ import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
+import { CopyButton } from "@/components/copy-button";
+
 /**
  * The shared treatment for every non-happy state a customer page can be in —
  * the same `StatusNotice` the operator panel uses. Only the panel's
@@ -44,8 +46,10 @@ export function SlowWaitNotice({
           {translate(stopped ? "stoppedDescription" : "description")}
         </p>
         {reference && (
-          <p className="font-mono text-[11px] text-subtle-foreground">
+          <p className="flex items-center gap-1 font-mono text-[11px] text-subtle-foreground">
             {translate("reference", { reference })}
+            {/* Support asks for exactly this, so it is one tap to copy. */}
+            <CopyButton label={translate("referenceLabel")} value={reference} />
           </p>
         )}
       </div>

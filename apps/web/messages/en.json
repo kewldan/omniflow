@@ -780,7 +780,8 @@
         "notPausable": "That subscription is not in a state that can be paused or resumed.",
         "pauseDone": "Subscription paused",
         "resumeDone": "Subscription resumed"
-      }
+      },
+      "copyId": "customer ID"
     },
     "merge": {
       "title": "Merge into another account",
@@ -901,7 +902,8 @@
         "underpayment": "Underpayment",
         "reconciled": "Reconciled"
       },
-      "openOrder": "Open the order"
+      "openOrder": "Open the order",
+      "copyId": "order ID"
     },
     "reports": {
       "title": "Sales",
@@ -2607,7 +2609,8 @@
         "stoppedDescription": "This page has stopped checking on its own. Check again, or ask support to look at it — nothing is lost either way.",
         "reference": "Reference: {reference}",
         "checkAgain": "Check again",
-        "support": "Contact support"
+        "support": "Contact support",
+        "referenceLabel": "reference"
       }
     },
     "signIn": {
@@ -3957,6 +3960,25 @@
       "close": "Close",
       "more": "More",
       "breadcrumb": "Breadcrumb"
+    },
+    "status": {
+      "notFound": {
+        "title": "This page does not exist",
+        "description": "The address may be mistyped, or what it pointed to was removed."
+      },
+      "error": {
+        "title": "This page could not be shown",
+        "description": "Something failed while loading it. Nothing you entered was lost — try again, or go elsewhere and come back."
+      },
+      "retry": "Try again",
+      "toHome": "Go to the home page",
+      "toAccount": "Go to your account",
+      "toAdmin": "Go to the dashboard"
+    },
+    "copy": {
+      "action": "Copy {label}",
+      "copied": "Copied",
+      "failed": "This browser did not allow copying"
     }
   }
 }

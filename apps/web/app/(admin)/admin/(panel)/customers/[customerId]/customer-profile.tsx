@@ -14,6 +14,7 @@ import useSWR from "swr";
 
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
+import { CopyButton } from "@/components/copy-button";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import {
@@ -84,7 +85,12 @@ export function CustomerProfileView({ customerId }: { customerId: string }) {
           ) : undefined
         }
         eyebrow={translate("title")}
-        title={<span className="font-mono text-xl">{profile.id}</span>}
+        title={
+          <span className="inline-flex items-center gap-1">
+            <span className="font-mono text-xl">{profile.id}</span>
+            <CopyButton label={translate("copyId")} value={profile.id} />
+          </span>
+        }
       />
 
       <Card>

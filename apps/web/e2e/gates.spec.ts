@@ -107,3 +107,18 @@ test.describe("content security policy", () => {
     expect(policy).not.toMatch(/yandex|google|telegram/);
   });
 });
+
+test.describe("not found", () => {
+  test("an unknown address gets the product's own page with a way back", async ({ page }) => {
+    const response = await page.goto("/no-such-page-anywhere");
+    expect(response?.status()).toBe(404);
+    // Not the framework's bare default, which offered no way back at all.
+    await expect(page.getByText(/this page could not be found/i)).toHaveCount(0);
+    await expect(page.getByRole("link", { name: /home page|на главную/i })).toHaveAttribute(
+      "href",
+      "/",
+    );
+    const blocking = await seriousViolations(page, "404");
+    expect(blocking, blocking.join("\n")).toEqual([]);
+  });
+});
