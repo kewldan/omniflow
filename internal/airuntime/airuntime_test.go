@@ -9,6 +9,7 @@ import (
 
 	"github.com/omniflow/omniflow/internal/aigateway"
 	"github.com/omniflow/omniflow/internal/aigovernance"
+	"github.com/omniflow/omniflow/internal/egress"
 	"github.com/omniflow/omniflow/internal/panelpg"
 )
 
@@ -44,6 +45,8 @@ func (store *stubStore) AIProviderCredential(
 	}
 	return store.kind, store.baseURL, store.key, nil
 }
+
+func (store *stubStore) AIEgressPolicy() egress.Policy { return egress.Policy{} }
 
 func (store *stubStore) Spent(
 	_ context.Context, _, _, feature string, _ time.Duration,

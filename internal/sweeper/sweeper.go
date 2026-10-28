@@ -24,6 +24,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omniflow/omniflow/internal/blocklist"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
+	"github.com/omniflow/omniflow/internal/egress"
 	"github.com/omniflow/omniflow/internal/panelpg"
 )
 
@@ -69,8 +70,12 @@ func New(pool *pgxpool.Pool, operations *panelpg.Service, logger *slog.Logger, c
 	return &Sweeper{
 		pool: pool, operations: operations, logger: logger, config: config,
 		// Bounded, because a blocklist publisher that never answers must not
-		// hold a sweep open until the next tick.
-		http:  &http.Client{Timeout: 60 * time.Second},
+		// hold a sweep open until the next tick. Strict, because the URL is
+		// typed into the panel and the request can carry a stored credential:
+		// every connection, including one a redirect opens, must reach a
+		// public address over HTTPS, so a source cannot be pointed at the
+		// metadata service or anything else inside the worker's network.
+		http:  egress.Policy{}.Client(60 * time.Second),
 		clock: time.Now,
 	}
 }
@@ -176,6 +181,10 @@ func (sweeper *Sweeper) refreshSource(ctx context.Context, source panelpg.Blockl
 	}
 
 	response, err := sweeper.http.Do(request)
+	if errors.Is(err, egress.ErrBlockedDestination) || errors.Is(err, egress.ErrInsecureScheme) {
+		record("failing", "destination_refused", source.EntryCount)
+		return err
+	}
 	if err != nil {
 		record("failing", "unreachable", source.EntryCount)
 		return err

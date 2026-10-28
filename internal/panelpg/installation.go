@@ -279,6 +279,16 @@ func (service *Service) SaveAIProvider(
 	if provider.Kind == "openai_compatible" && strings.TrimSpace(provider.BaseURL) == "" {
 		return AIProvider{}, ErrValidaton
 	}
+	// The request to this address carries the API key. Plain HTTP would put
+	// the key on the wire in clear, and an internal address would let a panel
+	// setting reach the deployment's own network; both need the process-level
+	// APP_AI_ALLOW_PRIVATE_NETWORK opt-in. An empty base URL is the kind's
+	// public default and needs no check.
+	if strings.TrimSpace(provider.BaseURL) != "" {
+		if err := service.aiEgress.CheckURL(provider.BaseURL); err != nil {
+			return AIProvider{}, fmt.Errorf("%w: %v", ErrValidaton, err)
+		}
+	}
 
 	err := service.inTx(ctx, func(queries *dbgen.Queries) error {
 		if _, err := queries.UpsertAIProvider(ctx, dbgen.UpsertAIProviderParams{

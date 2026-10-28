@@ -114,20 +114,27 @@ type Config struct {
 	MetricsEnabled            bool
 	OperatorToken             string
 	DataEncryptionKey         []byte
-	RemnawaveURL              string
-	RemnawaveToken            string
-	TelegramToken             string
-	CryptoBotToken            string
-	CryptoBotTestnet          bool
-	YooKassaShopID            string
-	YooKassaSecret            string
-	DefaultCurrency           string
-	TopUp                     TopUpConfig
-	Subscriptions             SubscriptionConfig
-	Maintenance               MaintenanceConfig
-	AdminPanel                AdminPanelConfig
-	CustomerPanel             CustomerPanelConfig
-	PublicURL                 string
+	// AIAllowPrivateNetwork lets AI provider base URLs use plain HTTP and
+	// reach private, loopback, and link-local addresses — what a model served
+	// from the same Compose stack or the LAN needs. It is an environment
+	// variable rather than a panel setting on purpose: the person who decides
+	// that the API may talk to its own network is whoever runs the process,
+	// not whoever holds settings.write.
+	AIAllowPrivateNetwork bool
+	RemnawaveURL          string
+	RemnawaveToken        string
+	TelegramToken         string
+	CryptoBotToken        string
+	CryptoBotTestnet      bool
+	YooKassaShopID        string
+	YooKassaSecret        string
+	DefaultCurrency       string
+	TopUp                 TopUpConfig
+	Subscriptions         SubscriptionConfig
+	Maintenance           MaintenanceConfig
+	AdminPanel            AdminPanelConfig
+	CustomerPanel         CustomerPanelConfig
+	PublicURL             string
 	// UpdateFeedURL turns on the "is there a newer release?" line in the
 	// diagnostics bundle. It is empty by default and has no built-in address,
 	// because reading a feed tells whoever serves it that this installation
@@ -268,6 +275,7 @@ func Load() (Config, error) {
 		TelemetryEndpoint:         envOr("APP_TELEMETRY_ENDPOINT", defaultTelemetryEndpoint),
 		MetricsEnabled:            boolEnvOr("APP_METRICS_ENABLED", true),
 		OperatorToken:             os.Getenv("APP_OPERATOR_TOKEN"),
+		AIAllowPrivateNetwork:     boolEnvOr("APP_AI_ALLOW_PRIVATE_NETWORK", false),
 		RemnawaveURL:              os.Getenv("APP_REMNAWAVE_URL"),
 		RemnawaveToken:            os.Getenv("APP_REMNAWAVE_TOKEN"),
 		TelegramToken:             os.Getenv("APP_TELEGRAM_TOKEN"),

@@ -22,14 +22,16 @@
 package mcp
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/url"
 	"slices"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/omniflow/omniflow/internal/egress"
 )
 
 var (
@@ -208,31 +210,16 @@ func (server Server) CheckEgress(target string) error {
 		return fmt.Errorf("%w: %s is not an allowed host for %s",
 			ErrEgressForbidden, host, server.Slug)
 	}
-	if server.AllowPrivateNetwork {
-		return nil
-	}
-	addresses, err := net.LookupIP(host)
-	if err != nil {
-		// An unresolvable host is refused rather than attempted. The request
-		// would fail anyway, and failing here produces a message an operator can
-		// act on instead of a transport error.
-		return fmt.Errorf("%w: %s does not resolve", ErrEgressForbidden, host)
-	}
-	for _, address := range addresses {
-		if isInternal(address) {
-			return fmt.Errorf("%w: %s resolves to an internal address", ErrEgressForbidden, host)
-		}
+	// An unresolvable or internal host is refused here rather than attempted,
+	// because failing now produces a message an operator can act on. This is
+	// the readable check, not the enforcing one: the address could change
+	// before the connection is made, so the client's dialer applies the same
+	// rule (internal/egress) to the address it actually connects to.
+	policy := egress.Policy{AllowPrivate: server.AllowPrivateNetwork}
+	if err := policy.Resolve(context.Background(), host); err != nil {
+		return fmt.Errorf("%w: %v", ErrEgressForbidden, err)
 	}
 	return nil
-}
-
-// isInternal reports addresses an MCP server has no business being on unless an
-// owner said so: loopback, link-local (which includes cloud metadata), private
-// ranges, and the unspecified address.
-func isInternal(address net.IP) bool {
-	return address.IsLoopback() || address.IsPrivate() ||
-		address.IsLinkLocalUnicast() || address.IsLinkLocalMulticast() ||
-		address.IsUnspecified() || address.IsInterfaceLocalMulticast()
 }
 
 // Registry holds the registered servers.

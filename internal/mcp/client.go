@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/omniflow/omniflow/internal/egress"
 )
 
 // ProtocolVersion is the MCP revision this client speaks.
@@ -81,10 +83,32 @@ type Client struct {
 }
 
 // NewClient builds a client for a registered server.
+//
+// With no client supplied, the default one enforces the server's egress policy
+// at connect time: the dialer checks the address a hostname actually resolved
+// to, so the check in CheckEgress cannot be raced by a DNS answer that changes
+// between the lookup and the connection. Whatever client is used, every
+// redirect is checked against the server's host allowlist and the HTTPS
+// requirement before it is followed — a server must not be able to bounce a
+// request carrying its bearer token to a host nobody approved.
 func NewClient(server Server, httpClient *http.Client, auth Authorization) *Client {
 	normalised := server.Normalise()
+	// The opt-in that admits a private address also admits plain HTTP, exactly
+	// as Validate does for the registered endpoint.
+	policy := egress.Policy{
+		AllowPrivate: normalised.AllowPrivateNetwork, AllowHTTP: normalised.AllowPrivateNetwork,
+	}
 	if httpClient == nil {
-		httpClient = &http.Client{Timeout: normalised.Timeout}
+		httpClient = policy.Client(normalised.Timeout)
+	} else {
+		copied := *httpClient
+		httpClient = &copied
+	}
+	httpClient.CheckRedirect = func(request *http.Request, via []*http.Request) error {
+		if err := policy.CheckRedirect(request, via); err != nil {
+			return fmt.Errorf("%w: %v", ErrEgressForbidden, err)
+		}
+		return normalised.CheckEgress(request.URL.String())
 	}
 	return &Client{server: normalised, http: httpClient, auth: auth}
 }

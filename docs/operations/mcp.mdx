@@ -113,6 +113,15 @@ explicitly allow a private network — which a self-hosted server legitimately
 needs, and which is off by default because it is also how a connection becomes an
 internal port scanner.
 
+The check runs twice. Before the request, the hostname is resolved so a refusal
+comes back as a message you can act on. Then the dialer checks the address it is
+**actually connecting to**, after resolution, so a DNS answer that changes
+between the two cannot slip through; IPv4-mapped IPv6 spellings of an internal
+address are judged as that address. A redirect is followed only to the
+endpoint's own host or a host on the allowlist, over HTTPS unless the
+private-network opt-in is on, and each hop is dialled through the same check.
+Environment HTTP proxies are not used for these connections.
+
 Plaintext endpoints are refused by the Go validation *and* by a table constraint.
 A rule that lives only in application code is a rule one migration script can
 step around.

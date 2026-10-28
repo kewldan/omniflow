@@ -140,6 +140,7 @@ domain, is in [Telegram integration](/integrations/telegram).
 | `APP_PUBLIC_URL` | — | api, bot | for YooKassa and for the sign-in link | no | Base URL for provider return links, referral links, the absolute sign-in URL the bot sends, and the origin operator passkeys are bound to |
 | `APP_TERMS_URL` | — | api, bot | no | no | Terms link on plan and checkout screens. Validated as an `http`/`https` URL when set |
 | `APP_UPDATE_FEED_URL` | — | api | no | no | Release feed the diagnostics bundle compares the running version against. Empty means no check and no request. Validated as an `http`/`https` URL when set |
+| `APP_AI_ALLOW_PRIVATE_NETWORK` | `false` | api | no | no | Lets an AI provider base URL use plain HTTP and reach loopback, private, and link-local addresses — what a model in the same Compose stack or on the LAN needs. Off, a base URL must be HTTPS to a public address. See [AI providers](/operations/ai-providers#pointing-at-a-local-model) |
 
 `APP_UPDATE_FEED_URL` has no default, and that is the point. Reading a feed tells whoever serves it
 that this installation exists, roughly where it is, and which version it runs, so the check is

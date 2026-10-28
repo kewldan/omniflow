@@ -154,6 +154,13 @@ The source form is HTTPS-only, and an empty authorization header means "keep
 what is stored", so re-saving a source never echoes its credential back into the
 browser.
 
+The worker downloads a source only from a **public** address. Loopback, private,
+link-local (which includes cloud metadata), and the other non-public ranges are
+refused at connect time, after the hostname has been resolved, and again for
+every redirect — which must also stay on HTTPS. A source refused this way is
+marked failing with the error code `destination_refused`, distinct from
+`unreachable`, so the panel shows that the address itself is the problem.
+
 ## Permissions
 
 `risk.read` reads sources, matches, rules, and signals. `risk.write` decides a

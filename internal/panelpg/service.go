@@ -38,6 +38,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
+	"github.com/omniflow/omniflow/internal/egress"
 )
 
 // Errors returned to transport.
@@ -60,11 +61,20 @@ type Service struct {
 	pool    *pgxpool.Pool
 	secrets cipher.AEAD
 	clock   func() time.Time
+	// aiEgress is the destination policy for AI provider base URLs. It is
+	// applied when a provider is saved, so an operator hears about a bad
+	// address when they type it, and again by the adapter, so a row stored
+	// before the policy existed cannot carry a key anywhere it now refuses.
+	aiEgress egress.Policy
 }
 
 // Options configures the Service. A zero clock uses the wall clock.
 type Options struct {
 	Clock func() time.Time
+	// AIAllowPrivateNetwork admits plain-HTTP and private-network AI provider
+	// base URLs. It comes from APP_AI_ALLOW_PRIVATE_NETWORK and is off by
+	// default.
+	AIAllowPrivateNetwork bool
 }
 
 // New builds the adapter.
@@ -92,8 +102,16 @@ func New(pool *pgxpool.Pool, encryptionKey []byte, options Options) (*Service, e
 	if clock == nil {
 		clock = time.Now
 	}
-	return &Service{pool: pool, secrets: aead, clock: clock}, nil
+	return &Service{
+		pool: pool, secrets: aead, clock: clock,
+		aiEgress: egress.Policy{
+			AllowHTTP: options.AIAllowPrivateNetwork, AllowPrivate: options.AIAllowPrivateNetwork,
+		},
+	}, nil
 }
+
+// AIEgressPolicy is the destination policy AI provider requests must follow.
+func (service *Service) AIEgressPolicy() egress.Policy { return service.aiEgress }
 
 // Actor identifies the operator making a change, for the audit trail.
 //

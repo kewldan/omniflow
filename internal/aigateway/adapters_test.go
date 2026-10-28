@@ -9,7 +9,14 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/omniflow/omniflow/internal/egress"
 )
+
+// localPolicy lets the adapters reach the plain-HTTP loopback stubs below. It is
+// the policy APP_AI_ALLOW_PRIVATE_NETWORK selects; production defaults to the
+// strict one, which TestAdaptersRefuseInternalAndPlainHTTPByDefault covers.
+var localPolicy = WithPolicy(egress.Policy{AllowHTTP: true, AllowPrivate: true})
 
 // capture records what an adapter actually put on the wire, so a test can check
 // the mapping rather than only the return value.
@@ -44,7 +51,7 @@ func TestOpenAICompatibleMapsBothWays(t *testing.T) {
 	}`, recorded)
 	defer server.Close()
 
-	provider, err := NewOpenAICompatible("openai", server.URL, "test-key")
+	provider, err := NewOpenAICompatible("openai", server.URL, "test-key", localPolicy)
 	if err != nil {
 		t.Fatalf("build provider: %v", err)
 	}
@@ -90,7 +97,7 @@ func TestAnthropicPlacesTheSystemPromptAtTopLevel(t *testing.T) {
 	}`, recorded)
 	defer server.Close()
 
-	provider, err := NewAnthropic("anthropic", server.URL, "test-key")
+	provider, err := NewAnthropic("anthropic", server.URL, "test-key", localPolicy)
 	if err != nil {
 		t.Fatalf("build provider: %v", err)
 	}
@@ -132,7 +139,7 @@ func TestGeminiMapsBothWays(t *testing.T) {
 	}`, recorded)
 	defer server.Close()
 
-	provider, err := NewGemini("gemini", server.URL, "test-key")
+	provider, err := NewGemini("gemini", server.URL, "test-key", localPolicy)
 	if err != nil {
 		t.Fatalf("build provider: %v", err)
 	}
@@ -169,7 +176,7 @@ func TestAProvidersErrorMessageIsNotPropagated(t *testing.T) {
 		}))
 	defer server.Close()
 
-	provider, err := NewOpenAICompatible("openai", server.URL, "test-key")
+	provider, err := NewOpenAICompatible("openai", server.URL, "test-key", localPolicy)
 	if err != nil {
 		t.Fatalf("build provider: %v", err)
 	}
@@ -189,7 +196,7 @@ func TestAnEmptyAnswerIsAnError(t *testing.T) {
 	server := stub(t, `{"choices": []}`, recorded)
 	defer server.Close()
 
-	provider, _ := NewOpenAICompatible("openai", server.URL, "test-key")
+	provider, _ := NewOpenAICompatible("openai", server.URL, "test-key", localPolicy)
 	if _, err := provider.Complete(
 		context.Background(), Request{Model: "m", Prompt: "hello"},
 	); !errors.Is(err, ErrProviderRejected) {
@@ -208,5 +215,40 @@ func TestAdaptersRefuseIncompleteConfiguration(t *testing.T) {
 	}
 	if _, err := NewGemini("gemini", "", ""); err == nil {
 		t.Fatal("a provider with no key was accepted")
+	}
+}
+
+// The base URL is typed by an operator and the request carries the API key, so
+// by default an adapter refuses plain HTTP and any internal destination — both
+// at construction, for a literal address, and at connect time, for a hostname
+// that resolves somewhere internal.
+func TestAdaptersRefuseInternalAndPlainHTTPByDefault(t *testing.T) {
+	if _, err := NewOpenAICompatible("openai", "http://api.example.com/v1", "key"); !errors.Is(err, egress.ErrInsecureScheme) {
+		t.Fatalf("plain HTTP base URL: err = %v, want ErrInsecureScheme", err)
+	}
+	if _, err := NewAnthropic("anthropic", "https://169.254.169.254/v1", "key"); !errors.Is(err, egress.ErrBlockedDestination) {
+		t.Fatalf("metadata base URL: err = %v, want ErrBlockedDestination", err)
+	}
+
+	recorded := &capture{}
+	server := httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		recorded.headers = request.Header.Clone()
+		writer.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	// "localhost." (fully qualified) is a hostname, not a literal address, so
+	// it passes the static check; it resolves to loopback and must be refused
+	// by the dialer instead.
+	target := strings.Replace(server.URL, "127.0.0.1", "localhost.", 1)
+	provider, err := NewOpenAICompatible("openai", target, "secret-key")
+	if err != nil {
+		t.Fatalf("build provider: %v", err)
+	}
+	_, err = provider.Complete(context.Background(), Request{Model: "m", Prompt: "hi"})
+	if !errors.Is(err, egress.ErrBlockedDestination) {
+		t.Fatalf("request to a name resolving to loopback: err = %v, want ErrBlockedDestination", err)
+	}
+	if recorded.headers != nil {
+		t.Fatal("the API key reached a loopback server")
 	}
 }

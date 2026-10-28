@@ -127,13 +127,25 @@ llama.cpp's server, and most self-hosted gateways all do.
 - Reach the server by a hostname the API container can resolve. `localhost`
   inside a container is the container, not the host — use the Compose service
   name for a model running in the same stack, or the host's LAN address.
+- **Set `APP_AI_ALLOW_PRIVATE_NETWORK=true` on the API.** By default a base URL
+  must be HTTPS to a public address: the request carries the provider's API key,
+  and an operator-typed address that pointed inside the deployment's network
+  would turn the adapter into a way to reach it. A Compose service name or a LAN
+  address resolves to a private address and is refused — at save time when it
+  is a literal IP or plain HTTP, and at connect time, after resolution, when it
+  is a hostname. The opt-in is an environment variable rather than a panel
+  switch so that whoever runs the process decides it, not whoever holds
+  `settings.write`.
 - The **model** is named per feature, not on the provider, and it must be the
   name your server exposes rather than a hosted vendor's.
 
 <Warning>
-  A local model is still a network destination the API process will connect to
-  on an owner's instruction. Keep it on a network you control: there is no
-  egress allowlist on AI providers, unlike the MCP registry, which has one.
+  With `APP_AI_ALLOW_PRIVATE_NETWORK` on, **every** AI provider may reach the
+  API's private network, not only the local one — anyone with `settings.write`
+  can then point a provider at an internal address. Turn it on only where that
+  is acceptable. Without it, every connection an adapter makes, including one a
+  redirect opens, is checked after name resolution and refused if it is not a
+  public address.
 </Warning>
 
 ## Routing a feature to a model

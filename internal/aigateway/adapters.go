@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/omniflow/omniflow/internal/egress"
 )
 
 // The three adapters below cover the providers an installation is likely to
@@ -32,6 +34,52 @@ const maxProviderBody = 4 << 20
 // an operator's browser. The detail goes to the log.
 var ErrProviderRejected = errors.New("ai provider rejected the request")
 
+// providerTimeout bounds one completion request.
+const providerTimeout = 60 * time.Second
+
+// Option adjusts how an adapter reaches its provider.
+type Option func(*adapterOptions)
+
+type adapterOptions struct {
+	policy egress.Policy
+	client *http.Client
+}
+
+// WithPolicy sets which destinations the adapter may reach. The default is the
+// strict policy — HTTPS to public addresses only — because the base URL is
+// typed by an operator and the request carries the provider's API key: an
+// address that pointed inside the deployment's network would turn the adapter
+// into a way to reach it, and one that pointed at plain HTTP would put the key
+// on the wire in clear. An installation that runs a model on its own network
+// opts in with APP_AI_ALLOW_PRIVATE_NETWORK, which the caller translates into a
+// relaxed policy here.
+func WithPolicy(policy egress.Policy) Option {
+	return func(options *adapterOptions) { options.policy = policy }
+}
+
+// WithHTTPClient replaces the client entirely. It exists for tests, which talk
+// to a local fake provider; the policy is still applied to the base URL.
+func WithHTTPClient(client *http.Client) Option {
+	return func(options *adapterOptions) { options.client = client }
+}
+
+// resolveOptions validates the base URL against the policy and returns the
+// client the adapter will use. Every connection that client makes, including
+// one a redirect opens, is checked again after name resolution.
+func resolveOptions(baseURL string, options []Option) (*http.Client, error) {
+	resolved := adapterOptions{}
+	for _, option := range options {
+		option(&resolved)
+	}
+	if err := resolved.policy.CheckURL(baseURL); err != nil {
+		return nil, err
+	}
+	if resolved.client != nil {
+		return resolved.client, nil
+	}
+	return resolved.policy.Client(providerTimeout), nil
+}
+
 // OpenAICompatible speaks the /v1/chat/completions shape.
 //
 // It covers OpenAI itself and the many self-hosted and hosted services that
@@ -47,16 +95,19 @@ type OpenAICompatible struct {
 // NewOpenAICompatible builds the adapter. `name` is what the owner approves and
 // what a task configuration names, so a deployment can register two of these
 // against different endpoints.
-func NewOpenAICompatible(name, baseURL, apiKey string) (*OpenAICompatible, error) {
+func NewOpenAICompatible(name, baseURL, apiKey string, options ...Option) (*OpenAICompatible, error) {
 	if strings.TrimSpace(name) == "" || strings.TrimSpace(apiKey) == "" {
 		return nil, errors.New("an OpenAI-compatible provider needs a name and an API key")
 	}
 	if strings.TrimSpace(baseURL) == "" {
 		baseURL = "https://api.openai.com/v1"
 	}
+	client, err := resolveOptions(baseURL, options)
+	if err != nil {
+		return nil, err
+	}
 	return &OpenAICompatible{
-		name: name, baseURL: strings.TrimRight(baseURL, "/"), apiKey: apiKey,
-		client: &http.Client{Timeout: 60 * time.Second},
+		name: name, baseURL: strings.TrimRight(baseURL, "/"), apiKey: apiKey, client: client,
 	}, nil
 }
 
@@ -121,12 +172,16 @@ type Anthropic struct {
 }
 
 // NewAnthropic builds the adapter.
-func NewAnthropic(name, baseURL, apiKey string) (*Anthropic, error) {
+func NewAnthropic(name, baseURL, apiKey string, options ...Option) (*Anthropic, error) {
 	if strings.TrimSpace(name) == "" || strings.TrimSpace(apiKey) == "" {
 		return nil, errors.New("an Anthropic provider needs a name and an API key")
 	}
 	if strings.TrimSpace(baseURL) == "" {
 		baseURL = "https://api.anthropic.com/v1"
+	}
+	client, err := resolveOptions(baseURL, options)
+	if err != nil {
+		return nil, err
 	}
 	return &Anthropic{
 		name: name, baseURL: strings.TrimRight(baseURL, "/"), apiKey: apiKey,
@@ -134,7 +189,7 @@ func NewAnthropic(name, baseURL, apiKey string) (*Anthropic, error) {
 		// response shape under a running installation is a failure nobody
 		// deployed.
 		version: "2023-06-01",
-		client:  &http.Client{Timeout: 60 * time.Second},
+		client:  client,
 	}, nil
 }
 
@@ -198,16 +253,19 @@ type Gemini struct {
 }
 
 // NewGemini builds the adapter.
-func NewGemini(name, baseURL, apiKey string) (*Gemini, error) {
+func NewGemini(name, baseURL, apiKey string, options ...Option) (*Gemini, error) {
 	if strings.TrimSpace(name) == "" || strings.TrimSpace(apiKey) == "" {
 		return nil, errors.New("a Gemini provider needs a name and an API key")
 	}
 	if strings.TrimSpace(baseURL) == "" {
 		baseURL = "https://generativelanguage.googleapis.com/v1beta"
 	}
+	client, err := resolveOptions(baseURL, options)
+	if err != nil {
+		return nil, err
+	}
 	return &Gemini{
-		name: name, baseURL: strings.TrimRight(baseURL, "/"), apiKey: apiKey,
-		client: &http.Client{Timeout: 60 * time.Second},
+		name: name, baseURL: strings.TrimRight(baseURL, "/"), apiKey: apiKey, client: client,
 	}, nil
 }
 

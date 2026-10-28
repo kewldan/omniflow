@@ -12,6 +12,7 @@ import (
 	"github.com/omniflow/omniflow/internal/aigateway"
 	"github.com/omniflow/omniflow/internal/aigovernance"
 	"github.com/omniflow/omniflow/internal/airuntime"
+	"github.com/omniflow/omniflow/internal/egress"
 	"github.com/omniflow/omniflow/internal/panelpg"
 	"github.com/omniflow/omniflow/internal/rbac"
 )
@@ -241,6 +242,11 @@ func probeFailure(err error) string {
 	case errors.Is(err, aigateway.ErrProviderRejected):
 		// Constructed by the adapter and carries a status code and nothing else.
 		return err.Error()
+	case errors.Is(err, egress.ErrInsecureScheme):
+		return "the base URL must use https unless APP_AI_ALLOW_PRIVATE_NETWORK is set"
+	case errors.Is(err, egress.ErrBlockedDestination):
+		return "the base URL points at a private or internal address, " +
+			"which needs APP_AI_ALLOW_PRIVATE_NETWORK"
 	default:
 		return "the provider could not be reached"
 	}

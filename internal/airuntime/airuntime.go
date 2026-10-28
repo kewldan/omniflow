@@ -22,6 +22,7 @@ import (
 
 	"github.com/omniflow/omniflow/internal/aigateway"
 	"github.com/omniflow/omniflow/internal/aigovernance"
+	"github.com/omniflow/omniflow/internal/egress"
 	"github.com/omniflow/omniflow/internal/panelpg"
 )
 
@@ -76,6 +77,8 @@ type Store interface {
 	AIFeatures(ctx context.Context) ([]panelpg.AIFeature, error)
 	AIProviders(ctx context.Context) ([]panelpg.AIProvider, error)
 	AIProviderCredential(ctx context.Context, slug string) (kind, baseURL, key string, err error)
+	// AIEgressPolicy says which destinations a provider's base URL may name.
+	AIEgressPolicy() egress.Policy
 	Spent(ctx context.Context, scope, ref, feature string, window time.Duration) (aigovernance.Spend, error)
 }
 
@@ -102,7 +105,10 @@ type Runtime struct {
 
 // New builds the runtime.
 func New(store Store) *Runtime {
-	return &Runtime{store: store, adapt: adapterFor}
+	policy := store.AIEgressPolicy()
+	return &Runtime{store: store, adapt: func(kind, name, baseURL, key string) (aigateway.Provider, error) {
+		return adapterFor(kind, name, baseURL, key, aigateway.WithPolicy(policy))
+	}}
 }
 
 // WithAdapter replaces the provider constructor. It exists for tests.
@@ -309,14 +315,14 @@ func (runtime *Runtime) adapter(ctx context.Context, slug string) (aigateway.Pro
 }
 
 // adapterFor constructs the compiled-in adapter for a stored kind.
-func adapterFor(kind, name, baseURL, key string) (aigateway.Provider, error) {
+func adapterFor(kind, name, baseURL, key string, options ...aigateway.Option) (aigateway.Provider, error) {
 	switch kind {
 	case "openai_compatible":
-		return aigateway.NewOpenAICompatible(name, baseURL, key)
+		return aigateway.NewOpenAICompatible(name, baseURL, key, options...)
 	case "anthropic":
-		return aigateway.NewAnthropic(name, baseURL, key)
+		return aigateway.NewAnthropic(name, baseURL, key, options...)
 	case "gemini":
-		return aigateway.NewGemini(name, baseURL, key)
+		return aigateway.NewGemini(name, baseURL, key, options...)
 	default:
 		return nil, fmt.Errorf("%w: %s", ErrProviderKindUnknown, kind)
 	}

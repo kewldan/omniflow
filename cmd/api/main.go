@@ -245,7 +245,9 @@ func buildAdminPanel(
 	if err != nil {
 		return nil, err
 	}
-	operations, err := panelpg.New(pool, cfg.DataEncryptionKey, panelpg.Options{})
+	operations, err := panelpg.New(pool, cfg.DataEncryptionKey, panelpg.Options{
+		AIAllowPrivateNetwork: cfg.AIAllowPrivateNetwork,
+	})
 	if err != nil {
 		return nil, err
 	}
