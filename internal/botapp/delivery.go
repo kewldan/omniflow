@@ -37,18 +37,52 @@ type Sender struct {
 	logger *slog.Logger
 	clock  func() time.Time
 	sleep  func(context.Context, time.Duration)
+	pacer  *deliveryPacer
 }
 
-// NewSender builds the delivery wrapper used by every outbound bot message.
+// NewSender builds the delivery wrapper used by every outbound bot message. It
+// paces sends at DefaultDeliveryRate until SetRate says otherwise.
 func NewSender(client *telegram.Bot, store *PostgresStore, logger *slog.Logger) *Sender {
-	return &Sender{client: client, store: store, logger: logger, clock: time.Now, sleep: sleepContext}
+	return &Sender{
+		client: client, store: store, logger: logger, clock: time.Now, sleep: sleepContext,
+		pacer: newDeliveryPacer(DefaultDeliveryRate, time.Now),
+	}
+}
+
+// SetRate changes how many messages a second the sender may send. Zero or less
+// keeps the default.
+func (sender *Sender) SetRate(perSecond int) {
+	sender.pacer.setRate(perSecond)
+}
+
+// Paused reports whether Telegram has paused the bot for longer than a send
+// may wait, and until when. A delivery pass checks it to stop early instead of
+// walking its whole batch into the same refusal.
+func (sender *Sender) Paused() (time.Time, bool) {
+	return sender.pacer.paused()
 }
 
 // Send delivers one view to a chat and records the delivery outcome against the
 // customer when one is known.
+//
+// Every attempt draws from the bot-wide pacer first. A flood wait is the bot's,
+// not the customer's: it pauses every send until Telegram's retry_after and is
+// never recorded against the customer's delivery state. A pause longer than a
+// send may wait returns a flood error carrying the instant it ends, which the
+// callers record as a deferral rather than a failure.
 func (sender *Sender) Send(ctx context.Context, customerID string, chatID int64, view View) error {
 	var lastErr error
 	for attempt := range deliveryAttempts {
+		wait, pausedUntil := sender.pacer.reserve()
+		if !pausedUntil.IsZero() {
+			return &DeliveryError{Code: "flood_wait", RetryAfter: pausedUntil, Err: errFloodPaused}
+		}
+		if wait > 0 {
+			sender.sleep(ctx, wait)
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+		}
 		_, err := sender.client.SendMessage(ctx, sendParams(chatID, view))
 		if err == nil {
 			if customerID != "" {
@@ -60,30 +94,47 @@ func (sender *Sender) Send(ctx context.Context, customerID string, chatID int64,
 		}
 		lastErr = err
 		classified := ClassifyDelivery(sender.clock(), err)
+		if classified.Code == "flood_wait" {
+			// The whole bot waits; the next attempt's reservation does the
+			// waiting, or returns at once when the pause is too long to sit out.
+			sender.pacer.pause(classified.RetryAfter)
+			if attempt == deliveryAttempts-1 {
+				return classified
+			}
+			continue
+		}
 		if customerID != "" {
 			if recordErr := sender.store.RecordDeliveryFailure(ctx, customerID, classified.Code, classified.RetryAfter); recordErr != nil {
 				sender.logger.Warn("delivery state update failed", "error", recordErr)
 			}
 		}
-		if !retryableDelivery(classified.Code) {
+		if !retryableDelivery(classified.Code) || attempt == deliveryAttempts-1 {
 			return classified
 		}
-		wait := time.Duration(attempt+1) * time.Second
-		if remaining := classified.RetryAfter.Sub(sender.clock()); remaining > 0 {
-			if remaining > maxFloodWait {
-				return classified
-			}
-			wait = remaining
-		}
-		if attempt == deliveryAttempts-1 {
-			return classified
-		}
-		sender.sleep(ctx, wait)
+		sender.sleep(ctx, time.Duration(attempt+1)*time.Second)
 		if ctx.Err() != nil {
 			return classified
 		}
 	}
 	return lastErr
+}
+
+// errFloodPaused is the cause of a send refused because Telegram paused the
+// bot for longer than a send may wait.
+var errFloodPaused = errors.New("telegram paused the bot")
+
+// floodDeferral reports whether a send failed because the bot is paused, and
+// until when the message should wait.
+func floodDeferral(err error) (time.Time, bool) {
+	var classified *DeliveryError
+	if errors.As(err, &classified) && classified.Code == "flood_wait" {
+		retryAfter := classified.RetryAfter
+		if retryAfter.IsZero() {
+			retryAfter = time.Now().Add(time.Minute)
+		}
+		return retryAfter, true
+	}
+	return time.Time{}, false
 }
 
 // ClassifyDelivery maps a Telegram client error onto a stable failure code and,

@@ -13,13 +13,25 @@ That function is `commerce.EvaluateDelivery`, and it refuses a kind it does not
 recognise rather than defaulting to "send". Adding a notification without
 deciding whether it is transactional or marketing is therefore impossible: the
 new kind would simply never be delivered, which is a visible failure rather than
-a silent disclosure. Delivery itself runs in the bot process once every 15
-minutes. The queued stages of a pass — dunning notices, campaign recipients, and
-announcements — each take up to 200 items per pass, so a large installation
-degrades in throughput rather than in latency for everyone. The lifecycle stage
-is different: it walks **every** reachable customer in identifier order, 200 at
-a time, until the last page comes back short, so the customer whose identifier
-sorts last receives their expiry warning in the same pass as the first.
+a silent disclosure. Delivery runs in the bot process as three loops. The
+lifecycle pass — dunning notices and every customer's lifecycle alerts — runs
+every 15 minutes, and walks **every** reachable customer in identifier order,
+200 at a time, until the last page comes back short, so the customer whose
+identifier sorts last receives their expiry warning in the same pass as the
+first. Campaign recipients and announcements have a loop of their own: it reads
+200 of each, sends them, and reads the next batch straight away while there is
+a backlog, looking again every 30 seconds once there is none. Support replies
+have their own 30-second loop.
+
+Every message the bot sends draws from one bot-wide budget,
+`APP_TELEGRAM_DELIVERY_RATE` messages a second (25 by default; Telegram's
+ceiling for one bot is about 30). A second's worth may go at once, then the rate
+holds. When Telegram answers 429 anyway, the `retry_after` it gives pauses
+**every** send, because the limit is the bot's and not the recipient's: a pause
+of up to 30 seconds is waited out, a longer one ends the current pass, and
+messages caught by it are deferred to the instant it ends rather than marked
+failed. The 429 is no longer recorded against the customer who happened to
+receive it.
 
 ## The two classes
 

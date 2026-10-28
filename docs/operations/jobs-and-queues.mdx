@@ -148,10 +148,13 @@ These are goroutines started by the three `main`s. Each pass is a whole-table sw
 | Lifecycle sweeper | worker | 5 min (anomalies 15 min) | no | Expires gifts and personal offers, refreshes up to 20 blocklist sources, evaluates anomaly rules |
 | Campaign expansion | worker | 1 min | no | Expands campaign audiences, batch 5 000 |
 | Bulk-action runner | worker | 15 s | no | Applies previewed bulk operations one item at a time, batch 50 |
-| Retention sweep | worker | `APP_RETENTION_INTERVAL_HOURS` (1 h) | yes | Seven cleanup steps, below |
+| Retention sweep | worker | `APP_RETENTION_INTERVAL_HOURS` (1 h) | yes | Eight cleanup steps, below |
 | Scheduled backup | worker | `APP_BACKUP_INTERVAL_HOURS` (24 h) | yes | Encrypted `pg_dump` plus prune |
 | Channel membership | bot | 10 min | no | Re-verifies required-channel membership, batch 100 |
 | Operator notifier | bot | 10 s | no | Binds forum topics, then drains up to 50 pending notices |
+| Customer lifecycle notices | bot | 15 min | no | Operator test sends, dunning notices, then every reachable customer's lifecycle alerts, 200 per page |
+| Campaign and announcement delivery | bot | continuous while queued, 30 s when idle | no | 200 campaign recipients and 200 announcements per batch, paced by `APP_TELEGRAM_DELIVERY_RATE` (25/s) |
+| Support reply push | bot | 30 s | no | Pushes up to 200 pending operator replies |
 
 The fulfillment scheduler's bucketed idempotency key is worth understanding: two passes inside the same fifteen-minute bucket produce the same key, so a restarted worker cannot create a second reconcile operation for the same entitlement in the same window.
 

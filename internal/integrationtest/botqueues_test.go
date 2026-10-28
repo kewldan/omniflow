@@ -15,7 +15,7 @@ import (
 func (flow *botFlow) notifier() *botapp.Notifier {
 	logger := slog.New(slog.DiscardHandler)
 	return botapp.NewNotifier(logger, botapp.NewSender(flow.client, flow.store, logger),
-		flow.store, flow.remnawave, flow.commerce, botapp.CommerceSettings{Currency: "RUB"})
+		flow.store, flow.remnawave, flow.commerce, botapp.CommerceSettings{Currency: "RUB", DeliveryRate: 1000})
 }
 
 // sends counts the messages the bot tried to send to one chat.

@@ -232,6 +232,7 @@ Seeding never blocks startup: a failure is logged as
 | --- | --- | --- | --- | --- | --- |
 | `APP_MARKETING_FREQUENCY_CAP` | `3` | bot | no | no | Marketing messages allowed per window; `0` disables the cap |
 | `APP_MARKETING_WINDOW_HOURS` | `168` | bot | no | no | Length of the marketing window — seven days by default |
+| `APP_TELEGRAM_DELIVERY_RATE` | `25` | bot | no | no | Messages per second the bot sends across all chats; Telegram's ceiling for one bot is about 30. `0` uses the default |
 | `APP_RECOVERY_WINDOW_HOURS` | `336` | api, bot | no | no | How long an expired subscription keeps its one-tap recovery checkout — fourteen days by default |
 | `APP_TRIAL_MINIMUM_ACCOUNT_AGE_HOURS` | `0` | api, bot | no | no | Refuse trials from Telegram accounts newer than this |
 | `APP_CART_TTL_HOURS` | `720` | bot | no | no | How long a saved cart waits for the balance to cover it — thirty days by default |

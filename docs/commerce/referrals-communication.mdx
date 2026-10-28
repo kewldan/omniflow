@@ -120,7 +120,9 @@ The inbox is pull. The push is what makes an outage notice arrive.
 The bot's notifier looks for posts published in the last seven days, for active
 customers with a Telegram recipient, that have a localisation in the customer's
 resolved locale and no delivery row for that post that is still waiting or
-already final. It sends one message per customer per post, up to 200 per pass.
+already final. It sends one message per customer per post, 200 at a time, and
+reads the next batch as soon as the last is sent, at the bot-wide
+`APP_TELEGRAM_DELIVERY_RATE`.
 
 A customer whose chat is known to be unreachable — `blocked`, `deactivated`, or
 `not_started` — is not read at all, and a customer who stops being reachable

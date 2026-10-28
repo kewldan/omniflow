@@ -134,6 +134,36 @@ func TestCampaignWithUnreachableRecipientsCompletes(t *testing.T) {
 	}
 }
 
+// TestCampaignDrainsPastOneBatch runs a campaign larger than one delivery
+// batch. Delivery used to take 200 recipients per fifteen-minute pass, so the
+// rest waited for the next pass; the broadcast drain now reads the next batch
+// as soon as the last one is sent, paced only by the sender.
+func TestCampaignDrainsPastOneBatch(t *testing.T) {
+	ctx := context.Background()
+	harness := newHarness(t)
+	flow := newBotFlow(ctx, t, harness)
+	operations := newOperations(t, harness)
+	actor := harness.operator(ctx, t, "drain@omniflow.test")
+
+	const audience = 230
+	for account := int64(707000); account < 707000+audience; account++ {
+		consentingCustomer(ctx, t, flow, account, "ru")
+	}
+	russian := campaignFor(ctx, t, operations, actor, "ru")
+	runner := campaigns.New(harness.pool, slog.New(slog.DiscardHandler), campaigns.Config{})
+	runner.RunOnce(ctx)
+
+	flow.notifier().RunOnce(ctx)
+	var sent int
+	if err := harness.pool.QueryRow(ctx, `SELECT count(*)::integer FROM campaign_recipients
+		WHERE campaign_id = $1::uuid AND status = 'sent'`, russian).Scan(&sent); err != nil {
+		t.Fatalf("count sent: %v", err)
+	}
+	if sent != audience {
+		t.Fatalf("one delivery run sent %d of %d recipients", sent, audience)
+	}
+}
+
 // TestCampaignBatchIsSharedBetweenCampaigns gives one campaign a backlog
 // larger than a batch and starts a second, one-recipient campaign after it.
 // The batch used to be a single queue ordered by queue time, so the second

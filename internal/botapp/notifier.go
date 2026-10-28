@@ -7,6 +7,7 @@ import (
 	"html"
 	"log/slog"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -24,6 +25,12 @@ const supportReplyInterval = 30 * time.Second
 // notificationBatch bounds one pass so a large installation degrades in
 // throughput rather than in latency for everyone.
 const notificationBatch = 200
+
+// broadcastInterval is how often the broadcast loop looks for campaign
+// recipients and announcements when it has drained everything it found. While
+// there is a backlog it does not wait at all: it reads the next batch as soon
+// as the last one is sent, and the sender's pacer is what sets the rate.
+const broadcastInterval = 30 * time.Second
 
 type notificationCandidate struct {
 	UserID               string
@@ -111,14 +118,24 @@ func (notifier *Notifier) refreshNotices(ctx context.Context) {
 // NewNotifier builds the notification pipeline. A nil commerce service disables
 // the commerce-dependent notifications and leaves the v0.2 alerts running.
 func NewNotifier(logger *slog.Logger, sender *Sender, store *PostgresStore, service remnawave.Service, commerceService *Commerce, settings CommerceSettings) *Notifier {
+	if sender != nil {
+		sender.SetRate(settings.DeliveryRate)
+	}
 	return &Notifier{logger: logger, sender: sender, store: store, remnawave: service, commerce: commerceService, settings: settings, clock: time.Now}
 }
 
-// Run delivers notifications until the context is cancelled. Support replies
-// run on their own, shorter loop beside the lifecycle pass.
+// Run delivers notifications until the context is cancelled.
+//
+// Three loops run side by side. Support replies have their own short cadence.
+// Campaigns and announcements have their own loop that drains as fast as the
+// sender's pacer allows, rather than two hundred of each per fifteen-minute
+// pass — eight hundred messages an hour, which a campaign to a large audience
+// took days to get through. The lifecycle pass, which walks every customer and
+// asks Remnawave about each, keeps its fifteen minutes.
 func (notifier *Notifier) Run(ctx context.Context) {
 	go notifier.runSupportReplies(ctx)
-	notifier.RunOnce(ctx)
+	go notifier.runBroadcasts(ctx)
+	notifier.runLifecyclePass(ctx)
 	ticker := time.NewTicker(notificationInterval)
 	defer ticker.Stop()
 	for {
@@ -126,15 +143,22 @@ func (notifier *Notifier) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			notifier.RunOnce(ctx)
+			notifier.runLifecyclePass(ctx)
 		}
 	}
 }
 
-// RunOnce executes one full lifecycle pass. Support replies are not part of
-// it: they are pushed by runSupportReplies, and a second deliverer here would
-// race it for the same messages.
+// RunOnce executes one lifecycle pass and one broadcast drain. Support replies
+// are not part of it: they are pushed by runSupportReplies, and a second
+// deliverer here would race it for the same messages.
 func (notifier *Notifier) RunOnce(ctx context.Context) {
+	notifier.runLifecyclePass(ctx)
+	notifier.drainBroadcasts(ctx)
+}
+
+// runLifecyclePass sends the operator tests, the dunning notices, and every
+// customer's lifecycle alerts.
+func (notifier *Notifier) runLifecyclePass(ctx context.Context) {
 	// The operator's wording is read once and used for every message in this
 	// pass. A save halfway through a batch takes effect on the next one, which
 	// is both cheaper than a query per message and more coherent: a hundred
@@ -142,8 +166,6 @@ func (notifier *Notifier) RunOnce(ctx context.Context) {
 	notifier.refreshNotices(ctx)
 	notifier.deliverTests(ctx)
 	notifier.deliverDunning(ctx)
-	notifier.deliverCampaigns(ctx)
-	notifier.deliverNews(ctx)
 	// Every reachable customer is visited, one page at a time. The page is what
 	// bounds memory; the walk is what makes the pass reach the customer whose
 	// identifier sorts last, which a single bounded read never did.
@@ -151,11 +173,51 @@ func (notifier *Notifier) RunOnce(ctx context.Context) {
 		return notifier.store.notificationCandidates(ctx, notifier.settings.MarketingWindow, after, limit)
 	}, func(candidate notificationCandidate) bool {
 		notifier.deliverLifecycle(ctx, candidate)
-		return ctx.Err() == nil
+		return ctx.Err() == nil && !notifier.paused()
 	})
 	if err != nil {
 		notifier.logger.Error("notification candidate lookup failed", "error", err)
 	}
+}
+
+// runBroadcasts drains campaigns and announcements until the context ends.
+func (notifier *Notifier) runBroadcasts(ctx context.Context) {
+	for {
+		notifier.drainBroadcasts(ctx)
+		wait := broadcastInterval
+		if until, paused := notifier.sender.Paused(); paused {
+			wait = max(wait, time.Until(until))
+		}
+		timer := time.NewTimer(wait)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
+	}
+}
+
+// drainBroadcasts sends campaign and announcement batches back to back while
+// either still comes back full, and stops when both are short, when the
+// context ends, or when Telegram has paused the bot.
+func (notifier *Notifier) drainBroadcasts(ctx context.Context) {
+	for ctx.Err() == nil && !notifier.paused() {
+		campaigns := notifier.deliverCampaigns(ctx)
+		announcements := notifier.deliverNews(ctx)
+		if campaigns < notificationBatch && announcements < notificationBatch {
+			return
+		}
+	}
+}
+
+// paused reports whether the sender is waiting out a long Telegram pause.
+func (notifier *Notifier) paused() bool {
+	if notifier.sender == nil {
+		return false
+	}
+	_, paused := notifier.sender.Paused()
+	return paused
 }
 
 // walkCandidatePages reads every candidate in identifier order, a page at a
@@ -456,14 +518,17 @@ func (notifier *Notifier) resolveSupportReply(ctx context.Context, reply Pending
 // A recipient the policy refuses is recorded as suppressed with the reason,
 // never silently dropped. An operator reviewing a campaign's reach needs to see
 // that four hundred people were on the list and not contacted, and why.
-func (notifier *Notifier) deliverCampaigns(ctx context.Context) {
+//
+// It returns how many recipients the batch held, which is what tells the
+// broadcast loop whether to read the next one straight away.
+func (notifier *Notifier) deliverCampaigns(ctx context.Context) int {
 	messages, err := notifier.store.PendingCampaignMessages(ctx, notificationBatch)
 	if err != nil {
 		notifier.logger.Error("campaign message lookup failed", "error", err)
-		return
+		return 0
 	}
 	if len(messages) == 0 {
-		return
+		return 0
 	}
 	// Recipients are resolved one at a time rather than through a snapshot of
 	// every reachable customer: the batch is already bounded, and a snapshot
@@ -471,8 +536,8 @@ func (notifier *Notifier) deliverCampaigns(ctx context.Context) {
 	lookup := notifier.candidateLookup()
 
 	for _, message := range messages {
-		if ctx.Err() != nil {
-			return
+		if ctx.Err() != nil || notifier.paused() {
+			return len(messages)
 		}
 		if reason, errorCode, unreachable := campaignUnreachable(message); unreachable {
 			notifier.resolveCampaign(ctx, message, "suppressed", reason, errorCode)
@@ -481,7 +546,7 @@ func (notifier *Notifier) deliverCampaigns(ctx context.Context) {
 		candidate, known, err := lookup(ctx, message.CustomerID)
 		if err != nil {
 			notifier.logger.Error("notification candidate lookup failed", "error", err)
-			return
+			return len(messages)
 		}
 		if !known {
 			// The customer stopped being reachable between the two reads.
@@ -521,11 +586,17 @@ func (notifier *Notifier) deliverCampaigns(ctx context.Context) {
 		if sendErr := notifier.sender.Send(
 			ctx, message.CustomerID, message.TelegramID, view,
 		); sendErr != nil {
+			if _, flood := floodDeferral(sendErr); flood {
+				// Telegram paused the whole bot. The recipient is left queued
+				// for the next batch; it is not their failure.
+				return len(messages)
+			}
 			notifier.resolveCampaign(ctx, message, "failed", "", "send_failed")
 			continue
 		}
 		notifier.resolveCampaign(ctx, message, "sent", "", "")
 	}
+	return len(messages)
 }
 
 // campaignUnreachable decides, from the batch row alone, whether a recipient
@@ -621,7 +692,7 @@ func (notifier *Notifier) deliverDunning(ctx context.Context) {
 		return
 	}
 	for _, notice := range notices {
-		if ctx.Err() != nil {
+		if ctx.Err() != nil || notifier.paused() {
 			return
 		}
 		dedupe := dunningDedupe(notice.AttemptID)
@@ -638,7 +709,9 @@ func (notifier *Notifier) deliverDunning(ctx context.Context) {
 		if sendErr != nil {
 			notifier.logger.Warn("dunning notice delivery failed",
 				"attemptId", notice.AttemptID, "error", sendErr)
-			if status, code := classifySupportFailure(sendErr); status == "suppressed" {
+			if _, flood := floodDeferral(sendErr); flood {
+				err = notifier.store.finishNotification(ctx, notice.CustomerID, "", "payment", dedupe, sendErr)
+			} else if status, code := classifySupportFailure(sendErr); status == "suppressed" {
 				err = notifier.store.parkNotification(ctx, notice.CustomerID, "", "payment", dedupe,
 					commerce.DeliveryDecision{Reason: code})
 			} else {
@@ -662,24 +735,26 @@ func (notifier *Notifier) deliverDunning(ctx context.Context) {
 // dunningDedupe is the delivery key of one failed charge's notice.
 func dunningDedupe(attemptID string) string { return "dunning:" + attemptID }
 
-func (notifier *Notifier) deliverNews(ctx context.Context) {
+// deliverNews announces recently published posts, and returns how many
+// announcements the batch held.
+func (notifier *Notifier) deliverNews(ctx context.Context) int {
 	announcements, err := notifier.store.PendingNewsAnnouncements(ctx, 7*24*time.Hour, notificationBatch)
 	if err != nil {
 		notifier.logger.Error("news announcement lookup failed", "error", err)
-		return
+		return 0
 	}
 	if len(announcements) == 0 {
-		return
+		return 0
 	}
 	lookup := notifier.candidateLookup()
 	for _, announcement := range announcements {
-		if ctx.Err() != nil {
-			return
+		if ctx.Err() != nil || notifier.paused() {
+			return len(announcements)
 		}
 		candidate, found, lookupErr := lookup(ctx, announcement.CustomerID)
 		if lookupErr != nil {
 			notifier.logger.Error("notification candidate lookup failed", "error", lookupErr)
-			return
+			return len(announcements)
 		}
 		if !found {
 			// The customer stopped being reachable between the two reads. The
@@ -697,6 +772,7 @@ func (notifier *Notifier) deliverNews(ctx context.Context) {
 		// subscription and stay deduplicated per customer.
 		notifier.deliver(ctx, candidate, "", announcement.Category, announcement.PostID, newsAlertView(locale, announcement))
 	}
+	return len(announcements)
 }
 
 // deliver claims, evaluates, and sends one notification. Every outcome is
@@ -865,6 +941,11 @@ func (store *PostgresStore) candidateRows(ctx context.Context, marketingWindow t
 const reclaimableDelivery = `((d.status = 'failed' AND d.failure_count < 3)
 	OR (d.status = 'deferred' AND COALESCE(d.deferred_until, now()) <= now()))`
 
+// reclaimableDeliveryAs is reclaimableDelivery written against another alias.
+func reclaimableDeliveryAs(alias string) string {
+	return strings.ReplaceAll(reclaimableDelivery, "d.", alias+".")
+}
+
 // claimNotification reserves one delivery. A deferred message becomes claimable
 // again once its quiet window has passed, and a failed one only while it still
 // has retries left.
@@ -915,6 +996,14 @@ func (store *PostgresStore) finishNotification(ctx context.Context, userID, subs
 	if sendErr == nil {
 		_, err := store.pool.Exec(ctx, `UPDATE notification_deliveries
 			SET status = 'sent', sent_at = now(), error_code = NULL `+notificationKey, userID, subscriptionID, kind, dedupe)
+		return err
+	}
+	if retryAfter, flood := floodDeferral(sendErr); flood {
+		// Telegram paused the whole bot. The message waits for the pause to
+		// end, like a quiet-hours deferral, and spends none of its retries.
+		_, err := store.pool.Exec(ctx, `UPDATE notification_deliveries
+			SET status = 'deferred', deferred_until = $5, error_code = 'flood_wait' `+notificationKey,
+			userID, subscriptionID, kind, dedupe, retryAfter)
 		return err
 	}
 	code := "telegram_unavailable"

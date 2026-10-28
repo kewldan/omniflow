@@ -31,6 +31,9 @@ type CommerceSettings struct {
 	// MultiSubscription mirrors the installation switch so a screen can hide the
 	// subscription picker entirely when only one subscription is possible.
 	MultiSubscription bool
+	// DeliveryRate is how many messages a second the bot sends, across every
+	// chat. Zero means DefaultDeliveryRate.
+	DeliveryRate int
 }
 
 // Commerce ties the bot to the commerce backend.

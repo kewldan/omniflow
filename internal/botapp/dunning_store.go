@@ -54,7 +54,7 @@ func (store *PostgresStore) PendingDunningNotices(
 			SELECT 1 FROM notification_deliveries n
 			WHERE n.user_id = d.user_id AND n.kind = 'payment' AND n.subscription_id IS NULL
 			  AND n.dedupe_key = 'dunning:' || d.id::text
-			  AND NOT (n.status = 'failed' AND n.failure_count < 3))
+			  AND NOT `+reclaimableDeliveryAs("n")+`)
 		ORDER BY d.id, d.occurred_at LIMIT $1`, limit)
 	if err != nil {
 		return nil, err

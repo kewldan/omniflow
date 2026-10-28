@@ -295,8 +295,13 @@ already `running`.
 The worker owns the audience. The bot's notifier owns delivery, because consent,
 quiet hours, frequency caps, and Telegram delivery health already live there —
 duplicating them would mean two places that can disagree about whether a
-customer may be messaged. It drains queued recipients of running campaigns every
-15 minutes, 200 per pass, and records an outcome per recipient.
+customer may be messaged. It drains queued recipients of running campaigns 200 at
+a time, reading the next batch as soon as the last is sent and looking again
+every 30 seconds once nothing is queued, and records an outcome per recipient.
+The pace is the bot-wide `APP_TELEGRAM_DELIVERY_RATE`, 25 messages a second by
+default; it used to be 200 per fifteen-minute pass, about 800 an hour. A
+Telegram flood wait leaves the rest of the batch queued for the next one rather
+than marking it failed.
 
 The 200 are shared between running campaigns: each contributes its oldest
 recipients, and the pass takes the first of every campaign, then the second,
