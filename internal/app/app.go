@@ -31,9 +31,12 @@ import (
 	"github.com/omniflow/omniflow/internal/platform"
 )
 
-// OpenPool opens a process's traced PostgreSQL pool with an explicit size and
-// checks that the database answers, so a wrong URL fails at start-up rather
-// than on the first request.
+// OpenPool opens a process's traced PostgreSQL pool with an explicit size.
+//
+// It does not wait for the database: connections are made on first use, so a
+// process started while PostgreSQL is still coming up reports itself unready
+// through its health probe instead of exiting — none of the compose services
+// declares a restart policy.
 func OpenPool(ctx context.Context, databaseURL string, maxConns int32) (*pgxpool.Pool, error) {
 	if databaseURL == "" {
 		return nil, errors.New("APP_DATABASE_URL is required")
@@ -41,15 +44,7 @@ func OpenPool(ctx context.Context, databaseURL string, maxConns int32) (*pgxpool
 	if maxConns < 1 {
 		return nil, errors.New("the database pool needs at least one connection")
 	}
-	pool, err := platform.TracedPool(ctx, databaseURL, maxConns)
-	if err != nil {
-		return nil, err
-	}
-	if err = pool.Ping(ctx); err != nil {
-		pool.Close()
-		return nil, fmt.Errorf("ping database: %w", err)
-	}
-	return pool, nil
+	return platform.TracedPool(ctx, databaseURL, maxConns)
 }
 
 // OpenWorkerPool opens the worker's pool and refuses a size that cannot carry
