@@ -514,7 +514,7 @@ var expansionActions = map[string]bool{
 	"cart-save": true, "cart-auto": true, "cart-clear": true, "cart-buy": true,
 	"sub": true, "sub-new": true, "sub-rename": true, "sub-connect": true,
 	"sub-devices": true, "sub-renew": true, "sub-revoke-confirm": true, "sub-revoke": true,
-	"squad": true, "addons": true, "addon-buy": true, "addon-confirm": true, "maintenance": true,
+	"squad": true, "addons": true, "addon-buy": true, "addon-confirm": true,
 	"methods": true, "pm-change": true, "checkout-addons": true, "addon-toggle": true,
 	"ops": true, "ops-backup": true, "ops-restore-confirm": true, "ops-restore": true,
 }
@@ -605,8 +605,6 @@ func (app *App) handleExpansionAction(ctx context.Context, session commerceConte
 			return app.errorView(session.Locale, routeSubscriptions), true
 		}
 		return app.buyAddon(ctx, session, parts[1], parts[2]), true
-	case "maintenance":
-		return app.maintenanceScreen(ctx, session), true
 	case "ops", "ops-backup", "ops-restore-confirm", "ops-restore":
 		return app.handleOperatorAction(ctx, session.TelegramID, parts)
 	default:

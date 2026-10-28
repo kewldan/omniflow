@@ -150,6 +150,15 @@ var consequentialActions = map[string]bool{
 	"ops-backup": true, "ops-restore": true,
 }
 
+// legacyActions is the closed set of actions handleAction serves itself, after
+// the commerce surface declined them. A button whose action is in neither this
+// set nor commerceActions answers "Action was not completed".
+var legacyActions = map[string]bool{
+	"support": true, "lang": true, "notify": true,
+	"device-confirm": true, "devices-confirm": true, "device-delete": true, "devices-delete": true,
+	"revoke-confirm": true, "revoke": true,
+}
+
 // checkoutBudgetActions are the callbacks that create a provider payment. They
 // share the checkout budget with the free-text top-up amount, so a customer
 // cannot start payments faster than they could confirm checkouts.
