@@ -5,7 +5,6 @@ import type { Metadata } from "next";
 import { getLocale } from "next-intl/server";
 import type { ReactNode } from "react";
 
-import { Measurement } from "@/components/analytics/measurement";
 import { ScopedIntlProvider } from "@/components/intl/scoped-intl-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { readAnalytics } from "@/lib/analytics";
@@ -76,11 +75,11 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           {/* Only what every surface shares. Each panel's route group hands
               the browser its own catalogue in its own layout; see
               ScopedIntlProvider for why the root must not. */}
-          <ScopedIntlProvider namespaces={["common", "analytics"]}>
+          <ScopedIntlProvider namespaces={["common"]}>
             {children}
-            {/* Renders nothing at all unless the operator configured a counter,
-                and nothing until the visitor has agreed to it. */}
-            <Measurement analytics={analytics} />
+            {/* The operator's measurement is not mounted here: it belongs to
+                the customer-facing route groups only and must never load on an
+                operator page. See CustomerMeasurement. */}
             <Toaster />
           </ScopedIntlProvider>
         </ThemeProvider>

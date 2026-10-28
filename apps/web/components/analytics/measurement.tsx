@@ -8,10 +8,10 @@ import type { PublicAnalytics } from "@/lib/analytics";
  * The gate in front of the operator's advertising measurement.
  *
  * It is deliberately almost empty, and it uses React's own `lazy` rather than
- * `next/dynamic`. This component is rendered from the root layout, which every
- * route in both panels shares, so anything reachable from here is paid for by
- * the sign-in screen, the checkout, and every operator page — whether or not
- * the installation measures anything at all. `next/dynamic` brings a loader of
+ * `next/dynamic`. This component is rendered on every public and customer
+ * route (never an operator one; see `customer-measurement.tsx`), so anything
+ * reachable from here is paid for by the sign-in screen and the checkout —
+ * whether or not the installation measures anything at all. `next/dynamic` brings a loader of
  * its own along with it; `lazy` and `Suspense` are already in the React runtime
  * the page has loaded regardless.
  *
