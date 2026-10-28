@@ -1644,6 +1644,29 @@ func (q *Queries) GetPromoForRedemption(ctx context.Context, normalizedCode stri
 	return i, err
 }
 
+const getRefund = `-- name: GetRefund :one
+SELECT id, payment_intent_id, status, amount_minor, currency, provider_reference, reason, idempotency_key, receipt_metadata, created_at, updated_at FROM refunds WHERE id = $1
+`
+
+func (q *Queries) GetRefund(ctx context.Context, id pgtype.UUID) (Refund, error) {
+	row := q.db.QueryRow(ctx, getRefund, id)
+	var i Refund
+	err := row.Scan(
+		&i.ID,
+		&i.PaymentIntentID,
+		&i.Status,
+		&i.AmountMinor,
+		&i.Currency,
+		&i.ProviderReference,
+		&i.Reason,
+		&i.IdempotencyKey,
+		&i.ReceiptMetadata,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getRefundByIdempotency = `-- name: GetRefundByIdempotency :one
 SELECT id, payment_intent_id, status, amount_minor, currency, provider_reference, reason, idempotency_key, receipt_metadata, created_at, updated_at FROM refunds WHERE payment_intent_id = $1 AND idempotency_key = $2
 `
@@ -2758,6 +2781,52 @@ func (q *Queries) ListTelegramIdentitySubjects(ctx context.Context) ([]string, e
 	return items, nil
 }
 
+const listUnansweredRefunds = `-- name: ListUnansweredRefunds :many
+SELECT id, payment_intent_id, status, amount_minor, currency, provider_reference, reason, idempotency_key, receipt_metadata, created_at, updated_at FROM refunds
+WHERE status = 'pending' AND provider_reference IS NULL
+  AND created_at < now() - interval '1 minute'
+  AND created_at > now() - interval '24 hours'
+ORDER BY created_at
+LIMIT $1
+`
+
+// Refunds recorded before the provider was asked whose answer was never
+// written: the process stopped between the two, or the provider could not be
+// reached. Asking again with the same idempotency key is safe. A day is the
+// horizon, because that is how long a provider holds an idempotency key; an
+// older one is left to the operator it was reported to.
+func (q *Queries) ListUnansweredRefunds(ctx context.Context, limit int32) ([]Refund, error) {
+	rows, err := q.db.Query(ctx, listUnansweredRefunds, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Refund{}
+	for rows.Next() {
+		var i Refund
+		if err := rows.Scan(
+			&i.ID,
+			&i.PaymentIntentID,
+			&i.Status,
+			&i.AmountMinor,
+			&i.Currency,
+			&i.ProviderReference,
+			&i.Reason,
+			&i.IdempotencyKey,
+			&i.ReceiptMetadata,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listVisiblePlans = `-- name: ListVisiblePlans :many
 SELECT p.id, p.code, p.kind, p.sort_order, l.locale, l.name, l.description,
        v.id AS plan_version_id, v.version, v.billing_period, v.duration_seconds,
@@ -3061,6 +3130,43 @@ func (q *Queries) PauseEntitlement(ctx context.Context, entitlementID pgtype.UUI
 		&i.SubscriptionID,
 		&i.PausedAt,
 		&i.PausedSeconds,
+	)
+	return i, err
+}
+
+const recordRefundOutcome = `-- name: RecordRefundOutcome :one
+UPDATE refunds
+SET status = $1,
+    provider_reference = COALESCE($2, provider_reference),
+    updated_at = now()
+WHERE id = $3 AND status = 'pending' AND provider_reference IS NULL
+RETURNING id, payment_intent_id, status, amount_minor, currency, provider_reference, reason, idempotency_key, receipt_metadata, created_at, updated_at
+`
+
+type RecordRefundOutcomeParams struct {
+	Status            string      `json:"status"`
+	ProviderReference pgtype.Text `json:"provider_reference"`
+	RefundID          pgtype.UUID `json:"refund_id"`
+}
+
+// Writes what the provider answered onto a refund recorded before it was
+// asked. Only a refund still waiting on that answer moves, so a revival that
+// races the original request cannot overwrite an outcome already recorded.
+func (q *Queries) RecordRefundOutcome(ctx context.Context, arg RecordRefundOutcomeParams) (Refund, error) {
+	row := q.db.QueryRow(ctx, recordRefundOutcome, arg.Status, arg.ProviderReference, arg.RefundID)
+	var i Refund
+	err := row.Scan(
+		&i.ID,
+		&i.PaymentIntentID,
+		&i.Status,
+		&i.AmountMinor,
+		&i.Currency,
+		&i.ProviderReference,
+		&i.Reason,
+		&i.IdempotencyKey,
+		&i.ReceiptMetadata,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }

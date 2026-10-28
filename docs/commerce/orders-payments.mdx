@@ -579,8 +579,25 @@ The working path, step by step:
 - Sum the pending, processing and succeeded refunds already on the intent and refuse if this one
   would take the total past the intent amount — **before** the provider is called, because a
   provider that accepts an over-refund is a provider you then have to argue with.
-- Call the adapter, write the `refunds` row (unique on intent and idempotency key), and, only if
-  the provider reported success, record the ledger movement and the new order state.
+- Write the `refunds` row first — `pending`, with no provider reference, unique on intent and
+  idempotency key — so the refund is on record, and its amount reserved, before any request leaves.
+- Call the adapter under the refund's idempotency key and write its answer onto the row: the status
+  and the provider's reference. Only if the provider reported success are the ledger movement and
+  the new order state recorded.
+
+The order of those last two steps is the point. A process that stopped after the provider moved the
+money and before anything was written used to leave returned money with no record of it at all. Now
+the row exists first, and its outcome is resolved one of three ways:
+
+- **A definite refusal** on the first request — the provider answered `4xx` other than `408`, `409`
+  or `429`, or the adapter cannot refund — marks the row `failed`, which frees the amount it reserved.
+- **No answer** — a timeout, an outage, a `5xx`, or a crash — leaves it `pending` with no provider
+  reference. Repeating the refund request with the same idempotency key asks the provider again, and
+  so does the background reconciler, every minute, for any such row between one minute and a day
+  old. The provider recognises the key, so asking again cannot refund twice.
+- **A revival that still cannot get an answer** queues one `incident` notice with status
+  `refund_outcome_unknown`, deduplicated per refund, so an operator checks the outcome at the
+  provider. After a day — how long a provider holds an idempotency key — the reconciler stops asking.
 
 Recording the refund locks the order, returns early if a ledger transaction already exists under the
 key, and refuses when the currency differs or when the refunded total would exceed the

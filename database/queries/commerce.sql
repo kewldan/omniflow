@@ -584,6 +584,33 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 ON CONFLICT (payment_intent_id, idempotency_key) DO UPDATE SET idempotency_key = EXCLUDED.idempotency_key
 RETURNING *;
 
+-- name: GetRefund :one
+SELECT * FROM refunds WHERE id = $1;
+
+-- name: RecordRefundOutcome :one
+-- Writes what the provider answered onto a refund recorded before it was
+-- asked. Only a refund still waiting on that answer moves, so a revival that
+-- races the original request cannot overwrite an outcome already recorded.
+UPDATE refunds
+SET status = sqlc.arg(status),
+    provider_reference = COALESCE(sqlc.narg(provider_reference), provider_reference),
+    updated_at = now()
+WHERE id = sqlc.arg(refund_id) AND status = 'pending' AND provider_reference IS NULL
+RETURNING *;
+
+-- name: ListUnansweredRefunds :many
+-- Refunds recorded before the provider was asked whose answer was never
+-- written: the process stopped between the two, or the provider could not be
+-- reached. Asking again with the same idempotency key is safe. A day is the
+-- horizon, because that is how long a provider holds an idempotency key; an
+-- older one is left to the operator it was reported to.
+SELECT * FROM refunds
+WHERE status = 'pending' AND provider_reference IS NULL
+  AND created_at < now() - interval '1 minute'
+  AND created_at > now() - interval '24 hours'
+ORDER BY created_at
+LIMIT $1;
+
 -- name: GetRefundByIdempotency :one
 SELECT * FROM refunds WHERE payment_intent_id = $1 AND idempotency_key = $2;
 

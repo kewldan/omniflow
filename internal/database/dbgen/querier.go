@@ -689,6 +689,7 @@ type Querier interface {
 	// programme would mean two answers to "what does an invite earn?", and the
 	// customer would have been told one of them.
 	GetReferralProgram(ctx context.Context) (ReferralProgram, error)
+	GetRefund(ctx context.Context, id pgtype.UUID) (Refund, error)
 	GetRefundByIdempotency(ctx context.Context, arg GetRefundByIdempotencyParams) (Refund, error)
 	GetRemnawaveMappingByCustomer(ctx context.Context, userID pgtype.UUID) (RemnawaveUser, error)
 	GetRemnawaveUserIDByTelegramID(ctx context.Context, telegramID pgtype.Int8) (int64, error)
@@ -1173,6 +1174,12 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	ListSuppressions(ctx context.Context, pageSize int32) ([]ListSuppressionsRow, error)
 	ListTelegramIdentitySubjects(ctx context.Context) ([]string, error)
+	// Refunds recorded before the provider was asked whose answer was never
+	// written: the process stopped between the two, or the provider could not be
+	// reached. Asking again with the same idempotency key is safe. A day is the
+	// horizon, because that is how long a provider holds an idempotency key; an
+	// older one is left to the operator it was reported to.
+	ListUnansweredRefunds(ctx context.Context, limit int32) ([]Refund, error)
 	ListUnpublishedOutboxEvents(ctx context.Context, pageSize int32) ([]ListUnpublishedOutboxEventsRow, error)
 	// The customer-facing catalogue in one round trip: product, localisation for
 	// the requested locale, and the pricing rule that produces the quote.
@@ -1462,6 +1469,10 @@ type Querier interface {
 	// Signals are advisory and deduplicated per pair, so a sweep that runs twice
 	// records one signal rather than two.
 	RecordReferralSignal(ctx context.Context, arg RecordReferralSignalParams) (ReferralSignal, error)
+	// Writes what the provider answered onto a refund recorded before it was
+	// asked. Only a refund still waiting on that answer moves, so a revival that
+	// races the original request cannot overwrite an outcome already recorded.
+	RecordRefundOutcome(ctx context.Context, arg RecordRefundOutcomeParams) (Refund, error)
 	// Only the first operator reply sets it, so the measure survives a
 	// conversation that goes back and forth for a week.
 	RecordSupportFirstResponse(ctx context.Context, ticketID pgtype.UUID) (SupportTicket, error)

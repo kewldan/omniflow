@@ -59,13 +59,15 @@ func (service *Service) observePayment(provider, operation, classification strin
 	service.metrics.Payments.WithLabelValues(provider, operation, classification).Inc()
 }
 
-// ReconcilePass re-polls one batch of in-flight payment intents.
+// ReconcilePass re-polls one batch of in-flight payment intents, then revives
+// refunds whose provider outcome was never written down.
 //
 // The worker runs it as a cluster-wide periodic job (see internal/jobs), so the
 // providers are asked once per interval rather than once per api replica. One
 // intent that fails to reconcile does not stop the rest; only a failure to
 // list the batch is reported.
 func (service *Service) ReconcilePass(ctx context.Context) error {
+	defer service.reviveRefunds(ctx)
 	rows, err := dbgen.New(service.pool).ListPaymentIntentsForReconciliation(ctx, 100)
 	if err != nil {
 		return err
@@ -383,76 +385,6 @@ func (service *Service) HandleWebhook(ctx context.Context, providerName string, 
 		return classification, err
 	}
 	return classification, completeErr
-}
-
-func (service *Service) Refund(ctx context.Context, paymentIntentID, idempotencyKey string, amount commerce.Money, reason string, receiptMetadata map[string]any) (dbgen.Refund, error) {
-	if !validIdempotencyKey(idempotencyKey) || len(reason) == 0 {
-		return dbgen.Refund{}, errors.New("refund requires a valid idempotency key and reason")
-	}
-	id, err := parseUUID(paymentIntentID)
-	if err != nil {
-		return dbgen.Refund{}, err
-	}
-	connection, err := service.pool.Acquire(ctx)
-	if err != nil {
-		return dbgen.Refund{}, err
-	}
-	defer connection.Release()
-	queries := dbgen.New(connection)
-	lockKey := "refund:" + paymentIntentID
-	if err = queries.AcquirePaymentMutationLock(ctx, lockKey); err != nil {
-		return dbgen.Refund{}, err
-	}
-	defer func() { _ = queries.ReleasePaymentMutationLock(context.WithoutCancel(ctx), lockKey) }()
-	intent, err := queries.GetPaymentIntent(ctx, id)
-	if err != nil {
-		return dbgen.Refund{}, err
-	}
-	if intent.Status != "succeeded" || amount.Currency != intent.Currency || amount.Amount <= 0 || amount.Amount > intent.AmountMinor {
-		return dbgen.Refund{}, errors.New("invalid refund")
-	}
-	provider, ok := service.providers[intent.Provider]
-	if !ok || !provider.Capabilities().Refunds || !intent.ProviderReference.Valid {
-		return dbgen.Refund{}, payments.ErrUnsupported
-	}
-	if existing, existingErr := queries.GetRefundByIdempotency(ctx, dbgen.GetRefundByIdempotencyParams{PaymentIntentID: intent.ID, IdempotencyKey: idempotencyKey}); existingErr == nil {
-		if existing.AmountMinor != amount.Amount || existing.Currency != amount.Currency {
-			return dbgen.Refund{}, errors.New("idempotency key was already used with different refund parameters")
-		}
-		if existing.Status == "succeeded" {
-			if _, err = service.commerce.RecordRefund(ctx, paymentIntentID, uuidString(existing.ID), "refund:"+idempotencyKey, commerce.Money{Amount: existing.AmountMinor, Currency: existing.Currency}); err != nil {
-				return dbgen.Refund{}, err
-			}
-		}
-		return existing, nil
-	} else if !errors.Is(existingErr, pgx.ErrNoRows) {
-		return dbgen.Refund{}, existingErr
-	}
-	reserved, err := queries.GetReservedRefundAmount(ctx, intent.ID)
-	if err != nil {
-		return dbgen.Refund{}, err
-	}
-	if reserved+amount.Amount > intent.AmountMinor {
-		return dbgen.Refund{}, errors.New("refund exceeds the remaining provider-paid amount")
-	}
-	remote, err := provider.Refund(ctx, payments.RefundRequest{PaymentReference: intent.ProviderReference.String, IdempotencyKey: idempotencyKey, Amount: amount, Reason: reason})
-	if err != nil {
-		return dbgen.Refund{}, err
-	}
-	receipt, _ := json.Marshal(receiptMetadata)
-	refund, err := queries.CreateRefund(ctx, dbgen.CreateRefundParams{PaymentIntentID: intent.ID, Status: remote.Status, AmountMinor: amount.Amount, Currency: amount.Currency, ProviderReference: optionalText(remote.ProviderReference), Reason: reason, IdempotencyKey: idempotencyKey, ReceiptMetadata: receipt})
-	if err != nil {
-		return dbgen.Refund{}, err
-	}
-	if refund.AmountMinor != amount.Amount || refund.Currency != amount.Currency {
-		return dbgen.Refund{}, errors.New("idempotency key was already used with different refund parameters")
-	}
-	if refund.Status == "succeeded" {
-		if _, err = service.commerce.RecordRefund(ctx, paymentIntentID, uuidString(refund.ID), "refund:"+idempotencyKey, commerce.Money{Amount: refund.AmountMinor, Currency: refund.Currency}); err != nil {
-			return dbgen.Refund{}, err
-		}
-	}
-	return refund, nil
 }
 
 func (service *Service) ApproveManual(ctx context.Context, paymentIntentID, operatorID, reason, idempotencyKey, requestID string, approved bool) (dbgen.ManualPaymentApproval, error) {
