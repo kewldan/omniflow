@@ -29,7 +29,7 @@ func (harness *harness) orderOutcome(ctx context.Context, t *testing.T, orderID 
 func TestALatePaymentCannotSpendAPromotionTwice(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	planVersionID := harness.catalog(ctx, t, "late-promo", 25000)
 	harness.promotion(ctx, t, "LATEONCE", harness.planIDOf(ctx, t, planVersionID), 1)
@@ -76,7 +76,7 @@ func TestALatePaymentCannotSpendAPromotionTwice(t *testing.T) {
 func TestALatePaymentCannotSpendATrialTwice(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	var planID, versionID string
 	if err := harness.pool.QueryRow(ctx,

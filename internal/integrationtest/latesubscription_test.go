@@ -9,6 +9,7 @@ import (
 
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/commercepg"
+	"github.com/omniflow/omniflow/internal/config"
 	"github.com/omniflow/omniflow/internal/fulfillment"
 )
 
@@ -41,7 +42,7 @@ func (harness *harness) expireAndRelease(ctx context.Context, t *testing.T, stor
 func TestALatePaymentForAReleasedSubscriptionNeverLandsOnThePrimary(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	panel := newMemoryRemnawave()
 	worker := fulfillment.NewWorker(harness.pool, panel)
@@ -114,8 +115,8 @@ func TestALatePaymentWithNoRoomForItsSubscriptionGoesToAnOperator(t *testing.T) 
 	harness := newHarness(t)
 	ctx := context.Background()
 	options := testOptions()
-	options.Subscriptions = commerce.SubscriptionPolicy{MultiEnabled: true, MaxPerCustomer: 1}
-	store := commercepg.New(harness.pool, nil, options)
+	options.Subscriptions = config.SubscriptionConfig{MultiEnabled: true, MaxPerCustomer: 1}
+	store := harness.commerceStore(t, options)
 	customerID := harness.customer(ctx, t)
 
 	planVersionID := harness.catalog(ctx, t, "late-full", 25000)
@@ -162,7 +163,7 @@ func TestALatePaymentWithNoRoomForItsSubscriptionGoesToAnOperator(t *testing.T) 
 func TestAnEntitlementWithoutASubscriptionIsNeverAdopted(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	orderID, _, operationID := harness.paidOrder(ctx, t, store, customerID, "orphan", 25000)
 	if _, err := harness.pool.Exec(ctx, `UPDATE entitlements SET subscription_id = NULL WHERE order_id = $1::uuid`, orderID); err != nil {

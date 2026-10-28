@@ -16,7 +16,7 @@ import (
 func TestTheAvailableWalletBalanceHasOneDefinition(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	checkout := newAccountCheckout(t, harness, store)
 	customerID := harness.customer(ctx, t)
 	harness.creditWallet(ctx, t, customerID, "wallet-definition", 50000)

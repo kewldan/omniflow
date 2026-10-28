@@ -45,7 +45,7 @@ func (harness *harness) paidOrder(ctx context.Context, t *testing.T, store *comm
 func TestARefundBeforeProvisioningCancelsTheCreate(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	orderID, intentID, operationID := harness.paidOrder(ctx, t, store, customerID, "refund-early", 25000)
 
@@ -79,7 +79,7 @@ func TestARefundBeforeProvisioningCancelsTheCreate(t *testing.T) {
 func TestARefundDuringProvisioningIsNotOverwritten(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	orderID, intentID, operationID := harness.paidOrder(ctx, t, store, customerID, "refund-race", 25000)
 

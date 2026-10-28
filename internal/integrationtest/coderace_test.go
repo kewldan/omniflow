@@ -24,7 +24,7 @@ func TestACodeRedeemedDuringARenewalLosesNoPeriod(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
 	service := newOperations(t, harness)
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	actor := harness.operator(ctx, t, "codes-race@example.test")
 	planVersion := seedPlanVersion(ctx, t, harness)
 	const rounds = 6

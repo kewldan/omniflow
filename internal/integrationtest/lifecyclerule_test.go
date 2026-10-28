@@ -19,7 +19,7 @@ import (
 func TestOrderCreationEnforcesTheLifecycleRuleForEveryCaller(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 
 	heldOrder, _, _ := harness.paidOrder(ctx, t, store, customerID, "rule-basic", 30000)

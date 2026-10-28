@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/omniflow/omniflow/internal/commerce"
-	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/payments"
 	"github.com/omniflow/omniflow/internal/paymentservice"
 )
@@ -48,7 +47,7 @@ func (provider *notifyingProvider) VerifyWebhook(_ http.Header, body []byte) (pa
 func TestWebhookIntakeStoresNoJunkAndPollsOnlyKnownPayments(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	provider := &notifyingProvider{hostedStubProvider: hostedStubProvider{name: "yookassa", currency: "RUB"}}
 	service := paymentservice.New(harness.pool, store, provider)
 

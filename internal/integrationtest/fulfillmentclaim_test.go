@@ -39,7 +39,7 @@ func (harness *harness) freeOrder(ctx context.Context, t *testing.T, store *comm
 func TestFulfillmentHoldsNothingWhileRemnawaveIsCalled(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	orderID, operationID := harness.freeOrder(ctx, t, store, customerID, "claim-plan")
 
@@ -95,7 +95,7 @@ func TestFulfillmentHoldsNothingWhileRemnawaveIsCalled(t *testing.T) {
 func TestAClaimIsRespectedUntilItsLeaseEndsAndThenTakenOver(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	orderID, operationID := harness.freeOrder(ctx, t, store, customerID, "lease-plan")
 	panel := newMemoryRemnawave()
@@ -155,7 +155,7 @@ func TestAClaimIsRespectedUntilItsLeaseEndsAndThenTakenOver(t *testing.T) {
 func TestAResultFromALapsedClaimIsDropped(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	orderID, operationID := harness.freeOrder(ctx, t, store, customerID, "lapsed-plan")
 	panel := newMemoryRemnawave()

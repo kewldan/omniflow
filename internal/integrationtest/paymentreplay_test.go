@@ -60,7 +60,7 @@ func (provider *savedChargeProvider) VerifyWebhook(http.Header, []byte) (payment
 func TestTheWebhookAfterASynchronousChargeIsAReplay(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	planVersionID := harness.catalog(ctx, t, "replay-plan", 29900)
 	provider := &savedChargeProvider{reference: "yk-payment-1"}

@@ -15,7 +15,6 @@ import (
 	telegram "github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 	"github.com/omniflow/omniflow/internal/botapp"
-	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/payments"
 	"github.com/omniflow/omniflow/internal/paymentservice"
 	"github.com/omniflow/omniflow/internal/remnawave"
@@ -244,15 +243,18 @@ func newBotFlow(ctx context.Context, t *testing.T, harness *harness) *botFlow {
 	}
 	t.Cleanup(store.Close)
 	logger := slog.New(slog.DiscardHandler)
-	orders := commercepg.New(harness.pool, nil, testOptions())
+	orders := harness.commerceStore(t, testOptions())
 	settings := botapp.CommerceSettings{
 		Currency: "RUB", PublicURL: "https://example.test",
 		TermsURL: "https://example.test/terms", MultiSubscription: true,
 	}
 	// The manual adapter is the one payment method that needs no network, so
 	// a purchase reaches a real payment step rather than a nil service.
-	surface := botapp.NewCommerce(logger, store, orders,
+	surface, err := botapp.NewCommerce(logger, store, orders,
 		paymentservice.New(harness.pool, orders, payments.Manual{}), settings)
+	if err != nil {
+		t.Fatalf("build bot commerce: %v", err)
+	}
 	fake := &botRemnawave{users: map[int64]remnawave.User{}, devices: map[int64][]remnawave.Device{}}
 	app := botapp.New(logger, store, fake, "")
 	// Updates go through the client's own dispatch — registered handlers,

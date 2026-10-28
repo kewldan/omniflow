@@ -80,7 +80,7 @@ func (harness *harness) paidThroughYooKassa(ctx context.Context, t *testing.T, s
 func TestARefundIsWrittenDownBeforeTheProviderIsAsked(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	orderID, intentID := harness.paidThroughYooKassa(ctx, t, store, customerID, "refund-record")
 
@@ -160,7 +160,7 @@ func TestARefundIsWrittenDownBeforeTheProviderIsAsked(t *testing.T) {
 func TestARefusedRefundReleasesItsReservation(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	_, intentID := harness.paidThroughYooKassa(ctx, t, store, customerID, "refund-refused")
 
