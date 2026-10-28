@@ -73,10 +73,17 @@ func giftCreditView(locale Locale, presets []int64, currency string) View {
 }
 
 // giftMessagePromptView asks for the note that travels with the gift.
-func giftMessagePromptView(locale Locale) View {
+//
+// The note is optional, so the prompt also offers to give the gift without
+// one. That button is the only way to a gift with no note that does not depend
+// on the customer knowing to type a dash.
+func giftMessagePromptView(locale Locale, token string) View {
 	return View{
-		Text:     text(locale, "gift.messagePrompt"),
-		Keyboard: keyboard(row(callbackButton(text(locale, "action.cancel"), routeGifts))),
+		Text: text(locale, "gift.messagePrompt"),
+		Keyboard: keyboard(
+			row(actionButton(text(locale, "gift.withoutNote"), "gift-buy:"+token)),
+			row(callbackButton(text(locale, "action.cancel"), routeGifts)),
+		),
 	}
 }
 

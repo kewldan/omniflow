@@ -628,8 +628,10 @@ Gifting a subscription uses the ordinary plan catalogue rather than a separate
 gift catalogue, because two price lists can disagree. Gifting credit uses the
 operator's configured top-up amounts; with none configured the screen says so and
 points at support. Either way the bot then asks for a short note of up to 200
-characters — whatever you send is stored as the note, including the `-` the
-prompt offers as a way to skip it.
+characters. The note is optional: `🎁 Give without a note` under the prompt buys
+the gift straight away, and sending a lone `-` does the same. A longer note is
+refused with "The note is longer than 200 characters", and the prompt stays open
+under the same gift, so the shortened note completes it.
 
 The claim code is then shown **once**:
 

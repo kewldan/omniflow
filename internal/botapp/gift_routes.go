@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/gifts"
@@ -32,11 +33,13 @@ var giftActions = map[string]bool{
 }
 
 // handleGiftAction serves the gift callback actions.
+//
+// `gift-message` and `gift-buy` both carry the gift as two segments, a kind
+// and its payload — `plan:<plan version>` or `credit:<amount>` — so the
+// callback has three parts in all. The note prompt used to receive only the
+// second one, `plan`, and the note that followed could never be turned back
+// into a gift: every attempt landed on the gift list.
 func (app *App) handleGiftAction(ctx context.Context, session commerceContext, parts []string) (View, bool) {
-	argument := ""
-	if len(parts) > 1 {
-		argument = parts[1]
-	}
 	switch parts[0] {
 	case "gift-plan":
 		return app.giftPlanScreen(ctx, session), true
@@ -48,7 +51,10 @@ func (app *App) handleGiftAction(ctx context.Context, session commerceContext, p
 		}
 		return app.giftPurchase(ctx, session, parts[1], parts[2]), true
 	case "gift-message":
-		return app.giftAskMessage(ctx, session, argument), true
+		if len(parts) != 3 {
+			return app.giftsScreen(ctx, session), true
+		}
+		return app.giftAskMessage(ctx, session, parts[1]+":"+parts[2]), true
 	case "gift-claim":
 		return app.giftAskCode(ctx, session), true
 	default:
@@ -114,7 +120,7 @@ func (app *App) giftAskMessage(ctx context.Context, session commerceContext, tok
 		app.logger.Error("gift message prompt failed", "error", err)
 		return app.errorView(session.Locale, routeGifts)
 	}
-	return giftMessagePromptView(session.Locale)
+	return giftMessagePromptView(session.Locale, token)
 }
 
 // SubmitGiftMessage completes the gift purchase with the sender's note, under
@@ -131,7 +137,39 @@ func (app *App) SubmitGiftMessage(
 		// a key, refuse the old flow; the customer starts the gift again.
 		return app.giftsScreen(ctx, session)
 	}
-	return app.buyGift(ctx, session, kind, payload, message, key)
+	note, fits := giftNote(message)
+	if !fits {
+		// The note is refused here rather than by the database, whose check on
+		// its length turned a long note into "the order could not be created".
+		// The prompt stays open under the same key, so the customer shortens
+		// it and sends again rather than starting the gift over.
+		if err := app.customers.BeginSessionState(
+			ctx, session.TelegramID, "gift_message", map[string]any{"gift": token, "key": key},
+		); err != nil {
+			app.logger.Error("gift message prompt failed", "error", err)
+			return app.errorView(session.Locale, routeGifts)
+		}
+		view := giftMessagePromptView(session.Locale, token)
+		view.Text = text(session.Locale, "gift.messageTooLong", giftNoteLimit) + "\n\n" + view.Text
+		return view
+	}
+	return app.buyGift(ctx, session, kind, payload, note, key)
+}
+
+// giftNoteLimit is the longest note a gift carries, in characters. The gift
+// record refuses a longer one, so the bot refuses it first and says why.
+const giftNoteLimit = 200
+
+// giftNote reads what the sender typed as the note. A lone dash is the prompt's
+// documented way to send no note, and is not delivered to the recipient as one.
+// It reports false for a note longer than the gift record accepts.
+func giftNote(input string) (string, bool) {
+	note := strings.TrimSpace(input)
+	switch note {
+	case "-", "—", "–":
+		return "", true
+	}
+	return note, utf8.RuneCountInString(note) <= giftNoteLimit
 }
 
 // giftPurchase buys a gift without a note. The callback itself is claimed

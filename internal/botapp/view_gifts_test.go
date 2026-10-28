@@ -39,3 +39,21 @@ func TestGiftCodeViewNeverRendersAnEmptyCode(t *testing.T) {
 		t.Fatalf("a replayed gift must link to its order: %v", callbackData(view))
 	}
 }
+
+// A lone dash is the prompt's documented way to skip the note, and a note is
+// bounded by what the gift record stores, counted in characters rather than
+// bytes — a Cyrillic note has twice as many bytes as letters.
+func TestGiftNoteSkipsADashAndBoundsTheLength(t *testing.T) {
+	t.Parallel()
+	for input, want := range map[string]string{" - ": "", "—": "", "  hi  ": "hi"} {
+		if note, fits := giftNote(input); !fits || note != want {
+			t.Fatalf("giftNote(%q) = %q, %v; want %q", input, note, fits, want)
+		}
+	}
+	if _, fits := giftNote(strings.Repeat("я", giftNoteLimit)); !fits {
+		t.Fatal("a note at the limit was refused")
+	}
+	if _, fits := giftNote(strings.Repeat("я", giftNoteLimit+1)); fits {
+		t.Fatal("a note over the limit was accepted")
+	}
+}
