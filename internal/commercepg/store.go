@@ -322,7 +322,7 @@ func (store *Store) quote(ctx context.Context, queries *dbgen.Queries, userID, p
 	if !commerce.AllowedOperation(input.Operation, plan.UpgradePolicy, plan.DowngradePolicy) {
 		return OrderQuote{}, ErrOperationForbidden
 	}
-	wallet, err := queries.GetAvailableWalletBalance(ctx, dbgen.GetAvailableWalletBalanceParams{TargetUserID: userID, TargetCurrency: plan.Currency})
+	wallet, err := availableWallet(ctx, queries, userID, plan.Currency)
 	if err != nil {
 		return OrderQuote{}, err
 	}

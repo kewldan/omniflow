@@ -188,9 +188,7 @@ func (store *Store) CreateGoodsOrder(
 func (store *Store) walletContribution(
 	ctx context.Context, queries *dbgen.Queries, userID pgtype.UUID, currency string, total int64,
 ) (int64, error) {
-	balance, err := queries.GetAvailableWalletBalance(ctx, dbgen.GetAvailableWalletBalanceParams{
-		TargetUserID: userID, TargetCurrency: currency,
-	})
+	balance, err := availableWallet(ctx, queries, userID, currency)
 	if err != nil {
 		return 0, err
 	}

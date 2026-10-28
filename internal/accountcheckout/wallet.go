@@ -8,20 +8,11 @@ import (
 	"github.com/omniflow/omniflow/internal/commercepg"
 )
 
-// WalletBalance is the customer's credit in one currency.
-//
-// The three figures are carried separately because they answer different
-// questions and a single "balance" would answer neither honestly. Total is what
-// the ledger holds; Reserved is what unpaid orders have already claimed; and
-// Available is what a new order may actually spend. A customer who sees only the
-// total and then watches a smaller amount apply at checkout has been told the
-// wrong number twice.
-type WalletBalance struct {
-	Currency       string
-	TotalMinor     int64
-	ReservedMinor  int64
-	AvailableMinor int64
-}
+// WalletBalance is the customer's credit in one currency: what the ledger
+// holds, what unpaid orders reserve, and what a new order may spend. It is
+// commercepg.WalletBalance, read through the single implementation of that
+// rule.
+type WalletBalance = commercepg.WalletBalance
 
 // WalletEntry is one customer-visible ledger movement.
 type WalletEntry struct {
@@ -69,40 +60,6 @@ type TopUp struct {
 	Payment     PaymentHandle
 }
 
-// WalletBalances reads every currency the customer holds credit in.
-//
-// The reservation is subtracted with the same arithmetic the order path uses:
-// credit claimed by a draft or pending order is not available to a second one,
-// or two checkouts opened side by side would each believe they could be paid for
-// entirely from the wallet.
-func (store *Store) WalletBalances(ctx context.Context, customerID string) ([]WalletBalance, error) {
-	rows, err := store.pool.Query(ctx, `SELECT e.currency,
-		COALESCE(sum(e.amount_minor), 0)::bigint AS total_minor,
-		COALESCE((SELECT sum(o.wallet_minor) FROM orders o
-			WHERE o.user_id = $1::uuid AND o.currency = e.currency
-			  AND o.state IN ('draft','pending')), 0)::bigint AS reserved_minor
-		FROM ledger_entries e
-		WHERE e.account_type = 'customer_wallet' AND e.user_id = $1::uuid
-		GROUP BY e.currency ORDER BY e.currency`, customerID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	balances := make([]WalletBalance, 0, 4)
-	for rows.Next() {
-		var balance WalletBalance
-		if err = rows.Scan(&balance.Currency, &balance.TotalMinor, &balance.ReservedMinor); err != nil {
-			return nil, err
-		}
-		balance.AvailableMinor = balance.TotalMinor - balance.ReservedMinor
-		if balance.AvailableMinor < 0 {
-			balance.AvailableMinor = 0
-		}
-		balances = append(balances, balance)
-	}
-	return balances, rows.Err()
-}
-
 // WalletHistory lists the customer's own ledger entries, newest first.
 func (store *Store) WalletHistory(
 	ctx context.Context, customerID, currency string, cursor Cursor, limit int,
@@ -137,7 +94,7 @@ func (store *Store) WalletHistory(
 
 // Wallet reads the balances together with the top-up policy that governs them.
 func (service *Service) Wallet(ctx context.Context, customerID string) (WalletView, error) {
-	balances, err := service.store.WalletBalances(ctx, customerID)
+	balances, err := service.orders.WalletBalances(ctx, customerID)
 	if err != nil {
 		return WalletView{}, err
 	}

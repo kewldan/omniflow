@@ -1058,31 +1058,6 @@ func (q *Queries) ExtendOrderExpiry(ctx context.Context, arg ExtendOrderExpiryPa
 	return i, err
 }
 
-const getAvailableWalletBalance = `-- name: GetAvailableWalletBalance :one
-SELECT GREATEST(
-  COALESCE((SELECT sum(wallet_entry.amount_minor)
-            FROM ledger_entries wallet_entry
-            WHERE wallet_entry.account_type = 'customer_wallet' AND wallet_entry.user_id = $1 AND wallet_entry.currency = $2), 0)
-  - COALESCE((SELECT sum(reserved_order.wallet_minor)
-              FROM orders reserved_order
-              WHERE reserved_order.user_id = $1 AND reserved_order.currency = $2
-                AND reserved_order.state IN ('draft', 'pending')), 0),
-  0
-)::bigint AS balance_minor
-`
-
-type GetAvailableWalletBalanceParams struct {
-	TargetUserID   pgtype.UUID `json:"target_user_id"`
-	TargetCurrency string      `json:"target_currency"`
-}
-
-func (q *Queries) GetAvailableWalletBalance(ctx context.Context, arg GetAvailableWalletBalanceParams) (int64, error) {
-	row := q.db.QueryRow(ctx, getAvailableWalletBalance, arg.TargetUserID, arg.TargetCurrency)
-	var balance_minor int64
-	err := row.Scan(&balance_minor)
-	return balance_minor, err
-}
-
 const getCustomer = `-- name: GetCustomer :one
 SELECT id, status, locale, created_at, updated_at, timezone, suspended_at, deleted_at, anonymized_at, retention_until, merged_into, merged_at FROM users WHERE id = $1
 `
@@ -1742,6 +1717,73 @@ func (q *Queries) GetWalletBalance(ctx context.Context, arg GetWalletBalancePara
 	var balance_minor int64
 	err := row.Scan(&balance_minor)
 	return balance_minor, err
+}
+
+const getWalletBalances = `-- name: GetWalletBalances :many
+WITH ledger AS (
+  SELECT wallet_entry.currency, sum(wallet_entry.amount_minor)::bigint AS total_minor
+  FROM ledger_entries wallet_entry
+  WHERE wallet_entry.account_type = 'customer_wallet' AND wallet_entry.user_id = $1
+    AND ($2::text IS NULL OR wallet_entry.currency = $2::text)
+  GROUP BY wallet_entry.currency
+), reserved AS (
+  SELECT reserved_order.currency, sum(reserved_order.wallet_minor)::bigint AS reserved_minor
+  FROM orders reserved_order
+  WHERE reserved_order.user_id = $1 AND reserved_order.state IN ('draft', 'pending')
+    AND ($2::text IS NULL OR reserved_order.currency = $2::text)
+  GROUP BY reserved_order.currency
+)
+SELECT ledger.currency, ledger.total_minor,
+       COALESCE(reserved.reserved_minor, 0)::bigint AS reserved_minor,
+       GREATEST(ledger.total_minor - COALESCE(reserved.reserved_minor, 0), 0)::bigint AS available_minor
+FROM ledger
+LEFT JOIN reserved ON reserved.currency = ledger.currency
+ORDER BY ledger.currency
+`
+
+type GetWalletBalancesParams struct {
+	UserID   pgtype.UUID `json:"user_id"`
+	Currency pgtype.Text `json:"currency"`
+}
+
+type GetWalletBalancesRow struct {
+	Currency       string `json:"currency"`
+	TotalMinor     int64  `json:"total_minor"`
+	ReservedMinor  int64  `json:"reserved_minor"`
+	AvailableMinor int64  `json:"available_minor"`
+}
+
+// The one definition of what a customer's wallet holds and may spend, per
+// currency. total_minor is the ledger; reserved_minor is what the customer's
+// draft and pending orders have already claimed; available_minor is what a new
+// order may spend, never below zero. Order creation, the shop, a top-up
+// refund, and the customer's wallet screen all read it here, so "available"
+// cannot come to mean two things. A null currency lists every currency the
+// ledger holds; a currency the ledger has never seen has no row and reads as
+// zero.
+func (q *Queries) GetWalletBalances(ctx context.Context, arg GetWalletBalancesParams) ([]GetWalletBalancesRow, error) {
+	rows, err := q.db.Query(ctx, getWalletBalances, arg.UserID, arg.Currency)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetWalletBalancesRow{}
+	for rows.Next() {
+		var i GetWalletBalancesRow
+		if err := rows.Scan(
+			&i.Currency,
+			&i.TotalMinor,
+			&i.ReservedMinor,
+			&i.AvailableMinor,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const insertAuditEvent = `-- name: InsertAuditEvent :one

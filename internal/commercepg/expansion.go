@@ -446,7 +446,7 @@ func (store *Store) CreateAddonOrder(ctx context.Context, input AddonOrderInput)
 	}
 	walletBalance := int64(0)
 	if !input.SkipWallet {
-		if walletBalance, err = queries.GetAvailableWalletBalance(ctx, dbgen.GetAvailableWalletBalanceParams{TargetUserID: userID, TargetCurrency: input.Currency}); err != nil {
+		if walletBalance, err = availableWallet(ctx, queries, userID, input.Currency); err != nil {
 			return dbgen.Order{}, err
 		}
 	}

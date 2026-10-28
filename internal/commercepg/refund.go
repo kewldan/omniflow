@@ -133,7 +133,7 @@ func (store *Store) revokeRefundedAccess(ctx context.Context, tx pgx.Tx, queries
 // spent it, or an unpaid order has it reserved — nothing is debited and the
 // operator is told: a negative balance is not a state the ledger allows.
 func (store *Store) debitRefundedTopUp(ctx context.Context, queries *dbgen.Queries, order dbgen.Order, refundID string, amount commerce.Money) (map[string]any, error) {
-	available, err := queries.GetAvailableWalletBalance(ctx, dbgen.GetAvailableWalletBalanceParams{TargetUserID: order.UserID, TargetCurrency: amount.Currency})
+	available, err := availableWallet(ctx, queries, order.UserID, amount.Currency)
 	if err != nil {
 		return nil, err
 	}

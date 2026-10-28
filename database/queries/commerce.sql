@@ -649,17 +649,34 @@ FROM ledger_entries
 WHERE account_type = 'customer_wallet' AND user_id = $1 AND currency = $2
 ;
 
--- name: GetAvailableWalletBalance :one
-SELECT GREATEST(
-  COALESCE((SELECT sum(wallet_entry.amount_minor)
-            FROM ledger_entries wallet_entry
-            WHERE wallet_entry.account_type = 'customer_wallet' AND wallet_entry.user_id = sqlc.arg(target_user_id) AND wallet_entry.currency = sqlc.arg(target_currency)), 0)
-  - COALESCE((SELECT sum(reserved_order.wallet_minor)
-              FROM orders reserved_order
-              WHERE reserved_order.user_id = sqlc.arg(target_user_id) AND reserved_order.currency = sqlc.arg(target_currency)
-                AND reserved_order.state IN ('draft', 'pending')), 0),
-  0
-)::bigint AS balance_minor;
+-- name: GetWalletBalances :many
+-- The one definition of what a customer's wallet holds and may spend, per
+-- currency. total_minor is the ledger; reserved_minor is what the customer's
+-- draft and pending orders have already claimed; available_minor is what a new
+-- order may spend, never below zero. Order creation, the shop, a top-up
+-- refund, and the customer's wallet screen all read it here, so "available"
+-- cannot come to mean two things. A null currency lists every currency the
+-- ledger holds; a currency the ledger has never seen has no row and reads as
+-- zero.
+WITH ledger AS (
+  SELECT wallet_entry.currency, sum(wallet_entry.amount_minor)::bigint AS total_minor
+  FROM ledger_entries wallet_entry
+  WHERE wallet_entry.account_type = 'customer_wallet' AND wallet_entry.user_id = sqlc.arg(user_id)
+    AND (sqlc.narg(currency)::text IS NULL OR wallet_entry.currency = sqlc.narg(currency)::text)
+  GROUP BY wallet_entry.currency
+), reserved AS (
+  SELECT reserved_order.currency, sum(reserved_order.wallet_minor)::bigint AS reserved_minor
+  FROM orders reserved_order
+  WHERE reserved_order.user_id = sqlc.arg(user_id) AND reserved_order.state IN ('draft', 'pending')
+    AND (sqlc.narg(currency)::text IS NULL OR reserved_order.currency = sqlc.narg(currency)::text)
+  GROUP BY reserved_order.currency
+)
+SELECT ledger.currency, ledger.total_minor,
+       COALESCE(reserved.reserved_minor, 0)::bigint AS reserved_minor,
+       GREATEST(ledger.total_minor - COALESCE(reserved.reserved_minor, 0), 0)::bigint AS available_minor
+FROM ledger
+LEFT JOIN reserved ON reserved.currency = ledger.currency
+ORDER BY ledger.currency;
 
 -- name: ListExpiredWalletCredits :many
 SELECT e.*,

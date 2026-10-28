@@ -92,8 +92,11 @@ of the questions honestly:
 | Reserved | what the customer's own `draft` and `pending` orders have already claimed |
 | Available | what a new order may actually spend |
 
-Reserved is subtracted with the same arithmetic the order path uses. Without it, two checkouts
-opened side by side would each believe the same money was theirs. A customer shown only the total
+Reserved is subtracted with the same arithmetic the order path uses — literally the same: one
+query (`GetWalletBalances`, exposed as `commercepg.Store.WalletBalances` and
+`AvailableWalletBalance`) is what order creation, the shop, a top-up refund and the customer web
+panel all read. Without the reservation, two checkouts opened side by side would each believe the
+same money was theirs. A customer shown only the total
 and then given a smaller amount at checkout has been told the wrong number twice.
 
 ## Expiring credit

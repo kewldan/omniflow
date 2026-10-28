@@ -563,7 +563,6 @@ type Querier interface {
 	// Auto-renew
 	// ---------------------------------------------------------------------------
 	GetAutoRenewSettings(ctx context.Context, arg GetAutoRenewSettingsParams) (AutoRenewSetting, error)
-	GetAvailableWalletBalance(ctx context.Context, arg GetAvailableWalletBalanceParams) (int64, error)
 	GetBackup(ctx context.Context, id pgtype.UUID) (Backup, error)
 	GetBlocklistMatch(ctx context.Context, id pgtype.UUID) (BlocklistMatch, error)
 	GetBlocklistSource(ctx context.Context, id pgtype.UUID) (BlocklistSource, error)
@@ -715,6 +714,15 @@ type Querier interface {
 	GetSupportTicketAttachment(ctx context.Context, arg GetSupportTicketAttachmentParams) (GetSupportTicketAttachmentRow, error)
 	GetTelemetryInstallationID(ctx context.Context) (pgtype.UUID, error)
 	GetWalletBalance(ctx context.Context, arg GetWalletBalanceParams) (int64, error)
+	// The one definition of what a customer's wallet holds and may spend, per
+	// currency. total_minor is the ledger; reserved_minor is what the customer's
+	// draft and pending orders have already claimed; available_minor is what a new
+	// order may spend, never below zero. Order creation, the shop, a top-up
+	// refund, and the customer's wallet screen all read it here, so "available"
+	// cannot come to mean two things. A null currency lists every currency the
+	// ledger holds; a currency the ledger has never seen has no row and reads as
+	// zero.
+	GetWalletBalances(ctx context.Context, arg GetWalletBalancesParams) ([]GetWalletBalancesRow, error)
 	GetWebhookEventForReplay(ctx context.Context, id pgtype.UUID) (ProviderWebhookEvent, error)
 	// ---------------------------------------------------------------------------
 	// Role grants
