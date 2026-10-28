@@ -139,6 +139,15 @@ func (evaluator *callbackEvaluator) evalCall(call *ast.CallExpr, environment map
 				}
 				defer func() { argument++ }()
 				if strings.HasSuffix(verb, "d") {
+					// A named small integer — a device position — is as wide
+					// as its name says; any other integer gets the full width.
+					if argument < len(call.Args) {
+						if name, ok := call.Args[argument].(*ast.Ident); ok {
+							if width, known := boundedValues[name.Name]; known {
+								return placeholder(width)
+							}
+						}
+					}
 					return placeholder(integerWidth)
 				}
 				if argument < len(call.Args) {

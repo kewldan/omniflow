@@ -464,10 +464,40 @@ func (app *App) subscriptionRemnawaveView(ctx context.Context, session commerceC
 			app.logger.Error("Remnawave device lookup failed", "error", deviceErr)
 			return app.errorView(session.Locale, routeSubscriptions)
 		}
-		return devicesView(session.Locale, devices, user.HWIDDeviceLimit)
+		return subscriptionDevicesView(session.Locale, subscription.ID, devices, user.HWIDDeviceLimit)
 	default:
 		return app.subscriptionDetailScreen(ctx, session, subscriptionID)
 	}
+}
+
+// removeSubscriptionDevices removes one device, or all of them, from the VPN
+// user of the named subscription — resolved through the subscription, never
+// through the customer's first Remnawave user. A device is addressed by its
+// position on the screen, because a hardware ID never leaves the server; a
+// list that changed since the screen was drawn refuses rather than guesses.
+func (app *App) removeSubscriptionDevices(ctx context.Context, session commerceContext, subscriptionID string, index int, all bool) View {
+	subscription, err := app.customers.Subscription(ctx, session.Customer.ID, subscriptionID, session.Locale)
+	if err != nil || !subscription.Provisioned() {
+		return View{Text: text(session.Locale, "subs.notProvisioned"), Keyboard: keyboard(row(actionButton(text(session.Locale, "action.back"), "sub:"+subscriptionID)))}
+	}
+	if all {
+		err = app.remnawave.DeleteAllDevices(ctx, subscription.RemnawaveID)
+	} else {
+		var devices remnawave.Devices
+		devices, err = app.remnawave.Devices(ctx, subscription.RemnawaveID)
+		switch {
+		case err != nil:
+		case index < 0 || index >= len(devices.Devices):
+			err = errors.New("device list changed; refresh and try again")
+		default:
+			err = app.remnawave.DeleteDevice(ctx, subscription.RemnawaveID, devices.Devices[index].HWID)
+		}
+	}
+	if err != nil {
+		app.logger.Error("subscription device removal failed", "error", err)
+		return actionErrorView(session.Locale)
+	}
+	return app.subscriptionRemnawaveView(ctx, session, subscriptionID, "devices")
 }
 
 // rotateSubscriptionLink revokes and reissues one subscription's access link.
@@ -516,6 +546,7 @@ var expansionActions = map[string]bool{
 	"sub-devices": true, "sub-renew": true, "sub-revoke-confirm": true, "sub-revoke": true,
 	"squad": true, "addons": true, "addon-buy": true, "addon-confirm": true,
 	"methods": true, "pm-change": true, "checkout-addons": true, "addon-toggle": true,
+	"sub-dev-ask": true, "sub-devs-ask": true, "sub-dev-del": true, "sub-devs-del": true,
 	"ops": true, "ops-backup": true, "ops-restore-confirm": true, "ops-restore": true,
 }
 
@@ -583,6 +614,12 @@ func (app *App) handleExpansionAction(ctx context.Context, session commerceConte
 		}, true
 	case "sub-revoke":
 		return app.rotateSubscriptionLink(ctx, session, argument), true
+	case "sub-dev-ask", "sub-devs-ask":
+		return subscriptionDeviceConfirmView(session.Locale, argument, actionIndexAt(parts, 2), parts[0] == "sub-devs-ask"), true
+	case "sub-dev-del":
+		return app.removeSubscriptionDevices(ctx, session, argument, actionIndexAt(parts, 2), false), true
+	case "sub-devs-del":
+		return app.removeSubscriptionDevices(ctx, session, argument, 0, true), true
 	case "squad":
 		return app.toggleSquad(ctx, session, argument), true
 	case "methods":

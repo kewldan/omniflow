@@ -224,18 +224,59 @@ func deviceDeleteConfirmView(locale Locale, index int, all bool) View {
 	if all {
 		action = "devices-delete"
 	}
+	cancel := "Cancel"
+	if locale == LocaleRussian {
+		cancel = "Отмена"
+	}
+	return deviceConfirmView(locale, all, action, callbackButton(cancel, routeDevices))
+}
+
+// deviceConfirmView asks before removing one device or all of them. The
+// confirming action and the way back are the caller's.
+func deviceConfirmView(locale Locale, all bool, action string, cancel models.InlineKeyboardButton) View {
 	if locale == LocaleRussian {
 		text := "Удалить это устройство? Для повторного подключения потребуется новая регистрация."
 		if all {
 			text = "Удалить все устройства? Все клиенты потребуется подключить заново."
 		}
-		return View{Text: "⚠️ <b>Подтвердите действие</b>\n\n" + text, Keyboard: keyboard(row(actionButton("Удалить", action), callbackButton("Отмена", routeDevices)))}
+		return View{Text: "⚠️ <b>Подтвердите действие</b>\n\n" + text, Keyboard: keyboard(row(actionButton("Удалить", action), cancel))}
 	}
 	text := "Remove this device? It will need to register again before reconnecting."
 	if all {
 		text = "Remove every device? All clients will need to connect again."
 	}
-	return View{Text: "⚠️ <b>Confirm action</b>\n\n" + text, Keyboard: keyboard(row(actionButton("Remove", action), callbackButton("Cancel", routeDevices)))}
+	return View{Text: "⚠️ <b>Confirm action</b>\n\n" + text, Keyboard: keyboard(row(actionButton("Remove", action), cancel))}
+}
+
+// subscriptionDevicesView is one subscription's device screen. Every button
+// names the subscription, so removing a device acts on that subscription's VPN
+// user — the legacy screen's buttons resolved the customer's first one, and a
+// customer with two subscriptions removed devices from the wrong one.
+func subscriptionDevicesView(locale Locale, subscriptionID string, devices remnawave.Devices, limit *int) View {
+	view := devicesView(locale, devices, limit)
+	rows := make([][]models.InlineKeyboardButton, 0, len(devices.Devices)+2)
+	for index, device := range listedDevices(devices) {
+		rows = append(rows, row(actionButton(deviceButtonLabel(index, device),
+			fmt.Sprintf("sub-dev-ask:%s:%d", subscriptionID, index))))
+	}
+	if devices.Total > 1 {
+		rows = append(rows, row(actionButton(removeAllLabel(locale), "sub-devs-ask:"+subscriptionID)))
+	}
+	rows = append(rows, row(actionButton("🔄", "sub-devices:"+subscriptionID),
+		actionButton(text(locale, "action.back"), "sub:"+subscriptionID)))
+	view.Keyboard = keyboard(rows...)
+	view.RetryRoute = routeSubscriptions
+	return view
+}
+
+// subscriptionDeviceConfirmView asks before removing one subscription's device,
+// or all of them.
+func subscriptionDeviceConfirmView(locale Locale, subscriptionID string, index int, all bool) View {
+	action := fmt.Sprintf("sub-dev-del:%s:%d", subscriptionID, index)
+	if all {
+		action = "sub-devs-del:" + subscriptionID
+	}
+	return deviceConfirmView(locale, all, action, actionButton(text(locale, "action.cancel"), "sub-devices:"+subscriptionID))
 }
 
 func revokeConfirmView(locale Locale) View {
@@ -303,29 +344,38 @@ func subscriptionKeyboard(locale Locale, subscriptionURL string, connect, allowR
 
 func devicesKeyboard(locale Locale, devices remnawave.Devices) *models.InlineKeyboardMarkup {
 	rows := make([][]models.InlineKeyboardButton, 0, len(devices.Devices)+2)
-	for index, device := range devices.Devices {
-		if index == 5 {
-			break
-		}
-		name := firstNonEmpty(device.DeviceModel, device.Platform)
-		if name == "" {
-			name = fmt.Sprintf("Device %d", index+1)
-		}
-		rows = append(rows, row(actionButton("🗑 "+truncateRunes(name, 30), fmt.Sprintf("device-confirm:%d", index))))
+	for index, device := range listedDevices(devices) {
+		rows = append(rows, row(actionButton(deviceButtonLabel(index, device), fmt.Sprintf("device-confirm:%d", index))))
 	}
 	if devices.Total > 1 {
-		label := "Remove all devices"
-		if locale == LocaleRussian {
-			label = "Удалить все устройства"
-		}
-		rows = append(rows, row(actionButton("⚠️ "+label, "devices-confirm")))
+		rows = append(rows, row(actionButton(removeAllLabel(locale), "devices-confirm")))
 	}
-	back := "‹ Back"
-	if locale == LocaleRussian {
-		back = "‹ Назад"
-	}
-	rows = append(rows, row(callbackButton("🔄", routeDevices), callbackButton(back, routeHome)))
+	rows = append(rows, row(callbackButton("🔄", routeDevices), callbackButton(text(locale, "action.back"), routeHome)))
 	return keyboard(rows...)
+}
+
+// listedDevices is the part of a device list a screen shows and addresses by
+// position.
+func listedDevices(devices remnawave.Devices) []remnawave.Device {
+	if len(devices.Devices) > 5 {
+		return devices.Devices[:5]
+	}
+	return devices.Devices
+}
+
+func deviceButtonLabel(index int, device remnawave.Device) string {
+	name := firstNonEmpty(device.DeviceModel, device.Platform)
+	if name == "" {
+		name = fmt.Sprintf("Device %d", index+1)
+	}
+	return "🗑 " + truncateRunes(name, 30)
+}
+
+func removeAllLabel(locale Locale) string {
+	if locale == LocaleRussian {
+		return "⚠️ Удалить все устройства"
+	}
+	return "⚠️ Remove all devices"
 }
 
 func backRefreshKeyboard(locale Locale, route string) *models.InlineKeyboardMarkup {

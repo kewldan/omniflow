@@ -145,7 +145,7 @@ var consequentialActions = map[string]bool{
 	"revoke": true, "ticket-close": true, "ticket-open": true, "autorenew": true,
 	// v0.5 actions that move money, provisioning, or database state.
 	"topup-pm": true, "cart-buy": true, "cart-clear": true, "cart-save": true,
-	"cart-auto": true, "addon-confirm": true, "sub-revoke": true,
+	"cart-auto": true, "addon-confirm": true, "sub-revoke": true, "sub-dev-del": true, "sub-devs-del": true,
 	"renew-funding": true, "renew-lead": true, "method-default": true, "method-remove": true,
 	"ops-backup": true, "ops-restore": true,
 }
@@ -890,7 +890,16 @@ func actionIndex(parts []string) int {
 	if len(parts) != 2 {
 		return -1
 	}
-	value, err := strconv.Atoi(parts[1])
+	return actionIndexAt(parts, 1)
+}
+
+// actionIndexAt reads a device position from a callback, or -1 when there is
+// none to read.
+func actionIndexAt(parts []string, position int) int {
+	if len(parts) <= position {
+		return -1
+	}
+	value, err := strconv.Atoi(parts[position])
 	if err != nil {
 		return -1
 	}
