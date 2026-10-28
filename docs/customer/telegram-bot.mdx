@@ -712,7 +712,13 @@ is refused.
 
 A thread shows the subject, status, last update, and up to twenty messages
 oldest-first, each prefixed `👤 You`, `🛟 Support`, or `⚙️ System`, with
-attachments listed as `📎 <name> (<size>)`. The status reads `open`,
+attachments listed as `📎 <name> (<size>)`. A message is cut at 600 characters,
+and the screen keeps the newest messages that fit Telegram's 4096-character
+limit, saying how many earlier ones it left out; the latest message is always
+shown. Before, a long conversation came to three times the limit and the
+request would not open at all. Every other screen is held to the same limit as
+a last resort: a text that would still be too long is shortened with `…`
+between tags rather than refused. The status reads `open`,
 `waiting for you` (the desk's `pending`), `resolved`, `closed`, or `merged`, in
 the customer's language. The buttons follow the same rules the web panel
 enforces:

@@ -1154,6 +1154,9 @@ func referralURL(username, code string) string {
 
 // sendParams builds one outbound message.
 //
+// The text passes through fitText, so a screen that outgrew Telegram's 4096
+// characters arrives shortened rather than being refused whole.
+//
 // The keyboard is assigned only when there is one, and that conditional is the
 // whole point of it. `ReplyMarkup` is an `any`, so a nil `*InlineKeyboardMarkup`
 // assigned to it is a non-nil interface holding a nil pointer, which marshals to
@@ -1169,7 +1172,7 @@ func sendParams(chatID int64, view View) *telegram.SendMessageParams {
 	disabled := true
 	params := &telegram.SendMessageParams{
 		ChatID:             chatID,
-		Text:               view.Text,
+		Text:               fitText(view.Text),
 		ParseMode:          models.ParseModeHTML,
 		LinkPreviewOptions: &models.LinkPreviewOptions{IsDisabled: &disabled},
 		ProtectContent:     true,
@@ -1188,7 +1191,7 @@ func editParams(chatID int64, messageID int, view View) *telegram.EditMessageTex
 	params := &telegram.EditMessageTextParams{
 		ChatID:             chatID,
 		MessageID:          messageID,
-		Text:               view.Text,
+		Text:               fitText(view.Text),
 		ParseMode:          models.ParseModeHTML,
 		LinkPreviewOptions: &models.LinkPreviewOptions{IsDisabled: &disabled},
 	}

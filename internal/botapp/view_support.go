@@ -49,24 +49,15 @@ func supportTicketView(locale Locale, ticket Ticket, messages []TicketMessage) V
 		subject = shortID(ticket.ID)
 	}
 	lines := []string{text(locale, "support.ticket", html.EscapeString(truncateRunes(subject, 60)), text(locale, "support.status."+ticket.Status), formatDate(ticket.UpdatedAt)), ""}
-	for _, message := range messages {
-		sender := text(locale, "support.messageSystem")
-		switch message.Sender {
-		case "customer":
-			sender = text(locale, "support.messageCustomer")
-		case "operator":
-			sender = text(locale, "support.messageOperator")
-		}
-		lines = append(lines, fmt.Sprintf("<b>%s</b> · %s\n%s", sender, formatDate(message.CreatedAt), html.EscapeString(truncateRunes(message.Body, 600))))
-		for _, attachment := range message.Attachments {
-			name := attachment.FileName
-			if name == "" {
-				name = attachment.Kind
-			}
-			lines = append(lines, text(locale, "support.attachment", html.EscapeString(truncateRunes(name, 40)), formatBytes(attachment.SizeBytes)))
-		}
-		lines = append(lines, "")
+	blocks := make([]string, len(messages))
+	for index, message := range messages {
+		blocks[index] = ticketMessageBlock(locale, message)
 	}
+	shown := newestWithin(blocks, ticketMessageBudget)
+	if hidden := len(blocks) - len(shown); hidden > 0 {
+		lines = append(lines, text(locale, "support.earlierHidden", hidden), "")
+	}
+	lines = append(lines, shown...)
 	rows := make([][]models.InlineKeyboardButton, 0, 4)
 	for _, action := range supportTicketActions(ticket.Status) {
 		rows = append(rows, row(actionButton(text(locale, action.label), action.action+":"+ticket.ID)))
@@ -81,6 +72,51 @@ func supportTicketView(locale Locale, ticket Ticket, messages []TicketMessage) V
 	}
 	rows = append(rows, row(callbackButton(text(locale, "action.back"), routeSupport), callbackButton(text(locale, "action.menu"), routeHome)))
 	return View{Text: strings.Join(lines, "\n"), Keyboard: keyboard(rows...), Protect: true}
+}
+
+// ticketMessageBudget is how much of a ticket screen the conversation may take,
+// in UTF-16 code units. The rest of Telegram's 4096 is the header, the status
+// hint, and room to spare. Twenty messages of up to 600 characters each — the
+// screen's own bounds — came to three times the limit, and Telegram refused the
+// whole screen: the customer tapped the request and nothing opened.
+const ticketMessageBudget = 3400
+
+// ticketMessageBlock renders one message of a conversation with its
+// attachments described, followed by the blank line that separates it from the
+// next.
+func ticketMessageBlock(locale Locale, message TicketMessage) string {
+	sender := text(locale, "support.messageSystem")
+	switch message.Sender {
+	case "customer":
+		sender = text(locale, "support.messageCustomer")
+	case "operator":
+		sender = text(locale, "support.messageOperator")
+	}
+	lines := []string{fmt.Sprintf("<b>%s</b> · %s\n%s", sender, formatDate(message.CreatedAt), html.EscapeString(truncateRunes(message.Body, 600)))}
+	for _, attachment := range message.Attachments {
+		name := attachment.FileName
+		if name == "" {
+			name = attachment.Kind
+		}
+		lines = append(lines, text(locale, "support.attachment", html.EscapeString(truncateRunes(name, 40)), formatBytes(attachment.SizeBytes)))
+	}
+	return strings.Join(lines, "\n") + "\n"
+}
+
+// newestWithin keeps the newest blocks that fit the budget together, in their
+// original order. Blocks are oldest first; the newest is always kept, because
+// the latest reply is what a customer opens a conversation to read.
+func newestWithin(blocks []string, budget int) []string {
+	used, first := 0, len(blocks)
+	for index := len(blocks) - 1; index >= 0; index-- {
+		cost := utf16Length(blocks[index]) + 1
+		if used+cost > budget && first < len(blocks) {
+			break
+		}
+		used += cost
+		first = index
+	}
+	return blocks[first:]
 }
 
 // supportTicketAction is one button under a conversation: the catalogue key of
