@@ -1997,7 +1997,12 @@
         "flood_wait": "Telegram asked the bot to slow down",
         "timeout": "Telegram did not answer in time",
         "telegram_unavailable": "Telegram was unreachable",
-        "rejected": "Telegram rejected the message"
+        "rejected": "Telegram rejected the message",
+        "not_started": "the customer never started the bot",
+        "unreachable": "the customer cannot be reached in Telegram",
+        "account_inactive": "the customer's account is not active",
+        "delivery_blocked": "Telegram delivery is blocked for this customer",
+        "classification_failed": "the message could not be classified, so it was not sent"
       },
       "attachments": {
         "kind": {
@@ -2470,7 +2475,12 @@
         "bot_blocked": "The customer blocked the bot",
         "chat_not_found": "No Telegram chat with this customer",
         "user_deactivated": "The Telegram account is deactivated",
-        "telegram_unavailable": "Telegram could not be reached"
+        "telegram_unavailable": "Telegram could not be reached",
+        "not_started": "The customer never started the bot",
+        "unreachable": "The customer cannot be reached in Telegram",
+        "account_inactive": "The customer's account is not active",
+        "delivery_blocked": "Telegram delivery is blocked for this customer",
+        "classification_failed": "The message could not be classified, so it was not sent"
       }
     },
     "notices": {
@@ -3494,7 +3504,12 @@
           "telegram_unavailable": "Not delivered — Telegram could not be reached",
           "pending": "Waiting to go out",
           "deferred": "Waiting for your quiet hours to end",
-          "failed": "Could not be delivered"
+          "failed": "Could not be delivered",
+          "not_started": "Not delivered — you have not started the bot in Telegram yet",
+          "unreachable": "Not delivered — we cannot reach you in Telegram",
+          "account_inactive": "Not sent — your account is not active",
+          "delivery_blocked": "Not delivered — Telegram messages to you are blocked",
+          "classification_failed": "Not sent — a problem on our side; nothing for you to do"
         }
       }
     },

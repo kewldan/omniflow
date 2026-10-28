@@ -289,6 +289,11 @@ const KNOWN_DELIVERY_REASONS = new Set([
   "timeout",
   "telegram_unavailable",
   "rejected",
+  "not_started",
+  "unreachable",
+  "account_inactive",
+  "delivery_blocked",
+  "classification_failed",
 ]);
 
 /** Assignment, queue, priority, status, tags, and merge. */

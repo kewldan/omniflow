@@ -1997,7 +1997,12 @@
         "flood_wait": "Telegram попросил бота замедлиться",
         "timeout": "Telegram не ответил вовремя",
         "telegram_unavailable": "Telegram был недоступен",
-        "rejected": "Telegram отклонил сообщение"
+        "rejected": "Telegram отклонил сообщение",
+        "not_started": "клиент не запускал бота",
+        "unreachable": "клиент недоступен в Telegram",
+        "account_inactive": "аккаунт клиента не активен",
+        "delivery_blocked": "доставка в Telegram для этого клиента заблокирована",
+        "classification_failed": "сообщение не удалось классифицировать, поэтому оно не отправлено"
       },
       "attachments": {
         "kind": {
@@ -2470,7 +2475,12 @@
         "bot_blocked": "Клиент заблокировал бота",
         "chat_not_found": "С клиентом нет чата в Telegram",
         "user_deactivated": "Аккаунт Telegram деактивирован",
-        "telegram_unavailable": "Telegram недоступен"
+        "telegram_unavailable": "Telegram недоступен",
+        "not_started": "Клиент не запускал бота",
+        "unreachable": "Клиент недоступен в Telegram",
+        "account_inactive": "Аккаунт клиента не активен",
+        "delivery_blocked": "Доставка в Telegram для этого клиента заблокирована",
+        "classification_failed": "Сообщение не удалось классифицировать, поэтому оно не отправлено"
       }
     },
     "notices": {
@@ -3494,7 +3504,12 @@
           "telegram_unavailable": "Не доставлено — Telegram недоступен",
           "pending": "Ожидает отправки",
           "deferred": "Ждёт окончания ваших тихих часов",
-          "failed": "Не удалось доставить"
+          "failed": "Не удалось доставить",
+          "not_started": "Не доставлено — вы ещё не запускали бота в Telegram",
+          "unreachable": "Не доставлено — мы не можем связаться с вами в Telegram",
+          "account_inactive": "Не отправлено — ваш аккаунт не активен",
+          "delivery_blocked": "Не доставлено — сообщения вам в Telegram заблокированы",
+          "classification_failed": "Не отправлено — проблема на нашей стороне, от вас ничего не требуется"
         }
       }
     },
