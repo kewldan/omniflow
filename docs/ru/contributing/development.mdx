@@ -13,8 +13,8 @@ Omniflow — это один репозиторий, в котором лежа�
 Работу в репозитории определяют три свойства его устройства. Сгенерированный код коммитится, поэтому
 забытый генератор превращается в diff, который увидит CI. Контракт API в `api/openapi.yaml` —
 единственный источник и для серверных типов Go, и для клиента на TypeScript, поэтому изменение
-протокола — это правка одного файла и следом два генератора. А желаемое состояние базы данных, её
-миграции и слой запросов — три отдельных артефакта, которые обязаны двигаться вместе; у этого
+протокола — это правка одного файла и следом два генератора. А миграции базы данных, её
+сгенерированный снимок схемы и слой запросов — три отдельных артефакта, которые обязаны двигаться вместе; у этого
 процесса есть своя страница — [Изменения базы данных](/ru/contributing/database).
 
 Канонические инженерные правила лежат в `AGENTS.md` в корне репозитория. Эта страница — о том, как
@@ -133,7 +133,7 @@ middleware не участвует; см. [Обратный прокси](/ru/op
 | `cmd/api`, `cmd/bot`, `cmd/worker` | Три точки входа процессов; см. [Обзор архитектуры](/ru/architecture/overview) |
 | `internal/` | Доменные пакеты, транспорт, адаптеры и сгенерированный `database/dbgen` |
 | `api/openapi.yaml` | Контракт REST, OpenAPI 3.0.3 |
-| `database/` | Желаемое состояние `schema.sql`, `migrations/` и `queries/` для sqlc |
+| `database/` | `migrations/`, сгенерированный снимок `schema.sql` и `queries/` для sqlc |
 | `apps/web` | Приложение Next.js, обслуживающее обе панели |
 | `packages/api-client` | Сгенерированные привязки Fetch, SWR и Zod |
 | `packages/ui` | Общие примитивы shadcn, используемые обеими поверхностями. Никаких нативных `<select>`, полей даты и времени: используйте `Select`, комбобокс на `Command` или `DateTimeField` |
@@ -158,7 +158,7 @@ middleware не участвует; см. [Обратный прокси](/ru/op
 | `api/openapi.yaml` | `go tool oapi-codegen -config api/oapi-codegen.yaml api/openapi.yaml` | `internal/httpapi/apigen/openapi.gen.go` |
 | `api/openapi.yaml` | `bun run generate:api` | `packages/api-client/src/generated/omniflow.ts` и `schemas.ts` |
 | `database/queries/*.sql` или миграция | `go tool sqlc generate` | `internal/database/dbgen` |
-| `database/schema.sql` | `atlas migrate diff --env local` | Новый файл в `database/migrations` |
+| Миграция | `sh tools/schema-snapshot.sh` | `database/schema.sql` |
 
 `make generate` запускает первые три по порядку. Шаг Atlas намеренно в него не входит: миграция —
 это отрецензированный артефакт, а не результат сборки, и она разобрана на странице

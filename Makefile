@@ -1,4 +1,4 @@
-.PHONY: help dev up down go-test web-check generate atlas-diff atlas-hash atlas-apply docs-check security
+.PHONY: help dev up down go-test web-check generate atlas-diff atlas-hash atlas-apply schema-snapshot docs-check security
 
 help:
 	@awk 'BEGIN {FS = ":.*##"; print "Usage: make <target>\n"} /^[a-zA-Z_-]+:.*?##/ {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -31,6 +31,9 @@ atlas-hash: ## Recompute migration checksums after a hand-authored migration
 
 atlas-apply: ## Apply committed migrations
 	atlas migrate apply --env local
+
+schema-snapshot: ## Regenerate database/schema.sql from the migrations
+	sh tools/schema-snapshot.sh
 
 docs-check: ## Validate Mintlify documentation
 	cd docs && PUPPETEER_SKIP_DOWNLOAD=true bunx mint@latest validate

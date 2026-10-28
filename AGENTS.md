@@ -23,7 +23,7 @@ These instructions apply to the entire repository.
 - The REST contract is OpenAPI 3.0.3 until the selected Go generator has stable OpenAPI 3.1 support.
 - Generate Go server types and Orval Fetch/SWR client bindings from `api/openapi.yaml`; do not hand-maintain duplicate wire types.
 - Use RFC 9457 problem responses, cursor pagination, UTC timestamps, integer minor-unit money values, request IDs, and idempotency keys for mutations.
-- Change `database/schema.sql`, generate a reviewed Atlas migration, then regenerate sqlc. Never edit an already-released migration.
+- Write a reviewed migration in `database/migrations/` (hand-authored or `make atlas-diff`), run `make atlas-hash`, apply it against a real PostgreSQL, refresh `database/schema.sql` with `make schema-snapshot` (it is generated — never edit it by hand), then regenerate sqlc. Never edit an already-released migration.
 - Apply every new migration against a real PostgreSQL before committing it. A migration that only compiles is unverified: name collisions, constraint conflicts, and column-order mistakes appear at apply time and nowhere else.
 - `database/migrations/atlas.sum` is generated only by `atlas migrate hash`. Never hand-edit or recompute it. A checksum mismatch means the migration changed, not that the file is stale; if Atlas is unavailable, stop and say so rather than writing the file yourself.
 - Name a table-level constraint explicitly and uniquely. PostgreSQL derives `<table>_<column>_check` from an inline column check, so an explicit constraint reusing that name fails to apply.

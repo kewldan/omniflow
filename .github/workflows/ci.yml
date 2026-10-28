@@ -241,6 +241,9 @@ jobs:
         run: atlas migrate apply --dir file://database/migrations --url "postgres://omniflow:omniflow@localhost:5432/omniflow?sslmode=disable"
       - name: Re-applying head is a no-op
         run: atlas migrate apply --dir file://database/migrations --url "postgres://omniflow:omniflow@localhost:5432/omniflow?sslmode=disable"
+      - name: The schema snapshot matches the migrations
+        if: matrix.baseline == ''
+        run: sh tools/schema-snapshot.sh --check
 
   compose:
     name: Compose and reverse proxies

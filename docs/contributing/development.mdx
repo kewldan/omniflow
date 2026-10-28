@@ -12,7 +12,7 @@ whole system is `make`, `go`, `bun`, `atlas`, and `docker compose`.
 Three things about the repository shape decide how you work in it. Generated code is committed, so a
 generator you forget to run is a diff CI can see. The API contract in `api/openapi.yaml` is the
 single source for both the Go server types and the TypeScript client, so a wire change is one file
-edit followed by two generators. And the database's desired state, its migrations, and its query
+edit followed by two generators. And the database's migrations, its generated schema snapshot, and its query
 layer are three separate artefacts that have to move together — that workflow has its own page,
 [Database changes](/contributing/database).
 
@@ -129,7 +129,7 @@ somebody tries to sign in. `apps/web/e2e/api-reachability.spec.ts` is the gate t
 | `cmd/api`, `cmd/bot`, `cmd/worker` | The three process entrypoints; see [Architecture overview](/architecture/overview) |
 | `internal/` | Domain packages, transport, adapters, and the generated `database/dbgen` |
 | `api/openapi.yaml` | The REST contract, OpenAPI 3.0.3 |
-| `database/` | `schema.sql` desired state, `migrations/`, and `queries/` for sqlc |
+| `database/` | `migrations/`, the generated `schema.sql` snapshot, and `queries/` for sqlc |
 | `apps/web` | The Next.js application serving both panels |
 | `packages/api-client` | Generated Fetch, SWR, and Zod bindings |
 | `packages/ui` | Shared shadcn primitives used by both surfaces. No native `<select>`, date, or time input: use `Select`, a `Command`-based combobox, or `DateTimeField` |
@@ -154,7 +154,7 @@ generated file it did not just produce.
 | `api/openapi.yaml` | `go tool oapi-codegen -config api/oapi-codegen.yaml api/openapi.yaml` | `internal/httpapi/apigen/openapi.gen.go` |
 | `api/openapi.yaml` | `bun run generate:api` | `packages/api-client/src/generated/omniflow.ts` and `schemas.ts` |
 | `database/queries/*.sql` or a migration | `go tool sqlc generate` | `internal/database/dbgen` |
-| `database/schema.sql` | `atlas migrate diff --env local` | A new file in `database/migrations` |
+| A migration | `sh tools/schema-snapshot.sh` | `database/schema.sql` |
 
 `make generate` runs the first three in order. The Atlas step is deliberately not part of it: a
 migration is a reviewed artefact, not a build output, and it is covered on
