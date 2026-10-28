@@ -80,6 +80,47 @@ func EffectiveEndsAt(now, endsAt, pausedAt time.Time) time.Time {
 	return now.Add(remaining)
 }
 
+// RefundRevocation is what a full refund does to the entitlement its order
+// created.
+type RefundRevocation struct {
+	// Retire is set when the entitlement has not started yet — an at_expiry
+	// downgrade waiting for the current period to end. Nothing was ever
+	// delivered, so it is withdrawn whole and the current entitlement runs on.
+	Retire bool
+	// EndsAt is the shortened end when the entitlement is not retired.
+	EndsAt time.Time
+}
+
+// RevokeRefundedPeriod takes back exactly the period a refunded order added.
+//
+// Every schedule adds the plan's duration to a base — now for a purchase or a
+// replacing upgrade, the previous end for an extension, a renewal, or a
+// stacking upgrade — so the end minus that duration is the end the customer
+// had without this order. Time already used is not clawed back: the result is
+// never earlier than now, or than the pause instant for a paused entitlement,
+// whose clock is stopped. It never lengthens an entitlement and always leaves
+// it a positive length, which the table requires.
+func RevokeRefundedPeriod(now, startsAt, endsAt, pausedAt time.Time, period time.Duration) RefundRevocation {
+	if startsAt.After(now) {
+		return RefundRevocation{Retire: true}
+	}
+	floor := now
+	if !pausedAt.IsZero() && pausedAt.Before(floor) {
+		floor = pausedAt
+	}
+	end := endsAt.Add(-period)
+	if end.Before(floor) {
+		end = floor
+	}
+	if !end.After(startsAt) {
+		end = startsAt.Add(time.Second)
+	}
+	if end.After(endsAt) {
+		end = endsAt
+	}
+	return RefundRevocation{EndsAt: end}
+}
+
 // RemoteExpiry is the instant Remnawave is asked to expire the user: the paid
 // end plus the plan's grace period. The entitlement's own `ends_at` stays the
 // paid end — it is what renewal arithmetic, reminders, and reporting read —

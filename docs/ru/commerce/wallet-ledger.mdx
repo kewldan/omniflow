@@ -54,6 +54,7 @@ Omniflow не хранит баланс кошелька. Он хранит дв
 | Заказ проведён | `payment` | `order` / идентификатор заказа | `payment:{providerEventID}` либо `wallet:{orderKey}`, когда всё покрыл кошелёк | `customer_wallet −wallet`, `provider_clearing −external`, `platform_clearing +(wallet + external)` |
 | Пополнение зачислено | `credit` | `wallet_topup` / идентификатор заказа | `topup:{orderID}` | `customer_wallet +received`, `provider_clearing −received` |
 | Возврат прошёл успешно | `refund` | `refund` / идентификатор возврата | ключ возврата вызывающей стороны | `platform_clearing −amount`, `provider_clearing +amount` |
+| Пополнение кошелька возвращено | `debit` | `refund` / идентификатор возврата | `refund-debit:{refundID}` | `customer_wallet −amount`, `platform_clearing +amount` — записывается, только если доступный баланс это покрывает |
 | Корректировка оператора | тип, выбранный оператором | `operator_adjustment` / референс вызывающей стороны | заголовок `Idempotency-Key` вызывающей стороны | `customer_wallet ±amount`, `platform_clearing ∓amount` |
 | Реферальное вознаграждение | `referral_reward` | `referral` / приглашённый клиент и роль | `referral:{...}` | `customer_wallet +reward` (может нести срок сгорания), `platform_clearing −reward` |
 | Подарок получен как средства в кошельке | `credit` | `gift` / идентификатор подарка | `gift:{giftID}` | `customer_wallet +credit`, `platform_clearing −credit` |

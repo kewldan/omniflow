@@ -1185,6 +1185,7 @@ type Querier interface {
 	// statement of its own rather than a CTE, because a planner is free not to
 	// evaluate a CTE whose rows are never needed.
 	LockCustomerSubscriptions(ctx context.Context, dollar_1 string) error
+	LockEntitlementByOrder(ctx context.Context, orderID pgtype.UUID) (Entitlement, error)
 	LockFulfillmentOperation(ctx context.Context, id pgtype.UUID) (FulfillmentOperation, error)
 	// Serialises claim, revoke, and expiry against one another. Without it two
 	// simultaneous claims of one code could both observe 'deliverable'.
@@ -1736,6 +1737,9 @@ type Querier interface {
 	// Whether a secret exists, without returning it. It is what the panel shows in
 	// place of the value: "configured" is the only safe rendering of a secret.
 	SettingSecretsPresent(ctx context.Context) ([]SettingSecretsPresentRow, error)
+	// Moves an entitlement's end earlier, for a refund that takes back the period
+	// its order bought. LEAST keeps it from ever lengthening one.
+	ShortenEntitlement(ctx context.Context, arg ShortenEntitlementParams) (Entitlement, error)
 	// Only a previewed operation may run. That is what enforces "impact preview
 	// before bulk change" in the database rather than only in the panel.
 	StartBulkOperation(ctx context.Context, operationID pgtype.UUID) (BulkOperation, error)

@@ -2798,6 +2798,36 @@ func (q *Queries) ListVisiblePlans(ctx context.Context, locale string) ([]ListVi
 	return items, nil
 }
 
+const lockEntitlementByOrder = `-- name: LockEntitlementByOrder :one
+SELECT id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id, paused_at, paused_seconds FROM entitlements WHERE order_id = $1 FOR UPDATE
+`
+
+func (q *Queries) LockEntitlementByOrder(ctx context.Context, orderID pgtype.UUID) (Entitlement, error) {
+	row := q.db.QueryRow(ctx, lockEntitlementByOrder, orderID)
+	var i Entitlement
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.OrderID,
+		&i.PlanVersionID,
+		&i.Status,
+		&i.StartsAt,
+		&i.EndsAt,
+		&i.TrafficAllowanceBytes,
+		&i.DeviceLimit,
+		&i.RemnawaveSquadIds,
+		&i.RemnawaveUserID,
+		&i.ObservedState,
+		&i.ReconciledAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SubscriptionID,
+		&i.PausedAt,
+		&i.PausedSeconds,
+	)
+	return i, err
+}
+
 const lockFulfillmentOperation = `-- name: LockFulfillmentOperation :one
 SELECT id, entitlement_id, operation, status, idempotency_key, correlation_id, desired_state, attempt_count, next_attempt_at, last_error_code, created_at, updated_at, completed_at FROM fulfillment_operations WHERE id = $1 FOR UPDATE
 `
@@ -3062,6 +3092,46 @@ func (q *Queries) SetPlanVisibility(ctx context.Context, arg SetPlanVisibilityPa
 		&i.CreatedAt,
 		&i.ArchivedAt,
 		&i.MaxConcurrentPerCustomer,
+	)
+	return i, err
+}
+
+const shortenEntitlement = `-- name: ShortenEntitlement :one
+UPDATE entitlements
+SET ends_at = LEAST(ends_at, $1::timestamptz), updated_at = now()
+WHERE id = $2
+RETURNING id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id, paused_at, paused_seconds
+`
+
+type ShortenEntitlementParams struct {
+	EndsAt        pgtype.Timestamptz `json:"ends_at"`
+	EntitlementID pgtype.UUID        `json:"entitlement_id"`
+}
+
+// Moves an entitlement's end earlier, for a refund that takes back the period
+// its order bought. LEAST keeps it from ever lengthening one.
+func (q *Queries) ShortenEntitlement(ctx context.Context, arg ShortenEntitlementParams) (Entitlement, error) {
+	row := q.db.QueryRow(ctx, shortenEntitlement, arg.EndsAt, arg.EntitlementID)
+	var i Entitlement
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.OrderID,
+		&i.PlanVersionID,
+		&i.Status,
+		&i.StartsAt,
+		&i.EndsAt,
+		&i.TrafficAllowanceBytes,
+		&i.DeviceLimit,
+		&i.RemnawaveSquadIds,
+		&i.RemnawaveUserID,
+		&i.ObservedState,
+		&i.ReconciledAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SubscriptionID,
+		&i.PausedAt,
+		&i.PausedSeconds,
 	)
 	return i, err
 }

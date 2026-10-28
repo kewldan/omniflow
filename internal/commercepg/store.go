@@ -748,10 +748,20 @@ func (store *Store) RecordRefund(ctx context.Context, paymentIntentID, refundID,
 	if err != nil {
 		return dbgen.Order{}, err
 	}
-	store.notifyOperator(ctx, queries, "refund", "refund:"+refundID, map[string]any{
+	// What the money bought is given back in the same commit as the money, so
+	// a refund can never leave both the refund and the access standing.
+	reversal, err := store.reverseRefundedOrder(ctx, tx, queries, order, refundID, amount)
+	if err != nil {
+		return dbgen.Order{}, err
+	}
+	notice := map[string]any{
 		"orderId": uuidString(order.ID), "currency": amount.Currency,
-		"amountMinor": amount.Amount, "status": state,
-	})
+		"amountMinor": amount.Amount, "status": state, "operation": order.Operation,
+	}
+	for key, value := range reversal {
+		notice[key] = value
+	}
+	store.notifyOperator(ctx, queries, "refund", "refund:"+refundID, notice)
 	return order, tx.Commit(ctx)
 }
 

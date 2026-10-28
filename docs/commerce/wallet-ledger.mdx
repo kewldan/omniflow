@@ -52,6 +52,7 @@ Two uniqueness guards make a transaction exactly-once from two directions:
 | An order settled | `payment` | `order` / order ID | `payment:{providerEventID}`, or `wallet:{orderKey}` when the wallet covered it | `customer_wallet −wallet`, `provider_clearing −external`, `platform_clearing +(wallet + external)` |
 | A top-up credited | `credit` | `wallet_topup` / order ID | `topup:{orderID}` | `customer_wallet +received`, `provider_clearing −received` |
 | A refund succeeded | `refund` | `refund` / refund ID | the caller's refund key | `platform_clearing −amount`, `provider_clearing +amount` |
+| A wallet top-up was refunded | `debit` | `refund` / refund ID | `refund-debit:{refundID}` | `customer_wallet −amount`, `platform_clearing +amount` — written only when the available balance covers it |
 | An operator adjustment | the operator's chosen type | `operator_adjustment` / the caller's reference | the caller's `Idempotency-Key` | `customer_wallet ±amount`, `platform_clearing ∓amount` |
 | A referral reward | `referral_reward` | `referral` / referred customer and role | `referral:{...}` | `customer_wallet +reward` (may carry an expiry), `platform_clearing −reward` |
 | A gift claimed as wallet credit | `credit` | `gift` / gift ID | `gift:{giftID}` | `customer_wallet +credit`, `platform_clearing −credit` |

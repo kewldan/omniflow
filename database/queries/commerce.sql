@@ -635,6 +635,17 @@ RETURNING *;
 -- name: GetEntitlement :one
 SELECT * FROM entitlements WHERE id = $1;
 
+-- name: LockEntitlementByOrder :one
+SELECT * FROM entitlements WHERE order_id = $1 FOR UPDATE;
+
+-- name: ShortenEntitlement :one
+-- Moves an entitlement's end earlier, for a refund that takes back the period
+-- its order bought. LEAST keeps it from ever lengthening one.
+UPDATE entitlements
+SET ends_at = LEAST(ends_at, sqlc.arg(ends_at)::timestamptz), updated_at = now()
+WHERE id = sqlc.arg(entitlement_id)
+RETURNING *;
+
 -- name: ListEntitlementsForReconciliation :many
 -- An entitlement that ended before the horizon is history rather than state:
 -- Remnawave expired the user on its own, and the only thing a reconcile could

@@ -573,6 +573,35 @@ key, and refuses when the currency differs or when the refunded total would exce
 it was never at the provider. The order becomes `refunded` when the refunded total reaches
 `paid_minor`, and `partially_refunded` otherwise, and an operator notice is queued.
 
+### What a refund takes back
+
+Money given back must not leave what it bought in place, so the same transaction that records the
+refund reverses it:
+
+- **A full refund of a subscription order** (`purchase`, `extension`, `renewal`, `upgrade`,
+  `downgrade` reaching `refunded`) takes the period it bought off the entitlement it created. Every
+  schedule adds the plan's duration to a base, so the end moves back by exactly that duration: a
+  refunded extension falls back to the end the customer had before it, and a refunded purchase ends
+  now. Time already used is never clawed back, and a paused entitlement ends at its pause instant.
+  A `reconcile` operation keyed `refund:{refundID}:revoke` pushes the shorter end to Remnawave, which
+  then expires the user at that end plus the plan's grace period. An entitlement that has not
+  started yet — an `at_expiry` downgrade — or that was never provisioned is retired as `superseded`
+  instead, and its `create` is cancelled when it runs. An entitlement a later change already
+  superseded is left alone, because the refunded period now sits under that change; the refund
+  notice says so.
+- **A refund of a wallet top-up** debits the refunded amount from the wallet (ledger type `debit`,
+  key `refund-debit:{refundID}`), because that credit is the money that went back. When the
+  *available* balance no longer covers it — the customer spent it, or an unpaid order has it
+  reserved — nothing is debited, since the ledger never goes negative, and an `incident` notice with
+  status `topup_refund_wallet_short` is queued for an operator to resolve.
+- **A partial refund** of a subscription order changes nothing but the money: it is usually a
+  goodwill gesture, and whether access should change is the operator's decision. An order paid partly
+  from the wallet can only ever be partially refunded through the provider, so it is in the same
+  position.
+
+The refund's operator notice carries the outcome: `access` is `revoked`, `retired` or `kept`, and
+`wallet` is `debited` or `short`.
+
 Provider-specific limits:
 
 - **Telegram Stars** refunds the whole charge or nothing, and needs the paying Telegram account,
