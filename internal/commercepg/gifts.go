@@ -250,8 +250,22 @@ func (store *Store) ClaimGift(
 		return dbgen.Gift{}, ErrGiftNotFound
 	}
 	digest := gifts.Hash(normalized)
+	var claimed dbgen.Gift
+	err = retrySerializable(ctx, func() error {
+		var attemptErr error
+		claimed, attemptErr = store.claimGift(ctx, digest, recipientID)
+		return attemptErr
+	})
+	return claimed, err
+}
 
-	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+// claimGift is one attempt at a claim. It runs Serializable for the same
+// reason a code redemption does: a subscription gift builds on the
+// recipient's current entitlement, and at Read Committed a claim racing a
+// renewal settlement for the same subscription built on the end the renewal
+// was replacing, losing one of the two periods.
+func (store *Store) claimGift(ctx context.Context, digest []byte, recipientID pgtype.UUID) (dbgen.Gift, error) {
+	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 	if err != nil {
 		return dbgen.Gift{}, err
 	}

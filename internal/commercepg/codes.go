@@ -56,8 +56,26 @@ func (store *Store) RedeemAccessCode(
 	if err != nil {
 		return RedeemedCode{}, ErrCodeNotRedeemable
 	}
+	var redeemed RedeemedCode
+	err = retrySerializable(ctx, func() error {
+		var attemptErr error
+		redeemed, attemptErr = store.redeemAccessCode(ctx, normalized, userID)
+		return attemptErr
+	})
+	return redeemed, err
+}
 
-	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+// redeemAccessCode is one attempt at a redemption.
+//
+// It runs Serializable, like every other path that builds an entitlement on
+// the customer's current one. At Read Committed a redemption racing a renewal
+// settlement read the entitlement the renewal was about to supersede, and both
+// built their period on the same end: one period was lost. Serializable makes
+// one of the two fail and be retried against the other's result. A rolled-back
+// attempt redeemed nothing, so retrying it is safe, and a code another
+// customer redeemed meanwhile is refused on the retry.
+func (store *Store) redeemAccessCode(ctx context.Context, normalized string, userID pgtype.UUID) (RedeemedCode, error) {
+	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 	if err != nil {
 		return RedeemedCode{}, err
 	}

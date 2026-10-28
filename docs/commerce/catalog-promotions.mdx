@@ -578,6 +578,14 @@ A redemption **extends** what the customer already has rather than replacing it,
 for the same reason a gift does: replacing would mean a code that shortens
 somebody's subscription.
 
+The redemption runs in a `Serializable` transaction, like every other path that
+builds an entitlement on the customer's current one. A code redeemed at the same
+moment a renewal settles for the same subscription therefore cannot both read
+the same current end: one of the two is aborted and the redemption is retried
+against the other's result, so the customer keeps both periods. A retried
+attempt redeemed nothing, so the retry is safe, and a code somebody else
+redeemed in the meantime is refused on it.
+
 <Note>
   A redemption creates a **zero-value order** with the operation `code`.
 
