@@ -21,7 +21,12 @@ var errNoSubscription = errors.New("a subscription order cannot settle without a
 // on: what can still be honoured is put right, and what cannot changes the
 // classification to one that does not settle.
 func (store *Store) revalidateSettlement(ctx context.Context, queries *dbgen.Queries, order dbgen.Order, classification string) (dbgen.Order, string, error) {
-	closed := order.State == string(commerce.OrderCancelled) || order.State == string(commerce.OrderExpired)
+	if order.Operation == "goods" && commerce.StaleGoodsQuote(classification, order.ExpiresAt.Time, store.clock()) {
+		// The goods were priced on a gateway rate that has lapsed. Nothing is
+		// delivered at it; an operator refunds or honours it by hand.
+		return order, commerce.ClassificationStaleQuote, nil
+	}
+	closed := commerce.ClosedUnpaid(commerce.OrderState(order.State))
 	trial := false
 	if closed {
 		// A closed order stopped counting against its promotion and its

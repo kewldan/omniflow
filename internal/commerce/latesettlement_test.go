@@ -1,6 +1,9 @@
 package commerce
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 // The promotion rule is one rule whether it is applied when an order is opened
 // or when a closed order is paid late: any set limit reached, or the
@@ -27,11 +30,30 @@ func TestPromoLimitReachedChecksEveryLimitThatIsSet(t *testing.T) {
 	}
 }
 
+// A goods price is a quote with an expiry. A payment that arrived after it
+// lapsed — late by the window, or on a cancelled order whose quote has since
+// lapsed — must not be delivered at that price.
+func TestStaleGoodsQuoteFollowsTheQuoteExpiry(t *testing.T) {
+	now := time.Date(2026, time.October, 28, 12, 0, 0, 0, time.UTC)
+	if !StaleGoodsQuote(ClassificationLate, now.Add(time.Hour), now) {
+		t.Fatal("a late goods payment is stale")
+	}
+	if !StaleGoodsQuote(ClassificationPaidAfterCancellation, now.Add(-time.Second), now) {
+		t.Fatal("a cancelled goods order paid after its quote lapsed is stale")
+	}
+	if StaleGoodsQuote(ClassificationPaidAfterCancellation, now.Add(time.Minute), now) {
+		t.Fatal("a cancelled goods order paid while its quote holds is not stale")
+	}
+	if StaleGoodsQuote(ClassificationPaid, now.Add(-time.Hour), now) {
+		t.Fatal("a payment the window accepted is not stale")
+	}
+}
+
 // What keeps a matched payment from settling is a closed list. Underpayment
 // and overpayment are absent on purpose: the order is already left unpaid by
 // the domain, and a top-up settles them for what arrived.
 func TestBlocksSettlementIsTheNonSettlingList(t *testing.T) {
-	for _, classification := range []string{ClassificationCurrency, ClassificationWallet, ClassificationDuplicate, ClassificationSubscriptionUnavailable, ClassificationLimitExceeded} {
+	for _, classification := range []string{ClassificationCurrency, ClassificationWallet, ClassificationDuplicate, ClassificationSubscriptionUnavailable, ClassificationLimitExceeded, ClassificationStaleQuote} {
 		if !BlocksSettlement(classification) || !NeedsOperator(classification) {
 			t.Fatalf("%s must block settlement and reach an operator", classification)
 		}

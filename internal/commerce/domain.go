@@ -258,7 +258,10 @@ func (order Order) Transition(next OrderState) (Order, error) {
 		// A closed order can still be paid: the provider's checkout outlives
 		// the order, and money that arrives is money the customer sent. The
 		// settlement is classified as late so nobody mistakes it for a normal
-		// sale, and the product is delivered because it was paid for.
+		// sale, and the product is delivered because it was paid for — unless
+		// the settlement's re-checks find a lapsed goods quote, a promotion or
+		// trial claimed since, or no subscription to put it on, in which case
+		// the payment does not settle and an operator decides.
 		OrderCancelled:         {OrderPaid: true},
 		OrderExpired:           {OrderPaid: true},
 		OrderPaid:              {OrderFulfilled: true, OrderPartiallyRefunded: true, OrderRefunded: true},
@@ -315,7 +318,28 @@ const (
 	// changed my mind" free them; settling it late would let the same limit
 	// be used twice. It does not settle and an operator decides.
 	ClassificationLimitExceeded = "limit_exceeded"
+	// ClassificationStaleQuote is a matching payment for a shop order that
+	// arrived after the gateway quote it was priced on lapsed. A goods price
+	// is a provider rate with an expiry, and the order's window is that
+	// expiry: delivering at a rate that no longer holds can cost more than
+	// the customer paid. It does not settle and an operator decides.
+	ClassificationStaleQuote = "stale_quote"
 )
+
+// StaleGoodsQuote reports whether a settling payment for a goods order arrived
+// after its quote lapsed: one classified late — the window, which for goods is
+// the quote's validity, had passed — or one on a cancelled order whose quote
+// has lapsed since.
+func StaleGoodsQuote(classification string, quoteExpiresAt, now time.Time) bool {
+	switch classification {
+	case ClassificationLate:
+		return true
+	case ClassificationPaidAfterCancellation:
+		return !quoteExpiresAt.IsZero() && !now.Before(quoteExpiresAt)
+	default:
+		return false
+	}
+}
 
 // ClosedUnpaid reports whether an order closed without being paid. Such an
 // order holds nothing: no promotion redemption, no trial claim, no
@@ -342,7 +366,7 @@ func PromoLimitReached(promotionLimit, codeLimit *int, perCustomerLimit, total, 
 func BlocksSettlement(classification string) bool {
 	switch classification {
 	case ClassificationCurrency, ClassificationWallet, ClassificationDuplicate,
-		ClassificationSubscriptionUnavailable, ClassificationLimitExceeded:
+		ClassificationSubscriptionUnavailable, ClassificationLimitExceeded, ClassificationStaleQuote:
 		return true
 	default:
 		return false
@@ -374,7 +398,7 @@ func NeedsOperator(classification string) bool {
 	switch classification {
 	case ClassificationDuplicate, ClassificationUnderpayment, ClassificationOverpayment,
 		ClassificationCurrency, ClassificationWallet, ClassificationPaidAfterCancellation,
-		ClassificationSubscriptionUnavailable, ClassificationLimitExceeded:
+		ClassificationSubscriptionUnavailable, ClassificationLimitExceeded, ClassificationStaleQuote:
 		return true
 	default:
 		return false

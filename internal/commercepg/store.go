@@ -686,7 +686,7 @@ func paymentEventType(classification string) string {
 	case commerce.ClassificationCurrency:
 		return "amount_mismatch"
 	case commerce.ClassificationPaidAfterCancellation, commerce.ClassificationSubscriptionUnavailable,
-		commerce.ClassificationLimitExceeded:
+		commerce.ClassificationLimitExceeded, commerce.ClassificationStaleQuote:
 		// Only a closed order can reach these, so each is a late payment
 		// whose details name what kept it from settling.
 		return "late"

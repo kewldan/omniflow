@@ -109,6 +109,17 @@ entitlement is created and provisioning queued exactly as for a normal sale — 
 apart: `late` on an expired order, `paid_after_cancellation` on a cancelled one. The second also
 queues an operator notice, because the customer had been told nothing would be charged.
 
+A late settlement re-checks what the order was checked against when it was opened, because the
+world may have moved on while it sat closed. Three outcomes do **not** settle, each classified so an
+operator can act on it:
+
+- `stale_quote` — a shop order whose gateway quote lapsed. Its window *is* the quote's validity, and
+  delivering at a rate that no longer holds can cost more than the customer paid.
+- `limit_exceeded` — its promotion or trial was claimed by another order while it sat closed. See
+  [Catalog and promotions](/commerce/catalog-promotions).
+- `subscription_unavailable` — the subscription it opened was released while it sat closed, and the
+  concurrency ceiling will not open another. See [Subscriptions](/commerce/subscriptions#concurrency).
+
 The cancel path reduces how often that happens by withdrawing the order's open payment intents at
 the provider where the adapter can: CryptoBot deletes the invoice, and a manual intent is simply
 closed. Telegram Stars invoice links cannot be revoked and a YooKassa payment created with immediate
@@ -132,7 +143,8 @@ the start. A surface that lets the customer pick the provider afterwards opens t
 one-hour default, and creating the payment intent then extends the window to what the chosen
 provider warrants. The extension only ever lengthens a window, only while the order is `pending`,
 and never touches a goods order, so a closed order is never reopened and a stale quote is never
-paid. Choosing a card provider after a manual one leaves the longer window in place.
+paid — a goods payment that arrives after the quote lapsed is classified `stale_quote` and not
+settled. Choosing a card provider after a manual one leaves the longer window in place.
 
 <Warning>
   The expiry sweep, wallet-credit expiry and the saved-cart sweep all run in one periodic pass,
@@ -421,6 +433,7 @@ from two status values.
 | `overpayment` | more than `external_minor` arrived (`paid_minor` is still recorded) | no |
 | `currency_mismatch` | the payment currency differs from the order currency | no |
 | `wallet_unavailable` | the payment would settle, but the wallet balance has fallen below the order's reserved amount | no |
+| `stale_quote` | a payment for a shop order that arrived after its gateway quote lapsed | no, and an operator is told |
 | `limit_exceeded` | a late payment for an order whose promotion or trial was claimed by another order while it sat closed | no, and an operator is told |
 | `subscription_unavailable` | a late payment for a subscription order whose own subscription was released while it sat closed, and the concurrency ceiling will not open another — see [Subscriptions](/commerce/subscriptions#concurrency) | no, and an operator is told |
 
