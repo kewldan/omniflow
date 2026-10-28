@@ -1676,7 +1676,7 @@ export const GetPanelAdminResponse = zod.object({
 });
 
 /**
- * Requires admins.roles. Removing the last active owner is refused, and only an owner may grant the owner role.
+ * Requires admins.roles. Removing the last active owner is refused, and only an owner may grant the owner role. An operator cannot change their own roles (409 `self_role_change`), and every role added or removed must carry only permissions the actor already holds (403 `role_escalation`). Saving an unchanged set is a no-op. Each change is audited as `admin.account.roles_changed` and queues a `security` operator notice.
  */
 export const SetPanelAdminRolesParams = zod.object({
   adminID: zod.uuid(),
@@ -1707,6 +1707,141 @@ export const SetPanelAdminRolesResponse = zod.object({
   totpEnabled: zod.boolean(),
   lastLoginAt: zod.iso.datetime({ offset: true }).optional(),
   createdAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Requires admins.read. Open invitations (neither accepted nor revoked), newest first, at most 100. Expired ones are included so the inviter can see that a link lapsed.
+ */
+export const ListPanelAdminInvitationsResponse = zod.object({
+  items: zod.array(
+    zod
+      .object({
+        id: zod.uuid(),
+        email: zod.email(),
+        roles: zod.array(
+          zod.enum(["owner", "administrator", "support", "finance", "marketing", "auditor"]),
+        ),
+        createdAt: zod.iso.datetime({ offset: true }),
+        expiresAt: zod.iso
+          .datetime({ offset: true })
+          .describe("An open invitation past this moment is listed but can no longer be redeemed."),
+        invitedBy: zod.uuid(),
+        invitedByName: zod.string(),
+      })
+      .describe("An open invitation. The token is never part of it."),
+  ),
+});
+
+/**
+ * Requires admins.write. Issues a single-use link valid for 72 hours that creates an operator with the listed roles. The token is in this response only. Inviting an address again retires its earlier link. An address that already has an account is refused (409), and so is a role set carrying a permission the actor does not hold (403 `role_escalation`). Audited as `admin.invitation.created`.
+ */
+export const CreatePanelAdminInvitationHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const CreatePanelAdminInvitationBody = zod.object({
+  email: zod.email(),
+  roles: zod
+    .array(zod.enum(["owner", "administrator", "support", "finance", "marketing", "auditor"]))
+    .min(1),
+});
+
+export const CreatePanelAdminInvitationResponse = zod.object({
+  invitation: zod
+    .object({
+      id: zod.uuid(),
+      email: zod.email(),
+      roles: zod.array(
+        zod.enum(["owner", "administrator", "support", "finance", "marketing", "auditor"]),
+      ),
+      createdAt: zod.iso.datetime({ offset: true }),
+      expiresAt: zod.iso
+        .datetime({ offset: true })
+        .describe("An open invitation past this moment is listed but can no longer be redeemed."),
+      invitedBy: zod.uuid(),
+      invitedByName: zod.string(),
+    })
+    .describe("An open invitation. The token is never part of it."),
+  token: zod
+    .string()
+    .describe(
+      "The single-use token. Returned in this response only; the server keeps its SHA-256. The panel builds `/admin/invite/<token>` from it.",
+    ),
+});
+
+/**
+ * Requires admins.write. Retires an open invitation. Audited as `admin.invitation.revoked`.
+ */
+export const RevokePanelAdminInvitationParams = zod.object({
+  invitationID: zod.uuid(),
+});
+
+export const RevokePanelAdminInvitationHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const RevokePanelAdminInvitationResponse = zod.void();
+
+/**
+ * Public. Reads what an invitation offers so the acceptance screen can show it. An unknown, expired, revoked, or used token all answer the same 404 `invitation_invalid`. Rate limited per client address.
+ */
+export const PreviewPanelInvitationBody = zod.object({
+  token: zod.string(),
+});
+
+export const PreviewPanelInvitationResponse = zod.object({
+  email: zod.email(),
+  roles: zod.array(
+    zod.enum(["owner", "administrator", "support", "finance", "marketing", "auditor"]),
+  ),
+  expiresAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Public. Redeems an invitation: creates the account with the invited roles and the chosen name and password, consumes the link, audits `admin.invitation.accepted`, queues a `security` operator notice, and signs the new operator in. Rate limited per client address.
+ */
+export const acceptPanelInvitationBodyDisplayNameMax = 80;
+
+export const acceptPanelInvitationBodyPasswordMin = 12;
+export const acceptPanelInvitationBodyPasswordMax = 256;
+
+export const AcceptPanelInvitationBody = zod.object({
+  token: zod.string(),
+  displayName: zod.string().min(1).max(acceptPanelInvitationBodyDisplayNameMax),
+  password: zod
+    .string()
+    .min(acceptPanelInvitationBodyPasswordMin)
+    .max(acceptPanelInvitationBodyPasswordMax),
+  locale: zod.enum(["en", "ru"]).optional(),
+  timezone: zod.string().optional(),
+});
+
+export const AcceptPanelInvitationResponse = zod.object({
+  signedIn: zod
+    .boolean()
+    .describe(
+      "False when the account was created but the automatic sign-in did not complete; the operator signs in from the login screen.",
+    ),
+  csrfToken: zod.string().optional(),
+  expiresAt: zod.iso.datetime({ offset: true }).optional(),
+  account: zod.object({
+    id: zod.uuid(),
+    email: zod.email(),
+    displayName: zod.string(),
+    status: zod.enum(["active", "suspended", "disabled"]),
+    locale: zod.enum(["en", "ru"]),
+    timezone: zod.string(),
+    roles: zod.array(
+      zod.enum(["owner", "administrator", "support", "finance", "marketing", "auditor"]),
+    ),
+    totpEnabled: zod.boolean(),
+    lastLoginAt: zod.iso.datetime({ offset: true }).optional(),
+    createdAt: zod.iso.datetime({ offset: true }),
+  }),
 });
 
 /**

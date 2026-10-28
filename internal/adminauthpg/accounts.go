@@ -191,6 +191,17 @@ func (service *Service) SetRoles(
 	if err != nil {
 		return Account{}, err
 	}
+	// Nobody edits their own grants: widening them is escalation, and
+	// narrowing them by mistake is a lock-out only another owner can undo.
+	if uuidString(id) == uuidString(actorID) {
+		return Account{}, ErrSelfRoleChange
+	}
+	roles = uniqueRoles(roles)
+	if len(roles) == 0 {
+		// An account with no role can sign in to a panel that shows it
+		// nothing. Suspension is the way to take somebody's access away.
+		return Account{}, ErrValidation
+	}
 	// Only an owner may create another owner; otherwise the owner-only
 	// boundary could be crossed by anyone holding admins.roles.
 	if slices.Contains(roles, rbac.RoleOwner) && !actor.Grant.HasRole(rbac.RoleOwner) {
@@ -199,9 +210,31 @@ func (service *Service) SetRoles(
 
 	var account Account
 	err = service.inTx(ctx, func(queries *dbgen.Queries) error {
+		if txErr := queries.LockAdminRoleChanges(ctx); txErr != nil {
+			return txErr
+		}
 		current, txErr := loadRoles(ctx, queries, id)
 		if txErr != nil {
 			return txErr
+		}
+		added, removed := rbac.RoleChange(current, roles)
+		// Every role that moves, in either direction, must be one the actor
+		// could have granted. Demoting an owner therefore needs an owner.
+		if !actor.Grant.CanAssign(added...) || !actor.Grant.CanAssign(removed...) {
+			return ErrForbidden
+		}
+		if len(added) == 0 && len(removed) == 0 {
+			// Saving an unchanged set is a no-op rather than an event, so a
+			// retried request does not announce a change that did not happen.
+			row, getErr := queries.GetAdminUser(ctx, id)
+			if errors.Is(getErr, pgx.ErrNoRows) {
+				return ErrNotFound
+			}
+			if getErr != nil {
+				return getErr
+			}
+			account = service.accountFrom(row, current)
+			return nil
 		}
 		if slices.Contains(current, rbac.RoleOwner) && !slices.Contains(roles, rbac.RoleOwner) {
 			remaining, countErr := queries.CountAdminOwners(ctx, id)
@@ -254,6 +287,15 @@ func (service *Service) SetRoles(
 			); txErr != nil {
 				return txErr
 			}
+		}
+		// Every other change is announced too. The notice names the event
+		// and the account only; the before and after sets are in the audit
+		// trail, behind audit.read, rather than in a group chat.
+		if txErr = notifySecurity(
+			ctx, queries, "admin.roles_changed", adminUserID,
+			service.now().UTC().Format(time.RFC3339Nano), "role_change",
+		); txErr != nil {
+			return txErr
 		}
 		account = service.accountFrom(row, roles)
 		return nil

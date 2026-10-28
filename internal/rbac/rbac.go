@@ -301,3 +301,50 @@ func (grant Grant) Permissions() []Permission {
 	}
 	return permissions
 }
+
+// CanAssign reports whether an operator holding this grant may hand every
+// listed role to somebody else.
+//
+// Two rules apply, and both exist so that the power to manage grants can never
+// be used to widen it. A role is assignable only when every permission it
+// carries is one the assigner already holds, so nobody can mint an account
+// stronger than their own. The owner role is additionally reserved to owners:
+// owner is defined as "everything", and a permission added to the catalogue
+// later would otherwise let somebody who held the previous "everything" create
+// the role that now outranks them.
+//
+// The same check covers removing a role. Taking a role away changes what its
+// holder may do just as much as granting one, and an operator who could not
+// grant it has no business revoking it either.
+func (grant Grant) CanAssign(roles ...Role) bool {
+	for _, role := range roles {
+		permissions, known := rolePermissions[role]
+		if !known {
+			return false
+		}
+		if role == RoleOwner && !grant.HasRole(RoleOwner) {
+			return false
+		}
+		if !grant.AllowsAll(permissions...) {
+			return false
+		}
+	}
+	return true
+}
+
+// RoleChange is the difference between an operator's roles before and after an
+// edit: what is being added and what is being taken away. Only those roles need
+// CanAssign; a role that stays put changes nothing.
+func RoleChange(before, after []Role) (added, removed []Role) {
+	for _, role := range after {
+		if !slices.Contains(before, role) && !slices.Contains(added, role) {
+			added = append(added, role)
+		}
+	}
+	for _, role := range before {
+		if !slices.Contains(after, role) && !slices.Contains(removed, role) {
+			removed = append(removed, role)
+		}
+	}
+	return added, removed
+}

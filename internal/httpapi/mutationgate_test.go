@@ -72,6 +72,10 @@ var openPaths = map[string]bool{
 	// passkey is a different thing entirely and stays behind the gate.
 	"/v1/panel/auth/passkey/login/begin":  true,
 	"/v1/panel/auth/passkey/login/finish": true,
+	// Redeeming an operator invitation. The invitee has no account yet; the
+	// single-use token in the body is the credential.
+	"/v1/panel/invitations/preview": true,
+	"/v1/panel/invitations/accept":  true,
 }
 
 // concreteFor turns a chi pattern into a path a request can be made against.

@@ -5496,6 +5496,70 @@ type AdminAccountPage struct {
 	NextCursor *string `json:"nextCursor,omitempty"`
 }
 
+// AdminInvitation An open invitation. The token is never part of it.
+type AdminInvitation struct {
+	CreatedAt time.Time           `json:"createdAt"`
+	Email     openapi_types.Email `json:"email"`
+
+	// ExpiresAt An open invitation past this moment is listed but can no longer be redeemed.
+	ExpiresAt     time.Time          `json:"expiresAt"`
+	Id            openapi_types.UUID `json:"id"`
+	InvitedBy     openapi_types.UUID `json:"invitedBy"`
+	InvitedByName string             `json:"invitedByName"`
+	Roles         []AdminRole        `json:"roles"`
+}
+
+// AdminInvitationAcceptInput defines model for AdminInvitationAcceptInput.
+type AdminInvitationAcceptInput struct {
+	DisplayName string       `json:"displayName"`
+	Locale      *AdminLocale `json:"locale,omitempty"`
+	Password    string       `json:"password"`
+	Timezone    *string      `json:"timezone,omitempty"`
+	Token       string       `json:"token"`
+}
+
+// AdminInvitationAccepted defines model for AdminInvitationAccepted.
+type AdminInvitationAccepted struct {
+	Account   AdminAccount `json:"account"`
+	CsrfToken *string      `json:"csrfToken,omitempty"`
+	ExpiresAt *time.Time   `json:"expiresAt,omitempty"`
+
+	// SignedIn False when the account was created but the automatic sign-in did not complete; the operator signs in from the login screen.
+	SignedIn bool `json:"signedIn"`
+}
+
+// AdminInvitationInput defines model for AdminInvitationInput.
+type AdminInvitationInput struct {
+	Email openapi_types.Email `json:"email"`
+	Roles []AdminRole         `json:"roles"`
+}
+
+// AdminInvitationIssued defines model for AdminInvitationIssued.
+type AdminInvitationIssued struct {
+	// Invitation An open invitation. The token is never part of it.
+	Invitation AdminInvitation `json:"invitation"`
+
+	// Token The single-use token. Returned in this response only; the server keeps its SHA-256. The panel builds `/admin/invite/<token>` from it.
+	Token string `json:"token"`
+}
+
+// AdminInvitationList defines model for AdminInvitationList.
+type AdminInvitationList struct {
+	Items []AdminInvitation `json:"items"`
+}
+
+// AdminInvitationPreview defines model for AdminInvitationPreview.
+type AdminInvitationPreview struct {
+	Email     openapi_types.Email `json:"email"`
+	ExpiresAt time.Time           `json:"expiresAt"`
+	Roles     []AdminRole         `json:"roles"`
+}
+
+// AdminInvitationTokenInput defines model for AdminInvitationTokenInput.
+type AdminInvitationTokenInput struct {
+	Token string `json:"token"`
+}
+
 // AdminLocale defines model for AdminLocale.
 type AdminLocale string
 
@@ -9100,6 +9164,18 @@ type CreatePanelAdminParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// CreatePanelAdminInvitationParams defines parameters for CreatePanelAdminInvitation.
+type CreatePanelAdminInvitationParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// RevokePanelAdminInvitationParams defines parameters for RevokePanelAdminInvitation.
+type RevokePanelAdminInvitationParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // SetPanelAdminRolesParams defines parameters for SetPanelAdminRoles.
 type SetPanelAdminRolesParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
@@ -10327,6 +10403,9 @@ type CreatePromotionJSONRequestBody = PromotionInput
 // CreatePanelAdminJSONRequestBody defines body for CreatePanelAdmin for application/json ContentType.
 type CreatePanelAdminJSONRequestBody = AdminAccountInput
 
+// CreatePanelAdminInvitationJSONRequestBody defines body for CreatePanelAdminInvitation for application/json ContentType.
+type CreatePanelAdminInvitationJSONRequestBody = AdminInvitationInput
+
 // SetPanelAdminRolesJSONRequestBody defines body for SetPanelAdminRoles for application/json ContentType.
 type SetPanelAdminRolesJSONRequestBody = RolesInput
 
@@ -10434,6 +10513,12 @@ type SavePanelGoodsPricingJSONRequestBody = PanelGoodsPricing
 
 // SavePanelGoodsProviderJSONRequestBody defines body for SavePanelGoodsProvider for application/json ContentType.
 type SavePanelGoodsProviderJSONRequestBody = PanelGoodsProviderInput
+
+// AcceptPanelInvitationJSONRequestBody defines body for AcceptPanelInvitation for application/json ContentType.
+type AcceptPanelInvitationJSONRequestBody = AdminInvitationAcceptInput
+
+// PreviewPanelInvitationJSONRequestBody defines body for PreviewPanelInvitation for application/json ContentType.
+type PreviewPanelInvitationJSONRequestBody = AdminInvitationTokenInput
 
 // SavePanelNoticeJSONRequestBody defines body for SavePanelNotice for application/json ContentType.
 type SavePanelNoticeJSONRequestBody SavePanelNoticeJSONBody
@@ -11031,6 +11116,15 @@ type ServerInterface interface {
 	// (POST /v1/panel/admins)
 	CreatePanelAdmin(w http.ResponseWriter, r *http.Request, params CreatePanelAdminParams)
 
+	// (GET /v1/panel/admins/invitations)
+	ListPanelAdminInvitations(w http.ResponseWriter, r *http.Request)
+
+	// (POST /v1/panel/admins/invitations)
+	CreatePanelAdminInvitation(w http.ResponseWriter, r *http.Request, params CreatePanelAdminInvitationParams)
+
+	// (DELETE /v1/panel/admins/invitations/{invitationID})
+	RevokePanelAdminInvitation(w http.ResponseWriter, r *http.Request, invitationID openapi_types.UUID, params RevokePanelAdminInvitationParams)
+
 	// (GET /v1/panel/admins/{adminID})
 	GetPanelAdmin(w http.ResponseWriter, r *http.Request, adminID AdminID)
 
@@ -11339,6 +11433,12 @@ type ServerInterface interface {
 
 	// (GET /v1/panel/goods/review)
 	ListPanelGoodsReviewQueue(w http.ResponseWriter, r *http.Request, params ListPanelGoodsReviewQueueParams)
+
+	// (POST /v1/panel/invitations/accept)
+	AcceptPanelInvitation(w http.ResponseWriter, r *http.Request)
+
+	// (POST /v1/panel/invitations/preview)
+	PreviewPanelInvitation(w http.ResponseWriter, r *http.Request)
 
 	// (GET /v1/panel/notices)
 	ListPanelNotices(w http.ResponseWriter, r *http.Request)
@@ -12182,6 +12282,21 @@ func (_ Unimplemented) CreatePanelAdmin(w http.ResponseWriter, r *http.Request, 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /v1/panel/admins/invitations)
+func (_ Unimplemented) ListPanelAdminInvitations(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/admins/invitations)
+func (_ Unimplemented) CreatePanelAdminInvitation(w http.ResponseWriter, r *http.Request, params CreatePanelAdminInvitationParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /v1/panel/admins/invitations/{invitationID})
+func (_ Unimplemented) RevokePanelAdminInvitation(w http.ResponseWriter, r *http.Request, invitationID openapi_types.UUID, params RevokePanelAdminInvitationParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /v1/panel/admins/{adminID})
 func (_ Unimplemented) GetPanelAdmin(w http.ResponseWriter, r *http.Request, adminID AdminID) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -12694,6 +12809,16 @@ func (_ Unimplemented) SavePanelGoodsProvider(w http.ResponseWriter, r *http.Req
 
 // (GET /v1/panel/goods/review)
 func (_ Unimplemented) ListPanelGoodsReviewQueue(w http.ResponseWriter, r *http.Request, params ListPanelGoodsReviewQueueParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/invitations/accept)
+func (_ Unimplemented) AcceptPanelInvitation(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/invitations/preview)
+func (_ Unimplemented) PreviewPanelInvitation(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -17771,6 +17896,119 @@ func (siw *ServerInterfaceWrapper) CreatePanelAdmin(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// ListPanelAdminInvitations operation middleware
+func (siw *ServerInterfaceWrapper) ListPanelAdminInvitations(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPanelAdminInvitations(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreatePanelAdminInvitation operation middleware
+func (siw *ServerInterfaceWrapper) CreatePanelAdminInvitation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreatePanelAdminInvitationParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePanelAdminInvitation(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokePanelAdminInvitation operation middleware
+func (siw *ServerInterfaceWrapper) RevokePanelAdminInvitation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "invitationID" -------------
+	var invitationID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "invitationID", chi.URLParam(r, "invitationID"), &invitationID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "invitationID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RevokePanelAdminInvitationParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokePanelAdminInvitation(w, r, invitationID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetPanelAdmin operation middleware
 func (siw *ServerInterfaceWrapper) GetPanelAdmin(w http.ResponseWriter, r *http.Request) {
 
@@ -22477,6 +22715,34 @@ func (siw *ServerInterfaceWrapper) ListPanelGoodsReviewQueue(w http.ResponseWrit
 	handler.ServeHTTP(w, r)
 }
 
+// AcceptPanelInvitation operation middleware
+func (siw *ServerInterfaceWrapper) AcceptPanelInvitation(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AcceptPanelInvitation(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PreviewPanelInvitation operation middleware
+func (siw *ServerInterfaceWrapper) PreviewPanelInvitation(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreviewPanelInvitation(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPanelNotices operation middleware
 func (siw *ServerInterfaceWrapper) ListPanelNotices(w http.ResponseWriter, r *http.Request) {
 
@@ -26641,6 +26907,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/v1/panel/admins/{adminID}/roles", wrapper.SetPanelAdminRoles)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/admins/invitations", wrapper.ListPanelAdminInvitations)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/admins/invitations", wrapper.CreatePanelAdminInvitation)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/panel/admins/invitations/{invitationID}", wrapper.RevokePanelAdminInvitation)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/invitations/preview", wrapper.PreviewPanelInvitation)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/invitations/accept", wrapper.AcceptPanelInvitation)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/panel/admins/{adminID}/status", wrapper.SetPanelAdminStatus)
@@ -32350,6 +32631,143 @@ func (response CreatePanelAdmin422ApplicationProblemPlusJSONResponse) VisitCreat
 	return err
 }
 
+type ListPanelAdminInvitationsRequestObject struct {
+}
+
+type ListPanelAdminInvitationsResponseObject interface {
+	VisitListPanelAdminInvitationsResponse(w http.ResponseWriter) error
+}
+
+type ListPanelAdminInvitations200JSONResponse AdminInvitationList
+
+func (response ListPanelAdminInvitations200JSONResponse) VisitListPanelAdminInvitationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelAdminInvitations403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListPanelAdminInvitations403ApplicationProblemPlusJSONResponse) VisitListPanelAdminInvitationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePanelAdminInvitationRequestObject struct {
+	Params CreatePanelAdminInvitationParams
+	Body   *CreatePanelAdminInvitationJSONRequestBody
+}
+
+type CreatePanelAdminInvitationResponseObject interface {
+	VisitCreatePanelAdminInvitationResponse(w http.ResponseWriter) error
+}
+
+type CreatePanelAdminInvitation201JSONResponse AdminInvitationIssued
+
+func (response CreatePanelAdminInvitation201JSONResponse) VisitCreatePanelAdminInvitationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePanelAdminInvitation403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreatePanelAdminInvitation403ApplicationProblemPlusJSONResponse) VisitCreatePanelAdminInvitationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePanelAdminInvitation409ApplicationProblemPlusJSONResponse Problem
+
+func (response CreatePanelAdminInvitation409ApplicationProblemPlusJSONResponse) VisitCreatePanelAdminInvitationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePanelAdminInvitation422ApplicationProblemPlusJSONResponse Problem
+
+func (response CreatePanelAdminInvitation422ApplicationProblemPlusJSONResponse) VisitCreatePanelAdminInvitationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokePanelAdminInvitationRequestObject struct {
+	InvitationID openapi_types.UUID `json:"invitationID"`
+	Params       RevokePanelAdminInvitationParams
+}
+
+type RevokePanelAdminInvitationResponseObject interface {
+	VisitRevokePanelAdminInvitationResponse(w http.ResponseWriter) error
+}
+
+type RevokePanelAdminInvitation204Response struct {
+}
+
+func (response RevokePanelAdminInvitation204Response) VisitRevokePanelAdminInvitationResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type RevokePanelAdminInvitation404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RevokePanelAdminInvitation404ApplicationProblemPlusJSONResponse) VisitRevokePanelAdminInvitationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetPanelAdminRequestObject struct {
 	AdminID AdminID `json:"adminID"`
 }
@@ -32438,6 +32856,20 @@ func (response SetPanelAdminRoles409ApplicationProblemPlusJSONResponse) VisitSet
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetPanelAdminRoles422ApplicationProblemPlusJSONResponse Problem
+
+func (response SetPanelAdminRoles422ApplicationProblemPlusJSONResponse) VisitSetPanelAdminRolesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -36871,6 +37303,138 @@ func (response ListPanelGoodsReviewQueue403ApplicationProblemPlusJSONResponse) V
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptPanelInvitationRequestObject struct {
+	Body *AcceptPanelInvitationJSONRequestBody
+}
+
+type AcceptPanelInvitationResponseObject interface {
+	VisitAcceptPanelInvitationResponse(w http.ResponseWriter) error
+}
+
+type AcceptPanelInvitation201JSONResponse AdminInvitationAccepted
+
+func (response AcceptPanelInvitation201JSONResponse) VisitAcceptPanelInvitationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptPanelInvitation404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response AcceptPanelInvitation404ApplicationProblemPlusJSONResponse) VisitAcceptPanelInvitationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptPanelInvitation409ApplicationProblemPlusJSONResponse Problem
+
+func (response AcceptPanelInvitation409ApplicationProblemPlusJSONResponse) VisitAcceptPanelInvitationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptPanelInvitation422ApplicationProblemPlusJSONResponse Problem
+
+func (response AcceptPanelInvitation422ApplicationProblemPlusJSONResponse) VisitAcceptPanelInvitationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptPanelInvitation429ApplicationProblemPlusJSONResponse Problem
+
+func (response AcceptPanelInvitation429ApplicationProblemPlusJSONResponse) VisitAcceptPanelInvitationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewPanelInvitationRequestObject struct {
+	Body *PreviewPanelInvitationJSONRequestBody
+}
+
+type PreviewPanelInvitationResponseObject interface {
+	VisitPreviewPanelInvitationResponse(w http.ResponseWriter) error
+}
+
+type PreviewPanelInvitation200JSONResponse AdminInvitationPreview
+
+func (response PreviewPanelInvitation200JSONResponse) VisitPreviewPanelInvitationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewPanelInvitation404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response PreviewPanelInvitation404ApplicationProblemPlusJSONResponse) VisitPreviewPanelInvitationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewPanelInvitation429ApplicationProblemPlusJSONResponse Problem
+
+func (response PreviewPanelInvitation429ApplicationProblemPlusJSONResponse) VisitPreviewPanelInvitationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(429)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -41345,6 +41909,15 @@ type StrictServerInterface interface {
 	// (POST /v1/panel/admins)
 	CreatePanelAdmin(ctx context.Context, request CreatePanelAdminRequestObject) (CreatePanelAdminResponseObject, error)
 
+	// (GET /v1/panel/admins/invitations)
+	ListPanelAdminInvitations(ctx context.Context, request ListPanelAdminInvitationsRequestObject) (ListPanelAdminInvitationsResponseObject, error)
+
+	// (POST /v1/panel/admins/invitations)
+	CreatePanelAdminInvitation(ctx context.Context, request CreatePanelAdminInvitationRequestObject) (CreatePanelAdminInvitationResponseObject, error)
+
+	// (DELETE /v1/panel/admins/invitations/{invitationID})
+	RevokePanelAdminInvitation(ctx context.Context, request RevokePanelAdminInvitationRequestObject) (RevokePanelAdminInvitationResponseObject, error)
+
 	// (GET /v1/panel/admins/{adminID})
 	GetPanelAdmin(ctx context.Context, request GetPanelAdminRequestObject) (GetPanelAdminResponseObject, error)
 
@@ -41653,6 +42226,12 @@ type StrictServerInterface interface {
 
 	// (GET /v1/panel/goods/review)
 	ListPanelGoodsReviewQueue(ctx context.Context, request ListPanelGoodsReviewQueueRequestObject) (ListPanelGoodsReviewQueueResponseObject, error)
+
+	// (POST /v1/panel/invitations/accept)
+	AcceptPanelInvitation(ctx context.Context, request AcceptPanelInvitationRequestObject) (AcceptPanelInvitationResponseObject, error)
+
+	// (POST /v1/panel/invitations/preview)
+	PreviewPanelInvitation(ctx context.Context, request PreviewPanelInvitationRequestObject) (PreviewPanelInvitationResponseObject, error)
 
 	// (GET /v1/panel/notices)
 	ListPanelNotices(ctx context.Context, request ListPanelNoticesRequestObject) (ListPanelNoticesResponseObject, error)
@@ -45252,6 +45831,90 @@ func (sh *strictHandler) CreatePanelAdmin(w http.ResponseWriter, r *http.Request
 	}
 }
 
+// ListPanelAdminInvitations operation middleware
+func (sh *strictHandler) ListPanelAdminInvitations(w http.ResponseWriter, r *http.Request) {
+	var request ListPanelAdminInvitationsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPanelAdminInvitations(ctx, request.(ListPanelAdminInvitationsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPanelAdminInvitations")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPanelAdminInvitationsResponseObject); ok {
+		if err := validResponse.VisitListPanelAdminInvitationsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreatePanelAdminInvitation operation middleware
+func (sh *strictHandler) CreatePanelAdminInvitation(w http.ResponseWriter, r *http.Request, params CreatePanelAdminInvitationParams) {
+	var request CreatePanelAdminInvitationRequestObject
+
+	request.Params = params
+
+	var body CreatePanelAdminInvitationJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreatePanelAdminInvitation(ctx, request.(CreatePanelAdminInvitationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreatePanelAdminInvitation")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreatePanelAdminInvitationResponseObject); ok {
+		if err := validResponse.VisitCreatePanelAdminInvitationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RevokePanelAdminInvitation operation middleware
+func (sh *strictHandler) RevokePanelAdminInvitation(w http.ResponseWriter, r *http.Request, invitationID openapi_types.UUID, params RevokePanelAdminInvitationParams) {
+	var request RevokePanelAdminInvitationRequestObject
+
+	request.InvitationID = invitationID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RevokePanelAdminInvitation(ctx, request.(RevokePanelAdminInvitationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RevokePanelAdminInvitation")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RevokePanelAdminInvitationResponseObject); ok {
+		if err := validResponse.VisitRevokePanelAdminInvitationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetPanelAdmin operation middleware
 func (sh *strictHandler) GetPanelAdmin(w http.ResponseWriter, r *http.Request, adminID AdminID) {
 	var request GetPanelAdminRequestObject
@@ -48185,6 +48848,68 @@ func (sh *strictHandler) ListPanelGoodsReviewQueue(w http.ResponseWriter, r *htt
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListPanelGoodsReviewQueueResponseObject); ok {
 		if err := validResponse.VisitListPanelGoodsReviewQueueResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AcceptPanelInvitation operation middleware
+func (sh *strictHandler) AcceptPanelInvitation(w http.ResponseWriter, r *http.Request) {
+	var request AcceptPanelInvitationRequestObject
+
+	var body AcceptPanelInvitationJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AcceptPanelInvitation(ctx, request.(AcceptPanelInvitationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AcceptPanelInvitation")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AcceptPanelInvitationResponseObject); ok {
+		if err := validResponse.VisitAcceptPanelInvitationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PreviewPanelInvitation operation middleware
+func (sh *strictHandler) PreviewPanelInvitation(w http.ResponseWriter, r *http.Request) {
+	var request PreviewPanelInvitationRequestObject
+
+	var body PreviewPanelInvitationJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PreviewPanelInvitation(ctx, request.(PreviewPanelInvitationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PreviewPanelInvitation")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PreviewPanelInvitationResponseObject); ok {
+		if err := validResponse.VisitPreviewPanelInvitationResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

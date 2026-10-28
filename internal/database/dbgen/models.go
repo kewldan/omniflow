@@ -59,6 +59,21 @@ type AddonVersion struct {
 	RetiredAt         pgtype.Timestamptz `json:"retired_at"`
 }
 
+type AdminInvitation struct {
+	ID                  pgtype.UUID        `json:"id"`
+	Email               string             `json:"email"`
+	EmailNormalized     string             `json:"email_normalized"`
+	Roles               []string           `json:"roles"`
+	TokenHash           []byte             `json:"token_hash"`
+	InvitedBy           pgtype.UUID        `json:"invited_by"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt           pgtype.Timestamptz `json:"expires_at"`
+	AcceptedAt          pgtype.Timestamptz `json:"accepted_at"`
+	AcceptedAdminUserID pgtype.UUID        `json:"accepted_admin_user_id"`
+	RevokedAt           pgtype.Timestamptz `json:"revoked_at"`
+	RevokedBy           pgtype.UUID        `json:"revoked_by"`
+}
+
 type AdminOidcIdentity struct {
 	ID          pgtype.UUID        `json:"id"`
 	AdminUserID pgtype.UUID        `json:"admin_user_id"`

@@ -22,6 +22,7 @@ type Querier interface {
 	// live question cannot be merged into a finished thread and disappear from the
 	// queue. Runs before MergeSupportTicket zeroes the absorbed row.
 	AbsorbSupportTicketCounters(ctx context.Context, arg AbsorbSupportTicketCountersParams) (SupportTicket, error)
+	AcceptAdminInvitation(ctx context.Context, arg AcceptAdminInvitationParams) (AdminInvitation, error)
 	AcquirePaymentMutationLock(ctx context.Context, hashtextextended string) error
 	// Registers a channel. A fingerprint already held by this customer is
 	// un-revoked and re-flagged; one held by anybody else matches the conflict
@@ -243,6 +244,7 @@ type Querier interface {
 	CountUnusedAdminRecoveryCodes(ctx context.Context, adminUserID pgtype.UUID) (int64, error)
 	CreateAddonPrice(ctx context.Context, arg CreateAddonPriceParams) (AddonPrice, error)
 	CreateAddonVersion(ctx context.Context, arg CreateAddonVersionParams) (AddonVersion, error)
+	CreateAdminInvitation(ctx context.Context, arg CreateAdminInvitationParams) (AdminInvitation, error)
 	CreateAdminPasskey(ctx context.Context, arg CreateAdminPasskeyParams) (AdminPasskey, error)
 	// ---------------------------------------------------------------------------
 	// Password resets
@@ -542,6 +544,7 @@ type Querier interface {
 	GetActiveIdentityBySubject(ctx context.Context, arg GetActiveIdentityBySubjectParams) (GetActiveIdentityBySubjectRow, error)
 	GetActiveOfferForPromotion(ctx context.Context, arg GetActiveOfferForPromotionParams) (PersonalOffer, error)
 	GetAddonVersionForOrder(ctx context.Context, arg GetAddonVersionForOrderParams) (GetAddonVersionForOrderRow, error)
+	GetAdminInvitationByToken(ctx context.Context, tokenHash []byte) (AdminInvitation, error)
 	GetAdminOIDCIdentity(ctx context.Context, arg GetAdminOIDCIdentityParams) (GetAdminOIDCIdentityRow, error)
 	GetAdminOIDCProviderBySlug(ctx context.Context, slug string) (AdminOidcProvider, error)
 	// The lookup an assertion performs. It is by credential alone because a
@@ -1053,6 +1056,10 @@ type Querier interface {
 	// because "your subscription expires soon" is unhelpful to somebody holding
 	// three of them.
 	ListNotificationDeliveries(ctx context.Context, arg ListNotificationDeliveriesParams) ([]ListNotificationDeliveriesRow, error)
+	// Open means neither accepted nor revoked. Expired rows are included and
+	// labelled by the panel, because an invitation that lapsed unseen is exactly
+	// the one the inviter needs to notice and reissue.
+	ListOpenAdminInvitations(ctx context.Context, pageSize int32) ([]ListOpenAdminInvitationsRow, error)
 	ListOpenDriftsDetailed(ctx context.Context, pageSize int32) ([]ListOpenDriftsDetailedRow, error)
 	ListOpenEntitlementDrifts(ctx context.Context, limit int32) ([]EntitlementDrift, error)
 	// Payment attempts on an order that have neither settled nor failed.
@@ -1204,10 +1211,17 @@ type Querier interface {
 	// Where a provider's key is currently sent, read under a row lock by the save
 	// path so it can refuse a new address that would inherit the stored key.
 	LockAIProviderTarget(ctx context.Context, slug string) (LockAIProviderTargetRow, error)
+	// Taken inside the acceptance transaction, so two submissions of the same link
+	// serialise here and the second sees the first one's acceptance.
+	LockAdminInvitationByToken(ctx context.Context, tokenHash []byte) (AdminInvitation, error)
 	// Read under a row lock by the save path, which compares the stored issuer,
 	// discovery URL, and client against the submitted ones before deciding whether
 	// the change is allowed and whether the stored secret may be kept.
 	LockAdminOIDCProviderBySlug(ctx context.Context, slug string) (AdminOidcProvider, error)
+	// Serialises every change that could remove an owner. Two owners demoting each
+	// other at the same moment would otherwise each count the other as the
+	// remaining owner and both succeed, leaving none.
+	LockAdminRoleChanges(ctx context.Context) error
 	LockBlocklistSourceBySlug(ctx context.Context, slug string) (BlocklistSource, error)
 	// Read under a row lock by the save path, which compares the stored issuer,
 	// discovery URL, and client against the submitted ones before deciding whether
@@ -1543,6 +1557,12 @@ type Querier interface {
 	// expiry sits later than its order paid for is explained by its own column.
 	ResumeEntitlement(ctx context.Context, entitlementID pgtype.UUID) (Entitlement, error)
 	RetireAddonVersion(ctx context.Context, addonVersionID pgtype.UUID) (AddonVersion, error)
+	// ---------------------------------------------------------------------------
+	// Operator invitations
+	// ---------------------------------------------------------------------------
+	// Retires every open invitation for an address before a new one is issued, so
+	// only the newest link can ever be redeemed.
+	RetireOpenAdminInvitations(ctx context.Context, arg RetireOpenAdminInvitationsParams) (int64, error)
 	RetirePlanVersion(ctx context.Context, planVersionID pgtype.UUID) (PlanVersion, error)
 	// Retires an entitlement that was never provisioned and never will be: its
 	// order was refunded before the first push reached Remnawave, or it was
@@ -1557,6 +1577,7 @@ type Querier interface {
 	// Marks a channel revoked rather than deleting it, so the fingerprint stays
 	// unique and the consent history keeps pointing at something.
 	RevokeAccountContact(ctx context.Context, arg RevokeAccountContactParams) (RevokeAccountContactRow, error)
+	RevokeAdminInvitation(ctx context.Context, arg RevokeAdminInvitationParams) (AdminInvitation, error)
 	RevokeAdminRole(ctx context.Context, arg RevokeAdminRoleParams) error
 	RevokeAdminSession(ctx context.Context, arg RevokeAdminSessionParams) (AdminSession, error)
 	// Logout-everywhere. `keep_session_id` lets the caller preserve the session

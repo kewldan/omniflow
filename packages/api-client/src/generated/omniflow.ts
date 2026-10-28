@@ -813,6 +813,70 @@ export interface RolesInput {
   roles: AdminRole[];
 }
 
+/**
+ * An open invitation. The token is never part of it.
+ */
+export interface AdminInvitation {
+  id: string;
+  email: string;
+  roles: AdminRole[];
+  createdAt: string;
+  /** An open invitation past this moment is listed but can no longer be redeemed. */
+  expiresAt: string;
+  invitedBy: string;
+  invitedByName: string;
+}
+
+export interface AdminInvitationList {
+  items: AdminInvitation[];
+}
+
+export interface AdminInvitationInput {
+  email: string;
+  /** @minItems 1 */
+  roles: AdminRole[];
+}
+
+export interface AdminInvitationIssued {
+  invitation: AdminInvitation;
+  /** The single-use token. Returned in this response only; the server keeps its SHA-256. The panel builds `/admin/invite/<token>` from it. */
+  token: string;
+}
+
+export interface AdminInvitationTokenInput {
+  token: string;
+}
+
+export interface AdminInvitationPreview {
+  email: string;
+  roles: AdminRole[];
+  expiresAt: string;
+}
+
+export interface AdminInvitationAcceptInput {
+  token: string;
+  /**
+   * @minLength 1
+   * @maxLength 80
+   */
+  displayName: string;
+  /**
+   * @minLength 12
+   * @maxLength 256
+   */
+  password: string;
+  locale?: AdminLocale;
+  timezone?: string;
+}
+
+export interface AdminInvitationAccepted {
+  /** False when the account was created but the automatic sign-in did not complete; the operator signs in from the login screen. */
+  signedIn: boolean;
+  csrfToken?: string;
+  expiresAt?: string;
+  account: AdminAccount;
+}
+
 export interface LoginInput {
   email: string;
   password: string;
@@ -11693,12 +11757,18 @@ export type setPanelAdminRolesResponse409 = {
   status: 409;
 };
 
+export type setPanelAdminRolesResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
 export type setPanelAdminRolesResponseSuccess = setPanelAdminRolesResponse200 & {
   headers: Headers;
 };
 export type setPanelAdminRolesResponseError = (
   | setPanelAdminRolesResponse403
   | setPanelAdminRolesResponse409
+  | setPanelAdminRolesResponse422
 ) & {
   headers: Headers;
 };
@@ -11712,7 +11782,7 @@ export const getSetPanelAdminRolesUrl = (adminID: string) => {
 };
 
 /**
- * Requires admins.roles. Removing the last active owner is refused, and only an owner may grant the owner role.
+ * Requires admins.roles. Removing the last active owner is refused, and only an owner may grant the owner role. An operator cannot change their own roles (409 `self_role_change`), and every role added or removed must carry only permissions the actor already holds (403 `role_escalation`). Saving an unchanged set is a no-op. Each change is audited as `admin.account.roles_changed` and queues a `security` operator notice.
  */
 export const setPanelAdminRoles = async (
   adminID: string,
@@ -11761,6 +11831,441 @@ export const useSetPanelAdminRoles = <TError = Promise<ProblemResponse>>(
 
   const swrKey = swrOptions?.swrKey ?? getSetPanelAdminRolesMutationKey(adminID);
   const swrFn = getSetPanelAdminRolesMutationFetcher(adminID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelAdminInvitationsResponse200 = {
+  data: AdminInvitationList;
+  status: 200;
+};
+
+export type listPanelAdminInvitationsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelAdminInvitationsResponseSuccess = listPanelAdminInvitationsResponse200 & {
+  headers: Headers;
+};
+export type listPanelAdminInvitationsResponseError = listPanelAdminInvitationsResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelAdminInvitationsResponse =
+  | listPanelAdminInvitationsResponseSuccess
+  | listPanelAdminInvitationsResponseError;
+
+export const getListPanelAdminInvitationsUrl = () => {
+  return `/v1/panel/admins/invitations`;
+};
+
+/**
+ * Requires admins.read. Open invitations (neither accepted nor revoked), newest first, at most 100. Expired ones are included so the inviter can see that a link lapsed.
+ */
+export const listPanelAdminInvitations = async (
+  options?: RequestInit,
+): Promise<listPanelAdminInvitationsResponse> => {
+  const res = await fetch(getListPanelAdminInvitationsUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelAdminInvitationsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelAdminInvitationsResponse;
+};
+
+export const getListPanelAdminInvitationsKey = () => [`/v1/panel/admins/invitations`] as const;
+
+export type ListPanelAdminInvitationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelAdminInvitations>>
+>;
+
+export const useListPanelAdminInvitations = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelAdminInvitations>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelAdminInvitationsKey() : null));
+  const swrFn = () => listPanelAdminInvitations(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type createPanelAdminInvitationResponse201 = {
+  data: AdminInvitationIssued;
+  status: 201;
+};
+
+export type createPanelAdminInvitationResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type createPanelAdminInvitationResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type createPanelAdminInvitationResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type createPanelAdminInvitationResponseSuccess = createPanelAdminInvitationResponse201 & {
+  headers: Headers;
+};
+export type createPanelAdminInvitationResponseError = (
+  | createPanelAdminInvitationResponse403
+  | createPanelAdminInvitationResponse409
+  | createPanelAdminInvitationResponse422
+) & {
+  headers: Headers;
+};
+
+export type createPanelAdminInvitationResponse =
+  | createPanelAdminInvitationResponseSuccess
+  | createPanelAdminInvitationResponseError;
+
+export const getCreatePanelAdminInvitationUrl = () => {
+  return `/v1/panel/admins/invitations`;
+};
+
+/**
+ * Requires admins.write. Issues a single-use link valid for 72 hours that creates an operator with the listed roles. The token is in this response only. Inviting an address again retires its earlier link. An address that already has an account is refused (409), and so is a role set carrying a permission the actor does not hold (403 `role_escalation`). Audited as `admin.invitation.created`.
+ */
+export const createPanelAdminInvitation = async (
+  adminInvitationInput: AdminInvitationInput,
+  options?: RequestInit,
+): Promise<createPanelAdminInvitationResponse> => {
+  const res = await fetch(getCreatePanelAdminInvitationUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminInvitationInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: createPanelAdminInvitationResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as createPanelAdminInvitationResponse;
+};
+
+export const getCreatePanelAdminInvitationMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: AdminInvitationInput }) => {
+    return createPanelAdminInvitation(arg, options);
+  };
+};
+export const getCreatePanelAdminInvitationMutationKey = () =>
+  [`/v1/panel/admins/invitations`] as const;
+
+export type CreatePanelAdminInvitationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPanelAdminInvitation>>
+>;
+
+export const useCreatePanelAdminInvitation = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof createPanelAdminInvitation>>,
+    TError,
+    Key,
+    AdminInvitationInput,
+    Awaited<ReturnType<typeof createPanelAdminInvitation>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getCreatePanelAdminInvitationMutationKey();
+  const swrFn = getCreatePanelAdminInvitationMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type revokePanelAdminInvitationResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type revokePanelAdminInvitationResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type revokePanelAdminInvitationResponseSuccess = revokePanelAdminInvitationResponse204 & {
+  headers: Headers;
+};
+export type revokePanelAdminInvitationResponseError = revokePanelAdminInvitationResponse404 & {
+  headers: Headers;
+};
+
+export type revokePanelAdminInvitationResponse =
+  | revokePanelAdminInvitationResponseSuccess
+  | revokePanelAdminInvitationResponseError;
+
+export const getRevokePanelAdminInvitationUrl = (invitationID: string) => {
+  return `/v1/panel/admins/invitations/${invitationID}`;
+};
+
+/**
+ * Requires admins.write. Retires an open invitation. Audited as `admin.invitation.revoked`.
+ */
+export const revokePanelAdminInvitation = async (
+  invitationID: string,
+  options?: RequestInit,
+): Promise<revokePanelAdminInvitationResponse> => {
+  const res = await fetch(getRevokePanelAdminInvitationUrl(invitationID), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: revokePanelAdminInvitationResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as revokePanelAdminInvitationResponse;
+};
+
+export const getRevokePanelAdminInvitationMutationFetcher = (
+  invitationID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return revokePanelAdminInvitation(invitationID, options);
+  };
+};
+export const getRevokePanelAdminInvitationMutationKey = (invitationID: string) =>
+  [`/v1/panel/admins/invitations/${invitationID}`] as const;
+
+export type RevokePanelAdminInvitationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof revokePanelAdminInvitation>>
+>;
+
+export const useRevokePanelAdminInvitation = <TError = Promise<ProblemResponse>>(
+  invitationID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof revokePanelAdminInvitation>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof revokePanelAdminInvitation>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRevokePanelAdminInvitationMutationKey(invitationID);
+  const swrFn = getRevokePanelAdminInvitationMutationFetcher(invitationID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type previewPanelInvitationResponse200 = {
+  data: AdminInvitationPreview;
+  status: 200;
+};
+
+export type previewPanelInvitationResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type previewPanelInvitationResponse429 = {
+  data: ProblemResponse;
+  status: 429;
+};
+
+export type previewPanelInvitationResponseSuccess = previewPanelInvitationResponse200 & {
+  headers: Headers;
+};
+export type previewPanelInvitationResponseError = (
+  | previewPanelInvitationResponse404
+  | previewPanelInvitationResponse429
+) & {
+  headers: Headers;
+};
+
+export type previewPanelInvitationResponse =
+  | previewPanelInvitationResponseSuccess
+  | previewPanelInvitationResponseError;
+
+export const getPreviewPanelInvitationUrl = () => {
+  return `/v1/panel/invitations/preview`;
+};
+
+/**
+ * Public. Reads what an invitation offers so the acceptance screen can show it. An unknown, expired, revoked, or used token all answer the same 404 `invitation_invalid`. Rate limited per client address.
+ */
+export const previewPanelInvitation = async (
+  adminInvitationTokenInput: AdminInvitationTokenInput,
+  options?: RequestInit,
+): Promise<previewPanelInvitationResponse> => {
+  const res = await fetch(getPreviewPanelInvitationUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminInvitationTokenInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: previewPanelInvitationResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as previewPanelInvitationResponse;
+};
+
+export const getPreviewPanelInvitationMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: AdminInvitationTokenInput }) => {
+    return previewPanelInvitation(arg, options);
+  };
+};
+export const getPreviewPanelInvitationMutationKey = () =>
+  [`/v1/panel/invitations/preview`] as const;
+
+export type PreviewPanelInvitationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof previewPanelInvitation>>
+>;
+
+export const usePreviewPanelInvitation = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof previewPanelInvitation>>,
+    TError,
+    Key,
+    AdminInvitationTokenInput,
+    Awaited<ReturnType<typeof previewPanelInvitation>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getPreviewPanelInvitationMutationKey();
+  const swrFn = getPreviewPanelInvitationMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type acceptPanelInvitationResponse201 = {
+  data: AdminInvitationAccepted;
+  status: 201;
+};
+
+export type acceptPanelInvitationResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type acceptPanelInvitationResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type acceptPanelInvitationResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type acceptPanelInvitationResponse429 = {
+  data: ProblemResponse;
+  status: 429;
+};
+
+export type acceptPanelInvitationResponseSuccess = acceptPanelInvitationResponse201 & {
+  headers: Headers;
+};
+export type acceptPanelInvitationResponseError = (
+  | acceptPanelInvitationResponse404
+  | acceptPanelInvitationResponse409
+  | acceptPanelInvitationResponse422
+  | acceptPanelInvitationResponse429
+) & {
+  headers: Headers;
+};
+
+export type acceptPanelInvitationResponse =
+  | acceptPanelInvitationResponseSuccess
+  | acceptPanelInvitationResponseError;
+
+export const getAcceptPanelInvitationUrl = () => {
+  return `/v1/panel/invitations/accept`;
+};
+
+/**
+ * Public. Redeems an invitation: creates the account with the invited roles and the chosen name and password, consumes the link, audits `admin.invitation.accepted`, queues a `security` operator notice, and signs the new operator in. Rate limited per client address.
+ */
+export const acceptPanelInvitation = async (
+  adminInvitationAcceptInput: AdminInvitationAcceptInput,
+  options?: RequestInit,
+): Promise<acceptPanelInvitationResponse> => {
+  const res = await fetch(getAcceptPanelInvitationUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminInvitationAcceptInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: acceptPanelInvitationResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as acceptPanelInvitationResponse;
+};
+
+export const getAcceptPanelInvitationMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: AdminInvitationAcceptInput }) => {
+    return acceptPanelInvitation(arg, options);
+  };
+};
+export const getAcceptPanelInvitationMutationKey = () => [`/v1/panel/invitations/accept`] as const;
+
+export type AcceptPanelInvitationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof acceptPanelInvitation>>
+>;
+
+export const useAcceptPanelInvitation = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof acceptPanelInvitation>>,
+    TError,
+    Key,
+    AdminInvitationAcceptInput,
+    Awaited<ReturnType<typeof acceptPanelInvitation>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getAcceptPanelInvitationMutationKey();
+  const swrFn = getAcceptPanelInvitationMutationFetcher(fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

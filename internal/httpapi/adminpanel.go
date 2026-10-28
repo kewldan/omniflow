@@ -208,6 +208,9 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 		// Public by necessity: a passkey signs in, so its challenge and the
 		// assertion answering it both happen before anybody is authenticated.
 		handlers.mountPasskeyPublic(panel)
+		// Public by necessity too: the person redeeming an invitation has no
+		// account yet. The token in the body is the only credential.
+		handlers.mountInvitationsPublic(panel)
 
 		// Authenticated.
 		panel.Group(func(secure chi.Router) {
@@ -239,6 +242,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 				Post("/admins/{adminID}/status", handlers.setAdminStatus)
 			secure.With(handlers.requirePermission(rbac.PermissionAdminsRoles)).
 				Put("/admins/{adminID}/roles", handlers.setAdminRoles)
+			handlers.mountInvitations(secure)
 
 			secure.With(handlers.requirePermission(rbac.PermissionAuditRead)).
 				Get("/audit", handlers.searchAudit)
@@ -789,8 +793,10 @@ func (handlers *AdminHandlers) createAdmin(writer http.ResponseWriter, request *
 		return
 	}
 	// Only an owner may mint another owner, mirroring the same guard on the
-	// role-change path.
-	if containsRole(roles, rbac.RoleOwner) && !principal.Grant.HasRole(rbac.RoleOwner) {
+	// role-change path, and nobody may create an account stronger than their
+	// own.
+	if (containsRole(roles, rbac.RoleOwner) && !principal.Grant.HasRole(rbac.RoleOwner)) ||
+		!principal.Grant.CanAssign(roles...) {
 		writeProblem(writer, request, http.StatusForbidden, "forbidden", "Only an owner may grant the owner role")
 		return
 	}
@@ -833,8 +839,15 @@ func (handlers *AdminHandlers) setAdminRoles(writer http.ResponseWriter, request
 	case errors.Is(err, adminauthpg.ErrLastOwner):
 		writeProblem(writer, request, http.StatusConflict, "last_owner", "The installation must keep at least one active owner")
 		return
+	case errors.Is(err, adminauthpg.ErrSelfRoleChange):
+		writeProblem(writer, request, http.StatusConflict, "self_role_change", "You cannot change your own roles")
+		return
+	case errors.Is(err, adminauthpg.ErrValidation):
+		writeProblem(writer, request, http.StatusUnprocessableEntity, "roles_required", "An operator must hold at least one role")
+		return
 	case errors.Is(err, adminauthpg.ErrForbidden):
-		writeProblem(writer, request, http.StatusForbidden, "forbidden", "Only an owner may grant the owner role")
+		writeProblem(writer, request, http.StatusForbidden, "role_escalation",
+			"That change grants or removes authority you do not hold yourself")
 		return
 	case errors.Is(err, adminauthpg.ErrNotFound):
 		writeProblem(writer, request, http.StatusNotFound, "admin_not_found", "Operator not found")

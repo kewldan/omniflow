@@ -228,6 +228,34 @@ CREATE TABLE public.addons (
 
 
 --
+-- Name: admin_invitations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.admin_invitations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    email text NOT NULL,
+    email_normalized text NOT NULL,
+    roles text[] NOT NULL,
+    token_hash bytea NOT NULL,
+    invited_by uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    accepted_at timestamp with time zone,
+    accepted_admin_user_id uuid,
+    revoked_at timestamp with time zone,
+    revoked_by uuid,
+    CONSTRAINT admin_invitations_acceptance_complete CHECK (((accepted_at IS NULL) = (accepted_admin_user_id IS NULL))),
+    CONSTRAINT admin_invitations_email_check CHECK (((char_length(email) >= 3) AND (char_length(email) <= 254))),
+    CONSTRAINT admin_invitations_email_normalized_check CHECK (((char_length(email_normalized) >= 3) AND (char_length(email_normalized) <= 254))),
+    CONSTRAINT admin_invitations_expiry_after_creation CHECK ((expires_at > created_at)),
+    CONSTRAINT admin_invitations_revocation_complete CHECK (((revoked_at IS NULL) = (revoked_by IS NULL))),
+    CONSTRAINT admin_invitations_roles_known CHECK ((((cardinality(roles) >= 1) AND (cardinality(roles) <= 6)) AND (roles <@ ARRAY['owner'::text, 'administrator'::text, 'support'::text, 'finance'::text, 'marketing'::text, 'auditor'::text]))),
+    CONSTRAINT admin_invitations_settled_once CHECK (((accepted_at IS NULL) OR (revoked_at IS NULL))),
+    CONSTRAINT admin_invitations_token_hash_check CHECK ((octet_length(token_hash) = 32))
+);
+
+
+--
 -- Name: admin_oidc_identities; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -3679,6 +3707,22 @@ ALTER TABLE ONLY public.addons
 
 
 --
+-- Name: admin_invitations admin_invitations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.admin_invitations
+    ADD CONSTRAINT admin_invitations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: admin_invitations admin_invitations_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.admin_invitations
+    ADD CONSTRAINT admin_invitations_token_hash_key UNIQUE (token_hash);
+
+
+--
 -- Name: admin_oidc_identities admin_oidc_identities_admin_user_id_provider_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5406,6 +5450,20 @@ CREATE INDEX access_codes_batch_idx ON public.access_codes USING btree (batch_id
 
 
 --
+-- Name: admin_invitations_one_open_per_email_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX admin_invitations_one_open_per_email_idx ON public.admin_invitations USING btree (email_normalized) WHERE ((accepted_at IS NULL) AND (revoked_at IS NULL));
+
+
+--
+-- Name: admin_invitations_open_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX admin_invitations_open_idx ON public.admin_invitations USING btree (created_at DESC) WHERE ((accepted_at IS NULL) AND (revoked_at IS NULL));
+
+
+--
 -- Name: admin_passkeys_owner_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -6396,6 +6454,30 @@ ALTER TABLE ONLY public.addon_prices
 
 ALTER TABLE ONLY public.addon_versions
     ADD CONSTRAINT addon_versions_addon_id_fkey FOREIGN KEY (addon_id) REFERENCES public.addons(id);
+
+
+--
+-- Name: admin_invitations admin_invitations_accepted_admin_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.admin_invitations
+    ADD CONSTRAINT admin_invitations_accepted_admin_user_id_fkey FOREIGN KEY (accepted_admin_user_id) REFERENCES public.admin_users(id);
+
+
+--
+-- Name: admin_invitations admin_invitations_invited_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.admin_invitations
+    ADD CONSTRAINT admin_invitations_invited_by_fkey FOREIGN KEY (invited_by) REFERENCES public.admin_users(id);
+
+
+--
+-- Name: admin_invitations admin_invitations_revoked_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.admin_invitations
+    ADD CONSTRAINT admin_invitations_revoked_by_fkey FOREIGN KEY (revoked_by) REFERENCES public.admin_users(id);
 
 
 --

@@ -769,7 +769,11 @@ paths:
       tags: [panel]
       description: >-
         Requires admins.roles. Removing the last active owner is refused, and
-        only an owner may grant the owner role.
+        only an owner may grant the owner role. An operator cannot change their
+        own roles (409 `self_role_change`), and every role added or removed must
+        carry only permissions the actor already holds (403 `role_escalation`).
+        Saving an unchanged set is a no-op. Each change is audited as
+        `admin.account.roles_changed` and queues a `security` operator notice.
       parameters:
         - {$ref: "#/components/parameters/AdminID"}
         - {$ref: "#/components/parameters/CSRFToken"}
@@ -778,6 +782,77 @@ paths:
         "200": {description: Roles changed, content: {application/json: {schema: {$ref: "#/components/schemas/AdminAccount"}}}}
         "403": {$ref: "#/components/responses/Problem"}
         "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/admins/invitations:
+    get:
+      operationId: listPanelAdminInvitations
+      tags: [panel]
+      description: >-
+        Requires admins.read. Open invitations (neither accepted nor revoked),
+        newest first, at most 100. Expired ones are included so the inviter can
+        see that a link lapsed.
+      responses:
+        "200": {description: Open invitations, content: {application/json: {schema: {$ref: "#/components/schemas/AdminInvitationList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+    post:
+      operationId: createPanelAdminInvitation
+      tags: [panel]
+      description: >-
+        Requires admins.write. Issues a single-use link valid for 72 hours that
+        creates an operator with the listed roles. The token is in this response
+        only. Inviting an address again retires its earlier link. An address that
+        already has an account is refused (409), and so is a role set carrying a
+        permission the actor does not hold (403 `role_escalation`). Audited as
+        `admin.invitation.created`.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/AdminInvitationInput"}}}}
+      responses:
+        "201": {description: Invitation issued, content: {application/json: {schema: {$ref: "#/components/schemas/AdminInvitationIssued"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/admins/invitations/{invitationID}:
+    delete:
+      operationId: revokePanelAdminInvitation
+      tags: [panel]
+      description: Requires admins.write. Retires an open invitation. Audited as `admin.invitation.revoked`.
+      parameters:
+        - {in: path, name: invitationID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "204": {description: Invitation revoked}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/panel/invitations/preview:
+    post:
+      operationId: previewPanelInvitation
+      tags: [panel]
+      security: []
+      description: >-
+        Public. Reads what an invitation offers so the acceptance screen can
+        show it. An unknown, expired, revoked, or used token all answer the same
+        404 `invitation_invalid`. Rate limited per client address.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/AdminInvitationTokenInput"}}}}
+      responses:
+        "200": {description: Invitation, content: {application/json: {schema: {$ref: "#/components/schemas/AdminInvitationPreview"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+        "429": {$ref: "#/components/responses/Problem"}
+  /v1/panel/invitations/accept:
+    post:
+      operationId: acceptPanelInvitation
+      tags: [panel]
+      security: []
+      description: >-
+        Public. Redeems an invitation: creates the account with the invited
+        roles and the chosen name and password, consumes the link, audits
+        `admin.invitation.accepted`, queues a `security` operator notice, and
+        signs the new operator in. Rate limited per client address.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/AdminInvitationAcceptInput"}}}}
+      responses:
+        "201": {description: Account created, content: {application/json: {schema: {$ref: "#/components/schemas/AdminInvitationAccepted"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+        "429": {$ref: "#/components/responses/Problem"}
   /v1/panel/admins/{adminID}/status:
     post:
       operationId: setPanelAdminStatus
@@ -4728,6 +4803,70 @@ components:
       additionalProperties: false
       required: [roles]
       properties: {roles: {type: array, items: {$ref: "#/components/schemas/AdminRole"}}}
+    AdminInvitation:
+      type: object
+      description: An open invitation. The token is never part of it.
+      required: [id, email, roles, createdAt, expiresAt, invitedBy, invitedByName]
+      properties:
+        id: {type: string, format: uuid}
+        email: {type: string, format: email}
+        roles: {type: array, items: {$ref: "#/components/schemas/AdminRole"}}
+        createdAt: {type: string, format: date-time}
+        expiresAt: {type: string, format: date-time, description: "An open invitation past this moment is listed but can no longer be redeemed."}
+        invitedBy: {type: string, format: uuid}
+        invitedByName: {type: string}
+    AdminInvitationList:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/AdminInvitation"}}
+    AdminInvitationInput:
+      type: object
+      additionalProperties: false
+      required: [email, roles]
+      properties:
+        email: {type: string, format: email}
+        roles: {type: array, minItems: 1, items: {$ref: "#/components/schemas/AdminRole"}}
+    AdminInvitationIssued:
+      type: object
+      required: [invitation, token]
+      properties:
+        invitation: {$ref: "#/components/schemas/AdminInvitation"}
+        token:
+          type: string
+          description: >-
+            The single-use token. Returned in this response only; the server
+            keeps its SHA-256. The panel builds `/admin/invite/<token>` from it.
+    AdminInvitationTokenInput:
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties: {token: {type: string}}
+    AdminInvitationPreview:
+      type: object
+      required: [email, roles, expiresAt]
+      properties:
+        email: {type: string, format: email}
+        roles: {type: array, items: {$ref: "#/components/schemas/AdminRole"}}
+        expiresAt: {type: string, format: date-time}
+    AdminInvitationAcceptInput:
+      type: object
+      additionalProperties: false
+      required: [token, displayName, password]
+      properties:
+        token: {type: string}
+        displayName: {type: string, minLength: 1, maxLength: 80}
+        password: {type: string, minLength: 12, maxLength: 256}
+        locale: {$ref: "#/components/schemas/AdminLocale"}
+        timezone: {type: string}
+    AdminInvitationAccepted:
+      type: object
+      required: [signedIn, account]
+      properties:
+        signedIn: {type: boolean, description: "False when the account was created but the automatic sign-in did not complete; the operator signs in from the login screen."}
+        csrfToken: {type: string}
+        expiresAt: {type: string, format: date-time}
+        account: {$ref: "#/components/schemas/AdminAccount"}
 
     LoginInput:
       type: object

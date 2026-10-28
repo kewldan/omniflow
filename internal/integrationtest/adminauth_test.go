@@ -288,16 +288,18 @@ func TestAdminLastOwnerIsProtected(t *testing.T) {
 		t.Fatalf("resolve: %v", err)
 	}
 
+	// Demoting yourself is refused before the owner count is even consulted.
 	if _, err = service.SetRoles(ctx, owner.ID, []rbac.Role{rbac.RoleSupport}, principal,
-		adminauthpg.RequestContext{}); !errors.Is(err, adminauthpg.ErrLastOwner) {
-		t.Fatalf("demoting the last owner returned %v", err)
+		adminauthpg.RequestContext{}); !errors.Is(err, adminauthpg.ErrSelfRoleChange) {
+		t.Fatalf("an owner demoted themselves: %v", err)
 	}
 	if _, err = service.SetStatus(ctx, owner.ID, "suspended", owner.ID,
 		adminauthpg.RequestContext{}); !errors.Is(err, adminauthpg.ErrLastOwner) {
 		t.Fatalf("suspending the last owner returned %v", err)
 	}
 
-	// With a second owner present, demoting the first is allowed.
+	// A second owner who is suspended does not count. Acting through that
+	// account's grant, demoting the only active owner is refused.
 	second, err := service.CreateAccount(ctx, adminauthpg.CreateAccountInput{
 		Email: "second@example.com", DisplayName: "Second",
 		Password: "another good passphrase", Roles: []rbac.Role{rbac.RoleOwner},
@@ -305,12 +307,23 @@ func TestAdminLastOwnerIsProtected(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create second owner: %v", err)
 	}
-	if _, err = service.SetRoles(ctx, owner.ID, []rbac.Role{rbac.RoleSupport}, principal,
+	if _, err = service.SetStatus(ctx, second.ID, "suspended", owner.ID, adminauthpg.RequestContext{}); err != nil {
+		t.Fatalf("suspend second owner: %v", err)
+	}
+	suspendedOwner := adminauthpg.Principal{Account: second, Grant: rbac.NewGrant(rbac.RoleOwner)}
+	if _, err = service.SetRoles(ctx, owner.ID, []rbac.Role{rbac.RoleSupport}, suspendedOwner,
+		adminauthpg.RequestContext{}); !errors.Is(err, adminauthpg.ErrLastOwner) {
+		t.Fatalf("demoting the last active owner returned %v", err)
+	}
+
+	// With a second active owner present, demoting the first is allowed.
+	if _, err = service.SetStatus(ctx, second.ID, "active", owner.ID, adminauthpg.RequestContext{}); err != nil {
+		t.Fatalf("reinstate second owner: %v", err)
+	}
+	peer := signedInPrincipal(t, ctx, service, "second@example.com", "another good passphrase")
+	if _, err = service.SetRoles(ctx, owner.ID, []rbac.Role{rbac.RoleSupport}, peer,
 		adminauthpg.RequestContext{}); err != nil {
 		t.Fatalf("demoting an owner with a peer failed: %v", err)
-	}
-	if second.ID == "" {
-		t.Fatal("second owner has no identifier")
 	}
 }
 
@@ -335,8 +348,13 @@ func TestAdminOnlyOwnerGrantsOwner(t *testing.T) {
 		Grant:   rbac.NewGrant(rbac.RoleAdministrator),
 	}
 	if _, err = service.SetRoles(ctx, administrator.ID, []rbac.Role{rbac.RoleOwner}, actingAdministrator,
-		adminauthpg.RequestContext{}); !errors.Is(err, adminauthpg.ErrForbidden) {
+		adminauthpg.RequestContext{}); !errors.Is(err, adminauthpg.ErrSelfRoleChange) {
 		t.Fatalf("an administrator promoted itself to owner: %v", err)
+	}
+	// Nor may it promote anybody else.
+	if _, err = service.SetRoles(ctx, owner.ID, []rbac.Role{rbac.RoleOwner, rbac.RoleAuditor}, actingAdministrator,
+		adminauthpg.RequestContext{}); !errors.Is(err, adminauthpg.ErrForbidden) {
+		t.Fatalf("an administrator changed an owner's roles: %v", err)
 	}
 }
 
