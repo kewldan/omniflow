@@ -345,9 +345,16 @@ function TelemetryCard() {
                   : translate("telemetryPreview.neverSent")}
               </span>
             </div>
-            <pre className="overflow-x-auto rounded-md border bg-muted/40 p-3 text-xs">
-              {JSON.stringify(data.payload, null, 2)}
-            </pre>
+            {/* Focusable so a keyboard user can scroll a payload wider than
+                the screen; labelled so the stop is announced as what it is. */}
+            <section
+              aria-label={translate("telemetryPreview.title")}
+              className="overflow-x-auto rounded-md border bg-muted/40 p-3"
+              // biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region must be reachable by keyboard (WCAG 2.1.1)
+              tabIndex={0}
+            >
+              <pre className="text-xs">{JSON.stringify(data.payload, null, 2)}</pre>
+            </section>
             <p className="text-muted-foreground text-xs">
               {translate("telemetryPreview.fields", {
                 fields: (data.fields ?? []).join(", "),

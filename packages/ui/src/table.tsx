@@ -5,7 +5,15 @@ import { cn } from "./lib/utils";
 
 export function Table({ className, ...props }: ComponentProps<"table">) {
   return (
-    <div className="relative w-full overflow-x-auto" data-slot="table-container">
+    // The container scrolls a table wider than a phone, and a scroll region
+    // must be reachable by keyboard (WCAG 2.1.1) — otherwise the columns past
+    // the edge exist only for a pointer.
+    <div
+      className="relative w-full overflow-x-auto rounded-sm focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40"
+      data-slot="table-container"
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region must be focusable to be scrolled by keyboard
+      tabIndex={0}
+    >
       <table
         className={cn("w-full caption-bottom border-collapse text-sm", className)}
         data-slot="table"
