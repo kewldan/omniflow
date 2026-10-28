@@ -256,7 +256,8 @@
         "operator": "Operator",
         "roles": "Roles",
         "status": "Status",
-        "twoFactor": "Two-factor"
+        "twoFactor": "Two-factor",
+        "lastLogin": "Last sign-in"
       },
       "statuses": {
         "active": "Active",
@@ -270,7 +271,9 @@
       "actions": {
         "suspend": "Suspend",
         "reinstate": "Reinstate",
-        "cancel": "Cancel"
+        "cancel": "Cancel",
+        "invite": "Invite operator",
+        "changeRoles": "Change roles"
       },
       "confirm": {
         "title": "Suspend this operator?",
@@ -282,6 +285,110 @@
         "reinstated": "{name} was reinstated.",
         "lastOwner": "The installation must keep at least one active owner.",
         "statusFailed": "The status could not be changed."
+      },
+      "neverSignedIn": "Never",
+      "invite": {
+        "title": "Invite an operator",
+        "description": "They will choose their own name and password when they open the link.",
+        "email": "Email address",
+        "roles": "Roles",
+        "rolesHint": "Roles you could not grant yourself are unavailable. The matrix below shows what each one allows.",
+        "roleHints": {
+          "owner": "Everything, including operators and roles",
+          "administrator": "Everything except operators and roles",
+          "support": "Customers, subscriptions, and the support desk",
+          "finance": "Orders, payments, refunds, and gifts",
+          "marketing": "Campaigns, news, and referrals",
+          "auditor": "Reads everything, changes nothing"
+        },
+        "cancel": "Cancel",
+        "submit": "Create invitation link",
+        "submitting": "Creating…",
+        "issuedTitle": "Invitation link ready",
+        "issuedDescription": "Send this link to {email} yourself — Omniflow does not email it.",
+        "onlyOnceTitle": "This is the only time the link is shown",
+        "onlyOnce": "Only a fingerprint of it is stored. If it is lost, invite the same address again: the new link replaces this one.",
+        "link": "Invitation link",
+        "copy": "Copy",
+        "copied": "Link copied.",
+        "copyFailed": "The link could not be copied. Select it and copy it by hand.",
+        "expires": "Works once, until {date, date, medium} {date, time, short}.",
+        "done": "Done",
+        "errors": {
+          "email": "Enter a valid email address.",
+          "emailInUse": "That address already has an operator account.",
+          "roles": "Choose at least one role.",
+          "escalation": "You cannot invite somebody with authority you do not hold yourself.",
+          "generic": "The invitation could not be created. Try again."
+        }
+      },
+      "roleEditor": {
+        "title": "Roles for {name}",
+        "description": "Changes take effect on their next request. Roles you could not grant yourself cannot be added or removed.",
+        "legend": "Roles",
+        "notice": "The change is recorded in the audit log and announced in the operator group.",
+        "cancel": "Cancel",
+        "save": "Save roles",
+        "saving": "Saving…",
+        "saved": "Roles for {name} were changed.",
+        "errors": {
+          "roles": "An operator must hold at least one role. Suspend the account to take access away.",
+          "lastOwner": "The installation must keep at least one active owner.",
+          "escalation": "That change grants or removes authority you do not hold yourself.",
+          "self": "You cannot change your own roles.",
+          "generic": "The roles could not be changed. Try again."
+        }
+      },
+      "pending": {
+        "title": "Pending invitations",
+        "description": "Links that have been issued and not yet used. The links themselves are not stored.",
+        "empty": "No pending invitations",
+        "emptyDescription": "Invite an operator to add someone to this panel.",
+        "error": "Invitations could not be loaded",
+        "errorDescription": "The API did not answer.",
+        "retry": "Try again",
+        "expired": "Expired",
+        "revoke": "Revoke",
+        "cancel": "Cancel",
+        "revoked": "The invitation for {email} was revoked.",
+        "revokeFailed": "The invitation could not be revoked.",
+        "confirmTitle": "Revoke this invitation?",
+        "confirmDescription": "The link sent to {email} will stop working immediately.",
+        "columns": {
+          "email": "Address",
+          "roles": "Roles",
+          "expires": "Expires",
+          "invitedBy": "Invited by"
+        }
+      },
+      "matrix": {
+        "title": "Roles and permissions",
+        "description": "What each built-in role may do. This is the same table the API enforces.",
+        "area": "Area",
+        "none": "No access",
+        "error": "The permission catalogue could not be loaded",
+        "errorDescription": "The API did not answer.",
+        "verbs": {
+          "read": "Read",
+          "write": "Change",
+          "export": "Export",
+          "roles": "Grant roles"
+        },
+        "domains": {
+          "admins": "Operators",
+          "audit": "Audit log",
+          "customers": "Customers",
+          "subscriptions": "Subscriptions",
+          "finance": "Finance",
+          "catalog": "Catalog",
+          "support": "Support",
+          "marketing": "Marketing",
+          "settings": "Settings",
+          "system": "System",
+          "risk": "Risk",
+          "gifts": "Gifts",
+          "goods": "Shop"
+        }
       }
     },
     "audit": {
@@ -2558,6 +2665,38 @@
       "placeholder": {
         "yandex_metrica": "12345678",
         "google_analytics": "G-XXXXXXX"
+      }
+    },
+    "invitation": {
+      "title": "Join the operator panel",
+      "description": "You have been invited to help run this service. Choose how you will appear and a password.",
+      "loading": "Checking the invitation…",
+      "invalid": "This invitation link is not valid. It may have expired, been revoked, or been used already. Ask whoever invited you for a new one.",
+      "toSignIn": "Go to sign-in",
+      "email": "Sign-in address",
+      "roles": "Roles",
+      "expires": "This link works once, until {date, date, medium} {date, time, short}.",
+      "displayName": "Your name",
+      "password": "Password",
+      "passwordHint": "At least 12 characters. A long phrase beats a short password with symbols.",
+      "confirmPassword": "Repeat the password",
+      "submit": "Create my account",
+      "submitting": "Creating…",
+      "doneTitle": "Your account is ready",
+      "doneDescription": "You are signed in.",
+      "secureHint": "Add a second factor or a passkey now, so a stolen password alone cannot open this panel.",
+      "secureNow": "Set up two-factor",
+      "skip": "Go to the panel",
+      "signIn": "Sign in",
+      "errors": {
+        "displayName": "Enter a name of up to 80 characters.",
+        "passwordLength": "Use between 12 and 256 characters.",
+        "passwordMismatch": "The passwords do not match.",
+        "weakPassword": "That password does not meet the length requirement.",
+        "emailInUse": "An account with this address already exists. Ask whoever invited you to check.",
+        "rateLimited": "Too many attempts. Wait a minute and try again.",
+        "unavailable": "The invitation could not be checked. Try again in a moment.",
+        "generic": "Your account could not be created. Try again."
       }
     }
   },

@@ -8,8 +8,8 @@ import { CursorPagination } from "@omniflow/ui/pagination";
 import { SkeletonTable } from "@omniflow/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { toast } from "@omniflow/ui/toast";
-import { ShieldCheck, ShieldOff } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { ShieldCheck, ShieldOff, UserPlus } from "lucide-react";
+import { useFormatter, useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR from "swr";
 
@@ -18,15 +18,11 @@ import { ApiError, apiFetch, fetcher, toQuery } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { useUrlFilters } from "@/lib/use-url-filters";
 
-type Operator = {
-  id: string;
-  email: string;
-  displayName: string;
-  status: "active" | "suspended" | "disabled";
-  roles: string[];
-  totpEnabled: boolean;
-  lastLoginAt?: string;
-};
+import { InviteDialog } from "./invite-dialog";
+import { PendingInvitations } from "./pending-invitations";
+import { PermissionMatrix } from "./permission-matrix";
+import { RoleEditor } from "./role-editor";
+import type { Invitation, Operator, RbacCatalog } from "./roles";
 
 type OperatorPage = { items: Operator[]; nextCursor?: string };
 
@@ -38,6 +34,19 @@ export function OperatorList() {
   const { filters, cursorStack, goNext, goPrevious, hasPrevious } = useUrlFilters([]);
   const [pendingSuspend, setPendingSuspend] = useState<Operator | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [inviting, setInviting] = useState(false);
+  const [editingRoles, setEditingRoles] = useState<Operator | null>(null);
+  const format = useFormatter();
+  const canManage = can("admins.write");
+  const canEditRoles = can("admins.roles");
+
+  const catalog = useSWR<RbacCatalog, ApiError>("/v1/panel/rbac/catalog", fetcher, {
+    revalidateOnFocus: false,
+  });
+  const invitations = useSWR<{ items: Invitation[] }, ApiError>(
+    "/v1/panel/admins/invitations",
+    fetcher,
+  );
 
   const query = toQuery({ cursor: filters.cursor, pageSize: 25 });
   const { data, error, isLoading, isValidating, mutate } = useSWR<OperatorPage, ApiError>(
@@ -77,9 +86,17 @@ export function OperatorList() {
 
   return (
     <div className="flex flex-col gap-5">
-      <header className="flex flex-col gap-1">
-        <h1 className="font-bold text-2xl tracking-tight">{translate("title")}</h1>
-        <p className="max-w-2xl text-muted-foreground text-sm">{translate("description")}</p>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-1">
+          <h1 className="font-bold text-2xl tracking-tight">{translate("title")}</h1>
+          <p className="max-w-2xl text-muted-foreground text-sm">{translate("description")}</p>
+        </div>
+        {canManage ? (
+          <Button className="self-start sm:self-auto" onClick={() => setInviting(true)} size="sm">
+            <UserPlus aria-hidden />
+            {translate("actions.invite")}
+          </Button>
+        ) : null}
       </header>
 
       <Card className="overflow-hidden">
@@ -112,7 +129,10 @@ export function OperatorList() {
                     <TableHead>{translate("columns.roles")}</TableHead>
                     <TableHead>{translate("columns.status")}</TableHead>
                     <TableHead>{translate("columns.twoFactor")}</TableHead>
-                    {can("admins.write") && <TableHead className="w-px" />}
+                    <TableHead className="hidden md:table-cell">
+                      {translate("columns.lastLogin")}
+                    </TableHead>
+                    {(canManage || canEditRoles) && <TableHead className="w-px" />}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -155,31 +175,52 @@ export function OperatorList() {
                             </span>
                           )}
                         </TableCell>
-                        {can("admins.write") && (
+                        <TableCell className="hidden whitespace-nowrap text-muted-foreground text-xs md:table-cell">
+                          {operator.lastLoginAt
+                            ? format.dateTime(new Date(operator.lastLoginAt), {
+                                dateStyle: "medium",
+                                timeStyle: "short",
+                              })
+                            : translate("neverSignedIn")}
+                        </TableCell>
+                        {(canManage || canEditRoles) && (
                           <TableCell>
                             {/*
                               Suspending yourself would end your own session
-                              mid-action, so the control is not offered.
+                              mid-action, and the API refuses a change to your
+                              own roles, so neither control is offered.
                             */}
-                            {!isSelf &&
-                              (operator.status === "active" ? (
+                            <div className="flex justify-end gap-2">
+                              {!isSelf && canEditRoles ? (
                                 <Button
-                                  onClick={() => setPendingSuspend(operator)}
+                                  onClick={() => setEditingRoles(operator)}
                                   size="sm"
-                                  variant="outline"
+                                  variant="ghost"
                                 >
-                                  {translate("actions.suspend")}
+                                  {translate("actions.changeRoles")}
                                 </Button>
-                              ) : (
-                                <Button
-                                  disabled={submitting}
-                                  onClick={() => changeStatus(operator, "active")}
-                                  size="sm"
-                                  variant="outline"
-                                >
-                                  {translate("actions.reinstate")}
-                                </Button>
-                              ))}
+                              ) : null}
+                              {!isSelf &&
+                                canManage &&
+                                (operator.status === "active" ? (
+                                  <Button
+                                    onClick={() => setPendingSuspend(operator)}
+                                    size="sm"
+                                    variant="outline"
+                                  >
+                                    {translate("actions.suspend")}
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    disabled={submitting}
+                                    onClick={() => changeStatus(operator, "active")}
+                                    size="sm"
+                                    variant="outline"
+                                  >
+                                    {translate("actions.reinstate")}
+                                  </Button>
+                                ))}
+                            </div>
                           </TableCell>
                         )}
                       </TableRow>
@@ -206,6 +247,34 @@ export function OperatorList() {
           </>
         )}
       </Card>
+
+      <PendingInvitations
+        editable={canManage}
+        error={Boolean(invitations.error)}
+        invitations={invitations.data?.items ?? []}
+        loading={invitations.isLoading && !invitations.data}
+        mutate={invitations.mutate}
+      />
+
+      <PermissionMatrix
+        catalog={catalog.data}
+        error={Boolean(catalog.error)}
+        loading={catalog.isLoading && !catalog.data}
+      />
+
+      <InviteDialog
+        catalog={catalog.data}
+        onInvited={() => invitations.mutate()}
+        onOpenChange={setInviting}
+        open={inviting}
+      />
+
+      <RoleEditor
+        catalog={catalog.data}
+        onChanged={() => mutate()}
+        onOpenChange={(open) => !open && setEditingRoles(null)}
+        operator={editingRoles}
+      />
 
       {/*
         Suspension ends every one of that operator's live sessions immediately,

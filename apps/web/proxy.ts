@@ -33,7 +33,8 @@ const ACCOUNT_SESSION_COOKIES = ["__Host-omniflow_account", "omniflow_account"] 
 
 // Operator routes that must stay reachable without a session, or a fresh
 // installation could never create its first owner and nobody could sign in.
-const ADMIN_PUBLIC_PATHS = ["/admin/login", "/admin/setup"];
+// The invitation screen is how an operator without an account gets one.
+const ADMIN_PUBLIC_PATHS = ["/admin/login", "/admin/setup", "/admin/invite"];
 
 function within(pathname: string, base: string): boolean {
   return pathname === base || pathname.startsWith(`${base}/`);

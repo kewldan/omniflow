@@ -42,6 +42,13 @@ describe("signedOutRedirect", () => {
     expect(signedOutRedirect("/admin/setup", "", none)).toBeNull();
   });
 
+  test("leaves an invitation link open to somebody with no account yet", () => {
+    expect(signedOutRedirect("/admin/invite/some-token", "", none)).toBeNull();
+    expect(signedOutRedirect("/admin/invitations", "", none)).toBe(
+      "/admin/login?next=%2Fadmin%2Finvitations",
+    );
+  });
+
   test("does not mistake a lookalike prefix for a panel", () => {
     expect(signedOutRedirect("/accounting", "", none)).toBeNull();
     expect(signedOutRedirect("/administrator", "", none)).toBeNull();
