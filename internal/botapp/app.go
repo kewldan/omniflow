@@ -59,12 +59,14 @@ const (
 )
 
 type App struct {
-	logger      *slog.Logger
-	store       Store
-	remnawave   remnawave.Service
-	supportURL  string
-	termsURL    string
-	botUsername string
+	logger     *slog.Logger
+	store      Store
+	remnawave  remnawave.Service
+	supportURL string
+	termsURL   string
+	// identity is the bot's own username, which referral links need. It is
+	// looked up again if getMe failed at startup.
+	identity botIdentity
 
 	// The commerce surface is optional. Without it the bot keeps its v0.2
 	// self-service behaviour and the commerce routes report that purchases are
@@ -106,7 +108,7 @@ func (app *App) EnableCommerce(customers *PostgresStore, commerceService *Commer
 }
 
 func (app *App) SetBotUsername(username string) {
-	app.botUsername = strings.TrimPrefix(strings.TrimSpace(username), "@")
+	app.identity.set(username)
 }
 
 // allow applies a per-user, per-action Valkey rate limit. A limiter outage fails
@@ -209,6 +211,15 @@ var legacyActions = map[string]bool{
 var checkoutBudgetActions = map[string]bool{"confirm": true, "pay": true, "order-pm": true}
 
 func (app *App) Register(client *telegram.Bot) {
+	// A username getMe could not supply at startup is looked up again when a
+	// referral screen needs it.
+	app.identity.useLookup(func(ctx context.Context) (string, error) {
+		me, err := client.GetMe(ctx)
+		if err != nil || me == nil {
+			return "", err
+		}
+		return me.Username, nil
+	})
 	// Every registered handler notes the update first, which is what clears a
 	// blocked or never-started delivery state once the customer is heard from.
 	inbound := app.inboundMiddleware
@@ -1044,7 +1055,7 @@ func (app *App) referralScreen(ctx context.Context, session commerceContext) Vie
 		app.logger.Error("referral lookup failed", "error", err)
 		return app.errorView(session.Locale, routeReferral)
 	}
-	return referralView(session.Locale, app.botUsername, summary.Code, summary.Invited)
+	return referralView(session.Locale, app.identity.get(ctx), summary.Code, summary.Invited)
 }
 
 // noSubscriptionView is what a customer sees before their first purchase: the
@@ -1103,7 +1114,7 @@ func (app *App) loadRemnawaveView(ctx context.Context, telegramID int64, locale 
 		if referralErr != nil {
 			return errorView(locale, route)
 		}
-		return referralView(locale, app.botUsername, code, count)
+		return referralView(locale, app.identity.get(ctx), code, count)
 	case routeSubscription, routeConnect:
 		subscription, err := app.remnawave.Subscription(ctx, userID)
 		if err != nil {

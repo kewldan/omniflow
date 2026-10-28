@@ -35,7 +35,10 @@ is in [the Telegram bot](/customer/telegram-bot).
   <Step title="Start the stack and check the log">
     The bot logs `telegram bot started` with the update mode it chose. It also calls `getMe` on
     start to learn its own username, which is what makes referral links and the web Login Widget
-    possible.
+    possible. If that call fails — Telegram briefly unreachable while the container starts — the
+    log says so, and the bot asks again the next time a referral screen needs the username: after
+    30 seconds at the earliest, then with a doubling backoff up to once an hour, so no restart is
+    needed.
   </Step>
   <Step title="Bind the web domain, if you run the customer panel">
     Send `/setdomain` to BotFather and give it the host your customer panel is served from. Telegram
