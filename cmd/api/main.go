@@ -73,6 +73,10 @@ func main() {
 	var metrics *platform.Metrics
 	if cfg.MetricsEnabled {
 		metrics = platform.NewMetrics("api")
+		if cfg.MetricsToken == "" {
+			logger.Warn("GET /metrics on the API listener is unauthenticated; " +
+				"set APP_METRICS_TOKEN or block the route at the reverse proxy")
+		}
 	}
 	health := platform.NewHealth(2*time.Second, 3*time.Second)
 
@@ -86,7 +90,8 @@ func main() {
 	server := &http.Server{
 		Addr: cfg.HTTPAddr,
 		Handler: apihttp.NewRouter(logger, apihttp.RouterOptions{
-			Health: health, Metrics: metrics, Commerce: runtime.handlers, Admin: runtime.admin,
+			Health: health, Metrics: metrics, MetricsToken: cfg.MetricsToken,
+			Commerce: runtime.handlers, Admin: runtime.admin,
 			Account:          runtime.account,
 			CollectorEnabled: cfg.TelemetryCollectorEnabled, Telemetry: telemetryClient, Version: version,
 		}),

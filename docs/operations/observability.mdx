@@ -132,6 +132,18 @@ Four metrics appear in `/metrics` output with no samples, because nothing in the
 
 Two more gaps are worth knowing when you write a dashboard. Digital-goods delivery jobs are uninstrumented — `omniflow_jobs_total{kind="goods_delivery"}` and its duration series never appear, so a stuck delivery is visible in the panel's shop views but not in Prometheus. And `omniflow_job_duration_seconds{kind="telegram.update"}` has no matching counter series, so a rate over the histogram's `_count` is the only way to get Telegram throughput out of that pair.
 
+### Protecting `/metrics` on the API
+
+The API serves `/metrics` on the same listener as the public API. Set
+`APP_METRICS_TOKEN` and the route answers only to
+`Authorization: Bearer <token>` — configure it as the scrape job's
+`authorization` credential in Prometheus. Without a token the route stays open,
+as in earlier releases, and the API logs a warning at startup; block the path at
+the reverse proxy, as both bundled proxy examples do. The probes `/livez`,
+`/readyz`, and `/healthz` are never gated. The worker and the bot serve metrics
+on their own listeners, which are not meant to be published, and ignore the
+token.
+
 ### Turning metrics off
 
 `APP_METRICS_ENABLED` defaults to `true` and is read by the **api** and the **worker**: setting it to `false` leaves the metrics object unbuilt, which removes both the `/metrics` route and the HTTP instrumentation middleware while the probes keep working. The bot ignores it — it constructs metrics unconditionally and serves `/metrics` whenever `APP_BOT_METRICS_ADDR` is set to something other than the webhook address.

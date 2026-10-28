@@ -396,6 +396,7 @@ The exact payload is on [Telemetry](/operations/telemetry).
 | Variable | Default | Read by | Required | Secret | What it changes |
 | --- | --- | --- | --- | --- | --- |
 | `APP_METRICS_ENABLED` | `true` | api, worker | no | no | Whether the Prometheus registry is constructed. `false` removes the `/metrics` route and the HTTP metrics middleware on that process |
+| `APP_METRICS_TOKEN` | — | api | no | **yes** | When set, `GET /metrics` on the API listener answers only to `Authorization: Bearer <token>` and is `401` otherwise. Empty leaves it open and logs a warning at startup; block it at the proxy in that case. The worker and bot serve metrics on their own internal listeners and ignore it |
 | `APP_WORKER_HTTP_ADDR` | `:8081` | worker | no | no | Worker's `/livez`, `/readyz`, `/healthz`, and `/metrics` listener |
 | `APP_BOT_METRICS_ADDR` | — (empty means no HTTP) | bot | no | no | Bot's `/livez`, `/readyz`, `/healthz`, and `/metrics` listener |
 

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -16,9 +17,11 @@ import (
 // RouterOptions carries the optional runtime surfaces. A nil value simply
 // leaves the corresponding endpoint out, so a minimal installation still boots.
 type RouterOptions struct {
-	Health   *platform.Health
-	Metrics  *platform.Metrics
-	Commerce *CommerceHandlers
+	Health  *platform.Health
+	Metrics *platform.Metrics
+	// MetricsToken, when non-empty, is the bearer token GET /metrics requires.
+	MetricsToken string
+	Commerce     *CommerceHandlers
 	// Admin serves the operator panel API. A nil value leaves /v1/panel
 	// unmounted, which is what a bot-only installation wants.
 	Admin *AdminHandlers
@@ -56,7 +59,7 @@ func NewRouter(logger *slog.Logger, options RouterOptions) http.Handler {
 	router.Get("/livez", liveness)
 	router.Get("/readyz", readinessHandler(logger, options.Health, options.Metrics))
 	if options.Metrics != nil {
-		router.Handle("/metrics", options.Metrics.Handler())
+		router.Handle("/metrics", requireBearer(options.MetricsToken, options.Metrics.Handler()))
 	}
 	if options.CollectorEnabled && options.Telemetry != nil {
 		router.Post("/v1/telemetry/events", options.Telemetry.CollectorHandler())
@@ -71,6 +74,24 @@ func NewRouter(logger *slog.Logger, options RouterOptions) http.Handler {
 		options.Account.Mount(router)
 	}
 	return router
+}
+
+// requireBearer gates a handler on a static bearer token, compared in constant
+// time. An empty token leaves the handler open, which is the behaviour a
+// deployment that has not configured one already relies on.
+func requireBearer(token string, next http.Handler) http.Handler {
+	if token == "" {
+		return next
+	}
+	expected := []byte("Bearer " + token)
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if subtle.ConstantTimeCompare([]byte(request.Header.Get("Authorization")), expected) != 1 {
+			writer.Header().Set("WWW-Authenticate", `Bearer realm="metrics"`)
+			writeProblem(writer, request, http.StatusUnauthorized, "unauthorized", "A metrics token is required")
+			return
+		}
+		next.ServeHTTP(writer, request)
+	})
 }
 
 // readinessHandler answers 200 only while every registered dependency responds.

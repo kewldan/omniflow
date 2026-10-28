@@ -112,8 +112,13 @@ type Config struct {
 	TelemetryCollectorEnabled bool
 	TelemetryEndpoint         string
 	MetricsEnabled            bool
-	OperatorToken             string
-	DataEncryptionKey         []byte
+	// MetricsToken, when set, is the bearer token GET /metrics on the API
+	// listener requires. The API listener is the public one, and its metrics
+	// describe installation internals; empty leaves the route open, as before,
+	// for deployments that already block it at the proxy.
+	MetricsToken      string
+	OperatorToken     string
+	DataEncryptionKey []byte
 	// AIAllowPrivateNetwork lets AI provider base URLs use plain HTTP and
 	// reach private, loopback, and link-local addresses — what a model served
 	// from the same Compose stack or the LAN needs. It is an environment
@@ -274,6 +279,7 @@ func Load() (Config, error) {
 		TelemetryCollectorEnabled: boolEnvOr("APP_TELEMETRY_COLLECTOR_ENABLED", false),
 		TelemetryEndpoint:         envOr("APP_TELEMETRY_ENDPOINT", defaultTelemetryEndpoint),
 		MetricsEnabled:            boolEnvOr("APP_METRICS_ENABLED", true),
+		MetricsToken:              os.Getenv("APP_METRICS_TOKEN"),
 		OperatorToken:             os.Getenv("APP_OPERATOR_TOKEN"),
 		AIAllowPrivateNetwork:     boolEnvOr("APP_AI_ALLOW_PRIVATE_NETWORK", false),
 		RemnawaveURL:              os.Getenv("APP_REMNAWAVE_URL"),
