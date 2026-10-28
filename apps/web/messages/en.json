@@ -216,8 +216,11 @@
         "network": "The API could not be reached.",
         "passkeyCloned": "That passkey was refused: another device answered for it. The account has been notified.",
         "passkeyUnavailable": "Passkeys are not configured on this installation.",
-        "passkeyExpired": "That took too long. Try again."
-      }
+        "passkeyExpired": "That took too long. Try again.",
+        "challengeEnded": "Too many wrong codes, so that sign-in was ended. Enter your password again to get a new code prompt."
+      },
+      "submitting": "Signing in…",
+      "verifying": "Checking the code…"
     },
     "setup": {
       "title": "Create the first owner",

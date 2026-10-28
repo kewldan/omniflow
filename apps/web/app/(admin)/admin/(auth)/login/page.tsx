@@ -165,8 +165,18 @@ export default function LoginPage() {
       setCsrfToken(result.csrfToken);
       router.replace(next);
     } catch (error) {
-      setFormError(describe(error));
       challengeForm.reset({ code: "" });
+      // The fifth wrong code revokes the pending session, so the challenge can
+      // never be answered again from here: back to the password step, saying
+      // why, rather than a code field that will refuse every code. A locked
+      // account (429) stays on this step with the locked message.
+      if (error instanceof ApiError && error.status === 401 && error.code !== "invalid_code") {
+        credentialsForm.reset({ email: credentialsForm.getValues("email"), password: "" });
+        setStage("credentials");
+        setFormError(translate("errors.challengeEnded"));
+        return;
+      }
+      setFormError(describe(error));
     }
   }
 
@@ -227,8 +237,16 @@ export default function LoginPage() {
                   {...credentialsForm.register("password")}
                 />
               </div>
-              <Button disabled={credentialsForm.formState.isSubmitting} type="submit">
-                {translate("submit")}
+              {/* A visible pending state: the first press used to look like it did
+                  nothing, and operators pressed again. */}
+              <Button
+                aria-busy={credentialsForm.formState.isSubmitting}
+                disabled={credentialsForm.formState.isSubmitting}
+                type="submit"
+              >
+                {credentialsForm.formState.isSubmitting
+                  ? translate("submitting")
+                  : translate("submit")}
               </Button>
 
               {passkeyOffered && (
@@ -275,8 +293,14 @@ export default function LoginPage() {
                 />
                 <p className="text-muted-foreground text-xs">{translate("codeHint")}</p>
               </div>
-              <Button disabled={challengeForm.formState.isSubmitting} type="submit">
-                {translate("verify")}
+              <Button
+                aria-busy={challengeForm.formState.isSubmitting}
+                disabled={challengeForm.formState.isSubmitting}
+                type="submit"
+              >
+                {challengeForm.formState.isSubmitting
+                  ? translate("verifying")
+                  : translate("verify")}
               </Button>
             </form>
           )}
