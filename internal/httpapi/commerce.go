@@ -342,8 +342,13 @@ func (handlers *CommerceHandlers) createPayment(writer http.ResponseWriter, requ
 	writeJSON(writer, 201, paymentResponse(intent))
 }
 
+// maxWebhookBody bounds a provider notification. Real ones are a few
+// kilobytes; the route is unauthenticated, so the general 1 MiB JSON limit
+// would let anyone push a megabyte per request into the webhook log.
+const maxWebhookBody = 64 << 10
+
 func (handlers *CommerceHandlers) paymentWebhook(writer http.ResponseWriter, request *http.Request) {
-	body, err := io.ReadAll(http.MaxBytesReader(writer, request.Body, maxJSONBody))
+	body, err := io.ReadAll(http.MaxBytesReader(writer, request.Body, maxWebhookBody))
 	if err != nil {
 		writeProblem(writer, request, 413, "payload_too_large", "Webhook is too large")
 		return

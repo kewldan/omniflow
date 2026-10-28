@@ -282,7 +282,7 @@ Telegram order screen says the same while the order is pending.
 
 One public route serves every adapter that declares webhook support:
 `POST /v1/payments/webhooks/{provider}`. It carries no credential — authenticity is the adapter's
-signature check, not a token on the URL — and the body is capped at 1 MiB (`413 payload_too_large`
+signature check, not a token on the URL — and the body is capped at 64 KiB (`413 payload_too_large`
 above that).
 
 What happens to a request, in order:

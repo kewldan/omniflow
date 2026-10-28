@@ -323,7 +323,10 @@ func (service *Service) HandleWebhook(ctx context.Context, providerName string, 
 	event, verifyErr := provider.VerifyWebhook(headers, body)
 	queries := dbgen.New(service.pool)
 	if verifyErr != nil {
-		_, _ = queries.InsertWebhookEvent(ctx, dbgen.InsertWebhookEventParams{Provider: providerName, ProviderEventID: "invalid:" + hex.EncodeToString(digest[:]), SignatureValid: false, BodySha256: digest[:], RawBody: body, Headers: safeHeaders(headers)})
+		// The digest is kept so repeated garbage is recognisable; the body is
+		// not. Anyone can post here, and storing whatever they send — up to the
+		// request cap, for thirty days — would hand them the database's disk.
+		_, _ = queries.InsertWebhookEvent(ctx, dbgen.InsertWebhookEventParams{Provider: providerName, ProviderEventID: "invalid:" + hex.EncodeToString(digest[:]), SignatureValid: false, BodySha256: digest[:], RawBody: []byte{}, Headers: safeHeaders(headers)})
 		service.observeWebhook(providerName, "signature_invalid")
 		return "", verifyErr
 	}
@@ -336,7 +339,17 @@ func (service *Service) HandleWebhook(ctx context.Context, providerName string, 
 	}
 	// YooKassa notifications are untrusted hints. Fetch the payment through the
 	// authenticated API and only use that response for financial state changes.
+	//
+	// The poll happens only for a payment this installation actually opened.
+	// The notification is unauthenticated, so without that check anyone could
+	// make the API spend a provider request — and a slot in the provider's
+	// rate limit — for every well-formed body they post.
 	if providerName == "yookassa" {
+		if _, lookupErr := service.webhookIntent(ctx, queries, providerName, event); lookupErr != nil {
+			_, _ = queries.CompleteWebhookEvent(ctx, dbgen.CompleteWebhookEventParams{WebhookEventID: stored.ID, Status: "failed", ErrorCode: optionalText("payment_not_found")})
+			service.observeWebhook(providerName, "payment_not_found")
+			return "", lookupErr
+		}
 		trusted, pollErr := provider.Poll(ctx, event.ProviderReference)
 		if pollErr != nil {
 			_, _ = queries.CompleteWebhookEvent(ctx, dbgen.CompleteWebhookEventParams{WebhookEventID: stored.ID, Status: "failed", ErrorCode: optionalText("reconciliation_failed")})
@@ -348,13 +361,7 @@ func (service *Service) HandleWebhook(ctx context.Context, providerName string, 
 		_, err = queries.CompleteWebhookEvent(ctx, dbgen.CompleteWebhookEventParams{WebhookEventID: stored.ID, Status: "ignored"})
 		return "ignored", err
 	}
-	intent, err := queries.GetPaymentIntentByProviderReference(ctx, dbgen.GetPaymentIntentByProviderReferenceParams{Provider: providerName, ProviderReference: optionalText(event.ProviderReference)})
-	if errors.Is(err, pgx.ErrNoRows) && event.MerchantReference != "" {
-		orderID, parseErr := parseUUID(event.MerchantReference)
-		if parseErr == nil {
-			intent, err = queries.GetPaymentIntentByOrderProvider(ctx, dbgen.GetPaymentIntentByOrderProviderParams{OrderID: orderID, Provider: providerName})
-		}
-	}
+	intent, err := service.webhookIntent(ctx, queries, providerName, event)
 	if err != nil {
 		_, _ = queries.CompleteWebhookEvent(ctx, dbgen.CompleteWebhookEventParams{WebhookEventID: stored.ID, Status: "failed", ErrorCode: optionalText("payment_not_found")})
 		return "", err
@@ -482,6 +489,21 @@ func (service *Service) ApproveManual(ctx context.Context, paymentIntentID, oper
 	}
 	_, _, err = service.commerce.RecordProviderPayment(ctx, paymentIntentID, "manual:"+uuidString(approval.ID), commerce.Money{Amount: intent.AmountMinor, Currency: intent.Currency}, false)
 	return approval, err
+}
+
+// webhookIntent finds the payment intent a webhook refers to: by the provider's
+// own reference, or, failing that, by the order the merchant reference names.
+func (service *Service) webhookIntent(
+	ctx context.Context, queries *dbgen.Queries, providerName string, event payments.WebhookEvent,
+) (dbgen.PaymentIntent, error) {
+	intent, err := queries.GetPaymentIntentByProviderReference(ctx, dbgen.GetPaymentIntentByProviderReferenceParams{Provider: providerName, ProviderReference: optionalText(event.ProviderReference)})
+	if errors.Is(err, pgx.ErrNoRows) && event.MerchantReference != "" {
+		orderID, parseErr := parseUUID(event.MerchantReference)
+		if parseErr == nil {
+			intent, err = queries.GetPaymentIntentByOrderProvider(ctx, dbgen.GetPaymentIntentByOrderProviderParams{OrderID: orderID, Provider: providerName})
+		}
+	}
+	return intent, err
 }
 
 func safeHeaders(headers http.Header) []byte {

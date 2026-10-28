@@ -362,29 +362,34 @@ providers](/integrations/payments).
 
 One public, unauthenticated route takes provider callbacks:
 `POST /v1/payments/webhooks/{provider}`. Authenticity is the adapter's signature check, not a
-credential on the route, and the body is capped at 1 MiB (a larger one answers `413`).
+credential on the route, and the body is capped at 64 KiB (a larger one answers `413`) — real
+notifications are a few kilobytes, and the route is open to anyone.
 
 1. The named adapter must be registered **and** declare webhook support. This is what closes the
    public route for `telegram_stars` and `manual` — Telegram does not sign Bot API updates for a
    public HTTP route, so accepting a "Stars webhook" there would be accepting unauthenticated money.
 2. The body is hashed.
-3. The adapter verifies the signature. A failure still writes a row, with `signature_valid = false`
-   and an event ID derived from the body digest, increments
+3. The adapter verifies the signature. A failure still writes a row, with `signature_valid = false`,
+   an event ID derived from the body digest, and an **empty** body — the digest identifies repeated
+   garbage, and storing whatever a stranger posts would hand them the database's disk — increments
    `omniflow_provider_webhooks_total{outcome="signature_invalid"}`, and answers `400`.
 4. The event is inserted into `provider_webhook_events` on `(provider, provider_event_id)`. If the
    stored row already reads `processed` or `ignored`, the request returns `duplicate` and stops.
    **This is the deduplication guard.**
 5. For YooKassa only, the referenced payment is re-fetched over the authenticated API and the
    polled status and amount replace the notification's — YooKassa does not sign its callbacks, so
-   authenticity is established by asking the provider directly. A failed re-fetch completes the row
-   as `failed` with `reconciliation_failed` and applies nothing.
+   authenticity is established by asking the provider directly. The re-fetch is made **only for a
+   payment intent this installation opened**: a notification naming an unknown payment completes as
+   `failed` with `payment_not_found` without calling YooKassa, so a stranger posting well-formed
+   bodies cannot make the API spend provider requests. A failed re-fetch completes the row as
+   `failed` with `reconciliation_failed` and applies nothing.
 6. A verified event that is not a success is completed as `ignored`, not as a failure.
 7. The intent is found by provider reference, falling back to the order carried in the merchant
    reference. No match completes the row as `failed` with `payment_not_found`.
 8. The payment is applied through the shared settlement path, and the row is completed as
    `processed` carrying the classification.
 
-The stored row keeps the raw body, its SHA-256, and a **redacted** header projection — `content-type`
+A verified row keeps the raw body, its SHA-256, and a **redacted** header projection — `content-type`
 and `user-agent` only. Retaining an authorization or signature header would put a provider
 credential in the database; retaining the body with a digest is what makes a dispute answerable and
 a replay safe. Rows are deleted 30 days after intake by the retention sweep.
