@@ -269,7 +269,7 @@ func (handlers *AccountHandlers) beginOIDCFlow(
 
 	sealed, err := handlers.sealAccountFlow(accountFlowState{
 		Slug: slug, State: flow.State, Verifier: flow.Verifier, Nonce: flow.Nonce,
-		Next: safeNextPath(request.URL.Query().Get("next")), LinkTo: linkTo,
+		Next: safeNextPath(request.URL.Query().Get("next"), "/account"), LinkTo: linkTo,
 	})
 	if err != nil {
 		writeProblem(writer, request, http.StatusInternalServerError, "sign_in_unavailable", "Sign-in could not start")

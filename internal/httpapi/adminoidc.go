@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
+	"path"
 	"strings"
 	"time"
 
@@ -96,7 +98,7 @@ func (handlers *AdminHandlers) startOIDC(writer http.ResponseWriter, request *ht
 
 	sealed, err := handlers.sealFlow(oidcFlowState{
 		Slug: slug, State: flow.State, Verifier: flow.Verifier,
-		Next: safeNextPath(request.URL.Query().Get("next")),
+		Next: safeNextPath(request.URL.Query().Get("next"), "/admin"),
 	})
 	if err != nil {
 		writeProblem(writer, request, http.StatusInternalServerError, "oidc_unavailable", "Sign-in could not start")
@@ -285,10 +287,34 @@ func (handlers *AdminHandlers) redirectToLogin(writer http.ResponseWriter, reque
 	http.Redirect(writer, request, "/admin/login?error="+reason, http.StatusFound)
 }
 
-// safeNextPath accepts only a same-site absolute path, so a crafted `next`
-// cannot turn the callback into an open redirect.
-func safeNextPath(next string) string {
+// safeNextPath accepts only a same-site path inside one surface, so a crafted
+// `next` cannot turn the callback into an open redirect. Anything it refuses
+// comes back empty, which the callers read as "go to the surface's home".
+//
+// A leading "/" and no "//" is not enough. Browsers treat a backslash as a
+// slash, so `/\evil.example` is the protocol-relative `//evil.example`, and
+// they strip tab and newline characters before parsing, so `/\t/evil.example`
+// collapses the same way. Both are refused outright rather than normalised,
+// along with every other control character. What survives is parsed, must have
+// no scheme, host, or user, and its cleaned path must sit under `surface` —
+// `/admin` for the operator panel, `/account` for the customer one — so a next
+// value cannot even move a user to the other surface.
+func safeNextPath(next, surface string) string {
 	if next == "" || !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") {
+		return ""
+	}
+	for _, character := range next {
+		if character == '\\' || character < 0x20 || character == 0x7f {
+			return ""
+		}
+	}
+	parsed, err := url.Parse(next)
+	if err != nil || parsed.Scheme != "" || parsed.Host != "" || parsed.User != nil ||
+		parsed.Opaque != "" {
+		return ""
+	}
+	cleaned := path.Clean(parsed.Path)
+	if cleaned != surface && !strings.HasPrefix(cleaned, surface+"/") {
 		return ""
 	}
 	return next

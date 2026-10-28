@@ -153,9 +153,12 @@ see [Reverse proxy](/operations/reverse-proxy).
     `{slug, state, verifier, next}` into the `__Host-omniflow_oidc` cookie —
     `omniflow_oidc` on a stack without TLS, since a browser discards a `__Host-`
     cookie that is not `Secure` — (lifetime 10 minutes) and answers `302` to the
-    provider. `next` is accepted
-    only as a same-site absolute path — `/…` but not `//…` — so a crafted value
-    cannot turn the callback into an open redirect.
+    provider. `next` is accepted only as a path **under `/admin`**: it must
+    start with `/` but not `//`, may contain no backslash and no control
+    character (browsers read `\` as `/` and strip tabs and newlines, so
+    `/\evil.example` would otherwise leave the site), must parse with no
+    scheme or host, and its cleaned path must be `/admin` or below it. Anything
+    else is dropped and the callback lands on `/admin`.
   </Step>
   <Step title="Return through the callback">
     The provider redirects to `/v1/panel/auth/oidc/{slug}/callback`. The flow
@@ -299,7 +302,9 @@ the installation actually offers: the Telegram widget, the bot-delivered link if
 it is enabled, and one button per enabled OIDC provider. Each button links to
 `GET /v1/account/auth/oidc/{slug}/start`; the provider returns to
 `/v1/account/auth/oidc/{slug}/callback`, which sets the session cookie and
-redirects to `next`, defaulting to `/account`.
+redirects to `next`, defaulting to `/account`. `next` follows the same rule as
+the operator flow, scoped to `/account`: a value outside it, or one containing a
+backslash or a control character, is dropped.
 
 Failures redirect to `/account/sign-in?error=<reason>` with reasons
 `sign_in_expired`, `sign_in_denied`, `unverified_email`, `account_unavailable`,
