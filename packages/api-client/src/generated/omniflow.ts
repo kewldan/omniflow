@@ -3294,6 +3294,11 @@ export interface TelegramLoginWidgetPayload {
   [key: string]: unknown;
 }
 
+export interface MagicLinkRedeemInput {
+  /** The token from the link the bot delivered. */
+  token: string;
+}
+
 export interface AccountSignIn {
   customer: AccountCustomer;
   expiresAt: string;
@@ -5781,7 +5786,7 @@ export type AccountSignInWithMiniAppBody = {
   initData: string;
 };
 
-export type AccountCompleteMagicLinkParams = {
+export type AccountCheckMagicLinkParams = {
   token: string;
 };
 
@@ -23443,6 +23448,11 @@ export type accountSignInWithTelegramResponse404 = {
   status: 404;
 };
 
+export type accountSignInWithTelegramResponse415 = {
+  data: ProblemResponse;
+  status: 415;
+};
+
 export type accountSignInWithTelegramResponseSuccess = accountSignInWithTelegramResponse200 & {
   headers: Headers;
 };
@@ -23450,6 +23460,7 @@ export type accountSignInWithTelegramResponseError = (
   | accountSignInWithTelegramResponse401
   | accountSignInWithTelegramResponse403
   | accountSignInWithTelegramResponse404
+  | accountSignInWithTelegramResponse415
 ) & {
   headers: Headers;
 };
@@ -23463,7 +23474,7 @@ export const getAccountSignInWithTelegramUrl = () => {
 };
 
 /**
- * Verifies a Telegram Login Widget payload. The hash is checked against the bot token and the auth_date must be recent, so a captured payload cannot be replayed indefinitely. The body is the object the widget hands to its `data-onauth` callback, posted as is: `id` and `auth_date` are JSON numbers, the other fields strings.
+ * Verifies a Telegram Login Widget payload. The hash is checked against the bot token and the auth_date must be recent, so a captured payload cannot be replayed indefinitely. The body is the object the widget hands to its `data-onauth` callback, posted as is: `id` and `auth_date` are JSON numbers, the other fields strings. Like every session-opening POST under /v1/account/auth, it requires Content-Type application/json and refuses a request a browser marks as cross-site (403 cross_origin_request), so a third-party page cannot sign a visitor into another account.
  */
 export const accountSignInWithTelegram = async (
   telegramLoginWidgetPayload: TelegramLoginWidgetPayload,
@@ -23536,6 +23547,11 @@ export type accountSignInWithMiniAppResponse404 = {
   status: 404;
 };
 
+export type accountSignInWithMiniAppResponse415 = {
+  data: ProblemResponse;
+  status: 415;
+};
+
 export type accountSignInWithMiniAppResponseSuccess = accountSignInWithMiniAppResponse200 & {
   headers: Headers;
 };
@@ -23543,6 +23559,7 @@ export type accountSignInWithMiniAppResponseError = (
   | accountSignInWithMiniAppResponse401
   | accountSignInWithMiniAppResponse403
   | accountSignInWithMiniAppResponse404
+  | accountSignInWithMiniAppResponse415
 ) & {
   headers: Headers;
 };
@@ -23556,7 +23573,7 @@ export const getAccountSignInWithMiniAppUrl = () => {
 };
 
 /**
- * Verifies the initData a Telegram Mini App hands to its own page.
+ * Verifies the initData a Telegram Mini App hands to its own page. Requires Content-Type application/json and a same-origin request.
  */
 export const accountSignInWithMiniApp = async (
   accountSignInWithMiniAppBody: AccountSignInWithMiniAppBody,
@@ -23610,17 +23627,17 @@ export const useAccountSignInWithMiniApp = <TError = Promise<ProblemResponse>>(o
   };
 };
 
-export type accountCompleteMagicLinkResponse302 = {
+export type accountCheckMagicLinkResponse302 = {
   data: void;
   status: 302;
 };
-export type accountCompleteMagicLinkResponseError = accountCompleteMagicLinkResponse302 & {
+export type accountCheckMagicLinkResponseError = accountCheckMagicLinkResponse302 & {
   headers: Headers;
 };
 
-export type accountCompleteMagicLinkResponse = accountCompleteMagicLinkResponseError;
+export type accountCheckMagicLinkResponse = accountCheckMagicLinkResponseError;
 
-export const getAccountCompleteMagicLinkUrl = (params: AccountCompleteMagicLinkParams) => {
+export const getAccountCheckMagicLinkUrl = (params: AccountCheckMagicLinkParams) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -23637,34 +23654,34 @@ export const getAccountCompleteMagicLinkUrl = (params: AccountCompleteMagicLinkP
 };
 
 /**
- * Redeems a one-time link the bot delivered. The token is consumed before the redirect is issued, so the URL left in history is already spent.
+ * Where a one-time link the bot delivered lands. It signs nobody in: a GET can be triggered by any page, so opening a session here would let a link requested for one account be planted in another person's browser. It checks the token without spending it and redirects to /account/sign-in/confirm#token=<token>; that page asks the customer to confirm and POSTs the token to this path. An unusable link redirects to /account/sign-in?error=link_invalid (or method_unavailable).
  */
-export const accountCompleteMagicLink = async (
-  params: AccountCompleteMagicLinkParams,
+export const accountCheckMagicLink = async (
+  params: AccountCheckMagicLinkParams,
   options?: RequestInit,
-): Promise<accountCompleteMagicLinkResponse> => {
-  const res = await fetch(getAccountCompleteMagicLinkUrl(params), {
+): Promise<accountCheckMagicLinkResponse> => {
+  const res = await fetch(getAccountCheckMagicLinkUrl(params), {
     ...options,
     method: "GET",
   });
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
 
-  const data: accountCompleteMagicLinkResponse["data"] = body ? JSON.parse(body) : {};
-  return { data, status: res.status, headers: res.headers } as accountCompleteMagicLinkResponse;
+  const data: accountCheckMagicLinkResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as accountCheckMagicLinkResponse;
 };
 
-export const getAccountCompleteMagicLinkKey = (params: AccountCompleteMagicLinkParams) =>
+export const getAccountCheckMagicLinkKey = (params: AccountCheckMagicLinkParams) =>
   [`/v1/account/auth/link`, ...(params ? [params] : [])] as const;
 
-export type AccountCompleteMagicLinkQueryResult = NonNullable<
-  Awaited<ReturnType<typeof accountCompleteMagicLink>>
+export type AccountCheckMagicLinkQueryResult = NonNullable<
+  Awaited<ReturnType<typeof accountCheckMagicLink>>
 >;
 
-export const useAccountCompleteMagicLink = <TError = Promise<void>>(
-  params: AccountCompleteMagicLinkParams,
+export const useAccountCheckMagicLink = <TError = Promise<void>>(
+  params: AccountCheckMagicLinkParams,
   options?: {
-    swr?: SWRConfiguration<Awaited<ReturnType<typeof accountCompleteMagicLink>>, TError> & {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof accountCheckMagicLink>>, TError> & {
       swrKey?: Key;
       enabled?: boolean;
     };
@@ -23675,10 +23692,109 @@ export const useAccountCompleteMagicLink = <TError = Promise<void>>(
 
   const isEnabled = swrOptions?.enabled !== false;
   const swrKey =
-    swrOptions?.swrKey ?? (() => (isEnabled ? getAccountCompleteMagicLinkKey(params) : null));
-  const swrFn = () => accountCompleteMagicLink(params, fetchOptions);
+    swrOptions?.swrKey ?? (() => (isEnabled ? getAccountCheckMagicLinkKey(params) : null));
+  const swrFn = () => accountCheckMagicLink(params, fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type accountCompleteMagicLinkResponse200 = {
+  data: AccountSignIn;
+  status: 200;
+};
+
+export type accountCompleteMagicLinkResponse401 = {
+  data: ProblemResponse;
+  status: 401;
+};
+
+export type accountCompleteMagicLinkResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type accountCompleteMagicLinkResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type accountCompleteMagicLinkResponse415 = {
+  data: ProblemResponse;
+  status: 415;
+};
+
+export type accountCompleteMagicLinkResponseSuccess = accountCompleteMagicLinkResponse200 & {
+  headers: Headers;
+};
+export type accountCompleteMagicLinkResponseError = (
+  | accountCompleteMagicLinkResponse401
+  | accountCompleteMagicLinkResponse403
+  | accountCompleteMagicLinkResponse404
+  | accountCompleteMagicLinkResponse415
+) & {
+  headers: Headers;
+};
+
+export type accountCompleteMagicLinkResponse =
+  | accountCompleteMagicLinkResponseSuccess
+  | accountCompleteMagicLinkResponseError;
+
+export const getAccountCompleteMagicLinkUrl = () => {
+  return `/v1/account/auth/link`;
+};
+
+/**
+ * Redeems a one-time link from the confirmation page and opens a session. The token is consumed in the same transaction. Requires Content-Type application/json and a same-origin request.
+ */
+export const accountCompleteMagicLink = async (
+  magicLinkRedeemInput: MagicLinkRedeemInput,
+  options?: RequestInit,
+): Promise<accountCompleteMagicLinkResponse> => {
+  const res = await fetch(getAccountCompleteMagicLinkUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(magicLinkRedeemInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: accountCompleteMagicLinkResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as accountCompleteMagicLinkResponse;
+};
+
+export const getAccountCompleteMagicLinkMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: MagicLinkRedeemInput }) => {
+    return accountCompleteMagicLink(arg, options);
+  };
+};
+export const getAccountCompleteMagicLinkMutationKey = () => [`/v1/account/auth/link`] as const;
+
+export type AccountCompleteMagicLinkMutationResult = NonNullable<
+  Awaited<ReturnType<typeof accountCompleteMagicLink>>
+>;
+
+export const useAccountCompleteMagicLink = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof accountCompleteMagicLink>>,
+    TError,
+    Key,
+    MagicLinkRedeemInput,
+    Awaited<ReturnType<typeof accountCompleteMagicLink>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getAccountCompleteMagicLinkMutationKey();
+  const swrFn = getAccountCompleteMagicLinkMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,

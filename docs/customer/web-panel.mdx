@@ -207,6 +207,16 @@ and a first sign-in in a browser cannot race into two accounts:
 3. Otherwise an identity the customer **unlinked** from the security screen
    names the customer it belonged to, and is reactivated. Earlier releases left
    that account unreachable from Telegram for good.
+
+   <Warning>
+     Unlinking Telegram from **Sign-in methods** is therefore not a way to lock
+     a Telegram account out. The next Telegram sign-in with the same Telegram
+     account — widget or Mini App — silently relinks it and signs straight in.
+     The unlink removes a method from the list; it does not revoke the Telegram
+     account's claim to the customer, because that account is still the one the
+     bot knows the customer by. To stop a Telegram account reaching a customer
+     record, an operator suspends the customer.
+   </Warning>
 4. Otherwise a new customer is created — with a `bot_preferences` row and a
    language taken from the Mini App's `language_code` when there is one, else
    from the browser's `Accept-Language`, else English — written to both
@@ -244,18 +254,34 @@ Starting inside a chat the customer has already authenticated to removes the
 question, and guarantees the link can only reach somebody who already controls
 the account.
 
-Redemption is `GET /v1/account/auth/link?token=…` — a GET that redirects, because
-the customer arrives by tapping a link in a chat. The token is consumed before
-the redirect is issued, so the URL left behind in history is already spent.
+Redemption takes two steps. The link lands on `GET /v1/account/auth/link?token=…`,
+which **signs nobody in**: it checks the token without spending it and redirects
+to `/account/sign-in/confirm#token=…`. That page asks the customer to continue
+and sends `POST /v1/account/auth/link` with `{"token": "…"}`, which consumes the
+token and opens the session in one transaction and answers like any other
+sign-in.
+
+The split exists because a GET can be triggered by any page. If the GET opened
+the session, somebody could ask the bot for a link to **their own** account,
+plant it in a victim's browser, and leave the victim signed into an account the
+attacker controls — where whatever the victim then enters lands with the
+attacker (login CSRF). The POST, like every session-opening POST under
+`/v1/account/auth`, requires `Content-Type: application/json` and refuses a
+request the browser marks as cross-site (`Sec-Fetch-Site` other than
+`same-origin`, or a foreign `Origin`) with `403 cross_origin_request`; a form
+post is `415 unsupported_media_type`. The token travels to the confirmation page
+in the URL fragment, which the browser never sends to a server or in a
+`Referer`.
+
 Unknown, spent, and expired are one error on purpose: telling a caller which of
-them applied would confirm that a token once existed. Failures redirect to
-`/account/sign-in?error=…` with `link_invalid`, `method_unavailable`,
-`account_unavailable`, or `sign_in_failed`, and the sign-in screen renders copy
-for each.
+them applied would confirm that a token once existed. The GET redirects failures
+to `/account/sign-in?error=…` with `link_invalid` or `method_unavailable`; the
+POST answers `401 link_invalid`, `404 method_unavailable`, or the ordinary
+sign-in problems (`account_unavailable`, `sign_in_unavailable`).
 
 <Note>
   The link the bot delivers points at `<APP_PUBLIC_URL>/v1/account/auth/link?token=…`,
-  which is the handler that consumes the token. Earlier releases pointed it at
+  which checks the token and hands off to the confirmation page. Earlier releases pointed it at
   `/account/sign-in/link`, a path the web application served no route for, so the
   link answered 404 after the one-time token had already been delivered. The web
   application now also serves `/account/sign-in/link` and forwards it to the API,

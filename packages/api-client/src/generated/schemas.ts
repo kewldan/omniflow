@@ -6592,7 +6592,7 @@ export const ListAccountSignInMethodsResponse = zod.object({
 });
 
 /**
- * Verifies a Telegram Login Widget payload. The hash is checked against the bot token and the auth_date must be recent, so a captured payload cannot be replayed indefinitely. The body is the object the widget hands to its `data-onauth` callback, posted as is: `id` and `auth_date` are JSON numbers, the other fields strings.
+ * Verifies a Telegram Login Widget payload. The hash is checked against the bot token and the auth_date must be recent, so a captured payload cannot be replayed indefinitely. The body is the object the widget hands to its `data-onauth` callback, posted as is: `id` and `auth_date` are JSON numbers, the other fields strings. Like every session-opening POST under /v1/account/auth, it requires Content-Type application/json and refuses a request a browser marks as cross-site (403 cross_origin_request), so a third-party page cannot sign a visitor into another account.
  */
 export const AccountSignInWithTelegramBody = zod
   .object({
@@ -6621,7 +6621,7 @@ export const AccountSignInWithTelegramResponse = zod.object({
 });
 
 /**
- * Verifies the initData a Telegram Mini App hands to its own page.
+ * Verifies the initData a Telegram Mini App hands to its own page. Requires Content-Type application/json and a same-origin request.
  */
 export const AccountSignInWithMiniAppBody = zod.object({
   initData: zod.string(),
@@ -6638,13 +6638,30 @@ export const AccountSignInWithMiniAppResponse = zod.object({
 });
 
 /**
- * Redeems a one-time link the bot delivered. The token is consumed before the redirect is issued, so the URL left in history is already spent.
+ * Where a one-time link the bot delivered lands. It signs nobody in: a GET can be triggered by any page, so opening a session here would let a link requested for one account be planted in another person's browser. It checks the token without spending it and redirects to /account/sign-in/confirm#token=<token>; that page asks the customer to confirm and POSTs the token to this path. An unusable link redirects to /account/sign-in?error=link_invalid (or method_unavailable).
  */
-export const AccountCompleteMagicLinkQueryParams = zod.object({
+export const AccountCheckMagicLinkQueryParams = zod.object({
   token: zod.string(),
 });
 
-export const AccountCompleteMagicLinkResponse = zod.void();
+export const AccountCheckMagicLinkResponse = zod.void();
+
+/**
+ * Redeems a one-time link from the confirmation page and opens a session. The token is consumed in the same transaction. Requires Content-Type application/json and a same-origin request.
+ */
+export const AccountCompleteMagicLinkBody = zod.object({
+  token: zod.string().describe("The token from the link the bot delivered."),
+});
+
+export const AccountCompleteMagicLinkResponse = zod.object({
+  customer: zod.object({
+    id: zod.uuid(),
+    locale: zod.enum(["ru", "en"]),
+    timezone: zod.string(),
+    status: zod.enum(["active", "suspended", "deleted"]),
+  }),
+  expiresAt: zod.iso.datetime({ offset: true }),
+});
 
 export const startAccountOidcPathSlugRegExp = /^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$/;
 

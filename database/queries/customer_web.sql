@@ -139,6 +139,15 @@ VALUES (
 )
 RETURNING *;
 
+-- name: CheckCustomerMagicLink :one
+-- Whether a link is still redeemable, without spending it. The GET a chat link
+-- lands on only checks; the session is opened by a POST from the confirmation
+-- page, so a link planted in someone else's browser cannot sign them in.
+SELECT id FROM customer_magic_links
+WHERE token_hash = sqlc.arg(token_hash)
+  AND consumed_at IS NULL
+  AND expires_at > now();
+
 -- name: ConsumeCustomerMagicLink :one
 -- Single use is a property of this statement, not of the code around it: the
 -- `consumed_at IS NULL` predicate is evaluated under the row lock the UPDATE

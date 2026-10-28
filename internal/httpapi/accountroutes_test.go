@@ -39,6 +39,7 @@ func TestAccountSignInRoutesAreReachableWithoutASession(t *testing.T) {
 		{http.MethodPost, "/v1/account/auth/telegram"},
 		{http.MethodPost, "/v1/account/auth/telegram/miniapp"},
 		{http.MethodGet, "/v1/account/auth/link?token=x"},
+		{http.MethodPost, "/v1/account/auth/link"},
 		{http.MethodGet, "/v1/account/auth/oidc/acme/start"},
 		{http.MethodGet, "/v1/account/auth/oidc/acme/callback"},
 	}

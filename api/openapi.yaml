@@ -2865,37 +2865,64 @@ paths:
         bot token and the auth_date must be recent, so a captured payload cannot
         be replayed indefinitely. The body is the object the widget hands to its
         `data-onauth` callback, posted as is: `id` and `auth_date` are JSON
-        numbers, the other fields strings.
+        numbers, the other fields strings. Like every session-opening POST under
+        /v1/account/auth, it requires Content-Type application/json and refuses a
+        request a browser marks as cross-site (403 cross_origin_request), so a
+        third-party page cannot sign a visitor into another account.
       requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/TelegramLoginWidgetPayload"}}}}
       responses:
         "200": {description: Signed in, content: {application/json: {schema: {$ref: "#/components/schemas/AccountSignIn"}}}}
         "401": {$ref: "#/components/responses/Problem"}
         "403": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}
+        "415": {$ref: "#/components/responses/Problem"}
   /v1/account/auth/telegram/miniapp:
     post:
       operationId: accountSignInWithMiniApp
       tags: [account]
       security: []
-      description: Verifies the initData a Telegram Mini App hands to its own page.
+      description: >-
+        Verifies the initData a Telegram Mini App hands to its own page. Requires
+        Content-Type application/json and a same-origin request.
       requestBody: {required: true, content: {application/json: {schema: {type: object, required: [initData], properties: {initData: {type: string}}}}}}
       responses:
         "200": {description: Signed in, content: {application/json: {schema: {$ref: "#/components/schemas/AccountSignIn"}}}}
         "401": {$ref: "#/components/responses/Problem"}
         "403": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}
+        "415": {$ref: "#/components/responses/Problem"}
   /v1/account/auth/link:
     get:
+      operationId: accountCheckMagicLink
+      tags: [account]
+      security: []
+      description: >-
+        Where a one-time link the bot delivered lands. It signs nobody in: a GET
+        can be triggered by any page, so opening a session here would let a link
+        requested for one account be planted in another person's browser. It
+        checks the token without spending it and redirects to
+        /account/sign-in/confirm#token=<token>; that page asks the customer to
+        confirm and POSTs the token to this path. An unusable link redirects to
+        /account/sign-in?error=link_invalid (or method_unavailable).
+      parameters:
+        - {in: query, name: token, required: true, schema: {type: string}}
+      responses:
+        "302": {description: "Redirected to the confirmation page, or to the sign-in page with an error"}
+    post:
       operationId: accountCompleteMagicLink
       tags: [account]
       security: []
       description: >-
-        Redeems a one-time link the bot delivered. The token is consumed before
-        the redirect is issued, so the URL left in history is already spent.
-      parameters:
-        - {in: query, name: token, required: true, schema: {type: string}}
+        Redeems a one-time link from the confirmation page and opens a session.
+        The token is consumed in the same transaction. Requires Content-Type
+        application/json and a same-origin request.
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/MagicLinkRedeemInput"}}}}
       responses:
-        "302": {description: Signed in and redirected into the panel}
+        "200": {description: Signed in, content: {application/json: {schema: {$ref: "#/components/schemas/AccountSignIn"}}}}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "415": {$ref: "#/components/responses/Problem"}
   /v1/account/auth/oidc/{slug}/start:
     get:
       operationId: startAccountOidc
@@ -6482,6 +6509,11 @@ components:
         username: {type: string}
         photo_url: {type: string}
       additionalProperties: true
+    MagicLinkRedeemInput:
+      type: object
+      required: [token]
+      properties:
+        token: {type: string, description: The token from the link the bot delivered.}
     AccountSignIn:
       type: object
       required: [customer, expiresAt]

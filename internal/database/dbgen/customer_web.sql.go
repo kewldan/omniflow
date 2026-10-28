@@ -12,6 +12,23 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const checkCustomerMagicLink = `-- name: CheckCustomerMagicLink :one
+SELECT id FROM customer_magic_links
+WHERE token_hash = $1
+  AND consumed_at IS NULL
+  AND expires_at > now()
+`
+
+// Whether a link is still redeemable, without spending it. The GET a chat link
+// lands on only checks; the session is opened by a POST from the confirmation
+// page, so a link planted in someone else's browser cannot sign them in.
+func (q *Queries) CheckCustomerMagicLink(ctx context.Context, tokenHash []byte) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, checkCustomerMagicLink, tokenHash)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const consumeCustomerMagicLink = `-- name: ConsumeCustomerMagicLink :one
 UPDATE customer_magic_links
 SET consumed_at = now(), consumed_ip = $1

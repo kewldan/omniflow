@@ -120,6 +120,10 @@ type Querier interface {
 	CancelMergedCustomerCart(ctx context.Context, source pgtype.UUID) error
 	CancelOrder(ctx context.Context, arg CancelOrderParams) (Order, error)
 	ChannelGateSettings(ctx context.Context) (ChannelGateSettingsRow, error)
+	// Whether a link is still redeemable, without spending it. The GET a chat link
+	// lands on only checks; the session is opened by a POST from the confirmation
+	// page, so a link planted in someone else's browser cannot sign them in.
+	CheckCustomerMagicLink(ctx context.Context, tokenHash []byte) (pgtype.UUID, error)
 	// A "new customer" is one who has never settled a subscription order. A
 	// wallet top-up, a shop purchase, a gift bought for somebody else, or a code
 	// a distributor paid for is not the purchase a welcome offer is about, so the

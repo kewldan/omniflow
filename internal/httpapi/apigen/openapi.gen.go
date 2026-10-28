@@ -5881,6 +5881,12 @@ type LoginResult struct {
 	ExpiresAt         time.Time `json:"expiresAt"`
 }
 
+// MagicLinkRedeemInput defines model for MagicLinkRedeemInput.
+type MagicLinkRedeemInput struct {
+	// Token The token from the link the bot delivered.
+	Token string `json:"token"`
+}
+
 // Maintenance defines model for Maintenance.
 type Maintenance struct {
 	ActivatedAt      *time.Time        `json:"activatedAt,omitempty"`
@@ -8437,8 +8443,8 @@ type Plan = PlanInput
 // PlanVersion defines model for PlanVersion.
 type PlanVersion = PlanVersionInput
 
-// AccountCompleteMagicLinkParams defines parameters for AccountCompleteMagicLink.
-type AccountCompleteMagicLinkParams struct {
+// AccountCheckMagicLinkParams defines parameters for AccountCheckMagicLink.
+type AccountCheckMagicLinkParams struct {
 	Token string `form:"token" json:"token"`
 }
 
@@ -10204,6 +10210,9 @@ type ReplayPanelWebhookParams struct {
 // ReceivePaymentWebhookJSONBody defines parameters for ReceivePaymentWebhook.
 type ReceivePaymentWebhookJSONBody map[string]interface{}
 
+// AccountCompleteMagicLinkJSONRequestBody defines body for AccountCompleteMagicLink for application/json ContentType.
+type AccountCompleteMagicLinkJSONRequestBody = MagicLinkRedeemInput
+
 // AccountLogoutAllJSONRequestBody defines body for AccountLogoutAll for application/json ContentType.
 type AccountLogoutAllJSONRequestBody AccountLogoutAllJSONBody
 
@@ -10684,7 +10693,10 @@ type ServerInterface interface {
 	GetReadiness(w http.ResponseWriter, r *http.Request)
 
 	// (GET /v1/account/auth/link)
-	AccountCompleteMagicLink(w http.ResponseWriter, r *http.Request, params AccountCompleteMagicLinkParams)
+	AccountCheckMagicLink(w http.ResponseWriter, r *http.Request, params AccountCheckMagicLinkParams)
+
+	// (POST /v1/account/auth/link)
+	AccountCompleteMagicLink(w http.ResponseWriter, r *http.Request)
 
 	// (POST /v1/account/auth/logout)
 	AccountLogout(w http.ResponseWriter, r *http.Request, params AccountLogoutParams)
@@ -11606,7 +11618,12 @@ func (_ Unimplemented) GetReadiness(w http.ResponseWriter, r *http.Request) {
 }
 
 // (GET /v1/account/auth/link)
-func (_ Unimplemented) AccountCompleteMagicLink(w http.ResponseWriter, r *http.Request, params AccountCompleteMagicLinkParams) {
+func (_ Unimplemented) AccountCheckMagicLink(w http.ResponseWriter, r *http.Request, params AccountCheckMagicLinkParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/auth/link)
+func (_ Unimplemented) AccountCompleteMagicLink(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -13165,14 +13182,14 @@ func (siw *ServerInterfaceWrapper) GetReadiness(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
-// AccountCompleteMagicLink operation middleware
-func (siw *ServerInterfaceWrapper) AccountCompleteMagicLink(w http.ResponseWriter, r *http.Request) {
+// AccountCheckMagicLink operation middleware
+func (siw *ServerInterfaceWrapper) AccountCheckMagicLink(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 	_ = err
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params AccountCompleteMagicLinkParams
+	var params AccountCheckMagicLinkParams
 
 	// ------------- Required query parameter "token" -------------
 
@@ -13188,7 +13205,21 @@ func (siw *ServerInterfaceWrapper) AccountCompleteMagicLink(w http.ResponseWrite
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.AccountCompleteMagicLink(w, r, params)
+		siw.Handler.AccountCheckMagicLink(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AccountCompleteMagicLink operation middleware
+func (siw *ServerInterfaceWrapper) AccountCompleteMagicLink(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AccountCompleteMagicLink(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -27020,7 +27051,10 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/v1/account/auth/telegram/miniapp", wrapper.AccountSignInWithMiniApp)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/v1/account/auth/link", wrapper.AccountCompleteMagicLink)
+		r.Get(options.BaseURL+"/v1/account/auth/link", wrapper.AccountCheckMagicLink)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/auth/link", wrapper.AccountCompleteMagicLink)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/auth/oidc/{slug}/start", wrapper.StartAccountOidc)
@@ -27411,20 +27445,100 @@ func (response GetReadiness503JSONResponse) VisitGetReadinessResponse(w http.Res
 	return err
 }
 
+type AccountCheckMagicLinkRequestObject struct {
+	Params AccountCheckMagicLinkParams
+}
+
+type AccountCheckMagicLinkResponseObject interface {
+	VisitAccountCheckMagicLinkResponse(w http.ResponseWriter) error
+}
+
+type AccountCheckMagicLink302Response struct {
+}
+
+func (response AccountCheckMagicLink302Response) VisitAccountCheckMagicLinkResponse(w http.ResponseWriter) error {
+	w.WriteHeader(302)
+	return nil
+}
+
 type AccountCompleteMagicLinkRequestObject struct {
-	Params AccountCompleteMagicLinkParams
+	Body *AccountCompleteMagicLinkJSONRequestBody
 }
 
 type AccountCompleteMagicLinkResponseObject interface {
 	VisitAccountCompleteMagicLinkResponse(w http.ResponseWriter) error
 }
 
-type AccountCompleteMagicLink302Response struct {
+type AccountCompleteMagicLink200JSONResponse AccountSignIn
+
+func (response AccountCompleteMagicLink200JSONResponse) VisitAccountCompleteMagicLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
 }
 
-func (response AccountCompleteMagicLink302Response) VisitAccountCompleteMagicLinkResponse(w http.ResponseWriter) error {
-	w.WriteHeader(302)
-	return nil
+type AccountCompleteMagicLink401ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response AccountCompleteMagicLink401ApplicationProblemPlusJSONResponse) VisitAccountCompleteMagicLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountCompleteMagicLink403ApplicationProblemPlusJSONResponse Problem
+
+func (response AccountCompleteMagicLink403ApplicationProblemPlusJSONResponse) VisitAccountCompleteMagicLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountCompleteMagicLink404ApplicationProblemPlusJSONResponse Problem
+
+func (response AccountCompleteMagicLink404ApplicationProblemPlusJSONResponse) VisitAccountCompleteMagicLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountCompleteMagicLink415ApplicationProblemPlusJSONResponse Problem
+
+func (response AccountCompleteMagicLink415ApplicationProblemPlusJSONResponse) VisitAccountCompleteMagicLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(415)
+	_, err := buf.WriteTo(w)
+	return err
 }
 
 type AccountLogoutRequestObject struct {
@@ -27619,6 +27733,20 @@ func (response AccountSignInWithTelegram404ApplicationProblemPlusJSONResponse) V
 	return err
 }
 
+type AccountSignInWithTelegram415ApplicationProblemPlusJSONResponse Problem
+
+func (response AccountSignInWithTelegram415ApplicationProblemPlusJSONResponse) VisitAccountSignInWithTelegramResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(415)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type AccountSignInWithMiniAppRequestObject struct {
 	Body *AccountSignInWithMiniAppJSONRequestBody
 }
@@ -27681,6 +27809,20 @@ func (response AccountSignInWithMiniApp404ApplicationProblemPlusJSONResponse) Vi
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountSignInWithMiniApp415ApplicationProblemPlusJSONResponse Problem
+
+func (response AccountSignInWithMiniApp415ApplicationProblemPlusJSONResponse) VisitAccountSignInWithMiniAppResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(415)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -40865,6 +41007,9 @@ type StrictServerInterface interface {
 	GetReadiness(ctx context.Context, request GetReadinessRequestObject) (GetReadinessResponseObject, error)
 
 	// (GET /v1/account/auth/link)
+	AccountCheckMagicLink(ctx context.Context, request AccountCheckMagicLinkRequestObject) (AccountCheckMagicLinkResponseObject, error)
+
+	// (POST /v1/account/auth/link)
 	AccountCompleteMagicLink(ctx context.Context, request AccountCompleteMagicLinkRequestObject) (AccountCompleteMagicLinkResponseObject, error)
 
 	// (POST /v1/account/auth/logout)
@@ -41897,11 +42042,42 @@ func (sh *strictHandler) GetReadiness(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// AccountCompleteMagicLink operation middleware
-func (sh *strictHandler) AccountCompleteMagicLink(w http.ResponseWriter, r *http.Request, params AccountCompleteMagicLinkParams) {
-	var request AccountCompleteMagicLinkRequestObject
+// AccountCheckMagicLink operation middleware
+func (sh *strictHandler) AccountCheckMagicLink(w http.ResponseWriter, r *http.Request, params AccountCheckMagicLinkParams) {
+	var request AccountCheckMagicLinkRequestObject
 
 	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AccountCheckMagicLink(ctx, request.(AccountCheckMagicLinkRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AccountCheckMagicLink")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AccountCheckMagicLinkResponseObject); ok {
+		if err := validResponse.VisitAccountCheckMagicLinkResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AccountCompleteMagicLink operation middleware
+func (sh *strictHandler) AccountCompleteMagicLink(w http.ResponseWriter, r *http.Request) {
+	var request AccountCompleteMagicLinkRequestObject
+
+	var body AccountCompleteMagicLinkJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.AccountCompleteMagicLink(ctx, request.(AccountCompleteMagicLinkRequestObject))

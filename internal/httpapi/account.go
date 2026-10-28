@@ -110,9 +110,13 @@ func (handlers *AccountHandlers) Mount(router chi.Router) {
 
 		// Reachable before sign-in, by definition.
 		account.Get("/auth/methods", handlers.signInMethods)
-		account.Post("/auth/telegram", handlers.signInWithTelegram)
-		account.Post("/auth/telegram/miniapp", handlers.signInWithMiniApp)
-		account.Get("/auth/link", handlers.completeMagicLink)
+		// Every route that opens a session from a request body is guarded
+		// against login CSRF: a cross-site page must not be able to sign a
+		// visitor into an account the attacker controls.
+		account.With(requireSameOriginJSON).Post("/auth/telegram", handlers.signInWithTelegram)
+		account.With(requireSameOriginJSON).Post("/auth/telegram/miniapp", handlers.signInWithMiniApp)
+		account.With(requireSameOriginJSON).Post("/auth/link", handlers.completeMagicLink)
+		account.Get("/auth/link", handlers.checkMagicLink)
 		account.Get("/auth/oidc/{slug}/start", handlers.startOIDC)
 		account.Get("/auth/oidc/{slug}/callback", handlers.callbackOIDC)
 

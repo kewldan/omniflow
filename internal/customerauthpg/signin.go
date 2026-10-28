@@ -265,11 +265,31 @@ func (service *Service) IssueMagicLink(
 	}
 	// The redemption route, not a page that would have to forward to it.
 	//
-	// This is the address of the handler that consumes the token and sets the
-	// cookie. Pointing at a page instead costs a redirect and, until the page
-	// exists, hands the customer a 404 after the one-time credential has already
-	// been spent — the failure lands after delivery, where there is no way back.
+	// This is the address of the handler that checks the token and hands off to
+	// the confirmation page, whose POST spends it. Pointing the link at a page
+	// instead would hand the customer a 404 whenever that page is missing, after
+	// delivery, where there is no way back; the API route always exists.
 	return service.publicURL + "/v1/account/auth/link?token=" + url.QueryEscape(token), nil
+}
+
+// CheckMagicLink reports whether a delivered link can still be redeemed,
+// without spending it.
+//
+// The link a customer taps is a GET, and a GET is something any page can make a
+// browser perform. If that GET opened the session, a link requested for the
+// attacker's own account and planted in a victim's browser would sign the victim
+// into it — login CSRF — and whatever they then entered would land in the
+// attacker's account. So the GET only checks, and hands off to a page on this
+// origin whose POST, guarded by Origin and Content-Type, is what redeems it.
+func (service *Service) CheckMagicLink(ctx context.Context, token string) error {
+	if !service.magicLinkEnabled {
+		return customerauth.ErrMagicLinkUnavailable
+	}
+	_, err := dbgen.New(service.pool).CheckCustomerMagicLink(ctx, customerauth.HashMagicLinkToken(token))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return customerauth.ErrMagicLinkInvalid
+	}
+	return err
 }
 
 // CompleteMagicLink redeems a delivered link.

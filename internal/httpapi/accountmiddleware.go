@@ -3,7 +3,10 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"mime"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/omniflow/omniflow/internal/accountpg"
@@ -45,6 +48,60 @@ func CustomerSecurityHeaders(next http.Handler) http.Handler {
 		header.Set("Cache-Control", "no-store")
 		next.ServeHTTP(writer, request)
 	})
+}
+
+// requireSameOriginJSON guards the unauthenticated routes that open a session
+// from a request body against login CSRF.
+//
+// Those routes cannot use the session CSRF token — there is no session yet — so
+// they rely on what a browser says about where a request came from:
+//
+//   - The body must be declared `application/json`. An HTML form cannot send
+//     that type, and a cross-site fetch that sets it is preflighted, which this
+//     API never approves.
+//   - `Sec-Fetch-Site`, which a page cannot forge, must say `same-origin` (or
+//     `none`, a request the user typed). `same-site` is refused too: a sibling
+//     subdomain is not necessarily ours.
+//   - A browser too old to send `Sec-Fetch-Site` still sends `Origin` on a
+//     POST, and its host must be the host the request was addressed to.
+//
+// A request with neither header did not come from a browser, and login CSRF
+// needs one, so it is let through to the route's own checks.
+func requireSameOriginJSON(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		mediaType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
+		if err != nil || mediaType != "application/json" {
+			writeProblem(
+				writer, request, http.StatusUnsupportedMediaType,
+				"unsupported_media_type", "The request body must be application/json",
+			)
+			return
+		}
+		if !sameOriginRequest(request) {
+			writeProblem(
+				writer, request, http.StatusForbidden,
+				"cross_origin_request", "This request must come from this site",
+			)
+			return
+		}
+		next.ServeHTTP(writer, request)
+	})
+}
+
+func sameOriginRequest(request *http.Request) bool {
+	if site := request.Header.Get("Sec-Fetch-Site"); site != "" {
+		return site == "same-origin" || site == "none"
+	}
+	origin := request.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+	parsed, err := url.Parse(origin)
+	if err != nil || parsed.Host == "" {
+		// Includes the literal "null" an opaque origin sends.
+		return false
+	}
+	return strings.EqualFold(parsed.Host, request.Host)
 }
 
 // requestContext gathers the transport detail recorded against sessions and

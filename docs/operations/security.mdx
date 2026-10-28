@@ -353,9 +353,20 @@ revocation verifies ownership by listing the caller's own sessions first.
 
 `SameSite=Lax` blocks most cross-site posts, but it is a browser-side control
 only, so the server verifies its own token on every unsafe method. `Strict` was
-rejected deliberately: a magic link and an OIDC callback both arrive as
-cross-site navigations and must land signed in. The CSRF token, not the cookie
-policy, is what actually defends the unsafe methods.
+rejected deliberately: an OIDC callback arrives as a cross-site navigation and
+must land signed in. The CSRF token, not the cookie policy, is what actually
+defends the unsafe methods.
+
+The customer routes that **open** a session — `POST /v1/account/auth/telegram`,
+`/auth/telegram/miniapp`, and `/auth/link` — have no session token to check yet,
+so they are guarded against login CSRF by what the browser reports instead: the
+body must be `application/json` (a form cannot send it, and a cross-site fetch
+that sets it is preflighted and never approved), `Sec-Fetch-Site` must be
+`same-origin` or `none`, and a browser that sends no `Sec-Fetch-Site` must send
+an `Origin` whose host is the request's host. Otherwise the answer is
+`403 cross_origin_request` or `415 unsupported_media_type`. The bot's sign-in
+link opens no session on its GET; see
+[the sign-in link](/customer/web-panel#the-sign-in-link).
 
 - `GET`, `HEAD`, and `OPTIONS` are exempt. Every other method must send
   `X-CSRF-Token` matching the session's own token, or the request is

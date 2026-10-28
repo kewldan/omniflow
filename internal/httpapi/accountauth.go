@@ -195,12 +195,20 @@ func (handlers *AccountHandlers) supersedePriorSession(
 	}
 }
 
-// completeMagicLink redeems a link the bot delivered.
+// magicLinkConfirmPath is the page that asks the customer to confirm a link
+// sign-in and then POSTs it. The token travels in the fragment, which a browser
+// never sends to a server and never puts in a Referer header.
+const magicLinkConfirmPath = "/account/sign-in/confirm"
+
+// checkMagicLink is where a link the bot delivered lands.
 //
-// It is a GET that redirects rather than a JSON endpoint because the customer
-// arrives by tapping a link in a chat. The token is consumed before the redirect
-// is issued, so the URL left behind in history is already spent.
-func (handlers *AccountHandlers) completeMagicLink(writer http.ResponseWriter, request *http.Request) {
+// It is a GET because the customer arrives by tapping a link in a chat, and for
+// exactly that reason it does not sign anyone in: any page can make a browser
+// perform a GET, so a link requested for the attacker's own account and planted
+// in a victim's browser would otherwise sign the victim into it. It checks the
+// token without spending it and hands off to the confirmation page, whose POST
+// to /v1/account/auth/link opens the session.
+func (handlers *AccountHandlers) checkMagicLink(writer http.ResponseWriter, request *http.Request) {
 	if !handlers.ready(writer, request) {
 		return
 	}
@@ -209,25 +217,49 @@ func (handlers *AccountHandlers) completeMagicLink(writer http.ResponseWriter, r
 		handlers.redirectToSignIn(writer, request, "link_invalid")
 		return
 	}
-	result, err := handlers.auth.CompleteMagicLink(request.Context(), token, handlers.requestContext(request))
-	switch {
+	switch err := handlers.auth.CheckMagicLink(request.Context(), token); {
 	case errors.Is(err, customerauth.ErrMagicLinkUnavailable):
 		handlers.redirectToSignIn(writer, request, "method_unavailable")
 		return
 	case errors.Is(err, customerauth.ErrMagicLinkInvalid):
 		handlers.redirectToSignIn(writer, request, "link_invalid")
 		return
-	case errors.Is(err, customerauthpg.ErrAccountInactive):
-		handlers.redirectToSignIn(writer, request, "account_unavailable")
-		return
 	case err != nil:
-		handlers.logger.Error("magic-link sign-in failed", "error", err)
+		handlers.logger.Error("magic-link check failed", "error", err)
 		handlers.redirectToSignIn(writer, request, "sign_in_failed")
 		return
 	}
-	handlers.supersedePriorSession(request, result)
-	handlers.setSessionCookie(writer, result.Token, result.ExpiresAt)
-	http.Redirect(writer, request, "/account", http.StatusFound)
+	// CustomerSecurityHeaders already marks this no-store and no-referrer,
+	// which matters here: the Location carries a live credential.
+	http.Redirect(writer, request, magicLinkConfirmPath+"#token="+url.QueryEscape(token), http.StatusFound)
+}
+
+// completeMagicLink redeems a link from the confirmation page.
+//
+// The token is consumed and the session opened in one transaction. The route
+// sits behind requireSameOriginJSON, so a cross-site page can neither submit it
+// as a form nor fetch it: it is the customer's own click on this origin that
+// signs them in.
+func (handlers *AccountHandlers) completeMagicLink(writer http.ResponseWriter, request *http.Request) {
+	if !handlers.ready(writer, request) {
+		return
+	}
+	var body struct {
+		Token string `json:"token"`
+	}
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	result, err := handlers.auth.CompleteMagicLink(request.Context(), body.Token, handlers.requestContext(request))
+	switch {
+	case errors.Is(err, customerauth.ErrMagicLinkUnavailable):
+		writeProblem(writer, request, http.StatusNotFound, "method_unavailable", "That sign-in method is not available")
+		return
+	case errors.Is(err, customerauth.ErrMagicLinkInvalid):
+		writeProblem(writer, request, http.StatusUnauthorized, "link_invalid", "That sign-in link is not valid")
+		return
+	}
+	handlers.finishSignIn(writer, request, result, err)
 }
 
 // ---------------------------------------------------------------------------
