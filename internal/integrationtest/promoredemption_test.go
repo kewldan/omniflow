@@ -17,7 +17,7 @@ import (
 func TestAPromoCodeIsNotBurnedByAnOrderThatClosesUnpaid(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	planVersionID := harness.catalog(ctx, t, "promo-plan", 25000)
 	harness.promotion(ctx, t, "ONCE", harness.planIDOf(ctx, t, planVersionID), 1)
@@ -69,7 +69,7 @@ func TestAPromoCodeIsNotBurnedByAnOrderThatClosesUnpaid(t *testing.T) {
 func TestATrialClaimBehindAClosedOrderIsReclaimed(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	var planID, versionID string
 	if err := harness.pool.QueryRow(ctx,

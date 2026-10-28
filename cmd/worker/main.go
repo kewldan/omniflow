@@ -11,13 +11,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omniflow/omniflow/internal/accountsupport"
+	"github.com/omniflow/omniflow/internal/app"
 	"github.com/omniflow/omniflow/internal/backup"
 	"github.com/omniflow/omniflow/internal/bulkrunner"
 	"github.com/omniflow/omniflow/internal/campaigns"
-	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/config"
 	"github.com/omniflow/omniflow/internal/fulfillment"
 	"github.com/omniflow/omniflow/internal/goodsdelivery"
@@ -53,7 +52,7 @@ func main() {
 		logger.Error("invalid configuration", "error", err)
 		os.Exit(1)
 	}
-	pool, err := platform.TracedPool(ctx, cfg.DatabaseURL)
+	pool, err := app.OpenWorkerPool(ctx, cfg.DatabaseURL, cfg.DatabaseMaxConns)
 	if err != nil {
 		logger.Error("connect database", "error", err)
 		os.Exit(1)
@@ -68,29 +67,58 @@ func main() {
 	if cfg.MetricsEnabled {
 		metrics = platform.NewMetrics("worker")
 	}
-	// The delivery registry is kept so the scheduler can be started once River
-	// exists. A nil value means the shop is not configured in this deployment.
-	var deliveryRegistry *goodsdelivery.Registry
+
+	// Jobs that the worker's own passes create — a renewal settling, a saved
+	// cart swept, a reconcile scheduled — are inserted through an insert-only
+	// client in the same transaction as the change, exactly as in the api and
+	// the bot. The running client below is built after the passes it runs.
+	inserter, err := jobs.NewInsertOnlyClient(pool)
+	if err != nil {
+		logger.Error("initialize River", "error", err)
+		os.Exit(1)
+	}
+	// Automatic renewals charge the provider the customer already paid with, so
+	// the worker builds the same adapter set the api does — through the same
+	// constructor, which is what keeps the two from drifting again.
+	core, err := app.NewCommerceCore(cfg.Commerce(), pool, inserter, app.CommerceOptions{
+		Logger: logger, Metrics: metrics,
+	})
+	if err != nil {
+		logger.Error("initialize commerce", "error", err)
+		os.Exit(1)
+	}
+
 	workers := river.NewWorkers()
 	river.AddWorker(workers, fulfillment.NewWorker(pool, remnawaveClient, metrics))
-
 	// The digital-goods shop is optional. Without an encryption key there is no
 	// way to unseal a provider credential, so the worker starts without it
 	// rather than refusing to start at all — an installation that sells no
 	// digital goods never needs one.
+	var deliveryRegistry *goodsdelivery.Registry
 	if len(cfg.DataEncryptionKey) == 32 {
-		registry, registryErr := goodsdelivery.NewRegistry(pool, cfg.DataEncryptionKey, cfg.DefaultCurrency)
-		if registryErr != nil {
-			logger.Error("initialize digital goods", "error", registryErr)
+		deliveryRegistry, err = goodsdelivery.NewRegistry(pool, cfg.DataEncryptionKey, cfg.DefaultCurrency)
+		if err != nil {
+			logger.Error("initialize digital goods", "error", err)
 			os.Exit(1)
 		}
-		river.AddWorker(workers, goodsdelivery.NewWorker(pool, registry, logger))
-		deliveryRegistry = registry
+		river.AddWorker(workers, goodsdelivery.NewWorker(pool, deliveryRegistry, logger))
 	} else {
 		logger.Info("digital goods delivery disabled", "reason", "APP_DATA_ENCRYPTION_KEY is not set")
 	}
 
-	client, err := jobs.NewClientWithWorkers(pool, workers)
+	tasks, backupService, err := periodicTasks(logger, cfg, pool, core, inserter, deliveryRegistry)
+	if err != nil {
+		logger.Error("initialize periodic tasks", "error", err)
+		os.Exit(1)
+	}
+	periodicWorker, schedule, err := jobs.NewPeriodic(logger, tasks...)
+	if err != nil {
+		logger.Error("initialize periodic tasks", "error", err)
+		os.Exit(1)
+	}
+	river.AddWorker(workers, periodicWorker)
+
+	client, err := jobs.NewWorkerClient(pool, workers, schedule)
 	if err != nil {
 		logger.Error("initialize River", "error", err)
 		os.Exit(1)
@@ -99,95 +127,11 @@ func main() {
 		logger.Error("start River", "error", err)
 		os.Exit(1)
 	}
-	go fulfillment.NewScheduler(pool, client).Run(ctx)
-	if deliveryRegistry != nil {
-		// `goods_deliveries` is the source of truth about what is owed, not the
-		// job queue: the scheduler only translates "this row is due" into "run
-		// the worker", so a lost job costs a delay rather than a delivery.
-		go goodsdelivery.NewScheduler(pool, client, logger).Run(ctx)
-	}
-
-	// Automatic renewals. The worker builds the same adapter set the API does,
-	// because a renewal is a charge against the provider the customer already
-	// paid with: a worker missing that adapter could only record failures.
-	enqueue := func(enqueueCtx context.Context, tx pgx.Tx, operationID string) error {
-		_, insertErr := client.InsertTx(
-			enqueueCtx, tx, fulfillment.JobArgs{OperationID: operationID}, fulfillment.InsertOpts(),
-		)
-		return insertErr
-	}
-	commerceStore := commercepg.New(pool, enqueue, commercepg.Options{
-		Subscriptions: cfg.Subscriptions.Policy(), Logger: logger,
-	})
-	providers, err := paymentservice.ConfigureProviders(pool, paymentservice.ProviderOptions{
-		TelegramToken:    cfg.TelegramToken,
-		CryptoBotToken:   cfg.CryptoBotToken,
-		CryptoBotTestnet: cfg.CryptoBotTestnet,
-		YooKassaShopID:   cfg.YooKassaShopID,
-		YooKassaSecret:   cfg.YooKassaSecret,
-	})
-	if err != nil {
-		logger.Error("configure payment providers", "error", err)
-		os.Exit(1)
-	}
-	paymentService := paymentservice.New(pool, commerceStore, providers...).WithMetrics(metrics)
-	go renewal.New(
-		pool, commerceStore, paymentService, paymentservice.Index(providers), logger, renewal.Config{},
-	).Run(ctx)
-	// Lifecycle sweeps: gift and offer expiry always, plus blocklist refresh and
-	// anomaly evaluation when the encryption key makes a source credential
-	// readable.
-	var operations *panelpg.Service
-	if len(cfg.DataEncryptionKey) == 32 {
-		operations, err = panelpg.New(pool, cfg.DataEncryptionKey, panelpg.Options{})
-		if err != nil {
-			logger.Error("initialize operations service", "error", err)
-			os.Exit(1)
-		}
-	}
-	go sweeper.New(pool, operations, logger, sweeper.Config{}).Run(ctx)
-
-	// Bulk actions are applied here rather than in the API process, because a
-	// batch of four hundred subscriptions must not be tied to the lifetime of
-	// the request that started it.
-	fulfillmentService := fulfillment.NewService(pool, client)
-	// Campaign expansion and scheduled publication. Delivery itself stays with
-	// the bot's notifier, which already owns consent, quiet hours, and Telegram
-	// health.
-	go campaigns.New(pool, logger, campaigns.Config{}).Run(ctx)
-	go bulkrunner.New(
-		pool, operations, fulfillmentService, commerceStore, logger, bulkrunner.Config{},
-	).Run(ctx)
-
-	retentionWorker := retention.New(pool, logger, retention.Config{
-		Outbox: cfg.Retention.Outbox, Telemetry: cfg.Retention.Telemetry,
-		Drift: cfg.Retention.Drift, Interval: cfg.Retention.Interval,
-	})
-	// Retention deletes the attachment row; only the support service knows which
-	// file behind it nothing references any more. Attachment files are named by
-	// their content digest, so one file can back several rows, and deleting bytes
-	// on the strength of a single expired row would break another customer's
-	// download.
-	if attachments, attachErr := accountsupport.New(pool, accountsupport.Options{
-		Logger: logger, AttachmentDirectory: cfg.SupportAttachmentDir,
-	}); attachErr != nil {
-		logger.Warn("attachment files will not be reclaimed", "error", attachErr)
-	} else {
-		retentionWorker = retentionWorker.WithAttachments(attachments)
-	}
-	go retentionWorker.Run(ctx)
-
-	backupService := backup.New(pool, logger, backup.Config{
-		Enabled: cfg.Backup.Enabled, Directory: cfg.Backup.Directory, Interval: cfg.Backup.Interval,
-		Retention: cfg.Backup.Retention, EncryptionKey: cfg.Backup.EncryptionKey,
-		PgDumpPath: cfg.Backup.PgDumpPath, PgRestorePath: cfg.Backup.PgRestorePath,
-		DatabaseURL: cfg.DatabaseURL,
-	})
-	go backupService.Run(ctx)
 
 	metricsServer := startOperationalServer(logger, cfg, pool, metrics)
 
-	logger.Info("worker started", "queue_backend", "river", "backups_enabled", backupService.Enabled())
+	logger.Info("worker started", "queue_backend", "river", "periodic_tasks", len(tasks),
+		"backups_enabled", backupService.Enabled(), "database_max_conns", cfg.DatabaseMaxConns)
 	<-ctx.Done()
 	stopCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -197,11 +141,135 @@ func main() {
 		}
 	}
 	// River drains in-flight jobs before returning, so a shutdown never
-	// abandons a fulfillment run mid-flight.
+	// abandons a fulfillment run mid-flight. A pass still running when the
+	// budget is spent — a long pg_dump — has its context cancelled rather than
+	// being cut off by the exit, so it records itself as cancelled.
 	if err := client.Stop(stopCtx); err != nil {
-		logger.Error("stop River", "error", err)
+		logger.Warn("River did not drain in time; cancelling running jobs", "error", err)
+		cancelCtx, cancelJobs := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancelJobs()
+		if err = client.StopAndCancel(cancelCtx); err != nil {
+			logger.Error("stop River", "error", err)
+		}
 	}
 	logger.Info("worker stopped")
+}
+
+// periodicTasks lists every whole-table pass the installation runs.
+//
+// Each one is a River periodic job: River's elected leader enqueues it, and it
+// stays unique while queued or running, so it runs once per interval across
+// the installation however many worker replicas are up, and a slow pass is
+// never doubled by the next tick. They used to be ticker goroutines, which ran
+// once per process — including the cart sweep, which debits wallets, in every
+// api replica.
+func periodicTasks(
+	logger *slog.Logger, cfg config.WorkerConfig, pool *pgxpool.Pool, core *app.CommerceCore,
+	inserter *jobs.Client, deliveryRegistry *goodsdelivery.Registry,
+) ([]jobs.Task, *backup.Service, error) {
+	// The operations service unseals blocklist and anomaly-source credentials,
+	// so the passes that need it run only when the encryption key is present.
+	var operations *panelpg.Service
+	if len(cfg.DataEncryptionKey) == 32 {
+		var err error
+		if operations, err = panelpg.New(pool, cfg.DataEncryptionKey, panelpg.Options{}); err != nil {
+			return nil, nil, err
+		}
+	}
+	renewals := renewal.New(
+		pool, core.Store, core.Payments, paymentservice.Index(core.Providers), logger, renewal.Config{},
+	)
+	scheduler := fulfillment.NewScheduler(pool, inserter)
+	lifecycle := sweeper.New(pool, operations, logger, sweeper.Config{})
+	// Campaign expansion and scheduled publication. Delivery itself stays with
+	// the bot's notifier, which already owns consent, quiet hours, and Telegram
+	// health.
+	campaignRunner := campaigns.New(pool, logger, campaigns.Config{Interval: campaignInterval})
+	// Bulk actions run here rather than in the api, because a batch of four
+	// hundred subscriptions must not be tied to the lifetime of the request that
+	// started it.
+	bulk := bulkrunner.New(
+		pool, operations, core.Fulfillment, core.Store, logger, bulkrunner.Config{Interval: bulkInterval},
+	)
+	retentionWorker := retention.New(pool, logger, retention.Config{
+		Outbox: cfg.Retention.Outbox, Telemetry: cfg.Retention.Telemetry,
+		Drift: cfg.Retention.Drift, Interval: cfg.Retention.Interval,
+	})
+	// Retention deletes the attachment row; only the support service knows which
+	// file behind it nothing references any more. Attachment files are named by
+	// their content digest, so one file can back several rows, and deleting bytes
+	// on the strength of a single expired row would break another customer's
+	// download.
+	if attachments, err := accountsupport.New(pool, accountsupport.Options{
+		Logger: logger, AttachmentDirectory: cfg.SupportAttachmentDir,
+	}); err != nil {
+		logger.Warn("attachment files will not be reclaimed", "error", err)
+	} else {
+		retentionWorker = retentionWorker.WithAttachments(attachments)
+	}
+	backupService := backup.New(pool, logger, backup.Config{
+		Enabled: cfg.Backup.Enabled, Directory: cfg.Backup.Directory, Interval: cfg.Backup.Interval,
+		Retention: cfg.Backup.Retention, EncryptionKey: cfg.Backup.EncryptionKey,
+		PgDumpPath: cfg.Backup.PgDumpPath, PgRestorePath: cfg.Backup.PgRestorePath,
+		DatabaseURL: cfg.DatabaseURL,
+	})
+
+	tasks := []jobs.Task{
+		{Name: "commerce_maintenance", Interval: time.Minute, Run: core.Store.MaintenancePass},
+		{Name: "payment_reconcile", Interval: time.Minute, Run: core.Payments.ReconcilePass},
+		{Name: "renewal", Interval: time.Minute, Timeout: 5 * time.Minute, Run: pass(renewals.RunOnce)},
+		{Name: "fulfillment_reconcile", Interval: fulfillment.ReconcileInterval, Run: scheduler.Schedule},
+		{Name: "fulfillment_revive", Interval: fulfillment.ReviveInterval, Run: scheduler.Revive},
+		{Name: "lifecycle_sweep", Interval: lifecycle.Interval(), Run: pass(lifecycle.SweepLifecycle)},
+		{Name: "anomaly_evaluation", Interval: lifecycle.AnomalyInterval(), Run: pass(lifecycle.EvaluateAnomalies)},
+		{Name: "campaign_expansion", Interval: campaignInterval, Timeout: 5 * time.Minute, Run: pass(campaignRunner.RunOnce)},
+		{Name: "bulk_actions", Interval: bulkInterval, Timeout: 5 * time.Minute, Run: pass(bulk.RunOnce)},
+		{Name: "retention", Interval: cfg.Retention.Interval, Run: func(ctx context.Context) error {
+			retentionWorker.Sweep(ctx)
+			return ctx.Err()
+		}},
+	}
+	if deliveryRegistry != nil {
+		// `goods_deliveries` is the source of truth about what is owed, not the
+		// job queue: the pass only translates "this row is due" into "run the
+		// worker", so a lost job costs a delay rather than a delivery.
+		goods := goodsdelivery.NewScheduler(pool, inserter, logger)
+		tasks = append(tasks, jobs.Task{
+			Name: "goods_delivery_schedule", Interval: goodsdelivery.ScanInterval, Run: goods.Schedule,
+		})
+	}
+	if backupService.Enabled() {
+		// A dump takes as long as the database is large, so the pass has no
+		// timeout. With several worker replicas the backup lands on whichever
+		// one runs it, which is why the backup directory must be shared.
+		tasks = append(tasks, jobs.Task{
+			Name: "backup", Interval: cfg.Backup.Interval, Timeout: -1,
+			Run: func(ctx context.Context) error {
+				if _, err := backupService.Create(ctx, "scheduled", "scheduler"); err != nil && !errors.Is(err, backup.ErrBusy) {
+					return err
+				}
+				return backupService.Prune(ctx)
+			},
+		})
+	} else {
+		logger.Info("scheduled backups are disabled")
+	}
+	return tasks, backupService, nil
+}
+
+// Intervals of the passes whose packages take theirs from configuration.
+const (
+	campaignInterval = time.Minute
+	bulkInterval     = 15 * time.Second
+)
+
+// pass adapts a pass that logs its own failures to the task signature, so a
+// cancelled run is still reported as one.
+func pass(run func(context.Context)) func(context.Context) error {
+	return func(ctx context.Context) error {
+		run(ctx)
+		return ctx.Err()
+	}
 }
 
 // decryptBackup streams an encrypted backup from stdin to plain pg_dump output

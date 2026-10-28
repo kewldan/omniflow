@@ -52,6 +52,41 @@ func (cfg SubscriptionConfig) Policy() commerce.SubscriptionPolicy {
 	return commerce.SubscriptionPolicy{MultiEnabled: cfg.MultiEnabled, MaxPerCustomer: cfg.MaxPerCustomer}
 }
 
+// PaymentConfig holds the payment-provider credentials. Every process that can
+// settle money reads the same variables, because a charge started in one
+// process may be confirmed in another: a renewal the worker charges is
+// reconciled against the same adapter a checkout in the api opened.
+type PaymentConfig struct {
+	TelegramToken    string
+	CryptoBotToken   string
+	CryptoBotTestnet bool
+	YooKassaShopID   string
+	YooKassaSecret   string
+}
+
+// CommerceConfig is everything the shared commerce core needs from the
+// environment. Each process derives it from its own configuration through a
+// Commerce method, so the api, the bot, and the worker cannot enforce
+// different limits from one .env.
+type CommerceConfig struct {
+	Subscriptions SubscriptionConfig
+	TopUp         TopUpConfig
+	Payments      PaymentConfig
+}
+
+// Pool sizes per process, applied when APP_DATABASE_MAX_CONNS is unset.
+//
+// pgxpool's own default is max(4, NumCPU): on a two-core server, four
+// connections shared by every HTTP request, or by a worker running up to
+// jobs.MaxWorkers jobs at once. The three defaults together stay well inside
+// PostgreSQL's stock max_connections of 100, leaving room for migrations,
+// backups, and an operator's psql session.
+const (
+	DefaultAPIDatabaseMaxConns    int32 = 20
+	DefaultBotDatabaseMaxConns    int32 = 10
+	DefaultWorkerDatabaseMaxConns int32 = 40
+)
+
 // MaintenanceConfig controls automatic dependency detection. Manual activation
 // always works regardless of these values.
 type MaintenanceConfig struct {
@@ -105,8 +140,11 @@ type TelegramWebhookConfig struct {
 }
 
 type Config struct {
-	HTTPAddr                  string
-	DatabaseURL               string
+	HTTPAddr    string
+	DatabaseURL string
+	// DatabaseMaxConns bounds this process's PostgreSQL pool
+	// (APP_DATABASE_MAX_CONNS, default DefaultAPIDatabaseMaxConns).
+	DatabaseMaxConns          int32
 	ValkeyURL                 string
 	TelemetryEnabled          bool
 	TelemetryCollectorEnabled bool
@@ -199,7 +237,10 @@ type AdminPanelConfig struct {
 }
 
 type BotConfig struct {
-	DatabaseURL      string
+	DatabaseURL string
+	// DatabaseMaxConns bounds this process's PostgreSQL pool
+	// (APP_DATABASE_MAX_CONNS, default DefaultBotDatabaseMaxConns).
+	DatabaseMaxConns int32
 	ValkeyURL        string
 	RemnawaveURL     string
 	RemnawaveToken   string
@@ -242,16 +283,24 @@ type BotConfig struct {
 }
 
 type WorkerConfig struct {
-	DatabaseURL    string
-	ValkeyURL      string
-	RemnawaveURL   string
-	RemnawaveToken string
-	MetricsAddr    string
-	MetricsEnabled bool
-	Maintenance    MaintenanceConfig
-	Retention      RetentionConfig
-	Backup         BackupConfig
-	Subscriptions  SubscriptionConfig
+	DatabaseURL string
+	// DatabaseMaxConns bounds this process's PostgreSQL pool
+	// (APP_DATABASE_MAX_CONNS, default DefaultWorkerDatabaseMaxConns). It must
+	// exceed jobs.MaxWorkers; the worker refuses to start with a smaller one.
+	DatabaseMaxConns int32
+	ValkeyURL        string
+	RemnawaveURL     string
+	RemnawaveToken   string
+	MetricsAddr      string
+	MetricsEnabled   bool
+	Maintenance      MaintenanceConfig
+	Retention        RetentionConfig
+	Backup           BackupConfig
+	Subscriptions    SubscriptionConfig
+	// TopUp is the wallet policy. The worker settles orders as well — a
+	// renewal, a saved cart swept against a new balance — so it enforces the
+	// same limits the api and the bot do; it used to run with none at all.
+	TopUp TopUpConfig
 	// DataEncryptionKey unseals the provider credentials the worker needs to
 	// call an external service on the operator's behalf. It is the same key the
 	// API uses; the worker holds it because it is the process that delivers
@@ -322,6 +371,9 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	cfg.TopUp = topUp
+	if cfg.DatabaseMaxConns, err = loadDatabaseMaxConns(DefaultAPIDatabaseMaxConns); err != nil {
+		return Config{}, err
+	}
 	if !currencyPattern.MatchString(cfg.DefaultCurrency) {
 		return Config{}, errors.New("APP_DEFAULT_CURRENCY must be a three-letter ISO currency code")
 	}
@@ -403,6 +455,9 @@ func LoadBot() (BotConfig, error) {
 		return BotConfig{}, err
 	}
 	cfg.TopUp = topUp
+	if cfg.DatabaseMaxConns, err = loadDatabaseMaxConns(DefaultBotDatabaseMaxConns); err != nil {
+		return BotConfig{}, err
+	}
 	if cfg.Operator, err = loadOperator(); err != nil {
 		return BotConfig{}, err
 	}
@@ -457,7 +512,65 @@ func LoadWorker() (WorkerConfig, error) {
 		return WorkerConfig{}, err
 	}
 	cfg.Backup = backup
+	if cfg.TopUp, err = loadTopUp(); err != nil {
+		return WorkerConfig{}, err
+	}
+	if cfg.DatabaseMaxConns, err = loadDatabaseMaxConns(DefaultWorkerDatabaseMaxConns); err != nil {
+		return WorkerConfig{}, err
+	}
 	return cfg, nil
+}
+
+// Commerce is the shared commerce configuration the api enforces.
+func (cfg Config) Commerce() CommerceConfig {
+	return CommerceConfig{
+		Subscriptions: cfg.Subscriptions, TopUp: cfg.TopUp,
+		Payments: PaymentConfig{
+			TelegramToken: cfg.TelegramToken, CryptoBotToken: cfg.CryptoBotToken,
+			CryptoBotTestnet: cfg.CryptoBotTestnet,
+			YooKassaShopID:   cfg.YooKassaShopID, YooKassaSecret: cfg.YooKassaSecret,
+		},
+	}
+}
+
+// Commerce is the shared commerce configuration the bot enforces.
+func (cfg BotConfig) Commerce() CommerceConfig {
+	return CommerceConfig{
+		Subscriptions: cfg.Subscriptions, TopUp: cfg.TopUp,
+		Payments: PaymentConfig{
+			TelegramToken: cfg.TelegramToken, CryptoBotToken: cfg.CryptoBotToken,
+			CryptoBotTestnet: cfg.CryptoBotTestnet,
+			YooKassaShopID:   cfg.YooKassaShopID, YooKassaSecret: cfg.YooKassaSecret,
+		},
+	}
+}
+
+// Commerce is the shared commerce configuration the worker enforces.
+func (cfg WorkerConfig) Commerce() CommerceConfig {
+	return CommerceConfig{
+		Subscriptions: cfg.Subscriptions, TopUp: cfg.TopUp,
+		Payments: PaymentConfig{
+			TelegramToken: cfg.TelegramToken, CryptoBotToken: cfg.CryptoBotToken,
+			CryptoBotTestnet: cfg.CryptoBotTestnet,
+			YooKassaShopID:   cfg.YooKassaShopID, YooKassaSecret: cfg.YooKassaSecret,
+		},
+	}
+}
+
+// loadDatabaseMaxConns reads APP_DATABASE_MAX_CONNS, falling back to the
+// process's own default. A value that is not a positive whole number is an
+// error rather than a silent fallback: a pool an operator sized on purpose and
+// the process quietly ignored is a capacity problem found at peak load.
+func loadDatabaseMaxConns(fallback int32) (int32, error) {
+	raw := strings.TrimSpace(os.Getenv("APP_DATABASE_MAX_CONNS"))
+	if raw == "" {
+		return fallback, nil
+	}
+	parsed, err := strconv.ParseInt(raw, 10, 32)
+	if err != nil || parsed < 1 {
+		return 0, errors.New("APP_DATABASE_MAX_CONNS must be a positive whole number")
+	}
+	return int32(parsed), nil
 }
 
 func loadTopUp() (TopUpConfig, error) {

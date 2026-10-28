@@ -16,6 +16,10 @@ import (
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 )
 
+// EnqueueFulfillment inserts the durable job that provisions one fulfillment
+// operation, inside the transaction that created the operation. It is
+// required: a settlement that commits without its job is a customer who paid
+// and is never provisioned, which is exactly what a nil hook used to produce.
 type EnqueueFulfillment func(context.Context, pgx.Tx, string) error
 
 // Options are the operator-configured policies the store enforces. They are
@@ -34,15 +38,20 @@ type Store struct {
 	options Options
 }
 
-func New(pool *pgxpool.Pool, enqueue EnqueueFulfillment, options ...Options) *Store {
-	store := &Store{pool: pool, enqueue: enqueue, clock: time.Now}
-	if len(options) > 0 {
-		store.options = options[0]
+// New builds the store. The pool and the fulfillment hook are required; see
+// EnqueueFulfillment for why the hook may not be left out.
+func New(pool *pgxpool.Pool, enqueue EnqueueFulfillment, options Options) (*Store, error) {
+	if pool == nil {
+		return nil, errors.New("commercepg: a database pool is required")
 	}
+	if enqueue == nil {
+		return nil, errors.New("commercepg: a fulfillment enqueue hook is required")
+	}
+	store := &Store{pool: pool, enqueue: enqueue, clock: time.Now, options: options}
 	if store.options.Logger == nil {
 		store.options.Logger = slog.Default()
 	}
-	return store
+	return store, nil
 }
 
 // SubscriptionPolicy reports the concurrency policy this store enforces.
@@ -53,25 +62,20 @@ func (store *Store) SubscriptionPolicy() commerce.SubscriptionPolicy {
 // TopUpLimits reports the wallet top-up policy this store enforces.
 func (store *Store) TopUpLimits() commerce.TopUpLimits { return store.options.TopUp }
 
-func (store *Store) RunMaintenance(ctx context.Context, logger *slog.Logger) {
-	if logger == nil {
-		logger = slog.Default()
-	}
-	ticker := time.NewTicker(time.Minute)
-	defer ticker.Stop()
-	for {
-		store.expirePendingOrders(ctx)
-		store.expireWalletCredits(ctx)
-		// A saved cart is charged as soon as any wallet credit covers it, not
-		// only when a top-up settles, so a referral reward or an operator
-		// correction releases it too.
-		store.SweepCarts(ctx, logger)
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-		}
-	}
+// MaintenancePass runs one commerce maintenance pass: expire orders whose
+// payment window elapsed, expire wallet credits, and sweep saved carts.
+//
+// The worker runs it as a cluster-wide periodic job (see internal/jobs), so it
+// happens once per interval however many processes are up. It used to be a
+// ticker in every api replica, each one debiting wallets for the same carts.
+func (store *Store) MaintenancePass(ctx context.Context) error {
+	store.expirePendingOrders(ctx)
+	store.expireWalletCredits(ctx)
+	// A saved cart is charged as soon as any wallet credit covers it, not
+	// only when a top-up settles, so a referral reward or an operator
+	// correction releases it too.
+	store.SweepCarts(ctx, store.options.Logger)
+	return ctx.Err()
 }
 
 // expirePendingOrders closes orders whose payment window elapsed and removes
@@ -886,12 +890,7 @@ func (store *Store) settlePaidOrder(ctx context.Context, tx pgx.Tx, queries *dbg
 	if err = store.grantReferralRewards(ctx, tx, queries, order, program); err != nil {
 		return err
 	}
-	if store.enqueue != nil {
-		if err = store.enqueue(ctx, tx, uuidString(operation.ID)); err != nil {
-			return err
-		}
-	}
-	return nil
+	return store.enqueue(ctx, tx, uuidString(operation.ID))
 }
 
 // changeBase is the end the subscription's current entitlement gives a change

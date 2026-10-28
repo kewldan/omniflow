@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/omniflow/omniflow/internal/accesscode"
-	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/panelpg"
 )
 
@@ -76,7 +75,7 @@ func TestACodeRedeemsExactlyOnce(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
 	service := newOperations(t, harness)
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	actor := harness.operator(ctx, t, "codes-redeem@example.test")
 
 	planVersion := seedPlanVersion(ctx, t, harness)
@@ -134,7 +133,7 @@ func TestRevokingKillsTheRemainderAndSparesTheRedeemed(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
 	service := newOperations(t, harness)
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	actor := harness.operator(ctx, t, "codes-revoke@example.test")
 
 	planVersion := seedPlanVersion(ctx, t, harness)

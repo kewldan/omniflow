@@ -122,9 +122,27 @@ Nothing in the repository consumes those images: `compose.yaml` builds from the 
 
 ## Supported topology
 
-Run **one instance of each role**. River elects a leader for the job queues, so a second worker would not double-run queued jobs — but every other background loop in Omniflow is a plain in-process ticker with no lease or advisory lock behind it. Two API containers means two maintenance controllers and two payment reconcilers; two workers means two of every sweep; two bots means two operator-topic binders. The loops are individually idempotent, so duplication is wasteful rather than corrupting, but there is nothing in the code that makes horizontal replication safe to assume. The full inventory is in [Jobs and queues](/operations/jobs-and-queues#scheduled-loops-that-are-not-queue-jobs).
+| Role | Replicas | Why |
+| --- | --- | --- |
+| `api` | Any number, behind the proxy | It runs no state-changing background pass. Its only state-changing loop, the maintenance controller, reads the current maintenance state before changing it, so a second replica finds a transition already made |
+| `worker` | Any number | River distributes jobs among the replicas, and the periodic passes — order and cart maintenance, payment reconciliation, renewals, sweeps, campaigns, retention, backups — are enqueued by River's elected leader only, so each runs once per interval across the installation |
+| `bot` | Exactly one | Telegram delivers updates to one consumer; long polling refuses a second `getUpdates` |
 
-Concurrency within the one worker is what absorbs load instead: the `critical` queue, which is where both job kinds run, is configured for 16 simultaneous workers.
+Several workers need the same shared storage one worker already uses: `APP_BACKUP_DIR` on a shared volume, because a backup lands on whichever replica runs the pass, and the same `APP_SUPPORT_ATTACHMENT_DIR` as the API. Every replica opens its own database pool, so each one counts against PostgreSQL's `max_connections` — see below. The full list of passes and in-process loops is in [Jobs and queues](/operations/jobs-and-queues#periodic-passes-and-in-process-loops).
+
+### Database connections
+
+Each process bounds its PostgreSQL pool with `APP_DATABASE_MAX_CONNS`, a positive whole number; any other value refuses to start. When it is unset:
+
+| Process | Default pool |
+| --- | --- |
+| `api` | 20 |
+| `bot` | 10 |
+| `worker` | 40 |
+
+The defaults sum to 70, inside PostgreSQL's stock `max_connections` of 100, with room left for migrations, backups and an operator's `psql`. The worker refuses to start with fewer than 32 connections: it runs up to 28 jobs at once across its queues, plus 4 for River's own bookkeeping. A `pool_max_conns` parameter in `APP_DATABASE_URL` takes precedence over the variable.
+
+A value in the shared `.env` applies to all three processes. To size them differently, set it per service under `environment:` in a compose override. When you add replicas, add up every replica's pool and keep the total below `max_connections`.
 
 ## Exposing the stack
 
@@ -171,7 +189,7 @@ Configuration is read once at startup and never re-read, so a changed `.env` nee
 
 All three processes install a `SIGINT`/`SIGTERM` handler and drain on a 15-second budget. The API stops accepting connections and lets in-flight requests finish before closing its pools; the worker shuts its operational listener and then calls River's `Stop`, which drains in-flight jobs so a restart never abandons a fulfillment run mid-flight; the bot shuts its webhook and operational servers the same way.
 
-Background ticker loops exit on the same context and are not waited on. A backup that is mid-`pg_dump` is cancelled and its row is recorded as failed with `cancelled` rather than left `running`.
+Periodic passes are River jobs and stop with River. The remaining in-process ticker loops exit on the same context and are not waited on. A pass still running when the 15-second budget is spent has its context cancelled, so a backup cut off mid-`pg_dump` is recorded as failed with `cancelled` rather than left `running`.
 
 <Note>
   None of the core compose services declares a `restart:` policy — only the Traefik overlay does. A process that exits stays down until somebody starts it. Add `restart: unless-stopped` in an override if you want the stack to survive a host reboot on its own.

@@ -11,7 +11,6 @@ import (
 
 	"github.com/omniflow/omniflow/internal/accountcheckout"
 	"github.com/omniflow/omniflow/internal/accountpg"
-	"github.com/omniflow/omniflow/internal/commercepg"
 )
 
 // seedSubscriptionEntitlement attaches an entitlement in the given status to a
@@ -53,7 +52,7 @@ func (harness *harness) seedSubscription(ctx context.Context, t *testing.T, cust
 func TestAnUnpaidPurchaseIsReportedAsPaymentPendingAndStillPurchasable(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	service := newAccountCheckout(t, harness, store)
 	account, err := accountpg.New(harness.pool, nil, accountpg.Options{Logger: slog.New(slog.DiscardHandler)})
 	if err != nil {
@@ -103,7 +102,7 @@ func TestAnUnpaidPurchaseIsReportedAsPaymentPendingAndStillPurchasable(t *testin
 func TestCatalogueAndOpenFollowTheHeldEntitlement(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	service := newAccountCheckout(t, harness, store)
 	basic := harness.catalog(ctx, t, "basic", 30000)
 	twin := harness.catalog(ctx, t, "twin", 30000)

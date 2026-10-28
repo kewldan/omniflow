@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/omniflow/omniflow/internal/accountcheckout"
-	"github.com/omniflow/omniflow/internal/commercepg"
 )
 
 // The web checkout applies the same required-channel gate the bot applies
@@ -19,7 +18,7 @@ import (
 func TestWebCheckoutAppliesTheRequiredChannelGate(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	service := newAccountCheckout(t, harness, store)
 	planVersionID := harness.catalog(ctx, t, "gated-plan", 34900)
 

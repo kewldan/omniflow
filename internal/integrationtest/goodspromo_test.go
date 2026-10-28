@@ -60,7 +60,7 @@ func goodsOrder(customerID, productID, key string) commercepg.GoodsOrderInput {
 func TestAPlanPromotionCannotDiscountAShopOrder(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	productID := harness.goodsProduct(ctx, t)
 
@@ -82,7 +82,7 @@ func TestAPlanPromotionCannotDiscountAShopOrder(t *testing.T) {
 func TestAShopPromotionDiscountsAndIsRecordedOnce(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	productID := harness.goodsProduct(ctx, t)
 	promotionID := harness.goodsPromotion(ctx, t, "SHOP10", "percent", 1000, "goods")
@@ -139,7 +139,7 @@ func TestAShopPromotionDiscountsAndIsRecordedOnce(t *testing.T) {
 func TestAShopDiscountPastTheMarginIsRefused(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	productID := harness.goodsProduct(ctx, t)
 
@@ -172,7 +172,7 @@ func TestAShopDiscountPastTheMarginIsRefused(t *testing.T) {
 func TestTheDatabaseRefusesADiscountBelowCost(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	productID := harness.goodsProduct(ctx, t)
 
@@ -193,7 +193,7 @@ func TestTheDatabaseRefusesADiscountBelowCost(t *testing.T) {
 func TestAnUnknownCostCannotBeDiscounted(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	productID := harness.goodsProduct(ctx, t)
 	harness.goodsPromotion(ctx, t, "ANYTHING", "percent", 1000, "goods")
@@ -225,7 +225,7 @@ func TestAnUnknownCostCannotBeDiscounted(t *testing.T) {
 func TestPreviewingAShopDiscountDoesNotRedeemIt(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	productID := harness.goodsProduct(ctx, t)
 	promotionID := harness.goodsPromotion(ctx, t, "PREVIEW", "percent", 1000, "goods")
@@ -257,7 +257,7 @@ func TestPreviewingAShopDiscountDoesNotRedeemIt(t *testing.T) {
 func TestProductScopingIsEnforcedByTheQuery(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	productID := harness.goodsProduct(ctx, t)
 	promotionID := harness.goodsPromotion(ctx, t, "SCOPED", "percent", 1000, "goods")
@@ -305,7 +305,7 @@ func TestScopingAPlanPromotionToProductsIsRefused(t *testing.T) {
 func TestAShopPurchaseCanBeSavedAndResumed(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	productID := harness.goodsProduct(ctx, t)
 
@@ -348,7 +348,7 @@ func TestAShopPurchaseCanBeSavedAndResumed(t *testing.T) {
 func TestASavedShopPurchaseRefusesAPriceRise(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	productID := harness.goodsProduct(ctx, t)
 
@@ -406,7 +406,7 @@ func TestASavedShopPurchaseRefusesAPriceRise(t *testing.T) {
 func TestSavingAShopItemReplacesASavedPlan(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	productID := harness.goodsProduct(ctx, t)
 	planVersionID := harness.catalog(ctx, t, "cart-swap", 10_000)

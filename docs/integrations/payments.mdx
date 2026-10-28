@@ -322,9 +322,9 @@ A webhook can be lost, delayed, or blocked. Reconciliation asks the provider wha
 and applies the answer through the same idempotent settlement, so it can run beside a webhook
 without double-crediting.
 
-- **Automatically.** The API process ticks every minute and polls up to 100 intents that are
-  `pending` or `processing`, belong to `cryptobot` or `yookassa`, have a provider reference, and have
-  not been updated for a minute.
+- **Automatically.** The worker's `payment_reconcile` pass runs every minute and polls up to 100
+  intents that are `pending` or `processing`, belong to `cryptobot` or `yookassa`, have a provider
+  reference, and have not been updated for a minute.
 - **By the customer.** `POST /v1/account/orders/{orderID}/refresh`, and the Telegram order screen on
   open. It acts only while the order is still awaiting payment and silently does nothing for an
   adapter that cannot be polled.

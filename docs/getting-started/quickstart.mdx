@@ -31,9 +31,9 @@ Valkey stay on the internal Compose network.
 | `postgres` | `postgres:18.4-alpine` | The single source of truth. Volume `postgres-data`, `pg_isready` health check |
 | `valkey` | `valkey/valkey:9.1.1-alpine` | Rate limits, replay guards, locks, and temporary state. Started with `--save "" --appendonly no`, because nothing durable is kept here |
 | `migrate` | `arigaio/atlas:1.3.0` | Applies the committed Atlas migrations, then exits. Every application service waits for it to complete successfully |
-| `api` | `build/go.Dockerfile`, `TARGET=api` | The HTTP API on `:8080`: `/v1/catalog`, `/v1/payments/webhooks/{provider}`, `/v1/admin`, `/v1/panel`, `/v1/account`, the probes, `/metrics`, maintenance detection, the payment reconciler, and the first-run setup token |
+| `api` | `build/go.Dockerfile`, `TARGET=api` | The HTTP API on `:8080`: `/v1/catalog`, `/v1/payments/webhooks/{provider}`, `/v1/admin`, `/v1/panel`, `/v1/account`, the probes, `/metrics`, maintenance detection, and the first-run setup token |
 | `bot` | `TARGET=bot`, `RUNTIME=postgres` | Telegram updates, operator notifications, the customer notifier, and the `/ops` backup surface. Carries the PostgreSQL client tools because it can take a backup on demand |
-| `worker` | `TARGET=worker`, `RUNTIME=postgres` | Durable jobs, fulfillment reconciliation, renewals and dunning, sweeps, campaign expansion, retention, and scheduled backups |
+| `worker` | `TARGET=worker`, `RUNTIME=postgres` | Durable jobs, order and cart maintenance, the payment reconciler, fulfillment reconciliation, renewals and dunning, sweeps, campaign expansion, retention, and scheduled backups |
 | `web` | `build/web.Dockerfile`, profile `web` | The Next.js application on `:3000` serving both `/account` and `/admin` |
 
 <Note>

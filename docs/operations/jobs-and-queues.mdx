@@ -1,11 +1,11 @@
 ---
 title: Jobs and queues
-description: The durable queue and the state changes that enqueue it, the two job kinds, the dead-letter view, the ticker loops that are not queue jobs, the retention sweeps, and the outbox
+description: The durable queue and the state changes that enqueue it, the job kinds, the dead-letter view, the periodic passes and the loops that stay in their process, the retention sweeps, and the outbox
 ---
 
 Omniflow moves work off the request path in two different ways, and the difference matters when something is stuck.
 
-Work that is **about one record** and must survive a restart goes on a durable queue: River, running against the same PostgreSQL database, with the job row inserted in the same transaction as the state change that requires it. Work that is **a whole-table pass** — expiring orders, sweeping carts, refreshing blocklists, deleting yesterday's sessions — runs on plain in-process tickers, because a durable queue would add a row and a retry policy to something a ticker already expresses safely.
+Work that is **about one record** and must survive a restart goes on a durable queue: River, running against the same PostgreSQL database, with the job row inserted in the same transaction as the state change that requires it. Work that is **a whole-table pass** — expiring orders, sweeping carts, refreshing blocklists, deleting yesterday's sessions — runs as a River periodic job on the worker, so it runs once per interval across the installation however many worker replicas are up. A few loops that only touch their own process stay plain in-process tickers.
 
 Only the `worker` process executes jobs. The API and the bot each create a River client for *inserting* and never register a worker: a settlement that closes in either process — a provider webhook in the API, a Telegram Stars payment or a wallet-covered order in the bot — inserts its fulfillment job in the paying transaction.
 
@@ -15,16 +15,19 @@ Three queues exist, with fixed concurrency compiled in:
 
 | Queue | Max workers | Carries |
 | --- | --- | --- |
-| `critical` | 16 | Both job kinds — a customer has already paid by the time either runs |
-| `default` | 32 | Nothing today |
-| `bulk` | 8 | Nothing today |
+| `critical` | 16 | `fulfillment` and `goods_delivery` — a customer has already paid by the time either runs |
+| `default` | 8 | `periodic_task` — the [periodic passes](#periodic-passes-and-in-process-loops) |
+| `bulk` | 4 | Nothing today |
 
-### The two job kinds
+That is 28 jobs at once, and the worker's database pool is sized against it — see [Deployment](/operations/deployment#database-connections).
+
+### Job kinds
 
 | Kind | Arguments | Queue | Max attempts | Uniqueness |
 | --- | --- | --- | --- | --- |
 | `fulfillment` | `{"operationId": …}` | `critical` | 12 | Unique by arguments |
 | `goods_delivery` | `{"orderId": …}` | `critical` | 12 | Unique by arguments |
+| `periodic_task` | `{"task": "<name>"}` | `default` | 1 | Unique by arguments while available, pending, retryable, running or scheduled |
 
 Uniqueness by arguments is what makes a duplicated enqueue — from a replayed webhook, a retried settlement, or an operator clicking twice — collapse into the existing job rather than racing it.
 
@@ -129,38 +132,53 @@ Every panel mutation requires an `X-Operator-Reason` header and writes an audit 
 | `POST /v1/panel/system/jobs/{operationID}/retry` | `system.write` |
 | `POST /v1/panel/system/jobs/{operationID}/cancel` | `system.write` |
 
-## Scheduled loops that are not queue jobs
+## Periodic passes and in-process loops
 
-These are goroutines started by the three `main`s. Each pass is a whole-table sweep that is safe to repeat and carries no per-record argument, and each is independent: a failing pass is logged and never stops the others.
+### Periodic passes on the worker
+
+Every whole-table pass that changes state is a River periodic job of kind `periodic_task`, run by the worker. Only River's elected leader among the running worker clients enqueues them: each pass runs once when the leader starts, then once per interval, so it runs once per interval across the installation however many worker replicas are up. Its uniqueness keeps a pass that outlasts its interval from being queued again beside itself; a finished pass releases it.
+
+A pass gets one attempt. A failure is logged as `periodic task failed` with the task name, the job ends discarded — visible in `GET /v1/admin/jobs?state=dead_letter` — and the next interval runs a fresh pass over the same rows. A run is cancelled after its interval, except where the table says otherwise.
+
+| Task | Interval | Run timeout | What it does |
+| --- | --- | --- | --- |
+| `commerce_maintenance` | 1 min | interval | Expires pending orders, expires wallet credits as a double-entry `expiration` transaction, sweeps saved carts |
+| `payment_reconcile` | 1 min | interval | Re-polls up to 100 in-flight payment intents |
+| `renewal` | 1 min | 5 min | Charges due renewals in batches of 100 |
+| `fulfillment_reconcile` | 15 min | interval | Creates `reconcile` operations for up to 500 entitlements, keyed `reconcile:<entitlementID>:<15-minute bucket>` |
+| `fulfillment_revive` | 5 min | interval | Re-queues fulfillment operations whose job never ran or was discarded |
+| `lifecycle_sweep` | 5 min | interval | Expires gifts and personal offers, refreshes up to 20 blocklist sources |
+| `anomaly_evaluation` | 15 min | interval | Evaluates anomaly rules |
+| `campaign_expansion` | 1 min | 5 min | Expands campaign audiences, batch 5 000 |
+| `bulk_actions` | 15 s | 5 min | Applies previewed bulk operations one item at a time, batch 50 |
+| `retention` | `APP_RETENTION_INTERVAL_HOURS` (1 h) | interval | Seven cleanup steps, below |
+| `goods_delivery_schedule` | 30 s | interval | Enqueues up to 200 due deliveries |
+| `backup` | `APP_BACKUP_INTERVAL_HOURS` (24 h) | none | Encrypted `pg_dump` plus prune |
+
+The fulfillment reconcile pass's bucketed idempotency key is worth understanding: two passes inside the same fifteen-minute bucket produce the same key, so a restarted worker cannot create a second reconcile operation for the same entitlement in the same window.
+
+`goods_delivery_schedule` is registered only when the worker has `APP_DATA_ENCRYPTION_KEY`, and `backup` only when scheduled backups are enabled. The blocklist refresh, anomaly evaluation and bulk actions also need `APP_DATA_ENCRYPTION_KEY` on the worker, because they read sealed credentials; gift and offer expiry run without it. With several worker replicas a backup lands on whichever replica runs the pass, so `APP_BACKUP_DIR` must be a shared volume — see [Backup and restore](/operations/backup-restore).
+
+### Loops that stay in their process
+
+These are ticker goroutines, and each replica runs its own copy. None of them changes shared state in a way a second copy could duplicate:
 
 | Loop | Process | Interval | Configurable | What it does |
 | --- | --- | --- | --- | --- |
-| Commerce maintenance | api | 1 min | no | Expires pending orders, expires wallet credits as a double-entry `expiration` transaction, sweeps saved carts |
-| Payment reconciler | api | 1 min | no | Re-polls up to 100 in-flight payment intents |
-| Maintenance controller | api | `APP_MAINTENANCE_PROBE_SECONDS` (30s) | yes | Samples dependency health and moves the maintenance switch |
+| Maintenance controller | api | `APP_MAINTENANCE_PROBE_SECONDS` (30s) | yes | Samples dependency health and moves the maintenance switch. Each replica samples its own view and reads the current state before changing it, so a second replica finds a transition already made |
 | Telemetry heartbeat | api | 24 h, plus one at start | on/off only | Sends `installation.heartbeat` |
-| Collector retention | api (collector mode) | 24 h | no | Deletes collected telemetry older than 180 days |
-| Fulfillment scheduler | worker | 15 min | no | Creates `reconcile` operations for up to 500 entitlements, keyed `reconcile:<entitlementID>:<15-minute bucket>` |
-| Goods-delivery scheduler | worker | 30 s | no | Enqueues up to 200 due deliveries |
-| Renewal and dunning | worker | 1 min | no | Charges due renewals in batches of 100 |
-| Lifecycle sweeper | worker | 5 min (anomalies 15 min) | no | Expires gifts and personal offers, refreshes up to 20 blocklist sources, evaluates anomaly rules |
-| Campaign expansion | worker | 1 min | no | Expands campaign audiences, batch 5 000 |
-| Bulk-action runner | worker | 15 s | no | Applies previewed bulk operations one item at a time, batch 50 |
-| Retention sweep | worker | `APP_RETENTION_INTERVAL_HOURS` (1 h) | yes | Eight cleanup steps, below |
-| Scheduled backup | worker | `APP_BACKUP_INTERVAL_HOURS` (24 h) | yes | Encrypted `pg_dump` plus prune |
+| Collector retention | api (collector mode) | 24 h | no | Deletes collected telemetry older than 180 days; it deletes by age, so repeating it is harmless |
 | Channel membership | bot | 10 min | no | Re-verifies required-channel membership, batch 100 |
 | Operator notifier | bot | 10 s | no | Binds forum topics, then drains up to 50 pending notices |
 | Customer lifecycle notices | bot | 15 min | no | Operator test sends, dunning notices, then every reachable customer's lifecycle alerts, 200 per page |
 | Campaign and announcement delivery | bot | continuous while queued, 30 s when idle | no | 200 campaign recipients and 200 announcements per batch, paced by `APP_TELEGRAM_DELIVERY_RATE` (25/s) |
 | Support reply push | bot | 30 s | no | Pushes up to 200 pending operator replies |
 
-The fulfillment scheduler's bucketed idempotency key is worth understanding: two passes inside the same fifteen-minute bucket produce the same key, so a restarted worker cannot create a second reconcile operation for the same entitlement in the same window.
+The bot's loops are safe because the bot runs as exactly one instance: Telegram delivers updates to one consumer. The channel-membership loop is disabled when no membership verifier is configured.
 
-Two loops are disabled when the worker has no `APP_DATA_ENCRYPTION_KEY`, because both read sealed credentials: the lifecycle sweeper's blocklist refresh and anomaly evaluation, and the bulk-action runner. Gift and offer expiry still run. The channel-membership loop is disabled when no membership verifier is configured.
-
-<Warning>
-  None of these loops takes a lease or an advisory lock. River elects a leader for the queues, but a second `api`, `bot` or `worker` container runs a second copy of every loop above. They are individually idempotent, so duplication wastes work rather than corrupting state — but the supported topology is one instance per role. See [Deployment](/operations/deployment#supported-topology).
-</Warning>
+<Note>
+  The supported topology is any number of `api` and `worker` replicas and exactly one `bot`. See [Deployment](/operations/deployment#supported-topology).
+</Note>
 
 ## Retention sweeps
 

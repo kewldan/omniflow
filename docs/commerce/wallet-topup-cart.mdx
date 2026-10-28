@@ -171,9 +171,9 @@ The sweep is what makes the feature honest: "once a top-up covers the outstandin
 common case, but a customer whose balance arrives another way gets the same outcome.
 
 <Warning>
-  The sweep runs inside the maintenance loop that only the API process starts. In a deployment
-  without the API process — a bot and a worker alone — the only remaining triggers are a settled
-  top-up and the customer's own **Buy now**, and carts never expire on their own.
+  The sweep runs inside the worker's `commerce_maintenance` pass. In a deployment without a running
+  worker the only remaining triggers are a settled top-up and the customer's own **Buy now**, and
+  carts never expire on their own.
 </Warning>
 
 ### It cannot double-charge

@@ -22,11 +22,11 @@ type JobInserter interface {
 	InsertTx(context.Context, pgx.Tx, river.JobArgs, *river.InsertOpts) (*rivertype.JobInsertResult, error)
 }
 
-// reconcileInterval is how often entitlements are re-read from Remnawave.
-const reconcileInterval = 15 * time.Minute
+// ReconcileInterval is how often entitlements are re-read from Remnawave.
+const ReconcileInterval = 15 * time.Minute
 
-// reviveInterval is how often stalled operations are looked for.
-const reviveInterval = 5 * time.Minute
+// ReviveInterval is how often stalled operations are looked for.
+const ReviveInterval = 5 * time.Minute
 
 // staleOperationAge is how long a pending or retrying operation may sit past
 // its next scheduled attempt before the scheduler assumes its job is gone.
@@ -80,9 +80,9 @@ func NewScheduler(pool *pgxpool.Pool, client JobInserter) *Scheduler {
 // Run drives both periodic passes until the context is cancelled: the
 // reconciliation sweep every fifteen minutes and the revival scan every five.
 func (scheduler *Scheduler) Run(ctx context.Context) {
-	reconcile := time.NewTicker(reconcileInterval)
+	reconcile := time.NewTicker(ReconcileInterval)
 	defer reconcile.Stop()
-	revive := time.NewTicker(reviveInterval)
+	revive := time.NewTicker(ReviveInterval)
 	defer revive.Stop()
 	_ = scheduler.Schedule(ctx)
 	_ = scheduler.Revive(ctx)
@@ -106,7 +106,7 @@ func (scheduler *Scheduler) Schedule(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	bucket := scheduler.clock().UTC().Truncate(reconcileInterval).Format(time.RFC3339)
+	bucket := scheduler.clock().UTC().Truncate(ReconcileInterval).Format(time.RFC3339)
 	for _, entitlement := range rows {
 		tx, err := scheduler.pool.Begin(ctx)
 		if err != nil {

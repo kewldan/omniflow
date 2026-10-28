@@ -21,7 +21,7 @@ import (
 func TestAnExtensionBoughtWhilePausedResumesWithTheRemainingTime(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	planVersionID := harness.catalog(ctx, t, "paused-plan", 0)
 

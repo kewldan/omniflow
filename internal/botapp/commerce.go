@@ -2,6 +2,7 @@ package botapp
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -60,7 +61,13 @@ type Commerce struct {
 }
 
 // NewCommerce wires the bot's commerce surface.
-func NewCommerce(logger *slog.Logger, store *PostgresStore, orders *commercepg.Store, payments *paymentservice.Service, settings CommerceSettings) *Commerce {
+//
+// A shared checkout that cannot be built is an error, not a log line: the bot
+// used to start anyway with a nil checkout and failed on the first purchase.
+func NewCommerce(logger *slog.Logger, store *PostgresStore, orders *commercepg.Store, payments *paymentservice.Service, settings CommerceSettings) (*Commerce, error) {
+	if store == nil {
+		return nil, errors.New("botapp: an identity store is required")
+	}
 	checkout, err := accountcheckout.New(store.pool, orders, payments, accountcheckout.Options{
 		Logger: logger,
 		Settings: accountcheckout.Settings{
@@ -70,16 +77,12 @@ func NewCommerce(logger *slog.Logger, store *PostgresStore, orders *commercepg.S
 		},
 	})
 	if err != nil {
-		// The shared checkout only refuses a nil pool or a nil commerce store, and
-		// this constructor has already dereferenced the first and is handed the
-		// second. Recording it keeps the failure visible if that ever stops being
-		// true, rather than letting it surface as a crash mid-purchase.
-		logger.Error("shared checkout could not be built", "error", err)
+		return nil, err
 	}
 	return &Commerce{
 		logger: logger, store: store, orders: orders, payments: payments,
 		settings: settings, checkout: checkout, clock: time.Now,
-	}
+	}, nil
 }
 
 // PaymentChoice is one offered payment method together with the currency and

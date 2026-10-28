@@ -89,6 +89,7 @@ blocklist, or use bulk actions.
 | Variable | Default | Read by | Required | Secret | What it changes |
 | --- | --- | --- | --- | --- | --- |
 | `APP_DATABASE_URL` | — | api, bot, worker | bot and worker yes; api optional | **yes** (carries the password) | pgx connection string. On the API, empty disables the entire commerce, panel, and account surface |
+| `APP_DATABASE_MAX_CONNS` | api `20`, bot `10`, worker `40` | api, bot, worker | no | no | Size of the process's PostgreSQL pool. Anything but a positive whole number fails startup, and the worker refuses fewer than `32`. A `pool_max_conns` parameter in `APP_DATABASE_URL` takes precedence. Set it per service to size the processes differently — see [Deployment](/operations/deployment#database-connections) |
 | `APP_VALKEY_URL` | — | api, bot, worker | api yes with a database; bot yes | no | Backs rate limits, replay guards, locks, and temporary state |
 
 The backup service parses `APP_DATABASE_URL` a second time, into `PGHOST`, `PGPORT`, `PGDATABASE`,
@@ -198,12 +199,12 @@ setup is in [Payment providers](/integrations/payments) and the recurring flow i
 
 | Variable | Default | Read by | Required | Secret | What it changes |
 | --- | --- | --- | --- | --- | --- |
-| `APP_WALLET_TOPUP_ENABLED` | `true` | api, bot | no | no | Offer customer-initiated top-up |
-| `APP_WALLET_TOPUP_PRESETS` | `10000,30000,50000,100000` | api, bot | no | no | One-tap amounts in minor units. A non-positive or unparseable entry fails startup |
-| `APP_WALLET_TOPUP_MINIMUM_MINOR` | `10000` | api, bot | no | no | Smallest single top-up. Must not exceed the maximum when the maximum is above zero |
-| `APP_WALLET_TOPUP_MAXIMUM_MINOR` | `5000000` | api, bot | no | no | Largest single top-up; `0` removes the ceiling |
-| `APP_WALLET_TOPUP_WINDOW_LIMIT_MINOR` | `10000000` | api, bot | no | no | Credit allowed inside the rolling window |
-| `APP_WALLET_TOPUP_WINDOW_HOURS` | `24` | api, bot | no | no | Length of the rolling window |
+| `APP_WALLET_TOPUP_ENABLED` | `true` | api, bot, worker | no | no | Offer customer-initiated top-up |
+| `APP_WALLET_TOPUP_PRESETS` | `10000,30000,50000,100000` | api, bot, worker | no | no | One-tap amounts in minor units. A non-positive or unparseable entry fails startup |
+| `APP_WALLET_TOPUP_MINIMUM_MINOR` | `10000` | api, bot, worker | no | no | Smallest single top-up. Must not exceed the maximum when the maximum is above zero |
+| `APP_WALLET_TOPUP_MAXIMUM_MINOR` | `5000000` | api, bot, worker | no | no | Largest single top-up; `0` removes the ceiling |
+| `APP_WALLET_TOPUP_WINDOW_LIMIT_MINOR` | `10000000` | api, bot, worker | no | no | Credit allowed inside the rolling window |
+| `APP_WALLET_TOPUP_WINDOW_HOURS` | `24` | api, bot, worker | no | no | Length of the rolling window |
 | `APP_MULTI_SUBSCRIPTION_ENABLED` | `false` | api, bot, worker | no | no | Allow one customer to hold several concurrent subscriptions |
 | `APP_MAX_SUBSCRIPTIONS_PER_CUSTOMER` | `3` | api, bot, worker | no | no | Installation ceiling while multi-subscription is on. A value below 1 is clamped to 1 |
 

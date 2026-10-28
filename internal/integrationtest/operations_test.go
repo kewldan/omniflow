@@ -88,7 +88,7 @@ func TestFinanceExportWalksEveryOrderExactlyOnce(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
 	operations := newOperations(t, harness)
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	versionID := harness.catalog(ctx, t, "export-plan", 10_000)
 
 	const orderCount = 7
@@ -269,7 +269,7 @@ func TestRecurringChargeIsRefusedWithoutOperatorApproval(t *testing.T) {
 func TestGoodsOrderCreatesExactlyOneDelivery(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	productID := harness.goodsProduct(ctx, t)
 
@@ -304,7 +304,7 @@ func TestGoodsOrderCreatesExactlyOneDelivery(t *testing.T) {
 func TestGiftIsClaimableExactlyOnce(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 
 	senderID := harness.customer(ctx, t)
 	recipientID := harness.customer(ctx, t)

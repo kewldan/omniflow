@@ -18,7 +18,7 @@ import (
 func TestAManualTransferGetsADaysLongPaymentWindow(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	planVersionID := harness.catalog(ctx, t, "manual-plan", 25000)
 

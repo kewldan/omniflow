@@ -9,7 +9,6 @@ import (
 
 	"github.com/omniflow/omniflow/internal/accountcheckout"
 	"github.com/omniflow/omniflow/internal/commerce"
-	"github.com/omniflow/omniflow/internal/commercepg"
 )
 
 // requireSquads turns a seeded plan version into one the customer must choose
@@ -44,7 +43,7 @@ func (harness *harness) requireSquads(ctx context.Context, t *testing.T, planVer
 func TestARequiredSquadPlanOpensWithoutAQuoteAndPricesOnceChosen(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	service := newAccountCheckout(t, harness, store)
 	customerID := harness.customer(ctx, t)
 	planVersionID := harness.catalog(ctx, t, "squad-plan", 34900)

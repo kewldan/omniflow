@@ -3,6 +3,7 @@ package platform
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/exaring/otelpgx"
@@ -34,10 +35,18 @@ func TracedHTTPClient(timeout time.Duration) *http.Client {
 // TracedPool opens a pgx pool with query tracing attached. Statement text is
 // recorded, and pgx never puts argument values into the span, so a traced query
 // cannot leak a customer identifier or a secret.
-func TracedPool(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
+//
+// maxConns sizes the pool explicitly. pgxpool's default, max(4, NumCPU), is
+// sized for nothing in particular; every process passes the bound its own
+// configuration chose. A pool_max_conns parameter in the URL still wins, so an
+// operator who already tuned it there keeps that value.
+func TracedPool(ctx context.Context, databaseURL string, maxConns int32) (*pgxpool.Pool, error) {
 	config, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
 		return nil, err
+	}
+	if maxConns > 0 && !strings.Contains(databaseURL, "pool_max_conns") {
+		config.MaxConns = maxConns
 	}
 	config.ConnConfig.Tracer = otelpgx.NewTracer(otelpgx.WithTrimSQLInSpanName())
 	return pgxpool.NewWithConfig(ctx, config)

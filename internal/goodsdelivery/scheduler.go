@@ -11,12 +11,12 @@ import (
 	"github.com/riverqueue/river"
 )
 
-// scanInterval is how often the delivery ledger is examined.
+// ScanInterval is how often the delivery ledger is examined.
 //
 // A customer is waiting on the other side of every row in it, so this is fast
 // compared to the reconciliation sweeps — but it is still a sweep rather than a
 // tight loop, because the retry backoffs it honours are measured in minutes.
-const scanInterval = 30 * time.Second
+const ScanInterval = 30 * time.Second
 
 // Scheduler turns due deliveries into jobs.
 //
@@ -41,7 +41,7 @@ func NewScheduler(pool *pgxpool.Pool, client *river.Client[pgx.Tx], logger *slog
 
 // Run schedules due deliveries until the context is cancelled.
 func (scheduler *Scheduler) Run(ctx context.Context) {
-	ticker := time.NewTicker(scanInterval)
+	ticker := time.NewTicker(ScanInterval)
 	defer ticker.Stop()
 	for {
 		if err := scheduler.Schedule(ctx); err != nil && ctx.Err() == nil {

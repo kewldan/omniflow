@@ -100,6 +100,18 @@ func NewPostgresStore(ctx context.Context, databaseURL string) (*PostgresStore, 
 	}, nil
 }
 
+// NewPostgresStoreWithPool builds the store over a pool the process already
+// owns, so the bot runs one sized pool rather than a second one at pgxpool's
+// default. Closing the pool stays with its owner.
+func NewPostgresStoreWithPool(pool *pgxpool.Pool) (*PostgresStore, error) {
+	if pool == nil {
+		return nil, errors.New("database pool is required")
+	}
+	return &PostgresStore{
+		pool: pool, queries: dbgen.New(pool), connect: connectpg.New(pool),
+	}, nil
+}
+
 func (store *PostgresStore) Close() {
 	store.pool.Close()
 }

@@ -18,9 +18,9 @@ them.
 
 | Process | Entry point | Listens on | Owns |
 | --- | --- | --- | --- |
-| `api` | `cmd/api` | `APP_HTTP_ADDR`, default `:8080` | The HTTP API (`/v1/catalog`, `/v1/payments/webhooks/{provider}`, `/v1/admin`, `/v1/panel`, `/v1/account`), the probes and `/metrics`, maintenance auto-detection, the payment reconciler, the order/wallet/cart maintenance loop, the anonymous telemetry heartbeat, and the first-run admin setup token |
+| `api` | `cmd/api` | `APP_HTTP_ADDR`, default `:8080` | The HTTP API (`/v1/catalog`, `/v1/payments/webhooks/{provider}`, `/v1/admin`, `/v1/panel`, `/v1/account`), the probes and `/metrics`, maintenance auto-detection, the anonymous telemetry heartbeat, and the first-run admin setup token |
 | `bot` | `cmd/bot` | Long polling by default; `APP_BOT_HTTP_ADDR`, default `:8082`, in webhook mode; probes and `/metrics` only if `APP_BOT_METRICS_ADDR` is set | Telegram updates, the operator notification dispatcher, required-channel re-verification, customer notification delivery, and the `/ops` backup and restore surface |
-| `worker` | `cmd/worker` | `APP_WORKER_HTTP_ADDR`, default `:8081` | The River job workers (fulfillment, digital-goods delivery), the reconciliation and delivery schedulers, the renewal and dunning loop, the lifecycle sweeper, campaign expansion, the bulk-action runner, retention sweeps, and scheduled encrypted backups |
+| `worker` | `cmd/worker` | `APP_WORKER_HTTP_ADDR`, default `:8081` | The River job workers (fulfillment, digital-goods delivery) and every periodic pass: order, wallet and cart maintenance, payment reconciliation, the reconciliation and delivery schedulers, renewals and dunning, the lifecycle sweeper, campaign expansion, the bulk-action runner, retention sweeps, and scheduled encrypted backups |
 | `web` | `apps/web` | `3000` | One Next.js application serving the customer panel at `/account` and the operator workspace at `/admin`, backed by one shared shadcn component system |
 
 The three Go images differ only in what they need at runtime: `api` ships on a distroless base, while
@@ -153,10 +153,11 @@ key shapes are `order:<orderID>:fulfill`, `order:<orderID>:addon`, `gift:<giftID
 `reconcile:<entitlementID>:<15-minute bucket>`, `panel:<subscriptionID>:<operation>:<requestID>`, and
 `bulk:<operationID>:<position>`.
 
-There are exactly two job kinds — `fulfillment` and `goods_delivery` — both on the `critical` queue with
-`MaxAttempts: 12` and uniqueness by job arguments. The three configured queues are `critical` (16
-workers), `default` (32), and `bulk` (8). Both workers are registered only in the worker process; the API
-creates a River client for inserting.
+Two job kinds carry per-record work — `fulfillment` and `goods_delivery` — both on the `critical` queue
+with `MaxAttempts: 12` and uniqueness by job arguments; a third, `periodic_task`, carries the
+[periodic passes](#periodic-passes-and-in-process-loops) on `default`. The three configured queues are
+`critical` (16 workers), `default` (8), and `bulk` (4). Workers are registered only in the worker process;
+the API and the bot create insert-only River clients.
 
 <Note>
   River's own tables — `river_job`, `river_leader`, `river_queue`, `river_notification`, `river_migration` —
@@ -179,26 +180,27 @@ than a delivery mechanism: `GET /v1/admin/outbox` reports a `pendingCount` that 
 `GET /v1/panel/system/outbox` shows topic and age only — never the payload, which can name a customer and
 an amount.
 
-## Loops that are deliberately not jobs
+## Periodic passes and in-process loops
 
-Fourteen ticker-driven loops run as goroutines inside the three processes: order and cart maintenance,
-payment reconciliation, maintenance probing, the telemetry heartbeat, reconciliation and delivery
-scheduling, renewals, the lifecycle sweeper, campaign expansion, the bulk runner, retention, backups,
-channel membership, and the operator notification drain.
+Every whole-table pass that changes state — order, wallet and cart maintenance, payment reconciliation,
+renewals, reconciliation and delivery scheduling, the lifecycle sweep, anomaly evaluation, campaign
+expansion, bulk actions, retention, and backups — is a River periodic job of kind `periodic_task` on the
+worker. Only River's elected leader enqueues them, and each stays unique while it is queued or running, so a
+pass runs once per interval across the installation however many workers are up. A pass gets one attempt: a
+failure is recorded and the next interval runs a fresh pass over the same rows.
 
-They are not River jobs because each is a whole-table pass that is safe to repeat and carries no
-per-record argument, so a durable queue would add a row and a retry policy to something a ticker already
-expresses. Two properties recur: a failing pass never stops the others, and every pass is idempotent, so a
-sweep that runs twice reaches the same state as one that ran once. Only the maintenance, retention, and
-backup intervals are configurable; the rest are compiled in. The inventory is in
-[Jobs and queues](/operations/jobs-and-queues).
+A few loops stay plain in-process tickers because they touch only their own process or are harmless to
+repeat: the API's maintenance controller, telemetry heartbeat and collector retention, and the bot's
+channel-membership check and notification drains. Only the maintenance, retention, and backup intervals are
+configurable; the rest are compiled in. The inventory is in
+[Jobs and queues](/operations/jobs-and-queues#periodic-passes-and-in-process-loops).
 
 ## Supported topology
 
-Run one instance of each process. River coordinates its own queues through leader election, but every
-ticker loop listed above is a plain in-process timer with no advisory lock or lease. Two workers means two
-of every sweep, two APIs means two maintenance controllers and two payment reconcilers, and two bots means
-two notification drains.
+Run any number of `api` replicas behind the proxy and any number of `worker` replicas, and exactly one
+`bot`: Telegram delivers updates to one consumer. Each worker replica needs the shared backup and attachment
+directories, and every replica's database pool counts against PostgreSQL's `max_connections`. See
+[Deployment](/operations/deployment#supported-topology).
 
 The compose stack declares no `restart:` policy on `postgres`, `valkey`, `api`, `bot`, `worker`, or `web`;
 only the Traefik overlay sets one. A crashed process stays down until somebody notices, which is what the

@@ -193,7 +193,7 @@ being unread in Telegram.
     Blocking new purchases and holding provisioning without disturbing money already taken.
   </Card>
   <Card title="Jobs and queues" icon="layer-group" href="/operations/jobs-and-queues">
-    The durable queue, the two job kinds, dead letters, retries, ticker loops, and retention sweeps.
+    The durable queue, the job kinds, dead letters, retries, periodic passes, and retention sweeps.
   </Card>
   <Card title="Operator notifications" icon="bell-concierge" href="/operations/operator-notifications">
     The Telegram group, one forum topic per event kind, and why every notice is content-free.
@@ -289,10 +289,11 @@ being unread in Telegram.
   providers, enabling features one at a time, setting budgets, allowlisting tools — is stored and
   not yet consumed: no feature makes a call, and no process constructs an MCP client. See
   [AI providers](/operations/ai-providers) and [AI governance](/operations/ai-governance).
-- **It does not coordinate replicas.** Every scheduled loop — maintenance detection, the payment
-  reconciler, sweeps, renewals, campaigns, retention, backups — is an in-process ticker with no
-  leader election, so the supported topology is one instance of each role. See
-  [Deployment](/operations/deployment).
+- **It does not run more than one bot.** Telegram delivers updates to one consumer, so the `bot`
+  runs as exactly one instance. The `api` and the `worker` take any number of replicas: the
+  periodic passes — order and payment maintenance, sweeps, renewals, campaigns, retention, backups —
+  are River jobs that run once per interval across the installation. See
+  [Deployment](/operations/deployment#supported-topology).
 
 <Warning>
 Omniflow is under active development. Pin a tagged release rather than a floating image tag, read

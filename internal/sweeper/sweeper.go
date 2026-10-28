@@ -99,11 +99,32 @@ func (sweeper *Sweeper) Run(ctx context.Context) {
 // Errors are logged and swallowed on purpose: this is a background pass with
 // no caller to report to, and one failing source must not stop the rest.
 func (sweeper *Sweeper) Sweep(ctx context.Context) {
+	sweeper.SweepLifecycle(ctx)
+	sweeper.evaluateAnomalies(ctx)
+}
+
+// SweepLifecycle expires gifts and personal offers and refreshes blocklist
+// sources: everything in Sweep except anomaly evaluation, which the worker
+// schedules on its own interval instead of throttling it in memory.
+func (sweeper *Sweeper) SweepLifecycle(ctx context.Context) {
 	sweeper.expireGifts(ctx)
 	sweeper.expireOffers(ctx)
 	sweeper.refreshBlocklists(ctx)
-	sweeper.evaluateAnomalies(ctx)
 }
+
+// EvaluateAnomalies runs the anomaly rules now, without the in-memory throttle
+// Sweep applies. The worker calls it from a cluster-wide periodic job whose
+// interval is the throttle, which stays correct however many replicas run;
+// a per-process timestamp would let each replica evaluate on its own clock.
+func (sweeper *Sweeper) EvaluateAnomalies(ctx context.Context) {
+	sweeper.runAnomalyRules(ctx)
+}
+
+// AnomalyInterval is how often anomaly rules are meant to be evaluated.
+func (sweeper *Sweeper) AnomalyInterval() time.Duration { return sweeper.config.AnomalyInterval }
+
+// Interval is how often the lifecycle sweep is meant to run.
+func (sweeper *Sweeper) Interval() time.Duration { return sweeper.config.Interval }
 
 // expireGifts closes gifts whose claim window has passed.
 //
@@ -228,7 +249,14 @@ func (sweeper *Sweeper) evaluateAnomalies(ctx context.Context) {
 		return
 	}
 	sweeper.lastAnomalyRun = now
+	sweeper.runAnomalyRules(ctx)
+}
 
+// runAnomalyRules evaluates the rules once, unthrottled.
+func (sweeper *Sweeper) runAnomalyRules(ctx context.Context) {
+	if sweeper.operations == nil {
+		return
+	}
 	signals, err := sweeper.operations.EvaluateAnomalies(ctx)
 	if err != nil {
 		sweeper.logger.Warn("anomaly evaluation failed", "error", err)

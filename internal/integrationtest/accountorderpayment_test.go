@@ -12,7 +12,6 @@ import (
 
 	"github.com/omniflow/omniflow/internal/accountcheckout"
 	"github.com/omniflow/omniflow/internal/commerce"
-	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/payments"
 	"github.com/omniflow/omniflow/internal/paymentservice"
 )
@@ -63,7 +62,7 @@ func (provider *hostedStubProvider) VerifyWebhook(http.Header, []byte) (payments
 func TestStartingAnOrderPaymentGuardsStateCurrencyAndRecordedMethod(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	rub := &hostedStubProvider{name: "yookassa", currency: "RUB"}
 	usd := &hostedStubProvider{name: "cryptobot", currency: "USD"}
 	paymentService := paymentservice.New(harness.pool, store, rub, usd)

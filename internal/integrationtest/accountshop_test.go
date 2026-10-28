@@ -12,9 +12,9 @@ import (
 
 	"github.com/omniflow/omniflow/internal/accountpg"
 	"github.com/omniflow/omniflow/internal/accountshop"
-	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/goods"
 	"github.com/omniflow/omniflow/internal/goodsdelivery"
+	"github.com/omniflow/omniflow/internal/paymentservice"
 	"github.com/riverqueue/river"
 )
 
@@ -90,9 +90,11 @@ func (registry stubRegistry) Provider(context.Context, string) (goods.Provider, 
 	return registry.provider, nil
 }
 
-func testShop(harness *harness, provider goods.Provider) *accountshop.Service {
+func testShop(t *testing.T, harness *harness, provider goods.Provider) *accountshop.Service {
+	t.Helper()
+	store := harness.commerceStore(t, testOptions())
 	service, err := accountshop.New(
-		harness.pool, commercepg.New(harness.pool, nil, testOptions()), nil,
+		harness.pool, store, paymentservice.New(harness.pool, store),
 		stubRegistry{provider: provider},
 		accountshop.Options{
 			Settings: accountshop.Settings{Currency: "RUB"},
@@ -195,7 +197,7 @@ func TestAnInstallationWithNothingToSellIsNotAShop(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
 	provider := &stubProvider{outcome: goods.Delivery{Status: "delivered"}}
-	shop := testShop(harness, provider)
+	shop := testShop(t, harness, provider)
 
 	if _, err := shop.Products(ctx, "en"); !errors.Is(err, accountshop.ErrUnavailable) {
 		t.Fatalf("an empty catalogue answered %v, expected the shop to be unavailable", err)
@@ -235,7 +237,7 @@ func TestAnExpiredQuoteCannotBeCharged(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
 	provider := &stubProvider{costMinor: 20_000, outcome: goods.Delivery{Status: "delivered"}}
-	shop := testShop(harness, provider)
+	shop := testShop(t, harness, provider)
 	customerID := harness.customer(ctx, t)
 	productID := harness.quotedProduct(ctx, t)
 
@@ -299,7 +301,7 @@ func TestAPaidOrderIsDeliveredExactlyOnce(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
 	provider := &stubProvider{outcome: goods.Delivery{Status: "delivered", Reference: "gw-1"}}
-	shop := testShop(harness, provider)
+	shop := testShop(t, harness, provider)
 	customerID := harness.customer(ctx, t)
 	productID := harness.goodsProduct(ctx, t)
 	harness.creditWallet(ctx, t, customerID, "seed-once", 100_000)
@@ -344,7 +346,7 @@ func TestAnAmbiguousDeliveryParksInsteadOfRetrying(t *testing.T) {
 	provider := &stubProvider{outcome: goods.Delivery{
 		Status: "failed", FailureClass: goods.FailureAmbiguous, ErrorCode: "timeout",
 	}}
-	shop := testShop(harness, provider)
+	shop := testShop(t, harness, provider)
 	customerID := harness.customer(ctx, t)
 	productID := harness.goodsProduct(ctx, t)
 	harness.creditWallet(ctx, t, customerID, "seed-parked", 100_000)
@@ -407,7 +409,7 @@ func TestAPermanentFailureRefundsToTheWallet(t *testing.T) {
 	provider := &stubProvider{outcome: goods.Delivery{
 		Status: "failed", FailureClass: goods.FailureRecipientInvalid, ErrorCode: "no_such_user",
 	}}
-	shop := testShop(harness, provider)
+	shop := testShop(t, harness, provider)
 	customerID := harness.customer(ctx, t)
 	productID := harness.goodsProduct(ctx, t)
 	harness.creditWallet(ctx, t, customerID, "seed-refund", 100_000)
@@ -443,7 +445,7 @@ func TestShopHistoryIsScopedToItsOwner(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
 	provider := &stubProvider{outcome: goods.Delivery{Status: "delivered"}}
-	shop := testShop(harness, provider)
+	shop := testShop(t, harness, provider)
 	productID := harness.goodsProduct(ctx, t)
 
 	owner := harness.customer(ctx, t)
@@ -485,7 +487,7 @@ func TestShopHistoryPagesByCursor(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
 	provider := &stubProvider{outcome: goods.Delivery{Status: "delivered"}}
-	shop := testShop(harness, provider)
+	shop := testShop(t, harness, provider)
 	customerID := harness.customer(ctx, t)
 	productID := harness.goodsProduct(ctx, t)
 

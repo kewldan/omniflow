@@ -16,7 +16,7 @@ import (
 func TestATopUpNeitherQualifiesNorBlocksAReferral(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	if _, err := harness.pool.Exec(ctx, `INSERT INTO referral_programs
 		(singleton, enabled, currency, inviter_reward_minor, invitee_reward_minor, terms_url)
 		VALUES (true, true, 'RUB', 20000, 10000, 'https://example.test/referrals')`); err != nil {

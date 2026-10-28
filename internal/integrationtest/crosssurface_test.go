@@ -34,7 +34,9 @@ import (
 	"github.com/omniflow/omniflow/internal/botapp"
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/commercepg"
+	"github.com/omniflow/omniflow/internal/config"
 	"github.com/omniflow/omniflow/internal/panelpg"
+	"github.com/omniflow/omniflow/internal/paymentservice"
 )
 
 // crossSurfaceOptions widens the concurrent-subscription allowance.
@@ -43,33 +45,35 @@ import (
 // right bound for the policy test that owns it but would make a three-order
 // history impossible here: every unnamed purchase opens a new subscription, so
 // the third order would be refused by a rule these tests are not about.
-func crossSurfaceOptions() commercepg.Options {
+func crossSurfaceOptions() config.CommerceConfig {
 	options := testOptions()
-	options.Subscriptions = commerce.SubscriptionPolicy{MultiEnabled: true, MaxPerCustomer: 5}
+	options.Subscriptions = config.SubscriptionConfig{MultiEnabled: true, MaxPerCustomer: 5}
 	return options
 }
 
-// crossSurfaceBot wires the Telegram surface against the migrated database.
-//
-// It is built from the connection URL rather than the harness pool because that
-// is the only constructor botapp exposes, and using it means these tests reach
-// the bot through exactly the wiring cmd/bot does. The payment service is nil
-// for the same reason it is nil on the web side: what an order costs and which
-// order it becomes are settled before any provider is asked for money.
+// crossSurfaceBot wires the Telegram surface against the migrated database the
+// way cmd/bot does: the identity store over the process's one pool, and the
+// commerce surface over the order store the caller built through the shared
+// commerce core. The payment service has no adapters for the same reason the
+// web side's has none here: what an order costs and which order it becomes are
+// settled before any provider is asked for money.
 func crossSurfaceBot(
-	ctx context.Context, t *testing.T, harness *harness, orders *commercepg.Store,
+	_ context.Context, t *testing.T, harness *harness, orders *commercepg.Store,
 ) (*botapp.PostgresStore, *botapp.Commerce) {
 	t.Helper()
-	store, err := botapp.NewPostgresStore(ctx, harness.url)
+	store, err := botapp.NewPostgresStoreWithPool(harness.pool)
 	if err != nil {
 		t.Fatalf("build bot store: %v", err)
 	}
-	t.Cleanup(store.Close)
-	surface := botapp.NewCommerce(slog.New(slog.DiscardHandler), store, orders, nil,
+	surface, err := botapp.NewCommerce(slog.New(slog.DiscardHandler), store, orders,
+		paymentservice.New(harness.pool, orders),
 		botapp.CommerceSettings{
 			Currency: "RUB", PublicURL: "https://example.test",
 			TermsURL: "https://example.test/terms", MultiSubscription: true,
 		})
+	if err != nil {
+		t.Fatalf("build bot commerce: %v", err)
+	}
 	return store, surface
 }
 
@@ -189,7 +193,7 @@ func crossSurfaceOrderOf(order accountcheckout.OrderSummary) crossSurfaceOrderFa
 func TestCrossSurfaceCheckoutProducesTheSameQuoteAndOrder(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
-	orders := commercepg.New(harness.pool, nil, crossSurfaceOptions())
+	orders := harness.commerceStore(t, crossSurfaceOptions())
 	web := newAccountCheckout(t, harness, orders)
 	botStore, botCommerce := crossSurfaceBot(ctx, t, harness, orders)
 
@@ -322,7 +326,7 @@ func TestCrossSurfaceCheckoutProducesTheSameQuoteAndOrder(t *testing.T) {
 func TestCrossSurfaceCheckoutSessionIsShared(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
-	orders := commercepg.New(harness.pool, nil, crossSurfaceOptions())
+	orders := harness.commerceStore(t, crossSurfaceOptions())
 	web := newAccountCheckout(t, harness, orders)
 	botStore, botCommerce := crossSurfaceBot(ctx, t, harness, orders)
 
@@ -395,7 +399,7 @@ func TestCrossSurfaceCheckoutSessionIsShared(t *testing.T) {
 func TestCrossSurfacePromoRefusalsCarryTheSameReason(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
-	orders := commercepg.New(harness.pool, nil, crossSurfaceOptions())
+	orders := harness.commerceStore(t, crossSurfaceOptions())
 	web := newAccountCheckout(t, harness, orders)
 	botStore, botCommerce := crossSurfaceBot(ctx, t, harness, orders)
 
@@ -493,7 +497,7 @@ func TestCrossSurfacePromoRefusalsCarryTheSameReason(t *testing.T) {
 func TestCrossSurfaceOrderHistoryAgrees(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
-	orders := commercepg.New(harness.pool, nil, crossSurfaceOptions())
+	orders := harness.commerceStore(t, crossSurfaceOptions())
 	web := newAccountCheckout(t, harness, orders)
 	botStore, botCommerce := crossSurfaceBot(ctx, t, harness, orders)
 
@@ -621,7 +625,7 @@ func TestCrossSurfaceSupportReadStateAgrees(t *testing.T) {
 	support := newAccountSupport(t, harness)
 	operations := newOperations(t, harness)
 	actor := harness.operator(ctx, t, "cross-surface-desk@example.test")
-	botStore, _ := crossSurfaceBot(ctx, t, harness, commercepg.New(harness.pool, nil, crossSurfaceOptions()))
+	botStore, _ := crossSurfaceBot(ctx, t, harness, harness.commerceStore(t, crossSurfaceOptions()))
 
 	customerID := harness.customer(ctx, t)
 	crossSurfaceLinkTelegram(ctx, t, harness, customerID, "770001")
@@ -772,7 +776,7 @@ func TestCrossSurfaceReferralCountsAgreeAfterAReversal(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
 	referrals := referralService(t, harness)
-	botStore, _ := crossSurfaceBot(ctx, t, harness, commercepg.New(harness.pool, nil, crossSurfaceOptions()))
+	botStore, _ := crossSurfaceBot(ctx, t, harness, harness.commerceStore(t, crossSurfaceOptions()))
 
 	// A programme with a cap, because the remaining-slots computation is the part
 	// of the summary that is derived rather than counted.
@@ -905,7 +909,7 @@ func TestCrossSurfaceWithdrawnNewsDisappearsFromBoth(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
 	support := newAccountSupport(t, harness)
-	botStore, _ := crossSurfaceBot(ctx, t, harness, commercepg.New(harness.pool, nil, crossSurfaceOptions()))
+	botStore, _ := crossSurfaceBot(ctx, t, harness, harness.commerceStore(t, crossSurfaceOptions()))
 
 	customerID := harness.customer(ctx, t)
 	live := harness.newsPost(ctx, t, "cross-live-notes", "published")

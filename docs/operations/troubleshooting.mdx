@@ -67,8 +67,8 @@ The webhook has not arrived, or it was rejected.
    this installation does not have. Usually a webhook from a different environment
    pointed at this one.
 4. If no webhook arrived at all, `POST /v1/admin/payments/{paymentID}/reconcile` polls the
-   provider directly. The API also re-polls up to 100 in-flight intents every minute on
-   its own.
+   provider directly. The worker's `payment_reconcile` pass also re-polls up to 100
+   in-flight intents every minute on its own.
 
 Both paths are idempotent. A webhook arriving after a manual reconciliation is a no-op.
 
@@ -80,7 +80,7 @@ Both paths are idempotent. A webhook arriving after a manual reconciliation is a
 
 ## Provider credentials look right in the panel and payments still fail
 
-The payment adapters the API and worker call are built from environment variables at
+The payment adapters the API, the bot and the worker call are built from environment variables at
 start-up — `APP_TELEGRAM_TOKEN`, `APP_CRYPTOBOT_TOKEN`, `APP_YOOKASSA_SHOP_ID`,
 `APP_YOOKASSA_SECRET`. The credentials stored on the panel's provider cards are not what
 the running process uses. Change the variable and restart. See
@@ -101,7 +101,7 @@ is recorded as a compensating ledger entry rather than a rewrite.
 
 ## A customer is refused a top-up they think is within the limits
 
-Top-up limits come from `APP_WALLET_TOPUP_*` on the API and bot, not from the top-up card
+Top-up limits come from `APP_WALLET_TOPUP_*` on the API, bot and worker, not from the top-up card
 in the panel. Saving new figures on that card changes what the card shows and not what
 the store enforces. Check the environment values and the rolling-window sum: the refusal
 is usually `APP_WALLET_TOPUP_WINDOW_LIMIT_MINOR` over `APP_WALLET_TOPUP_WINDOW_HOURS`
@@ -109,7 +109,10 @@ rather than the single-transaction ceiling.
 
 ## A saved cart is not buying itself
 
-Check `carts.last_failure`:
+A settled top-up tries the cart straight away; every other credit — a referral reward,
+an operator correction — releases it through the worker's `commerce_maintenance` pass,
+once a minute. Without a running worker those carts wait, and a failing pass is logged as
+`periodic task failed` with the task name. Otherwise, check `carts.last_failure`:
 
 | Value | Meaning |
 | --- | --- |
@@ -284,14 +287,19 @@ retention. Two failure shapes follow:
 Attachments in Telegram-only installations are references to files Telegram holds and are
 unaffected.
 
-## Everything happens twice
+## Running more than one replica
 
-Every scheduled loop — maintenance detection, payment reconciliation, the order and cart
-sweep, renewals, retention, campaigns, bulk actions, channel re-checks, scheduled backups,
-operator notification dispatch — is an in-process ticker with no leader election. Running
-two APIs runs the maintenance controller and the reconciler twice; two workers run every
-sweep twice; two bots dispatch operator notifications twice. Run one instance of each
-role. The durable job queue is the exception: it elects a leader of its own.
+Any number of `api` and `worker` replicas is supported: the periodic passes — order and
+cart maintenance, payment reconciliation, renewals, sweeps, campaigns, retention,
+backups — are enqueued by River's elected leader and run once per interval however many
+workers are up. The `bot` is the exception: Telegram delivers updates to one consumer, and
+long polling refuses a second `getUpdates`. Run exactly one bot.
+
+More replicas also means more database connections. Each one opens a pool of
+`APP_DATABASE_MAX_CONNS` (api 20, bot 10, worker 40 by default), and the sum must stay
+below PostgreSQL's `max_connections`. A worker given fewer than 32 refuses to start and
+says how many it needs. See
+[Deployment](/operations/deployment#database-connections).
 
 ## A process is down and nothing brought it back
 

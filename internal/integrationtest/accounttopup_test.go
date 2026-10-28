@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/omniflow/omniflow/internal/accountcheckout"
-	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/payments"
 	"github.com/omniflow/omniflow/internal/paymentservice"
 )
@@ -35,7 +34,7 @@ func (provider *refusingProvider) Create(ctx context.Context, request payments.C
 func TestARefusedTopUpKeepsItsOrderAndCanBeRetried(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	provider := &refusingProvider{hostedStubProvider: hostedStubProvider{name: "yookassa", currency: "RUB"}, refuse: true}
 	paymentService := paymentservice.New(harness.pool, store, provider)
 	service, err := accountcheckout.New(harness.pool, store, paymentService, accountcheckout.Options{
@@ -116,7 +115,7 @@ func TestARefusedTopUpKeepsItsOrderAndCanBeRetried(t *testing.T) {
 func TestATopUpWithAnUnsuitableMethodCreatesNothing(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	usd := &hostedStubProvider{name: "cryptobot", currency: "USD"}
 	service, err := accountcheckout.New(harness.pool, store, paymentservice.New(harness.pool, store, usd), accountcheckout.Options{
 		Logger:   slog.New(slog.DiscardHandler),

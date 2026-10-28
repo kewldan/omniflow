@@ -660,10 +660,7 @@ func (store *Store) applyOrderAddons(ctx context.Context, tx pgx.Tx, queries *db
 	if _, err = queries.SetOrderState(ctx, dbgen.SetOrderStateParams{ID: order.ID, State: string(commerce.OrderFulfilled)}); err != nil {
 		return err
 	}
-	if store.enqueue != nil {
-		return store.enqueue(ctx, tx, uuidString(operation.ID))
-	}
-	return nil
+	return store.enqueue(ctx, tx, uuidString(operation.ID))
 }
 
 // recordAddonOrphan records that a paid add-on had nothing to attach to. The

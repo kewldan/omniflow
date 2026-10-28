@@ -135,9 +135,9 @@ and never touches a goods order, so a closed order is never reopened and a stale
 paid. Choosing a card provider after a manual one leaves the longer window in place.
 
 <Warning>
-  The expiry sweep, wallet-credit expiry and the saved-cart sweep all run in one loop that only the
-  API process starts. An installation deployed as bot plus worker with no API process never expires
-  a pending order, never expires wallet credit and never sweeps carts.
+  The expiry sweep, wallet-credit expiry and the saved-cart sweep all run in one periodic pass,
+  `commerce_maintenance`, on the worker. An installation running without a worker never expires a
+  pending order, never expires wallet credit and never sweeps carts.
 </Warning>
 
 ## What the customer sees: the payment phase
@@ -586,7 +586,7 @@ can run beside a webhook without double-crediting.
 
 | Entry point | Who triggers it |
 | --- | --- |
-| The background reconciler | the API process, every minute, up to 100 intents |
+| The background reconciler | the worker's `payment_reconcile` pass, every minute, up to 100 intents |
 | `POST /v1/account/orders/{orderID}/refresh` | the customer, and the Telegram order screen on open |
 | `POST /v1/admin/payments/{paymentID}/reconcile` | an operator, bearer token |
 

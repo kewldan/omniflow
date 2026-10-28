@@ -12,18 +12,19 @@ import (
 	"github.com/omniflow/omniflow/internal/accountcheckout"
 	"github.com/omniflow/omniflow/internal/accountpg"
 	"github.com/omniflow/omniflow/internal/commercepg"
+	"github.com/omniflow/omniflow/internal/paymentservice"
 )
 
 // newAccountCheckout wires the shared customer checkout against the migrated
 // database.
 //
-// The payment service is deliberately nil. Everything these tests are about —
+// The payment service deliberately has no adapters. Everything these tests are about —
 // what an order costs, which one it becomes, and whose it is — is settled before
 // a provider is ever asked for money, and a checkout that needed a live adapter
 // to answer those questions would be answering them in the wrong place.
 func newAccountCheckout(t *testing.T, harness *harness, store *commercepg.Store) *accountcheckout.Service {
 	t.Helper()
-	service, err := accountcheckout.New(harness.pool, store, nil, accountcheckout.Options{
+	service, err := accountcheckout.New(harness.pool, store, paymentservice.New(harness.pool, store), accountcheckout.Options{
 		Logger: slog.New(slog.DiscardHandler),
 		Settings: accountcheckout.Settings{
 			Currency: "RUB", PublicURL: "https://example.test", TermsURL: "https://example.test/terms",
@@ -119,7 +120,7 @@ func openSession(
 func TestConfirmingACheckoutTwiceProducesOneOrder(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	service := newAccountCheckout(t, harness, store)
 	customerID := harness.customer(ctx, t)
 	planVersionID := harness.catalog(ctx, t, "duplicate-plan", 34900)
@@ -157,7 +158,7 @@ func TestConfirmingACheckoutTwiceProducesOneOrder(t *testing.T) {
 func TestEveryPromoRefusalCarriesItsOwnReason(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	service := newAccountCheckout(t, harness, store)
 	customerID := harness.customer(ctx, t)
 	planVersionID := harness.catalog(ctx, t, "promo-plan", 34900)
@@ -223,7 +224,7 @@ func TestEveryPromoRefusalCarriesItsOwnReason(t *testing.T) {
 func TestWalletApplicationIsBrokenDownExactly(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	service := newAccountCheckout(t, harness, store)
 	customerID := harness.customer(ctx, t)
 	planVersionID := harness.catalog(ctx, t, "wallet-plan", 34900)
@@ -280,7 +281,7 @@ func TestWalletApplicationIsBrokenDownExactly(t *testing.T) {
 func TestALifecycleFlowMustNameItsSubscription(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	service := newAccountCheckout(t, harness, store)
 	customerID := harness.customer(ctx, t)
 	strangerID := harness.customer(ctx, t)
@@ -362,7 +363,7 @@ func TestALifecycleFlowMustNameItsSubscription(t *testing.T) {
 func TestOrderHistoryIsScopedToItsOwner(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	service := newAccountCheckout(t, harness, store)
 	planVersionID := harness.catalog(ctx, t, "history-plan", 34900)
 	ownerID := harness.customer(ctx, t)

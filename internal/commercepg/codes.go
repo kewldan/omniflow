@@ -171,10 +171,8 @@ func (store *Store) RedeemAccessCode(
 	// only if the redemption commits. A code marked used with nothing
 	// provisioned would be the worst outcome available here: the customer has
 	// spent a code and has nothing.
-	if store.enqueue != nil {
-		if err = store.enqueue(ctx, tx, uuidString(operationRow.ID)); err != nil {
-			return RedeemedCode{}, err
-		}
+	if err = store.enqueue(ctx, tx, uuidString(operationRow.ID)); err != nil {
+		return RedeemedCode{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return RedeemedCode{}, err

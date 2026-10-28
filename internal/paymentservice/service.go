@@ -59,27 +59,24 @@ func (service *Service) observePayment(provider, operation, classification strin
 	service.metrics.Payments.WithLabelValues(provider, operation, classification).Inc()
 }
 
-func (service *Service) RunReconciler(ctx context.Context) {
-	ticker := time.NewTicker(time.Minute)
-	defer ticker.Stop()
-	for {
-		service.reconcileBatch(ctx)
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-		}
-	}
-}
-
-func (service *Service) reconcileBatch(ctx context.Context) {
+// ReconcilePass re-polls one batch of in-flight payment intents.
+//
+// The worker runs it as a cluster-wide periodic job (see internal/jobs), so the
+// providers are asked once per interval rather than once per api replica. One
+// intent that fails to reconcile does not stop the rest; only a failure to
+// list the batch is reported.
+func (service *Service) ReconcilePass(ctx context.Context) error {
 	rows, err := dbgen.New(service.pool).ListPaymentIntentsForReconciliation(ctx, 100)
 	if err != nil {
-		return
+		return err
 	}
 	for _, row := range rows {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		_, _ = service.Reconcile(ctx, uuidString(row.ID))
 	}
+	return nil
 }
 
 type CreateIntentInput struct {

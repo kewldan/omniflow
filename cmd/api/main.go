@@ -11,7 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omniflow/omniflow/internal/accountcheckout"
 	"github.com/omniflow/omniflow/internal/accountpg"
@@ -19,6 +18,7 @@ import (
 	"github.com/omniflow/omniflow/internal/accountshop"
 	"github.com/omniflow/omniflow/internal/accountsupport"
 	"github.com/omniflow/omniflow/internal/adminauthpg"
+	"github.com/omniflow/omniflow/internal/app"
 	"github.com/omniflow/omniflow/internal/catalogpg"
 	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/config"
@@ -134,7 +134,7 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 	if cfg.OperatorToken == "" || len(cfg.DataEncryptionKey) != 32 || cfg.RemnawaveURL == "" || cfg.RemnawaveToken == "" || cfg.ValkeyURL == "" {
 		return runtimeServices{}, nil, errors.New("commerce requires APP_OPERATOR_TOKEN, APP_DATA_ENCRYPTION_KEY, APP_REMNAWAVE_URL, APP_REMNAWAVE_TOKEN, and APP_VALKEY_URL")
 	}
-	pool, err := platform.TracedPool(ctx, cfg.DatabaseURL)
+	pool, err := app.OpenPool(ctx, cfg.DatabaseURL, cfg.DatabaseMaxConns)
 	if err != nil {
 		return runtimeServices{}, nil, err
 	}
@@ -143,48 +143,34 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 		pool.Close()
 		return runtimeServices{}, nil, err
 	}
-	riverClient, err := jobs.NewClient(pool)
+	closeAll := func() { valkeyClient.Close(); pool.Close() }
+	// The api only inserts jobs, in the same transaction as the settlement that
+	// requires them; the worker runs them. Commerce maintenance and payment
+	// reconciliation used to run here as tickers, once per api replica; they
+	// are cluster-wide periodic jobs in the worker now.
+	riverClient, err := jobs.NewInsertOnlyClient(pool)
 	if err != nil {
-		valkeyClient.Close()
-		pool.Close()
+		closeAll()
 		return runtimeServices{}, nil, err
 	}
-	enqueue := func(ctx context.Context, tx pgx.Tx, operationID string) error {
-		_, err := riverClient.InsertTx(ctx, tx, fulfillment.JobArgs{OperationID: operationID}, fulfillment.InsertOpts())
-		return err
-	}
-	commerceStore := commercepg.New(pool, enqueue, commercepg.Options{
-		Subscriptions: cfg.Subscriptions.Policy(),
-		TopUp:         cfg.TopUp.Limits(),
-		Logger:        logger,
-	})
-	go commerceStore.RunMaintenance(ctx, logger)
-	providers, err := paymentservice.ConfigureProviders(pool, paymentservice.ProviderOptions{
-		TelegramToken:    cfg.TelegramToken,
-		CryptoBotToken:   cfg.CryptoBotToken,
-		CryptoBotTestnet: cfg.CryptoBotTestnet,
-		YooKassaShopID:   cfg.YooKassaShopID,
-		YooKassaSecret:   cfg.YooKassaSecret,
+	core, err := app.NewCommerceCore(cfg.Commerce(), pool, riverClient, app.CommerceOptions{
+		Logger: logger, Metrics: metrics,
 	})
 	if err != nil {
-		valkeyClient.Close()
-		pool.Close()
+		closeAll()
 		return runtimeServices{}, nil, err
 	}
+	commerceStore, providers, paymentService := core.Store, core.Providers, core.Payments
 	remnawaveClient, err := remnawave.NewClient(cfg.RemnawaveURL, cfg.RemnawaveToken)
 	if err != nil {
-		valkeyClient.Close()
-		pool.Close()
+		closeAll()
 		return runtimeServices{}, nil, err
 	}
 	customerService, err := customerpg.New(pool, cfg.DataEncryptionKey, 30*24*time.Hour)
 	if err != nil {
-		valkeyClient.Close()
-		pool.Close()
+		closeAll()
 		return runtimeServices{}, nil, err
 	}
-	paymentService := paymentservice.New(pool, commerceStore, providers...).WithMetrics(metrics)
-	go paymentService.RunReconciler(ctx)
 
 	// Readiness names every dependency a request can touch. The probes are
 	// cheap, cached, and never echo a connection string into the response.
@@ -202,18 +188,17 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 	})
 	go maintenanceController.Run(ctx)
 
-	handlers := apihttp.NewCommerceHandlers(dbgen.New(pool), catalogpg.New(pool), commerceStore, paymentService, customerService, importservice.New(pool, remnawaveClient), fulfillment.NewService(pool, riverClient), platform.NewRateLimiter(valkeyClient), cfg.OperatorToken)
+	handlers := apihttp.NewCommerceHandlers(dbgen.New(pool), catalogpg.New(pool), commerceStore, paymentService, customerService, importservice.New(pool, remnawaveClient), core.Fulfillment, platform.NewRateLimiter(valkeyClient), cfg.OperatorToken)
 	handlers.WithOperations(pool, riverClient, commerceStore)
 
 	services := runtimeServices{handlers: handlers}
 	if cfg.AdminPanel.Enabled {
 		adminHandlers, adminErr := buildAdminPanel(
 			ctx, logger, cfg, pool, platform.NewRateLimiter(valkeyClient), providers, health,
-			fulfillment.NewService(pool, riverClient), remnawaveClient,
+			core.Fulfillment, remnawaveClient,
 		)
 		if adminErr != nil {
-			valkeyClient.Close()
-			pool.Close()
+			closeAll()
 			return runtimeServices{}, nil, adminErr
 		}
 		services.admin = adminHandlers
@@ -224,8 +209,7 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 			commerceStore, paymentService,
 		)
 		if accountErr != nil {
-			valkeyClient.Close()
-			pool.Close()
+			closeAll()
 			return runtimeServices{}, nil, accountErr
 		}
 		services.account = accountHandlers
@@ -235,7 +219,7 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 			services.admin.WithCustomerAuth(identity)
 		}
 	}
-	return services, func() { valkeyClient.Close(); pool.Close() }, nil
+	return services, closeAll, nil
 }
 
 // buildAdminPanel wires the operator panel API.

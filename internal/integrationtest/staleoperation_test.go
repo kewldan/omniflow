@@ -55,7 +55,7 @@ func (p untouchableProvisioner) ResetUserTraffic(context.Context, int64) error {
 func TestAnOperationOnASupersededEntitlementIsCancelledUntouched(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	planVersionID := harness.catalog(ctx, t, "stale-plan", 0)
 

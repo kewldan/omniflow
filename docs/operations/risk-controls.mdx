@@ -121,17 +121,19 @@ somebody with the permission looks the subject up.
 ## When any of this runs
 
 Both surfaces are driven by `internal/sweeper` in the worker process, not by a
-request. Its passes are tickers rather than durable jobs because each is a
-whole-table sweep with no per-record argument, and each is idempotent, so a pass
-that runs twice reaches the same state as one that ran once.
+request. Its passes run as River periodic jobs — `lifecycle_sweep` and
+`anomaly_evaluation` — so each runs once per interval however many worker
+replicas are up, and each is idempotent, so a pass that runs twice reaches the
+same state as one that ran once. See
+[Jobs and queues](/operations/jobs-and-queues#periodic-passes-and-in-process-loops).
 
 | Pass | Cadence |
 | --- | --- |
-| Gift and personal-offer expiry | Every sweep, five minutes by default |
-| Blocklist refresh | Every sweep, but only for sources whose own interval has elapsed |
-| Anomaly evaluation | Throttled separately, fifteen minutes by default |
+| Gift and personal-offer expiry | Every `lifecycle_sweep`, five minutes |
+| Blocklist refresh | Every `lifecycle_sweep`, but only for sources whose own interval has elapsed |
+| Anomaly evaluation | Its own `anomaly_evaluation` pass, fifteen minutes |
 
-Anomaly evaluation is throttled on its own because it aggregates over the orders
+Anomaly evaluation runs on its own cadence because it aggregates over the orders
 table, and a persisting signal is deduplicated by window — running it more often
 produces no extra alerts, only extra work.
 

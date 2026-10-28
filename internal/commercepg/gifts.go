@@ -397,10 +397,8 @@ func (store *Store) grantGiftSubscription(
 	}
 	// The job is inserted in this transaction, so provisioning is queued if and
 	// only if the claim commits.
-	if store.enqueue != nil {
-		if err = store.enqueue(ctx, tx, uuidString(operationRow.ID)); err != nil {
-			return pgtype.UUID{}, err
-		}
+	if err = store.enqueue(ctx, tx, uuidString(operationRow.ID)); err != nil {
+		return pgtype.UUID{}, err
 	}
 	return entitlement.ID, nil
 }

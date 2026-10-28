@@ -89,8 +89,8 @@ Documenting the guards without documenting their edges would be misleading.
   that stays `pending`, and nothing automatic resolves it. See [When a payment does not
   settle](/commerce/orders-payments#when-a-payment-does-not-settle).
 - **Wallet-credit expiry converges rather than applying instantly.** A balance is the plain sum of
-  entries; expiry is a compensating entry written by a loop that only the API process runs. Until it
-  has run, an expired credit is still spendable.
+  entries; expiry is a compensating entry written by the worker's once-a-minute `commerce_maintenance`
+  pass. Until it has run, an expired credit is still spendable.
 - **The panel's refund and reconcile buttons record a decision.** They write
   `panel.refund.issued` and `panel.payment.reconciled` and do not move money or poll a provider. The
   refund that actually refunds is `POST /v1/admin/payments/{paymentID}/refunds`.

@@ -9,6 +9,7 @@ package integrationtest
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -16,6 +17,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/omniflow/omniflow/internal/app"
+	"github.com/omniflow/omniflow/internal/commercepg"
+	"github.com/omniflow/omniflow/internal/config"
+	"github.com/omniflow/omniflow/internal/jobs"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/riverqueue/river/rivermigrate"
 	"github.com/testcontainers/testcontainers-go"
@@ -168,4 +173,31 @@ func TestRiverSchemaShipsWithTheMigrations(t *testing.T) {
 	if !result.OK {
 		t.Fatalf("River schema is behind the linked River version: %v", result.Messages)
 	}
+}
+
+// commerce builds the commerce core the way the api, the bot, and the worker
+// do: through app.NewCommerceCore over an insert-only River client, so every
+// settlement a test performs inserts its fulfillment job in the paying
+// transaction. Building the store by hand with no enqueue hook is the exact
+// configuration in which the bot once settled orders and provisioned nothing;
+// the constructor now refuses it, and the harness offers no other way in.
+func (harness *harness) commerce(t *testing.T, cfg config.CommerceConfig) *app.CommerceCore {
+	t.Helper()
+	client, err := jobs.NewInsertOnlyClient(harness.pool)
+	if err != nil {
+		t.Fatalf("build River client: %v", err)
+	}
+	core, err := app.NewCommerceCore(cfg, harness.pool, client, app.CommerceOptions{
+		Logger: slog.New(slog.DiscardHandler),
+	})
+	if err != nil {
+		t.Fatalf("build commerce core: %v", err)
+	}
+	return core
+}
+
+// commerceStore is the order store of a production-wired commerce core.
+func (harness *harness) commerceStore(t *testing.T, cfg config.CommerceConfig) *commercepg.Store {
+	t.Helper()
+	return harness.commerce(t, cfg).Store
 }

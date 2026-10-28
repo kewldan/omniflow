@@ -9,22 +9,24 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/omniflow/omniflow/internal/app"
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/commercepg"
+	"github.com/omniflow/omniflow/internal/config"
 	databaseutil "github.com/omniflow/omniflow/internal/database"
 	"github.com/omniflow/omniflow/internal/retention"
 )
 
-func testOptions() commercepg.Options {
-	return commercepg.Options{
-		Subscriptions: commerce.SubscriptionPolicy{MultiEnabled: true, MaxPerCustomer: 2},
-		TopUp: commerce.TopUpLimits{
+// testOptions is the commerce configuration most tests run under: concurrent
+// subscriptions on, and a top-up policy small enough to exercise its limits.
+func testOptions() config.CommerceConfig {
+	return config.CommerceConfig{
+		Subscriptions: config.SubscriptionConfig{MultiEnabled: true, MaxPerCustomer: 2},
+		TopUp: config.TopUpConfig{
 			Enabled: true, MinimumMinor: 1000, MaximumMinor: 1000000,
 			WindowLimitMinor: 2000000, Window: 24 * time.Hour,
 		},
-		Logger: slog.New(slog.DiscardHandler),
 	}
 }
 
@@ -102,7 +104,7 @@ func (harness *harness) settle(ctx context.Context, t *testing.T, store *commerc
 func TestTopUpCreditsTheWalletExactlyOnce(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 
 	order, err := store.CreateTopUpOrder(ctx, commercepg.TopUpInput{
@@ -137,7 +139,7 @@ func TestTopUpCreditsTheWalletExactlyOnce(t *testing.T) {
 func TestTopUpOverpaymentIsResolvedInTheLedger(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 
 	order, err := store.CreateTopUpOrder(ctx, commercepg.TopUpInput{
@@ -164,7 +166,7 @@ func TestTopUpOverpaymentIsResolvedInTheLedger(t *testing.T) {
 func TestTopUpLimitsAreEnforcedByTheStore(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	_, err := store.CreateTopUpOrder(ctx, commercepg.TopUpInput{
 		CustomerID: customerID, Currency: "RUB", AmountMinor: 10, IdempotencyKey: "topup-small",
@@ -180,7 +182,7 @@ func TestTopUpLimitsAreEnforcedByTheStore(t *testing.T) {
 func TestCartIsPurchasedOnceTheBalanceCoversIt(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	planVersionID := harness.catalog(ctx, t, "cart-plan", 30000)
 
@@ -269,7 +271,7 @@ func (harness *harness) addon(ctx context.Context, t *testing.T, planVersionID, 
 func TestAddonsBoughtWithThePlanAreOneOrderAndOneEntitlement(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	planVersionID := harness.catalog(ctx, t, "bundle-plan", 0)
 	addonVersionID := harness.addon(ctx, t, planVersionID, "extra-traffic", 0, 53687091200, "remaining_period")
@@ -315,7 +317,7 @@ func TestAddonsBoughtWithThePlanAreOneOrderAndOneEntitlement(t *testing.T) {
 func TestMidPeriodAddonIsProratedAndAppliedOnce(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	planVersionID := harness.catalog(ctx, t, "midperiod-plan", 0)
 	addonVersionID := harness.addon(ctx, t, planVersionID, "midperiod-traffic", 30000, 10737418240, "remaining_period")
@@ -376,7 +378,7 @@ func TestMidPeriodAddonIsProratedAndAppliedOnce(t *testing.T) {
 func TestConcurrencyPolicyIsEnforcedAtOrderCreation(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	planVersionID := harness.catalog(ctx, t, "multi-plan", 0)
 
@@ -407,7 +409,7 @@ func TestConcurrencyPolicyIsEnforcedAtOrderCreation(t *testing.T) {
 func TestSettlementWritesTheOutboxAndOperatorNotice(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	planVersionID := harness.catalog(ctx, t, "outbox-plan", 25000)
 
@@ -441,7 +443,7 @@ func TestSettlementWritesTheOutboxAndOperatorNotice(t *testing.T) {
 func TestMaintenanceBlocksNewOrdersButNotSettlement(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	planVersionID := harness.catalog(ctx, t, "maintenance-plan", 25000)
 
@@ -520,18 +522,17 @@ func TestRetentionSweepRemovesOnlyDisposableRows(t *testing.T) {
 }
 
 // TestFulfillmentJobIsEnqueuedInTheSettlementTransaction proves the durable job
-// and the state change it serves commit together.
+// and the state change it serves commit together, through the wiring every
+// process runs: the shared commerce core over an insert-only River client.
+//
+// It reads the queue itself rather than counting calls to a stub hook. A stub
+// is what let two defects through: the store accepted no hook at all, and the
+// api's and the bot's River clients carried an empty worker bundle that made
+// River refuse every fulfillment insert as an unknown job kind.
 func TestFulfillmentJobIsEnqueuedInTheSettlementTransaction(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	enqueued := 0
-	store := commercepg.New(harness.pool, func(ctx context.Context, tx pgx.Tx, operationID string) error {
-		enqueued++
-		// Writing through the caller's transaction is what proves the job and
-		// the entitlement share one commit.
-		_, err := tx.Exec(ctx, `SELECT 1`)
-		return err
-	}, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	planVersionID := harness.catalog(ctx, t, "job-plan", 0)
 
@@ -545,15 +546,48 @@ func TestFulfillmentJobIsEnqueuedInTheSettlementTransaction(t *testing.T) {
 	if order.State != "paid" {
 		t.Fatalf("a zero-priced order settles immediately, got %q", order.State)
 	}
-	if enqueued != 1 {
-		t.Fatalf("expected exactly one fulfillment enqueue, got %d", enqueued)
+	var operationID string
+	if err := harness.pool.QueryRow(ctx,
+		`SELECT id::text FROM fulfillment_operations`).Scan(&operationID); err != nil {
+		t.Fatalf("read the one fulfillment operation: %v", err)
 	}
-	var operations int
-	if err := harness.pool.QueryRow(ctx, `SELECT count(*) FROM fulfillment_operations`).Scan(&operations); err != nil {
-		t.Fatalf("count operations: %v", err)
+	var jobs int
+	if err := harness.pool.QueryRow(ctx,
+		`SELECT count(*) FROM river_job
+		 WHERE kind = 'fulfillment' AND queue = 'critical' AND args->>'operationId' = $1`,
+		operationID).Scan(&jobs); err != nil {
+		t.Fatalf("count queued jobs: %v", err)
 	}
-	if operations != 1 {
-		t.Fatalf("expected one fulfillment operation, got %d", operations)
+	if jobs != 1 {
+		t.Fatalf("expected one queued fulfillment job for operation %s, got %d", operationID, jobs)
+	}
+
+	// A settlement that rolls back takes its job with it. A replayed order
+	// under the same idempotency key settles nothing new and queues nothing.
+	if _, err = store.CreateOrder(ctx, commercepg.CreateOrderInput{
+		CustomerID: customerID, PlanVersionID: planVersionID, Currency: "RUB",
+		Operation: "purchase", IdempotencyKey: "job-order",
+	}); err != nil {
+		t.Fatalf("replay order: %v", err)
+	}
+	if err := harness.pool.QueryRow(ctx, `SELECT count(*) FROM river_job`).Scan(&jobs); err != nil {
+		t.Fatalf("count queued jobs: %v", err)
+	}
+	if jobs != 1 {
+		t.Fatalf("a replayed order queued %d jobs in total, want 1", jobs)
+	}
+}
+
+// TestTheCommerceCoreRefusesToSettleWithoutAQueue pins the constructor
+// contract: a store that could settle an order without queueing its
+// provisioning cannot be built.
+func TestTheCommerceCoreRefusesToSettleWithoutAQueue(t *testing.T) {
+	harness := newHarness(t)
+	if _, err := commercepg.New(harness.pool, nil, commercepg.Options{}); err == nil {
+		t.Fatal("commercepg.New accepted a nil fulfillment hook")
+	}
+	if _, err := app.NewCommerceCore(testOptions(), harness.pool, nil, app.CommerceOptions{}); err == nil {
+		t.Fatal("app.NewCommerceCore accepted a nil River client")
 	}
 }
 

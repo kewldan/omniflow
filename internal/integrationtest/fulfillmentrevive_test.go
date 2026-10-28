@@ -30,7 +30,7 @@ func (inserter *recordingInserter) InsertTx(_ context.Context, _ pgx.Tx, args ri
 func TestReconciliationStopsThirtyDaysAfterTheEnd(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	planVersionID := harness.catalog(ctx, t, "horizon-plan", 0)
 
@@ -94,7 +94,7 @@ func TestAnOrphanedFulfillmentOperationIsRevived(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
 	// A nil enqueue is exactly the configuration that used to orphan operations.
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	planVersionID := harness.catalog(ctx, t, "orphan-plan", 0)
 

@@ -53,10 +53,14 @@ Restarting one process for a code change means shipping the same image version
 to all three, because they are one artifact. Deploying an API fix redeploys the
 bot.
 
-Horizontal scale is bounded by what one PostgreSQL instance serves. Several
-`api` replicas behind a proxy are fine and the sweeps are written to be
-idempotent under concurrent runs, but there is no sharding story and none is
-planned.
+Horizontal scale is bounded by what one PostgreSQL instance serves. Any number
+of `api` replicas behind a proxy and any number of `worker` replicas are
+supported: the whole-table passes are River periodic jobs that run once per
+interval across the installation, not once per process. The `bot` runs as
+exactly one instance, because Telegram delivers updates to one consumer. Every
+replica's database pool counts against PostgreSQL's `max_connections`. There is
+no sharding story and none is planned — see
+[Deployment](/operations/deployment#supported-topology).
 
 A contributor cannot enforce a module boundary with a network call, so the
 boundary is enforced by review and by import discipline. That is weaker than a

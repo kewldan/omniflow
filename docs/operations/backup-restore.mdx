@@ -66,7 +66,7 @@ APP_BACKUP_RETENTION_DAYS=14
 | --- | --- | --- |
 | `APP_BACKUP_ENABLED` | `false` | Turns scheduled backups on in the worker and the backup actions on in the bot. |
 | `APP_BACKUP_ENCRYPTION_KEY` | *(none)* | Base64 32 bytes. Required whenever backups are enabled; otherwise the process exits with `APP_BACKUP_ENCRYPTION_KEY is required when APP_BACKUP_ENABLED is true`. |
-| `APP_BACKUP_DIR` | `/var/lib/omniflow/backups` | Created with mode `0700`; files are written `0600`. |
+| `APP_BACKUP_DIR` | `/var/lib/omniflow/backups` | Created with mode `0700`; files are written `0600`. With several worker replicas it must be a shared volume: a scheduled backup lands on whichever replica runs the pass. |
 | `APP_BACKUP_INTERVAL_HOURS` | `24` | Scheduled interval. A zero or unparseable value falls back to 24 hours. |
 | `APP_BACKUP_RETENTION_DAYS` | `14` | Stamped onto each backup row as `retain_until`. |
 | `APP_PG_DUMP_PATH` | `pg_dump` | Override when the client tools are not on `PATH`. |

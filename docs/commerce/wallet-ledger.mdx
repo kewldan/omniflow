@@ -101,11 +101,11 @@ A ledger entry may carry `expires_at`. Only referral rewards set it, and only wh
 program configures `reward_expiry_days` — see [Referrals and
 loyalty](/commerce/referrals-loyalty).
 
-A loop inside the API process's maintenance ticker runs once a minute, takes up to 500 positive
+The worker's `commerce_maintenance` pass runs once a minute, takes up to 500 positive
 customer entries whose expiry has passed and which have no `expiration` transaction yet, and writes
 one compensating pair for each.
 
-Two decisions in that loop are deliberate:
+Two decisions in that pass are deliberate:
 
 - Expiry is a **compensating entry**, not a filter on the balance query. The balance stays a plain
   sum, and the expiry itself appears in the customer's history where they can see what happened to
@@ -115,11 +115,11 @@ Two decisions in that loop are deliberate:
   expiry.
 
 An entry whose clamped amount comes out at zero still gets its `expiration` transaction, with no
-entries under it, which is what stops the loop from re-examining it forever.
+entries under it, which is what stops the pass from re-examining it forever.
 
 <Note>
-  The maintenance loop is started only by the API process. An installation running just the bot and
-  the worker never expires wallet credit, and expired referral rewards stay spendable.
+  The pass runs only on the worker. An installation running without a worker never expires wallet
+  credit, and expired referral rewards stay spendable.
 </Note>
 
 ## What a customer sees

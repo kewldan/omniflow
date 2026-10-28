@@ -27,7 +27,7 @@ const burst = 24
 func TestWebhookBurstCreditsOnce(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 
 	order, err := store.CreateTopUpOrder(ctx, commercepg.TopUpInput{
@@ -82,7 +82,7 @@ func TestWebhookBurstCreditsOnce(t *testing.T) {
 func TestConcurrentCartPurchaseChargesOnce(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	planVersionID := harness.catalog(ctx, t, "burst-plan", 20000)
 
@@ -130,7 +130,7 @@ func TestConcurrentCartPurchaseChargesOnce(t *testing.T) {
 func TestConcurrentSubscriptionPurchasesRespectTheLimit(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	planVersionID := harness.catalog(ctx, t, "race-plan", 0)
 
@@ -155,7 +155,7 @@ func TestConcurrentSubscriptionPurchasesRespectTheLimit(t *testing.T) {
 		`SELECT count(*) FROM subscriptions WHERE user_id = $1::uuid AND status = 'active'`, customerID).Scan(&subscriptions); err != nil {
 		t.Fatalf("count subscriptions: %v", err)
 	}
-	if subscriptions > testOptions().Subscriptions.EffectiveMax() {
+	if subscriptions > testOptions().Subscriptions.Policy().EffectiveMax() {
 		t.Fatalf("the concurrency limit was breached: %d subscriptions", subscriptions)
 	}
 	// Every attempt beyond the limit must have been refused by something. Which
@@ -189,7 +189,7 @@ func TestConcurrentSubscriptionPurchasesRespectTheLimit(t *testing.T) {
 func TestReconciliationSweepIsIdempotentUnderLoad(t *testing.T) {
 	harness := newHarness(t)
 	ctx := context.Background()
-	store := commercepg.New(harness.pool, nil, testOptions())
+	store := harness.commerceStore(t, testOptions())
 	customerID := harness.customer(ctx, t)
 	planVersionID := harness.catalog(ctx, t, "sweep-plan", 15000)
 

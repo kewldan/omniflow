@@ -79,8 +79,9 @@ made the state change requiring it, which a broker in a separate system cannot o
 protocol or an outbox dispatcher. `AGENTS.md` makes it a rule and forbids introducing a broker without an
 accepted architecture decision.
 
-Three queues are configured — `critical` (16 workers), `default` (32), and `bulk` (8) — and two job kinds
-exist, `fulfillment` and `goods_delivery`, both `critical` with `MaxAttempts: 12`.
+Three queues are configured — `critical` (16 workers), `default` (8), and `bulk` (4). `fulfillment` and
+`goods_delivery` run on `critical` with `MaxAttempts: 12`; `periodic_task`, the whole-table passes, runs on
+`default` with one attempt.
 
 <Note>
   River's own tables ship with the Atlas migrations: `20260905110000_river_queue.sql` is River's own
@@ -89,9 +90,11 @@ exist, `fulfillment` and `goods_delivery`, both `critical` with `MaxAttempts: 12
   version, so a River upgrade needs a matching migration.
 </Note>
 
-Work that is a whole-table pass with no per-record argument stays on a `time.Ticker` instead, because a
-durable queue would add a row and a retry policy to something a ticker already expresses. Both models are
-inventoried in [Jobs and queues](/operations/jobs-and-queues).
+Whole-table passes with no per-record argument are River periodic jobs rather than tickers, because a
+ticker runs once per process and River's elected leader enqueues a periodic job once for the whole
+installation, so the worker can run as several replicas. Only loops that touch their own process stay on a
+`time.Ticker`. Both are inventoried in
+[Jobs and queues](/operations/jobs-and-queues#periodic-passes-and-in-process-loops).
 
 ## PostgreSQL 18 and Valkey 9
 
