@@ -55,6 +55,7 @@ happened — it simply has nobody to tell.
 | 🚨 Incidents | `incident` | Payments that need a look: a duplicate, under- or overpayment, currency mismatch, or wallet shortfall that left money at the provider with the order open, and a payment that settled an order the customer had cancelled; and every maintenance transition, automatic or manual | Payment settlement, the api's maintenance controller |
 | 💾 Backups | `backup` | Backup outcomes — completed with its size, or failed with the error code — and restore outcomes | The process that took or restored the backup |
 | 🔐 Admin security | `security` | Operator sign-ins from a new address, password changes and resets, two-factor removal, and owner grants | Operator identity service |
+| 💬 Support tickets | `support` | Every new support ticket, from the bot or the web panel, as its ticket and queue identifiers — never the subject or the message, which are customer text | A database trigger on `support_tickets` |
 | 📣 Campaign previews | `campaign_test` | One copy of a campaign's message, asked for before the audience is committed to | Campaign test send |
 | 🔔 Notice previews | `notice_test` | One rendered copy of a transactional notice an operator is rewording | Notice test send |
 
