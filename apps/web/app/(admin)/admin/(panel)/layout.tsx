@@ -2,13 +2,17 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 import { AdminShell } from "@/components/admin/admin-shell";
+import { areaTitle } from "@/lib/metadata";
 import { SessionProvider } from "@/lib/session";
 
-export const metadata: Metadata = {
-  title: { default: "Admin", template: "%s · Omniflow admin" },
-  // The panel must never appear in a search index, however it is deployed.
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    // The installation's own name, never the product's: see areaTitle.
+    title: await areaTitle("admin", true),
+    // The panel must never appear in a search index, however it is deployed.
+    robots: { index: false, follow: false },
+  };
+}
 
 /**
  * Authenticated panel routes.

@@ -3876,5 +3876,12 @@
     "request": "We would like to measure how people find this site, so we know which advertising is worth paying for. Nothing about your subscription is involved either way.",
     "accept": "Allow",
     "decline": "No thanks"
+  },
+  "common": {
+    "meta": {
+      "account": "Account",
+      "admin": "Admin",
+      "signIn": "Sign in"
+    }
   }
 }

@@ -3,13 +3,17 @@ import type { ReactNode } from "react";
 
 import { AccountShell } from "@/components/account/account-shell";
 import { AccountProvider } from "@/lib/account-session";
+import { areaTitle } from "@/lib/metadata";
 
-export const metadata: Metadata = {
-  title: { default: "Account", template: "%s · Omniflow" },
-  // A customer's own pages must never appear in a search index, however the
-  // installation is deployed.
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    // The installation's own name, never the product's: see areaTitle.
+    title: await areaTitle("account"),
+    // A customer's own pages must never appear in a search index, however the
+    // installation is deployed.
+    robots: { index: false, follow: false },
+  };
+}
 
 /**
  * Authenticated customer routes.
