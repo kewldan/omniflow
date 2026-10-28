@@ -207,8 +207,15 @@ func TestMergeKeepsBothConversations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read survivor: %v", err)
 	}
-	if len(detail.Messages) != 2 {
-		t.Fatalf("expected both conversations on the survivor, got %d messages", len(detail.Messages))
+	// Both customer messages move across, and the merge adds one system notice
+	// on the survivor naming the absorbed request, so the customer learns where
+	// their other conversation went.
+	senders := map[string]int{}
+	for _, message := range detail.Messages {
+		senders[message.Sender]++
+	}
+	if len(detail.Messages) != 3 || senders["customer"] != 2 || senders["system"] != 1 {
+		t.Fatalf("survivor messages by sender = %v, want two customer and one system", senders)
 	}
 
 	// The absorbed ticket still exists. Deleting it would lose the trail that
