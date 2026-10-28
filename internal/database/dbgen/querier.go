@@ -62,6 +62,10 @@ type Querier interface {
 	// should be able to put it down.
 	AssignSupportTicket(ctx context.Context, arg AssignSupportTicketParams) (SupportTicket, error)
 	AttachAccessCodeEntitlement(ctx context.Context, arg AttachAccessCodeEntitlementParams) error
+	// Gives a detached subscription order the subscription opened in place of
+	// the one the ghost cleanup removed. It only ever fills an empty target, so it
+	// can never move an order from one subscription to another.
+	AttachOrderSubscription(ctx context.Context, arg AttachOrderSubscriptionParams) (Order, error)
 	AttachReferralSignal(ctx context.Context, arg AttachReferralSignalParams) error
 	// Customer web panel: referral, loyalty, contacts, and personal data.
 	//

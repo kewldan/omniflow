@@ -421,6 +421,7 @@ from two status values.
 | `overpayment` | more than `external_minor` arrived (`paid_minor` is still recorded) | no |
 | `currency_mismatch` | the payment currency differs from the order currency | no |
 | `wallet_unavailable` | the payment would settle, but the wallet balance has fallen below the order's reserved amount | no |
+| `subscription_unavailable` | a late payment for a subscription order whose own subscription was released while it sat closed, and the concurrency ceiling will not open another — see [Subscriptions](/commerce/subscriptions#concurrency) | no, and an operator is told |
 
 **A replay is not a duplicate.** One charge is routinely reported more than once: an automatic
 renewal's saved-method charge settles synchronously and the provider then sends `payment.succeeded`

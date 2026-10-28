@@ -114,22 +114,45 @@ func (worker *Worker) maintenanceActive(ctx context.Context, queries *dbgen.Quer
 	return maintenance.Blocks(commerce.ActionFulfillment), nil
 }
 
-// subscriptionFor resolves the subscription an entitlement provisions. An
-// entitlement written before v0.5 carries no subscription; it is adopted onto
-// the customer's primary subscription so it keeps its existing Remnawave user.
+// errSubscriptionUnresolved reports an entitlement whose subscription cannot be
+// established with certainty. It is a permanent failure an operator looks at,
+// never a reason to guess.
+var errSubscriptionUnresolved = errors.New("the entitlement's subscription cannot be resolved")
+
+// subscriptionFor resolves the subscription an entitlement provisions: its
+// own, which must agree with its order's.
+//
+// It never adopts. An entitlement once carried no subscription only before
+// v0.5, and the upgrade migration gave every one of those slot 1; one without
+// a subscription today was settled from an order whose subscription had been
+// removed, and adopting it onto the customer's primary subscription is how a
+// thirty-day second subscription overwrote a primary with months left. Such
+// an entitlement takes its order's subscription when the order has one, and
+// otherwise fails permanently rather than land on the wrong Remnawave user.
 func (worker *Worker) subscriptionFor(ctx context.Context, queries *dbgen.Queries, entitlement dbgen.Entitlement) (dbgen.Subscription, error) {
-	if entitlement.SubscriptionID.Valid {
-		subscription, err := queries.GetSubscription(ctx, entitlement.SubscriptionID)
-		if err == nil {
-			return subscription, nil
-		}
-		if !errors.Is(err, pgx.ErrNoRows) {
-			return dbgen.Subscription{}, err
-		}
+	order, err := queries.GetOrder(ctx, entitlement.OrderID)
+	if err != nil {
+		return dbgen.Subscription{}, err
 	}
-	subscription, err := queries.GetPrimarySubscription(ctx, entitlement.UserID)
+	// A gift's entitlement belongs to the recipient while its order is the
+	// buyer's, and that order targets no subscription; only an order of the
+	// entitlement's own customer says which subscription it bought for.
+	ordered := pgtype.UUID{}
+	if order.UserID == entitlement.UserID {
+		ordered = order.SubscriptionID
+	}
+	target := entitlement.SubscriptionID
+	switch {
+	case !target.Valid && !ordered.Valid:
+		return dbgen.Subscription{}, errSubscriptionUnresolved
+	case !target.Valid:
+		target = ordered
+	case ordered.Valid && ordered != target:
+		return dbgen.Subscription{}, errSubscriptionUnresolved
+	}
+	subscription, err := queries.GetSubscription(ctx, target)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return dbgen.Subscription{}, nil
+		return dbgen.Subscription{}, errSubscriptionUnresolved
 	}
 	return subscription, err
 }

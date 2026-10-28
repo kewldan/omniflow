@@ -177,6 +177,9 @@ func (worker *Worker) claim(ctx context.Context, operationID pgtype.UUID) (claim
 	}
 	desired = desired.withGrace(time.Duration(graceSeconds) * time.Second)
 	subscription, err := worker.subscriptionFor(ctx, queries, entitlement)
+	if errors.Is(err, errSubscriptionUnresolved) {
+		return claim{}, false, worker.failPermanent(ctx, tx, queries, operation, "subscription_unresolved")
+	}
 	if err != nil {
 		return claim{}, false, err
 	}

@@ -100,6 +100,15 @@ WITH candidates AS (
 DELETE FROM subscriptions WHERE id IN (SELECT id FROM candidates)
 RETURNING *;
 
+-- name: AttachOrderSubscription :one
+-- Gives a detached subscription order the subscription opened in place of
+-- the one the ghost cleanup removed. It only ever fills an empty target, so it
+-- can never move an order from one subscription to another.
+UPDATE orders
+SET subscription_id = sqlc.arg(subscription_id), updated_at = now()
+WHERE id = sqlc.arg(order_id) AND subscription_id IS NULL
+RETURNING *;
+
 -- name: CloseSubscription :one
 UPDATE subscriptions
 SET status = 'closed', closed_at = now(), updated_at = now()

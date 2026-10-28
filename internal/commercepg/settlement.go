@@ -1,0 +1,81 @@
+package commercepg
+
+import (
+	"context"
+	"errors"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/omniflow/omniflow/internal/commerce"
+	"github.com/omniflow/omniflow/internal/database/dbgen"
+)
+
+// errNoSubscription is the invariant settlement refuses to break: an
+// entitlement is always created on a subscription. One created without would
+// be adopted onto whatever subscription the customer happens to hold first.
+var errNoSubscription = errors.New("a subscription order cannot settle without a subscription")
+
+// revalidateSettlement re-checks, inside the settling transaction, what an
+// order was checked against when it was opened. An order paid inside its
+// window passes untouched. One paid after it closed may find the world moved
+// on: what can still be honoured is put right, and what cannot changes the
+// classification to one that does not settle.
+func (store *Store) revalidateSettlement(ctx context.Context, queries *dbgen.Queries, order dbgen.Order, classification string) (dbgen.Order, string, error) {
+	if commerce.SubscriptionOperation(order.Operation) && !order.SubscriptionID.Valid {
+		reattached, ok, err := store.reattachSubscription(ctx, queries, order)
+		if err != nil {
+			return dbgen.Order{}, "", err
+		}
+		if !ok {
+			return order, commerce.ClassificationSubscriptionUnavailable, nil
+		}
+		order = reattached
+	}
+	return order, classification, nil
+}
+
+// reattachSubscription gives a subscription order back the subscription it was
+// opened for.
+//
+// A subscription row is created with the order, before any money moves, and
+// the ghost cleanup removes it — detaching the order — once the order closes
+// unpaid. Money can still arrive afterwards: a manual transfer confirmed late,
+// a checkout left open in another tab. The order then targets nothing, and the
+// settlement used to fall back to the customer's latest entitlement of *any*
+// subscription and the worker to adopt the result onto the primary one: a
+// second subscription bought for thirty days overwrote a primary with three
+// hundred left.
+//
+// What the order targeted was a subscription of its own with nothing on it, so
+// a fresh one is opened in its place, under the same concurrency policy and
+// lock a purchase uses. When the policy will not allow another subscription,
+// the payment is not settled at all (ok=false); it is never redirected onto a
+// subscription the customer did not buy it for.
+func (store *Store) reattachSubscription(ctx context.Context, queries *dbgen.Queries, order dbgen.Order) (dbgen.Order, bool, error) {
+	spec, err := queries.GetOrderEntitlementSpec(ctx, order.ID)
+	if err != nil {
+		return dbgen.Order{}, false, err
+	}
+	plan, err := queries.GetPlanVersionForOrder(ctx, dbgen.GetPlanVersionForOrderParams{PlanVersionID: spec.PlanVersionID, Currency: order.Currency})
+	if errors.Is(err, pgx.ErrNoRows) {
+		// The plan is no longer sold in this currency. The concurrency policy
+		// cannot be judged without it, so an operator decides.
+		return order, false, nil
+	}
+	if err != nil {
+		return dbgen.Order{}, false, err
+	}
+	subscriptionID, err := store.resolveSubscription(ctx, queries, order.UserID, plan, CreateOrderInput{
+		Operation: "purchase", NewSubscription: true,
+	})
+	if errors.Is(err, commerce.ErrSubscriptionRejected) {
+		return order, false, nil
+	}
+	if err != nil {
+		return dbgen.Order{}, false, err
+	}
+	reattached, err := queries.AttachOrderSubscription(ctx, dbgen.AttachOrderSubscriptionParams{OrderID: order.ID, SubscriptionID: subscriptionID})
+	if err != nil {
+		return dbgen.Order{}, false, err
+	}
+	return reattached, true, nil
+}

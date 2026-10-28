@@ -623,6 +623,16 @@ func (store *Store) RecordProviderPayment(ctx context.Context, paymentIntentID, 
 			classification = "wallet_unavailable"
 		}
 	}
+	if applyErr == nil && updated.State == commerce.OrderPaid && !commerce.BlocksSettlement(classification) {
+		// Everything the order was checked against when it was opened may have
+		// moved on while it sat closed. What can still be honoured is put
+		// right here, inside the settling transaction; what cannot turns the
+		// payment into one an operator resolves.
+		order, classification, err = store.revalidateSettlement(ctx, queries, order, classification)
+		if err != nil {
+			return dbgen.Order{}, "", err
+		}
+	}
 	// payment_events.type is a closed set. A payment after cancellation is
 	// recorded as the late settlement it is, with the classification and the
 	// order's previous state in the details so the timeline still says what
@@ -633,7 +643,7 @@ func (store *Store) RecordProviderPayment(ctx context.Context, paymentIntentID, 
 		return dbgen.Order{}, "", err
 	}
 	settles := updated.State == commerce.OrderPaid
-	if applyErr != nil || !settles || classification == commerce.ClassificationCurrency || classification == commerce.ClassificationWallet || classification == commerce.ClassificationDuplicate {
+	if applyErr != nil || !settles || commerce.BlocksSettlement(classification) {
 		// Money arrived and the order did not settle. Nothing automatic
 		// resolves that, so the operator is told inside the same commit.
 		if commerce.NeedsOperator(classification) {
@@ -681,7 +691,9 @@ func paymentEventType(classification string) string {
 		return "status_changed"
 	case commerce.ClassificationCurrency:
 		return "amount_mismatch"
-	case commerce.ClassificationPaidAfterCancellation:
+	case commerce.ClassificationPaidAfterCancellation, commerce.ClassificationSubscriptionUnavailable:
+		// Only a closed order can reach these, so each is a late payment
+		// whose details name what kept it from settling.
 		return "late"
 	case commerce.ClassificationReplay:
 		return "reconciled"
@@ -863,6 +875,12 @@ func (store *Store) settlePaidOrder(ctx context.Context, tx pgx.Tx, queries *dbg
 		// A gift creates nothing for the buyer. What it produces belongs to
 		// whoever claims the code, and it is produced then.
 		return store.settleGiftOrder(ctx, queries, order, idempotencyKey)
+	}
+	if !order.SubscriptionID.Valid {
+		// Every path that settles a subscription order resolves its target
+		// first. Reaching here without one means a caller skipped that, and
+		// the entitlement would land on whatever the customer holds.
+		return errNoSubscription
 	}
 	if err := store.recordOrderRevenue(ctx, queries, order, idempotencyKey); err != nil {
 		return err

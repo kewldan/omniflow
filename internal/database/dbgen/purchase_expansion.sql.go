@@ -70,6 +70,47 @@ func (q *Queries) ApplyEntitlementAddonTotals(ctx context.Context, arg ApplyEnti
 	return i, err
 }
 
+const attachOrderSubscription = `-- name: AttachOrderSubscription :one
+UPDATE orders
+SET subscription_id = $1, updated_at = now()
+WHERE id = $2 AND subscription_id IS NULL
+RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at
+`
+
+type AttachOrderSubscriptionParams struct {
+	SubscriptionID pgtype.UUID `json:"subscription_id"`
+	OrderID        pgtype.UUID `json:"order_id"`
+}
+
+// Gives a detached subscription order the subscription opened in place of
+// the one the ghost cleanup removed. It only ever fills an empty target, so it
+// can never move an order from one subscription to another.
+func (q *Queries) AttachOrderSubscription(ctx context.Context, arg AttachOrderSubscriptionParams) (Order, error) {
+	row := q.db.QueryRow(ctx, attachOrderSubscription, arg.SubscriptionID, arg.OrderID)
+	var i Order
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.State,
+		&i.Operation,
+		&i.Currency,
+		&i.SubtotalMinor,
+		&i.DiscountMinor,
+		&i.WalletMinor,
+		&i.ExternalMinor,
+		&i.PaidMinor,
+		&i.RefundedMinor,
+		&i.IdempotencyKey,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SubscriptionID,
+		&i.SelectedSquadIds,
+		&i.PaidAt,
+	)
+	return i, err
+}
+
 const bindOperatorTopic = `-- name: BindOperatorTopic :one
 UPDATE operator_topics
 SET topic_id = $1, status = 'bound', last_error_code = NULL, updated_at = now()

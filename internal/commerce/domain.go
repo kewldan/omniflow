@@ -301,7 +301,28 @@ const (
 	// nobody. A duplicate is money arriving through a *different* intent for
 	// an order that is already settled, which is a second charge.
 	ClassificationReplay = "replay"
+	// ClassificationSubscriptionUnavailable is a matching payment for a
+	// subscription order whose own subscription no longer exists — it was
+	// released while the order sat closed — and for which the concurrency
+	// policy will not open a new one. Settling it anywhere else would hand
+	// the period to a subscription the customer did not buy it for, so it
+	// does not settle and an operator decides.
+	ClassificationSubscriptionUnavailable = "subscription_unavailable"
 )
+
+// BlocksSettlement reports whether a classification keeps an order from
+// settling even though the amount matched. Underpayment and overpayment are
+// not in the list: the domain already leaves those orders unpaid, and a
+// top-up deliberately settles them for what arrived.
+func BlocksSettlement(classification string) bool {
+	switch classification {
+	case ClassificationCurrency, ClassificationWallet, ClassificationDuplicate,
+		ClassificationSubscriptionUnavailable:
+		return true
+	default:
+		return false
+	}
+}
 
 // SettlementReplay reports whether a success reported for a payment intent is
 // the same charge Omniflow has already settled: the intent is recorded as
@@ -327,7 +348,8 @@ func SettlementReplay(intentStatus string, orderState OrderState) bool {
 func NeedsOperator(classification string) bool {
 	switch classification {
 	case ClassificationDuplicate, ClassificationUnderpayment, ClassificationOverpayment,
-		ClassificationCurrency, ClassificationWallet, ClassificationPaidAfterCancellation:
+		ClassificationCurrency, ClassificationWallet, ClassificationPaidAfterCancellation,
+		ClassificationSubscriptionUnavailable:
 		return true
 	default:
 		return false
