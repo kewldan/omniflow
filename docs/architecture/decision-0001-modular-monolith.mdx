@@ -40,8 +40,10 @@ that breaks one of them is wrong regardless of what it achieves:
   in exactly one package.
 - Domain events go through the transactional outbox. No message broker is
   introduced without a record superseding this one.
-- Dependency construction is explicit in each `main`. No dependency-injection
-  framework.
+- Dependency construction is explicit: plain constructors called from each
+  `main`, with the part all three share — the commerce core that takes money
+  and queues provisioning — built once in `internal/app`, which the
+  integration harness uses too. No dependency-injection framework.
 
 The processes are separate because their failure and scaling characteristics
 differ, not because their code does. A Telegram flood-wait must not stall
