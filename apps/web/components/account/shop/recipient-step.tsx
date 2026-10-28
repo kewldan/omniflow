@@ -12,7 +12,7 @@ import { useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod/mini";
 
-import { useShopProblem } from "@/components/account/shop/problem";
+import { useShopProblem } from "@/components/account/problems";
 import type { ShopRecipient } from "@/components/account/shop/types";
 import { FormField } from "@/components/forms/field";
 import { apiFetch } from "@/lib/api";

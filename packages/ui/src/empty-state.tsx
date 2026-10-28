@@ -1,6 +1,46 @@
+import { AlertTriangle, Inbox, Lock, SearchX, WifiOff } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 
 import { cn } from "./lib/utils";
+
+/**
+ * Why a page has nothing to show, which decides the icon and how urgently it
+ * is announced.
+ *
+ * - `empty`: there is nothing yet.
+ * - `filtered`: there is something, and the filter matched none of it — the
+ *   distinction people otherwise mistake for a broken page.
+ * - `forbidden`: the viewer's role does not reach it.
+ * - `offline`: an upstream the page depends on did not answer.
+ * - `danger`: the page failed; announced to assistive technology at once.
+ */
+export type NoticeVariant = "danger" | "empty" | "filtered" | "forbidden" | "offline";
+
+const NOTICE_ICONS: Record<NoticeVariant, ReactNode> = {
+  danger: <AlertTriangle />,
+  empty: <Inbox />,
+  filtered: <SearchX />,
+  forbidden: <Lock />,
+  offline: <WifiOff />,
+};
+
+/**
+ * The one treatment for every non-happy state in both panels: an `EmptyState`
+ * with the icon and urgency its variant implies. The panels used to keep a
+ * wrapper each, with their own copy of this icon table.
+ */
+export function StatusNotice({
+  variant = "empty",
+  ...props
+}: Omit<EmptyStateProps, "icon"> & { variant?: NoticeVariant }) {
+  return (
+    <EmptyState
+      icon={NOTICE_ICONS[variant]}
+      role={variant === "danger" ? "alert" : undefined}
+      {...props}
+    />
+  );
+}
 
 /*
  * `title` is omitted from the div props before being redeclared: the DOM

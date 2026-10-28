@@ -58,7 +58,7 @@ export type Submission = {
  * operator opens it over plain HTTP on a LAN. Falling back to random bytes keeps
  * a purchase possible there rather than throwing inside the confirm handler.
  */
-function newKey(): string {
+export function newIdempotencyKey(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }
@@ -73,7 +73,7 @@ export function useSubmission(): Submission {
 
   const begin = useCallback(() => {
     if (key.current === null) {
-      key.current = newKey();
+      key.current = newIdempotencyKey();
     }
     return key.current;
   }, []);
@@ -92,4 +92,30 @@ export function useSubmission(): Submission {
   }, []);
 
   return { begin, retire, settle };
+}
+
+/**
+ * A key that survives a resubmission of the same content but not an edit of it.
+ *
+ * For the customer's support messages and attachments, where the content is the
+ * submission: a double-tapped Send, or a form the browser replayed, must reach
+ * the message that already exists, while a corrected message is a genuinely
+ * different one and earns a new key — a key fixed at mount would make the
+ * corrected attempt collide with the first.
+ *
+ * It uses the same generator as `useSubmission`, so it produces a key on a
+ * plain-HTTP origin too. It used to live beside the support screens with its
+ * own generator that needed `crypto.randomUUID`, gave up without it, and sent no
+ * key at all — on exactly the self-hosted LAN installations where a replayed
+ * form is likeliest.
+ */
+export function useContentKey(): (content: string) => string {
+  const held = useRef({ content: "", key: "" });
+  return useCallback((content: string) => {
+    if (held.current.key && held.current.content === content) {
+      return held.current.key;
+    }
+    held.current = { content, key: newIdempotencyKey() };
+    return held.current.key;
+  }, []);
 }

@@ -1,44 +1,19 @@
 "use client";
 
 import { Button } from "@omniflow/ui/button";
-import { EmptyState } from "@omniflow/ui/empty-state";
+import { StatusNotice } from "@omniflow/ui/empty-state";
 import { Skeleton } from "@omniflow/ui/skeleton";
-import { AlertTriangle, Inbox, Lock, WifiOff } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
-type Variant = "danger" | "empty" | "forbidden" | "offline";
-
-const ICONS: Record<Variant, ReactNode> = {
-  danger: <AlertTriangle />,
-  empty: <Inbox />,
-  forbidden: <Lock />,
-  offline: <WifiOff />,
-};
-
 /**
- * The shared treatment for every non-happy state a customer page can be in.
- *
- * It is a customer-side twin of the panel's version rather than a shared
- * component: the panel's carries a permission-denied case that reads the
- * operator session, and a customer surface must not import that.
+ * The shared treatment for every non-happy state a customer page can be in —
+ * the same `StatusNotice` the operator panel uses. Only the panel's
+ * permission-denied helper stays on its side, because it reads the operator
+ * session and a customer surface must not import that.
  */
-export function AccountNotice({
-  action,
-  description,
-  title,
-  variant = "empty",
-}: {
-  action?: ReactNode;
-  description?: ReactNode;
-  title: ReactNode;
-  variant?: Variant;
-}) {
-  return (
-    <EmptyState action={action} description={description} icon={ICONS[variant]} title={title} />
-  );
-}
+export { StatusNotice as AccountNotice };
 
 /**
  * Said when a wait has gone on longer than it normally does.

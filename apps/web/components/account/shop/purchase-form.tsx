@@ -11,8 +11,8 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCallback, useId, useRef, useState } from "react";
 import useSWR from "swr";
+import { useShopProblem } from "@/components/account/problems";
 import { useGoodsMeasure } from "@/components/account/shop/labels";
-import { useShopProblem } from "@/components/account/shop/problem";
 import {
   PriceChangeNotice,
   QuoteCountdown,

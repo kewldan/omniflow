@@ -5,7 +5,8 @@ import { useCallback, useState } from "react";
 import { ApiError, apiFetch } from "./api";
 import type { Submission } from "./idempotency";
 
-// The one money formatter, shared with the customer panel; see lib/money.ts.
+// The one money and byte formatters, shared with the customer panel.
+export { formatBytes } from "./format";
 export { formatMoney } from "./money";
 
 /**
@@ -966,16 +967,6 @@ export function useOperatorAction() {
   );
 
   return { run, pending, error, reset: () => setError(null) };
-}
-
-/** Formats a byte count at human scale. */
-export function formatBytes(bytes: number): string {
-  if (bytes <= 0) {
-    return "0 B";
-  }
-  const units = ["B", "KB", "MB", "GB", "TB", "PB"];
-  const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-  return `${(bytes / 1024 ** index).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
 /** Formats a duration in seconds as a coarse, readable span. */

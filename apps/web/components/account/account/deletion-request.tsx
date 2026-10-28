@@ -8,9 +8,8 @@ import { toast } from "@omniflow/ui/toast";
 import { useFormatter, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { useForm } from "react-hook-form";
-
-import { useProblemMessage } from "@/components/account/account/problem";
 import type { DeletionState } from "@/components/account/account/types";
+import { useAccountProblem } from "@/components/account/problems";
 import { ReauthNotice } from "@/components/account/reauth";
 import { useAccount } from "@/lib/account-session";
 import { type ApiError, apiFetch } from "@/lib/api";
@@ -55,7 +54,7 @@ export function DeletionRequest({
 }) {
   const translate = useTranslations("account.account");
   const format = useFormatter();
-  const describeProblem = useProblemMessage();
+  const describeProblem = useAccountProblem();
   const { session } = useAccount();
   const reasonId = useId();
 

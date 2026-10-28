@@ -1,49 +1,22 @@
 "use client";
 
-import { EmptyState } from "@omniflow/ui/empty-state";
-import { AlertTriangle, Inbox, Lock, SearchX } from "lucide-react";
+import { StatusNotice } from "@omniflow/ui/empty-state";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
 import { useSession } from "@/lib/session";
 
-type Variant = "danger" | "empty" | "filtered" | "forbidden";
-
-const ICONS: Record<Variant, ReactNode> = {
-  danger: <AlertTriangle />,
-  empty: <Inbox />,
-  filtered: <SearchX />,
-  forbidden: <Lock />,
-};
-
 /**
- * The shared treatment for every non-happy state a panel page can be in.
- *
- * Keeping them in one component is what makes "empty because there is nothing"
- * and "empty because your filter matched nothing" visibly different, which is
- * the distinction operators otherwise mistake for a broken page.
+ * The shared treatment for every non-happy state a panel page can be in; the
+ * component itself is the one both panels use, from `@omniflow/ui`.
  */
-export function StateNotice({
-  action,
-  description,
-  title,
-  variant = "empty",
-}: {
-  action?: ReactNode;
-  description?: ReactNode;
-  title: ReactNode;
-  variant?: Variant;
-}) {
-  return (
-    <EmptyState action={action} description={description} icon={ICONS[variant]} title={title} />
-  );
-}
+export { StatusNotice as StateNotice };
 
 /** The standard treatment for a route the operator's roles do not reach. */
 export function PermissionDenied() {
   const translate = useTranslations("admin");
   return (
-    <StateNotice
+    <StatusNotice
       description={translate("states.forbiddenDescription")}
       title={translate("states.forbidden")}
       variant="forbidden"

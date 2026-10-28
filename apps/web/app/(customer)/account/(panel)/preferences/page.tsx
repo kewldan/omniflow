@@ -10,11 +10,10 @@ import { toast } from "@omniflow/ui/toast";
 import { useFormatter, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
-
+import { useSupportProblem } from "@/components/account/problems";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
 import { BrowserNotificationSetting } from "@/components/account/support/browser-notifications";
 import { DeliveryHistory } from "@/components/account/support/delivery-history";
-import { useProblemMessage } from "@/components/account/support/problem";
 import {
   type CommunicationPreferences,
   PREFERENCES_KEY,
@@ -51,7 +50,7 @@ const DEFAULT_QUIET_WINDOW = { endHour: 8, startHour: 23 };
  */
 export default function PreferencesPage() {
   const translate = useTranslations("account.support");
-  const describeProblem = useProblemMessage();
+  const describeProblem = useSupportProblem();
   const { data, error, isLoading, mutate } = useSWR<CommunicationPreferences, ApiError>(
     PREFERENCES_KEY,
     fetcher,
@@ -346,7 +345,7 @@ function Marketing({
   preferences: CommunicationPreferences;
 }) {
   const translate = useTranslations("account.support");
-  const describeProblem = useProblemMessage();
+  const describeProblem = useSupportProblem();
   const format = useFormatter();
   const switchId = useId();
   const [confirm, setConfirm] = useState(false);

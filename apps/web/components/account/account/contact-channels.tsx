@@ -13,9 +13,8 @@ import { useFormatter, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import useSWR from "swr";
-
-import { useProblemMessage } from "@/components/account/account/problem";
 import type { ContactChannel, ContactKind } from "@/components/account/account/types";
+import { useAccountProblem } from "@/components/account/problems";
 import { AccountNotice, ListSkeleton } from "@/components/account/state";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 
@@ -92,7 +91,7 @@ const CONTACT_RULES = {
 export function ContactChannels() {
   const translate = useTranslations("account.account");
   const format = useFormatter();
-  const describeProblem = useProblemMessage();
+  const describeProblem = useAccountProblem();
   const { data, error, isLoading, mutate } = useSWR<{ items: ContactChannel[] }, ApiError>(
     "/v1/account/contacts",
     fetcher,
@@ -213,7 +212,7 @@ export function ContactChannels() {
 /** The add form: one address, and what it is allowed to receive. */
 function AddContactForm({ onAdded }: { onAdded: () => void }) {
   const translate = useTranslations("account.account");
-  const describeProblem = useProblemMessage();
+  const describeProblem = useAccountProblem();
   const kindId = useId();
   const valueId = useId();
   const [failure, setFailure] = useState<string | null>(null);

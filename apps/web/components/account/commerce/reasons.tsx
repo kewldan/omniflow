@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useCallback } from "react";
 
-import { ApiError } from "@/lib/api";
+import { useProblemCopy } from "@/components/account/problems";
 
 /**
  * Turning the API's stable machine reasons into the customer's language.
@@ -146,15 +146,9 @@ export function useProblemCode(): (code?: string) => string {
  * refusal the server will repeat.
  */
 export function useProblemMessage(): (error: unknown) => string {
-  const translate = useTranslations("account.commerce");
-  const problem = useCodeCopy("problems", PROBLEMS);
-  return useCallback(
-    (error: unknown) => {
-      if (error instanceof ApiError) {
-        return problem(error.code);
-      }
-      return translate("problems.offline");
-    },
-    [problem, translate],
-  );
+  return useProblemCopy("account.commerce", {
+    group: "problems",
+    known: PROBLEMS,
+    offline: "offline",
+  });
 }

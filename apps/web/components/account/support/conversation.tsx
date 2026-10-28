@@ -5,11 +5,11 @@ import { toast } from "@omniflow/ui/toast";
 import { Download, FileText, ImageIcon, Send } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import { useSupportProblem } from "@/components/account/problems";
 import { Timestamp } from "@/components/intl/timestamp";
-import { useBytes } from "@/lib/format";
 
-import { downloadSupportAttachment } from "./download";
-import { useProblemMessage } from "./problem";
+import { downloadThroughApi } from "@/lib/download";
+import { useBytes } from "@/lib/format";
 import type { SupportAttachment, SupportMessage } from "./types";
 
 /**
@@ -120,7 +120,7 @@ function ConversationTurn({ message }: { message: SupportMessage }) {
  */
 function AttachmentRow({ attachment }: { attachment: SupportAttachment }) {
   const translate = useTranslations("account.support");
-  const describeProblem = useProblemMessage();
+  const describeProblem = useSupportProblem();
   const formatBytes = useBytes();
   const [busy, setBusy] = useState(false);
   const Icon = attachment.kind === "photo" ? ImageIcon : FileText;
@@ -154,7 +154,10 @@ function AttachmentRow({ attachment }: { attachment: SupportAttachment }) {
       onClick={async () => {
         setBusy(true);
         try {
-          await downloadSupportAttachment(attachment.id, name);
+          await downloadThroughApi(
+            `/v1/account/support/attachments/${encodeURIComponent(attachment.id)}`,
+            name,
+          );
         } catch (downloadError) {
           toast.error(describeProblem(downloadError));
         } finally {

@@ -4,14 +4,13 @@ import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { useFormatter, useTranslations } from "next-intl";
 import { useState } from "react";
-
-import { useProblemMessage } from "@/components/account/account/problem";
 import type {
   ReferralReward,
   ReferralRewardPage,
   ReferralSummary,
   RewardState,
 } from "@/components/account/account/types";
+import { useAccountProblem } from "@/components/account/problems";
 import { AccountNotice } from "@/components/account/state";
 import { apiFetch, toQuery } from "@/lib/api";
 import { useMoney } from "@/lib/format";
@@ -38,7 +37,7 @@ export function RewardHistory({ firstPage }: { firstPage: ReferralRewardPage }) 
   const translate = useTranslations("account.account");
   const format = useFormatter();
   const money = useMoney();
-  const describeProblem = useProblemMessage();
+  const describeProblem = useAccountProblem();
 
   const [extra, setExtra] = useState<ReferralReward[]>([]);
   const [cursor, setCursor] = useState(firstPage.nextCursor);

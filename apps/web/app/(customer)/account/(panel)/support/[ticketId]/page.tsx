@@ -11,12 +11,10 @@ import { useParams } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { type FormEvent, useEffect, useId, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
-
+import { useSupportProblem } from "@/components/account/problems";
 import { AccountNotice, ListSkeleton } from "@/components/account/state";
 import { AttachmentLimits } from "@/components/account/support/composer";
 import { ConversationTurns } from "@/components/account/support/conversation";
-import { idempotentHeaders, useIdempotencyKey } from "@/components/account/support/idempotency";
-import { useProblemMessage } from "@/components/account/support/problem";
 import { TicketStatusBadge } from "@/components/account/support/ticket-row";
 import {
   SUPPORT_LIMITS_KEY,
@@ -26,6 +24,7 @@ import {
 import { rejectAttachment, uploadSupportAttachment } from "@/components/account/support/upload";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 import { useBytes } from "@/lib/format";
+import { useContentKey } from "@/lib/idempotency";
 
 /** Every cached page of the ticket list, so a change here is reflected there. */
 function isTicketListKey(key: unknown): boolean {
@@ -44,7 +43,7 @@ function isTicketListKey(key: unknown): boolean {
 export default function SupportTicketPage() {
   const translate = useTranslations("account.support");
   const format = useFormatter();
-  const describeProblem = useProblemMessage();
+  const describeProblem = useSupportProblem();
   const { ticketId } = useParams<{ ticketId: string }>();
   const { mutate: mutateGlobal } = useSWRConfig();
   const conversationKey = `/v1/account/support/tickets/${ticketId}`;
@@ -260,9 +259,9 @@ function ReplyForm({
   onSent: () => Promise<unknown>;
 }) {
   const translate = useTranslations("account.support");
-  const describeProblem = useProblemMessage();
+  const describeProblem = useSupportProblem();
   const { mutate: mutateGlobal } = useSWRConfig();
-  const idempotencyKey = useIdempotencyKey();
+  const idempotencyKey = useContentKey();
   const fieldId = useId();
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -277,7 +276,7 @@ function ReplyForm({
     try {
       await apiFetch(`${conversationKey}/messages`, {
         body: JSON.stringify({ message: body }),
-        headers: idempotentHeaders(idempotencyKey(body)),
+        headers: { "Idempotency-Key": idempotencyKey(body) },
         method: "POST",
       });
       setMessage("");
@@ -329,9 +328,9 @@ function AttachmentForm({
   ticketId: string;
 }) {
   const translate = useTranslations("account.support");
-  const describeProblem = useProblemMessage();
+  const describeProblem = useSupportProblem();
   const formatBytes = useBytes();
-  const idempotencyKey = useIdempotencyKey();
+  const idempotencyKey = useContentKey();
   const fileId = useId();
   const noteId = useId();
   // The picker is remounted rather than reset through a ref: the shared Input

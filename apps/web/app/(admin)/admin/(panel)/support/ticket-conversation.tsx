@@ -14,12 +14,11 @@ import useSWR from "swr";
 import { StateNotice } from "@/components/admin/state-notice";
 import { Timestamp } from "@/components/intl/timestamp";
 import { ApiError, fetcher } from "@/lib/api";
+import { downloadThroughApi } from "@/lib/download";
 import { useBytes } from "@/lib/format";
 import { useSubmission } from "@/lib/idempotency";
 import { type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
-
-import { downloadThroughApi } from "./download";
 import type {
   CannedResponse,
   DeliveryState,

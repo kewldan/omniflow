@@ -5,9 +5,8 @@ import { toast } from "@omniflow/ui/toast";
 import { Download } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { useState } from "react";
-
-import { useProblemMessage } from "@/components/account/account/problem";
 import type { ExportDocument, PrivacyOverview } from "@/components/account/account/types";
+import { useAccountProblem } from "@/components/account/problems";
 import { apiFetch } from "@/lib/api";
 
 /** The filename the browser saves, dated so two exports do not overwrite each other. */
@@ -34,7 +33,7 @@ function exportFilename(generatedAt: string): string {
 export function DataExport({ preview }: { preview: PrivacyOverview["export"] }) {
   const translate = useTranslations("account.account");
   const format = useFormatter();
-  const describeProblem = useProblemMessage();
+  const describeProblem = useAccountProblem();
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [saved, setSaved] = useState<{

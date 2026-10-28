@@ -6,10 +6,9 @@ import { toast } from "@omniflow/ui/toast";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWRInfinite from "swr/infinite";
-
+import { useSupportProblem } from "@/components/account/problems";
 import { AccountNotice, ListSkeleton } from "@/components/account/state";
 import { SupportAlerts } from "@/components/account/support/browser-notifications";
-import { useProblemMessage } from "@/components/account/support/problem";
 import {
   NEWS_KEY,
   type NewsItem,
@@ -139,7 +138,7 @@ export default function NewsInboxPage() {
  */
 function NewsCard({ item, onRead }: { item: NewsItem; onRead: () => Promise<unknown> }) {
   const translate = useTranslations("account.support");
-  const describeProblem = useProblemMessage();
+  const describeProblem = useSupportProblem();
   const [busy, setBusy] = useState(false);
 
   async function markRead() {
