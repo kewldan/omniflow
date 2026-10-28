@@ -188,14 +188,17 @@ with the instant the window ends. The next pass re-claims a deferred row whose
 instant has passed, which is what turns a deferral into a delay instead of a
 drop.
 
-<Warning>
-  The window is evaluated in `users.timezone`, which defaults to `UTC`. Neither
-  the web preferences screen nor the bot settings screen exposes a timezone
-  control, and the preferences payload does not carry the value — so a customer
-  choosing 23:00–08:00 is choosing it in whatever timezone their account already
-  holds. The only route that writes the field is `PATCH /v1/account/me`, and the
-  panel's language select sends the existing value back unchanged.
-</Warning>
+<Note>
+  The window is evaluated in `users.timezone`, which defaults to `UTC`. Both
+  surfaces set it: the web preferences screen offers every IANA zone the browser
+  knows, and the bot's `🌍 Time zone` button — on the settings screen and on the
+  quiet-hours screen — offers a list of common zones with their current offset.
+  The bot names the zone beside the window wherever it shows one, and a customer
+  still on the default is told that their quiet hours are counted in UTC. When
+  their Telegram client's language suggests a zone — Russian suggests Moscow,
+  Ukrainian Kyiv, Kazakh Almaty, and so on — the picker asks about it first, as a
+  question with a `✅ Yes` button; the bot never sets a zone on its own.
+</Note>
 
 ## Marketing consent, and what an unsubscribe does
 

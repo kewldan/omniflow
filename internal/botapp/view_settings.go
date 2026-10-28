@@ -2,6 +2,7 @@ package botapp
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/go-telegram/bot/models"
 )
@@ -12,14 +13,17 @@ var quietWindows = [][2]int{{22, 8}, {23, 9}, {0, 0}}
 
 // customerSettingsView renders language, per-kind notification switches,
 // marketing consent, and quiet hours in one screen.
-func customerSettingsView(locale Locale, preferences CustomerPreferences, marketingCap int) View {
+func customerSettingsView(locale Locale, preferences CustomerPreferences, marketingCap int, now time.Time) View {
 	body := text(locale, "settings.title")
 	if marketingCap > 0 {
 		body += text(locale, "settings.marketingNote", marketingCap)
 	}
+	// The window is only meaningful with the zone it is counted in, so the
+	// zone is named beside it rather than on a screen of its own.
 	quiet := text(locale, "settings.quietOff")
 	if preferences.QuietHours.Configured {
-		quiet = text(locale, "settings.quietOn", preferences.QuietHours.StartHour, preferences.QuietHours.EndHour)
+		quiet = text(locale, "settings.quietOn", preferences.QuietHours.StartHour, preferences.QuietHours.EndHour) +
+			" · " + timezoneLabel(locale, preferences.Timezone, now)
 	}
 	rows := [][]models.InlineKeyboardButton{
 		row(
@@ -33,14 +37,18 @@ func customerSettingsView(locale Locale, preferences CustomerPreferences, market
 		row(actionButton(text(locale, "settings.news", toggleLabel(preferences.NewsNotifications)), "notify:news")),
 		row(actionButton(text(locale, "settings.marketing", toggleLabel(preferences.MarketingEnabled)), "notify:marketing")),
 		row(actionButton(text(locale, "settings.quiet", quiet), "quiet-menu")),
+		row(actionButton(text(locale, "settings.timezone", timezoneLabel(locale, preferences.Timezone, now)), "tz-menu")),
 		row(callbackButton(text(locale, "menu.renew"), routeAutoRenew)),
 		row(callbackButton(text(locale, "action.back"), routeHome)),
 	}
 	return View{Text: body, Keyboard: keyboard(rows...), RetryRoute: routeSettings}
 }
 
-// quietHoursView offers the quiet-hour presets, including turning them off.
-func quietHoursView(locale Locale, preferences CustomerPreferences) View {
+// quietHoursView offers the quiet-hour presets, including turning them off,
+// and says which time zone they are counted in. A customer still on the UTC
+// default is told so in as many words: "22:00–08:00" in UTC is the middle of
+// the evening in Vladivostok.
+func quietHoursView(locale Locale, preferences CustomerPreferences, now time.Time) View {
 	rows := make([][]models.InlineKeyboardButton, 0, len(quietWindows)+2)
 	for _, window := range quietWindows {
 		label := text(locale, "settings.quietOn", window[0], window[1])
@@ -55,8 +63,14 @@ func quietHoursView(locale Locale, preferences CustomerPreferences) View {
 		}
 		rows = append(rows, row(actionButton(mark+" "+label, fmt.Sprintf("quiet:%d-%d", window[0], window[1]))))
 	}
-	rows = append(rows, row(callbackButton(text(locale, "action.back"), routeSettings)))
-	return View{Text: text(locale, "settings.quietTitle"), Keyboard: keyboard(rows...)}
+	rows = append(rows,
+		row(actionButton(text(locale, "settings.timezone", timezoneLabel(locale, preferences.Timezone, now)), "tz-menu")),
+		row(callbackButton(text(locale, "action.back"), routeSettings)))
+	body := text(locale, "settings.quietTitle") + "\n\n" + text(locale, "settings.quietZone", timezoneLabel(locale, preferences.Timezone, now))
+	if preferences.Timezone == "" || preferences.Timezone == "UTC" {
+		body += "\n" + text(locale, "settings.quietUTC")
+	}
+	return View{Text: body, Keyboard: keyboard(rows...)}
 }
 
 func autoLabel(locale Locale) string {

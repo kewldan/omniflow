@@ -212,6 +212,17 @@ func (store *PostgresStore) SetQuietHours(ctx context.Context, customerID string
 	return err
 }
 
+// SetTimezone stores the zone the customer's quiet hours are counted in. It is
+// the same `users.timezone` the web panel's preferences screen writes, so the
+// two surfaces show one setting.
+func (store *PostgresStore) SetTimezone(ctx context.Context, customerID, zone string) error {
+	if _, err := time.LoadLocation(zone); err != nil {
+		return err
+	}
+	_, err := store.pool.Exec(ctx, `UPDATE users SET timezone = $2, updated_at = now() WHERE id = $1::uuid`, customerID, zone)
+	return err
+}
+
 // SetCustomerLocale persists the interface language for a customer.
 func (store *PostgresStore) SetCustomerLocale(ctx context.Context, customerID, locale string) error {
 	if locale != "auto" && locale != "ru" && locale != "en" {

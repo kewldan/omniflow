@@ -338,7 +338,7 @@ func TestSettingsViewExposesEveryCommunicationControl(t *testing.T) {
 		Preferences: Preferences{Locale: "ru", ExpiryNotifications: true},
 		QuietHours:  commerce.QuietHours{Configured: true, StartHour: 22, EndHour: 8},
 	}
-	view := customerSettingsView(LocaleEnglish, preferences, 3)
+	view := customerSettingsView(LocaleEnglish, preferences, 3, time.Now())
 	labels := buttonLabels(view)
 	for _, fragment := range []string{"Subscription expiry", "Traffic limit", "Renewal reminders", "Service news", "Marketing messages", "22:00–08:00"} {
 		if !strings.Contains(labels, fragment) {

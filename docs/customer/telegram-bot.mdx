@@ -813,6 +813,15 @@ time parser. The window is evaluated in the customer's own timezone and may wrap
 past midnight. The screen states the exception plainly: "Non-urgent messages wait
 during this window. Payment, activation, and support replies always arrive."
 
+The zone is named beside the window — `22:00–08:00 · Moscow · UTC+03:00` — and
+`🌍 Time zone` opens a list of about thirty common zones, each with its offset
+today. It writes the same `users.timezone` the web panel's preferences screen
+does, and a zone set on the web that is not in the list is still shown by name.
+A customer still on the `UTC` default reads "No time zone is set, so UTC is
+used", and when their Telegram language suggests a zone the picker asks about
+it first ("Your Telegram language suggests Moscow · UTC+03:00. Is that right?")
+rather than assuming it.
+
 Everything that reaches the chat unprompted goes through one delivery policy —
 consent, per-kind preference, quiet hours, marketing cap, and Telegram
 reachability — evaluated in one place so two senders cannot disagree about

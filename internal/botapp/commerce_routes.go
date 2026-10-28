@@ -45,6 +45,10 @@ type commerceContext struct {
 	Customer   Customer
 	Locale     Locale
 	TelegramID int64
+	// TelegramLanguage is the interface language of the customer's Telegram
+	// client on this update. It is only ever a suggestion — of a time zone to
+	// ask about — and never stored.
+	TelegramLanguage string
 	// TapKey is the idempotency key of the button tap being handled, empty
 	// outside a callback. An order a tap opens uses it, so a duplicate of the
 	// tap reaches the same order rather than a second one.
@@ -880,6 +884,10 @@ func (app *App) handleCommerceAction(ctx context.Context, session commerceContex
 		return app.removeMethod(ctx, session, argument), true
 	case "quiet":
 		return app.setQuietHours(ctx, session, argument), true
+	case "tz-menu":
+		return app.timezoneScreen(ctx, session), true
+	case "tz":
+		return app.setTimezone(ctx, session, argument), true
 	default:
 		return View{}, false
 	}
@@ -1061,7 +1069,7 @@ func (app *App) settingsScreen(ctx context.Context, session commerceContext) Vie
 		app.logger.Error("preferences lookup failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
 	}
-	return customerSettingsView(session.Locale, preferences, app.settings.MarketingFrequencyCap)
+	return customerSettingsView(session.Locale, preferences, app.settings.MarketingFrequencyCap, time.Now())
 }
 
 // subscriptionFor reads the customer's Remnawave subscription. A customer with
@@ -1192,13 +1200,9 @@ func (app *App) dispatchCommerceAction(ctx context.Context, client *telegram.Bot
 		}
 		return true
 	}
+	session.TelegramLanguage = query.From.LanguageCode
 	if parts[0] == "quiet-menu" {
-		preferences, prefErr := app.customers.CustomerPreferences(ctx, session.Customer.ID)
-		if prefErr != nil {
-			logger.Error("preferences lookup failed", "error", prefErr)
-			return true
-		}
-		app.replaceScreen(ctx, client, chatID, messageID, quietHoursView(session.Locale, preferences), logger)
+		app.replaceScreen(ctx, client, chatID, messageID, app.quietHoursScreen(ctx, session), logger)
 		return true
 	}
 	if _, err := client.EditMessageText(ctx, editParams(chatID, messageID, loadingView(session.Locale))); err != nil {
@@ -1249,7 +1253,7 @@ var commerceActions = func() map[string]bool {
 		"ticket-close": true, "ticket-open": true, "support-new": true, "connect": true,
 		"autorenew": true, "renew-settings": true, "renew-funding": true, "renew-lead": true,
 		"method-default": true, "method-remove": true,
-		"quiet": true, "quiet-menu": true, "invoice": true,
+		"quiet": true, "quiet-menu": true, "tz-menu": true, "tz": true, "invoice": true,
 	}
 	for _, owned := range []map[string]bool{expansionActions, giftActions, shopActions, offerActions} {
 		for action := range owned {
