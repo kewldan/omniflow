@@ -591,6 +591,21 @@ func (store *Store) RecordProviderPayment(ctx context.Context, paymentIntentID, 
 	if err != nil {
 		return dbgen.Order{}, "", err
 	}
+	if commerce.SettlementReplay(intent.Status, commerce.OrderState(order.State)) && amount.Currency == intent.Currency && amount.Amount == intent.AmountMinor {
+		// The same charge, reported again: the payment.succeeded webhook that
+		// follows a synchronous saved-method charge, or a webhook that lost the
+		// race to the reconciler. It is recorded on the timeline and changes
+		// nothing; raising a duplicate incident for it would page an operator on
+		// every automatic renewal.
+		details, _ := json.Marshal(map[string]any{"classification": commerce.ClassificationReplay, "previousState": order.State})
+		if _, err = queries.InsertPaymentEvent(ctx, dbgen.InsertPaymentEventParams{PaymentIntentID: intent.ID, Type: paymentEventType(commerce.ClassificationReplay), PreviousStatus: pgtype.Text{String: intent.Status, Valid: true}, Status: pgtype.Text{String: "succeeded", Valid: true}, AmountMinor: pgtype.Int8{Int64: amount.Amount, Valid: true}, Currency: pgtype.Text{String: amount.Currency, Valid: true}, ProviderEventID: pgtype.Text{String: providerEventID, Valid: true}, Details: details}); err != nil {
+			return dbgen.Order{}, "", err
+		}
+		if err = tx.Commit(ctx); err != nil {
+			return dbgen.Order{}, "", err
+		}
+		return order, commerce.ClassificationReplay, nil
+	}
 	domainOrder := commerce.Order{ID: uuidString(order.ID), CustomerID: uuidString(order.UserID), State: commerce.OrderState(order.State), Subtotal: commerce.Money{Amount: order.SubtotalMinor, Currency: order.Currency}, DiscountMinor: order.DiscountMinor, WalletMinor: order.WalletMinor, ExternalMinor: order.ExternalMinor, PaidMinor: order.PaidMinor, RefundedMinor: order.RefundedMinor}
 	updated, classification, applyErr := domainOrder.ApplyPayment(commerce.PaymentResult{Amount: amount, Late: late})
 	// A wallet top-up owes nothing beyond the money itself, so a mismatch is
@@ -668,6 +683,8 @@ func paymentEventType(classification string) string {
 		return "amount_mismatch"
 	case commerce.ClassificationPaidAfterCancellation:
 		return "late"
+	case commerce.ClassificationReplay:
+		return "reconciled"
 	default:
 		return classification
 	}

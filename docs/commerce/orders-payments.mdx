@@ -415,14 +415,23 @@ from two status values.
 | `paid` | the amount equals `external_minor`, inside the payment window | yes |
 | `late` | the amount matches but the window had elapsed, or the order had already expired | yes |
 | `paid_after_cancellation` | the amount matches but the order had been cancelled | yes, and an operator is told |
-| `duplicate` | the order is already paid, fulfilled or refunded | no |
+| `replay` | the same payment intent already settled this order, and the success is reported again | no — nothing is left to do |
+| `duplicate` | the order is already paid, fulfilled or refunded, and the money arrived through a different intent | no |
 | `underpayment` | less than `external_minor` arrived | no |
 | `overpayment` | more than `external_minor` arrived (`paid_minor` is still recorded) | no |
 | `currency_mismatch` | the payment currency differs from the order currency | no |
 | `wallet_unavailable` | the payment would settle, but the wallet balance has fallen below the order's reserved amount | no |
 
+**A replay is not a duplicate.** One charge is routinely reported more than once: an automatic
+renewal's saved-method charge settles synchronously and the provider then sends `payment.succeeded`
+for the same payment, and a webhook can arrive after the reconciler has already polled the success.
+When the intent is already `succeeded` and its order already settled, and the amount matches the
+intent, the report is recorded as `replay` and changes nothing. A `duplicate` is reserved for money
+reaching a settled order through a *different* intent, which is a second charge an operator has to
+refund.
+
 `payment_events.type` is a closed set, and the mapping renames `paid` to `status_changed`,
-`currency_mismatch` to `amount_mismatch`, and `paid_after_cancellation` to `late`; every event's
+`currency_mismatch` to `amount_mismatch`, `replay` to `reconciled`, and `paid_after_cancellation` to `late`; every event's
 `details` carries the classification and the order's state before the payment, so the timeline still
 distinguishes a late payment from one that landed on a cancelled order. The row is unique on
 `(payment_intent_id, provider_event_id, type)` with nulls not distinct, so the same provider event

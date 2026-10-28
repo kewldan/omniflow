@@ -196,8 +196,9 @@ func (service *Service) CreateIntent(ctx context.Context, input CreateIntentInpu
 // SynchronousEventID names the payment event a synchronous settlement writes.
 // It is derived from the provider's reference so the event reads as the charge
 // it records, and falls back to the intent when the provider returned none. A
-// webhook that later reports the same charge carries its own event ID and is
-// classified as a duplicate against the order this already settled.
+// webhook that later reports the same charge carries its own event ID, finds
+// the same intent already succeeded, and is recorded as a replay: it changes
+// nothing and raises no operator incident.
 func SynchronousEventID(providerReference, intentID string) string {
 	if providerReference != "" {
 		return "charge:" + providerReference

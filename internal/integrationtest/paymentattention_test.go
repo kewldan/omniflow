@@ -64,11 +64,34 @@ func TestAPaymentOnACancelledOrderSettlesLateAndTellsTheOperator(t *testing.T) {
 	if incidents != 1 {
 		t.Fatalf("expected one operator incident, got %d", incidents)
 	}
-	// A replayed event is a duplicate against a settled order, and duplicates
-	// reach the operator too — but the incident for this intent and
-	// classification is queued once.
-	harness.settle(ctx, t, store, uuidText(order.ID), 25000, "event-after-cancel-replay")
-	harness.settle(ctx, t, store, uuidText(order.ID), 25000, "event-after-cancel-replay-2")
+	// The same charge reported again through the same intent — a webhook that
+	// lost the race to the reconciler — is a replay: nobody is paged.
+	if replay := harness.settle(ctx, t, store, uuidText(order.ID), 25000, "event-after-cancel-replay"); replay != commerce.ClassificationReplay {
+		t.Fatalf("a second report of the settled charge must be a replay, got %q", replay)
+	}
+	if err := harness.pool.QueryRow(ctx, `SELECT count(*) FROM operator_notifications
+		WHERE kind = 'incident' AND payload ->> 'classification' = 'duplicate'`).Scan(&incidents); err != nil {
+		t.Fatalf("count duplicate incidents: %v", err)
+	}
+	if incidents != 0 {
+		t.Fatalf("a replay of the settled charge raised %d duplicate incidents", incidents)
+	}
+	// Money through a second intent for the settled order is a real second
+	// charge. It reaches the operator, once per intent however often it is
+	// reported.
+	var secondIntent string
+	if err := harness.pool.QueryRow(ctx, `INSERT INTO payment_intents
+		(order_id, provider, status, amount_minor, currency, provider_reference, idempotency_key)
+		VALUES ($1, 'yookassa', 'processing', 25000, 'RUB', 'second-charge', 'second-charge')
+		RETURNING id::text`, order.ID).Scan(&secondIntent); err != nil {
+		t.Fatalf("second intent: %v", err)
+	}
+	for _, event := range []string{"second-charge-1", "second-charge-2"} {
+		_, classification, err := store.RecordProviderPayment(ctx, secondIntent, event, commerce.Money{Amount: 25000, Currency: "RUB"}, false)
+		if err != nil || classification != commerce.ClassificationDuplicate {
+			t.Fatalf("a payment through a second intent must be a duplicate, got %q %v", classification, err)
+		}
+	}
 	if err := harness.pool.QueryRow(ctx, `SELECT count(*) FROM operator_notifications
 		WHERE kind = 'incident' AND payload ->> 'classification' = 'duplicate'`).Scan(&incidents); err != nil {
 		t.Fatalf("count duplicate incidents: %v", err)

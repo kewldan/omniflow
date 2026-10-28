@@ -294,7 +294,32 @@ const (
 	// named apart from an ordinary late payment because an operator should
 	// look at it: the customer was told nothing would be charged.
 	ClassificationPaidAfterCancellation = "paid_after_cancellation"
+	// ClassificationReplay is a second report of a charge Omniflow already
+	// settled through this same payment intent: the webhook that follows a
+	// synchronous saved-method charge, or the webhook that arrives after the
+	// reconciler already polled the success. It changes nothing and needs
+	// nobody. A duplicate is money arriving through a *different* intent for
+	// an order that is already settled, which is a second charge.
+	ClassificationReplay = "replay"
 )
+
+// SettlementReplay reports whether a success reported for a payment intent is
+// the same charge Omniflow has already settled: the intent is recorded as
+// succeeded and its order has moved past payment. Both halves matter. An
+// intent marked succeeded on an order that is still pending is a charge that
+// was recorded without being settled, and it must go through settlement again
+// rather than be waved through as a replay.
+func SettlementReplay(intentStatus string, orderState OrderState) bool {
+	if intentStatus != "succeeded" {
+		return false
+	}
+	switch orderState {
+	case OrderPaid, OrderFulfilled, OrderPartiallyRefunded, OrderRefunded:
+		return true
+	default:
+		return false
+	}
+}
 
 // NeedsOperator reports whether a classification is one an operator has to
 // act on or at least know about: money arrived and the order did not simply
