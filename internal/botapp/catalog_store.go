@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/omniflow/omniflow/internal/commerce"
+	"github.com/omniflow/omniflow/internal/database/dbgen"
 )
 
 // Plan is one purchasable catalog entry, already localized and priced in the
@@ -228,16 +229,12 @@ func (store *PostgresStore) LatestFulfillmentStatus(ctx context.Context, entitle
 }
 
 // WalletBalance reports the balance a new order may spend. It excludes credit
-// already reserved by a draft or pending order.
+// already reserved by a draft or pending order. Both figures come from the one
+// query that defines a wallet for every surface, so the bot cannot show a
+// spendable amount the web or order creation would disagree with.
 func (store *PostgresStore) WalletBalance(ctx context.Context, customerID, currency string) (int64, error) {
-	var balance int64
-	err := store.pool.QueryRow(ctx, `SELECT GREATEST(
-			COALESCE((SELECT sum(amount_minor) FROM ledger_entries
-				WHERE account_type = 'customer_wallet' AND user_id = $1::uuid AND currency = $2), 0)
-			- COALESCE((SELECT sum(wallet_minor) FROM orders
-				WHERE user_id = $1::uuid AND currency = $2 AND state IN ('draft','pending')), 0), 0)::bigint`,
-		customerID, currency).Scan(&balance)
-	return balance, err
+	row, err := store.walletBalance(ctx, customerID, currency)
+	return row.AvailableMinor, err
 }
 
 // WalletReserved is the part of the ledger balance that unpaid orders have
@@ -245,11 +242,22 @@ func (store *PostgresStore) WalletBalance(ctx context.Context, customerID, curre
 // because a balance that silently shrank while an order waits for payment
 // reads as money gone missing.
 func (store *PostgresStore) WalletReserved(ctx context.Context, customerID, currency string) (int64, error) {
-	var reserved int64
-	err := store.pool.QueryRow(ctx, `SELECT COALESCE(sum(wallet_minor), 0)::bigint FROM orders
-		WHERE user_id = $1::uuid AND currency = $2 AND state IN ('draft','pending')`,
-		customerID, currency).Scan(&reserved)
-	return reserved, err
+	row, err := store.walletBalance(ctx, customerID, currency)
+	return row.ReservedMinor, err
+}
+
+func (store *PostgresStore) walletBalance(ctx context.Context, customerID, currency string) (dbgen.GetWalletBalancesRow, error) {
+	var userID pgtype.UUID
+	if err := userID.Scan(customerID); err != nil {
+		return dbgen.GetWalletBalancesRow{}, err
+	}
+	rows, err := dbgen.New(store.pool).GetWalletBalances(ctx, dbgen.GetWalletBalancesParams{
+		UserID: userID, Currency: pgtype.Text{String: currency, Valid: true},
+	})
+	if err != nil || len(rows) == 0 {
+		return dbgen.GetWalletBalancesRow{Currency: currency}, err
+	}
+	return rows[0], nil
 }
 
 // WalletEntry is one customer-visible ledger movement.
