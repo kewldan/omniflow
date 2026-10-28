@@ -132,9 +132,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
           {/* Every time in the panel is in this zone; it is named once here
               rather than guessed at on each page. */}
           <TimeZoneLabel className="hidden font-mono text-[11px] text-subtle-foreground xl:inline" />
-          <div className="hidden md:block">
-            <CommandMenu />
-          </div>
+          {/* The menu renders its own trigger for each width: a field on a
+              wide screen, an icon on a phone, where it used to disappear. */}
+          <CommandMenu />
           <UserMenu />
         </header>
 

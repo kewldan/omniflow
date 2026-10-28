@@ -10,7 +10,8 @@ import {
   CommandList,
   CommandShortcut,
 } from "@omniflow/ui/command";
-import { Search } from "lucide-react";
+import { Search, ShieldCheck, UserPlus } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
@@ -19,15 +20,30 @@ import { useEffect, useState } from "react";
 import { NAVIGATION } from "@/lib/navigation";
 import { useSession } from "@/lib/session";
 
+// Record search is fetched the first time the palette opens, not with the
+// shell that every panel route ships.
+const RecordResults = dynamic(
+  () => import("./record-results").then((module) => module.RecordResults),
+  {
+    ssr: false,
+  },
+);
+
 /**
  * Command search.
  *
- * Opened with Ctrl/Cmd+K from anywhere, and also reachable by a visible button
- * so the feature is not keyboard-only knowledge. Entries the operator lacks
- * permission for are filtered out, matching the sidebar.
+ * Opened with Ctrl/Cmd+K from anywhere, and by a visible button — a full field
+ * on wide screens, an icon on a phone — so the feature is neither keyboard-only
+ * knowledge nor missing on mobile. It does three things: jumps to a screen,
+ * finds a record, and starts a common action. Screens and actions the operator
+ * lacks permission for are filtered out, matching the sidebar; record groups
+ * are filtered by the API, which never returns a group the operator could not
+ * open.
  */
 export function CommandMenu() {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [searching, setSearching] = useState(false);
   const router = useRouter();
   const translate = useTranslations("admin");
   const { can } = useSession();
@@ -44,16 +60,33 @@ export function CommandMenu() {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  function changeOpen(next: boolean) {
+    setOpen(next);
+    if (!next) {
+      setSearch("");
+      setSearching(false);
+    }
+  }
+
   function run(action: () => void) {
-    setOpen(false);
+    changeOpen(false);
     action();
   }
+
+  const actions = [
+    can("admins.write") && {
+      href: "/admin/operators?invite=1",
+      icon: UserPlus,
+      key: "inviteOperator",
+    },
+    { href: "/admin/security", icon: ShieldCheck, key: "security" },
+  ].filter(Boolean) as { href: string; icon: typeof UserPlus; key: string }[];
 
   return (
     <>
       <Button
         aria-keyshortcuts="Control+K"
-        className="w-full max-w-64 justify-start gap-2 text-muted-foreground"
+        className="hidden w-full max-w-64 justify-start gap-2 text-muted-foreground md:inline-flex"
         onClick={() => setOpen(true)}
         size="sm"
         variant="outline"
@@ -62,16 +95,54 @@ export function CommandMenu() {
         <span className="truncate">{translate("commandMenu.trigger")}</span>
         <CommandShortcut className="ml-auto">⌘K</CommandShortcut>
       </Button>
+      <Button
+        aria-label={translate("commandMenu.trigger")}
+        className="md:hidden"
+        onClick={() => setOpen(true)}
+        size="icon-sm"
+        variant="ghost"
+      >
+        <Search />
+      </Button>
 
       <CommandDialog
         description={translate("commandMenu.description")}
-        onOpenChange={setOpen}
+        onOpenChange={changeOpen}
         open={open}
         title={translate("commandMenu.title")}
       >
-        <CommandInput placeholder={translate("commandMenu.placeholder")} />
+        <CommandInput
+          onValueChange={setSearch}
+          placeholder={translate("commandMenu.placeholder")}
+          value={search}
+        />
         <CommandList>
-          <CommandEmpty>{translate("commandMenu.empty")}</CommandEmpty>
+          {searching ? null : <CommandEmpty>{translate("commandMenu.empty")}</CommandEmpty>}
+          {open ? (
+            <RecordResults
+              onPendingChange={setSearching}
+              onSelect={(href) => run(() => router.push(href))}
+              search={search}
+            />
+          ) : null}
+
+          {actions.length > 0 ? (
+            <CommandGroup heading={translate("commandMenu.actions")}>
+              {actions.map((action) => {
+                const Icon = action.icon;
+                return (
+                  <CommandItem
+                    key={action.key}
+                    onSelect={() => run(() => router.push(action.href))}
+                    value={translate(`commandMenu.actionItems.${action.key}`)}
+                  >
+                    <Icon aria-hidden />
+                    {translate(`commandMenu.actionItems.${action.key}`)}
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          ) : null}
 
           {NAVIGATION.map((section) => {
             const visible = section.items.filter(

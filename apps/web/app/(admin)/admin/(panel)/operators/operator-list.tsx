@@ -9,8 +9,10 @@ import { SkeletonTable } from "@omniflow/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { toast } from "@omniflow/ui/toast";
 import { ShieldCheck, ShieldOff, UserPlus } from "lucide-react";
-import { useFormatter, useTranslations } from "next-intl";
-import { useState } from "react";
+import dynamic from "next/dynamic";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { useEffect, useState } from "react";
 import useSWR from "swr";
 
 import { StateNotice } from "@/components/admin/state-notice";
@@ -18,13 +20,23 @@ import { ApiError, apiFetch, fetcher, toQuery } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { useUrlFilters } from "@/lib/use-url-filters";
 
-import { InviteDialog } from "./invite-dialog";
 import { PendingInvitations } from "./pending-invitations";
 import { PermissionMatrix } from "./permission-matrix";
-import { RoleEditor } from "./role-editor";
 import type { Invitation, Operator, RbacCatalog } from "./roles";
 
 type OperatorPage = { items: Operator[]; nextCursor?: string };
+
+// The two editors carry React Hook Form and zod and are opened by a click, so
+// they load then rather than with the page.
+const InviteDialog = dynamic(
+  () => import("./invite-dialog").then((module) => module.InviteDialog),
+  {
+    ssr: false,
+  },
+);
+const RoleEditor = dynamic(() => import("./role-editor").then((module) => module.RoleEditor), {
+  ssr: false,
+});
 
 export function OperatorList() {
   const translate = useTranslations("admin.operators");
@@ -36,9 +48,26 @@ export function OperatorList() {
   const [submitting, setSubmitting] = useState(false);
   const [inviting, setInviting] = useState(false);
   const [editingRoles, setEditingRoles] = useState<Operator | null>(null);
-  const format = useFormatter();
   const canManage = can("admins.write");
   const canEditRoles = can("admins.roles");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const inviteRequested = searchParams.get("invite") === "1";
+
+  // The command palette's "Invite operator" lands here with ?invite=1.
+  useEffect(() => {
+    if (inviteRequested && canManage) {
+      setInviting(true);
+    }
+  }, [inviteRequested, canManage]);
+
+  function changeInviting(open: boolean) {
+    setInviting(open);
+    if (!open && inviteRequested) {
+      router.replace(pathname);
+    }
+  }
 
   const catalog = useSWR<RbacCatalog, ApiError>("/v1/panel/rbac/catalog", fetcher, {
     revalidateOnFocus: false,
@@ -177,10 +206,7 @@ export function OperatorList() {
                         </TableCell>
                         <TableCell className="hidden whitespace-nowrap text-muted-foreground text-xs md:table-cell">
                           {operator.lastLoginAt
-                            ? format.dateTime(new Date(operator.lastLoginAt), {
-                                dateStyle: "medium",
-                                timeStyle: "short",
-                              })
+                            ? translate("lastLogin", { date: new Date(operator.lastLoginAt) })
                             : translate("neverSignedIn")}
                         </TableCell>
                         {(canManage || canEditRoles) && (
@@ -262,19 +288,23 @@ export function OperatorList() {
         loading={catalog.isLoading && !catalog.data}
       />
 
-      <InviteDialog
-        catalog={catalog.data}
-        onInvited={() => invitations.mutate()}
-        onOpenChange={setInviting}
-        open={inviting}
-      />
+      {inviting ? (
+        <InviteDialog
+          catalog={catalog.data}
+          onInvited={() => invitations.mutate()}
+          onOpenChange={changeInviting}
+          open={inviting}
+        />
+      ) : null}
 
-      <RoleEditor
-        catalog={catalog.data}
-        onChanged={() => mutate()}
-        onOpenChange={(open) => !open && setEditingRoles(null)}
-        operator={editingRoles}
-      />
+      {editingRoles ? (
+        <RoleEditor
+          catalog={catalog.data}
+          onChanged={() => mutate()}
+          onOpenChange={(open) => !open && setEditingRoles(null)}
+          operator={editingRoles}
+        />
+      ) : null}
 
       {/*
         Suspension ends every one of that operator's live sessions immediately,

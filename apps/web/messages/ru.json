@@ -158,10 +158,70 @@
     "commandMenu": {
       "trigger": "Поиск…",
       "title": "Командное меню",
-      "description": "Перейти на страницу или сменить оформление.",
-      "placeholder": "Введите страницу или команду…",
+      "description": "Перейти на страницу, найти клиента, заказ, обращение или код либо начать частое действие.",
+      "placeholder": "Страницы, клиенты, заказы, обращения…",
       "empty": "Ничего не найдено.",
-      "appearance": "Оформление"
+      "appearance": "Оформление",
+      "actions": "Действия",
+      "actionItems": {
+        "inviteOperator": "Пригласить оператора",
+        "security": "Настроить двухфакторную защиту и ключи доступа"
+      },
+      "search": {
+        "searching": "Ищем…",
+        "failed": "Поиск по записям недоступен. Страницы и действия работают.",
+        "rateLimited": "Слишком много запросов за минуту. Подождите немного.",
+        "handleNotStored": "Имена пользователей Telegram (@username) не хранятся, поэтому по ним не найти. Используйте числовой Telegram ID, почту или ID клиента.",
+        "groups": {
+          "customers": "Клиенты",
+          "orders": "Заказы",
+          "tickets": "Обращения",
+          "gifts": "Подарки",
+          "accessCodes": "Коды доступа"
+        },
+        "matchedBy": {
+          "id": "по ID",
+          "telegramId": "по Telegram ID",
+          "email": "по почте",
+          "remnawaveUsername": "по имени в Remnawave",
+          "providerReference": "по номеру платежа",
+          "subject": "по теме",
+          "code": "по коду"
+        },
+        "customer": "Клиент {id}",
+        "order": "Заказ {id} · {amount}",
+        "ticket": "Обращение {id}",
+        "gift": "Подарок ····{hint}",
+        "accessCode": "Код доступа ····{hint}",
+        "telegram": "Telegram {id}",
+        "since": "с {date, date, medium}",
+        "expires": "истекает {date, date, medium}",
+        "batch": "партия {reference}",
+        "statuses": {
+          "active": "активен",
+          "suspended": "заблокирован",
+          "deleted": "удалён",
+          "draft": "черновик",
+          "pending": "ожидает",
+          "paid": "оплачен",
+          "fulfilled": "выполнен",
+          "cancelled": "отменён",
+          "expired": "истёк",
+          "partially_refunded": "частичный возврат",
+          "refunded": "возвращён",
+          "open": "открыто",
+          "resolved": "решено",
+          "closed": "закрыто",
+          "merged": "объединено",
+          "deliverable": "готов к вручению",
+          "claimed": "получен",
+          "revoked": "отозван",
+          "issued": "выпущен",
+          "redeemed": "использован"
+        },
+        "created": "создан {date, date, medium}",
+        "lastMessage": "последнее сообщение {date, date, medium}"
+      }
     },
     "userMenu": {
       "label": "Меню аккаунта",
@@ -359,7 +419,8 @@
           "roles": "Роли",
           "expires": "Истекает",
           "invitedBy": "Пригласил"
-        }
+        },
+        "expiresAt": "{date, date, medium} {date, time, short}"
       },
       "matrix": {
         "title": "Роли и права",
@@ -389,7 +450,8 @@
           "gifts": "Подарки",
           "goods": "Магазин"
         }
-      }
+      },
+      "lastLogin": "{date, date, medium} {date, time, short}"
     },
     "audit": {
       "title": "Журнал действий",

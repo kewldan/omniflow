@@ -7,7 +7,7 @@ import { ConfirmDialog } from "@omniflow/ui/confirm-dialog";
 import { SkeletonTable } from "@omniflow/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { toast } from "@omniflow/ui/toast";
-import { useFormatter, useNow, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import type { KeyedMutator } from "swr";
 
@@ -39,8 +39,9 @@ export function PendingInvitations({
 }) {
   const translate = useTranslations("admin.operators.pending");
   const translateRole = useTranslations("admin.roles");
-  const format = useFormatter();
-  const now = useNow({ updateInterval: 60_000 });
+  // Fixed at mount: a link that lapses while the page is open is relabelled
+  // on the next visit, and the server refuses it either way.
+  const [now] = useState(() => Date.now());
   const [revoking, setRevoking] = useState<Invitation | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -99,7 +100,7 @@ export function PendingInvitations({
           <TableBody>
             {invitations.map((invitation) => {
               const expiresAt = new Date(invitation.expiresAt);
-              const expired = expiresAt.getTime() <= now.getTime();
+              const expired = expiresAt.getTime() <= now;
               return (
                 <TableRow key={invitation.id}>
                   <TableCell className="font-mono text-[12px]">{invitation.email}</TableCell>
@@ -116,14 +117,8 @@ export function PendingInvitations({
                     {expired ? (
                       <Badge variant="warning">{translate("expired")}</Badge>
                     ) : (
-                      <time
-                        dateTime={invitation.expiresAt}
-                        title={format.dateTime(expiresAt, {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        })}
-                      >
-                        {format.relativeTime(expiresAt, now)}
+                      <time dateTime={invitation.expiresAt}>
+                        {translate("expiresAt", { date: expiresAt })}
                       </time>
                     )}
                   </TableCell>

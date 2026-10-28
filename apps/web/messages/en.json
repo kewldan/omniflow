@@ -158,10 +158,70 @@
     "commandMenu": {
       "trigger": "Search…",
       "title": "Command menu",
-      "description": "Jump to a page or change the appearance.",
-      "placeholder": "Type a page or a command…",
+      "description": "Jump to a page, find a customer, order, ticket, or code, or start a common action.",
+      "placeholder": "Search pages, customers, orders, tickets…",
       "empty": "Nothing matched.",
-      "appearance": "Appearance"
+      "appearance": "Appearance",
+      "actions": "Actions",
+      "actionItems": {
+        "inviteOperator": "Invite an operator",
+        "security": "Set up two-factor and passkeys"
+      },
+      "search": {
+        "searching": "Searching…",
+        "failed": "Records could not be searched. Pages and actions still work.",
+        "rateLimited": "Too many searches in a minute. Wait a moment.",
+        "handleNotStored": "Telegram @usernames are not stored, so they cannot be searched. Use the numeric Telegram ID, the email, or the customer ID.",
+        "groups": {
+          "customers": "Customers",
+          "orders": "Orders",
+          "tickets": "Support tickets",
+          "gifts": "Gifts",
+          "accessCodes": "Access codes"
+        },
+        "matchedBy": {
+          "id": "by ID",
+          "telegramId": "by Telegram ID",
+          "email": "by email",
+          "remnawaveUsername": "by Remnawave username",
+          "providerReference": "by payment reference",
+          "subject": "by subject",
+          "code": "by code"
+        },
+        "customer": "Customer {id}",
+        "order": "Order {id} · {amount}",
+        "ticket": "Ticket {id}",
+        "gift": "Gift ····{hint}",
+        "accessCode": "Access code ····{hint}",
+        "telegram": "Telegram {id}",
+        "since": "since {date, date, medium}",
+        "expires": "expires {date, date, medium}",
+        "batch": "batch {reference}",
+        "statuses": {
+          "active": "active",
+          "suspended": "suspended",
+          "deleted": "deleted",
+          "draft": "draft",
+          "pending": "pending",
+          "paid": "paid",
+          "fulfilled": "fulfilled",
+          "cancelled": "cancelled",
+          "expired": "expired",
+          "partially_refunded": "partially refunded",
+          "refunded": "refunded",
+          "open": "open",
+          "resolved": "resolved",
+          "closed": "closed",
+          "merged": "merged",
+          "deliverable": "deliverable",
+          "claimed": "claimed",
+          "revoked": "revoked",
+          "issued": "issued",
+          "redeemed": "redeemed"
+        },
+        "created": "created {date, date, medium}",
+        "lastMessage": "last message {date, date, medium}"
+      }
     },
     "userMenu": {
       "label": "Account menu",
@@ -359,7 +419,8 @@
           "roles": "Roles",
           "expires": "Expires",
           "invitedBy": "Invited by"
-        }
+        },
+        "expiresAt": "{date, date, medium} {date, time, short}"
       },
       "matrix": {
         "title": "Roles and permissions",
@@ -389,7 +450,8 @@
           "gifts": "Gifts",
           "goods": "Shop"
         }
-      }
+      },
+      "lastLogin": "{date, date, medium} {date, time, short}"
     },
     "audit": {
       "title": "Audit log",
