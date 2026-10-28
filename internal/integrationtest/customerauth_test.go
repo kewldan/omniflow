@@ -259,7 +259,18 @@ func TestConcurrentRequestsAtRotationAllKeepTheSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sign in: %v", err)
 	}
-	clock = clock.Add(customerauth.DefaultSessionPolicy.RotateAfter + time.Minute)
+	// The session is aged in the database rather than the service's clock being
+	// moved forward. The rotation stamps rotated_at with the database's now(),
+	// so a service clock a day ahead of the database would find the replacement
+	// token already due as well: resolving it would rotate a second time and
+	// retire the very token the grace entry forwards to. Production reads one
+	// wall clock on both sides, which is the arrangement this reproduces.
+	if _, err = harness.pool.Exec(ctx,
+		`UPDATE customer_sessions SET rotated_at = rotated_at - make_interval(secs => $2) WHERE id = $1`,
+		result.SessionID, (customerauth.DefaultSessionPolicy.RotateAfter + time.Minute).Seconds(),
+	); err != nil {
+		t.Fatalf("age the session: %v", err)
+	}
 
 	const parallel = 8
 	var wait sync.WaitGroup
