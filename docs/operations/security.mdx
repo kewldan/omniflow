@@ -564,6 +564,19 @@ can contain a subscription link, which is a credential.
 and `no-referrer` keeps a URL carrying one from being handed to whatever the
 customer navigates to next.
 
+The pages themselves are served by the web application, which sets its own
+`Content-Security-Policy` on every HTML response. Scripts run only with a nonce
+minted per request (`script-src 'self' 'nonce-…' 'strict-dynamic'`), plugins
+are refused (`object-src 'none'`), and the policy depends on the surface:
+
+| Surface | Third-party origins allowed | Framing |
+| --- | --- | --- |
+| Operator panel (`/admin`) | none | `frame-ancestors 'none'` |
+| Public and customer pages | the Yandex Metrica and Google Analytics hosts, used only when you [configure a counter](/operations/advertising-measurement) | Telegram Web (`https://web.telegram.org`), which opens a Mini App in a frame |
+| Customer sign-in (`/account/sign-in`) | the above, plus the Telegram login widget (`telegram.org`, `oauth.telegram.org`) and `'unsafe-eval'`, which the widget needs to run its callback | as above |
+
+Advertising counters are never loaded on an operator page, whatever is configured.
+
 Every response on every prefix also carries `X-Request-ID`. A panic recovery
 handler and a 60-second handler timeout apply process-wide, with
 `ReadHeaderTimeout` 5s, `ReadTimeout` 15s, `WriteTimeout` 30s, and `IdleTimeout`

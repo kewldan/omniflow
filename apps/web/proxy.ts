@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 
+import { buildCsp, createNonce, cspSurface } from "@/lib/csp";
 import { SIGN_IN, signInPath } from "@/lib/sign-in-path";
 
 /**
@@ -127,12 +128,29 @@ export function proxy(request: NextRequest) {
   if (redirect) {
     return NextResponse.redirect(new URL(redirect, request.url));
   }
-  return NextResponse.next();
+
+  // Every page gets a fresh nonce and the policy for its surface. The policy
+  // goes on the request too: that is where Next.js reads the nonce to stamp it
+  // on its own scripts, and where the root layout reads it for the theme
+  // script and the counters. See lib/csp.ts.
+  const nonce = createNonce();
+  const policy = buildCsp({
+    dev: process.env.NODE_ENV === "development",
+    nonce,
+    surface: cspSurface(pathname),
+  });
+  const headers = new Headers(request.headers);
+  headers.set("x-nonce", nonce);
+  headers.set("content-security-policy", policy);
+  const response = NextResponse.next({ request: { headers } });
+  response.headers.set("content-security-policy", policy);
+  return response;
 }
 
 export const config = {
-  // Both panel gates, plus the API route both panels depend on. Each panel has
-  // its own session cookie, so a customer cookie never opens /admin and an
-  // operator cookie never opens /account.
-  matcher: ["/admin/:path*", "/account/:path*", "/v1/:path*"],
+  // The API route, and every page for the policy; the panel gates are decided
+  // inside. Build output is skipped: it is not a document a policy applies to.
+  // Each panel has its own session cookie, so a customer cookie never opens
+  // /admin and an operator cookie never opens /account.
+  matcher: ["/v1/:path*", "/((?!_next/static|_next/image|favicon\\.ico|v1/).*)"],
 };

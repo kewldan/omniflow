@@ -36,7 +36,14 @@ import { AttributionCapture } from "./capture";
  * page captured — so a visitor who says no is not left with a click identifier
  * sitting in their browser waiting for a purchase to attach it to.
  */
-export function MeasurementRuntime({ analytics }: { analytics: PublicAnalytics }) {
+export function MeasurementRuntime({
+  analytics,
+  nonce,
+}: {
+  analytics: PublicAnalytics;
+  /** The page nonce: the counters are inline scripts, and the policy admits only nonced ones. */
+  nonce?: string;
+}) {
   const [choice, setChoice] = useState<"unknown" | "granted" | "declined">("unknown");
 
   // Read after mount rather than during render: the choice lives in the
@@ -62,7 +69,7 @@ export function MeasurementRuntime({ analytics }: { analytics: PublicAnalytics }
     <>
       {choice === "granted" && (
         <>
-          <Counters counters={analytics.counters ?? {}} />
+          <Counters counters={analytics.counters ?? {}} nonce={nonce} />
           <Suspense fallback={null}>
             <AttributionCapture />
           </Suspense>
@@ -80,14 +87,14 @@ export function MeasurementRuntime({ analytics }: { analytics: PublicAnalytics }
  * They are `afterInteractive` so a measurement script cannot delay the page a
  * customer came to use.
  */
-function Counters({ counters }: { counters: Record<string, string> }) {
+function Counters({ counters, nonce }: { counters: Record<string, string>; nonce?: string }) {
   const metrica = counters.yandex_metrica;
   const ga4 = counters.google_analytics;
 
   return (
     <>
       {metrica && (
-        <Script id="omniflow-metrica" strategy="afterInteractive">
+        <Script id="omniflow-metrica" nonce={nonce} strategy="afterInteractive">
           {`(function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
 m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
 (window,document,"script","https://mc.yandex.ru/metrika/tag.js","ym");
@@ -98,9 +105,10 @@ ym(${metrica},"init",{clickmap:true,trackLinks:true,accurateTrackBounce:true});`
         <>
           <Script
             src={`https://www.googletagmanager.com/gtag/js?id=${ga4}`}
+            nonce={nonce}
             strategy="afterInteractive"
           />
-          <Script id="omniflow-ga4" strategy="afterInteractive">
+          <Script id="omniflow-ga4" nonce={nonce} strategy="afterInteractive">
             {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}
 gtag("js",new Date());gtag("config","${ga4}");`}
           </Script>

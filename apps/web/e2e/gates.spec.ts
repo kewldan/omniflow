@@ -90,3 +90,37 @@ test.describe("localisation", () => {
     await expect(page.locator("html")).toHaveAttribute("lang", /^(en|ru)/);
   });
 });
+
+test.describe("content security policy", () => {
+  for (const path of PUBLIC_PAGES) {
+    test(`${path} carries a nonce policy and breaks nothing under it`, async ({ page }) => {
+      const violations: string[] = [];
+      page.on("console", (message) => {
+        if (
+          /Content.Security.Policy|Refused to (execute|load|apply|frame|connect)/i.test(
+            message.text(),
+          )
+        ) {
+          violations.push(message.text());
+        }
+      });
+
+      const response = await page.goto(path);
+      const policy = response?.headers()["content-security-policy"] ?? "";
+      expect(policy).toMatch(/script-src [^;]*'nonce-[A-Za-z0-9+/=]+'/);
+      expect(policy).toContain("object-src 'none'");
+      // The page has to hydrate under it: the theme bootstrap and Next.js's
+      // own inline scripts all need the nonce, and a missing one is silent
+      // apart from the console.
+      await page.waitForLoadState("networkidle");
+      expect(violations, violations.join("\n")).toEqual([]);
+    });
+  }
+
+  test("the operator panel admits no third-party origin and cannot be framed", async ({ page }) => {
+    const response = await page.goto("/admin/login");
+    const policy = response?.headers()["content-security-policy"] ?? "";
+    expect(policy).toContain("frame-ancestors 'none'");
+    expect(policy).not.toMatch(/yandex|google|telegram/);
+  });
+});

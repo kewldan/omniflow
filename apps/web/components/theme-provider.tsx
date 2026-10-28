@@ -30,10 +30,13 @@ export function ThemeProvider({
   children,
   allowedThemes = ["light", "dark"],
   defaultTheme = "system",
+  nonce,
 }: {
   children: ReactNode;
   allowedThemes?: readonly string[];
   defaultTheme?: string;
+  /** The page's script nonce; the theme bootstrap is an inline script. */
+  nonce?: string;
 }) {
   const forcedTheme = allowedThemes.length === 1 ? allowedThemes[0] : undefined;
   return (
@@ -44,6 +47,7 @@ export function ThemeProvider({
         disableTransitionOnChange
         enableSystem={!forcedTheme}
         forcedTheme={forcedTheme}
+        nonce={nonce}
       >
         {children}
       </NextThemeProvider>

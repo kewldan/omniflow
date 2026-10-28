@@ -1,5 +1,6 @@
 import { ScopedIntlProvider } from "@/components/intl/scoped-intl-provider";
 import { readAnalytics } from "@/lib/analytics";
+import { readNonce } from "@/lib/nonce";
 
 import { Measurement } from "./measurement";
 
@@ -15,14 +16,14 @@ import { Measurement } from "./measurement";
  * only on an installation that measures something.
  */
 export async function CustomerMeasurement() {
-  const analytics = await readAnalytics();
+  const [analytics, nonce] = await Promise.all([readAnalytics(), readNonce()]);
   if (!analytics.measurable) {
     return null;
   }
   return (
     <ScopedIntlProvider namespaces={["analytics"]}>
       {/* Renders nothing until the visitor has agreed to it. */}
-      <Measurement analytics={analytics} />
+      <Measurement analytics={analytics} nonce={nonce} />
     </ScopedIntlProvider>
   );
 }

@@ -9,6 +9,7 @@ import { ScopedIntlProvider } from "@/components/intl/scoped-intl-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { readAnalytics } from "@/lib/analytics";
 import { readBranding } from "@/lib/branding";
+import { readNonce } from "@/lib/nonce";
 import "./globals.css";
 
 /**
@@ -29,10 +30,11 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
-  const [locale, branding, analytics] = await Promise.all([
+  const [locale, branding, analytics, nonce] = await Promise.all([
     getLocale(),
     readBranding(),
     readAnalytics(),
+    readNonce(),
   ]);
 
   return (
@@ -71,7 +73,11 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         ) : null}
       </head>
       <body>
-        <ThemeProvider allowedThemes={branding.allowedThemes} defaultTheme={branding.defaultTheme}>
+        <ThemeProvider
+          allowedThemes={branding.allowedThemes}
+          defaultTheme={branding.defaultTheme}
+          nonce={nonce}
+        >
           {/* Only what every surface shares. Each panel's route group hands
               the browser its own catalogue in its own layout; see
               ScopedIntlProvider for why the root must not. */}

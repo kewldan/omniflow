@@ -23,13 +23,13 @@ const MeasurementRuntime = lazy(() =>
   import("./measurement-runtime").then((module) => ({ default: module.MeasurementRuntime })),
 );
 
-export function Measurement({ analytics }: { analytics: PublicAnalytics }) {
+export function Measurement({ analytics, nonce }: { analytics: PublicAnalytics; nonce?: string }) {
   if (!analytics.measurable) {
     return null;
   }
   return (
     <Suspense fallback={null}>
-      <MeasurementRuntime analytics={analytics} />
+      <MeasurementRuntime analytics={analytics} nonce={nonce} />
     </Suspense>
   );
 }
