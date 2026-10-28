@@ -39,7 +39,7 @@ The same property makes retries safe. A fulfillment operation carries a unique `
 
 ### The queue schema ships with the migrations
 
-River keeps its own tables (`river_job`, `river_leader`, `river_queue`, `river_notification`, `river_migration`). The Atlas migration `20260905110000_river_queue.sql` creates them: it is River's own `main` migration line for the linked River version, copied verbatim, followed by the `river_migration` rows River's `rivermigrate` would have written. The compose `migrate` service therefore leaves a database on which the worker starts and the API and the bot can insert jobs, with no step outside the documented deployment path.
+River keeps its own tables (`river_job`, `river_leader`, `river_queue`, `river_notification`, `river_migration`). The Atlas migration `20260905130000_river_queue.sql` creates them: it is River's own `main` migration line for the linked River version, copied verbatim, followed by the `river_migration` rows River's `rivermigrate` would have written. The compose `migrate` service therefore leaves a database on which the worker starts and the API and the bot can insert jobs, with no step outside the documented deployment path.
 
 An installation that already created those tables by hand with the River CLI keeps them: the migration skips its whole body when `river_migration` already exists.
 

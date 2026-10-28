@@ -184,7 +184,7 @@ A table whose mutability nobody stated becomes a table somebody edits.
 ## River's schema ships as an Atlas migration
 
 The durable job tables (`river_job`, `river_leader`, `river_queue`, `river_notification`,
-`river_migration`) are created by `20260905110000_river_queue.sql`. That file is River v0.43.0's own
+`river_migration`) are created by `20260905130000_river_queue.sql`. That file is River v0.43.0's own
 `main` migration line, versions 1 through 7, copied verbatim from `riverpgxv5` with the schema
 template removed, followed by the `river_migration` rows `rivermigrate` itself would write. Its whole
 body is skipped when `river_migration` already exists, so an installation that created the tables by

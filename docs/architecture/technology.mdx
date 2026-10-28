@@ -84,7 +84,7 @@ Three queues are configured — `critical` (16 workers), `default` (8), and `bul
 `default` with one attempt.
 
 <Note>
-  River's own tables ship with the Atlas migrations: `20260905110000_river_queue.sql` is River's own
+  River's own tables ship with the Atlas migrations: `20260905130000_river_queue.sql` is River's own
   migration line copied verbatim, so the compose `migrate` service creates `river_job` and its siblings
   along with Omniflow's schema. An integration test fails if `rivermigrate` reports an unapplied River
   version, so a River upgrade needs a matching migration.

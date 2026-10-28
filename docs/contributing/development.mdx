@@ -94,7 +94,7 @@ from the same contract.
 `make down` stops everything, including the web profile.
 
 <Note>
-  River's own tables ship with the committed Atlas migrations (`20260905110000_river_queue.sql`), so
+  River's own tables ship with the committed Atlas migrations (`20260905130000_river_queue.sql`), so
   the compose `migrate` service leaves a database the worker can start on. `cmd/worker/main.go` exits
   with status 1 when `river.Client.Start` returns an error, so a worker pointed at a database that
   has not been migrated does not stay up. See [Jobs and queues](/operations/jobs-and-queues#the-queue-schema-ships-with-the-migrations).
