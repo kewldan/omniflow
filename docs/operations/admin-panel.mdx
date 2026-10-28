@@ -43,7 +43,7 @@ database records only which roles an operator holds.
 | `support` | Customers, subscriptions, and the support desk; reads risk, gifts, and the shop |
 | `finance` | Orders, payments, refunds, wallet adjustments, and audit export; revokes and refunds unredeemed gifts |
 | `marketing` | Campaigns, news, referral configuration, and personal offers |
-| `auditor` | Read-only across every surface, plus audit export |
+| `auditor` | Read-only across every surface, plus audit export (not the customer export) |
 
 Only an owner may create an operator, change role grants, or grant the owner
 role. Keeping that owner-only means a compromised administrator session cannot

@@ -35,8 +35,14 @@ const (
 	PermissionAuditExport Permission = "audit.export"
 
 	// Customer records and their subscriptions.
-	PermissionCustomersRead      Permission = "customers.read"
-	PermissionCustomersWrite     Permission = "customers.write"
+	PermissionCustomersRead  Permission = "customers.read"
+	PermissionCustomersWrite Permission = "customers.write"
+	// Bulk export of the customer base. Separate from customers.read because
+	// looking up one customer to answer a ticket and downloading every
+	// customer with their Telegram ID are different acts: the first is routine,
+	// the second is the shape of a data leak, and an installation should be
+	// able to grant one without the other.
+	PermissionCustomersExport    Permission = "customers.export"
 	PermissionSubscriptionsRead  Permission = "subscriptions.read"
 	PermissionSubscriptionsWrite Permission = "subscriptions.write"
 
@@ -92,7 +98,7 @@ const (
 var AllPermissions = []Permission{
 	PermissionAdminsRead, PermissionAdminsWrite, PermissionAdminsRoles,
 	PermissionAuditRead, PermissionAuditExport,
-	PermissionCustomersRead, PermissionCustomersWrite,
+	PermissionCustomersRead, PermissionCustomersWrite, PermissionCustomersExport,
 	PermissionSubscriptionsRead, PermissionSubscriptionsWrite,
 	PermissionFinanceRead, PermissionFinanceWrite,
 	PermissionCatalogRead, PermissionCatalogWrite,
@@ -161,7 +167,7 @@ var rolePermissions = map[Role][]Permission{
 	RoleAdministrator: {
 		PermissionAdminsRead,
 		PermissionAuditRead, PermissionAuditExport,
-		PermissionCustomersRead, PermissionCustomersWrite,
+		PermissionCustomersRead, PermissionCustomersWrite, PermissionCustomersExport,
 		PermissionSubscriptionsRead, PermissionSubscriptionsWrite,
 		PermissionFinanceRead, PermissionFinanceWrite,
 		PermissionCatalogRead, PermissionCatalogWrite,

@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/omniflow/omniflow/internal/adminauthpg"
 	"github.com/omniflow/omniflow/internal/panelpg"
 	"github.com/omniflow/omniflow/internal/payments"
 	"github.com/omniflow/omniflow/internal/platform"
@@ -56,8 +57,11 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 		read.Get("/customers/{customerID}/consents", handlers.customerConsents)
 		read.Get("/customers/{customerID}/referrals", handlers.customerReferrals)
 		read.Get("/imports", handlers.listCustomerImports)
-		read.Get("/customers/export", handlers.exportCustomers)
 	})
+	// The bulk export is its own capability and is audited: every customer and
+	// their Telegram ID in one file is not what customers.read is for.
+	secure.With(handlers.requirePermission(rbac.PermissionCustomersRead, rbac.PermissionCustomersExport)).
+		Get("/customers/export", handlers.exportCustomers)
 	secure.With(handlers.requirePermission(rbac.PermissionCustomersWrite)).
 		Post("/customers/{customerID}/status", handlers.setCustomerStatus)
 	secure.With(handlers.requirePermission(rbac.PermissionCustomersWrite)).
@@ -1141,6 +1145,22 @@ func (handlers *AdminHandlers) listCustomerImports(writer http.ResponseWriter, r
 // for the same reason the audit and finance exports are: one request must not
 // be able to walk an unbounded table forever.
 func (handlers *AdminHandlers) exportCustomers(writer http.ResponseWriter, request *http.Request) {
+	// Recorded before the first byte is written: an export the client
+	// abandons half way has still left the building.
+	principal, _ := PrincipalFrom(request.Context())
+	if handlers.service != nil {
+		if err := handlers.service.AppendAudit(request.Context(), adminauthpg.AuditEntry{
+			ActorType: "admin", ActorID: principal.Account.ID,
+			Action: "panel.customers.exported", Category: "customer", Outcome: "success",
+			TargetType: "customer_export", TargetID: "all",
+			RequestID: middlewareRequestID(request),
+			Metadata:  map[string]any{"status": query(request, "status")},
+		}); err != nil {
+			handlers.logger.Error("customer export could not be audited", "error", err)
+			writeProblem(writer, request, http.StatusInternalServerError, "export_unavailable", "The export is unavailable")
+			return
+		}
+	}
 	writer.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	writer.Header().Set("Content-Disposition", `attachment; filename="customers.csv"`)
 	writer.WriteHeader(http.StatusOK)

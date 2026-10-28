@@ -102,6 +102,15 @@ into a bulk-export account.
 Segments filter by relationship rather than by status: has a live subscription,
 lapsed, never purchased, or flagged for review.
 
+The customer CSV export (`GET /v1/panel/customers/export`) needs
+`customers.export` as well as `customers.read`, and only the `owner` and
+`administrator` roles hold it. Looking up one customer to answer a ticket and
+downloading every customer with their Telegram ID are different acts, so
+support, marketing, and the auditor can do the first but not the second. Every
+export writes `panel.customers.exported` (category `customer`) to the audit
+trail before the first row is sent, so an export abandoned half way is still on
+record.
+
 A customer profile lists every concurrent subscription with the entitlement
 currently governing it, plus orders, wallet movements, support history, consent
 state, and any risk matches. The wallet tab is gated on `finance.read` rather
