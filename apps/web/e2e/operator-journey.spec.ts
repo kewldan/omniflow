@@ -1,4 +1,4 @@
-import { expect, type Locator, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 
 import { MISSING_MESSAGE_MARKER } from "../i18n/missing-message";
 import { seriousViolations } from "./axe";
@@ -134,6 +134,9 @@ test.describe("operator journey", () => {
       "/admin/gifts",
       "/admin/offers",
     ];
+    // A sweep visits every page in one test, so its budget grows with the list
+    // rather than sharing the 30-second default meant for one page.
+    test.setTimeout(30_000 + PANEL_PAGES.length * 10_000);
 
     const violations: string[] = [];
     for (const path of PANEL_PAGES) {
@@ -141,7 +144,7 @@ test.describe("operator journey", () => {
       await expect(page.locator("main")).toBeVisible();
       // The accessibility gate, on the signed-in panel rather than only on its
       // sign-in screen. Collected across the sweep so one run names every page.
-      await page.waitForLoadState("networkidle");
+      await settle(page);
       violations.push(...(await seriousViolations(page, path)));
       const body = (await page.locator("body").innerText()) ?? "";
       // A missing message renders as the marker configured in i18n/request.ts.
@@ -157,3 +160,10 @@ test.describe("operator journey", () => {
     expect(violations, violations.join("\n")).toEqual([]);
   });
 });
+
+// settle waits for the page's requests to go quiet, but only briefly: a screen
+// that polls by design never reaches network idle, and the checks after it read
+// what is on the page rather than what may arrive later.
+async function settle(page: Page) {
+  await page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => undefined);
+}
