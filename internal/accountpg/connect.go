@@ -92,10 +92,6 @@ func (service *Service) RotateSubscriptionLink(
 	if row.RemnawaveID <= 0 {
 		return "", ErrNotProvisioned
 	}
-	if service.remnawave == nil {
-		return "", ErrRemnawaveUnavailable
-	}
-
 	if err = service.remnawave.RevokeSubscription(ctx, row.RemnawaveID); err != nil {
 		return "", ErrRemnawaveUnavailable
 	}

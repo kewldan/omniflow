@@ -280,9 +280,6 @@ func holdsCurrency(balances []WalletBalance, currency string) bool {
 // currency. A top-up is not tied to a plan, so it has no price list to filter by.
 func (service *Service) externalChoices(currency string) []PaymentChoice {
 	choices := make([]PaymentChoice, 0, 4)
-	if service.payments == nil {
-		return choices
-	}
 	for _, option := range service.payments.Options() {
 		if !option.Enabled || !option.Supports(currency) {
 			continue

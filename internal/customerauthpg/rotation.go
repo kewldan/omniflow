@@ -44,15 +44,34 @@ type RotationGraceStore interface {
 	Forget(ctx context.Context, key string) error
 }
 
+// DisabledRotationGrace is the store a service has until a real one is
+// attached. It never grants the rotation claim and holds no forwarding entry,
+// so rotation is skipped entirely rather than performed unsafely: an
+// installation without a temporary store keeps every session signed in on its
+// original token until the absolute horizon, which is a weaker posture than
+// rotating but a far better one than signing customers out at random once a
+// day. It stands where a nil store and a nil check at each use used to.
+type DisabledRotationGrace struct{}
+
+// Claim never elects a rotation.
+func (DisabledRotationGrace) Claim(context.Context, string, string, time.Duration) (bool, error) {
+	return false, nil
+}
+
+// Lookup finds no forwarding entry.
+func (DisabledRotationGrace) Lookup(context.Context, string) (string, bool, error) {
+	return "", false, nil
+}
+
+// Forget has nothing to forget.
+func (DisabledRotationGrace) Forget(context.Context, string) error { return nil }
+
 // SetRotationGrace attaches the store that makes token rotation safe under
-// concurrent requests.
-//
-// Without one, rotation is skipped entirely rather than performed unsafely:
-// an installation whose temporary store is unavailable keeps every session
-// signed in on its original token until the absolute horizon, which is a
-// weaker posture than rotating but a far better one than signing customers
-// out at random once a day.
+// concurrent requests. A nil store restores DisabledRotationGrace.
 func (service *Service) SetRotationGrace(store RotationGraceStore) {
+	if store == nil {
+		store = DisabledRotationGrace{}
+	}
 	service.rotationGrace = store
 }
 
@@ -72,9 +91,6 @@ func (service *Service) SetRotationGrace(store RotationGraceStore) {
 func (service *Service) rotateSessionToken(
 	ctx context.Context, queries *dbgen.Queries, row dbgen.GetCustomerSessionByTokenRow, currentDigest []byte,
 ) (string, error) {
-	if service.rotationGrace == nil {
-		return "", nil
-	}
 	token, digest, err := customerauth.NewSessionToken()
 	if err != nil {
 		return "", err
@@ -123,9 +139,6 @@ func (service *Service) rotateSessionToken(
 func (service *Service) resolveSupersededToken(
 	ctx context.Context, queries *dbgen.Queries, digest []byte,
 ) (Principal, error) {
-	if service.rotationGrace == nil {
-		return Principal{}, ErrSessionInvalid
-	}
 	raw, found, err := service.rotationGrace.Lookup(ctx, rotationKey(digest))
 	if err != nil {
 		return Principal{}, fmt.Errorf("session rotation grace lookup: %w", err)

@@ -81,7 +81,7 @@ func (record SecurityRecorderFunc) RecordSecurityEvent(
 // Service is the customer account adapter.
 type Service struct {
 	pool      *pgxpool.Pool
-	remnawave *remnawave.Client
+	remnawave Panel
 	security  SecurityRecorder
 	logger    *slog.Logger
 	clock     func() time.Time
@@ -99,15 +99,59 @@ type Options struct {
 	Clock    func() time.Time
 }
 
-// New builds the adapter. A nil Remnawave client is allowed: the panel still
-// renders Omniflow's own records and reports the live figures as unavailable,
-// which is what a maintenance window looks like from the customer's side.
-func New(pool *pgxpool.Pool, client *remnawave.Client, options Options) (*Service, error) {
+// Panel is the part of the Remnawave adapter the customer account reads and
+// changes. *remnawave.Client satisfies it.
+type Panel interface {
+	User(ctx context.Context, userID int64) (remnawave.User, error)
+	Subscription(ctx context.Context, userID int64) (remnawave.Subscription, error)
+	Devices(ctx context.Context, userID int64) (remnawave.Devices, error)
+	DeleteDevice(ctx context.Context, userID int64, hwid string) error
+	DeleteAllDevices(ctx context.Context, userID int64) error
+	RevokeSubscription(ctx context.Context, userID int64) error
+}
+
+// UnavailablePanel is a Panel that answers every call as unreachable. With it
+// the account still renders Omniflow's own records and reports the live
+// figures as unavailable, which is what a maintenance window looks like from
+// the customer's side. It replaces the nil client that used to mean the same
+// thing behind a nil check at each use, one of which was missing.
+type UnavailablePanel struct{}
+
+func (UnavailablePanel) User(context.Context, int64) (remnawave.User, error) {
+	return remnawave.User{}, ErrRemnawaveUnavailable
+}
+
+func (UnavailablePanel) Subscription(context.Context, int64) (remnawave.Subscription, error) {
+	return remnawave.Subscription{}, ErrRemnawaveUnavailable
+}
+
+func (UnavailablePanel) Devices(context.Context, int64) (remnawave.Devices, error) {
+	return remnawave.Devices{}, ErrRemnawaveUnavailable
+}
+
+func (UnavailablePanel) DeleteDevice(context.Context, int64, string) error {
+	return ErrRemnawaveUnavailable
+}
+
+func (UnavailablePanel) DeleteAllDevices(context.Context, int64) error {
+	return ErrRemnawaveUnavailable
+}
+
+func (UnavailablePanel) RevokeSubscription(context.Context, int64) error {
+	return ErrRemnawaveUnavailable
+}
+
+// New builds the adapter. The panel is required; pass UnavailablePanel{} for an
+// account surface with no Remnawave behind it.
+func New(pool *pgxpool.Pool, panel Panel, options Options) (*Service, error) {
 	if pool == nil {
 		return nil, errors.New("a database pool is required")
 	}
+	if panel == nil {
+		return nil, errors.New("a Remnawave panel is required; pass UnavailablePanel{} for none")
+	}
 	service := &Service{
-		pool: pool, remnawave: client,
+		pool: pool, remnawave: panel,
 		security: options.Security, logger: options.Logger, clock: options.Clock,
 		connect: connectpg.New(pool),
 	}

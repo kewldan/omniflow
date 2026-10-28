@@ -324,9 +324,6 @@ func (service *Service) scanOrder(rows pgx.Rows) (Order, error) {
 // job, and duplicating that choice here is how two checkouts start disagreeing
 // about what is enabled.
 func (service *Service) canSettle(currency string) bool {
-	if service.payments == nil {
-		return false
-	}
 	for _, option := range service.payments.Options() {
 		if option.Enabled && option.Supports(currency) {
 			return true

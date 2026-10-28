@@ -17,7 +17,7 @@ import (
 func TestProfileLanguageIsWrittenWhereBothSurfacesReadIt(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
-	account, err := accountpg.New(harness.pool, nil, accountpg.Options{Logger: slog.New(slog.DiscardHandler)})
+	account, err := accountpg.New(harness.pool, accountpg.UnavailablePanel{}, accountpg.Options{Logger: slog.New(slog.DiscardHandler)})
 	if err != nil {
 		t.Fatalf("build account service: %v", err)
 	}

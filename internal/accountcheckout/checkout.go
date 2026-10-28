@@ -44,9 +44,6 @@ func (service *Service) choicesFor(prices map[string]int64) []PaymentChoice {
 	}
 	sort.Strings(currencies)
 	choices := make([]PaymentChoice, 0, len(currencies))
-	if service.payments == nil {
-		return choices
-	}
 	for _, option := range service.payments.Options() {
 		currency := PreferredCurrency(option, currencies, service.settings.Currency)
 		if currency == "" {
@@ -295,7 +292,7 @@ const ProviderTelegramStars = "telegram_stars"
 // and came back with another, and reusing it would bind the second attempt to
 // the first adapter's intent.
 func (service *Service) StartPayment(ctx context.Context, request PaymentRequest) (PaymentHandle, error) {
-	if service.payments == nil || !service.payments.Enabled(request.Provider) {
+	if !service.payments.Enabled(request.Provider) {
 		return PaymentHandle{}, ErrProviderUnavailable
 	}
 	receipt := map[string]any{"channel": request.Channel}
@@ -350,7 +347,7 @@ func (service *Service) returnURL(orderID string) string {
 // deliberately best-effort: an adapter that cannot be polled leaves the order
 // exactly as the webhook will eventually find it.
 func (service *Service) Refresh(ctx context.Context, order OrderSummary) {
-	if service.payments == nil || order.PaymentIntentID == "" {
+	if order.PaymentIntentID == "" {
 		return
 	}
 	if order.Phase != commerce.PaymentPhasePending && order.Phase != commerce.PaymentPhaseAwaitingAction {

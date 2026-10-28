@@ -40,7 +40,7 @@ func OrderPayable(order OrderSummary, now time.Time) error {
 // customer who can actually receive the invoice — see stars.go.
 func (service *Service) OrderPaymentChoices(ctx context.Context, customerID string, order OrderSummary) ([]PaymentChoice, error) {
 	choices := make([]PaymentChoice, 0)
-	if service.payments == nil || OrderPayable(order, service.clock()) != nil {
+	if OrderPayable(order, service.clock()) != nil {
 		return choices, nil
 	}
 	for _, option := range service.payments.Options() {
@@ -60,7 +60,7 @@ func (service *Service) OrderPaymentChoices(ctx context.Context, customerID stri
 // because the customer's remedy differs: pick another method, or accept that
 // this order cannot be paid that way at all.
 func (service *Service) ProviderSettles(provider, currency string) error {
-	if service.payments == nil || !service.payments.Enabled(provider) {
+	if !service.payments.Enabled(provider) {
 		return ErrProviderUnavailable
 	}
 	for _, option := range service.payments.Options() {

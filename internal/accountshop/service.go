@@ -108,6 +108,11 @@ func New(
 	if orders == nil {
 		return nil, errors.New("a commerce store is required")
 	}
+	// Required, like the checkout's: an installation that takes no payments
+	// passes a service with no adapters, which settles nothing.
+	if payments == nil {
+		return nil, errors.New("a payment service is required; pass one with no adapters to take no payments")
+	}
 	service := &Service{
 		pool: pool, orders: orders, payments: payments, providers: providers,
 		settings: options.Settings, logger: options.Logger, clock: options.Clock,

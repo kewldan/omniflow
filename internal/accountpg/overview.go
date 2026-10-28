@@ -298,7 +298,7 @@ func (service *Service) projectSubscription(ctx context.Context, row record) (Su
 	}
 
 	live := false
-	if subscription.Provisioned && service.remnawave != nil {
+	if subscription.Provisioned {
 		if user, err := service.remnawave.User(ctx, row.RemnawaveID); err == nil {
 			live = true
 			subscription.Traffic.UsedBytes = user.Traffic.UsedBytes
@@ -394,9 +394,6 @@ func (service *Service) SubscriptionURL(
 	}
 	if row.RemnawaveID <= 0 {
 		return remnawave.Subscription{}, ErrNotProvisioned
-	}
-	if service.remnawave == nil {
-		return remnawave.Subscription{}, ErrRemnawaveUnavailable
 	}
 	subscription, err := service.remnawave.Subscription(ctx, row.RemnawaveID)
 	if err != nil {

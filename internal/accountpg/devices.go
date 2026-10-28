@@ -35,9 +35,6 @@ func (service *Service) Devices(
 	if row.RemnawaveID <= 0 {
 		return nil, ErrNotProvisioned
 	}
-	if service.remnawave == nil {
-		return nil, ErrRemnawaveUnavailable
-	}
 	devices, err := service.remnawave.Devices(ctx, row.RemnawaveID)
 	if err != nil {
 		return nil, ErrRemnawaveUnavailable
@@ -74,9 +71,6 @@ func (service *Service) RemoveDevice(
 	}
 	if row.RemnawaveID <= 0 {
 		return ErrNotProvisioned
-	}
-	if service.remnawave == nil {
-		return ErrRemnawaveUnavailable
 	}
 
 	devices, err := service.remnawave.Devices(ctx, row.RemnawaveID)
@@ -120,9 +114,6 @@ func (service *Service) RemoveAllDevices(
 	}
 	if row.RemnawaveID <= 0 {
 		return 0, ErrNotProvisioned
-	}
-	if service.remnawave == nil {
-		return 0, ErrRemnawaveUnavailable
 	}
 
 	devices, err := service.remnawave.Devices(ctx, row.RemnawaveID)

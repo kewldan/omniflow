@@ -74,9 +74,10 @@ type Options struct {
 
 // New builds the adapter.
 //
-// A nil payment service is allowed and leaves the panel able to price and
-// compare plans while reporting that nothing can settle them yet, which is what
-// an installation with no configured provider actually is.
+// The payment service is required. An installation with no configured provider
+// passes one with no adapters, which leaves the panel able to price and compare
+// plans while reporting that nothing can settle them yet — the same answer a
+// nil service used to stand for, without a nil check in front of every use.
 func New(
 	pool *pgxpool.Pool, orders *commercepg.Store,
 	payments *paymentservice.Service, options Options,
@@ -86,6 +87,9 @@ func New(
 	}
 	if orders == nil {
 		return nil, errors.New("a commerce store is required")
+	}
+	if payments == nil {
+		return nil, errors.New("a payment service is required; pass one with no adapters to take no payments")
 	}
 	service := &Service{
 		store: NewStore(pool), orders: orders, payments: payments,

@@ -151,6 +151,7 @@ func New(pool *pgxpool.Pool, encryptionKey []byte, options Options) (*Service, e
 		publicURL:        strings.TrimRight(strings.TrimSpace(options.PublicURL), "/"),
 		httpClient:       options.HTTPClient,
 		telegramAPI:      strings.TrimSpace(options.TelegramAPIURL),
+		rotationGrace:    DisabledRotationGrace{},
 	}
 	if service.sessions == (customerauth.SessionPolicy{}) {
 		service.sessions = customerauth.DefaultSessionPolicy

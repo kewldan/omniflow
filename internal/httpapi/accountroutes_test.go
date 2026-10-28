@@ -17,6 +17,7 @@ import (
 	"github.com/omniflow/omniflow/internal/accountsupport"
 	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/goods"
+	"github.com/omniflow/omniflow/internal/paymentservice"
 )
 
 // newAccountRouter mounts the customer surface with no services attached. Every
@@ -113,14 +114,16 @@ func newMountedAccountRouter(t *testing.T) http.Handler {
 	t.Cleanup(pool.Close)
 
 	logger := slog.New(slog.DiscardHandler)
-	checkout, err := accountcheckout.New(pool, &commercepg.Store{}, nil, accountcheckout.Options{Logger: logger})
+	// No adapters: the routes under test never reach a provider.
+	payments := paymentservice.New(pool, &commercepg.Store{})
+	checkout, err := accountcheckout.New(pool, &commercepg.Store{}, payments, accountcheckout.Options{Logger: logger})
 	if err != nil {
 		t.Fatalf("build checkout: %v", err)
 	}
 	// A registry has to be present for the shop to mount at all: an installation
 	// that sells no digital goods has no shop routes rather than empty ones.
 	shop, err := accountshop.New(
-		pool, &commercepg.Store{}, nil, stubGoodsProviders{}, accountshop.Options{Logger: logger},
+		pool, &commercepg.Store{}, payments, stubGoodsProviders{}, accountshop.Options{Logger: logger},
 	)
 	if err != nil {
 		t.Fatalf("build shop: %v", err)
