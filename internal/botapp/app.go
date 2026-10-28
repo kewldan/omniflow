@@ -2,6 +2,8 @@ package botapp
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"html"
@@ -122,19 +124,61 @@ func (app *App) allow(ctx context.Context, scope string, telegramID int64, budge
 	return allowed
 }
 
+// tapClaimWindow is how long one button on one message is held after a tap.
+// It covers a double tap — two taps a moment apart, which Telegram delivers as
+// two callbacks with two identifiers — without stopping a customer who comes
+// back to the same screen later and means it.
+const tapClaimWindow = 10 * time.Second
+
+// tapKeyWindow is the span within which taps of the same button on the same
+// message share an idempotency key. It is the second line behind the claim: a
+// duplicate that slips past it — the limiter restarted, a handler that ran
+// longer than the claim — still reaches the order the first tap opened.
+const tapKeyWindow = 10 * time.Minute
+
 // claimCallback consumes a one-shot token for a consequential callback. A
 // redelivered Telegram update or a second tap on the same button resolves to
 // false instead of creating a second order, payment, or deletion.
-func (app *App) claimCallback(ctx context.Context, queryID string) bool {
+//
+// Two claims are taken. The callback's own identifier stops a redelivered
+// update for a day. The tap — chat, message, and button — stops a double tap
+// for a few seconds: every tap is a new callback with a new identifier, and
+// the handlers run concurrently, so a claim on the identifier alone let two
+// quick taps both through.
+func (app *App) claimCallback(ctx context.Context, query *models.CallbackQuery, chatID int64, messageID int) bool {
 	if app.limiter == nil {
 		return true
 	}
-	claimed, err := app.limiter.Once(ctx, "callback", queryID, replayRetention)
+	claimed, err := app.limiter.Once(ctx, "callback", query.ID, replayRetention)
 	if err != nil {
 		app.logger.Error("callback replay protection unavailable", "error", err)
 		return false
 	}
+	if !claimed {
+		return false
+	}
+	claimed, err = app.limiter.Once(ctx, "callback-tap", tapFingerprint(chatID, messageID, query.Data), tapClaimWindow)
+	if err != nil {
+		app.logger.Error("callback double-tap protection unavailable", "error", err)
+		return false
+	}
 	return claimed
+}
+
+// tapFingerprint names one button on one message without carrying the
+// callback data itself into the limiter's keyspace.
+func tapFingerprint(chatID int64, messageID int, data string) string {
+	digest := sha256.Sum256([]byte(fmt.Sprintf("%d:%d:%s", chatID, messageID, data)))
+	return hex.EncodeToString(digest[:16])
+}
+
+// tapIdempotencyKey is the order idempotency key for a tap: the same button on
+// the same message within tapKeyWindow opens the same order, however many
+// times it is delivered.
+func tapIdempotencyKey(chatID int64, messageID int, data string, now time.Time) string {
+	window := now.UTC().Unix() / int64(tapKeyWindow/time.Second)
+	digest := sha256.Sum256([]byte(fmt.Sprintf("%d:%d:%s:%d", chatID, messageID, data, window)))
+	return "bot-tap-" + hex.EncodeToString(digest[:])
 }
 
 // consequentialActions must never run twice for one Telegram callback.
@@ -749,7 +793,7 @@ func (app *App) HandleCallback(ctx context.Context, client *telegram.Bot, update
 		action := strings.SplitN(strings.TrimPrefix(query.Data, actionPrefix), ":", 2)[0]
 		// A consequential action is claimed once per callback, so a redelivered
 		// update or a double tap cannot repeat a payment or a deletion.
-		if consequentialActions[action] && !app.claimCallback(ctx, query.ID) {
+		if consequentialActions[action] && !app.claimCallback(ctx, query, message.Chat.ID, message.ID) {
 			_, _ = client.AnswerCallbackQuery(ctx, &telegram.AnswerCallbackQueryParams{CallbackQueryID: query.ID, Text: text(locale, "menu.replay")})
 			return
 		}

@@ -259,8 +259,9 @@ Nothing re-reads the environment: changing any of these means restarting the pro
 ## Reliability worth knowing about
 
 - Consequential callbacks — confirm, cancel, payment-method choice, invoice, device removal, link
-  rotation — are claimed exactly once per callback query in Valkey, so a redelivered update or a
-  double tap cannot repeat the action. This is why the bot refuses to start without
+  rotation — are claimed exactly once per callback query in Valkey, and the tap itself (chat,
+  message, button) is claimed for ten seconds, so a redelivered update or a double tap cannot
+  repeat the action. This is why the bot refuses to start without
   `APP_VALKEY_URL`.
 - Delivery failures are classified: a flood wait, a blocked bot, and a deactivated account are
   different problems. A blocked or deleted account stops consuming retries and is excluded from

@@ -45,6 +45,10 @@ type commerceContext struct {
 	Customer   Customer
 	Locale     Locale
 	TelegramID int64
+	// TapKey is the idempotency key of the button tap being handled, empty
+	// outside a callback. An order a tap opens uses it, so a duplicate of the
+	// tap reaches the same order rather than a second one.
+	TapKey string
 	// Username is the customer's Telegram handle as it arrived on this update.
 	// Omniflow does not store it: a handle can be changed or dropped at any
 	// time, so keeping a copy would mean holding a stale identifier for people
@@ -1180,6 +1184,7 @@ func (app *App) dispatchCommerceAction(ctx context.Context, client *telegram.Bot
 		logger.Error("customer resolution failed", "error", err)
 		return false
 	}
+	session.TapKey = tapIdempotencyKey(chatID, messageID, query.Data, time.Now())
 	if parts[0] == "invoice" {
 		if err := app.StarsInvoice(ctx, client, session, chatID, argumentOf(parts)); err != nil {
 			logger.Error("Telegram Stars invoice failed", "error", err)

@@ -990,6 +990,15 @@ once. A redelivered Telegram update or a second tap resolves to "This action has
 been completed" rather than to a second order, payment, or deletion. Actions not
 covered by that claim carry their own idempotency keys instead.
 
+Two claims are taken, because Telegram delivers every tap as a new callback with
+an identifier of its own and the bot handles updates concurrently. The callback
+identifier is claimed for a day, which stops a redelivered update; the tap
+itself — chat, message, and button — is claimed for ten seconds, which stops a
+double tap. A claim on the identifier alone let two quick taps on `💳 Pay`
+through together. An order a tap opens — a top-up, an add-on, a gift without a
+note — is also keyed on the tap, so the same button on the same message within
+ten minutes reaches the same order even if a duplicate got past the claim.
+
 ## What the bot deliberately will not do
 
 | It will not | Because |

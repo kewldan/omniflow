@@ -39,11 +39,14 @@ func (service *Commerce) ExternalPaymentChoices(currency string) []PaymentChoice
 	return choices
 }
 
-// StartTopUp creates the top-up order and its provider payment in one step. The
-// idempotency key is minted once per attempt, so a duplicate tap that reaches
-// this method twice creates one order and one payment.
-func (service *Commerce) StartTopUp(ctx context.Context, customerID, currency string, amountMinor int64, provider string, telegramID int64) (OrderSummary, error) {
-	key, err := newIdempotencyKey()
+// StartTopUp creates the top-up order and its provider payment in one step.
+//
+// The idempotency key is the tap's, so a duplicate of the tap that reaches
+// this method twice creates one order and one payment. It used to be minted
+// here, once per call — which made every arrival a new order, and a double tap
+// two top-ups. A caller with no tap passes "" and gets a fresh key.
+func (service *Commerce) StartTopUp(ctx context.Context, customerID, currency string, amountMinor int64, provider string, telegramID int64, key string) (OrderSummary, error) {
+	key, err := keyOrNew(key)
 	if err != nil {
 		return OrderSummary{}, err
 	}
@@ -140,8 +143,10 @@ func (service *Commerce) PurchaseCart(ctx context.Context, customerID string) (c
 // applied inside the order; whatever remains is paid with a method the customer
 // picks afterwards, on the order's own method screen, rather than with one
 // chosen for them here.
-func (service *Commerce) BuyAddon(ctx context.Context, customerID, subscriptionID, currency, addonVersionID string, quantity int) (OrderSummary, error) {
-	key, err := newIdempotencyKey()
+//
+// The idempotency key is the tap's, for the same reason StartTopUp's is.
+func (service *Commerce) BuyAddon(ctx context.Context, customerID, subscriptionID, currency, addonVersionID string, quantity int, key string) (OrderSummary, error) {
+	key, err := keyOrNew(key)
 	if err != nil {
 		return OrderSummary{}, err
 	}
@@ -154,6 +159,15 @@ func (service *Commerce) BuyAddon(ctx context.Context, customerID, subscriptionI
 		return OrderSummary{}, err
 	}
 	return service.store.Order(ctx, customerID, uuidText(order.ID), LocaleEnglish)
+}
+
+// keyOrNew returns the caller's idempotency key, or a fresh one when it has
+// none.
+func keyOrNew(key string) (string, error) {
+	if key != "" {
+		return key, nil
+	}
+	return newIdempotencyKey()
 }
 
 // Maintenance reads the installation-wide maintenance record.

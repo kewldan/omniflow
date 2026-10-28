@@ -172,13 +172,12 @@ func giftNote(input string) (string, bool) {
 	return note, utf8.RuneCountInString(note) <= giftNoteLimit
 }
 
-// giftPurchase buys a gift without a note. The callback itself is claimed
-// once, so a double tap or a redelivered update never reaches here twice, and
-// each arrival that does is a new gift under a fresh key.
+// giftPurchase buys a gift without a note, under the tap's own key: a
+// duplicate of the tap reaches the same gift rather than buying a second one.
 func (app *App) giftPurchase(
 	ctx context.Context, session commerceContext, kind, payload string,
 ) View {
-	key, err := newIdempotencyKey()
+	key, err := keyOrNew(session.TapKey)
 	if err != nil {
 		app.logger.Error("gift key could not be minted", "error", err)
 		return app.errorView(session.Locale, routeGifts)

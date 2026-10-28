@@ -76,8 +76,8 @@ func (app *App) topUpMethodScreen(ctx context.Context, session commerceContext, 
 }
 
 // startTopUp creates the top-up order and its payment. Both steps are keyed on
-// one freshly minted idempotency key, so a redelivered callback cannot create a
-// second order.
+// the tap's idempotency key, so a redelivered callback or a second tap on the
+// same button reaches the same order rather than a second one.
 func (app *App) startTopUp(ctx context.Context, session commerceContext, provider string, amountMinor int64) View {
 	choices := app.commerce.ExternalPaymentChoices(app.settings.Currency)
 	offered := false
@@ -92,7 +92,7 @@ func (app *App) startTopUp(ctx context.Context, session commerceContext, provide
 	if !offered {
 		return View{Text: text(session.Locale, "pay.none"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "menu.wallet"), routeWallet)))}
 	}
-	order, err := app.commerce.StartTopUp(ctx, session.Customer.ID, app.settings.Currency, amountMinor, provider, session.TelegramID)
+	order, err := app.commerce.StartTopUp(ctx, session.Customer.ID, app.settings.Currency, amountMinor, provider, session.TelegramID, session.TapKey)
 	if reason := TopUpRejectionReason(err); reason != "" {
 		return View{Text: text(session.Locale, "topup.rejected", text(session.Locale, "topup."+reason)), Keyboard: keyboard(row(callbackButton(text(session.Locale, "action.back"), routeTopUp)))}
 	}
@@ -378,7 +378,7 @@ func (app *App) buyAddon(ctx context.Context, session commerceContext, addonVers
 	if gate := app.checkPurchaseChannels(ctx, session.Customer.ID, session.TelegramID); !gate.Allowed() {
 		return channelGateView(session.Locale, gate, "addon-buy:"+addon.AddonVersionID+":"+slot)
 	}
-	summary, err := app.commerce.BuyAddon(ctx, session.Customer.ID, subscription.ID, app.settings.Currency, addon.AddonVersionID, 1)
+	summary, err := app.commerce.BuyAddon(ctx, session.Customer.ID, subscription.ID, app.settings.Currency, addon.AddonVersionID, 1, session.TapKey)
 	if view, handled := app.addonSelectionError(ctx, session, subscription, err); handled {
 		return view
 	}
