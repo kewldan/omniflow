@@ -9,11 +9,12 @@ import { Label } from "@omniflow/ui/label";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Switch } from "@omniflow/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
 
 import { PageHeader } from "@/components/admin/resource-table";
+import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import { formatBytes, formatDuration, type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
@@ -641,6 +642,7 @@ function LimitCard({ editable }: { editable: boolean }) {
 
 function UsageCard() {
   const translate = useTranslations("admin.aiSettings");
+  const format = useFormatter();
   const { data, isLoading } = useSWR<AiUsageReport, ApiError>(
     "/v1/panel/settings/ai/usage",
     fetcher,
@@ -656,8 +658,8 @@ function UsageCard() {
         <CardDescription>
           {data
             ? translate("usage.window", {
-                since: new Date(data.since).toLocaleDateString(),
-                until: new Date(data.until).toLocaleDateString(),
+                since: format.dateTime(new Date(data.since), "date"),
+                until: format.dateTime(new Date(data.until), "date"),
               })
             : translate("usage.description")}
         </CardDescription>
@@ -889,7 +891,7 @@ function McpAuditCard() {
               {events.map((event) => (
                 <TableRow key={event.id}>
                   <TableCell className="whitespace-nowrap text-xs">
-                    {new Date(event.occurredAt).toLocaleString()}
+                    <Timestamp value={event.occurredAt} />
                   </TableCell>
                   <TableCell className="font-mono text-xs">
                     {event.server ?? "—"}

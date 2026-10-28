@@ -8,12 +8,13 @@ import { Label } from "@omniflow/ui/label";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@omniflow/ui/tabs";
-import { useLocale, useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
+import { type ReactNode, useId, useState } from "react";
 import useSWR from "swr";
 
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
+import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import {
   type BlocklistMatch,
@@ -43,6 +44,7 @@ import { SubscriptionActions, SubscriptionDevices } from "./subscription-actions
 export function CustomerProfileView({ customerId }: { customerId: string }) {
   const translate = useTranslations("admin.customers");
   const locale = useLocale();
+  const format = useFormatter();
   const { can } = useSession();
   const [tab, setTab] = useState("subscriptions");
 
@@ -89,7 +91,9 @@ export function CustomerProfileView({ customerId }: { customerId: string }) {
         <CardHeader>
           <CardTitle>{translate("overview")}</CardTitle>
           <CardDescription>
-            {translate("createdAt", { at: new Date(profile.createdAt).toLocaleString(locale) })}
+            {translate("createdAt", {
+              at: format.dateTime(new Date(profile.createdAt), "datetime"),
+            })}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-x-8 gap-y-3">
@@ -163,12 +167,12 @@ export function CustomerProfileView({ customerId }: { customerId: string }) {
         </TabsContent>
         {can("risk.read") && (
           <TabsContent value="risk">
-            <RiskList active={tab === "risk"} base={base} locale={locale} />
+            <RiskList active={tab === "risk"} base={base} />
           </TabsContent>
         )}
         {can("audit.read") && (
           <TabsContent value="timeline">
-            <AuditTimeline active={tab === "timeline"} customerId={customerId} locale={locale} />
+            <AuditTimeline active={tab === "timeline"} customerId={customerId} />
           </TabsContent>
         )}
       </Tabs>
@@ -298,7 +302,7 @@ function SubscriptionList({
             />
             <Detail
               label={translate("subscription.endsAt")}
-              value={subscription.endsAt ? new Date(subscription.endsAt).toLocaleDateString() : "—"}
+              value={<Timestamp mode="date" value={subscription.endsAt} />}
             />
             <Detail
               label={translate("subscription.traffic")}
@@ -322,7 +326,7 @@ function SubscriptionList({
   );
 }
 
-function Detail({ label, value }: { label: string; value: string }) {
+function Detail({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex flex-col">
       <dt className="font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.12em]">
@@ -363,7 +367,7 @@ function OrderList({ active, base, locale }: { active: boolean; base: string; lo
           {items.map((order) => (
             <TableRow key={order.id}>
               <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>
-                {new Date(order.createdAt).toLocaleString(locale)}
+                <Timestamp value={order.createdAt} />
               </TableCell>
               <TableCell>{order.operation}</TableCell>
               <TableCell>
@@ -412,7 +416,7 @@ function WalletList({ active, base, locale }: { active: boolean; base: string; l
           {items.map((line) => (
             <TableRow key={line.id}>
               <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>
-                {new Date(line.createdAt).toLocaleString(locale)}
+                <Timestamp value={line.createdAt} />
               </TableCell>
               <TableCell>{line.type}</TableCell>
               <TableCell className="max-w-56 truncate font-mono text-[11px] text-muted-foreground">
@@ -431,7 +435,7 @@ function WalletList({ active, base, locale }: { active: boolean; base: string; l
   );
 }
 
-function RiskList({ active, base, locale }: { active: boolean; base: string; locale: string }) {
+function RiskList({ active, base }: { active: boolean; base: string }) {
   const translate = useTranslations("admin.customers");
   const { data, isLoading } = useSWR<Listing<BlocklistMatch>, ApiError>(
     active ? `${base}/risk` : null,
@@ -468,7 +472,7 @@ function RiskList({ active, base, locale }: { active: boolean; base: string; loc
           {items.map((match) => (
             <TableRow key={match.id}>
               <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>
-                {new Date(match.detectedAt).toLocaleString(locale)}
+                <Timestamp value={match.detectedAt} />
               </TableCell>
               <TableCell>{match.sourceName}</TableCell>
               <TableCell className="text-muted-foreground">{match.subjectKind}</TableCell>

@@ -12,7 +12,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import useSWR from "swr";
-import { z } from "zod";
+import * as z from "zod/mini";
 
 import { ApiError, apiFetch, fetcher } from "@/lib/api";
 
@@ -21,15 +21,23 @@ import { ApiError, apiFetch, fetcher } from "@/lib/api";
 const schema = z
   .object({
     confirmPassword: z.string(),
-    displayName: z.string().trim().min(1).max(80),
+    displayName: z.string().check(z.trim(), z.minLength(1), z.maxLength(80)),
     email: z.email(),
-    password: z.string().min(12).max(256),
-    setupToken: z.string().trim().min(1),
+    password: z.string().check(z.minLength(12), z.maxLength(256)),
+    setupToken: z.string().check(z.trim(), z.minLength(1)),
   })
-  .refine((values) => values.password === values.confirmPassword, {
-    message: "passwordMismatch",
-    path: ["confirmPassword"],
-  });
+  .check(
+    z.superRefine((values, context) => {
+      if (values.password !== values.confirmPassword) {
+        context.issues.push({
+          code: "custom",
+          input: values.confirmPassword,
+          message: "passwordMismatch",
+          path: ["confirmPassword"],
+        });
+      }
+    }),
+  );
 
 /**
  * First-owner bootstrap.

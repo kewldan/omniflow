@@ -11,6 +11,7 @@ import useSWR from "swr";
 
 import { ReauthNotice, useReauthentication } from "@/components/account/reauth";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
+import { Timestamp } from "@/components/intl/timestamp";
 import { useAccount } from "@/lib/account-session";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 
@@ -266,7 +267,6 @@ function SignInMethods() {
 /** The customer's own account history. */
 function Events() {
   const translate = useTranslations("account");
-  const format = useFormatter();
   const { data, isLoading } = useSWR<{ items: SecurityEvent[] }, ApiError>(
     "/v1/account/security-events",
     fetcher,
@@ -293,12 +293,7 @@ function Events() {
             {translate(`security.event.${event.event}`)}
           </span>
           <span className="shrink-0 font-mono text-[11px] text-subtle-foreground">
-            {format.dateTime(new Date(event.occurredAt), {
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-              month: "short",
-            })}
+            <Timestamp value={event.occurredAt} />
           </span>
         </li>
       ))}

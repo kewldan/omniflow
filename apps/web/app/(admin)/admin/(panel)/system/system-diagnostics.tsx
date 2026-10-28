@@ -6,12 +6,13 @@ import { Card } from "@omniflow/ui/card";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@omniflow/ui/tabs";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR from "swr";
 
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
+import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import {
   type FulfillmentOperation,
@@ -88,7 +89,6 @@ export function SystemDiagnostics() {
  */
 function Jobs({ active }: { active: boolean }) {
   const translate = useTranslations("admin.system");
-  const locale = useLocale();
   const { can } = useSession();
   const { run, pending } = useOperatorAction();
 
@@ -128,7 +128,7 @@ function Jobs({ active }: { active: boolean }) {
           {items.map((operation) => (
             <TableRow key={operation.id}>
               <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>
-                {new Date(operation.createdAt).toLocaleString(locale)}
+                <Timestamp value={operation.createdAt} />
               </TableCell>
               <TableCell>{operation.operation}</TableCell>
               <TableCell data-numeric>{operation.attemptCount}</TableCell>
@@ -186,7 +186,6 @@ function Jobs({ active }: { active: boolean }) {
 
 function Webhooks({ active }: { active: boolean }) {
   const translate = useTranslations("admin.system");
-  const locale = useLocale();
   const { can } = useSession();
   const { run, pending } = useOperatorAction();
 
@@ -219,7 +218,7 @@ function Webhooks({ active }: { active: boolean }) {
           {items.map((event) => (
             <TableRow key={event.id}>
               <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>
-                {new Date(event.receivedAt).toLocaleString(locale)}
+                <Timestamp value={event.receivedAt} />
               </TableCell>
               <TableCell>{event.provider}</TableCell>
               <TableCell>
@@ -265,7 +264,6 @@ function Webhooks({ active }: { active: boolean }) {
 
 function Drifts({ active }: { active: boolean }) {
   const translate = useTranslations("admin.system");
-  const locale = useLocale();
   const { data, isLoading } = useSWR<Listing<Drift>, ApiError>(
     active ? "/v1/panel/system/drift" : null,
     fetcher,
@@ -299,7 +297,7 @@ function Drifts({ active }: { active: boolean }) {
           {items.map((drift) => (
             <TableRow key={drift.id}>
               <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>
-                {new Date(drift.detectedAt).toLocaleString(locale)}
+                <Timestamp value={drift.detectedAt} />
               </TableCell>
               <TableCell>{translate(`driftKind.${drift.kind}`)}</TableCell>
               <TableCell className="font-mono text-[11px] text-muted-foreground">

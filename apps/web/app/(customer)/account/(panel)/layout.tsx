@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 import { AccountShell } from "@/components/account/account-shell";
+import { AccountTimeZone } from "@/components/intl/panel-time-zones";
 import { AccountProvider } from "@/lib/account-session";
 import { areaTitle } from "@/lib/metadata";
 
@@ -25,7 +26,9 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function AccountLayout({ children }: { children: ReactNode }) {
   return (
     <AccountProvider>
-      <AccountShell>{children}</AccountShell>
+      <AccountTimeZone>
+        <AccountShell>{children}</AccountShell>
+      </AccountTimeZone>
     </AccountProvider>
   );
 }

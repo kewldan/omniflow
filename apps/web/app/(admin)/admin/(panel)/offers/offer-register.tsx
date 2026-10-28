@@ -4,11 +4,12 @@ import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { TableCell, TableRow } from "@omniflow/ui/table";
 import Link from "next/link";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR from "swr";
 
 import { PageHeader, ResourceTable } from "@/components/admin/resource-table";
+import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher, toQuery } from "@/lib/api";
 import { type Page, type PersonalOffer, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
@@ -29,7 +30,6 @@ const STATUSES = ["", "active", "redeemed", "dismissed", "expired", "revoked"] a
  */
 export function OfferRegister() {
   const translate = useTranslations("admin.offers");
-  const locale = useLocale();
   const { can } = useSession();
   const [composing, setComposing] = useState(false);
 
@@ -114,9 +114,9 @@ export function OfferRegister() {
               </Link>
             </TableCell>
             <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>
-              {new Date(offer.startsAt).toLocaleDateString(locale)}
+              <Timestamp mode="date" value={offer.startsAt} />
               {" → "}
-              {new Date(offer.expiresAt).toLocaleDateString(locale)}
+              <Timestamp mode="date" value={offer.expiresAt} />
             </TableCell>
             <TableCell>
               <Badge

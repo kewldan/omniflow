@@ -6,7 +6,7 @@ import { toast } from "@omniflow/ui/toast";
 import { RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { useFormatter, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import useSWR from "swr";
 import {
@@ -26,6 +26,7 @@ import type {
   PaymentHandle,
 } from "@/components/account/commerce/types";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
+import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 import { useMoney } from "@/lib/format";
 import { useSubmission } from "@/lib/idempotency";
@@ -60,7 +61,6 @@ export default function OrderPage() {
   const translate = useTranslations("account.commerce");
   const params = useParams<{ orderId: string }>();
   const search = useSearchParams();
-  const format = useFormatter();
   const describeProblem = useProblemMessage();
   const payment = useSubmission();
 
@@ -191,12 +191,7 @@ export default function OrderPage() {
                 `operations.${OPERATIONS.includes(data.operation) ? data.operation : "unknown"}`,
               )}
               {" · "}
-              {format.dateTime(new Date(data.createdAt), {
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-                month: "short",
-              })}
+              <Timestamp value={data.createdAt} />
             </p>
           </div>
           <OrderPhaseBadge phase={data.phase} />

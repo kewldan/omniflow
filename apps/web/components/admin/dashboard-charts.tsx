@@ -2,7 +2,7 @@
 
 import { ChartFigure, chartAxis, chartColor, chartGrid } from "@omniflow/ui/chart";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts";
 
 import type { Metric } from "@/lib/operations";
@@ -51,6 +51,7 @@ function Composition({
   totalLabel: string;
 }) {
   const translate = useTranslations("admin.dashboard");
+  const format = useFormatter();
 
   const slices: Slice[] = keys
     .map((key, index) => {
@@ -98,7 +99,7 @@ function Composition({
                   {slice.label}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {slice.value.toLocaleString()}
+                  {format.number(slice.value)}
                 </TableCell>
                 <TableCell className="text-right tabular-nums text-muted-foreground">
                   {total === 0 ? "—" : `${Math.round((slice.value / total) * 100)}%`}
@@ -108,7 +109,7 @@ function Composition({
             <TableRow>
               <TableCell className="font-medium">{totalLabel}</TableCell>
               <TableCell className="text-right font-medium tabular-nums">
-                {total.toLocaleString()}
+                {format.number(total)}
               </TableCell>
               <TableCell />
             </TableRow>
@@ -195,6 +196,7 @@ export function PaymentMix({ metrics }: { metrics: Metric[] }) {
  */
 export function OperationsBacklog({ metrics }: { metrics: Metric[] }) {
   const translate = useTranslations("admin.dashboard");
+  const format = useFormatter();
 
   const bars = metrics
     // The oldest-event age is a duration, not a count, so it cannot share this
@@ -226,7 +228,7 @@ export function OperationsBacklog({ metrics }: { metrics: Metric[] }) {
               <TableRow key={bar.key}>
                 <TableCell>{bar.label}</TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {bar.value.toLocaleString()}
+                  {format.number(bar.value)}
                 </TableCell>
               </TableRow>
             ))}

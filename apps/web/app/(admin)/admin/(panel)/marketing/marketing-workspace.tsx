@@ -16,6 +16,7 @@ import { useId, useState } from "react";
 import useSWR from "swr";
 
 import { PageHeader } from "@/components/admin/resource-table";
+import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import { formatMoney, type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
@@ -262,7 +263,7 @@ function CampaignCard({ editable }: { editable: boolean }) {
                     </Badge>
                     {campaign.scheduledFor ? (
                       <p className="text-muted-foreground text-xs">
-                        {new Date(campaign.scheduledFor).toLocaleString()}
+                        <Timestamp value={campaign.scheduledFor} />
                       </p>
                     ) : null}
                   </TableCell>

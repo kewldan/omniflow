@@ -19,14 +19,15 @@ import { Label } from "@omniflow/ui/label";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { toast } from "@omniflow/ui/toast";
 import { Fingerprint, KeyRound, Monitor, ShieldCheck, TriangleAlert } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { useEffect, useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import useSWR from "swr";
-import { z } from "zod";
+import * as z from "zod/mini";
 
 import { PasswordStrength } from "@/components/admin/password-strength";
 import { StateNotice } from "@/components/admin/state-notice";
+import { Timestamp } from "@/components/intl/timestamp";
 import { QrCode } from "@/components/qr-code";
 import { ApiError, apiFetch, fetcher } from "@/lib/api";
 import { passkeyDismissed, passkeysSupported, registerPasskey } from "@/lib/passkey";
@@ -54,12 +55,21 @@ type AdminSession = {
 const passwordSchema = z
   .object({
     confirmPassword: z.string(),
-    currentPassword: z.string().min(1),
-    newPassword: z.string().min(12).max(256),
+    currentPassword: z.string().check(z.minLength(1)),
+    newPassword: z.string().check(z.minLength(12), z.maxLength(256)),
   })
-  .refine((values) => values.newPassword === values.confirmPassword, {
-    path: ["confirmPassword"],
-  });
+  .check(
+    z.superRefine((values, context) => {
+      if (values.newPassword !== values.confirmPassword) {
+        context.issues.push({
+          code: "custom",
+          input: values.confirmPassword,
+          message: "mismatch",
+          path: ["confirmPassword"],
+        });
+      }
+    }),
+  );
 
 export default function SecurityPage() {
   const translate = useTranslations("admin.security");
@@ -94,6 +104,7 @@ export default function SecurityPage() {
  */
 function PasskeysCard() {
   const translate = useTranslations("admin.security.passkeys");
+  const format = useFormatter();
   const { data, error, isLoading, mutate } = useSWR<
     { items: Passkey[]; available: boolean },
     ApiError
@@ -238,11 +249,13 @@ function PasskeysCard() {
                     <p className="truncate text-sm">{item.label}</p>
                   )}
                   <p className="font-mono text-[11px] text-subtle-foreground" data-numeric>
-                    {translate("added", { date: new Date(item.createdAt).toLocaleDateString() })}
+                    {translate("added", {
+                      date: format.dateTime(new Date(item.createdAt), "date"),
+                    })}
                     {" · "}
                     {item.lastUsedAt
                       ? translate("lastUsed", {
-                          date: new Date(item.lastUsedAt).toLocaleDateString(),
+                          date: format.dateTime(new Date(item.lastUsedAt), "date"),
                         })
                       : translate("neverUsed")}
                   </p>
@@ -720,7 +733,7 @@ function SessionsCard() {
                     )}
                   </p>
                   <p className="font-mono text-[11px] text-subtle-foreground" data-numeric>
-                    {item.ip ?? "—"} · {new Date(item.lastSeenAt).toLocaleString()}
+                    {item.ip ?? "—"} · <Timestamp value={item.lastSeenAt} />
                   </p>
                 </div>
                 {!item.current && (

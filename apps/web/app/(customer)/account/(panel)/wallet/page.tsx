@@ -5,7 +5,7 @@ import { Button } from "@omniflow/ui/button";
 import { cn } from "@omniflow/ui/lib/utils";
 import { toast } from "@omniflow/ui/toast";
 import Link from "next/link";
-import { useFormatter, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useForm, useWatch } from "react-hook-form";
 import useSWRInfinite from "swr/infinite";
 import * as z from "zod/mini";
@@ -22,6 +22,7 @@ import type {
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
 import { FieldMessage, FormField } from "@/components/forms/field";
 import { MoneyInput } from "@/components/forms/money-input";
+import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, apiFetch, fetcher, toQuery } from "@/lib/api";
 import { issue, moneyIssue } from "@/lib/form-schema";
 import { useMoney } from "@/lib/format";
@@ -449,7 +450,6 @@ function TopUpForm({
 /** One ledger movement, with the operator's note when a correction carried one. */
 function LedgerRow({ entry }: { entry: WalletEntry }) {
   const translate = useTranslations("account.commerce");
-  const format = useFormatter();
   const money = useMoney();
   const type = ENTRY_TYPES.includes(entry.type) ? entry.type : "unknown";
   const credit = entry.amountMinor > 0;
@@ -459,12 +459,7 @@ function LedgerRow({ entry }: { entry: WalletEntry }) {
       <div className="min-w-0">
         <p className="font-medium text-[13px]">{translate(`wallet.entryType.${type}`)}</p>
         <p className="mt-0.5 font-mono text-[11px] text-subtle-foreground">
-          {format.dateTime(new Date(entry.occurredAt), {
-            day: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-            month: "short",
-          })}
+          <Timestamp value={entry.occurredAt} />
         </p>
         {entry.reason && (
           <p className="mt-1 text-[11.5px] text-muted-foreground leading-relaxed">{entry.reason}</p>

@@ -6,10 +6,10 @@ import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Switch } from "@omniflow/ui/switch";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
-
+import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import { type HealthReport, type MaintenanceState, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
@@ -25,7 +25,6 @@ import { useSession } from "@/lib/session";
  */
 export function HealthPanel({ active }: { active: boolean }) {
   const translate = useTranslations("admin.system");
-  const locale = useLocale();
   const { data, isLoading } = useSWR<HealthReport, ApiError>(
     active ? "/v1/panel/overview/health" : null,
     fetcher,
@@ -59,7 +58,7 @@ export function HealthPanel({ active }: { active: boolean }) {
                   <span className="font-mono text-[12px]">{check.name}</span>
                 </span>
                 <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
-                  {check.latencyMs}ms · {new Date(check.checkedAt).toLocaleTimeString(locale)}
+                  {check.latencyMs}ms · <Timestamp mode="time" value={check.checkedAt} />
                   {/* A classification, never the driver's message: a probe
                       response must not leak a connection string. */}
                   {check.error ? ` · ${check.error}` : ""}

@@ -9,10 +9,10 @@ import { Label } from "@omniflow/ui/label";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Switch } from "@omniflow/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
-
+import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import { formatBytes, type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
@@ -129,6 +129,7 @@ function SectionCard({
   onSaved: () => void;
 }) {
   const translate = useTranslations("admin.installationSettings");
+  const format = useFormatter();
   const { run, pending, error } = useOperatorAction();
   const [document, setDocument] = useState<Record<string, unknown>>(stored.document ?? {});
   const [secrets, setSecrets] = useState<Record<string, string>>({});
@@ -202,7 +203,7 @@ function SectionCard({
           <span className="text-muted-foreground text-xs">
             {stored.updatedAt
               ? translate("lastSaved", {
-                  when: new Date(stored.updatedAt).toLocaleString(),
+                  when: format.dateTime(new Date(stored.updatedAt), "datetime"),
                   version: stored.version,
                 })
               : translate("neverSaved")}
@@ -310,6 +311,7 @@ function FieldControl({
 
 function TelemetryCard() {
   const translate = useTranslations("admin.installationSettings");
+  const format = useFormatter();
   const { data, isLoading } = useSWR<TelemetryPreview, ApiError>(
     "/v1/panel/settings/telemetry/preview",
     fetcher,
@@ -338,7 +340,7 @@ function TelemetryCard() {
               <span className="text-muted-foreground text-xs">
                 {data.lastSentAt
                   ? translate("telemetryPreview.lastSent", {
-                      when: new Date(data.lastSentAt).toLocaleString(),
+                      when: format.dateTime(new Date(data.lastSentAt), "datetime"),
                     })
                   : translate("telemetryPreview.neverSent")}
               </span>
@@ -395,7 +397,7 @@ function BackupCard() {
               {backups.map((backup) => (
                 <TableRow key={backup.id}>
                   <TableCell className="whitespace-nowrap text-xs">
-                    {new Date(backup.createdAt).toLocaleString()}
+                    <Timestamp value={backup.createdAt} />
                   </TableCell>
                   <TableCell>{backup.kind}</TableCell>
                   <TableCell>
@@ -405,9 +407,11 @@ function BackupCard() {
                   </TableCell>
                   <TableCell className="text-right">{formatBytes(backup.sizeBytes)}</TableCell>
                   <TableCell className="text-xs">
-                    {backup.verifiedAt
-                      ? new Date(backup.verifiedAt).toLocaleDateString()
-                      : translate("backups.unverified")}
+                    {backup.verifiedAt ? (
+                      <Timestamp mode="date" value={backup.verifiedAt} />
+                    ) : (
+                      translate("backups.unverified")
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -423,7 +427,7 @@ function BackupCard() {
             <ul className="flex flex-col gap-1 text-sm">
               {restores.map((restore) => (
                 <li key={restore.id}>
-                  {new Date(restore.createdAt).toLocaleString()} · {restore.status}
+                  <Timestamp value={restore.createdAt} /> · {restore.status}
                   {restore.detail ? ` · ${restore.detail}` : ""}
                 </li>
               ))}

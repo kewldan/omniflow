@@ -23,6 +23,7 @@ import { useId } from "react";
 import useSWR from "swr";
 
 import { StateNotice } from "@/components/admin/state-notice";
+import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher, toQuery } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { usePreferences } from "@/lib/use-preferences";
@@ -270,7 +271,7 @@ export function AuditBrowser() {
                   {events.map((event) => (
                     <TableRow key={event.id}>
                       <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>
-                        {new Date(event.occurredAt).toLocaleString()}
+                        <Timestamp value={event.occurredAt} />
                       </TableCell>
                       <TableCell className="font-mono text-[12px]">{event.action}</TableCell>
                       <TableCell className="max-w-44 font-mono text-[11px]">

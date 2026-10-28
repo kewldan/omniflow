@@ -3,7 +3,9 @@
 import { Badge } from "@omniflow/ui/badge";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { useFormatter, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
+
+import { Timestamp } from "@/components/intl/timestamp";
 
 import type { SupportTicket, TicketStatus } from "./types";
 
@@ -38,7 +40,6 @@ export function TicketStatusBadge({ status }: { status: TicketStatus }) {
  */
 export function TicketRow({ ticket }: { ticket: SupportTicket }) {
   const translate = useTranslations("account.support");
-  const format = useFormatter();
   const unread = ticket.unreadCount > 0;
 
   return (
@@ -63,7 +64,8 @@ export function TicketRow({ ticket }: { ticket: SupportTicket }) {
             )}
           </div>
           <p className="font-mono text-[11px] text-subtle-foreground">
-            {`${format.relativeTime(new Date(ticket.lastMessageAt))} · ${translate("tickets.messages", { count: ticket.messageCount })}`}
+            <Timestamp value={ticket.lastMessageAt} />
+            {` · ${translate("tickets.messages", { count: ticket.messageCount })}`}
           </p>
         </div>
         <ChevronRight aria-hidden className="size-4 shrink-0 text-subtle-foreground" />

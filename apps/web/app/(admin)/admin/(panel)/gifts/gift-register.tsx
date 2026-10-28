@@ -11,6 +11,7 @@ import { useState } from "react";
 import useSWR from "swr";
 
 import { PageHeader, ResourceTable } from "@/components/admin/resource-table";
+import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher, toQuery } from "@/lib/api";
 import { formatMoney, type Gift, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
@@ -117,7 +118,7 @@ export function GiftRegister() {
         renderRow={(gift) => (
           <TableRow key={gift.id}>
             <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>
-              {new Date(gift.createdAt).toLocaleString(locale)}
+              <Timestamp value={gift.createdAt} />
             </TableCell>
             <TableCell>
               {translate(`kind.${gift.kind}`)}
@@ -138,7 +139,7 @@ export function GiftRegister() {
               </Badge>
             </TableCell>
             <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>
-              {new Date(gift.expiresAt).toLocaleDateString(locale)}
+              <Timestamp mode="date" value={gift.expiresAt} />
             </TableCell>
             {can("gifts.write") && (
               <TableCell>

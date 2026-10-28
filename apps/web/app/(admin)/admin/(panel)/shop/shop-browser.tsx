@@ -12,6 +12,7 @@ import useSWR from "swr";
 
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
+import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import {
   formatMoney,
@@ -109,7 +110,7 @@ function Orders({ active }: { active: boolean }) {
           {items.map((order) => (
             <TableRow key={order.orderId}>
               <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>
-                {new Date(order.createdAt).toLocaleString(locale)}
+                <Timestamp value={order.createdAt} />
               </TableCell>
               <TableCell className="font-mono text-[12px]">
                 {/* The username is the only recipient detail retained anywhere:

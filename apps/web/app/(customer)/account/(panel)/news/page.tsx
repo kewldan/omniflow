@@ -3,7 +3,7 @@
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { toast } from "@omniflow/ui/toast";
-import { useFormatter, useLocale, useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWRInfinite from "swr/infinite";
 
@@ -15,6 +15,7 @@ import {
   type NewsItem,
   type NewsPage as NewsPagePayload,
 } from "@/components/account/support/types";
+import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, apiFetch, fetcher, toQuery } from "@/lib/api";
 
 function newsPageKey(index: number, previous: NewsPagePayload | null) {
@@ -138,7 +139,6 @@ export default function NewsInboxPage() {
  */
 function NewsCard({ item, onRead }: { item: NewsItem; onRead: () => Promise<unknown> }) {
   const translate = useTranslations("account.support");
-  const format = useFormatter();
   const describeProblem = useProblemMessage();
   const [busy, setBusy] = useState(false);
 
@@ -173,11 +173,7 @@ function NewsCard({ item, onRead }: { item: NewsItem; onRead: () => Promise<unkn
           className="ml-auto shrink-0 font-mono text-[10.5px] text-subtle-foreground"
           dateTime={item.publishedAt}
         >
-          {format.dateTime(new Date(item.publishedAt), {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-          })}
+          <Timestamp value={item.publishedAt} />
         </time>
       </div>
 

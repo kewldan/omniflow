@@ -7,11 +7,12 @@ import { Input } from "@omniflow/ui/input";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { toast } from "@omniflow/ui/toast";
 import Link from "next/link";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR from "swr";
 
 import { StateNotice } from "@/components/admin/state-notice";
+import { Timestamp } from "@/components/intl/timestamp";
 import { ApiError, fetcher } from "@/lib/api";
 import { useBytes } from "@/lib/format";
 import { useSubmission } from "@/lib/idempotency";
@@ -48,7 +49,6 @@ export function TicketConversation({
   ticketId: string;
 }) {
   const translate = useTranslations("admin.support");
-  const locale = useLocale();
   const { can } = useSession();
 
   const { data, error, isLoading, mutate } = useSWR<TicketDetail, ApiError>(
@@ -129,7 +129,7 @@ export function TicketConversation({
                   {translate("internalNote")}
                 </span>
                 <span className="font-mono text-[11px] text-muted-foreground">
-                  {new Date(entry.value.createdAt).toLocaleString(locale)}
+                  <Timestamp value={entry.value.createdAt} />
                 </span>
               </div>
               <p className="whitespace-pre-wrap text-sm">{entry.value.body}</p>
@@ -159,7 +159,7 @@ export function TicketConversation({
                     />
                   )}
                   <span className="font-mono text-[11px] text-muted-foreground">
-                    {new Date(entry.value.createdAt).toLocaleString(locale)}
+                    <Timestamp value={entry.value.createdAt} />
                   </span>
                 </span>
               </div>

@@ -8,11 +8,12 @@ import { Skeleton } from "@omniflow/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { toast } from "@omniflow/ui/toast";
 import { Send } from "lucide-react";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR from "swr";
 
 import { StateNotice } from "@/components/admin/state-notice";
+import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 import type { Delivery, DeliveryPage, DeliverySummary, QueuedTest } from "@/lib/operations";
 import { useSession } from "@/lib/session";
@@ -40,7 +41,6 @@ export function NotificationsPanel({
   customerId: string;
 }) {
   const translate = useTranslations("admin.notifications");
-  const locale = useLocale();
   const { can } = useSession();
 
   const [status, setStatus] = useState("all");
@@ -160,7 +160,7 @@ export function NotificationsPanel({
             </TableHeader>
             <TableBody>
               {deliveries.map((delivery) => (
-                <DeliveryRow delivery={delivery} key={delivery.id} locale={locale} />
+                <DeliveryRow delivery={delivery} key={delivery.id} />
               ))}
             </TableBody>
           </Table>
@@ -170,7 +170,7 @@ export function NotificationsPanel({
   );
 }
 
-function DeliveryRow({ delivery, locale }: { delivery: Delivery; locale: string }) {
+function DeliveryRow({ delivery }: { delivery: Delivery }) {
   const translate = useTranslations("admin.notifications");
   const when = delivery.sentAt ?? delivery.deferredUntil ?? delivery.scheduledAt;
 
@@ -198,7 +198,7 @@ function DeliveryRow({ delivery, locale }: { delivery: Delivery; locale: string 
         )}
       </TableCell>
       <TableCell className="whitespace-nowrap text-sm">
-        {new Date(when).toLocaleString(locale)}
+        <Timestamp value={when} />
       </TableCell>
     </TableRow>
   );

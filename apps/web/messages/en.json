@@ -3914,6 +3914,9 @@
       },
       "saving": "Saving…",
       "unavailable": "Unavailable: {reason}"
+    },
+    "time": {
+      "shownIn": "Times in {zone}"
     }
   }
 }

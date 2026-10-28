@@ -5,12 +5,13 @@ import { Button } from "@omniflow/ui/button";
 import { Card } from "@omniflow/ui/card";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@omniflow/ui/tabs";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR from "swr";
 
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
+import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher, toQuery } from "@/lib/api";
 import { formatDuration, type Listing, type Page } from "@/lib/operations";
 import { useUrlFilters } from "@/lib/use-url-filters";
@@ -54,7 +55,6 @@ export function SupportDesk() {
 
 function Queue({ active }: { active: boolean }) {
   const translate = useTranslations("admin.support");
-  const locale = useLocale();
   const { filters, setFilter, reset } = useUrlFilters(["queueId", "status", "ticketId"]);
 
   const { data: queues } = useSWR<Listing<SupportQueue>, ApiError>(
@@ -170,7 +170,7 @@ function Queue({ active }: { active: boolean }) {
                     {ticket.assigneeName || translate("nobody")}
                   </span>
                   <span className="ml-auto font-mono text-[11px] text-muted-foreground">
-                    {new Date(ticket.lastMessageAt).toLocaleDateString(locale)}
+                    <Timestamp mode="date" value={ticket.lastMessageAt} />
                   </span>
                 </div>
                 {ticket.tags.length > 0 && (

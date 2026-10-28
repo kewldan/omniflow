@@ -14,6 +14,7 @@ import type {
   OrderRefund,
   OrderSummary,
 } from "@/components/account/commerce/types";
+import { Timestamp } from "@/components/intl/timestamp";
 import { useMoney } from "@/lib/format";
 
 /**
@@ -297,7 +298,6 @@ export function OrderAmounts({ order }: { order: OrderSummary }) {
 /** Refunds recorded against the order, newest first. */
 export function RefundList({ refunds }: { refunds: OrderRefund[] }) {
   const translate = useTranslations("account.commerce");
-  const format = useFormatter();
   const money = useMoney();
   const statuses = ["pending", "processing", "succeeded", "failed", "cancelled"];
 
@@ -315,11 +315,7 @@ export function RefundList({ refunds }: { refunds: OrderRefund[] }) {
                 {translate(`order.refundStatus.${status}`)}
               </p>
               <p className="font-mono text-[11px] text-subtle-foreground">
-                {format.dateTime(new Date(refund.createdAt), {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                })}
+                <Timestamp value={refund.createdAt} />
               </p>
             </div>
             <span className="font-medium text-[13px]" data-numeric>

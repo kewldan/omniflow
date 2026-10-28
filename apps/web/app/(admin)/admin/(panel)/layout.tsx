@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 import { AdminShell } from "@/components/admin/admin-shell";
+import { OperatorTimeZone } from "@/components/intl/panel-time-zones";
 import { areaTitle } from "@/lib/metadata";
 import { SessionProvider } from "@/lib/session";
 
@@ -24,7 +25,9 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <SessionProvider>
-      <AdminShell>{children}</AdminShell>
+      <OperatorTimeZone>
+        <AdminShell>{children}</AdminShell>
+      </OperatorTimeZone>
     </SessionProvider>
   );
 }

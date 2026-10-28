@@ -16,6 +16,7 @@ import useSWR from "swr";
 
 import { PageHeader, ResourceTable } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
+import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher, toQuery } from "@/lib/api";
 import {
   formatDuration,
@@ -227,7 +228,7 @@ function OrderSearch() {
                 className="underline-offset-2 hover:underline"
                 href={`/admin/finance/${order.id}`}
               >
-                {new Date(order.createdAt).toLocaleString(locale)}
+                <Timestamp value={order.createdAt} />
               </Link>
             </TableCell>
             <TableCell className="font-mono text-[11px]">
@@ -323,7 +324,7 @@ function StuckPayments({ active }: { active: boolean }) {
           {items.map((payment) => (
             <TableRow key={payment.id}>
               <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>
-                {new Date(payment.updatedAt).toLocaleString(locale)}
+                <Timestamp value={payment.updatedAt} />
               </TableCell>
               <TableCell>{payment.provider}</TableCell>
               <TableCell>
@@ -397,7 +398,6 @@ function ReconcilePayment({ intentId, onDone }: { intentId: string; onDone: () =
  */
 function FailedCharges({ active }: { active: boolean }) {
   const translate = useTranslations("admin.finance");
-  const locale = useLocale();
   const { data, isLoading } = useSWR<Page<DunningAttempt>, ApiError>(
     active ? "/v1/panel/finance/failed-charges" : null,
     fetcher,
@@ -434,7 +434,7 @@ function FailedCharges({ active }: { active: boolean }) {
           {items.map((attempt) => (
             <TableRow key={attempt.id}>
               <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>
-                {new Date(attempt.createdAt).toLocaleString(locale)}
+                <Timestamp value={attempt.createdAt} />
               </TableCell>
               <TableCell className="font-mono text-[11px]">
                 <Link

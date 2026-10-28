@@ -11,6 +11,7 @@ import { useState } from "react";
 import useSWR from "swr";
 
 import { StateNotice } from "@/components/admin/state-notice";
+import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import { formatMoney, type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
@@ -101,7 +102,7 @@ export function ReviewQueue({ active }: { active: boolean }) {
               <div className="flex flex-col gap-0.5">
                 <span className="font-medium">@{delivery.recipient}</span>
                 <span className="font-mono text-[11px] text-muted-foreground">
-                  {delivery.providerSlug} · {new Date(delivery.updatedAt).toLocaleString(locale)}
+                  {delivery.providerSlug} · <Timestamp value={delivery.updatedAt} />
                 </span>
               </div>
               <Badge variant="warning">{translate("failure.ambiguous")}</Badge>

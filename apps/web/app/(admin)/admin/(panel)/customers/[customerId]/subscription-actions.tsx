@@ -7,10 +7,10 @@ import { DateTimeField } from "@omniflow/ui/date-time-field";
 import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { Skeleton } from "@omniflow/ui/skeleton";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
-
+import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import { type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
@@ -220,7 +220,6 @@ export function SubscriptionDevices({
   subscriptionId: string;
 }) {
   const translate = useTranslations("admin.customers");
-  const locale = useLocale();
   const { can } = useSession();
   const [reason, setReason] = useState("");
   const { run, pending } = useOperatorAction();
@@ -265,7 +264,7 @@ export function SubscriptionDevices({
           </span>
           <span className="flex items-center gap-2">
             <span className="font-mono text-[11px] text-muted-foreground">
-              {new Date(device.lastSeenAt).toLocaleDateString(locale)}
+              <Timestamp mode="date" value={device.lastSeenAt} />
             </span>
             {can("subscriptions.write") && (
               <Button

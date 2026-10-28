@@ -14,6 +14,7 @@ import useSWR from "swr";
 
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
+import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import {
   type AnomalySignal,
@@ -85,7 +86,6 @@ export function RiskReview() {
 
 function Matches({ active }: { active: boolean }) {
   const translate = useTranslations("admin.risk");
-  const locale = useLocale();
   const { can } = useSession();
   const [reason, setReason] = useState("");
   const { run, pending, error } = useOperatorAction();
@@ -149,7 +149,7 @@ function Matches({ active }: { active: boolean }) {
             {items.map((match) => (
               <TableRow key={match.id}>
                 <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>
-                  {new Date(match.detectedAt).toLocaleString(locale)}
+                  <Timestamp value={match.detectedAt} />
                 </TableCell>
                 <TableCell className="font-mono text-[11px]">
                   <Link
@@ -194,7 +194,6 @@ function Matches({ active }: { active: boolean }) {
 
 function Anomalies({ active }: { active: boolean }) {
   const translate = useTranslations("admin.risk");
-  const locale = useLocale();
   const { can } = useSession();
   const { run, pending } = useOperatorAction();
 
@@ -247,8 +246,7 @@ function Anomalies({ active }: { active: boolean }) {
           </dl>
 
           <p className="text-muted-foreground text-xs">
-            {new Date(signal.windowStart).toLocaleString(locale)} —{" "}
-            {new Date(signal.windowEnd).toLocaleString(locale)}
+            <Timestamp value={signal.windowStart} /> — <Timestamp value={signal.windowEnd} />
           </p>
 
           {can("risk.write") && (
@@ -361,7 +359,7 @@ function SourceTable({ items, locale }: { items: BlocklistSource[]; locale: stri
                 </Badge>
               </TableCell>
               <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>
-                {source.lastRefreshAt ? new Date(source.lastRefreshAt).toLocaleString(locale) : "—"}
+                <Timestamp value={source.lastRefreshAt} />
               </TableCell>
             </TableRow>
           ))}

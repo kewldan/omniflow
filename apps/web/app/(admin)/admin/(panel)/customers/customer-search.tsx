@@ -9,11 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { TableCell, TableRow } from "@omniflow/ui/table";
 import { RotateCcw } from "lucide-react";
 import Link from "next/link";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
 
 import { PageHeader, ResourceTable } from "@/components/admin/resource-table";
+import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher, toQuery } from "@/lib/api";
 import type { CustomerSummary, Page } from "@/lib/operations";
 import { useSession } from "@/lib/session";
@@ -42,7 +43,6 @@ const STATUS_VARIANT: Record<string, "success" | "warning" | "danger"> = {
  */
 export function CustomerSearch() {
   const translate = useTranslations("admin.customers");
-  const locale = useLocale();
   const statusId = useId();
   const segmentId = useId();
   const queryId = useId();
@@ -190,7 +190,7 @@ export function CustomerSearch() {
             </TableCell>
             <TableCell className="text-muted-foreground">{customer.locale}</TableCell>
             <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>
-              {new Date(customer.createdAt).toLocaleDateString(locale)}
+              <Timestamp mode="date" value={customer.createdAt} />
             </TableCell>
           </TableRow>
         )}

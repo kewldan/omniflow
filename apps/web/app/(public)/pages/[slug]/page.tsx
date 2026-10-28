@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 
 import { InfoDocumentView } from "@/components/info-document";
 import { readPage } from "@/lib/pages";
@@ -27,7 +27,11 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function PublishedPage({ params }: Params) {
   const { slug } = await params;
   const locale = await getLocale();
-  const [page, translate] = await Promise.all([readPage(slug, locale), getTranslations("pages")]);
+  const [page, translate, format] = await Promise.all([
+    readPage(slug, locale),
+    getTranslations("pages"),
+    getFormatter(),
+  ]);
 
   if (!page) {
     // A draft, a deleted page, and an unreachable API are one answer here.
@@ -41,7 +45,9 @@ export default async function PublishedPage({ params }: Params) {
       <header className="space-y-1">
         <h1 className="font-semibold text-xl tracking-tight">{page.title}</h1>
         <p className="font-mono text-[11px] text-subtle-foreground">
-          {translate("updated", { date: new Date(page.updatedAt).toLocaleDateString(locale) })}
+          {/* A calendar date, in UTC like every server-rendered moment: the
+              reader is anonymous, so there is no zone of theirs to use. */}
+          {translate("updated", { date: format.dateTime(new Date(page.updatedAt), "date") })}
         </p>
       </header>
       <InfoDocumentView document={page.document} />

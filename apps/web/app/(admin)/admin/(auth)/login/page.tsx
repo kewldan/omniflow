@@ -12,7 +12,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import useSWR from "swr";
-import { z } from "zod";
+import * as z from "zod/mini";
 
 import { ApiError, apiFetch, fetcher, setCsrfToken } from "@/lib/api";
 import { passkeyDismissed, passkeysSupported, signInWithPasskey } from "@/lib/passkey";
@@ -20,13 +20,13 @@ import { safeAdminNext } from "@/lib/sign-in-path";
 
 const credentialsSchema = z.object({
   email: z.email(),
-  password: z.string().min(1),
+  password: z.string().check(z.minLength(1)),
 });
 
 const challengeSchema = z.object({
   // Accepts both a 6-digit TOTP code and a formatted recovery code, so the
   // operator does not have to tell the form which one they are using.
-  code: z.string().trim().min(6).max(24),
+  code: z.string().check(z.trim(), z.minLength(6), z.maxLength(24)),
 });
 
 type LoginResult = { challengeRequired?: boolean; csrfToken: string };

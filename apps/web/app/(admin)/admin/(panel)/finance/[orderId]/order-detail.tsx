@@ -13,6 +13,7 @@ import useSWR from "swr";
 
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
+import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import { formatMoney, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
@@ -115,7 +116,7 @@ export function OrderDetailView({ orderId }: { orderId: string }) {
             <Badge variant="neutral">{order.state}</Badge>
           </CardTitle>
           <CardDescription>
-            {new Date(order.createdAt).toLocaleString(locale)} ·{" "}
+            <Timestamp value={order.createdAt} /> ·{" "}
             <Link
               className="underline-offset-2 hover:underline"
               href={`/admin/customers/${order.customerId}`}
@@ -219,7 +220,7 @@ export function OrderDetailView({ orderId }: { orderId: string }) {
                         : ""}
                     </span>
                     <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
-                      {new Date(event.occurredAt).toLocaleString(locale)}
+                      <Timestamp value={event.occurredAt} />
                     </span>
                   </li>
                 ))}

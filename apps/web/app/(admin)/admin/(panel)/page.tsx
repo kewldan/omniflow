@@ -7,12 +7,13 @@ import { Skeleton } from "@omniflow/ui/skeleton";
 import { ArrowRight } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useLocale, useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import useSWR from "swr";
 
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
+import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import {
   type Dashboard,
@@ -100,7 +101,7 @@ const METRIC_LINKS: Record<string, string> = {
  */
 export default function AdminHome() {
   const translate = useTranslations("admin");
-  const locale = useLocale();
+  const format = useFormatter();
   const { session, can } = useSession();
 
   const { data, error, isLoading, mutate } = useSWR<Dashboard, ApiError>(
@@ -148,7 +149,13 @@ export default function AdminHome() {
 
           <p className="text-muted-foreground text-xs">
             {translate("dashboard.freshness", {
-              at: new Date(data.generatedAt).toLocaleString(locale),
+              // The dashboard is computed in the report zone the API names
+              // (UTC), so its own timestamp is shown in that zone too.
+              at: format.dateTime(new Date(data.generatedAt), {
+                dateStyle: "medium",
+                timeStyle: "short",
+                timeZone: data.timezone || "UTC",
+              }),
               timezone: data.timezone,
               window: formatDuration(data.windowSeconds),
             })}
@@ -219,7 +226,6 @@ export default function AdminHome() {
  */
 function Incidents() {
   const translate = useTranslations("admin.dashboard");
-  const locale = useLocale();
   const { data } = useSWR<{ items: Incident[] | null }, ApiError>(
     "/v1/panel/overview/incidents?pageSize=10",
     fetcher,
@@ -252,7 +258,7 @@ function Incidents() {
                 {incident.reason && <span>{incident.reason}</span>}
               </span>
               <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
-                {new Date(incident.occurredAt).toLocaleString(locale)}
+                <Timestamp value={incident.occurredAt} />
               </span>
             </div>
           ))}
@@ -362,6 +368,7 @@ function MetricGroup({
  */
 function MetricTile({ metric }: { metric: Metric }) {
   const translate = useTranslations("admin.dashboard");
+  const format = useFormatter();
   const href = METRIC_LINKS[metric.key];
 
   const body = (
@@ -376,7 +383,9 @@ function MetricTile({ metric }: { metric: Metric }) {
         ) : null}
       </CardTitle>
       <p className="mt-1 flex items-baseline gap-2">
-        <span className="font-semibold text-2xl tabular-nums">{renderMetric(metric)}</span>
+        <span className="font-semibold text-2xl tabular-nums">
+          {renderMetric(metric, (value) => format.number(value))}
+        </span>
         <Comparison metric={metric} />
       </p>
       <p className="mt-1 text-muted-foreground text-xs">
@@ -409,6 +418,7 @@ function MetricTile({ metric }: { metric: Metric }) {
  */
 function Comparison({ metric }: { metric: Metric }) {
   const translate = useTranslations("admin.dashboard");
+  const format = useFormatter();
   if (metric.comparison === undefined) {
     return null;
   }
@@ -419,7 +429,7 @@ function Comparison({ metric }: { metric: Metric }) {
   return (
     <span className="text-muted-foreground text-xs tabular-nums">
       {delta > 0 ? "+" : ""}
-      {delta.toLocaleString()} {translate("versusPrevious")}
+      {format.number(delta)} {translate("versusPrevious")}
     </span>
   );
 }
@@ -431,12 +441,12 @@ function Comparison({ metric }: { metric: Metric }) {
  * look identical and mean nothing, so the two that are not plain counts are
  * formatted by their key.
  */
-function renderMetric(metric: Metric): string {
+function renderMetric(metric: Metric, number: (value: number) => string): string {
   if (metric.key === "observedTrafficBytes") {
     return formatBytes(metric.value);
   }
   if (metric.key === "outboxOldestAgeSeconds") {
     return metric.value === 0 ? "—" : formatDuration(metric.value);
   }
-  return metric.value.toLocaleString();
+  return number(metric.value);
 }

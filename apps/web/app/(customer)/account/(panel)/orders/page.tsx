@@ -2,13 +2,14 @@
 
 import { Button } from "@omniflow/ui/button";
 import Link from "next/link";
-import { useFormatter, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import useSWRInfinite from "swr/infinite";
 
 import { OrderPhaseBadge } from "@/components/account/commerce/order-status";
 import { OPERATIONS } from "@/components/account/commerce/plan-card";
 import type { OrderPage, OrderSummary } from "@/components/account/commerce/types";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
+import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher, toQuery } from "@/lib/api";
 import { useMoney } from "@/lib/format";
 
@@ -99,7 +100,6 @@ export default function OrdersPage() {
 /** One order as a row: what it was, what it cost, and where it got to. */
 function OrderRow({ order }: { order: OrderSummary }) {
   const translate = useTranslations("account.commerce");
-  const format = useFormatter();
   const money = useMoney();
   const operation = OPERATIONS.includes(order.operation) ? order.operation : "unknown";
 
@@ -117,11 +117,7 @@ function OrderRow({ order }: { order: OrderSummary }) {
         </span>
         <span className="block truncate font-semibold text-[15px]">{order.plan}</span>
         <span className="block font-mono text-[11px] text-subtle-foreground">
-          {format.dateTime(new Date(order.createdAt), {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-          })}
+          <Timestamp value={order.createdAt} />
         </span>
         {order.refundedMinor > 0 && (
           <span className="block font-mono text-[11px] text-warning">

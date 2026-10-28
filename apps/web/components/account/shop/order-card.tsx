@@ -3,11 +3,12 @@
 import { cn } from "@omniflow/ui/lib/utils";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { useFormatter, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 
 import { DeliveryBadge } from "@/components/account/shop/delivery-status";
 import { useGoodsMeasure } from "@/components/account/shop/labels";
 import { payableMinor, type ShopOrder } from "@/components/account/shop/types";
+import { Timestamp } from "@/components/intl/timestamp";
 import { useMoney } from "@/lib/format";
 
 /**
@@ -21,7 +22,6 @@ import { useMoney } from "@/lib/format";
  */
 export function OrderCard({ order }: { order: ShopOrder }) {
   const translate = useTranslations("account.shop");
-  const format = useFormatter();
   const money = useMoney();
   const measure = useGoodsMeasure();
   const label = measure(order);
@@ -67,11 +67,7 @@ export function OrderCard({ order }: { order: ShopOrder }) {
               )}
             </p>
             <p className="font-mono text-[10.5px] text-subtle-foreground">
-              {format.dateTime(new Date(order.createdAt), {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              })}
+              <Timestamp value={order.createdAt} />
             </p>
           </div>
         </div>

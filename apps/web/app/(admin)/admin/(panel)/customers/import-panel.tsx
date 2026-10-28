@@ -4,10 +4,11 @@ import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
 import { Skeleton } from "@omniflow/ui/skeleton";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import useSWR from "swr";
 
 import { StateNotice } from "@/components/admin/state-notice";
+import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import type { Listing } from "@/lib/operations";
 import { useSession } from "@/lib/session";
@@ -37,7 +38,6 @@ type CustomerImport = {
  */
 export function ImportPanel() {
   const translate = useTranslations("admin.imports");
-  const locale = useLocale();
   const { can } = useSession();
 
   const { data, isLoading } = useSWR<Listing<CustomerImport>, ApiError>(
@@ -107,8 +107,8 @@ export function ImportPanel() {
                   </span>
                 </div>
                 <span className="font-mono text-[11px] text-muted-foreground">
-                  {new Date(run.startedAt).toLocaleString(locale)}
-                  {run.completedAt ? ` → ${new Date(run.completedAt).toLocaleString(locale)}` : ""}
+                  <Timestamp value={run.startedAt} />
+                  {run.completedAt ? ` → $<Timestamp value={run.completedAt} />` : ""}
                 </span>
                 {Object.keys(run.errorSummary ?? {}).length > 0 && (
                   // The validation errors are a class-and-count summary rather

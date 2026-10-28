@@ -3,9 +3,9 @@
 import { cn } from "@omniflow/ui/lib/utils";
 import { toast } from "@omniflow/ui/toast";
 import { Download, FileText, ImageIcon, Send } from "lucide-react";
-import { useFormatter, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
-
+import { Timestamp } from "@/components/intl/timestamp";
 import { useBytes } from "@/lib/format";
 
 import { downloadSupportAttachment } from "./download";
@@ -62,7 +62,6 @@ export function ConversationTurns({
 
 function ConversationTurn({ message }: { message: SupportMessage }) {
   const translate = useTranslations("account.support");
-  const format = useFormatter();
   const mine = message.author === "customer";
   const system = message.author === "system";
 
@@ -89,12 +88,7 @@ function ConversationTurn({ message }: { message: SupportMessage }) {
           className="shrink-0 font-mono text-[10.5px] text-subtle-foreground"
           dateTime={message.createdAt}
         >
-          {format.dateTime(new Date(message.createdAt), {
-            day: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-            month: "short",
-          })}
+          <Timestamp value={message.createdAt} />
         </time>
       </header>
       {/* The body is plain text written by a person and is rendered as such.

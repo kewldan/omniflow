@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import useSWR from "swr";
 
 import { StateNotice } from "@/components/admin/state-notice";
+import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import type { Listing, Page } from "@/lib/operations";
 
@@ -113,7 +114,7 @@ export function ReferralPanel({ active, base }: { active: boolean; base: string 
                   {translate(invitee.converted ? "convertedYes" : "convertedNo")}
                 </Badge>
                 <span className="font-mono text-[11px] text-muted-foreground">
-                  {new Date(invitee.invitedAt).toLocaleDateString()}
+                  <Timestamp mode="date" value={invitee.invitedAt} />
                 </span>
               </span>
             </div>
@@ -160,7 +161,7 @@ export function SupportPanel({ active, base }: { active: boolean; base: string }
                   {ticket.status}
                 </Badge>
                 <span className="font-mono text-[11px] text-muted-foreground">
-                  {new Date(ticket.lastMessageAt).toLocaleDateString()}
+                  <Timestamp mode="date" value={ticket.lastMessageAt} />
                 </span>
               </span>
             </div>
@@ -186,7 +187,7 @@ export function SupportPanel({ active, base }: { active: boolean; base: string }
                   {translate(consent.granted ? "granted" : "withdrawn")}
                 </Badge>
                 <span className="font-mono text-[11px] text-muted-foreground">
-                  {new Date(consent.recordedAt).toLocaleDateString()}
+                  <Timestamp mode="date" value={consent.recordedAt} />
                 </span>
               </span>
             </div>
@@ -205,15 +206,7 @@ export function SupportPanel({ active, base }: { active: boolean; base: string }
  * thing to keep consistent, and the value of an audit trail is that there is
  * exactly one of it.
  */
-export function AuditTimeline({
-  active,
-  customerId,
-  locale,
-}: {
-  active: boolean;
-  customerId: string;
-  locale: string;
-}) {
+export function AuditTimeline({ active, customerId }: { active: boolean; customerId: string }) {
   const translate = useTranslations("admin.customers.timeline");
   const { data, isLoading } = useSWR<Page<AuditEvent>, ApiError>(
     active ? `/v1/panel/audit?targetType=customer&targetId=${customerId}&pageSize=50` : null,
@@ -242,7 +235,7 @@ export function AuditTimeline({
             <span className="flex flex-wrap items-baseline justify-between gap-2">
               <span className="font-medium text-sm">{event.action}</span>
               <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
-                {new Date(event.occurredAt).toLocaleString(locale)}
+                <Timestamp value={event.occurredAt} />
               </span>
             </span>
             <span className="text-muted-foreground text-xs">
