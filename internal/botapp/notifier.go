@@ -581,6 +581,13 @@ func applySuppression(decision commerce.DeliveryDecision, candidate notification
 // own subscription, in the same class as a receipt. A customer who is about to
 // lose access because a card was declined is not served by holding the message
 // until morning, and there is no opt-out for it in the preference model either.
+//
+// Every attempt is recorded in `notification_deliveries` as a `payment`
+// delivery keyed `dunning:<attempt>`, through the same claim every other
+// notification takes. That is what bounds it: a failed send is retried on the
+// next two passes and then stops, and a failure Telegram says is final —
+// blocked, never started — stops at once. It used to be retried every fifteen
+// minutes for as long as the attempt existed.
 func (notifier *Notifier) deliverDunning(ctx context.Context) {
 	notices, err := notifier.store.PendingDunningNotices(ctx, notificationBatch)
 	if err != nil {
@@ -591,13 +598,33 @@ func (notifier *Notifier) deliverDunning(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
-		view := dunningAlertView(notifier.notices, localeFrom(notice.Locale), notice.Abandoned)
-		if err := notifier.sender.Send(ctx, notice.CustomerID, notice.TelegramID, view); err != nil {
-			// Leaving the mark unset is what retries it. A customer who has
-			// blocked the bot is handled by the delivery state the sender keeps.
-			notifier.logger.Warn("dunning notice delivery failed",
-				"attemptId", notice.AttemptID, "error", err)
+		dedupe := dunningDedupe(notice.AttemptID)
+		claimed, err := notifier.store.claimNotification(ctx, notice.CustomerID, "", "payment", dedupe)
+		if err != nil {
+			notifier.logger.Error("dunning notice claim failed", "attemptId", notice.AttemptID, "error", err)
 			continue
+		}
+		if !claimed {
+			continue
+		}
+		view := dunningAlertView(notifier.notices, localeFrom(notice.Locale), notice.Abandoned)
+		sendErr := notifier.sender.Send(ctx, notice.CustomerID, notice.TelegramID, view)
+		if sendErr != nil {
+			notifier.logger.Warn("dunning notice delivery failed",
+				"attemptId", notice.AttemptID, "error", sendErr)
+			if status, code := classifySupportFailure(sendErr); status == "suppressed" {
+				err = notifier.store.parkNotification(ctx, notice.CustomerID, "", "payment", dedupe,
+					commerce.DeliveryDecision{Reason: code})
+			} else {
+				err = notifier.store.finishNotification(ctx, notice.CustomerID, "", "payment", dedupe, sendErr)
+			}
+			if err != nil {
+				notifier.logger.Error("dunning notice bookkeeping failed", "attemptId", notice.AttemptID, "error", err)
+			}
+			continue
+		}
+		if err := notifier.store.finishNotification(ctx, notice.CustomerID, "", "payment", dedupe, nil); err != nil {
+			notifier.logger.Error("dunning notice bookkeeping failed", "attemptId", notice.AttemptID, "error", err)
 		}
 		if err := notifier.store.MarkDunningNotified(ctx, notice.AttemptID); err != nil {
 			notifier.logger.Error("dunning notice bookkeeping failed",
@@ -605,6 +632,9 @@ func (notifier *Notifier) deliverDunning(ctx context.Context) {
 		}
 	}
 }
+
+// dunningDedupe is the delivery key of one failed charge's notice.
+func dunningDedupe(attemptID string) string { return "dunning:" + attemptID }
 
 func (notifier *Notifier) deliverNews(ctx context.Context) {
 	announcements, err := notifier.store.PendingNewsAnnouncements(ctx, 7*24*time.Hour, notificationBatch)
@@ -626,6 +656,14 @@ func (notifier *Notifier) deliverNews(ctx context.Context) {
 			return
 		}
 		if !found {
+			// The customer stopped being reachable between the two reads. The
+			// outcome is recorded rather than skipped: a skipped announcement
+			// stays at the head of the next batch, and enough of them stop the
+			// queue for everybody else.
+			if err := notifier.store.suppressUnreachable(ctx, announcement.CustomerID, "",
+				announcement.Category, announcement.PostID, "unreachable"); err != nil {
+				notifier.logger.Error("news suppression bookkeeping failed", "error", err)
+			}
 			continue
 		}
 		locale := localeFrom(announcement.Locale)
@@ -794,18 +832,34 @@ func (store *PostgresStore) candidateRows(ctx context.Context, marketingWindow t
 	return candidates, rows.Err()
 }
 
+// reclaimableDelivery is the condition under which a delivery row may be
+// claimed again: a deferred message once its quiet window has passed, and a
+// failed one only while it still has retries left. It is written against the
+// alias `d` so the queries that find work and the claim that takes it agree.
+const reclaimableDelivery = `((d.status = 'failed' AND d.failure_count < 3)
+	OR (d.status = 'deferred' AND COALESCE(d.deferred_until, now()) <= now()))`
+
 // claimNotification reserves one delivery. A deferred message becomes claimable
 // again once its quiet window has passed, and a failed one only while it still
 // has retries left.
 func (store *PostgresStore) claimNotification(ctx context.Context, userID, subscriptionID, kind, dedupe string) (bool, error) {
-	result, err := store.pool.Exec(ctx, `INSERT INTO notification_deliveries (user_id, subscription_id, kind, dedupe_key)
+	result, err := store.pool.Exec(ctx, `INSERT INTO notification_deliveries AS d (user_id, subscription_id, kind, dedupe_key)
 		VALUES ($1::uuid, NULLIF($2, '')::uuid, $3, $4)
 		ON CONFLICT (user_id, kind, subscription_id, dedupe_key) DO UPDATE
 		SET status = 'pending', scheduled_at = now(), deferred_until = NULL
-		WHERE (notification_deliveries.status = 'failed' AND notification_deliveries.failure_count < 3)
-		   OR (notification_deliveries.status = 'deferred'
-		       AND COALESCE(notification_deliveries.deferred_until, now()) <= now())`, userID, subscriptionID, kind, dedupe)
+		WHERE `+reclaimableDelivery, userID, subscriptionID, kind, dedupe)
 	return err == nil && result.RowsAffected() == 1, err
+}
+
+// suppressUnreachable records that a notification was held back because its
+// customer could not be reached, so the queue that found it moves past it.
+// A row already final is left alone.
+func (store *PostgresStore) suppressUnreachable(ctx context.Context, userID, subscriptionID, kind, dedupe, reason string) error {
+	claimed, err := store.claimNotification(ctx, userID, subscriptionID, kind, dedupe)
+	if err != nil || !claimed {
+		return err
+	}
+	return store.parkNotification(ctx, userID, subscriptionID, kind, dedupe, commerce.DeliveryDecision{Reason: reason})
 }
 
 // notificationKey scopes an update to exactly one delivery row. The subscription

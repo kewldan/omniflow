@@ -37,6 +37,8 @@ type botTelegram struct {
 	requests []botRequest
 	// refuse, when set, answers a method with a Bot API error instead.
 	refuse map[string]string
+	// refuseChat answers every message to one chat with a Bot API error.
+	refuseChat map[int64]string
 	// oversized collects every callback Telegram would have refused.
 	oversized []string
 }
@@ -86,6 +88,9 @@ func (stub *botTelegram) serve(writer http.ResponseWriter, request *http.Request
 	stub.mutex.Lock()
 	stub.requests = append(stub.requests, botRequest{Method: method, Fields: fields})
 	refusal, refused := stub.refuse[method]
+	if chatRefusal, chatRefused := stub.refuseChat[int64Field(fields["chat_id"])]; chatRefused && method == "sendMessage" {
+		refusal, refused = chatRefusal, true
+	}
 	stub.mutex.Unlock()
 	if refused {
 		writer.WriteHeader(http.StatusForbidden)
@@ -98,6 +103,12 @@ func (stub *botTelegram) serve(writer http.ResponseWriter, request *http.Request
 	default:
 		_, _ = writer.Write([]byte(`{"ok":true,"result":{"message_id":1,"date":0,"chat":{"id":1,"type":"private"}}}`))
 	}
+}
+
+func int64Field(value string) int64 {
+	var parsed int64
+	_ = json.Unmarshal([]byte(value), &parsed)
+	return parsed
 }
 
 func strconvQuote(value string) string {

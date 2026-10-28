@@ -297,8 +297,11 @@ Dunning notices deliberately bypass quiet hours and the notification
 preferences. This is a payment notice about the customer's own subscription, in
 the same class as a receipt: a customer about to lose access because a card was
 declined is not served by holding the message until morning, and there is no
-opt-out for it in the preference model either. Everything else a customer
-receives is covered in [Notifications](/customer/notifications).
+opt-out for it in the preference model either. The notice is bounded all the
+same: it is tried on at most three passes, stops at once when Telegram reports
+the chat blocked or never started, skips a customer whose chat is already known
+to be unreachable, and is not sent once it is a week old. Everything else a
+customer receives is covered in [Notifications](/customer/notifications).
 
 ## What the panel shows
 

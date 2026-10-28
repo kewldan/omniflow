@@ -114,6 +114,15 @@ type PendingNewsAnnouncement struct {
 // PendingNewsAnnouncements finds customers who have not yet been told about a
 // recently published post. Consent, quiet hours, and frequency caps are applied
 // by the delivery pipeline, not by this query.
+//
+// Two things keep the queue moving. A customer whose chat is known to be
+// unreachable — blocked, deactivated, never started — is not a candidate at
+// all; the batch is ordered by post and customer and bounded, so such a
+// customer used to sit at its head for the whole announcement window and, with
+// two hundred of them, no announcement went to anybody. And an announcement
+// whose delivery row can still move — deferred to the end of quiet hours, or
+// failed with retries left — is a candidate again once it can, which is what
+// turns a quiet-hours deferral into a delay rather than a drop.
 func (store *PostgresStore) PendingNewsAnnouncements(ctx context.Context, since time.Duration, limit int) ([]PendingNewsAnnouncement, error) {
 	rows, err := store.pool.Query(ctx, telegramRecipients+`
 		SELECT DISTINCT ON (n.id, u.id) n.id::text, u.id::text, recipient.telegram_id, n.category, n.class, l.title,
@@ -122,15 +131,18 @@ func (store *PostgresStore) PendingNewsAnnouncements(ctx context.Context, since 
 		JOIN users u ON u.status = 'active'
 		JOIN recipient ON recipient.user_id = u.id
 		LEFT JOIN bot_preferences p ON p.user_id = u.id
+		LEFT JOIN bot_delivery_state s ON s.user_id = u.id
 		JOIN news_post_localizations l ON l.post_id = n.id
 			AND l.locale = CASE WHEN COALESCE(p.locale, 'auto') = 'auto' THEN u.locale ELSE p.locale END
 		WHERE n.status = 'published'
 		  AND n.published_at IS NOT NULL AND n.published_at <= now()
 		  AND n.published_at > now() - $1::interval
 		  AND (n.expires_at IS NULL OR n.expires_at > now())
+		  AND COALESCE(s.status, 'active') NOT IN ('blocked', 'deactivated', 'not_started')
 		  AND NOT EXISTS (
 			SELECT 1 FROM notification_deliveries d
-			WHERE d.user_id = u.id AND d.kind = n.category AND d.dedupe_key = n.id::text)
+			WHERE d.user_id = u.id AND d.kind = n.category AND d.dedupe_key = n.id::text
+			  AND NOT `+reclaimableDelivery+`)
 		ORDER BY n.id, u.id, n.published_at DESC LIMIT $2`, since, limit)
 	if err != nil {
 		return nil, err

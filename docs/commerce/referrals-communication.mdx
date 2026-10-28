@@ -119,8 +119,17 @@ The inbox is pull. The push is what makes an outage notice arrive.
 
 The bot's notifier looks for posts published in the last seven days, for active
 customers with a Telegram recipient, that have a localisation in the customer's
-resolved locale and no existing delivery row for that post. It sends one message
-per customer per post, up to 200 per pass.
+resolved locale and no delivery row for that post that is still waiting or
+already final. It sends one message per customer per post, up to 200 per pass.
+
+A customer whose chat is known to be unreachable — `blocked`, `deactivated`, or
+`not_started` — is not read at all, and a customer who stops being reachable
+between the read and the send gets a `suppressed` delivery row with the reason
+`unreachable`. Either way the queue moves past them; before, they were skipped
+without a record, stayed at the head of every batch for the whole seven days,
+and two hundred of them stopped announcements for everybody. A delivery deferred
+to the end of quiet hours, or failed with retries left, is read again once it
+can move, so a deferral is a delay rather than a drop.
 
 A post that is already older than seven days when the worker first sees it is
 never announced. Publishing an old post backdated will populate the inbox and
@@ -225,7 +234,11 @@ clears the three final states; a `my_chat_member` block records `blocked`.
 
 - **Dunning notices bypass the policy entirely.** A customer about to lose access
   because a card was declined is not served by holding the message until morning,
-  and there is no opt-out for it in the preference model either.
+  and there is no opt-out for it in the preference model either. Each notice
+  still leaves a `payment` delivery row keyed `dunning:<attempt>`, which bounds
+  it: a failed send is retried on the next two passes and then stops, a refusal
+  Telegram calls final stops at once, a customer whose chat is known to be
+  unreachable is not tried, and a notice older than seven days is not sent.
 - **Support replies bypass it too.** The reply delivery pass sends directly and
   writes no delivery row; deduplication comes from the message's own
   `delivered_at` instead. A support reply has no suppression record and no retry

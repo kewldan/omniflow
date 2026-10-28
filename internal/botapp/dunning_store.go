@@ -28,6 +28,13 @@ type PendingDunningNotice struct {
 // wrote from the rule in `internal/recurring`. Recomputing "does this failure
 // deserve a message?" here would be a second copy of a product decision, free
 // to drift from the first.
+//
+// A customer whose chat is known to be unreachable is not read at all, and a
+// notice whose delivery already reached a final state — sent, held back,
+// failed three times — is not read again. Both used to be: the notice was
+// resent every fifteen minutes to a chat that refused it, for as long as the
+// attempt existed. A notice older than a week is not sent either; "we will try
+// your card again" is no longer true by then.
 func (store *PostgresStore) PendingDunningNotices(
 	ctx context.Context, limit int,
 ) ([]PendingDunningNotice, error) {
@@ -39,7 +46,15 @@ func (store *PostgresStore) PendingDunningNotices(
 		JOIN users u ON u.id = d.user_id
 		JOIN recipient ON recipient.user_id = d.user_id
 		LEFT JOIN bot_preferences p ON p.user_id = d.user_id
+		LEFT JOIN bot_delivery_state s ON s.user_id = d.user_id
 		WHERE d.notify_required AND d.notified_at IS NULL AND u.status = 'active'
+		  AND d.occurred_at > now() - interval '7 days'
+		  AND COALESCE(s.status, 'active') NOT IN ('blocked', 'deactivated', 'not_started')
+		  AND NOT EXISTS (
+			SELECT 1 FROM notification_deliveries n
+			WHERE n.user_id = d.user_id AND n.kind = 'payment' AND n.subscription_id IS NULL
+			  AND n.dedupe_key = 'dunning:' || d.id::text
+			  AND NOT (n.status = 'failed' AND n.failure_count < 3))
 		ORDER BY d.id, d.occurred_at LIMIT $1`, limit)
 	if err != nil {
 		return nil, err
