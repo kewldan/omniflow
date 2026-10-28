@@ -100,6 +100,22 @@ WITH candidates AS (
 DELETE FROM subscriptions WHERE id IN (SELECT id FROM candidates)
 RETURNING *;
 
+-- name: GetSubscriptionHeldPlan :one
+-- The plan a subscription currently carries, priced in the order's currency,
+-- for the lifecycle rule order creation enforces. It picks the entitlement the
+-- storefront shows as in force — one whose start has passed before one
+-- scheduled for later — and leaves judging whether it is still live to the
+-- domain. A plan with no price in the currency compares as zero, exactly as
+-- the catalogue's held plans do.
+SELECT pv.plan_id, COALESCE(pr.amount_minor, 0)::bigint AS amount_minor,
+       e.status, e.ends_at
+FROM entitlements e
+JOIN plan_versions pv ON pv.id = e.plan_version_id
+LEFT JOIN plan_prices pr ON pr.plan_version_id = pv.id AND pr.currency = sqlc.arg(currency)
+WHERE e.subscription_id = sqlc.arg(subscription_id) AND e.status <> 'superseded'
+ORDER BY (e.starts_at <= now()) DESC, e.ends_at DESC
+LIMIT 1;
+
 -- name: AttachOrderSubscription :one
 -- Gives a detached subscription order the subscription opened in place of
 -- the one the ghost cleanup removed. It only ever fills an empty target, so it

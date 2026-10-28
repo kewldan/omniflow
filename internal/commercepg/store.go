@@ -470,6 +470,9 @@ func (store *Store) CreateOrder(ctx context.Context, input CreateOrderInput) (db
 	if err != nil {
 		return dbgen.Order{}, err
 	}
+	if err = store.assertOperationFits(ctx, queries, subscriptionID, plan, input.Operation); err != nil {
+		return dbgen.Order{}, err
+	}
 	squadIDs, err := databaseutil.ParseUUIDs(quote.SquadIDs)
 	if err != nil {
 		return dbgen.Order{}, err

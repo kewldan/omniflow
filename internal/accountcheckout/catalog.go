@@ -320,6 +320,10 @@ func (service *Service) eligibilityContext(ctx context.Context, customerID strin
 // again, and counting it made the catalogue offer an "upgrade" away from a
 // plan they no longer paid for while refusing to sell them that plan itself.
 //
+// A paused entitlement is held whatever its frozen end says, because the pause
+// is preserving its time — the same liveness commerce.EntitlementLive gives
+// order creation.
+//
 // A plan whose current version has no price in that currency contributes no
 // amount: it is still held, but it cannot be compared, so it only ever produces
 // "you already have this" and never an upgrade or downgrade claim.
@@ -335,7 +339,7 @@ func (store *Store) HeldPlans(ctx context.Context, customerID, currency string) 
 		LEFT JOIN plan_prices pr ON pr.plan_version_id = v.id AND pr.currency = $2
 		WHERE s.user_id = $1::uuid AND s.status = 'active'
 		  AND e.status NOT IN ('expired', 'failed')
-		  AND (e.ends_at IS NULL OR e.ends_at > now())`, customerID, currency)
+		  AND (e.status = 'paused' OR e.ends_at IS NULL OR e.ends_at > now())`, customerID, currency)
 	if err != nil {
 		return nil, err
 	}

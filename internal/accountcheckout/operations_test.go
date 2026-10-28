@@ -68,6 +68,7 @@ func TestTargetLiveJudgesStatusAndEnd(t *testing.T) {
 		{"active but past its end", SubscriptionTarget{Status: "active", EndsAt: now.Add(-time.Hour)}, false},
 		{"pending, not scheduled yet", SubscriptionTarget{Status: "pending"}, true},
 		{"paused", SubscriptionTarget{Status: "paused", EndsAt: now.Add(time.Hour)}, true},
+		{"paused past its frozen end", SubscriptionTarget{Status: "paused", EndsAt: now.Add(-time.Hour)}, true},
 		{"failed", SubscriptionTarget{Status: "failed"}, false},
 	}
 	for _, testCase := range cases {

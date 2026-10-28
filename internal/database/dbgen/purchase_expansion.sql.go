@@ -1233,6 +1233,47 @@ func (q *Queries) GetSubscriptionByRemnawaveUser(ctx context.Context, remnawaveU
 	return i, err
 }
 
+const getSubscriptionHeldPlan = `-- name: GetSubscriptionHeldPlan :one
+SELECT pv.plan_id, COALESCE(pr.amount_minor, 0)::bigint AS amount_minor,
+       e.status, e.ends_at
+FROM entitlements e
+JOIN plan_versions pv ON pv.id = e.plan_version_id
+LEFT JOIN plan_prices pr ON pr.plan_version_id = pv.id AND pr.currency = $1
+WHERE e.subscription_id = $2 AND e.status <> 'superseded'
+ORDER BY (e.starts_at <= now()) DESC, e.ends_at DESC
+LIMIT 1
+`
+
+type GetSubscriptionHeldPlanParams struct {
+	Currency       string      `json:"currency"`
+	SubscriptionID pgtype.UUID `json:"subscription_id"`
+}
+
+type GetSubscriptionHeldPlanRow struct {
+	PlanID      pgtype.UUID        `json:"plan_id"`
+	AmountMinor int64              `json:"amount_minor"`
+	Status      string             `json:"status"`
+	EndsAt      pgtype.Timestamptz `json:"ends_at"`
+}
+
+// The plan a subscription currently carries, priced in the order's currency,
+// for the lifecycle rule order creation enforces. It picks the entitlement the
+// storefront shows as in force — one whose start has passed before one
+// scheduled for later — and leaves judging whether it is still live to the
+// domain. A plan with no price in the currency compares as zero, exactly as
+// the catalogue's held plans do.
+func (q *Queries) GetSubscriptionHeldPlan(ctx context.Context, arg GetSubscriptionHeldPlanParams) (GetSubscriptionHeldPlanRow, error) {
+	row := q.db.QueryRow(ctx, getSubscriptionHeldPlan, arg.Currency, arg.SubscriptionID)
+	var i GetSubscriptionHeldPlanRow
+	err := row.Scan(
+		&i.PlanID,
+		&i.AmountMinor,
+		&i.Status,
+		&i.EndsAt,
+	)
+	return i, err
+}
+
 const insertEntitlementAddon = `-- name: InsertEntitlementAddon :one
 INSERT INTO entitlement_addons (
   entitlement_id, order_id, addon_version_id, quantity, traffic_bytes,

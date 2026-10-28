@@ -700,6 +700,13 @@ type Querier interface {
 	GetSettingSection(ctx context.Context, section string) (GetSettingSectionRow, error)
 	GetSubscription(ctx context.Context, id pgtype.UUID) (Subscription, error)
 	GetSubscriptionByRemnawaveUser(ctx context.Context, remnawaveUserID pgtype.Int8) (Subscription, error)
+	// The plan a subscription currently carries, priced in the order's currency,
+	// for the lifecycle rule order creation enforces. It picks the entitlement the
+	// storefront shows as in force — one whose start has passed before one
+	// scheduled for later — and leaves judging whether it is still live to the
+	// domain. A plan with no price in the currency compares as zero, exactly as
+	// the catalogue's held plans do.
+	GetSubscriptionHeldPlan(ctx context.Context, arg GetSubscriptionHeldPlanParams) (GetSubscriptionHeldPlanRow, error)
 	GetSupportQueue(ctx context.Context, id pgtype.UUID) (SupportQueue, error)
 	GetSupportTagByCode(ctx context.Context, code string) (SupportTag, error)
 	GetSupportTicket(ctx context.Context, id pgtype.UUID) (GetSupportTicketRow, error)

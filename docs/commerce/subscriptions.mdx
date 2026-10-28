@@ -163,11 +163,18 @@ An `at_expiry` downgrade is what the deferred provisioning instant exists for: t
 
 `extension` and `renewal` do identical arithmetic and remain separate operations because the *reason* differs — one the customer asked for, one an automatic charge produced — and support has to be able to tell them apart.
 
-A forbidden operation is unreachable rather than merely unoffered: the same guard that decides which buttons a surface renders is re-run inside order creation, and a refusal is HTTP 422 `operation_forbidden`. A duration of zero or less is refused outright.
+A forbidden operation is unreachable rather than merely unoffered. The lifecycle rule lives in `internal/commerce` and is enforced inside order creation against the subscription the order resolves to, so every caller — the web checkout, the bot, the bearer-token API, a saved cart — meets the same refusal, HTTP 422 `operation_forbidden`:
+
+- a `purchase` is refused on a subscription whose entitlement is still in force (a paused one counts as in force) — it would schedule from now and throw the remaining time away; with no subscription named, a purchase that would default onto a live primary is refused rather than guessed;
+- an `extension` must be of the plan the subscription holds; extending a lapsed subscription buys a fresh period from now and is allowed;
+- an `upgrade` must go to a different plan priced at or above the held one, a `downgrade` to one priced below it, and both need a live plan to move from;
+- the plan version's policy refuses `forbid` as before.
+
+A `renewal` is the renewal worker's own operation, opened from the customer's standing consent for the subscription it names, and is not reclassified. A duration of zero or less is refused outright.
 
 ### What a customer is offered
 
-`GET /v1/account/plans` returns an `operations` array per plan, computed on the server. A customer with no subscriptions is offered `purchase`. A customer with one is offered `purchase` when the concurrency ceiling still allows it, plus `extension`, plus `upgrade` and `downgrade` wherever the policy is not `forbid`. The panel renders buttons; it does not decide policy — a panel that decided for itself which buttons to render would be a second implementation of the rules, and the two would eventually disagree in the customer's favour or against it, both of which are bugs.
+`GET /v1/account/plans` returns an `operations` array per plan, computed on the server. A customer with no subscriptions is offered `purchase`. A customer with one is offered `purchase` when the concurrency ceiling still allows it, plus `extension`, plus `upgrade` and `downgrade` wherever the policy is not `forbid`. The panel renders buttons; it does not decide policy — a panel that decided for itself which buttons to render would be a second implementation of the rules, and the two would eventually disagree in the customer's favour or against it, both of which are bugs. The array is `commerce.OfferedOperations`, the same rule order creation enforces, so everything offered is accepted.
 
 ### Cancellation
 

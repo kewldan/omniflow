@@ -157,6 +157,32 @@ func (store *Store) resolveSubscription(ctx context.Context, queries *dbgen.Quer
 	return subscription.ID, nil
 }
 
+// assertOperationFits enforces the lifecycle rule against the subscription the
+// order resolved to: a purchase never lands on a subscription with time left,
+// an extension stays on the held plan, an upgrade goes to a plan priced at or
+// above it and a downgrade to one below. The storefronts offer exactly what
+// this accepts (commerce.OfferedOperations); this is where it is guaranteed,
+// for every caller that can create an order.
+func (store *Store) assertOperationFits(ctx context.Context, queries *dbgen.Queries, subscriptionID pgtype.UUID, plan dbgen.GetPlanVersionForOrderRow, operation string) error {
+	var held *commerce.HeldPlan
+	current, err := queries.GetSubscriptionHeldPlan(ctx, dbgen.GetSubscriptionHeldPlanParams{SubscriptionID: subscriptionID, Currency: plan.Currency})
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+	case err != nil:
+		return err
+	case commerce.EntitlementLive(current.Status, current.EndsAt.Time, store.clock()):
+		held = &commerce.HeldPlan{PlanID: uuidString(current.PlanID), AmountMinor: current.AmountMinor}
+	}
+	pricing := commerce.PlanPricing{
+		PlanID: uuidString(plan.PlanID), AmountMinor: plan.AmountMinor,
+		UpgradePolicy: plan.UpgradePolicy, DowngradePolicy: plan.DowngradePolicy,
+	}
+	if err = commerce.ValidateOperation(operation, pricing, held); err != nil {
+		return fmt.Errorf("%w: %w", ErrOperationForbidden, err)
+	}
+	return nil
+}
+
 // recordOrderRevenue writes the double-entry movement for a settled order:
 // the wallet and the provider hand money to the platform.
 func (store *Store) recordOrderRevenue(ctx context.Context, queries *dbgen.Queries, order dbgen.Order, idempotencyKey string) error {
