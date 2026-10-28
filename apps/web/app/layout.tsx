@@ -2,11 +2,11 @@ import { Toaster } from "@omniflow/ui/toast";
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import type { Metadata } from "next";
-import { NextIntlClientProvider } from "next-intl";
-import { getLocale, getMessages } from "next-intl/server";
+import { getLocale } from "next-intl/server";
 import type { ReactNode } from "react";
 
 import { Measurement } from "@/components/analytics/measurement";
+import { ScopedIntlProvider } from "@/components/intl/scoped-intl-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { readAnalytics } from "@/lib/analytics";
 import { readBranding } from "@/lib/branding";
@@ -30,9 +30,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
-  const [locale, messages, branding, analytics] = await Promise.all([
+  const [locale, branding, analytics] = await Promise.all([
     getLocale(),
-    getMessages(),
     readBranding(),
     readAnalytics(),
   ]);
@@ -74,13 +73,16 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       </head>
       <body>
         <ThemeProvider allowedThemes={branding.allowedThemes} defaultTheme={branding.defaultTheme}>
-          <NextIntlClientProvider messages={messages}>
+          {/* Only what every surface shares. Each panel's route group hands
+              the browser its own catalogue in its own layout; see
+              ScopedIntlProvider for why the root must not. */}
+          <ScopedIntlProvider namespaces={["common", "analytics"]}>
             {children}
             {/* Renders nothing at all unless the operator configured a counter,
                 and nothing until the visitor has agreed to it. */}
             <Measurement analytics={analytics} />
             <Toaster />
-          </NextIntlClientProvider>
+          </ScopedIntlProvider>
         </ThemeProvider>
       </body>
     </html>
