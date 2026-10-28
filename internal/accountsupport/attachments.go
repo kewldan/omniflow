@@ -224,6 +224,20 @@ func (service *Service) Attach(ctx context.Context, input NewAttachment) (Attach
 	if err = service.lockWritableTicket(ctx, tx, input.CustomerID, input.TicketID); err != nil {
 		return Attachment{}, err
 	}
+	// A replay is answered before the bound is counted. The file it carries is
+	// already one of the attachments being counted, so a conversation sitting
+	// exactly at the limit would otherwise refuse the resubmission of the upload
+	// that filled it — the double-tapped Send the key exists to absorb.
+	idempotencyKey := strings.TrimSpace(input.IdempotencyKey)
+	if idempotencyKey != "" {
+		replayed, found, replayErr := findReplayedAttachment(ctx, tx, input.TicketID, idempotencyKey, key)
+		if replayErr != nil {
+			return Attachment{}, replayErr
+		}
+		if found {
+			return replayed, tx.Commit(ctx)
+		}
+	}
 	// The count is taken under the ticket's row lock, so two uploads racing at
 	// the limit cannot both pass it. Rows past retention are not counted; they
 	// are about to be swept and hold no disk the customer can still see.
@@ -242,7 +256,7 @@ func (service *Service) Attach(ctx context.Context, input NewAttachment) (Attach
 	// below then finds the file already hanging on it through the unique index
 	// on (message, storage key) — so a retried upload is one message and one
 	// file, not two of either.
-	messageID, err := appendCustomerMessage(ctx, tx, input.TicketID, body, strings.TrimSpace(input.IdempotencyKey))
+	messageID, err := appendCustomerMessage(ctx, tx, input.TicketID, body, idempotencyKey)
 	if err != nil {
 		return Attachment{}, err
 	}
@@ -268,6 +282,33 @@ func (service *Service) Attach(ctx context.Context, input NewAttachment) (Attach
 	}
 	attachment.CreatedAt = attachment.CreatedAt.UTC()
 	return attachment, tx.Commit(ctx)
+}
+
+// findReplayedAttachment finds the file an earlier submission with the same
+// idempotency key already hung on the conversation. The caller holds the
+// ticket's row lock, so a concurrent first submission cannot land between this
+// read and the insert that would otherwise follow.
+func findReplayedAttachment(
+	ctx context.Context, tx pgx.Tx, ticketID, idempotencyKey, storageKey string,
+) (Attachment, bool, error) {
+	attachment := Attachment{Downloadable: true}
+	err := tx.QueryRow(ctx, `SELECT a.id::text, a.message_id, a.kind,
+		COALESCE(a.file_name, ''), COALESCE(a.mime_type, ''), a.size_bytes, a.created_at
+		FROM support_attachments a
+		JOIN support_messages m ON m.id = a.message_id
+		WHERE m.ticket_id = $1::uuid AND m.dedupe_key = $2
+		  AND a.origin = 'local' AND a.storage_key = $3`,
+		ticketID, idempotencyKey, storageKey).
+		Scan(&attachment.ID, &attachment.MessageID, &attachment.Kind, &attachment.FileName,
+			&attachment.MediaType, &attachment.SizeBytes, &attachment.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Attachment{}, false, nil
+	}
+	if err != nil {
+		return Attachment{}, false, err
+	}
+	attachment.CreatedAt = attachment.CreatedAt.UTC()
+	return attachment, true, nil
 }
 
 // Attachment serves one file to the customer who owns the ticket it hangs on.
