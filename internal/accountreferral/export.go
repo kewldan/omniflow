@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/omniflow/omniflow/internal/database/dbgen"
 )
 
 // ExportVersion identifies the document shape.
@@ -421,7 +422,7 @@ func (service *Service) Export(
 	// handed over, so a recorded export is always one that actually succeeded.
 	// The metadata carries counts only: an audit row describing what was
 	// disclosed must not become a second copy of it.
-	if err = service.recordAudit(ctx, service.pool, customerID, "account.data.exported", request.RequestID,
+	if err = service.recordAudit(ctx, service.queries, customerID, "account.data.exported", request.RequestID,
 		map[string]any{
 			"version": ExportVersion, "orders": len(document.Orders),
 			"payments": len(document.Payments), "walletEntries": len(document.Wallet),
@@ -436,289 +437,178 @@ func (service *Service) Export(
 func (service *Service) exportProfile(
 	ctx context.Context, userID pgtype.UUID, customerID string,
 ) (ExportProfile, error) {
-	var (
-		profile        ExportProfile
-		createdAt      pgtype.Timestamptz
-		updatedAt      pgtype.Timestamptz
-		suspendedAt    pgtype.Timestamptz
-		deletedAt      pgtype.Timestamptz
-		anonymizedAt   pgtype.Timestamptz
-		retentionUntil pgtype.Timestamptz
-	)
-	err := service.pool.QueryRow(ctx, `SELECT status, locale, timezone, created_at, updated_at,
-			suspended_at, deleted_at, anonymized_at, retention_until
-		FROM users WHERE id = $1`, userID).
-		Scan(
-			&profile.Status, &profile.Locale, &profile.Timezone, &createdAt, &updatedAt,
-			&suspendedAt, &deletedAt, &anonymizedAt, &retentionUntil,
-		)
+	user, err := service.queries.GetCustomer(ctx, userID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ExportProfile{}, ErrNotFound
 	}
 	if err != nil {
 		return ExportProfile{}, err
 	}
-	profile.ID = customerID
-	profile.CreatedAt = createdAt.Time.UTC()
-	profile.UpdatedAt = updatedAt.Time.UTC()
-	profile.SuspendedAt = timePointer(suspendedAt)
-	profile.DeletedAt = timePointer(deletedAt)
-	profile.AnonymizedAt = timePointer(anonymizedAt)
-	profile.RetentionUntil = timePointer(retentionUntil)
-	return profile, nil
+	return ExportProfile{
+		ID:             customerID,
+		Status:         user.Status,
+		Locale:         user.Locale,
+		Timezone:       user.Timezone,
+		CreatedAt:      user.CreatedAt.Time.UTC(),
+		UpdatedAt:      user.UpdatedAt.Time.UTC(),
+		SuspendedAt:    timePointer(user.SuspendedAt),
+		DeletedAt:      timePointer(user.DeletedAt),
+		AnonymizedAt:   timePointer(user.AnonymizedAt),
+		RetentionUntil: timePointer(user.RetentionUntil),
+	}, nil
 }
 
 func (service *Service) exportIdentities(
 	ctx context.Context, userID pgtype.UUID, document *ExportDocument,
 ) (bool, error) {
-	rows, err := service.pool.Query(ctx, `SELECT provider, provider_subject, status, verified_at, created_at
-		FROM identities WHERE user_id = $1 ORDER BY created_at`, userID)
+	// The shared read selects the provider's claim payload too. It is dropped
+	// here, in the projection, rather than carried into the document.
+	rows, err := service.queries.ListCustomerIdentities(ctx, userID)
 	if err != nil {
 		return false, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var (
-			identity   ExportIdentity
-			verifiedAt pgtype.Timestamptz
-			createdAt  pgtype.Timestamptz
-		)
-		if err = rows.Scan(
-			&identity.Provider, &identity.Subject, &identity.Status, &verifiedAt, &createdAt,
-		); err != nil {
-			return false, err
-		}
-		identity.Verified = verifiedAt.Valid
-		identity.CreatedAt = createdAt.Time.UTC()
-		document.Identities = append(document.Identities, identity)
+	for _, row := range rows {
+		document.Identities = append(document.Identities, ExportIdentity{
+			Provider: row.Provider, Subject: row.ProviderSubject, Status: row.Status,
+			Verified: row.VerifiedAt.Valid, CreatedAt: row.CreatedAt.Time.UTC(),
+		})
 	}
-	return false, rows.Err()
+	return false, nil
 }
 
 func (service *Service) exportContacts(
 	ctx context.Context, userID pgtype.UUID, document *ExportDocument,
 ) (bool, error) {
-	rows, err := service.pool.Query(ctx, `SELECT kind, value_ciphertext, verified_at,
-			transactional_enabled, marketing_enabled, created_at, revoked_at
-		FROM contact_channels WHERE user_id = $1 ORDER BY created_at`, userID)
+	rows, err := service.queries.ListAccountExportContacts(ctx, userID)
 	if err != nil {
 		return false, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var (
-			contact    ExportContact
-			ciphertext []byte
-			verifiedAt pgtype.Timestamptz
-			createdAt  pgtype.Timestamptz
-			revokedAt  pgtype.Timestamptz
-		)
-		if err = rows.Scan(
-			&contact.Kind, &ciphertext, &verifiedAt,
-			&contact.Transactional, &contact.Marketing, &createdAt, &revokedAt,
-		); err != nil {
-			return false, err
-		}
-		contact.Verified = verifiedAt.Valid
-		contact.CreatedAt = createdAt.Time.UTC()
-		contact.RevokedAt = timePointer(revokedAt)
-		// Without a key the address cannot be opened. The row is still reported,
-		// because "we hold a contact channel of this kind" is itself a fact the
-		// customer is entitled to, and an empty value is honest about the rest.
-		contact.Value = service.open(contact.Kind, ciphertext)
-		document.Contacts = append(document.Contacts, contact)
+	for _, row := range rows {
+		document.Contacts = append(document.Contacts, ExportContact{
+			Kind: row.Kind,
+			// Without a key the address cannot be opened. The row is still
+			// reported, because "we hold a contact channel of this kind" is itself
+			// a fact the customer is entitled to, and an empty value is honest
+			// about the rest.
+			Value:         service.open(row.Kind, row.ValueCiphertext),
+			Verified:      row.VerifiedAt.Valid,
+			Transactional: row.TransactionalEnabled,
+			Marketing:     row.MarketingEnabled,
+			CreatedAt:     row.CreatedAt.Time.UTC(),
+			RevokedAt:     timePointer(row.RevokedAt),
+		})
 	}
-	return false, rows.Err()
+	return false, nil
 }
 
 func (service *Service) exportSubscriptions(
 	ctx context.Context, userID pgtype.UUID, document *ExportDocument,
 ) (bool, error) {
-	rows, err := service.pool.Query(ctx, `SELECT id, slot, label, status, created_at, closed_at
-		FROM subscriptions WHERE user_id = $1 ORDER BY slot`, userID)
+	rows, err := service.queries.ListAccountExportSubscriptions(ctx, userID)
 	if err != nil {
 		return false, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var (
-			id           pgtype.UUID
-			subscription ExportSubscription
-			slot         int32
-			createdAt    pgtype.Timestamptz
-			closedAt     pgtype.Timestamptz
-		)
-		if err = rows.Scan(
-			&id, &slot, &subscription.Label, &subscription.Status, &createdAt, &closedAt,
-		); err != nil {
-			return false, err
-		}
-		subscription.ID = uuidString(id)
-		subscription.Slot = int(slot)
-		subscription.CreatedAt = createdAt.Time.UTC()
-		subscription.ClosedAt = timePointer(closedAt)
-		document.Subscriptions = append(document.Subscriptions, subscription)
+	for _, row := range rows {
+		document.Subscriptions = append(document.Subscriptions, ExportSubscription{
+			ID: uuidString(row.ID), Slot: int(row.Slot), Label: row.Label, Status: row.Status,
+			CreatedAt: row.CreatedAt.Time.UTC(), ClosedAt: timePointer(row.ClosedAt),
+		})
 	}
-	return false, rows.Err()
+	return false, nil
 }
 
 func (service *Service) exportEntitlements(
 	ctx context.Context, userID pgtype.UUID, document *ExportDocument,
 ) (bool, error) {
-	rows, err := service.pool.Query(ctx, `SELECT e.id, p.code, e.status, e.starts_at, e.ends_at,
-			e.traffic_allowance_bytes, e.device_limit, e.created_at
-		FROM entitlements e
-		JOIN plan_versions v ON v.id = e.plan_version_id
-		JOIN plans p ON p.id = v.plan_id
-		WHERE e.user_id = $1
-		ORDER BY e.starts_at DESC
-		LIMIT $2`, userID, exportSectionLimit)
+	rows, err := service.queries.ListAccountExportEntitlements(ctx, dbgen.ListAccountExportEntitlementsParams{
+		UserID: userID, PageSize: exportSectionLimit,
+	})
 	if err != nil {
 		return false, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var (
-			id          pgtype.UUID
-			entitlement ExportEntitlement
-			startsAt    pgtype.Timestamptz
-			endsAt      pgtype.Timestamptz
-			createdAt   pgtype.Timestamptz
-			allowance   pgtype.Int8
-			deviceLimit pgtype.Int4
-		)
-		if err = rows.Scan(
-			&id, &entitlement.PlanCode, &entitlement.Status,
-			&startsAt, &endsAt, &allowance, &deviceLimit, &createdAt,
-		); err != nil {
-			return false, err
+	for _, row := range rows {
+		entitlement := ExportEntitlement{
+			ID: uuidString(row.ID), PlanCode: row.PlanCode, Status: row.Status,
+			StartsAt: row.StartsAt.Time.UTC(), EndsAt: row.EndsAt.Time.UTC(),
+			CreatedAt: row.CreatedAt.Time.UTC(),
 		}
-		entitlement.ID = uuidString(id)
-		entitlement.StartsAt = startsAt.Time.UTC()
-		entitlement.EndsAt = endsAt.Time.UTC()
-		entitlement.CreatedAt = createdAt.Time.UTC()
-		if allowance.Valid {
-			bytes := allowance.Int64
+		if row.TrafficAllowanceBytes.Valid {
+			bytes := row.TrafficAllowanceBytes.Int64
 			entitlement.TrafficAllowanceBytes = &bytes
 		}
-		if deviceLimit.Valid {
-			limit := int(deviceLimit.Int32)
+		if row.DeviceLimit.Valid {
+			limit := int(row.DeviceLimit.Int32)
 			entitlement.DeviceLimit = &limit
 		}
 		document.Entitlements = append(document.Entitlements, entitlement)
 	}
-	return len(document.Entitlements) == exportSectionLimit, rows.Err()
+	return len(document.Entitlements) == exportSectionLimit, nil
 }
 
 func (service *Service) exportOrders(
 	ctx context.Context, userID pgtype.UUID, document *ExportDocument,
 ) (bool, error) {
-	rows, err := service.pool.Query(ctx, `SELECT id, state, operation, currency,
-			subtotal_minor, discount_minor, wallet_minor, external_minor,
-			paid_minor, refunded_minor, created_at, updated_at
-		FROM orders WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`,
-		userID, exportSectionLimit)
+	rows, err := service.queries.ListCustomerOrders(ctx, dbgen.ListCustomerOrdersParams{
+		UserID: userID, PageSize: exportSectionLimit,
+	})
 	if err != nil {
 		return false, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var (
-			id        pgtype.UUID
-			order     ExportOrder
-			createdAt pgtype.Timestamptz
-			updatedAt pgtype.Timestamptz
-		)
-		if err = rows.Scan(
-			&id, &order.State, &order.Operation, &order.Currency,
-			&order.SubtotalMinor, &order.DiscountMinor, &order.WalletMinor,
-			&order.ExternalMinor, &order.PaidMinor, &order.RefundedMinor,
-			&createdAt, &updatedAt,
-		); err != nil {
-			return false, err
-		}
-		order.ID = uuidString(id)
-		order.CreatedAt = createdAt.Time.UTC()
-		order.UpdatedAt = updatedAt.Time.UTC()
-		document.Orders = append(document.Orders, order)
+	for _, row := range rows {
+		document.Orders = append(document.Orders, ExportOrder{
+			ID: uuidString(row.ID), State: row.State, Operation: row.Operation,
+			Currency:      row.Currency,
+			SubtotalMinor: row.SubtotalMinor, DiscountMinor: row.DiscountMinor,
+			WalletMinor: row.WalletMinor, ExternalMinor: row.ExternalMinor,
+			PaidMinor: row.PaidMinor, RefundedMinor: row.RefundedMinor,
+			CreatedAt: row.CreatedAt.Time.UTC(), UpdatedAt: row.UpdatedAt.Time.UTC(),
+		})
 	}
-	return len(document.Orders) == exportSectionLimit, rows.Err()
+	return len(document.Orders) == exportSectionLimit, nil
 }
 
 func (service *Service) exportPayments(
 	ctx context.Context, userID pgtype.UUID, document *ExportDocument,
 ) (bool, error) {
-	// The join to `orders` is what scopes this to the calling customer:
-	// `payment_intents` has no customer column of its own, so reading it without
-	// the join would read every installation's payments.
-	rows, err := service.pool.Query(ctx, `SELECT i.order_id, i.provider, i.status,
-			i.amount_minor, i.currency, i.provider_reference, i.checkout_url,
-			i.created_at, i.updated_at
-		FROM payment_intents i
-		JOIN orders o ON o.id = i.order_id
-		WHERE o.user_id = $1
-		ORDER BY i.created_at DESC
-		LIMIT $2`, userID, exportSectionLimit)
+	// The join to `orders` inside the query is what scopes this to the calling
+	// customer: `payment_intents` has no customer column of its own.
+	rows, err := service.queries.ListAccountExportPayments(ctx, dbgen.ListAccountExportPaymentsParams{
+		UserID: userID, PageSize: exportSectionLimit,
+	})
 	if err != nil {
 		return false, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var (
-			orderID   pgtype.UUID
-			row       paymentRow
-			reference pgtype.Text
-			checkout  pgtype.Text
-			createdAt pgtype.Timestamptz
-			updatedAt pgtype.Timestamptz
-		)
-		if err = rows.Scan(
-			&orderID, &row.Provider, &row.Status, &row.AmountMinor, &row.Currency,
-			&reference, &checkout, &createdAt, &updatedAt,
-		); err != nil {
-			return false, err
-		}
-		row.OrderID = uuidString(orderID)
-		row.ProviderReference = reference.String
-		row.CheckoutURL = checkout.String
-		row.CreatedAt = createdAt.Time
-		row.UpdatedAt = updatedAt.Time
-		document.Payments = append(document.Payments, projectPayment(row))
+	for _, row := range rows {
+		document.Payments = append(document.Payments, projectPayment(paymentRow{
+			OrderID: uuidString(row.OrderID), Provider: row.Provider, Status: row.Status,
+			AmountMinor: row.AmountMinor, Currency: row.Currency,
+			ProviderReference: row.ProviderReference.String,
+			CheckoutURL:       row.CheckoutUrl.String,
+			CreatedAt:         row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time,
+		}))
 	}
-	return len(document.Payments) == exportSectionLimit, rows.Err()
+	return len(document.Payments) == exportSectionLimit, nil
 }
 
 func (service *Service) exportWallet(
 	ctx context.Context, userID pgtype.UUID, document *ExportDocument,
 ) (bool, error) {
-	rows, err := service.pool.Query(ctx, `SELECT t.type, t.reference_type, t.reference_id,
-			COALESCE(t.reason, ''), e.currency, e.amount_minor, e.expires_at, e.created_at
-		FROM ledger_entries e
-		JOIN ledger_transactions t ON t.id = e.transaction_id
-		WHERE e.account_type = 'customer_wallet' AND e.user_id = $1
-		ORDER BY e.created_at DESC
-		LIMIT $2`, userID, exportSectionLimit)
+	rows, err := service.queries.ListCustomerLedgerEntries(ctx, dbgen.ListCustomerLedgerEntriesParams{
+		UserID: userID, PageSize: exportSectionLimit,
+	})
 	if err != nil {
 		return false, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var (
-			row       walletRow
-			expiresAt pgtype.Timestamptz
-			createdAt pgtype.Timestamptz
-		)
-		if err = rows.Scan(
-			&row.Type, &row.ReferenceType, &row.ReferenceID, &row.Reason,
-			&row.Currency, &row.AmountMinor, &expiresAt, &createdAt,
-		); err != nil {
-			return false, err
-		}
-		row.ExpiresAt = timePointer(expiresAt)
-		row.CreatedAt = createdAt.Time
-		document.Wallet = append(document.Wallet, projectWalletEntry(row))
+	for _, row := range rows {
+		document.Wallet = append(document.Wallet, projectWalletEntry(walletRow{
+			Type: row.Type, ReferenceType: row.ReferenceType, ReferenceID: row.ReferenceID,
+			Reason:   row.Reason.String,
+			Currency: row.LedgerEntry.Currency, AmountMinor: row.LedgerEntry.AmountMinor,
+			ExpiresAt: timePointer(row.LedgerEntry.ExpiresAt),
+			CreatedAt: row.LedgerEntry.CreatedAt.Time,
+		}))
 	}
-	return len(document.Wallet) == exportSectionLimit, rows.Err()
+	return len(document.Wallet) == exportSectionLimit, nil
 }
 
 func (service *Service) exportSupport(
@@ -727,57 +617,36 @@ func (service *Service) exportSupport(
 	// Tickets and messages arrive in one pass, ordered so a ticket's messages
 	// are contiguous. Two round trips per conversation would turn a customer
 	// with a long support history into a query storm.
-	rows, err := service.pool.Query(ctx, `SELECT t.id, t.status, t.created_at, t.updated_at,
-			m.sender, m.body, m.created_at
-		FROM support_tickets t
-		LEFT JOIN support_messages m ON m.ticket_id = t.id
-		WHERE t.user_id = $1
-		ORDER BY t.created_at DESC, m.created_at
-		LIMIT $2`, userID, exportSectionLimit)
+	rows, err := service.queries.ListAccountExportSupport(ctx, dbgen.ListAccountExportSupportParams{
+		UserID: userID, PageSize: exportSectionLimit,
+	})
 	if err != nil {
 		return false, err
 	}
-	defer rows.Close()
 
-	scanned := 0
 	byID := make(map[string]int)
-	for rows.Next() {
-		var (
-			id             pgtype.UUID
-			status         string
-			ticketCreated  pgtype.Timestamptz
-			ticketUpdated  pgtype.Timestamptz
-			sender         pgtype.Text
-			body           pgtype.Text
-			messageCreated pgtype.Timestamptz
-		)
-		if err = rows.Scan(
-			&id, &status, &ticketCreated, &ticketUpdated, &sender, &body, &messageCreated,
-		); err != nil {
-			return false, err
-		}
-		scanned++
-		ticketID := uuidString(id)
+	for _, row := range rows {
+		ticketID := uuidString(row.ID)
 		index, seen := byID[ticketID]
 		if !seen {
 			document.Support = append(document.Support, ExportTicket{
-				ID: ticketID, Status: status,
-				CreatedAt: ticketCreated.Time.UTC(), UpdatedAt: ticketUpdated.Time.UTC(),
+				ID: ticketID, Status: row.Status,
+				CreatedAt: row.CreatedAt.Time.UTC(), UpdatedAt: row.UpdatedAt.Time.UTC(),
 			})
 			index = len(document.Support) - 1
 			byID[ticketID] = index
 		}
-		if sender.Valid {
+		if row.Sender.Valid {
 			document.Support[index].Messages = append(
 				document.Support[index].Messages,
 				ExportMessage{
-					Sender: sender.String, Body: body.String,
-					CreatedAt: messageCreated.Time.UTC(),
+					Sender: row.Sender.String, Body: row.Body.String,
+					CreatedAt: row.MessageCreatedAt.Time.UTC(),
 				},
 			)
 		}
 	}
-	return scanned == exportSectionLimit, rows.Err()
+	return len(rows) == exportSectionLimit, nil
 }
 
 func (service *Service) exportReferral(
@@ -786,155 +655,93 @@ func (service *Service) exportReferral(
 	// The code is read rather than created. An export must not have a side
 	// effect: a customer downloading their data has not asked to join a
 	// programme.
-	var code pgtype.Text
-	if err := service.pool.QueryRow(ctx,
-		`SELECT code FROM referral_codes WHERE user_id = $1`, userID).Scan(&code); err != nil &&
-		!errors.Is(err, pgx.ErrNoRows) {
+	code, err := service.queries.GetCustomerReferralCode(ctx, userID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return false, err
 	}
-	document.Referral.Code = code.String
+	document.Referral.Code = code.Code
 
-	if err := service.pool.QueryRow(ctx, `SELECT
-			(SELECT count(*) FROM referral_attributions WHERE referrer_user_id = $1),
-			(SELECT count(*) FROM referral_attributions
-				WHERE referrer_user_id = $1 AND qualified_at IS NOT NULL)`, userID).
-		Scan(&document.Referral.Invited, &document.Referral.Qualified); err != nil {
+	counts, err := service.queries.CountAccountInvitations(ctx, userID)
+	if err != nil {
 		return false, err
 	}
+	document.Referral.Invited = counts.Invited
+	document.Referral.Qualified = counts.Qualified
 
-	var (
-		row          attributionRow
-		referrerID   pgtype.UUID
-		attributedAt pgtype.Timestamptz
-		qualifiedAt  pgtype.Timestamptz
-		inviteCode   string
-	)
-	err := service.pool.QueryRow(ctx, `SELECT referrer_user_id, code, created_at, qualified_at
-		FROM referral_attributions WHERE referred_user_id = $1`, userID).
-		Scan(&referrerID, &inviteCode, &attributedAt, &qualifiedAt)
+	invite, err := service.queries.GetAccountInvitedBy(ctx, userID)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 	case err != nil:
 		return false, err
 	default:
-		row.ReferrerID = uuidString(referrerID)
-		row.Code = inviteCode
-		row.AttributedAt = attributedAt.Time
-		row.QualifiedAt = timePointer(qualifiedAt)
-		invited := projectInvitedBy(row)
+		invited := projectInvitedBy(attributionRow{
+			ReferrerID:   uuidString(invite.ReferrerUserID),
+			Code:         invite.Code,
+			AttributedAt: invite.CreatedAt.Time,
+			QualifiedAt:  timePointer(invite.QualifiedAt),
+		})
 		document.Referral.InvitedBy = &invited
 	}
 
-	rows, err := service.pool.Query(ctx, `SELECT w.role, w.amount_minor, w.currency,
-			w.granted_at, w.reversed_at, COALESCE(a.review_state, 'clear')
-		FROM referral_rewards w
-		LEFT JOIN referral_attributions a ON a.referred_user_id = w.referred_user_id
-		WHERE w.beneficiary_user_id = $1
-		ORDER BY w.granted_at DESC
-		LIMIT $2`, userID, exportSectionLimit)
+	rows, err := service.queries.ListAccountExportReferralRewards(ctx,
+		dbgen.ListAccountExportReferralRewardsParams{UserID: userID, PageSize: exportSectionLimit},
+	)
 	if err != nil {
 		return false, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var (
-			reward      ExportReward
-			grantedAt   pgtype.Timestamptz
-			reversedAt  pgtype.Timestamptz
-			reviewState string
-		)
-		if err = rows.Scan(
-			&reward.Role, &reward.AmountMinor, &reward.Currency,
-			&grantedAt, &reversedAt, &reviewState,
-		); err != nil {
-			return false, err
-		}
-		reward.GrantedAt = grantedAt.Time.UTC()
-		reward.ReversedAt = timePointer(reversedAt)
-		reward.State = RewardState(reversedAt.Valid, reviewState)
-		document.Referral.Rewards = append(document.Referral.Rewards, reward)
+	for _, row := range rows {
+		document.Referral.Rewards = append(document.Referral.Rewards, ExportReward{
+			Role: row.Role, State: RewardState(row.ReversedAt.Valid, row.ReviewState),
+			AmountMinor: row.AmountMinor, Currency: row.Currency,
+			GrantedAt: row.GrantedAt.Time.UTC(), ReversedAt: timePointer(row.ReversedAt),
+		})
 	}
-	return len(document.Referral.Rewards) == exportSectionLimit, rows.Err()
+	return len(document.Referral.Rewards) == exportSectionLimit, nil
 }
 
 func (service *Service) exportLoyalty(
 	ctx context.Context, userID pgtype.UUID, document *ExportDocument,
 ) (bool, error) {
-	var (
-		tierCode    string
-		metric      int64
-		evaluatedAt pgtype.Timestamptz
-		graceUntil  pgtype.Timestamptz
-	)
-	err := service.pool.QueryRow(ctx, `SELECT t.code, s.evaluated_metric, s.evaluated_at, s.grace_until
-		FROM loyalty_standings s
-		JOIN loyalty_tiers t ON t.id = s.tier_id
-		WHERE s.user_id = $1`, userID).
-		Scan(&tierCode, &metric, &evaluatedAt, &graceUntil)
+	standing, err := service.queries.GetLoyaltyStanding(ctx, userID)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 	case err != nil:
 		return false, err
 	default:
 		document.Loyalty.Enabled = true
-		document.Loyalty.TierCode = tierCode
-		document.Loyalty.Metric = metric
-		document.Loyalty.EvaluatedAt = timePointer(evaluatedAt)
-		document.Loyalty.GraceUntil = timePointer(graceUntil)
+		document.Loyalty.TierCode = standing.TierCode
+		document.Loyalty.Metric = standing.LoyaltyStanding.EvaluatedMetric
+		document.Loyalty.EvaluatedAt = timePointer(standing.LoyaltyStanding.EvaluatedAt)
+		document.Loyalty.GraceUntil = timePointer(standing.LoyaltyStanding.GraceUntil)
 	}
 
-	rows, err := service.pool.Query(ctx, `SELECT COALESCE(f.code, ''), n.code,
-			h.evaluated_metric, h.reason, h.occurred_at
-		FROM loyalty_standing_history h
-		LEFT JOIN loyalty_tiers f ON f.id = h.from_tier_id
-		JOIN loyalty_tiers n ON n.id = h.to_tier_id
-		WHERE h.user_id = $1
-		ORDER BY h.occurred_at DESC
-		LIMIT $2`, userID, exportSectionLimit)
+	// The shared history read also selects the acting operator. It is dropped
+	// here: an operator who made an override is an operator record, not the
+	// customer's.
+	rows, err := service.queries.ListLoyaltyHistory(ctx, dbgen.ListLoyaltyHistoryParams{
+		UserID: userID, PageSize: exportSectionLimit,
+	})
 	if err != nil {
 		return false, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var (
-			change     ExportLoyaltyChange
-			occurredAt pgtype.Timestamptz
-		)
-		if err = rows.Scan(
-			&change.FromTier, &change.ToTier, &change.Metric, &change.Reason, &occurredAt,
-		); err != nil {
-			return false, err
-		}
-		change.OccurredAt = occurredAt.Time.UTC()
-		document.Loyalty.History = append(document.Loyalty.History, change)
+	for _, row := range rows {
+		document.Loyalty.History = append(document.Loyalty.History, ExportLoyaltyChange{
+			FromTier: row.FromCode, ToTier: row.ToCode, Metric: row.EvaluatedMetric,
+			Reason: row.Reason, OccurredAt: row.OccurredAt.Time.UTC(),
+		})
 	}
-	return len(document.Loyalty.History) == exportSectionLimit, rows.Err()
+	return len(document.Loyalty.History) == exportSectionLimit, nil
 }
 
 func (service *Service) exportConsents(
 	ctx context.Context, userID pgtype.UUID, document *ExportDocument,
 ) (bool, error) {
-	rows, err := service.pool.Query(ctx, `SELECT purpose, granted, policy_version, source, occurred_at
-		FROM consent_records WHERE user_id = $1 ORDER BY occurred_at DESC LIMIT $2`,
-		userID, exportSectionLimit)
+	history, err := service.consentHistory(ctx, userID, exportSectionLimit)
 	if err != nil {
 		return false, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var (
-			consent    ExportConsent
-			occurredAt pgtype.Timestamptz
-		)
-		if err = rows.Scan(
-			&consent.Purpose, &consent.Granted, &consent.PolicyVersion, &consent.Source, &occurredAt,
-		); err != nil {
-			return false, err
-		}
-		consent.OccurredAt = occurredAt.Time.UTC()
-		document.Consents = append(document.Consents, consent)
-	}
-	return len(document.Consents) == exportSectionLimit, rows.Err()
+	document.Consents = append(document.Consents, history...)
+	return len(document.Consents) == exportSectionLimit, nil
 }
 
 func (service *Service) exportLifecycle(
@@ -944,23 +751,17 @@ func (service *Service) exportLifecycle(
 	// of the customer's personal data, and naming the individual who suspended an
 	// account in a document the account holder receives is a safety question
 	// rather than a transparency one.
-	rows, err := service.pool.Query(ctx, `SELECT action, reason, actor_type, occurred_at
-		FROM customer_lifecycle_events WHERE user_id = $1 ORDER BY occurred_at DESC LIMIT $2`,
-		userID, exportSectionLimit)
+	rows, err := service.queries.ListAccountExportLifecycle(ctx, dbgen.ListAccountExportLifecycleParams{
+		UserID: userID, PageSize: exportSectionLimit,
+	})
 	if err != nil {
 		return false, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var (
-			event      ExportLifecycleEvent
-			occurredAt pgtype.Timestamptz
-		)
-		if err = rows.Scan(&event.Action, &event.Reason, &event.ActorType, &occurredAt); err != nil {
-			return false, err
-		}
-		event.OccurredAt = occurredAt.Time.UTC()
-		document.Lifecycle = append(document.Lifecycle, event)
+	for _, row := range rows {
+		document.Lifecycle = append(document.Lifecycle, ExportLifecycleEvent{
+			Action: row.Action, Reason: row.Reason, ActorType: row.ActorType,
+			OccurredAt: row.OccurredAt.Time.UTC(),
+		})
 	}
-	return len(document.Lifecycle) == exportSectionLimit, rows.Err()
+	return len(document.Lifecycle) == exportSectionLimit, nil
 }

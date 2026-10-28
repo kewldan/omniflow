@@ -32,10 +32,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/omniflow/omniflow/internal/database/dbgen"
 )
 
 var (
@@ -68,10 +67,13 @@ var (
 
 // Service is the customer referral, loyalty, and privacy adapter.
 type Service struct {
-	pool   *pgxpool.Pool
-	public string
-	logger *slog.Logger
-	clock  func() time.Time
+	pool *pgxpool.Pool
+	// queries is the pool-bound statement set. Work that has to commit together
+	// binds a transaction with queries.WithTx instead.
+	queries *dbgen.Queries
+	public  string
+	logger  *slog.Logger
+	clock   func() time.Time
 
 	// contactAEAD and fingerprintKey are the same construction customerpg uses,
 	// and deliberately so: a contact added from the panel has to collide with one
@@ -102,9 +104,10 @@ func New(pool *pgxpool.Pool, options Options) (*Service, error) {
 		return nil, errors.New("a database pool is required")
 	}
 	service := &Service{
-		pool:   pool,
-		public: strings.TrimRight(strings.TrimSpace(options.PublicURL), "/"),
-		logger: options.Logger, clock: options.Clock,
+		pool:    pool,
+		queries: dbgen.New(pool),
+		public:  strings.TrimRight(strings.TrimSpace(options.PublicURL), "/"),
+		logger:  options.Logger, clock: options.Clock,
 	}
 	if service.logger == nil {
 		service.logger = slog.Default()
@@ -316,28 +319,34 @@ func (service *Service) open(kind string, ciphertext []byte) string {
 //
 // Metadata carries counts and identifiers of the customer's own records only.
 // Never a contact value, never an export payload.
+//
+// It takes the statement set rather than using the service's own, so a caller
+// inside a transaction passes queries bound to it and the record commits or
+// rolls back with the change it describes.
 func (service *Service) recordAudit(
-	ctx context.Context, executor executor,
+	ctx context.Context, queries *dbgen.Queries,
 	customerID, action, requestID string, metadata map[string]any,
 ) error {
 	encoded, err := json.Marshal(metadata)
 	if err != nil {
 		return err
 	}
-	_, err = executor.Exec(ctx, `INSERT INTO audit_events
-		(actor_type, actor_id, action, target_type, target_id, request_id, metadata)
-		VALUES ('customer', $1, $2, 'customer', $1, $3, $4::jsonb)`,
-		customerID, action, optionalText(requestID), encoded)
+	// Category and outcome are the column defaults these rows always carried.
+	// They are spelled out because the shared writer makes every caller classify
+	// its event; picking anything else would move this surface's rows to a
+	// different filter in the operator's audit browser.
+	_, err = queries.InsertAuditEvent(ctx, dbgen.InsertAuditEventParams{
+		ActorType:  "customer",
+		ActorID:    pgtype.Text{String: customerID, Valid: true},
+		Action:     action,
+		Category:   "system",
+		Outcome:    "success",
+		TargetType: "customer",
+		TargetID:   customerID,
+		RequestID:  optionalText(requestID),
+		Metadata:   encoded,
+	})
 	return err
-}
-
-// executor is the narrow slice of pgx both a pool and a transaction satisfy, so
-// a helper can be reused inside and outside a transaction without either caller
-// having to know which it holds.
-type executor interface {
-	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
-	Query(ctx context.Context, sql string, arguments ...any) (pgx.Rows, error)
-	QueryRow(ctx context.Context, sql string, arguments ...any) pgx.Row
 }
 
 // RequestContext is the transport detail a recorded action carries.

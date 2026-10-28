@@ -94,27 +94,20 @@ func (service *Service) Privacy(ctx context.Context, customerID string) (Privacy
 		},
 	}
 
-	var (
-		suspendedAt    pgtype.Timestamptz
-		deletedAt      pgtype.Timestamptz
-		anonymizedAt   pgtype.Timestamptz
-		retentionUntil pgtype.Timestamptz
-	)
-	err = service.pool.QueryRow(ctx, `SELECT status, suspended_at, deleted_at, anonymized_at, retention_until
-		FROM users WHERE id = $1`, userID).
-		Scan(&privacy.Retention.Status, &suspendedAt, &deletedAt, &anonymizedAt, &retentionUntil)
+	user, err := service.queries.GetCustomer(ctx, userID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Privacy{}, ErrNotFound
 	}
 	if err != nil {
 		return Privacy{}, err
 	}
-	privacy.Retention.SuspendedAt = timePointer(suspendedAt)
-	privacy.Retention.DeletedAt = timePointer(deletedAt)
-	privacy.Retention.AnonymizedAt = timePointer(anonymizedAt)
-	privacy.Retention.RetentionUntil = timePointer(retentionUntil)
+	privacy.Retention.Status = user.Status
+	privacy.Retention.SuspendedAt = timePointer(user.SuspendedAt)
+	privacy.Retention.DeletedAt = timePointer(user.DeletedAt)
+	privacy.Retention.AnonymizedAt = timePointer(user.AnonymizedAt)
+	privacy.Retention.RetentionUntil = timePointer(user.RetentionUntil)
 
-	if privacy.Deletion, err = service.deletionState(ctx, service.pool, userID, customerID); err != nil {
+	if privacy.Deletion, err = service.deletionState(ctx, service.queries, userID, customerID); err != nil {
 		return Privacy{}, err
 	}
 	if privacy.Consents, err = service.consents(ctx, userID); err != nil {
@@ -161,8 +154,9 @@ func (service *Service) RequestDeletion(
 		return Deletion{}, err
 	}
 	defer func() { _ = transaction.Rollback(ctx) }()
+	queries := service.queries.WithTx(transaction)
 
-	current, err := service.deletionState(ctx, transaction, userID, customerID)
+	current, err := service.deletionState(ctx, queries, userID, customerID)
 	if err != nil {
 		return Deletion{}, err
 	}
@@ -172,21 +166,24 @@ func (service *Service) RequestDeletion(
 		return Deletion{}, ErrDeletionPending
 	}
 
-	var requestedAt pgtype.Timestamptz
-	if err = transaction.QueryRow(ctx, `INSERT INTO customer_lifecycle_events
-			(user_id, action, reason, actor_type, actor_id, request_id)
-		VALUES ($1, 'deletion_requested', $2, 'customer', $3, $4)
-		RETURNING occurred_at`,
-		userID, reason, customerID, optionalText(request.RequestID)).
-		Scan(&requestedAt); err != nil {
+	event, err := queries.InsertCustomerLifecycleEvent(ctx, dbgen.InsertCustomerLifecycleEventParams{
+		UserID:    userID,
+		Action:    "deletion_requested",
+		Reason:    reason,
+		ActorType: "customer",
+		ActorID:   pgtype.Text{String: customerID, Valid: true},
+		RequestID: optionalText(request.RequestID),
+	})
+	if err != nil {
 		return Deletion{}, err
 	}
-	if err = service.recordAudit(ctx, transaction, customerID, actionDeletionRequested, request.RequestID,
+	requestedAt := event.OccurredAt
+	if err = service.recordAudit(ctx, queries, customerID, actionDeletionRequested, request.RequestID,
 		map[string]any{"executedBy": DeletionExecutor},
 	); err != nil {
 		return Deletion{}, err
 	}
-	if err = notifyOperatorOfDeletion(ctx, dbgen.New(transaction), customerID, requestedAt.Time); err != nil {
+	if err = notifyOperatorOfDeletion(ctx, queries, customerID, requestedAt.Time); err != nil {
 		return Deletion{}, err
 	}
 	if err = transaction.Commit(ctx); err != nil {
@@ -247,15 +244,16 @@ func (service *Service) CancelDeletion(
 		return Deletion{}, err
 	}
 	defer func() { _ = transaction.Rollback(ctx) }()
+	queries := service.queries.WithTx(transaction)
 
-	current, err := service.deletionState(ctx, transaction, userID, customerID)
+	current, err := service.deletionState(ctx, queries, userID, customerID)
 	if err != nil {
 		return Deletion{}, err
 	}
 	if !current.Pending {
 		return Deletion{}, ErrNoDeletionPending
 	}
-	if err = service.recordAudit(ctx, transaction, customerID, actionDeletionCancelled, request.RequestID,
+	if err = service.recordAudit(ctx, queries, customerID, actionDeletionCancelled, request.RequestID,
 		map[string]any{"requestedAt": current.RequestedAt},
 	); err != nil {
 		return Deletion{}, err
@@ -264,7 +262,7 @@ func (service *Service) CancelDeletion(
 		return Deletion{}, err
 	}
 
-	cancelled, err := service.deletionState(ctx, service.pool, userID, customerID)
+	cancelled, err := service.deletionState(ctx, service.queries, userID, customerID)
 	if err != nil {
 		return Deletion{}, err
 	}
@@ -279,27 +277,11 @@ func (service *Service) CancelDeletion(
 // request is pending when it is the most recent of the three — newer than any
 // withdrawal, and not already carried out.
 func (service *Service) deletionState(
-	ctx context.Context, executor executor, userID pgtype.UUID, customerID string,
+	ctx context.Context, queries *dbgen.Queries, userID pgtype.UUID, customerID string,
 ) (Deletion, error) {
-	var (
-		requestedAt pgtype.Timestamptz
-		reason      pgtype.Text
-		cancelledAt pgtype.Timestamptz
-		completedAt pgtype.Timestamptz
-	)
-	err := executor.QueryRow(ctx, `SELECT
-			request.occurred_at, request.reason,
-			(SELECT max(a.occurred_at) FROM audit_events a
-				WHERE a.actor_type = 'customer' AND a.target_type = 'customer'
-				  AND a.target_id = $2 AND a.action = $3),
-			(SELECT max(e.occurred_at) FROM customer_lifecycle_events e
-				WHERE e.user_id = $1 AND e.action IN ('deleted', 'anonymized'))
-		FROM (
-			SELECT occurred_at, reason FROM customer_lifecycle_events
-			WHERE user_id = $1 AND action = 'deletion_requested' AND actor_type = 'customer'
-			ORDER BY occurred_at DESC LIMIT 1
-		) request`, userID, customerID, actionDeletionCancelled).
-		Scan(&requestedAt, &reason, &cancelledAt, &completedAt)
+	state, err := queries.GetAccountDeletionState(ctx, dbgen.GetAccountDeletionStateParams{
+		UserID: userID, CustomerID: customerID, CancelAction: actionDeletionCancelled,
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Deletion{ExecutedBy: DeletionExecutor}, nil
 	}
@@ -308,10 +290,10 @@ func (service *Service) deletionState(
 	}
 
 	deletion := Deletion{
-		RequestedAt: timePointer(requestedAt), Reason: reason.String,
-		CancelledAt: timePointer(cancelledAt), ExecutedBy: DeletionExecutor,
+		RequestedAt: timePointer(state.OccurredAt), Reason: state.Reason,
+		CancelledAt: timePointer(state.CancelledAt), ExecutedBy: DeletionExecutor,
 	}
-	deletion.Pending = deletionPending(requestedAt, cancelledAt, completedAt)
+	deletion.Pending = deletionPending(state.OccurredAt, state.CancelledAt, state.CompletedAt)
 	if !deletion.Pending {
 		// A withdrawn or already-executed request keeps its timestamps but not
 		// its reason: the customer's words were written for a decision that is no
@@ -338,26 +320,13 @@ func deletionPending(requestedAt, cancelledAt, completedAt pgtype.Timestamptz) b
 
 // consents reads the trail and the current position in it.
 func (service *Service) consents(ctx context.Context, userID pgtype.UUID) (ConsentSummary, error) {
-	rows, err := service.pool.Query(ctx, `SELECT purpose, granted, policy_version, source, occurred_at
-		FROM consent_records WHERE user_id = $1 ORDER BY occurred_at DESC LIMIT $2`,
-		userID, defaultPageSize)
+	history, err := service.consentHistory(ctx, userID, defaultPageSize)
 	if err != nil {
 		return ConsentSummary{}, err
 	}
-	defer rows.Close()
 
 	summary := ConsentSummary{Current: map[string]bool{}, History: make([]ExportConsent, 0, defaultPageSize)}
-	for rows.Next() {
-		var (
-			record     ExportConsent
-			occurredAt pgtype.Timestamptz
-		)
-		if err = rows.Scan(
-			&record.Purpose, &record.Granted, &record.PolicyVersion, &record.Source, &occurredAt,
-		); err != nil {
-			return ConsentSummary{}, err
-		}
-		record.OccurredAt = occurredAt.Time.UTC()
+	for _, record := range history {
 		// Newest first, so the first decision seen for a purpose is the current
 		// one and later rows are history.
 		if _, seen := summary.Current[record.Purpose]; !seen {
@@ -365,5 +334,28 @@ func (service *Service) consents(ctx context.Context, userID pgtype.UUID) (Conse
 		}
 		summary.History = append(summary.History, record)
 	}
-	return summary, rows.Err()
+	return summary, nil
+}
+
+// consentHistory reads the dated trail, newest first, bounded to limit. The
+// privacy screen and the export share it so the two can never disagree about
+// what a decision looked like.
+func (service *Service) consentHistory(
+	ctx context.Context, userID pgtype.UUID, limit int,
+) ([]ExportConsent, error) {
+	rows, err := service.queries.ListAccountConsentHistory(ctx, dbgen.ListAccountConsentHistoryParams{
+		UserID: userID, PageSize: int32(limit),
+	})
+	if err != nil {
+		return nil, err
+	}
+	history := make([]ExportConsent, 0, len(rows))
+	for _, row := range rows {
+		history = append(history, ExportConsent{
+			Purpose: row.Purpose, Granted: row.Granted,
+			PolicyVersion: row.PolicyVersion, Source: row.Source,
+			OccurredAt: row.OccurredAt.Time.UTC(),
+		})
+	}
+	return history, nil
 }

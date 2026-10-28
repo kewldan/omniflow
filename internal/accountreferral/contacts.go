@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/omniflow/omniflow/internal/database/dbgen"
 )
 
 // Contact is one channel the installation may reach the customer on.
@@ -75,38 +76,24 @@ func (service *Service) Contacts(ctx context.Context, customerID string) ([]Cont
 	if err != nil {
 		return nil, err
 	}
-	rows, err := service.pool.Query(ctx, `SELECT id, kind, value_ciphertext, verified_at,
-			transactional_enabled, marketing_enabled, created_at
-		FROM contact_channels
-		WHERE user_id = $1 AND revoked_at IS NULL
-		ORDER BY created_at DESC, id DESC`, userID)
+	rows, err := service.queries.ListAccountContacts(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	contacts := make([]Contact, 0, 4)
-	for rows.Next() {
-		var (
-			id         pgtype.UUID
-			contact    Contact
-			ciphertext []byte
-			verifiedAt pgtype.Timestamptz
-			createdAt  pgtype.Timestamptz
-		)
-		if err = rows.Scan(
-			&id, &contact.Kind, &ciphertext, &verifiedAt,
-			&contact.Transactional, &contact.Marketing, &createdAt,
-		); err != nil {
-			return nil, err
-		}
-		contact.ID = uuidString(id)
-		contact.Verified = verifiedAt.Valid
-		contact.CreatedAt = createdAt.Time.UTC()
-		contact.Value = service.open(contact.Kind, ciphertext)
-		contacts = append(contacts, contact)
+	contacts := make([]Contact, 0, max(len(rows), 4))
+	for _, row := range rows {
+		contacts = append(contacts, Contact{
+			ID:            uuidString(row.ID),
+			Kind:          row.Kind,
+			Value:         service.open(row.Kind, row.ValueCiphertext),
+			Verified:      row.VerifiedAt.Valid,
+			Transactional: row.TransactionalEnabled,
+			Marketing:     row.MarketingEnabled,
+			CreatedAt:     row.CreatedAt.Time.UTC(),
+		})
 	}
-	return contacts, rows.Err()
+	return contacts, nil
 }
 
 // AddContact registers a channel for the calling customer.
@@ -151,24 +138,16 @@ func (service *Service) AddContact(
 		return Contact{}, err
 	}
 	defer func() { _ = transaction.Rollback(ctx) }()
+	queries := service.queries.WithTx(transaction)
 
-	var (
-		id        pgtype.UUID
-		createdAt pgtype.Timestamptz
-	)
-	err = transaction.QueryRow(ctx, `INSERT INTO contact_channels
-			(user_id, kind, value_ciphertext, value_fingerprint,
-			 transactional_enabled, marketing_enabled)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		ON CONFLICT (kind, value_fingerprint) DO UPDATE
-			SET value_ciphertext = EXCLUDED.value_ciphertext,
-				transactional_enabled = EXCLUDED.transactional_enabled,
-				marketing_enabled = EXCLUDED.marketing_enabled,
-				revoked_at = NULL
-			WHERE contact_channels.user_id = $1
-		RETURNING id, created_at`,
-		userID, kind, ciphertext, fingerprint, input.Transactional, input.Marketing).
-		Scan(&id, &createdAt)
+	added, err := queries.AddAccountContact(ctx, dbgen.AddAccountContactParams{
+		UserID:               userID,
+		Kind:                 kind,
+		ValueCiphertext:      ciphertext,
+		ValueFingerprint:     fingerprint,
+		TransactionalEnabled: input.Transactional,
+		MarketingEnabled:     input.Marketing,
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Contact{}, ErrContactConflict
 	}
@@ -180,11 +159,11 @@ func (service *Service) AddContact(
 	// on the channel row. An operator asked to prove somebody opted in needs a
 	// dated record of the choice, and the flag alone only shows the latest state.
 	if input.Marketing {
-		if err = recordConsent(ctx, transaction, userID, "marketing", true, request.RequestID); err != nil {
+		if err = recordConsent(ctx, queries, userID, "marketing", true, request.RequestID); err != nil {
 			return Contact{}, err
 		}
 	}
-	if err = service.recordAudit(ctx, transaction, customerID, "account.contact.added", request.RequestID,
+	if err = service.recordAudit(ctx, queries, customerID, "account.contact.added", request.RequestID,
 		map[string]any{"kind": kind, "marketing": input.Marketing},
 	); err != nil {
 		return Contact{}, err
@@ -193,9 +172,9 @@ func (service *Service) AddContact(
 		return Contact{}, err
 	}
 	return Contact{
-		ID: uuidString(id), Kind: kind, Value: value,
+		ID: uuidString(added.ID), Kind: kind, Value: value,
 		Transactional: input.Transactional, Marketing: input.Marketing,
-		CreatedAt: createdAt.Time.UTC(),
+		CreatedAt: added.CreatedAt.Time.UTC(),
 	}, nil
 }
 
@@ -224,15 +203,11 @@ func (service *Service) RemoveContact(
 		return err
 	}
 	defer func() { _ = transaction.Rollback(ctx) }()
+	queries := service.queries.WithTx(transaction)
 
-	var (
-		kind      string
-		marketing bool
-	)
-	err = transaction.QueryRow(ctx, `UPDATE contact_channels SET revoked_at = now()
-		WHERE id = $1 AND user_id = $2 AND revoked_at IS NULL
-		RETURNING kind, marketing_enabled`, channelID, userID).
-		Scan(&kind, &marketing)
+	revoked, err := queries.RevokeAccountContact(ctx, dbgen.RevokeAccountContactParams{
+		ChannelID: channelID, UserID: userID,
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
 	}
@@ -243,21 +218,19 @@ func (service *Service) RemoveContact(
 	// Withdrawing marketing consent is recorded only when the last channel that
 	// carried it goes. Writing a withdrawal while another opted-in channel
 	// remains would misstate what the customer actually chose.
-	if marketing {
-		var remaining int64
-		if err = transaction.QueryRow(ctx, `SELECT count(*) FROM contact_channels
-			WHERE user_id = $1 AND revoked_at IS NULL AND marketing_enabled`, userID).
-			Scan(&remaining); err != nil {
+	if revoked.MarketingEnabled {
+		remaining, err := queries.CountAccountMarketingContacts(ctx, userID)
+		if err != nil {
 			return err
 		}
 		if remaining == 0 {
-			if err = recordConsent(ctx, transaction, userID, "marketing", false, request.RequestID); err != nil {
+			if err = recordConsent(ctx, queries, userID, "marketing", false, request.RequestID); err != nil {
 				return err
 			}
 		}
 	}
-	if err = service.recordAudit(ctx, transaction, customerID, "account.contact.removed", request.RequestID,
-		map[string]any{"kind": kind},
+	if err = service.recordAudit(ctx, queries, customerID, "account.contact.removed", request.RequestID,
+		map[string]any{"kind": revoked.Kind},
 	); err != nil {
 		return err
 	}
@@ -311,12 +284,16 @@ func NormalizeContact(kind, value string) (string, string, error) {
 // the record commits with the change it describes and can never claim a consent
 // that was rolled back.
 func recordConsent(
-	ctx context.Context, executor executor,
+	ctx context.Context, queries *dbgen.Queries,
 	userID pgtype.UUID, purpose string, granted bool, requestID string,
 ) error {
-	_, err := executor.Exec(ctx, `INSERT INTO consent_records
-		(user_id, purpose, granted, policy_version, source, request_id)
-		VALUES ($1, $2, $3, $4, $5, $6)`,
-		userID, purpose, granted, policyVersion, consentSource, optionalText(requestID))
+	_, err := queries.InsertConsentRecord(ctx, dbgen.InsertConsentRecordParams{
+		UserID:        userID,
+		Purpose:       purpose,
+		Granted:       granted,
+		PolicyVersion: policyVersion,
+		Source:        consentSource,
+		RequestID:     optionalText(requestID),
+	})
 	return err
 }

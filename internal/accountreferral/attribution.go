@@ -4,6 +4,8 @@ import (
 	"context"
 	"regexp"
 	"strings"
+
+	"github.com/omniflow/omniflow/internal/database/dbgen"
 )
 
 // Attribution outcomes. The endpoint answers 200 with one of these rather than
@@ -66,47 +68,23 @@ func (service *Service) Attribute(ctx context.Context, customerID, code string) 
 	// One statement decides every reason and writes the row when none applies,
 	// so two tabs racing on the same link produce one attribution and the same
 	// answer for both.
-	var (
-		ownerKnown, isSelf, alreadyAttributed, hasPaid, inserted bool
-	)
-	err = service.pool.QueryRow(ctx, `WITH owner AS (
-			SELECT user_id FROM referral_codes WHERE code = $2
-		), state AS (
-			SELECT
-				EXISTS (SELECT 1 FROM owner) AS owner_known,
-				EXISTS (SELECT 1 FROM owner WHERE owner.user_id = $1::uuid) AS is_self,
-				EXISTS (SELECT 1 FROM referral_attributions a WHERE a.referred_user_id = $1::uuid) AS already,
-				EXISTS (
-					SELECT 1 FROM orders o
-					WHERE o.user_id = $1::uuid
-					  AND o.state IN ('paid', 'fulfilled', 'partially_refunded', 'refunded')
-				) AS has_paid
-		), written AS (
-			INSERT INTO referral_attributions (referred_user_id, referrer_user_id, code)
-			SELECT $1::uuid, owner.user_id, $2
-			FROM owner, state
-			WHERE NOT state.is_self AND NOT state.already AND NOT state.has_paid
-			ON CONFLICT (referred_user_id) DO NOTHING
-			RETURNING referred_user_id
-		)
-		SELECT state.owner_known, state.is_self, state.already, state.has_paid,
-			EXISTS (SELECT 1 FROM written)
-		FROM state`, userID, code).
-		Scan(&ownerKnown, &isSelf, &alreadyAttributed, &hasPaid, &inserted)
+	state, err := service.queries.AttributeAccountReferral(ctx, dbgen.AttributeAccountReferralParams{
+		UserID: userID, Code: code,
+	})
 	if err != nil {
 		return AttributionResult{}, err
 	}
 
 	switch {
-	case inserted:
+	case state.Inserted:
 		return AttributionResult{Attributed: true, Reason: AttributionRecorded}, nil
-	case alreadyAttributed:
+	case state.Already:
 		return AttributionResult{Reason: AttributionAlreadyRecorded}, nil
-	case !ownerKnown:
+	case !state.OwnerKnown:
 		return AttributionResult{Reason: AttributionUnknownCode}, nil
-	case isSelf:
+	case state.IsSelf:
 		return AttributionResult{Reason: AttributionSelf}, nil
-	case hasPaid:
+	case state.HasPaid:
 		return AttributionResult{Reason: AttributionNotNew}, nil
 	default:
 		// The insert found nothing to do for a reason the predicates above did

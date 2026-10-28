@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/omniflow/omniflow/internal/database/dbgen"
 )
 
 // Program is the operator-configured invite scheme as the customer sees it.
@@ -135,36 +136,20 @@ func (service *Service) Referrals(
 	// One statement so the code exists before the counts are taken against it.
 	// The upsert is first-write-wins on `user_id`, so two tabs opening the screen
 	// at once still produce one code.
-	err = service.pool.QueryRow(ctx, `WITH mine AS (
-			INSERT INTO referral_codes (user_id, code) VALUES ($1::uuid, $2)
-			ON CONFLICT (user_id) DO UPDATE SET user_id = EXCLUDED.user_id
-			RETURNING user_id, code
-		)
-		SELECT mine.code,
-			(SELECT count(*) FROM referral_attributions a
-				WHERE a.referrer_user_id = mine.user_id),
-			(SELECT count(*) FROM referral_attributions a
-				WHERE a.referrer_user_id = mine.user_id AND a.qualified_at IS NOT NULL),
-			(SELECT count(*) FROM referral_attributions a
-				WHERE a.referrer_user_id = mine.user_id AND a.review_state = 'rejected'),
-			(SELECT count(*) FROM referral_attributions a
-				WHERE a.referrer_user_id = mine.user_id
-				  AND a.qualified_at IS NULL AND a.review_state <> 'rejected'),
-			(SELECT COALESCE(sum(w.amount_minor), 0) FROM referral_rewards w
-				WHERE w.beneficiary_user_id = mine.user_id AND w.reversed_at IS NULL),
-			(SELECT COALESCE(sum(w.amount_minor), 0) FROM referral_rewards w
-				WHERE w.beneficiary_user_id = mine.user_id AND w.reversed_at IS NOT NULL),
-			(SELECT count(*)::integer FROM referral_rewards w
-				WHERE w.beneficiary_user_id = mine.user_id
-				  AND w.role = 'inviter' AND w.reversed_at IS NULL)
-		FROM mine`, customerID, code).
-		Scan(
-			&summary.Code, &summary.Invited, &summary.Qualified, &summary.Rejected,
-			&summary.Pending, &summary.RewardedMinor, &summary.ReversedMinor, &summary.RewardCount,
-		)
+	counts, err := service.queries.OpenAccountReferralSummary(ctx, dbgen.OpenAccountReferralSummaryParams{
+		UserID: userID, Code: code,
+	})
 	if err != nil {
 		return Summary{}, err
 	}
+	summary.Code = counts.Code
+	summary.Invited = counts.Invited
+	summary.Qualified = counts.Qualified
+	summary.Rejected = counts.Rejected
+	summary.Pending = counts.Pending
+	summary.RewardedMinor = counts.RewardedMinor
+	summary.ReversedMinor = counts.ReversedMinor
+	summary.RewardCount = int(counts.RewardCount)
 
 	summary.Currency = program.Currency
 	if program.InviterRewardCap != nil {
@@ -204,48 +189,34 @@ func (service *Service) rewards(
 	size := pageSize(limit)
 	keyset := decodeCursor(position)
 
-	rows, err := service.pool.Query(ctx, `SELECT w.id, w.role, w.amount_minor, w.currency,
-			w.granted_at, w.reversed_at, COALESCE(a.review_state, 'clear')
-		FROM referral_rewards w
-		LEFT JOIN referral_attributions a ON a.referred_user_id = w.referred_user_id
-		WHERE w.beneficiary_user_id = $1
-		  AND ($2::timestamptz IS NULL OR (w.granted_at, w.id) < ($2, $3))
-		ORDER BY w.granted_at DESC, w.id DESC
-		LIMIT $4`, userID, keyset.timestamp(), keyset.uuid(), size+1)
+	// One row past the page is read so the presence of a next page is known
+	// without a second count query.
+	rows, err := service.queries.ListAccountReferralRewards(ctx, dbgen.ListAccountReferralRewardsParams{
+		UserID:          userID,
+		CursorGrantedAt: keyset.timestamp(),
+		CursorID:        keyset.uuid(),
+		PageSize:        int32(size + 1),
+	})
 	if err != nil {
 		return RewardPage{}, err
 	}
-	defer rows.Close()
 
 	page := RewardPage{Items: make([]Reward, 0, size)}
-	for rows.Next() {
-		var (
-			id          pgtype.UUID
-			reward      Reward
-			reversedAt  pgtype.Timestamptz
-			grantedAt   pgtype.Timestamptz
-			reviewState string
-		)
-		if err = rows.Scan(
-			&id, &reward.Role, &reward.AmountMinor, &reward.Currency,
-			&grantedAt, &reversedAt, &reviewState,
-		); err != nil {
-			return RewardPage{}, err
-		}
-		reward.ID = uuidString(id)
-		reward.GrantedAt = grantedAt.Time.UTC()
-		reward.ReversedAt = timePointer(reversedAt)
-		reward.State = RewardState(reversedAt.Valid, reviewState)
-
+	for _, row := range rows {
 		if len(page.Items) == size {
 			last := page.Items[size-1]
 			page.NextCursor = encodeCursor(last.GrantedAt, last.ID)
 			break
 		}
-		page.Items = append(page.Items, reward)
-	}
-	if err = rows.Err(); err != nil {
-		return RewardPage{}, err
+		page.Items = append(page.Items, Reward{
+			ID:          uuidString(row.ID),
+			Role:        row.Role,
+			State:       RewardState(row.ReversedAt.Valid, row.ReviewState),
+			AmountMinor: row.AmountMinor,
+			Currency:    row.Currency,
+			GrantedAt:   row.GrantedAt.Time.UTC(),
+			ReversedAt:  timePointer(row.ReversedAt),
+		})
 	}
 	return page, nil
 }
@@ -305,37 +276,28 @@ func (service *Service) program(ctx context.Context) (Program, error) {
 	program := Program{
 		Currency: "RUB", Qualification: "first_paid_order", AttributionValidityDays: 90,
 	}
-	var (
-		rewardCap    pgtype.Int4
-		validityDays int32
-		expiryDays   pgtype.Int4
-		termsURL     pgtype.Text
-	)
-	err := service.pool.QueryRow(ctx, `SELECT enabled, currency,
-			inviter_reward_minor, invitee_reward_minor, qualification,
-			inviter_reward_cap, attribution_validity_days, reward_expiry_days, terms_url
-		FROM referral_programs WHERE singleton`).
-		Scan(
-			&program.Enabled, &program.Currency,
-			&program.InviterRewardMinor, &program.InviteeRewardMinor, &program.Qualification,
-			&rewardCap, &validityDays, &expiryDays, &termsURL,
-		)
+	row, err := service.queries.GetReferralProgram(ctx)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return program, nil
 	}
 	if err != nil {
 		return Program{}, err
 	}
-	program.AttributionValidityDays = int(validityDays)
-	if rewardCap.Valid {
-		value := int(rewardCap.Int32)
+	program.Enabled = row.Enabled
+	program.Currency = row.Currency
+	program.InviterRewardMinor = row.InviterRewardMinor
+	program.InviteeRewardMinor = row.InviteeRewardMinor
+	program.Qualification = row.Qualification
+	program.AttributionValidityDays = int(row.AttributionValidityDays)
+	if row.InviterRewardCap.Valid {
+		value := int(row.InviterRewardCap.Int32)
 		program.InviterRewardCap = &value
 	}
-	if expiryDays.Valid {
-		value := int(expiryDays.Int32)
+	if row.RewardExpiryDays.Valid {
+		value := int(row.RewardExpiryDays.Int32)
 		program.RewardExpiryDays = &value
 	}
-	program.TermsURL = termsURL.String
+	program.TermsURL = row.TermsUrl.String
 	return program, nil
 }
 

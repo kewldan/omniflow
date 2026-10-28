@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/omniflow/omniflow/internal/loyalty"
 )
 
@@ -79,17 +78,7 @@ func (service *Service) Loyalty(ctx context.Context, customerID string) (Loyalty
 		return LoyaltyStanding{}, err
 	}
 
-	var (
-		programID  pgtype.UUID
-		version    int32
-		metric     string
-		currency   string
-		windowDays int32
-		graceDays  int32
-	)
-	err = service.pool.QueryRow(ctx, `SELECT id, version, metric, currency, window_days, grace_days
-		FROM loyalty_programs WHERE enabled`).
-		Scan(&programID, &version, &metric, &currency, &windowDays, &graceDays)
+	program, err := service.queries.GetEnabledLoyaltyProgram(ctx)
 	if errors.Is(err, pgx.ErrNoRows) {
 		// No programme in force is a normal state, not an error: loyalty is off
 		// until an operator publishes one.
@@ -102,35 +91,23 @@ func (service *Service) Loyalty(ctx context.Context, customerID string) (Loyalty
 	standing := LoyaltyStanding{
 		Enabled: true,
 		Rules: LoyaltyRules{
-			Metric: metric, Currency: currency,
-			WindowDays: int(windowDays), GraceDays: int(graceDays), Version: int(version),
+			Metric: program.Metric, Currency: program.Currency,
+			WindowDays: int(program.WindowDays), GraceDays: int(program.GraceDays),
+			Version: int(program.Version),
 		},
 	}
 
-	rows, err := service.pool.Query(ctx, `SELECT id, code, name_en, name_ru, threshold, discount_bps
-		FROM loyalty_tiers WHERE program_id = $1 ORDER BY threshold`, programID)
+	ladder, err := service.queries.ListLoyaltyTiers(ctx, program.ID)
 	if err != nil {
 		return LoyaltyStanding{}, err
 	}
-	defer rows.Close()
-	tiers := make([]loyalty.Tier, 0, 8)
-	for rows.Next() {
-		var (
-			id          pgtype.UUID
-			tier        loyalty.Tier
-			discountBPS int32
-		)
-		if err = rows.Scan(&id, &tier.Code, &tier.NameEN, &tier.NameRU, &tier.Threshold, &discountBPS); err != nil {
-			return LoyaltyStanding{}, err
-		}
-		tier.ID = uuidString(id)
-		tier.DiscountBPS = int(discountBPS)
-		tiers = append(tiers, tier)
+	tiers := make([]loyalty.Tier, 0, len(ladder))
+	for _, row := range ladder {
+		tiers = append(tiers, loyalty.Tier{
+			ID: uuidString(row.ID), Code: row.Code, NameEN: row.NameEn, NameRU: row.NameRu,
+			Threshold: row.Threshold, DiscountBPS: int(row.DiscountBps),
+		})
 	}
-	if err = rows.Err(); err != nil {
-		return LoyaltyStanding{}, err
-	}
-	rows.Close()
 
 	// A programme with no tiers cannot place anybody. The panel gets the "not
 	// enabled" state rather than an empty ladder, because that is what it means
@@ -139,16 +116,10 @@ func (service *Service) Loyalty(ctx context.Context, customerID string) (Loyalty
 		return LoyaltyStanding{}, nil
 	}
 
-	var (
-		tierID      pgtype.UUID
-		evaluated   int64
-		evaluatedAt pgtype.Timestamptz
-		graceUntil  pgtype.Timestamptz
-		standingOf  pgtype.UUID
-	)
-	err = service.pool.QueryRow(ctx, `SELECT program_id, tier_id, evaluated_metric, evaluated_at, grace_until
-		FROM loyalty_standings WHERE user_id = $1`, userID).
-		Scan(&standingOf, &tierID, &evaluated, &evaluatedAt, &graceUntil)
+	// The shared read joins the held tier for the operator view. `tier_id` is a
+	// NOT NULL foreign key, so the join can never drop a standing that exists.
+	placed, err := service.queries.GetLoyaltyStanding(ctx, userID)
+	held := placed.LoyaltyStanding
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		// Never evaluated. Show the ladder, place nobody.
@@ -156,7 +127,7 @@ func (service *Service) Loyalty(ctx context.Context, customerID string) (Loyalty
 		return standing, nil
 	case err != nil:
 		return LoyaltyStanding{}, err
-	case uuidString(standingOf) != uuidString(programID):
+	case uuidString(held.ProgramID) != uuidString(program.ID):
 		// The standing was recorded under a superseded version. The old rung may
 		// not exist on this ladder at all, so the honest answer is that the
 		// placement is pending re-evaluation rather than a tier that has been
@@ -165,18 +136,20 @@ func (service *Service) Loyalty(ctx context.Context, customerID string) (Loyalty
 		return standing, nil
 	}
 
-	current, next, remaining, percent := LoyaltyProgress(tiers, uuidString(tierID), evaluated)
+	current, next, remaining, percent := LoyaltyProgress(
+		tiers, uuidString(held.TierID), held.EvaluatedMetric,
+	)
 	standing.Evaluated = true
 	standing.Tier = customerTier(current, true)
 	if next != nil {
 		upper := customerTier(*next, false)
 		standing.Next = &upper
 	}
-	standing.Metric = evaluated
+	standing.Metric = held.EvaluatedMetric
 	standing.Remaining = remaining
 	standing.Percent = percent
-	standing.EvaluatedAt = evaluatedAt.Time.UTC()
-	standing.GraceUntil = timePointer(graceUntil)
+	standing.EvaluatedAt = held.EvaluatedAt.Time.UTC()
+	standing.GraceUntil = timePointer(held.GraceUntil)
 	standing.Tiers = tierLadder(tiers, current.Code)
 	return standing, nil
 }

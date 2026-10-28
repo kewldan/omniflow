@@ -23,6 +23,11 @@ type Querier interface {
 	// queue. Runs before MergeSupportTicket zeroes the absorbed row.
 	AbsorbSupportTicketCounters(ctx context.Context, arg AbsorbSupportTicketCountersParams) (SupportTicket, error)
 	AcquirePaymentMutationLock(ctx context.Context, hashtextextended string) error
+	// Registers a channel. A fingerprint already held by this customer is
+	// un-revoked and re-flagged; one held by anybody else matches the conflict
+	// target but not the WHERE, so no row comes back and the caller reports a
+	// conflict without saying whose it is.
+	AddAccountContact(ctx context.Context, arg AddAccountContactParams) (AddAccountContactRow, error)
 	AddBlocklistAllowlistEntry(ctx context.Context, arg AddBlocklistAllowlistEntryParams) (BlocklistAllowlist, error)
 	AddPromotionPlan(ctx context.Context, arg AddPromotionPlanParams) error
 	AnonymizeCustomerData(ctx context.Context, targetUserID pgtype.UUID) error
@@ -58,6 +63,25 @@ type Querier interface {
 	AssignSupportTicket(ctx context.Context, arg AssignSupportTicketParams) (SupportTicket, error)
 	AttachAccessCodeEntitlement(ctx context.Context, arg AttachAccessCodeEntitlementParams) error
 	AttachReferralSignal(ctx context.Context, arg AttachReferralSignalParams) error
+	// Customer web panel: referral, loyalty, contacts, and personal data.
+	//
+	// Every statement here is scoped to the calling customer's identifier. That is
+	// the whole authorization model of the surface, so ownership lives in the
+	// WHERE clause rather than in a filter applied afterwards.
+	//
+	// Reads that an operator surface already owns are not repeated here:
+	// the referral programme, the enabled loyalty programme and its ladder, the
+	// customer's standing and history, identities, orders, the wallet ledger, the
+	// referral code, consent and lifecycle inserts, and the audit writer are all
+	// reused from the files that define them.
+	// ---------------------------------------------------------------------------
+	// Referral
+	// ---------------------------------------------------------------------------
+	// Decides every attribution outcome and writes the row when none applies, in
+	// one statement, so two tabs racing on the same link produce one attribution
+	// and the same answer for both. The insert is first-write-wins on the invited
+	// customer.
+	AttributeAccountReferral(ctx context.Context, arg AttributeAccountReferralParams) (AttributeAccountReferralRow, error)
 	// What each channel brought in, which is the question an operator asks before
 	// they export anything.
 	AttributionSummary(ctx context.Context, arg AttributionSummaryParams) ([]AttributionSummaryRow, error)
@@ -154,6 +178,10 @@ type Querier interface {
 	// was later returned is being taught the wrong thing, and an operator can only
 	// correct for that if the export says it happened.
 	ConversionsInPeriod(ctx context.Context, arg ConversionsInPeriodParams) ([]ConversionsInPeriodRow, error)
+	CountAccountInvitations(ctx context.Context, userID pgtype.UUID) (CountAccountInvitationsRow, error)
+	// How many active channels still carry marketing consent. A withdrawal is
+	// recorded only when this reaches zero.
+	CountAccountMarketingContacts(ctx context.Context, userID pgtype.UUID) (int64, error)
 	// Callers must hold LockCustomerSubscriptions for this count to be meaningful.
 	CountActiveSubscriptions(ctx context.Context, arg CountActiveSubscriptionsParams) (CountActiveSubscriptionsRow, error)
 	CountAdminOIDCIdentities(ctx context.Context, adminUserID pgtype.UUID) (int64, error)
@@ -468,6 +496,18 @@ type Querier interface {
 	FailOperatorTopic(ctx context.Context, arg FailOperatorTopicParams) (OperatorTopic, error)
 	GetAIFeature(ctx context.Context, feature string) (AiFeature, error)
 	GetAIProviderCredentials(ctx context.Context, slug string) (GetAIProviderCredentialsRow, error)
+	// ---------------------------------------------------------------------------
+	// Privacy
+	// ---------------------------------------------------------------------------
+	// The customer's most recent deletion request with the two instants that can
+	// close it: the latest withdrawal, recorded as an audit event, and the latest
+	// execution, recorded as a lifecycle event. Both tables are append-only, so
+	// "pending" is derived from the order of the three rather than read from a
+	// flag. No row means no request was ever made.
+	GetAccountDeletionState(ctx context.Context, arg GetAccountDeletionStateParams) (GetAccountDeletionStateRow, error)
+	// The invite this customer arrived through. The referrer and code are selected
+	// only so the Go projection can be shown to drop them.
+	GetAccountInvitedBy(ctx context.Context, userID pgtype.UUID) (GetAccountInvitedByRow, error)
 	GetAccountSubscription(ctx context.Context, arg GetAccountSubscriptionParams) (GetAccountSubscriptionRow, error)
 	// Customer web sign-in, sessions, and account security for v0.9.
 	// ---------------------------------------------------------------------------
@@ -697,6 +737,40 @@ type Querier interface {
 	ListAIFeatures(ctx context.Context) ([]AiFeature, error)
 	ListAIProviders(ctx context.Context) ([]ListAIProvidersRow, error)
 	ListAIUsageLimits(ctx context.Context) ([]AiUsageLimit, error)
+	// The dated consent trail, newest first, so the first decision seen for a
+	// purpose is the current one.
+	ListAccountConsentHistory(ctx context.Context, arg ListAccountConsentHistoryParams) ([]ListAccountConsentHistoryRow, error)
+	// ---------------------------------------------------------------------------
+	// Contacts
+	// ---------------------------------------------------------------------------
+	// The customer's active channels with their sealed values, which the service
+	// opens for their owner. Revoked channels are history, not something the
+	// customer can be reached on.
+	ListAccountContacts(ctx context.Context, userID pgtype.UUID) ([]ListAccountContactsRow, error)
+	// ---------------------------------------------------------------------------
+	// Personal-data export
+	// ---------------------------------------------------------------------------
+	// Every channel the installation holds, revoked ones included: having held an
+	// address is itself a fact the customer is entitled to.
+	ListAccountExportContacts(ctx context.Context, userID pgtype.UUID) ([]ListAccountExportContactsRow, error)
+	ListAccountExportEntitlements(ctx context.Context, arg ListAccountExportEntitlementsParams) ([]ListAccountExportEntitlementsRow, error)
+	// The acting operator's identifier is deliberately not selected.
+	ListAccountExportLifecycle(ctx context.Context, arg ListAccountExportLifecycleParams) ([]ListAccountExportLifecycleRow, error)
+	// The join to `orders` is what scopes this to the customer: `payment_intents`
+	// has no customer column of its own. The provider's handles are selected so the
+	// redaction is a tested Go function rather than an omission in this list.
+	ListAccountExportPayments(ctx context.Context, arg ListAccountExportPaymentsParams) ([]ListAccountExportPaymentsRow, error)
+	ListAccountExportReferralRewards(ctx context.Context, arg ListAccountExportReferralRewardsParams) ([]ListAccountExportReferralRewardsRow, error)
+	// Subscription slots without the upstream user identifier or access link.
+	ListAccountExportSubscriptions(ctx context.Context, userID pgtype.UUID) ([]ListAccountExportSubscriptionsRow, error)
+	// Tickets and their messages in one pass, ordered so a ticket's messages are
+	// contiguous. A ticket with no messages yields one row with NULL message
+	// columns. Internal operator notes live in another table this never touches.
+	ListAccountExportSupport(ctx context.Context, arg ListAccountExportSupportParams) ([]ListAccountExportSupportRow, error)
+	// One keyset page of the customer's reward history, newest first. The cursor
+	// is (granted_at, id); a forged one selects nothing because ownership is the
+	// beneficiary predicate. The invited customer's identifier is not projected.
+	ListAccountReferralRewards(ctx context.Context, arg ListAccountReferralRewardsParams) ([]ListAccountReferralRewardsRow, error)
 	// The customer web panel's own read model for v0.9.
 	//
 	// Every statement is scoped by `user_id`. Ownership is part of the query rather
@@ -1206,6 +1280,14 @@ type Querier interface {
 	// re-raised, and it is documented on the operator page as well.
 	ObserveTrafficUsage(ctx context.Context, arg ObserveTrafficUsageParams) ([]ObserveTrafficUsageRow, error)
 	OfferAddonWithPlanVersion(ctx context.Context, arg OfferAddonWithPlanVersionParams) error
+	// Ensures the customer's code exists and takes the counts against it in one
+	// statement. The upsert is first-write-wins on `user_id`, so two tabs opening
+	// the screen at once still produce one code; the no-op update is what makes
+	// RETURNING yield the existing row.
+	//
+	// Qualified, rejected, and pending are each counted from the rows rather than
+	// derived by subtraction, because a pair can be qualified and later rejected.
+	OpenAccountReferralSummary(ctx context.Context, arg OpenAccountReferralSummaryParams) (OpenAccountReferralSummaryRow, error)
 	// Stops a delivery whose outcome nobody can safely resolve.
 	//
 	// It leaves the due queue — the worker's index selects only 'pending' and
@@ -1366,6 +1448,9 @@ type Querier interface {
 	// reversed without the money having moved back.
 	ReverseReferralReward(ctx context.Context, arg ReverseReferralRewardParams) (ReferralReward, error)
 	ReviewAnomalySignal(ctx context.Context, arg ReviewAnomalySignalParams) (AnomalySignal, error)
+	// Marks a channel revoked rather than deleting it, so the fingerprint stays
+	// unique and the consent history keeps pointing at something.
+	RevokeAccountContact(ctx context.Context, arg RevokeAccountContactParams) (RevokeAccountContactRow, error)
 	RevokeAdminRole(ctx context.Context, arg RevokeAdminRoleParams) error
 	RevokeAdminSession(ctx context.Context, arg RevokeAdminSessionParams) (AdminSession, error)
 	// Logout-everywhere. `keep_session_id` lets the caller preserve the session
