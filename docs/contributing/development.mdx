@@ -113,12 +113,12 @@ API lives, and it now does two jobs rather than one.
 The first is the Next.js *server*'s own `/v1/panel/auth/session` check. The second is the browser's:
 the generated client keeps a module-level base URL of `""`
 (`packages/api-client/src/fetcher.ts`) and nothing calls `setBaseUrl`, so every call from the browser
-is same-origin by design, and `apps/web/middleware.ts` forwards `/v1` to `API_INTERNAL_URL` so that
+is same-origin by design, and `apps/web/proxy.ts` forwards `/v1` to `API_INTERNAL_URL` so that
 those calls land somewhere. Without it they reach Next.js, which has no `/v1` route, and the panel
 renders perfectly while failing every request it makes.
 
 In production the reverse proxy answers `/v1` on the web host before Next.js sees it, and the
-middleware is inert; see [Reverse proxy](/operations/reverse-proxy). Both paths exist because the
+proxy file is inert; see [Reverse proxy](/operations/reverse-proxy). Both paths exist because the
 same-origin rule has to hold in every topology, and it is the sort of thing that is invisible until
 somebody tries to sign in. `apps/web/e2e/api-reachability.spec.ts` is the gate that keeps it honest.
 

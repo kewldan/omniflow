@@ -7,7 +7,7 @@ import { expect, test } from "@playwright/test";
  * `packages/api-client/src/fetcher.ts` keeps a module-level base URL of `""`
  * and nothing calls `setBaseUrl`, so every request from the browser goes to the
  * web origin and expects the API to answer it. Something has to make that true
- * — the reverse proxy in production, the middleware when nothing is in front of
+ * — the reverse proxy in production, the web proxy (proxy.ts) when nothing is in front of
  * the stack.
  *
  * When nothing does, the panels still render, still pass every accessibility

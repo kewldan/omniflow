@@ -42,6 +42,7 @@ jobs:
       - run: bun run generate:api
       - run: git diff --exit-code
       - run: bun run check
+      - run: bun --filter @omniflow/web test
       - run: bun run build
       # The budget reads the build that just happened. It had never run
       # anywhere: the script was written, committed, and wired to a package

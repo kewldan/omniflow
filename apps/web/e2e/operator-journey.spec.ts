@@ -77,7 +77,7 @@ test.describe("operator journey", () => {
       "the __Host- prefix is present exactly when the cookie is Secure",
     ).toBe(session?.secure);
 
-    // A fresh navigation exercises the middleware gate and the server-side
+    // A fresh navigation exercises the edge gate in proxy.ts and the server-side
     // session read, neither of which is involved in the sign-in response.
     await page.goto("/admin");
     await expect(page, "the session survives a fresh page load").not.toHaveURL(/\/admin\/login/);

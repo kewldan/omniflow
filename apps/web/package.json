@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "check": "tsc --noEmit && biome check .",
+    "test": "bun test ./lib ./components ./proxy.test.ts",
     "e2e": "playwright test",
     "e2e:install": "playwright install --with-deps chromium webkit",
     "perf:budget": "node scripts/perf-budget.mjs"
@@ -35,6 +36,7 @@
     "@biomejs/biome": "2.5.7",
     "@playwright/test": "1.58.0",
     "@tailwindcss/postcss": "4.3.3",
+    "@types/bun": "^1.4.4",
     "@types/node": "26.2.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",

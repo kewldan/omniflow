@@ -22,7 +22,7 @@ async function typeInto(field: Locator, value: string): Promise<void> {
  * Authentication and authorisation, from the browser.
  *
  * These are the journeys where a regression is expensive rather than merely
- * visible. A unit test can prove the middleware refuses an unauthenticated
+ * visible. A unit test can prove the edge gate refuses an unauthenticated
  * request; only a browser can prove that the refusal actually lands the person
  * on the sign-in page instead of a blank screen, and that the session cookie is
  * set with the attributes that make it worth having.
