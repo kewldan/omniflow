@@ -371,11 +371,10 @@ Three caveats about the operations group:
   `503 jobs_unavailable` in a process with no job client attached. The default
   `state` filter is `dead_letter`; the other accepted values are `retryable`,
   `running`, `available`, `scheduled`, and `completed`.
-- The durable job store is River, and **the shipped migrations do not create
-  River's own schema**. Nothing in the repository runs River's migrator, so on a
-  stock installation these endpoints have no tables to read and answer
-  `500 jobs_unavailable`. The `/v1/panel/system/jobs` view of *fulfillment
-  operations* is backed by Omniflow's own tables and is unaffected.
+- The durable job store is River, whose schema ships with the Atlas
+  migrations, so on a stock installation these endpoints read River's own queue
+  rows. The `/v1/panel/system/jobs` view of *fulfillment operations* is a
+  different thing, backed by Omniflow's own tables.
 - `GET /v1/admin/outbox` reports the count of unpublished domain events and the
   age of the oldest. Nothing in the current build ever marks an outbox row
   published, so this figure grows and is not a useful backlog signal. See

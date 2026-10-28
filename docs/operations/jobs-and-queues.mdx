@@ -34,15 +34,13 @@ The rule the code follows is that a durable job is enqueued in the same PostgreS
 
 The same property makes retries safe. A fulfillment operation carries a unique `idempotency_key`, so River's at-least-once delivery cannot double-apply it, and a retry from the panel re-queues under that same key rather than creating a second operation.
 
-### The queue schema is not created by any migration
+### The queue schema ships with the migrations
 
-River keeps its own tables (`river_job`, `river_leader`, `river_client`, `river_queue`, `river_migration`). Nothing in `database/migrations/` creates them, no Go file imports River's `rivermigrate` package, and the compose `migrate` service applies Omniflow's Atlas migrations only.
+River keeps its own tables (`river_job`, `river_leader`, `river_queue`, `river_notification`, `river_migration`). The Atlas migration `20260905110000_river_queue.sql` creates them: it is River's own `main` migration line for the linked River version, copied verbatim, followed by the `river_migration` rows River's `rivermigrate` would have written. The compose `migrate` service therefore leaves a database on which the worker starts and the API and the bot can insert jobs, with no step outside the documented deployment path.
 
-On a database where those tables do not exist, the worker's `client.Start` fails and the process exits with a non-zero status after logging `start River`. The API's job inserts fail with it, which surfaces as a checkout that cannot complete.
+An installation that already created those tables by hand with the River CLI keeps them: the migration skips its whole body when `river_migration` already exists.
 
-<Warning>
-  This is the current state of the repository, not a configuration you have missed. Until a River migration ships, treat the queue schema as a prerequisite you must satisfy outside the documented deployment path, and expect the worker to exit on start until it exists.
-</Warning>
+The integration suite checks after every migration run that `rivermigrate` reports no unapplied River version, so upgrading River to a release with a new schema version fails in CI until a matching migration is committed.
 
 ## Fulfillment jobs
 

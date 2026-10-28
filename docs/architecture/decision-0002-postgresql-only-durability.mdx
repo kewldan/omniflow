@@ -57,9 +57,11 @@ maintaining an integration nobody uses. The consequence is that its unpublished
 count grows and is not a backlog signal, which is stated where an operator would
 otherwise misread it.
 
-River's own schema is not created by the shipped migrations. On a stock
-installation the job-inspection endpoints therefore have no tables to read.
-That gap is documented rather than papered over.
+River's own schema ships as an Atlas migration copied verbatim from River's
+own migration line, so a stock installation has the queue tables the worker and
+the job-inspection endpoints need. An integration test fails when River's
+migrator reports an unapplied version, which ties the copy to the River version
+the build links: a River upgrade cannot land without its schema.
 
 ## Revisit when
 

@@ -42,17 +42,17 @@ transaction, so a paid order always has a job waiting for it.
 
 ## The worker exits at start-up complaining about a missing table
 
-The `migrate` service applies the committed Atlas migrations in `database/migrations`.
-Those migrations create Omniflow's own schema; they do not create the queue's internal
-tables (`river_job`, `river_leader`, `river_client`, `river_queue`, `river_migration`),
-and no process in the stack creates them either. If the worker fails at
-`client.Start` reporting one of those relations missing, that is the cause rather than a
-broken database URL or a partly applied migration.
+The `migrate` service applies the committed Atlas migrations in `database/migrations`,
+and those include the queue's internal tables (`river_job`, `river_leader`,
+`river_queue`, `river_notification`, `river_migration`). If the worker fails at
+`client.Start` reporting one of those relations missing, the migrations have not run
+to the end against the database the worker is pointed at: check the `migrate`
+service's log and compare `APP_DATABASE_URL` across the services before assuming a
+connectivity problem.
 
 Until those tables exist, the worker cannot start, and a checkout that inserts a
-fulfillment job inside its settlement transaction fails with it. Check the worker's
-stderr for the relation name before assuming a connectivity problem. See
-[Jobs and queues](/operations/jobs-and-queues).
+fulfillment job inside its settlement transaction fails with it. See
+[Jobs and queues](/operations/jobs-and-queues#the-queue-schema-ships-with-the-migrations).
 
 ## A payment succeeded at the provider but the order is pending
 

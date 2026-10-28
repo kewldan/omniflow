@@ -421,13 +421,10 @@ redactor before leaving the process, and job arguments are summarised rather tha
 Fulfillment jobs are River jobs on the `critical` queue, with `MaxAttempts: 12` and uniqueness by job
 arguments so a duplicate insert is a no-op.
 
-<Warning>
-  No migration under `database/` creates River's own job tables, and nothing in the repository runs
-  River's migrator. `atlas migrate apply` therefore brings up every Omniflow table and no queue
-  schema, and an insert into the queue — including the one inside the settlement transaction — has
-  nothing to write to. Plan for the queue schema to be present in the database before the worker is
-  expected to provision anything.
-</Warning>
+River's own job tables ship with the Atlas migrations, so `atlas migrate apply` brings up the
+queue schema along with every Omniflow table, and an insert into the queue — including the one
+inside the settlement transaction — has a table to write to. See
+[Jobs and queues](/operations/jobs-and-queues#the-queue-schema-ships-with-the-migrations).
 
 ## What fulfillment records, and what it never records
 

@@ -159,10 +159,10 @@ workers), `default` (32), and `bulk` (8). Both workers are registered only in th
 creates a River client for inserting.
 
 <Note>
-  River's own tables — `river_job`, `river_leader`, `river_client`, `river_queue`, `river_migration` — are
-  not created by anything in this repository. No committed migration under `database/migrations/` defines
-  them, no Go file imports `rivermigrate`, and the compose `migrate` service runs Atlas over Omniflow's
-  own schema only. Provisioning the queue schema is not currently part of the documented deployment.
+  River's own tables — `river_job`, `river_leader`, `river_queue`, `river_notification`, `river_migration` —
+  are created by the committed Atlas migration `20260905110000_river_queue.sql`, a verbatim copy of River's
+  own migration line, so the compose `migrate` service leaves a database the worker can start on. See
+  [Jobs and queues](/operations/jobs-and-queues#the-queue-schema-ships-with-the-migrations).
 </Note>
 
 ## The transactional outbox

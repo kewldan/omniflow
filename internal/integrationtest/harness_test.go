@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/riverqueue/river/rivermigrate"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -145,5 +147,25 @@ func TestUpgradeAdoptsExistingCustomersOntoSubscriptions(t *testing.T) {
 	}
 	if count != 1 {
 		t.Fatalf("expected exactly one adopted subscription, got %d", count)
+	}
+}
+
+// TestRiverSchemaShipsWithTheMigrations is the River upgrade gate: the
+// committed migrations must leave River's queue schema at exactly the version
+// the linked River expects. A River bump that adds a schema version without a
+// matching migration fails here instead of as a worker that cannot start.
+func TestRiverSchemaShipsWithTheMigrations(t *testing.T) {
+	harness := newHarness(t)
+	ctx := context.Background()
+	migrator, err := rivermigrate.New(riverpgxv5.New(harness.pool), nil)
+	if err != nil {
+		t.Fatalf("build River migrator: %v", err)
+	}
+	result, err := migrator.Validate(ctx, nil)
+	if err != nil {
+		t.Fatalf("validate River schema: %v", err)
+	}
+	if !result.OK {
+		t.Fatalf("River schema is behind the linked River version: %v", result.Messages)
 	}
 }

@@ -91,7 +91,7 @@ There are no down-migrations. That is a deliberate choice rather than an omissio
   The `migrate` service hard-codes `postgres://omniflow:omniflow@postgres:5432/omniflow?sslmode=disable` in its command and does **not** read `.env`. Changing the database credentials means editing `compose.yaml` as well as `APP_DATABASE_URL`, or the migration job will keep pointing at the old ones.
 </Note>
 
-Atlas applies Omniflow's own schema only. The durable job queue's tables are a separate concern with a gap you need to know about before the first deploy — see [Jobs and queues](/operations/jobs-and-queues#the-queue-schema-is-not-created-by-any-migration).
+The same migrations create the durable job queue's tables, so the first deploy needs no separate queue setup — see [Jobs and queues](/operations/jobs-and-queues#the-queue-schema-ships-with-the-migrations).
 
 For how migrations are authored and reviewed, see [Database](/contributing/database).
 

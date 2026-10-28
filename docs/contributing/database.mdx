@@ -181,13 +181,25 @@ A table whose mutability nobody stated becomes a table somebody edits.
   without bound. If you are adding a publisher, this is the state you are adding to.
 </Note>
 
-## River's schema is not in this directory
+## River's schema ships as an Atlas migration
 
-Nothing under `database/` mentions River, and no Go file imports `rivermigrate`. The durable job
-tables (`river_job`, `river_leader`, `river_queue`, `river_client`, `river_migration`) are therefore
-not created by any committed migration or by any process at startup, and the compose `migrate`
-service applies the Atlas directory only. Do not assume a fresh database has them; see
-[Development](/contributing/development) and [Jobs and queues](/operations/jobs-and-queues).
+The durable job tables (`river_job`, `river_leader`, `river_queue`, `river_notification`,
+`river_migration`) are created by `20260905110000_river_queue.sql`. That file is River v0.43.0's own
+`main` migration line, versions 1 through 7, copied verbatim from `riverpgxv5` with the schema
+template removed, followed by the `river_migration` rows `rivermigrate` itself would write. Its whole
+body is skipped when `river_migration` already exists, so an installation that created the tables by
+hand with the River CLI keeps them. See [Jobs and queues](/operations/jobs-and-queues#the-queue-schema-ships-with-the-migrations).
+
+To upgrade River:
+
+1. Bump the River module.
+2. If the new release adds schema versions, add a new Atlas migration with each new version's up SQL
+   from River's own migration line, schema template removed, followed by its `river_migration` row.
+3. Run `make atlas-hash`.
+
+`TestRiverSchemaShipsWithTheMigrations` in `internal/integrationtest/harness_test.go` runs
+`rivermigrate` against the migrated database and fails if it reports an unapplied River version, so
+a bump without the matching migration fails CI.
 
 ## How migrations reach an installation
 

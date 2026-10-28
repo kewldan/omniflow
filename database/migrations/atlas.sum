@@ -1,4 +1,4 @@
-h1:nFl1UdcMvTlfK+VL7/DpF6IDrA9jWanAecAHozY4Tk0=
+h1:xzHzs4sr1HWz4BqJhKvl3fHiIx+kc1THEWF4zKvAI/c=
 20260810160000_initial.sql h1:1kQrZBliczdiXY/iEDj2ZAU+pUo0tJpeSRzclMaGkBg=
 20260810190000_bot_self_service.sql h1:LS90y7P5Az1VyeoozUy8ljEsBUQmAAPv3fdH+4QTH5g=
 20260810220000_commerce.sql h1:F9VjoIN5PYaNjnYOHHNYKvv+kSYJ4KLnVu6eI5PVHzM=
@@ -31,5 +31,6 @@ h1:nFl1UdcMvTlfK+VL7/DpF6IDrA9jWanAecAHozY4Tk0=
 20260905100000_customer_session_reauthenticated.sql h1:BNCe8Z6x+b0osADOtYz7rkLFZ0nWhBEcd3Wdci55+5I=
 20260905100000_oidc_issuer_binding.sql h1:HU+yU+7F8K9wY5H25BZhbF5O+bUS1Hcte6oSiTiRVaw=
 20260905110000_admin_totp_hardening.sql h1:P74fFbn2wmN7CcNF8VuzX9aprFEa/ezn+WuTixfj9e0=
-20261028100000_bot_shop_reviews.sql h1:lk54ntB9KbakAbmF+mpq3HE/3GnVZnCdIWSIVOp3jp8=
-20261028100100_bot_delivery_not_started.sql h1:R09QYnGhECWoxtK8mOS9zNN7L68A5upycbrKE43YjAo=
+20260905110000_river_queue.sql h1:f7eOJZmlvezYxBfiEcruW9hvVeh1GTD1cvc63GBi4zQ=
+20261028100000_bot_shop_reviews.sql h1:tHhV/QXNVzOm3xjR/EMxtTuIosuTMYbUg0IabWlD4/w=
+20261028100100_bot_delivery_not_started.sql h1:wxLbJENw+lbCkTa9spYMuIIyKBm/N9TT1dnZjm7oqhk=

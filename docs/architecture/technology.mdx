@@ -83,10 +83,10 @@ Three queues are configured — `critical` (16 workers), `default` (32), and `bu
 exist, `fulfillment` and `goods_delivery`, both `critical` with `MaxAttempts: 12`.
 
 <Note>
-  River's own tables are not created by anything in this repository: no committed migration defines
-  `river_job` and its siblings, nothing imports `rivermigrate`, and the compose `migrate` service applies
-  Atlas over Omniflow's schema only. Provisioning the queue schema is not part of the documented
-  deployment today.
+  River's own tables ship with the Atlas migrations: `20260905110000_river_queue.sql` is River's own
+  migration line copied verbatim, so the compose `migrate` service creates `river_job` and its siblings
+  along with Omniflow's schema. An integration test fails if `rivermigrate` reports an unapplied River
+  version, so a River upgrade needs a matching migration.
 </Note>
 
 Work that is a whole-table pass with no per-record argument stays on a `time.Ticker` instead, because a
