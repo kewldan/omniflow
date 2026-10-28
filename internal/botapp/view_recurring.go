@@ -33,6 +33,23 @@ type autoRenewScreen struct {
 	BackRoute string
 }
 
+// fundingCallbackMethod is how a callback names the saved-method funding
+// source. `saved_method` itself made the callback 67 bytes with a
+// subscription identifier on the end, three more than Telegram accepts, and
+// the whole settings screen would have failed to render for a customer with a
+// saved card and more than one subscription.
+const fundingCallbackMethod = "card"
+
+// fundingFromCallback maps a callback's funding segment onto the stored value.
+// The long spelling is still accepted from a button rendered before it was
+// shortened.
+func fundingFromCallback(value string) string {
+	if value == fundingCallbackMethod {
+		return recurring.FundingSavedMethod
+	}
+	return value
+}
+
 // renewCallback appends the subscription to an auto-renew callback. The
 // subscription is part of the table's key, so every write names it; a
 // customer with one subscription never sees the difference.
@@ -104,7 +121,7 @@ func autoRenewSettingsView(locale Locale, screen autoRenewScreen) View {
 	}
 	if len(methods) > 0 {
 		fundingRow = append(fundingRow,
-			actionButton(fundingButton(locale, settings.Funding == recurring.FundingSavedMethod, "renew.fromMethod"), renewCallback("renew-funding:saved_method", subscription)))
+			actionButton(fundingButton(locale, settings.Funding == recurring.FundingSavedMethod, "renew.fromMethod"), renewCallback("renew-funding:"+fundingCallbackMethod, subscription)))
 	}
 	rows = append(rows, fundingRow)
 	leadRow := make([]models.InlineKeyboardButton, 0, len(leadChoices))

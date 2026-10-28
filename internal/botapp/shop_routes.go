@@ -50,30 +50,51 @@ func (app *App) handleShopAction(ctx context.Context, session commerceContext, p
 		return app.shopBuyForSelf(ctx, session, argument), true
 	case "shop-other":
 		return app.shopAskRecipient(ctx, session, argument), true
-	case "shop-buy":
-		if len(parts) != 3 {
+	case "shop-buy", "shop-promo", "shop-unpromo", "shop-save":
+		review, found := app.shopReviewOf(ctx, session, parts)
+		if !found {
 			return app.shopScreen(ctx, session), true
 		}
-		return app.shopPurchase(ctx, session, parts[1], parts[2]), true
-	case "shop-promo":
-		if len(parts) != 3 {
-			return app.shopScreen(ctx, session), true
+		switch parts[0] {
+		case "shop-buy":
+			return app.shopPurchase(ctx, session, review), true
+		case "shop-promo":
+			return app.shopAskPromo(ctx, session, review.ProductID, review.Recipient), true
+		case "shop-unpromo":
+			return app.shopClearPromo(ctx, session, review.ProductID, review.Recipient), true
+		default:
+			return app.shopSaveForLater(ctx, session, review.ProductID, review.Recipient), true
 		}
-		return app.shopAskPromo(ctx, session, parts[1], parts[2]), true
-	case "shop-unpromo":
-		if len(parts) != 3 {
-			return app.shopScreen(ctx, session), true
-		}
-		return app.shopClearPromo(ctx, session, parts[1], parts[2]), true
-	case "shop-save":
-		if len(parts) != 3 {
-			return app.shopScreen(ctx, session), true
-		}
-		return app.shopSaveForLater(ctx, session, parts[1], parts[2]), true
 	case "shop-order":
 		return app.shopOrderScreen(ctx, session, argument), true
 	default:
 		return View{}, false
+	}
+}
+
+// shopReviewOf resolves what a review-screen button acts on.
+//
+// A button carries the identifier of the review it was rendered on, and the
+// product and recipient are read back from that review. Callback data is
+// limited to 64 bytes, and a product identifier and a username together did
+// not fit: a recipient longer than twelve characters made the whole screen fail
+// to send. A button rendered before that change carries the product and the
+// recipient themselves, and is still honoured — those are the ones that fit.
+func (app *App) shopReviewOf(ctx context.Context, session commerceContext, parts []string) (ShopReview, bool) {
+	switch len(parts) {
+	case 2:
+		review, err := app.customers.ShopReviewFor(ctx, session.Customer.ID, parts[1])
+		if err != nil {
+			if !errors.Is(err, ErrShopReviewGone) {
+				app.logger.Error("shop review lookup failed", "error", err)
+			}
+			return ShopReview{}, false
+		}
+		return review, true
+	case 3:
+		return ShopReview{ProductID: parts[1], Recipient: parts[2]}, true
+	default:
+		return ShopReview{}, false
 	}
 }
 
@@ -160,8 +181,13 @@ func (app *App) shopReview(
 		app.logger.Warn("shop quote failed", "product", product.Code, "error", err)
 		return shopItemView(session.Locale, product, ShopQuote{}, true)
 	}
+	reviewID, err := app.customers.OpenShopReview(ctx, session.Customer.ID, product.ID, recipient)
+	if err != nil {
+		app.logger.Error("shop review could not be recorded", "error", err)
+		return app.errorView(session.Locale, routeShop)
+	}
 	return shopConfirmView(session.Locale, product, quote, recipient, isSelf,
-		app.shopPromoState(ctx, session, product, quote))
+		app.shopPromoState(ctx, session, product, quote), reviewID)
 }
 
 // shopPromoState prices whatever code the customer has saved against the quote
@@ -273,8 +299,9 @@ func (app *App) saveShopCart(
 // The wallet is applied first, exactly as it is for a plan, so a customer with
 // a balance that covers the purchase never sees a payment provider at all.
 func (app *App) shopPurchase(
-	ctx context.Context, session commerceContext, productID, recipient string,
+	ctx context.Context, session commerceContext, review ShopReview,
 ) View {
+	productID, recipient := review.ProductID, review.Recipient
 	product, found, err := app.customers.ShopProduct(ctx, session.Locale, productID)
 	if err != nil || !found {
 		return app.shopScreen(ctx, session)
@@ -283,7 +310,11 @@ func (app *App) shopPurchase(
 	// The review screen is one tap away, so joining and confirming again
 	// resumes here with the same recipient.
 	if gate := app.checkPurchaseChannels(ctx, session.Customer.ID, session.TelegramID); !gate.Allowed() {
-		return channelGateView(session.Locale, gate, "shop-buy:"+productID+":"+recipient)
+		retry := "shop-buy:" + review.ID
+		if review.ID == "" {
+			retry = "shop-buy:" + productID + ":" + recipient
+		}
+		return channelGateView(session.Locale, gate, retry)
 	}
 	quote, err := app.commerce.QuoteGoods(ctx, product, 1)
 	if err != nil {

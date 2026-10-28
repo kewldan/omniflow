@@ -2,6 +2,7 @@ package botapp
 
 import (
 	"go/ast"
+	"go/parser"
 	"go/token"
 	"path/filepath"
 	"sort"
@@ -241,6 +242,43 @@ func renderedButtons(t *testing.T) []renderedButton {
 		t.Fatalf("found only %d buttons; the source scan is not reading the package", len(buttons))
 	}
 	return buttons
+}
+
+// TestEveryCallbackFitsTelegramsLimit fails on any button whose callback could
+// exceed 64 bytes once its identifiers are filled in. Telegram refuses the
+// whole message for one such button, which is how a shop screen with a long
+// recipient name used to stay on "Refreshing your data…" for good.
+func TestEveryCallbackFitsTelegramsLimit(t *testing.T) {
+	t.Parallel()
+	for _, button := range renderedButtons(t) {
+		if len(button.data) > telegramCallbackLimit {
+			t.Errorf("%s: %s builds %q, %d bytes with identifiers filled in; Telegram accepts %d",
+				button.position, button.constructor, button.data, len(button.data), telegramCallbackLimit)
+		}
+	}
+}
+
+// TestTheLimitCheckSeesALongCallback keeps the scan honest: the evaluator has
+// to see through a helper and a format string, or the test above passes by
+// reading nothing.
+func TestTheLimitCheckSeesALongCallback(t *testing.T) {
+	t.Parallel()
+	_, files := packageSources(t)
+	evaluator := newCallbackEvaluator(files)
+	expression, err := parser.ParseExpr(`fmt.Sprintf("shop-buy:%s:%s", product.ID, recipient)`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if value, _ := evaluator.eval(expression, nil); len(actionPrefix+value) <= telegramCallbackLimit {
+		t.Fatalf("a product and a recipient evaluated to %q, which fits; the scan is blind", value)
+	}
+	helper, err := parser.ParseExpr(`renewCallback("renew-settings", subscriptionID)`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if value, _ := evaluator.eval(helper, nil); value != "renew-settings:"+placeholder(uuidWidth) {
+		t.Fatalf("the helper evaluated to %q; its widest return was not followed", value)
+	}
 }
 
 // actionName is the part of an action callback the dispatcher switches on.

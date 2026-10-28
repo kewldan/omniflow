@@ -163,11 +163,12 @@ Two loops are disabled when the worker has no `APP_DATA_ENCRYPTION_KEY`, because
 
 ## Retention sweeps
 
-The hourly retention pass deletes disposable operational data. It never touches financial, audit, consent, identity or entitlement history, which is append-only for the life of the installation. Seven independent steps run in order, and one failing step is logged and skipped so a single locked table cannot stall retention.
+The hourly retention pass deletes disposable operational data. It never touches financial, audit, consent, identity or entitlement history, which is append-only for the life of the installation. Eight independent steps run in order, and one failing step is logged and skipped so a single locked table cannot stall retention.
 
 | Step | Deletes | Window |
 | --- | --- | --- |
 | `bot_sessions` | Expired bot sessions | row-level `expires_at` |
+| `bot_shop_reviews` | Shop review screens older than a day | row-level `expires_at` |
 | `bot_checkout_sessions` | Expired checkout sessions that never became an order | row-level `expires_at` |
 | `provider_webhook_events` | Webhook intake rows past their retention stamp | row-level `retain_until` |
 | `support_attachments` | Expired attachment rows, plus the files behind them | row-level |

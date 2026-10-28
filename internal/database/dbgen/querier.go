@@ -418,6 +418,7 @@ type Querier interface {
 	// Retention sweep. A session is removed only once it is well past any use, so
 	// the security list can still explain a recent sign-out.
 	DeleteExpiredCustomerSessions(ctx context.Context, retention pgtype.Interval) (int64, error)
+	DeleteExpiredShopReviews(ctx context.Context) (int64, error)
 	DeleteExpiredSupportAttachments(ctx context.Context) (int64, error)
 	DeleteExpiredWebhookEvents(ctx context.Context) (int64, error)
 	// Removes a customer's subscriptions that exist only because an order once

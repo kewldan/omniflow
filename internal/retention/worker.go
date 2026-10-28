@@ -74,6 +74,7 @@ func (worker *Worker) Run(ctx context.Context) {
 // Result reports how many rows each window removed.
 type Result struct {
 	BotSessions      int64
+	ShopReviews      int64
 	CheckoutSessions int64
 	WebhookEvents    int64
 	Attachments      int64
@@ -92,6 +93,7 @@ func (worker *Worker) Sweep(ctx context.Context) Result {
 		run  func() (int64, error)
 	}{
 		{"bot_sessions", func() (int64, error) { return queries.DeleteExpiredBotSessions(ctx) }},
+		{"bot_shop_reviews", func() (int64, error) { return queries.DeleteExpiredShopReviews(ctx) }},
 		{"bot_checkout_sessions", func() (int64, error) { return queries.DeleteExpiredCheckoutSessions(ctx) }},
 		{"provider_webhook_events", func() (int64, error) { return queries.DeleteExpiredWebhookEvents(ctx) }},
 		{"support_attachments", func() (int64, error) {
@@ -118,7 +120,7 @@ func (worker *Worker) Sweep(ctx context.Context) Result {
 		}},
 	}
 	targets := []*int64{
-		&result.BotSessions, &result.CheckoutSessions, &result.WebhookEvents, &result.Attachments,
+		&result.BotSessions, &result.ShopReviews, &result.CheckoutSessions, &result.WebhookEvents, &result.Attachments,
 		&result.OutboxEvents, &result.TelemetryEvents, &result.ResolvedDrifts,
 	}
 	for index, step := range steps {

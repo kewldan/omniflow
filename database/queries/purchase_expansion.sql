@@ -489,6 +489,9 @@ RETURNING *;
 -- name: DeleteExpiredBotSessions :execrows
 DELETE FROM bot_sessions WHERE expires_at <= now();
 
+-- name: DeleteExpiredShopReviews :execrows
+DELETE FROM bot_shop_reviews WHERE expires_at <= now();
+
 -- name: DeleteExpiredCheckoutSessions :execrows
 DELETE FROM bot_checkout_sessions WHERE order_id IS NULL AND expires_at <= now();
 

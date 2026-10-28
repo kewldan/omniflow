@@ -481,6 +481,15 @@ type BotSession struct {
 	Context    []byte             `json:"context"`
 }
 
+type BotShopReview struct {
+	ID        pgtype.UUID        `json:"id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	ProductID pgtype.UUID        `json:"product_id"`
+	Recipient string             `json:"recipient"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+}
+
 // Operator-supplied brand images, served publicly by checksum. Never customer data.
 type BrandingAsset struct {
 	Kind        string             `json:"kind"`

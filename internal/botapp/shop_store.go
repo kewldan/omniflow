@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/omniflow/omniflow/internal/goods"
 )
 
@@ -252,4 +253,51 @@ func (store *PostgresStore) GiftsSent(
 		sent = append(sent, gift)
 	}
 	return sent, rows.Err()
+}
+
+// ErrShopReviewGone is returned for a review that expired, never existed, or
+// belongs to somebody else. The three look the same from outside on purpose.
+var ErrShopReviewGone = errors.New("shop review is gone")
+
+// ShopReview is one rendering of the digital-goods review screen: the product
+// and the recipient the customer was shown above the button that pays.
+type ShopReview struct {
+	ID        string
+	ProductID string
+	Recipient string
+}
+
+// OpenShopReview records a review screen and returns its identifier, which is
+// all the screen's buttons carry. Telegram limits callback data to 64 bytes,
+// and a product identifier and a username together do not fit in it.
+//
+// The customer's expired reviews are cleared in the same statement, so the
+// table holds at most a day of one customer's screens between retention runs.
+func (store *PostgresStore) OpenShopReview(ctx context.Context, customerID, productID, recipient string) (string, error) {
+	var reviewID string
+	err := store.pool.QueryRow(ctx, `WITH expired AS (
+			DELETE FROM bot_shop_reviews WHERE user_id = $1::uuid AND expires_at <= now()
+		)
+		INSERT INTO bot_shop_reviews (user_id, product_id, recipient)
+		VALUES ($1::uuid, $2::uuid, $3) RETURNING id::text`, customerID, productID, recipient).Scan(&reviewID)
+	return reviewID, err
+}
+
+// ShopReviewFor reads a review the customer was shown. A review is never
+// changed after it is written, so an older screen still acts on exactly what
+// it displayed.
+func (store *PostgresStore) ShopReviewFor(ctx context.Context, customerID, reviewID string) (ShopReview, error) {
+	var parsed pgtype.UUID
+	if parsed.Scan(reviewID) != nil {
+		// Callback data that is not a UUID names no review.
+		return ShopReview{}, ErrShopReviewGone
+	}
+	review := ShopReview{ID: reviewID}
+	err := store.pool.QueryRow(ctx, `SELECT product_id::text, recipient FROM bot_shop_reviews
+		WHERE id = $2::uuid AND user_id = $1::uuid AND expires_at > now()`, customerID, reviewID).
+		Scan(&review.ProductID, &review.Recipient)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ShopReview{}, ErrShopReviewGone
+	}
+	return review, err
 }

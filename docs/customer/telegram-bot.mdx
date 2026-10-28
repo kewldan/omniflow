@@ -609,7 +609,12 @@ or refunded. A delivery under review adds:
 > the money to your balance.
 
 The recipient's handle is stored on the shop order, where delivery and support
-genuinely need it, and never on the customer record. See
+genuinely need it, and never on the customer record. Before the order exists it
+is held for a day on the review screen's own record: each review is saved once,
+and its buttons carry only that record's identifier, because Telegram allows a
+button 64 bytes and a product identifier with a username does not fit. An older
+review message therefore still buys exactly what it showed, even after a review
+for somebody else was opened. See
 [Gifts and digital goods](/commerce/gifts-and-goods).
 
 `🏷 Promo code` on the review screen opens a free-text step: send the code in

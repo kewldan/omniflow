@@ -63,7 +63,7 @@ func TestAutoRenewEnabledScreenHidesTheSavedMethodWhenNoneIsSaved(t *testing.T) 
 	}
 	view := autoRenewSettingsView(LocaleEnglish, autoRenewScreen{Settings: enabled, PlanName: "Pro", Supported: true})
 	callbacks := strings.Join(callbackData(view), " ")
-	if strings.Contains(callbacks, "renew-funding:saved_method") {
+	if strings.Contains(callbacks, "renew-funding:"+fundingCallbackMethod) {
 		t.Fatalf("the saved-method source must not be offered with nothing saved: %s", callbacks)
 	}
 	if !strings.Contains(view.Text, "No card is saved") {
@@ -94,7 +94,7 @@ func TestAutoRenewEnabledScreenOffersTheSavedMethodWhenOneExists(t *testing.T) {
 	methods := []SavedMethod{{ID: "m1", Provider: "yookassa", Label: "Visa •• 4242", Status: "active", IsDefault: true}}
 	view := autoRenewSettingsView(LocaleEnglish, autoRenewScreen{Settings: enabled, Methods: methods, PlanName: "Pro", Supported: true})
 	callbacks := strings.Join(callbackData(view), " ")
-	if !strings.Contains(callbacks, actionPrefix+"renew-funding:saved_method:"+renewTestSubscription) {
+	if !strings.Contains(callbacks, actionPrefix+"renew-funding:"+fundingCallbackMethod+":"+renewTestSubscription) {
 		t.Fatalf("a saved method must be selectable: %s", callbacks)
 	}
 	if !strings.Contains(callbacks, callbackPrefix+routeMethods) {
@@ -156,6 +156,21 @@ func TestAutoRenewUnsupportedExplainsItself(t *testing.T) {
 	for _, data := range callbackData(view) {
 		if strings.HasPrefix(data, actionPrefix) {
 			t.Fatalf("nothing may be switched on without a recurring provider: %s", data)
+		}
+	}
+}
+
+// The short callback spelling and the stored value it stands for are kept
+// apart, and a button rendered before the callback was shortened still works.
+func TestRenewalFundingCallbackMapsOntoTheStoredValue(t *testing.T) {
+	t.Parallel()
+	for input, want := range map[string]string{
+		fundingCallbackMethod:        recurring.FundingSavedMethod,
+		recurring.FundingSavedMethod: recurring.FundingSavedMethod,
+		recurring.FundingWallet:      recurring.FundingWallet,
+	} {
+		if got := fundingFromCallback(input); got != want {
+			t.Fatalf("fundingFromCallback(%q) = %q, want %q", input, got, want)
 		}
 	}
 }

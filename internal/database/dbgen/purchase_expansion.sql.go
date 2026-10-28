@@ -580,6 +580,18 @@ func (q *Queries) DeleteExpiredCheckoutSessions(ctx context.Context) (int64, err
 	return result.RowsAffected(), nil
 }
 
+const deleteExpiredShopReviews = `-- name: DeleteExpiredShopReviews :execrows
+DELETE FROM bot_shop_reviews WHERE expires_at <= now()
+`
+
+func (q *Queries) DeleteExpiredShopReviews(ctx context.Context) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteExpiredShopReviews)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteExpiredSupportAttachments = `-- name: DeleteExpiredSupportAttachments :execrows
 DELETE FROM support_attachments WHERE retain_until <= now()
 `

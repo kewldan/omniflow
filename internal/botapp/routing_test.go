@@ -24,7 +24,7 @@ func TestEveryRenderedCommerceActionIsRoutable(t *testing.T) {
 		giftClaimedView(LocaleEnglish, ClaimedGift{Kind: "wallet_credit", CreditMinor: 1, Currency: "RUB"}),
 		shopCatalogView(LocaleEnglish, []ShopProduct{product}),
 		shopItemView(LocaleEnglish, product, quote, false),
-		shopConfirmView(LocaleEnglish, product, quote, "someone", false, ShopPromoState{Code: "CODE", DiscountMinor: 10}),
+		shopConfirmView(LocaleEnglish, product, quote, "someone", false, ShopPromoState{Code: "CODE", DiscountMinor: 10}, "r1"),
 		shopOrdersView(LocaleEnglish, []ShopOrder{{OrderID: "o", ProductName: "Premium", Status: "paid"}}),
 		shopSavedView(LocaleEnglish, product),
 		offersView(LocaleEnglish, []CustomerOffer{offer}, now),

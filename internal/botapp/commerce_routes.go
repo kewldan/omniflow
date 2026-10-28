@@ -867,7 +867,7 @@ func (app *App) handleCommerceAction(ctx context.Context, session commerceContex
 	case "renew-settings":
 		return app.autoRenewScreenFor(ctx, session, argument), true
 	case "renew-funding":
-		return app.setRenewalFunding(ctx, session, argument, argumentAt(parts, 2)), true
+		return app.setRenewalFunding(ctx, session, fundingFromCallback(argument), argumentAt(parts, 2)), true
 	case "renew-lead":
 		return app.setRenewalLeadTime(ctx, session, argument, argumentAt(parts, 2)), true
 	case "method-default":

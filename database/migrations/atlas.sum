@@ -1,4 +1,4 @@
-h1:1fyZSp4dhRAWBKf+wglYCUjsRHg5u0LV0YjpOyL8jew=
+h1:i9gcnOg6IdYIW2pvps73tWsPV7VmWQTDmLlOHPtj7CU=
 20260810160000_initial.sql h1:1kQrZBliczdiXY/iEDj2ZAU+pUo0tJpeSRzclMaGkBg=
 20260810190000_bot_self_service.sql h1:LS90y7P5Az1VyeoozUy8ljEsBUQmAAPv3fdH+4QTH5g=
 20260810220000_commerce.sql h1:F9VjoIN5PYaNjnYOHHNYKvv+kSYJ4KLnVu6eI5PVHzM=
@@ -30,3 +30,4 @@ h1:1fyZSp4dhRAWBKf+wglYCUjsRHg5u0LV0YjpOyL8jew=
 20260904000000_advertising_measurement.sql h1:nDYCZKmlMdqn0mkTz9xwSnrHSpq2mXrYHBQWMS1ejL4=
 20260905100000_oidc_issuer_binding.sql h1:b8Gtv63pg2abZ03moc7GmFDWjAPRD9CFwPtFwOxMyvU=
 20260905110000_admin_totp_hardening.sql h1:PxoXhZG0IDDMvFsPV6JwFVTpaTB2WNtGNNRSN/eZBMI=
+20261028100000_bot_shop_reviews.sql h1:D/xzFv8CqjwgOkt3s54isY43OkQc1hMw82jqQsUDGZg=

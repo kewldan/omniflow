@@ -16,6 +16,8 @@ import (
 	"github.com/go-telegram/bot/models"
 	"github.com/omniflow/omniflow/internal/botapp"
 	"github.com/omniflow/omniflow/internal/commercepg"
+	"github.com/omniflow/omniflow/internal/payments"
+	"github.com/omniflow/omniflow/internal/paymentservice"
 	"github.com/omniflow/omniflow/internal/remnawave"
 )
 
@@ -35,6 +37,28 @@ type botTelegram struct {
 	requests []botRequest
 	// refuse, when set, answers a method with a Bot API error instead.
 	refuse map[string]string
+	// oversized collects every callback Telegram would have refused.
+	oversized []string
+}
+
+// oversizedCallback returns the first callback in a keyboard that is longer
+// than the 64 bytes the Bot API accepts, or "" when every one fits.
+func oversizedCallback(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	var markup models.InlineKeyboardMarkup
+	if json.Unmarshal([]byte(raw), &markup) != nil {
+		return ""
+	}
+	for _, buttons := range markup.InlineKeyboard {
+		for _, button := range buttons {
+			if len(button.CallbackData) > 64 {
+				return button.CallbackData
+			}
+		}
+	}
+	return ""
 }
 
 func (stub *botTelegram) serve(writer http.ResponseWriter, request *http.Request) {
@@ -47,11 +71,22 @@ func (stub *botTelegram) serve(writer http.ResponseWriter, request *http.Request
 			}
 		}
 	}
+	writer.Header().Set("Content-Type", "application/json")
+	// Telegram refuses the whole message when one button's callback is over
+	// 64 bytes, and so does the stand-in: such a screen is never recorded,
+	// exactly as it never reaches a customer.
+	if oversized := oversizedCallback(fields["reply_markup"]); oversized != "" {
+		writer.WriteHeader(http.StatusBadRequest)
+		_, _ = writer.Write([]byte(`{"ok":false,"error_code":400,"description":"Bad Request: BUTTON_DATA_INVALID"}`))
+		stub.mutex.Lock()
+		stub.oversized = append(stub.oversized, oversized)
+		stub.mutex.Unlock()
+		return
+	}
 	stub.mutex.Lock()
 	stub.requests = append(stub.requests, botRequest{Method: method, Fields: fields})
 	refusal, refused := stub.refuse[method]
 	stub.mutex.Unlock()
-	writer.Header().Set("Content-Type", "application/json")
 	if refused {
 		writer.WriteHeader(http.StatusForbidden)
 		_, _ = writer.Write([]byte(`{"ok":false,"error_code":403,"description":` + strconvQuote(refusal) + `}`))
@@ -202,7 +237,10 @@ func newBotFlow(ctx context.Context, t *testing.T, harness *harness) *botFlow {
 		Currency: "RUB", PublicURL: "https://example.test",
 		TermsURL: "https://example.test/terms", MultiSubscription: true,
 	}
-	surface := botapp.NewCommerce(logger, store, orders, nil, settings)
+	// The manual adapter is the one payment method that needs no network, so
+	// a purchase reaches a real payment step rather than a nil service.
+	surface := botapp.NewCommerce(logger, store, orders,
+		paymentservice.New(harness.pool, orders, payments.Manual{}), settings)
 	fake := &botRemnawave{users: map[int64]remnawave.User{}, devices: map[int64][]remnawave.Device{}}
 	app := botapp.New(logger, store, fake, "")
 	app.EnableCommerce(store, surface, nil, botapp.NewSender(client, store, logger), settings)

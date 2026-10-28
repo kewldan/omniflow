@@ -110,7 +110,7 @@ func shopRecipientPromptView(locale Locale) View {
 // this screen exists rather than buying straight from the product page.
 func shopConfirmView(
 	locale Locale, product ShopProduct, quote ShopQuote, recipient string, isSelf bool,
-	promo ShopPromoState,
+	promo ShopPromoState, reviewID string,
 ) View {
 	body := text(locale, "shop.confirmTitle") +
 		"\n\n" + text(locale, "shop.confirmProduct", html.EscapeString(product.Name)) +
@@ -136,16 +136,19 @@ func shopConfirmView(
 	}
 	body += "\n\n" + text(locale, "shop.irreversible")
 
+	// The buttons carry the review's identifier and nothing else. The product
+	// and the recipient are read back from the review, because together they do
+	// not fit in the 64 bytes Telegram allows a callback.
 	promoLabel := text(locale, "shop.addPromo")
-	promoAction := fmt.Sprintf("shop-promo:%s:%s", product.ID, recipient)
+	promoAction := "shop-promo:" + reviewID
 	if promo.Code != "" {
 		promoLabel = text(locale, "shop.removePromo")
-		promoAction = fmt.Sprintf("shop-unpromo:%s:%s", product.ID, recipient)
+		promoAction = "shop-unpromo:" + reviewID
 	}
 	return View{Text: body, Keyboard: keyboard(
-		row(actionButton(text(locale, "shop.confirmBuy"), fmt.Sprintf("shop-buy:%s:%s", product.ID, recipient))),
+		row(actionButton(text(locale, "shop.confirmBuy"), "shop-buy:"+reviewID)),
 		row(actionButton(promoLabel, promoAction)),
-		row(actionButton(text(locale, "shop.saveForLater"), fmt.Sprintf("shop-save:%s:%s", product.ID, recipient))),
+		row(actionButton(text(locale, "shop.saveForLater"), "shop-save:"+reviewID)),
 		row(callbackButton(text(locale, "action.cancel"), routeShop)),
 	)}
 }
