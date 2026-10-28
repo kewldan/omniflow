@@ -232,7 +232,7 @@ func (handlers *AdminHandlers) testAIProvider(writer http.ResponseWriter, reques
 // The provider's own message is never used, for the reason the adapters already
 // refuse to propagate it: it can echo the prompt back. Neither is the transport
 // error, and that one is less obvious — a URL error carries the address it
-// dialled, and the Gemini adapter carries the API key in the query string, so
+// dialled, and the Gemini adapter used to carry the API key in the query string, so
 // storing a raw dial failure would write a live credential into the audit and
 // onto a screen.
 func probeFailure(err error) string {

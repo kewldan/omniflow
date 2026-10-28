@@ -159,8 +159,32 @@ func TestGeminiMapsBothWays(t *testing.T) {
 	if !strings.Contains(recorded.path, "gemini-test:generateContent") {
 		t.Fatalf("the model was not placed in the path: %s", recorded.path)
 	}
-	if !strings.Contains(recorded.query, "key=test-key") {
-		t.Fatalf("the key was not placed in the query: %s", recorded.query)
+	// The key travels in a header, never in the URL, where it would reach
+	// access logs and the text of any transport error.
+	if strings.Contains(recorded.query, "test-key") {
+		t.Fatalf("the key was placed in the query: %s", recorded.query)
+	}
+	if recorded.headers.Get("x-goog-api-key") != "test-key" {
+		t.Fatalf("the key was not sent in x-goog-api-key: %v", recorded.headers)
+	}
+}
+
+// A transport failure is logged by the caller. Its text must not carry the
+// request URL, which for some providers has held a credential.
+func TestTransportErrorsDoNotQuoteTheURL(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	address := server.URL
+	server.Close()
+	provider, err := NewGemini("gemini", address+"/secret-path", "test-key", localPolicy)
+	if err != nil {
+		t.Fatalf("build provider: %v", err)
+	}
+	_, err = provider.Complete(context.Background(), Request{Model: "gemini-test", Prompt: "hi"})
+	if err == nil {
+		t.Fatal("a request to a closed server succeeded")
+	}
+	if strings.Contains(err.Error(), "secret-path") || strings.Contains(err.Error(), "test-key") {
+		t.Fatalf("the error quotes the request: %v", err)
 	}
 }
 

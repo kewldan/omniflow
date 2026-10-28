@@ -271,8 +271,10 @@ Three details are deliberate:
   unregistered slug: each is refused and the stored result is left alone,
   because recording a failure would claim something was tried. A test that ran
   and failed *is* stored, with a category rather than the provider's own words —
-  a provider message can echo the prompt back, and a transport error can carry a
-  key held in a query string.
+  a provider message can echo the prompt back, and a transport error quotes the
+  address it dialled. No adapter puts a key in the URL — Gemini's travels in the
+  `x-goog-api-key` header — and transport errors are stripped of the URL before
+  anything logs them.
 
 Every test is written to the audit trail as `ai.provider.tested`, beside the
 `ai.provider.saved` entry from the rotation before it. The row holds only the
@@ -289,7 +291,7 @@ shape of the question people ask.
 | A provider will not delete | A feature still points at it. Deleting it would turn that feature off without saying so, so the foreign key refuses. Repoint or disable the feature first. |
 | Rotating the key appears to do nothing | The **Rotate key** button is disabled until the field has a value, because saving an empty field is how you *keep* the current key. |
 | **Test connection** says the test could not be run | Nothing was sent and the stored result is unchanged. The message says which: no key is stored, no model was given and none could be inferred, or the provider kind has no adapter in this build. |
-| A test reports the provider could not be reached, with no detail | The failure was in the transport rather than in the provider's answer. The address is never quoted back, because for one adapter it carries the API key in its query string. Check the base URL and the network path from the API container. |
+| A test reports the provider could not be reached, with no detail | The failure was in the transport rather than in the provider's answer. The address is never quoted back, in the screen or in the log. Check the base URL and the network path from the API container. |
 | The screen is not in the navigation at all | The signed-in operator lacks `settings.read`, or this process has no operations service attached — in which case the route is absent rather than forbidden, so a caller learns nothing about what is configured. |
 
 ## Related

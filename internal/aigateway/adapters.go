@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -242,9 +243,11 @@ func (provider *Anthropic) Complete(ctx context.Context, request Request) (Respo
 
 // Gemini speaks the generateContent shape.
 //
-// It carries the API key in a query parameter because that is what the endpoint
-// takes. The key therefore reaches request logs at the provider, which is worth
-// knowing and is the provider's design rather than a choice made here.
+// The API key travels in the `x-goog-api-key` header, which the endpoint accepts
+// as an alternative to the `key` query parameter. A key in the URL ends up in
+// every place a URL is written down — proxy and provider access logs, and the
+// text of any transport error, which is how it once reached this application's
+// own warn-level log.
 type Gemini struct {
 	name    string
 	baseURL string
@@ -300,9 +303,10 @@ func (provider *Gemini) Complete(ctx context.Context, request Request) (Response
 			CandidatesTokenCount int `json:"candidatesTokenCount"`
 		} `json:"usageMetadata"`
 	}
-	endpoint := fmt.Sprintf("%s/models/%s:generateContent?key=%s",
-		provider.baseURL, request.Model, provider.apiKey)
-	if err := postJSON(ctx, provider.client, endpoint, nil, body, &answer); err != nil {
+	endpoint := fmt.Sprintf("%s/models/%s:generateContent",
+		provider.baseURL, url.PathEscape(request.Model))
+	headers := http.Header{"x-goog-api-key": []string{provider.apiKey}}
+	if err := postJSON(ctx, provider.client, endpoint, headers, body, &answer); err != nil {
 		return Response{}, err
 	}
 	if len(answer.Candidates) == 0 || len(answer.Candidates[0].Content.Parts) == 0 {
@@ -345,6 +349,12 @@ func postJSON(
 
 	response, err := client.Do(request)
 	if err != nil {
+		// A *url.Error quotes the whole request URL. Keep the cause, which is
+		// what errors.Is needs, and drop the address: the caller logs this.
+		var urlErr *url.Error
+		if errors.As(err, &urlErr) {
+			return fmt.Errorf("ai provider request failed: %w", urlErr.Err)
+		}
 		return err
 	}
 	defer response.Body.Close()
