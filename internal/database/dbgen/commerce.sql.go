@@ -2853,6 +2853,28 @@ func (q *Queries) LockOrder(ctx context.Context, id pgtype.UUID) (Order, error) 
 	return i, err
 }
 
+const markOrderFulfilled = `-- name: MarkOrderFulfilled :execrows
+UPDATE orders
+SET state = 'fulfilled', paid_at = COALESCE(paid_at, now()), updated_at = now()
+WHERE id = $1 AND state = 'paid'
+`
+
+// Moves a paid order to fulfilled, and nothing else.
+//
+// The state guard is the point. Provisioning is asynchronous, and a refund
+// can land between settlement and the worker's success: an unguarded write
+// turned a refunded order back into a fulfilled one, and the refund vanished
+// from the order's state. A partially refunded order stays partially
+// refunded for the same reason. paid_at follows the same first-settlement
+// rule as UpdateOrderPayment; for a paid order it is already set.
+func (q *Queries) MarkOrderFulfilled(ctx context.Context, id pgtype.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, markOrderFulfilled, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const nextPlanVersion = `-- name: NextPlanVersion :one
 WITH locked AS (SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0)))
 SELECT COALESCE(max(version), 0)::integer + 1 FROM plan_versions, locked WHERE plan_id = $1
@@ -2970,6 +2992,24 @@ func (q *Queries) ResumeEntitlement(ctx context.Context, entitlementID pgtype.UU
 	return i, err
 }
 
+const retireUnprovisionedEntitlement = `-- name: RetireUnprovisionedEntitlement :execrows
+UPDATE entitlements
+SET status = 'superseded', updated_at = now()
+WHERE id = $1 AND status = 'pending'
+`
+
+// Retires an entitlement that was never provisioned and never will be: its
+// order was refunded before the first push reached Remnawave, or it was
+// scheduled to start later and the change it carried was given back. It is
+// `superseded` rather than deleted, so the order still explains itself.
+func (q *Queries) RetireUnprovisionedEntitlement(ctx context.Context, id pgtype.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, retireUnprovisionedEntitlement, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const revokeCustomerIdentity = `-- name: RevokeCustomerIdentity :one
 UPDATE identities
 SET status = 'revoked', revoked_at = now()
@@ -2996,54 +3036,6 @@ func (q *Queries) RevokeCustomerIdentity(ctx context.Context, arg RevokeCustomer
 		&i.RevokedAt,
 		&i.Metadata,
 		&i.OidcIssuer,
-	)
-	return i, err
-}
-
-const setOrderState = `-- name: SetOrderState :one
-UPDATE orders
-SET state = $2,
-    paid_at = CASE
-      WHEN $2 IN ('paid', 'fulfilled', 'partially_refunded', 'refunded')
-      THEN COALESCE(paid_at, now())
-      ELSE paid_at
-    END,
-    updated_at = now()
-WHERE id = $1
-RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at
-`
-
-type SetOrderStateParams struct {
-	ID    pgtype.UUID `json:"id"`
-	State string      `json:"state"`
-}
-
-// The same first-settlement rule as UpdateOrderPayment. It is repeated rather
-// than centralised because these are the only two statements that can move an
-// order into a settled state, and a report keyed on a timestamp that one of
-// them forgot to set would under-count silently.
-func (q *Queries) SetOrderState(ctx context.Context, arg SetOrderStateParams) (Order, error) {
-	row := q.db.QueryRow(ctx, setOrderState, arg.ID, arg.State)
-	var i Order
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.State,
-		&i.Operation,
-		&i.Currency,
-		&i.SubtotalMinor,
-		&i.DiscountMinor,
-		&i.WalletMinor,
-		&i.ExternalMinor,
-		&i.PaidMinor,
-		&i.RefundedMinor,
-		&i.IdempotencyKey,
-		&i.ExpiresAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.SubscriptionID,
-		&i.SelectedSquadIds,
-		&i.PaidAt,
 	)
 	return i, err
 }

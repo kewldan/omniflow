@@ -409,21 +409,27 @@ SET state = sqlc.arg(state), refunded_minor = sqlc.arg(refunded_minor), updated_
 WHERE id = sqlc.arg(order_id)
 RETURNING *;
 
--- name: SetOrderState :one
--- The same first-settlement rule as UpdateOrderPayment. It is repeated rather
--- than centralised because these are the only two statements that can move an
--- order into a settled state, and a report keyed on a timestamp that one of
--- them forgot to set would under-count silently.
+-- name: MarkOrderFulfilled :execrows
+-- Moves a paid order to fulfilled, and nothing else.
+--
+-- The state guard is the point. Provisioning is asynchronous, and a refund
+-- can land between settlement and the worker's success: an unguarded write
+-- turned a refunded order back into a fulfilled one, and the refund vanished
+-- from the order's state. A partially refunded order stays partially
+-- refunded for the same reason. paid_at follows the same first-settlement
+-- rule as UpdateOrderPayment; for a paid order it is already set.
 UPDATE orders
-SET state = $2,
-    paid_at = CASE
-      WHEN $2 IN ('paid', 'fulfilled', 'partially_refunded', 'refunded')
-      THEN COALESCE(paid_at, now())
-      ELSE paid_at
-    END,
-    updated_at = now()
-WHERE id = $1
-RETURNING *;
+SET state = 'fulfilled', paid_at = COALESCE(paid_at, now()), updated_at = now()
+WHERE id = $1 AND state = 'paid';
+
+-- name: RetireUnprovisionedEntitlement :execrows
+-- Retires an entitlement that was never provisioned and never will be: its
+-- order was refunded before the first push reached Remnawave, or it was
+-- scheduled to start later and the change it carried was given back. It is
+-- `superseded` rather than deleted, so the order still explains itself.
+UPDATE entitlements
+SET status = 'superseded', updated_at = now()
+WHERE id = $1 AND status = 'pending';
 
 -- name: ExtendOrderExpiry :one
 -- Lengthens a pending order's payment window for a provider chosen after the

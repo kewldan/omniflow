@@ -130,6 +130,23 @@ func (worker *Worker) claim(ctx context.Context, operationID pgtype.UUID) (claim
 	if reason, obsolete := obsoleteOperation(entitlement.Status); obsolete {
 		return claim{}, false, worker.cancel(ctx, tx, queries, operation, reason)
 	}
+	if operation.Operation == "create" {
+		// A create provisions what an order bought, so it needs an order that
+		// still stands. One refunded before provisioning ran must not hand out
+		// the access the customer was given their money back for: the
+		// operation is cancelled before Remnawave is asked anything, and the
+		// entitlement, which was never provisioned, is retired with it.
+		order, orderErr := queries.GetOrder(ctx, entitlement.OrderID)
+		if orderErr != nil {
+			return claim{}, false, orderErr
+		}
+		if reason, blocked := orderBlocksProvisioning(order.State); blocked {
+			if _, err = queries.RetireUnprovisionedEntitlement(ctx, entitlement.ID); err != nil {
+				return claim{}, false, err
+			}
+			return claim{}, false, worker.cancel(ctx, tx, queries, operation, reason)
+		}
+	}
 	var desired desiredState
 	if err := json.Unmarshal(operation.DesiredState, &desired); err != nil {
 		return claim{}, false, worker.failPermanent(ctx, tx, queries, operation, "invalid_desired_state")
@@ -182,6 +199,21 @@ func (worker *Worker) claim(ctx context.Context, operationID pgtype.UUID) (claim
 		operation: operation, entitlement: entitlement, subscription: subscription,
 		desired: desired, remoteID: remoteID,
 	}, true, nil
+}
+
+// orderBlocksProvisioning reports whether an order's state forbids
+// provisioning what it bought, and why. A refunded order was given its money
+// back; a cancelled or expired one never settled. A partially refunded order
+// still bought the product and is provisioned.
+func orderBlocksProvisioning(state string) (string, bool) {
+	switch state {
+	case "refunded":
+		return "order_refunded", true
+	case "cancelled", "expired", "draft", "pending":
+		return "order_not_paid", true
+	default:
+		return "", false
+	}
 }
 
 // leaseHeld reports whether a running operation is still inside the lease of
@@ -385,7 +417,11 @@ func (worker *Worker) recordSuccess(ctx context.Context, claimed claim, result o
 		return err
 	}
 	if operation.Operation == "create" {
-		if _, err = queries.SetOrderState(ctx, dbgen.SetOrderStateParams{ID: entitlement.OrderID, State: "fulfilled"}); err != nil {
+		// Only a paid order becomes fulfilled. One refunded while Remnawave
+		// was being asked keeps its refund: the access this run created is
+		// recorded truthfully above, and the refund's own revocation — or the
+		// next reconcile of the shortened entitlement — takes it back.
+		if _, err = queries.MarkOrderFulfilled(ctx, entitlement.OrderID); err != nil {
 			return err
 		}
 	}

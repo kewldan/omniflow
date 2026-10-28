@@ -93,7 +93,7 @@ or `paid` directly, so a customer will not normally see it.
 | → `paid` at creation | order creation | `external_minor = 0`, the wallet covered everything; `paid_minor` and `paid_at` are written in the same insert |
 | `pending` → `paid` | the settlement path | the order row is locked `FOR UPDATE` and the payment classified as settling |
 | `cancelled` / `expired` → `paid` | the settlement path | the same lock; the payment is classified `paid_after_cancellation` or `late` |
-| `paid` → `fulfilled` | the fulfillment worker, or the add-on applier | a successful Remnawave `create`, or the add-on capacity applied |
+| `paid` → `fulfilled` | the fulfillment worker, or the add-on applier | a successful Remnawave `create`, or the add-on capacity applied, and the order is still `paid` — a refund that landed during provisioning is never overwritten |
 | → `cancelled` | the cancel statement | current state is `draft`, `pending` or already `cancelled` |
 | → `expired` | the expiry sweep | `state IN ('draft','pending') AND expires_at <= now()`, `FOR UPDATE SKIP LOCKED` |
 | → `partially_refunded` / `refunded` | the refund recorder | refunded total equals `paid_minor` ⇒ `refunded`, otherwise `partially_refunded` |

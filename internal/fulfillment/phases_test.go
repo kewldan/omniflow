@@ -26,6 +26,22 @@ func TestLeaseHeldOnlyByARunningClaimInsideItsLease(t *testing.T) {
 	}
 }
 
+// A create provisions what an order bought. A refunded order was given its
+// money back and an unsettled one never paid; a partial refund still bought
+// the product.
+func TestOrderBlocksProvisioningOnlyWithoutAStandingPurchase(t *testing.T) {
+	for state, want := range map[string]string{"refunded": "order_refunded", "cancelled": "order_not_paid", "expired": "order_not_paid"} {
+		if reason, blocked := orderBlocksProvisioning(state); !blocked || reason != want {
+			t.Fatalf("%s: (%q, %v), want (%q, true)", state, reason, blocked, want)
+		}
+	}
+	for _, state := range []string{"paid", "fulfilled", "partially_refunded"} {
+		if _, blocked := orderBlocksProvisioning(state); blocked {
+			t.Fatalf("a %s order must be provisioned", state)
+		}
+	}
+}
+
 // Only a serialization failure is retried, and only a bounded number of times:
 // any other error is the caller's to handle.
 func TestRetrySerializableRetriesOnlySerializationFailures(t *testing.T) {

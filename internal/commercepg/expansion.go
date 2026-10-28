@@ -657,7 +657,7 @@ func (store *Store) applyOrderAddons(ctx context.Context, tx pgx.Tx, queries *db
 	if _, err = queries.InsertOutboxEvent(ctx, dbgen.InsertOutboxEventParams{Topic: "addon.purchased", Payload: []byte(fmt.Sprintf(`{"orderId":%q,"entitlementId":%q}`, uuidString(order.ID), uuidString(updated.ID)))}); err != nil {
 		return err
 	}
-	if _, err = queries.SetOrderState(ctx, dbgen.SetOrderStateParams{ID: order.ID, State: string(commerce.OrderFulfilled)}); err != nil {
+	if _, err = queries.MarkOrderFulfilled(ctx, order.ID); err != nil {
 		return err
 	}
 	return store.enqueue(ctx, tx, uuidString(operation.ID))

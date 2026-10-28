@@ -96,7 +96,7 @@ stateDiagram-v2
 | → `paid` при создании | создание заказа | `external_minor = 0`, кошелёк покрыл всё; `paid_minor` и `paid_at` пишутся в той же вставке |
 | `pending` → `paid` | путь проведения платежа | строка заказа заблокирована `FOR UPDATE`, а платёж классифицирован как проводящий заказ |
 | `cancelled` / `expired` → `paid` | путь проведения платежа | та же блокировка; платёж классифицирован как `paid_after_cancellation` или `late` |
-| `paid` → `fulfilled` | воркер исполнения или применение дополнения | успешный `create` в Remnawave либо применённая ёмкость дополнения |
+| `paid` → `fulfilled` | воркер исполнения или применение дополнения | успешный `create` в Remnawave либо применённая ёмкость дополнения, и заказ всё ещё `paid` — возврат, пришедший во время выдачи доступа, никогда не перезаписывается |
 | → `cancelled` | запрос отмены | текущее состояние — `draft`, `pending` или уже `cancelled` |
 | → `expired` | чистка истёкших заказов | `state IN ('draft','pending') AND expires_at <= now()`, `FOR UPDATE SKIP LOCKED` |
 | → `partially_refunded` / `refunded` | регистратор возвратов | суммарный возврат равен `paid_minor` ⇒ `refunded`, иначе `partially_refunded` |

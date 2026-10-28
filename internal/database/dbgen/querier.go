@@ -1220,6 +1220,15 @@ type Querier interface {
 	// the update to 'pending' means a replayed settlement changes nothing.
 	MarkGiftDeliverable(ctx context.Context, giftID pgtype.UUID) (Gift, error)
 	MarkGiftRefunded(ctx context.Context, giftID pgtype.UUID) (Gift, error)
+	// Moves a paid order to fulfilled, and nothing else.
+	//
+	// The state guard is the point. Provisioning is asynchronous, and a refund
+	// can land between settlement and the worker's success: an unguarded write
+	// turned a refunded order back into a fulfilled one, and the refund vanished
+	// from the order's state. A partially refunded order stays partially
+	// refunded for the same reason. paid_at follows the same first-settlement
+	// rule as UpdateOrderPayment; for a paid order it is already set.
+	MarkOrderFulfilled(ctx context.Context, id pgtype.UUID) (int64, error)
 	MarkPaymentMethodStatus(ctx context.Context, arg MarkPaymentMethodStatusParams) (PaymentMethod, error)
 	MarkSupportTicketRead(ctx context.Context, ticketID pgtype.UUID) (SupportTicket, error)
 	// Reprocessing is replay-safe because the downstream handlers are keyed on the
@@ -1489,6 +1498,11 @@ type Querier interface {
 	ResumeEntitlement(ctx context.Context, entitlementID pgtype.UUID) (Entitlement, error)
 	RetireAddonVersion(ctx context.Context, addonVersionID pgtype.UUID) (AddonVersion, error)
 	RetirePlanVersion(ctx context.Context, planVersionID pgtype.UUID) (PlanVersion, error)
+	// Retires an entitlement that was never provisioned and never will be: its
+	// order was refunded before the first push reached Remnawave, or it was
+	// scheduled to start later and the change it carried was given back. It is
+	// `superseded` rather than deleted, so the order still explains itself.
+	RetireUnprovisionedEntitlement(ctx context.Context, id pgtype.UUID) (int64, error)
 	// Records the reversal on the reward. The compensating ledger entries are
 	// written by the caller in the same transaction, so a reward can never read as
 	// reversed without the money having moved back.
@@ -1702,11 +1716,6 @@ type Querier interface {
 	// Publication is recorded, not inferred. `published_at` is set once and kept, so
 	// unpublishing and republishing does not rewrite when customers first saw it.
 	SetNewsPostState(ctx context.Context, arg SetNewsPostStateParams) (NewsPost, error)
-	// The same first-settlement rule as UpdateOrderPayment. It is repeated rather
-	// than centralised because these are the only two statements that can move an
-	// order into a settled state, and a report keyed on a timestamp that one of
-	// them forgot to set would under-count silently.
-	SetOrderState(ctx context.Context, arg SetOrderStateParams) (Order, error)
 	// Replaces the add-ons offered with a plan version. Deleting first keeps the
 	// set exactly what the operator chose rather than the union of every edit.
 	SetPlanVersionAddons(ctx context.Context, planVersionID pgtype.UUID) error

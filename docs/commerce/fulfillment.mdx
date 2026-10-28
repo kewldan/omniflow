@@ -64,7 +64,7 @@ after the commit" is an ordering convention that a crash breaks and an invariant
 
 On success, the worker writes the observed Remnawave state onto the entitlement and the
 subscription, resolves any open drifts for that entitlement, and — for a `create` — supersedes the
-previous entitlements of that same subscription and moves the order to `fulfilled`. A customer's
+previous entitlements of that same subscription and moves the order to `fulfilled` if it is still `paid`. A customer's
 second subscription therefore never retires the first one's entitlement.
 
 ## The operation set
@@ -176,6 +176,13 @@ anything, with `last_error_code = "entitlement_superseded"` and a `cancelled` hi
 the guard against a stale reconcile: a `reconcile` queued for the old entitlement and run after the
 renewal's `create` would otherwise push the old expiry over the new one and write `active` back
 onto a retired row. It is not a failure and notifies nobody — the work is simply no longer wanted.
+
+A `create` also needs the order it provisions to still stand. One whose order was refunded before
+provisioning ran is cancelled with `last_error_code = "order_refunded"` (`order_not_paid` for an order
+that never settled), Remnawave is asked nothing, and the entitlement — never provisioned — is retired
+as `superseded`. A refund that lands while the `create` is already talking to Remnawave cannot be
+undone by the worker's success: the order moves to `fulfilled` only from `paid`, so a refunded order
+stays refunded and the refund's own revocation takes the access back.
 
 Each failure writes the operation back to `retrying` with the classified error code and a recorded
 next-attempt time of `5s × 2^min(attempt, 8)` — five seconds, then ten, twenty, and so on to a
