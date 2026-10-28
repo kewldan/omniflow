@@ -2642,7 +2642,7 @@ func (q *Queries) ListRemnawaveMappings(ctx context.Context) ([]ListRemnawaveMap
 
 const listStalledFulfillmentOperations = `-- name: ListStalledFulfillmentOperations :many
 SELECT id, entitlement_id, operation, status, idempotency_key, correlation_id, desired_state, attempt_count, next_attempt_at, last_error_code, created_at, updated_at, completed_at FROM fulfillment_operations
-WHERE status IN ('pending', 'retrying')
+WHERE status IN ('pending', 'retrying', 'running')
   AND next_attempt_at < $1::timestamptz
   AND created_at < $1::timestamptz
 ORDER BY next_attempt_at
@@ -2658,6 +2658,11 @@ type ListStalledFulfillmentOperationsParams struct {
 // process could not insert the job, or a job the queue discarded after its
 // last attempt. The worker re-inserts the job for each; River's uniqueness on
 // the operation ID makes that a no-op when the job is merely queued.
+//
+// A `running` operation is included once its claim lease is long past: for a
+// running row next_attempt_at is the lease expiry, and a run that has not
+// recorded by then died between claiming the operation and writing the result.
+// The worker takes an expired claim over rather than waiting on it.
 func (q *Queries) ListStalledFulfillmentOperations(ctx context.Context, arg ListStalledFulfillmentOperationsParams) ([]FulfillmentOperation, error) {
 	rows, err := q.db.Query(ctx, listStalledFulfillmentOperations, arg.Before, arg.PageSize)
 	if err != nil {

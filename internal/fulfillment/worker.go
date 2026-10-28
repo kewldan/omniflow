@@ -78,199 +78,6 @@ func (desired desiredState) withGrace(grace time.Duration) desiredState {
 	return desired
 }
 
-func (worker *Worker) work(ctx context.Context, job *river.Job[JobArgs]) error {
-	operationID, err := parseUUID(job.Args.OperationID)
-	if err != nil {
-		return river.JobCancel(err)
-	}
-	tx, err := worker.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	queries := dbgen.New(tx)
-	operation, err := queries.LockFulfillmentOperation(ctx, operationID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return river.JobCancel(err)
-		}
-		return err
-	}
-	if operation.Status == "succeeded" || operation.Status == "cancelled" {
-		return tx.Commit(ctx)
-	}
-	entitlement, err := queries.GetEntitlement(ctx, operation.EntitlementID)
-	if err != nil {
-		return err
-	}
-	// An operation outlives the entitlement it was written for when a newer
-	// entitlement of the same subscription is provisioned first — a reconcile
-	// queued before a renewal settled, for instance. Applying it now would
-	// push the old expiry over the new one and write `active` back onto a row
-	// that has been retired, which is two live entitlements and an expiry
-	// that flickers every fifteen minutes. It is cancelled, with the reason,
-	// before anything is asked of Remnawave.
-	if reason, obsolete := obsoleteOperation(entitlement.Status); obsolete {
-		return worker.cancel(ctx, tx, queries, operation, reason)
-	}
-	var desired desiredState
-	if err := json.Unmarshal(operation.DesiredState, &desired); err != nil {
-		return worker.failPermanent(ctx, tx, queries, operation, "invalid_desired_state")
-	}
-	if !desired.EffectiveAt.IsZero() && worker.clock().Before(desired.EffectiveAt) {
-		return river.JobSnooze(desired.EffectiveAt.Sub(worker.clock()))
-	}
-	// The grace period is the plan's promise that access outlives the paid end
-	// by a little, so the customer can renew without a gap. It only means
-	// anything if Remnawave is told, so it is folded into the expiry here.
-	graceSeconds, err := queries.GetPlanVersionGracePeriod(ctx, entitlement.PlanVersionID)
-	if err != nil {
-		return err
-	}
-	desired = desired.withGrace(time.Duration(graceSeconds) * time.Second)
-	operation, err = queries.UpdateFulfillmentOperation(ctx, dbgen.UpdateFulfillmentOperationParams{OperationID: operation.ID, Status: "running", AttemptCount: operation.AttemptCount + 1, NextAttemptAt: pgtype.Timestamptz{Time: worker.clock(), Valid: true}})
-	if err != nil {
-		return err
-	}
-	subscription, err := worker.subscriptionFor(ctx, queries, entitlement)
-	if err != nil {
-		return err
-	}
-	if operation.Operation == "reconcile" {
-		if err := worker.detectDrift(ctx, queries, entitlement, subscription, desired); err != nil {
-			code := classifyError(err)
-			_, _ = queries.InsertFulfillmentHistory(ctx, dbgen.InsertFulfillmentHistoryParams{OperationID: operation.ID, Status: "retrying", CorrelationID: operation.CorrelationID, RequestSummary: safeDesiredSummary(desired), ResponseSummary: []byte(`{}`), ErrorCode: pgtype.Text{String: code, Valid: true}})
-			if commitErr := tx.Commit(ctx); commitErr != nil {
-				return commitErr
-			}
-			return err
-		}
-	}
-	// Maintenance mode holds provisioning back without losing it: the operation
-	// stays pending and River snoozes the job until the dependency recovers.
-	if paused, pauseErr := worker.maintenanceActive(ctx, queries); pauseErr != nil {
-		return pauseErr
-	} else if paused {
-		if _, err = queries.UpdateFulfillmentOperation(ctx, dbgen.UpdateFulfillmentOperationParams{OperationID: operation.ID, Status: "retrying", AttemptCount: operation.AttemptCount - 1, NextAttemptAt: pgtype.Timestamptz{Time: worker.clock().Add(maintenanceSnooze), Valid: true}, LastErrorCode: pgtype.Text{String: "maintenance_active", Valid: true}}); err != nil {
-			return err
-		}
-		if err = tx.Commit(ctx); err != nil {
-			return err
-		}
-		return river.JobSnooze(maintenanceSnooze)
-	}
-	remote, callErr := worker.apply(ctx, queries, operation.Operation, entitlement, subscription, desired)
-	if callErr != nil {
-		code := classifyError(callErr)
-		nextAttempt := worker.clock().Add(backoff(operation.AttemptCount))
-		_, _ = queries.UpdateFulfillmentOperation(ctx, dbgen.UpdateFulfillmentOperationParams{OperationID: operation.ID, Status: "retrying", AttemptCount: operation.AttemptCount, NextAttemptAt: pgtype.Timestamptz{Time: nextAttempt, Valid: true}, LastErrorCode: pgtype.Text{String: code, Valid: true}})
-		_, _ = queries.InsertFulfillmentHistory(ctx, dbgen.InsertFulfillmentHistoryParams{OperationID: operation.ID, Status: "retrying", CorrelationID: operation.CorrelationID, RequestSummary: safeDesiredSummary(desired), ResponseSummary: []byte(`{}`), ErrorCode: pgtype.Text{String: code, Valid: true}})
-		// Operators are told once a run has clearly stopped being a blip. The
-		// dedupe key is the operation, so one struggling entitlement produces one
-		// notice however many times it retries.
-		if operation.AttemptCount >= operatorAlertAttempts {
-			notifyFulfillmentFailure(ctx, queries, operation, code)
-		}
-		if commitErr := tx.Commit(ctx); commitErr != nil {
-			return commitErr
-		}
-		return callErr
-	}
-	observed, _ := json.Marshal(map[string]any{"status": remote.Status, "expireAt": remote.ExpireAt, "trafficLimitBytes": remote.TrafficLimitBytes, "deviceLimit": remote.HWIDDeviceLimit})
-	if subscription.ID.Valid {
-		if _, err = queries.UpsertSubscriptionRemnawaveUser(ctx, dbgen.UpsertSubscriptionRemnawaveUserParams{SubscriptionID: subscription.ID, RemnawaveUserID: pgtype.Int8{Int64: remote.ID, Valid: true}, RemnawaveUsername: pgtype.Text{String: remote.Username, Valid: remote.Username != ""}, ObservedState: observed}); err != nil {
-			return err
-		}
-	}
-	// The customer-level mapping stays the primary subscription's Remnawave
-	// user, so the v0.2 self-service screens keep resolving unchanged.
-	if subscription.Slot <= 1 {
-		if _, err = queries.UpsertRemnawaveMapping(ctx, dbgen.UpsertRemnawaveMappingParams{UserID: entitlement.UserID, RemnawaveID: remote.ID, ObservedState: observed}); err != nil {
-			return err
-		}
-	}
-	if _, err = queries.UpdateEntitlementObservedState(ctx, dbgen.UpdateEntitlementObservedStateParams{EntitlementID: entitlement.ID, Status: reconciledStatus(entitlement.Status, remote), RemnawaveUserID: pgtype.Int8{Int64: remote.ID, Valid: true}, ObservedState: observed}); err != nil {
-		return err
-	}
-	if err = queries.ResolveEntitlementDrifts(ctx, entitlement.ID); err != nil {
-		return err
-	}
-	if operation.Operation == "create" {
-		if err = queries.SupersedePreviousEntitlements(ctx, dbgen.SupersedePreviousEntitlementsParams{UserID: entitlement.UserID, CurrentEntitlementID: entitlement.ID, SubscriptionID: entitlement.SubscriptionID}); err != nil {
-			return err
-		}
-	}
-	if _, err = queries.UpdateFulfillmentOperation(ctx, dbgen.UpdateFulfillmentOperationParams{OperationID: operation.ID, Status: "succeeded", AttemptCount: operation.AttemptCount, NextAttemptAt: pgtype.Timestamptz{Time: worker.clock(), Valid: true}}); err != nil {
-		return err
-	}
-	if _, err = queries.InsertFulfillmentHistory(ctx, dbgen.InsertFulfillmentHistoryParams{OperationID: operation.ID, Status: "succeeded", CorrelationID: operation.CorrelationID, RequestSummary: safeDesiredSummary(desired), ResponseSummary: []byte(fmt.Sprintf(`{"remnawaveUserId":%d,"status":%q}`, remote.ID, remote.Status))}); err != nil {
-		return err
-	}
-	if operation.Operation == "create" {
-		if _, err = queries.SetOrderState(ctx, dbgen.SetOrderStateParams{ID: entitlement.OrderID, State: "fulfilled"}); err != nil {
-			return err
-		}
-	}
-	return tx.Commit(ctx)
-}
-
-func (worker *Worker) detectDrift(ctx context.Context, queries *dbgen.Queries, entitlement dbgen.Entitlement, subscription dbgen.Subscription, desired desiredState) error {
-	// Drift is always evaluated against the Remnawave user this subscription
-	// owns, so one customer's second subscription can never be mistaken for the
-	// first one's remote state.
-	remoteID, err := worker.remoteUserID(ctx, queries, entitlement, subscription)
-	if err != nil {
-		return nil
-	}
-	if remoteID == 0 {
-		_, _ = queries.InsertEntitlementDrift(ctx, dbgen.InsertEntitlementDriftParams{EntitlementID: entitlement.ID, Kind: "missing_remote", Expected: []byte(`{"exists":true}`), Observed: []byte(`{"exists":false}`)})
-		return nil
-	}
-	remote, err := worker.provisioner.User(ctx, remoteID)
-	if errors.Is(err, remnawave.ErrNotFound) {
-		_, _ = queries.InsertEntitlementDrift(ctx, dbgen.InsertEntitlementDriftParams{EntitlementID: entitlement.ID, Kind: "missing_remote", Expected: []byte(`{"exists":true}`), Observed: []byte(`{"exists":false}`)})
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	type mismatch struct {
-		kind               string
-		expected, observed any
-	}
-	mismatches := make([]mismatch, 0, 4)
-	if !remote.ExpireAt.Equal(desired.remoteExpireAt) {
-		mismatches = append(mismatches, mismatch{"expiry", desired.remoteExpireAt, remote.ExpireAt})
-	}
-	// A nil desired limit means unlimited, and unlimited is a value Remnawave
-	// can disagree with: a user still carrying the previous plan's cap is
-	// drift, not "nothing configured".
-	if !trafficLimitAgrees(desired.TrafficAllowanceBytes, remote.TrafficLimitBytes) {
-		mismatches = append(mismatches, mismatch{"traffic", desired.TrafficAllowanceBytes, remote.TrafficLimitBytes})
-	}
-	if !deviceLimitAgrees(desired.DeviceLimit, remote.HWIDDeviceLimit) {
-		mismatches = append(mismatches, mismatch{"device_limit", desired.DeviceLimit, remote.HWIDDeviceLimit})
-	}
-	remoteSquads := make([]string, 0, len(remote.ActiveInternalSquads))
-	for _, squad := range remote.ActiveInternalSquads {
-		remoteSquads = append(remoteSquads, squad.UUID)
-	}
-	if !sameStringSet(desired.SquadIDs, remoteSquads) {
-		mismatches = append(mismatches, mismatch{"squads", desired.SquadIDs, remoteSquads})
-	}
-	if reconciled := reconciledStatus(entitlement.Status, remote); reconciled != entitlement.Status {
-		mismatches = append(mismatches, mismatch{"status", entitlement.Status, reconciled})
-	}
-	for _, item := range mismatches {
-		expected, _ := json.Marshal(map[string]any{"value": item.expected})
-		observed, _ := json.Marshal(map[string]any{"value": item.observed})
-		if _, err := queries.InsertEntitlementDrift(ctx, dbgen.InsertEntitlementDriftParams{EntitlementID: entitlement.ID, Kind: item.kind, Expected: expected, Observed: observed}); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // trafficLimitAgrees reports whether Remnawave's traffic cap matches the
 // desired allowance, where a nil allowance is unlimited and Remnawave spells
 // unlimited as zero.
@@ -361,7 +168,13 @@ func (worker *Worker) remoteUserID(ctx context.Context, queries *dbgen.Queries, 
 	return mapping.RemnawaveID, nil
 }
 
-func (worker *Worker) apply(ctx context.Context, queries *dbgen.Queries, operation string, entitlement dbgen.Entitlement, subscription dbgen.Subscription, desired desiredState) (remnawave.User, error) {
+// apply makes the Remnawave calls one operation needs. It runs outside any
+// transaction and reads nothing from the database: everything it needs was
+// resolved by the claim.
+func (worker *Worker) apply(ctx context.Context, claimed claim) (remnawave.User, error) {
+	operation, entitlement, subscription := claimed.operation.Operation, claimed.entitlement, claimed.subscription
+	desired, remoteID := claimed.desired, claimed.remoteID
+	var err error
 	username := legacyUsername(entitlement.UserID)
 	candidates := []string{username}
 	if subscription.ID.Valid {
@@ -372,10 +185,6 @@ func (worker *Worker) apply(ctx context.Context, queries *dbgen.Queries, operati
 		}
 	}
 	provision := remnawave.ProvisionUser{Username: username, ExpireAt: desired.remoteExpireAt, TrafficLimitBytes: desired.TrafficAllowanceBytes, HWIDDeviceLimit: desired.DeviceLimit, InternalSquadIDs: desired.SquadIDs}
-	remoteID, err := worker.remoteUserID(ctx, queries, entitlement, subscription)
-	if err != nil {
-		return remnawave.User{}, err
-	}
 	// createOrRecover reports whether the user was created fresh: a brand-new
 	// user has no traffic to reset and nothing to re-enable.
 	createOrRecover := func() (remnawave.User, bool, error) {

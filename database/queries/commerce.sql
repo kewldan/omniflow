@@ -669,8 +669,13 @@ SELECT * FROM fulfillment_operations WHERE id = $1 FOR UPDATE;
 -- process could not insert the job, or a job the queue discarded after its
 -- last attempt. The worker re-inserts the job for each; River's uniqueness on
 -- the operation ID makes that a no-op when the job is merely queued.
+--
+-- A `running` operation is included once its claim lease is long past: for a
+-- running row next_attempt_at is the lease expiry, and a run that has not
+-- recorded by then died between claiming the operation and writing the result.
+-- The worker takes an expired claim over rather than waiting on it.
 SELECT * FROM fulfillment_operations
-WHERE status IN ('pending', 'retrying')
+WHERE status IN ('pending', 'retrying', 'running')
   AND next_attempt_at < sqlc.arg(before)::timestamptz
   AND created_at < sqlc.arg(before)::timestamptz
 ORDER BY next_attempt_at

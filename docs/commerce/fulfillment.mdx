@@ -149,9 +149,27 @@ Two further refusals happen before anything is queued:
 
 ## Retries, backoff, and permanent failure
 
-The job runs in a `Serializable` transaction and takes `SELECT … FOR UPDATE` on the operation row, so
-two workers cannot apply the same operation at once. An operation already `succeeded` or `cancelled`
-commits and does nothing.
+A run is three steps, and only the middle one talks to Remnawave:
+
+1. **Claim.** A short `Serializable` transaction takes `SELECT … FOR UPDATE` on the operation row,
+   decides whether the operation should run at all, reads everything the calls need, and marks it
+   `running` with the attempt count incremented and a **two-minute lease** written into
+   `next_attempt_at`. An operation already `succeeded` or `cancelled` commits and does nothing.
+2. **Call.** The Remnawave requests, outside any transaction. No row lock, no transaction, and no
+   pool connection is held while the panel answers — previously all three were pinned for up to
+   five sequential ten-second requests. The calls are idempotent by construction: the username is
+   derived from the subscription and looked up before anything is created.
+3. **Record.** A second short transaction writes the result, but only if the claim is still this
+   run's: the operation must still be `running` with the attempt count the claim wrote. A run whose
+   lease lapsed and was taken over by another drops its result rather than overwrite the newer one.
+   The entitlement is re-read here too, so one retired while Remnawave was being asked is cancelled
+   as `entitlement_superseded` instead of having `active` written back onto it. A serialization
+   failure in either transaction is retried in place a few times; Remnawave is never called again
+   from that retry.
+
+Two runs therefore cannot apply one operation at once. A run that finds the operation `running`
+inside its lease snoozes until the lease ends; one that finds the lease lapsed — its claimant
+crashed between claim and record — takes the operation over with a fresh attempt.
 
 An operation whose entitlement has since been `superseded` is cancelled before Remnawave is asked
 anything, with `last_error_code = "entitlement_superseded"` and a `cancelled` history row. This is
@@ -209,9 +227,10 @@ changes the behaviour deliberately.
 ## Maintenance mode holds provisioning
 
 While maintenance is active, `Blocks(ActionFulfillment)` is true and the worker holds the operation
-rather than running it. The check happens *after* the operation is claimed: the worker rewinds the
-attempt count so the pause does not consume a retry, records `maintenance_active`, sets the status to
-`retrying` with the next attempt one minute out, commits, and snoozes the job for a minute.
+rather than running it. The check happens inside the claim transaction, before the operation is
+marked `running`: the attempt count is left as it was so the pause does not consume a retry, the
+worker records `maintenance_active`, sets the status to `retrying` with the next attempt one minute
+out, commits, and snoozes the job for a minute.
 
 Holding provisioning without losing it means an outage costs a delay rather than an entitlement.
 Purchases are blocked at the same time, so no new money enters an installation that cannot provision;
@@ -254,8 +273,9 @@ any of them.
 ### Revival of stalled operations
 
 Every five minutes the same worker loop looks for operations that should have run and have not: rows
-in `pending` or `retrying` whose creation time and recorded `next_attempt_at` both lie more than ten
-minutes in the past. For each one it inserts a `fulfillment` job with the same arguments and the same
+in `pending`, `retrying` or `running` whose creation time and recorded `next_attempt_at` both lie more
+than ten minutes in the past. For a `running` row `next_attempt_at` is the claim's lease, so this
+catches a claim whose worker died before recording a result; the job it gets takes the claim over. For each one it inserts a `fulfillment` job with the same arguments and the same
 uniqueness options the original settlement used.
 
 The insert is what makes the scan safe to run blindly. River enforces uniqueness on the operation

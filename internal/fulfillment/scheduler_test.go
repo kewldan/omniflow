@@ -27,7 +27,8 @@ func TestStaleOperationSelectsOnlyAbandonedWork(t *testing.T) {
 		{"already succeeded", "succeeded", old, old, false},
 		{"cancelled", "cancelled", old, old, false},
 		{"failed permanently", "failed", old, old, false},
-		{"running right now", "running", old, old, false},
+		{"running inside its claim lease", "running", old, recent, false},
+		{"running whose claim lease ended long ago", "running", old, old, true},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {

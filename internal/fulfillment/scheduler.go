@@ -169,8 +169,13 @@ func (scheduler *Scheduler) Revive(ctx context.Context) error {
 // Both instants are checked so a retry scheduled for the future is never
 // treated as stuck, and a freshly created operation is given time for the job
 // that was inserted with it.
+//
+// A `running` operation qualifies on the same terms, because for a claimed row
+// next_attempt_at is the end of the claim's lease. One whose lease ended long
+// ago belongs to a run that crashed between the claim and the record, and the
+// job inserted for it takes the claim over.
 func StaleOperation(status string, createdAt, nextAttemptAt, before time.Time) bool {
-	if status != "pending" && status != "retrying" {
+	if status != "pending" && status != "retrying" && status != "running" {
 		return false
 	}
 	return createdAt.Before(before) && nextAttemptAt.Before(before)

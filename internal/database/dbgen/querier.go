@@ -1114,6 +1114,11 @@ type Querier interface {
 	// process could not insert the job, or a job the queue discarded after its
 	// last attempt. The worker re-inserts the job for each; River's uniqueness on
 	// the operation ID makes that a no-op when the job is merely queued.
+	//
+	// A `running` operation is included once its claim lease is long past: for a
+	// running row next_attempt_at is the lease expiry, and a run that has not
+	// recorded by then died between claiming the operation and writing the result.
+	// The worker takes an expired claim over rather than waiting on it.
 	ListStalledFulfillmentOperations(ctx context.Context, arg ListStalledFulfillmentOperationsParams) ([]FulfillmentOperation, error)
 	// Intents that have been in flight longer than a provider should take. The
 	// panel offers reconciliation and retry from this list; neither mutates money
