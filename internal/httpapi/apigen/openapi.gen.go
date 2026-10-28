@@ -2815,6 +2815,81 @@ func (e PanelSavedMethodStatus) Valid() bool {
 	}
 }
 
+// Defines values for PanelSearchGroupGroup.
+const (
+	AccessCodes PanelSearchGroupGroup = "accessCodes"
+	Customers   PanelSearchGroupGroup = "customers"
+	Gifts       PanelSearchGroupGroup = "gifts"
+	Orders      PanelSearchGroupGroup = "orders"
+	Tickets     PanelSearchGroupGroup = "tickets"
+)
+
+// Valid indicates whether the value is a known member of the PanelSearchGroupGroup enum.
+func (e PanelSearchGroupGroup) Valid() bool {
+	switch e {
+	case AccessCodes:
+		return true
+	case Customers:
+		return true
+	case Gifts:
+		return true
+	case Orders:
+		return true
+	case Tickets:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelSearchHitMatchedBy.
+const (
+	PanelSearchHitMatchedByCode              PanelSearchHitMatchedBy = "code"
+	PanelSearchHitMatchedByEmail             PanelSearchHitMatchedBy = "email"
+	PanelSearchHitMatchedById                PanelSearchHitMatchedBy = "id"
+	PanelSearchHitMatchedByProviderReference PanelSearchHitMatchedBy = "providerReference"
+	PanelSearchHitMatchedByRemnawaveUsername PanelSearchHitMatchedBy = "remnawaveUsername"
+	PanelSearchHitMatchedBySubject           PanelSearchHitMatchedBy = "subject"
+	PanelSearchHitMatchedByTelegramId        PanelSearchHitMatchedBy = "telegramId"
+)
+
+// Valid indicates whether the value is a known member of the PanelSearchHitMatchedBy enum.
+func (e PanelSearchHitMatchedBy) Valid() bool {
+	switch e {
+	case PanelSearchHitMatchedByCode:
+		return true
+	case PanelSearchHitMatchedByEmail:
+		return true
+	case PanelSearchHitMatchedById:
+		return true
+	case PanelSearchHitMatchedByProviderReference:
+		return true
+	case PanelSearchHitMatchedByRemnawaveUsername:
+		return true
+	case PanelSearchHitMatchedBySubject:
+		return true
+	case PanelSearchHitMatchedByTelegramId:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelSearchResultsHints.
+const (
+	TelegramHandleNotStored PanelSearchResultsHints = "telegram_handle_not_stored"
+)
+
+// Valid indicates whether the value is a known member of the PanelSearchResultsHints enum.
+func (e PanelSearchResultsHints) Valid() bool {
+	switch e {
+	case TelegramHandleNotStored:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PanelSubscriptionStatus.
 const (
 	PanelSubscriptionStatusActive PanelSubscriptionStatus = "active"
@@ -7679,6 +7754,50 @@ type PanelSavedMethodList struct {
 	Items *[]PanelSavedMethod `json:"items"`
 }
 
+// PanelSearchGroup defines model for PanelSearchGroup.
+type PanelSearchGroup struct {
+	Group PanelSearchGroupGroup `json:"group"`
+	Items []PanelSearchHit      `json:"items"`
+}
+
+// PanelSearchGroupGroup defines model for PanelSearchGroup.Group.
+type PanelSearchGroupGroup string
+
+// PanelSearchHit One record. Which fields are present depends on the group: customers carry status, createdAt, and telegramId; orders carry customerId, state, operation, currency, totalMinor, createdAt, and provider when matched by reference; tickets carry customerId, subject, status, and lastMessageAt; gifts carry status, kind, codeHint, and expiresAt; access codes carry status, codeHint, batchId, and batchReference. No contact value is ever returned.
+type PanelSearchHit struct {
+	BatchId        *openapi_types.UUID     `json:"batchId,omitempty"`
+	BatchReference *string                 `json:"batchReference,omitempty"`
+	CodeHint       *string                 `json:"codeHint,omitempty"`
+	CreatedAt      *time.Time              `json:"createdAt,omitempty"`
+	Currency       *string                 `json:"currency,omitempty"`
+	CustomerId     *openapi_types.UUID     `json:"customerId,omitempty"`
+	ExpiresAt      *time.Time              `json:"expiresAt,omitempty"`
+	Id             openapi_types.UUID      `json:"id"`
+	Kind           *string                 `json:"kind,omitempty"`
+	LastMessageAt  *time.Time              `json:"lastMessageAt,omitempty"`
+	MatchedBy      PanelSearchHitMatchedBy `json:"matchedBy"`
+	Operation      *string                 `json:"operation,omitempty"`
+	Provider       *string                 `json:"provider,omitempty"`
+	State          *string                 `json:"state,omitempty"`
+	Status         *string                 `json:"status,omitempty"`
+	Subject        *string                 `json:"subject,omitempty"`
+	TelegramId     *int64                  `json:"telegramId,omitempty"`
+	TotalMinor     *int64                  `json:"totalMinor,omitempty"`
+}
+
+// PanelSearchHitMatchedBy defines model for PanelSearchHit.MatchedBy.
+type PanelSearchHitMatchedBy string
+
+// PanelSearchResults defines model for PanelSearchResults.
+type PanelSearchResults struct {
+	// Groups Only the groups the caller may read, in display order. A group with no match has an empty items list.
+	Groups []PanelSearchGroup        `json:"groups"`
+	Hints  []PanelSearchResultsHints `json:"hints"`
+}
+
+// PanelSearchResultsHints defines model for PanelSearchResults.Hints.
+type PanelSearchResultsHints string
+
 // PanelSession defines model for PanelSession.
 type PanelSession struct {
 	Account   AdminAccount `json:"account"`
@@ -9969,6 +10088,11 @@ type DeletePanelBlocklistSourceParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// SearchPanelRecordsParams defines parameters for SearchPanelRecords.
+type SearchPanelRecordsParams struct {
+	Q string `form:"q" json:"q"`
+}
+
 // SavePanelAIProviderParams defines parameters for SavePanelAIProvider.
 type SavePanelAIProviderParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
@@ -11527,6 +11651,9 @@ type ServerInterface interface {
 	// (DELETE /v1/panel/risk/sources/{sourceID})
 	DeletePanelBlocklistSource(w http.ResponseWriter, r *http.Request, sourceID openapi_types.UUID, params DeletePanelBlocklistSourceParams)
 
+	// (GET /v1/panel/search)
+	SearchPanelRecords(w http.ResponseWriter, r *http.Request, params SearchPanelRecordsParams)
+
 	// (GET /v1/panel/settings/ai/providers)
 	ListPanelAIProviders(w http.ResponseWriter, r *http.Request)
 
@@ -12964,6 +13091,11 @@ func (_ Unimplemented) SavePanelBlocklistSource(w http.ResponseWriter, r *http.R
 
 // (DELETE /v1/panel/risk/sources/{sourceID})
 func (_ Unimplemented) DeletePanelBlocklistSource(w http.ResponseWriter, r *http.Request, sourceID openapi_types.UUID, params DeletePanelBlocklistSourceParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/search)
+func (_ Unimplemented) SearchPanelRecords(w http.ResponseWriter, r *http.Request, params SearchPanelRecordsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -24178,6 +24310,39 @@ func (siw *ServerInterfaceWrapper) DeletePanelBlocklistSource(w http.ResponseWri
 	handler.ServeHTTP(w, r)
 }
 
+// SearchPanelRecords operation middleware
+func (siw *ServerInterfaceWrapper) SearchPanelRecords(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SearchPanelRecordsParams
+
+	// ------------- Required query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SearchPanelRecords(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPanelAIProviders operation middleware
 func (siw *ServerInterfaceWrapper) ListPanelAIProviders(w http.ResponseWriter, r *http.Request) {
 
@@ -26937,6 +27102,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/rbac/catalog", wrapper.GetPanelRbacCatalog)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/search", wrapper.SearchPanelRecords)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/overview/dashboard", wrapper.GetPanelDashboard)
@@ -38777,6 +38945,44 @@ func (response DeletePanelBlocklistSource403ApplicationProblemPlusJSONResponse) 
 	return err
 }
 
+type SearchPanelRecordsRequestObject struct {
+	Params SearchPanelRecordsParams
+}
+
+type SearchPanelRecordsResponseObject interface {
+	VisitSearchPanelRecordsResponse(w http.ResponseWriter) error
+}
+
+type SearchPanelRecords200JSONResponse PanelSearchResults
+
+func (response SearchPanelRecords200JSONResponse) VisitSearchPanelRecordsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SearchPanelRecords429ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SearchPanelRecords429ApplicationProblemPlusJSONResponse) VisitSearchPanelRecordsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListPanelAIProvidersRequestObject struct {
 }
 
@@ -42319,6 +42525,9 @@ type StrictServerInterface interface {
 
 	// (DELETE /v1/panel/risk/sources/{sourceID})
 	DeletePanelBlocklistSource(ctx context.Context, request DeletePanelBlocklistSourceRequestObject) (DeletePanelBlocklistSourceResponseObject, error)
+
+	// (GET /v1/panel/search)
+	SearchPanelRecords(ctx context.Context, request SearchPanelRecordsRequestObject) (SearchPanelRecordsResponseObject, error)
 
 	// (GET /v1/panel/settings/ai/providers)
 	ListPanelAIProviders(ctx context.Context, request ListPanelAIProvidersRequestObject) (ListPanelAIProvidersResponseObject, error)
@@ -49717,6 +49926,32 @@ func (sh *strictHandler) DeletePanelBlocklistSource(w http.ResponseWriter, r *ht
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(DeletePanelBlocklistSourceResponseObject); ok {
 		if err := validResponse.VisitDeletePanelBlocklistSourceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SearchPanelRecords operation middleware
+func (sh *strictHandler) SearchPanelRecords(w http.ResponseWriter, r *http.Request, params SearchPanelRecordsParams) {
+	var request SearchPanelRecordsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SearchPanelRecords(ctx, request.(SearchPanelRecordsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SearchPanelRecords")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SearchPanelRecordsResponseObject); ok {
+		if err := validResponse.VisitSearchPanelRecordsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

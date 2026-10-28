@@ -16,6 +16,7 @@ import (
 	"github.com/omniflow/omniflow/internal/customerauthpg"
 	"github.com/omniflow/omniflow/internal/fulfillment"
 	"github.com/omniflow/omniflow/internal/panelpg"
+	"github.com/omniflow/omniflow/internal/panelsearchpg"
 	"github.com/omniflow/omniflow/internal/payments"
 	"github.com/omniflow/omniflow/internal/platform"
 	"github.com/omniflow/omniflow/internal/rbac"
@@ -71,6 +72,9 @@ type AdminHandlers struct {
 	// files cannot be served, rather than unmounted: the metadata is still in the
 	// ticket, and an operator should be told why the button does nothing.
 	supportFiles accountsupport.AttachmentStore
+	// search answers the command palette's record lookups. A nil value leaves
+	// the route unmounted and the palette offers screens only.
+	search *panelsearchpg.Service
 
 	// version is the running build, published in diagnostics and in the
 	// telemetry preview so an operator can see what would be sent.
@@ -124,6 +128,9 @@ type AdminOptions struct {
 	// the desk's download route. It must be the same store the customer API
 	// writes to.
 	SupportAttachments accountsupport.AttachmentStore
+	// Search serves record search in the command palette. A nil value leaves
+	// the route unmounted.
+	Search *panelsearchpg.Service
 }
 
 // versionOrUnknown renders an unset build version as something an operator will
@@ -174,6 +181,7 @@ func NewAdminHandlers(options AdminOptions) *AdminHandlers {
 		version:          versionOrUnknown(options.Version),
 		updates:          updates,
 		supportFiles:     options.SupportAttachments,
+		search:           options.Search,
 		// The __Host- prefix binds the cookie to this exact origin, so a sibling
 		// subdomain cannot set or overwrite the operator's session. It applies
 		// only when the cookie is Secure, because a browser rejects a __Host-
@@ -273,6 +281,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 			handlers.mountNotices(secure)
 			handlers.mountAnalytics(secure)
 			handlers.mountCustomerAuth(secure)
+			handlers.mountSearch(secure)
 		})
 	})
 }

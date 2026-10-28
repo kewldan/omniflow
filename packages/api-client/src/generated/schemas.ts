@@ -1966,6 +1966,67 @@ export const GetPanelRbacCatalogResponse = zod.object({
 });
 
 /**
+ * Record search for the command palette. Any signed-in operator may call it; each result group is governed by the read permission of the screen it links to (customers → customers.read, orders → finance.read, tickets → support.read, gifts → gifts.read, accessCodes → catalog.read), and a group the caller cannot read is neither queried nor present in the response. Matches customers by Omniflow ID or a prefix of at least six hex characters, Telegram numeric ID, exact email (by keyed fingerprint), and exact Remnawave username; orders by ID prefix and exact provider payment reference; tickets by ID prefix and subject fragment (three characters or more); gifts and access codes by their full code. At most five results per group. Telegram @handles are not stored, so a handle query returns the hint `telegram_handle_not_stored`. Rate limited to 60 requests a minute per operator. Not audited, like every other read.
+ */
+export const searchPanelRecordsQueryQMin = 2;
+export const searchPanelRecordsQueryQMax = 128;
+
+export const SearchPanelRecordsQueryParams = zod.object({
+  q: zod.string().min(searchPanelRecordsQueryQMin).max(searchPanelRecordsQueryQMax),
+});
+
+export const searchPanelRecordsResponseGroupsItemItemsMax = 5;
+
+export const SearchPanelRecordsResponse = zod.object({
+  groups: zod
+    .array(
+      zod.object({
+        group: zod.enum(["customers", "orders", "tickets", "gifts", "accessCodes"]),
+        items: zod
+          .array(
+            zod
+              .object({
+                id: zod.uuid(),
+                matchedBy: zod.enum([
+                  "id",
+                  "telegramId",
+                  "email",
+                  "remnawaveUsername",
+                  "providerReference",
+                  "subject",
+                  "code",
+                ]),
+                status: zod.string().optional(),
+                createdAt: zod.iso.datetime({ offset: true }).optional(),
+                telegramId: zod.int().optional(),
+                customerId: zod.uuid().optional(),
+                state: zod.string().optional(),
+                operation: zod.string().optional(),
+                currency: zod.string().optional(),
+                totalMinor: zod.int().optional(),
+                provider: zod.string().optional(),
+                subject: zod.string().optional(),
+                lastMessageAt: zod.iso.datetime({ offset: true }).optional(),
+                kind: zod.string().optional(),
+                codeHint: zod.string().optional(),
+                expiresAt: zod.iso.datetime({ offset: true }).optional(),
+                batchId: zod.uuid().optional(),
+                batchReference: zod.string().optional(),
+              })
+              .describe(
+                "One record. Which fields are present depends on the group: customers carry status, createdAt, and telegramId; orders carry customerId, state, operation, currency, totalMinor, createdAt, and provider when matched by reference; tickets carry customerId, subject, status, and lastMessageAt; gifts carry status, kind, codeHint, and expiresAt; access codes carry status, codeHint, batchId, and batchReference. No contact value is ever returned.",
+              ),
+          )
+          .max(searchPanelRecordsResponseGroupsItemItemsMax),
+      }),
+    )
+    .describe(
+      "Only the groups the caller may read, in display order. A group with no match has an empty items list.",
+    ),
+  hints: zod.array(zod.enum(["telegram_handle_not_stored"])),
+});
+
+/**
  * Requires system.read. Each metric carries the identifier of its own definition, every timestamp is UTC, and revenue is reported as three separate figures rather than one that double-counts wallet credit.
  */
 export const GetPanelDashboardResponse = zod.object({

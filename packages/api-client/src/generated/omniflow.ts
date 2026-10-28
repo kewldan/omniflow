@@ -1051,6 +1051,73 @@ export interface RbacCatalog {
   roles: RbacCatalogRolesItem[];
 }
 
+export type PanelSearchResultsHintsItem =
+  (typeof PanelSearchResultsHintsItem)[keyof typeof PanelSearchResultsHintsItem];
+
+export const PanelSearchResultsHintsItem = {
+  telegram_handle_not_stored: "telegram_handle_not_stored",
+} as const;
+
+export type PanelSearchGroupGroup =
+  (typeof PanelSearchGroupGroup)[keyof typeof PanelSearchGroupGroup];
+
+export const PanelSearchGroupGroup = {
+  customers: "customers",
+  orders: "orders",
+  tickets: "tickets",
+  gifts: "gifts",
+  accessCodes: "accessCodes",
+} as const;
+
+export type PanelSearchHitMatchedBy =
+  (typeof PanelSearchHitMatchedBy)[keyof typeof PanelSearchHitMatchedBy];
+
+export const PanelSearchHitMatchedBy = {
+  id: "id",
+  telegramId: "telegramId",
+  email: "email",
+  remnawaveUsername: "remnawaveUsername",
+  providerReference: "providerReference",
+  subject: "subject",
+  code: "code",
+} as const;
+
+/**
+ * One record. Which fields are present depends on the group: customers carry status, createdAt, and telegramId; orders carry customerId, state, operation, currency, totalMinor, createdAt, and provider when matched by reference; tickets carry customerId, subject, status, and lastMessageAt; gifts carry status, kind, codeHint, and expiresAt; access codes carry status, codeHint, batchId, and batchReference. No contact value is ever returned.
+ */
+export interface PanelSearchHit {
+  id: string;
+  matchedBy: PanelSearchHitMatchedBy;
+  status?: string;
+  createdAt?: string;
+  telegramId?: number;
+  customerId?: string;
+  state?: string;
+  operation?: string;
+  currency?: string;
+  totalMinor?: number;
+  provider?: string;
+  subject?: string;
+  lastMessageAt?: string;
+  kind?: string;
+  codeHint?: string;
+  expiresAt?: string;
+  batchId?: string;
+  batchReference?: string;
+}
+
+export interface PanelSearchGroup {
+  group: PanelSearchGroupGroup;
+  /** @maxItems 5 */
+  items: PanelSearchHit[];
+}
+
+export interface PanelSearchResults {
+  /** Only the groups the caller may read, in display order. A group with no match has an empty items list. */
+  groups: PanelSearchGroup[];
+  hints: PanelSearchResultsHintsItem[];
+}
+
 export interface PanelMetric {
   key: string;
   /** Stable identifier the panel resolves to localised copy explaining exactly what was counted. */
@@ -5209,6 +5276,14 @@ export type SearchPanelAuditParams = {
 
 export type ListPanelAuditActions200 = {
   items: string[];
+};
+
+export type SearchPanelRecordsParams = {
+  /**
+   * @minLength 2
+   * @maxLength 128
+   */
+  q: string;
 };
 
 export type ListPanelIncidentsParams = {
@@ -12619,6 +12694,93 @@ export const useGetPanelRbacCatalog = <TError = Promise<unknown>>(options?: {
   const isEnabled = swrOptions?.enabled !== false;
   const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelRbacCatalogKey() : null));
   const swrFn = () => getPanelRbacCatalog(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type searchPanelRecordsResponse200 = {
+  data: PanelSearchResults;
+  status: 200;
+};
+
+export type searchPanelRecordsResponse429 = {
+  data: ProblemResponse;
+  status: 429;
+};
+
+export type searchPanelRecordsResponseSuccess = searchPanelRecordsResponse200 & {
+  headers: Headers;
+};
+export type searchPanelRecordsResponseError = searchPanelRecordsResponse429 & {
+  headers: Headers;
+};
+
+export type searchPanelRecordsResponse =
+  | searchPanelRecordsResponseSuccess
+  | searchPanelRecordsResponseError;
+
+export const getSearchPanelRecordsUrl = (params: SearchPanelRecordsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/search?${stringifiedParams}`
+    : `/v1/panel/search`;
+};
+
+/**
+ * Record search for the command palette. Any signed-in operator may call it; each result group is governed by the read permission of the screen it links to (customers → customers.read, orders → finance.read, tickets → support.read, gifts → gifts.read, accessCodes → catalog.read), and a group the caller cannot read is neither queried nor present in the response. Matches customers by Omniflow ID or a prefix of at least six hex characters, Telegram numeric ID, exact email (by keyed fingerprint), and exact Remnawave username; orders by ID prefix and exact provider payment reference; tickets by ID prefix and subject fragment (three characters or more); gifts and access codes by their full code. At most five results per group. Telegram @handles are not stored, so a handle query returns the hint `telegram_handle_not_stored`. Rate limited to 60 requests a minute per operator. Not audited, like every other read.
+ */
+export const searchPanelRecords = async (
+  params: SearchPanelRecordsParams,
+  options?: RequestInit,
+): Promise<searchPanelRecordsResponse> => {
+  const res = await fetch(getSearchPanelRecordsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: searchPanelRecordsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as searchPanelRecordsResponse;
+};
+
+export const getSearchPanelRecordsKey = (params: SearchPanelRecordsParams) =>
+  [`/v1/panel/search`, ...(params ? [params] : [])] as const;
+
+export type SearchPanelRecordsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchPanelRecords>>
+>;
+
+export const useSearchPanelRecords = <TError = Promise<ProblemResponse>>(
+  params: SearchPanelRecordsParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof searchPanelRecords>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getSearchPanelRecordsKey(params) : null));
+  const swrFn = () => searchPanelRecords(params, fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 

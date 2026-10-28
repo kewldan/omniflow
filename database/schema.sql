@@ -20,6 +20,20 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
+-- Name: pg_trgm; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
+
+
+--
+-- Name: EXTENSION pg_trgm; Type: COMMENT; Schema: -; Owner: -
+--
+
+COMMENT ON EXTENSION pg_trgm IS 'text similarity measurement and index searching based on trigrams';
+
+
+--
 -- Name: pgcrypto; Type: EXTENSION; Schema: -; Owner: -
 --
 
@@ -6101,6 +6115,13 @@ CREATE UNIQUE INDEX payment_intents_provider_reference_idx ON public.payment_int
 
 
 --
+-- Name: payment_intents_provider_reference_lookup_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX payment_intents_provider_reference_lookup_idx ON public.payment_intents USING btree (provider_reference) WHERE (provider_reference IS NOT NULL);
+
+
+--
 -- Name: payment_methods_customer_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -6336,6 +6357,13 @@ CREATE INDEX support_tickets_assignee_idx ON public.support_tickets USING btree 
 --
 
 CREATE INDEX support_tickets_queue_idx ON public.support_tickets USING btree (queue_id, status, last_message_at) WHERE (status = ANY (ARRAY['open'::text, 'pending'::text]));
+
+
+--
+-- Name: support_tickets_subject_trgm_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX support_tickets_subject_trgm_idx ON public.support_tickets USING gin (subject public.gin_trgm_ops);
 
 
 --

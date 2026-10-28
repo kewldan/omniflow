@@ -1388,6 +1388,30 @@ type Querier interface {
 	// Qualified, rejected, and pending are each counted from the rows rather than
 	// derived by subtraction, because a pair can be qualified and later rejected.
 	OpenAccountReferralSummary(ctx context.Context, arg OpenAccountReferralSummaryParams) (OpenAccountReferralSummaryRow, error)
+	PanelSearchAccessCodeByCodeHash(ctx context.Context, codeHash []byte) ([]PanelSearchAccessCodeByCodeHashRow, error)
+	// Exact match only. The address is stored encrypted beside a keyed
+	// fingerprint, and the fingerprint is the only thing compared.
+	PanelSearchCustomersByEmailFingerprint(ctx context.Context, arg PanelSearchCustomersByEmailFingerprintParams) ([]PanelSearchCustomersByEmailFingerprintRow, error)
+	// ---------------------------------------------------------------------------
+	// Command-palette record search
+	//
+	// One query per interpretation of the input, each an index probe, each
+	// bounded by max_rows. They are separate rather than one query of ORed
+	// optional predicates because an OR with "parameter IS NULL" arms cannot use
+	// an index for any arm under a generic plan.
+	// ---------------------------------------------------------------------------
+	PanelSearchCustomersByIDRange(ctx context.Context, arg PanelSearchCustomersByIDRangeParams) ([]PanelSearchCustomersByIDRangeRow, error)
+	PanelSearchCustomersByRemnawaveUsername(ctx context.Context, arg PanelSearchCustomersByRemnawaveUsernameParams) ([]PanelSearchCustomersByRemnawaveUsernameRow, error)
+	// A bot customer carries the identifier on their Remnawave mapping; a web
+	// customer who signed in with the Telegram widget carries it as an identity.
+	PanelSearchCustomersByTelegramID(ctx context.Context, arg PanelSearchCustomersByTelegramIDParams) ([]PanelSearchCustomersByTelegramIDRow, error)
+	PanelSearchGiftByCodeHash(ctx context.Context, codeHash []byte) ([]PanelSearchGiftByCodeHashRow, error)
+	PanelSearchOrdersByIDRange(ctx context.Context, arg PanelSearchOrdersByIDRangeParams) ([]PanelSearchOrdersByIDRangeRow, error)
+	PanelSearchOrdersByProviderReference(ctx context.Context, arg PanelSearchOrdersByProviderReferenceParams) ([]PanelSearchOrdersByProviderReferenceRow, error)
+	PanelSearchTicketsByIDRange(ctx context.Context, arg PanelSearchTicketsByIDRangeParams) ([]PanelSearchTicketsByIDRangeRow, error)
+	// The pattern arrives with its wildcards escaped; the trigram index narrows
+	// the candidates and the recency order picks the ones worth showing.
+	PanelSearchTicketsBySubject(ctx context.Context, arg PanelSearchTicketsBySubjectParams) ([]PanelSearchTicketsBySubjectRow, error)
 	// Stops a delivery whose outcome nobody can safely resolve.
 	//
 	// It leaves the due queue — the worker's index selects only 'pending' and

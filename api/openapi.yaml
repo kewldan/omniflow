@@ -910,6 +910,30 @@ paths:
       description: The compiled-in permission catalogue and the built-in role definitions.
       responses:
         "200": {description: Catalogue, content: {application/json: {schema: {$ref: "#/components/schemas/RbacCatalog"}}}}
+  /v1/panel/search:
+    get:
+      operationId: searchPanelRecords
+      tags: [panel]
+      description: >-
+        Record search for the command palette. Any signed-in operator may call
+        it; each result group is governed by the read permission of the screen
+        it links to (customers → customers.read, orders → finance.read,
+        tickets → support.read, gifts → gifts.read, accessCodes → catalog.read),
+        and a group the caller cannot read is neither queried nor present in
+        the response. Matches customers by Omniflow ID or a prefix of at least
+        six hex characters, Telegram numeric ID, exact email (by keyed
+        fingerprint), and exact Remnawave username; orders by ID prefix and
+        exact provider payment reference; tickets by ID prefix and subject
+        fragment (three characters or more); gifts and access codes by their
+        full code. At most five results per group. Telegram @handles are not
+        stored, so a handle query returns the hint `telegram_handle_not_stored`.
+        Rate limited to 60 requests a minute per operator. Not audited, like
+        every other read.
+      parameters:
+        - {in: query, name: q, required: true, schema: {type: string, minLength: 2, maxLength: 128}}
+      responses:
+        "200": {description: Grouped results, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSearchResults"}}}}
+        "429": {$ref: "#/components/responses/Problem"}
   # --- v0.7 operator operations -------------------------------------------
   # Every path below requires an authenticated panel session and the permission
   # named in its description. The permission is enforced in the Go API at the
@@ -5027,6 +5051,53 @@ components:
             properties:
               role: {$ref: "#/components/schemas/AdminRole"}
               permissions: {type: array, items: {type: string}}
+    PanelSearchResults:
+      type: object
+      required: [groups, hints]
+      properties:
+        groups:
+          type: array
+          description: Only the groups the caller may read, in display order. A group with no match has an empty items list.
+          items: {$ref: "#/components/schemas/PanelSearchGroup"}
+        hints:
+          type: array
+          items: {type: string, enum: [telegram_handle_not_stored]}
+    PanelSearchGroup:
+      type: object
+      required: [group, items]
+      properties:
+        group: {type: string, enum: [customers, orders, tickets, gifts, accessCodes]}
+        items: {type: array, maxItems: 5, items: {$ref: "#/components/schemas/PanelSearchHit"}}
+    PanelSearchHit:
+      type: object
+      description: >-
+        One record. Which fields are present depends on the group: customers
+        carry status, createdAt, and telegramId; orders carry customerId, state,
+        operation, currency, totalMinor, createdAt, and provider when matched by
+        reference; tickets carry customerId, subject, status, and lastMessageAt;
+        gifts carry status, kind, codeHint, and expiresAt; access codes carry
+        status, codeHint, batchId, and batchReference. No contact value is ever
+        returned.
+      required: [id, matchedBy]
+      properties:
+        id: {type: string, format: uuid}
+        matchedBy: {type: string, enum: [id, telegramId, email, remnawaveUsername, providerReference, subject, code]}
+        status: {type: string}
+        createdAt: {type: string, format: date-time}
+        telegramId: {type: integer, format: int64}
+        customerId: {type: string, format: uuid}
+        state: {type: string}
+        operation: {type: string}
+        currency: {type: string}
+        totalMinor: {type: integer, format: int64}
+        provider: {type: string}
+        subject: {type: string}
+        lastMessageAt: {type: string, format: date-time}
+        kind: {type: string}
+        codeHint: {type: string}
+        expiresAt: {type: string, format: date-time}
+        batchId: {type: string, format: uuid}
+        batchReference: {type: string}
     # --- v0.7 operator operations -----------------------------------------
     PanelMetric:
       type: object

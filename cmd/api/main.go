@@ -33,6 +33,7 @@ import (
 	"github.com/omniflow/omniflow/internal/maintenance"
 	"github.com/omniflow/omniflow/internal/operator"
 	"github.com/omniflow/omniflow/internal/panelpg"
+	"github.com/omniflow/omniflow/internal/panelsearchpg"
 	"github.com/omniflow/omniflow/internal/payments"
 	"github.com/omniflow/omniflow/internal/paymentservice"
 	"github.com/omniflow/omniflow/internal/platform"
@@ -248,6 +249,10 @@ func buildAdminPanel(
 		return nil, err
 	}
 	seedCommerceSettings(ctx, logger, operations, cfg)
+	search, err := panelsearchpg.New(pool, cfg.DataEncryptionKey)
+	if err != nil {
+		return nil, err
+	}
 	proxies, err := apihttp.NewTrustedProxies(cfg.AdminPanel.TrustedProxies)
 	if err != nil {
 		return nil, err
@@ -267,6 +272,7 @@ func buildAdminPanel(
 		// The desk reads customer uploads from the same directory the customer
 		// API writes them to; see buildCustomerPanel.
 		SupportAttachments: accountsupport.NewDirectoryStore(cfg.SupportAttachmentDir),
+		Search:             search,
 	}), nil
 }
 
