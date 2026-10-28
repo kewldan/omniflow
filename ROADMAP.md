@@ -2044,11 +2044,24 @@ is a component that was written correctly and then called wrongly.
 Named here so the audit files are not the only record. Each is a feature with an
 API and a migration behind it rather than a fix:
 
-- [ ] Operator invitations and role assignment — `/admin/operators` lists who can
+- [x] Operator invitations and role assignment — `/admin/operators` lists who can
       sign in and offers only "suspend". A support agent cannot be added.
-- [ ] Record-level search — `⌘K` finds screens. Finding a customer by handle,
+      *Shipped:* single-use, 72-hour invitation links shown once (hash stored,
+      reissue retires the old link, revoke, pending list), a public
+      `/admin/invite/<token>` acceptance screen that signs the new operator in,
+      a role editor with a permission matrix, and server-side guards (no
+      self-change, no escalation via `rbac.Grant.CanAssign`, last owner kept,
+      serialised owner changes). Audited; acceptance and role changes post a
+      `security` notice.
+- [x] Record-level search — `⌘K` finds screens. Finding a customer by handle,
       email, or payment reference is the panel's most frequent action and has no
-      route.
+      route. *Shipped:* `GET /v1/panel/search` — customers by ID/prefix,
+      Telegram ID, exact email (keyed fingerprint), Remnawave username; orders by
+      ID/prefix and provider reference; tickets by ID/prefix and subject
+      (`pg_trgm`); gift and access codes. Groups filtered by RBAC, five per
+      group, rate limited, all index probes. The palette shows grouped hits,
+      works on phones, and offers common actions. Telegram @handles are not
+      stored, so they cannot be searched; the palette says so.
 - [ ] Creating promotions, audience segments, and shop products — each is
       required by a screen that already exists, so personal offers, campaigns,
       and the digital-goods shop are all reachable and all unusable.

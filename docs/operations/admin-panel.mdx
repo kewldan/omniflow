@@ -45,8 +45,8 @@ database records only which roles an operator holds.
 | `marketing` | Campaigns, news, referral configuration, and personal offers |
 | `auditor` | Read-only across every surface, plus audit export (not the customer export) |
 
-Only an owner may create an operator, change role grants, or grant the owner
-role. Keeping that owner-only means a compromised administrator session cannot
+Only an owner may create or invite an operator, change role grants, or grant
+the owner role. Keeping that owner-only means a compromised administrator session cannot
 mint itself a second account or widen its own privileges.
 
 The installation always keeps at least one active owner. Revoking the last
@@ -60,6 +60,49 @@ reaching a hidden route grants nothing.
 v0.7 adds `risk`, `gifts`, and `goods` to the catalogue. What they cover and why
 they are separate capabilities is described in
 [Admin operations](/operations/admin-operations).
+
+## Inviting operators and changing roles
+
+An owner adds an operator from `/admin/operators` with **Invite operator**:
+an email address and one or more roles. The API answers with a single-use link,
+`/admin/invite/<token>`, and the panel shows it **once** with a copy button.
+Omniflow has no email transport, so the owner sends the link themselves, the
+same way they would hand over any other credential.
+
+- The link works once and expires after **72 hours**. Only the SHA-256 of its
+  token is stored; the panel cannot show it again.
+- Inviting the same address again retires the earlier link, so a lost or
+  intercepted link is replaced rather than left usable.
+- An address that already has an operator account cannot be invited; change
+  that operator's roles instead.
+- **Pending invitations** lists every link not yet used, marks the expired
+  ones, and offers **Revoke**.
+
+The invitee opens the link outside the panel shell, sees the address and roles
+they were invited with, and chooses a display name and a password (at least 12
+characters, with the same strength meter as the security page). They are
+signed in straight away and offered `/admin/security` to enrol two-factor or a
+passkey; the installation does not force either.
+
+**Change roles** on an operator's row opens the role editor. The API enforces
+these rules on every change, and the editor greys out what it would refuse:
+
+- Nobody can change their own roles.
+- Every role added **or removed** must carry only permissions the person making
+  the change already holds, and only an owner can grant or remove the owner
+  role.
+- An operator keeps at least one role; suspension is how access is taken away.
+- The installation keeps at least one active owner. Role changes that could
+  remove an owner are serialised, so two owners cannot demote each other at once.
+- Saving an unchanged set is a no-op and is not recorded.
+
+The **Roles and permissions** table on the same screen is read from the
+compiled-in catalogue the API enforces, one row per area.
+
+Invitation issue, revocation, and acceptance are audited as
+`admin.invitation.created`, `admin.invitation.revoked`, and
+`admin.invitation.accepted`; role changes as `admin.account.roles_changed` with
+the before and after sets.
 
 ## Sessions
 
@@ -157,6 +200,8 @@ operator Telegram group, alongside the purchase and incident streams:
 - a password change or a completed password reset
 - two-factor being turned off
 - the owner role being granted
+- any other change to an operator's roles
+- an invitation being accepted, which means a new person can now sign in
 
 A notice names the event and the operator account and nothing else. An address,
 a session token, and a client IP all stay out of the group chat; that detail
@@ -165,6 +210,37 @@ lives in the audit trail, behind the permissions that govern it.
 Notices are written in the same transaction as the change they describe, so one
 can never announce something that was rolled back, and they are deduplicated, so
 a retried transaction produces a single message.
+
+## Command palette and record search
+
+`Ctrl+K` (`⌘K` on a Mac), the search field in the header, or the search icon on
+a phone opens the command palette. It jumps to any screen the operator may
+open, starts a common action (inviting an operator, setting up two-factor), and
+finds records.
+
+Record search asks `GET /v1/panel/search?q=` and shows up to five results per
+group, each with a preview line and what it matched on:
+
+| Group | Found by | Requires |
+| --- | --- | --- |
+| Customers | Omniflow customer ID or its first 6+ characters, numeric Telegram ID, exact email, exact Remnawave username | `customers.read` |
+| Orders | Order ID or its first 6+ characters, exact payment-provider reference | `finance.read` |
+| Support tickets | Ticket ID or its first 6+ characters, a fragment of the subject (3+ characters) | `support.read` |
+| Gifts | The full gift code | `gifts.read` |
+| Access codes | The full wholesale access code | `catalog.read` |
+
+A group the operator's roles cannot read is not queried and does not appear in
+the response, so the palette never shows a record its link would refuse to
+open. Emails are matched exactly, through the keyed fingerprint stored beside
+the encrypted address, and the address is never returned. Omniflow does not
+store Telegram @usernames, so a query that starts with `@` finds no customer
+and the palette says so; use the numeric Telegram ID instead.
+
+Every lookup is an index probe — an ID prefix is a primary-key range scan, and
+ticket subjects use a trigram index from the `pg_trgm` extension, which the
+migration enables (it is a trusted extension, so the database owner can create
+it without superuser). Search is limited to 60 requests a minute per operator
+and, like every other read in the panel, is not written to the audit trail.
 
 ## Audit trail
 
