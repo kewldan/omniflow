@@ -104,7 +104,9 @@ export default function SignInPage() {
           className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-[13px]"
           role="alert"
         >
-          {translate(`signIn.errors.${reason}`, { fallback: translate("signIn.errors.generic") })}
+          {translate.has(`signIn.errors.${reason}`)
+            ? translate(`signIn.errors.${reason}`)
+            : translate("signIn.errors.generic")}
         </p>
       )}
 
@@ -302,10 +304,24 @@ function TelegramButton({
   );
 }
 
-/** Reads the initData a Telegram Mini App exposes, or null outside one. */
+/**
+ * Reads the initData a Telegram Mini App hands its page, or null outside one.
+ *
+ * `window.Telegram.WebApp` exists only once Telegram's own script has loaded,
+ * and this panel does not load it. Telegram also passes the same string in
+ * the launch URL's fragment as `tgWebAppData`, which is always there inside a
+ * Mini App and survives the edge gate's redirect to this screen (a fragment is
+ * kept across a redirect), so that is read when the global is absent.
+ */
 function readMiniAppInitData(): string | null {
   const telegram = (window as unknown as { Telegram?: { WebApp?: { initData?: string } } })
     .Telegram;
   const initData = telegram?.WebApp?.initData;
-  return initData && initData.length > 0 ? initData : null;
+  if (initData && initData.length > 0) {
+    return initData;
+  }
+  const fromFragment = new URLSearchParams(window.location.hash.replace(/^#/, "")).get(
+    "tgWebAppData",
+  );
+  return fromFragment && fromFragment.length > 0 ? fromFragment : null;
 }

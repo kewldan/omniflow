@@ -2619,6 +2619,13 @@
         "identity_taken": "This Telegram account is attached to a different customer record. Contact support to have the two reconciled.",
         "sign_in_rejected": "Telegram's answer could not be verified. Try again.",
         "unverified_email": "That provider did not confirm your email address, so it cannot be used to sign in here."
+      },
+      "confirm": {
+        "title": "Continue signing in",
+        "description": "You opened a sign-in link from the bot. Continue to sign in to your account on this device.",
+        "continue": "Continue signing in",
+        "continuing": "Signing in…",
+        "back": "Back to sign-in"
       }
     },
     "timezone": {
