@@ -1,6 +1,7 @@
 import { expect, type Locator, test } from "@playwright/test";
 
 import { MISSING_MESSAGE_MARKER } from "../i18n/missing-message";
+import { seriousViolations } from "./axe";
 
 /**
  * Fills a field and makes sure the value survived.
@@ -134,9 +135,14 @@ test.describe("operator journey", () => {
       "/admin/offers",
     ];
 
+    const violations: string[] = [];
     for (const path of PANEL_PAGES) {
       await page.goto(path);
       await expect(page.locator("main")).toBeVisible();
+      // The accessibility gate, on the signed-in panel rather than only on its
+      // sign-in screen. Collected across the sweep so one run names every page.
+      await page.waitForLoadState("networkidle");
+      violations.push(...(await seriousViolations(page, path)));
       const body = (await page.locator("body").innerText()) ?? "";
       // A missing message renders as the marker configured in i18n/request.ts.
       // This used to search for a dotted key instead, which cannot tell a
@@ -148,5 +154,6 @@ test.describe("operator journey", () => {
         MISSING_MESSAGE_MARKER,
       );
     }
+    expect(violations, violations.join("\n")).toEqual([]);
   });
 });

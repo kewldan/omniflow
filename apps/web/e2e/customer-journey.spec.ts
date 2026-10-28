@@ -3,6 +3,7 @@ import { createHash, createHmac } from "node:crypto";
 import { expect, test } from "@playwright/test";
 
 import { MISSING_MESSAGE_MARKER } from "../i18n/missing-message";
+import { seriousViolations } from "./axe";
 
 /**
  * The customer journey behind the session gate.
@@ -141,6 +142,7 @@ test.describe("customer journey", () => {
       "/account/privacy",
     ];
 
+    const violations: string[] = [];
     for (const path of CUSTOMER_PAGES) {
       await page.goto(path);
       await expect(page.locator("main"), `${path} rendered nothing`).toBeVisible();
@@ -148,6 +150,10 @@ test.describe("customer journey", () => {
       expect(body, `${path} rendered an untranslated message key`).not.toContain(
         MISSING_MESSAGE_MARKER,
       );
+      // The accessibility gate on the signed-in panel, not only on sign-in.
+      await page.waitForLoadState("networkidle");
+      violations.push(...(await seriousViolations(page, path)));
     }
+    expect(violations, violations.join("\n")).toEqual([]);
   });
 });

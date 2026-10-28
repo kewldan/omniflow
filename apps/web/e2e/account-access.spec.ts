@@ -69,10 +69,12 @@ test.describe("customer account access", () => {
     for (const route of ACCOUNT_ROUTES) {
       await page.goto(route);
 
-      // The shell resolves the session before it renders anything, so an
-      // anonymous visitor is sent to sign in rather than shown a flash of a
-      // dashboard shape.
+      // The edge gate (proxy.ts) sends a visitor with no session cookie to the
+      // sign-in screen before any panel markup is generated. The screen's
+      // heading is what it offers; the methods under it depend on what the
+      // installation configured, so none of them is asserted by name.
       await expect(page).toHaveURL(/\/account\/sign-in/);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 
       // Nothing behind the gate may appear: no subscription card, no device
       // list, no tab bar into the rest of the panel.

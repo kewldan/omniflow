@@ -1,7 +1,7 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
 import { MISSING_MESSAGE_MARKER } from "../i18n/missing-message";
+import { seriousViolations } from "./axe";
 
 /**
  * The accessibility, layout, and localisation gates.
@@ -11,12 +11,9 @@ import { MISSING_MESSAGE_MARKER } from "../i18n/missing-message";
  * actually applied, a horizontal scrollbar depends on the viewport, and a
  * missing translation only shows up when the catalogue is loaded for real.
  *
- * The pages checked here are the ones reachable without a session. That is a
- * genuine limitation and is stated rather than hidden: signing in needs a
- * seeded operator, and the fixture for that belongs with the integration
- * harness. What these gates do catch is a regression in the shell, the theme,
- * and the forms — which is where most accessibility regressions actually
- * happen.
+ * The pages checked here are the ones reachable without a session. The
+ * signed-in pages get the same accessibility check from the customer and
+ * operator journeys, which sign in and sweep every panel page (see `axe.ts`).
  */
 
 const PUBLIC_PAGES = ["/", "/admin/login", "/account/sign-in"];
@@ -25,22 +22,8 @@ test.describe("accessibility", () => {
   for (const path of PUBLIC_PAGES) {
     test(`${path} has no serious or critical violations`, async ({ page }) => {
       await page.goto(path);
-      const results = await new AxeBuilder({ page })
-        // 2.2 AA is what the v0.10 release gate asks for, and it is a superset:
-        // the 2.2 tags add the criteria introduced in that revision rather than
-        // replacing the earlier ones, so all four levels are named.
-        .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22a", "wcag22aa"])
-        .analyze();
-
-      // Serious and critical only. Gating on every advisory rule produces a
-      // list nobody reads and a gate somebody disables.
-      const blocking = results.violations.filter(
-        (violation) => violation.impact === "serious" || violation.impact === "critical",
-      );
-      expect(
-        blocking,
-        blocking.map((violation) => `${violation.id}: ${violation.help}`).join("\n"),
-      ).toEqual([]);
+      const blocking = await seriousViolations(page, path);
+      expect(blocking, blocking.join("\n")).toEqual([]);
     });
   }
 
