@@ -80,6 +80,13 @@ func EffectiveEndsAt(now, endsAt, pausedAt time.Time) time.Time {
 	return now.Add(remaining)
 }
 
+// DefersBehindCurrent reports whether a change waits for the current
+// entitlement to end instead of taking effect now: only an at_expiry
+// downgrade does.
+func DefersBehindCurrent(operation, downgradePolicy string) bool {
+	return operation == "downgrade" && downgradePolicy == "at_expiry"
+}
+
 // RefundRevocation is what a full refund does to the entitlement its order
 // created.
 type RefundRevocation struct {

@@ -258,6 +258,15 @@ refused and the days cannot be handed out twice. The paid change resumes the
 subscription: the new entitlement is enabled in Remnawave like any other paid
 change.
 
+An `at_expiry` downgrade is the one change that does not take effect now — it
+waits for the current period to end. Scheduled behind a paused entitlement it
+would start at now plus the frozen remainder while the subscription stayed
+disabled, and the preserved days would run out with the customer locked out.
+So settling it **resumes the paused entitlement first**, in the same
+transaction and exactly as an operator's resume would — `ends_at` moves forward
+by the elapsed pause and a `resume` operation keyed `order:{orderID}:resume`
+re-enables the user — and the downgrade starts when that resumed period ends.
+
 Automatic renewal never fires while paused; it selects active and limited
 entitlements only. An add-on is refused while paused with
 `no_active_subscription`, because it is priced against the time the current

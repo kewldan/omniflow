@@ -885,7 +885,7 @@ func (store *Store) settlePaidOrder(ctx context.Context, tx pgx.Tx, queries *dbg
 		return err
 	}
 	startsAt := store.clock().UTC()
-	currentEndsAt, err := store.changeBase(ctx, queries, order.UserID, order.SubscriptionID, startsAt)
+	currentEndsAt, err := store.orderChangeBase(ctx, tx, queries, order, spec.DowngradePolicy, startsAt, idempotencyKey)
 	if err != nil {
 		return err
 	}
@@ -948,6 +948,68 @@ func (store *Store) changeBase(ctx context.Context, queries *dbgen.Queries, user
 	}
 	base := commerce.EffectiveEndsAt(now, current.EndsAt.Time, current.PausedAt.Time)
 	return &base, nil
+}
+
+// orderChangeBase is changeBase for a settling order, with the one case a
+// paused entitlement cannot simply lend its remainder to.
+//
+// Every other change starts now and builds on the paused remainder measured
+// from now, which is exactly what a resume would give back. An at_expiry
+// downgrade instead starts *at* the base and waits for it. Built on a paused
+// entitlement, it would sit behind a subscription that stays disabled: the
+// frozen days would run out with the customer locked out, and the downgrade's
+// own provisioning would then supersede the paused row. Paid changes resume a
+// paused subscription — the documented rule — so this one resumes it now, in
+// the settling transaction, and the downgrade takes effect when the resumed
+// period ends.
+func (store *Store) orderChangeBase(ctx context.Context, tx pgx.Tx, queries *dbgen.Queries, order dbgen.Order, downgradePolicy string, now time.Time, correlationID string) (*time.Time, error) {
+	current, err := queries.GetLatestEntitlementForChange(ctx, dbgen.GetLatestEntitlementForChangeParams{UserID: order.UserID, SubscriptionID: order.SubscriptionID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if current.Status == "paused" && commerce.DefersBehindCurrent(order.Operation, downgradePolicy) {
+		if current, err = store.resumeForDeferredChange(ctx, tx, queries, current, order, correlationID); err != nil {
+			return nil, err
+		}
+	}
+	base := commerce.EffectiveEndsAt(now, current.EndsAt.Time, current.PausedAt.Time)
+	return &base, nil
+}
+
+// resumeForDeferredChange resumes a paused entitlement exactly as an operator's
+// resume does — the clock restarts with the time the pause preserved — and
+// queues the matching `resume` for Remnawave in the same transaction.
+func (store *Store) resumeForDeferredChange(ctx context.Context, tx pgx.Tx, queries *dbgen.Queries, paused dbgen.Entitlement, order dbgen.Order, correlationID string) (dbgen.Entitlement, error) {
+	resumed, err := queries.ResumeEntitlement(ctx, paused.ID)
+	if err != nil {
+		return dbgen.Entitlement{}, err
+	}
+	desired, err := json.Marshal(map[string]any{
+		"effectiveAt": store.clock().UTC(), "endsAt": resumed.EndsAt.Time,
+		"trafficAllowanceBytes": nullableInt8(resumed.TrafficAllowanceBytes),
+		"deviceLimit":           nullableInt4(resumed.DeviceLimit),
+		"squadIds":              databaseutil.UUIDStrings(resumed.RemnawaveSquadIds),
+	})
+	if err != nil {
+		return dbgen.Entitlement{}, err
+	}
+	operation, err := queries.CreateFulfillmentOperation(ctx, dbgen.CreateFulfillmentOperationParams{
+		EntitlementID: resumed.ID, Operation: "resume",
+		IdempotencyKey: "order:" + uuidString(order.ID) + ":resume", CorrelationID: correlationID,
+		DesiredState: desired,
+	})
+	if err != nil {
+		return dbgen.Entitlement{}, err
+	}
+	if store.enqueue != nil {
+		if err = store.enqueue(ctx, tx, uuidString(operation.ID)); err != nil {
+			return dbgen.Entitlement{}, err
+		}
+	}
+	return resumed, nil
 }
 
 func parseUUID(value string) (pgtype.UUID, error) {
