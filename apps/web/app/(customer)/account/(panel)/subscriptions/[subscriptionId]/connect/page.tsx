@@ -6,12 +6,18 @@ import { toast } from "@omniflow/ui/toast";
 import { Check, Copy, ExternalLink } from "lucide-react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 
-import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
+import {
+  AccountNotice,
+  ListSkeleton,
+  SectionLabel,
+  SlowWaitNotice,
+} from "@/components/account/state";
 import { QrCode } from "@/components/qr-code";
 import { type ApiError, fetcher } from "@/lib/api";
+import { POLLING, useBoundedPolling } from "@/lib/polling";
 
 type Connection = {
   subscriptionUrl: string;
@@ -49,7 +55,14 @@ export default function ConnectPage() {
   const [platform, setPlatform] = useState(search.get("platform") ?? "");
 
   const query = platform ? `?platform=${encodeURIComponent(platform)}` : "";
-  const { data, error, isLoading } = useSWR<Connection, ApiError>(
+  const [provisioning, setProvisioning] = useState(false);
+  const polling = useBoundedPolling(provisioning);
+  // Read inside SWR's retry callback, which outlives the render it was made in.
+  const pollingRef = useRef(polling);
+  useEffect(() => {
+    pollingRef.current = polling;
+  });
+  const { data, error, isLoading, mutate } = useSWR<Connection, ApiError>(
     `/v1/account/subscriptions/${params.subscriptionId}/connection${query}`,
     fetcher,
     {
@@ -57,16 +70,28 @@ export default function ConnectPage() {
       // paid lands here while the worker is provisioning, and the screen has
       // to turn into the link on its own when it is ready rather than sit on
       // a notice that tells them to come back later. Nothing else is worth
-      // polling: an outage or a genuine error does not clear on a timer.
+      // polling: an outage or a genuine error does not clear on a timer. The
+      // wait is bounded (lib/polling.ts): it backs off, says when it has
+      // become unusual, and stops rather than asking forever.
       shouldRetryOnError: (failure: ApiError) => failure.status === 409,
       onErrorRetry: (failure: ApiError, _key, _config, revalidate, { retryCount }) => {
         if (failure.status !== 409) {
           return;
         }
-        setTimeout(() => void revalidate({ retryCount }), 5_000);
+        if (pollingRef.current.stopped) {
+          return;
+        }
+        setTimeout(
+          () => void revalidate({ retryCount }),
+          pollingRef.current.delay || POLLING.initialMs,
+        );
       },
     },
   );
+  const waiting = error?.status === 409;
+  useEffect(() => {
+    setProvisioning(waiting);
+  }, [waiting]);
 
   if (isLoading) {
     return <ListSkeleton rows={2} />;
@@ -74,6 +99,18 @@ export default function ConnectPage() {
   if (error) {
     const pending = error.status === 409;
     const offline = error.status === 503;
+    if (pending && polling.slow) {
+      return (
+        <SlowWaitNotice
+          onCheckAgain={() => {
+            polling.restart();
+            void mutate();
+          }}
+          reference={params.subscriptionId}
+          stopped={polling.stopped}
+        />
+      );
+    }
     return (
       <AccountNotice
         description={

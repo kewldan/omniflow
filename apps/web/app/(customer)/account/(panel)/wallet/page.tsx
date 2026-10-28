@@ -28,6 +28,7 @@ import { issue, moneyIssue } from "@/lib/form-schema";
 import { useMoney } from "@/lib/format";
 import { useSubmission } from "@/lib/idempotency";
 import { minorToInput, parseMajorToMinor } from "@/lib/money";
+import { useRevalidateCommerce } from "@/lib/polling";
 
 /** The ledger movements this build has copy for, from `ledger_transactions.type`. */
 const ENTRY_TYPES = [
@@ -54,6 +55,7 @@ const PROVIDERS = ["telegram_stars", "cryptobot", "yookassa", "manual"];
  * a rule the order path owns and enforces under a lock this screen does not take.
  */
 export default function WalletPage() {
+  const revalidateCommerce = useRevalidateCommerce();
   const translate = useTranslations("account.commerce");
   const { data, error, isLoading, isValidating, mutate, setSize, size } = useSWRInfinite<
     WalletView,
@@ -110,7 +112,18 @@ export default function WalletPage() {
         </section>
       )}
 
-      <TopUpForm onCredited={() => mutate()} policy={wallet.topUp} currency={wallet.currency} />
+      {/* A top-up changes the balance shown on the dashboard, the checkout,
+          and the order screens too, so every one of them is re-read. */}
+      <TopUpForm
+        currency={wallet.currency}
+        onCredited={() => {
+          // The ledger is an infinite list, which a filtered global mutate
+          // never matches, so it is re-read through its own handle.
+          void mutate();
+          void revalidateCommerce();
+        }}
+        policy={wallet.topUp}
+      />
 
       <section className="space-y-3">
         <div className="flex items-baseline justify-between">

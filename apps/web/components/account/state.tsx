@@ -1,8 +1,10 @@
 "use client";
 
+import { Button } from "@omniflow/ui/button";
 import { EmptyState } from "@omniflow/ui/empty-state";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { AlertTriangle, Inbox, Lock, WifiOff } from "lucide-react";
+import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
@@ -35,6 +37,52 @@ export function AccountNotice({
 }) {
   return (
     <EmptyState action={action} description={description} icon={ICONS[variant]} title={title} />
+  );
+}
+
+/**
+ * Said when a wait has gone on longer than it normally does.
+ *
+ * The screen keeps showing where things stand; this adds that the delay is
+ * unusual, that nothing is lost by leaving, and what to do — check again, or
+ * ask support, with the reference that lets them find it. `stopped` is when
+ * the automatic re-checking has ended and only a manual check remains.
+ */
+export function SlowWaitNotice({
+  onCheckAgain,
+  reference,
+  stopped,
+}: {
+  onCheckAgain: () => void;
+  reference?: string;
+  stopped: boolean;
+}) {
+  const translate = useTranslations("account.states.slow");
+  return (
+    <div
+      className="space-y-3 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3"
+      role="status"
+    >
+      <div className="space-y-1">
+        <p className="font-semibold text-[13.5px]">{translate("title")}</p>
+        <p className="text-[12.5px] leading-relaxed">
+          {translate(stopped ? "stoppedDescription" : "description")}
+        </p>
+        {reference && (
+          <p className="font-mono text-[11px] text-subtle-foreground">
+            {translate("reference", { reference })}
+          </p>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={onCheckAgain} size="sm" variant="outline">
+          {translate("checkAgain")}
+        </Button>
+        <Button asChild size="sm" variant="ghost">
+          <Link href="/account/support/new">{translate("support")}</Link>
+        </Button>
+      </div>
+    </div>
   );
 }
 

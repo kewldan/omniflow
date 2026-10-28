@@ -2587,7 +2587,15 @@
       "signInAgain": "Sign in again",
       "maintenance": "Maintenance in progress",
       "maintenanceDescription": "We are working on the service. Your subscription and its remaining time are unaffected.",
-      "maintenanceReturn": "Expected back around {time}"
+      "maintenanceReturn": "Expected back around {time}",
+      "slow": {
+        "title": "This is taking longer than usual",
+        "description": "Nothing is lost if you leave: this page keeps checking, and so does the service. If it does not move in a few minutes, support can look at it.",
+        "stoppedDescription": "This page has stopped checking on its own. Check again, or ask support to look at it — nothing is lost either way.",
+        "reference": "Reference: {reference}",
+        "checkAgain": "Check again",
+        "support": "Contact support"
+      }
     },
     "signIn": {
       "action": "Sign in",

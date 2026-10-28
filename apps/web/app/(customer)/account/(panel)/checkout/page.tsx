@@ -35,6 +35,7 @@ import { attachAttribution } from "@/lib/attach-attribution";
 import { requiredText } from "@/lib/form-schema";
 import { useBytes, useDuration, useMoney } from "@/lib/format";
 import { useSubmission } from "@/lib/idempotency";
+import { useRevalidateCommerce } from "@/lib/polling";
 
 /** The payment methods this build has copy for; anything else keeps its code. */
 const PROVIDERS = ["telegram_stars", "cryptobot", "yookassa", "manual"];
@@ -120,6 +121,7 @@ function Checkout({
 }) {
   const translate = useTranslations("account.commerce");
   const router = useRouter();
+  const revalidateCommerce = useRevalidateCommerce();
   const money = useMoney();
   const period = usePeriodLabel();
   const describeProblem = useProblemMessage();
@@ -178,6 +180,9 @@ function Checkout({
       // allowed to fail the purchase: a customer who has just paid must reach
       // their order whatever the operator's analytics is doing.
       void attachAttribution(order.id);
+      // The new order belongs in the order list, and a wallet share of it is
+      // already reserved, so both are re-read rather than left stale.
+      void revalidateCommerce();
       // The chosen method travels to the order screen because a freshly created
       // order has no payment intent yet, and so no provider of its own to read.
       router.push(`/account/orders/${order.id}?provider=${encodeURIComponent(checkout.provider)}`);

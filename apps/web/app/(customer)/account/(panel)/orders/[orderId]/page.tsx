@@ -25,11 +25,17 @@ import type {
   PaymentChoice,
   PaymentHandle,
 } from "@/components/account/commerce/types";
-import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
+import {
+  AccountNotice,
+  ListSkeleton,
+  SectionLabel,
+  SlowWaitNotice,
+} from "@/components/account/state";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 import { useMoney } from "@/lib/format";
 import { useSubmission } from "@/lib/idempotency";
+import { useBoundedPolling, useRevalidateCommerce } from "@/lib/polling";
 
 /** The payment methods this build has copy for; anything else keeps its code. */
 const PROVIDERS = ["telegram_stars", "cryptobot", "yookassa", "manual"];
@@ -65,16 +71,21 @@ export default function OrderPage() {
   const payment = useSubmission();
 
   const key = `/v1/account/orders/${params.orderId}`;
+  const revalidateCommerce = useRevalidateCommerce();
+  const [live, setLive] = useState(false);
+  // A moving order is polled; a settled one is not, and a moving one that
+  // stays moving is polled ever less often and then not at all — see
+  // lib/polling.ts. The customer is told when the wait has become unusual.
+  const polling = useBoundedPolling(live);
   const { data, error, isLoading, isValidating, mutate } = useSWR<OrderSummary, ApiError>(
     key,
     fetcher,
-    {
-      // A moving order is polled; a settled one is not. Polling a completed
-      // purchase forever would be a request every few seconds for a page whose
-      // answer cannot change again.
-      refreshInterval: (current) => (current && LIVE_PHASES.includes(current.phase) ? 6_000 : 0),
-    },
+    { refreshInterval: polling.delay },
   );
+  const phaseIsLive = Boolean(data && LIVE_PHASES.includes(data.phase));
+  useEffect(() => {
+    setLive(phaseIsLive);
+  }, [phaseIsLive]);
 
   const [busy, setBusy] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -137,6 +148,8 @@ export default function OrderPage() {
       // The handoff is rendered from the order rather than from this response, so
       // the same panel appears on a reload. Re-reading is how it gets there.
       const fresh = await mutate();
+      polling.restart();
+      void revalidateCommerce();
       // "Nothing left to pay" is true only when the order owes nothing. A
       // provider that produced no handoff for an order that still owes money
       // is a different situation, and the re-read order says which.
@@ -158,6 +171,9 @@ export default function OrderPage() {
       await mutate(await apiFetch<OrderSummary>(`${key}/refresh`, { method: "POST" }), {
         revalidate: false,
       });
+      // A manual check is also a fresh start for the automatic one.
+      polling.restart();
+      void revalidateCommerce();
     } catch (failure) {
       toast.error(describeProblem(failure));
     } finally {
@@ -170,6 +186,9 @@ export default function OrderPage() {
     try {
       await apiFetch(`${key}/cancel`, { method: "POST" });
       await mutate();
+      // A cancellation releases a wallet reservation and changes the order
+      // list, not only this page.
+      void revalidateCommerce();
       toast.success(translate("order.cancelled"));
     } catch (failure) {
       toast.error(describeProblem(failure));
@@ -201,6 +220,10 @@ export default function OrderPage() {
         </p>
         <OrderProgress order={data} />
       </header>
+
+      {polling.slow && (
+        <SlowWaitNotice onCheckAgain={refresh} reference={data.id} stopped={polling.stopped} />
+      )}
 
       {data.payment ? (
         <PaymentHandoff owes={owes} payment={data.payment} />

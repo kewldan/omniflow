@@ -5,17 +5,21 @@ import { CreditCard } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
+import { useEffect, useState } from "react";
 import useSWR from "swr";
 
 import { DeliveryStatus } from "@/components/account/shop/delivery-status";
 import { useGoodsMeasure } from "@/components/account/shop/labels";
 import { isDeliveryInFlight, type ShopOrder } from "@/components/account/shop/types";
-import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
+import {
+  AccountNotice,
+  ListSkeleton,
+  SectionLabel,
+  SlowWaitNotice,
+} from "@/components/account/state";
 import { type ApiError, fetcher } from "@/lib/api";
 import { useMoney } from "@/lib/format";
-
-/** How often an order that is still moving is re-read. */
-const POLL_MS = 8_000;
+import { useBoundedPolling } from "@/lib/polling";
 
 /**
  * One purchase in full: what was bought, where it went, what it cost, and where
@@ -35,13 +39,18 @@ export default function ShopOrderPage() {
   const measure = useGoodsMeasure();
   const params = useParams<{ orderId: string }>();
 
+  const [inFlight, setInFlight] = useState(false);
+  // Bounded like every other wait in the panel: see lib/polling.ts.
+  const polling = useBoundedPolling(inFlight);
   const { data, error, isLoading, mutate } = useSWR<ShopOrder, ApiError>(
     `/v1/account/shop/orders/${params.orderId}`,
     fetcher,
-    {
-      refreshInterval: (order) => (order && isDeliveryInFlight(order.delivery.state) ? POLL_MS : 0),
-    },
+    { refreshInterval: polling.delay },
   );
+  const moving = Boolean(data && isDeliveryInFlight(data.delivery.state));
+  useEffect(() => {
+    setInFlight(moving);
+  }, [moving]);
 
   if (isLoading) {
     return <ListSkeleton rows={3} />;
@@ -98,6 +107,17 @@ export default function ShopOrderPage() {
       </header>
 
       <DeliveryStatus order={data} />
+
+      {polling.slow && (
+        <SlowWaitNotice
+          onCheckAgain={() => {
+            polling.restart();
+            void mutate();
+          }}
+          reference={data.id}
+          stopped={polling.stopped}
+        />
+      )}
 
       {/* An unpaid order is settled through the one checkout the whole panel
           uses. The shop deliberately opens no payment of its own: a second

@@ -29,6 +29,7 @@ import {
 import { AccountNotice, ListSkeleton } from "@/components/account/state";
 import { type ApiError, apiFetch, fetcher, toQuery } from "@/lib/api";
 import { useMoney } from "@/lib/format";
+import { useRevalidateCommerce } from "@/lib/polling";
 
 /** Promo refusals this build has copy for; anything else reads as "invalid". */
 const PROMO_REJECTIONS = new Set(["below_cost", "exhausted", "ineligible", "invalid", "unknown"]);
@@ -62,6 +63,7 @@ export function PurchaseForm({ productId }: { productId: string }) {
   const money = useMoney();
   const measure = useGoodsMeasure();
   const router = useRouter();
+  const revalidateCommerce = useRevalidateCommerce();
   const quantityId = useId();
   const promoId = useId();
   const walletId = useId();
@@ -179,6 +181,7 @@ export function PurchaseForm({ productId }: { productId: string }) {
       idempotency.current = null;
       setPriceChange(null);
       toast.success(translate("purchase.success"));
+      void revalidateCommerce();
       router.push(`/account/shop/orders/${order.id}`);
     } catch (purchaseError) {
       await handleFailure(purchaseError, quote);
