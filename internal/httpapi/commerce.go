@@ -50,6 +50,7 @@ func (handlers *CommerceHandlers) Mount(router chi.Router) {
 	router.Post("/v1/payments/webhooks/{provider}", handlers.paymentWebhook)
 	router.Route("/v1/admin", func(admin chi.Router) {
 		admin.Use(handlers.operatorAuth)
+		admin.Use(handlers.auditOperatorToken)
 		admin.Post("/plans", handlers.createPlan)
 		admin.Post("/plans/{planID}/versions", handlers.createPlanVersion)
 		admin.Post("/promotions", handlers.createPromotion)
@@ -208,6 +209,55 @@ func (handlers *CommerceHandlers) operatorAuth(next http.Handler) http.Handler {
 			return
 		}
 		next.ServeHTTP(writer, request)
+	})
+}
+
+// operatorTokenActor is the audit actor for anything done with
+// APP_OPERATOR_TOKEN. The token names no person, so the trail cannot say who;
+// it can say that the shared token did it, which distinguishes a refund made
+// through an integration from one made by an operator in the panel.
+const operatorTokenActor = "operator-token"
+
+// auditOperatorToken records every state-changing /v1/admin request in the
+// audit trail, with its outcome.
+//
+// This prefix bypasses the panel's RBAC and per-operator audit by design — it
+// is the machine surface — which made refunds, wallet adjustments, and imports
+// done through it invisible in the trail. Reads are not recorded; they change
+// nothing and would drown the trail. The row is written after the handler, so
+// it carries the real status; a failure to write it is logged rather than
+// undoing a change that has already committed.
+func (handlers *CommerceHandlers) auditOperatorToken(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.Method == http.MethodGet || request.Method == http.MethodHead ||
+			request.Method == http.MethodOptions || handlers.queries == nil {
+			next.ServeHTTP(writer, request)
+			return
+		}
+		recorder := &statusRecorder{ResponseWriter: writer, status: http.StatusOK}
+		next.ServeHTTP(recorder, request)
+
+		outcome := "success"
+		if recorder.status >= 400 {
+			outcome = "failure"
+		}
+		route := request.URL.Path
+		if pattern := chi.RouteContext(request.Context()).RoutePattern(); pattern != "" {
+			route = pattern
+		}
+		metadata, _ := json.Marshal(map[string]any{
+			"method": request.Method, "route": route, "status": recorder.status,
+		})
+		if _, err := handlers.queries.InsertAuditEvent(request.Context(), dbgen.InsertAuditEventParams{
+			ActorType: "operator", ActorID: pgtype.Text{String: operatorTokenActor, Valid: true},
+			Action: "admin_api." + strings.ToLower(request.Method), Category: "system", Outcome: outcome,
+			TargetType: "endpoint", TargetID: request.Method + " " + request.URL.Path,
+			RequestID: pgtype.Text{String: middlewareRequestID(request), Valid: middlewareRequestID(request) != ""},
+			Metadata:  metadata,
+		}); err != nil {
+			slog.Default().Error("operator token request could not be audited",
+				"route", route, "error", err)
+		}
 	})
 }
 

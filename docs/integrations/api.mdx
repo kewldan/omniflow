@@ -11,7 +11,7 @@ CI job, or another service.
 | Prefix | Credential | Extra gates | Who it is for |
 | --- | --- | --- | --- |
 | `/v1/panel` | `__Host-omniflow_admin` session cookie (`omniflow_admin` without TLS) | `X-CSRF-Token` on unsafe methods, an RBAC permission per route, TOTP challenge state | A human operator in the `/admin` browser workspace |
-| `/v1/admin` | `Authorization: Bearer <APP_OPERATOR_TOKEN>` | none — no CSRF, no RBAC, no authorization audit | A machine acting as the installation |
+| `/v1/admin` | `Authorization: Bearer <APP_OPERATOR_TOKEN>` | none — no CSRF, no RBAC; each mutation is audited as `operator-token` | A machine acting as the installation |
 | `/v1/account` | `__Host-omniflow_account` session cookie (`omniflow_account` without TLS) | `X-CSRF-Token`, step-up re-authentication on four routes | A customer in the `/account` browser panel |
 
 Merging any two of these would mean one silently inherits the other's
@@ -39,11 +39,20 @@ narrow role, not behind the shared token.
   `APP_OPERATOR_TOKEN` reaches **every** `/v1/admin` endpoint, including
   `POST /v1/admin/payments/{paymentID}/refunds` and
   `POST /v1/admin/customers/{customerID}/wallet-adjustments`. There is no
-  per-capability scoping, no role, and no authorization audit row on this
-  prefix. Handing the token to a third party hands them the whole surface.
-  Treat it as an installation-level credential and rotate it by editing the
-  environment and restarting the API.
+  per-capability scoping and no role on this prefix. Handing the token to a
+  third party hands them the whole surface. Treat it as an installation-level
+  credential and rotate it by editing the environment and restarting the API.
 </Warning>
+
+Every state-changing request on this prefix — anything but `GET`, `HEAD`, and
+`OPTIONS` — is written to the audit trail after it is handled, with actor type
+`operator` and actor id `operator-token`, action `admin_api.<method>` (for
+example `admin_api.post`), category `system`, the outcome (`failure` for any
+`4xx` or `5xx`), and the route template and status in the metadata. The token
+names no person, so the trail cannot say *who*; it does say that the shared
+token, not an operator in the panel, made the change, and it is filterable by
+that actor in the audit browser. Reads and requests refused for a wrong token
+are not recorded.
 
 Nothing inside this repository calls `/v1/admin`: the Telegram bot talks to
 PostgreSQL and Remnawave in process. It exists purely as an external

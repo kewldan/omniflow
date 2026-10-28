@@ -28,7 +28,7 @@ system-wide picture.
 | Stolen or replayed session cookie | 256-bit tokens stored only as a SHA-256 digest, dual idle/absolute expiry, rotation, and step-up re-authentication on four destructive customer actions — [Security](/operations/security#sessions) | Expired `admin_sessions`/`customer_sessions`/`customer_magic_links`/`customer_security_events` rows are never purged by any job today — a storage/hygiene gap, not an access one, since expired sessions cannot authenticate regardless of row presence |
 | Cross-site request forgery | Per-session HMAC token required on every unsafe method, checked server-side rather than relying on cookie policy alone — [Security](/operations/security#csrf-and-cookies) | None known |
 | Two-factor not enforced | TOTP (RFC 6238) with recovery codes, required to disable | Two-factor is voluntary per account in this build; enforcement is an operational check on `/admin/operators`, not something the API can require — [Security](/operations/security#two-factor-authentication) |
-| A stolen `APP_OPERATOR_TOKEN` | Startup requires it; write-only credential design elsewhere in the API | The token itself carries no roles, no CSRF, and produces no per-request authorization audit — treat it like root and rotate on any suspected exposure — [Security](/operations/security#the-three-credential-surfaces) |
+| A stolen `APP_OPERATOR_TOKEN` | Startup requires it; write-only credential design elsewhere in the API | The token itself carries no roles and no CSRF, and its mutations are audited only as `operator-token`, not as a person — treat it like root and rotate on any suspected exposure — [Security](/operations/security#the-three-credential-surfaces) |
 
 ## Telegram
 
@@ -55,7 +55,7 @@ system-wide picture.
 | A customer credential reaching an operator route | Three API prefixes never share middleware — `/v1/panel`, `/v1/admin`, `/v1/account` — asserted by a test, not just convention — [Security](/operations/security#the-three-credential-surfaces) | None known |
 | A hidden route or frontend state being the only permission check | Authorization lives in `internal/rbac`, compiled in, enforced identically at the Next.js server boundary and the Go API — [AGENTS.md](https://github.com/kewldan/omniflow/blob/main/AGENTS.md) | None known |
 | Privilege escalation via role self-grant | Only an owner may create an operator or change role grants | A compromised owner session remains the ceiling — no control is designed to survive that, by definition |
-| Undetected misuse | Every authentication, authorization, and configuration action is append-only audited in the same transaction as the state change, including permission denials | The `/v1/admin` bearer-token surface produces no per-request authorization audit — see Identity above |
+| Undetected misuse | Every authentication, authorization, and configuration action is append-only audited in the same transaction as the state change, including permission denials | The `/v1/admin` bearer-token surface audits its mutations under one shared actor, `operator-token`, and records no reads — see Identity above |
 
 ## SSRF
 
