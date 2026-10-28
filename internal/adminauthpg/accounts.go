@@ -539,24 +539,69 @@ func (service *Service) ChangePassword(
 	})
 }
 
-// RequestPasswordReset creates a reset token when the address matches an
-// account, and reports nothing either way.
+// RequestPasswordReset records that somebody asked to reset an operator's
+// password, and reports nothing either way.
 //
-// The caller must respond identically whether or not a token was produced: the
-// returned token is empty for an unknown or inactive address, which is not an
-// error condition.
-func (service *Service) RequestPasswordReset(
+// It issues no token. This build has no channel that reaches one operator and
+// nobody else: there is no email transport, and the operator Telegram group is
+// shared by every operator. The token used to be written to the API log for
+// out-of-band delivery, which let anyone who could read the logs — a log
+// shipper, a hosting dashboard, a support ticket with a pasted excerpt — take
+// over any operator, the owner included, by asking for a reset first. A reset
+// is now issued only from the server itself, by `api admin reset-password`,
+// and this request merely raises a notice in the Admin security topic so the
+// owner learns someone asked.
+//
+// The caller must respond identically whatever happens here; an unknown or
+// inactive address is not an error condition. The notice is deduplicated per
+// account per hour, so the public endpoint cannot be used to flood the topic.
+func (service *Service) RequestPasswordReset(ctx context.Context, email string, request RequestContext) error {
+	row, err := dbgen.New(service.pool).GetAdminUserByEmail(ctx, NormalizeEmail(email))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if row.Status != "active" {
+		return nil
+	}
+	adminUserID := uuidString(row.ID)
+	bucket := service.now().UTC().Truncate(time.Hour).Format(time.RFC3339)
+	return service.inTx(ctx, func(queries *dbgen.Queries) error {
+		if txErr := appendAudit(ctx, queries, AuditEntry{
+			// Unauthenticated, so there is no actor to name; "system" is the
+			// API acting on an anonymous request.
+			ActorType: "system", ActorID: "",
+			Action: "admin.password.reset_requested", Category: "authentication",
+			TargetType: "admin_user", TargetID: adminUserID, RequestID: request.RequestID,
+		}); txErr != nil {
+			return txErr
+		}
+		return notifySecurity(
+			ctx, queries, "admin.password.reset_requested", adminUserID, adminUserID+":"+bucket, "web",
+		)
+	})
+}
+
+// IssuePasswordReset creates a single-use reset token for an operator and
+// returns it to the caller, which is the `api admin reset-password` command
+// running on the server. Whoever can run that command already holds the
+// database URL and the encryption key, so handing them a token gives away
+// nothing they could not take; the token goes to their terminal and nowhere
+// else.
+func (service *Service) IssuePasswordReset(
 	ctx context.Context, email string, request RequestContext,
 ) (token string, account Account, err error) {
 	row, err := dbgen.New(service.pool).GetAdminUserByEmail(ctx, NormalizeEmail(email))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return "", Account{}, nil
+		return "", Account{}, ErrNotFound
 	}
 	if err != nil {
 		return "", Account{}, err
 	}
 	if row.Status != "active" {
-		return "", Account{}, nil
+		return "", Account{}, ErrAccountDisabled
 	}
 
 	raw := make([]byte, 32)
@@ -580,11 +625,18 @@ func (service *Service) RequestPasswordReset(
 		}); txErr != nil {
 			return txErr
 		}
-		return appendAudit(ctx, queries, AuditEntry{
-			ActorType: "admin", ActorID: uuidString(row.ID),
-			Action: "admin.password.reset_requested", Category: "authentication",
+		if txErr := appendAudit(ctx, queries, AuditEntry{
+			ActorType: "system", ActorID: "",
+			Action: "admin.password.reset_issued", Category: "authentication",
 			TargetType: "admin_user", TargetID: uuidString(row.ID), RequestID: request.RequestID,
-		})
+			Metadata: map[string]any{"via": "cli"},
+		}); txErr != nil {
+			return txErr
+		}
+		return notifySecurity(
+			ctx, queries, "admin.password.reset_issued", uuidString(row.ID),
+			base64.RawURLEncoding.EncodeToString(digest[:8]), "cli",
+		)
 	})
 	if err != nil {
 		return "", Account{}, err

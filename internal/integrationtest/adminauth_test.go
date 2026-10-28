@@ -421,16 +421,41 @@ func TestAdminPasswordResetIsSingleUseAndSilentForUnknownAddresses(t *testing.T)
 	service := newAdminService(t, harness, time.Now)
 	bootstrapOwner(t, ctx, service)
 
-	// An unknown address produces no token and no error, so the response cannot
-	// disclose whether the account exists.
-	token, _, err := service.RequestPasswordReset(ctx, "nobody@example.com", adminauthpg.RequestContext{})
-	if err != nil || token != "" {
-		t.Fatalf("unknown address produced token=%q err=%v", token, err)
+	// The public request issues no token for anyone — a token minted there had
+	// to be delivered through the log — and fails silently for an unknown
+	// address, so the response cannot disclose whether the account exists.
+	if err := service.RequestPasswordReset(ctx, "nobody@example.com", adminauthpg.RequestContext{}); err != nil {
+		t.Fatalf("unknown address: %v", err)
+	}
+	for range 2 {
+		if err := service.RequestPasswordReset(ctx, "owner@example.com", adminauthpg.RequestContext{}); err != nil {
+			t.Fatalf("known address: %v", err)
+		}
+	}
+	var issued, notices int
+	if err := harness.pool.QueryRow(ctx, `SELECT count(*) FROM admin_password_resets`).Scan(&issued); err != nil {
+		t.Fatalf("count resets: %v", err)
+	}
+	if issued != 0 {
+		t.Fatalf("a public reset request issued %d tokens", issued)
+	}
+	// The owner hears about it, once per hour however often it is asked.
+	if err := harness.pool.QueryRow(ctx,
+		`SELECT count(*) FROM operator_notifications WHERE payload->>'event' = 'admin.password.reset_requested'`,
+	).Scan(&notices); err != nil {
+		t.Fatalf("count notices: %v", err)
+	}
+	if notices != 1 {
+		t.Fatalf("reset-request notices = %d, want 1", notices)
 	}
 
-	token, _, err = service.RequestPasswordReset(ctx, "owner@example.com", adminauthpg.RequestContext{})
+	// Only the server-side command issues a token.
+	if _, _, err := service.IssuePasswordReset(ctx, "nobody@example.com", adminauthpg.RequestContext{}); !errors.Is(err, adminauthpg.ErrNotFound) {
+		t.Fatalf("issuing for an unknown address: %v", err)
+	}
+	token, _, err := service.IssuePasswordReset(ctx, "owner@example.com", adminauthpg.RequestContext{})
 	if err != nil || token == "" {
-		t.Fatalf("known address produced token=%q err=%v", token, err)
+		t.Fatalf("issue: token=%q err=%v", token, err)
 	}
 
 	if err = service.CompletePasswordReset(ctx, token, "yet another passphrase",

@@ -9847,7 +9847,7 @@ export const getPanelRequestPasswordResetUrl = () => {
 };
 
 /**
- * Always answers 202, whether or not the address matched an account, so the endpoint never discloses which addresses are registered.
+ * Always answers 202, whether or not the address matched an account, so the endpoint never discloses which addresses are registered. It issues no token: it records the request and notifies the owner. A reset token is issued only on the server by `api admin reset-password <email>`.
  */
 export const panelRequestPasswordReset = async (
   passwordResetRequestInput: PasswordResetRequestInput,

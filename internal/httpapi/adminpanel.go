@@ -563,21 +563,13 @@ func (handlers *AdminHandlers) requestPasswordReset(writer http.ResponseWriter, 
 		return
 	}
 
-	token, account, err := handlers.service.RequestPasswordReset(
+	// No token is issued here and nothing secret is logged: a reset token is
+	// minted only by `api admin reset-password` on the server, which prints it
+	// to that terminal. This records the request and tells the owner about it.
+	if err := handlers.service.RequestPasswordReset(
 		request.Context(), body.Email, handlers.requestContext(request),
-	)
-	if err != nil {
+	); err != nil {
 		handlers.logger.Error("password reset request failed", "error", err)
-	}
-	if token != "" {
-		// v0.6 has no operator email transport: delivery arrives with the
-		// notification work in v0.7. The token is logged at warn level so a
-		// self-hosting operator can complete a reset from the server console,
-		// and never returned in the response body.
-		handlers.logger.Warn(
-			"admin password reset issued; deliver this token out of band",
-			"adminUserId", account.ID, "token", token,
-		)
 	}
 	// Always the same answer, whether or not the address matched an account.
 	writer.WriteHeader(http.StatusAccepted)

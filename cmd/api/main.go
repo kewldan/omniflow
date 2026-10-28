@@ -45,6 +45,12 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	if len(os.Args) > 1 {
+		code := runCommand(ctx, os.Args[1:], os.Stdout, os.Stderr)
+		stop()
+		os.Exit(code)
+	}
+
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	cfg, err := config.Load()
 	if err != nil {

@@ -136,9 +136,16 @@ second factor is exactly what an attacker on a hijacked session would attempt.
   account.
 
 <Note>
-  v0.6 has no operator email transport, so a reset token is written to the API log
-  at warn level for the operator to deliver out of band. Email delivery arrives
-  with the notification work in v0.7.
+  There is no operator email transport, so the public reset request **issues no
+  token**: it records the request and posts a notice to the **🔐 Admin
+  security** topic. A token is issued only on the server, by the API binary's
+  `admin reset-password` command, which prints it to that terminal:
+
+  ```bash
+docker compose exec api /app admin reset-password owner@example.com
+```
+
+  See [Security](/operations/security#changing-and-resetting-a-password).
 </Note>
 
 ## Security notifications

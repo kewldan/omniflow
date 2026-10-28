@@ -522,7 +522,9 @@ paths:
       security: []
       description: >-
         Always answers 202, whether or not the address matched an account, so
-        the endpoint never discloses which addresses are registered.
+        the endpoint never discloses which addresses are registered. It issues
+        no token: it records the request and notifies the owner. A reset token
+        is issued only on the server by `api admin reset-password <email>`.
       requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PasswordResetRequestInput"}}}}
       responses:
         "202": {description: Request accepted}

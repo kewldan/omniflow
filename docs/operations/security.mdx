@@ -100,15 +100,36 @@ preserved, because some providers treat them as genuinely distinct mailboxes.
 `POST /v1/panel/auth/password-reset` always answers `202 Accepted` with no body,
 whether or not the address matched an account and including when the rate limit
 (5 per hour per IP) fires, so the endpoint cannot be used to discover which
-addresses are registered. The token lives one hour, is single-use, and
-requesting a new one retires the previous one. Completing a reset revokes
-**all** sessions, including the one that requested it — a reset is the remedy
-for a suspected compromise, so nothing established beforehand may survive it.
+addresses are registered. It **issues no token.** For an active account it
+writes the audit row `admin.password.reset_requested` and posts a notice to the
+**🔐 Admin security** topic — at most one per account per hour — so the owner
+learns that somebody asked.
+
+There is no channel in this build that reaches one operator and nobody else: no
+email transport, and the operator Telegram group is shared. A token is therefore
+issued only on the server, by the API binary, which prints it to the terminal
+that ran it and writes it nowhere else:
+
+```bash
+docker compose exec api /app admin reset-password owner@example.com
+```
+
+The command needs `APP_DATABASE_URL` and `APP_DATA_ENCRYPTION_KEY`, which the
+API container already has; anyone who can run it could read the database
+anyway, so it grants nothing new. It audits `admin.password.reset_issued` and
+posts a security notice. Hand the token to the operator over a channel you
+trust; they redeem it with `POST /v1/panel/auth/password-reset/complete`
+(`{"token", "newPassword"}`). The token lives one hour, is single-use, and
+issuing a new one retires the previous one. Completing a reset revokes **all**
+sessions — a reset is the remedy for a suspected compromise, so nothing
+established beforehand may survive it.
 
 <Warning>
-  There is no email transport in this build. The reset token is written to the
-  API log at warn level — `admin password reset issued; deliver this token out of
-  band` — for an operator with host access to deliver. Neither the request nor
+  Earlier builds wrote the reset token to the API log at warn level, which let
+  anyone who could read the logs take over any operator, the owner included, by
+  requesting a reset first. If you ship logs anywhere, search them for
+  `admin password reset issued` and treat any token found there as exposed —
+  issuing a new one with the command above retires it. Neither the request nor
   the completion endpoint has a screen in `/admin`; both are API-only.
 </Warning>
 
@@ -556,9 +577,10 @@ the log by default. On top of that:
   apostrophe so a spreadsheet cannot evaluate an exported value as a formula.
 
 The one place a secret is written to a log on purpose is the first-owner setup
-token and the operator password-reset token, both at warn level, because there
-is no other delivery channel in this build and only someone with host access
-sees them. Do not forward those logs to a chat room or a ticket.
+token, at warn level, because there is no other delivery channel before any
+operator exists and it stops being issued the moment the owner is created. Do
+not forward that log to a chat room or a ticket. The operator password-reset
+token is never logged; it is printed only by `api admin reset-password`.
 
 ## The audit trail
 
