@@ -1,12 +1,11 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { lazy, Suspense } from "react";
 import useSWR from "swr";
 
 import { ConsentTrail } from "@/components/account/account/consent-trail";
-import { ContactChannels } from "@/components/account/account/contact-channels";
 import { DataExport } from "@/components/account/account/data-export";
-import { DeletionRequest } from "@/components/account/account/deletion-request";
 import { RetentionState } from "@/components/account/account/retention-state";
 import type { PrivacyOverview } from "@/components/account/account/types";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
@@ -26,7 +25,24 @@ import { fetcher } from "@/lib/api";
  * because they are the one part of this page an installation can be missing
  * entirely: with no encryption key configured the route answers 503, and that is
  * a state for the section to render, not for the whole screen to fail on.
+ *
+ * The same two sections are also the heavy ones — the channel editor carries
+ * the select list and its positioning engine, the deletion request its own
+ * form and dialog — so they are fetched after the page rather than with it.
+ * The channel editor shows a skeleton while its data loads anyway, and the
+ * deletion request is the last thing on the page.
  */
+const ContactChannels = lazy(() =>
+  import("@/components/account/account/contact-channels").then((module) => ({
+    default: module.ContactChannels,
+  })),
+);
+const DeletionRequest = lazy(() =>
+  import("@/components/account/account/deletion-request").then((module) => ({
+    default: module.DeletionRequest,
+  })),
+);
+
 export default function PrivacyPage() {
   const translate = useTranslations("account.account");
   const { data, error, isLoading, mutate } = useSWR<PrivacyOverview, ApiError>(
@@ -53,7 +69,9 @@ export default function PrivacyPage() {
       <RetentionState retention={data.retention} />
 
       <SectionLabel>{translate("contacts.title")}</SectionLabel>
-      <ContactChannels />
+      <Suspense fallback={<ListSkeleton rows={2} />}>
+        <ContactChannels />
+      </Suspense>
 
       <SectionLabel>{translate("consents.title")}</SectionLabel>
       <ConsentTrail consents={data.consents} />
@@ -62,7 +80,9 @@ export default function PrivacyPage() {
       <DataExport preview={data.export} />
 
       <SectionLabel>{translate("deletion.title")}</SectionLabel>
-      <DeletionRequest deletion={data.deletion} onChanged={() => mutate()} />
+      <Suspense fallback={<ListSkeleton rows={1} />}>
+        <DeletionRequest deletion={data.deletion} onChanged={() => mutate()} />
+      </Suspense>
     </div>
   );
 }
