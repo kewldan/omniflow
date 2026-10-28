@@ -168,3 +168,26 @@ func TestWalkCandidatePagesReportsAStoreFailure(t *testing.T) {
 		t.Fatalf("walk returned %v, want the store failure", err)
 	}
 }
+
+// Every campaign recipient the bot cannot message is resolved with a reason
+// rather than left queued, which is what lets a campaign complete.
+func TestCampaignUnreachableNamesTheReason(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		message           PendingCampaignMessage
+		reason, errorCode string
+		unreachable       bool
+	}{
+		{PendingCampaignMessage{Active: false, TelegramID: 5}, "no_telegram", "account_inactive", true},
+		{PendingCampaignMessage{Active: true, TelegramID: 0}, "no_telegram", "", true},
+		{PendingCampaignMessage{Active: true, TelegramID: 5, DeliveryStatus: "not_started"}, "delivery_blocked", "", true},
+		{PendingCampaignMessage{Active: true, TelegramID: 5, DeliveryStatus: "blocked"}, "delivery_blocked", "", true},
+		{PendingCampaignMessage{Active: true, TelegramID: 5, DeliveryStatus: "failing"}, "", "", false},
+	}
+	for _, testCase := range cases {
+		reason, errorCode, unreachable := campaignUnreachable(testCase.message)
+		if reason != testCase.reason || errorCode != testCase.errorCode || unreachable != testCase.unreachable {
+			t.Fatalf("campaignUnreachable(%+v) = %q, %q, %t", testCase.message, reason, errorCode, unreachable)
+		}
+	}
+}

@@ -474,13 +474,17 @@ func (notifier *Notifier) deliverCampaigns(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
+		if reason, errorCode, unreachable := campaignUnreachable(message); unreachable {
+			notifier.resolveCampaign(ctx, message, "suppressed", reason, errorCode)
+			continue
+		}
 		candidate, known, err := lookup(ctx, message.CustomerID)
 		if err != nil {
 			notifier.logger.Error("notification candidate lookup failed", "error", err)
 			return
 		}
 		if !known {
-			// The customer is no longer reachable through Telegram at all.
+			// The customer stopped being reachable between the two reads.
 			notifier.resolveCampaign(ctx, message, "suppressed", "no_telegram", "")
 			continue
 		}
@@ -496,7 +500,11 @@ func (notifier *Notifier) deliverCampaigns(ctx context.Context) {
 		}
 		decision, err := commerce.EvaluateDelivery(notifier.clock().UTC(), message.Class, policy)
 		if err != nil {
+			// A template class the policy does not know will not become known
+			// on the next pass. Leaving the row queued kept the campaign
+			// running for ever; it is recorded as failed instead.
 			notifier.logger.Error("campaign classification failed", "error", err)
+			notifier.resolveCampaign(ctx, message, "failed", "", "classification_failed")
 			continue
 		}
 		decision = applySuppression(decision, candidate)
@@ -518,6 +526,24 @@ func (notifier *Notifier) deliverCampaigns(ctx context.Context) {
 		}
 		notifier.resolveCampaign(ctx, message, "sent", "", "")
 	}
+}
+
+// campaignUnreachable decides, from the batch row alone, whether a recipient
+// can be messaged at all, and the reason recorded when not. A customer with
+// no Telegram identity, one whose account is no longer active, and one whose
+// chat is known to refuse messages are each resolved rather than left queued.
+func campaignUnreachable(message PendingCampaignMessage) (reason, errorCode string, unreachable bool) {
+	switch {
+	case !message.Active:
+		return "no_telegram", "account_inactive", true
+	case message.TelegramID == 0:
+		return "no_telegram", "", true
+	}
+	switch message.DeliveryStatus {
+	case "blocked", "deactivated", "not_started":
+		return "delivery_blocked", "", true
+	}
+	return "", "", false
 }
 
 // resolveCampaign records one recipient's outcome, logging rather than

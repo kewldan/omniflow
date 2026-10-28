@@ -15,33 +15,62 @@ import (
 type PendingCampaignMessage struct {
 	CampaignID string
 	CustomerID string
+	// TelegramID is zero when the customer has no Telegram identity the bot
+	// can message. The recipient is still read, so it can be resolved.
 	TelegramID int64
-	Locale     Locale
-	Class      string
-	Subject    string
-	Body       string
+	// Active is false for a customer suspended or deleted after the audience
+	// was expanded.
+	Active bool
+	// DeliveryStatus is the customer's Telegram delivery health, so a blocked
+	// chat is recorded as blocked rather than as a missing identity.
+	DeliveryStatus string
+	Locale         Locale
+	Class          string
+	Subject        string
+	Body           string
 }
 
-// PendingCampaignMessages reads the next slice of a running campaign.
+// PendingCampaignMessages reads the next slice of the running campaigns.
 //
 // Only campaigns in the running state are read, which is what makes pause work:
 // pausing stops delivery at the next batch without cancelling what has already
 // gone or losing the record of who received it.
+//
+// Every queued recipient is read, reachable or not. The read used to join the
+// Telegram recipient and the active-account filter, so a customer with neither
+// was never returned and never resolved: their row stayed `queued`, the
+// campaign could not complete, and because the batch was one queue ordered by
+// `queued_at` across all campaigns, such rows at its head stopped every other
+// campaign too. Now they come back with no Telegram identity or as inactive,
+// and the notifier records why they were not sent.
+//
+// The batch is shared fairly. Each running campaign contributes its oldest
+// recipients, and the batch takes the first of every campaign, then the
+// second, and so on, so a large campaign cannot hold a small one behind it.
 func (store *PostgresStore) PendingCampaignMessages(
 	ctx context.Context, limit int,
 ) ([]PendingCampaignMessage, error) {
 	rows, err := store.pool.Query(ctx, telegramRecipients+`
-		SELECT c.id::text, r.user_id::text, recipient.telegram_id,
+		SELECT DISTINCT ON (pending.position, c.id, pending.user_id)
+		       c.id::text, pending.user_id::text, COALESCE(recipient.telegram_id, 0),
+		       u.status = 'active', COALESCE(s.status, 'active'),
 		       CASE WHEN COALESCE(p.locale, 'auto') = 'auto' THEN u.locale ELSE p.locale END,
 		       t.class, t.subject_en, t.subject_ru, t.body_en, t.body_ru
-		FROM campaign_recipients r
-		JOIN campaigns c ON c.id = r.campaign_id AND c.status = 'running'
+		FROM campaigns c
+		CROSS JOIN LATERAL (
+			SELECT r.user_id, row_number() OVER (ORDER BY r.queued_at, r.user_id) AS position
+			FROM campaign_recipients r
+			WHERE r.campaign_id = c.id AND r.status = 'queued'
+			ORDER BY r.queued_at, r.user_id
+			LIMIT $1
+		) pending
 		JOIN message_templates t ON t.id = c.template_id
-		JOIN users u ON u.id = r.user_id AND u.status = 'active'
-		JOIN recipient ON recipient.user_id = r.user_id
-		LEFT JOIN bot_preferences p ON p.user_id = r.user_id
-		WHERE r.status = 'queued'
-		ORDER BY r.queued_at
+		JOIN users u ON u.id = pending.user_id
+		LEFT JOIN recipient ON recipient.user_id = pending.user_id
+		LEFT JOIN bot_preferences p ON p.user_id = pending.user_id
+		LEFT JOIN bot_delivery_state s ON s.user_id = pending.user_id
+		WHERE c.status = 'running'
+		ORDER BY pending.position, c.id, pending.user_id, recipient.telegram_id DESC NULLS LAST
 		LIMIT $1`, limit)
 	if err != nil {
 		return nil, err
@@ -59,6 +88,7 @@ func (store *PostgresStore) PendingCampaignMessages(
 			bodyRU    string
 		)
 		if err := rows.Scan(&message.CampaignID, &message.CustomerID, &message.TelegramID,
+			&message.Active, &message.DeliveryStatus,
 			&locale, &message.Class, &subjectEN, &subjectRU, &bodyEN, &bodyRU); err != nil {
 			return nil, err
 		}

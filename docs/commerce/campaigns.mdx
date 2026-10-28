@@ -255,6 +255,11 @@ already `running`.
 - Up to 5000 recipient rows are inserted per pass. The recipient row's composite
   primary key is the deduplication, so a paused-and-resumed campaign continues
   rather than restarting, and a customer cannot be queued twice.
+- A customer on the suppression list, or with no Telegram identity the bot could
+  message, is resolved as `suppressed` the moment they are queued, with reason
+  `suppressed` or `no_telegram`. A customer with no Telegram identity used to be
+  queued for the bot, which never read them, so the row stayed `queued` and the
+  campaign never completed.
 - Counters are recomputed from the recipient rows after each pass rather than
   incremented, so they cannot drift.
 - When a pass queues nobody new and nothing is left `queued`, the campaign is
@@ -280,19 +285,29 @@ duplicating them would mean two places that can disagree about whether a
 customer may be messaged. It drains queued recipients of running campaigns every
 15 minutes, 200 per pass, and records an outcome per recipient.
 
+The 200 are shared between running campaigns: each contributes its oldest
+recipients, and the pass takes the first of every campaign, then the second,
+and so on. A campaign with a large backlog cannot hold a small one behind it,
+which a single queue ordered by queue time did. Every queued recipient is read,
+reachable or not, so none can stay `queued` for ever: a customer with no
+Telegram identity, one whose account was suspended or deleted after expansion,
+and one whose chat is known to refuse messages are each resolved with a reason,
+and a template whose class the delivery policy does not recognise fails the
+recipient with `classification_failed` instead of leaving it queued.
+
 A recipient the policy refuses is recorded as suppressed with a reason, never
 silently dropped:
 
 | Status | Reason | Meaning |
 | --- | --- | --- |
 | `sent` | — | Telegram accepted the message |
-| `failed` | — | Telegram rejected it; `error_code` is `send_failed` |
-| `suppressed` | `no_telegram` | No reachable Telegram identity |
+| `failed` | — | Telegram rejected it; `error_code` is `send_failed`, or `classification_failed` for a template class the policy does not know |
+| `suppressed` | `no_telegram` | No reachable Telegram identity; `error_code` is `account_inactive` when the account was suspended or deleted after expansion |
 | `suppressed` | `suppressed` | On the suppression list when the audience was expanded |
 | `suppressed` | `no_consent` | Marketing consent absent, or the news preference off |
 | `suppressed` | `frequency_cap` | Already had their marketing allowance this window |
 | `suppressed` | `quiet_hours` | Inside their quiet window |
-| `suppressed` | `delivery_blocked` | Blocked the bot, or the account is deactivated |
+| `suppressed` | `delivery_blocked` | Blocked the bot, never started it, or the account is deactivated |
 
 A campaign **records** a quiet-hours refusal rather than holding the message
 until morning. A marketing send is not urgent enough to arrive late in a batch

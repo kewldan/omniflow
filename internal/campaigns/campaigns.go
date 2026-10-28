@@ -175,7 +175,8 @@ func (runner *Runner) queueBatch(
 	campaignArg := "$" + itoa(len(query.Args)+1)
 	rows, err := runner.pool.Query(ctx, `
 		SELECT u.id,
-		       EXISTS (SELECT 1 FROM communication_suppressions s WHERE s.user_id = u.id)
+		       EXISTS (SELECT 1 FROM communication_suppressions s WHERE s.user_id = u.id),
+		       `+reachableByTelegram+`
 		FROM users u
 		WHERE u.status = 'active'
 		  AND (`+query.Where+`)
@@ -193,11 +194,12 @@ func (runner *Runner) queueBatch(
 	type candidate struct {
 		id         pgtype.UUID
 		suppressed bool
+		reachable  bool
 	}
 	candidates := make([]candidate, 0, expansionBatch)
 	for rows.Next() {
 		var found candidate
-		if err := rows.Scan(&found.id, &found.suppressed); err != nil {
+		if err := rows.Scan(&found.id, &found.suppressed, &found.reachable); err != nil {
 			return 0, err
 		}
 		candidates = append(candidates, found)
@@ -212,16 +214,43 @@ func (runner *Runner) queueBatch(
 		}); err != nil {
 			return 0, err
 		}
-		if found.suppressed {
+		if reason := expansionSuppression(found.suppressed, found.reachable); reason != "" {
 			if err = queries.ResolveCampaignRecipient(ctx, dbgen.ResolveCampaignRecipientParams{
 				CampaignID: campaignID, UserID: found.id, Status: "suppressed",
-				SuppressionReason: pgtype.Text{String: "suppressed", Valid: true},
+				SuppressionReason: pgtype.Text{String: reason, Valid: true},
 			}); err != nil {
 				return 0, err
 			}
 		}
 	}
 	return len(candidates), nil
+}
+
+// reachableByTelegram is true for a customer the bot has a chat to message:
+// an active Telegram identity, or the v0.2 Remnawave mapping that carries one.
+// It mirrors the bot's own recipient set.
+const reachableByTelegram = `(EXISTS (SELECT 1 FROM identities i
+		WHERE i.user_id = u.id AND i.provider = 'telegram' AND i.status = 'active')
+	OR EXISTS (SELECT 1 FROM remnawave_users m
+		WHERE m.user_id = u.id AND m.telegram_id IS NOT NULL))`
+
+// expansionSuppression is the reason a recipient is resolved as suppressed the
+// moment they are queued, or "" for one the bot should try.
+//
+// A customer with no Telegram identity cannot receive a campaign at all. They
+// used to be queued and left for the bot, which never read them, so the row
+// stayed `queued` and the campaign never completed. The suppression list
+// comes first because it is the operator's standing instruction, and the
+// reason an operator most needs to see.
+func expansionSuppression(suppressed, reachable bool) string {
+	switch {
+	case suppressed:
+		return "suppressed"
+	case !reachable:
+		return "no_telegram"
+	default:
+		return ""
+	}
 }
 
 // publishScheduledNews publishes posts whose time has come.
