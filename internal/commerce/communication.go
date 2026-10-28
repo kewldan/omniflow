@@ -209,8 +209,17 @@ func EvaluateDelivery(now time.Time, kind string, policy DeliveryPolicy) (Delive
 
 // ClassifyTelegramFailure maps a Telegram delivery failure onto the durable
 // delivery state so a blocked or deleted account stops consuming retries.
+//
+// An empty status means the failure says nothing about the recipient and must
+// not touch their delivery state.
 func ClassifyTelegramFailure(code string) (status string, retryable bool) {
 	switch code {
+	case "rejected":
+		// Telegram refused the message itself — markup it cannot parse, a
+		// text over its limit. Sending the same message again gets the same
+		// answer, and the customer's chat is fine: counting it against them
+		// marked a reachable customer as failing for an operator's typo.
+		return "", false
 	case "bot_blocked":
 		return "blocked", false
 	case "not_started":

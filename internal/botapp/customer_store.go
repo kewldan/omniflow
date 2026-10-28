@@ -261,6 +261,10 @@ func (store *PostgresStore) RecordDeliverySuccess(ctx context.Context, customerI
 // account that blocked the bot or no longer exists.
 func (store *PostgresStore) RecordDeliveryFailure(ctx context.Context, customerID, code string, retryAfter time.Time) error {
 	status, _ := commerce.ClassifyTelegramFailure(code)
+	if status == "" {
+		// The failure was the message's, not the chat's.
+		return nil
+	}
 	retry := pgtype.Timestamptz{}
 	if !retryAfter.IsZero() {
 		retry = pgtype.Timestamptz{Time: retryAfter, Valid: true}

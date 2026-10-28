@@ -93,8 +93,13 @@ func (stub *botTelegram) serve(writer http.ResponseWriter, request *http.Request
 	}
 	stub.mutex.Unlock()
 	if refused {
-		writer.WriteHeader(http.StatusForbidden)
-		_, _ = writer.Write([]byte(`{"ok":false,"error_code":403,"description":` + strconvQuote(refusal) + `}`))
+		status := http.StatusForbidden
+		if strings.HasPrefix(refusal, "Bad Request") {
+			status = http.StatusBadRequest
+		}
+		writer.WriteHeader(status)
+		_, _ = writer.Write([]byte(`{"ok":false,"error_code":` + itoa64(int64(status)) +
+			`,"description":` + strconvQuote(refusal) + `}`))
 		return
 	}
 	switch method {

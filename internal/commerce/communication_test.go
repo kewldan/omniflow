@@ -99,6 +99,16 @@ func TestClassifyTelegramFailureStopsRetryingBlockedAccounts(t *testing.T) {
 	}
 }
 
+// Telegram refusing the message itself — markup it cannot parse — is the
+// message's fault, not the chat's: it is not retried, and it must not touch
+// the recipient's delivery state.
+func TestRejectedMessageIsFinalAndSaysNothingAboutTheRecipient(t *testing.T) {
+	status, retryable := ClassifyTelegramFailure("rejected")
+	if status != "" || retryable {
+		t.Fatalf("ClassifyTelegramFailure(rejected) = %q, %t; want no state and no retry", status, retryable)
+	}
+}
+
 // A customer who never pressed Start is a final state of its own: it is not a
 // block, and it must stop retries and every send the same way one does.
 func TestNeverStartedChatIsFinalAndRefused(t *testing.T) {

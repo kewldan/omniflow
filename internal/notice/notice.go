@@ -240,6 +240,12 @@ var telegramTags = map[string]bool{
 	"a": true,
 }
 
+// CheckMarkup reports whether a body is markup Telegram accepts in a message
+// sent with parse_mode HTML. It is the same rule a reworded notice is held to,
+// exported for the other operator-written text the bot sends that way — a
+// campaign template — so the two cannot disagree about what is valid.
+func CheckMarkup(body string) error { return checkMarkup(body) }
+
 // checkMarkup refuses tags Telegram does not accept, and links that are not
 // https.
 //

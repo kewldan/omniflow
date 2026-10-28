@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/omniflow/omniflow/internal/audience"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
+	"github.com/omniflow/omniflow/internal/notice"
 )
 
 // AudienceSegment is a named, reviewable filter set.
@@ -145,11 +147,16 @@ func (service *Service) Templates(ctx context.Context) ([]MessageTemplate, error
 	return templates, nil
 }
 
-// SaveTemplate stores a template after validating its variables.
+// SaveTemplate stores a template after validating its variables and markup.
 //
 // A body referencing a variable that is not declared is refused on write. The
 // alternative is a customer receiving "Hello {{name}}" because nobody checked,
 // and by then it has been sent to everybody.
+//
+// The bodies are sent with parse_mode HTML, so they are held to the markup rule
+// the reworded notices are: a stray `<` — "Скидка <50%" — or a tag Telegram
+// does not accept made Telegram refuse every single message of the campaign.
+// Subjects are escaped by the bot before sending, so they may say anything.
 func (service *Service) SaveTemplate(
 	ctx context.Context, template MessageTemplate, actor Actor,
 ) (MessageTemplate, error) {
@@ -167,6 +174,11 @@ func (service *Service) SaveTemplate(
 			if !declared[match[1]] {
 				return MessageTemplate{}, ErrValidaton
 			}
+		}
+	}
+	for _, body := range []string{template.BodyEN, template.BodyRU} {
+		if err := notice.CheckMarkup(body); err != nil {
+			return MessageTemplate{}, fmt.Errorf("%w: %w", ErrValidaton, err)
 		}
 	}
 

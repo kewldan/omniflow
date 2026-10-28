@@ -113,6 +113,19 @@ the declared list is refused on write. The alternative is a customer receiving
 Both languages are required, for the same reason canned support replies require
 both: the language of the customer is not the language of the operator.
 
+Bodies are sent with Telegram's HTML parse mode, so they are held to the same
+markup rule as [reworded notices](/operations/message-wording): only the tags
+Telegram accepts (`b`, `strong`, `i`, `em`, `u`, `s`, `strike`, `del`, `code`,
+`pre`, and `a` with an `https` link), every tag closed, and a literal `<` written
+as `&lt;`. Anything else is refused on write as 422. `Скидка <50%` used to be
+accepted and then refused by Telegram for every recipient of the campaign.
+Subjects are escaped before sending and may contain anything.
+
+When Telegram refuses a message anyway, the refusal is recorded once as
+`failed` and not retried — sending the same text again gets the same answer —
+and it does not count against the customer's delivery state, because their chat
+is fine.
+
 Authoring is API-only: `PUT /v1/panel/marketing/templates` with
 `{code, class, subjectEn, subjectRu, bodyEn, bodyRu, variables}`, needing
 `marketing.write`. Bodies are 1–3500 characters, subjects may be empty and are

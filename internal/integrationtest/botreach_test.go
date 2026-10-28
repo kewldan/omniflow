@@ -61,6 +61,26 @@ func TestBotDeliveryStateClearsWhenTheCustomerIsHeardFrom(t *testing.T) {
 		t.Fatalf("after the customer wrote to the bot the state is %q, want active", status)
 	}
 
+	// A message Telegram cannot parse is refused once, not retried, and says
+	// nothing about the customer's chat.
+	flow.telegram.refuse["sendMessage"] = "Bad Request: can't parse entities: unexpected end tag"
+	before := len(flow.telegram.requests)
+	if err := sender.Send(ctx, customerID, account, botapp.View{Text: "Скидка <50%"}); err == nil {
+		t.Fatal("a refused send reported success")
+	}
+	delete(flow.telegram.refuse, "sendMessage")
+	if attempts := len(flow.telegram.requests) - before; attempts != 1 {
+		t.Fatalf("a message Telegram rejected was tried %d times, want once", attempts)
+	}
+	var failures int
+	if err := harness.pool.QueryRow(ctx, `SELECT status, consecutive_failures FROM bot_delivery_state
+		WHERE user_id = $1::uuid`, customerID).Scan(new(string), &failures); err != nil {
+		t.Fatalf("read delivery state: %v", err)
+	}
+	if status := deliveryStatus(ctx, t, harness, customerID); status != "active" || failures != 0 {
+		t.Fatalf("a rejected message left the customer %q with %d failures, want active and none", status, failures)
+	}
+
 	flow.deliver(ctx, chatMembership(account, models.ChatMemberTypeBanned))
 	if status := deliveryStatus(ctx, t, harness, customerID); status != "blocked" {
 		t.Fatalf("after the customer blocked the bot the state is %q, want blocked", status)
