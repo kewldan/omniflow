@@ -203,8 +203,16 @@ function Field({
 }
 
 /** Adds or edits a blocklist source. */
-export function SourceEditor({ onSaved }: { onSaved: () => void }) {
+export function SourceEditor({
+  existingSlugs = [],
+  onSaved,
+}: {
+  /** The sources already stored, so re-saving one can be recognised. */
+  existingSlugs?: readonly string[];
+  onSaved: () => void;
+}) {
   const translate = useTranslations("admin.risk");
+  const translateForm = useTranslations("common.form.errors");
   const slugId = useId();
   const nameId = useId();
   const urlId = useId();
@@ -268,6 +276,16 @@ export function SourceEditor({ onSaved }: { onSaved: () => void }) {
             type="password"
             value={form.auth}
           />
+          {/* The stored header is kept only while the address is unchanged:
+              the API will not send it to a new one, and refuses such a save
+              without the header (secret_required). The list does not show a
+              source's address, so this says so whenever an existing source
+              is re-saved without one. */}
+          {existingSlugs.includes(form.slug) && form.auth.trim() === "" && (
+            <p className="text-muted-foreground text-xs">
+              {translateForm("secretKeptIfUnchanged")}
+            </p>
+          )}
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={intervalId}>{translate("sources.intervalHours")}</Label>
@@ -280,7 +298,11 @@ export function SourceEditor({ onSaved }: { onSaved: () => void }) {
         </div>
       </div>
 
-      {error && <p className="text-danger-foreground text-sm">{error.message}</p>}
+      {error && (
+        <p className="text-danger-foreground text-sm" role="alert">
+          {error.code === "secret_required" ? translateForm("secretRequired") : error.message}
+        </p>
+      )}
 
       <Button
         className="self-start"

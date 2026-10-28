@@ -308,7 +308,9 @@ function Sources({ active }: { active: boolean }) {
 
   return (
     <div className="flex flex-col gap-3">
-      {can("risk.write") && <SourceEditor onSaved={() => mutate()} />}
+      {can("risk.write") && (
+        <SourceEditor existingSlugs={items.map((source) => source.slug)} onSaved={() => mutate()} />
+      )}
       {items.length === 0 ? (
         <Card className="p-6">
           <NoSources />

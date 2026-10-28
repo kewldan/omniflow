@@ -249,6 +249,8 @@ function ProviderForm({
   const [draft, setDraft] = useState(initial);
   const [confirming, setConfirming] = useState(false);
   const { run, pending, error } = useOperatorAction();
+  const translateForm = useTranslations("common.form.errors");
+  const [secretMissing, setSecretMissing] = useState(false);
 
   const slugId = useId();
   const nameId = useId();
@@ -274,7 +276,23 @@ function ProviderForm({
     draft.discoveryUrl.trim() !== "" &&
     draft.clientId.trim() !== "";
 
+  // The stored client secret goes to the token endpoint this issuer,
+  // discovery document, and client describe. Change any of them and the API
+  // drops the stored secret rather than send it to the new place, refusing the
+  // save without a fresh one — so the form asks for it first.
+  const destinationChanged =
+    known &&
+    secretConfigured &&
+    (draft.issuer.trim() !== initial.issuer.trim() ||
+      draft.discoveryUrl.trim() !== initial.discoveryUrl.trim() ||
+      draft.clientId.trim() !== initial.clientId.trim());
+
   async function save() {
+    if (destinationChanged && draft.clientSecret === "") {
+      setSecretMissing(true);
+      return;
+    }
+    setSecretMissing(false);
     const ok = await run("/v1/panel/settings/customer-oidc", {
       body: {
         allowAutoProvision: draft.allowAutoProvision,
@@ -354,11 +372,16 @@ function ProviderForm({
           />
         </Field>
         <Field
-          hint={translate(secretConfigured ? "fields.secretKept" : "fields.secretHint")}
+          hint={
+            destinationChanged
+              ? translateForm("secretRequired")
+              : translate(secretConfigured ? "fields.secretKept" : "fields.secretHint")
+          }
           id={secretId}
           label={translate("fields.clientSecret")}
         >
           <Input
+            aria-invalid={secretMissing || (destinationChanged && draft.clientSecret === "")}
             autoComplete="off"
             disabled={!editable}
             id={secretId}
@@ -425,7 +448,16 @@ function ProviderForm({
         />
       </div>
 
-      {error && (
+      {secretMissing && (
+        <p className="text-danger-foreground text-sm" role="alert">
+          {translateForm("secretRequired")}
+        </p>
+      )}
+      {/* oidc_rejected carries the API's own reason — a missing secret, an
+          unreachable discovery document, or an issuer change refused because
+          customers are already bound to this provider — which is the only
+          place that sentence exists. */}
+      {error && !secretMissing && (
         <p className="text-danger-foreground text-sm" role="alert">
           {error.message}
         </p>

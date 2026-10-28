@@ -86,7 +86,7 @@ function ProviderCard({ editable }: { editable: boolean }) {
             provider={provider}
           />
         ))}
-        {editable ? <ProviderEditor onSaved={() => mutate()} /> : null}
+        {editable ? <ProviderEditor existing={providers} onSaved={() => mutate()} /> : null}
       </CardContent>
     </Card>
   );
@@ -244,9 +244,12 @@ function ProviderRow({
   );
 }
 
-function ProviderEditor({ onSaved }: { onSaved: () => void }) {
+function ProviderEditor({ existing, onSaved }: { existing: AiProvider[]; onSaved: () => void }) {
   const translate = useTranslations("admin.aiSettings");
+  const translateForm = useTranslations("common.form.errors");
   const { run, pending, error } = useOperatorAction();
+  const [secretMissing, setSecretMissing] = useState(false);
+  const keyId = useId();
   const [form, setForm] = useState({
     apiKey: "",
     baseUrl: "",
@@ -263,9 +266,22 @@ function ProviderEditor({ onSaved }: { onSaved: () => void }) {
   const trainsId = useId();
 
   async function create() {
+    // Saving under a slug that exists updates that provider. If the address
+    // the key is sent to changes, the API drops the stored key rather than
+    // send it somewhere new, and refuses the save without a fresh one — so the
+    // form asks for it before sending rather than after a refusal.
+    const current = existing.find((provider) => provider.slug === form.slug.trim());
+    const destinationChanged =
+      current?.keyConfigured &&
+      ((current.baseUrl ?? "") !== form.baseUrl.trim() || current.kind !== form.kind);
+    if (destinationChanged && !form.apiKey.trim()) {
+      setSecretMissing(true);
+      return;
+    }
+    setSecretMissing(false);
     const saved = await run("/v1/panel/settings/ai/providers", {
       method: "PUT",
-      body: { ...form, enabled: false },
+      body: { ...form, apiKey: form.apiKey.trim() || undefined, enabled: false },
       reason: translate("providers.reason"),
     });
     if (saved) {
@@ -335,7 +351,24 @@ function ProviderEditor({ onSaved }: { onSaved: () => void }) {
           <Label htmlFor={trainsId}>{translate("providers.trainsOnData")}</Label>
         </div>
       </div>
-      {error ? <p className="text-destructive text-sm">{translate("saveFailed")}</p> : null}
+      <div className="flex flex-col gap-1 sm:max-w-sm">
+        <Label htmlFor={keyId}>{translate("providers.apiKey")}</Label>
+        <Input
+          aria-invalid={secretMissing || error?.code === "secret_required"}
+          autoComplete="off"
+          id={keyId}
+          onChange={(event) => setForm({ ...form, apiKey: event.target.value })}
+          type="password"
+          value={form.apiKey}
+        />
+      </div>
+      {secretMissing || error?.code === "secret_required" ? (
+        <p className="text-destructive text-sm" role="alert">
+          {translateForm("secretRequired")}
+        </p>
+      ) : error ? (
+        <p className="text-destructive text-sm">{translate("saveFailed")}</p>
+      ) : null}
       <Button
         className="self-start"
         disabled={pending || form.slug.length === 0}

@@ -3922,7 +3922,9 @@
           "min": "The smallest amount is {min}.",
           "max": "The largest amount is {max}."
         },
-        "chooseOne": "Choose one of the options."
+        "chooseOne": "Choose one of the options.",
+        "secretRequired": "The address this credential is sent to changed, so the stored one will not be sent there. Enter it again to save.",
+        "secretKeptIfUnchanged": "Left empty, the stored credential is kept only if the address is unchanged. If you changed the address, enter it again."
       },
       "prices": {
         "currency": "Currency",
