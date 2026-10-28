@@ -350,7 +350,7 @@ func (store *Store) quote(ctx context.Context, queries *dbgen.Queries, userID, p
 			return OrderQuote{}, ErrPromoIneligible
 		}
 		limit := lockedPromo.PromotionRedemptionLimit
-		if limit.Valid && counts.TotalCount >= limit.Int32 || lockedPromo.RedemptionLimit.Valid && counts.CodeCount >= lockedPromo.RedemptionLimit.Int32 || counts.CustomerCount >= lockedPromo.PerCustomerLimit {
+		if commerce.PromoLimitReached(optionalLimit(limit), optionalLimit(lockedPromo.RedemptionLimit), int(lockedPromo.PerCustomerLimit), int(counts.TotalCount), int(counts.CodeCount), int(counts.CustomerCount)) {
 			return OrderQuote{}, ErrPromoExhausted
 		}
 		promotion := commerce.Promotion{Kind: lockedPromo.Kind, Value: lockedPromo.Value, AppliesTo: lockedPromo.AppliesTo, CustomerLimit: int(lockedPromo.PerCustomerLimit), RedemptionCount: int(counts.TotalCount), CustomerRedeemed: int(counts.CustomerCount)}
@@ -519,17 +519,11 @@ func (store *Store) CreateOrder(ctx context.Context, input CreateOrderInput) (db
 		// A claim whose order closed unpaid is a claim that never happened, so
 		// it is taken over rather than refused; a claim behind a live or paid
 		// order stands.
-		claim, claimErr := tx.Exec(ctx, `INSERT INTO trial_claims (user_id, plan_id, order_id)
-			VALUES ($1, $2, $3)
-			ON CONFLICT (user_id) DO UPDATE
-			SET plan_id = EXCLUDED.plan_id, order_id = EXCLUDED.order_id, claimed_at = now()
-			WHERE EXISTS (SELECT 1 FROM orders closed
-				WHERE closed.id = trial_claims.order_id AND closed.state IN ('cancelled', 'expired'))`,
-			userID, plan.PlanID, order.ID)
+		claimed, claimErr := queries.ClaimTrial(ctx, dbgen.ClaimTrialParams{UserID: userID, PlanID: plan.PlanID, OrderID: order.ID})
 		if claimErr != nil {
 			return dbgen.Order{}, claimErr
 		}
-		if claim.RowsAffected() == 0 {
+		if claimed == 0 {
 			return dbgen.Order{}, ErrTrialAlreadyClaimed
 		}
 	}
@@ -691,7 +685,8 @@ func paymentEventType(classification string) string {
 		return "status_changed"
 	case commerce.ClassificationCurrency:
 		return "amount_mismatch"
-	case commerce.ClassificationPaidAfterCancellation, commerce.ClassificationSubscriptionUnavailable:
+	case commerce.ClassificationPaidAfterCancellation, commerce.ClassificationSubscriptionUnavailable,
+		commerce.ClassificationLimitExceeded:
 		// Only a closed order can reach these, so each is a late payment
 		// whose details name what kept it from settling.
 		return "late"

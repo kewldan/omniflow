@@ -308,7 +308,32 @@ const (
 	// the period to a subscription the customer did not buy it for, so it
 	// does not settle and an operator decides.
 	ClassificationSubscriptionUnavailable = "subscription_unavailable"
+	// ClassificationLimitExceeded is a matching payment for an order that had
+	// closed, whose promotion or trial was claimed by somebody else — or by
+	// the same customer's next order — while it sat closed. A closed order
+	// stops counting against those limits, which is what lets "pressed Pay,
+	// changed my mind" free them; settling it late would let the same limit
+	// be used twice. It does not settle and an operator decides.
+	ClassificationLimitExceeded = "limit_exceeded"
 )
+
+// ClosedUnpaid reports whether an order closed without being paid. Such an
+// order holds nothing: no promotion redemption, no trial claim, no
+// subscription slot.
+func ClosedUnpaid(state OrderState) bool {
+	return state == OrderCancelled || state == OrderExpired
+}
+
+// PromoLimitReached reports whether a promotion's limits are used up, given
+// how many live or settled redemptions already count against each: the
+// promotion's total limit and the code's own limit when they are set, and the
+// per-customer limit always. Order creation and a late settlement apply the
+// same rule.
+func PromoLimitReached(promotionLimit, codeLimit *int, perCustomerLimit, total, code, customer int) bool {
+	return promotionLimit != nil && total >= *promotionLimit ||
+		codeLimit != nil && code >= *codeLimit ||
+		customer >= perCustomerLimit
+}
 
 // BlocksSettlement reports whether a classification keeps an order from
 // settling even though the amount matched. Underpayment and overpayment are
@@ -317,7 +342,7 @@ const (
 func BlocksSettlement(classification string) bool {
 	switch classification {
 	case ClassificationCurrency, ClassificationWallet, ClassificationDuplicate,
-		ClassificationSubscriptionUnavailable:
+		ClassificationSubscriptionUnavailable, ClassificationLimitExceeded:
 		return true
 	default:
 		return false
@@ -349,7 +374,7 @@ func NeedsOperator(classification string) bool {
 	switch classification {
 	case ClassificationDuplicate, ClassificationUnderpayment, ClassificationOverpayment,
 		ClassificationCurrency, ClassificationWallet, ClassificationPaidAfterCancellation,
-		ClassificationSubscriptionUnavailable:
+		ClassificationSubscriptionUnavailable, ClassificationLimitExceeded:
 		return true
 	default:
 		return false

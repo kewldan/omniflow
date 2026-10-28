@@ -351,10 +351,50 @@ SELECT * FROM orders WHERE user_id = $1 AND idempotency_key = $2;
 -- name: GetOrderEntitlementSpec :one
 SELECT ol.plan_version_id, pv.duration_seconds, pv.traffic_allowance_bytes,
        pv.device_limit, pv.remnawave_squad_ids, pv.upgrade_policy,
-       pv.downgrade_policy, pv.cancellation_policy
+       pv.downgrade_policy, pv.cancellation_policy, ol.plan_id, p.kind AS plan_kind
 FROM order_lines ol
 JOIN plan_versions pv ON pv.id = ol.plan_version_id
+JOIN plans p ON p.id = ol.plan_id
 WHERE ol.order_id = $1;
+
+-- name: LockOrderPromoLimits :one
+-- The limits of the promotion an order redeemed, with the promotion and code
+-- rows locked the way a checkout locks them, so a late settlement re-checking
+-- the limits and a new checkout claiming them cannot both pass a limit of one.
+SELECT r.promo_code_id, r.promotion_id,
+       pc.redemption_limit AS code_limit,
+       p.redemption_limit AS promotion_limit,
+       p.per_customer_limit
+FROM promo_redemptions r
+JOIN promo_codes pc ON pc.id = r.promo_code_id
+JOIN promotions p ON p.id = r.promotion_id
+WHERE r.order_id = $1
+FOR UPDATE OF pc, p;
+
+-- name: ClaimTrial :execrows
+-- Claims the customer's one trial for an order.
+--
+-- A claim whose order closed unpaid is a claim that never happened, so it is
+-- taken over rather than refused; a claim behind a live or paid order stands,
+-- and no row is affected. An order re-claiming its own trial — a late payment
+-- settling the order that made the claim — always succeeds.
+INSERT INTO trial_claims (user_id, plan_id, order_id)
+VALUES (sqlc.arg(user_id), sqlc.arg(plan_id), sqlc.arg(order_id))
+ON CONFLICT (user_id) DO UPDATE
+SET plan_id = EXCLUDED.plan_id, order_id = EXCLUDED.order_id, claimed_at = now()
+WHERE trial_claims.order_id = EXCLUDED.order_id
+   OR EXISTS (SELECT 1 FROM orders closed
+     WHERE closed.id = trial_claims.order_id AND closed.state IN ('cancelled', 'expired'));
+
+-- name: LockTrialClaim :many
+-- The customer's trial claim and the state of the order behind it, locked so
+-- a decision made on it holds until the transaction ends. ClaimTrial's rule
+-- reads the same two facts.
+SELECT tc.order_id, claimed.state AS order_state
+FROM trial_claims tc
+JOIN orders claimed ON claimed.id = tc.order_id
+WHERE tc.user_id = $1
+FOR UPDATE OF tc;
 
 -- name: GetPlanVersionGracePeriod :one
 -- The grace window the fulfillment worker adds to the paid end when it pushes

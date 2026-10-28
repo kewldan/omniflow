@@ -142,6 +142,13 @@ type Querier interface {
 	// Single redemption by construction: the predicate only matches a deliverable,
 	// unexpired gift, so a second claim of the same code updates no row.
 	ClaimGift(ctx context.Context, arg ClaimGiftParams) (Gift, error)
+	// Claims the customer's one trial for an order.
+	//
+	// A claim whose order closed unpaid is a claim that never happened, so it is
+	// taken over rather than refused; a claim behind a live or paid order stands,
+	// and no row is affected. An order re-claiming its own trial — a late payment
+	// settling the order that made the claim — always succeeds.
+	ClaimTrial(ctx context.Context, arg ClaimTrialParams) (int64, error)
 	ClearCartGoods(ctx context.Context, cartID pgtype.UUID) error
 	ClearDefaultPaymentMethod(ctx context.Context, userID pgtype.UUID) error
 	// Marks the source and points it at the target.
@@ -1199,6 +1206,10 @@ type Querier interface {
 	LockGoodsDelivery(ctx context.Context, orderID pgtype.UUID) (GoodsDelivery, error)
 	LockOpenCart(ctx context.Context, userID pgtype.UUID) (Cart, error)
 	LockOrder(ctx context.Context, id pgtype.UUID) (Order, error)
+	// The limits of the promotion an order redeemed, with the promotion and code
+	// rows locked the way a checkout locks them, so a late settlement re-checking
+	// the limits and a new checkout claiming them cannot both pass a limit of one.
+	LockOrderPromoLimits(ctx context.Context, orderID pgtype.UUID) (LockOrderPromoLimitsRow, error)
 	LockSupportTicket(ctx context.Context, id pgtype.UUID) (SupportTicket, error)
 	// Telegram identity resolution for the customer web panel.
 	//
@@ -1211,6 +1222,10 @@ type Querier interface {
 	// keyed identically, so a first /start and a first widget sign-in from one
 	// Telegram account cannot race each other into two customers.
 	LockTelegramSubject(ctx context.Context, subject string) error
+	// The customer's trial claim and the state of the order behind it, locked so
+	// a decision made on it holds until the transaction ends. ClaimTrial's rule
+	// reads the same two facts.
+	LockTrialClaim(ctx context.Context, userID pgtype.UUID) ([]LockTrialClaimRow, error)
 	LockWalletTopup(ctx context.Context, orderID pgtype.UUID) (WalletTopup, error)
 	MarkBackupPruned(ctx context.Context, id pgtype.UUID) (Backup, error)
 	MarkCartPurchased(ctx context.Context, arg MarkCartPurchasedParams) (Cart, error)

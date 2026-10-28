@@ -273,6 +273,36 @@ func (q *Queries) CheckPromotionCustomerEligibility(ctx context.Context, arg Che
 	return eligible, err
 }
 
+const claimTrial = `-- name: ClaimTrial :execrows
+INSERT INTO trial_claims (user_id, plan_id, order_id)
+VALUES ($1, $2, $3)
+ON CONFLICT (user_id) DO UPDATE
+SET plan_id = EXCLUDED.plan_id, order_id = EXCLUDED.order_id, claimed_at = now()
+WHERE trial_claims.order_id = EXCLUDED.order_id
+   OR EXISTS (SELECT 1 FROM orders closed
+     WHERE closed.id = trial_claims.order_id AND closed.state IN ('cancelled', 'expired'))
+`
+
+type ClaimTrialParams struct {
+	UserID  pgtype.UUID `json:"user_id"`
+	PlanID  pgtype.UUID `json:"plan_id"`
+	OrderID pgtype.UUID `json:"order_id"`
+}
+
+// Claims the customer's one trial for an order.
+//
+// A claim whose order closed unpaid is a claim that never happened, so it is
+// taken over rather than refused; a claim behind a live or paid order stands,
+// and no row is affected. An order re-claiming its own trial — a late payment
+// settling the order that made the claim — always succeeds.
+func (q *Queries) ClaimTrial(ctx context.Context, arg ClaimTrialParams) (int64, error) {
+	result, err := q.db.Exec(ctx, claimTrial, arg.UserID, arg.PlanID, arg.OrderID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const completeWebhookEvent = `-- name: CompleteWebhookEvent :one
 UPDATE provider_webhook_events
 SET status = $1, error_code = $2, processed_at = now()
@@ -1324,9 +1354,10 @@ func (q *Queries) GetOrderByIdempotency(ctx context.Context, arg GetOrderByIdemp
 const getOrderEntitlementSpec = `-- name: GetOrderEntitlementSpec :one
 SELECT ol.plan_version_id, pv.duration_seconds, pv.traffic_allowance_bytes,
        pv.device_limit, pv.remnawave_squad_ids, pv.upgrade_policy,
-       pv.downgrade_policy, pv.cancellation_policy
+       pv.downgrade_policy, pv.cancellation_policy, ol.plan_id, p.kind AS plan_kind
 FROM order_lines ol
 JOIN plan_versions pv ON pv.id = ol.plan_version_id
+JOIN plans p ON p.id = ol.plan_id
 WHERE ol.order_id = $1
 `
 
@@ -1339,6 +1370,8 @@ type GetOrderEntitlementSpecRow struct {
 	UpgradePolicy         string        `json:"upgrade_policy"`
 	DowngradePolicy       string        `json:"downgrade_policy"`
 	CancellationPolicy    string        `json:"cancellation_policy"`
+	PlanID                pgtype.UUID   `json:"plan_id"`
+	PlanKind              string        `json:"plan_kind"`
 }
 
 func (q *Queries) GetOrderEntitlementSpec(ctx context.Context, orderID pgtype.UUID) (GetOrderEntitlementSpecRow, error) {
@@ -1353,6 +1386,8 @@ func (q *Queries) GetOrderEntitlementSpec(ctx context.Context, orderID pgtype.UU
 		&i.UpgradePolicy,
 		&i.DowngradePolicy,
 		&i.CancellationPolicy,
+		&i.PlanID,
+		&i.PlanKind,
 	)
 	return i, err
 }
@@ -2881,6 +2916,78 @@ func (q *Queries) LockOrder(ctx context.Context, id pgtype.UUID) (Order, error) 
 		&i.PaidAt,
 	)
 	return i, err
+}
+
+const lockOrderPromoLimits = `-- name: LockOrderPromoLimits :one
+SELECT r.promo_code_id, r.promotion_id,
+       pc.redemption_limit AS code_limit,
+       p.redemption_limit AS promotion_limit,
+       p.per_customer_limit
+FROM promo_redemptions r
+JOIN promo_codes pc ON pc.id = r.promo_code_id
+JOIN promotions p ON p.id = r.promotion_id
+WHERE r.order_id = $1
+FOR UPDATE OF pc, p
+`
+
+type LockOrderPromoLimitsRow struct {
+	PromoCodeID      pgtype.UUID `json:"promo_code_id"`
+	PromotionID      pgtype.UUID `json:"promotion_id"`
+	CodeLimit        pgtype.Int4 `json:"code_limit"`
+	PromotionLimit   pgtype.Int4 `json:"promotion_limit"`
+	PerCustomerLimit int32       `json:"per_customer_limit"`
+}
+
+// The limits of the promotion an order redeemed, with the promotion and code
+// rows locked the way a checkout locks them, so a late settlement re-checking
+// the limits and a new checkout claiming them cannot both pass a limit of one.
+func (q *Queries) LockOrderPromoLimits(ctx context.Context, orderID pgtype.UUID) (LockOrderPromoLimitsRow, error) {
+	row := q.db.QueryRow(ctx, lockOrderPromoLimits, orderID)
+	var i LockOrderPromoLimitsRow
+	err := row.Scan(
+		&i.PromoCodeID,
+		&i.PromotionID,
+		&i.CodeLimit,
+		&i.PromotionLimit,
+		&i.PerCustomerLimit,
+	)
+	return i, err
+}
+
+const lockTrialClaim = `-- name: LockTrialClaim :many
+SELECT tc.order_id, claimed.state AS order_state
+FROM trial_claims tc
+JOIN orders claimed ON claimed.id = tc.order_id
+WHERE tc.user_id = $1
+FOR UPDATE OF tc
+`
+
+type LockTrialClaimRow struct {
+	OrderID    pgtype.UUID `json:"order_id"`
+	OrderState string      `json:"order_state"`
+}
+
+// The customer's trial claim and the state of the order behind it, locked so
+// a decision made on it holds until the transaction ends. ClaimTrial's rule
+// reads the same two facts.
+func (q *Queries) LockTrialClaim(ctx context.Context, userID pgtype.UUID) ([]LockTrialClaimRow, error) {
+	rows, err := q.db.Query(ctx, lockTrialClaim, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []LockTrialClaimRow{}
+	for rows.Next() {
+		var i LockTrialClaimRow
+		if err := rows.Scan(&i.OrderID, &i.OrderState); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const markOrderFulfilled = `-- name: MarkOrderFulfilled :execrows
