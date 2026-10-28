@@ -31,6 +31,7 @@ import (
 	"github.com/omniflow/omniflow/internal/importservice"
 	"github.com/omniflow/omniflow/internal/jobs"
 	"github.com/omniflow/omniflow/internal/maintenance"
+	"github.com/omniflow/omniflow/internal/operator"
 	"github.com/omniflow/omniflow/internal/panelpg"
 	"github.com/omniflow/omniflow/internal/payments"
 	"github.com/omniflow/omniflow/internal/paymentservice"
@@ -185,7 +186,7 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 	maintenanceController := maintenance.NewController(commerceStore, health, metrics, logger, maintenance.Config{
 		AutoDetect: cfg.Maintenance.AutoDetect, ProbeInterval: cfg.Maintenance.ProbeInterval,
 		FailureStreak: cfg.Maintenance.FailureStreak, RecoveryStreak: cfg.Maintenance.RecoveryStreak,
-	})
+	}).WithAnnouncer(operator.NewQueuedAnnouncer(pool, logger))
 	go maintenanceController.Run(ctx)
 
 	handlers := apihttp.NewCommerceHandlers(dbgen.New(pool), catalogpg.New(pool), commerceStore, paymentService, customerService, importservice.New(pool, remnawaveClient), core.Fulfillment, platform.NewRateLimiter(valkeyClient), cfg.OperatorToken)

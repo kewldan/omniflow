@@ -15,16 +15,6 @@ import (
 // other bot list is bounded: a Telegram message has a length ceiling.
 const giftHistoryLimit = 10
 
-// handleGiftRoute serves the gift screens.
-func (app *App) handleGiftRoute(ctx context.Context, session commerceContext, route string) (View, bool) {
-	switch route {
-	case routeGifts:
-		return app.giftsScreen(ctx, session), true
-	default:
-		return View{}, false
-	}
-}
-
 // giftActions is the closed set of callback actions the gift surface owns. It
 // is folded into commerceActions, which is what lets a tap reach the handler
 // below at all.

@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -18,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
@@ -130,6 +132,7 @@ func (service *Service) Create(ctx context.Context, kind, requestedBy string) (d
 		if _, failErr := queries.FailBackup(ctx, dbgen.FailBackupParams{BackupID: record.ID, ErrorCode: classify(dumpErr)}); failErr != nil {
 			return dbgen.Backup{}, failErr
 		}
+		service.announce(ctx, record, "failed", classify(dumpErr).String, 0)
 		return dbgen.Backup{}, dumpErr
 	}
 	if verifyErr := service.verifyFile(path, digest); verifyErr != nil {
@@ -137,6 +140,7 @@ func (service *Service) Create(ctx context.Context, kind, requestedBy string) (d
 		if _, failErr := queries.FailBackup(ctx, dbgen.FailBackupParams{BackupID: record.ID, ErrorCode: pgtype.Text{String: "verification_failed", Valid: true}}); failErr != nil {
 			return dbgen.Backup{}, failErr
 		}
+		service.announce(ctx, record, "failed", "verification_failed", 0)
 		return dbgen.Backup{}, verifyErr
 	}
 	completed, err := queries.CompleteBackup(ctx, dbgen.CompleteBackupParams{BackupID: record.ID, SizeBytes: size, Sha256: digest})
@@ -144,6 +148,7 @@ func (service *Service) Create(ctx context.Context, kind, requestedBy string) (d
 		return dbgen.Backup{}, err
 	}
 	service.logger.Info("backup completed", "kind", kind, "size_bytes", size, "file", fileName)
+	service.announce(ctx, record, "completed", "", size)
 	return completed, nil
 }
 
@@ -253,6 +258,7 @@ func (service *Service) Restore(ctx context.Context, backupID, operatorID, reaso
 	if err != nil {
 		return dbgen.BackupRestore{}, err
 	}
+	service.announce(ctx, record, "restore_"+status, errorCode.String, 0)
 	return completed, restoreErr
 }
 
@@ -393,4 +399,34 @@ type countingWriter struct{ total int64 }
 func (writer *countingWriter) Write(payload []byte) (int, error) {
 	writer.total += int64(len(payload))
 	return len(payload), nil
+}
+
+// announce queues the outcome of a backup or restore for the operator group's
+// backups topic. The process that takes a backup has no Telegram client, so it
+// writes into the queue the bot drains; the key is the backup and the outcome,
+// so a retried job reports one outcome once. A notice that cannot be queued is
+// logged and never fails the backup itself: the `backups` table stays the record.
+func (service *Service) announce(ctx context.Context, record dbgen.Backup, status, errorCode string, size int64) {
+	payload := map[string]any{"status": status, "fileName": record.FileName, "source": record.Kind}
+	if errorCode != "" {
+		payload["errorCode"] = errorCode
+	}
+	if size > 0 {
+		payload["sizeBytes"] = size
+	}
+	encoded, err := json.Marshal(payload)
+	if err == nil {
+		_, err = dbgen.New(service.pool).EnqueueOperatorNotification(ctx, dbgen.EnqueueOperatorNotificationParams{
+			Kind: "backup", DedupeKey: fmt.Sprintf("backup:%s:%s", uuidText(record.ID), status), Payload: encoded,
+		})
+	}
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		service.logger.Warn("backup notice could not be queued", "error", err)
+	}
+}
+
+func uuidText(id pgtype.UUID) string {
+	value, _ := id.Value()
+	text, _ := value.(string)
+	return text
 }

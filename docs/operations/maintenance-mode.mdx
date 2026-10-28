@@ -152,9 +152,7 @@ Every transition also logs at warn level:
 
 The panel's incident strip on `/admin` reads the `maintenance_events` rows, so a window that opened and closed overnight is still visible in the morning.
 
-<Warning>
-  A maintenance transition posts **no** message to the operator Telegram group. The announcer interface and the notifier method that would implement it both exist, but nothing attaches them — and the controller runs in the `api` process while the notifier lives in the `bot` process. Alert on the metric or the log line; do not wait for an `incident` topic message that will not arrive. See [Operator notifications](/operations/operator-notifications).
-</Warning>
+Every transition, automatic or manual, also posts to the operator group's `incident` topic. The controller runs in the `api` process and the group belongs to the `bot`, so the api queues the notice in `operator_notifications` and the bot delivers it; with no operator group configured the notice simply waits. See [Operator notifications](/operations/operator-notifications).
 
 ## Refusals and edge cases
 

@@ -396,14 +396,51 @@ func renderNotification(notification dbgen.OperatorNotification) string {
 // MaintenanceChanged posts an incident notice whenever maintenance mode moves.
 // It satisfies the maintenance controller's Announcer.
 func (notifier *Notifier) MaintenanceChanged(ctx context.Context, state commerce.Maintenance) {
+	key, payload := maintenanceNotice(state, notifier.clock())
+	if err := notifier.Enqueue(ctx, "incident", key, payload); err != nil {
+		notifier.logger.Warn("maintenance notice could not be queued", "error", err)
+	}
+}
+
+// QueuedAnnouncer tells operators about maintenance transitions from a process
+// that has no Telegram client. Maintenance is detected in the api process while
+// the notifier that talks to the group runs in the bot, so the api writes the
+// notice into the same queue the bot drains; the dedupe key matches the one
+// the bot-side announcer would use, so one transition is one message.
+type QueuedAnnouncer struct {
+	pool   *pgxpool.Pool
+	logger *slog.Logger
+	clock  func() time.Time
+}
+
+// NewQueuedAnnouncer builds an announcer that queues notices in PostgreSQL.
+func NewQueuedAnnouncer(pool *pgxpool.Pool, logger *slog.Logger) *QueuedAnnouncer {
+	return &QueuedAnnouncer{pool: pool, logger: logger, clock: time.Now}
+}
+
+// MaintenanceChanged queues an incident notice for a maintenance transition.
+func (announcer *QueuedAnnouncer) MaintenanceChanged(ctx context.Context, state commerce.Maintenance) {
+	key, payload := maintenanceNotice(state, announcer.clock())
+	encoded, err := json.Marshal(platform.RedactFields(payload))
+	if err == nil {
+		_, err = dbgen.New(announcer.pool).EnqueueOperatorNotification(ctx, dbgen.EnqueueOperatorNotificationParams{
+			Kind: "incident", DedupeKey: key, Payload: encoded,
+		})
+	}
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		announcer.logger.Warn("maintenance notice could not be queued", "error", err)
+	}
+}
+
+// maintenanceNotice is the dedupe key and payload of a maintenance incident,
+// shared by both announcers.
+func maintenanceNotice(state commerce.Maintenance, now time.Time) (string, map[string]any) {
 	action := "cleared"
 	if state.Active {
 		action = "activated"
 	}
-	key := fmt.Sprintf("maintenance:%s:%d", action, notifier.clock().UTC().Unix()/60)
-	if err := notifier.Enqueue(ctx, "incident", key, map[string]any{
+	key := fmt.Sprintf("maintenance:%s:%d", action, now.UTC().Unix()/60)
+	return key, map[string]any{
 		"status": "maintenance_" + action, "source": state.Source, "reason": state.Reason,
-	}); err != nil {
-		notifier.logger.Warn("maintenance notice could not be queued", "error", err)
 	}
 }
