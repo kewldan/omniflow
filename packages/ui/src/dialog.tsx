@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import type { ComponentProps } from "react";
 
 import { cn } from "./lib/utils";
+import { useUiLabels } from "./ui-labels";
 
 export const Dialog = DialogPrimitive.Root;
 export const DialogTrigger = DialogPrimitive.Trigger;
@@ -32,9 +33,18 @@ export function DialogOverlay({
 export type DialogContentProps = ComponentProps<typeof DialogPrimitive.Content> & {
   /** Hide the built-in close affordance for flows that must be resolved explicitly. */
   hideClose?: boolean;
+  /** The close button's accessible name; defaults to the provider's `close`. */
+  closeLabel?: string;
 };
 
-export function DialogContent({ children, className, hideClose, ...props }: DialogContentProps) {
+export function DialogContent({
+  children,
+  className,
+  closeLabel,
+  hideClose,
+  ...props
+}: DialogContentProps) {
+  const labels = useUiLabels();
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -59,7 +69,7 @@ export function DialogContent({ children, className, hideClose, ...props }: Dial
             )}
           >
             <X className="size-4" />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">{closeLabel ?? labels.close}</span>
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Content>

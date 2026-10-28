@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import type { ComponentProps } from "react";
 
 import { cn } from "./lib/utils";
+import { useUiLabels } from "./ui-labels";
 
 export const Sheet = SheetPrimitive.Root;
 export const SheetTrigger = SheetPrimitive.Trigger;
@@ -23,9 +24,18 @@ const sideClasses: Record<SheetSide, string> = {
 
 export type SheetContentProps = ComponentProps<typeof SheetPrimitive.Content> & {
   side?: SheetSide;
+  /** The close button's accessible name; defaults to the provider's `close`. */
+  closeLabel?: string;
 };
 
-export function SheetContent({ children, className, side = "right", ...props }: SheetContentProps) {
+export function SheetContent({
+  children,
+  className,
+  closeLabel,
+  side = "right",
+  ...props
+}: SheetContentProps) {
+  const labels = useUiLabels();
   return (
     <SheetPrimitive.Portal>
       <SheetPrimitive.Overlay
@@ -55,7 +65,7 @@ export function SheetContent({ children, className, side = "right", ...props }: 
           )}
         >
           <X className="size-4" />
-          <span className="sr-only">Close</span>
+          <span className="sr-only">{closeLabel ?? labels.close}</span>
         </SheetPrimitive.Close>
       </SheetPrimitive.Content>
     </SheetPrimitive.Portal>

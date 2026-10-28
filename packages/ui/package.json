@@ -35,7 +35,8 @@
     "./table": "./src/table.tsx",
     "./tabs": "./src/tabs.tsx",
     "./toast": "./src/toast.tsx",
-    "./tooltip": "./src/tooltip.tsx"
+    "./tooltip": "./src/tooltip.tsx",
+    "./ui-labels": "./src/ui-labels.tsx"
   },
   "scripts": {
     "check": "tsc --noEmit && biome check ."

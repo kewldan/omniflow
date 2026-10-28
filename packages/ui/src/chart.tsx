@@ -87,9 +87,11 @@ export function ChartFigure({
         <p className="py-8 text-center text-muted-foreground text-sm">{empty}</p>
       ) : (
         <>
-          {/* aria-hidden: the plot is decorative beside the table, which carries
-              the same numbers in a form a screen reader can read in order. */}
-          <div aria-hidden className="w-full" style={{ height }}>
+          {/* Hidden and inert: the plot is decorative beside the table, which carries
+              the same numbers in a form a screen reader can read in order.
+              `inert` as well, because Recharts makes its surface focusable, and a
+              focus stop inside an aria-hidden region is announced as nothing. */}
+          <div aria-hidden className="w-full" inert style={{ height }}>
             <ResponsiveContainer height="100%" width="100%">
               {children}
             </ResponsiveContainer>

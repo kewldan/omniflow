@@ -3925,6 +3925,11 @@
     },
     "time": {
       "shownIn": "Times in {zone}"
+    },
+    "ui": {
+      "close": "Close",
+      "more": "More",
+      "breadcrumb": "Breadcrumb"
     }
   }
 }

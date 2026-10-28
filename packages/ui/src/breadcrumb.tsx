@@ -1,11 +1,15 @@
+"use client";
+
 import { Slot } from "@radix-ui/react-slot";
 import { ChevronRight, MoreHorizontal } from "lucide-react";
 import type { ComponentProps } from "react";
 
 import { cn } from "./lib/utils";
+import { useUiLabels } from "./ui-labels";
 
 export function Breadcrumb(props: ComponentProps<"nav">) {
-  return <nav aria-label="breadcrumb" data-slot="breadcrumb" {...props} />;
+  const labels = useUiLabels();
+  return <nav aria-label={labels.breadcrumb} data-slot="breadcrumb" {...props} />;
 }
 
 export function BreadcrumbList({ className, ...props }: ComponentProps<"ol">) {
@@ -72,7 +76,12 @@ export function BreadcrumbSeparator({ children, className, ...props }: Component
   );
 }
 
-export function BreadcrumbEllipsis({ className, ...props }: ComponentProps<"span">) {
+export function BreadcrumbEllipsis({
+  className,
+  label,
+  ...props
+}: ComponentProps<"span"> & { label?: string }) {
+  const labels = useUiLabels();
   return (
     <span
       aria-hidden="true"
@@ -82,7 +91,7 @@ export function BreadcrumbEllipsis({ className, ...props }: ComponentProps<"span
       {...props}
     >
       <MoreHorizontal className="size-4" />
-      <span className="sr-only">More</span>
+      <span className="sr-only">{label ?? labels.more}</span>
     </span>
   );
 }

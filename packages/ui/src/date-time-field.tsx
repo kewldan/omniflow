@@ -8,6 +8,7 @@ import { Calendar } from "./calendar";
 import { cn } from "./lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./select";
+import { useUiLocale } from "./ui-labels";
 
 /**
  * Picks a moment: a day from the calendar, an hour and a minute from two lists.
@@ -82,6 +83,8 @@ export function DateTimeField({
   value,
 }: DateTimeFieldProps) {
   const [open, setOpen] = useState(false);
+  // The application's locale, not the browser's default: see ui-labels.
+  const locale = useUiLocale();
   const generatedId = useId();
   const fieldId = id ?? generatedId;
   const { date, hour, minute } = parse(value);
@@ -109,7 +112,7 @@ export function DateTimeField({
           variant="outline"
         >
           <CalendarDays />
-          {date ? `${date.toLocaleDateString()} ${hour}:${minute}` : placeholder}
+          {date ? `${date.toLocaleDateString(locale)} ${hour}:${minute}` : placeholder}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto p-3">

@@ -13,11 +13,12 @@ const alertVariants = cva(
     defaultVariants: { variant: "default" },
     variants: {
       variant: {
-        danger: "border-destructive/25 bg-destructive/8 text-destructive [&>svg]:text-destructive",
+        danger:
+          "border-destructive/25 bg-destructive/8 text-destructive-tint-foreground [&>svg]:text-destructive",
         default: "border-border bg-card text-card-foreground",
-        info: "border-info/25 bg-info/8 text-info [&>svg]:text-info",
-        success: "border-success/25 bg-success/8 text-success [&>svg]:text-success",
-        warning: "border-warning/25 bg-warning/8 text-warning [&>svg]:text-warning",
+        info: "border-info/25 bg-info/8 text-info-tint-foreground [&>svg]:text-info",
+        success: "border-success/25 bg-success/8 text-success-tint-foreground [&>svg]:text-success",
+        warning: "border-warning/25 bg-warning/8 text-warning-tint-foreground [&>svg]:text-warning",
       },
     },
   },
@@ -49,7 +50,8 @@ export function AlertTitle({ className, ...props }: ComponentProps<"div">) {
 export function AlertDescription({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
-      className={cn("col-start-2 text-current/80 text-sm [&_p]:leading-relaxed", className)}
+      // Full strength: at 80% a status tone on its own tint falls below 4.5:1.
+      className={cn("col-start-2 text-current text-sm [&_p]:leading-relaxed", className)}
       data-slot="alert-description"
       {...props}
     />

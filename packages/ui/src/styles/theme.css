@@ -69,6 +69,16 @@
   --info: #2563eb;
   --info-foreground: #fafafa;
 
+  /*
+   * The same tones as text on their own 8-15% tint — a badge, an alert. The
+   * tint lifts the background just enough that the tone above falls to about
+   * 4.0-4.3:1 there, so a label on a tint is one shade deeper (5-6:1).
+   */
+  --success-tint-foreground: #166534;
+  --warning-tint-foreground: #92400e;
+  --destructive-tint-foreground: #b91c1c;
+  --info-tint-foreground: #1d4ed8;
+
   /* Chrome that sits above the page — the design's Telegram header surface. */
   --chrome: #f1f1ef;
   --chrome-border: #e4e4e7;
@@ -150,6 +160,12 @@
   --info: #60a5fa;
   --info-foreground: #18181b;
 
+  /* Light tones already clear 4.5:1 on their own dark tint. */
+  --success-tint-foreground: var(--success);
+  --warning-tint-foreground: var(--warning);
+  --destructive-tint-foreground: var(--destructive);
+  --info-tint-foreground: var(--info);
+
   --chrome: #17181a;
   --chrome-border: #242427;
 
@@ -193,6 +209,10 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
+  --color-success-tint-foreground: var(--success-tint-foreground);
+  --color-warning-tint-foreground: var(--warning-tint-foreground);
+  --color-destructive-tint-foreground: var(--destructive-tint-foreground);
+  --color-info-tint-foreground: var(--info-tint-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
