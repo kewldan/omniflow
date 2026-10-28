@@ -426,6 +426,13 @@ func (handlers *AdminHandlers) challenge(writer http.ResponseWriter, request *ht
 	case errors.Is(err, adminauthpg.ErrInvalidCredentials):
 		writeProblem(writer, request, http.StatusUnauthorized, "invalid_code", "That code is not valid")
 		return
+	case errors.Is(err, adminauthpg.ErrAccountLocked):
+		writeProblem(writer, request, http.StatusTooManyRequests, "account_locked", "Too many failed attempts. Try again later.")
+		return
+	case errors.Is(err, adminauthpg.ErrAccountDisabled):
+		handlers.clearSessionCookie(writer)
+		writeProblem(writer, request, http.StatusUnauthorized, "unauthenticated", "Sign in again")
+		return
 	case err != nil:
 		writeProblem(writer, request, http.StatusInternalServerError, "challenge_unavailable", "Verification is unavailable")
 		return

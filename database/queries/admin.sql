@@ -89,10 +89,13 @@ RETURNING *;
 
 -- name: SetAdminTOTPSecret :one
 -- Starts enrolment. `totp_confirmed_at` is deliberately cleared: a secret that
--- has not been proven by a code cannot satisfy a login challenge.
+-- has not been proven by a code cannot satisfy a login challenge. The replay
+-- watermark and failure count belong to the old secret and go with it.
 UPDATE admin_users
 SET totp_secret_ciphertext = sqlc.arg(totp_secret_ciphertext),
     totp_confirmed_at = NULL,
+    totp_last_used_step = NULL,
+    totp_failed_count = 0,
     updated_at = now()
 WHERE id = sqlc.arg(admin_user_id)
 RETURNING *;
@@ -105,7 +108,36 @@ RETURNING *;
 
 -- name: DisableAdminTOTP :one
 UPDATE admin_users
-SET totp_secret_ciphertext = NULL, totp_confirmed_at = NULL, updated_at = now()
+SET totp_secret_ciphertext = NULL, totp_confirmed_at = NULL,
+    totp_last_used_step = NULL, totp_failed_count = 0, updated_at = now()
+WHERE id = sqlc.arg(admin_user_id)
+RETURNING *;
+
+-- name: ClaimAdminTOTPStep :one
+-- Accepts a TOTP code's time step exactly once. The predicate refuses the step
+-- already used and any earlier one, so a code observed in transit cannot be
+-- replayed within its validity window. A successful claim also clears the
+-- second-factor failure count, which only a proven second factor may do.
+UPDATE admin_users
+SET totp_last_used_step = sqlc.arg(step), totp_failed_count = 0, updated_at = now()
+WHERE id = sqlc.arg(admin_user_id)
+  AND (totp_last_used_step IS NULL OR totp_last_used_step < sqlc.arg(step))
+RETURNING id;
+
+-- name: ResetAdminTOTPFailures :exec
+-- A recovery code is also a proven second factor.
+UPDATE admin_users SET totp_failed_count = 0, updated_at = now()
+WHERE id = sqlc.arg(admin_user_id);
+
+-- name: RecordAdminTOTPFailure :one
+-- Counts a wrong second factor against the account. Unlike the password
+-- counter, a correct password does not reset this one, so signing in again does
+-- not buy a fresh allowance of guesses. The caller computes the lockout from the
+-- resulting count; a null deadline leaves any existing lock in place.
+UPDATE admin_users
+SET totp_failed_count = totp_failed_count + 1,
+    locked_until = COALESCE(sqlc.narg(locked_until), locked_until),
+    updated_at = now()
 WHERE id = sqlc.arg(admin_user_id)
 RETURNING *;
 
@@ -192,6 +224,23 @@ SET pending_totp = false,
     rotated_at = now(),
     last_seen_at = now(),
     idle_expires_at = sqlc.arg(idle_expires_at)
+WHERE id = sqlc.arg(session_id) AND revoked_at IS NULL AND pending_totp = true
+RETURNING *;
+
+-- name: RecordAdminChallengeFailure :one
+-- Counts a wrong code against a half-authenticated session and revokes it once
+-- the limit is reached, in one statement so concurrent guesses cannot both slip
+-- under the limit. The caller then needs the password again for a new session.
+UPDATE admin_sessions
+SET challenge_failures = challenge_failures + 1,
+    revoked_at = CASE
+      WHEN challenge_failures + 1 >= sqlc.arg(max_failures)::integer THEN now()
+      ELSE revoked_at
+    END,
+    revoked_reason = CASE
+      WHEN challenge_failures + 1 >= sqlc.arg(max_failures)::integer THEN 'challenge_failed'
+      ELSE revoked_reason
+    END
 WHERE id = sqlc.arg(session_id) AND revoked_at IS NULL AND pending_totp = true
 RETURNING *;
 

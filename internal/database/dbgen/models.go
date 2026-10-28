@@ -138,6 +138,7 @@ type AdminSession struct {
 	AbsoluteExpiresAt pgtype.Timestamptz `json:"absolute_expires_at"`
 	RevokedAt         pgtype.Timestamptz `json:"revoked_at"`
 	RevokedReason     pgtype.Text        `json:"revoked_reason"`
+	ChallengeFailures int32              `json:"challenge_failures"`
 }
 
 type AdminSetupToken struct {
@@ -168,6 +169,8 @@ type AdminUser struct {
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 	DisabledAt           pgtype.Timestamptz `json:"disabled_at"`
+	TotpFailedCount      int32              `json:"totp_failed_count"`
+	TotpLastUsedStep     pgtype.Int8        `json:"totp_last_used_step"`
 }
 
 type AdminUserRole struct {

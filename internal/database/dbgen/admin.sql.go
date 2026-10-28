@@ -12,6 +12,30 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const claimAdminTOTPStep = `-- name: ClaimAdminTOTPStep :one
+UPDATE admin_users
+SET totp_last_used_step = $1, totp_failed_count = 0, updated_at = now()
+WHERE id = $2
+  AND (totp_last_used_step IS NULL OR totp_last_used_step < $1)
+RETURNING id
+`
+
+type ClaimAdminTOTPStepParams struct {
+	Step        pgtype.Int8 `json:"step"`
+	AdminUserID pgtype.UUID `json:"admin_user_id"`
+}
+
+// Accepts a TOTP code's time step exactly once. The predicate refuses the step
+// already used and any earlier one, so a code observed in transit cannot be
+// replayed within its validity window. A successful claim also clears the
+// second-factor failure count, which only a proven second factor may do.
+func (q *Queries) ClaimAdminTOTPStep(ctx context.Context, arg ClaimAdminTOTPStepParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, claimAdminTOTPStep, arg.Step, arg.AdminUserID)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const completeAdminSessionChallenge = `-- name: CompleteAdminSessionChallenge :one
 UPDATE admin_sessions
 SET pending_totp = false,
@@ -21,7 +45,7 @@ SET pending_totp = false,
     last_seen_at = now(),
     idle_expires_at = $3
 WHERE id = $4 AND revoked_at IS NULL AND pending_totp = true
-RETURNING id, admin_user_id, token_hash, csrf_secret, pending_totp, auth_methods, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason
+RETURNING id, admin_user_id, token_hash, csrf_secret, pending_totp, auth_methods, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason, challenge_failures
 `
 
 type CompleteAdminSessionChallengeParams struct {
@@ -58,6 +82,7 @@ func (q *Queries) CompleteAdminSessionChallenge(ctx context.Context, arg Complet
 		&i.AbsoluteExpiresAt,
 		&i.RevokedAt,
 		&i.RevokedReason,
+		&i.ChallengeFailures,
 	)
 	return i, err
 }
@@ -66,7 +91,7 @@ const confirmAdminTOTP = `-- name: ConfirmAdminTOTP :one
 UPDATE admin_users
 SET totp_confirmed_at = now(), updated_at = now()
 WHERE id = $1 AND totp_secret_ciphertext IS NOT NULL
-RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at
+RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step
 `
 
 func (q *Queries) ConfirmAdminTOTP(ctx context.Context, adminUserID pgtype.UUID) (AdminUser, error) {
@@ -91,6 +116,8 @@ func (q *Queries) ConfirmAdminTOTP(ctx context.Context, adminUserID pgtype.UUID)
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DisabledAt,
+		&i.TotpFailedCount,
+		&i.TotpLastUsedStep,
 	)
 	return i, err
 }
@@ -384,7 +411,7 @@ INSERT INTO admin_sessions (
   $6, $7,
   $8, $9
 )
-RETURNING id, admin_user_id, token_hash, csrf_secret, pending_totp, auth_methods, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason
+RETURNING id, admin_user_id, token_hash, csrf_secret, pending_totp, auth_methods, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason, challenge_failures
 `
 
 type CreateAdminSessionParams struct {
@@ -431,6 +458,7 @@ func (q *Queries) CreateAdminSession(ctx context.Context, arg CreateAdminSession
 		&i.AbsoluteExpiresAt,
 		&i.RevokedAt,
 		&i.RevokedReason,
+		&i.ChallengeFailures,
 	)
 	return i, err
 }
@@ -473,7 +501,7 @@ INSERT INTO admin_users (
   $4, $5, $6, $7
 )
 ON CONFLICT (email_normalized) DO NOTHING
-RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at
+RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step
 `
 
 type CreateAdminUserParams struct {
@@ -516,6 +544,8 @@ func (q *Queries) CreateAdminUser(ctx context.Context, arg CreateAdminUserParams
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DisabledAt,
+		&i.TotpFailedCount,
+		&i.TotpLastUsedStep,
 	)
 	return i, err
 }
@@ -578,9 +608,10 @@ func (q *Queries) DeleteAdminRecoveryCodes(ctx context.Context, adminUserID pgty
 
 const disableAdminTOTP = `-- name: DisableAdminTOTP :one
 UPDATE admin_users
-SET totp_secret_ciphertext = NULL, totp_confirmed_at = NULL, updated_at = now()
+SET totp_secret_ciphertext = NULL, totp_confirmed_at = NULL,
+    totp_last_used_step = NULL, totp_failed_count = 0, updated_at = now()
 WHERE id = $1
-RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at
+RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step
 `
 
 func (q *Queries) DisableAdminTOTP(ctx context.Context, adminUserID pgtype.UUID) (AdminUser, error) {
@@ -605,6 +636,8 @@ func (q *Queries) DisableAdminTOTP(ctx context.Context, adminUserID pgtype.UUID)
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DisabledAt,
+		&i.TotpFailedCount,
+		&i.TotpLastUsedStep,
 	)
 	return i, err
 }
@@ -628,7 +661,7 @@ func (q *Queries) ExpireAdminSetupTokens(ctx context.Context) (int64, error) {
 }
 
 const getAdminOIDCIdentity = `-- name: GetAdminOIDCIdentity :one
-SELECT i.id, i.admin_user_id, i.provider_id, i.subject, i.linked_at, i.last_login_at, i.issuer, u.id, u.email, u.email_normalized, u.display_name, u.password_hash, u.status, u.locale, u.timezone, u.preferences, u.totp_secret_ciphertext, u.totp_confirmed_at, u.failed_login_count, u.locked_until, u.password_changed_at, u.last_login_at, u.created_at, u.updated_at, u.disabled_at
+SELECT i.id, i.admin_user_id, i.provider_id, i.subject, i.linked_at, i.last_login_at, i.issuer, u.id, u.email, u.email_normalized, u.display_name, u.password_hash, u.status, u.locale, u.timezone, u.preferences, u.totp_secret_ciphertext, u.totp_confirmed_at, u.failed_login_count, u.locked_until, u.password_changed_at, u.last_login_at, u.created_at, u.updated_at, u.disabled_at, u.totp_failed_count, u.totp_last_used_step
 FROM admin_oidc_identities i
 JOIN admin_users u ON u.id = i.admin_user_id
 WHERE i.provider_id = $1 AND i.subject = $2
@@ -673,6 +706,8 @@ func (q *Queries) GetAdminOIDCIdentity(ctx context.Context, arg GetAdminOIDCIden
 		&i.AdminUser.CreatedAt,
 		&i.AdminUser.UpdatedAt,
 		&i.AdminUser.DisabledAt,
+		&i.AdminUser.TotpFailedCount,
+		&i.AdminUser.TotpLastUsedStep,
 	)
 	return i, err
 }
@@ -732,7 +767,7 @@ func (q *Queries) GetAdminPasskeyByCredential(ctx context.Context, credentialID 
 }
 
 const getAdminPasswordReset = `-- name: GetAdminPasswordReset :one
-SELECT r.id, r.admin_user_id, r.token_hash, r.requested_ip, r.created_at, r.expires_at, r.used_at, u.id, u.email, u.email_normalized, u.display_name, u.password_hash, u.status, u.locale, u.timezone, u.preferences, u.totp_secret_ciphertext, u.totp_confirmed_at, u.failed_login_count, u.locked_until, u.password_changed_at, u.last_login_at, u.created_at, u.updated_at, u.disabled_at
+SELECT r.id, r.admin_user_id, r.token_hash, r.requested_ip, r.created_at, r.expires_at, r.used_at, u.id, u.email, u.email_normalized, u.display_name, u.password_hash, u.status, u.locale, u.timezone, u.preferences, u.totp_secret_ciphertext, u.totp_confirmed_at, u.failed_login_count, u.locked_until, u.password_changed_at, u.last_login_at, u.created_at, u.updated_at, u.disabled_at, u.totp_failed_count, u.totp_last_used_step
 FROM admin_password_resets r
 JOIN admin_users u ON u.id = r.admin_user_id
 WHERE r.token_hash = $1
@@ -772,12 +807,14 @@ func (q *Queries) GetAdminPasswordReset(ctx context.Context, tokenHash []byte) (
 		&i.AdminUser.CreatedAt,
 		&i.AdminUser.UpdatedAt,
 		&i.AdminUser.DisabledAt,
+		&i.AdminUser.TotpFailedCount,
+		&i.AdminUser.TotpLastUsedStep,
 	)
 	return i, err
 }
 
 const getAdminSessionByToken = `-- name: GetAdminSessionByToken :one
-SELECT s.id, s.admin_user_id, s.token_hash, s.csrf_secret, s.pending_totp, s.auth_methods, s.ip, s.user_agent, s.created_at, s.last_seen_at, s.rotated_at, s.idle_expires_at, s.absolute_expires_at, s.revoked_at, s.revoked_reason, u.id, u.email, u.email_normalized, u.display_name, u.password_hash, u.status, u.locale, u.timezone, u.preferences, u.totp_secret_ciphertext, u.totp_confirmed_at, u.failed_login_count, u.locked_until, u.password_changed_at, u.last_login_at, u.created_at, u.updated_at, u.disabled_at
+SELECT s.id, s.admin_user_id, s.token_hash, s.csrf_secret, s.pending_totp, s.auth_methods, s.ip, s.user_agent, s.created_at, s.last_seen_at, s.rotated_at, s.idle_expires_at, s.absolute_expires_at, s.revoked_at, s.revoked_reason, s.challenge_failures, u.id, u.email, u.email_normalized, u.display_name, u.password_hash, u.status, u.locale, u.timezone, u.preferences, u.totp_secret_ciphertext, u.totp_confirmed_at, u.failed_login_count, u.locked_until, u.password_changed_at, u.last_login_at, u.created_at, u.updated_at, u.disabled_at, u.totp_failed_count, u.totp_last_used_step
 FROM admin_sessions s
 JOIN admin_users u ON u.id = s.admin_user_id
 WHERE s.token_hash = $1
@@ -810,6 +847,7 @@ func (q *Queries) GetAdminSessionByToken(ctx context.Context, tokenHash []byte) 
 		&i.AdminSession.AbsoluteExpiresAt,
 		&i.AdminSession.RevokedAt,
 		&i.AdminSession.RevokedReason,
+		&i.AdminSession.ChallengeFailures,
 		&i.AdminUser.ID,
 		&i.AdminUser.Email,
 		&i.AdminUser.EmailNormalized,
@@ -828,6 +866,8 @@ func (q *Queries) GetAdminSessionByToken(ctx context.Context, tokenHash []byte) 
 		&i.AdminUser.CreatedAt,
 		&i.AdminUser.UpdatedAt,
 		&i.AdminUser.DisabledAt,
+		&i.AdminUser.TotpFailedCount,
+		&i.AdminUser.TotpLastUsedStep,
 	)
 	return i, err
 }
@@ -851,7 +891,7 @@ func (q *Queries) GetAdminSetupToken(ctx context.Context, tokenHash []byte) (Adm
 }
 
 const getAdminUser = `-- name: GetAdminUser :one
-SELECT id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at FROM admin_users WHERE id = $1
+SELECT id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step FROM admin_users WHERE id = $1
 `
 
 func (q *Queries) GetAdminUser(ctx context.Context, id pgtype.UUID) (AdminUser, error) {
@@ -876,12 +916,14 @@ func (q *Queries) GetAdminUser(ctx context.Context, id pgtype.UUID) (AdminUser, 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DisabledAt,
+		&i.TotpFailedCount,
+		&i.TotpLastUsedStep,
 	)
 	return i, err
 }
 
 const getAdminUserByEmail = `-- name: GetAdminUserByEmail :one
-SELECT id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at FROM admin_users WHERE email_normalized = $1
+SELECT id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step FROM admin_users WHERE email_normalized = $1
 `
 
 func (q *Queries) GetAdminUserByEmail(ctx context.Context, emailNormalized string) (AdminUser, error) {
@@ -906,6 +948,8 @@ func (q *Queries) GetAdminUserByEmail(ctx context.Context, emailNormalized strin
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DisabledAt,
+		&i.TotpFailedCount,
+		&i.TotpLastUsedStep,
 	)
 	return i, err
 }
@@ -1144,7 +1188,7 @@ func (q *Queries) ListAdminRolesForUsers(ctx context.Context, adminUserIds []pgt
 }
 
 const listAdminSessions = `-- name: ListAdminSessions :many
-SELECT id, admin_user_id, token_hash, csrf_secret, pending_totp, auth_methods, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason FROM admin_sessions
+SELECT id, admin_user_id, token_hash, csrf_secret, pending_totp, auth_methods, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason, challenge_failures FROM admin_sessions
 WHERE admin_user_id = $1 AND revoked_at IS NULL AND absolute_expires_at > now()
 ORDER BY last_seen_at DESC
 LIMIT $2
@@ -1180,6 +1224,7 @@ func (q *Queries) ListAdminSessions(ctx context.Context, arg ListAdminSessionsPa
 			&i.AbsoluteExpiresAt,
 			&i.RevokedAt,
 			&i.RevokedReason,
+			&i.ChallengeFailures,
 		); err != nil {
 			return nil, err
 		}
@@ -1192,7 +1237,7 @@ func (q *Queries) ListAdminSessions(ctx context.Context, arg ListAdminSessionsPa
 }
 
 const listAdminUsers = `-- name: ListAdminUsers :many
-SELECT id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at FROM admin_users
+SELECT id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step FROM admin_users
 WHERE (
     $1::timestamptz IS NULL
     OR (created_at, id) < ($1::timestamptz, $2::uuid)
@@ -1244,6 +1289,8 @@ func (q *Queries) ListAdminUsers(ctx context.Context, arg ListAdminUsersParams) 
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DisabledAt,
+			&i.TotpFailedCount,
+			&i.TotpLastUsedStep,
 		); err != nil {
 			return nil, err
 		}
@@ -1362,13 +1409,60 @@ func (q *Queries) PurgeExpiredAdminSessions(ctx context.Context, cutoff pgtype.T
 	return result.RowsAffected(), nil
 }
 
+const recordAdminChallengeFailure = `-- name: RecordAdminChallengeFailure :one
+UPDATE admin_sessions
+SET challenge_failures = challenge_failures + 1,
+    revoked_at = CASE
+      WHEN challenge_failures + 1 >= $1::integer THEN now()
+      ELSE revoked_at
+    END,
+    revoked_reason = CASE
+      WHEN challenge_failures + 1 >= $1::integer THEN 'challenge_failed'
+      ELSE revoked_reason
+    END
+WHERE id = $2 AND revoked_at IS NULL AND pending_totp = true
+RETURNING id, admin_user_id, token_hash, csrf_secret, pending_totp, auth_methods, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason, challenge_failures
+`
+
+type RecordAdminChallengeFailureParams struct {
+	MaxFailures int32       `json:"max_failures"`
+	SessionID   pgtype.UUID `json:"session_id"`
+}
+
+// Counts a wrong code against a half-authenticated session and revokes it once
+// the limit is reached, in one statement so concurrent guesses cannot both slip
+// under the limit. The caller then needs the password again for a new session.
+func (q *Queries) RecordAdminChallengeFailure(ctx context.Context, arg RecordAdminChallengeFailureParams) (AdminSession, error) {
+	row := q.db.QueryRow(ctx, recordAdminChallengeFailure, arg.MaxFailures, arg.SessionID)
+	var i AdminSession
+	err := row.Scan(
+		&i.ID,
+		&i.AdminUserID,
+		&i.TokenHash,
+		&i.CsrfSecret,
+		&i.PendingTotp,
+		&i.AuthMethods,
+		&i.Ip,
+		&i.UserAgent,
+		&i.CreatedAt,
+		&i.LastSeenAt,
+		&i.RotatedAt,
+		&i.IdleExpiresAt,
+		&i.AbsoluteExpiresAt,
+		&i.RevokedAt,
+		&i.RevokedReason,
+		&i.ChallengeFailures,
+	)
+	return i, err
+}
+
 const recordAdminLoginFailure = `-- name: RecordAdminLoginFailure :one
 UPDATE admin_users
 SET failed_login_count = failed_login_count + 1,
     locked_until = $1,
     updated_at = now()
 WHERE id = $2
-RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at
+RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step
 `
 
 type RecordAdminLoginFailureParams struct {
@@ -1400,6 +1494,8 @@ func (q *Queries) RecordAdminLoginFailure(ctx context.Context, arg RecordAdminLo
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DisabledAt,
+		&i.TotpFailedCount,
+		&i.TotpLastUsedStep,
 	)
 	return i, err
 }
@@ -1408,7 +1504,7 @@ const recordAdminLoginSuccess = `-- name: RecordAdminLoginSuccess :one
 UPDATE admin_users
 SET failed_login_count = 0, locked_until = NULL, last_login_at = now(), updated_at = now()
 WHERE id = $1
-RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at
+RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step
 `
 
 func (q *Queries) RecordAdminLoginSuccess(ctx context.Context, adminUserID pgtype.UUID) (AdminUser, error) {
@@ -1433,6 +1529,8 @@ func (q *Queries) RecordAdminLoginSuccess(ctx context.Context, adminUserID pgtyp
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DisabledAt,
+		&i.TotpFailedCount,
+		&i.TotpLastUsedStep,
 	)
 	return i, err
 }
@@ -1468,6 +1566,52 @@ func (q *Queries) RecordAdminPasskeyUse(ctx context.Context, arg RecordAdminPass
 	return err
 }
 
+const recordAdminTOTPFailure = `-- name: RecordAdminTOTPFailure :one
+UPDATE admin_users
+SET totp_failed_count = totp_failed_count + 1,
+    locked_until = COALESCE($1, locked_until),
+    updated_at = now()
+WHERE id = $2
+RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step
+`
+
+type RecordAdminTOTPFailureParams struct {
+	LockedUntil pgtype.Timestamptz `json:"locked_until"`
+	AdminUserID pgtype.UUID        `json:"admin_user_id"`
+}
+
+// Counts a wrong second factor against the account. Unlike the password
+// counter, a correct password does not reset this one, so signing in again does
+// not buy a fresh allowance of guesses. The caller computes the lockout from the
+// resulting count; a null deadline leaves any existing lock in place.
+func (q *Queries) RecordAdminTOTPFailure(ctx context.Context, arg RecordAdminTOTPFailureParams) (AdminUser, error) {
+	row := q.db.QueryRow(ctx, recordAdminTOTPFailure, arg.LockedUntil, arg.AdminUserID)
+	var i AdminUser
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.EmailNormalized,
+		&i.DisplayName,
+		&i.PasswordHash,
+		&i.Status,
+		&i.Locale,
+		&i.Timezone,
+		&i.Preferences,
+		&i.TotpSecretCiphertext,
+		&i.TotpConfirmedAt,
+		&i.FailedLoginCount,
+		&i.LockedUntil,
+		&i.PasswordChangedAt,
+		&i.LastLoginAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DisabledAt,
+		&i.TotpFailedCount,
+		&i.TotpLastUsedStep,
+	)
+	return i, err
+}
+
 const renameAdminPasskey = `-- name: RenameAdminPasskey :one
 UPDATE admin_passkeys SET label = $1
 WHERE id = $2 AND admin_user_id = $3
@@ -1501,6 +1645,17 @@ func (q *Queries) RenameAdminPasskey(ctx context.Context, arg RenameAdminPasskey
 	return i, err
 }
 
+const resetAdminTOTPFailures = `-- name: ResetAdminTOTPFailures :exec
+UPDATE admin_users SET totp_failed_count = 0, updated_at = now()
+WHERE id = $1
+`
+
+// A recovery code is also a proven second factor.
+func (q *Queries) ResetAdminTOTPFailures(ctx context.Context, adminUserID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, resetAdminTOTPFailures, adminUserID)
+	return err
+}
+
 const revokeAdminRole = `-- name: RevokeAdminRole :exec
 DELETE FROM admin_user_roles
 WHERE admin_user_id = $1 AND role = $2
@@ -1520,7 +1675,7 @@ const revokeAdminSession = `-- name: RevokeAdminSession :one
 UPDATE admin_sessions
 SET revoked_at = now(), revoked_reason = $1
 WHERE id = $2 AND revoked_at IS NULL
-RETURNING id, admin_user_id, token_hash, csrf_secret, pending_totp, auth_methods, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason
+RETURNING id, admin_user_id, token_hash, csrf_secret, pending_totp, auth_methods, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason, challenge_failures
 `
 
 type RevokeAdminSessionParams struct {
@@ -1547,6 +1702,7 @@ func (q *Queries) RevokeAdminSession(ctx context.Context, arg RevokeAdminSession
 		&i.AbsoluteExpiresAt,
 		&i.RevokedAt,
 		&i.RevokedReason,
+		&i.ChallengeFailures,
 	)
 	return i, err
 }
@@ -1582,7 +1738,7 @@ SET token_hash = $1,
     last_seen_at = now(),
     idle_expires_at = $2
 WHERE id = $3 AND revoked_at IS NULL
-RETURNING id, admin_user_id, token_hash, csrf_secret, pending_totp, auth_methods, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason
+RETURNING id, admin_user_id, token_hash, csrf_secret, pending_totp, auth_methods, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason, challenge_failures
 `
 
 type RotateAdminSessionTokenParams struct {
@@ -1610,6 +1766,7 @@ func (q *Queries) RotateAdminSessionToken(ctx context.Context, arg RotateAdminSe
 		&i.AbsoluteExpiresAt,
 		&i.RevokedAt,
 		&i.RevokedReason,
+		&i.ChallengeFailures,
 	)
 	return i, err
 }
@@ -1794,9 +1951,11 @@ const setAdminTOTPSecret = `-- name: SetAdminTOTPSecret :one
 UPDATE admin_users
 SET totp_secret_ciphertext = $1,
     totp_confirmed_at = NULL,
+    totp_last_used_step = NULL,
+    totp_failed_count = 0,
     updated_at = now()
 WHERE id = $2
-RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at
+RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step
 `
 
 type SetAdminTOTPSecretParams struct {
@@ -1805,7 +1964,8 @@ type SetAdminTOTPSecretParams struct {
 }
 
 // Starts enrolment. `totp_confirmed_at` is deliberately cleared: a secret that
-// has not been proven by a code cannot satisfy a login challenge.
+// has not been proven by a code cannot satisfy a login challenge. The replay
+// watermark and failure count belong to the old secret and go with it.
 func (q *Queries) SetAdminTOTPSecret(ctx context.Context, arg SetAdminTOTPSecretParams) (AdminUser, error) {
 	row := q.db.QueryRow(ctx, setAdminTOTPSecret, arg.TotpSecretCiphertext, arg.AdminUserID)
 	var i AdminUser
@@ -1828,6 +1988,8 @@ func (q *Queries) SetAdminTOTPSecret(ctx context.Context, arg SetAdminTOTPSecret
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DisabledAt,
+		&i.TotpFailedCount,
+		&i.TotpLastUsedStep,
 	)
 	return i, err
 }
@@ -1840,7 +2002,7 @@ SET password_hash = $1,
     locked_until = NULL,
     updated_at = now()
 WHERE id = $2
-RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at
+RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step
 `
 
 type SetAdminUserPasswordParams struct {
@@ -1870,6 +2032,8 @@ func (q *Queries) SetAdminUserPassword(ctx context.Context, arg SetAdminUserPass
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DisabledAt,
+		&i.TotpFailedCount,
+		&i.TotpLastUsedStep,
 	)
 	return i, err
 }
@@ -1880,7 +2044,7 @@ SET status = $1,
     disabled_at = CASE WHEN $1 = 'active' THEN NULL ELSE now() END,
     updated_at = now()
 WHERE id = $2
-RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at
+RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step
 `
 
 type SetAdminUserStatusParams struct {
@@ -1910,6 +2074,8 @@ func (q *Queries) SetAdminUserStatus(ctx context.Context, arg SetAdminUserStatus
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DisabledAt,
+		&i.TotpFailedCount,
+		&i.TotpLastUsedStep,
 	)
 	return i, err
 }
@@ -1918,7 +2084,7 @@ const touchAdminSession = `-- name: TouchAdminSession :one
 UPDATE admin_sessions
 SET last_seen_at = now(), idle_expires_at = $1
 WHERE id = $2 AND revoked_at IS NULL
-RETURNING id, admin_user_id, token_hash, csrf_secret, pending_totp, auth_methods, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason
+RETURNING id, admin_user_id, token_hash, csrf_secret, pending_totp, auth_methods, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason, challenge_failures
 `
 
 type TouchAdminSessionParams struct {
@@ -1947,6 +2113,7 @@ func (q *Queries) TouchAdminSession(ctx context.Context, arg TouchAdminSessionPa
 		&i.AbsoluteExpiresAt,
 		&i.RevokedAt,
 		&i.RevokedReason,
+		&i.ChallengeFailures,
 	)
 	return i, err
 }
@@ -1956,7 +2123,7 @@ UPDATE admin_users
 SET preferences = preferences || $1::jsonb,
     updated_at = now()
 WHERE id = $2
-RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at
+RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step
 `
 
 type UpdateAdminUserPreferencesParams struct {
@@ -1988,6 +2155,8 @@ func (q *Queries) UpdateAdminUserPreferences(ctx context.Context, arg UpdateAdmi
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DisabledAt,
+		&i.TotpFailedCount,
+		&i.TotpLastUsedStep,
 	)
 	return i, err
 }
@@ -1999,7 +2168,7 @@ SET display_name = $1,
     timezone = $3,
     updated_at = now()
 WHERE id = $4
-RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at
+RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step
 `
 
 type UpdateAdminUserProfileParams struct {
@@ -2036,6 +2205,8 @@ func (q *Queries) UpdateAdminUserProfile(ctx context.Context, arg UpdateAdminUse
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DisabledAt,
+		&i.TotpFailedCount,
+		&i.TotpLastUsedStep,
 	)
 	return i, err
 }

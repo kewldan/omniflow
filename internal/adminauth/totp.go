@@ -71,26 +71,44 @@ func TOTPCode(secret string, counter uint64) (string, error) {
 // The comparison against every candidate step is constant time and does not
 // stop early, so the time taken does not reveal which step matched.
 func VerifyTOTP(secret, code string, now time.Time) (bool, error) {
+	_, matched, err := MatchTOTP(secret, code, now)
+	return matched, err
+}
+
+// MatchTOTP is VerifyTOTP that also reports which time step the code belongs
+// to. A caller that remembers the last step it accepted can then refuse the
+// same code — or an older one — a second time, which is what turns a TOTP code
+// from "valid for ninety seconds" into "valid once".
+//
+// Every candidate is still compared in constant time and the loop never stops
+// early; the matched step is selected without a data-dependent branch.
+func MatchTOTP(secret, code string, now time.Time) (uint64, bool, error) {
 	key, err := decodeTOTPSecret(secret)
 	if err != nil {
-		return false, err
+		return 0, false, err
 	}
 	code = strings.TrimSpace(code)
 	if len(code) != TOTPDigits {
-		return false, nil
+		return 0, false, nil
 	}
 
 	counter := totpCounter(now)
 	matched := 0
+	var matchedStep uint64
 	for offset := -TOTPSkewSteps; offset <= TOTPSkewSteps; offset++ {
 		step, ok := shiftCounter(counter, offset)
 		if !ok {
 			continue
 		}
 		candidate := hotp(key, step, TOTPDigits)
-		matched |= subtle.ConstantTimeCompare([]byte(candidate), []byte(code))
+		equal := subtle.ConstantTimeCompare([]byte(candidate), []byte(code))
+		// Keep the latest matching step; a code that collides across steps
+		// is then bound to the newest one, which is the stricter choice.
+		mask := -uint64(equal)
+		matchedStep = (step & mask) | (matchedStep &^ mask)
+		matched |= equal
 	}
-	return matched == 1, nil
+	return matchedStep, matched == 1, nil
 }
 
 // TOTPURI builds the otpauth:// URI an authenticator app scans. The issuer is

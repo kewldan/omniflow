@@ -3,9 +3,11 @@ package adminauthpg
 import (
 	"context"
 	"errors"
+	"math"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/omniflow/omniflow/internal/adminauth"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 )
@@ -91,11 +93,11 @@ func (service *Service) ConfirmTOTPEnrolment(
 	if err != nil {
 		return nil, err
 	}
-	valid, err := adminauth.VerifyTOTP(secret, code, service.now())
+	step, valid, err := adminauth.MatchTOTP(secret, code, service.now())
 	if err != nil {
 		return nil, err
 	}
-	if !valid {
+	if !valid || step > math.MaxInt64 {
 		return nil, ErrInvalidCredentials
 	}
 
@@ -108,6 +110,16 @@ func (service *Service) ConfirmTOTPEnrolment(
 		if _, txErr := queries.ConfirmAdminTOTP(ctx, id); txErr != nil {
 			if errors.Is(txErr, pgx.ErrNoRows) {
 				return ErrNotFound
+			}
+			return txErr
+		}
+		// The code that confirmed enrolment is spent, so it cannot also
+		// satisfy the next sign-in challenge.
+		if _, txErr := queries.ClaimAdminTOTPStep(ctx, dbgen.ClaimAdminTOTPStepParams{
+			AdminUserID: id, Step: pgtype.Int8{Int64: int64(step), Valid: true},
+		}); txErr != nil {
+			if errors.Is(txErr, pgx.ErrNoRows) {
+				return ErrInvalidCredentials
 			}
 			return txErr
 		}

@@ -3,9 +3,11 @@ package adminauthpg
 import (
 	"context"
 	"errors"
+	"math"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/omniflow/omniflow/internal/adminauth"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 	"github.com/omniflow/omniflow/internal/rbac"
@@ -260,20 +262,25 @@ func (service *Service) VerifyChallenge(
 	if row.AdminUser.Status != "active" {
 		return LoginResult{}, ErrAccountDisabled
 	}
+	// A lock set by earlier wrong codes holds here as well as at the password
+	// step; nothing is verified while it lasts, so it cannot be timed either.
+	if lockedUntil := timePointer(row.AdminUser.LockedUntil); adminauth.Locked(lockedUntil, now) {
+		return LoginResult{}, ErrAccountLocked
+	}
 
 	method, err := service.proveSecondFactor(ctx, row.AdminUser, code, now)
 	if err != nil {
 		if !errors.Is(err, ErrInvalidCredentials) {
 			return LoginResult{}, err
 		}
-		_ = service.inTx(ctx, func(queries *dbgen.Queries) error {
-			return appendAudit(ctx, queries, AuditEntry{
-				ActorType: "admin", ActorID: uuidString(row.AdminUser.ID),
-				Action: "admin.login.challenge", Category: "authentication", Outcome: "failure",
-				TargetType: "admin_user", TargetID: uuidString(row.AdminUser.ID),
-				Reason: "invalid_second_factor", RequestID: request.RequestID,
-			})
-		})
+		revoked, failErr := service.registerChallengeFailure(ctx, row, now, request)
+		if failErr != nil {
+			return LoginResult{}, failErr
+		}
+		if revoked {
+			// The session spent its allowance. A new one needs the password.
+			return LoginResult{}, ErrSessionInvalid
+		}
 		return LoginResult{}, ErrInvalidCredentials
 	}
 
@@ -324,8 +331,70 @@ func (service *Service) VerifyChallenge(
 	return result, nil
 }
 
+// MaxChallengeFailures is how many wrong codes one half-authenticated session
+// may submit before it is revoked. Six digits is a million codes; five per
+// password sign-in, with the account-wide lockout behind it, keeps the odds of
+// guessing one negligible.
+const MaxChallengeFailures = 5
+
+// registerChallengeFailure counts a wrong second factor against the session
+// and against the account, and reports whether the session was revoked.
+//
+// The account counter is separate from the password one because a correct
+// password resets that one: if wrong codes shared it, signing in again would
+// wipe the evidence and buy a fresh allowance. Past the lockout threshold the
+// account locks with the same backoff a password failure applies.
+func (service *Service) registerChallengeFailure(
+	ctx context.Context, row dbgen.GetAdminSessionByTokenRow, now time.Time, request RequestContext,
+) (bool, error) {
+	revoked := false
+	err := service.inTx(ctx, func(queries *dbgen.Queries) error {
+		session, txErr := queries.RecordAdminChallengeFailure(ctx, dbgen.RecordAdminChallengeFailureParams{
+			MaxFailures: MaxChallengeFailures, SessionID: row.AdminSession.ID,
+		})
+		switch {
+		case errors.Is(txErr, pgx.ErrNoRows):
+			// Revoked concurrently, most likely by a parallel guess that hit
+			// the limit first.
+			revoked = true
+		case txErr != nil:
+			return txErr
+		default:
+			revoked = session.RevokedAt.Valid
+		}
+
+		lockedUntil := service.lockout.LockoutUntil(int(row.AdminUser.TotpFailedCount)+1, now)
+		account, txErr := queries.RecordAdminTOTPFailure(ctx, dbgen.RecordAdminTOTPFailureParams{
+			AdminUserID: row.AdminUser.ID, LockedUntil: optionalTimestamp(lockedUntil),
+		})
+		if txErr != nil {
+			return txErr
+		}
+		metadata := map[string]any{
+			"sessionFailures": session.ChallengeFailures,
+			"accountFailures": account.TotpFailedCount,
+			"sessionRevoked":  revoked,
+		}
+		if lockedUntil != nil {
+			metadata["lockedUntil"] = lockedUntil.UTC().Format(time.RFC3339)
+		}
+		return appendAudit(ctx, queries, AuditEntry{
+			ActorType: "admin", ActorID: uuidString(row.AdminUser.ID),
+			Action: "admin.login.challenge", Category: "authentication", Outcome: "failure",
+			TargetType: "admin_user", TargetID: uuidString(row.AdminUser.ID),
+			Reason: "invalid_second_factor", RequestID: request.RequestID,
+			Metadata: metadata,
+		})
+	})
+	return revoked, err
+}
+
 // proveSecondFactor accepts either a TOTP code or a recovery code and reports
 // which method succeeded.
+//
+// A TOTP code is accepted at most once: its time step is claimed atomically
+// against the last one this account used, so the same code — or an older one
+// still inside the drift window — is refused the second time.
 func (service *Service) proveSecondFactor(
 	ctx context.Context, row dbgen.AdminUser, code string, now time.Time,
 ) (string, error) {
@@ -334,9 +403,22 @@ func (service *Service) proveSecondFactor(
 		if err != nil {
 			return "", err
 		}
-		valid, err := adminauth.VerifyTOTP(secret, code, now)
-		if err == nil && valid {
-			return "totp", nil
+		step, valid, err := adminauth.MatchTOTP(secret, code, now)
+		if err == nil && valid && step <= math.MaxInt64 {
+			_, claimErr := dbgen.New(service.pool).ClaimAdminTOTPStep(ctx, dbgen.ClaimAdminTOTPStepParams{
+				AdminUserID: row.ID, Step: pgtype.Int8{Int64: int64(step), Valid: true},
+			})
+			switch {
+			case claimErr == nil:
+				return "totp", nil
+			case errors.Is(claimErr, pgx.ErrNoRows):
+				// A replay. It is a wrong answer like any other, and is
+				// counted as one; it does not fall through to the recovery
+				// code check, since six digits are never a recovery code.
+				return "", ErrInvalidCredentials
+			default:
+				return "", claimErr
+			}
 		}
 	}
 
@@ -355,6 +437,9 @@ func (service *Service) proveSecondFactor(
 			return err
 		}
 		consumed = true
+		if err = queries.ResetAdminTOTPFailures(ctx, row.ID); err != nil {
+			return err
+		}
 		return appendAudit(ctx, queries, AuditEntry{
 			ActorType: "admin", ActorID: uuidString(row.ID),
 			Action: "admin.recovery_code.used", Category: "authentication", Outcome: "success",

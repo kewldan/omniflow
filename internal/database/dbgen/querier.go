@@ -126,6 +126,11 @@ type Querier interface {
 	// completed-order counts look at subscription operations only — the same
 	// predicate referral qualification uses.
 	CheckPromotionCustomerEligibility(ctx context.Context, arg CheckPromotionCustomerEligibilityParams) (pgtype.Bool, error)
+	// Accepts a TOTP code's time step exactly once. The predicate refuses the step
+	// already used and any earlier one, so a code observed in transit cannot be
+	// replayed within its validity window. A successful claim also clears the
+	// second-factor failure count, which only a proven second factor may do.
+	ClaimAdminTOTPStep(ctx context.Context, arg ClaimAdminTOTPStepParams) (pgtype.UUID, error)
 	// Single redemption by construction: the predicate only matches a deliverable,
 	// unexpired gift, so a second claim of the same code updates no row.
 	ClaimGift(ctx context.Context, arg ClaimGiftParams) (Gift, error)
@@ -1373,6 +1378,10 @@ type Querier interface {
 	RecordAIProviderCheck(ctx context.Context, arg RecordAIProviderCheckParams) error
 	// There is no prompt or output parameter, and there is nowhere to put one.
 	RecordAIUsage(ctx context.Context, arg RecordAIUsageParams) error
+	// Counts a wrong code against a half-authenticated session and revokes it once
+	// the limit is reached, in one statement so concurrent guesses cannot both slip
+	// under the limit. The caller then needs the password again for a new session.
+	RecordAdminChallengeFailure(ctx context.Context, arg RecordAdminChallengeFailureParams) (AdminSession, error)
 	// The caller computes the lockout deadline from the resulting attempt count, so
 	// the backoff curve stays in Go where it is unit-testable.
 	RecordAdminLoginFailure(ctx context.Context, arg RecordAdminLoginFailureParams) (AdminUser, error)
@@ -1382,6 +1391,11 @@ type Querier interface {
 	// value must not roll it back, or the clone detection it exists for would be
 	// defeated by the very thing it is watching for.
 	RecordAdminPasskeyUse(ctx context.Context, arg RecordAdminPasskeyUseParams) error
+	// Counts a wrong second factor against the account. Unlike the password
+	// counter, a correct password does not reset this one, so signing in again does
+	// not buy a fresh allowance of guesses. The caller computes the lockout from the
+	// resulting count; a null deadline leaves any existing lock in place.
+	RecordAdminTOTPFailure(ctx context.Context, arg RecordAdminTOTPFailureParams) (AdminUser, error)
 	RecordBlocklistRefresh(ctx context.Context, arg RecordBlocklistRefreshParams) (BlocklistSource, error)
 	RecordCartFailure(ctx context.Context, arg RecordCartFailureParams) (Cart, error)
 	// Discovery refreshes the description and schemas and leaves the owner's
@@ -1443,6 +1457,8 @@ type Querier interface {
 	// It cannot skip the idempotency key, so the retried attempt is the same
 	// operation the worker already knows how to make exactly once.
 	RequeueFulfillmentOperation(ctx context.Context, operationID pgtype.UUID) (FulfillmentOperation, error)
+	// A recovery code is also a proven second factor.
+	ResetAdminTOTPFailures(ctx context.Context, adminUserID pgtype.UUID) error
 	ResolveCampaignRecipient(ctx context.Context, arg ResolveCampaignRecipientParams) error
 	// Only a scheduled attempt resolves, so a retried worker cannot rewrite an
 	// outcome that has already been recorded.
@@ -1631,7 +1647,8 @@ type Querier interface {
 	SeedCommerceSettings(ctx context.Context, arg SeedCommerceSettingsParams) (CommerceSetting, error)
 	SetAIProviderCredentials(ctx context.Context, arg SetAIProviderCredentialsParams) error
 	// Starts enrolment. `totp_confirmed_at` is deliberately cleared: a secret that
-	// has not been proven by a code cannot satisfy a login challenge.
+	// has not been proven by a code cannot satisfy a login challenge. The replay
+	// watermark and failure count belong to the old secret and go with it.
 	SetAdminTOTPSecret(ctx context.Context, arg SetAdminTOTPSecretParams) (AdminUser, error)
 	SetAdminUserPassword(ctx context.Context, arg SetAdminUserPasswordParams) (AdminUser, error)
 	SetAdminUserStatus(ctx context.Context, arg SetAdminUserStatusParams) (AdminUser, error)
