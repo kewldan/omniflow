@@ -370,9 +370,10 @@ func TestTheOpenTicketQuotaBoundsTheOperatorQueue(t *testing.T) {
 	if _, err = support.Close(ctx, customerID, first); err != nil {
 		t.Fatalf("close a ticket: %v", err)
 	}
-	if _, err = support.CreateTicket(ctx, accountsupport.NewTicket{
+	refill, err := support.CreateTicket(ctx, accountsupport.NewTicket{
 		CustomerID: customerID, Subject: "Now allowed", Body: "Please help",
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("a freed slot was not usable: %v", err)
 	}
 
@@ -382,6 +383,14 @@ func TestTheOpenTicketQuotaBoundsTheOperatorQueue(t *testing.T) {
 		CustomerID: customerID, TicketID: first, Body: "Actually, one more thing",
 	}); !errors.Is(err, accountsupport.ErrTicketClosed) {
 		t.Fatalf("a closed conversation accepted a reply with %v", err)
+	}
+	// Reopening takes a slot like creating does, and the freed one was just
+	// spent, so the quota refuses it until another conversation is closed.
+	if _, err = support.Reopen(ctx, customerID, first); !errors.Is(err, accountsupport.ErrTooManyOpenTickets) {
+		t.Fatalf("a reopen past the quota returned %v", err)
+	}
+	if _, err = support.Close(ctx, customerID, refill.Ticket.ID); err != nil {
+		t.Fatalf("close the refill: %v", err)
 	}
 	if _, err = support.Reopen(ctx, customerID, first); err != nil {
 		t.Fatalf("reopen: %v", err)
