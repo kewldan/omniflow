@@ -70,9 +70,9 @@ test.describe("customer account access", () => {
       await page.goto(route);
 
       // The shell resolves the session before it renders anything, so an
-      // anonymous visitor gets the sign-in prompt rather than a flash of a
+      // anonymous visitor is sent to sign in rather than shown a flash of a
       // dashboard shape.
-      await expect(page.getByRole("link", { name: /sign in|войти/i })).toBeVisible();
+      await expect(page).toHaveURL(/\/account\/sign-in/);
 
       // Nothing behind the gate may appear: no subscription card, no device
       // list, no tab bar into the rest of the panel.

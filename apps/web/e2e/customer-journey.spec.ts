@@ -71,15 +71,10 @@ test.describe("customer journey", () => {
     context,
   }) => {
     await page.goto("/account");
-    // The customer panel refuses in place rather than redirecting: the shell
-    // resolves the session before rendering and shows the sign-in prompt at the
-    // same URL. That differs from the operator panel, which sends an anonymous
-    // visitor to /admin/login, and `account-access.spec.ts` asserts the same
-    // contract from the other side.
-    await expect(
-      page.getByRole("link", { name: /sign in|войти/i }),
-      "an anonymous visitor is offered sign-in",
-    ).toBeVisible();
+    // An anonymous visitor is sent to sign in, the same contract the operator
+    // panel keeps with /admin/login; `account-access.spec.ts` asserts it from
+    // the other side, including the `next` path that brings them back.
+    await expect(page, "an anonymous visitor is sent to sign in").toHaveURL(/\/account\/sign-in/);
 
     // Through the same origin the browser uses, so the web server's /v1 proxy is
     // exercised rather than bypassed, and the cookie lands in the context the
@@ -114,10 +109,9 @@ test.describe("customer journey", () => {
 
     await context.clearCookies();
     await page.goto("/account");
-    await expect(
-      page.getByRole("link", { name: /sign in|войти/i }),
-      "losing the session returns the customer to the sign-in prompt",
-    ).toBeVisible();
+    await expect(page, "losing the session returns the customer to sign-in").toHaveURL(
+      /\/account\/sign-in/,
+    );
     await expect(page.getByRole("navigation", { name: /sections|разделы/i })).toHaveCount(0);
   });
 

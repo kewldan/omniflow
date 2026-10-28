@@ -22,4 +22,4 @@ export {
   type ProblemDetail,
   setCsrfToken,
   toQuery,
-} from "@omniflow/api-client";
+} from "@omniflow/api-client/fetcher";

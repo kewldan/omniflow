@@ -3,8 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "sideEffects": false,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./fetcher": "./src/fetcher.ts",
+    "./generated": "./src/generated/omniflow.ts",
+    "./schemas": "./src/generated/schemas.ts"
   },
   "scripts": {
     "check": "tsc --noEmit"
