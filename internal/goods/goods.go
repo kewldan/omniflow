@@ -120,7 +120,66 @@ type PricingRule struct {
 	// pays it regardless of what the provider quoted, and the operator absorbs
 	// the variance.
 	FixedAmountMinor *int64
-	QuoteTTL         time.Duration
+	// UnitPriceMinor is a fixed price per Star. It is the fork's
+	// STARS_SHOP_PRICE_PER_STAR_KOPEKS, and like a fixed amount it opts out of
+	// derivation: the customer pays it times the Stars bought, whatever the
+	// provider charges that minute.
+	UnitPriceMinor *int64
+	QuoteTTL       time.Duration
+}
+
+// OperatorPriced reports a price the operator chose rather than one derived
+// from a provider quote. Such a price does not move with the provider's rate,
+// which is what makes it safe to charge unattended after a top-up.
+func (rule PricingRule) OperatorPriced() bool {
+	return rule.FixedAmountMinor != nil || rule.UnitPriceMinor != nil
+}
+
+// OperatorPrice is the operator's price for one line delivering `stars` Stars
+// (ignored for a fixed amount). The second result is false when the rule
+// derives its price from the provider instead.
+func (rule PricingRule) OperatorPrice(stars int) (int64, bool) {
+	switch {
+	case rule.UnitPriceMinor != nil:
+		return max(*rule.UnitPriceMinor, 0) * int64(max(stars, 0)), true
+	case rule.FixedAmountMinor != nil:
+		return max(*rule.FixedAmountMinor, 0), true
+	default:
+		return 0, false
+	}
+}
+
+// Fragment's own bounds on one Stars purchase.
+const (
+	FragmentMinStars = 50
+	FragmentMaxStars = 10_000_000
+)
+
+// StarAmount describes how many Stars a product delivers: a fixed pack, or a
+// customer-chosen amount between two bounds.
+type StarAmount struct {
+	Pack    int
+	Min     int
+	Max     int
+	Presets []int
+}
+
+// Custom reports a product whose customer picks the amount.
+func (amount StarAmount) Custom() bool { return amount.Pack == 0 && amount.Max > 0 }
+
+// ErrStarAmount reports an amount outside the product's bounds.
+var ErrStarAmount = errors.New("star amount is outside the allowed range")
+
+// Resolve turns what the customer asked for into the Stars one line delivers.
+// A pack ignores the request; a custom amount must fall inside its bounds.
+func (amount StarAmount) Resolve(requested int) (int, error) {
+	if !amount.Custom() {
+		return amount.Pack, nil
+	}
+	if requested < amount.Min || requested > amount.Max {
+		return 0, ErrStarAmount
+	}
+	return requested, nil
 }
 
 // Price converts a provider cost into what the customer is charged.
@@ -224,6 +283,27 @@ type DeliveryRequest struct {
 	OrderID         string
 	IdempotencyKey  string
 	BuyerTelegramID int64
+	// BeforeSettle is called by an adapter that pays the provider itself,
+	// immediately before money leaves the operator's wallet. The caller
+	// persists the marker in a transaction of its own and commits it before
+	// returning, so a crash from then on is recognisable as "money may have
+	// left" rather than "nothing happened".
+	//
+	// An adapter must not send anything if it returns an error, and must
+	// report that failure as one that happened before payment. A nil hook
+	// means the caller does not need the marker.
+	BeforeSettle func(context.Context, SettlementMarker) error
+}
+
+// SettlementMarker is what an on-chain adapter records just before paying.
+type SettlementMarker struct {
+	// ProviderRequestID is the provider's own identifier for the purchase,
+	// which an operator quotes when checking with the provider.
+	ProviderRequestID string
+	// Asset is the currency the provider is paid in, such as "TON".
+	Asset string
+	// CostNano is the amount about to be paid, in the asset's smallest unit.
+	CostNano int64
 }
 
 // Delivery is the provider's view of one submission.
@@ -233,6 +313,48 @@ type Delivery struct {
 	Status       string
 	FailureClass string
 	ErrorCode    string
+	// Settlement describes what the operator actually paid, for an adapter
+	// that pays the provider itself. It is nil for a gateway that settles on
+	// its own side.
+	Settlement *Settlement
+}
+
+// Settlement is the on-chain payment behind a delivery.
+type Settlement struct {
+	ProviderRequestID string
+	Asset             string
+	CostNano          int64
+	// TxHash identifies the payment on chain (the normalized external
+	// message hash for TON), so an operator can open it in an explorer.
+	TxHash string
+	// ProviderConfirmed is false when the payment went through but the
+	// provider was not told about it. The goods are still owed by the
+	// provider; nothing on Omniflow's side is retried because of it.
+	ProviderConfirmed bool
+	// DryRun marks a delivery that went through every state without money
+	// or a provider being involved.
+	DryRun bool
+	// BalanceAfterNano is the wallet balance once the payment confirmed,
+	// when known.
+	BalanceAfterNano *int64
+}
+
+// WalletInfo is the operator's own funding wallet, for an adapter that holds
+// one.
+type WalletInfo struct {
+	Address     string
+	Version     string
+	Asset       string
+	BalanceNano int64
+}
+
+// WalletReporter is implemented by an adapter that pays from the operator's
+// own wallet. The panel's wallet card and the sale notification read it.
+type WalletReporter interface {
+	Wallet(context.Context) (WalletInfo, error)
+	// StarsPriceNano is the provider's current price for `stars` Stars, in
+	// the wallet asset's smallest unit.
+	StarsPriceNano(ctx context.Context, stars int) (int64, error)
 }
 
 // Provider is the contract an adapter implements.
