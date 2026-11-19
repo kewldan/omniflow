@@ -248,9 +248,8 @@ process starts.
    other service waits for it to complete successfully.
 4. Watch `/readyz` on each process.
 
-Applying migrations twice is a no-op: Atlas records what has already run. CI proves every
-supported baseline — the empty database plus each prefix of the migration history —
-upgrades to head, and that re-applying head changes nothing.
+Applying migrations twice is a no-op: Atlas records what has already run. CI proves the
+migration history applies to an empty database and that re-applying it changes nothing.
 
 <Note>
   The compose `migrate` service uses a hard-coded connection string and does not read

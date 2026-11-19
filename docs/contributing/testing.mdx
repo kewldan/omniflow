@@ -19,7 +19,7 @@ go test -tags=integration -race -timeout=20m ./internal/integrationtest/...
 
 The harness applies the committed migration files in order rather than a schema dump, so the suite is a migration gate as well as a repository gate. It covers:
 
-- migrations applying from a bare database, and the v0.4 → v0.5 adoption of existing customers onto subscriptions;
+- migrations applying from a bare database, and River's schema matching the linked River version;
 - top-up crediting the wallet exactly once across a replayed webhook, a second event, and a reconciliation;
 - overpayment and underpayment resolving in the ledger while the order still settles;
 - a saved cart staying saved while short and being charged once when funded;
@@ -42,9 +42,9 @@ computed from the application clock while its row's `created_at` comes from the
 database's, or a constraint whose derived name was guessed wrong. Each of those
 only fails against a real PostgreSQL.
 
-## Migration upgrade gate
+## Migration gate
 
-The `migrations` CI job runs once per supported baseline — the empty database plus each prefix of the migration history — applies the rest, then applies head a second time to prove it is a no-op. A migration that cannot run on top of a released version fails there.
+The `migrations` CI job checks `atlas.sum`, replays the migration directory on an empty scratch database, applies it to an empty database, applies it a second time to prove that is a no-op, and checks that `database/schema.sql` matches what the migrations build. The history starts at the squashed baseline described on [Database changes](/contributing/database#the-baseline).
 
 ## What a financial change owes
 

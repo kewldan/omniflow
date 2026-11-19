@@ -96,8 +96,8 @@ func applyMigrations(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
 	}
 }
 
-// TestMigrationsApplyFromABareDatabase is the upgrade gate: every supported
-// baseline is the empty database plus the committed migration history, so a
+// TestMigrationsApplyFromABareDatabase is the migration gate: every
+// installation is the empty database plus the committed migrations, so a
 // migration that cannot run in order fails here rather than in production.
 func TestMigrationsApplyFromABareDatabase(t *testing.T) {
 	harness := newHarness(t)
@@ -120,38 +120,6 @@ func TestMigrationsApplyFromABareDatabase(t *testing.T) {
 		if !exists {
 			t.Fatalf("table %s is missing after migration", table)
 		}
-	}
-}
-
-// TestUpgradeAdoptsExistingCustomersOntoSubscriptions proves the v0.4 → v0.5
-// migration path: a customer that already had a Remnawave user keeps it as slot
-// one instead of being orphaned or duplicated.
-func TestUpgradeAdoptsExistingCustomersOntoSubscriptions(t *testing.T) {
-	harness := newHarness(t)
-	ctx := context.Background()
-	var userID string
-	if err := harness.pool.QueryRow(ctx, `INSERT INTO users (locale) VALUES ('en') RETURNING id::text`).Scan(&userID); err != nil {
-		t.Fatalf("create customer: %v", err)
-	}
-	if _, err := harness.pool.Exec(ctx,
-		`INSERT INTO remnawave_users (user_id, remnawave_id, telegram_id) VALUES ($1::uuid, 4242, 99001)`, userID); err != nil {
-		t.Fatalf("create mapping: %v", err)
-	}
-	// Re-running the adoption statement from the migration must be a no-op: the
-	// unique slot constraint is what makes a repeated upgrade safe.
-	_, err := harness.pool.Exec(ctx, `INSERT INTO subscriptions (user_id, slot, label, remnawave_user_id)
-		SELECT r.user_id, 1, 'Subscription 1', r.remnawave_id
-		FROM remnawave_users r
-		WHERE NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.user_id = r.user_id AND s.slot = 1)`)
-	if err != nil {
-		t.Fatalf("adopt subscription: %v", err)
-	}
-	var count int
-	if err := harness.pool.QueryRow(ctx, `SELECT count(*) FROM subscriptions WHERE user_id = $1::uuid`, userID).Scan(&count); err != nil {
-		t.Fatalf("count subscriptions: %v", err)
-	}
-	if count != 1 {
-		t.Fatalf("expected exactly one adopted subscription, got %d", count)
 	}
 }
 

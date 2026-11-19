@@ -3,9 +3,9 @@
 #
 # The migrations are the source of truth for the schema; this file is the shape
 # they build, written out in one place so a reviewer can read the current
-# database without replaying thirty files in their head. It is generated rather
-# than maintained by hand because the hand-maintained version fell nine
-# migrations behind and nothing noticed.
+# database without replaying the baseline and every migration after it in their
+# head. It is generated rather than maintained by hand because a hand-maintained
+# copy falls behind the migrations and nothing notices.
 #
 # It starts a throwaway PostgreSQL of the version production runs, applies every
 # migration in order with psql, and dumps the schema with that server's own

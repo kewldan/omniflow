@@ -203,17 +203,6 @@ jobs:
   migrations:
     name: Atlas migrations
     runs-on: ubuntu-latest
-    strategy:
-      # Every supported baseline is the empty database plus a prefix of the
-      # migration history, so applying each prefix and then the rest proves an
-      # installation can upgrade from any released version.
-      matrix:
-        baseline:
-          - "20260810160000_initial.sql"
-          - "20260810190000_bot_self_service.sql"
-          - "20260810220000_commerce.sql"
-          - "20260811000000_telegram_commerce.sql"
-          - ""
     services:
       postgres:
         image: postgres:18.4-alpine
@@ -231,21 +220,20 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ariga/setup-atlas@v0
-      - run: atlas migrate validate --dir file://database/migrations
-      - name: Apply the baseline
-        if: matrix.baseline != ''
+      - name: The checksums match the migration files
+        run: atlas migrate validate --dir file://database/migrations
+      # Replaying the directory on an empty scratch database is what catches a
+      # migration that parses but cannot apply after the ones before it.
+      - name: Every migration replays on an empty database
         run: |
-          atlas migrate apply --dir file://database/migrations \
-            --url "postgres://omniflow:omniflow@localhost:5432/omniflow?sslmode=disable" \
-            --to-version "${BASELINE%%_*}"
-        env:
-          BASELINE: ${{ matrix.baseline }}
-      - name: Upgrade to head
+          docker exec "${{ job.services.postgres.id }}" createdb -U omniflow dev
+          atlas migrate validate --dir file://database/migrations \
+            --dev-url "postgres://omniflow:omniflow@localhost:5432/dev?sslmode=disable"
+      - name: Apply from an empty database
         run: atlas migrate apply --dir file://database/migrations --url "postgres://omniflow:omniflow@localhost:5432/omniflow?sslmode=disable"
       - name: Re-applying head is a no-op
         run: atlas migrate apply --dir file://database/migrations --url "postgres://omniflow:omniflow@localhost:5432/omniflow?sslmode=disable"
       - name: The schema snapshot matches the migrations
-        if: matrix.baseline == ''
         run: sh tools/schema-snapshot.sh --check
 
   compose:
