@@ -29,6 +29,19 @@ type User struct {
 	HasPaid         bool
 	RemnawaveID     *int64
 	CreatedAt       time.Time
+	// OAuth maps an Omniflow sign-in provider slug (google, yandex, discord,
+	// vk) to the subject Bedolaga stored for this user, so a customer who
+	// signed into the Bedolaga cabinet that way lands on the same account.
+	OAuth map[string]string
+}
+
+// OAuthIssuers is the issuer each carried sign-in provider's identities are
+// bound to; the slugs are those of Omniflow's provider presets.
+var OAuthIssuers = map[string]string{
+	"google":  "https://accounts.google.com",
+	"yandex":  "https://oauth.yandex.ru",
+	"discord": "https://discord.com",
+	"vk":      "https://id.vk.ru",
 }
 
 // Bedolaga user statuses.

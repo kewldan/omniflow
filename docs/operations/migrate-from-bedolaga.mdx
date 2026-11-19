@@ -121,7 +121,7 @@ Omniflow order as usual, subject to the programme's validity window.
 | Promo codes and promo groups | Their discount rules do not map onto Omniflow's promotions one to one. The plan counts active codes by type and groups by members; recreate what you still want in the panel |
 | Referral earnings history and partner withdrawal requests | The earned money is already part of the balance that moves. Settle pending withdrawals in Bedolaga first |
 | Saved payment methods and auto-payment agreements | Provider tokens belong to Bedolaga's merchant setup; customers turn auto-renewal on again in Omniflow |
-| OAuth links, cabinet passwords, e-mail sign-in | Customers sign in to Omniflow with Telegram or a provider you configure there. A customer with neither a Telegram ID nor a verified e-mail is imported with the warning `no_sign_in_identity` |
+| Cabinet passwords | Omniflow has no customer passwords. Customers sign in with Telegram, an e-mailed link (`APP_RESEND_API_KEY`), or a provider. Google, Yandex, Discord, and VK ID links **are** carried as identities bound to the preset issuers, so enable those providers under the preset slugs `google`, `yandex`, `discord`, `vk`. A customer with neither a Telegram ID nor a verified e-mail is imported with the warning `no_sign_in_identity` |
 | Bedolaga referral codes and links | Every customer gets a new Omniflow referral code. Old `start=ref…` links stop attributing |
 | Deleted users | Skipped with `deleted_in_source` |
 | Grace-period overlays | The entitlement ends at the paid `end_date`, not at a grace overlay's date |

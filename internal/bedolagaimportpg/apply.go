@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/omniflow/omniflow/internal/bedolagaimport"
+	"github.com/omniflow/omniflow/internal/customerauth"
 	databaseutil "github.com/omniflow/omniflow/internal/database"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 )
@@ -306,6 +307,21 @@ func (runner *applier) createCustomer(ctx context.Context, queries *dbgen.Querie
 		if _, err = queries.CreateContactChannel(ctx, dbgen.CreateContactChannelParams{
 			UserID: customer.ID, Kind: "email", ValueCiphertext: ciphertext, ValueFingerprint: fingerprint,
 			VerifiedAt: timestamp(verifiedAt), TransactionalEnabled: true, MarketingEnabled: false,
+		}); err != nil && !isNoRows(err) {
+			return "", err
+		}
+	}
+	// Cabinet sign-in links (Google, Yandex, Discord, VK ID), bound to the
+	// issuer of the matching Omniflow preset. A subject another customer
+	// already holds stays with them.
+	for slug, subject := range source.OAuth {
+		issuer, known := bedolagaimport.OAuthIssuers[slug]
+		if !known {
+			continue
+		}
+		if _, err = queries.LinkCustomerOIDCIdentity(ctx, dbgen.LinkCustomerOIDCIdentityParams{
+			UserID: customer.ID, Provider: customerauth.OIDCProvider(slug), ProviderSubject: subject,
+			VerifiedAt: timestamp(source.CreatedAt), OidcIssuer: pgtype.Text{String: issuer, Valid: true},
 		}); err != nil && !isNoRows(err) {
 			return "", err
 		}

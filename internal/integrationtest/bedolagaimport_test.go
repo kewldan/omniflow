@@ -583,13 +583,19 @@ func TestBedolagaImportPlanApplyVerify(t *testing.T) {
 	fixture.exec(ctx, t, `UPDATE subscriptions SET end_date = $1 WHERE id = 1`, renewed)
 	fixture.panel.setExpiry(701, renewed)
 	fixture.exec(ctx, t, `UPDATE users SET balance_kopeks = 12000 WHERE id = 1`)
-	fixture.exec(ctx, t, `INSERT INTO users (id, telegram_id, username, status, balance_kopeks) VALUES (13, 5013, 'henry', 'active', 3000)`)
+	fixture.exec(ctx, t, `INSERT INTO users (id, telegram_id, username, status, balance_kopeks, vk_id, google_id) VALUES (13, 5013, 'henry', 'active', 3000, 777001, 'g-henry')`)
 	delta, err := service.Apply(ctx, fixture.read(ctx, t), fixture.mapping, bedolagaimportpg.ApplyOptions{})
 	if err != nil {
 		t.Fatalf("delta apply: %v", err)
 	}
 	if delta.Written["user"] != 1 || delta.Written["balance"] != 2 || delta.Written["subscription"] != 1 || len(delta.Failures) != 0 {
 		t.Fatalf("delta: written %+v failures %+v", delta.Written, delta.Failures)
+	}
+	// Henry signed into the Bedolaga cabinet with VK and Google: both links
+	// arrive as identities bound to the preset issuers.
+	if fixture.count(ctx, t, `SELECT count(*) FROM identities WHERE (provider, provider_subject, oidc_issuer) IN
+		(('oidc:vk', '777001', 'https://id.vk.ru'), ('oidc:google', 'g-henry', 'https://accounts.google.com'))`) != 2 {
+		t.Fatal("the cabinet's VK and Google links were not carried")
 	}
 	if balance := fixture.harness.walletBalance(ctx, t, alice); balance != 12000 {
 		t.Fatalf("alice's wallet after the delta = %d, want 12000", balance)

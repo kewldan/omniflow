@@ -11,6 +11,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -54,6 +55,9 @@ func Read(ctx context.Context, connection *pgx.Conn) (bedolagaimport.Source, err
 	}
 	source := bedolagaimport.Source{}
 	if source.Users, err = readUsers(ctx, tx); err != nil {
+		return bedolagaimport.Source{}, err
+	}
+	if err = readOAuthLinks(ctx, tx, columns, source.Users); err != nil {
 		return bedolagaimport.Source{}, err
 	}
 	if source.Subscriptions, err = readSubscriptions(ctx, tx); err != nil {
@@ -113,6 +117,55 @@ func readUsers(ctx context.Context, tx pgx.Tx) ([]bedolagaimport.User, error) {
 		user.CreatedAt = user.CreatedAt.UTC()
 		return user, err
 	})
+}
+
+// readOAuthLinks attaches the cabinet sign-in links Bedolaga stores as
+// google_id, yandex_id, discord_id, and vk_id, reading only the columns this
+// Bedolaga version has.
+func readOAuthLinks(ctx context.Context, tx pgx.Tx, columns map[string]map[string]bool, users []bedolagaimport.User) error {
+	slugs := []string{}
+	selects := []string{"id"}
+	for _, slug := range []string{"google", "yandex", "discord", "vk"} {
+		if columns["users"][slug+"_id"] {
+			slugs = append(slugs, slug)
+			selects = append(selects, "COALESCE("+slug+"_id::text, '')")
+		}
+	}
+	if len(slugs) == 0 {
+		return nil
+	}
+	index := make(map[int64]int, len(users))
+	for position, user := range users {
+		index[user.ID] = position
+	}
+	rows, err := tx.Query(ctx, "SELECT "+strings.Join(selects, ", ")+" FROM users")
+	if err != nil {
+		return fmt.Errorf("read OAuth links: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		values := make([]string, len(slugs))
+		targets := []any{new(int64)}
+		for position := range values {
+			targets = append(targets, &values[position])
+		}
+		if err := rows.Scan(targets...); err != nil {
+			return err
+		}
+		position, ok := index[*targets[0].(*int64)]
+		if !ok {
+			continue
+		}
+		for slot, slug := range slugs {
+			if subject := strings.TrimSpace(values[slot]); subject != "" {
+				if users[position].OAuth == nil {
+					users[position].OAuth = map[string]string{}
+				}
+				users[position].OAuth[slug] = subject
+			}
+		}
+	}
+	return rows.Err()
 }
 
 func readSubscriptions(ctx context.Context, tx pgx.Tx) ([]bedolagaimport.Subscription, error) {
