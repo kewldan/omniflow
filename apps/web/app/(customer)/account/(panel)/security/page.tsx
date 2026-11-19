@@ -5,7 +5,7 @@ import { ConfirmDialog } from "@omniflow/ui/confirm-dialog";
 import { toast } from "@omniflow/ui/toast";
 import { Globe, Monitor, Smartphone } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useFormatter, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR from "swr";
 
@@ -64,7 +64,6 @@ function sessionIcon(session: Session) {
 
 function Sessions() {
   const translate = useTranslations("account");
-  const format = useFormatter();
   const router = useRouter();
   const { data, error, isLoading, mutate } = useSWR<{ items: Session[] }, ApiError>(
     "/v1/account/sessions",
@@ -134,9 +133,8 @@ function Sessions() {
                   })}
                 </p>
                 <p className="mt-0.5 truncate font-mono text-[11px] text-subtle-foreground">
-                  {[session.ip, format.relativeTime(new Date(session.lastSeenAt))]
-                    .filter(Boolean)
-                    .join(" · ")}
+                  {session.ip ? `${session.ip} · ` : ""}
+                  <Timestamp value={session.lastSeenAt} />
                 </p>
               </div>
               {session.current ? (

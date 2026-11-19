@@ -1,9 +1,10 @@
 "use client";
 
-import { Button } from "@omniflow/ui/button";
+import { Button, buttonVariants } from "@omniflow/ui/button";
 import { ConfirmDialog } from "@omniflow/ui/confirm-dialog";
-import { Input, Textarea } from "@omniflow/ui/input";
+import { Textarea } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
+import { cn } from "@omniflow/ui/lib/utils";
 import { toast } from "@omniflow/ui/toast";
 import { ArrowRight, Paperclip } from "lucide-react";
 import Link from "next/link";
@@ -25,6 +26,7 @@ import { rejectAttachment, uploadSupportAttachment } from "@/components/account/
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 import { useBytes } from "@/lib/format";
 import { useContentKey } from "@/lib/idempotency";
+import { describeMediaType, describeMediaTypes } from "@/lib/media-types";
 
 /** Every cached page of the ticket list, so a change here is reflected there. */
 function isTicketListKey(key: unknown): boolean {
@@ -360,8 +362,8 @@ function AttachmentForm({
               size: formatBytes(chosen.size),
             })
           : translate("attachments.mediaTypeLocal", {
-              type: chosen.type || "unknown",
-              types: limits.allowedMediaTypes.join(", "),
+              type: describeMediaType(chosen.type || chosen.name.split(".").pop() || ""),
+              types: describeMediaTypes(limits.allowedMediaTypes),
             }),
       );
       return;
@@ -405,19 +407,39 @@ function AttachmentForm({
       </div>
       <AttachmentLimits limits={limits} />
 
-      <Label className="sr-only" htmlFor={fileId}>
-        {translate("attachments.choose")}
-      </Label>
-      <Input
-        accept={limits.allowedMediaTypes.join(",")}
-        aria-describedby={rejection ? `${fileId}-error` : undefined}
-        aria-invalid={rejection ? true : undefined}
-        disabled={busy}
-        id={fileId}
-        key={pickerKey}
-        onChange={(event) => chooseFile(event.target.files?.[0] ?? null)}
-        type="file"
-      />
+      {/* The native control stays — it is what opens the system picker and
+          what assistive technology announces — but its own button and "No file
+          chosen" text are drawn by the browser in the browser's language, so a
+          Russian page said "Choose File". It is visually hidden behind a label
+          styled as a button, and the chosen name is shown below in our words. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          accept={limits.allowedMediaTypes.join(",")}
+          aria-describedby={rejection ? `${fileId}-error` : undefined}
+          aria-invalid={rejection ? true : undefined}
+          className="peer sr-only"
+          disabled={busy}
+          id={fileId}
+          key={pickerKey}
+          onChange={(event) => chooseFile(event.target.files?.[0] ?? null)}
+          type="file"
+        />
+        <Label
+          className={cn(
+            buttonVariants({ size: "sm", variant: "outline" }),
+            "cursor-pointer peer-focus-visible:ring-[3px] peer-focus-visible:ring-ring/40 peer-disabled:cursor-not-allowed peer-disabled:opacity-50",
+          )}
+          htmlFor={fileId}
+        >
+          <Paperclip aria-hidden />
+          {translate(file ? "attachments.chooseAnother" : "attachments.choose")}
+        </Label>
+        {!file && (
+          <span className="text-[12px] text-subtle-foreground">
+            {translate("attachments.none")}
+          </span>
+        )}
+      </div>
       {rejection && (
         <p
           className="text-[12px] text-destructive leading-relaxed"

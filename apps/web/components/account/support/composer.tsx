@@ -4,8 +4,8 @@ import { Input, Textarea } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { useTranslations } from "next-intl";
 import { useId } from "react";
-
 import { useBytes } from "@/lib/format";
+import { describeMediaTypes } from "@/lib/media-types";
 
 import type { SupportLimits } from "./types";
 
@@ -105,7 +105,7 @@ export function AttachmentLimits({ limits }: { limits: SupportLimits }) {
     <p className="font-mono text-[11px] text-subtle-foreground leading-relaxed">
       {translate("attachments.hint", {
         size: formatBytes(limits.maxAttachmentBytes),
-        types: limits.allowedMediaTypes.join(", "),
+        types: describeMediaTypes(limits.allowedMediaTypes),
       })}{" "}
       {translate("attachments.perTicket", { count: limits.maxAttachmentsPerTicket })}
     </p>
