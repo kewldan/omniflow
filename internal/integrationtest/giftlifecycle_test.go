@@ -65,7 +65,6 @@ func TestConcurrentGiftClaimsCreditOnce(t *testing.T) {
 // race: every losing claimant should hear ErrGiftNotFound, as ClaimGift's doc
 // comment promises, rather than a raw serialization failure.
 func TestConcurrentGiftClaimLosersAreRefusedCleanly(t *testing.T) {
-	t.Skip("known bug: under 8-way contention ClaimGift exhausts retrySerializable and returns SQLSTATE 40001 to losers")
 	raceGiftClaims(t, true)
 }
 
