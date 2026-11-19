@@ -5189,7 +5189,10 @@ type AccountPlan struct {
 	GracePeriodSeconds *int64 `json:"gracePeriodSeconds,omitempty"`
 
 	// Held The customer already holds an entitlement for this plan, so the catalogue can mark it as the one they are on.
-	Held             *bool           `json:"held,omitempty"`
+	Held *bool `json:"held,omitempty"`
+
+	// Highlighted The operator marked this plan as the best deal.
+	Highlighted      *bool           `json:"highlighted,omitempty"`
 	IneligibleReason *string         `json:"ineligibleReason,omitempty"`
 	Kind             AccountPlanKind `json:"kind"`
 	Name             string          `json:"name"`
@@ -5227,7 +5230,10 @@ type AccountPlanDetail struct {
 	GracePeriodSeconds *int64 `json:"gracePeriodSeconds,omitempty"`
 
 	// Held The customer already holds an entitlement for this plan, so the catalogue can mark it as the one they are on.
-	Held             *bool                 `json:"held,omitempty"`
+	Held *bool `json:"held,omitempty"`
+
+	// Highlighted The operator marked this plan as the best deal.
+	Highlighted      *bool                 `json:"highlighted,omitempty"`
 	IneligibleReason *string               `json:"ineligibleReason,omitempty"`
 	Kind             AccountPlanDetailKind `json:"kind"`
 	Name             string                `json:"name"`

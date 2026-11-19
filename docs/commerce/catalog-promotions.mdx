@@ -16,7 +16,7 @@ Everything else on this page — trials, promotions, promo codes, personal offer
 
 ## Plans
 
-A plan row carries no price and no duration. It carries `code`, `kind`, `visible`, `sort_order`, `archived_at`, and `max_concurrent_per_customer`.
+A plan row carries no price and no duration. It carries `code`, `kind`, `visible`, `highlighted`, `sort_order`, `archived_at`, and `max_concurrent_per_customer`. **Best deal** (`highlighted`) badges a plan with 🔥 in the bot's plan list and on the web plan card; it changes no price.
 
 `code` must match `^[a-z][a-z0-9_-]{1,63}$` and is globally unique. `kind` is one of `trial`, `one_time`, `recurring`, `free`, or `manual` — but only `trial` changes behaviour anywhere in the code. The other four are stored, validated, and rendered as labels; nothing branches on them.
 

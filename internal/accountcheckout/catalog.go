@@ -21,13 +21,15 @@ import (
 // internal/commerce, and the two would eventually disagree in the customer's
 // favour or against it — both of which are bugs.
 type PlanOffer struct {
-	PlanID                string
-	PlanVersionID         string
-	Code                  string
-	Kind                  string
-	Name                  string
-	Description           string
-	SortOrder             int
+	PlanID        string
+	PlanVersionID string
+	Code          string
+	Kind          string
+	Name          string
+	Description   string
+	SortOrder     int
+	// Highlighted marks the operator's best-deal plan.
+	Highlighted           bool
 	BillingPeriod         string
 	Duration              time.Duration
 	GracePeriod           time.Duration
@@ -136,7 +138,7 @@ type SubscriptionTarget struct {
 const planColumns = `p.id::text, p.code, p.kind, p.sort_order, l.name, l.description,
 	v.id::text, v.billing_period, v.duration_seconds, v.traffic_allowance_bytes, v.device_limit,
 	v.upgrade_policy, v.downgrade_policy, v.grace_period_seconds, v.trial_eligibility,
-	v.recurring_capable, v.squad_selection, pr.currency, pr.amount_minor`
+	v.recurring_capable, v.squad_selection, pr.currency, pr.amount_minor, p.highlighted`
 
 // planRecord is the catalogue row before customer-specific policy is applied.
 type planRecord struct {
@@ -256,7 +258,7 @@ func scanPlan(row pgx.Row) (planRecord, error) {
 		&record.offer.BillingPeriod, &durationSeconds, &traffic, &deviceLimit,
 		&record.upgradePolicy, &record.downgradePolicy, &graceSeconds, &trialRule,
 		&record.offer.RecurringCapable, &record.squadSelection,
-		&record.offer.Currency, &record.offer.AmountMinor)
+		&record.offer.Currency, &record.offer.AmountMinor, &record.offer.Highlighted)
 	if err != nil {
 		return planRecord{}, err
 	}

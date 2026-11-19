@@ -7772,6 +7772,10 @@ export const ListAccountPlansResponse = zod.object({
       }),
       recurringCapable: zod.boolean().optional(),
       configurableSquads: zod.boolean().optional(),
+      highlighted: zod
+        .boolean()
+        .optional()
+        .describe("The operator marked this plan as the best deal."),
       operations: zod
         .array(zod.enum(["purchase", "extension", "upgrade", "downgrade"]))
         .describe("The lifecycle actions the configured plan policy allows for this customer."),
@@ -7821,6 +7825,10 @@ export const GetAccountPlanResponse = zod
     }),
     recurringCapable: zod.boolean().optional(),
     configurableSquads: zod.boolean().optional(),
+    highlighted: zod
+      .boolean()
+      .optional()
+      .describe("The operator marked this plan as the best deal."),
     operations: zod
       .array(zod.enum(["purchase", "extension", "upgrade", "downgrade"]))
       .describe("The lifecycle actions the configured plan policy allows for this customer."),
@@ -7917,6 +7925,10 @@ export const GetAccountCheckoutResponse = zod.object({
     }),
     recurringCapable: zod.boolean().optional(),
     configurableSquads: zod.boolean().optional(),
+    highlighted: zod
+      .boolean()
+      .optional()
+      .describe("The operator marked this plan as the best deal."),
     operations: zod
       .array(zod.enum(["purchase", "extension", "upgrade", "downgrade"]))
       .describe("The lifecycle actions the configured plan policy allows for this customer."),
@@ -8077,6 +8089,10 @@ export const OpenAccountCheckoutResponse = zod.object({
     }),
     recurringCapable: zod.boolean().optional(),
     configurableSquads: zod.boolean().optional(),
+    highlighted: zod
+      .boolean()
+      .optional()
+      .describe("The operator marked this plan as the best deal."),
     operations: zod
       .array(zod.enum(["purchase", "extension", "upgrade", "downgrade"]))
       .describe("The lifecycle actions the configured plan policy allows for this customer."),
@@ -8236,6 +8252,10 @@ export const UpdateAccountCheckoutResponse = zod.object({
     }),
     recurringCapable: zod.boolean().optional(),
     configurableSquads: zod.boolean().optional(),
+    highlighted: zod
+      .boolean()
+      .optional()
+      .describe("The operator marked this plan as the best deal."),
     operations: zod
       .array(zod.enum(["purchase", "extension", "upgrade", "downgrade"]))
       .describe("The lifecycle actions the configured plan policy allows for this customer."),
@@ -8399,6 +8419,10 @@ export const ApplyAccountPromoCodeResponse = zod.object({
     }),
     recurringCapable: zod.boolean().optional(),
     configurableSquads: zod.boolean().optional(),
+    highlighted: zod
+      .boolean()
+      .optional()
+      .describe("The operator marked this plan as the best deal."),
     operations: zod
       .array(zod.enum(["purchase", "extension", "upgrade", "downgrade"]))
       .describe("The lifecycle actions the configured plan policy allows for this customer."),
@@ -8547,6 +8571,10 @@ export const RemoveAccountPromoCodeResponse = zod.object({
     }),
     recurringCapable: zod.boolean().optional(),
     configurableSquads: zod.boolean().optional(),
+    highlighted: zod
+      .boolean()
+      .optional()
+      .describe("The operator marked this plan as the best deal."),
     operations: zod
       .array(zod.enum(["purchase", "extension", "upgrade", "downgrade"]))
       .describe("The lifecycle actions the configured plan policy allows for this customer."),
@@ -8699,6 +8727,10 @@ export const ToggleAccountCheckoutAddonResponse = zod.object({
     }),
     recurringCapable: zod.boolean().optional(),
     configurableSquads: zod.boolean().optional(),
+    highlighted: zod
+      .boolean()
+      .optional()
+      .describe("The operator marked this plan as the best deal."),
     operations: zod
       .array(zod.enum(["purchase", "extension", "upgrade", "downgrade"]))
       .describe("The lifecycle actions the configured plan policy allows for this customer."),

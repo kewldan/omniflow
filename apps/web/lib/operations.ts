@@ -173,6 +173,7 @@ export type PlanSummary = {
   code: string;
   kind: string;
   visible: boolean;
+  highlighted?: boolean;
   sortOrder: number;
   maxConcurrentPerCustomer?: number;
   latestVersion: number;

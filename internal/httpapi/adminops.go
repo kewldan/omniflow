@@ -587,6 +587,7 @@ func (handlers *AdminHandlers) planDetail(writer http.ResponseWriter, request *h
 func (handlers *AdminHandlers) updatePlan(writer http.ResponseWriter, request *http.Request) {
 	var body struct {
 		Visible       bool   `json:"visible"`
+		Highlighted   bool   `json:"highlighted"`
 		SortOrder     int32  `json:"sortOrder"`
 		MaxConcurrent *int32 `json:"maxConcurrentPerCustomer"`
 	}
@@ -596,7 +597,8 @@ func (handlers *AdminHandlers) updatePlan(writer http.ResponseWriter, request *h
 	err := handlers.operations.UpdatePlanPresentation(
 		request.Context(), chi.URLParam(request, "planID"),
 		panelpg.PlanPresentation{
-			Visible: body.Visible, SortOrder: body.SortOrder, MaxConcurrent: body.MaxConcurrent,
+			Visible: body.Visible, Highlighted: body.Highlighted, SortOrder: body.SortOrder,
+			MaxConcurrent: body.MaxConcurrent,
 		},
 		actorFrom(request),
 	)

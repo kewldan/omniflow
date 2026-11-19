@@ -153,6 +153,7 @@ export function PlanCard({ plan }: { plan: PlanOffer }) {
       </div>
 
       <div className="flex flex-wrap gap-1.5">
+        {plan.highlighted && <Badge variant="warning">{translate("kind.highlighted")}</Badge>}
         {plan.held && <Badge variant="success">{translate("kind.current")}</Badge>}
         {plan.kind === "trial" && <Badge variant="info">{translate("kind.trial")}</Badge>}
         {plan.recurringCapable && <Badge variant="outline">{translate("kind.recurring")}</Badge>}

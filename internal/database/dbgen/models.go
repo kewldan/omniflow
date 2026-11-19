@@ -1639,6 +1639,7 @@ type Plan struct {
 	CreatedAt                pgtype.Timestamptz `json:"created_at"`
 	ArchivedAt               pgtype.Timestamptz `json:"archived_at"`
 	MaxConcurrentPerCustomer pgtype.Int4        `json:"max_concurrent_per_customer"`
+	Highlighted              bool               `json:"highlighted"`
 }
 
 type PlanLocalization struct {

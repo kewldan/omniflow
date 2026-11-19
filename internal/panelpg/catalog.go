@@ -19,6 +19,7 @@ type PlanSummary struct {
 	Code                     string     `json:"code"`
 	Kind                     string     `json:"kind"`
 	Visible                  bool       `json:"visible"`
+	Highlighted              bool       `json:"highlighted"`
 	SortOrder                int32      `json:"sortOrder"`
 	MaxConcurrentPerCustomer *int32     `json:"maxConcurrentPerCustomer,omitempty"`
 	LatestVersion            int32      `json:"latestVersion"`
@@ -40,6 +41,7 @@ func (service *Service) ListPlans(ctx context.Context) ([]PlanSummary, error) {
 			Code:                     row.Plan.Code,
 			Kind:                     row.Plan.Kind,
 			Visible:                  row.Plan.Visible,
+			Highlighted:              row.Plan.Highlighted,
 			SortOrder:                row.Plan.SortOrder,
 			MaxConcurrentPerCustomer: int4Pointer(row.Plan.MaxConcurrentPerCustomer),
 			LatestVersion:            row.LatestVersion,
@@ -168,8 +170,10 @@ func (service *Service) PlanDetail(ctx context.Context, planID string) (PlanDeta
 // same plan cannot each read one field, write it back, and silently drop the
 // other's change.
 type PlanPresentation struct {
-	Visible   bool
-	SortOrder int32
+	Visible bool
+	// Highlighted badges the plan as the best deal in the bot and on the web.
+	Highlighted bool
+	SortOrder   int32
 	// MaxConcurrent narrows the installation-wide subscription ceiling for this
 	// plan and can never widen it. Both are checked at purchase time, so a plan
 	// configured above the installation limit is bounded by it rather than
@@ -191,6 +195,7 @@ func (service *Service) UpdatePlanPresentation(
 	return service.inTx(ctx, func(queries *dbgen.Queries) error {
 		if _, txErr := queries.SetPlanVisibility(ctx, dbgen.SetPlanVisibilityParams{
 			ID: id, Visible: presentation.Visible, SortOrder: presentation.SortOrder,
+			Highlighted: presentation.Highlighted,
 		}); txErr != nil {
 			return notFound(txErr)
 		}
@@ -205,6 +210,7 @@ func (service *Service) UpdatePlanPresentation(
 			"panel.plan.updated", "configuration", "plan", planID,
 			map[string]any{
 				"visible": presentation.Visible, "sortOrder": presentation.SortOrder,
+				"highlighted":              presentation.Highlighted,
 				"maxConcurrentPerCustomer": presentation.MaxConcurrent,
 			},
 		))

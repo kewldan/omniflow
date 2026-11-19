@@ -97,6 +97,7 @@ function Plans({ active }: { active: boolean }) {
             <TableHead>{translate("columns.orders")}</TableHead>
             <TableHead>{translate("columns.concurrency")}</TableHead>
             <TableHead>{translate("columns.visible")}</TableHead>
+            <TableHead>{translate("columns.highlighted")}</TableHead>
             <TableHead />
           </TableRow>
         </TableHeader>
@@ -125,6 +126,28 @@ function Plans({ active }: { active: boolean }) {
                           maxConcurrentPerCustomer: plan.maxConcurrentPerCustomer ?? null,
                           sortOrder: plan.sortOrder,
                           visible,
+                          highlighted: Boolean(plan.highlighted),
+                        },
+                        method: "PATCH",
+                      });
+                      if (ok) {
+                        await mutate();
+                      }
+                    }}
+                  />
+                </TableCell>
+                <TableCell>
+                  <Switch
+                    aria-label={translate("columns.highlighted")}
+                    checked={Boolean(plan.highlighted)}
+                    disabled={!can("catalog.write") || pending || Boolean(plan.archivedAt)}
+                    onCheckedChange={async (highlighted) => {
+                      const ok = await run(`/v1/panel/catalog/plans/${plan.id}`, {
+                        body: {
+                          maxConcurrentPerCustomer: plan.maxConcurrentPerCustomer ?? null,
+                          sortOrder: plan.sortOrder,
+                          visible: plan.visible,
+                          highlighted,
                         },
                         method: "PATCH",
                       });

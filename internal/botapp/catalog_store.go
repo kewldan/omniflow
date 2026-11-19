@@ -15,12 +15,14 @@ import (
 // Plan is one purchasable catalog entry, already localized and priced in the
 // customer's settlement currency.
 type Plan struct {
-	PlanID                string
-	PlanVersionID         string
-	Code                  string
-	Kind                  string
-	Name                  string
-	Description           string
+	PlanID        string
+	PlanVersionID string
+	Code          string
+	Kind          string
+	Name          string
+	Description   string
+	// Highlighted marks the operator's best-deal plan.
+	Highlighted           bool
 	SortOrder             int32
 	BillingPeriod         string
 	Duration              time.Duration
@@ -39,7 +41,7 @@ type Plan struct {
 const planColumns = `p.id::text, p.code, p.kind, p.sort_order, l.name, l.description,
 	v.id::text, v.billing_period, v.duration_seconds, v.traffic_allowance_bytes, v.device_limit,
 	v.upgrade_policy, v.downgrade_policy, v.cancellation_policy, v.grace_period_seconds,
-	v.trial_eligibility, v.recurring_capable, pr.currency, pr.amount_minor`
+	v.trial_eligibility, v.recurring_capable, pr.currency, pr.amount_minor, p.highlighted`
 
 // Plans lists every visible plan that has a price in the requested currency.
 // A plan without a price in that currency is omitted rather than shown as
@@ -102,7 +104,7 @@ func scanPlan(row pgx.Row) (Plan, error) {
 	err := row.Scan(&plan.PlanID, &plan.Code, &plan.Kind, &plan.SortOrder, &plan.Name, &plan.Description,
 		&plan.PlanVersionID, &plan.BillingPeriod, &durationSeconds, &traffic, &deviceLimit,
 		&plan.UpgradePolicy, &plan.DowngradePolicy, &plan.CancellationPolicy, &graceSeconds,
-		&trialRule, &plan.RecurringCapable, &plan.Currency, &plan.AmountMinor)
+		&trialRule, &plan.RecurringCapable, &plan.Currency, &plan.AmountMinor, &plan.Highlighted)
 	if err != nil {
 		return Plan{}, err
 	}

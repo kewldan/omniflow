@@ -27,6 +27,9 @@ func plansView(locale Locale, plans []Plan, currency string, forNew bool) View {
 		if plan.Kind == "trial" {
 			badge = " " + text(locale, "plans.trialBadge")
 		}
+		if plan.Highlighted {
+			badge += " " + text(locale, "plans.highlightBadge")
+		}
 		lines = append(lines, fmt.Sprintf("\n<b>%s</b>%s\n%s\n%s\n%s\n%s",
 			html.EscapeString(plan.Name), badge,
 			text(locale, "plans.duration", formatDuration(locale, plan.Duration)),
@@ -34,6 +37,9 @@ func plansView(locale Locale, plans []Plan, currency string, forNew bool) View {
 			text(locale, "plans.devices", deviceAllowance(locale, plan.DeviceLimit)),
 			text(locale, "plans.price", formatMoney(plan.AmountMinor, plan.Currency))))
 		label := text(locale, "plans.row", truncateRunes(plan.Name, 24), formatMoney(plan.AmountMinor, plan.Currency))
+		if plan.Highlighted {
+			label = "🔥 " + label
+		}
 		rows = append(rows, row(actionButton(label, withNewSubscriptionFlag("plan:"+plan.PlanVersionID, forNew))))
 	}
 	rows = append(rows, row(callbackButton(text(locale, "action.refresh"), routePlans), callbackButton(text(locale, "action.back"), routeHome)))

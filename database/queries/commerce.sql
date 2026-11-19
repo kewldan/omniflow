@@ -216,7 +216,8 @@ VALUES ($1, $2, $3)
 RETURNING *;
 
 -- name: SetPlanVisibility :one
-UPDATE plans SET visible = $2, sort_order = $3 WHERE id = $1 RETURNING *;
+UPDATE plans SET visible = sqlc.arg(visible), sort_order = sqlc.arg(sort_order), highlighted = sqlc.arg(highlighted)
+WHERE id = sqlc.arg(id) RETURNING *;
 
 -- name: CreatePromotion :one
 INSERT INTO promotions (

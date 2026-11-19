@@ -65,7 +65,7 @@ hidden.
 
 | Command | What it opens |
 | --- | --- |
-| `/start` | A new home message. Accepts one deep-link argument: `ref_<code>` records referral attribution before anything is rendered, `login` behaves exactly like `/login`, and `pay_<orderID>` resumes a Telegram Stars payment begun in the browser — see [Deep links](#deep-links) |
+| `/start` | A new home message. Accepts one deep-link argument: `ref_<code>` records referral attribution before anything is rendered, `login` behaves exactly like `/login`, `pay_<orderID>` resumes a Telegram Stars payment begun in the browser, and `c_<code>` (or a bare code) attributes a new customer to an advertising campaign — see [Deep links](#deep-links) |
 | `/menu` | The same home message |
 | `/plans` | The plan catalogue |
 | `/orders` | Order and payment history |
@@ -73,6 +73,9 @@ hidden.
 | `/settings` | Language, notifications, quiet hours |
 | `/support` | The ticket list |
 | `/login` | A one-time sign-in link for the web panel |
+| `/faq` | A link to the installation's published pages (instructions and answers) |
+| `/paysupport` | Where to go with a payment problem; Telegram requires it of bots that sell for Stars |
+| `/terms` | The terms of service: `APP_TERMS_URL`, or the published pages; also required for Stars |
 | `/cancel` | Abandons whatever free-text flow is open and returns home |
 | `/ops` | Operator backup and restore. Unpublished, and silent for everybody else |
 

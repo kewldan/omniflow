@@ -120,6 +120,16 @@ var catalog = map[string]phrase{
 	"policy.atExpiry":  {ru: "по окончании текущего периода", en: "at the end of the current period"},
 
 	// Payment method selection.
+	"legal.terms":        {ru: "📄 <b>Условия использования</b>\n\nОплачивая заказ, вы принимаете условия по ссылке ниже.", en: "📄 <b>Terms of service</b>\n\nPaying for an order means accepting the terms linked below."},
+	"legal.termsMissing": {ru: "📄 Условия использования ещё не опубликованы. Напишите в поддержку.", en: "📄 The terms of service are not published yet. Please contact support."},
+	"legal.openTerms":    {ru: "Открыть условия", en: "Open the terms"},
+	"legal.paySupport": {ru: "💳 <b>Помощь с оплатой</b>\n\nЕсли деньги списались, а заказ не активировался, или нужен возврат — откройте обращение в поддержку и укажите номер заказа из раздела «Заказы». Оплаченный заказ, который не удалось выдать, возвращается на баланс или исходным способом оплаты.",
+		en: "💳 <b>Payment help</b>\n\nIf you were charged and the order did not activate, or you need a refund, open a support ticket with the order number from Orders. A paid order that could not be delivered is refunded to your balance or to the original payment method."},
+	"legal.openSupport":    {ru: "Открыть поддержку", en: "Open support"},
+	"legal.contact":        {ru: "Написать оператору", en: "Contact an operator"},
+	"legal.faq":            {ru: "❓ <b>Инструкции и ответы</b>\n\nКак подключиться на телефоне и компьютере, что делать, если не работает, и ответы на частые вопросы.", en: "❓ <b>Instructions and answers</b>\n\nHow to connect on a phone or computer, what to do when it does not work, and common questions."},
+	"legal.openFAQ":        {ru: "Открыть инструкции", en: "Open the instructions"},
+	"plans.highlightBadge": {ru: "🔥 <i>выгодно</i>", en: "🔥 <i>best deal</i>"},
 	"campaign.bonusWallet": {ru: "🎁 Бонус за регистрацию: на баланс зачислено <b>%s</b>.", en: "🎁 Sign-up bonus: <b>%s</b> added to your balance."},
 	"campaign.bonusDays":   {ru: "🎁 Бонус за регистрацию: <b>%d дн.</b> VPN уже ваши — подключение в разделе «Подписка».", en: "🎁 Sign-up bonus: <b>%d days</b> of VPN are yours — connect from your subscription."},
 	"winback.body": {ru: "🔥 <b>Скидка %d%% на продление</b>\n\nВозвращайтесь — скидка действует %d ч и применится сама при оплате.\nКод на всякий случай: <code>%s</code>",

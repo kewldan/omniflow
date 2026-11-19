@@ -43,6 +43,8 @@ export type PlanOffer = {
   eligible: boolean;
   /** The customer already holds this plan, so the card can say so. */
   held?: boolean;
+  /** The operator marked this plan as the best deal. */
+  highlighted?: boolean;
   /** The stable machine reason the plan is refused, present only when it is. */
   ineligibleReason?: string;
   /** `null` means unlimited, which is not the same as a limit of zero. */

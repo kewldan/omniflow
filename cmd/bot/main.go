@@ -345,6 +345,9 @@ func configureCommands(ctx context.Context, logger *slog.Logger, client *telegra
 		{Command: "settings", Description: "Language and notifications"},
 		{Command: "support", Description: "Contact support"},
 		{Command: "login", Description: "Sign in on the website"},
+		{Command: "faq", Description: "Instructions and answers"},
+		{Command: "paysupport", Description: "Help with a payment"},
+		{Command: "terms", Description: "Terms of service"},
 		{Command: "cancel", Description: "Cancel the current action"},
 	}
 	if _, err := client.SetMyCommands(ctx, &telegram.SetMyCommandsParams{Commands: commands}); err != nil {
@@ -358,6 +361,10 @@ func configureCommands(ctx context.Context, logger *slog.Logger, client *telegra
 		{Command: "wallet", Description: "Баланс и пополнение"},
 		{Command: "settings", Description: "Язык и уведомления"},
 		{Command: "support", Description: "Написать в поддержку"},
+		{Command: "login", Description: "Войти на сайте"},
+		{Command: "faq", Description: "Инструкции и ответы"},
+		{Command: "paysupport", Description: "Помощь с оплатой"},
+		{Command: "terms", Description: "Условия использования"},
 		{Command: "cancel", Description: "Отменить текущее действие"},
 	}
 	if _, err := client.SetMyCommands(ctx, &telegram.SetMyCommandsParams{Commands: russian, LanguageCode: "ru"}); err != nil {

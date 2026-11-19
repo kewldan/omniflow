@@ -16,7 +16,7 @@ UPDATE plans
 SET archived_at = CASE WHEN $1::boolean THEN COALESCE(archived_at, now()) ELSE NULL END,
     visible = CASE WHEN $1::boolean THEN false ELSE visible END
 WHERE id = $2
-RETURNING id, code, kind, visible, sort_order, created_at, archived_at, max_concurrent_per_customer
+RETURNING id, code, kind, visible, sort_order, created_at, archived_at, max_concurrent_per_customer, highlighted
 `
 
 type ArchivePlanParams struct {
@@ -36,6 +36,7 @@ func (q *Queries) ArchivePlan(ctx context.Context, arg ArchivePlanParams) (Plan,
 		&i.CreatedAt,
 		&i.ArchivedAt,
 		&i.MaxConcurrentPerCustomer,
+		&i.Highlighted,
 	)
 	return i, err
 }
@@ -1128,7 +1129,7 @@ func (q *Queries) GetPaymentProviderSettings(ctx context.Context, arg GetPayment
 }
 
 const getPlanAdmin = `-- name: GetPlanAdmin :one
-SELECT id, code, kind, visible, sort_order, created_at, archived_at, max_concurrent_per_customer FROM plans WHERE id = $1
+SELECT id, code, kind, visible, sort_order, created_at, archived_at, max_concurrent_per_customer, highlighted FROM plans WHERE id = $1
 `
 
 func (q *Queries) GetPlanAdmin(ctx context.Context, id pgtype.UUID) (Plan, error) {
@@ -1143,6 +1144,7 @@ func (q *Queries) GetPlanAdmin(ctx context.Context, id pgtype.UUID) (Plan, error
 		&i.CreatedAt,
 		&i.ArchivedAt,
 		&i.MaxConcurrentPerCustomer,
+		&i.Highlighted,
 	)
 	return i, err
 }
@@ -2118,7 +2120,7 @@ func (q *Queries) ListPlanVersions(ctx context.Context, planID pgtype.UUID) ([]P
 const listPlansAdmin = `-- name: ListPlansAdmin :many
 
 SELECT
-  p.id, p.code, p.kind, p.visible, p.sort_order, p.created_at, p.archived_at, p.max_concurrent_per_customer,
+  p.id, p.code, p.kind, p.visible, p.sort_order, p.created_at, p.archived_at, p.max_concurrent_per_customer, p.highlighted,
   (SELECT max(version) FROM plan_versions v WHERE v.plan_id = p.id)::integer AS latest_version,
   (SELECT count(*) FROM order_lines l WHERE l.plan_id = p.id)::bigint AS order_line_count
 FROM plans p
@@ -2155,6 +2157,7 @@ func (q *Queries) ListPlansAdmin(ctx context.Context) ([]ListPlansAdminRow, erro
 			&i.Plan.CreatedAt,
 			&i.Plan.ArchivedAt,
 			&i.Plan.MaxConcurrentPerCustomer,
+			&i.Plan.Highlighted,
 			&i.LatestVersion,
 			&i.OrderLineCount,
 		); err != nil {
@@ -2211,7 +2214,7 @@ func (q *Queries) ListPromoCodesForPromotion(ctx context.Context, promotionID pg
 }
 
 const listPromotionPlans = `-- name: ListPromotionPlans :many
-SELECT p.id, p.code, p.kind, p.visible, p.sort_order, p.created_at, p.archived_at, p.max_concurrent_per_customer FROM promotion_plans j JOIN plans p ON p.id = j.plan_id
+SELECT p.id, p.code, p.kind, p.visible, p.sort_order, p.created_at, p.archived_at, p.max_concurrent_per_customer, p.highlighted FROM promotion_plans j JOIN plans p ON p.id = j.plan_id
 WHERE j.promotion_id = $1
 ORDER BY p.code
 `
@@ -2234,6 +2237,7 @@ func (q *Queries) ListPromotionPlans(ctx context.Context, promotionID pgtype.UUI
 			&i.CreatedAt,
 			&i.ArchivedAt,
 			&i.MaxConcurrentPerCustomer,
+			&i.Highlighted,
 		); err != nil {
 			return nil, err
 		}
@@ -3335,7 +3339,7 @@ UPDATE plans
 SET sort_order = $1,
     max_concurrent_per_customer = $2
 WHERE id = $3
-RETURNING id, code, kind, visible, sort_order, created_at, archived_at, max_concurrent_per_customer
+RETURNING id, code, kind, visible, sort_order, created_at, archived_at, max_concurrent_per_customer, highlighted
 `
 
 type UpdatePlanOrderingParams struct {
@@ -3356,6 +3360,7 @@ func (q *Queries) UpdatePlanOrdering(ctx context.Context, arg UpdatePlanOrdering
 		&i.CreatedAt,
 		&i.ArchivedAt,
 		&i.MaxConcurrentPerCustomer,
+		&i.Highlighted,
 	)
 	return i, err
 }

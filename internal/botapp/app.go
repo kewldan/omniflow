@@ -235,6 +235,9 @@ func (app *App) Register(client *telegram.Bot) {
 	client.RegisterHandler(telegram.HandlerTypeMessageText, "ops", telegram.MatchTypeCommandStartOnly, app.HandleOps, inbound)
 	client.RegisterHandler(telegram.HandlerTypeMessageText, "login", telegram.MatchTypeCommandStartOnly, app.HandleWebLogin, inbound)
 	client.RegisterHandler(telegram.HandlerTypeMessageText, "cancel", telegram.MatchTypeCommandStartOnly, app.HandleCancel, inbound)
+	client.RegisterHandler(telegram.HandlerTypeMessageText, "terms", telegram.MatchTypeCommandStartOnly, app.HandleTerms, inbound)
+	client.RegisterHandler(telegram.HandlerTypeMessageText, "paysupport", telegram.MatchTypeCommandStartOnly, app.HandlePaySupport, inbound)
+	client.RegisterHandler(telegram.HandlerTypeMessageText, "faq", telegram.MatchTypeCommandStartOnly, app.HandleFAQ, inbound)
 	client.RegisterHandler(telegram.HandlerTypeCallbackQueryData, callbackPrefix, telegram.MatchTypePrefix, app.HandleCallback, inbound)
 	client.RegisterHandler(telegram.HandlerTypeCallbackQueryData, actionPrefix, telegram.MatchTypePrefix, app.HandleCallback, inbound)
 }

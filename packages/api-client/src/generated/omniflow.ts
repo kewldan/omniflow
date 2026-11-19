@@ -3889,6 +3889,8 @@ export interface AccountPlan {
   price: AccountMoney;
   recurringCapable?: boolean;
   configurableSquads?: boolean;
+  /** The operator marked this plan as the best deal. */
+  highlighted?: boolean;
   /** The lifecycle actions the configured plan policy allows for this customer. */
   operations: AccountPlanOperationsItem[];
   eligible: boolean;

@@ -3057,6 +3057,7 @@ CREATE TABLE public.plans (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     archived_at timestamp with time zone,
     max_concurrent_per_customer integer,
+    highlighted boolean DEFAULT false NOT NULL,
     CONSTRAINT plans_code_check CHECK ((code ~ '^[a-z][a-z0-9_-]{1,63}$'::text)),
     CONSTRAINT plans_kind_check CHECK ((kind = ANY (ARRAY['trial'::text, 'one_time'::text, 'recurring'::text, 'free'::text, 'manual'::text]))),
     CONSTRAINT plans_max_concurrent_per_customer_check CHECK (((max_concurrent_per_customer IS NULL) OR (max_concurrent_per_customer > 0)))

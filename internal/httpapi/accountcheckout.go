@@ -165,6 +165,7 @@ func planPayload(plan accountcheckout.PlanOffer) map[string]any {
 		"planId": plan.PlanID, "planVersionId": plan.PlanVersionID,
 		"code": plan.Code, "kind": plan.Kind,
 		"name": plan.Name, "description": plan.Description, "sortOrder": plan.SortOrder,
+		"highlighted": plan.Highlighted,
 		"billingPeriod": plan.BillingPeriod, "durationSeconds": int64(plan.Duration.Seconds()),
 		"gracePeriodSeconds": int64(plan.GracePeriod.Seconds()),
 		"price": map[string]any{

@@ -1538,7 +1538,8 @@
         "stacking": "Stacking",
         "redemptions": "Redemptions",
         "discount": "Discount given",
-        "active": "Active"
+        "active": "Active",
+        "highlighted": "Best deal"
       },
       "empty": {
         "plans": "No plans",
@@ -3966,7 +3967,8 @@
         "trial": "Trial",
         "recurring": "Can renew itself",
         "squads": "Choose your servers",
-        "current": "Your plan"
+        "current": "Your plan",
+        "highlighted": "🔥 Best deal"
       },
       "specs": {
         "period": "Period",

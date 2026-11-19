@@ -716,7 +716,7 @@ func (q *Queries) CreatePaymentIntent(ctx context.Context, arg CreatePaymentInte
 const createPlan = `-- name: CreatePlan :one
 INSERT INTO plans (code, kind, visible, sort_order) VALUES ($1, $2, $3, $4)
 ON CONFLICT (code) DO UPDATE SET code = EXCLUDED.code
-RETURNING id, code, kind, visible, sort_order, created_at, archived_at, max_concurrent_per_customer
+RETURNING id, code, kind, visible, sort_order, created_at, archived_at, max_concurrent_per_customer, highlighted
 `
 
 type CreatePlanParams struct {
@@ -743,6 +743,7 @@ func (q *Queries) CreatePlan(ctx context.Context, arg CreatePlanParams) (Plan, e
 		&i.CreatedAt,
 		&i.ArchivedAt,
 		&i.MaxConcurrentPerCustomer,
+		&i.Highlighted,
 	)
 	return i, err
 }
@@ -3474,17 +3475,24 @@ func (q *Queries) RevokeCustomerIdentity(ctx context.Context, arg RevokeCustomer
 }
 
 const setPlanVisibility = `-- name: SetPlanVisibility :one
-UPDATE plans SET visible = $2, sort_order = $3 WHERE id = $1 RETURNING id, code, kind, visible, sort_order, created_at, archived_at, max_concurrent_per_customer
+UPDATE plans SET visible = $1, sort_order = $2, highlighted = $3
+WHERE id = $4 RETURNING id, code, kind, visible, sort_order, created_at, archived_at, max_concurrent_per_customer, highlighted
 `
 
 type SetPlanVisibilityParams struct {
-	ID        pgtype.UUID `json:"id"`
-	Visible   bool        `json:"visible"`
-	SortOrder int32       `json:"sort_order"`
+	Visible     bool        `json:"visible"`
+	SortOrder   int32       `json:"sort_order"`
+	Highlighted bool        `json:"highlighted"`
+	ID          pgtype.UUID `json:"id"`
 }
 
 func (q *Queries) SetPlanVisibility(ctx context.Context, arg SetPlanVisibilityParams) (Plan, error) {
-	row := q.db.QueryRow(ctx, setPlanVisibility, arg.ID, arg.Visible, arg.SortOrder)
+	row := q.db.QueryRow(ctx, setPlanVisibility,
+		arg.Visible,
+		arg.SortOrder,
+		arg.Highlighted,
+		arg.ID,
+	)
 	var i Plan
 	err := row.Scan(
 		&i.ID,
@@ -3495,6 +3503,7 @@ func (q *Queries) SetPlanVisibility(ctx context.Context, arg SetPlanVisibilityPa
 		&i.CreatedAt,
 		&i.ArchivedAt,
 		&i.MaxConcurrentPerCustomer,
+		&i.Highlighted,
 	)
 	return i, err
 }

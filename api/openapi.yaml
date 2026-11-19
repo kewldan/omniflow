@@ -7327,6 +7327,7 @@ components:
         price: {$ref: "#/components/schemas/AccountMoney"}
         recurringCapable: {type: boolean}
         configurableSquads: {type: boolean}
+        highlighted: {type: boolean, description: "The operator marked this plan as the best deal."}
         operations:
           type: array
           description: "The lifecycle actions the configured plan policy allows for this customer."
