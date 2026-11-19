@@ -52,9 +52,7 @@ jobs:
 
   e2e:
     name: End-to-end (Playwright)
-    # Pinned: ubuntu-latest moved to 26.04, where Playwright 1.58 cannot
-    # install its Chromium build. Move this back once Playwright supports it.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     # The suite runs against a real API rather than the web application alone.
     # Without one, every panel still renders, still refuses anonymous visitors,
     # and still passes the accessibility and layout gates while being unable to
@@ -178,7 +176,7 @@ jobs:
       - name: The API log, when something failed
         if: failure()
         run: tail -100 /tmp/api.log
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-report
