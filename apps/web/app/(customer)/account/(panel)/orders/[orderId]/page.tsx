@@ -205,7 +205,7 @@ export default function OrderPage() {
             <h1 className="truncate font-semibold text-[19px] tracking-[-0.02em]">{data.plan}</h1>
             <p className="mt-1 font-mono text-[11px] text-subtle-foreground">
               {translate(
-                `operations.${OPERATIONS.includes(data.operation) ? data.operation : "unknown"}`,
+                `operationKinds.${OPERATIONS.includes(data.operation) ? data.operation : "unknown"}`,
               )}
               {" · "}
               <Timestamp value={data.createdAt} />

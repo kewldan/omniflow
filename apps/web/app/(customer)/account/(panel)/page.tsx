@@ -55,18 +55,29 @@ export default function AccountDashboard() {
   }
   if (!data || data.subscriptions.length === 0) {
     return (
-      // The one thing somebody without a subscription can do here is get one, so
-      // the empty state offers it rather than describing it and leaving them to
-      // find the store in the tab bar.
-      <AccountNotice
-        action={
-          <Button asChild>
-            <Link href="/account/store">{translate("dashboard.emptyAction")}</Link>
-          </Button>
-        }
-        description={translate("dashboard.emptyDescription")}
-        title={translate("dashboard.empty")}
-      />
+      <div className="space-y-4">
+        {/* A maintenance window matters most to somebody about to buy: purchases
+            are paused during one, and a new customer used to find that out only
+            from the refusal at the end of checkout. */}
+        {data?.notice?.active && (
+          <ServiceNotice
+            expectedReturnAt={data.notice.expectedReturnAt}
+            message={data.notice.message}
+          />
+        )}
+        {/* The one thing somebody without a subscription can do here is get
+            one, so the empty state offers it rather than describing it and
+            leaving them to find the store in the tab bar. */}
+        <AccountNotice
+          action={
+            <Button asChild>
+              <Link href="/account/store">{translate("dashboard.emptyAction")}</Link>
+            </Button>
+          }
+          description={translate("dashboard.emptyDescription")}
+          title={translate("dashboard.empty")}
+        />
+      </div>
     );
   }
 

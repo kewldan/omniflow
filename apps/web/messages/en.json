@@ -4161,6 +4161,13 @@
           "open": "Open the order",
           "noPayment": "The payment for this top-up has not been started. Open the order to choose a method."
         }
+      },
+      "operationKinds": {
+        "purchase": "New purchase",
+        "extension": "Renewal",
+        "upgrade": "Upgrade",
+        "downgrade": "Downgrade",
+        "unknown": "Plan change"
       }
     }
   },

@@ -112,7 +112,7 @@ function OrderRow({ order }: { order: OrderSummary }) {
         <span className="flex items-center gap-2">
           <OrderPhaseBadge phase={order.phase} />
           <span className="truncate font-mono text-[11px] text-subtle-foreground">
-            {translate(`operations.${operation}`)}
+            {translate(`operationKinds.${operation}`)}
           </span>
         </span>
         <span className="block truncate font-semibold text-[15px]">{order.plan}</span>

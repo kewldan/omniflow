@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
+import useSWR from "swr";
 import * as z from "zod/mini";
 
 import { OPERATIONS, usePeriodLabel } from "@/components/account/commerce/plan-card";
@@ -28,9 +29,14 @@ import {
   targetLive,
 } from "@/components/account/commerce/types";
 import { useOpenCheckout } from "@/components/account/commerce/use-checkout";
-import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
+import {
+  AccountNotice,
+  ListSkeleton,
+  SectionLabel,
+  ServiceNotice,
+} from "@/components/account/state";
 import { FieldMessage } from "@/components/forms/field";
-import { ApiError, apiFetch } from "@/lib/api";
+import { ApiError, apiFetch, fetcher } from "@/lib/api";
 import { attachAttribution } from "@/lib/attach-attribution";
 import { requiredText } from "@/lib/form-schema";
 import { useBytes, useDuration, useMoney } from "@/lib/format";
@@ -52,7 +58,7 @@ import { useRevalidateCommerce } from "@/lib/polling";
  */
 export default function CheckoutPage() {
   const translate = useTranslations("account.commerce");
-  const { checkout, error, loading, missing, mutate } = useOpenCheckout();
+  const { checkout, error, loading, missing, mutate } = useOpenCheckout({ fresh: true });
   const router = useRouter();
   const describeProblem = useProblemMessage();
   const [discarding, setDiscarding] = useState(false);
@@ -125,6 +131,12 @@ function Checkout({
   const describeProblem = useProblemMessage();
   const describeCode = useProblemCode();
   const confirmation = useSubmission();
+  // The same read the dashboard makes. During maintenance the API refuses to
+  // confirm a purchase, so the notice is shown before the customer gets that
+  // far rather than only as the reason Confirm failed.
+  const { data: overview } = useSWR<{
+    notice?: { active: boolean; message?: string; expectedReturnAt?: string };
+  }>("/v1/account/overview", fetcher);
 
   const [busy, setBusy] = useState(false);
   const [discarding, setDiscarding] = useState(false);
@@ -229,6 +241,12 @@ function Checkout({
 
   return (
     <div className="animate-step-in space-y-5" aria-busy={busy}>
+      {overview?.notice?.active && (
+        <ServiceNotice
+          expectedReturnAt={overview.notice.expectedReturnAt}
+          message={overview.notice.message}
+        />
+      )}
       <header className="space-y-2 rounded-lg border border-border bg-card p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -237,7 +255,7 @@ function Checkout({
               {period(checkout.plan.billingPeriod, checkout.plan.durationSeconds)}
             </p>
           </div>
-          <Badge variant="outline">{translate(`operations.${operation}`)}</Badge>
+          <Badge variant="outline">{translate(`operationKinds.${operation}`)}</Badge>
         </div>
         <ExpiryNotice expiresAt={checkout.expiresAt} />
       </header>
