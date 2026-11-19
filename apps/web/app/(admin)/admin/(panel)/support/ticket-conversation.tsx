@@ -3,12 +3,13 @@
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { Card } from "@omniflow/ui/card";
-import { Input } from "@omniflow/ui/input";
+import { Input, Textarea } from "@omniflow/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { toast } from "@omniflow/ui/toast";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
+import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 
 import { StateNotice } from "@/components/admin/state-notice";
@@ -17,6 +18,7 @@ import { ApiError, fetcher } from "@/lib/api";
 import { downloadThroughApi } from "@/lib/download";
 import { useBytes } from "@/lib/format";
 import { useSubmission } from "@/lib/idempotency";
+import { localized } from "@/lib/localized";
 import { type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 import type {
@@ -56,6 +58,18 @@ export function TicketConversation({
     { refreshInterval: 15_000 },
   );
   const { data: tags } = useSWR<Listing<SupportTag>, ApiError>("/v1/panel/support/tags", fetcher);
+
+  // The newest entry is the one an operator is reading or has just written, so
+  // the thread opens at its end and follows a reply or note once it lands.
+  // Only the thread's own box scrolls; the page stays where it is.
+  const thread = useRef<HTMLDivElement>(null);
+  const entries = (data?.messages.length ?? 0) + (data?.notes.length ?? 0);
+  useEffect(() => {
+    const box = thread.current;
+    if (box && entries > 0 && ticketId) {
+      box.scrollTop = box.scrollHeight;
+    }
+  }, [entries, ticketId]);
 
   if (error) {
     return <StateNotice title={translate("loadFailed")} variant="danger" />;
@@ -116,7 +130,7 @@ export function TicketConversation({
         )}
       </header>
 
-      <div className="flex flex-1 flex-col gap-3 overflow-y-auto">
+      <div className="flex flex-1 flex-col gap-3 overflow-y-auto" ref={thread}>
         {timeline.map((entry) =>
           entry.kind === "note" ? (
             <div
@@ -309,6 +323,7 @@ function TicketControls({
   ticket: TicketDetail["ticket"];
 }) {
   const translate = useTranslations("admin.support");
+  const locale = useLocale();
   const { run, pending } = useOperatorAction();
   const { session } = useSession();
   const [mergeTarget, setMergeTarget] = useState("");
@@ -334,73 +349,86 @@ function TicketControls({
         {translate(ticket.assigneeId ? "release" : "takeIt")}
       </Button>
 
-      <select
-        className="h-8 rounded-md border border-border bg-transparent px-2 text-xs"
-        onChange={(event) => post("queue", { queueId: event.target.value })}
-        value={ticket.queueId}
-      >
-        {queues.map((queue) => (
-          <option key={queue.id} value={queue.id}>
-            {queue.nameEn}
-          </option>
-        ))}
-      </select>
+      <Select onValueChange={(value) => post("queue", { queueId: value })} value={ticket.queueId}>
+        <SelectTrigger aria-label={translate("controls.queue")} className="h-8 w-auto text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {queues.map((queue) => (
+            <SelectItem key={queue.id} value={queue.id}>
+              {localized(locale, queue.nameEn, queue.nameRu, queue.code)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
-      <select
-        className="h-8 rounded-md border border-border bg-transparent px-2 text-xs"
-        onChange={(event) => post("priority", { priority: event.target.value })}
+      <Select
+        onValueChange={(value) => post("priority", { priority: value })}
         value={ticket.priority}
       >
-        {PRIORITIES.map((priority) => (
-          <option key={priority} value={priority}>
-            {translate(`priority.${priority}`)}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger aria-label={translate("controls.priority")} className="h-8 w-auto text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {PRIORITIES.map((priority) => (
+            <SelectItem key={priority} value={priority}>
+              {translate(`priority.${priority}`)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
-      <select
-        className="h-8 rounded-md border border-border bg-transparent px-2 text-xs"
-        onChange={(event) => post("status", { status: event.target.value })}
-        value={ticket.status}
-      >
-        {STATUSES.map((status) => (
-          <option key={status} value={status}>
-            {translate(`status.${status}`)}
-          </option>
-        ))}
-      </select>
+      <Select onValueChange={(value) => post("status", { status: value })} value={ticket.status}>
+        <SelectTrigger aria-label={translate("controls.status")} className="h-8 w-auto text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {STATUSES.map((status) => (
+            <SelectItem key={status} value={status}>
+              {translate(`status.${status}`)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
-      <select
-        className="h-8 rounded-md border border-border bg-transparent px-2 text-xs"
-        onChange={async (event) => {
-          const code = event.target.value;
-          if (!code) {
-            return;
-          }
-          const attached = ticket.tags.includes(code);
-          const ok = await run(`/v1/panel/support/tickets/${ticket.id}/tags/${code}`, {
-            method: attached ? "DELETE" : "PUT",
-          });
-          if (ok) {
-            onChanged();
-          }
-        }}
-        value=""
-      >
-        <option value="">{translate("tagAction")}</option>
-        {tags.map((tag) => (
-          <option key={tag.code} value={tag.code}>
-            {ticket.tags.includes(tag.code) ? `− ${tag.nameEn}` : `+ ${tag.nameEn}`}
-          </option>
-        ))}
-      </select>
+      {tags.length > 0 && (
+        // An action menu rather than a value: it always shows "Tag…", and each
+        // entry says whether choosing it adds or removes that tag.
+        <Select
+          onValueChange={async (code) => {
+            const attached = ticket.tags.includes(code);
+            const ok = await run(`/v1/panel/support/tickets/${ticket.id}/tags/${code}`, {
+              method: attached ? "DELETE" : "PUT",
+            });
+            if (ok) {
+              onChanged();
+            }
+          }}
+          value=""
+        >
+          <SelectTrigger aria-label={translate("controls.tags")} className="h-8 w-auto text-xs">
+            <SelectValue placeholder={translate("tagAction")} />
+          </SelectTrigger>
+          <SelectContent>
+            {tags.map((tag) => {
+              const name = localized(locale, tag.nameEn, tag.nameRu, tag.code);
+              return (
+                <SelectItem key={tag.code} value={tag.code}>
+                  {ticket.tags.includes(tag.code) ? `− ${name}` : `+ ${name}`}
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
+      )}
 
       {/* Merging is scoped to one customer by the server. Putting one
           customer's words into another's conversation is refused rather than
           warned about. */}
-      <span className="flex items-center gap-1">
+      <span className="flex w-full items-center gap-1 sm:w-auto">
         <Input
-          className="h-8 w-56 text-xs"
+          aria-label={translate("mergeInto")}
+          className="h-8 w-full text-xs sm:w-56"
           onChange={(event) => setMergeTarget(event.target.value)}
           placeholder={translate("mergeInto")}
           value={mergeTarget}
@@ -430,6 +458,7 @@ function TicketControls({
  */
 function ReplyBox({ onSent, ticketId }: { onSent: () => void; ticketId: string }) {
   const translate = useTranslations("admin.support");
+  const locale = useLocale();
   const [body, setBody] = useState("");
   const [note, setNote] = useState("");
   const [cannedId, setCannedId] = useState("");
@@ -446,29 +475,36 @@ function ReplyBox({ onSent, ticketId }: { onSent: () => void; ticketId: string }
       {error && <p className="text-danger-foreground text-sm">{error.message}</p>}
 
       <div className="flex flex-wrap items-center gap-2">
-        <select
-          className="h-8 rounded-md border border-border bg-transparent px-2 text-xs"
-          onChange={(event) => {
-            const response = (canned?.items ?? []).find((item) => item.id === event.target.value);
-            setCannedId(event.target.value);
+        <Select
+          onValueChange={(value) => {
+            const response = (canned?.items ?? []).find((item) => item.id === value);
+            setCannedId(value);
             if (response) {
-              setBody(response.bodyEn);
+              setBody(localized(locale, response.bodyEn, response.bodyRu));
             }
           }}
           value={cannedId}
         >
-          <option value="">{translate("insertCanned")}</option>
-          {(canned?.items ?? []).map((response) => (
-            <option key={response.id} value={response.id}>
-              {response.titleEn}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger
+            aria-label={translate("insertCanned")}
+            className="h-8 w-full text-xs sm:w-64"
+            disabled={(canned?.items ?? []).length === 0}
+          >
+            <SelectValue placeholder={translate("insertCanned")} />
+          </SelectTrigger>
+          <SelectContent>
+            {(canned?.items ?? []).map((response) => (
+              <SelectItem key={response.id} value={response.id}>
+                {localized(locale, response.titleEn, response.titleRu, response.code)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <span className="text-muted-foreground text-xs">{translate("cannedHint")}</span>
       </div>
 
-      <textarea
-        className="min-h-20 rounded-md border border-border bg-transparent p-2 text-sm"
+      <Textarea
+        aria-label={translate("replyPlaceholder")}
         onChange={(event) => setBody(event.target.value)}
         placeholder={translate("replyPlaceholder")}
         value={body}
@@ -498,8 +534,9 @@ function ReplyBox({ onSent, ticketId }: { onSent: () => void; ticketId: string }
         <span className="text-muted-foreground text-xs">{translate("sendHint")}</span>
       </div>
 
-      <textarea
-        className="min-h-14 rounded-md border border-warning-border border-dashed bg-warning-surface p-2 text-sm"
+      <Textarea
+        aria-label={translate("notePlaceholder")}
+        className="min-h-14 border-warning-border border-dashed bg-warning-surface"
         onChange={(event) => setNote(event.target.value)}
         placeholder={translate("notePlaceholder")}
         value={note}

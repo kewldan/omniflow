@@ -3,8 +3,9 @@
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
-import { Input } from "@omniflow/ui/input";
+import { Input, Textarea } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
@@ -246,24 +247,24 @@ function BulkComposer({ onPreviewed }: { onPreviewed: () => void }) {
       <CardContent className="flex flex-col gap-3">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={kindId}>{translate("composer.kind")}</Label>
-          <select
-            className="h-9 rounded-md border border-border bg-transparent px-2 text-sm"
-            id={kindId}
-            onChange={(event) => setKind(event.target.value)}
-            value={kind}
-          >
-            {KINDS.map((option) => (
-              <option key={option} value={option}>
-                {translate(`kind.${option}`)}
-              </option>
-            ))}
-          </select>
+          <Select onValueChange={setKind} value={kind}>
+            <SelectTrigger id={kindId}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {KINDS.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {translate(`kind.${option}`)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={targetsId}>{translate(`composer.targets.${targetType}`)}</Label>
-          <textarea
-            className="min-h-24 rounded-md border border-border bg-transparent p-2 font-mono text-xs"
+          <Textarea
+            className="min-h-24 font-mono text-xs"
             id={targetsId}
             onChange={(event) => setTargets(event.target.value)}
             value={targets}

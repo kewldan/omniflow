@@ -18,6 +18,7 @@ import useSWR from "swr";
 import { PageHeader } from "@/components/admin/resource-table";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
+import { localized } from "@/lib/localized";
 import { formatMoney, type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 
@@ -71,6 +72,7 @@ const TESTABLE = ["draft", "scheduled", "paused"];
 
 function CampaignCard({ editable }: { editable: boolean }) {
   const translate = useTranslations("admin.marketing");
+  const locale = useLocale();
   const { data, isLoading, mutate } = useSWR<Listing<Campaign>, ApiError>(
     "/v1/panel/marketing/campaigns",
     fetcher,
@@ -182,7 +184,8 @@ function CampaignCard({ editable }: { editable: boolean }) {
                   <SelectContent>
                     {availableSegments.map((segment) => (
                       <SelectItem key={segment.id} value={segment.id}>
-                        {segment.nameEn} ({segment.size})
+                        {localized(locale, segment.nameEn, segment.nameRu, segment.code)} (
+                        {segment.size})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -350,6 +353,7 @@ function CampaignCard({ editable }: { editable: boolean }) {
 
 function SegmentCard() {
   const translate = useTranslations("admin.marketing");
+  const locale = useLocale();
   const { data, isLoading } = useSWR<Listing<AudienceSegment>, ApiError>(
     "/v1/panel/marketing/segments",
     fetcher,
@@ -367,7 +371,9 @@ function SegmentCard() {
         {segments.map((segment) => (
           <div className="flex flex-col gap-1 rounded-md border p-4" key={segment.id}>
             <div className="flex items-center gap-2">
-              <span className="font-medium">{segment.nameEn}</span>
+              <span className="font-medium">
+                {localized(locale, segment.nameEn, segment.nameRu, segment.code)}
+              </span>
               <Badge variant="outline">{segment.code}</Badge>
               <Badge className="ml-auto" variant="neutral">
                 {translate("segments.size", { count: segment.size })}

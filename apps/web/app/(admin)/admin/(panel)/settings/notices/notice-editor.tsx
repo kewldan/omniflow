@@ -3,6 +3,7 @@
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
+import { Textarea } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
 import { Skeleton } from "@omniflow/ui/skeleton";
@@ -228,8 +229,8 @@ function NoticeForm({
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={bodyId}>{translate("body")}</Label>
-            <textarea
-              className="min-h-40 w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-[13px] leading-relaxed outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
+            <Textarea
+              className="min-h-40 font-mono text-[13px] leading-relaxed"
               disabled={!canWrite}
               id={bodyId}
               onChange={(event) => setBody(event.target.value)}

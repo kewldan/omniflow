@@ -4,7 +4,7 @@ import { Alert, AlertDescription, AlertTitle } from "@omniflow/ui/alert";
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
-import { Input } from "@omniflow/ui/input";
+import { Input, Textarea } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Switch } from "@omniflow/ui/switch";
@@ -277,8 +277,7 @@ function FieldControl({
     return (
       <div className="flex flex-col gap-1 sm:col-span-2">
         <Label htmlFor={id}>{label}</Label>
-        <textarea
-          className="min-h-20 rounded-md border border-border bg-transparent p-2 text-sm"
+        <Textarea
           disabled={!editable}
           id={id}
           onChange={(event) => onDocument({ ...document, [field.name]: event.target.value })}

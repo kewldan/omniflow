@@ -2,10 +2,9 @@
 
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
-import { Card } from "@omniflow/ui/card";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@omniflow/ui/tabs";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR from "swr";
 
@@ -13,6 +12,7 @@ import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher, toQuery } from "@/lib/api";
+import { localized } from "@/lib/localized";
 import { formatDuration, type Listing, type Page } from "@/lib/operations";
 import { useUrlFilters } from "@/lib/use-url-filters";
 
@@ -55,6 +55,7 @@ export function SupportDesk() {
 
 function Queue({ active }: { active: boolean }) {
   const translate = useTranslations("admin.support");
+  const locale = useLocale();
   const { filters, setFilter, reset } = useUrlFilters(["queueId", "status", "ticketId"]);
 
   const { data: queues } = useSWR<Listing<SupportQueue>, ApiError>(
@@ -69,6 +70,7 @@ function Queue({ active }: { active: boolean }) {
   });
   const {
     data,
+    error,
     isLoading,
     mutate: refresh,
   } = useSWR<Page<SupportTicket>, ApiError>(
@@ -85,37 +87,44 @@ function Queue({ active }: { active: boolean }) {
           what to work on: how much is here, how much nobody owns, and how much
           is already past what the queue promised. */}
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {(queues?.items ?? []).map((queue) => (
-          <Card
-            className={`cursor-pointer p-3 ${filters.queueId === queue.id ? "border-accent" : ""}`}
-            key={queue.id}
-            onClick={() => setFilter("queueId", filters.queueId === queue.id ? "" : queue.id)}
-          >
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="font-medium text-sm">{queue.nameEn}</span>
-              <span className="font-semibold text-lg tabular-nums">{queue.openCount}</span>
-            </div>
-            <div className="mt-1 flex flex-wrap gap-2 text-xs">
-              {queue.unassignedCount > 0 && (
-                <Badge variant="warning">
-                  {translate("unassigned", { count: queue.unassignedCount })}
-                </Badge>
-              )}
-              {queue.breachedCount > 0 && (
-                <Badge variant="danger">
-                  {translate("breached", { count: queue.breachedCount })}
-                </Badge>
-              )}
-              {queue.firstResponseTargetSeconds > 0 && (
-                <span className="text-muted-foreground">
-                  {translate("target", {
-                    duration: formatDuration(queue.firstResponseTargetSeconds),
-                  })}
+        {(queues?.items ?? []).map((queue) => {
+          const selected = filters.queueId === queue.id;
+          return (
+            <button
+              aria-pressed={selected}
+              className={`${PICKABLE} p-3 ${selected ? "border-accent" : ""}`}
+              key={queue.id}
+              onClick={() => setFilter("queueId", selected ? "" : queue.id)}
+              type="button"
+            >
+              <span className="flex items-baseline justify-between gap-2">
+                <span className="font-medium text-sm">
+                  {localized(locale, queue.nameEn, queue.nameRu, queue.code)}
                 </span>
-              )}
-            </div>
-          </Card>
-        ))}
+                <span className="font-semibold text-lg tabular-nums">{queue.openCount}</span>
+              </span>
+              <span className="mt-1 flex flex-wrap gap-2 text-xs">
+                {queue.unassignedCount > 0 && (
+                  <Badge variant="warning">
+                    {translate("unassigned", { count: queue.unassignedCount })}
+                  </Badge>
+                )}
+                {queue.breachedCount > 0 && (
+                  <Badge variant="danger">
+                    {translate("breached", { count: queue.breachedCount })}
+                  </Badge>
+                )}
+                {queue.firstResponseTargetSeconds > 0 && (
+                  <span className="text-muted-foreground">
+                    {translate("target", {
+                      duration: formatDuration(queue.firstResponseTargetSeconds),
+                    })}
+                  </span>
+                )}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -136,7 +145,9 @@ function Queue({ active }: { active: boolean }) {
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,22rem)_1fr]">
         <div className="flex max-h-[42rem] flex-col gap-2 overflow-y-auto">
-          {isLoading ? (
+          {error ? (
+            <StateNotice title={translate("listFailed")} variant="danger" />
+          ) : isLoading ? (
             <Skeleton className="h-64 w-full" />
           ) : tickets.length === 0 ? (
             <StateNotice
@@ -146,20 +157,22 @@ function Queue({ active }: { active: boolean }) {
             />
           ) : (
             tickets.map((ticket) => (
-              <Card
-                className={`cursor-pointer p-3 ${
+              <button
+                aria-current={filters.ticketId === ticket.id ? "true" : undefined}
+                className={`${PICKABLE} p-3 ${
                   filters.ticketId === ticket.id ? "border-accent" : ""
                 }`}
                 key={ticket.id}
                 onClick={() => setFilter("ticketId", ticket.id)}
+                type="button"
               >
-                <div className="flex items-baseline justify-between gap-2">
+                <span className="flex items-baseline justify-between gap-2">
                   <span className="truncate font-medium text-sm">
                     {ticket.subject || translate("noSubject")}
                   </span>
                   {ticket.unreadCount > 0 && <Badge variant="warning">{ticket.unreadCount}</Badge>}
-                </div>
-                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                </span>
+                <span className="mt-1 flex flex-wrap items-center gap-2 text-xs">
                   <Badge variant={priorityVariant(ticket.priority)}>
                     {translate(`priority.${ticket.priority}`)}
                   </Badge>
@@ -172,9 +185,9 @@ function Queue({ active }: { active: boolean }) {
                   <span className="ml-auto font-mono text-[11px] text-muted-foreground">
                     <Timestamp mode="date" value={ticket.lastMessageAt} />
                   </span>
-                </div>
+                </span>
                 {ticket.tags.length > 0 && (
-                  <div className="mt-1 flex flex-wrap gap-1">
+                  <span className="mt-1 flex flex-wrap gap-1">
                     {ticket.tags.map((tag) => (
                       <span
                         className="rounded border border-border px-1.5 py-0.5 text-[10px]"
@@ -183,9 +196,9 @@ function Queue({ active }: { active: boolean }) {
                         {tag}
                       </span>
                     ))}
-                  </div>
+                  </span>
                 )}
-              </Card>
+              </button>
             ))
           )}
         </div>
@@ -206,6 +219,14 @@ function Queue({ active }: { active: boolean }) {
     </div>
   );
 }
+
+/**
+ * A queue tile or ticket row: a card surface that is a real button, so it is
+ * reachable with Tab and opened with Enter or Space like anything else that
+ * acts when pressed.
+ */
+const PICKABLE =
+  "flex w-full flex-col rounded-xl border border-border bg-card text-left text-card-foreground transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25";
 
 function priorityVariant(priority: string): "danger" | "warning" | "neutral" {
   if (priority === "urgent") {

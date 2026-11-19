@@ -4,7 +4,7 @@ import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
 import { ConfirmDialog } from "@omniflow/ui/confirm-dialog";
-import { Input } from "@omniflow/ui/input";
+import { Input, Textarea } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
 import { Skeleton } from "@omniflow/ui/skeleton";
@@ -415,8 +415,8 @@ function LocaleFields({
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor={bodyId}>{translate("editor.body")}</Label>
-        <textarea
-          className="min-h-72 w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs leading-relaxed outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
+        <Textarea
+          className="min-h-72 font-mono text-xs leading-relaxed"
           id={bodyId}
           onChange={(event) => onBody(event.target.value)}
           spellCheck={false}
