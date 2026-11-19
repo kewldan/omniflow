@@ -262,7 +262,7 @@ subject, and payment mode below.
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `APP_YOOKASSA_RECEIPTS` | `true` when a receipt e-mail is set | Send a receipt with every payment |
-| `APP_YOOKASSA_RECEIPT_EMAIL` | — | Contact the receipt is issued to. Omniflow never passes a customer's e-mail to a provider, so every receipt goes here. Required when receipts are on |
+| `APP_YOOKASSA_RECEIPT_EMAIL` | — | Fallback contact for the receipt. A customer with a verified e-mail gets the receipt at that address (opened with `APP_DATA_ENCRYPTION_KEY`); everyone else's receipt goes here. Required when receipts are on |
 | `APP_YOOKASSA_VAT_CODE` | `1` | YooKassa `vat_code`, 1–12 (`1` is "without VAT") |
 | `APP_YOOKASSA_PAYMENT_SUBJECT` | `service` | `payment_subject` |
 | `APP_YOOKASSA_PAYMENT_MODE` | `full_payment` | `payment_mode` |

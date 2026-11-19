@@ -66,6 +66,10 @@ type PaymentConfig struct {
 	// payment build it from here; every other provider credential is read from
 	// the environment by its builder in payments.Builders.
 	PublicURL string
+	// ContactKey is APP_DATA_ENCRYPTION_KEY. With it the payment service can
+	// open a customer's verified e-mail for the adapters that need one; it is
+	// empty on an installation that never set the key.
+	ContactKey []byte
 }
 
 // CommerceConfig is everything the shared commerce core needs from the
@@ -597,7 +601,7 @@ func (cfg Config) Commerce() CommerceConfig {
 			TelegramToken: cfg.TelegramToken, CryptoBotToken: cfg.CryptoBotToken,
 			CryptoBotTestnet: cfg.CryptoBotTestnet,
 			YooKassaShopID:   cfg.YooKassaShopID, YooKassaSecret: cfg.YooKassaSecret,
-			PublicURL: os.Getenv("APP_PUBLIC_URL"),
+			PublicURL: os.Getenv("APP_PUBLIC_URL"), ContactKey: cfg.DataEncryptionKey,
 		},
 	}
 }
@@ -610,7 +614,7 @@ func (cfg BotConfig) Commerce() CommerceConfig {
 			TelegramToken: cfg.TelegramToken, CryptoBotToken: cfg.CryptoBotToken,
 			CryptoBotTestnet: cfg.CryptoBotTestnet,
 			YooKassaShopID:   cfg.YooKassaShopID, YooKassaSecret: cfg.YooKassaSecret,
-			PublicURL: os.Getenv("APP_PUBLIC_URL"),
+			PublicURL: os.Getenv("APP_PUBLIC_URL"), ContactKey: cfg.DataEncryptionKey,
 		},
 	}
 }
@@ -623,7 +627,7 @@ func (cfg WorkerConfig) Commerce() CommerceConfig {
 			TelegramToken: cfg.TelegramToken, CryptoBotToken: cfg.CryptoBotToken,
 			CryptoBotTestnet: cfg.CryptoBotTestnet,
 			YooKassaShopID:   cfg.YooKassaShopID, YooKassaSecret: cfg.YooKassaSecret,
-			PublicURL: os.Getenv("APP_PUBLIC_URL"),
+			PublicURL: os.Getenv("APP_PUBLIC_URL"), ContactKey: cfg.DataEncryptionKey,
 		},
 	}
 }

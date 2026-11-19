@@ -112,6 +112,25 @@ type SavedChargeRequest struct {
 	MethodToken    string
 	Amount         commerce.Money
 	Description    string
+	// Metadata carries the same payer fields a checkout gets, for adapters
+	// that put them on a fiscal receipt.
+	Metadata map[string]string
+}
+
+// CustomerContactConsumer is implemented by adapters that need the payer's
+// verified e-mail: an acquirer that refuses a checkout without one, or one
+// that sends a fiscal receipt to it. The payment service opens the sealed
+// contact only for these, so an address is never handed to a provider that
+// has no use for it.
+type CustomerContactConsumer interface {
+	UsesCustomerContact() bool
+}
+
+// UsesCustomerContact reports whether an adapter should be given the payer's
+// verified e-mail.
+func UsesCustomerContact(provider Provider) bool {
+	consumer, ok := provider.(CustomerContactConsumer)
+	return ok && consumer.UsesCustomerContact()
 }
 
 // RecurringCharger is implemented by adapters that can charge a stored method

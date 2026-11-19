@@ -250,6 +250,11 @@ func basicAuth(username, password string) string {
 
 var _ Provider = (*YooKassa)(nil)
 
+// UsesCustomerContact asks for the payer's verified e-mail when fiscal
+// receipts are on: the receipt goes to the customer rather than to the
+// installation-wide fallback address.
+func (provider *YooKassa) UsesCustomerContact() bool { return provider.receipt.Enabled }
+
 // WebhooksNeedPolling marks YooKassa notifications as unsigned hints: the
 // payment service re-fetches the payment before applying one.
 func (provider *YooKassa) WebhooksNeedPolling() bool { return true }
@@ -293,7 +298,7 @@ func (provider *YooKassa) ChargeSaved(ctx context.Context, request SavedChargeRe
 		"payment_method_id": request.MethodToken,
 		"metadata":          map[string]string{"order_id": request.OrderID},
 	}
-	if receipt := provider.receiptBody(request.Description, formatMinor(request.Amount.Amount, exponent), request.Amount.Currency, nil); receipt != nil {
+	if receipt := provider.receiptBody(request.Description, formatMinor(request.Amount.Amount, exponent), request.Amount.Currency, request.Metadata); receipt != nil {
 		body["receipt"] = receipt
 	}
 	var payment yooPayment

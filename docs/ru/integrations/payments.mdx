@@ -270,7 +270,7 @@ URL, `metadata.order_id` и ключом идемпотентности Omniflow
 | Переменная | По умолчанию | Значение |
 | --- | --- | --- |
 | `APP_YOOKASSA_RECEIPTS` | `true`, если задан e-mail для чеков | Отправлять чек с каждым платежом |
-| `APP_YOOKASSA_RECEIPT_EMAIL` | — | Контакт, на который выписывается чек. Omniflow не передаёт провайдерам e-mail клиента, поэтому все чеки уходят сюда. Обязательна при включённых чеках |
+| `APP_YOOKASSA_RECEIPT_EMAIL` | — | Запасной контакт для чека. Покупатель с подтверждённым e-mail получает чек на свой адрес (он открывается ключом `APP_DATA_ENCRYPTION_KEY`); чеки остальных уходят сюда. Обязательна при включённых чеках |
 | `APP_YOOKASSA_VAT_CODE` | `1` | `vat_code` ЮKassa, 1–12 (`1` — «без НДС») |
 | `APP_YOOKASSA_PAYMENT_SUBJECT` | `service` | `payment_subject` |
 | `APP_YOOKASSA_PAYMENT_MODE` | `full_payment` | `payment_mode` |

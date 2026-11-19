@@ -24,6 +24,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/config"
+	"github.com/omniflow/omniflow/internal/customerpg"
 	"github.com/omniflow/omniflow/internal/fulfillment"
 	"github.com/omniflow/omniflow/internal/jobs"
 	"github.com/omniflow/omniflow/internal/payments"
@@ -131,10 +132,18 @@ func NewCommerceCore(
 	if err != nil {
 		return nil, fmt.Errorf("configure payment providers: %w", err)
 	}
+	paymentService := paymentservice.New(pool, store, providers...).WithMetrics(options.Metrics)
+	if len(cfg.Payments.ContactKey) == 32 {
+		contacts, contactErr := customerpg.New(pool, cfg.Payments.ContactKey, 0)
+		if contactErr != nil {
+			return nil, fmt.Errorf("commerce: open contacts: %w", contactErr)
+		}
+		paymentService.WithContacts(contacts)
+	}
 	return &CommerceCore{
 		Store:       store,
 		Providers:   providers,
-		Payments:    paymentservice.New(pool, store, providers...).WithMetrics(options.Metrics),
+		Payments:    paymentService,
 		Fulfillment: fulfillment.NewService(pool, jobsClient),
 		Jobs:        jobsClient,
 	}, nil

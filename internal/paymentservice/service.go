@@ -26,6 +26,35 @@ type Service struct {
 	providers map[string]payments.Provider
 	metrics   *platform.Metrics
 	clock     func() time.Time
+	contacts  ContactResolver
+}
+
+// ContactResolver opens a customer's verified contact. It is customerpg's
+// contact sealing, narrowed to the one read the payment service needs.
+type ContactResolver interface {
+	VerifiedContact(ctx context.Context, customerID, kind string) (string, error)
+}
+
+// WithContacts lets the service hand the payer's verified e-mail to the
+// adapters that require one. Without it those adapters receive none: an
+// Antilopay checkout is then refused, and a YooKassa receipt goes to the
+// installation-wide fallback address.
+func (service *Service) WithContacts(contacts ContactResolver) *Service {
+	service.contacts = contacts
+	return service
+}
+
+// payerContact adds the customer's verified e-mail to the payer fields, only
+// for an adapter that declares it needs one. A lookup failure leaves it out:
+// the adapter then refuses or falls back exactly as with no address at all.
+func (service *Service) payerContact(ctx context.Context, provider payments.Provider, payer map[string]string) {
+	if service.contacts == nil || !payments.UsesCustomerContact(provider) {
+		return
+	}
+	email, err := service.contacts.VerifiedContact(ctx, payer["customer_id"], "email")
+	if err == nil && email != "" {
+		payer["customer_email"] = email
+	}
 }
 
 func New(pool *pgxpool.Pool, commerceStore *commercepg.Store, providers ...payments.Provider) *Service {
@@ -178,7 +207,9 @@ func (service *Service) CreateIntent(ctx context.Context, input CreateIntentInpu
 		}
 	}
 	input.SaveMethod = intent.SaveMethodConsentAt.Valid
-	created, err := service.submit(ctx, provider, input, amount, payerMetadata(ctx, queries, order.UserID))
+	payer := payerMetadata(ctx, queries, order.UserID)
+	service.payerContact(ctx, provider, payer)
+	created, err := service.submit(ctx, provider, input, amount, payer)
 	if err != nil {
 		return dbgen.PaymentIntent{}, err
 	}
@@ -253,9 +284,9 @@ func (service *Service) bindMethod(ctx context.Context, queries *dbgen.Queries, 
 // payerMetadata is what a provider may need to identify the payer: Omniflow's
 // own customer ID and, when the customer signed in with Telegram, their
 // Telegram ID. Several acquirers (Platega, MulenPay) refuse a checkout that
-// names no payer. It never carries an email or phone — those are sealed and
-// the payment service holds no key to open them — and a lookup failure only
-// leaves the fields out, because the order itself is still payable.
+// names no payer. The verified e-mail is added separately, by payerContact,
+// and only for an adapter that needs it; a lookup failure only leaves the
+// fields out, because the order itself is still payable.
 func payerMetadata(ctx context.Context, queries *dbgen.Queries, userID pgtype.UUID) map[string]string {
 	metadata := map[string]string{"customer_id": uuidString(userID)}
 	identities, err := queries.ListCustomerIdentities(ctx, userID)
@@ -313,6 +344,7 @@ func (service *Service) submit(
 	return charger.ChargeSaved(ctx, payments.SavedChargeRequest{
 		OrderID: input.OrderID, IdempotencyKey: input.IdempotencyKey,
 		MethodToken: input.SavedMethodToken, Amount: amount, Description: input.Description,
+		Metadata: payer,
 	})
 }
 

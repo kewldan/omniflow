@@ -149,6 +149,10 @@ type antilopayPayment struct {
 	PaymentURL     string       `json:"payment_url"`
 }
 
+// UsesCustomerContact asks for the payer's verified e-mail: Antilopay refuses
+// a payment that names no customer contact.
+func (provider *Antilopay) UsesCustomerContact() bool { return true }
+
 // Create opens a hosted payment. Antilopay requires a real customer contact
 // and Bedolaga deliberately stopped inventing one, so a request without
 // `customer_email` or `customer_phone` metadata is refused before any call.

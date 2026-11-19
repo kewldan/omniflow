@@ -27,8 +27,11 @@ Where a provider takes the callback address in its own cabinet instead, enter th
 ## What every adapter shares
 
 - **Payer identity.** Omniflow passes the customer's own ID and, when the customer signed in with
-  Telegram, their Telegram ID. It never passes an e-mail or a phone number. Providers that require
-  one (Antilopay) refuse the payment before calling the acquirer.
+  Telegram, their Telegram ID. The customer's e-mail is passed only to an adapter that needs it —
+  Antilopay, which refuses a payment without a contact, and YooKassa when fiscal receipts are on —
+  and only when the customer has a **verified** e-mail. It is opened from the sealed contact store
+  with `APP_DATA_ENCRYPTION_KEY`; without that key, or without a verified address, none is sent and
+  Antilopay refuses the payment before calling the acquirer. A phone number is never passed.
 - **Unsigned notifications.** Where a provider does not sign its webhook, the notification is treated
   as a hint and the payment is re-read through the provider's authenticated API before anything is
   credited.
