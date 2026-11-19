@@ -62,26 +62,39 @@ export function TrafficReportScreen() {
         </Button>
       </div>
 
-      {error ? (
+      {/* A failed read is the whole answer; the skeleton used to stay beneath
+          it forever, as if more were still coming. */}
+      {error && !data ? (
         <StateNotice description={error.message} title={translate("failed")} variant="danger" />
-      ) : null}
-
-      {isLoading || !data ? (
+      ) : isLoading || !data ? (
         <Skeleton className="h-96 w-full" />
       ) : (
         <>
-          <Card>
-            <CardContent className="flex flex-col gap-8 pt-6">
-              <NodePressureChart report={data} />
-              <ConsumerChart report={data} />
-            </CardContent>
-          </Card>
+          {/* Each chart draws nothing without data, which left an empty card
+              on an installation whose panel reported no limited nodes and no
+              consumers. The card appears only when one of them has something. */}
+          {hasChartData(data) && (
+            <Card>
+              <CardContent className="flex flex-col gap-8 pt-6">
+                <NodePressureChart report={data} />
+                <ConsumerChart report={data} />
+              </CardContent>
+            </Card>
+          )}
           <NodeCard report={data} />
           <ConsumerCard report={data} />
         </>
       )}
     </div>
   );
+}
+
+/** Whether either chart has anything to draw; mirrors their own guards. */
+function hasChartData(report: TrafficReport): boolean {
+  const pressured =
+    report.nodesReported &&
+    report.nodes.some((node) => node.usedShare !== undefined && node.limitBytes > 0);
+  return pressured || report.consumers.length > 0;
 }
 
 /**

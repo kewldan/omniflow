@@ -4,10 +4,11 @@ import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { Card } from "@omniflow/ui/card";
 import { Input } from "@omniflow/ui/input";
+import { Label } from "@omniflow/ui/label";
 import { TableCell, TableRow } from "@omniflow/ui/table";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { useState } from "react";
+import { useId, useState } from "react";
 import useSWR from "swr";
 
 import { PageHeader, ResourceTable } from "@/components/admin/resource-table";
@@ -41,6 +42,7 @@ export function GiftRegister() {
   const locale = useLocale();
   const { can } = useSession();
   const [reason, setReason] = useState("");
+  const reasonId = useId();
   const { run, pending, error } = useOperatorAction();
 
   const { filters, cursorStack, setFilter, reset, goNext, goPrevious, hasPrevious } = useUrlFilters(
@@ -62,33 +64,35 @@ export function GiftRegister() {
     <div className="flex flex-col gap-5">
       <PageHeader description={translate("description")} title={translate("title")} />
 
-      <div className="flex flex-wrap gap-2">
-        <Button
-          onClick={() => setFilter("status", "")}
-          size="sm"
-          variant={filters.status ? "ghost" : "outline"}
-        >
-          {translate("all")}
-        </Button>
-        {Object.entries(totals).map(([status, count]) => (
+      {/* The status filter and the revoke reason only mean something once
+          there are gifts: an empty register used to show a lone "All" pill and
+          a reason field floating above "Nothing here yet". */}
+      {Object.keys(totals).length > 0 && (
+        <div className="flex flex-wrap gap-2">
           <Button
-            key={status}
-            onClick={() => setFilter("status", status)}
+            onClick={() => setFilter("status", "")}
             size="sm"
-            variant={filters.status === status ? "outline" : "ghost"}
+            variant={filters.status ? "ghost" : "outline"}
           >
-            {translate(`status.${status}`)} · {count}
+            {translate("all")}
           </Button>
-        ))}
-      </div>
+          {Object.entries(totals).map(([status, count]) => (
+            <Button
+              key={status}
+              onClick={() => setFilter("status", status)}
+              size="sm"
+              variant={filters.status === status ? "outline" : "ghost"}
+            >
+              {translate(`status.${status}`)} · {count}
+            </Button>
+          ))}
+        </div>
+      )}
 
-      {can("gifts.write") && (
-        <Card className="p-3">
-          <Input
-            onChange={(event) => setReason(event.target.value)}
-            placeholder={translate("reasonPlaceholder")}
-            value={reason}
-          />
+      {can("gifts.write") && (data?.items ?? []).length > 0 && (
+        <Card className="flex flex-col gap-1.5 p-3">
+          <Label htmlFor={reasonId}>{translate("reasonPlaceholder")}</Label>
+          <Input id={reasonId} onChange={(event) => setReason(event.target.value)} value={reason} />
           {error && <p className="mt-2 text-danger-foreground text-xs">{error.message}</p>}
         </Card>
       )}
