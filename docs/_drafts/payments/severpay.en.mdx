@@ -1,0 +1,58 @@
+## SeverPay
+
+SeverPay (`https://severpay.io/api/merchant`) is a payment service with hosted payin pages. The
+`severpay` adapter creates a payin, sends the customer to its page, and settles on SeverPay's signed
+notification.
+
+**Currency.** One currency per merchant, `RUB` unless `APP_SEVERPAY_CURRENCY` says otherwise.
+
+<Steps>
+  <Step title="Collect the credentials">
+    You need the merchant ID (`mid`) and the merchant's secret token.
+  </Step>
+  <Step title="Configure Omniflow">
+    ```env
+    APP_SEVERPAY_MID=4242
+    APP_SEVERPAY_TOKEN=…
+    ```
+    The adapter is registered when either is set, and startup fails when only one is.
+  </Step>
+  <Step title="Set the notification URL">
+    In the SeverPay account, point notifications at
+    `https://<your-public-host>/v1/payments/webhooks/severpay`.
+  </Step>
+  <Step title="Pay a test order">
+    Buy the cheapest plan yourself and follow it through **Verifying a provider is really working**
+    on the payment providers page.
+  </Step>
+</Steps>
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_SEVERPAY_MID` | Yes | — | Numeric merchant ID, sent as `mid` in every request |
+| `APP_SEVERPAY_TOKEN` | Yes | — | HMAC-SHA256 key for requests and notifications |
+| `APP_SEVERPAY_CURRENCY` | No | `RUB` | The single currency the merchant settles |
+| `APP_SEVERPAY_LIFETIME` | No | `1440` | Payin lifetime in minutes, between `30` and `4320` |
+| `APP_SEVERPAY_RETURN_URL` | No | — | Where the customer returns after paying, used only when an order carries no return URL of its own |
+
+**Signing.** Requests and notifications are signed the same way: the top-level fields other than
+`sign` are sorted by key and serialised as compact JSON with non-ASCII text left unescaped, and that
+text is HMAC-SHA256'd with the token. Requests add `mid` and a random `salt` before signing. Omniflow
+reproduces the serialisation SeverPay's reference integration uses — including how decimals such as
+`1499.0` are written — and sends exactly the bytes it signed.
+
+**Create.** `POST /payin/create` with `order_id` (the Omniflow order ID), `amount` (a decimal number
+such as `1499.0`), `currency`, `client_id`, `client_email`, `lifetime`, and `url_return`. Omniflow
+does not hand a customer identifier to SeverPay: `client_id` is sent as `guest` and `client_email` as
+`guest@telegram.org` on every payin. The payin `id` becomes the provider reference.
+
+**Webhook verification.** The notification carries its signature in the body's `sign` field and is
+checked in constant time. Only a notification of type `payin` can settle; statuses map as `success` →
+succeeded, `process` → processing, `decline` and `fail` → failed, and `new` or anything unknown →
+pending. The event ID is `<type>:<payin id>:<status>`. A verified notification is answered with
+`{"status":true}`, which SeverPay waits for.
+
+**Polling.** Supported through `POST /payin/get` with the payin ID.
+
+**Refunds and recurring.** Not supported. There is no connection probe: SeverPay offers no
+read-only call that does not need an existing payin.

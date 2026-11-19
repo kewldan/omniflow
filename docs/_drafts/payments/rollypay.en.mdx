@@ -1,0 +1,54 @@
+## RollyPay
+
+RollyPay (`https://rollypay.io/api/v1`) is a payment service with hosted payment pages for SBP,
+cards, and crypto. The `rollypay` adapter creates a payment, sends the customer to its `pay_url`,
+and settles on RollyPay's signed notification.
+
+**Currency.** One currency per account, `RUB` unless `APP_ROLLYPAY_CURRENCY` says otherwise.
+
+<Steps>
+  <Step title="Collect the credentials">
+    You need the RollyPay API key and the webhook signing secret.
+  </Step>
+  <Step title="Configure Omniflow">
+    ```env
+    APP_ROLLYPAY_API_KEY=…
+    APP_ROLLYPAY_SIGNING_SECRET=…
+    # APP_ROLLYPAY_PAYMENT_METHOD=sbp
+    ```
+    The adapter is registered when either credential is set, and startup fails when only one is.
+  </Step>
+  <Step title="Set the notification URL">
+    In the RollyPay account, point notifications at
+    `https://<your-public-host>/v1/payments/webhooks/rollypay`.
+  </Step>
+  <Step title="Pay a test order">
+    Buy the cheapest plan yourself and follow it through **Verifying a provider is really working**
+    on the payment providers page.
+  </Step>
+</Steps>
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_ROLLYPAY_API_KEY` | Yes | — | Sent as `X-API-Key` on every API call |
+| `APP_ROLLYPAY_SIGNING_SECRET` | Yes | — | HMAC-SHA256 key for notifications |
+| `APP_ROLLYPAY_CURRENCY` | No | `RUB` | The single currency the account settles |
+| `APP_ROLLYPAY_PAYMENT_METHOD` | No | empty | Pins the payment method: `sbp`, `card`, or `crypto`. Empty leaves the choice to RollyPay |
+| `APP_ROLLYPAY_RETURN_URL` | No | — | Where the customer returns after paying, used only when an order carries no return URL of its own |
+
+**Create.** `POST /payments` with `amount` (a decimal string such as `"1499.00"`),
+`payment_currency`, `order_id` (the Omniflow order ID), `description`, `redirect_url`, and
+`payment_method` when one is pinned. Every call carries a fresh random UUID in `X-Nonce`. The
+`payment_id` becomes the provider reference and `expires_at` the checkout's expiry.
+
+**Webhook verification.** RollyPay signs `"<X-Timestamp>.<raw body>"` with HMAC-SHA256 and sends the
+hex digest in `X-Signature`; a missing timestamp or signature is rejected, and the comparison is in
+constant time. A `payment.paid` event or status `paid` settles; `processing` → processing, `expired`
+→ expired, `canceled` → cancelled, `chargeback` → failed, and `created` or anything unknown →
+pending. The event ID is `<event_type>:<payment_id>:<status>`. A verified notification is answered
+with `{"status":true}`.
+
+**Polling.** Supported through `GET /payments/{payment_id}`.
+
+**Refunds and recurring.** Not supported. A chargeback reported by RollyPay does not reverse
+anything in Omniflow on its own. There is no connection probe.
