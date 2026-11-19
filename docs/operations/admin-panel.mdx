@@ -242,6 +242,23 @@ migration enables (it is a trusted extension, so the database owner can create
 it without superuser). Search is limited to 60 requests a minute per operator
 and, like every other read in the panel, is not written to the audit trail.
 
+## Interface language
+
+Both panels are translated into Russian and English. The language a page is
+rendered in is chosen per request, in this order:
+
+1. The `omniflow_locale` cookie, which holds only `ru` or `en`.
+2. The browser's `Accept-Language`, highest-ranked supported language first.
+3. English.
+
+An operator picks a language from the account menu in the header. The choice is
+saved to the operator account (`PATCH /v1/panel/auth/profile`) and written to
+the cookie, so it follows the operator to every browser they sign in from: the
+panel applies the saved language as soon as the session loads. A customer's
+language is set on **Account** in the customer panel and works the same way.
+The landing page and both sign-in screens carry a one-press switch to the other
+language for visitors who have not signed in.
+
 ## Audit trail
 
 Every authentication, authorization, and configuration action is appended to
