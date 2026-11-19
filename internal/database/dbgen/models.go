@@ -1754,6 +1754,8 @@ type ReferralProgram struct {
 	RewardExpiryDays        pgtype.Int4        `json:"reward_expiry_days"`
 	TermsUrl                pgtype.Text        `json:"terms_url"`
 	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
+	InviterRewardDays       int32              `json:"inviter_reward_days"`
+	InviteeRewardDays       int32              `json:"invitee_reward_days"`
 }
 
 type ReferralReward struct {
@@ -1770,6 +1772,7 @@ type ReferralReward struct {
 	ReversedBy                  pgtype.UUID        `json:"reversed_by"`
 	ReversalReason              pgtype.Text        `json:"reversal_reason"`
 	ReversalLedgerTransactionID pgtype.UUID        `json:"reversal_ledger_transaction_id"`
+	Days                        pgtype.Int4        `json:"days"`
 }
 
 type ReferralSignal struct {

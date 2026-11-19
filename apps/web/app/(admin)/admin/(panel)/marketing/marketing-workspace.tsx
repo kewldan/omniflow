@@ -501,7 +501,11 @@ function ReferralCard({ editable }: { editable: boolean }) {
   // Enabling a programme that pays nothing is refused by the API. Saying so
   // here means the operator learns it before pressing save rather than after.
   const payless =
-    program.enabled && program.inviterRewardMinor === 0 && program.inviteeRewardMinor === 0;
+    program.enabled &&
+    program.inviterRewardMinor === 0 &&
+    program.inviteeRewardMinor === 0 &&
+    !program.inviterRewardDays &&
+    !program.inviteeRewardDays;
 
   return (
     <Card>
@@ -549,6 +553,26 @@ function ReferralCard({ editable }: { editable: boolean }) {
               inputMode="numeric"
               onChange={(event) => update({ inviteeRewardMinor: Number(event.target.value) || 0 })}
               value={String(program.inviteeRewardMinor)}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor={`${inviterId}-days`}>{translate("referrals.inviterDays")}</Label>
+            <Input
+              disabled={!editable}
+              id={`${inviterId}-days`}
+              inputMode="numeric"
+              onChange={(event) => update({ inviterRewardDays: Number(event.target.value) || 0 })}
+              value={String(program.inviterRewardDays ?? 0)}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor={`${inviteeId}-days`}>{translate("referrals.inviteeDays")}</Label>
+            <Input
+              disabled={!editable}
+              id={`${inviteeId}-days`}
+              inputMode="numeric"
+              onChange={(event) => update({ inviteeRewardDays: Number(event.target.value) || 0 })}
+              value={String(program.inviteeRewardDays ?? 0)}
             />
           </div>
           <div className="flex flex-col gap-1">

@@ -2507,7 +2507,10 @@
         "attributed": "Attributed",
         "qualified": "Qualified",
         "rejected": "Rejected",
-        "rewarded": "Paid out"
+        "rewarded": "Paid out",
+        "inviterDays": "Days for the inviter",
+        "inviteeDays": "Days for the friend",
+        "daysHint": "Days, when set, are added to the subscription instead of crediting the wallet."
       }
     },
     "installationSettings": {
@@ -3195,7 +3198,8 @@
           "qualified": "Yours",
           "rejected": "Not paid"
         },
-        "reversedOn": "Taken back on {date}"
+        "reversedOn": "Taken back on {date}",
+        "days": "{count, plural, one {# day of subscription} other {# days of subscription}}"
       },
       "loyalty": {
         "title": "Loyalty",

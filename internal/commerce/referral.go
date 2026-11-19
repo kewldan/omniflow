@@ -9,10 +9,14 @@ var ErrReferralNotQualified = errors.New("referral is not qualified for a reward
 
 // ReferralProgram mirrors the operator-configured referral_programs row.
 type ReferralProgram struct {
-	Enabled             bool
-	Currency            string
-	InviterRewardMinor  int64
-	InviteeRewardMinor  int64
+	Enabled            bool
+	Currency           string
+	InviterRewardMinor int64
+	InviteeRewardMinor int64
+	// InviterRewardDays and InviteeRewardDays reward in subscription days
+	// instead of wallet credit; for a role with both, days win.
+	InviterRewardDays   int
+	InviteeRewardDays   int
 	Qualification       string
 	InviterRewardCap    *int
 	AttributionValidity time.Duration
@@ -43,6 +47,8 @@ type ReferralReward struct {
 	Role      string
 	Amount    Money
 	ExpiresAt *time.Time
+	// Days is set for a day reward, which moves no money.
+	Days int
 }
 
 // SubscriptionOperation reports whether an order operation buys subscription
@@ -89,21 +95,29 @@ func QualifyReferral(now time.Time, program ReferralProgram, attribution Referra
 	}
 	rewards := make([]ReferralReward, 0, 2)
 	granted := attribution.GrantedRoles
-	if program.InviterRewardMinor > 0 && !granted["inviter"] {
+	reward := func(role string, minor int64, days int) error {
+		if days > 0 {
+			rewards = append(rewards, ReferralReward{Role: role, Days: days})
+			return nil
+		}
+		amount, err := NewMoney(minor, program.Currency)
+		if err != nil {
+			return err
+		}
+		rewards = append(rewards, ReferralReward{Role: role, Amount: amount, ExpiresAt: expiresAt})
+		return nil
+	}
+	if (program.InviterRewardMinor > 0 || program.InviterRewardDays > 0) && !granted["inviter"] {
 		if program.InviterRewardCap == nil || attribution.InviterRewardCount < *program.InviterRewardCap {
-			amount, err := NewMoney(program.InviterRewardMinor, program.Currency)
-			if err != nil {
+			if err := reward("inviter", program.InviterRewardMinor, program.InviterRewardDays); err != nil {
 				return nil, err
 			}
-			rewards = append(rewards, ReferralReward{Role: "inviter", Amount: amount, ExpiresAt: expiresAt})
 		}
 	}
-	if program.InviteeRewardMinor > 0 && !granted["invitee"] {
-		amount, err := NewMoney(program.InviteeRewardMinor, program.Currency)
-		if err != nil {
+	if (program.InviteeRewardMinor > 0 || program.InviteeRewardDays > 0) && !granted["invitee"] {
+		if err := reward("invitee", program.InviteeRewardMinor, program.InviteeRewardDays); err != nil {
 			return nil, err
 		}
-		rewards = append(rewards, ReferralReward{Role: "invitee", Amount: amount, ExpiresAt: expiresAt})
 	}
 	return rewards, nil
 }

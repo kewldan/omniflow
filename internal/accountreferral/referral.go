@@ -25,6 +25,10 @@ type Program struct {
 	Currency           string
 	InviterRewardMinor int64
 	InviteeRewardMinor int64
+	// InviterRewardDays and InviteeRewardDays are day rewards; when set for a
+	// side, they replace that side's money reward.
+	InviterRewardDays int
+	InviteeRewardDays int
 	// Qualification is what has to happen before a reward is granted. It is one
 	// of a closed set the commerce code implements, so the panel can explain the
 	// rule rather than paraphrasing it.
@@ -287,6 +291,8 @@ func (service *Service) program(ctx context.Context) (Program, error) {
 	program.Currency = row.Currency
 	program.InviterRewardMinor = row.InviterRewardMinor
 	program.InviteeRewardMinor = row.InviteeRewardMinor
+	program.InviterRewardDays = int(row.InviterRewardDays)
+	program.InviteeRewardDays = int(row.InviteeRewardDays)
 	program.Qualification = row.Qualification
 	program.AttributionValidityDays = int(row.AttributionValidityDays)
 	if row.InviterRewardCap.Valid {

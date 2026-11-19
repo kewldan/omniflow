@@ -80,6 +80,8 @@ func (handlers *AccountHandlers) referrals(writer http.ResponseWriter, request *
 		"enabled":                 summary.Program.Enabled,
 		"currency":                summary.Program.Currency,
 		"inviterRewardMinor":      summary.Program.InviterRewardMinor,
+		"inviterRewardDays":       summary.Program.InviterRewardDays,
+		"inviteeRewardDays":       summary.Program.InviteeRewardDays,
 		"inviteeRewardMinor":      summary.Program.InviteeRewardMinor,
 		"qualification":           summary.Program.Qualification,
 		"attributionValidityDays": summary.Program.AttributionValidityDays,

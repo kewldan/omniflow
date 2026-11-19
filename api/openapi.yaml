@@ -7603,6 +7603,8 @@ components:
             currency: {type: string}
             inviterRewardMinor: {type: integer, format: int64}
             inviteeRewardMinor: {type: integer, format: int64}
+            inviterRewardDays: {type: integer, description: "Day reward for the inviter; replaces the money reward when above zero."}
+            inviteeRewardDays: {type: integer, description: "Day reward for the friend; replaces the money reward when above zero."}
             qualification: {type: string}
             attributionValidityDays: {type: integer}
             inviterRewardCap: {type: integer, nullable: true}

@@ -59,6 +59,18 @@ evidence rather than against a guess.
 Saving writes the audit action `referral.program.saved` under the marketing
 category.
 
+### Rewards in subscription days
+
+`inviterRewardDays` and `inviteeRewardDays` (0–3650) reward in days instead of wallet credit — the
+"+7 days to the friend, +14 to the inviter" scheme Bedolaga installations run. For a side with both a
+day and a money reward, days win. When the friend's first subscription order settles, each side's
+subscription is extended on the plan of their latest entitlement, starting where it ends, through a
+zero-amount order and a fulfillment job in the same transaction. A day reward moves no money: its
+`referral_rewards` row carries `days`, an amount of zero, and no ledger transaction. An inviter who
+never had a subscription has nothing to extend and receives nothing; the friend's settlement is not
+blocked. Rejecting a referral in review does not take granted days back — only money rewards are
+reversed through the ledger.
+
 ## What actually qualifies a referral
 
 ### Attribution comes first, and only once

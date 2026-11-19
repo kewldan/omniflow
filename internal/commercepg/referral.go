@@ -34,10 +34,11 @@ func (store *Store) referralProgram(ctx context.Context, querier rowQuerier) (co
 		qualificationValue string
 	)
 	err := querier.QueryRow(ctx, `SELECT enabled, currency, inviter_reward_minor, invitee_reward_minor,
-		qualification, inviter_reward_cap, attribution_validity_days, reward_expiry_days
+		qualification, inviter_reward_cap, attribution_validity_days, reward_expiry_days,
+		inviter_reward_days, invitee_reward_days
 		FROM referral_programs WHERE singleton`).Scan(&program.Enabled, &program.Currency,
 		&program.InviterRewardMinor, &program.InviteeRewardMinor, &qualificationValue, &cap,
-		&validityDays, &rewardExpiryDays)
+		&validityDays, &rewardExpiryDays, &program.InviterRewardDays, &program.InviteeRewardDays)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return commerce.ReferralProgram{}, nil
 	}
@@ -190,6 +191,9 @@ func (store *Store) grantReferralRewards(ctx context.Context, tx pgx.Tx, queries
 func (store *Store) recordReferralReward(ctx context.Context, tx pgx.Tx, queries *dbgen.Queries, order dbgen.Order, beneficiary pgtype.UUID, reward commerce.ReferralReward) error {
 	reference := uuidString(order.UserID) + ":" + reward.Role
 	key := "referral:" + reference
+	if reward.Days > 0 {
+		return store.recordReferralDays(ctx, tx, queries, order, beneficiary, reward, key)
+	}
 	entries := []commerce.LedgerEntry{
 		{AccountType: "customer_wallet", CustomerID: uuidString(beneficiary), Currency: reward.Amount.Currency, AmountMinor: reward.Amount.Amount},
 		{AccountType: "platform_clearing", Currency: reward.Amount.Currency, AmountMinor: -reward.Amount.Amount},
@@ -229,6 +233,49 @@ func (store *Store) recordReferralReward(ctx context.Context, tx pgx.Tx, queries
 	if err != nil {
 		return err
 	}
+	_, err = queries.InsertAuditEvent(ctx, dbgen.InsertAuditEventParams{
+		ActorType: "system", Action: "referral.reward_granted", TargetType: "customer",
+		Category: "financial", Outcome: "success",
+		TargetID: uuidString(beneficiary), Reason: pgtype.Text{String: "referral qualified", Valid: true},
+		Metadata: metadata,
+	})
+	return err
+}
+
+// recordReferralDays grants a day reward: the beneficiary's subscription is
+// extended on the plan of their latest entitlement, through a zero-amount
+// order and a fulfillment job in the settling transaction. A beneficiary who
+// never had a subscription has nothing to extend; their reward is skipped
+// rather than blocking the settlement that qualified the referral.
+func (store *Store) recordReferralDays(
+	ctx context.Context, tx pgx.Tx, queries *dbgen.Queries, order dbgen.Order,
+	beneficiary pgtype.UUID, reward commerce.ReferralReward, key string,
+) error {
+	var exists bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM referral_rewards WHERE referred_user_id = $1 AND role = $2)`,
+		order.UserID, reward.Role).Scan(&exists); err != nil || exists {
+		return err
+	}
+	planVersionID, currency, err := store.rewardPlan(ctx, queries, beneficiary, RewardDays)
+	if errors.Is(err, ErrPromoNotApplicable) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	_, rewardOrderID, err := store.grantRewardDays(ctx, tx, queries, beneficiary, planVersionID, currency,
+		time.Duration(reward.Days)*24*time.Hour, false, key)
+	if err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO referral_rewards (
+			referred_user_id, beneficiary_user_id, role, order_id, amount_minor, currency, days)
+		VALUES ($1, $2, $3, $4, 0, $5, $6)
+		ON CONFLICT (referred_user_id, role) DO NOTHING`,
+		order.UserID, beneficiary, reward.Role, rewardOrderID, currency, reward.Days); err != nil {
+		return err
+	}
+	metadata, _ := json.Marshal(map[string]any{"role": reward.Role, "days": reward.Days})
 	_, err = queries.InsertAuditEvent(ctx, dbgen.InsertAuditEventParams{
 		ActorType: "system", Action: "referral.reward_granted", TargetType: "customer",
 		Category: "financial", Outcome: "success",

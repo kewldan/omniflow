@@ -55,6 +55,9 @@ export type ReferralProgram = {
   currency: string;
   inviterRewardMinor: number;
   inviteeRewardMinor: number;
+  /** Rewards in subscription days; for a side with both, days win. */
+  inviterRewardDays: number;
+  inviteeRewardDays: number;
   qualification: string;
   inviterRewardCap?: number;
   attributionValidityDays: number;

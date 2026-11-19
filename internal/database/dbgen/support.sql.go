@@ -876,7 +876,7 @@ func (q *Queries) ListLoyaltyTiers(ctx context.Context, programID pgtype.UUID) (
 }
 
 const listReferralRewardsForPair = `-- name: ListReferralRewardsForPair :many
-SELECT id, referred_user_id, beneficiary_user_id, role, order_id, amount_minor, currency, ledger_transaction_id, granted_at, reversed_at, reversed_by, reversal_reason, reversal_ledger_transaction_id FROM referral_rewards
+SELECT id, referred_user_id, beneficiary_user_id, role, order_id, amount_minor, currency, ledger_transaction_id, granted_at, reversed_at, reversed_by, reversal_reason, reversal_ledger_transaction_id, days FROM referral_rewards
 WHERE referred_user_id = $1
 ORDER BY granted_at
 `
@@ -904,6 +904,7 @@ func (q *Queries) ListReferralRewardsForPair(ctx context.Context, referredUserID
 			&i.ReversedBy,
 			&i.ReversalReason,
 			&i.ReversalLedgerTransactionID,
+			&i.Days,
 		); err != nil {
 			return nil, err
 		}
@@ -1510,7 +1511,7 @@ SET reversed_at = now(),
     reversal_reason = $2,
     reversal_ledger_transaction_id = $3
 WHERE id = $4 AND reversed_at IS NULL
-RETURNING id, referred_user_id, beneficiary_user_id, role, order_id, amount_minor, currency, ledger_transaction_id, granted_at, reversed_at, reversed_by, reversal_reason, reversal_ledger_transaction_id
+RETURNING id, referred_user_id, beneficiary_user_id, role, order_id, amount_minor, currency, ledger_transaction_id, granted_at, reversed_at, reversed_by, reversal_reason, reversal_ledger_transaction_id, days
 `
 
 type ReverseReferralRewardParams struct {
@@ -1545,6 +1546,7 @@ func (q *Queries) ReverseReferralReward(ctx context.Context, arg ReverseReferral
 		&i.ReversedBy,
 		&i.ReversalReason,
 		&i.ReversalLedgerTransactionID,
+		&i.Days,
 	)
 	return i, err
 }

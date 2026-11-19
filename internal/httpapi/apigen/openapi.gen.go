@@ -5377,15 +5377,21 @@ type AccountReferrals struct {
 	LinkReason *AccountReferralsLinkReason `json:"linkReason,omitempty"`
 	Pending    int64                       `json:"pending"`
 	Program    struct {
-		AttributionValidityDays *int    `json:"attributionValidityDays,omitempty"`
-		Currency                string  `json:"currency"`
-		Enabled                 bool    `json:"enabled"`
-		InviteeRewardMinor      int64   `json:"inviteeRewardMinor"`
-		InviterRewardCap        *int    `json:"inviterRewardCap,omitempty"`
-		InviterRewardMinor      int64   `json:"inviterRewardMinor"`
-		Qualification           string  `json:"qualification"`
-		RewardExpiryDays        *int    `json:"rewardExpiryDays,omitempty"`
-		TermsUrl                *string `json:"termsUrl,omitempty"`
+		AttributionValidityDays *int   `json:"attributionValidityDays,omitempty"`
+		Currency                string `json:"currency"`
+		Enabled                 bool   `json:"enabled"`
+
+		// InviteeRewardDays Day reward for the friend; replaces the money reward when above zero.
+		InviteeRewardDays  *int  `json:"inviteeRewardDays,omitempty"`
+		InviteeRewardMinor int64 `json:"inviteeRewardMinor"`
+		InviterRewardCap   *int  `json:"inviterRewardCap,omitempty"`
+
+		// InviterRewardDays Day reward for the inviter; replaces the money reward when above zero.
+		InviterRewardDays  *int    `json:"inviterRewardDays,omitempty"`
+		InviterRewardMinor int64   `json:"inviterRewardMinor"`
+		Qualification      string  `json:"qualification"`
+		RewardExpiryDays   *int    `json:"rewardExpiryDays,omitempty"`
+		TermsUrl           *string `json:"termsUrl,omitempty"`
 	} `json:"program"`
 	Qualified      int64 `json:"qualified"`
 	Rejected       int64 `json:"rejected"`

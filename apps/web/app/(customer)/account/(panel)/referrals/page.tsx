@@ -66,7 +66,9 @@ export default function ReferralsPage() {
             linkAvailable={data.linkAvailable}
             linkReason={data.linkReason}
             shareText={translate("referrals.shareText", {
-              reward: money(data.program.inviteeRewardMinor, data.program.currency),
+              reward: data.program.inviteeRewardDays
+                ? translate("referrals.days", { count: data.program.inviteeRewardDays })
+                : money(data.program.inviteeRewardMinor, data.program.currency),
             })}
             shareTitle={translate("referrals.shareTitle")}
           />
@@ -111,10 +113,14 @@ export default function ReferralsPage() {
           <SectionLabel>{translate("referrals.terms")}</SectionLabel>
           <section className="space-y-2 rounded-xl border border-border bg-card p-4">
             <Term label={translate("referrals.inviterReward")}>
-              {money(data.program.inviterRewardMinor, data.program.currency)}
+              {data.program.inviterRewardDays
+                ? translate("referrals.days", { count: data.program.inviterRewardDays })
+                : money(data.program.inviterRewardMinor, data.program.currency)}
             </Term>
             <Term label={translate("referrals.inviteeReward")}>
-              {money(data.program.inviteeRewardMinor, data.program.currency)}
+              {data.program.inviteeRewardDays
+                ? translate("referrals.days", { count: data.program.inviteeRewardDays })
+                : money(data.program.inviteeRewardMinor, data.program.currency)}
             </Term>
             <p className="text-[12.5px] text-muted-foreground leading-relaxed">
               {translate(`referrals.qualification.${data.program.qualification}`)}

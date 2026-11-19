@@ -15,6 +15,8 @@ export type ReferralProgram = {
   currency: string;
   inviterRewardMinor: number;
   inviteeRewardMinor: number;
+  inviterRewardDays?: number;
+  inviteeRewardDays?: number;
   /** What has to happen before a reward is granted; one of a closed set. */
   qualification: string;
   attributionValidityDays: number;

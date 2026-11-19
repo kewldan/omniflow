@@ -249,11 +249,13 @@ SELECT * FROM referral_programs WHERE singleton;
 -- name: SaveReferralProgram :one
 INSERT INTO referral_programs (
   singleton, enabled, currency, inviter_reward_minor, invitee_reward_minor,
+  inviter_reward_days, invitee_reward_days,
   qualification, inviter_reward_cap, attribution_validity_days,
   reward_expiry_days, terms_url
 ) VALUES (
   true, sqlc.arg(enabled), sqlc.arg(currency), sqlc.arg(inviter_reward_minor),
-  sqlc.arg(invitee_reward_minor), sqlc.arg(qualification),
+  sqlc.arg(invitee_reward_minor), sqlc.arg(inviter_reward_days), sqlc.arg(invitee_reward_days),
+  sqlc.arg(qualification),
   sqlc.narg(inviter_reward_cap), sqlc.arg(attribution_validity_days),
   sqlc.narg(reward_expiry_days), sqlc.narg(terms_url)
 )
@@ -262,6 +264,8 @@ ON CONFLICT (singleton) DO UPDATE SET
   currency = EXCLUDED.currency,
   inviter_reward_minor = EXCLUDED.inviter_reward_minor,
   invitee_reward_minor = EXCLUDED.invitee_reward_minor,
+  inviter_reward_days = EXCLUDED.inviter_reward_days,
+  invitee_reward_days = EXCLUDED.invitee_reward_days,
   qualification = EXCLUDED.qualification,
   inviter_reward_cap = EXCLUDED.inviter_reward_cap,
   attribution_validity_days = EXCLUDED.attribution_validity_days,

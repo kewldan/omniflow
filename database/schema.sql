@@ -3146,12 +3146,15 @@ CREATE TABLE public.referral_programs (
     reward_expiry_days integer,
     terms_url text,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    inviter_reward_days integer DEFAULT 0 NOT NULL,
+    invitee_reward_days integer DEFAULT 0 NOT NULL,
     CONSTRAINT referral_programs_attribution_validity_days_check CHECK ((attribution_validity_days > 0)),
     CONSTRAINT referral_programs_currency_check CHECK ((currency ~ '^[A-Z]{3}$'::text)),
     CONSTRAINT referral_programs_invitee_reward_minor_check CHECK ((invitee_reward_minor >= 0)),
     CONSTRAINT referral_programs_inviter_reward_cap_check CHECK (((inviter_reward_cap IS NULL) OR (inviter_reward_cap > 0))),
     CONSTRAINT referral_programs_inviter_reward_minor_check CHECK ((inviter_reward_minor >= 0)),
     CONSTRAINT referral_programs_qualification_check CHECK ((qualification = 'first_paid_order'::text)),
+    CONSTRAINT referral_programs_reward_days_bounded CHECK ((((inviter_reward_days >= 0) AND (inviter_reward_days <= 3650)) AND ((invitee_reward_days >= 0) AND (invitee_reward_days <= 3650)))),
     CONSTRAINT referral_programs_reward_expiry_days_check CHECK (((reward_expiry_days IS NULL) OR (reward_expiry_days > 0))),
     CONSTRAINT referral_programs_singleton_check CHECK (singleton)
 );
@@ -3169,16 +3172,17 @@ CREATE TABLE public.referral_rewards (
     order_id uuid NOT NULL,
     amount_minor bigint NOT NULL,
     currency text NOT NULL,
-    ledger_transaction_id uuid NOT NULL,
+    ledger_transaction_id uuid,
     granted_at timestamp with time zone DEFAULT now() NOT NULL,
     reversed_at timestamp with time zone,
     reversed_by uuid,
     reversal_reason text,
     reversal_ledger_transaction_id uuid,
-    CONSTRAINT referral_rewards_amount_minor_check CHECK ((amount_minor > 0)),
+    days integer,
     CONSTRAINT referral_rewards_currency_check CHECK ((currency ~ '^[A-Z]{3}$'::text)),
     CONSTRAINT referral_rewards_reversal_complete CHECK (((reversed_at IS NULL) = (reversal_ledger_transaction_id IS NULL))),
     CONSTRAINT referral_rewards_reversal_reason_check CHECK (((reversal_reason IS NULL) OR (char_length(reversal_reason) <= 400))),
+    CONSTRAINT referral_rewards_reward_complete CHECK ((((days IS NULL) AND (amount_minor > 0) AND (ledger_transaction_id IS NOT NULL)) OR ((days > 0) AND (amount_minor = 0) AND (ledger_transaction_id IS NULL)))),
     CONSTRAINT referral_rewards_role_check CHECK ((role = ANY (ARRAY['inviter'::text, 'invitee'::text])))
 );
 

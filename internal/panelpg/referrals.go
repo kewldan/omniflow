@@ -21,6 +21,10 @@ type ReferralProgram struct {
 
 	InviterRewardMinor int64 `json:"inviterRewardMinor"`
 	InviteeRewardMinor int64 `json:"inviteeRewardMinor"`
+	// InviterRewardDays and InviteeRewardDays reward in subscription days
+	// rather than wallet credit; for a side with both, days win.
+	InviterRewardDays int32 `json:"inviterRewardDays"`
+	InviteeRewardDays int32 `json:"inviteeRewardDays"`
 
 	// Qualification is what has to happen before a reward is granted. It is a
 	// closed set: every value here is a rule the commerce code implements, and
@@ -76,6 +80,8 @@ func (service *Service) ReferralProgram(ctx context.Context) (ReferralProgram, e
 		program.Currency = row.Currency
 		program.InviterRewardMinor = row.InviterRewardMinor
 		program.InviteeRewardMinor = row.InviteeRewardMinor
+		program.InviterRewardDays = row.InviterRewardDays
+		program.InviteeRewardDays = row.InviteeRewardDays
 		program.Qualification = row.Qualification
 		program.InviterRewardCap = int32Pointer(row.InviterRewardCap)
 		program.AttributionValidityDays = row.AttributionValidityDays
@@ -113,7 +119,12 @@ func (service *Service) SaveReferralProgram(
 	if program.InviterRewardMinor < 0 || program.InviteeRewardMinor < 0 {
 		return ReferralProgram{}, ErrValidaton
 	}
-	if program.Enabled && program.InviterRewardMinor == 0 && program.InviteeRewardMinor == 0 {
+	if program.InviterRewardDays < 0 || program.InviteeRewardDays < 0 ||
+		program.InviterRewardDays > 3650 || program.InviteeRewardDays > 3650 {
+		return ReferralProgram{}, ErrValidaton
+	}
+	if program.Enabled && program.InviterRewardMinor == 0 && program.InviteeRewardMinor == 0 &&
+		program.InviterRewardDays == 0 && program.InviteeRewardDays == 0 {
 		return ReferralProgram{}, ErrValidaton
 	}
 	if program.AttributionValidityDays <= 0 {
@@ -131,6 +142,8 @@ func (service *Service) SaveReferralProgram(
 			Enabled: program.Enabled, Currency: program.Currency,
 			InviterRewardMinor:      program.InviterRewardMinor,
 			InviteeRewardMinor:      program.InviteeRewardMinor,
+			InviterRewardDays:       program.InviterRewardDays,
+			InviteeRewardDays:       program.InviteeRewardDays,
 			Qualification:           program.Qualification,
 			InviterRewardCap:        optionalInt4(program.InviterRewardCap),
 			AttributionValidityDays: program.AttributionValidityDays,
@@ -145,6 +158,8 @@ func (service *Service) SaveReferralProgram(
 				"enabled": program.Enabled, "currency": program.Currency,
 				"inviterRewardMinor": program.InviterRewardMinor,
 				"inviteeRewardMinor": program.InviteeRewardMinor,
+				"inviterRewardDays":  program.InviterRewardDays,
+				"inviteeRewardDays":  program.InviteeRewardDays,
 				"cap":                program.InviterRewardCap,
 			},
 		))

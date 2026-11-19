@@ -129,6 +129,11 @@ func (service *Service) reverseRewards(
 		if reward.ReversedAt.Valid {
 			continue
 		}
+		// A day reward moved no money, so there is nothing to compensate in
+		// the ledger; its days stay granted and the review records the call.
+		if !reward.LedgerTransactionID.Valid {
+			continue
+		}
 		entries := []commerce.LedgerEntry{
 			{
 				AccountType: "customer_wallet", CustomerID: uuidString(reward.BeneficiaryUserID),

@@ -4254,6 +4254,10 @@ export type AccountReferralsProgram = {
   currency: string;
   inviterRewardMinor: number;
   inviteeRewardMinor: number;
+  /** Day reward for the inviter; replaces the money reward when above zero. */
+  inviterRewardDays?: number;
+  /** Day reward for the friend; replaces the money reward when above zero. */
+  inviteeRewardDays?: number;
   qualification: string;
   attributionValidityDays?: number;
   /** @nullable */

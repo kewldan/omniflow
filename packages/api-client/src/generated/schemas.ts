@@ -9485,6 +9485,14 @@ export const GetAccountReferralsResponse = zod.object({
     currency: zod.string(),
     inviterRewardMinor: zod.int(),
     inviteeRewardMinor: zod.int(),
+    inviterRewardDays: zod
+      .int()
+      .optional()
+      .describe("Day reward for the inviter; replaces the money reward when above zero."),
+    inviteeRewardDays: zod
+      .int()
+      .optional()
+      .describe("Day reward for the friend; replaces the money reward when above zero."),
     qualification: zod.string(),
     attributionValidityDays: zod.int().optional(),
     inviterRewardCap: zod.int().nullish(),

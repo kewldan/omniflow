@@ -2507,7 +2507,10 @@
         "attributed": "Засчитано",
         "qualified": "Подтверждено",
         "rejected": "Отклонено",
-        "rewarded": "Выплачено"
+        "rewarded": "Выплачено",
+        "inviterDays": "Дней пригласившему",
+        "inviteeDays": "Дней другу",
+        "daysHint": "Если указаны дни, они начисляются к подписке вместо денег на баланс."
       }
     },
     "installationSettings": {
@@ -3195,7 +3198,8 @@
           "qualified": "Ваше",
           "rejected": "Не выплачено"
         },
-        "reversedOn": "Отозвано {date}"
+        "reversedOn": "Отозвано {date}",
+        "days": "{count, plural, one {# день подписки} few {# дня подписки} many {# дней подписки} other {# дня подписки}}"
       },
       "loyalty": {
         "title": "Лояльность",

@@ -244,7 +244,7 @@ func (q *Queries) GetMessageTemplate(ctx context.Context, id pgtype.UUID) (Messa
 }
 
 const getReferralProgram = `-- name: GetReferralProgram :one
-SELECT singleton, enabled, currency, inviter_reward_minor, invitee_reward_minor, qualification, inviter_reward_cap, attribution_validity_days, reward_expiry_days, terms_url, updated_at FROM referral_programs WHERE singleton
+SELECT singleton, enabled, currency, inviter_reward_minor, invitee_reward_minor, qualification, inviter_reward_cap, attribution_validity_days, reward_expiry_days, terms_url, updated_at, inviter_reward_days, invitee_reward_days FROM referral_programs WHERE singleton
 `
 
 // The single referral configuration. The table is a singleton because a second
@@ -265,6 +265,8 @@ func (q *Queries) GetReferralProgram(ctx context.Context) (ReferralProgram, erro
 		&i.RewardExpiryDays,
 		&i.TermsUrl,
 		&i.UpdatedAt,
+		&i.InviterRewardDays,
+		&i.InviteeRewardDays,
 	)
 	return i, err
 }
@@ -805,26 +807,30 @@ func (q *Queries) ResolveCampaignRecipient(ctx context.Context, arg ResolveCampa
 const saveReferralProgram = `-- name: SaveReferralProgram :one
 INSERT INTO referral_programs (
   singleton, enabled, currency, inviter_reward_minor, invitee_reward_minor,
+  inviter_reward_days, invitee_reward_days,
   qualification, inviter_reward_cap, attribution_validity_days,
   reward_expiry_days, terms_url
 ) VALUES (
   true, $1, $2, $3,
-  $4, $5,
-  $6, $7,
-  $8, $9
+  $4, $5, $6,
+  $7,
+  $8, $9,
+  $10, $11
 )
 ON CONFLICT (singleton) DO UPDATE SET
   enabled = EXCLUDED.enabled,
   currency = EXCLUDED.currency,
   inviter_reward_minor = EXCLUDED.inviter_reward_minor,
   invitee_reward_minor = EXCLUDED.invitee_reward_minor,
+  inviter_reward_days = EXCLUDED.inviter_reward_days,
+  invitee_reward_days = EXCLUDED.invitee_reward_days,
   qualification = EXCLUDED.qualification,
   inviter_reward_cap = EXCLUDED.inviter_reward_cap,
   attribution_validity_days = EXCLUDED.attribution_validity_days,
   reward_expiry_days = EXCLUDED.reward_expiry_days,
   terms_url = EXCLUDED.terms_url,
   updated_at = now()
-RETURNING singleton, enabled, currency, inviter_reward_minor, invitee_reward_minor, qualification, inviter_reward_cap, attribution_validity_days, reward_expiry_days, terms_url, updated_at
+RETURNING singleton, enabled, currency, inviter_reward_minor, invitee_reward_minor, qualification, inviter_reward_cap, attribution_validity_days, reward_expiry_days, terms_url, updated_at, inviter_reward_days, invitee_reward_days
 `
 
 type SaveReferralProgramParams struct {
@@ -832,6 +838,8 @@ type SaveReferralProgramParams struct {
 	Currency                string      `json:"currency"`
 	InviterRewardMinor      int64       `json:"inviter_reward_minor"`
 	InviteeRewardMinor      int64       `json:"invitee_reward_minor"`
+	InviterRewardDays       int32       `json:"inviter_reward_days"`
+	InviteeRewardDays       int32       `json:"invitee_reward_days"`
 	Qualification           string      `json:"qualification"`
 	InviterRewardCap        pgtype.Int4 `json:"inviter_reward_cap"`
 	AttributionValidityDays int32       `json:"attribution_validity_days"`
@@ -845,6 +853,8 @@ func (q *Queries) SaveReferralProgram(ctx context.Context, arg SaveReferralProgr
 		arg.Currency,
 		arg.InviterRewardMinor,
 		arg.InviteeRewardMinor,
+		arg.InviterRewardDays,
+		arg.InviteeRewardDays,
 		arg.Qualification,
 		arg.InviterRewardCap,
 		arg.AttributionValidityDays,
@@ -864,6 +874,8 @@ func (q *Queries) SaveReferralProgram(ctx context.Context, arg SaveReferralProgr
 		&i.RewardExpiryDays,
 		&i.TermsUrl,
 		&i.UpdatedAt,
+		&i.InviterRewardDays,
+		&i.InviteeRewardDays,
 	)
 	return i, err
 }
