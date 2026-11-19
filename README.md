@@ -11,7 +11,7 @@ Build Telegram-first self-service, subscriptions, billing, support, marketing, a
 [![Next.js 16.3](https://img.shields.io/badge/Next.js-16.3-000000?logo=next.js&logoColor=white)](./apps/web/package.json)
 [![TypeScript 7](https://img.shields.io/badge/TypeScript-7-3178C6?logo=typescript&logoColor=white)](./package.json)
 [![Bun](https://img.shields.io/badge/Bun-1.3-fbf0df?logo=bun&logoColor=black)](./package.json)
-[![Remnawave](https://img.shields.io/badge/Remnawave-3.2.2-8b5cf6)](https://docs.rw/api/)
+[![Remnawave](https://img.shields.io/badge/Remnawave-3.4.11-8b5cf6)](https://docs.rw/api/)
 
 [Quick start](#-quick-start) · [Roadmap](./ROADMAP.md) · [Documentation](./docs/index.mdx) · [Architecture](./docs/architecture/overview.mdx) · [Contributing](./CONTRIBUTING.md)
 
@@ -24,7 +24,7 @@ Coming from Bedolaga? [Migrating from Bedolaga](./docs/operations/migrate-from-b
 | | Capability | What it provides |
 | --- | --- | --- |
 | 🤖 | **Telegram-first experience** | Russian and English self-service with subscription security, device management, notifications, referrals, support tickets, and responsive inline navigation. |
-| 🔗 | **Remnawave-native integration** | Targets the official Remnawave 3.2.2 API and keeps Remnawave authoritative for VPN users, traffic, devices, links, nodes, and squads. |
+| 🔗 | **Remnawave-native integration** | Targets the official Remnawave 3.4.11 API and keeps Remnawave authoritative for VPN users, traffic, devices, links, nodes, and squads. |
 | 💳 | **Commerce-ready backend** | Immutable plan versions, promotions, provider-neutral payments, refunds, wallet ledger, entitlements, durable fulfillment, and drift recovery. |
 | 🧭 | **One web application** | Customer routes and the `/admin` workspace share Next.js, localization, API bindings, and the same shadcn component system. |
 | 🔐 | **Operator panel with real access control** | Argon2id passwords, passwordless passkeys with clone detection, TOTP with recovery codes, optional OIDC, dual-expiry rotating sessions, six built-in roles, and an append-only audit trail enforced in the API rather than by hidden routes. |
@@ -105,7 +105,7 @@ Omniflow never connects to Remnawave storage and never manages Xray processes di
 ### Requirements
 
 - Docker with Compose v2
-- A reachable Remnawave 3.2.2 installation
+- A reachable Remnawave 3.4.11 installation
 - A Telegram bot token if you want to run bot flows
 
 ### 1. Configure the application
@@ -177,7 +177,7 @@ deploy/proxies/       Optional reverse-proxy examples
 The complete versioned delivery contract is maintained in [ROADMAP.md](./ROADMAP.md). The mandatory order is Telegram bot and backend, then the admin panel, then the customer panel.
 
 - [x] Go, PostgreSQL, Valkey, Atlas, River, and OpenAPI foundation
-- [x] Remnawave 3.2.2 client boundary and exact Telegram account linking
+- [x] Remnawave 3.4.11 client boundary and exact Telegram account linking
 - [x] Telegram subscription, security, devices, preferences, alerts, referrals, and support UX
 - [x] Unified customer/admin Next.js application and shared components
 - [x] Plans, orders, payments, refunds, wallet ledger, entitlements, and Remnawave fulfillment backend
