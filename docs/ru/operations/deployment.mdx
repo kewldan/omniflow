@@ -11,9 +11,9 @@ Omniflow поставляется как один стек Docker Compose для
 
 | Сервис | Образ или сборка | Опубликованные порты | Чего ждёт | Тома |
 | --- | --- | --- | --- | --- |
-| `postgres` | `postgres:18.4-alpine` | нет | — | `postgres-data:/var/lib/postgresql` |
-| `valkey` | `valkey/valkey:9.1.1-alpine` | нет | — | нет, намеренно |
-| `migrate` | `arigaio/atlas:1.3.0` | — | здоровья `postgres` | `./database/migrations`, смонтирован только на чтение |
+| `postgres` | `postgres:18.7-alpine` | нет | — | `postgres-data:/var/lib/postgresql` |
+| `valkey` | `valkey/valkey:9.2.0-alpine` | нет | — | нет, намеренно |
+| `migrate` | `arigaio/atlas:1.4.0` | — | здоровья `postgres` | `./database/migrations`, смонтирован только на чтение |
 | `api` | `build/go.Dockerfile`, `TARGET=api` | `8080:8080` | завершения `migrate`, здоровья `valkey` | нет |
 | `bot` | `build/go.Dockerfile`, `TARGET=bot`, `RUNTIME=postgres` | нет | того же | `backup-data:/var/lib/omniflow/backups` |
 | `worker` | `build/go.Dockerfile`, `TARGET=worker`, `RUNTIME=postgres` | нет | того же | `backup-data:/var/lib/omniflow/backups` |
@@ -102,13 +102,13 @@ sh tools/volume-drill.sh
 | `RUNTIME` | База | Для чего используется |
 | --- | --- | --- |
 | `static` (по умолчанию) | `gcr.io/distroless/static-debian13:nonroot` | `api` |
-| `postgres` | `alpine:3.23.5` с `postgresql18-client`, `ca-certificates`, `tzdata` | `bot`, `worker` |
+| `postgres` | `alpine:3.24.4` с `postgresql18-client`, `ca-certificates`, `tzdata` | `bot`, `worker` |
 
-`pg_dump` и `pg_restore` обязаны совпадать по мажорной версии с сервером — поэтому клиент зафиксирован на PostgreSQL 18 рядом с сервером `postgres:18.4-alpine`. Alpine 3.23 — первый выпуск, несущий `postgresql18-client`, так что понижение этой базы ломает путь резервного копирования.
+`pg_dump` и `pg_restore` обязаны совпадать по мажорной версии с сервером — поэтому клиент зафиксирован на PostgreSQL 18 рядом с сервером `postgres:18.7-alpine`. Alpine 3.23 — первый выпуск, несущий `postgresql18-client`, так что понижение этой базы ломает путь резервного копирования.
 
 Обе базы работают под `nonroot` (uid 65532 в случае Alpine), а `/var/lib/omniflow` создан заранее и принадлежит этому пользователю, так что каталог резервных копий доступен на запись без привилегированного контейнера.
 
-Образ web устанавливает зависимости и собирается с помощью Bun, а затем отдаёт standalone-вывод Next.js из `node:26.7-alpine` на порту 3000. npm из рантайм-стадии удалён: там его никто не вызывает, а приходит он с базовым образом и несёт собственное дерево зависимостей, которое скан образа показывает как находки. Удаление убирает код, а не заглушает сканер.
+Образ web устанавливает зависимости и собирается с помощью Bun, а затем отдаёт standalone-вывод Next.js из `node:26.13-alpine` на порту 3000. npm из рантайм-стадии удалён: там его никто не вызывает, а приходит он с базовым образом и несёт собственное дерево зависимостей, которое скан образа показывает как находки. Удаление убирает код, а не заглушает сканер.
 
 ### Выпущенные образы
 

@@ -11,7 +11,7 @@
 # Environment:
 #   STAGING_CONTAINER  default bedolaga-staging
 #   STAGING_PORT       default 55432
-#   STAGING_IMAGE      default postgres:18.4-alpine (match Bedolaga's major version)
+#   STAGING_IMAGE      default postgres:18.7-alpine (match Bedolaga's major version)
 #   STAGING_REPLACE    set to 1 to remove an existing scratch container first
 set -eu
 . "$(dirname "$0")/lib.sh"
@@ -23,7 +23,7 @@ dump="${1:-}"
 
 container="${STAGING_CONTAINER:-bedolaga-staging}"
 port="${STAGING_PORT:-55432}"
-image="${STAGING_IMAGE:-postgres:18.4-alpine}"
+image="${STAGING_IMAGE:-postgres:18.7-alpine}"
 
 require_tool docker
 prepare_dir

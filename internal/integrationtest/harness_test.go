@@ -41,7 +41,7 @@ type harness struct {
 func newHarness(t *testing.T) *harness {
 	t.Helper()
 	ctx := context.Background()
-	container, err := postgres.Run(ctx, "postgres:18.4-alpine",
+	container, err := postgres.Run(ctx, "postgres:18.7-alpine",
 		postgres.WithDatabase("omniflow"),
 		postgres.WithUsername("omniflow"),
 		postgres.WithPassword("omniflow"),

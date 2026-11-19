@@ -21,7 +21,7 @@ set -u
 
 COMPOSE="${COMPOSE:-docker compose}"
 THROWAWAY="${THROWAWAY:-omniflow-restore-drill}"
-PG_IMAGE="${PG_IMAGE:-postgres:18.4-alpine}"
+PG_IMAGE="${PG_IMAGE:-postgres:18.7-alpine}"
 ENV_FILE="${ENV_FILE:-.env}"
 WORK="$(mktemp -d)"
 RESULT=0

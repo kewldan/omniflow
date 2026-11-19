@@ -62,7 +62,7 @@ jobs:
     # break reached a release: nothing in the suite had ever made a call.
     services:
       postgres:
-        image: postgres:18.4-alpine
+        image: postgres:18.7-alpine
         env:
           POSTGRES_DB: omniflow
           POSTGRES_USER: omniflow
@@ -75,7 +75,7 @@ jobs:
           --health-timeout 3s
           --health-retries 20
       valkey:
-        image: valkey/valkey:9.1.1-alpine
+        image: valkey/valkey:9.2.0-alpine
         ports:
           - 6379:6379
         options: >-
@@ -205,7 +205,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:18.4-alpine
+        image: postgres:18.7-alpine
         env:
           POSTGRES_DB: omniflow
           POSTGRES_USER: omniflow
@@ -260,7 +260,7 @@ jobs:
           docker run --rm -v "$PWD/deploy/proxies/Caddyfile:/etc/caddy/Caddyfile:ro" \
             -e ACME_EMAIL=ci@example.com -e WEB_DOMAIN=web.example.com \
             -e API_DOMAIN=api.example.com -e BOT_WEBHOOK_DOMAIN=bot.example.com \
-            caddy:2.10-alpine caddy validate --config /etc/caddy/Caddyfile
+            caddy:2.11-alpine caddy validate --config /etc/caddy/Caddyfile
       # Validating that the file parses and that the images build cannot see
       # where a byte written to the database ends up, which is how the stack
       # shipped with the database in an anonymous volume rather than in the
