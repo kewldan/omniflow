@@ -103,6 +103,34 @@ $$;
 
 
 --
+-- Name: queue_support_reply_notice(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.queue_support_reply_notice() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF NEW.sender <> 'customer' THEN
+    RETURN NEW;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM support_messages earlier
+    WHERE earlier.ticket_id = NEW.ticket_id AND earlier.id < NEW.id
+  ) THEN
+    -- The ticket's opening message: the new-ticket notice already covers it.
+    RETURN NEW;
+  END IF;
+  INSERT INTO operator_notifications (kind, dedupe_key, payload)
+  SELECT 'support', 'reply:' || NEW.id::text,
+         jsonb_build_object('ticketId', t.id::text, 'queueId', t.queue_id::text, 'event', 'customer_reply')
+  FROM support_tickets t WHERE t.id = NEW.ticket_id
+  ON CONFLICT (kind, dedupe_key) DO NOTHING;
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: queue_support_ticket_notice(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -6588,6 +6616,13 @@ CREATE TRIGGER cart_goods_kind_matches BEFORE INSERT OR UPDATE ON public.cart_go
 --
 
 CREATE TRIGGER promotion_goods_scope_matches BEFORE INSERT OR UPDATE ON public.promotion_goods FOR EACH ROW EXECUTE FUNCTION public.promotion_goods_scope_matches();
+
+
+--
+-- Name: support_messages support_messages_reply_notice; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER support_messages_reply_notice AFTER INSERT ON public.support_messages FOR EACH ROW EXECUTE FUNCTION public.queue_support_reply_notice();
 
 
 --
