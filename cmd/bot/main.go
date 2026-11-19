@@ -138,6 +138,7 @@ func main() {
 
 	notifier := operator.New(pool, client, logger, operator.Config{
 		ChatID: cfg.Operator.ChatID, NotificationCap: cfg.Operator.NotificationCap, Window: cfg.Operator.Window,
+		PanelURL: cfg.PublicURL,
 	})
 	go notifier.Run(ctx)
 	go botapp.NewNotifier(logger, sender, identities, remnawaveClient, commerceService, settings).Run(ctx)

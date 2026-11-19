@@ -60,6 +60,9 @@ type Config struct {
 	ChatID          int64
 	NotificationCap int
 	Window          time.Duration
+	// PanelURL is APP_PUBLIC_URL. A sale notice links the order and the buyer
+	// in the panel when it is an HTTPS address.
+	PanelURL string
 }
 
 // Notifier owns topic binding and delivery.
@@ -349,11 +352,19 @@ func (notifier *Notifier) deliver(ctx context.Context, queries *dbgen.Queries, n
 		return err
 	}
 	text := renderNotification(notification)
+	var markup models.ReplyMarkup
+	if sale, ok := decodeGoodsSale(notification); ok {
+		text = renderGoodsSale(sale, notification.CreatedAt.Time)
+		if keyboard := goodsSaleMarkup(sale, notifier.config.PanelURL); keyboard != nil {
+			markup = keyboard
+		}
+	}
 	_, sendErr := notifier.client.SendMessage(ctx, &telegram.SendMessageParams{
 		ChatID:          notifier.config.ChatID,
 		MessageThreadID: int(topic.TopicID.Int64),
 		Text:            text,
 		ParseMode:       models.ParseModeHTML,
+		ReplyMarkup:     markup,
 	})
 	if sendErr == nil {
 		return nil
@@ -366,7 +377,7 @@ func (notifier *Notifier) deliver(ctx context.Context, queries *dbgen.Queries, n
 		}
 		_, sendErr = notifier.client.SendMessage(ctx, &telegram.SendMessageParams{
 			ChatID: notifier.config.ChatID, MessageThreadID: int(recreated.TopicID.Int64),
-			Text: text, ParseMode: models.ParseModeHTML,
+			Text: text, ParseMode: models.ParseModeHTML, ReplyMarkup: markup,
 		})
 	}
 	return sendErr
