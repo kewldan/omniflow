@@ -251,6 +251,10 @@ func orderPaymentMethodView(locale Locale, order OrderSummary, choices []Payment
 	for _, choice := range choices {
 		label := text(locale, "pay.option", providerLabel(locale, choice.Provider), formatMoney(choice.AmountMinor, choice.Currency))
 		rows = append(rows, row(actionButton(label, "order-pm:"+order.ID+":"+choice.Provider)))
+		if choice.CanSaveMethod {
+			saveLabel := text(locale, "pay.optionSave", providerLabel(locale, choice.Provider))
+			rows = append(rows, row(actionButton(saveLabel, "opms:"+compactID(order.ID)+":"+choice.Provider)))
+		}
 	}
 	rows = append(rows, row(actionButton(text(locale, "action.back"), "order:"+order.ID)))
 	return View{Text: text(locale, "pay.choose"), Keyboard: keyboard(rows...)}

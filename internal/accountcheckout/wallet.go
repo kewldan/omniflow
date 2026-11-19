@@ -157,6 +157,15 @@ func (service *Service) StartTopUp(
 	ctx context.Context, customerID, currency string, amountMinor int64,
 	provider, idempotencyKey string,
 ) (TopUp, error) {
+	return service.StartTopUpWith(ctx, customerID, currency, amountMinor, PaymentSelection{Provider: provider}, idempotencyKey)
+}
+
+// StartTopUpWith is StartTopUp with the customer's full payment selection.
+func (service *Service) StartTopUpWith(
+	ctx context.Context, customerID, currency string, amountMinor int64,
+	selection PaymentSelection, idempotencyKey string,
+) (TopUp, error) {
+	provider := selection.Provider
 	if currency == "" {
 		currency = service.settings.Currency
 	}
@@ -186,6 +195,7 @@ func (service *Service) StartTopUp(
 	handle, err := service.StartPayment(ctx, PaymentRequest{
 		OrderID: result.OrderID, Provider: provider,
 		Description: "Wallet top-up", Channel: "customer_web",
+		SaveMethod: selection.SaveMethod,
 	})
 	if err != nil {
 		return result, err

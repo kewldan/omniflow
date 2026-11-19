@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@omniflow/ui/button";
+import { Checkbox } from "@omniflow/ui/checkbox";
 import { ConfirmDialog } from "@omniflow/ui/confirm-dialog";
 import { toast } from "@omniflow/ui/toast";
 import { RefreshCw } from "lucide-react";
@@ -91,6 +92,7 @@ export default function OrderPage() {
   // server knows — the intent's own provider, then the one the checkout
   // recorded — and, only for the redirect straight from the checkout, the URL.
   const [chosenProvider, setChosenProvider] = useState<string>("");
+  const [saveMethod, setSaveMethod] = useState(false);
 
   const choices = data?.paymentChoices ?? [];
   const serverProvider = data?.payment?.provider || data?.preferredProvider || "";
@@ -130,6 +132,8 @@ export default function OrderPage() {
   // provider will actually settle against. Before that, the method is whatever
   // the customer chose from the server's list of what can settle this order.
   const provider = data.payment?.provider || chosenProvider;
+  const saveable =
+    !data.payment && choices.some((choice) => choice.provider === provider && choice.canSaveMethod);
   const owes = data.externalMinor > 0;
   const payable = owes && CANCELLABLE.includes(data.state);
 
@@ -138,7 +142,7 @@ export default function OrderPage() {
     const idempotencyKey = payment.begin();
     try {
       const handle = await apiFetch<PaymentHandle>(`${key}/payment`, {
-        body: JSON.stringify({ provider }),
+        body: JSON.stringify({ provider, saveMethod: saveable && saveMethod }),
         headers: { "Idempotency-Key": idempotencyKey },
         method: "POST",
       });
@@ -246,6 +250,26 @@ export default function OrderPage() {
                 disabled={busy}
                 onChange={setChosenProvider}
               />
+            )}
+            {saveable && (
+              <label
+                className="flex cursor-pointer items-start gap-3 text-[13px]"
+                htmlFor="order-save-method"
+              >
+                <Checkbox
+                  checked={saveMethod}
+                  id="order-save-method"
+                  className="mt-0.5"
+                  disabled={busy}
+                  onCheckedChange={(checked) => setSaveMethod(checked === true)}
+                />
+                <span className="space-y-0.5">
+                  <span className="block font-medium">{translate("order.payment.saveMethod")}</span>
+                  <span className="block text-muted-foreground text-[12.5px]">
+                    {translate("order.payment.saveMethodHint")}
+                  </span>
+                </span>
+              </label>
             )}
             {choices.length > 0 && (
               <Button

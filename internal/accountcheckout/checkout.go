@@ -21,6 +21,18 @@ type PaymentChoice struct {
 	Currency    string
 	AmountMinor int64
 	Recurring   bool
+	// CanSaveMethod is true when the customer may ask, on this checkout, to
+	// keep the instrument for automatic renewal: the adapter binds methods and
+	// the operator enabled recurring after a passing capability test.
+	CanSaveMethod bool
+}
+
+// PaymentSelection is what the customer picked on a payment screen.
+type PaymentSelection struct {
+	Provider string
+	// SaveMethod is the explicit consent to keep the card or mandate for
+	// automatic renewal. It is ignored for a method that cannot bind one.
+	SaveMethod bool
 }
 
 // PaymentChoices lists the methods that can actually settle a plan.
@@ -252,6 +264,8 @@ type PaymentRequest struct {
 	// refund without it, so it is recorded when a Stars payment is started from a
 	// surface that knows the account.
 	TelegramID int64
+	// SaveMethod carries the customer's consent to keep the instrument.
+	SaveMethod bool
 }
 
 // PaymentHandle is the customer-facing result of starting a payment.
@@ -299,12 +313,20 @@ func (service *Service) StartPayment(ctx context.Context, request PaymentRequest
 	if request.Provider == "telegram_stars" && request.TelegramID != 0 {
 		receipt["telegramUserId"] = request.TelegramID
 	}
+	key := "order-" + request.OrderID + "-" + request.Provider
+	saveMethod := request.SaveMethod && service.payments.RecurringAllowed(ctx, request.Provider)
+	if saveMethod {
+		// A payment opened with consent to keep the card is a different
+		// request from one without, so it gets its own key and its own intent.
+		key += "-save"
+	}
 	intent, err := service.payments.CreateIntent(ctx, paymentservice.CreateIntentInput{
 		OrderID: request.OrderID, Provider: request.Provider,
-		IdempotencyKey:  "order-" + request.OrderID + "-" + request.Provider,
+		IdempotencyKey:  key,
 		Description:     request.Description,
 		ReturnURL:       service.returnURL(request.OrderID),
 		ReceiptMetadata: receipt,
+		SaveMethod:      saveMethod,
 	})
 	if err != nil {
 		return PaymentHandle{}, err

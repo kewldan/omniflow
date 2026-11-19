@@ -58,6 +58,42 @@ type yooPayment struct {
 	Confirmation struct {
 		URL string `json:"confirmation_url"`
 	} `json:"confirmation"`
+	PaymentMethod *yooPaymentMethod `json:"payment_method"`
+}
+
+// yooPaymentMethod is the instrument a payment used. `saved` is true only when
+// the payment was created with save_payment_method and the customer's bank
+// allowed the binding; `id` is then the token a later charge presents.
+type yooPaymentMethod struct {
+	Type  string `json:"type"`
+	ID    string `json:"id"`
+	Saved bool   `json:"saved"`
+	Title string `json:"title"`
+	Card  *struct {
+		Last4    string `json:"last4"`
+		CardType string `json:"card_type"`
+	} `json:"card"`
+}
+
+// label is the masked description stored beside a saved method.
+func (method yooPaymentMethod) label() string {
+	if method.Card != nil && method.Card.Last4 != "" {
+		label := strings.TrimSpace(method.Card.CardType + " *" + method.Card.Last4)
+		return truncateLabel(label)
+	}
+	if method.Title != "" {
+		return truncateLabel(method.Title)
+	}
+	return truncateLabel(method.Type)
+}
+
+// truncateLabel bounds a provider-supplied label to the column's limit.
+func truncateLabel(label string) string {
+	runes := []rune(strings.TrimSpace(label))
+	if len(runes) > 64 {
+		runes = runes[:64]
+	}
+	return string(runes)
 }
 
 func (provider *YooKassa) Create(ctx context.Context, request CreateRequest) (Intent, error) {
@@ -71,6 +107,11 @@ func (provider *YooKassa) Create(ctx context.Context, request CreateRequest) (In
 		"confirmation": map[string]string{"type": "redirect", "return_url": request.ReturnURL},
 		"description":  request.Description,
 		"metadata":     map[string]string{"order_id": request.OrderID},
+	}
+	if request.SavePaymentMethod {
+		// Only on the customer's explicit consent. YooKassa then returns
+		// payment_method.saved=true once the bank allowed the binding.
+		body["save_payment_method"] = true
 	}
 	if receipt := provider.receiptBody(request.Description, formatMinor(request.Amount.Amount, exponent), request.Amount.Currency, request.Metadata); receipt != nil {
 		body["receipt"] = receipt
@@ -161,7 +202,11 @@ func (provider *YooKassa) intent(payment yooPayment) (Intent, error) {
 	if err != nil {
 		return Intent{}, err
 	}
-	return Intent{ProviderReference: payment.ID, Status: normalizeYooStatus(payment.Status), CheckoutURL: payment.Confirmation.URL, Amount: commerce.Money{Amount: amount, Currency: payment.Amount.Currency}}, nil
+	intent := Intent{ProviderReference: payment.ID, Status: normalizeYooStatus(payment.Status), CheckoutURL: payment.Confirmation.URL, Amount: commerce.Money{Amount: amount, Currency: payment.Amount.Currency}}
+	if method := payment.PaymentMethod; method != nil && method.Saved && method.ID != "" && intent.Status == "succeeded" {
+		intent.BoundMethod = &BoundMethod{Token: method.ID, Label: method.label()}
+	}
+	return intent, nil
 }
 
 func normalizeYooStatus(status string) string {

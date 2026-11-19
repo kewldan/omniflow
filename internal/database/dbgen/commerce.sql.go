@@ -661,24 +661,25 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order
 const createPaymentIntent = `-- name: CreatePaymentIntent :one
 INSERT INTO payment_intents (
   order_id, provider, status, amount_minor, currency, provider_reference,
-  checkout_url, idempotency_key, capabilities, receipt_metadata
+  checkout_url, idempotency_key, capabilities, receipt_metadata, save_method_consent_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 ON CONFLICT (provider, idempotency_key) DO UPDATE SET idempotency_key = EXCLUDED.idempotency_key
-RETURNING id, order_id, provider, status, amount_minor, currency, provider_reference, checkout_url, idempotency_key, capabilities, receipt_metadata, created_at, updated_at
+RETURNING id, order_id, provider, status, amount_minor, currency, provider_reference, checkout_url, idempotency_key, capabilities, receipt_metadata, created_at, updated_at, save_method_consent_at
 `
 
 type CreatePaymentIntentParams struct {
-	OrderID           pgtype.UUID `json:"order_id"`
-	Provider          string      `json:"provider"`
-	Status            string      `json:"status"`
-	AmountMinor       int64       `json:"amount_minor"`
-	Currency          string      `json:"currency"`
-	ProviderReference pgtype.Text `json:"provider_reference"`
-	CheckoutUrl       pgtype.Text `json:"checkout_url"`
-	IdempotencyKey    string      `json:"idempotency_key"`
-	Capabilities      []byte      `json:"capabilities"`
-	ReceiptMetadata   []byte      `json:"receipt_metadata"`
+	OrderID             pgtype.UUID        `json:"order_id"`
+	Provider            string             `json:"provider"`
+	Status              string             `json:"status"`
+	AmountMinor         int64              `json:"amount_minor"`
+	Currency            string             `json:"currency"`
+	ProviderReference   pgtype.Text        `json:"provider_reference"`
+	CheckoutUrl         pgtype.Text        `json:"checkout_url"`
+	IdempotencyKey      string             `json:"idempotency_key"`
+	Capabilities        []byte             `json:"capabilities"`
+	ReceiptMetadata     []byte             `json:"receipt_metadata"`
+	SaveMethodConsentAt pgtype.Timestamptz `json:"save_method_consent_at"`
 }
 
 func (q *Queries) CreatePaymentIntent(ctx context.Context, arg CreatePaymentIntentParams) (PaymentIntent, error) {
@@ -693,6 +694,7 @@ func (q *Queries) CreatePaymentIntent(ctx context.Context, arg CreatePaymentInte
 		arg.IdempotencyKey,
 		arg.Capabilities,
 		arg.ReceiptMetadata,
+		arg.SaveMethodConsentAt,
 	)
 	var i PaymentIntent
 	err := row.Scan(
@@ -709,6 +711,7 @@ func (q *Queries) CreatePaymentIntent(ctx context.Context, arg CreatePaymentInte
 		&i.ReceiptMetadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SaveMethodConsentAt,
 	)
 	return i, err
 }
@@ -1324,7 +1327,7 @@ func (q *Queries) GetLedgerTransactionByIdempotency(ctx context.Context, idempot
 }
 
 const getOpenPaymentIntentByPayerTelegram = `-- name: GetOpenPaymentIntentByPayerTelegram :one
-SELECT pi.id, pi.order_id, pi.provider, pi.status, pi.amount_minor, pi.currency, pi.provider_reference, pi.checkout_url, pi.idempotency_key, pi.capabilities, pi.receipt_metadata, pi.created_at, pi.updated_at
+SELECT pi.id, pi.order_id, pi.provider, pi.status, pi.amount_minor, pi.currency, pi.provider_reference, pi.checkout_url, pi.idempotency_key, pi.capabilities, pi.receipt_metadata, pi.created_at, pi.updated_at, pi.save_method_consent_at
 FROM payment_intents pi
 JOIN orders o ON o.id = pi.order_id
 JOIN identities i ON i.user_id = o.user_id AND i.provider = 'telegram' AND i.status = 'active'
@@ -1370,6 +1373,7 @@ func (q *Queries) GetOpenPaymentIntentByPayerTelegram(ctx context.Context, arg G
 		&i.ReceiptMetadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SaveMethodConsentAt,
 	)
 	return i, err
 }
@@ -1481,7 +1485,7 @@ func (q *Queries) GetOrderEntitlementSpec(ctx context.Context, orderID pgtype.UU
 }
 
 const getPaymentIntent = `-- name: GetPaymentIntent :one
-SELECT id, order_id, provider, status, amount_minor, currency, provider_reference, checkout_url, idempotency_key, capabilities, receipt_metadata, created_at, updated_at FROM payment_intents WHERE id = $1
+SELECT id, order_id, provider, status, amount_minor, currency, provider_reference, checkout_url, idempotency_key, capabilities, receipt_metadata, created_at, updated_at, save_method_consent_at FROM payment_intents WHERE id = $1
 `
 
 func (q *Queries) GetPaymentIntent(ctx context.Context, id pgtype.UUID) (PaymentIntent, error) {
@@ -1501,12 +1505,13 @@ func (q *Queries) GetPaymentIntent(ctx context.Context, id pgtype.UUID) (Payment
 		&i.ReceiptMetadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SaveMethodConsentAt,
 	)
 	return i, err
 }
 
 const getPaymentIntentByIdempotency = `-- name: GetPaymentIntentByIdempotency :one
-SELECT id, order_id, provider, status, amount_minor, currency, provider_reference, checkout_url, idempotency_key, capabilities, receipt_metadata, created_at, updated_at FROM payment_intents WHERE provider = $1 AND idempotency_key = $2
+SELECT id, order_id, provider, status, amount_minor, currency, provider_reference, checkout_url, idempotency_key, capabilities, receipt_metadata, created_at, updated_at, save_method_consent_at FROM payment_intents WHERE provider = $1 AND idempotency_key = $2
 `
 
 type GetPaymentIntentByIdempotencyParams struct {
@@ -1531,12 +1536,13 @@ func (q *Queries) GetPaymentIntentByIdempotency(ctx context.Context, arg GetPaym
 		&i.ReceiptMetadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SaveMethodConsentAt,
 	)
 	return i, err
 }
 
 const getPaymentIntentByOrderProvider = `-- name: GetPaymentIntentByOrderProvider :one
-SELECT id, order_id, provider, status, amount_minor, currency, provider_reference, checkout_url, idempotency_key, capabilities, receipt_metadata, created_at, updated_at FROM payment_intents WHERE order_id = $1 AND provider = $2 ORDER BY created_at DESC LIMIT 1
+SELECT id, order_id, provider, status, amount_minor, currency, provider_reference, checkout_url, idempotency_key, capabilities, receipt_metadata, created_at, updated_at, save_method_consent_at FROM payment_intents WHERE order_id = $1 AND provider = $2 ORDER BY created_at DESC LIMIT 1
 `
 
 type GetPaymentIntentByOrderProviderParams struct {
@@ -1561,12 +1567,13 @@ func (q *Queries) GetPaymentIntentByOrderProvider(ctx context.Context, arg GetPa
 		&i.ReceiptMetadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SaveMethodConsentAt,
 	)
 	return i, err
 }
 
 const getPaymentIntentByProviderReference = `-- name: GetPaymentIntentByProviderReference :one
-SELECT id, order_id, provider, status, amount_minor, currency, provider_reference, checkout_url, idempotency_key, capabilities, receipt_metadata, created_at, updated_at FROM payment_intents WHERE provider = $1 AND provider_reference = $2
+SELECT id, order_id, provider, status, amount_minor, currency, provider_reference, checkout_url, idempotency_key, capabilities, receipt_metadata, created_at, updated_at, save_method_consent_at FROM payment_intents WHERE provider = $1 AND provider_reference = $2
 `
 
 type GetPaymentIntentByProviderReferenceParams struct {
@@ -1591,6 +1598,7 @@ func (q *Queries) GetPaymentIntentByProviderReference(ctx context.Context, arg G
 		&i.ReceiptMetadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SaveMethodConsentAt,
 	)
 	return i, err
 }
@@ -2810,7 +2818,7 @@ func (q *Queries) ListOpenEntitlementDrifts(ctx context.Context, limit int32) ([
 }
 
 const listPaymentIntentsForReconciliation = `-- name: ListPaymentIntentsForReconciliation :many
-SELECT pi.id, pi.order_id, pi.provider, pi.status, pi.amount_minor, pi.currency, pi.provider_reference, pi.checkout_url, pi.idempotency_key, pi.capabilities, pi.receipt_metadata, pi.created_at, pi.updated_at FROM payment_intents pi
+SELECT pi.id, pi.order_id, pi.provider, pi.status, pi.amount_minor, pi.currency, pi.provider_reference, pi.checkout_url, pi.idempotency_key, pi.capabilities, pi.receipt_metadata, pi.created_at, pi.updated_at, pi.save_method_consent_at FROM payment_intents pi
 WHERE pi.provider IN ('cryptobot','yookassa')
   AND pi.provider_reference IS NOT NULL AND pi.updated_at < now() - interval '1 minute'
   AND (
@@ -2852,6 +2860,7 @@ func (q *Queries) ListPaymentIntentsForReconciliation(ctx context.Context, limit
 			&i.ReceiptMetadata,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.SaveMethodConsentAt,
 		); err != nil {
 			return nil, err
 		}
@@ -3905,7 +3914,7 @@ UPDATE payment_intents
 SET status = $1, provider_reference = COALESCE($2, provider_reference),
     checkout_url = COALESCE($3, checkout_url), updated_at = now()
 WHERE id = $4
-RETURNING id, order_id, provider, status, amount_minor, currency, provider_reference, checkout_url, idempotency_key, capabilities, receipt_metadata, created_at, updated_at
+RETURNING id, order_id, provider, status, amount_minor, currency, provider_reference, checkout_url, idempotency_key, capabilities, receipt_metadata, created_at, updated_at, save_method_consent_at
 `
 
 type UpdatePaymentIntentStatusParams struct {
@@ -3937,6 +3946,7 @@ func (q *Queries) UpdatePaymentIntentStatus(ctx context.Context, arg UpdatePayme
 		&i.ReceiptMetadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SaveMethodConsentAt,
 	)
 	return i, err
 }

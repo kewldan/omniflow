@@ -30,6 +30,19 @@ type CreateRequest struct {
 	Description    string
 	ReturnURL      string
 	Metadata       map[string]string
+	// SavePaymentMethod asks the provider to keep the instrument for later
+	// charges without the customer present. It is set only when the customer
+	// ticked the consent on this very checkout; an adapter that cannot bind
+	// a method ignores it, and the checkout proceeds as an ordinary payment.
+	SavePaymentMethod bool
+}
+
+// BoundMethod is the reusable token a provider issued for an instrument the
+// customer asked to keep. Label is the masked description the provider gave
+// (scheme and last digits) and never more.
+type BoundMethod struct {
+	Token string
+	Label string
 }
 
 type Intent struct {
@@ -39,6 +52,10 @@ type Intent struct {
 	Amount            commerce.Money
 	ExpiresAt         *time.Time
 	Metadata          map[string]string
+	// BoundMethod is set when the provider confirms it kept the instrument
+	// for recurring charges. Only an authenticated read (a poll or a
+	// synchronous create) may carry it.
+	BoundMethod *BoundMethod
 }
 
 type RefundRequest struct {

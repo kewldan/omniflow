@@ -8291,6 +8291,12 @@ export const GetAccountCheckoutResponse = zod.object({
       currency: zod.string(),
       amountMinor: zod.int().optional(),
       recurring: zod.boolean(),
+      canSaveMethod: zod
+        .boolean()
+        .optional()
+        .describe(
+          "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
+        ),
     }),
   ),
   applyWallet: zod.boolean(),
@@ -8455,6 +8461,12 @@ export const OpenAccountCheckoutResponse = zod.object({
       currency: zod.string(),
       amountMinor: zod.int().optional(),
       recurring: zod.boolean(),
+      canSaveMethod: zod
+        .boolean()
+        .optional()
+        .describe(
+          "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
+        ),
     }),
   ),
   applyWallet: zod.boolean(),
@@ -8618,6 +8630,12 @@ export const UpdateAccountCheckoutResponse = zod.object({
       currency: zod.string(),
       amountMinor: zod.int().optional(),
       recurring: zod.boolean(),
+      canSaveMethod: zod
+        .boolean()
+        .optional()
+        .describe(
+          "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
+        ),
     }),
   ),
   applyWallet: zod.boolean(),
@@ -8785,6 +8803,12 @@ export const ApplyAccountPromoCodeResponse = zod.object({
       currency: zod.string(),
       amountMinor: zod.int().optional(),
       recurring: zod.boolean(),
+      canSaveMethod: zod
+        .boolean()
+        .optional()
+        .describe(
+          "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
+        ),
     }),
   ),
   applyWallet: zod.boolean(),
@@ -8937,6 +8961,12 @@ export const RemoveAccountPromoCodeResponse = zod.object({
       currency: zod.string(),
       amountMinor: zod.int().optional(),
       recurring: zod.boolean(),
+      canSaveMethod: zod
+        .boolean()
+        .optional()
+        .describe(
+          "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
+        ),
     }),
   ),
   applyWallet: zod.boolean(),
@@ -9093,6 +9123,12 @@ export const ToggleAccountCheckoutAddonResponse = zod.object({
       currency: zod.string(),
       amountMinor: zod.int().optional(),
       recurring: zod.boolean(),
+      canSaveMethod: zod
+        .boolean()
+        .optional()
+        .describe(
+          "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
+        ),
     }),
   ),
   applyWallet: zod.boolean(),
@@ -9270,6 +9306,12 @@ export const ConfirmAccountCheckoutResponse = zod.object({
         currency: zod.string(),
         amountMinor: zod.int().optional(),
         recurring: zod.boolean(),
+        canSaveMethod: zod
+          .boolean()
+          .optional()
+          .describe(
+            "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
+          ),
       }),
     )
     .optional()
@@ -9362,6 +9404,12 @@ export const ListAccountOrdersResponse = zod.object({
             currency: zod.string(),
             amountMinor: zod.int().optional(),
             recurring: zod.boolean(),
+            canSaveMethod: zod
+              .boolean()
+              .optional()
+              .describe(
+                "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
+              ),
           }),
         )
         .optional()
@@ -9458,6 +9506,12 @@ export const GetAccountOrderResponse = zod.object({
         currency: zod.string(),
         amountMinor: zod.int().optional(),
         recurring: zod.boolean(),
+        canSaveMethod: zod
+          .boolean()
+          .optional()
+          .describe(
+            "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
+          ),
       }),
     )
     .optional()
@@ -9494,6 +9548,12 @@ export const StartAccountOrderPaymentHeader = zod.object({
 
 export const StartAccountOrderPaymentBody = zod.object({
   provider: zod.string().optional(),
+  saveMethod: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Explicit consent to keep the instrument for automatic renewal. Ignored for a method that cannot bind one.",
+    ),
 });
 
 export const StartAccountOrderPaymentResponse = zod.object({
@@ -9590,6 +9650,12 @@ export const RefreshAccountOrderResponse = zod.object({
         currency: zod.string(),
         amountMinor: zod.int().optional(),
         recurring: zod.boolean(),
+        canSaveMethod: zod
+          .boolean()
+          .optional()
+          .describe(
+            "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
+          ),
       }),
     )
     .optional()
@@ -9657,6 +9723,12 @@ export const GetAccountWalletResponse = zod.object({
         currency: zod.string(),
         amountMinor: zod.int().optional(),
         recurring: zod.boolean(),
+        canSaveMethod: zod
+          .boolean()
+          .optional()
+          .describe(
+            "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
+          ),
       }),
     ),
   }),
@@ -9739,6 +9811,12 @@ export const GetAccountWalletResponse = zod.object({
               currency: zod.string(),
               amountMinor: zod.int().optional(),
               recurring: zod.boolean(),
+              canSaveMethod: zod
+                .boolean()
+                .optional()
+                .describe(
+                  "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
+                ),
             }),
           )
           .optional()
@@ -9855,6 +9933,168 @@ export const AccountRedeemCodeResponse = zod.object({
 });
 
 /**
+ * Automatic renewal per subscription and the customer's saved payment methods. The same rows the bot's auto-renew screen reads. A saved method carries only the provider's masked label, never a card number.
+ */
+export const GetAccountRenewalResponse = zod.object({
+  available: zod.boolean(),
+  methods: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      provider: zod.string(),
+      label: zod.string(),
+      status: zod.enum(["active", "expired", "failed", "revoked"]),
+      isDefault: zod.boolean(),
+      createdAt: zod.iso.datetime({ offset: true }),
+    }),
+  ),
+  subscriptions: zod.array(
+    zod.object({
+      subscriptionId: zod.uuid(),
+      label: zod.string(),
+      planName: zod.string(),
+      endsAt: zod.iso.datetime({ offset: true }).optional(),
+      supported: zod.boolean(),
+      enabled: zod.boolean(),
+      funding: zod.enum(["wallet", "saved_method"]),
+      leadTimeHours: zod.int(),
+      state: zod.enum(["idle", "scheduled", "dunning", "suspended"]),
+      methodLabel: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * Turns automatic renewal on or off for one of the customer's own subscriptions, chooses whether it is paid from the wallet or a saved method, and sets how many hours before expiry it is attempted (clamped to at most 14 days). Turning it on records the customer's consent. `422 recurring_unavailable` when no configured method can charge the plan again; `422 no_saved_method` when card funding is chosen with no saved card.
+ */
+export const UpdateAccountRenewalParams = zod.object({
+  subscriptionID: zod.uuid(),
+});
+
+export const UpdateAccountRenewalHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const updateAccountRenewalBodyLeadTimeHoursMax = 336;
+
+export const UpdateAccountRenewalBody = zod.object({
+  enabled: zod.boolean().optional(),
+  funding: zod.enum(["wallet", "saved_method"]).optional(),
+  leadTimeHours: zod.int().min(1).max(updateAccountRenewalBodyLeadTimeHoursMax).optional(),
+});
+
+export const UpdateAccountRenewalResponse = zod.object({
+  available: zod.boolean(),
+  methods: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      provider: zod.string(),
+      label: zod.string(),
+      status: zod.enum(["active", "expired", "failed", "revoked"]),
+      isDefault: zod.boolean(),
+      createdAt: zod.iso.datetime({ offset: true }),
+    }),
+  ),
+  subscriptions: zod.array(
+    zod.object({
+      subscriptionId: zod.uuid(),
+      label: zod.string(),
+      planName: zod.string(),
+      endsAt: zod.iso.datetime({ offset: true }).optional(),
+      supported: zod.boolean(),
+      enabled: zod.boolean(),
+      funding: zod.enum(["wallet", "saved_method"]),
+      leadTimeHours: zod.int(),
+      state: zod.enum(["idle", "scheduled", "dunning", "suspended"]),
+      methodLabel: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * Makes one saved method the one automatic renewal charges.
+ */
+export const SetAccountDefaultPaymentMethodParams = zod.object({
+  methodID: zod.uuid(),
+});
+
+export const SetAccountDefaultPaymentMethodHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const SetAccountDefaultPaymentMethodResponse = zod.object({
+  available: zod.boolean(),
+  methods: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      provider: zod.string(),
+      label: zod.string(),
+      status: zod.enum(["active", "expired", "failed", "revoked"]),
+      isDefault: zod.boolean(),
+      createdAt: zod.iso.datetime({ offset: true }),
+    }),
+  ),
+  subscriptions: zod.array(
+    zod.object({
+      subscriptionId: zod.uuid(),
+      label: zod.string(),
+      planName: zod.string(),
+      endsAt: zod.iso.datetime({ offset: true }).optional(),
+      supported: zod.boolean(),
+      enabled: zod.boolean(),
+      funding: zod.enum(["wallet", "saved_method"]),
+      leadTimeHours: zod.int(),
+      state: zod.enum(["idle", "scheduled", "dunning", "suspended"]),
+      methodLabel: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * Revokes a saved method. Renewal that depended on it falls back to the customer's next active method, or is suspended when none remains.
+ */
+export const RemoveAccountPaymentMethodParams = zod.object({
+  methodID: zod.uuid(),
+});
+
+export const RemoveAccountPaymentMethodHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const RemoveAccountPaymentMethodResponse = zod.object({
+  available: zod.boolean(),
+  methods: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      provider: zod.string(),
+      label: zod.string(),
+      status: zod.enum(["active", "expired", "failed", "revoked"]),
+      isDefault: zod.boolean(),
+      createdAt: zod.iso.datetime({ offset: true }),
+    }),
+  ),
+  subscriptions: zod.array(
+    zod.object({
+      subscriptionId: zod.uuid(),
+      label: zod.string(),
+      planName: zod.string(),
+      endsAt: zod.iso.datetime({ offset: true }).optional(),
+      supported: zod.boolean(),
+      enabled: zod.boolean(),
+      funding: zod.enum(["wallet", "saved_method"]),
+      leadTimeHours: zod.int(),
+      state: zod.enum(["idle", "scheduled", "dunning", "suspended"]),
+      methodLabel: zod.string(),
+    }),
+  ),
+});
+
+/**
  * Opens a top-up order through the same order, webhook, and reconciliation pipeline a plan uses. The caller's key becomes the order's key, so a retried request credits the same top-up rather than a second one. The order and its payment are two steps: when the order exists but the provider refused the intent, the response is still `201` with the order and `paymentProblem` in place of `payment`, because the order is the customer's and can be paid from its own screen by any method that settles it.
  */
 export const startAccountTopUpHeaderIdempotencyKeyMin = 8;
@@ -9874,6 +10114,10 @@ export const StartAccountTopUpBody = zod.object({
   amountMinor: zod.int().min(1),
   currency: zod.string().optional(),
   provider: zod.string().optional(),
+  saveMethod: zod
+    .boolean()
+    .optional()
+    .describe("Explicit consent to keep the instrument for automatic renewal."),
 });
 
 export const StartAccountTopUpResponse = zod.object({

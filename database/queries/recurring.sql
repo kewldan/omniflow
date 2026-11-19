@@ -34,6 +34,30 @@ SET display_label = EXCLUDED.display_label,
     updated_at = now()
 RETURNING *;
 
+-- name: BindPaymentMethodFromIntent :one
+-- Binds the token a provider issued on a payment the customer explicitly asked
+-- to keep. The intent reference makes it traceable, and the conflict rule keeps
+-- a replayed settlement from producing a second row for the same binding. The
+-- method becomes the default only when the customer has no other default, so a
+-- second card never silently replaces the one auto-renew already uses.
+INSERT INTO payment_methods (
+  user_id, provider, merchant_id, provider_token, display_label, consent_at,
+  source_payment_intent_id, is_default
+) VALUES (
+  sqlc.arg(user_id), sqlc.arg(provider), sqlc.arg(merchant_id),
+  sqlc.arg(provider_token), sqlc.arg(display_label), sqlc.arg(consent_at),
+  sqlc.arg(source_payment_intent_id),
+  NOT EXISTS (
+    SELECT 1 FROM payment_methods existing
+    WHERE existing.user_id = sqlc.arg(user_id) AND existing.is_default AND existing.status = 'active'
+  )
+)
+ON CONFLICT (provider, merchant_id, provider_token) DO UPDATE
+SET display_label = CASE WHEN EXCLUDED.display_label = '' THEN payment_methods.display_label ELSE EXCLUDED.display_label END,
+    updated_at = now()
+WHERE payment_methods.user_id = EXCLUDED.user_id
+RETURNING *;
+
 -- name: ClearDefaultPaymentMethod :exec
 UPDATE payment_methods
 SET is_default = false, updated_at = now()

@@ -736,6 +736,30 @@ func (e AccountReferralsRewardsItemsState) Valid() bool {
 	}
 }
 
+// Defines values for AccountSavedMethodStatus.
+const (
+	AccountSavedMethodStatusActive  AccountSavedMethodStatus = "active"
+	AccountSavedMethodStatusExpired AccountSavedMethodStatus = "expired"
+	AccountSavedMethodStatusFailed  AccountSavedMethodStatus = "failed"
+	AccountSavedMethodStatusRevoked AccountSavedMethodStatus = "revoked"
+)
+
+// Valid indicates whether the value is a known member of the AccountSavedMethodStatus enum.
+func (e AccountSavedMethodStatus) Valid() bool {
+	switch e {
+	case AccountSavedMethodStatusActive:
+		return true
+	case AccountSavedMethodStatusExpired:
+		return true
+	case AccountSavedMethodStatusFailed:
+		return true
+	case AccountSavedMethodStatusRevoked:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AccountSecurityEventListItemsEvent.
 const (
 	DeviceRemoved          AccountSecurityEventListItemsEvent = "device_removed"
@@ -979,6 +1003,48 @@ func (e AccountSubscriptionPhase) Valid() bool {
 	case AccountSubscriptionPhaseNone:
 		return true
 	case AccountSubscriptionPhaseProvisioning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountSubscriptionRenewalFunding.
+const (
+	AccountSubscriptionRenewalFundingSavedMethod AccountSubscriptionRenewalFunding = "saved_method"
+	AccountSubscriptionRenewalFundingWallet      AccountSubscriptionRenewalFunding = "wallet"
+)
+
+// Valid indicates whether the value is a known member of the AccountSubscriptionRenewalFunding enum.
+func (e AccountSubscriptionRenewalFunding) Valid() bool {
+	switch e {
+	case AccountSubscriptionRenewalFundingSavedMethod:
+		return true
+	case AccountSubscriptionRenewalFundingWallet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountSubscriptionRenewalState.
+const (
+	AccountSubscriptionRenewalStateDunning   AccountSubscriptionRenewalState = "dunning"
+	AccountSubscriptionRenewalStateIdle      AccountSubscriptionRenewalState = "idle"
+	AccountSubscriptionRenewalStateScheduled AccountSubscriptionRenewalState = "scheduled"
+	AccountSubscriptionRenewalStateSuspended AccountSubscriptionRenewalState = "suspended"
+)
+
+// Valid indicates whether the value is a known member of the AccountSubscriptionRenewalState enum.
+func (e AccountSubscriptionRenewalState) Valid() bool {
+	switch e {
+	case AccountSubscriptionRenewalStateDunning:
+		return true
+	case AccountSubscriptionRenewalStateIdle:
+		return true
+	case AccountSubscriptionRenewalStateScheduled:
+		return true
+	case AccountSubscriptionRenewalStateSuspended:
 		return true
 	default:
 		return false
@@ -2148,16 +2214,16 @@ func (e PanelDeliveryStatus) Valid() bool {
 
 // Defines values for PanelDunningAttemptFunding.
 const (
-	SavedMethod PanelDunningAttemptFunding = "saved_method"
-	Wallet      PanelDunningAttemptFunding = "wallet"
+	PanelDunningAttemptFundingSavedMethod PanelDunningAttemptFunding = "saved_method"
+	PanelDunningAttemptFundingWallet      PanelDunningAttemptFunding = "wallet"
 )
 
 // Valid indicates whether the value is a known member of the PanelDunningAttemptFunding enum.
 func (e PanelDunningAttemptFunding) Valid() bool {
 	switch e {
-	case SavedMethod:
+	case PanelDunningAttemptFundingSavedMethod:
 		return true
-	case Wallet:
+	case PanelDunningAttemptFundingWallet:
 		return true
 	default:
 		return false
@@ -4153,6 +4219,24 @@ func (e RequestAccountDeletionJSONBodyConfirm) Valid() bool {
 	}
 }
 
+// Defines values for UpdateAccountRenewalJSONBodyFunding.
+const (
+	UpdateAccountRenewalJSONBodyFundingSavedMethod UpdateAccountRenewalJSONBodyFunding = "saved_method"
+	UpdateAccountRenewalJSONBodyFundingWallet      UpdateAccountRenewalJSONBodyFunding = "wallet"
+)
+
+// Valid indicates whether the value is a known member of the UpdateAccountRenewalJSONBodyFunding enum.
+func (e UpdateAccountRenewalJSONBodyFunding) Valid() bool {
+	switch e {
+	case UpdateAccountRenewalJSONBodyFundingSavedMethod:
+		return true
+	case UpdateAccountRenewalJSONBodyFundingWallet:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListAccountShopOrdersParamsLocale.
 const (
 	ListAccountShopOrdersParamsLocaleEn ListAccountShopOrdersParamsLocale = "en"
@@ -5397,9 +5481,12 @@ type AccountOverview struct {
 // AccountPaymentChoice defines model for AccountPaymentChoice.
 type AccountPaymentChoice struct {
 	AmountMinor *int64 `json:"amountMinor,omitempty"`
-	Currency    string `json:"currency"`
-	Provider    string `json:"provider"`
-	Recurring   bool   `json:"recurring"`
+
+	// CanSaveMethod The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.
+	CanSaveMethod *bool  `json:"canSaveMethod,omitempty"`
+	Currency      string `json:"currency"`
+	Provider      string `json:"provider"`
+	Recurring     bool   `json:"recurring"`
 }
 
 // AccountPaymentHandle defines model for AccountPaymentHandle.
@@ -5694,6 +5781,26 @@ type AccountReferralsRewardsItemsRole string
 // AccountReferralsRewardsItemsState defines model for AccountReferrals.Rewards.Items.State.
 type AccountReferralsRewardsItemsState string
 
+// AccountRenewal defines model for AccountRenewal.
+type AccountRenewal struct {
+	Available     bool                         `json:"available"`
+	Methods       []AccountSavedMethod         `json:"methods"`
+	Subscriptions []AccountSubscriptionRenewal `json:"subscriptions"`
+}
+
+// AccountSavedMethod defines model for AccountSavedMethod.
+type AccountSavedMethod struct {
+	CreatedAt time.Time                `json:"createdAt"`
+	Id        openapi_types.UUID       `json:"id"`
+	IsDefault bool                     `json:"isDefault"`
+	Label     string                   `json:"label"`
+	Provider  string                   `json:"provider"`
+	Status    AccountSavedMethodStatus `json:"status"`
+}
+
+// AccountSavedMethodStatus defines model for AccountSavedMethod.Status.
+type AccountSavedMethodStatus string
+
 // AccountSecurityEventList defines model for AccountSecurityEventList.
 type AccountSecurityEventList struct {
 	Items []struct {
@@ -5966,6 +6073,26 @@ type AccountSubscription struct {
 
 // AccountSubscriptionPhase defines model for AccountSubscription.Phase.
 type AccountSubscriptionPhase string
+
+// AccountSubscriptionRenewal defines model for AccountSubscriptionRenewal.
+type AccountSubscriptionRenewal struct {
+	Enabled        bool                              `json:"enabled"`
+	EndsAt         *time.Time                        `json:"endsAt,omitempty"`
+	Funding        AccountSubscriptionRenewalFunding `json:"funding"`
+	Label          string                            `json:"label"`
+	LeadTimeHours  int                               `json:"leadTimeHours"`
+	MethodLabel    string                            `json:"methodLabel"`
+	PlanName       string                            `json:"planName"`
+	State          AccountSubscriptionRenewalState   `json:"state"`
+	SubscriptionId openapi_types.UUID                `json:"subscriptionId"`
+	Supported      bool                              `json:"supported"`
+}
+
+// AccountSubscriptionRenewalFunding defines model for AccountSubscriptionRenewal.Funding.
+type AccountSubscriptionRenewalFunding string
+
+// AccountSubscriptionRenewalState defines model for AccountSubscriptionRenewal.State.
+type AccountSubscriptionRenewalState string
 
 // AccountSupportLimits defines model for AccountSupportLimits.
 type AccountSupportLimits struct {
@@ -9662,6 +9789,9 @@ type CancelAccountOrderParams struct {
 // StartAccountOrderPaymentJSONBody defines parameters for StartAccountOrderPayment.
 type StartAccountOrderPaymentJSONBody struct {
 	Provider *string `json:"provider,omitempty"`
+
+	// SaveMethod Explicit consent to keep the instrument for automatic renewal. Ignored for a method that cannot bind one.
+	SaveMethod *bool `json:"saveMethod,omitempty"`
 }
 
 // StartAccountOrderPaymentParams defines parameters for StartAccountOrderPayment.
@@ -9684,6 +9814,18 @@ type GetAccountOverviewParams struct {
 
 // GetAccountOverviewParamsLocale defines parameters for GetAccountOverview.
 type GetAccountOverviewParamsLocale string
+
+// RemoveAccountPaymentMethodParams defines parameters for RemoveAccountPaymentMethod.
+type RemoveAccountPaymentMethodParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// SetAccountDefaultPaymentMethodParams defines parameters for SetAccountDefaultPaymentMethod.
+type SetAccountDefaultPaymentMethodParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
 
 // ListAccountPlansParams defines parameters for ListAccountPlans.
 type ListAccountPlansParams struct {
@@ -9750,6 +9892,22 @@ type GetAccountReferralsParams struct {
 type AttributeAccountReferralJSONBody struct {
 	Code string `json:"code"`
 }
+
+// UpdateAccountRenewalJSONBody defines parameters for UpdateAccountRenewal.
+type UpdateAccountRenewalJSONBody struct {
+	Enabled       *bool                                `json:"enabled,omitempty"`
+	Funding       *UpdateAccountRenewalJSONBodyFunding `json:"funding,omitempty"`
+	LeadTimeHours *int                                 `json:"leadTimeHours,omitempty"`
+}
+
+// UpdateAccountRenewalParams defines parameters for UpdateAccountRenewal.
+type UpdateAccountRenewalParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// UpdateAccountRenewalJSONBodyFunding defines parameters for UpdateAccountRenewal.
+type UpdateAccountRenewalJSONBodyFunding string
 
 // ListAccountSecurityEventsParams defines parameters for ListAccountSecurityEvents.
 type ListAccountSecurityEventsParams struct {
@@ -10007,6 +10165,9 @@ type StartAccountTopUpJSONBody struct {
 	AmountMinor int64   `json:"amountMinor"`
 	Currency    *string `json:"currency,omitempty"`
 	Provider    *string `json:"provider,omitempty"`
+
+	// SaveMethod Explicit consent to keep the instrument for automatic renewal.
+	SaveMethod *bool `json:"saveMethod,omitempty"`
 }
 
 // StartAccountTopUpParams defines parameters for StartAccountTopUp.
@@ -11409,6 +11570,9 @@ type RequestAccountDeletionJSONRequestBody RequestAccountDeletionJSONBody
 // AttributeAccountReferralJSONRequestBody defines body for AttributeAccountReferral for application/json ContentType.
 type AttributeAccountReferralJSONRequestBody AttributeAccountReferralJSONBody
 
+// UpdateAccountRenewalJSONRequestBody defines body for UpdateAccountRenewal for application/json ContentType.
+type UpdateAccountRenewalJSONRequestBody UpdateAccountRenewalJSONBody
+
 // SaveAccountShopCartJSONRequestBody defines body for SaveAccountShopCart for application/json ContentType.
 type SaveAccountShopCartJSONRequestBody SaveAccountShopCartJSONBody
 
@@ -11990,6 +12154,12 @@ type ServerInterface interface {
 	// (GET /v1/account/overview)
 	GetAccountOverview(w http.ResponseWriter, r *http.Request, params GetAccountOverviewParams)
 
+	// (DELETE /v1/account/payment-methods/{methodID})
+	RemoveAccountPaymentMethod(w http.ResponseWriter, r *http.Request, methodID openapi_types.UUID, params RemoveAccountPaymentMethodParams)
+
+	// (POST /v1/account/payment-methods/{methodID}/default)
+	SetAccountDefaultPaymentMethod(w http.ResponseWriter, r *http.Request, methodID openapi_types.UUID, params SetAccountDefaultPaymentMethodParams)
+
 	// (GET /v1/account/plans)
 	ListAccountPlans(w http.ResponseWriter, r *http.Request, params ListAccountPlansParams)
 
@@ -12022,6 +12192,12 @@ type ServerInterface interface {
 
 	// (POST /v1/account/referrals/attribution)
 	AttributeAccountReferral(w http.ResponseWriter, r *http.Request)
+
+	// (GET /v1/account/renewal)
+	GetAccountRenewal(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /v1/account/renewal/{subscriptionID})
+	UpdateAccountRenewal(w http.ResponseWriter, r *http.Request, subscriptionID openapi_types.UUID, params UpdateAccountRenewalParams)
 
 	// (GET /v1/account/security-events)
 	ListAccountSecurityEvents(w http.ResponseWriter, r *http.Request, params ListAccountSecurityEventsParams)
@@ -13064,6 +13240,16 @@ func (_ Unimplemented) GetAccountOverview(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (DELETE /v1/account/payment-methods/{methodID})
+func (_ Unimplemented) RemoveAccountPaymentMethod(w http.ResponseWriter, r *http.Request, methodID openapi_types.UUID, params RemoveAccountPaymentMethodParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/payment-methods/{methodID}/default)
+func (_ Unimplemented) SetAccountDefaultPaymentMethod(w http.ResponseWriter, r *http.Request, methodID openapi_types.UUID, params SetAccountDefaultPaymentMethodParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /v1/account/plans)
 func (_ Unimplemented) ListAccountPlans(w http.ResponseWriter, r *http.Request, params ListAccountPlansParams) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -13116,6 +13302,16 @@ func (_ Unimplemented) GetAccountReferrals(w http.ResponseWriter, r *http.Reques
 
 // (POST /v1/account/referrals/attribution)
 func (_ Unimplemented) AttributeAccountReferral(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/renewal)
+func (_ Unimplemented) GetAccountRenewal(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /v1/account/renewal/{subscriptionID})
+func (_ Unimplemented) UpdateAccountRenewal(w http.ResponseWriter, r *http.Request, subscriptionID openapi_types.UUID, params UpdateAccountRenewalParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -16043,6 +16239,114 @@ func (siw *ServerInterfaceWrapper) GetAccountOverview(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// RemoveAccountPaymentMethod operation middleware
+func (siw *ServerInterfaceWrapper) RemoveAccountPaymentMethod(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "methodID" -------------
+	var methodID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "methodID", chi.URLParam(r, "methodID"), &methodID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "methodID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RemoveAccountPaymentMethodParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemoveAccountPaymentMethod(w, r, methodID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetAccountDefaultPaymentMethod operation middleware
+func (siw *ServerInterfaceWrapper) SetAccountDefaultPaymentMethod(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "methodID" -------------
+	var methodID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "methodID", chi.URLParam(r, "methodID"), &methodID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "methodID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SetAccountDefaultPaymentMethodParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetAccountDefaultPaymentMethod(w, r, methodID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListAccountPlans operation middleware
 func (siw *ServerInterfaceWrapper) ListAccountPlans(w http.ResponseWriter, r *http.Request) {
 
@@ -16422,6 +16726,74 @@ func (siw *ServerInterfaceWrapper) AttributeAccountReferral(w http.ResponseWrite
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AttributeAccountReferral(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountRenewal operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountRenewal(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountRenewal(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateAccountRenewal operation middleware
+func (siw *ServerInterfaceWrapper) UpdateAccountRenewal(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateAccountRenewalParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateAccountRenewal(w, r, subscriptionID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -29574,6 +29946,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/v1/account/codes/redeem", wrapper.AccountRedeemCode)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/renewal", wrapper.GetAccountRenewal)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/account/renewal/{subscriptionID}", wrapper.UpdateAccountRenewal)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/payment-methods/{methodID}/default", wrapper.SetAccountDefaultPaymentMethod)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/account/payment-methods/{methodID}", wrapper.RemoveAccountPaymentMethod)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/account/wallet/top-up", wrapper.StartAccountTopUp)
 	})
 	r.Group(func(r chi.Router) {
@@ -31536,6 +31920,84 @@ func (response GetAccountOverview200JSONResponse) VisitGetAccountOverviewRespons
 	return err
 }
 
+type RemoveAccountPaymentMethodRequestObject struct {
+	MethodID openapi_types.UUID `json:"methodID"`
+	Params   RemoveAccountPaymentMethodParams
+}
+
+type RemoveAccountPaymentMethodResponseObject interface {
+	VisitRemoveAccountPaymentMethodResponse(w http.ResponseWriter) error
+}
+
+type RemoveAccountPaymentMethod200JSONResponse AccountRenewal
+
+func (response RemoveAccountPaymentMethod200JSONResponse) VisitRemoveAccountPaymentMethodResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveAccountPaymentMethod404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RemoveAccountPaymentMethod404ApplicationProblemPlusJSONResponse) VisitRemoveAccountPaymentMethodResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetAccountDefaultPaymentMethodRequestObject struct {
+	MethodID openapi_types.UUID `json:"methodID"`
+	Params   SetAccountDefaultPaymentMethodParams
+}
+
+type SetAccountDefaultPaymentMethodResponseObject interface {
+	VisitSetAccountDefaultPaymentMethodResponse(w http.ResponseWriter) error
+}
+
+type SetAccountDefaultPaymentMethod200JSONResponse AccountRenewal
+
+func (response SetAccountDefaultPaymentMethod200JSONResponse) VisitSetAccountDefaultPaymentMethodResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetAccountDefaultPaymentMethod404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SetAccountDefaultPaymentMethod404ApplicationProblemPlusJSONResponse) VisitSetAccountDefaultPaymentMethodResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListAccountPlansRequestObject struct {
 	Params ListAccountPlansParams
 }
@@ -31899,6 +32361,81 @@ func (response AttributeAccountReferral400ApplicationProblemPlusJSONResponse) Vi
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountRenewalRequestObject struct {
+}
+
+type GetAccountRenewalResponseObject interface {
+	VisitGetAccountRenewalResponse(w http.ResponseWriter) error
+}
+
+type GetAccountRenewal200JSONResponse AccountRenewal
+
+func (response GetAccountRenewal200JSONResponse) VisitGetAccountRenewalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateAccountRenewalRequestObject struct {
+	SubscriptionID openapi_types.UUID `json:"subscriptionID"`
+	Params         UpdateAccountRenewalParams
+	Body           *UpdateAccountRenewalJSONRequestBody
+}
+
+type UpdateAccountRenewalResponseObject interface {
+	VisitUpdateAccountRenewalResponse(w http.ResponseWriter) error
+}
+
+type UpdateAccountRenewal200JSONResponse AccountRenewal
+
+func (response UpdateAccountRenewal200JSONResponse) VisitUpdateAccountRenewalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateAccountRenewal404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response UpdateAccountRenewal404ApplicationProblemPlusJSONResponse) VisitUpdateAccountRenewalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateAccountRenewal422ApplicationProblemPlusJSONResponse Problem
+
+func (response UpdateAccountRenewal422ApplicationProblemPlusJSONResponse) VisitUpdateAccountRenewalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -45020,6 +45557,12 @@ type StrictServerInterface interface {
 	// (GET /v1/account/overview)
 	GetAccountOverview(ctx context.Context, request GetAccountOverviewRequestObject) (GetAccountOverviewResponseObject, error)
 
+	// (DELETE /v1/account/payment-methods/{methodID})
+	RemoveAccountPaymentMethod(ctx context.Context, request RemoveAccountPaymentMethodRequestObject) (RemoveAccountPaymentMethodResponseObject, error)
+
+	// (POST /v1/account/payment-methods/{methodID}/default)
+	SetAccountDefaultPaymentMethod(ctx context.Context, request SetAccountDefaultPaymentMethodRequestObject) (SetAccountDefaultPaymentMethodResponseObject, error)
+
 	// (GET /v1/account/plans)
 	ListAccountPlans(ctx context.Context, request ListAccountPlansRequestObject) (ListAccountPlansResponseObject, error)
 
@@ -45052,6 +45595,12 @@ type StrictServerInterface interface {
 
 	// (POST /v1/account/referrals/attribution)
 	AttributeAccountReferral(ctx context.Context, request AttributeAccountReferralRequestObject) (AttributeAccountReferralResponseObject, error)
+
+	// (GET /v1/account/renewal)
+	GetAccountRenewal(ctx context.Context, request GetAccountRenewalRequestObject) (GetAccountRenewalResponseObject, error)
+
+	// (PUT /v1/account/renewal/{subscriptionID})
+	UpdateAccountRenewal(ctx context.Context, request UpdateAccountRenewalRequestObject) (UpdateAccountRenewalResponseObject, error)
 
 	// (GET /v1/account/security-events)
 	ListAccountSecurityEvents(ctx context.Context, request ListAccountSecurityEventsRequestObject) (ListAccountSecurityEventsResponseObject, error)
@@ -47070,6 +47619,60 @@ func (sh *strictHandler) GetAccountOverview(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// RemoveAccountPaymentMethod operation middleware
+func (sh *strictHandler) RemoveAccountPaymentMethod(w http.ResponseWriter, r *http.Request, methodID openapi_types.UUID, params RemoveAccountPaymentMethodParams) {
+	var request RemoveAccountPaymentMethodRequestObject
+
+	request.MethodID = methodID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RemoveAccountPaymentMethod(ctx, request.(RemoveAccountPaymentMethodRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RemoveAccountPaymentMethod")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RemoveAccountPaymentMethodResponseObject); ok {
+		if err := validResponse.VisitRemoveAccountPaymentMethodResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetAccountDefaultPaymentMethod operation middleware
+func (sh *strictHandler) SetAccountDefaultPaymentMethod(w http.ResponseWriter, r *http.Request, methodID openapi_types.UUID, params SetAccountDefaultPaymentMethodParams) {
+	var request SetAccountDefaultPaymentMethodRequestObject
+
+	request.MethodID = methodID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetAccountDefaultPaymentMethod(ctx, request.(SetAccountDefaultPaymentMethodRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetAccountDefaultPaymentMethod")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetAccountDefaultPaymentMethodResponseObject); ok {
+		if err := validResponse.VisitSetAccountDefaultPaymentMethodResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListAccountPlans operation middleware
 func (sh *strictHandler) ListAccountPlans(w http.ResponseWriter, r *http.Request, params ListAccountPlansParams) {
 	var request ListAccountPlansRequestObject
@@ -47365,6 +47968,64 @@ func (sh *strictHandler) AttributeAccountReferral(w http.ResponseWriter, r *http
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(AttributeAccountReferralResponseObject); ok {
 		if err := validResponse.VisitAttributeAccountReferralResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountRenewal operation middleware
+func (sh *strictHandler) GetAccountRenewal(w http.ResponseWriter, r *http.Request) {
+	var request GetAccountRenewalRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountRenewal(ctx, request.(GetAccountRenewalRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountRenewal")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountRenewalResponseObject); ok {
+		if err := validResponse.VisitGetAccountRenewalResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateAccountRenewal operation middleware
+func (sh *strictHandler) UpdateAccountRenewal(w http.ResponseWriter, r *http.Request, subscriptionID openapi_types.UUID, params UpdateAccountRenewalParams) {
+	var request UpdateAccountRenewalRequestObject
+
+	request.SubscriptionID = subscriptionID
+	request.Params = params
+
+	var body UpdateAccountRenewalJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateAccountRenewal(ctx, request.(UpdateAccountRenewalRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateAccountRenewal")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateAccountRenewalResponseObject); ok {
+		if err := validResponse.VisitUpdateAccountRenewalResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

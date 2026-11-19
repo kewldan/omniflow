@@ -11,6 +11,71 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const bindPaymentMethodFromIntent = `-- name: BindPaymentMethodFromIntent :one
+INSERT INTO payment_methods (
+  user_id, provider, merchant_id, provider_token, display_label, consent_at,
+  source_payment_intent_id, is_default
+) VALUES (
+  $1, $2, $3,
+  $4, $5, $6,
+  $7,
+  NOT EXISTS (
+    SELECT 1 FROM payment_methods existing
+    WHERE existing.user_id = $1 AND existing.is_default AND existing.status = 'active'
+  )
+)
+ON CONFLICT (provider, merchant_id, provider_token) DO UPDATE
+SET display_label = CASE WHEN EXCLUDED.display_label = '' THEN payment_methods.display_label ELSE EXCLUDED.display_label END,
+    updated_at = now()
+WHERE payment_methods.user_id = EXCLUDED.user_id
+RETURNING id, user_id, provider, merchant_id, provider_token, display_label, status, is_default, consent_at, last_used_at, created_at, updated_at, revoked_at, source_payment_intent_id
+`
+
+type BindPaymentMethodFromIntentParams struct {
+	UserID                pgtype.UUID        `json:"user_id"`
+	Provider              string             `json:"provider"`
+	MerchantID            string             `json:"merchant_id"`
+	ProviderToken         string             `json:"provider_token"`
+	DisplayLabel          string             `json:"display_label"`
+	ConsentAt             pgtype.Timestamptz `json:"consent_at"`
+	SourcePaymentIntentID pgtype.UUID        `json:"source_payment_intent_id"`
+}
+
+// Binds the token a provider issued on a payment the customer explicitly asked
+// to keep. The intent reference makes it traceable, and the conflict rule keeps
+// a replayed settlement from producing a second row for the same binding. The
+// method becomes the default only when the customer has no other default, so a
+// second card never silently replaces the one auto-renew already uses.
+func (q *Queries) BindPaymentMethodFromIntent(ctx context.Context, arg BindPaymentMethodFromIntentParams) (PaymentMethod, error) {
+	row := q.db.QueryRow(ctx, bindPaymentMethodFromIntent,
+		arg.UserID,
+		arg.Provider,
+		arg.MerchantID,
+		arg.ProviderToken,
+		arg.DisplayLabel,
+		arg.ConsentAt,
+		arg.SourcePaymentIntentID,
+	)
+	var i PaymentMethod
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Provider,
+		&i.MerchantID,
+		&i.ProviderToken,
+		&i.DisplayLabel,
+		&i.Status,
+		&i.IsDefault,
+		&i.ConsentAt,
+		&i.LastUsedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.RevokedAt,
+		&i.SourcePaymentIntentID,
+	)
+	return i, err
+}
+
 const clearDefaultPaymentMethod = `-- name: ClearDefaultPaymentMethod :exec
 UPDATE payment_methods
 SET is_default = false, updated_at = now()
@@ -186,7 +251,7 @@ func (q *Queries) GetDunningAttempt(ctx context.Context, arg GetDunningAttemptPa
 }
 
 const getPaymentMethod = `-- name: GetPaymentMethod :one
-SELECT id, user_id, provider, merchant_id, provider_token, display_label, status, is_default, consent_at, last_used_at, created_at, updated_at, revoked_at FROM payment_methods WHERE id = $1
+SELECT id, user_id, provider, merchant_id, provider_token, display_label, status, is_default, consent_at, last_used_at, created_at, updated_at, revoked_at, source_payment_intent_id FROM payment_methods WHERE id = $1
 `
 
 func (q *Queries) GetPaymentMethod(ctx context.Context, id pgtype.UUID) (PaymentMethod, error) {
@@ -206,6 +271,7 @@ func (q *Queries) GetPaymentMethod(ctx context.Context, id pgtype.UUID) (Payment
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.RevokedAt,
+		&i.SourcePaymentIntentID,
 	)
 	return i, err
 }
@@ -390,7 +456,7 @@ func (q *Queries) ListDunningAttemptsForCustomer(ctx context.Context, arg ListDu
 }
 
 const listOpenIntentsForOrder = `-- name: ListOpenIntentsForOrder :many
-SELECT id, order_id, provider, status, amount_minor, currency, provider_reference, checkout_url, idempotency_key, capabilities, receipt_metadata, created_at, updated_at FROM payment_intents
+SELECT id, order_id, provider, status, amount_minor, currency, provider_reference, checkout_url, idempotency_key, capabilities, receipt_metadata, created_at, updated_at, save_method_consent_at FROM payment_intents
 WHERE order_id = $1
   AND status NOT IN ('succeeded', 'failed', 'cancelled', 'expired', 'refunded')
 ORDER BY created_at DESC
@@ -423,6 +489,7 @@ func (q *Queries) ListOpenIntentsForOrder(ctx context.Context, orderID pgtype.UU
 			&i.ReceiptMetadata,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.SaveMethodConsentAt,
 		); err != nil {
 			return nil, err
 		}
@@ -437,7 +504,7 @@ func (q *Queries) ListOpenIntentsForOrder(ctx context.Context, orderID pgtype.UU
 const listPaymentMethods = `-- name: ListPaymentMethods :many
 
 
-SELECT id, user_id, provider, merchant_id, provider_token, display_label, status, is_default, consent_at, last_used_at, created_at, updated_at, revoked_at FROM payment_methods
+SELECT id, user_id, provider, merchant_id, provider_token, display_label, status, is_default, consent_at, last_used_at, created_at, updated_at, revoked_at, source_payment_intent_id FROM payment_methods
 WHERE user_id = $1 AND status <> 'revoked'
 ORDER BY is_default DESC, created_at DESC
 `
@@ -473,6 +540,7 @@ func (q *Queries) ListPaymentMethods(ctx context.Context, userID pgtype.UUID) ([
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.RevokedAt,
+			&i.SourcePaymentIntentID,
 		); err != nil {
 			return nil, err
 		}
@@ -640,7 +708,7 @@ SET status = $1,
     last_used_at = CASE WHEN $1::text = 'active' THEN now() ELSE last_used_at END,
     updated_at = now()
 WHERE id = $2 AND status <> 'revoked'
-RETURNING id, user_id, provider, merchant_id, provider_token, display_label, status, is_default, consent_at, last_used_at, created_at, updated_at, revoked_at
+RETURNING id, user_id, provider, merchant_id, provider_token, display_label, status, is_default, consent_at, last_used_at, created_at, updated_at, revoked_at, source_payment_intent_id
 `
 
 type MarkPaymentMethodStatusParams struct {
@@ -665,6 +733,7 @@ func (q *Queries) MarkPaymentMethodStatus(ctx context.Context, arg MarkPaymentMe
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.RevokedAt,
+		&i.SourcePaymentIntentID,
 	)
 	return i, err
 }
@@ -729,7 +798,7 @@ SET status = 'revoked', is_default = false, revoked_at = now(), updated_at = now
 WHERE id = $1
   AND user_id = $2
   AND status <> 'revoked'
-RETURNING id, user_id, provider, merchant_id, provider_token, display_label, status, is_default, consent_at, last_used_at, created_at, updated_at, revoked_at
+RETURNING id, user_id, provider, merchant_id, provider_token, display_label, status, is_default, consent_at, last_used_at, created_at, updated_at, revoked_at, source_payment_intent_id
 `
 
 type RevokePaymentMethodParams struct {
@@ -756,6 +825,7 @@ func (q *Queries) RevokePaymentMethod(ctx context.Context, arg RevokePaymentMeth
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.RevokedAt,
+		&i.SourcePaymentIntentID,
 	)
 	return i, err
 }
@@ -773,7 +843,7 @@ SET display_label = EXCLUDED.display_label,
     revoked_at = NULL,
     consent_at = now(),
     updated_at = now()
-RETURNING id, user_id, provider, merchant_id, provider_token, display_label, status, is_default, consent_at, last_used_at, created_at, updated_at, revoked_at
+RETURNING id, user_id, provider, merchant_id, provider_token, display_label, status, is_default, consent_at, last_used_at, created_at, updated_at, revoked_at, source_payment_intent_id
 `
 
 type SavePaymentMethodParams struct {
@@ -810,6 +880,7 @@ func (q *Queries) SavePaymentMethod(ctx context.Context, arg SavePaymentMethodPa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.RevokedAt,
+		&i.SourcePaymentIntentID,
 	)
 	return i, err
 }
@@ -926,7 +997,7 @@ SET is_default = true, updated_at = now()
 WHERE id = $1
   AND user_id = $2
   AND status = 'active'
-RETURNING id, user_id, provider, merchant_id, provider_token, display_label, status, is_default, consent_at, last_used_at, created_at, updated_at, revoked_at
+RETURNING id, user_id, provider, merchant_id, provider_token, display_label, status, is_default, consent_at, last_used_at, created_at, updated_at, revoked_at, source_payment_intent_id
 `
 
 type SetDefaultPaymentMethodParams struct {
@@ -951,6 +1022,7 @@ func (q *Queries) SetDefaultPaymentMethod(ctx context.Context, arg SetDefaultPay
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.RevokedAt,
+		&i.SourcePaymentIntentID,
 	)
 	return i, err
 }

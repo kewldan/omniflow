@@ -1572,35 +1572,37 @@ type PaymentEvent struct {
 }
 
 type PaymentIntent struct {
-	ID                pgtype.UUID        `json:"id"`
-	OrderID           pgtype.UUID        `json:"order_id"`
-	Provider          string             `json:"provider"`
-	Status            string             `json:"status"`
-	AmountMinor       int64              `json:"amount_minor"`
-	Currency          string             `json:"currency"`
-	ProviderReference pgtype.Text        `json:"provider_reference"`
-	CheckoutUrl       pgtype.Text        `json:"checkout_url"`
-	IdempotencyKey    string             `json:"idempotency_key"`
-	Capabilities      []byte             `json:"capabilities"`
-	ReceiptMetadata   []byte             `json:"receipt_metadata"`
-	CreatedAt         pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	ID                  pgtype.UUID        `json:"id"`
+	OrderID             pgtype.UUID        `json:"order_id"`
+	Provider            string             `json:"provider"`
+	Status              string             `json:"status"`
+	AmountMinor         int64              `json:"amount_minor"`
+	Currency            string             `json:"currency"`
+	ProviderReference   pgtype.Text        `json:"provider_reference"`
+	CheckoutUrl         pgtype.Text        `json:"checkout_url"`
+	IdempotencyKey      string             `json:"idempotency_key"`
+	Capabilities        []byte             `json:"capabilities"`
+	ReceiptMetadata     []byte             `json:"receipt_metadata"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	SaveMethodConsentAt pgtype.Timestamptz `json:"save_method_consent_at"`
 }
 
 type PaymentMethod struct {
-	ID            pgtype.UUID        `json:"id"`
-	UserID        pgtype.UUID        `json:"user_id"`
-	Provider      string             `json:"provider"`
-	MerchantID    string             `json:"merchant_id"`
-	ProviderToken string             `json:"provider_token"`
-	DisplayLabel  string             `json:"display_label"`
-	Status        string             `json:"status"`
-	IsDefault     bool               `json:"is_default"`
-	ConsentAt     pgtype.Timestamptz `json:"consent_at"`
-	LastUsedAt    pgtype.Timestamptz `json:"last_used_at"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
-	RevokedAt     pgtype.Timestamptz `json:"revoked_at"`
+	ID                    pgtype.UUID        `json:"id"`
+	UserID                pgtype.UUID        `json:"user_id"`
+	Provider              string             `json:"provider"`
+	MerchantID            string             `json:"merchant_id"`
+	ProviderToken         string             `json:"provider_token"`
+	DisplayLabel          string             `json:"display_label"`
+	Status                string             `json:"status"`
+	IsDefault             bool               `json:"is_default"`
+	ConsentAt             pgtype.Timestamptz `json:"consent_at"`
+	LastUsedAt            pgtype.Timestamptz `json:"last_used_at"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	RevokedAt             pgtype.Timestamptz `json:"revoked_at"`
+	SourcePaymentIntentID pgtype.UUID        `json:"source_payment_intent_id"`
 }
 
 type PaymentProviderSetting struct {

@@ -130,6 +130,8 @@ export type PaymentChoice = {
   currency: string;
   amountMinor?: number;
   recurring: boolean;
+  /** The customer may ask to keep the card for automatic renewal. */
+  canSaveMethod?: boolean;
 };
 
 /**

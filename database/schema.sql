@@ -2915,6 +2915,7 @@ CREATE TABLE public.payment_intents (
     receipt_metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    save_method_consent_at timestamp with time zone,
     CONSTRAINT payment_intents_amount_minor_check CHECK ((amount_minor >= 0)),
     CONSTRAINT payment_intents_currency_check CHECK ((currency ~ '^[A-Z]{3}$'::text)),
     CONSTRAINT payment_intents_provider_check CHECK ((provider = ANY (ARRAY['manual'::text, 'telegram_stars'::text, 'cryptobot'::text, 'yookassa'::text, 'heleket'::text, 'mulenpay'::text, 'pal24'::text, 'platega'::text, 'cashera'::text, 'tribute'::text, 'freekassa'::text, 'kassa_ai'::text, 'riopay'::text, 'severpay'::text, 'rollypay'::text, 'aurapay'::text, 'wata'::text, 'cloudpayments'::text, 'lava'::text, 'overpay'::text, 'paritypay'::text, 'payhot'::text, 'cispay'::text, 'antilopay'::text, 'anore'::text, 'donut'::text, 'etoplatezhi'::text, 'jupiter'::text, 'tabpay'::text]))),
@@ -2940,6 +2941,7 @@ CREATE TABLE public.payment_methods (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     revoked_at timestamp with time zone,
+    source_payment_intent_id uuid,
     CONSTRAINT payment_methods_display_label_check CHECK ((char_length(display_label) <= 64)),
     CONSTRAINT payment_methods_merchant_id_check CHECK ((char_length(merchant_id) <= 64)),
     CONSTRAINT payment_methods_provider_check CHECK ((provider = ANY (ARRAY['manual'::text, 'telegram_stars'::text, 'cryptobot'::text, 'yookassa'::text, 'heleket'::text, 'mulenpay'::text, 'pal24'::text, 'platega'::text, 'cashera'::text, 'tribute'::text, 'freekassa'::text, 'kassa_ai'::text, 'riopay'::text, 'severpay'::text, 'rollypay'::text, 'aurapay'::text, 'wata'::text, 'cloudpayments'::text, 'lava'::text, 'overpay'::text, 'paritypay'::text, 'payhot'::text, 'cispay'::text, 'antilopay'::text, 'anore'::text, 'donut'::text, 'etoplatezhi'::text, 'jupiter'::text, 'tabpay'::text]))),
@@ -8311,6 +8313,14 @@ ALTER TABLE ONLY public.payment_events
 
 ALTER TABLE ONLY public.payment_intents
     ADD CONSTRAINT payment_intents_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id);
+
+
+--
+-- Name: payment_methods payment_methods_source_payment_intent_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.payment_methods
+    ADD CONSTRAINT payment_methods_source_payment_intent_id_fkey FOREIGN KEY (source_payment_intent_id) REFERENCES public.payment_intents(id);
 
 
 --

@@ -94,6 +94,13 @@ type CreateIntentInput struct {
 	// operator enabled recurring for this merchant account, and that the
 	// adapter can do it at all.
 	SavedMethodToken string
+	// SaveMethod is the customer's explicit consent, given on this checkout,
+	// to keep the instrument for automatic renewal. It is honoured only when
+	// the adapter can bind a method and the operator enabled recurring after a
+	// passing capability test; otherwise the payment proceeds unchanged and no
+	// method is bound. Callers include it in the idempotency key, because a
+	// payment opened with consent is a different request from one without.
+	SaveMethod bool
 }
 
 func (service *Service) CreateIntent(ctx context.Context, input CreateIntentInput) (dbgen.PaymentIntent, error) {
@@ -136,6 +143,11 @@ func (service *Service) CreateIntent(ctx context.Context, input CreateIntentInpu
 		}
 	}
 	amount := commerce.Money{Amount: order.ExternalMinor, Currency: order.Currency}
+	saveMethod := input.SaveMethod && input.SavedMethodToken == "" && service.RecurringAllowed(ctx, provider.Name())
+	consentAt := pgtype.Timestamptz{}
+	if saveMethod {
+		consentAt = pgtype.Timestamptz{Time: service.clock().UTC(), Valid: true}
+	}
 	capabilities, _ := json.Marshal(provider.Capabilities())
 	receipt, _ := json.Marshal(input.ReceiptMetadata)
 	intent, existingErr := queries.GetPaymentIntentByIdempotency(ctx, dbgen.GetPaymentIntentByIdempotencyParams{Provider: input.Provider, IdempotencyKey: input.IdempotencyKey})
@@ -151,7 +163,7 @@ func (service *Service) CreateIntent(ctx context.Context, input CreateIntentInpu
 		return dbgen.PaymentIntent{}, existingErr
 	}
 	if errors.Is(existingErr, pgx.ErrNoRows) {
-		intent, err = queries.CreatePaymentIntent(ctx, dbgen.CreatePaymentIntentParams{OrderID: orderID, Provider: provider.Name(), Status: "processing", AmountMinor: amount.Amount, Currency: amount.Currency, IdempotencyKey: input.IdempotencyKey, Capabilities: capabilities, ReceiptMetadata: receipt})
+		intent, err = queries.CreatePaymentIntent(ctx, dbgen.CreatePaymentIntentParams{OrderID: orderID, Provider: provider.Name(), Status: "processing", AmountMinor: amount.Amount, Currency: amount.Currency, IdempotencyKey: input.IdempotencyKey, Capabilities: capabilities, ReceiptMetadata: receipt, SaveMethodConsentAt: consentAt})
 		if err != nil {
 			return dbgen.PaymentIntent{}, err
 		}
@@ -165,6 +177,7 @@ func (service *Service) CreateIntent(ctx context.Context, input CreateIntentInpu
 			return queries.UpdatePaymentIntentStatus(ctx, dbgen.UpdatePaymentIntentStatusParams{PaymentIntentID: intent.ID, Status: recovered.Status, ProviderReference: optionalText(recovered.ProviderReference), CheckoutUrl: optionalText(recovered.CheckoutURL)})
 		}
 	}
+	input.SaveMethod = intent.SaveMethodConsentAt.Valid
 	created, err := service.submit(ctx, provider, input, amount, payerMetadata(ctx, queries, order.UserID))
 	if err != nil {
 		return dbgen.PaymentIntent{}, err
@@ -193,6 +206,48 @@ func (service *Service) CreateIntent(ctx context.Context, input CreateIntentInpu
 		return dbgen.PaymentIntent{}, err
 	}
 	return queries.GetPaymentIntent(ctx, intent.ID)
+}
+
+// RecurringAllowed reports whether a checkout through this adapter may offer
+// to keep the customer's instrument: the adapter must declare the capability,
+// and the operator must have enabled recurring for the default merchant
+// account after a passing capability test. It is the same rule the renewal
+// worker applies before charging, so a card is never saved that could not
+// later be charged.
+func (service *Service) RecurringAllowed(ctx context.Context, providerName string) bool {
+	provider, ok := service.providers[providerName]
+	if !ok || !provider.Capabilities().Recurring {
+		return false
+	}
+	if _, charges := provider.(payments.RecurringCharger); !charges {
+		return false
+	}
+	stored, err := dbgen.New(service.pool).GetPaymentProviderSettings(ctx, dbgen.GetPaymentProviderSettingsParams{Provider: providerName, MerchantID: ""})
+	if err != nil {
+		return false
+	}
+	return stored.RecurringEnabled && stored.RecurringTestStatus == "passed"
+}
+
+// bindMethod stores the token a provider issued for an instrument the customer
+// asked to keep. It runs only after the payment settled, only for an intent
+// stamped with the customer's consent, and only from an authenticated provider
+// read. It is best effort: the payment has already been applied, and a binding
+// that fails leaves the customer able to renew by hand, which is the state
+// they were in before.
+func (service *Service) bindMethod(ctx context.Context, queries *dbgen.Queries, intent dbgen.PaymentIntent, remote payments.Intent) {
+	if !intent.SaveMethodConsentAt.Valid || remote.BoundMethod == nil || remote.Status != "succeeded" || remote.BoundMethod.Token == "" {
+		return
+	}
+	order, err := queries.GetOrder(ctx, intent.OrderID)
+	if err != nil {
+		return
+	}
+	_, _ = queries.BindPaymentMethodFromIntent(ctx, dbgen.BindPaymentMethodFromIntentParams{
+		UserID: order.UserID, Provider: intent.Provider, MerchantID: "",
+		ProviderToken: remote.BoundMethod.Token, DisplayLabel: remote.BoundMethod.Label,
+		ConsentAt: intent.SaveMethodConsentAt, SourcePaymentIntentID: intent.ID,
+	})
 }
 
 // payerMetadata is what a provider may need to identify the payer: Omniflow's
@@ -248,7 +303,7 @@ func (service *Service) submit(
 		return provider.Create(ctx, payments.CreateRequest{
 			OrderID: input.OrderID, IdempotencyKey: input.IdempotencyKey, Amount: amount,
 			Description: input.Description, ReturnURL: input.ReturnURL,
-			Metadata: metadata,
+			Metadata: metadata, SavePaymentMethod: input.SaveMethod,
 		})
 	}
 	charger, ok := provider.(payments.RecurringCharger)
@@ -336,6 +391,7 @@ func (service *Service) Reconcile(ctx context.Context, paymentIntentID string) (
 		if err != nil {
 			return dbgen.PaymentIntent{}, err
 		}
+		service.bindMethod(ctx, queries, intent, remote)
 	}
 	return queries.UpdatePaymentIntentStatus(ctx, dbgen.UpdatePaymentIntentStatusParams{PaymentIntentID: intent.ID, Status: remote.Status, ProviderReference: optionalText(remote.ProviderReference), CheckoutUrl: optionalText(remote.CheckoutURL)})
 }
@@ -354,6 +410,7 @@ func (service *Service) HandleWebhook(ctx context.Context, providerName string, 
 		return "", fmt.Errorf("%w: %w", ErrWebhookRejected, payments.ErrUnsupported)
 	}
 	digest := sha256.Sum256(body)
+	var bound *payments.BoundMethod
 	event, verifyErr := provider.VerifyWebhook(headers, body)
 	queries := dbgen.New(service.pool)
 	if verifyErr != nil {
@@ -391,6 +448,7 @@ func (service *Service) HandleWebhook(ctx context.Context, providerName string, 
 			return "", pollErr
 		}
 		event.Status, event.Amount = trusted.Status, trusted.Amount
+		bound = trusted.BoundMethod
 	}
 	if event.Status != "succeeded" {
 		_, err = queries.CompleteWebhookEvent(ctx, dbgen.CompleteWebhookEventParams{WebhookEventID: stored.ID, Status: "ignored"})
@@ -418,6 +476,9 @@ func (service *Service) HandleWebhook(ctx context.Context, providerName string, 
 	_, completeErr := queries.CompleteWebhookEvent(ctx, dbgen.CompleteWebhookEventParams{WebhookEventID: stored.ID, Status: status, ErrorCode: errorCode})
 	if err != nil {
 		return classification, err
+	}
+	if bound != nil {
+		service.bindMethod(ctx, queries, intent, payments.Intent{Status: event.Status, BoundMethod: bound})
 	}
 	return classification, completeErr
 }

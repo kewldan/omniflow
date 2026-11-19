@@ -152,6 +152,13 @@ type payhotPayment struct {
 	ExpiresAt              string  `json:"expires_at"`
 	Origin                 string  `json:"origin"`
 	RecurringChargeID      *string `json:"recurring_charge_id"`
+	// RecurringEnrollment is present on a payment created with consent to
+	// keep the instrument. An active enrollment names the mandate a later
+	// recurring charge presents.
+	RecurringEnrollment *struct {
+		MandateID string `json:"mandate_id"`
+		Status    string `json:"status"`
+	} `json:"recurring_enrollment"`
 }
 
 type payhotCheckout struct {
@@ -190,6 +197,13 @@ func (provider *PayHot) Create(ctx context.Context, request CreateRequest) (Inte
 		"currency":                 "RUB",
 		"payment_method":           provider.method,
 		"customer":                 map[string]string{"id": payhotCustomerID(reference)},
+	}
+	if customerID := request.Metadata["customer_id"]; request.SavePaymentMethod && customerID != "" && len(customerID) <= 50 {
+		// Enrolment needs a customer identifier that stays the same across
+		// payments, so the mandate belongs to the person rather than to one
+		// order. The empty object is HOT Pay's explicit consent marker.
+		body["recurring_enrollment"] = map[string]any{}
+		body["customer"] = map[string]string{"id": customerID}
 	}
 	success, failure := provider.successURL, provider.failureURL
 	if payhotHTTPS(request.ReturnURL) {
@@ -468,6 +482,10 @@ func payhotPaymentIntent(payment payhotPayment) (Intent, error) {
 		return Intent{}, err
 	}
 	intent := Intent{ProviderReference: payment.ID, Status: normalizePayHotStatus(payment.Status), Amount: money}
+	if enrollment := payment.RecurringEnrollment; enrollment != nil && enrollment.Status == "active" &&
+		payhotUUIDPattern.MatchString(enrollment.MandateID) && intent.Status == "succeeded" {
+		intent.BoundMethod = &BoundMethod{Token: enrollment.MandateID, Label: truncateLabel("HOT Pay " + payment.PaymentMethod)}
+	}
 	if payment.ExpiresAt != "" {
 		expires, err := time.Parse(time.RFC3339, payment.ExpiresAt)
 		if err != nil {

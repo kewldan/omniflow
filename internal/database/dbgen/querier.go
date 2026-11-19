@@ -107,6 +107,12 @@ type Querier interface {
 	// up again immediately.
 	BeginGoodsDeliveryAttempt(ctx context.Context, arg BeginGoodsDeliveryAttemptParams) (GoodsDelivery, error)
 	BindOperatorTopic(ctx context.Context, arg BindOperatorTopicParams) (OperatorTopic, error)
+	// Binds the token a provider issued on a payment the customer explicitly asked
+	// to keep. The intent reference makes it traceable, and the conflict rule keeps
+	// a replayed settlement from producing a second row for the same binding. The
+	// method becomes the default only when the customer has no other default, so a
+	// second card never silently replaces the one auto-renew already uses.
+	BindPaymentMethodFromIntent(ctx context.Context, arg BindPaymentMethodFromIntentParams) (PaymentMethod, error)
 	// A handful of recipients a campaign would reach, for the preview.
 	//
 	// It is a sample rather than the list: an operator checking a segment needs to

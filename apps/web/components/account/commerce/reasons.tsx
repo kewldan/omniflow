@@ -106,6 +106,8 @@ const PROBLEMS = [
   "trial_trial_already_used",
   "upstream_unavailable",
   "addon_not_applicable",
+  "recurring_unavailable",
+  "no_saved_method",
 ] as const;
 
 /** Builds a lookup that falls back rather than crashing on an unseen value. */

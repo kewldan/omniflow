@@ -809,6 +809,8 @@ var catalog = map[string]phrase{
 	"connect.allApps": {ru: "📖 Все приложения и инструкции", en: "📖 All apps and instructions"},
 	"connect.miniApp": {ru: "🚀 Подключить в приложении", en: "🚀 Connect in the app"},
 	"menu.miniApp":    {ru: "Кабинет", en: "Account"},
+	// Pay and keep the card for automatic renewal: the button is the consent.
+	"pay.optionSave": {ru: "%s + сохранить карту для автопродления", en: "%s + save the card for auto-renew"},
 }
 
 // formatMoney renders an integer minor-unit amount for display. Telegram Stars

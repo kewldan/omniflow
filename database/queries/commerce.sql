@@ -510,9 +510,9 @@ RETURNING *;
 -- name: CreatePaymentIntent :one
 INSERT INTO payment_intents (
   order_id, provider, status, amount_minor, currency, provider_reference,
-  checkout_url, idempotency_key, capabilities, receipt_metadata
+  checkout_url, idempotency_key, capabilities, receipt_metadata, save_method_consent_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, sqlc.narg(save_method_consent_at))
 ON CONFLICT (provider, idempotency_key) DO UPDATE SET idempotency_key = EXCLUDED.idempotency_key
 RETURNING *;
 

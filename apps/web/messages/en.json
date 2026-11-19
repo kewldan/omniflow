@@ -3174,7 +3174,8 @@
       "accountId": "Account id",
       "signOut": "Sign out",
       "signOutFailed": "Could not sign out. Try again.",
-      "gifts": "Gifts"
+      "gifts": "Gifts",
+      "renewal": "Auto-renew"
     },
     "actions": {
       "cancel": "Cancel",
@@ -4239,7 +4240,9 @@
         "upstream_unavailable": "The service is temporarily unavailable. Nothing has been charged.",
         "unknown": "That did not go through. Try again, or contact support if it keeps happening.",
         "offline": "That request did not reach us. Check your connection and try again.",
-        "addon_not_applicable": "That extra would add nothing: this subscription has no limit for it."
+        "addon_not_applicable": "That extra would add nothing: this subscription has no limit for it.",
+        "recurring_unavailable": "No payment method can renew this subscription automatically.",
+        "no_saved_method": "Save a card on a payment first, then choose it here."
       },
       "breakdown": {
         "subtotal": "Plan",
@@ -4495,7 +4498,9 @@
           "noMethod": "No payment method can settle this order right now. Cancel it and order again from the store, or contact support.",
           "start": "Pay now",
           "retry": "Try the payment again",
-          "nothingDue": "Nothing more was owed on this order."
+          "nothingDue": "Nothing more was owed on this order.",
+          "saveMethod": "Save this card for automatic renewal",
+          "saveMethodHint": "Only a reference from the payment provider is kept — never the card number. You can remove it at any time under Auto-renew."
         },
         "amounts": {
           "title": "Amounts",
@@ -4566,6 +4571,45 @@
         "upgrade": "Upgrade",
         "downgrade": "Downgrade",
         "unknown": "Plan change"
+      },
+      "renewal": {
+        "description": "Renew a subscription automatically before it ends, from your wallet or a saved card. Turning it on is your consent to be charged; you can turn it off at any time.",
+        "loadFailed": "Could not load your renewal settings. Try again.",
+        "unavailable": "Automatic renewal is not offered on this service right now.",
+        "subscriptionsTitle": "Subscriptions",
+        "noSubscriptions": "You have no active subscriptions.",
+        "endsAt": "Ends",
+        "toggle": "Renew automatically",
+        "notSupported": "No payment method can renew this plan automatically.",
+        "state": {
+          "dunning": "Last charge failed — retrying",
+          "suspended": "Paused after failed charges"
+        },
+        "funding": "Pay from",
+        "fundingWallet": "Wallet balance",
+        "fundingMethod": "Saved card",
+        "fundingMethodLabel": "Saved card ({label})",
+        "leadTime": "Charge before the end",
+        "leadTimeDays": "{days, plural, one {# day} other {# days}} before",
+        "methodsTitle": "Saved cards",
+        "noMethods": "No saved cards. Tick “Save this card” when you pay to add one.",
+        "unnamedMethod": "Saved method ({provider})",
+        "addedAt": "Added",
+        "default": "Default",
+        "methodStatus": {
+          "active": "Active",
+          "expired": "Expired",
+          "failed": "Declined",
+          "revoked": "Removed"
+        },
+        "makeDefault": "Make default",
+        "remove": "Remove",
+        "cancel": "Cancel",
+        "removeTitle": "Remove this card?",
+        "removeDescription": "Renewals that use it switch to your next saved card, or pause if none is left.",
+        "methodsNotice": "Only a reference from the payment provider is stored — never the card number or expiry.",
+        "termsLink": "Terms of automatic payments",
+        "saved": "Saved"
       }
     },
     "gifts": {

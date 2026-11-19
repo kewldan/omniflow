@@ -501,13 +501,13 @@ func (app *App) payOrder(ctx context.Context, session commerceContext, orderID s
 	if !orderAwaitsPayment(order) {
 		return app.orderScreen(ctx, session, orderID)
 	}
-	choices := app.orderPaymentChoices(order)
+	choices := app.saveableChoices(ctx, app.orderPaymentChoices(order))
 	provider, err := app.customers.OrderCheckoutProvider(ctx, session.Customer.ID, orderID)
 	if err != nil {
 		app.logger.Warn("checkout provider lookup failed", "error", err)
 	}
 	if !pick && provider != "" && paymentChoiceOffered(choices, provider, order.Currency) {
-		return app.startOrderPayment(ctx, session, order, provider)
+		return app.startOrderPayment(ctx, session, order, provider, false)
 	}
 	return orderPaymentMethodView(session.Locale, order, choices)
 }
@@ -517,7 +517,7 @@ func (app *App) payOrder(ctx context.Context, session commerceContext, orderID s
 // data is customer-controlled and cannot be trusted to name a compatible
 // adapter, and the order's currency is fixed, so the choice is validated
 // against it rather than read from the callback.
-func (app *App) selectOrderProvider(ctx context.Context, session commerceContext, orderID, provider string) View {
+func (app *App) selectOrderProvider(ctx context.Context, session commerceContext, orderID, provider string, saveMethod bool) View {
 	order, err := app.customers.Order(ctx, session.Customer.ID, orderID, session.Locale)
 	if errors.Is(err, ErrOrderNotFound) {
 		return View{Text: text(session.Locale, "error.notFound"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "menu.orders"), routeOrders)))}
@@ -532,11 +532,21 @@ func (app *App) selectOrderProvider(ctx context.Context, session commerceContext
 	if !paymentChoiceOffered(app.orderPaymentChoices(order), provider, order.Currency) {
 		return View{Text: text(session.Locale, "pay.none"), Keyboard: keyboard(row(actionButton(text(session.Locale, "action.back"), "order:"+orderID)))}
 	}
-	return app.startOrderPayment(ctx, session, order, provider)
+	return app.startOrderPayment(ctx, session, order, provider, saveMethod)
 }
 
-func (app *App) startOrderPayment(ctx context.Context, session commerceContext, order OrderSummary, provider string) View {
-	if _, err := app.commerce.StartPayment(ctx, order, provider, session.TelegramID, order.PlanName); err != nil {
+// saveableChoices marks the methods on which the customer may ask to keep the
+// card for automatic renewal: the adapter binds methods and the operator
+// enabled recurring after a passing capability test.
+func (app *App) saveableChoices(ctx context.Context, choices []PaymentChoice) []PaymentChoice {
+	for index := range choices {
+		choices[index].CanSaveMethod = app.commerce.payments.RecurringAllowed(ctx, choices[index].Provider)
+	}
+	return choices
+}
+
+func (app *App) startOrderPayment(ctx context.Context, session commerceContext, order OrderSummary, provider string, saveMethod bool) View {
+	if _, err := app.commerce.StartPaymentWith(ctx, order, provider, session.TelegramID, order.PlanName, saveMethod); err != nil {
 		app.logger.Error("payment intent creation failed", "provider", provider, "error", err)
 		return paymentStartFailedView(session.Locale, order.ID)
 	}
@@ -861,7 +871,15 @@ func (app *App) handleCommerceAction(ctx context.Context, session commerceContex
 		if len(parts) != 3 {
 			return app.errorView(session.Locale, routeOrders), true
 		}
-		return app.selectOrderProvider(ctx, session, parts[1], parts[2]), true
+		return app.selectOrderProvider(ctx, session, parts[1], parts[2], false), true
+	case "opms":
+		// "Pay and keep the card": the order identifier is compacted so the
+		// callback stays inside Telegram's 64 bytes with the longest provider.
+		orderID, ok := expandCompactID(argument)
+		if len(parts) != 3 || !ok {
+			return app.errorView(session.Locale, routeOrders), true
+		}
+		return app.selectOrderProvider(ctx, session, orderID, parts[2], true), true
 	case "order-cancel":
 		return app.cancelOrder(ctx, session, argument), true
 	case "news":
@@ -1256,7 +1274,7 @@ var commerceActions = func() map[string]bool {
 	actions := map[string]bool{
 		"plan": true, "buy": true, "pm": true, "checkout": true, "confirm": true,
 		"promo": true, "promo-clear": true, "wallet-toggle": true, "order": true,
-		"pay": true, "order-pm": true,
+		"pay": true, "order-pm": true, "opms": true,
 		"order-cancel": true, "news": true, "ticket": true, "ticket-reply": true,
 		"ticket-close": true, "ticket-open": true, "support-new": true, "connect": true,
 		"autorenew": true, "renew-settings": true, "renew-funding": true, "renew-lead": true,

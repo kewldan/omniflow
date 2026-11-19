@@ -1,4 +1,4 @@
-h1:5v7ULtRQuuqPdL6JzGf/DGONS9kBksIWJYump2sWqQI=
+h1:U1hka7xoF6J03Kl/qwbN7rqNRObiuIFnNlH2Z45thTg=
 20261120000000_baseline.sql h1:xcYk9mdv44B3O0TRxq3RP+hXxJ2VeeOilGnwKO251mQ=
 20261120010000_river_schema_v8.sql h1:AfdQpxaviEf8asJ5gyLmMVZr+zMYaWEw+o/vE8CMj7A=
 20261120020000_customer_email_signin.sql h1:PrCKaTaDm5ggof8aqRooMbqOXEHML5fwq1TF877zQa8=
@@ -15,3 +15,4 @@ h1:5v7ULtRQuuqPdL6JzGf/DGONS9kBksIWJYump2sWqQI=
 20261121420000_file_imports.sql h1:r5PfLS2aZr4x8wkbMQv2pSuT7XEnK4zgZPNFStGVzFE=
 20261121500000_remnawave_webhooks.sql h1:tGezpNWBpjTfiNdPv8c5o8aNylMDsYuwUNl6Nh+hT1o=
 20261121590000_operator_kinds_union.sql h1:pAAc8ztn+j7z6nbgcgx9XdcEvB1j+cFKGEu3y88TKFQ=
+20261121600000_payment_method_binding.sql h1:Zg+q/XQBM8NNhnHcZAQK4LkI1L8dqvBU8hRHjbSN/Rk=

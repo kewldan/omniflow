@@ -90,6 +90,40 @@ record and simply stops being chargeable, which the renewal path reports as a
 failure the customer is told about — rather than silently switching to a funding
 source they did not choose.
 
+## How a card is saved
+
+A method is saved only on the customer's explicit request, on the payment that
+saves it. When the chosen adapter can bind methods and the operator enabled
+recurring for it after a passing capability test, the payment screen offers it:
+
+- **Web panel** — the order page shows **Save this card for automatic renewal**
+  under the method picker; `POST /v1/account/orders/{orderID}/payment` and
+  `POST /v1/account/wallet/top-up` accept `saveMethod: true`. Each offered
+  method carries `canSaveMethod` so the checkbox appears only where it works.
+- **Bot** — the method list shows a second button, *method + save the card for
+  auto-renew*, beside each method that can bind one. Pressing it is the consent.
+
+The consent is stamped on the payment intent (`save_method_consent_at`) when it
+is opened, and a payment opened with consent uses its own idempotency key, so it
+is never confused with one opened without. The adapter is then asked to keep
+the instrument:
+
+| Adapter | What is sent | What binds |
+| --- | --- | --- |
+| YooKassa | `save_payment_method: true` | `payment_method.id` once the payment succeeded and `payment_method.saved` is true |
+| HOT Pay (`payhot`) | `recurring_enrollment: {}` with the customer's own ID | `recurring_enrollment.mandate_id` once the enrolment is `active` |
+
+The token is bound only from the provider's authenticated read of the settled
+payment — the poll a webhook triggers, or the reconciler — never from the
+notification body. It becomes the customer's default method only when they have
+no other default, so a second card never replaces the one renewal already uses.
+A replayed notification or a later reconciliation refreshes the same row rather
+than adding one. A payment without the consent stamp never produces a saved
+method, even when the provider offers a token.
+
+Binding is best effort: the payment has already been applied, and a binding
+that fails leaves the customer renewing by hand, as before.
+
 ## Lead time
 
 A renewal is attempted ahead of expiry, three days by default and at most
@@ -235,8 +269,16 @@ adapter could only record failures.
 
 ## What the customer controls
 
-Everything on this page that a customer can change lives in the Telegram bot,
-under **Settings → Auto-renew** (the `autorenew` route).
+Everything on this page that a customer can change is available in two places
+that read and write the same rows: the Telegram bot, under **Settings →
+Auto-renew** (the `autorenew` route), and the web panel, under **Auto-renew**
+(`/account/renewal`). The web panel uses `GET /v1/account/renewal`,
+`PUT /v1/account/renewal/{subscriptionID}` (`enabled`, `funding`,
+`leadTimeHours`), `POST /v1/account/payment-methods/{methodID}/default`, and
+`DELETE /v1/account/payment-methods/{methodID}`. It links the
+terms of automatic payments (`/pages/recurring-terms`), an ordinary info page a
+new installation receives with a default text the operator can edit under
+**Content**.
 
 The screen states the three things somebody needs to know before agreeing to a
 charge they will not be present for: what plan, from where, and how long before
@@ -314,33 +356,19 @@ card data is returned by either. An operator with `finance.write` may revoke a
 method on the customer's behalf with
 `DELETE /v1/panel/customers/{customerID}/payment-methods/{methodID}`.
 
-There is no auto-renew endpoint under `/v1/account` or `/v1/panel`. An operator
-cannot enable, disable, or reconfigure a customer's auto-renew at all, which is
-consistent with consent being the customer's to give.
+There is no auto-renew endpoint under `/v1/panel`. An operator cannot enable,
+disable, or reconfigure a customer's auto-renew at all, which is consistent with
+consent being the customer's to give.
 
 ## What does not work yet
 
-These are properties of the shipped code, not of a configuration.
-
-**No code path creates a saved payment method.** The query that would store one
-exists and has no callers, and the YooKassa adapter never asks the provider to
-save a method, so no token is ever returned to bind. Every customer's saved-method
-list is therefore empty, `funding = 'saved_method'` cannot be selected, and the
-only reachable funding source is the wallet. The removal and revocation logic
-described above is implemented; the creation is not.
-
-**Auto-renew has no web or panel surface.** It appears nowhere in the customer
-web panel and nowhere in `/admin` beyond the read-only charge history and the
-provider capability switch.
-
-Taken together: auto-renew funded **from the wallet** works end to end — the bot
-arms it, the worker schedules the cycle, charges the wallet at the lead time,
-retries on the dunning schedule, and suspends after the final failure. Auto-renew
-funded from a **saved card** cannot happen yet, because no saved method is ever
-created; an installation that enables recurring for YooKassa and records a
-passing capability test still sees no card charge. The renewal reminders
-described in [Subscriptions](/commerce/subscriptions) are delivered on the same
-seven, three, one, and zero-day schedule either way.
+Only YooKassa and HOT Pay can bind a method. Platega, Lava, Cashera, and CisPay
+run recurring as subscriptions the *provider* schedules and charges on its own
+timetable (Lava further requires products configured in its own dashboard);
+none of them hands back a token Omniflow can charge when the renewal worker
+decides to. That model cannot honour this page's guarantees — one order per
+cycle, Omniflow's own dunning schedule, a charge only while consent stands — so
+those adapters stay one-off checkouts.
 
 ## Related pages
 

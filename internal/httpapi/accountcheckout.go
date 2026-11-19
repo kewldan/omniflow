@@ -527,14 +527,17 @@ func (handlers *AccountHandlers) startOrderPayment(writer http.ResponseWriter, r
 		return
 	}
 	var body struct {
-		Provider string `json:"provider"`
+		Provider   string `json:"provider"`
+		SaveMethod bool   `json:"saveMethod"`
 	}
 	if !decodeJSON(writer, request, &body) {
 		return
 	}
-	handle, err := handlers.checkout.StartOrderPayment(
+	handle, err := handlers.checkout.StartOrderPaymentWith(
 		request.Context(), principal.Customer.ID, chi.URLParam(request, "orderID"),
-		accountLocale(request, principal.Customer.Locale), strings.TrimSpace(body.Provider),
+		accountLocale(request, principal.Customer.Locale), accountcheckout.PaymentSelection{
+			Provider: strings.TrimSpace(body.Provider), SaveMethod: body.SaveMethod,
+		},
 	)
 	if handlers.writeCheckoutError(writer, request, err) {
 		return
@@ -642,6 +645,7 @@ func paymentChoicePayload(choice accountcheckout.PaymentChoice) map[string]any {
 	return map[string]any{
 		"provider": choice.Provider, "currency": choice.Currency,
 		"amountMinor": choice.AmountMinor, "recurring": choice.Recurring,
+		"canSaveMethod": choice.CanSaveMethod,
 	}
 }
 
@@ -743,13 +747,16 @@ func (handlers *AccountHandlers) startTopUp(writer http.ResponseWriter, request 
 		AmountMinor int64  `json:"amountMinor"`
 		Currency    string `json:"currency"`
 		Provider    string `json:"provider"`
+		SaveMethod  bool   `json:"saveMethod"`
 	}
 	if !decodeJSON(writer, request, &body) {
 		return
 	}
-	topUp, err := handlers.checkout.StartTopUp(
+	topUp, err := handlers.checkout.StartTopUpWith(
 		request.Context(), principal.Customer.ID, strings.ToUpper(strings.TrimSpace(body.Currency)),
-		body.AmountMinor, strings.TrimSpace(body.Provider), key,
+		body.AmountMinor, accountcheckout.PaymentSelection{
+			Provider: strings.TrimSpace(body.Provider), SaveMethod: body.SaveMethod,
+		}, key,
 	)
 	if err != nil && topUp.OrderID == "" {
 		// Nothing was created: the amount, the window, or the method was

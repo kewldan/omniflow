@@ -3668,7 +3668,7 @@ paths:
         - {$ref: "#/components/parameters/OrderID"}
         - {$ref: "#/components/parameters/CSRFToken"}
         - {$ref: "#/components/parameters/IdempotencyKey"}
-      requestBody: {required: true, content: {application/json: {schema: {type: object, properties: {provider: {type: string}}}}}}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, properties: {provider: {type: string}, saveMethod: {type: boolean, description: "Explicit consent to keep the instrument for automatic renewal. Ignored for a method that cannot bind one."}}}}}}
       responses:
         "200": {description: Payment handoff, content: {application/json: {schema: {$ref: "#/components/schemas/AccountPaymentHandle"}}}}
         "404": {$ref: "#/components/responses/Problem"}
@@ -3780,6 +3780,69 @@ paths:
         "403": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
         "429": {$ref: "#/components/responses/Problem"}
+  /v1/account/renewal:
+    get:
+      operationId: getAccountRenewal
+      tags: [account]
+      description: >-
+        Automatic renewal per subscription and the customer's saved payment
+        methods. The same rows the bot's auto-renew screen reads. A saved
+        method carries only the provider's masked label, never a card number.
+      responses:
+        "200": {description: Renewal settings, content: {application/json: {schema: {$ref: "#/components/schemas/AccountRenewal"}}}}
+  /v1/account/renewal/{subscriptionID}:
+    put:
+      operationId: updateAccountRenewal
+      tags: [account]
+      description: >-
+        Turns automatic renewal on or off for one of the customer's own
+        subscriptions, chooses whether it is paid from the wallet or a saved
+        method, and sets how many hours before expiry it is attempted (clamped
+        to at most 14 days). Turning it on records the customer's consent.
+        `422 recurring_unavailable` when no configured method can charge the
+        plan again; `422 no_saved_method` when card funding is chosen with no
+        saved card.
+      parameters:
+        - {in: path, name: subscriptionID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled: {type: boolean}
+                funding: {type: string, enum: [wallet, saved_method]}
+                leadTimeHours: {type: integer, minimum: 1, maximum: 336}
+      responses:
+        "200": {description: Renewal settings, content: {application/json: {schema: {$ref: "#/components/schemas/AccountRenewal"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/account/payment-methods/{methodID}/default:
+    post:
+      operationId: setAccountDefaultPaymentMethod
+      tags: [account]
+      description: Makes one saved method the one automatic renewal charges.
+      parameters:
+        - {in: path, name: methodID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "200": {description: Renewal settings, content: {application/json: {schema: {$ref: "#/components/schemas/AccountRenewal"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/account/payment-methods/{methodID}:
+    delete:
+      operationId: removeAccountPaymentMethod
+      tags: [account]
+      description: >-
+        Revokes a saved method. Renewal that depended on it falls back to the
+        customer's next active method, or is suspended when none remains.
+      parameters:
+        - {in: path, name: methodID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "200": {description: Renewal settings, content: {application/json: {schema: {$ref: "#/components/schemas/AccountRenewal"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
   /v1/account/wallet/top-up:
     post:
       operationId: startAccountTopUp
@@ -3807,6 +3870,7 @@ paths:
                 amountMinor: {type: integer, format: int64, minimum: 1}
                 currency: {type: string}
                 provider: {type: string}
+                saveMethod: {type: boolean, description: "Explicit consent to keep the instrument for automatic renewal."}
       responses:
         "201": {description: Top-up opened, content: {application/json: {schema: {$ref: "#/components/schemas/AccountTopUpStarted"}}}}
         "422": {$ref: "#/components/responses/Problem"}
@@ -7618,6 +7682,38 @@ components:
         currency: {type: string}
         amountMinor: {type: integer, format: int64}
         recurring: {type: boolean}
+        canSaveMethod: {type: boolean, description: "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test."}
+    AccountSavedMethod:
+      type: object
+      required: [id, provider, label, status, isDefault, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        provider: {type: string}
+        label: {type: string}
+        status: {type: string, enum: [active, expired, failed, revoked]}
+        isDefault: {type: boolean}
+        createdAt: {type: string, format: date-time}
+    AccountSubscriptionRenewal:
+      type: object
+      required: [subscriptionId, label, planName, supported, enabled, funding, leadTimeHours, state, methodLabel]
+      properties:
+        subscriptionId: {type: string, format: uuid}
+        label: {type: string}
+        planName: {type: string}
+        endsAt: {type: string, format: date-time}
+        supported: {type: boolean}
+        enabled: {type: boolean}
+        funding: {type: string, enum: [wallet, saved_method]}
+        leadTimeHours: {type: integer}
+        state: {type: string, enum: [idle, scheduled, dunning, suspended]}
+        methodLabel: {type: string}
+    AccountRenewal:
+      type: object
+      required: [available, methods, subscriptions]
+      properties:
+        available: {type: boolean}
+        methods: {type: array, items: {$ref: "#/components/schemas/AccountSavedMethod"}}
+        subscriptions: {type: array, items: {$ref: "#/components/schemas/AccountSubscriptionRenewal"}}
     AccountCheckout:
       type: object
       required: [id, planVersionId, plan, operation, currency, providers, applyWallet, quote, subscriptions, targetRequired, multiSubscription, squads, selectedSquadIds, squadSelection, quoteAvailable, addons, selectedAddons]

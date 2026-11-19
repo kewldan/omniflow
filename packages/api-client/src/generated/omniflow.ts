@@ -4234,6 +4234,64 @@ export interface AccountPaymentChoice {
   currency: string;
   amountMinor?: number;
   recurring: boolean;
+  /** The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test. */
+  canSaveMethod?: boolean;
+}
+
+export type AccountSavedMethodStatus =
+  (typeof AccountSavedMethodStatus)[keyof typeof AccountSavedMethodStatus];
+
+export const AccountSavedMethodStatus = {
+  active: "active",
+  expired: "expired",
+  failed: "failed",
+  revoked: "revoked",
+} as const;
+
+export interface AccountSavedMethod {
+  id: string;
+  provider: string;
+  label: string;
+  status: AccountSavedMethodStatus;
+  isDefault: boolean;
+  createdAt: string;
+}
+
+export type AccountSubscriptionRenewalFunding =
+  (typeof AccountSubscriptionRenewalFunding)[keyof typeof AccountSubscriptionRenewalFunding];
+
+export const AccountSubscriptionRenewalFunding = {
+  wallet: "wallet",
+  saved_method: "saved_method",
+} as const;
+
+export type AccountSubscriptionRenewalState =
+  (typeof AccountSubscriptionRenewalState)[keyof typeof AccountSubscriptionRenewalState];
+
+export const AccountSubscriptionRenewalState = {
+  idle: "idle",
+  scheduled: "scheduled",
+  dunning: "dunning",
+  suspended: "suspended",
+} as const;
+
+export interface AccountSubscriptionRenewal {
+  subscriptionId: string;
+  label: string;
+  planName: string;
+  endsAt?: string;
+  supported: boolean;
+  enabled: boolean;
+  funding: AccountSubscriptionRenewalFunding;
+  leadTimeHours: number;
+  state: AccountSubscriptionRenewalState;
+  methodLabel: string;
+}
+
+export interface AccountRenewal {
+  available: boolean;
+  methods: AccountSavedMethod[];
+  subscriptions: AccountSubscriptionRenewal[];
 }
 
 export type AccountCheckoutOperation =
@@ -6578,6 +6636,8 @@ export const GetAccountOrderLocale = {
 
 export type StartAccountOrderPaymentBody = {
   provider?: string;
+  /** Explicit consent to keep the instrument for automatic renewal. Ignored for a method that cannot bind one. */
+  saveMethod?: boolean;
 };
 
 export type GetAccountWalletParams = {
@@ -6624,11 +6684,31 @@ export type AccountRedeemCode200 = {
   currency?: string;
 };
 
+export type UpdateAccountRenewalBodyFunding =
+  (typeof UpdateAccountRenewalBodyFunding)[keyof typeof UpdateAccountRenewalBodyFunding];
+
+export const UpdateAccountRenewalBodyFunding = {
+  wallet: "wallet",
+  saved_method: "saved_method",
+} as const;
+
+export type UpdateAccountRenewalBody = {
+  enabled?: boolean;
+  funding?: UpdateAccountRenewalBodyFunding;
+  /**
+   * @minimum 1
+   * @maximum 336
+   */
+  leadTimeHours?: number;
+};
+
 export type StartAccountTopUpBody = {
   /** @minimum 1 */
   amountMinor: number;
   currency?: string;
   provider?: string;
+  /** Explicit consent to keep the instrument for automatic renewal. */
+  saveMethod?: boolean;
 };
 
 export type GetAccountReferralsParams = {
@@ -29514,6 +29594,334 @@ export const useAccountRedeemCode = <TError = Promise<ProblemResponse>>(options?
 
   const swrKey = swrOptions?.swrKey ?? getAccountRedeemCodeMutationKey();
   const swrFn = getAccountRedeemCodeMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountRenewalResponse200 = {
+  data: AccountRenewal;
+  status: 200;
+};
+
+export type getAccountRenewalResponseSuccess = getAccountRenewalResponse200 & {
+  headers: Headers;
+};
+
+export type getAccountRenewalResponse = getAccountRenewalResponseSuccess;
+
+export const getGetAccountRenewalUrl = () => {
+  return `/v1/account/renewal`;
+};
+
+/**
+ * Automatic renewal per subscription and the customer's saved payment methods. The same rows the bot's auto-renew screen reads. A saved method carries only the provider's masked label, never a card number.
+ */
+export const getAccountRenewal = async (
+  options?: RequestInit,
+): Promise<getAccountRenewalResponse> => {
+  const res = await fetch(getGetAccountRenewalUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountRenewalResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountRenewalResponse;
+};
+
+export const getGetAccountRenewalKey = () => [`/v1/account/renewal`] as const;
+
+export type GetAccountRenewalQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountRenewal>>
+>;
+
+export const useGetAccountRenewal = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountRenewal>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetAccountRenewalKey() : null));
+  const swrFn = () => getAccountRenewal(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type updateAccountRenewalResponse200 = {
+  data: AccountRenewal;
+  status: 200;
+};
+
+export type updateAccountRenewalResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type updateAccountRenewalResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type updateAccountRenewalResponseSuccess = updateAccountRenewalResponse200 & {
+  headers: Headers;
+};
+export type updateAccountRenewalResponseError = (
+  | updateAccountRenewalResponse404
+  | updateAccountRenewalResponse422
+) & {
+  headers: Headers;
+};
+
+export type updateAccountRenewalResponse =
+  | updateAccountRenewalResponseSuccess
+  | updateAccountRenewalResponseError;
+
+export const getUpdateAccountRenewalUrl = (subscriptionID: string) => {
+  return `/v1/account/renewal/${subscriptionID}`;
+};
+
+/**
+ * Turns automatic renewal on or off for one of the customer's own subscriptions, chooses whether it is paid from the wallet or a saved method, and sets how many hours before expiry it is attempted (clamped to at most 14 days). Turning it on records the customer's consent. `422 recurring_unavailable` when no configured method can charge the plan again; `422 no_saved_method` when card funding is chosen with no saved card.
+ */
+export const updateAccountRenewal = async (
+  subscriptionID: string,
+  updateAccountRenewalBody: UpdateAccountRenewalBody,
+  options?: RequestInit,
+): Promise<updateAccountRenewalResponse> => {
+  const res = await fetch(getUpdateAccountRenewalUrl(subscriptionID), {
+    ...options,
+    method: "PUT",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(updateAccountRenewalBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: updateAccountRenewalResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as updateAccountRenewalResponse;
+};
+
+export const getUpdateAccountRenewalMutationFetcher = (
+  subscriptionID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: UpdateAccountRenewalBody }) => {
+    return updateAccountRenewal(subscriptionID, arg, options);
+  };
+};
+export const getUpdateAccountRenewalMutationKey = (subscriptionID: string) =>
+  [`/v1/account/renewal/${subscriptionID}`] as const;
+
+export type UpdateAccountRenewalMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAccountRenewal>>
+>;
+
+export const useUpdateAccountRenewal = <TError = Promise<ProblemResponse>>(
+  subscriptionID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof updateAccountRenewal>>,
+      TError,
+      Key,
+      UpdateAccountRenewalBody,
+      Awaited<ReturnType<typeof updateAccountRenewal>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getUpdateAccountRenewalMutationKey(subscriptionID);
+  const swrFn = getUpdateAccountRenewalMutationFetcher(subscriptionID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type setAccountDefaultPaymentMethodResponse200 = {
+  data: AccountRenewal;
+  status: 200;
+};
+
+export type setAccountDefaultPaymentMethodResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type setAccountDefaultPaymentMethodResponseSuccess =
+  setAccountDefaultPaymentMethodResponse200 & {
+    headers: Headers;
+  };
+export type setAccountDefaultPaymentMethodResponseError =
+  setAccountDefaultPaymentMethodResponse404 & {
+    headers: Headers;
+  };
+
+export type setAccountDefaultPaymentMethodResponse =
+  | setAccountDefaultPaymentMethodResponseSuccess
+  | setAccountDefaultPaymentMethodResponseError;
+
+export const getSetAccountDefaultPaymentMethodUrl = (methodID: string) => {
+  return `/v1/account/payment-methods/${methodID}/default`;
+};
+
+/**
+ * Makes one saved method the one automatic renewal charges.
+ */
+export const setAccountDefaultPaymentMethod = async (
+  methodID: string,
+  options?: RequestInit,
+): Promise<setAccountDefaultPaymentMethodResponse> => {
+  const res = await fetch(getSetAccountDefaultPaymentMethodUrl(methodID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: setAccountDefaultPaymentMethodResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as setAccountDefaultPaymentMethodResponse;
+};
+
+export const getSetAccountDefaultPaymentMethodMutationFetcher = (
+  methodID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return setAccountDefaultPaymentMethod(methodID, options);
+  };
+};
+export const getSetAccountDefaultPaymentMethodMutationKey = (methodID: string) =>
+  [`/v1/account/payment-methods/${methodID}/default`] as const;
+
+export type SetAccountDefaultPaymentMethodMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setAccountDefaultPaymentMethod>>
+>;
+
+export const useSetAccountDefaultPaymentMethod = <TError = Promise<ProblemResponse>>(
+  methodID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof setAccountDefaultPaymentMethod>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof setAccountDefaultPaymentMethod>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSetAccountDefaultPaymentMethodMutationKey(methodID);
+  const swrFn = getSetAccountDefaultPaymentMethodMutationFetcher(methodID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type removeAccountPaymentMethodResponse200 = {
+  data: AccountRenewal;
+  status: 200;
+};
+
+export type removeAccountPaymentMethodResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type removeAccountPaymentMethodResponseSuccess = removeAccountPaymentMethodResponse200 & {
+  headers: Headers;
+};
+export type removeAccountPaymentMethodResponseError = removeAccountPaymentMethodResponse404 & {
+  headers: Headers;
+};
+
+export type removeAccountPaymentMethodResponse =
+  | removeAccountPaymentMethodResponseSuccess
+  | removeAccountPaymentMethodResponseError;
+
+export const getRemoveAccountPaymentMethodUrl = (methodID: string) => {
+  return `/v1/account/payment-methods/${methodID}`;
+};
+
+/**
+ * Revokes a saved method. Renewal that depended on it falls back to the customer's next active method, or is suspended when none remains.
+ */
+export const removeAccountPaymentMethod = async (
+  methodID: string,
+  options?: RequestInit,
+): Promise<removeAccountPaymentMethodResponse> => {
+  const res = await fetch(getRemoveAccountPaymentMethodUrl(methodID), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: removeAccountPaymentMethodResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as removeAccountPaymentMethodResponse;
+};
+
+export const getRemoveAccountPaymentMethodMutationFetcher = (
+  methodID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return removeAccountPaymentMethod(methodID, options);
+  };
+};
+export const getRemoveAccountPaymentMethodMutationKey = (methodID: string) =>
+  [`/v1/account/payment-methods/${methodID}`] as const;
+
+export type RemoveAccountPaymentMethodMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeAccountPaymentMethod>>
+>;
+
+export const useRemoveAccountPaymentMethod = <TError = Promise<ProblemResponse>>(
+  methodID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof removeAccountPaymentMethod>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof removeAccountPaymentMethod>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRemoveAccountPaymentMethodMutationKey(methodID);
+  const swrFn = getRemoveAccountPaymentMethodMutationFetcher(methodID, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

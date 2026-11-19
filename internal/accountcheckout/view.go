@@ -530,6 +530,15 @@ func (service *Service) CancelOrderFrom(ctx context.Context, customerID, orderID
 func (service *Service) StartOrderPayment(
 	ctx context.Context, customerID, orderID, locale, provider string,
 ) (PaymentHandle, error) {
+	return service.StartOrderPaymentWith(ctx, customerID, orderID, locale, PaymentSelection{Provider: provider})
+}
+
+// StartOrderPaymentWith is StartOrderPayment with the customer's full
+// selection: the method and the consent to keep the instrument.
+func (service *Service) StartOrderPaymentWith(
+	ctx context.Context, customerID, orderID, locale string, selection PaymentSelection,
+) (PaymentHandle, error) {
+	provider := selection.Provider
 	order, err := service.store.Order(ctx, customerID, orderID, locale)
 	if err != nil {
 		return PaymentHandle{}, err
@@ -564,6 +573,7 @@ func (service *Service) StartOrderPayment(
 	}
 	handle, err := service.StartPayment(ctx, PaymentRequest{
 		OrderID: order.ID, Provider: provider, Description: order.PlanName, Channel: "customer_web",
+		SaveMethod: selection.SaveMethod,
 	})
 	if err != nil {
 		return PaymentHandle{}, err

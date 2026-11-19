@@ -143,9 +143,16 @@ func (service *Commerce) Confirm(ctx context.Context, session CheckoutSession, p
 // invoices carry the paying Telegram account as receipt metadata because
 // refundStarPayment cannot be issued without it.
 func (service *Commerce) StartPayment(ctx context.Context, order OrderSummary, provider string, telegramID int64, description string) (PaymentHandle, error) {
+	return service.StartPaymentWith(ctx, order, provider, telegramID, description, false)
+}
+
+// StartPaymentWith is StartPayment with the customer's consent to keep the
+// instrument for automatic renewal, given by pressing the "and save the card"
+// button rather than the plain one.
+func (service *Commerce) StartPaymentWith(ctx context.Context, order OrderSummary, provider string, telegramID int64, description string, saveMethod bool) (PaymentHandle, error) {
 	return service.checkout.StartPayment(ctx, accountcheckout.PaymentRequest{
 		OrderID: order.ID, Provider: provider, Description: description,
-		Channel: "telegram_bot", TelegramID: telegramID,
+		Channel: "telegram_bot", TelegramID: telegramID, SaveMethod: saveMethod,
 	})
 }
 
