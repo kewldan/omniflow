@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { getLocale } from "next-intl/server";
 import type { ReactNode } from "react";
 
+import { BrandNameProvider } from "@/components/brand-name";
 import { ScopedIntlProvider } from "@/components/intl/scoped-intl-provider";
 import { UiLabelsBridge } from "@/components/intl/ui-labels-bridge";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -83,7 +84,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               the browser its own catalogue in its own layout; see
               ScopedIntlProvider for why the root must not. */}
           <ScopedIntlProvider namespaces={["common"]}>
-            <UiLabelsBridge>{children}</UiLabelsBridge>
+            <BrandNameProvider name={branding.serviceName}>
+              <UiLabelsBridge>{children}</UiLabelsBridge>
+            </BrandNameProvider>
             {/* The operator's measurement is not mounted here: it belongs to
                 the customer-facing route groups only and must never load on an
                 operator page. See CustomerMeasurement. */}

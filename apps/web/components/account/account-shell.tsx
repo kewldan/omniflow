@@ -18,6 +18,8 @@ import { useTranslations } from "next-intl";
 import { type ReactNode, useEffect, useState } from "react";
 
 import { AccountNotice } from "@/components/account/state";
+import { useBrandName } from "@/components/brand-name";
+import { LocaleSync } from "@/components/intl/locale-switch";
 import { useAccount } from "@/lib/account-session";
 import { apiFetch } from "@/lib/api";
 import { flushReferralAttribution, rememberReferralCode } from "@/lib/referral";
@@ -61,6 +63,24 @@ const SECONDARY: { href: string; key: string }[] = [
   { href: "/account/security", key: "security" },
 ];
 
+/**
+ * Section pages that open straight into their content with no heading of their
+ * own. The shell names them with their navigation label, so every page has
+ * one `<h1>` — what a screen reader lists first and what tells a desktop
+ * visitor, who has no phone header, where they are. Pages that write their
+ * own heading (support, news, preferences, a subscription) are not listed.
+ */
+const UNTITLED_SECTIONS: Record<string, string> = {
+  "/account": "nav.subscriptions",
+  "/account/devices": "nav.devices",
+  "/account/orders": "nav.orders",
+  "/account/privacy": "hub.privacy",
+  "/account/profile": "nav.profile",
+  "/account/referrals": "nav.referrals",
+  "/account/security": "nav.security",
+  "/account/wallet": "nav.wallet",
+};
+
 /** Routes that are reached from a tab rather than being one, so they show a back control. */
 function isDetailRoute(pathname: string): boolean {
   return !TABS.some((tab) => tab.href === pathname);
@@ -87,6 +107,7 @@ function isActive(pathname: string, href: string): boolean {
  */
 export function AccountShell({ children }: { children: ReactNode }) {
   const translate = useTranslations("account");
+  const serviceName = useBrandName(translate("nav.title"));
   const { error, loading, session, signedOut, unavailable } = useAccount();
   const pathname = usePathname();
   const search = useSearchParams();
@@ -135,8 +156,10 @@ export function AccountShell({ children }: { children: ReactNode }) {
   }
 
   const showBack = isDetailRoute(pathname);
+  const pageTitle = UNTITLED_SECTIONS[pathname];
   return (
     <div className="min-h-dvh bg-background md:flex">
+      <LocaleSync preferred={session.customer.locale} />
       <DesktopSidebar customerId={session.customer.id} pathname={pathname} />
 
       <div className="flex min-h-dvh flex-1 flex-col md:min-h-0">
@@ -155,9 +178,7 @@ export function AccountShell({ children }: { children: ReactNode }) {
             <span className="w-8" />
           )}
           <div className="flex flex-1 flex-col items-center">
-            <span className="font-semibold text-[15px] tracking-[-0.01em]">
-              {translate("nav.title")}
-            </span>
+            <span className="font-semibold text-[15px] tracking-[-0.01em]">{serviceName}</span>
             <span className="font-mono text-[10.5px] text-subtle-foreground">
               {translate("nav.subtitle")}
             </span>
@@ -168,6 +189,11 @@ export function AccountShell({ children }: { children: ReactNode }) {
         {/* The bottom padding clears the floating tab bar on a phone. There is no
             bar on desktop, so there is nothing to clear and the padding goes. */}
         <main className="mx-auto w-full max-w-lg flex-1 px-4 pt-3 pb-32 md:max-w-3xl md:px-8 md:pt-8 md:pb-16">
+          {pageTitle ? (
+            <h1 className="mb-4 font-semibold text-[19px] tracking-[-0.02em]">
+              {translate(pageTitle)}
+            </h1>
+          ) : null}
           {children}
         </main>
       </div>
@@ -187,13 +213,12 @@ export function AccountShell({ children }: { children: ReactNode }) {
  */
 function DesktopSidebar({ customerId, pathname }: { customerId: string; pathname: string }) {
   const translate = useTranslations("account");
+  const serviceName = useBrandName(translate("nav.title"));
 
   return (
     <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-chrome-border border-r bg-chrome md:flex">
       <div className="flex flex-col gap-0.5 px-5 pt-6 pb-5">
-        <span className="font-semibold text-[15px] tracking-[-0.01em]">
-          {translate("nav.title")}
-        </span>
+        <span className="font-semibold text-[15px] tracking-[-0.01em]">{serviceName}</span>
         <span className="font-mono text-[10.5px] text-subtle-foreground">
           {translate("nav.subtitle")}
         </span>

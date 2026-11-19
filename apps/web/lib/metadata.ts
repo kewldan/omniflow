@@ -29,8 +29,12 @@ export async function areaTitle(
 ): Promise<Metadata["title"]> {
   const [name, translate] = await Promise.all([brandName(), getTranslations("common.meta")]);
   const label = translate(area);
+  // `absolute`, not `default`: a layout's `default` is itself run through the
+  // root layout's `%s · <name>` template, which printed the name twice
+  // ("Admin · Omniflow · Omniflow"). A page without a title of its own inherits
+  // this resolved value; one with a title still gets `template`.
   return {
-    default: `${label} · ${name}`,
+    absolute: `${label} · ${name}`,
     template: separateArea ? `%s · ${label} · ${name}` : `%s · ${name}`,
   };
 }

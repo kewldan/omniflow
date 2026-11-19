@@ -1,18 +1,26 @@
 import { Button } from "@omniflow/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@omniflow/ui/card";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
+import { CornerLocaleSwitch } from "@/components/intl/corner-locale-switch";
+import { brandName } from "@/lib/metadata";
+
 export default async function CustomerHome() {
-  const translate = await getTranslations("home");
+  const [translate, name] = await Promise.all([getTranslations("home"), brandName()]);
   return (
     <main className="mx-auto flex min-h-screen max-w-5xl items-center px-6 py-20">
+      <CornerLocaleSwitch />
       <Card className="max-w-2xl">
         <CardHeader>
+          {/* The installation's own name, never the product's: this is the
+              operator's front door, not Omniflow's. */}
           <p className="font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.16em]">
-            {translate("eyebrow")}
+            {translate("eyebrow", { name })}
           </p>
-          <CardTitle className="text-4xl tracking-[-0.035em]">{translate("title")}</CardTitle>
+          <h1 className="font-semibold text-4xl leading-tight tracking-[-0.035em]">
+            {translate("title")}
+          </h1>
           <CardDescription className="text-base leading-7">
             {translate("description")}
           </CardDescription>

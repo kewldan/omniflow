@@ -9,6 +9,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 
+import { useBrandName } from "@/components/brand-name";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 import { rememberReferralCode } from "@/lib/referral";
 import { safeNext } from "@/lib/sign-in-path";
@@ -37,6 +38,7 @@ type SignInMethods = {
  */
 export default function SignInPage() {
   const translate = useTranslations("account");
+  const serviceName = useBrandName(translate("nav.title"));
   const search = useSearchParams();
   const router = useRouter();
   const { data, isLoading } = useSWR<SignInMethods, ApiError>("/v1/account/auth/methods", fetcher);
@@ -89,7 +91,7 @@ export default function SignInPage() {
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-6 py-16">
       <header className="space-y-2">
         <p className="font-medium font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.16em]">
-          {translate("nav.title")}
+          {serviceName}
         </p>
         <h1 className="font-bold text-[26px] tracking-[-0.035em]">{translate("signIn.title")}</h1>
         <p className="text-[14px] text-muted-foreground leading-relaxed">

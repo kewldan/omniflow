@@ -15,7 +15,8 @@ import { Menu } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { type ReactNode, useEffect, useState } from "react";
+import { Fragment, type ReactNode, useEffect, useState } from "react";
+import { LocaleSync } from "@/components/intl/locale-switch";
 import { TimeZoneLabel } from "@/components/intl/panel-time-zones";
 import { breadcrumbTrail } from "@/lib/navigation";
 import { useSession } from "@/lib/session";
@@ -33,7 +34,7 @@ import { UserMenu } from "./user-menu";
  * data. A signed-out session redirects rather than rendering an empty shell.
  */
 export function AdminShell({ children }: { children: ReactNode }) {
-  const { loading, signedOut, error, stale } = useSession();
+  const { loading, signedOut, error, session, stale } = useSession();
   const translate = useTranslations("admin");
   const router = useRouter();
   const pathname = usePathname();
@@ -77,6 +78,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-dvh bg-background">
+      <LocaleSync preferred={session?.account.locale} />
       {/* Persistent rail on desktop; a sheet on narrow screens. */}
       <aside className="hidden w-60 shrink-0 border-border border-r lg:block">
         <div className="flex h-14 items-center gap-2 border-border border-b px-4">
@@ -120,11 +122,17 @@ export function AdminShell({ children }: { children: ReactNode }) {
                   </BreadcrumbLink>
                 )}
               </BreadcrumbItem>
+              {/* The separator is a list item of its own, beside the crumb
+                  rather than inside it: an <li> nested in an <li> is invalid
+                  markup and React reported it as a hydration error on every
+                  page below the dashboard. */}
               {trail.map((item) => (
-                <BreadcrumbItem key={item.key}>
+                <Fragment key={item.key}>
                   <BreadcrumbSeparator />
-                  <BreadcrumbPage>{translate(`navigation.items.${item.key}`)}</BreadcrumbPage>
-                </BreadcrumbItem>
+                  <BreadcrumbItem>
+                    <BreadcrumbPage>{translate(`navigation.items.${item.key}`)}</BreadcrumbPage>
+                  </BreadcrumbItem>
+                </Fragment>
               ))}
             </BreadcrumbList>
           </Breadcrumb>
