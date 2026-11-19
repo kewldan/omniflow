@@ -32,7 +32,7 @@ WHERE id = sqlc.arg(identity_id) AND user_id = sqlc.arg(user_id) AND status = 'r
 RETURNING *;
 
 -- name: GetCustomerByTelegramMapping :one
--- The v0.2 adoption rule, as the bot applies it: a customer imported from
+-- The adoption rule, as the bot applies it: a customer imported from
 -- Remnawave carries their Telegram ID on the mapping row before they ever hold
 -- an identity row. A widget sign-in must land on that customer rather than
 -- provision an empty second one.

@@ -396,7 +396,7 @@ func (worker *Worker) recordSuccess(ctx context.Context, claimed claim, result o
 		}
 	}
 	// The customer-level mapping stays the primary subscription's Remnawave
-	// user, so the v0.2 self-service screens keep resolving unchanged.
+	// user, so the self-service screens that read it keep resolving.
 	if subscription.Slot <= 1 {
 		if _, err = queries.UpsertRemnawaveMapping(ctx, dbgen.UpsertRemnawaveMappingParams{UserID: entitlement.UserID, RemnawaveID: remote.ID, ObservedState: observed}); err != nil {
 			return err

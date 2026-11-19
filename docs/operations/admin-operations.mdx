@@ -187,15 +187,14 @@ subscription link onto an operator's screen.
 
 ## Settings
 
-Wallet top-up limits and subscription concurrency were environment variables
-until v0.7. They are now rows in `commerce_settings`.
+Wallet top-up limits and subscription concurrency are rows in
+`commerce_settings`.
 
-The migration path is deliberate. On the first start after upgrading, the API
-seeds the row from the environment the installation already had, so an operator
-coming from v0.5 keeps the limits they configured rather than getting schema
-defaults. From then on the panel is the only thing that writes them, and the
-environment variables stay readable so restoring into a fresh database
-reproduces the same starting point.
+On its first start against a database with no such row, the API seeds it from
+the environment, so the limits an operator configured there are the starting
+point rather than schema defaults. From then on the panel is the only thing that
+writes them, and the environment variables stay readable so restoring into a
+fresh database reproduces the same starting point.
 
 The provider list shows what the operator configured beside what each
 compiled-in adapter actually declares. A recurring switch that is unavailable is

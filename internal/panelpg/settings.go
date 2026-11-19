@@ -43,16 +43,14 @@ type CommerceSettings struct {
 	UpdatedBy     string               `json:"updatedBy,omitempty"`
 }
 
-// EnsureCommerceSettings seeds the settings row from the environment the
-// installation already had, and returns whatever is stored.
+// EnsureCommerceSettings seeds the settings row from the environment, and
+// returns whatever is stored.
 //
-// This runs once, on the first read after upgrading. An installation coming
-// from v0.5 configured these limits through environment variables, and silently
-// replacing them with schema defaults would change how much a customer may
-// top up without anybody having asked for that. After the seed the row is
-// authoritative and only the panel writes it; the environment variables stay
-// readable so restoring into a fresh database reproduces the same starting
-// point.
+// The seed is written once, on the first read against an empty table, so the
+// limits an operator set through environment variables are the starting point
+// rather than the schema defaults. After the seed the row is authoritative and
+// only the panel writes it; the environment variables stay readable so
+// restoring into a fresh database reproduces the same starting point.
 func (service *Service) EnsureCommerceSettings(
 	ctx context.Context, defaults CommerceSettings,
 ) (CommerceSettings, error) {

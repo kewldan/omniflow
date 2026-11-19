@@ -160,9 +160,9 @@ type querier interface {
 //
 // `consent_records` is append-only, so "the current answer" is the newest row
 // rather than a column somebody keeps up to date. The preference column is the
-// fallback for an installation that predates the consent history, and it is a
-// fallback only: where the two disagree, the record of what the customer
-// actually decided wins.
+// fallback for a customer with no recorded decision, and it is a fallback
+// only: where the two disagree, the record of what the customer actually
+// decided wins.
 func (service *Service) marketingConsent(
 	ctx context.Context, db querier, customerID string, fallback bool,
 ) (MarketingConsent, error) {

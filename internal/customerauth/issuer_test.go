@@ -11,7 +11,7 @@ func TestBindingMatchesIssuerRequiresTheIssuerItWasMadeAt(t *testing.T) {
 		{"https://accounts.example", "https://attacker.example", false},
 		// A trailing slash is a different issuer string; OIDC compares exactly.
 		{"https://accounts.example", "https://accounts.example/", false},
-		// A binding that predates issuer pinning and lost its provider row.
+		// A binding with no recorded issuer belongs to no issuer.
 		{"", "https://accounts.example", false},
 		{"", "", false},
 	}

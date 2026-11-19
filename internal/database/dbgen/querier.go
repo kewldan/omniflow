@@ -616,7 +616,7 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	GetCommerceSettings(ctx context.Context) (CommerceSetting, error)
 	GetCustomer(ctx context.Context, id pgtype.UUID) (User, error)
-	// The v0.2 adoption rule, as the bot applies it: a customer imported from
+	// The adoption rule, as the bot applies it: a customer imported from
 	// Remnawave carries their Telegram ID on the mapping row before they ever hold
 	// an identity row. A widget sign-in must land on that customer rather than
 	// provision an empty second one.
@@ -1852,9 +1852,8 @@ type Querier interface {
 	// The raw body is deliberately not selected: it can contain provider payloads,
 	// and the panel never needs it to answer "did this arrive and was it accepted".
 	SearchWebhookEvents(ctx context.Context, arg SearchWebhookEventsParams) ([]SearchWebhookEventsRow, error)
-	// Written once, from the environment the installation already had. An
-	// installation upgrading from v0.5 therefore keeps the limits its operator
-	// configured, and every later change comes from the panel.
+	// Written once, from the environment, so the limits an operator configured
+	// there are the starting point; every later change comes from the panel.
 	SeedCommerceSettings(ctx context.Context, arg SeedCommerceSettingsParams) (CommerceSetting, error)
 	SetAIProviderCredentials(ctx context.Context, arg SetAIProviderCredentialsParams) error
 	// Starts enrolment. `totp_confirmed_at` is deliberately cleared: a secret that

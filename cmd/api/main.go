@@ -412,10 +412,9 @@ func parseAddress(value string) *netip.Addr {
 // seedCommerceSettings writes the wallet and subscription policy into the
 // database the first time the panel starts.
 //
-// Both were environment variables until v0.7. Seeding from the environment
-// rather than from the schema defaults means an installation upgrading from
-// v0.5 keeps the limits its operator configured; afterwards the row is
-// authoritative and only the panel changes it.
+// Seeding from the environment rather than from the schema defaults means the
+// limits an operator configured there are the starting point; afterwards the
+// row is authoritative and only the panel changes it.
 //
 // A failure here never blocks startup: the panel simply shows no settings yet,
 // and the next start tries again.

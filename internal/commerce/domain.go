@@ -140,8 +140,8 @@ type Promotion struct {
 	Value    int64
 	Currency string
 	// AppliesTo names the catalogue this promotion discounts: plans or goods,
-	// never both. An empty value reads as plans, which is what every promotion
-	// written before the shop existed meant.
+	// never both. An empty value reads as plans, the column's default, so a
+	// promotion never widens to the shop by omission.
 	AppliesTo string
 	StartsAt  *time.Time
 	EndsAt    *time.Time

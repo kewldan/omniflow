@@ -36,10 +36,6 @@ The database enforces the same thing rather than trusting the application:
 `CHECK (enabled = false OR consent_at IS NOT NULL)`, so a row that claims to be
 enabled without evidence of agreement cannot be written at all.
 
-Existing rows from v0.5 were backfilled with the moment the setting was last
-written, because those rows were created by a customer explicitly enabling
-auto-renew in the bot.
-
 ### The four states
 
 | State | Meaning |

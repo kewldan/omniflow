@@ -39,8 +39,7 @@ func (cfg TopUpConfig) Limits() commerce.TopUpLimits {
 }
 
 // SubscriptionConfig switches concurrent subscriptions on and bounds them.
-// The default keeps one subscription per customer, which is what every
-// installation upgraded from v0.4 already has.
+// The default keeps one subscription per customer.
 type SubscriptionConfig struct {
 	MultiEnabled   bool
 	MaxPerCustomer int

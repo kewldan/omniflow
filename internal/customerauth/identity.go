@@ -94,8 +94,8 @@ type Claims struct {
 //
 // A provider row's issuer can be edited, so the issuer the binding was made at
 // is what counts, not the one the provider holds today. A binding with no
-// recorded issuer matches nothing: it predates issuer pinning and its provider
-// row is gone, so there is no issuer it can be proven to belong to.
+// recorded issuer matches nothing, because there is no issuer it can be proven
+// to belong to.
 func BindingMatchesIssuer(boundIssuer, assertedIssuer string) bool {
 	return boundIssuer != "" && boundIssuer == assertedIssuer
 }

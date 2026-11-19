@@ -57,8 +57,7 @@ the remote user is duplicated.
 The remote username is derived rather than stored: `omniflow_` plus the first sixteen hex characters of
 the subscription UUID. Because it is deterministic, a `create` that runs after a crash finds the user it
 already made instead of making a second one — the worker looks the candidate up by username before
-creating, and installations upgraded from an earlier version also try the older customer-derived name so
-the existing Remnawave user is adopted rather than duplicated.
+creating.
 
 Every write to Remnawave is an Omniflow record first: a `fulfillment_operations` row with a desired state,
 an idempotency key, and a correlation ID, applied by a durable job. A panel click that wrote to Remnawave

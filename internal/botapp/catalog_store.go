@@ -159,7 +159,7 @@ type Entitlement struct {
 	AmountMinor   int64
 	Found         bool
 	// SubscriptionID names the subscription this entitlement belongs to. It is
-	// empty for an entitlement created before v0.5 that has not been adopted.
+	// empty for an entitlement whose subscription has been removed.
 	SubscriptionID string
 	// SubscriptionLabel is set when a notification has to name the subscription
 	// unambiguously, which is whenever a customer holds more than one.
@@ -332,13 +332,12 @@ type AutoRenew struct {
 	// SubscriptionID names the subscription the setting renews. The table is
 	// keyed on (user_id, subscription_id), so a customer with several
 	// subscriptions may renew one automatically and keep another manual. It is
-	// empty only for a row written before the subscription existed.
+	// empty only for a row that names no subscription.
 	SubscriptionID string
 }
 
 // AutoRenew reads the auto-renew intent for one subscription. An empty
-// subscription identifier addresses the row with no subscription, which is what
-// a pre-v0.5 row looks like.
+// subscription identifier addresses the row with no subscription.
 func (store *PostgresStore) AutoRenew(ctx context.Context, customerID, subscriptionID string) (AutoRenew, error) {
 	var (
 		setting       AutoRenew
@@ -371,9 +370,9 @@ func (store *PostgresStore) AutoRenew(ctx context.Context, customerID, subscript
 // cancelling only needs the customer and the subscription, so a customer can
 // always turn it off.
 //
-// Both statements name `(user_id, subscription_id)` as the conflict target. The
-// table's uniqueness moved there in the v0.5 migration, and the index is
-// declared NULLS NOT DISTINCT, so a row with no subscription is still one row.
+// Both statements name `(user_id, subscription_id)` as the conflict target. That
+// is the table's uniqueness, and the index is declared NULLS NOT DISTINCT, so a
+// row with no subscription is still one row.
 // The renewal worker joins the entitlement on the same pair, which is why the
 // subscription has to be written here: a row without one matches no
 // entitlement and is never renewed.

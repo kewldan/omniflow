@@ -209,13 +209,10 @@ Retries, backoff, dead letters, and the diagnostics screens are covered in
 ## Deterministic usernames and remote-user recovery
 
 Each subscription provisions a Remnawave user named `omniflow_` plus the first 16 hex characters of
-the subscription UUID. Installations upgraded from v0.4 keep a customer-derived legacy name for the
-first slot: `omniflow_` plus the first 16 hex characters of the *customer* UUID.
+the subscription UUID.
 
-Two failures this prevents. A retried `create` after a lost response must not mint a second
-Remnawave user, so the worker looks the username up before creating one. And an upgraded
-installation must adopt the Remnawave user it already has rather than duplicating it, so the first
-slot accepts both names as candidates. Deriving the name from the subscription rather than the
+A retried `create` after a lost response must not mint a second Remnawave user, so the worker looks
+the username up before creating one. Deriving the name from the subscription rather than the
 customer is exactly what lets one customer own several independent Remnawave users.
 
 A subscription that already knows its Remnawave user is patched under the username that user has,

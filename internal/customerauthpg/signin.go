@@ -94,7 +94,7 @@ func (service *Service) signInWithTelegramIdentity(
 // The order of resolution is the bot's, with one addition:
 //
 //  1. An active identity row names the customer outright.
-//  2. Otherwise the Remnawave mapping: an installation imported from v0.2
+//  2. Otherwise the Remnawave mapping: a customer imported from Remnawave
 //     carries telegram_id on remnawave_users before any identity row exists,
 //     and a customer who never pressed /start must not be given a second,
 //     empty account by the browser.

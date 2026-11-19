@@ -60,7 +60,7 @@ JOIN users u ON u.id = r.user_id
 WHERE r.telegram_id = $1
 `
 
-// The v0.2 adoption rule, as the bot applies it: a customer imported from
+// The adoption rule, as the bot applies it: a customer imported from
 // Remnawave carries their Telegram ID on the mapping row before they ever hold
 // an identity row. A widget sign-in must land on that customer rather than
 // provision an empty second one.

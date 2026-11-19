@@ -88,10 +88,9 @@ func (store *PostgresStore) EnsureCustomer(ctx context.Context, telegramID int64
 // canonical customer already exists — identity, wallet, and support hang off
 // it — so the mapping has to be written against that customer, or an imported
 // installation would gain a second customer per Telegram account on the first
-// /start. The slot-1 subscription is written for the same reason the v0.5
-// migration wrote one per mapping: a purchase targets it, and a provisioning
-// run that found no Remnawave user on the subscription would create a second
-// one beside the imported account.
+// /start. The slot-1 subscription is written because a purchase targets it,
+// and a provisioning run that found no Remnawave user on the subscription
+// would create a second one beside the imported account.
 func (store *PostgresStore) LinkRemnawaveUser(ctx context.Context, customerID string, telegramID, remnawaveID int64) error {
 	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {

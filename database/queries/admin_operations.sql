@@ -14,9 +14,8 @@
 SELECT * FROM commerce_settings WHERE singleton;
 
 -- name: SeedCommerceSettings :one
--- Written once, from the environment the installation already had. An
--- installation upgrading from v0.5 therefore keeps the limits its operator
--- configured, and every later change comes from the panel.
+-- Written once, from the environment, so the limits an operator configured
+-- there are the starting point; every later change comes from the panel.
 INSERT INTO commerce_settings (
   topup_enabled, topup_currency, topup_presets_minor, topup_minimum_minor,
   topup_maximum_minor, topup_window_seconds, topup_window_limit_minor,

@@ -213,9 +213,8 @@ rendered, so a customer cannot tap a button the backend then rejects.
 
 <Note>
   These variables are what the running processes enforce. On its first start against a database with
-  no `commerce_settings` row, the API also seeds that row from these values, so an installation
-  upgrading from an older version keeps the limits its operator configured rather than silently
-  taking schema defaults. Afterwards the row is only written by the panel
+  no `commerce_settings` row, the API also seeds that row from these values, so the limits an
+  operator configured are the starting point rather than schema defaults. Afterwards the row is only written by the panel
   (`PUT /v1/panel/settings/commerce/topup` and `.../subscriptions`), and the stored row is what the
   panel and the customer web overview display — but order and wallet enforcement still comes from
   the environment values loaded at startup. Keep the variables set and in step with the panel, and

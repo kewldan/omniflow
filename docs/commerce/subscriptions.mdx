@@ -136,8 +136,6 @@ Each subscription provisions its own Remnawave user, derived deterministically f
 omniflow_<first 16 hex characters of the subscription id>
 ```
 
-An installation upgraded from v0.4 keeps the customer-derived name for slot 1. The worker looks for the subscription-derived name first and the legacy customer-derived name second, so an existing Remnawave user is adopted rather than duplicated. A slot above 1 with no mapping never falls back to the legacy name, so a second subscription can never be confused with the first one's remote user.
-
 The customer-level `remnawave_users` mapping continues to track the **primary** subscription (slot 1). That is what keeps the pre-commerce self-service screens resolving unchanged.
 
 Drift detection, reconciliation, and superseding are all scoped to one subscription. Buying a second subscription never retires the first one's entitlement. [Fulfillment](/commerce/fulfillment) has the operation pipeline, the retry policy, and what a failure looks like.

@@ -379,10 +379,8 @@ second factor.
 A subject that is linked at a different issuer is refused outright — for an
 operator as `oidc_no_account`, for a customer as `sign_in_failed`, and for a
 customer linking from **Sign-in methods** as `identity_taken`. It is never
-auto-provisioned, because the `(provider, subject)` pair is taken. Bindings
-created before issuer pinning were backfilled with their provider's issuer at
-upgrade time; a customer binding whose provider row had already been deleted
-has no recorded issuer and matches nothing.
+auto-provisioned, because the `(provider, subject)` pair is taken. A binding
+with no recorded issuer matches nothing.
 
 Customer OIDC subjects join the single `identities` table under
 `provider = "oidc:<slug>"`. Two providers may legitimately issue the same `sub`,

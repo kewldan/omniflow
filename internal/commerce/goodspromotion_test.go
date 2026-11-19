@@ -40,13 +40,13 @@ func TestAPlanPromotionDoesNotDiscountTheShop(t *testing.T) {
 		t.Fatalf("expected ErrPromotionNotForGoods, got %v", err)
 	}
 
-	// An empty value reads as plans, which is what every promotion written
-	// before the shop existed meant. This is the upgrade-safety property.
-	legacy := Promotion{ID: "promo-2", Kind: "percent", Value: 1000, CustomerLimit: 1}
-	if _, err := legacy.DiscountForGoods(at(12), shopLine()); !errors.Is(
+	// An empty value reads as plans, so a promotion never widens to the shop
+	// by omission.
+	unscoped := Promotion{ID: "promo-2", Kind: "percent", Value: 1000, CustomerLimit: 1}
+	if _, err := unscoped.DiscountForGoods(at(12), shopLine()); !errors.Is(
 		err, ErrPromotionNotForGoods,
 	) {
-		t.Fatalf("a promotion written before the shop existed discounted it: %v", err)
+		t.Fatalf("a promotion with no scope discounted the shop: %v", err)
 	}
 }
 

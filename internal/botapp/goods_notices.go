@@ -18,7 +18,7 @@ import (
 // can never be lost between a commit and a send. The notification ledger's
 // dedupe key is what makes each one go out once.
 
-// goodsNoticeWindow bounds how far back a pass looks. It keeps an upgrade from
+// goodsNoticeWindow bounds how far back a pass looks. It keeps a pass from
 // announcing every order ever delivered, and is long enough to ride out a bot
 // that was down for a few hours.
 const goodsNoticeWindow = "6 hours"

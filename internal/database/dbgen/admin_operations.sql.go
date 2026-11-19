@@ -3143,9 +3143,8 @@ type SeedCommerceSettingsParams struct {
 	MaxSubscriptionsPerCustomer int32   `json:"max_subscriptions_per_customer"`
 }
 
-// Written once, from the environment the installation already had. An
-// installation upgrading from v0.5 therefore keeps the limits its operator
-// configured, and every later change comes from the panel.
+// Written once, from the environment, so the limits an operator configured
+// there are the starting point; every later change comes from the panel.
 func (q *Queries) SeedCommerceSettings(ctx context.Context, arg SeedCommerceSettingsParams) (CommerceSetting, error) {
 	row := q.db.QueryRow(ctx, seedCommerceSettings,
 		arg.TopupEnabled,

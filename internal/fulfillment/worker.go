@@ -124,13 +124,12 @@ var errSubscriptionUnresolved = errors.New("the entitlement's subscription canno
 // subscriptionFor resolves the subscription an entitlement provisions: its
 // own, which must agree with its order's.
 //
-// It never adopts. An entitlement once carried no subscription only before
-// v0.5, and the upgrade migration gave every one of those slot 1; one without
-// a subscription today was settled from an order whose subscription had been
-// removed, and adopting it onto the customer's primary subscription is how a
-// thirty-day second subscription overwrote a primary with months left. Such
-// an entitlement takes its order's subscription when the order has one, and
-// otherwise fails permanently rather than land on the wrong Remnawave user.
+// It never adopts. An entitlement without a subscription was settled from an
+// order whose subscription had been removed, and adopting it onto the
+// customer's primary subscription is how a thirty-day second subscription
+// overwrote a primary with months left. Such an entitlement takes its order's
+// subscription when the order has one, and otherwise fails permanently rather
+// than land on the wrong Remnawave user.
 func (worker *Worker) subscriptionFor(ctx context.Context, queries *dbgen.Queries, entitlement dbgen.Entitlement) (dbgen.Subscription, error) {
 	order, err := queries.GetOrder(ctx, entitlement.OrderID)
 	if err != nil {
@@ -166,16 +165,11 @@ func remnawaveUsername(subscriptionID pgtype.UUID) string {
 	return "omniflow_" + strings.ReplaceAll(uuidString(subscriptionID), "-", "")[:16]
 }
 
-// legacyUsername is the pre-v0.5 customer-derived name. It is still recognised
-// for a first subscription so an installation upgraded from v0.4 adopts the
-// Remnawave user it already has instead of creating a second one.
-func legacyUsername(userID pgtype.UUID) string {
-	return "omniflow_" + strings.ReplaceAll(uuidString(userID), "-", "")[:16]
-}
-
 // remoteUserID is the Remnawave user this entitlement provisions, or zero when
-// it has never been provisioned. The subscription is authoritative; the
-// customer-level mapping is only consulted for a pre-v0.5 entitlement.
+// it has never been provisioned. The subscription is authoritative; for a
+// primary subscription that has no Remnawave user yet, the customer-level
+// mapping is consulted, which is how a customer imported from Remnawave keeps
+// the user the panel already had.
 func (worker *Worker) remoteUserID(ctx context.Context, queries *dbgen.Queries, entitlement dbgen.Entitlement, subscription dbgen.Subscription) (int64, error) {
 	if subscription.RemnawaveUserID.Valid {
 		return subscription.RemnawaveUserID.Int64, nil
@@ -200,15 +194,8 @@ func (worker *Worker) apply(ctx context.Context, claimed claim) (remnawave.User,
 	operation, entitlement, subscription := claimed.operation.Operation, claimed.entitlement, claimed.subscription
 	desired, remoteID := claimed.desired, claimed.remoteID
 	var err error
-	username := legacyUsername(entitlement.UserID)
+	username := remnawaveUsername(subscription.ID)
 	candidates := []string{username}
-	if subscription.ID.Valid {
-		username = remnawaveUsername(subscription.ID)
-		candidates = []string{username}
-		if subscription.Slot <= 1 {
-			candidates = append(candidates, legacyUsername(entitlement.UserID))
-		}
-	}
 	// A known remote user is addressed under the name it already has. An
 	// adopted user — imported from Remnawave or carried over from Bedolaga —
 	// was never named omniflow_…. Remnawave's update request identifies the
