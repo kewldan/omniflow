@@ -298,6 +298,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 			handlers.mountSearch(secure)
 			handlers.mountPlanOptions(secure)
 			handlers.mountPlatform(secure)
+			handlers.mountNews(secure)
 		})
 	})
 }

@@ -3088,6 +3088,55 @@
         "unavailable": "The invitation could not be checked. Try again in a moment.",
         "generic": "Your account could not be created. Try again."
       }
+    },
+    "news": {
+      "title": "News",
+      "description": "Posts customers read in the bot and the web panel. Save a draft, then publish now or schedule it; a published post counts towards the unread badge until it expires.",
+      "loadFailed": "News could not be loaded.",
+      "empty": "No news posts yet.",
+      "add": "New post",
+      "edit": "Edit",
+      "open": "Open",
+      "slug": "Address (slug)",
+      "categoryLabel": "Category",
+      "expiresAt": "Hide after",
+      "never": "Never",
+      "hour": "Hour",
+      "minute": "Minute",
+      "headline": "Headline",
+      "body": "Text",
+      "save": "Save draft",
+      "saved": "Saved",
+      "saveFailed": "Not saved: fill a headline and text in at least one language and use a slug of 3–64 lowercase letters, digits, - or _.",
+      "slugTaken": "Another post already uses that slug.",
+      "publishNow": "Publish now",
+      "unpublish": "Unpublish",
+      "scheduleAt": "Publish at",
+      "pickMoment": "Pick a moment",
+      "schedule": "Schedule",
+      "archive": "Archive",
+      "restore": "Back to draft",
+      "close": "Close",
+      "stateChanged": "Done",
+      "stateFailed": "Could not change the post: a post needs text before it is published, and a schedule must be in the future.",
+      "meta": "Status: {status} · read by {reads}",
+      "status": {
+        "draft": "Draft",
+        "scheduled": "Scheduled",
+        "published": "Published",
+        "unpublished": "Unpublished",
+        "archived": "Archived"
+      },
+      "category": {
+        "news": "News",
+        "announcement": "Announcement",
+        "incident": "Incident",
+        "maintenance": "Maintenance"
+      },
+      "locale": {
+        "ru": "Russian",
+        "en": "English"
+      }
     }
   },
   "account": {

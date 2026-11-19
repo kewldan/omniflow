@@ -234,6 +234,7 @@ type Querier interface {
 	CountCannedResponseUse(ctx context.Context, responseID pgtype.UUID) error
 	CountDunningAttemptsForCycle(ctx context.Context, cycleKey string) (int64, error)
 	CountGiftsByStatus(ctx context.Context) ([]CountGiftsByStatusRow, error)
+	CountNewsReads(ctx context.Context, postID pgtype.UUID) (int64, error)
 	CountNotificationDeliveries(ctx context.Context, arg CountNotificationDeliveriesParams) (int64, error)
 	CountOpenAnomalySignals(ctx context.Context) (int64, error)
 	CountOpenBlocklistMatches(ctx context.Context) (int64, error)
@@ -487,6 +488,7 @@ type Querier interface {
 	DeleteInfoPage(ctx context.Context, slug string) (int64, error)
 	DeleteInfoPageLocalization(ctx context.Context, arg DeleteInfoPageLocalizationParams) error
 	DeleteMCPServer(ctx context.Context, slug string) error
+	DeleteNewsPostLocalization(ctx context.Context, arg DeleteNewsPostLocalizationParams) error
 	// Reverting to the shipped wording is a delete rather than a write of the
 	// current default. An installation that reverts today and upgrades tomorrow
 	// gets tomorrow's improved wording, which a copied-in default would have
@@ -709,6 +711,9 @@ type Querier interface {
 	GetMCPServerCredentials(ctx context.Context, slug string) ([]byte, error)
 	GetMaintenanceState(ctx context.Context) (MaintenanceState, error)
 	GetMessageTemplate(ctx context.Context, id pgtype.UUID) (MessageTemplate, error)
+	// The panel's news editor. Listing and publication state live in
+	// campaigns.sql; these are the reads and writes the editor adds.
+	GetNewsPostForEdit(ctx context.Context, postID pgtype.UUID) (NewsPost, error)
 	GetNotificationDeliveryStatus(ctx context.Context, arg GetNotificationDeliveryStatusParams) (string, error)
 	GetOpenCart(ctx context.Context, userID pgtype.UUID) (Cart, error)
 	// For providers whose notification names the payer rather than the order
@@ -1149,6 +1154,7 @@ type Querier interface {
 	ListMCPServers(ctx context.Context) ([]ListMCPServersRow, error)
 	ListMCPTools(ctx context.Context, serverSlug string) ([]McpTool, error)
 	ListMessageTemplates(ctx context.Context) ([]MessageTemplate, error)
+	ListNewsPostLocalizations(ctx context.Context, postID pgtype.UUID) ([]NewsPostLocalization, error)
 	// Transactional notice overrides.
 	//
 	// A row is the exception and its absence is the shipped wording, so there is no
@@ -2096,6 +2102,7 @@ type Querier interface {
 	UpdateEntitlementObservedState(ctx context.Context, arg UpdateEntitlementObservedStateParams) (Entitlement, error)
 	UpdateFulfillmentOperation(ctx context.Context, arg UpdateFulfillmentOperationParams) (FulfillmentOperation, error)
 	UpdateGoodsProduct(ctx context.Context, arg UpdateGoodsProductParams) (GoodsProduct, error)
+	UpdateNewsPostMeta(ctx context.Context, arg UpdateNewsPostMetaParams) (NewsPost, error)
 	// paid_at is set the first time the order settles and never again. COALESCE is
 	// what makes that true: a partial refund moves the state through this statement
 	// a second time, and a sale must not change reporting period because somebody
@@ -2174,6 +2181,7 @@ type Querier interface {
 	UpsertMCPServer(ctx context.Context, arg UpsertMCPServerParams) (UpsertMCPServerRow, error)
 	UpsertMessageTemplate(ctx context.Context, arg UpsertMessageTemplateParams) (MessageTemplate, error)
 	UpsertNewsPost(ctx context.Context, arg UpsertNewsPostParams) (NewsPost, error)
+	UpsertNewsPostLocalization(ctx context.Context, arg UpsertNewsPostLocalizationParams) error
 	// ---------------------------------------------------------------------------
 	// Operator notifications
 	// ---------------------------------------------------------------------------

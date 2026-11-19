@@ -55,17 +55,25 @@ than as a deletion.
 not rewrite when customers first saw a post. A `CHECK` requires `scheduled_for`
 whenever the status is `scheduled`.
 
-<Warning>
-  **There is no operator surface for news.** The only state transition any code
-  makes is the worker's `scheduled → published`: the `campaign_expansion` pass
-  runs every minute, takes up to 50 posts whose `scheduled_for` has passed, and publishes
-  them. Creating a post, writing its Russian and English localisations,
-  scheduling it, unpublishing it, or archiving it can only be done by writing
-  `news_posts` and `news_post_localizations` directly.
+### Writing a post
 
-  Slugs match `^[a-z0-9][a-z0-9_-]{2,63}$`, titles are capped at 200 characters,
-  bodies at 3500, and locales are `ru` or `en` only.
-</Warning>
+News is written at `/admin/content`, under the information pages, by anyone holding
+`marketing.read` (to read) and `marketing.write` (to change). The editor takes a slug, a
+category, an optional "hide after" moment, and a headline and text in Russian, English,
+or both; a language left empty is not stored. **Save draft** creates or edits the post;
+then **Publish now**, **Schedule** for a future moment (the worker's `campaign_expansion`
+pass publishes due posts every minute, up to 50 at a time), **Unpublish**, **Archive**,
+or **Back to draft**. A post with no text cannot be published or scheduled, a schedule
+must be in the future, and a slug already used by another post is refused with `409`.
+The editor shows how many customers have read the post. Every save and state change is
+audited as `news.created`, `news.updated`, or `news.state_changed`.
+
+The routes are `GET`/`POST /v1/panel/marketing/news`, `GET`/`PUT
+/v1/panel/marketing/news/{postID}`, and `POST /v1/panel/marketing/news/{postID}/state`
+with `{"status": "...", "scheduledFor": "<RFC 3339, only for scheduled>"}`.
+
+Slugs match `^[a-z0-9][a-z0-9_-]{2,63}$`, titles are capped at 200 characters,
+bodies at 3500, and locales are `ru` or `en` only.
 
 ### What makes a post visible
 
