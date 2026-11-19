@@ -218,6 +218,10 @@ installation must adopt the Remnawave user it already has rather than duplicatin
 slot accepts both names as candidates. Deriving the name from the subscription rather than the
 customer is exactly what lets one customer own several independent Remnawave users.
 
+A subscription that already knows its Remnawave user is patched under the username that user has,
+as stored on the subscription, rather than under the derived name. An adopted user — imported from
+Remnawave or carried over from Bedolaga — keeps its own name and its access link.
+
 A `PATCH` that returns `404` — the panel user was deleted out from under Omniflow — falls back to
 the create-or-recover path and recreates it. A non-`create` operation with no known remote ID fails
 with `remote_user_not_found` and retries: you cannot `enable` something that was never provisioned.

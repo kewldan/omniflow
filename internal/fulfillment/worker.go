@@ -209,6 +209,16 @@ func (worker *Worker) apply(ctx context.Context, claimed claim) (remnawave.User,
 			candidates = append(candidates, legacyUsername(entitlement.UserID))
 		}
 	}
+	// A known remote user is addressed under the name it already has. An
+	// adopted user — imported from Remnawave or carried over from Bedolaga —
+	// was never named omniflow_…. Remnawave's update request identifies the
+	// user by username or ID; a username the user does not have risks the
+	// PATCH missing it, and the 404 fallback would then mint a second user
+	// with a new access link.
+	if remoteID != 0 && subscription.RemnawaveUsername.Valid && subscription.RemnawaveUsername.String != "" {
+		username = subscription.RemnawaveUsername.String
+		candidates = append([]string{username}, candidates...)
+	}
 	provision := remnawave.ProvisionUser{Username: username, ExpireAt: desired.remoteExpireAt, TrafficLimitBytes: desired.TrafficAllowanceBytes, HWIDDeviceLimit: desired.DeviceLimit, InternalSquadIDs: desired.SquadIDs}
 	// createOrRecover reports whether the user was created fresh: a brand-new
 	// user has no traffic to reset and nothing to re-enable.

@@ -116,6 +116,13 @@ already had Remnawave users must adopt them rather than duplicate them, which is
 both candidates. Deriving the name from the subscription rather than the customer is precisely what
 lets one customer own several independent Remnawave users.
 
+A subscription that already knows its Remnawave user is patched under the username that user
+actually has, which the worker stores on the subscription after every operation. That matters for
+adopted users: a customer imported from Remnawave or carried over from Bedolaga (see
+[Migrating from Bedolaga](/operations/migrate-from-bedolaga)) has a user that was never named
+`omniflow_…`, and a `PATCH` naming a user that does not exist would fall through to the 404 path
+and create a second user with a new access link.
+
 A subscription in slot 2 or higher with no stored mapping returns *no* remote user rather than
 falling back to the customer-level one, so a second subscription can never be confused with the
 first one's remote state. A non-`create` operation in that position fails with
