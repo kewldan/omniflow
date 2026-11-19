@@ -770,9 +770,9 @@ const createPlanVersion = `-- name: CreatePlanVersion :one
 INSERT INTO plan_versions (
   plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes,
   device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy,
-  cancellation_policy, recurring_capable
+  cancellation_policy, recurring_capable, grace_period_seconds, trial_eligibility
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 RETURNING id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads
 `
 
@@ -788,6 +788,8 @@ type CreatePlanVersionParams struct {
 	DowngradePolicy       string        `json:"downgrade_policy"`
 	CancellationPolicy    string        `json:"cancellation_policy"`
 	RecurringCapable      bool          `json:"recurring_capable"`
+	GracePeriodSeconds    int64         `json:"grace_period_seconds"`
+	TrialEligibility      string        `json:"trial_eligibility"`
 }
 
 func (q *Queries) CreatePlanVersion(ctx context.Context, arg CreatePlanVersionParams) (PlanVersion, error) {
@@ -803,6 +805,8 @@ func (q *Queries) CreatePlanVersion(ctx context.Context, arg CreatePlanVersionPa
 		arg.DowngradePolicy,
 		arg.CancellationPolicy,
 		arg.RecurringCapable,
+		arg.GracePeriodSeconds,
+		arg.TrialEligibility,
 	)
 	var i PlanVersion
 	err := row.Scan(

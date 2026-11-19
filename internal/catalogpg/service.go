@@ -118,15 +118,8 @@ func createVersion(ctx context.Context, tx pgx.Tx, q *dbgen.Queries, planID pgty
 	if err != nil {
 		return dbgen.PlanVersion{}, err
 	}
-	version, err := q.CreatePlanVersion(ctx, dbgen.CreatePlanVersionParams{PlanID: planID, Version: next, BillingPeriod: input.BillingPeriod, DurationSeconds: input.DurationSeconds, TrafficAllowanceBytes: optionalInt8(input.TrafficAllowanceBytes), DeviceLimit: optionalInt4(input.DeviceLimit), RemnawaveSquadIds: squadIDs, UpgradePolicy: input.UpgradePolicy, DowngradePolicy: input.DowngradePolicy, CancellationPolicy: input.CancellationPolicy, RecurringCapable: input.RecurringCapable})
+	version, err := q.CreatePlanVersion(ctx, dbgen.CreatePlanVersionParams{PlanID: planID, Version: next, BillingPeriod: input.BillingPeriod, DurationSeconds: input.DurationSeconds, TrafficAllowanceBytes: optionalInt8(input.TrafficAllowanceBytes), DeviceLimit: optionalInt4(input.DeviceLimit), RemnawaveSquadIds: squadIDs, UpgradePolicy: input.UpgradePolicy, DowngradePolicy: input.DowngradePolicy, CancellationPolicy: input.CancellationPolicy, RecurringCapable: input.RecurringCapable, GracePeriodSeconds: input.GracePeriodSeconds, TrialEligibility: input.TrialEligibility})
 	if err != nil {
-		return dbgen.PlanVersion{}, err
-	}
-	// The lifecycle fields live outside the generated insert so the v0.3 query
-	// stays untouched; they are set in the same transaction, so a version is
-	// never visible without its grace period and trial rule.
-	if _, err = tx.Exec(ctx, `UPDATE plan_versions SET grace_period_seconds = $2, trial_eligibility = $3
-		WHERE id = $1`, version.ID, input.GracePeriodSeconds, input.TrialEligibility); err != nil {
 		return dbgen.PlanVersion{}, err
 	}
 	for _, price := range input.Prices {
