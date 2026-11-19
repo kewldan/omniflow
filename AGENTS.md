@@ -4,7 +4,7 @@ These instructions apply to the entire repository.
 
 ## Product boundaries
 
-- Remnawave v3.2.2 is authoritative for VPN users, traffic, device usage, access links, nodes, and squads.
+- Remnawave v3.4.11 is authoritative for VPN users, traffic, device usage, access links, nodes, and squads.
 - Omniflow is authoritative for identity, billing, plans, wallet entries, support, marketing, referrals, loyalty, RBAC, and audit history.
 - Never write directly to Remnawave storage or manage Xray processes. Use the versioned Remnawave adapter.
 - PostgreSQL is the only durable source of truth. Valkey stores cache, rate limits, locks, and temporary state only.

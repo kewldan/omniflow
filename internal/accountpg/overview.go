@@ -306,7 +306,8 @@ func (service *Service) projectSubscription(ctx context.Context, row record) (Su
 				subscription.Traffic.LimitBytes = user.TrafficLimitBytes
 				subscription.Traffic.Unlimited = false
 			}
-			if user.HWIDDeviceLimit != nil {
+			// Zero is how Remnawave spells an unlimited device count.
+			if user.HWIDDeviceLimit != nil && *user.HWIDDeviceLimit > 0 {
 				subscription.Devices.Limit = *user.HWIDDeviceLimit
 				subscription.Devices.Unlimited = false
 			}

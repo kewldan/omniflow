@@ -336,7 +336,7 @@ Every capability in this version is configured through environment and configura
 ### Quality and compatibility
 
 - [x] Testcontainers coverage for PostgreSQL, migrations, repositories, outbox, and River jobs
-- [x] Contract tests against supported Remnawave 3.2.x behavior
+- [x] Contract tests against supported Remnawave 3.4.x behavior
 - [x] Provider sandbox integration suites and replay fixtures
 - [x] Load tests for update bursts, campaigns, webhook retries, and reconciliation
 - [x] Upgrade test from every supported Omniflow migration baseline

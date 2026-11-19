@@ -142,8 +142,8 @@ func TestDriftComparisonTreatsNilAsUnlimited(t *testing.T) {
 		t.Fatal("a configured allowance must match exactly")
 	}
 	zero, three := 0, 3
-	if !deviceLimitAgrees(nil, nil) || !deviceLimitAgrees(nil, &zero) || deviceLimitAgrees(nil, &three) {
-		t.Fatal("a nil device limit must agree with null or zero only")
+	if deviceLimitAgrees(nil, nil) || !deviceLimitAgrees(nil, &zero) || deviceLimitAgrees(nil, &three) {
+		t.Fatal("a nil device limit must agree with zero only; null is the panel's fallback limit")
 	}
 	if !deviceLimitAgrees(&three, &three) || deviceLimitAgrees(&three, nil) || deviceLimitAgrees(&three, &zero) {
 		t.Fatal("a configured device limit must match exactly")

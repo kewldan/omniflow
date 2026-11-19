@@ -70,7 +70,12 @@ func (panel *memoryRemnawave) apply(user remnawave.User, desired remnawave.Provi
 	if desired.TrafficLimitBytes != nil {
 		user.TrafficLimitBytes = *desired.TrafficLimitBytes
 	}
-	user.HWIDDeviceLimit = desired.HWIDDeviceLimit
+	// Like the panel: an unlimited device count is stored as zero, never null.
+	devices := 0
+	if desired.HWIDDeviceLimit != nil {
+		devices = *desired.HWIDDeviceLimit
+	}
+	user.HWIDDeviceLimit = &devices
 	user.ActiveInternalSquads = nil
 	for _, squad := range desired.InternalSquadIDs {
 		user.ActiveInternalSquads = append(user.ActiveInternalSquads, remnawave.InternalSquad{UUID: squad})

@@ -1,6 +1,6 @@
 ---
 title: Remnawave
-description: How Omniflow connects to a Remnawave 3.2.2 panel, every call it makes, and the boundary it never crosses
+description: How Omniflow connects to a Remnawave 3.4.11 panel, every call it makes, and the boundary it never crosses
 ---
 
 Omniflow does not replace Remnawave. It sits beside it and sells access to it. Remnawave stays
@@ -21,8 +21,15 @@ See [data ownership](/architecture/data-ownership) for the conceptual version of
 
 ## Which Remnawave version
 
-The adapter targets **Remnawave 3.2.2** and the paths it calls are hard-coded. There is no version
+The adapter targets **Remnawave 3.4.11** — the backend release, which ships
+`@remnawave/backend-contract` 3.4.17 — and the paths it calls are hard-coded. There is no version
 negotiation, no capability discovery, and no second adapter: one client, one set of routes.
+
+Every route Omniflow calls has the same method, path, and identifier type on every release from
+3.2.2 to 3.4.11, so a 3.2.2 or 3.3.x panel still answers the same calls. Users are addressed by the
+panel's numeric user ID everywhere (`/api/users/{id}`, `/api/subscriptions/by-id/{id}`,
+`/api/hwid/devices/{id}`, and `userId` in the HWID mutation bodies), which is what
+`subscriptions.remnawave_user_id` stores; nodes are addressed by UUID, but Omniflow only lists them.
 
 What pins the version in practice is a contract test, `internal/remnawave/contract_test.go`, which
 asserts the exact method and path of every call, the `{"response": …}` envelope Omniflow expects
@@ -42,7 +49,7 @@ Both processes that provision and both that read need the same two values.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `APP_REMNAWAVE_URL` | none | Base URL of the Remnawave API. Must parse as an absolute `http`/`https` URL with a host; any query string and fragment are stripped. Anything else fails startup with `Remnawave URL must be an absolute HTTP(S) URL` |
+| `APP_REMNAWAVE_URL` | none | Base URL of the Remnawave API. Must parse as an absolute `http`/`https` URL with a host; any query string and fragment are stripped. Anything else fails startup with `Remnawave URL must be an absolute HTTP(S) URL`. Use `https://` for a panel behind its reverse proxy, or `http://` for a direct in-network connection to the backend container (see below) |
 | `APP_REMNAWAVE_TOKEN` | none | Bearer credential, sent as `Authorization: Bearer <token>` on every call. Must be non-empty |
 
 Obtain the token from your Remnawave installation's own API-token facility. It needs to be able to
@@ -68,6 +75,13 @@ Omniflow touches, and nothing wider is used.
     [Health and readiness](#health-and-readiness).
   </Step>
 </Steps>
+
+The panel drops the connection of any request that does not look like it came through an HTTPS
+reverse proxy — it requires `X-Forwarded-Proto: https` and an `X-Forwarded-For` header. Over
+`https://` the proxy in front of the panel sets them. With an `http://` base URL Omniflow is talking
+to the backend directly inside the network, so the adapter sends `X-Forwarded-Proto: https` and
+`X-Forwarded-For: 127.0.0.1` itself, the values Remnawave's contract exports for internal callers.
+Without them a direct connection would read as an unreachable panel.
 
 All three processes refuse to start without both values. The API additionally refuses to build its
 commerce runtime without `APP_OPERATOR_TOKEN`, a 32-byte `APP_DATA_ENCRYPTION_KEY`, and
@@ -98,7 +112,7 @@ Omniflow, because nothing else is implemented.
 | `GET /api/users/stream?size=2&telegramId=…` | First-run Telegram account lookup |
 | `GET /api/users/by-username/{username}` | Adopting an existing user before creating a new one |
 | `POST /api/users/` | Provisioning a subscription for the first time |
-| `PATCH /api/users/` (the body carries `id`) | `create`, `reconcile`, `extend`, `set_limits`, `set_squads` |
+| `PATCH /api/users/` (the body carries `id` and no `username`: the contract addresses the user by exactly one of them) | `create`, `reconcile`, `extend`, `set_limits`, `set_squads` |
 | `POST /api/users/{id}/actions/enable` | The `enable` operation |
 | `POST /api/users/{id}/actions/disable` | The `disable` operation |
 | `POST /api/users/{id}/actions/reset-traffic` | The `reset_traffic` operation |
@@ -128,6 +142,24 @@ Four failure modes are designed out below the level of any feature, and each has
   for an empty success — which is the difference between "your subscription is gone" and "the panel
   said no".
 - **A hung panel.** A fixed 10-second client timeout on every call.
+
+A failure keeps the panel's own `errorCode` (for example `A025` for an unknown user) on the API
+error, so a job record says which refusal it was; the panel's message is dropped, because it can
+echo request values.
+
+### Limits on the wire
+
+Both limits are always sent, on a create and on every `PATCH`, because Remnawave reads an absent
+field as "leave it as it is". A plan with no limit sends Remnawave's explicit unlimited value, which
+is `0` for both: `trafficLimitBytes: 0` is unlimited traffic and `hwidDeviceLimit: 0` bypasses the
+device check. A `null` device limit is **not** unlimited — the panel applies its global HWID
+fallback limit to it, and a create rejects `null` with a `400` — so Omniflow never sends one.
+
+### Enable and disable are idempotent
+
+Remnawave answers `enable` on an enabled user with `400 A030` and `disable` on a disabled one with
+`400 A029`. The adapter treats both as success: the user is already in the requested state, and a
+retried operation whose first attempt landed must not turn into a permanent failure.
 
 The adapter has **no retry and no backoff of its own**. Retrying is the fulfillment worker's job,
 where a retry is durable and idempotent; a read path simply degrades and says so.
@@ -200,7 +232,7 @@ mismatch is written as an `entitlement_drifts` row with `expected` and `observed
 | `missing_remote` | No remote ID recorded, or `GET /api/users/{id}` returns `404` |
 | `expiry` | The remote `expireAt` differs from the entitlement's end |
 | `traffic` | A configured allowance differs from the remote traffic limit |
-| `device_limit` | A configured limit differs from the remote HWID device limit, including a null remote value |
+| `device_limit` | The remote HWID device limit differs from the desired one. Unlimited is `0`; a `null` remote value is the panel's fallback limit and counts as drift for any plan |
 | `squads` | The remote active Internal Squad set differs from the desired set, compared order-insensitively |
 | `status` | The mapped remote status differs from the entitlement status |
 
@@ -284,7 +316,7 @@ is in [customers and imports](/commerce/customers-imports).
 
 ## What Omniflow will never do to your panel
 
-- **It never touches Remnawave's database.** Every interaction is one of the fourteen HTTP calls above.
+- **It never touches Remnawave's database.** Every interaction is one of the fifteen HTTP calls above.
 - **It never manages Xray**, nodes, hosts, or squad definitions. Squads are referenced by UUID; they
   are created and configured in Remnawave.
 - **It never stores an access link.** There is no subscription-URL column anywhere in the schema;

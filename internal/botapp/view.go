@@ -96,8 +96,9 @@ func connectView(locale Locale, subscription remnawave.Subscription) View {
 }
 
 func devicesView(locale Locale, devices remnawave.Devices, limit *int) View {
+	// Remnawave spells an unlimited device count as zero.
 	limitText := "∞"
-	if limit != nil {
+	if limit != nil && *limit > 0 {
 		limitText = fmt.Sprintf("%d", *limit)
 	}
 	lines := make([]string, 0, 5)

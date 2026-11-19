@@ -45,11 +45,17 @@ type Importer interface {
 
 // ProvisionUser is the desired state pushed to Remnawave for one user.
 //
-// The two limits are always on the wire. Remnawave treats `trafficLimitBytes:
-// 0` as unlimited and `hwidDeviceLimit: null` as unlimited, and an absent
-// field as "leave it as it is" — which is how a plan with no limit used to
-// keep the previous plan's limit after a renewal. A nil limit here therefore
-// encodes as the explicit unlimited value rather than being omitted.
+// The two limits are always on the wire, and a nil limit means unlimited.
+// Remnawave reads an absent field as "leave it as it is" — which is how a plan
+// with no limit used to keep the previous plan's limit after a renewal — so a
+// nil limit has to be sent as the panel's explicit unlimited value rather than
+// being omitted.
+//
+// For both limits that value is zero. `trafficLimitBytes: 0` is unlimited
+// traffic, and `hwidDeviceLimit: 0` bypasses the device check entirely. A null
+// device limit is not unlimited: the panel substitutes the global HWID
+// fallback limit for it, and on a user create the contract rejects null with a
+// 400 because the field is optional but not nullable there.
 type ProvisionUser struct {
 	Username          string
 	ExpireAt          time.Time
@@ -58,23 +64,46 @@ type ProvisionUser struct {
 	InternalSquadIDs  []string
 }
 
-// provisionWire is the request body Remnawave receives. The limits carry no
-// omitempty on purpose: see ProvisionUser.
-type provisionWire struct {
-	ID                *int64    `json:"id,omitempty"`
+// createWire is the POST /api/users body.
+type createWire struct {
 	Username          string    `json:"username"`
 	ExpireAt          time.Time `json:"expireAt"`
 	TrafficLimitBytes int64     `json:"trafficLimitBytes"`
-	HWIDDeviceLimit   *int      `json:"hwidDeviceLimit"`
+	HWIDDeviceLimit   int       `json:"hwidDeviceLimit"`
 	InternalSquadIDs  []string  `json:"activeInternalSquads,omitempty"`
 }
 
-func (desired ProvisionUser) wire(userID *int64) provisionWire {
-	encoded := provisionWire{ID: userID, Username: desired.Username, ExpireAt: desired.ExpireAt, HWIDDeviceLimit: desired.HWIDDeviceLimit, InternalSquadIDs: desired.InternalSquadIDs}
+// updateWire is the PATCH /api/users body. The contract addresses the user by
+// exactly one of `id` or `username`; Omniflow always knows the numeric ID, and
+// the panel cannot rename a user through this call anyway, so the username is
+// not sent.
+type updateWire struct {
+	ID                int64     `json:"id"`
+	ExpireAt          time.Time `json:"expireAt"`
+	TrafficLimitBytes int64     `json:"trafficLimitBytes"`
+	HWIDDeviceLimit   int       `json:"hwidDeviceLimit"`
+	InternalSquadIDs  []string  `json:"activeInternalSquads,omitempty"`
+}
+
+// limits resolves the two limits to their wire values; see ProvisionUser.
+func (desired ProvisionUser) limits() (traffic int64, devices int) {
 	if desired.TrafficLimitBytes != nil {
-		encoded.TrafficLimitBytes = *desired.TrafficLimitBytes
+		traffic = *desired.TrafficLimitBytes
 	}
-	return encoded
+	if desired.HWIDDeviceLimit != nil {
+		devices = *desired.HWIDDeviceLimit
+	}
+	return traffic, devices
+}
+
+func (desired ProvisionUser) createWire() createWire {
+	traffic, devices := desired.limits()
+	return createWire{Username: desired.Username, ExpireAt: desired.ExpireAt, TrafficLimitBytes: traffic, HWIDDeviceLimit: devices, InternalSquadIDs: desired.InternalSquadIDs}
+}
+
+func (desired ProvisionUser) updateWire(userID int64) updateWire {
+	traffic, devices := desired.limits()
+	return updateWire{ID: userID, ExpireAt: desired.ExpireAt, TrafficLimitBytes: traffic, HWIDDeviceLimit: devices, InternalSquadIDs: desired.InternalSquadIDs}
 }
 
 type InternalSquad struct {
@@ -82,12 +111,16 @@ type InternalSquad struct {
 	Name string `json:"name"`
 }
 
+// User is a Remnawave user as the panel reports it. ID is the panel's numeric
+// user ID, the only identifier its user, subscription, and HWID routes accept.
 type User struct {
-	ID                   int64           `json:"id"`
-	Username             string          `json:"username"`
-	Status               string          `json:"status"`
-	TrafficLimitBytes    int64           `json:"trafficLimitBytes"`
-	ExpireAt             time.Time       `json:"expireAt"`
+	ID                int64     `json:"id"`
+	Username          string    `json:"username"`
+	Status            string    `json:"status"`
+	TrafficLimitBytes int64     `json:"trafficLimitBytes"`
+	ExpireAt          time.Time `json:"expireAt"`
+	// HWIDDeviceLimit is the panel's raw value: zero is unlimited, null means
+	// the panel's global fallback limit applies, anything else is the limit.
 	HWIDDeviceLimit      *int            `json:"hwidDeviceLimit"`
 	SubscriptionURL      string          `json:"subscriptionUrl"`
 	TelegramID           *int64          `json:"telegramId"`
@@ -146,12 +179,36 @@ type Device struct {
 	UpdatedAt   time.Time `json:"updatedAt"`
 }
 
+// Error codes the panel puts in the `errorCode` field of a failure body. Only
+// the ones the adapter acts on are named.
+const (
+	codeUserAlreadyDisabled = "A029"
+	codeUserAlreadyEnabled  = "A030"
+)
+
+// APIError is a non-2xx answer from the panel.
+//
+// Code is the panel's own `errorCode` (for example A025 for an unknown user)
+// when the failure body carried one, and empty otherwise — a schema validation
+// failure, a proxy's error page, or an empty body. The panel's message is
+// deliberately not kept: it can echo request values, and this error ends up in
+// job records and logs.
 type APIError struct {
 	StatusCode int
+	Code       string
 }
 
 func (err *APIError) Error() string {
+	if err.Code != "" {
+		return fmt.Sprintf("remnawave API returned HTTP %d (%s)", err.StatusCode, err.Code)
+	}
 	return fmt.Sprintf("remnawave API returned HTTP %d", err.StatusCode)
+}
+
+// hasCode reports whether err is a panel failure carrying the given code.
+func hasCode(err error, code string) bool {
+	var apiError *APIError
+	return errors.As(err, &apiError) && apiError.Code == code
 }
 
 type Client struct {
@@ -224,7 +281,7 @@ func (client *Client) CreateUser(ctx context.Context, desired ProvisionUser) (Us
 	var envelope struct {
 		Response User `json:"response"`
 	}
-	err := client.do(ctx, http.MethodPost, "/api/users/", desired.wire(nil), &envelope)
+	err := client.do(ctx, http.MethodPost, "/api/users/", desired.createWire(), &envelope)
 	return envelope.Response, err
 }
 
@@ -232,16 +289,30 @@ func (client *Client) UpdateUser(ctx context.Context, userID int64, desired Prov
 	var envelope struct {
 		Response User `json:"response"`
 	}
-	err := client.do(ctx, http.MethodPatch, "/api/users/", desired.wire(&userID), &envelope)
+	err := client.do(ctx, http.MethodPatch, "/api/users/", desired.updateWire(userID), &envelope)
 	return envelope.Response, err
 }
 
+// EnableUser asks the panel to enable a user. A user that is already enabled
+// is success: the panel answers that case with a 400 (A030), and treating it
+// as a failure would turn a retried operation whose first attempt landed — or
+// a resume against a user somebody already re-enabled — into a permanent error.
 func (client *Client) EnableUser(ctx context.Context, userID int64) error {
-	return client.post(ctx, "/api/users/"+strconv.FormatInt(userID, 10)+"/actions/enable", nil)
+	err := client.post(ctx, "/api/users/"+strconv.FormatInt(userID, 10)+"/actions/enable", nil)
+	if hasCode(err, codeUserAlreadyEnabled) {
+		return nil
+	}
+	return err
 }
 
+// DisableUser is EnableUser's mirror: an already-disabled user (A029) is
+// success, for the same retry reason.
 func (client *Client) DisableUser(ctx context.Context, userID int64) error {
-	return client.post(ctx, "/api/users/"+strconv.FormatInt(userID, 10)+"/actions/disable", nil)
+	err := client.post(ctx, "/api/users/"+strconv.FormatInt(userID, 10)+"/actions/disable", nil)
+	if hasCode(err, codeUserAlreadyDisabled) {
+		return nil
+	}
+	return err
 }
 
 func (client *Client) ResetUserTraffic(ctx context.Context, userID int64) error {
@@ -359,6 +430,16 @@ func (client *Client) do(ctx context.Context, method, path string, body any, tar
 	}
 	request.Header.Set("Accept", "application/json")
 	request.Header.Set("Authorization", "Bearer "+client.token)
+	if client.baseURL.Scheme == "http" {
+		// The panel drops the connection of any request that does not look like
+		// it came through an HTTPS reverse proxy. A plain-HTTP base URL is a
+		// direct, in-network connection to the backend, so the request says so
+		// itself, with the values the contract exports for exactly this
+		// (REMNAWAVE_BYPASS_HTTPS_RESTRCTIONS). Over HTTPS the proxy in front of
+		// the panel sets them.
+		request.Header.Set("X-Forwarded-Proto", "https")
+		request.Header.Set("X-Forwarded-For", "127.0.0.1")
+	}
 	if body != nil {
 		request.Header.Set("Content-Type", "application/json")
 	}
@@ -369,11 +450,11 @@ func (client *Client) do(ctx context.Context, method, path string, body any, tar
 	}
 	defer response.Body.Close()
 	if response.StatusCode == http.StatusNotFound {
+		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, maxResponseBytes))
 		return ErrNotFound
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, maxResponseBytes))
-		return &APIError{StatusCode: response.StatusCode}
+		return &APIError{StatusCode: response.StatusCode, Code: errorCode(response.Body)}
 	}
 	if target == nil {
 		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, maxResponseBytes))
@@ -384,4 +465,29 @@ func (client *Client) do(ctx context.Context, method, path string, body any, tar
 		return fmt.Errorf("decode Remnawave response: %w", err)
 	}
 	return nil
+}
+
+// maxErrorBytes bounds how much of a failure body is read for its code. The
+// panel's error body is a few short fields; anything larger is not one.
+const maxErrorBytes = 16 << 10
+
+// errorCode extracts the panel's `errorCode` from a failure body, or returns
+// empty when the body is not the panel's error shape. The rest of the body is
+// drained, bounded, so the connection can be reused.
+func errorCode(body io.Reader) string {
+	defer func() { _, _ = io.Copy(io.Discard, io.LimitReader(body, maxResponseBytes)) }()
+	var failure struct {
+		ErrorCode string `json:"errorCode"`
+	}
+	if json.NewDecoder(io.LimitReader(body, maxErrorBytes)).Decode(&failure) != nil {
+		return ""
+	}
+	// A panel code is a letter and three digits; anything else is not one and
+	// is not carried into logs.
+	if len(failure.ErrorCode) > 8 || strings.TrimFunc(failure.ErrorCode, func(r rune) bool {
+		return (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
+	}) != "" {
+		return ""
+	}
+	return failure.ErrorCode
 }

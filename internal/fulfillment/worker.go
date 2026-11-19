@@ -89,10 +89,12 @@ func trafficLimitAgrees(desired *int64, remote int64) bool {
 }
 
 // deviceLimitAgrees is the same comparison for the device limit, where
-// Remnawave spells unlimited as null or zero.
+// Remnawave spells unlimited as zero. A null remote limit is not unlimited: the
+// panel applies its global HWID fallback limit to it, so it agrees with
+// nothing Omniflow asks for.
 func deviceLimitAgrees(desired *int, remote *int) bool {
 	if desired == nil {
-		return remote == nil || *remote == 0
+		return remote != nil && *remote == 0
 	}
 	return remote != nil && *remote == *desired
 }

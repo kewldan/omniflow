@@ -145,7 +145,7 @@ func main() {
 	operationalServer := startOperationalServer(logger, cfg, pool, metrics)
 	webhookServer := startWebhookServer(logger, cfg, client)
 
-	logger.Info("telegram bot started", "remnawave_api", "3.2.2", "mode", updateMode(cfg))
+	logger.Info("telegram bot started", "remnawave_api", "3.4.11", "mode", updateMode(cfg))
 	if cfg.Webhook.Enabled {
 		if err = registerWebhook(ctx, logger, client, cfg); err != nil {
 			logger.Error("telegram webhook registration failed", "error", err)

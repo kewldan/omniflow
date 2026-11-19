@@ -39,7 +39,7 @@ edited to be safe to post, say that you edited it.
 
 - The versions in the
   [compatibility matrix](https://github.com/kewldan/omniflow/blob/main/docs/operations/compatibility.mdx),
-  and only those. A Remnawave outside 3.2.x, a PostgreSQL other than 18, or a
+  and only those. A Remnawave outside 3.4.x, a PostgreSQL other than 18, or a
   Valkey other than 9 is unsupported rather than untested-but-probably-fine.
 - The latest release. Fixes land on `main` and ship in the next version; there
   are no maintenance branches, so an installation upgrades forward.

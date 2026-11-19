@@ -17,7 +17,7 @@ before you expose anything.
 | You need | Why |
 | --- | --- |
 | Docker with Compose v2 | The whole stack, including the migration runner, is Compose services |
-| A reachable Remnawave 3.2.2 installation and an API token | `api`, `bot`, and `worker` all refuse to start without `APP_REMNAWAVE_URL` and `APP_REMNAWAVE_TOKEN`, and the token is what the readiness probe uses |
+| A reachable Remnawave 3.4.11 installation and an API token | `api`, `bot`, and `worker` all refuse to start without `APP_REMNAWAVE_URL` and `APP_REMNAWAVE_TOKEN`, and the token is what the readiness probe uses |
 | `openssl`, or any way to produce random bytes | Two secrets have to be generated before the stack starts |
 | A Telegram bot token from [@BotFather](https://t.me/BotFather) | Optional here. With `APP_TELEGRAM_TOKEN` empty the bot process starts, logs `telegram bot disabled because APP_TELEGRAM_TOKEN is empty`, and idles — that is not an error |
 
