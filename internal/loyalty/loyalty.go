@@ -46,8 +46,95 @@ type Tier struct {
 	NameRU string
 	// Threshold is the metric value this tier starts at. The lowest tier is
 	// expected to be zero so every customer has one.
-	Threshold   int64
+	Threshold int64
+	// DiscountBPS discounts a plan's price unless PeriodDiscountBPS names the
+	// plan's billing period.
 	DiscountBPS int
+	// PeriodDiscountBPS overrides DiscountBPS for a billing period — Bedolaga's
+	// per-period discounts, such as more off a year than a month.
+	PeriodDiscountBPS map[string]int
+	// Add-on discounts by kind: traffic packs, extra devices, extra squads.
+	TrafficDiscountBPS int
+	DeviceDiscountBPS  int
+	SquadDiscountBPS   int
+	// Priority decides which tier prices an order when a customer holds more
+	// than one: the highest wins.
+	Priority int
+	// ManualOnly tiers are never reached by the metric; a customer holds one
+	// only when an operator or a promo code grants it.
+	ManualOnly bool
+	// Restrictions on what a member may buy and how they may pay. Empty means
+	// no restriction.
+	AllowedPlanIDs   []string
+	AllowedSquadIDs  []string
+	AllowedProviders []string
+}
+
+// PlanDiscountBPS is the tier's discount on a plan with this billing period.
+func (tier Tier) PlanDiscountBPS(billingPeriod string) int {
+	if bps, ok := tier.PeriodDiscountBPS[billingPeriod]; ok {
+		return bps
+	}
+	return tier.DiscountBPS
+}
+
+// AddonDiscountBPS is the tier's discount on an add-on of this kind.
+func (tier Tier) AddonDiscountBPS(kind string) int {
+	switch kind {
+	case "traffic":
+		return tier.TrafficDiscountBPS
+	case "devices":
+		return tier.DeviceDiscountBPS
+	case "squads":
+		return tier.SquadDiscountBPS
+	default:
+		return 0
+	}
+}
+
+// AllowsPlan reports whether a member may buy this plan.
+func (tier Tier) AllowsPlan(planID string) bool {
+	return allowed(tier.AllowedPlanIDs, planID)
+}
+
+// AllowsProvider reports whether a member may pay through this provider.
+func (tier Tier) AllowsProvider(provider string) bool {
+	return allowed(tier.AllowedProviders, provider)
+}
+
+// AllowedSquads narrows a set of squads to the ones a member may choose. It
+// returns the set unchanged when the tier restricts nothing.
+func (tier Tier) AllowedSquads(squads []string) []string {
+	if len(tier.AllowedSquadIDs) == 0 {
+		return squads
+	}
+	kept := make([]string, 0, len(squads))
+	for _, squad := range squads {
+		if allowed(tier.AllowedSquadIDs, squad) {
+			kept = append(kept, squad)
+		}
+	}
+	return kept
+}
+
+func allowed(list []string, value string) bool {
+	if len(list) == 0 {
+		return true
+	}
+	for _, candidate := range list {
+		if candidate == value {
+			return true
+		}
+	}
+	return false
+}
+
+// DiscountAt is a share of an amount in basis points, rounded down.
+func DiscountAt(amountMinor int64, bps int) int64 {
+	if bps <= 0 || amountMinor <= 0 {
+		return 0
+	}
+	return amountMinor * int64(min(bps, 10_000)) / 10_000
 }
 
 // Program is one published definition.
@@ -137,12 +224,13 @@ func Evaluate(
 	return Standing{TierID: earned.ID, Metric: metric, Changed: true}, nil
 }
 
-// TierFor returns the highest tier a metric reaches.
+// TierFor returns the highest tier a metric reaches. Manual-only tiers are
+// never reached by the metric.
 func TierFor(program Program, metric int64) (Tier, error) {
-	if len(program.Tiers) == 0 {
+	ordered := Sorted(automatic(program.Tiers))
+	if len(ordered) == 0 {
 		return Tier{}, ErrNoTiers
 	}
-	ordered := Sorted(program.Tiers)
 	earned := ordered[0]
 	for _, tier := range ordered {
 		if metric >= tier.Threshold {
@@ -173,10 +261,10 @@ func Sorted(tiers []Tier) []Tier {
 // thresholds. A gold tier worth less than silver is representable and is
 // certainly a mistake.
 func Validate(program Program) error {
-	if len(program.Tiers) == 0 {
+	ordered := Sorted(automatic(program.Tiers))
+	if len(ordered) == 0 {
 		return ErrNoTiers
 	}
-	ordered := Sorted(program.Tiers)
 	if ordered[0].Threshold != 0 {
 		return errors.New("the lowest tier must start at zero so every customer has one")
 	}
@@ -187,6 +275,18 @@ func Validate(program Program) error {
 		}
 		previous = tier.DiscountBPS
 	}
+	for _, tier := range program.Tiers {
+		for period, bps := range tier.PeriodDiscountBPS {
+			if !billingPeriods[period] || bps < 0 || bps > 10_000 {
+				return errors.New("a period discount names an unknown period or is out of range")
+			}
+		}
+		for _, bps := range []int{tier.DiscountBPS, tier.TrafficDiscountBPS, tier.DeviceDiscountBPS, tier.SquadDiscountBPS} {
+			if bps < 0 || bps > 10_000 {
+				return errors.New("a discount is out of range")
+			}
+		}
+	}
 	switch program.Metric {
 	case MetricSpend, MetricTenure, MetricOrders:
 	default:
@@ -196,6 +296,23 @@ func Validate(program Program) error {
 		return errors.New("a windowed metric needs a window")
 	}
 	return nil
+}
+
+// billingPeriods are the plan billing periods a period discount may name.
+var billingPeriods = map[string]bool{
+	"none": true, "day": true, "week": true, "month": true, "quarter": true,
+	"half_year": true, "year": true, "custom": true,
+}
+
+// automatic is the tiers the metric can reach.
+func automatic(tiers []Tier) []Tier {
+	kept := make([]Tier, 0, len(tiers))
+	for _, tier := range tiers {
+		if !tier.ManualOnly {
+			kept = append(kept, tier)
+		}
+	}
+	return kept
 }
 
 // Discount is the tier's share of an order, in minor units.
@@ -211,16 +328,19 @@ func Discount(amountMinor int64, tier Tier) int64 {
 	return amountMinor * int64(tier.DiscountBPS) / 10_000
 }
 
-// Best picks the tier whose discount a customer is priced with when they hold
-// more than one, and reports false when they hold none. The most generous tier
-// wins: holding a tier is never allowed to make a price worse.
+// Best picks the tier that prices a customer's orders when they hold more than
+// one — the earned tier and any granted groups — and reports false when they
+// hold none. The highest priority wins, as Bedolaga's promo groups do; between
+// equal priorities the more generous plan discount wins, so holding a second
+// group never makes a price worse by accident.
 func Best(tiers []Tier) (Tier, bool) {
 	if len(tiers) == 0 {
 		return Tier{}, false
 	}
 	best := tiers[0]
 	for _, tier := range tiers[1:] {
-		if tier.DiscountBPS > best.DiscountBPS {
+		if tier.Priority > best.Priority ||
+			tier.Priority == best.Priority && tier.DiscountBPS > best.DiscountBPS {
 			best = tier
 		}
 	}

@@ -444,13 +444,23 @@ func (store *Store) CreateAddonOrder(ctx context.Context, input AddonOrderInput)
 	if err != nil {
 		return dbgen.Order{}, err
 	}
+	// The customer's loyalty tier discounts add-ons by kind mid-period too.
+	tier, held, err := store.customerLoyaltyTier(ctx, queries, userID)
+	if err != nil {
+		return dbgen.Order{}, err
+	}
+	discount := addonLoyaltyDiscount(tier, held, charges)
+	tierCode := ""
+	if discount > 0 {
+		tierCode = tier.Code
+	}
 	walletBalance := int64(0)
 	if !input.SkipWallet {
 		if walletBalance, err = availableWallet(ctx, queries, userID, input.Currency); err != nil {
 			return dbgen.Order{}, err
 		}
 	}
-	domainOrder, err := commerce.NewOrder("", input.CustomerID, commerce.Money{Amount: subtotal, Currency: input.Currency}, 0, walletBalance)
+	domainOrder, err := commerce.NewOrder("", input.CustomerID, commerce.Money{Amount: subtotal, Currency: input.Currency}, discount, walletBalance)
 	if err != nil {
 		return dbgen.Order{}, err
 	}
@@ -461,7 +471,8 @@ func (store *Store) CreateAddonOrder(ctx context.Context, input AddonOrderInput)
 	expiresAt := store.paymentDeadline(input.ExpiresAt, input.Provider)
 	order, err := queries.CreateOrder(ctx, dbgen.CreateOrderParams{
 		UserID: userID, State: state, Operation: "addon", Currency: input.Currency,
-		SubtotalMinor: subtotal, DiscountMinor: 0, WalletMinor: domainOrder.WalletMinor,
+		SubtotalMinor: subtotal, DiscountMinor: discount, WalletMinor: domainOrder.WalletMinor,
+		LoyaltyDiscountMinor: discount, LoyaltyTierCode: optionalText(tierCode),
 		ExternalMinor: domainOrder.ExternalMinor, IdempotencyKey: input.IdempotencyKey,
 		ExpiresAt: pgtype.Timestamptz{Time: expiresAt, Valid: true}, SubscriptionID: subscriptionID,
 		// An add-on order changes capacity, never the squad set, but the column

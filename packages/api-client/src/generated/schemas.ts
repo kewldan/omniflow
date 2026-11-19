@@ -10319,6 +10319,20 @@ export const GetAccountLoyaltyResponse = zod
     percent: zod.int().optional(),
     evaluatedAt: zod.iso.datetime({ offset: true }).optional(),
     graceUntil: zod.iso.datetime({ offset: true }).optional(),
+    groups: zod
+      .array(
+        zod.object({
+          code: zod.string(),
+          nameEn: zod.string(),
+          nameRu: zod.string(),
+          discountBps: zod.int(),
+          expiresAt: zod.iso.datetime({ offset: true }).optional(),
+        }),
+      )
+      .optional()
+      .describe(
+        "Groups an operator or a promo code granted beside the ladder; the highest priority prices orders.",
+      ),
   })
   .describe("`enabled: false` is the whole document when no program runs.");
 

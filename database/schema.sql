@@ -155,7 +155,9 @@ BEGIN
   VALUES (NEW.user_id, 'loyalty_tier',
           jsonb_build_object('tierCode', next_tier.code, 'nameEn', next_tier.name_en,
                              'nameRu', next_tier.name_ru, 'discountBps', next_tier.discount_bps,
-                             'down', previous_threshold IS NOT NULL AND next_tier.threshold < previous_threshold),
+                             'down', NEW.reason = 'evaluation' AND NOT next_tier.manual_only
+                                     AND previous_threshold IS NOT NULL
+                                     AND next_tier.threshold < previous_threshold),
           'loyalty:' || NEW.id::text)
   ON CONFLICT (dedupe_key) DO NOTHING;
   INSERT INTO operator_notifications (kind, dedupe_key, payload)
@@ -2368,6 +2370,24 @@ CREATE TABLE public.ledger_transactions (
 
 
 --
+-- Name: loyalty_memberships; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.loyalty_memberships (
+    user_id uuid NOT NULL,
+    tier_code text NOT NULL,
+    source text NOT NULL,
+    assigned_by uuid,
+    note text DEFAULT ''::text NOT NULL,
+    expires_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT loyalty_memberships_code_shape CHECK ((tier_code ~ '^[a-z][a-z0-9_-]{1,31}$'::text)),
+    CONSTRAINT loyalty_memberships_note_length CHECK ((char_length(note) <= 400)),
+    CONSTRAINT loyalty_memberships_source_known CHECK ((source = ANY (ARRAY['operator'::text, 'promo_code'::text])))
+);
+
+
+--
 -- Name: loyalty_programs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2382,6 +2402,8 @@ CREATE TABLE public.loyalty_programs (
     published_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     created_by uuid,
+    recalculation_requested_at timestamp with time zone,
+    recalculated_at timestamp with time zone,
     CONSTRAINT loyalty_programs_currency_check CHECK ((currency ~ '^[A-Z]{3}$'::text)),
     CONSTRAINT loyalty_programs_grace_days_check CHECK ((grace_days >= 0)),
     CONSTRAINT loyalty_programs_metric_check CHECK ((metric = ANY (ARRAY['spend'::text, 'tenure'::text, 'orders'::text]))),
@@ -2403,7 +2425,7 @@ CREATE TABLE public.loyalty_standing_history (
     reason text NOT NULL,
     actor_id uuid,
     occurred_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT loyalty_standing_history_reason_check CHECK ((reason = ANY (ARRAY['evaluation'::text, 'operator_override'::text, 'program_change'::text])))
+    CONSTRAINT loyalty_standing_history_reason_check CHECK ((reason = ANY (ARRAY['evaluation'::text, 'operator_override'::text, 'program_change'::text, 'promo_code'::text])))
 );
 
 
@@ -2450,10 +2472,21 @@ CREATE TABLE public.loyalty_tiers (
     threshold bigint NOT NULL,
     discount_bps integer DEFAULT 0 NOT NULL,
     sort_order integer DEFAULT 0 NOT NULL,
+    traffic_discount_bps integer DEFAULT 0 NOT NULL,
+    device_discount_bps integer DEFAULT 0 NOT NULL,
+    squad_discount_bps integer DEFAULT 0 NOT NULL,
+    period_discounts jsonb DEFAULT '{}'::jsonb NOT NULL,
+    priority integer DEFAULT 0 NOT NULL,
+    manual_only boolean DEFAULT false NOT NULL,
+    allowed_plan_ids uuid[] DEFAULT '{}'::uuid[] NOT NULL,
+    allowed_squad_ids uuid[] DEFAULT '{}'::uuid[] NOT NULL,
+    allowed_providers text[] DEFAULT '{}'::text[] NOT NULL,
+    CONSTRAINT loyalty_tiers_addon_discounts_bounded CHECK ((((traffic_discount_bps >= 0) AND (traffic_discount_bps <= 10000)) AND ((device_discount_bps >= 0) AND (device_discount_bps <= 10000)) AND ((squad_discount_bps >= 0) AND (squad_discount_bps <= 10000)))),
     CONSTRAINT loyalty_tiers_code_check CHECK ((code ~ '^[a-z][a-z0-9_-]{1,31}$'::text)),
     CONSTRAINT loyalty_tiers_discount_bps_check CHECK (((discount_bps >= 0) AND (discount_bps <= 10000))),
     CONSTRAINT loyalty_tiers_name_en_check CHECK (((char_length(name_en) >= 1) AND (char_length(name_en) <= 60))),
     CONSTRAINT loyalty_tiers_name_ru_check CHECK (((char_length(name_ru) >= 1) AND (char_length(name_ru) <= 60))),
+    CONSTRAINT loyalty_tiers_period_discounts_object CHECK ((jsonb_typeof(period_discounts) = 'object'::text)),
     CONSTRAINT loyalty_tiers_threshold_check CHECK ((threshold >= 0))
 );
 
@@ -5119,6 +5152,14 @@ ALTER TABLE ONLY public.ledger_transactions
 
 
 --
+-- Name: loyalty_memberships loyalty_memberships_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.loyalty_memberships
+    ADD CONSTRAINT loyalty_memberships_pkey PRIMARY KEY (user_id, tier_code);
+
+
+--
 -- Name: loyalty_programs loyalty_programs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5164,14 +5205,6 @@ ALTER TABLE ONLY public.loyalty_tiers
 
 ALTER TABLE ONLY public.loyalty_tiers
     ADD CONSTRAINT loyalty_tiers_program_id_code_key UNIQUE (program_id, code);
-
-
---
--- Name: loyalty_tiers loyalty_tiers_program_id_threshold_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.loyalty_tiers
-    ADD CONSTRAINT loyalty_tiers_program_id_threshold_key UNIQUE (program_id, threshold);
 
 
 --
@@ -6544,6 +6577,13 @@ CREATE INDEX loyalty_standing_history_customer_idx ON public.loyalty_standing_hi
 --
 
 CREATE INDEX loyalty_standings_tier_idx ON public.loyalty_standings USING btree (tier_id);
+
+
+--
+-- Name: loyalty_tiers_program_threshold_ladder_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX loyalty_tiers_program_threshold_ladder_idx ON public.loyalty_tiers USING btree (program_id, threshold) WHERE (NOT manual_only);
 
 
 --
@@ -8175,6 +8215,22 @@ ALTER TABLE ONLY public.ledger_entries
 
 ALTER TABLE ONLY public.ledger_entries
     ADD CONSTRAINT ledger_entries_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: loyalty_memberships loyalty_memberships_assigned_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.loyalty_memberships
+    ADD CONSTRAINT loyalty_memberships_assigned_by_fkey FOREIGN KEY (assigned_by) REFERENCES public.admin_users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: loyalty_memberships loyalty_memberships_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.loyalty_memberships
+    ADD CONSTRAINT loyalty_memberships_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

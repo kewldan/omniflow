@@ -369,18 +369,23 @@ func (store *Store) quoteWith(ctx context.Context, queries *dbgen.Queries, userI
 	// The loyalty tier is taken off the plan price first; a promo code then
 	// discounts what remains, the way Bedolaga applies a promo group's discount
 	// before a promo offer.
-	var loyaltyMinor int64
-	var loyaltyCode string
+	var (
+		loyaltyMinor int64
+		loyaltyCode  string
+		tier         loyalty.Tier
+		held         bool
+	)
 	if commerce.SubscriptionOperation(input.Operation) {
-		tier, held, tierErr := store.customerLoyaltyTier(ctx, queries, userID)
-		if tierErr != nil {
-			return OrderQuote{}, tierErr
+		tier, held, err = store.customerLoyaltyTier(ctx, queries, userID)
+		if err != nil {
+			return OrderQuote{}, err
 		}
 		if held {
-			loyaltyMinor = loyalty.Discount(plan.AmountMinor, tier)
-			if loyaltyMinor > 0 {
-				loyaltyCode = tier.Code
+			// A group that restricts plans keeps its members to them.
+			if !tier.AllowsPlan(uuidString(plan.PlanID)) {
+				return OrderQuote{}, ErrPlanUnavailable
 			}
+			loyaltyMinor = loyalty.DiscountAt(plan.AmountMinor, tier.PlanDiscountBPS(plan.BillingPeriod))
 		}
 	}
 	discount := int64(0)
@@ -432,7 +437,7 @@ func (store *Store) quoteWith(ctx context.Context, queries *dbgen.Queries, userI
 		discount = discountMoney.Amount
 		promo = &lockedPromo
 	}
-	squads, err := store.resolveSquads(ctx, queries, plan, input.SelectedSquadIDs)
+	squads, err := store.resolveSquads(ctx, queries, plan, input.SelectedSquadIDs, tier)
 	if err != nil {
 		return OrderQuote{}, err
 	}
@@ -441,6 +446,11 @@ func (store *Store) quoteWith(ctx context.Context, queries *dbgen.Queries, userI
 	addons, addonMinor, err := store.priceInitialAddons(ctx, queries, plan, input)
 	if err != nil {
 		return OrderQuote{}, err
+	}
+	// The tier discounts add-ons by kind, separately from the plan.
+	loyaltyMinor += addonLoyaltyDiscount(tier, held, addons)
+	if loyaltyMinor > 0 {
+		loyaltyCode = tier.Code
 	}
 	applicableWallet := wallet
 	if input.SkipWallet {
@@ -465,7 +475,7 @@ func (store *Store) quoteWith(ctx context.Context, queries *dbgen.Queries, userI
 
 // resolveSquads validates the customer's squad choice against the plan version's
 // selection policy and returns the final set the entitlement will carry.
-func (store *Store) resolveSquads(ctx context.Context, queries *dbgen.Queries, plan dbgen.GetPlanVersionForOrderRow, selected []string) ([]string, error) {
+func (store *Store) resolveSquads(ctx context.Context, queries *dbgen.Queries, plan dbgen.GetPlanVersionForOrderRow, selected []string, tier loyalty.Tier) ([]string, error) {
 	policy := commerce.SquadPolicy{
 		Selection: plan.SquadSelection,
 		Included:  databaseutil.UUIDStrings(plan.RemnawaveSquadIds),
@@ -484,6 +494,8 @@ func (store *Store) resolveSquads(ctx context.Context, queries *dbgen.Queries, p
 		for _, squad := range offered {
 			policy.Offered = append(policy.Offered, uuidString(squad.SquadID))
 		}
+		// A group that restricts squads narrows what its members may choose.
+		policy.Offered = tier.AllowedSquads(policy.Offered)
 	}
 	return policy.ResolveSquads(selected)
 }

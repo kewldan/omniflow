@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/omniflow/omniflow/internal/commerce"
+	databaseutil "github.com/omniflow/omniflow/internal/database"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 	"github.com/omniflow/omniflow/internal/loyalty"
 )
@@ -222,7 +223,7 @@ type LoyaltyProgram struct {
 	CreatedAt   time.Time     `json:"createdAt"`
 }
 
-// LoyaltyTier is one rung of a definition.
+// LoyaltyTier is one rung of a definition — a promo group in Bedolaga's terms.
 type LoyaltyTier struct {
 	ID          string `json:"id"`
 	Code        string `json:"code"`
@@ -230,6 +231,29 @@ type LoyaltyTier struct {
 	NameRU      string `json:"nameRu"`
 	Threshold   int64  `json:"threshold"`
 	DiscountBPS int32  `json:"discountBps"`
+	// PeriodDiscounts overrides discountBps by plan billing period.
+	PeriodDiscounts    map[string]int `json:"periodDiscounts"`
+	TrafficDiscountBPS int32          `json:"trafficDiscountBps"`
+	DeviceDiscountBPS  int32          `json:"deviceDiscountBps"`
+	SquadDiscountBPS   int32          `json:"squadDiscountBps"`
+	Priority           int32          `json:"priority"`
+	ManualOnly         bool           `json:"manualOnly"`
+	AllowedPlanIDs     []string       `json:"allowedPlanIds"`
+	AllowedSquadIDs    []string       `json:"allowedSquadIds"`
+	AllowedProviders   []string       `json:"allowedProviders"`
+}
+
+// domainTier maps a tier onto the loyalty domain.
+func (tier LoyaltyTier) domainTier() loyalty.Tier {
+	return loyalty.Tier{
+		ID: tier.ID, Code: tier.Code, NameEN: tier.NameEN, NameRU: tier.NameRU,
+		Threshold: tier.Threshold, DiscountBPS: int(tier.DiscountBPS),
+		PeriodDiscountBPS: tier.PeriodDiscounts, TrafficDiscountBPS: int(tier.TrafficDiscountBPS),
+		DeviceDiscountBPS: int(tier.DeviceDiscountBPS), SquadDiscountBPS: int(tier.SquadDiscountBPS),
+		Priority: int(tier.Priority), ManualOnly: tier.ManualOnly,
+		AllowedPlanIDs: tier.AllowedPlanIDs, AllowedSquadIDs: tier.AllowedSquadIDs,
+		AllowedProviders: tier.AllowedProviders,
+	}
 }
 
 // LoyaltyPrograms lists the definitions, newest version first.
@@ -272,9 +296,10 @@ func (service *Service) PublishLoyaltyProgram(
 		Grace:  time.Duration(program.GraceDays) * 24 * time.Hour,
 	}
 	for _, tier := range program.Tiers {
-		domain.Tiers = append(domain.Tiers, loyalty.Tier{
-			Code: tier.Code, Threshold: tier.Threshold, DiscountBPS: int(tier.DiscountBPS),
-		})
+		domain.Tiers = append(domain.Tiers, tier.domainTier())
+		if _, err := databaseutil.ParseUUIDs(append(append([]string{}, tier.AllowedPlanIDs...), tier.AllowedSquadIDs...)); err != nil {
+			return LoyaltyProgram{}, ErrValidaton
+		}
 	}
 	// The domain refuses what a CHECK constraint cannot express: a definition
 	// with no floor tier, and a higher tier worth less than a lower one.
@@ -298,11 +323,22 @@ func (service *Service) PublishLoyaltyProgram(
 		}
 		saved = loyaltyProgramFrom(row)
 		for index, tier := range program.Tiers {
+			periods, _ := json.Marshal(nonNilPeriods(tier.PeriodDiscounts))
+			plans, _ := databaseutil.ParseUUIDs(tier.AllowedPlanIDs)
+			squads, _ := databaseutil.ParseUUIDs(tier.AllowedSquadIDs)
+			providers := tier.AllowedProviders
+			if providers == nil {
+				providers = []string{}
+			}
 			created, tierErr := queries.CreateLoyaltyTier(ctx, dbgen.CreateLoyaltyTierParams{
 				ProgramID: row.ID, Code: strings.ToLower(strings.TrimSpace(tier.Code)),
 				NameEn: tier.NameEN, NameRu: tier.NameRU,
 				Threshold: tier.Threshold, DiscountBps: tier.DiscountBPS,
-				SortOrder: int32(index),
+				SortOrder:          int32(index),
+				TrafficDiscountBps: tier.TrafficDiscountBPS, DeviceDiscountBps: tier.DeviceDiscountBPS,
+				SquadDiscountBps: tier.SquadDiscountBPS, PeriodDiscounts: periods,
+				Priority: tier.Priority, ManualOnly: tier.ManualOnly,
+				AllowedPlanIds: plans, AllowedSquadIds: squads, AllowedProviders: providers,
 			})
 			if tierErr != nil {
 				return tierErr
@@ -314,6 +350,11 @@ func (service *Service) PublishLoyaltyProgram(
 				return txErr
 			}
 			saved.Enabled = true
+			// A new definition re-places everybody, so the worker's next
+			// loyalty pass recalculates every customer under it.
+			if _, txErr = queries.RequestLoyaltyRecalculation(ctx); txErr != nil {
+				return txErr
+			}
 		}
 		return appendAudit(ctx, queries, actor.audit(
 			"panel.loyalty_program.published", "configuration", "loyalty_program", saved.ID,
@@ -375,6 +416,7 @@ func (service *Service) EvaluateLoyalty(
 			domain.Tiers = append(domain.Tiers, loyalty.Tier{
 				ID: uuidString(tier.ID), Code: tier.Code,
 				Threshold: tier.Threshold, DiscountBPS: int(tier.DiscountBps),
+				ManualOnly: tier.ManualOnly,
 			})
 			byID[uuidString(tier.ID)] = tier
 		}
@@ -524,8 +566,25 @@ func loyaltyProgramFrom(row dbgen.LoyaltyProgram) LoyaltyProgram {
 }
 
 func loyaltyTierFrom(row dbgen.LoyaltyTier) LoyaltyTier {
-	return LoyaltyTier{
+	tier := LoyaltyTier{
 		ID: uuidString(row.ID), Code: row.Code, NameEN: row.NameEn, NameRU: row.NameRu,
 		Threshold: row.Threshold, DiscountBPS: row.DiscountBps,
+		TrafficDiscountBPS: row.TrafficDiscountBps, DeviceDiscountBPS: row.DeviceDiscountBps,
+		SquadDiscountBPS: row.SquadDiscountBps, Priority: row.Priority, ManualOnly: row.ManualOnly,
+		AllowedPlanIDs:   databaseutil.UUIDStrings(row.AllowedPlanIds),
+		AllowedSquadIDs:  databaseutil.UUIDStrings(row.AllowedSquadIds),
+		AllowedProviders: row.AllowedProviders, PeriodDiscounts: map[string]int{},
 	}
+	_ = json.Unmarshal(row.PeriodDiscounts, &tier.PeriodDiscounts)
+	if tier.AllowedProviders == nil {
+		tier.AllowedProviders = []string{}
+	}
+	return tier
+}
+
+func nonNilPeriods(periods map[string]int) map[string]int {
+	if periods == nil {
+		return map[string]int{}
+	}
+	return periods
 }

@@ -4672,6 +4672,14 @@ export type AccountLoyaltyTiersItem = {
   current: boolean;
 };
 
+export type AccountLoyaltyGroupsItem = {
+  code: string;
+  nameEn: string;
+  nameRu: string;
+  discountBps: number;
+  expiresAt?: string;
+};
+
 /**
  * `enabled: false` is the whole document when no program runs.
  */
@@ -4687,6 +4695,8 @@ export interface AccountLoyalty {
   percent?: number;
   evaluatedAt?: string;
   graceUntil?: string;
+  /** Groups an operator or a promo code granted beside the ladder; the highest priority prices orders. */
+  groups?: AccountLoyaltyGroupsItem[];
 }
 
 export type AccountContactKind = (typeof AccountContactKind)[keyof typeof AccountContactKind];

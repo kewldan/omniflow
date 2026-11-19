@@ -10,6 +10,7 @@ import (
 
 	telegram "github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
+	"github.com/omniflow/omniflow/internal/accountcheckout"
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/remnawave"
@@ -191,6 +192,16 @@ func (app *App) plansScreen(ctx context.Context, session commerceContext, forNew
 		app.logger.Error("plan catalog lookup failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
 	}
+	// A loyalty group that restricts plans shows its members only those.
+	if tier, held, tierErr := app.commerce.orders.LoyaltyTier(ctx, session.Customer.ID); tierErr == nil && held {
+		kept := plans[:0:0]
+		for _, plan := range plans {
+			if tier.AllowsPlan(plan.PlanID) {
+				kept = append(kept, plan)
+			}
+		}
+		plans = kept
+	}
 	return plansView(session.Locale, plans, app.settings.Currency, forNew)
 }
 
@@ -257,6 +268,9 @@ func (app *App) paymentMethodScreen(ctx context.Context, session commerceContext
 		return squadConfiguratorView(session.Locale, policy, checkout.SelectedSquadIDs)
 	}
 	choices, err := app.commerce.PaymentChoices(ctx, planVersionID)
+	if err == nil {
+		choices, err = accountcheckout.LoyaltyChoices(ctx, app.commerce.orders, session.Customer.ID, choices)
+	}
 	if err != nil {
 		app.logger.Error("payment method lookup failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
@@ -502,6 +516,7 @@ func (app *App) payOrder(ctx context.Context, session commerceContext, orderID s
 		return app.orderScreen(ctx, session, orderID)
 	}
 	choices := app.saveableChoices(ctx, app.orderPaymentChoices(order))
+	choices := app.orderPaymentChoices(ctx, session.Customer.ID, order)
 	provider, err := app.customers.OrderCheckoutProvider(ctx, session.Customer.ID, orderID)
 	if err != nil {
 		app.logger.Warn("checkout provider lookup failed", "error", err)
@@ -529,7 +544,7 @@ func (app *App) selectOrderProvider(ctx context.Context, session commerceContext
 	if !orderAwaitsPayment(order) {
 		return app.orderScreen(ctx, session, orderID)
 	}
-	if !paymentChoiceOffered(app.orderPaymentChoices(order), provider, order.Currency) {
+	if !paymentChoiceOffered(app.orderPaymentChoices(ctx, session.Customer.ID, order), provider, order.Currency) {
 		return View{Text: text(session.Locale, "pay.none"), Keyboard: keyboard(row(actionButton(text(session.Locale, "action.back"), "order:"+orderID)))}
 	}
 	return app.startOrderPayment(ctx, session, order, provider, saveMethod)
@@ -559,8 +574,14 @@ func (app *App) startOrderPayment(ctx context.Context, session commerceContext, 
 // order is left out — the shared payment service resumes an existing intent per
 // order and provider, so offering it again would return the dead intent
 // unchanged and the customer would tap a button that does nothing.
-func (app *App) orderPaymentChoices(order OrderSummary) []PaymentChoice {
+func (app *App) orderPaymentChoices(ctx context.Context, customerID string, order OrderSummary) []PaymentChoice {
 	offered := app.commerce.ExternalPaymentChoices(order.Currency)
+	// A loyalty group may keep its members to some methods.
+	if filtered, err := accountcheckout.LoyaltyChoices(ctx, app.commerce.orders, customerID, offered); err == nil {
+		offered = filtered
+	} else {
+		app.logger.Warn("loyalty payment restriction lookup failed", "error", err)
+	}
 	choices := make([]PaymentChoice, 0, len(offered))
 	for _, choice := range offered {
 		if choice.Provider == order.Provider && paymentIntentDead(order.PaymentStatus) {

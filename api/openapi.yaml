@@ -8022,6 +8022,18 @@ components:
         percent: {type: integer}
         evaluatedAt: {type: string, format: date-time}
         graceUntil: {type: string, format: date-time}
+        groups:
+          type: array
+          description: Groups an operator or a promo code granted beside the ladder; the highest priority prices orders.
+          items:
+            type: object
+            required: [code, nameEn, nameRu, discountBps]
+            properties:
+              code: {type: string}
+              nameEn: {type: string}
+              nameRu: {type: string}
+              discountBps: {type: integer}
+              expiresAt: {type: string, format: date-time}
     AccountContact:
       type: object
       required: [id, kind, verified, transactional, marketing, createdAt]

@@ -197,8 +197,16 @@ func (service *Service) Plans(ctx context.Context, customerID, locale string) ([
 	if err != nil {
 		return nil, err
 	}
+	// A loyalty group that restricts plans shows its members only those.
+	tier, held, err := service.orders.LoyaltyTier(ctx, customerID)
+	if err != nil {
+		return nil, err
+	}
 	offers := make([]PlanOffer, 0, len(records))
 	for _, record := range records {
+		if held && !tier.AllowsPlan(record.offer.PlanID) {
+			continue
+		}
 		offers = append(offers, applyEligibility(record, state))
 	}
 	return offers, nil

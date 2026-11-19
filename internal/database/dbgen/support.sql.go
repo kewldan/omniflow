@@ -325,7 +325,7 @@ INSERT INTO loyalty_programs (
   $1, $2, $3,
   $4, $5, $6
 )
-RETURNING id, version, enabled, metric, currency, window_days, grace_days, published_at, created_at, created_by
+RETURNING id, version, enabled, metric, currency, window_days, grace_days, published_at, created_at, created_by, recalculation_requested_at, recalculated_at
 `
 
 type CreateLoyaltyProgramParams struct {
@@ -358,28 +358,44 @@ func (q *Queries) CreateLoyaltyProgram(ctx context.Context, arg CreateLoyaltyPro
 		&i.PublishedAt,
 		&i.CreatedAt,
 		&i.CreatedBy,
+		&i.RecalculationRequestedAt,
+		&i.RecalculatedAt,
 	)
 	return i, err
 }
 
 const createLoyaltyTier = `-- name: CreateLoyaltyTier :one
 INSERT INTO loyalty_tiers (
-  program_id, code, name_en, name_ru, threshold, discount_bps, sort_order
+  program_id, code, name_en, name_ru, threshold, discount_bps, sort_order,
+  traffic_discount_bps, device_discount_bps, squad_discount_bps, period_discounts,
+  priority, manual_only, allowed_plan_ids, allowed_squad_ids, allowed_providers
 ) VALUES (
   $1, $2, $3, $4,
-  $5, $6, $7
+  $5, $6, $7,
+  $8, $9, $10,
+  $11, $12, $13,
+  $14::uuid[], $15::uuid[], $16::text[]
 )
-RETURNING id, program_id, code, name_en, name_ru, threshold, discount_bps, sort_order
+RETURNING id, program_id, code, name_en, name_ru, threshold, discount_bps, sort_order, traffic_discount_bps, device_discount_bps, squad_discount_bps, period_discounts, priority, manual_only, allowed_plan_ids, allowed_squad_ids, allowed_providers
 `
 
 type CreateLoyaltyTierParams struct {
-	ProgramID   pgtype.UUID `json:"program_id"`
-	Code        string      `json:"code"`
-	NameEn      string      `json:"name_en"`
-	NameRu      string      `json:"name_ru"`
-	Threshold   int64       `json:"threshold"`
-	DiscountBps int32       `json:"discount_bps"`
-	SortOrder   int32       `json:"sort_order"`
+	ProgramID          pgtype.UUID   `json:"program_id"`
+	Code               string        `json:"code"`
+	NameEn             string        `json:"name_en"`
+	NameRu             string        `json:"name_ru"`
+	Threshold          int64         `json:"threshold"`
+	DiscountBps        int32         `json:"discount_bps"`
+	SortOrder          int32         `json:"sort_order"`
+	TrafficDiscountBps int32         `json:"traffic_discount_bps"`
+	DeviceDiscountBps  int32         `json:"device_discount_bps"`
+	SquadDiscountBps   int32         `json:"squad_discount_bps"`
+	PeriodDiscounts    []byte        `json:"period_discounts"`
+	Priority           int32         `json:"priority"`
+	ManualOnly         bool          `json:"manual_only"`
+	AllowedPlanIds     []pgtype.UUID `json:"allowed_plan_ids"`
+	AllowedSquadIds    []pgtype.UUID `json:"allowed_squad_ids"`
+	AllowedProviders   []string      `json:"allowed_providers"`
 }
 
 func (q *Queries) CreateLoyaltyTier(ctx context.Context, arg CreateLoyaltyTierParams) (LoyaltyTier, error) {
@@ -391,6 +407,15 @@ func (q *Queries) CreateLoyaltyTier(ctx context.Context, arg CreateLoyaltyTierPa
 		arg.Threshold,
 		arg.DiscountBps,
 		arg.SortOrder,
+		arg.TrafficDiscountBps,
+		arg.DeviceDiscountBps,
+		arg.SquadDiscountBps,
+		arg.PeriodDiscounts,
+		arg.Priority,
+		arg.ManualOnly,
+		arg.AllowedPlanIds,
+		arg.AllowedSquadIds,
+		arg.AllowedProviders,
 	)
 	var i LoyaltyTier
 	err := row.Scan(
@@ -402,6 +427,15 @@ func (q *Queries) CreateLoyaltyTier(ctx context.Context, arg CreateLoyaltyTierPa
 		&i.Threshold,
 		&i.DiscountBps,
 		&i.SortOrder,
+		&i.TrafficDiscountBps,
+		&i.DeviceDiscountBps,
+		&i.SquadDiscountBps,
+		&i.PeriodDiscounts,
+		&i.Priority,
+		&i.ManualOnly,
+		&i.AllowedPlanIds,
+		&i.AllowedSquadIds,
+		&i.AllowedProviders,
 	)
 	return i, err
 }
@@ -445,6 +479,23 @@ func (q *Queries) CustomerLoyaltyMetric(ctx context.Context, arg CustomerLoyalty
 	return i, err
 }
 
+const deleteLoyaltyMembership = `-- name: DeleteLoyaltyMembership :execrows
+DELETE FROM loyalty_memberships WHERE user_id = $1 AND tier_code = $2
+`
+
+type DeleteLoyaltyMembershipParams struct {
+	UserID   pgtype.UUID `json:"user_id"`
+	TierCode string      `json:"tier_code"`
+}
+
+func (q *Queries) DeleteLoyaltyMembership(ctx context.Context, arg DeleteLoyaltyMembershipParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteLoyaltyMembership, arg.UserID, arg.TierCode)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getCannedResponse = `-- name: GetCannedResponse :one
 SELECT id, code, title_en, title_ru, body_en, body_ru, requires_permission, usage_count, archived_at, created_at, updated_at, updated_by FROM support_canned_responses WHERE id = $1 AND archived_at IS NULL
 `
@@ -470,13 +521,16 @@ func (q *Queries) GetCannedResponse(ctx context.Context, id pgtype.UUID) (Suppor
 }
 
 const getCustomerLoyaltyTiers = `-- name: GetCustomerLoyaltyTiers :many
-SELECT t.id, t.program_id, t.code, t.name_en, t.name_ru, t.threshold, t.discount_bps, t.sort_order
+SELECT t.id, t.program_id, t.code, t.name_en, t.name_ru, t.threshold, t.discount_bps, t.sort_order, t.traffic_discount_bps, t.device_discount_bps, t.squad_discount_bps, t.period_discounts, t.priority, t.manual_only, t.allowed_plan_ids, t.allowed_squad_ids, t.allowed_providers
 FROM loyalty_tiers t
 JOIN loyalty_programs p ON p.id = t.program_id AND p.enabled
 WHERE t.code IN (
   SELECT st.code FROM loyalty_standings s
   JOIN loyalty_tiers st ON st.id = s.tier_id
   WHERE s.user_id = $1
+) OR t.code IN (
+  SELECT m.tier_code FROM loyalty_memberships m
+  WHERE m.user_id = $1 AND (m.expires_at IS NULL OR m.expires_at > now())
 )
 `
 
@@ -502,6 +556,15 @@ func (q *Queries) GetCustomerLoyaltyTiers(ctx context.Context, userID pgtype.UUI
 			&i.Threshold,
 			&i.DiscountBps,
 			&i.SortOrder,
+			&i.TrafficDiscountBps,
+			&i.DeviceDiscountBps,
+			&i.SquadDiscountBps,
+			&i.PeriodDiscounts,
+			&i.Priority,
+			&i.ManualOnly,
+			&i.AllowedPlanIds,
+			&i.AllowedSquadIds,
+			&i.AllowedProviders,
 		); err != nil {
 			return nil, err
 		}
@@ -537,7 +600,7 @@ func (q *Queries) GetDefaultSupportQueue(ctx context.Context) (SupportQueue, err
 }
 
 const getEnabledLoyaltyProgram = `-- name: GetEnabledLoyaltyProgram :one
-SELECT id, version, enabled, metric, currency, window_days, grace_days, published_at, created_at, created_by FROM loyalty_programs WHERE enabled
+SELECT id, version, enabled, metric, currency, window_days, grace_days, published_at, created_at, created_by, recalculation_requested_at, recalculated_at FROM loyalty_programs WHERE enabled
 `
 
 func (q *Queries) GetEnabledLoyaltyProgram(ctx context.Context) (LoyaltyProgram, error) {
@@ -554,6 +617,39 @@ func (q *Queries) GetEnabledLoyaltyProgram(ctx context.Context) (LoyaltyProgram,
 		&i.PublishedAt,
 		&i.CreatedAt,
 		&i.CreatedBy,
+		&i.RecalculationRequestedAt,
+		&i.RecalculatedAt,
+	)
+	return i, err
+}
+
+const getEnabledLoyaltyTierByCode = `-- name: GetEnabledLoyaltyTierByCode :one
+SELECT t.id, t.program_id, t.code, t.name_en, t.name_ru, t.threshold, t.discount_bps, t.sort_order, t.traffic_discount_bps, t.device_discount_bps, t.squad_discount_bps, t.period_discounts, t.priority, t.manual_only, t.allowed_plan_ids, t.allowed_squad_ids, t.allowed_providers FROM loyalty_tiers t
+JOIN loyalty_programs p ON p.id = t.program_id AND p.enabled
+WHERE t.code = $1
+`
+
+func (q *Queries) GetEnabledLoyaltyTierByCode(ctx context.Context, code string) (LoyaltyTier, error) {
+	row := q.db.QueryRow(ctx, getEnabledLoyaltyTierByCode, code)
+	var i LoyaltyTier
+	err := row.Scan(
+		&i.ID,
+		&i.ProgramID,
+		&i.Code,
+		&i.NameEn,
+		&i.NameRu,
+		&i.Threshold,
+		&i.DiscountBps,
+		&i.SortOrder,
+		&i.TrafficDiscountBps,
+		&i.DeviceDiscountBps,
+		&i.SquadDiscountBps,
+		&i.PeriodDiscounts,
+		&i.Priority,
+		&i.ManualOnly,
+		&i.AllowedPlanIds,
+		&i.AllowedSquadIds,
+		&i.AllowedProviders,
 	)
 	return i, err
 }
@@ -745,6 +841,50 @@ func (q *Queries) GetSupportTicketAttachment(ctx context.Context, arg GetSupport
 	return i, err
 }
 
+const listActiveLoyaltyGroups = `-- name: ListActiveLoyaltyGroups :many
+SELECT t.code, t.name_en, t.name_ru, t.discount_bps, m.expires_at
+FROM loyalty_memberships m
+JOIN loyalty_tiers t ON t.code = m.tier_code
+JOIN loyalty_programs p ON p.id = t.program_id AND p.enabled
+WHERE m.user_id = $1 AND (m.expires_at IS NULL OR m.expires_at > now())
+ORDER BY t.priority DESC, t.code
+`
+
+type ListActiveLoyaltyGroupsRow struct {
+	Code        string             `json:"code"`
+	NameEn      string             `json:"name_en"`
+	NameRu      string             `json:"name_ru"`
+	DiscountBps int32              `json:"discount_bps"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+}
+
+// The groups granted to a customer that the programme in force still has.
+func (q *Queries) ListActiveLoyaltyGroups(ctx context.Context, userID pgtype.UUID) ([]ListActiveLoyaltyGroupsRow, error) {
+	rows, err := q.db.Query(ctx, listActiveLoyaltyGroups, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListActiveLoyaltyGroupsRow{}
+	for rows.Next() {
+		var i ListActiveLoyaltyGroupsRow
+		if err := rows.Scan(
+			&i.Code,
+			&i.NameEn,
+			&i.NameRu,
+			&i.DiscountBps,
+			&i.ExpiresAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCannedResponses = `-- name: ListCannedResponses :many
 
 SELECT id, code, title_en, title_ru, body_en, body_ru, requires_permission, usage_count, archived_at, created_at, updated_at, updated_by FROM support_canned_responses
@@ -781,6 +921,53 @@ func (q *Queries) ListCannedResponses(ctx context.Context) ([]SupportCannedRespo
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLoyaltyEvaluationCandidates = `-- name: ListLoyaltyEvaluationCandidates :many
+SELECT u.id FROM users u
+LEFT JOIN loyalty_standings s ON s.user_id = u.id
+WHERE u.status = 'active'
+  AND u.id > $1::uuid
+  AND (
+    $2::boolean
+    OR (s.grace_until IS NOT NULL AND s.grace_until <= now())
+    OR EXISTS (
+      SELECT 1 FROM orders o
+      WHERE o.user_id = u.id AND o.paid_at IS NOT NULL
+        AND o.paid_at > COALESCE(s.evaluated_at, '-infinity'::timestamptz)
+    )
+  )
+ORDER BY u.id
+LIMIT $3
+`
+
+type ListLoyaltyEvaluationCandidatesParams struct {
+	After     pgtype.UUID `json:"after"`
+	Everybody bool        `json:"everybody"`
+	PageSize  int32       `json:"page_size"`
+}
+
+// Customers whose standing may have moved: a payment settled since they were
+// last evaluated, a grace period that has run out, or — during a bulk
+// recalculation — everybody. Keyset-paged on the customer identifier.
+func (q *Queries) ListLoyaltyEvaluationCandidates(ctx context.Context, arg ListLoyaltyEvaluationCandidatesParams) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, listLoyaltyEvaluationCandidates, arg.After, arg.Everybody, arg.PageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []pgtype.UUID{}
+	for rows.Next() {
+		var id pgtype.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -847,9 +1034,41 @@ func (q *Queries) ListLoyaltyHistory(ctx context.Context, arg ListLoyaltyHistory
 	return items, nil
 }
 
+const listLoyaltyMemberships = `-- name: ListLoyaltyMemberships :many
+SELECT user_id, tier_code, source, assigned_by, note, expires_at, created_at FROM loyalty_memberships WHERE user_id = $1 ORDER BY created_at
+`
+
+func (q *Queries) ListLoyaltyMemberships(ctx context.Context, userID pgtype.UUID) ([]LoyaltyMembership, error) {
+	rows, err := q.db.Query(ctx, listLoyaltyMemberships, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []LoyaltyMembership{}
+	for rows.Next() {
+		var i LoyaltyMembership
+		if err := rows.Scan(
+			&i.UserID,
+			&i.TierCode,
+			&i.Source,
+			&i.AssignedBy,
+			&i.Note,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLoyaltyPrograms = `-- name: ListLoyaltyPrograms :many
 
-SELECT id, version, enabled, metric, currency, window_days, grace_days, published_at, created_at, created_by FROM loyalty_programs ORDER BY version DESC LIMIT $1
+SELECT id, version, enabled, metric, currency, window_days, grace_days, published_at, created_at, created_by, recalculation_requested_at, recalculated_at FROM loyalty_programs ORDER BY version DESC LIMIT $1
 `
 
 // ---------------------------------------------------------------------------
@@ -875,6 +1094,8 @@ func (q *Queries) ListLoyaltyPrograms(ctx context.Context, pageSize int32) ([]Lo
 			&i.PublishedAt,
 			&i.CreatedAt,
 			&i.CreatedBy,
+			&i.RecalculationRequestedAt,
+			&i.RecalculatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -887,7 +1108,7 @@ func (q *Queries) ListLoyaltyPrograms(ctx context.Context, pageSize int32) ([]Lo
 }
 
 const listLoyaltyTiers = `-- name: ListLoyaltyTiers :many
-SELECT id, program_id, code, name_en, name_ru, threshold, discount_bps, sort_order FROM loyalty_tiers WHERE program_id = $1 ORDER BY threshold
+SELECT id, program_id, code, name_en, name_ru, threshold, discount_bps, sort_order, traffic_discount_bps, device_discount_bps, squad_discount_bps, period_discounts, priority, manual_only, allowed_plan_ids, allowed_squad_ids, allowed_providers FROM loyalty_tiers WHERE program_id = $1 ORDER BY threshold
 `
 
 func (q *Queries) ListLoyaltyTiers(ctx context.Context, programID pgtype.UUID) ([]LoyaltyTier, error) {
@@ -908,6 +1129,15 @@ func (q *Queries) ListLoyaltyTiers(ctx context.Context, programID pgtype.UUID) (
 			&i.Threshold,
 			&i.DiscountBps,
 			&i.SortOrder,
+			&i.TrafficDiscountBps,
+			&i.DeviceDiscountBps,
+			&i.SquadDiscountBps,
+			&i.PeriodDiscounts,
+			&i.Priority,
+			&i.ManualOnly,
+			&i.AllowedPlanIds,
+			&i.AllowedSquadIds,
+			&i.AllowedProviders,
 		); err != nil {
 			return nil, err
 		}
@@ -1267,6 +1497,21 @@ func (q *Queries) LockSupportTicket(ctx context.Context, id pgtype.UUID) (Suppor
 	return i, err
 }
 
+const markLoyaltyRecalculated = `-- name: MarkLoyaltyRecalculated :exec
+UPDATE loyalty_programs SET recalculated_at = $1
+WHERE id = $2
+`
+
+type MarkLoyaltyRecalculatedParams struct {
+	FinishedAt pgtype.Timestamptz `json:"finished_at"`
+	ProgramID  pgtype.UUID        `json:"program_id"`
+}
+
+func (q *Queries) MarkLoyaltyRecalculated(ctx context.Context, arg MarkLoyaltyRecalculatedParams) error {
+	_, err := q.db.Exec(ctx, markLoyaltyRecalculated, arg.FinishedAt, arg.ProgramID)
+	return err
+}
+
 const markSupportTicketRead = `-- name: MarkSupportTicketRead :one
 UPDATE support_tickets SET operator_unread_count = 0, updated_at = now()
 WHERE id = $1
@@ -1420,7 +1665,7 @@ SET enabled = (p.id = $1::uuid),
     published_at = CASE WHEN p.id = $1::uuid
       THEN COALESCE(p.published_at, now()) ELSE p.published_at END
 WHERE p.enabled OR p.id = $1::uuid
-RETURNING id, version, enabled, metric, currency, window_days, grace_days, published_at, created_at, created_by
+RETURNING id, version, enabled, metric, currency, window_days, grace_days, published_at, created_at, created_by, recalculation_requested_at, recalculated_at
 `
 
 // Enabling one programme disables the rest, because the partial unique index
@@ -1439,6 +1684,8 @@ func (q *Queries) PublishLoyaltyProgram(ctx context.Context, programID pgtype.UU
 		&i.PublishedAt,
 		&i.CreatedAt,
 		&i.CreatedBy,
+		&i.RecalculationRequestedAt,
+		&i.RecalculatedAt,
 	)
 	return i, err
 }
@@ -1544,6 +1791,32 @@ func (q *Queries) RecordSupportFirstResponse(ctx context.Context, ticketID pgtyp
 		&i.ReopenedCount,
 		&i.OperatorUnreadCount,
 		&i.MergedIntoTicketID,
+	)
+	return i, err
+}
+
+const requestLoyaltyRecalculation = `-- name: RequestLoyaltyRecalculation :one
+UPDATE loyalty_programs SET recalculation_requested_at = now()
+WHERE enabled
+RETURNING id, version, enabled, metric, currency, window_days, grace_days, published_at, created_at, created_by, recalculation_requested_at, recalculated_at
+`
+
+func (q *Queries) RequestLoyaltyRecalculation(ctx context.Context) (LoyaltyProgram, error) {
+	row := q.db.QueryRow(ctx, requestLoyaltyRecalculation)
+	var i LoyaltyProgram
+	err := row.Scan(
+		&i.ID,
+		&i.Version,
+		&i.Enabled,
+		&i.Metric,
+		&i.Currency,
+		&i.WindowDays,
+		&i.GraceDays,
+		&i.PublishedAt,
+		&i.CreatedAt,
+		&i.CreatedBy,
+		&i.RecalculationRequestedAt,
+		&i.RecalculatedAt,
 	)
 	return i, err
 }
@@ -2195,6 +2468,49 @@ func (q *Queries) UpsertCannedResponse(ctx context.Context, arg UpsertCannedResp
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.UpdatedBy,
+	)
+	return i, err
+}
+
+const upsertLoyaltyMembership = `-- name: UpsertLoyaltyMembership :one
+INSERT INTO loyalty_memberships (user_id, tier_code, source, assigned_by, note, expires_at)
+VALUES ($1, $2, $3, $4,
+        $5, $6)
+ON CONFLICT (user_id, tier_code) DO UPDATE SET
+  source = EXCLUDED.source, assigned_by = EXCLUDED.assigned_by, note = EXCLUDED.note,
+  expires_at = CASE
+    WHEN loyalty_memberships.expires_at IS NULL OR EXCLUDED.expires_at IS NULL THEN NULL
+    ELSE GREATEST(loyalty_memberships.expires_at, EXCLUDED.expires_at) END
+RETURNING user_id, tier_code, source, assigned_by, note, expires_at, created_at
+`
+
+type UpsertLoyaltyMembershipParams struct {
+	UserID     pgtype.UUID        `json:"user_id"`
+	TierCode   string             `json:"tier_code"`
+	Source     string             `json:"source"`
+	AssignedBy pgtype.UUID        `json:"assigned_by"`
+	Note       string             `json:"note"`
+	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
+}
+
+func (q *Queries) UpsertLoyaltyMembership(ctx context.Context, arg UpsertLoyaltyMembershipParams) (LoyaltyMembership, error) {
+	row := q.db.QueryRow(ctx, upsertLoyaltyMembership,
+		arg.UserID,
+		arg.TierCode,
+		arg.Source,
+		arg.AssignedBy,
+		arg.Note,
+		arg.ExpiresAt,
+	)
+	var i LoyaltyMembership
+	err := row.Scan(
+		&i.UserID,
+		&i.TierCode,
+		&i.Source,
+		&i.AssignedBy,
+		&i.Note,
+		&i.ExpiresAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }

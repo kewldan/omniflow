@@ -31,6 +31,7 @@ import {
 import { useSession } from "@/lib/session";
 import { MessageCustomerCard, WalletAdjustmentCard } from "./customer-actions";
 import { AuditTimeline, ReferralPanel, SupportPanel } from "./customer-history";
+import { LoyaltyPanel } from "./loyalty-panel";
 import { MergePanel } from "./merge-panel";
 import { NotificationsPanel } from "./notifications-panel";
 import { SubscriptionActions, SubscriptionDevices } from "./subscription-actions";
@@ -159,8 +160,15 @@ export function CustomerProfileView({ customerId }: { customerId: string }) {
             <WalletList active={tab === "wallet"} base={base} locale={locale} />
           </TabsContent>
         )}
-        <TabsContent value="referrals">
+        <TabsContent className="flex flex-col gap-4" value="referrals">
           <ReferralPanel active={tab === "referrals"} base={base} />
+          {can("marketing.read") && (
+            <LoyaltyPanel
+              active={tab === "referrals"}
+              customerId={customerId}
+              editable={can("marketing.write")}
+            />
+          )}
         </TabsContent>
         {can("support.read") && (
           <TabsContent className="flex flex-col gap-4" value="support">

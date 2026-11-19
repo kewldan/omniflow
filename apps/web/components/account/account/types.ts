@@ -123,6 +123,14 @@ export type LoyaltyStanding =
       evaluatedAt?: string;
       /** Set while a tier is being held through grace rather than earned. */
       graceUntil?: string;
+      /** Groups granted beside the ladder; the highest priority prices orders. */
+      groups?: {
+        code: string;
+        nameEn: string;
+        nameRu: string;
+        discountBps: number;
+        expiresAt?: string;
+      }[];
     };
 
 export type ContactKind = "email" | "phone" | "telegram";

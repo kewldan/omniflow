@@ -496,6 +496,7 @@ type Querier interface {
 	DeleteGhostSubscriptions(ctx context.Context, userID pgtype.UUID) ([]Subscription, error)
 	DeleteInfoPage(ctx context.Context, slug string) (int64, error)
 	DeleteInfoPageLocalization(ctx context.Context, arg DeleteInfoPageLocalizationParams) error
+	DeleteLoyaltyMembership(ctx context.Context, arg DeleteLoyaltyMembershipParams) (int64, error)
 	DeleteMCPServer(ctx context.Context, slug string) error
 	DeleteNewsPostLocalization(ctx context.Context, arg DeleteNewsPostLocalizationParams) error
 	// Reverting to the shipped wording is a delete rather than a write of the
@@ -690,6 +691,7 @@ type Querier interface {
 	GetDefaultSupportQueue(ctx context.Context) (SupportQueue, error)
 	GetDunningAttempt(ctx context.Context, arg GetDunningAttemptParams) (DunningAttempt, error)
 	GetEnabledLoyaltyProgram(ctx context.Context) (LoyaltyProgram, error)
+	GetEnabledLoyaltyTierByCode(ctx context.Context, code string) (LoyaltyTier, error)
 	GetEntitlement(ctx context.Context, id pgtype.UUID) (Entitlement, error)
 	GetFulfillmentOperation(ctx context.Context, id pgtype.UUID) (FulfillmentOperation, error)
 	GetGift(ctx context.Context, id pgtype.UUID) (Gift, error)
@@ -953,6 +955,8 @@ type Querier interface {
 	// an extension writes a new row rather than editing the old one, so "current"
 	// is the newest live row rather than the only row.
 	ListAccountSubscriptions(ctx context.Context, arg ListAccountSubscriptionsParams) ([]ListAccountSubscriptionsRow, error)
+	// The groups granted to a customer that the programme in force still has.
+	ListActiveLoyaltyGroups(ctx context.Context, userID pgtype.UUID) ([]ListActiveLoyaltyGroupsRow, error)
 	// What the bot shows. Expired-but-not-yet-swept rows are filtered here rather
 	// than relying on the sweeper having run, so an offer never outlives its window
 	// on screen.
@@ -1160,7 +1164,12 @@ type Querier interface {
 	ListLedgerEntriesByTransaction(ctx context.Context, transactionID pgtype.UUID) ([]LedgerEntry, error)
 	// Every Remnawave user an Omniflow customer already owns.
 	ListLinkedRemnawaveUsers(ctx context.Context) ([]ListLinkedRemnawaveUsersRow, error)
+	// Customers whose standing may have moved: a payment settled since they were
+	// last evaluated, a grace period that has run out, or — during a bulk
+	// recalculation — everybody. Keyset-paged on the customer identifier.
+	ListLoyaltyEvaluationCandidates(ctx context.Context, arg ListLoyaltyEvaluationCandidatesParams) ([]pgtype.UUID, error)
 	ListLoyaltyHistory(ctx context.Context, arg ListLoyaltyHistoryParams) ([]ListLoyaltyHistoryRow, error)
+	ListLoyaltyMemberships(ctx context.Context, userID pgtype.UUID) ([]LoyaltyMembership, error)
 	// ---------------------------------------------------------------------------
 	// Loyalty
 	// ---------------------------------------------------------------------------
@@ -1440,6 +1449,7 @@ type Querier interface {
 	// refunded the delivery a moment earlier makes this match nothing — and the
 	// adapter, told the marker did not commit, sends nothing.
 	MarkGoodsDeliveryBroadcasting(ctx context.Context, arg MarkGoodsDeliveryBroadcastingParams) (GoodsDelivery, error)
+	MarkLoyaltyRecalculated(ctx context.Context, arg MarkLoyaltyRecalculatedParams) error
 	// Moves a paid order to fulfilled, and nothing else.
 	//
 	// The state guard is the point. Provisioning is asynchronous, and a refund
@@ -1742,6 +1752,7 @@ type Querier interface {
 	RenameAccountSubscription(ctx context.Context, arg RenameAccountSubscriptionParams) (Subscription, error)
 	RenameAdminPasskey(ctx context.Context, arg RenameAdminPasskeyParams) (AdminPasskey, error)
 	RenameSubscription(ctx context.Context, arg RenameSubscriptionParams) (Subscription, error)
+	RequestLoyaltyRecalculation(ctx context.Context) (LoyaltyProgram, error)
 	// An operator retry only ever moves a terminal-looking row back into the queue.
 	// It cannot skip the idempotency key, so the retried attempt is the same
 	// operation the worker already knows how to make exactly once.
@@ -2195,6 +2206,7 @@ type Querier interface {
 	UpsertGoodsProvider(ctx context.Context, arg UpsertGoodsProviderParams) (GoodsProvider, error)
 	UpsertInfoPage(ctx context.Context, arg UpsertInfoPageParams) (InfoPage, error)
 	UpsertInfoPageLocalization(ctx context.Context, arg UpsertInfoPageLocalizationParams) error
+	UpsertLoyaltyMembership(ctx context.Context, arg UpsertLoyaltyMembershipParams) (LoyaltyMembership, error)
 	UpsertLoyaltyStanding(ctx context.Context, arg UpsertLoyaltyStandingParams) (LoyaltyStanding, error)
 	UpsertMCPServer(ctx context.Context, arg UpsertMCPServerParams) (UpsertMCPServerRow, error)
 	UpsertMessageTemplate(ctx context.Context, arg UpsertMessageTemplateParams) (MessageTemplate, error)

@@ -963,7 +963,33 @@
         "pauseDone": "Subscription paused",
         "resumeDone": "Subscription resumed"
       },
-      "copyId": "customer ID"
+      "copyId": "customer ID",
+      "loyalty": {
+        "title": "Loyalty",
+        "earned": "Earned tier: {tier} (metric {metric}).",
+        "noTier": "No tier earned yet.",
+        "noGroups": "No groups granted.",
+        "sources": {
+          "operator": "by an operator",
+          "promo_code": "by a promo code"
+        },
+        "remove": "Remove {tier}",
+        "group": "Group",
+        "pickGroup": "Pick a group",
+        "note": "Note",
+        "until": "Until",
+        "forever": "No end",
+        "hour": "Hour",
+        "minute": "Minute",
+        "assign": "Grant",
+        "evaluate": "Re-evaluate the earned tier",
+        "reasons": {
+          "evaluation": "evaluation",
+          "operator_override": "granted by an operator",
+          "program_change": "programme change",
+          "promo_code": "promo code"
+        }
+      }
     },
     "merge": {
       "title": "Merge into another account",
@@ -2698,6 +2724,69 @@
           "loyalty_tier": "loyalty tier",
           "loyalty_discount": "loyalty discount"
         }
+      },
+      "loyalty": {
+        "title": "Loyalty and promo groups",
+        "description": "Tiers customers reach by spend, orders, or tenure, and groups you grant by hand. A tier discounts plans — by billing period if you like — and add-ons by kind, may keep its members to some plans, squads, and payment methods, and the highest priority prices an order. Publishing writes the next version; the worker then re-places every customer.",
+        "empty": "No programme is in force. Publish one to start placing customers.",
+        "summary": "Version {version}, measured on {metric} over {window} days, {grace} days of grace before a demotion.",
+        "metrics": {
+          "spend": "spend",
+          "orders": "orders",
+          "tenure": "tenure"
+        },
+        "columns": {
+          "tier": "Tier",
+          "threshold": "From",
+          "discount": "Plan discount",
+          "addons": "Add-ons",
+          "priority": "Priority",
+          "restrictions": "Restrictions"
+        },
+        "manual": "manual",
+        "periods": {
+          "month": "month",
+          "quarter": "quarter",
+          "half_year": "half-year",
+          "year": "year"
+        },
+        "addonsLine": "traffic {traffic}%, devices {devices}%, squads {squads}%",
+        "restrictionsLine": "plans: {plans}, squads: {squads}, payment: {providers}",
+        "openEditor": "Publish a new version",
+        "closeEditor": "Close the editor",
+        "recalculate": "Recalculate everyone",
+        "recalculationRequested": "Every customer will be re-evaluated within a few minutes.",
+        "metric": "Measured on",
+        "currency": "Currency",
+        "windowDays": "Window, days",
+        "graceDays": "Grace, days",
+        "enable": "Put in force",
+        "thresholdHint": {
+          "spend": "Thresholds are spend in minor units (kopecks): 500000 is 5 000 ₽.",
+          "orders": "Thresholds are paid orders.",
+          "tenure": "Thresholds are days since the first subscription."
+        },
+        "tierLegend": "Tier {number}",
+        "code": "Code",
+        "nameRu": "Name (RU)",
+        "nameEn": "Name (EN)",
+        "threshold": "From",
+        "discount": "Plan discount, %",
+        "periodDiscount": "Plan discount per {period}, %",
+        "trafficDiscount": "Traffic discount, %",
+        "deviceDiscount": "Devices discount, %",
+        "squadDiscount": "Squads discount, %",
+        "priority": "Priority",
+        "providers": "Only these payment methods",
+        "squadIds": "Only these squads (IDs)",
+        "manualOnly": "Granted by hand only — the metric never reaches it",
+        "plans": "Only these plans",
+        "plansHint": "Leave all unticked to allow every plan.",
+        "removeTier": "Remove tier",
+        "addTier": "Add a tier",
+        "invalid": "Not published: the lowest ladder tier must start at 0, higher tiers must not be worth less, and discounts are 0–100%.",
+        "publish": "Publish",
+        "published": "Programme published"
       }
     },
     "installationSettings": {
@@ -3509,7 +3598,9 @@
         "graceRule": "If you drop below a threshold, you keep the tier for another {days} days.",
         "noGraceRule": "If you drop below a threshold, the tier changes at the next recalculation.",
         "days": "{count, plural, one {# day} other {# days}}",
-        "orders": "{count, plural, one {# order} other {# orders}}"
+        "orders": "{count, plural, one {# order} other {# orders}}",
+        "groups": "Your groups",
+        "groupsHint": "Granted to you beside the ladder. Your plan price uses the group with the highest priority."
       },
       "retention": {
         "title": "Your account",

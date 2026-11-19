@@ -5346,11 +5346,20 @@ type AccountLoyalty struct {
 	Evaluated   *bool      `json:"evaluated,omitempty"`
 	EvaluatedAt *time.Time `json:"evaluatedAt,omitempty"`
 	GraceUntil  *time.Time `json:"graceUntil,omitempty"`
-	Metric      *int64     `json:"metric,omitempty"`
-	Next        *string    `json:"next,omitempty"`
-	Percent     *int       `json:"percent,omitempty"`
-	Remaining   *int64     `json:"remaining,omitempty"`
-	Rules       *struct {
+
+	// Groups Groups an operator or a promo code granted beside the ladder; the highest priority prices orders.
+	Groups *[]struct {
+		Code        string     `json:"code"`
+		DiscountBps int        `json:"discountBps"`
+		ExpiresAt   *time.Time `json:"expiresAt,omitempty"`
+		NameEn      string     `json:"nameEn"`
+		NameRu      string     `json:"nameRu"`
+	} `json:"groups,omitempty"`
+	Metric    *int64  `json:"metric,omitempty"`
+	Next      *string `json:"next,omitempty"`
+	Percent   *int    `json:"percent,omitempty"`
+	Remaining *int64  `json:"remaining,omitempty"`
+	Rules     *struct {
 		Currency   *string `json:"currency,omitempty"`
 		GraceDays  *int    `json:"graceDays,omitempty"`
 		Metric     *string `json:"metric,omitempty"`

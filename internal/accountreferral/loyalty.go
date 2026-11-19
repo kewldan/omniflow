@@ -69,6 +69,18 @@ type LoyaltyStanding struct {
 	// GraceUntil is set when the tier is being held rather than earned. Nil means
 	// the customer qualifies on their own.
 	GraceUntil *time.Time
+	// Groups are the groups an operator or a promo code granted, beside the
+	// ladder. The one with the highest priority prices the customer's orders.
+	Groups []LoyaltyGroup
+}
+
+// LoyaltyGroup is a granted group as the customer sees it.
+type LoyaltyGroup struct {
+	Code        string
+	NameEN      string
+	NameRU      string
+	DiscountBPS int
+	ExpiresAt   *time.Time
 }
 
 // Loyalty reads the customer's standing under the programme in force.
@@ -103,6 +115,10 @@ func (service *Service) Loyalty(ctx context.Context, customerID string) (Loyalty
 	}
 	tiers := make([]loyalty.Tier, 0, len(ladder))
 	for _, row := range ladder {
+		if row.ManualOnly {
+			// A group granted by hand has no place on the ladder.
+			continue
+		}
 		tiers = append(tiers, loyalty.Tier{
 			ID: uuidString(row.ID), Code: row.Code, NameEN: row.NameEn, NameRU: row.NameRu,
 			Threshold: row.Threshold, DiscountBPS: int(row.DiscountBps),
@@ -114,6 +130,17 @@ func (service *Service) Loyalty(ctx context.Context, customerID string) (Loyalty
 	// to the customer even though the row says enabled.
 	if len(tiers) == 0 {
 		return LoyaltyStanding{}, nil
+	}
+
+	groups, err := service.queries.ListActiveLoyaltyGroups(ctx, userID)
+	if err != nil {
+		return LoyaltyStanding{}, err
+	}
+	for _, group := range groups {
+		standing.Groups = append(standing.Groups, LoyaltyGroup{
+			Code: group.Code, NameEN: group.NameEn, NameRU: group.NameRu,
+			DiscountBPS: int(group.DiscountBps), ExpiresAt: timePointer(group.ExpiresAt),
+		})
 	}
 
 	// The shared read joins the held tier for the operator view. `tier_id` is a

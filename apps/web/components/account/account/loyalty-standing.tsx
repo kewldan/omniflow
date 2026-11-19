@@ -161,6 +161,31 @@ export function LoyaltyStanding() {
         />
       )}
 
+      {(data.groups ?? []).length > 0 && (
+        <section className="space-y-2 rounded-xl border border-border bg-card p-4">
+          <p className="font-mono text-[11px] text-subtle-foreground">
+            {translate("loyalty.groups")}
+          </p>
+          <ul className="space-y-1.5">
+            {(data.groups ?? []).map((group) => (
+              <li className="flex items-center justify-between gap-3 text-[14px]" key={group.code}>
+                <span className="truncate font-medium">
+                  {tierName({ ...group, threshold: 0, current: false })}
+                </span>
+                {group.discountBps > 0 && (
+                  <Badge variant="success">
+                    {translate("loyalty.discount", { percent: discount(group.discountBps) })}
+                  </Badge>
+                )}
+              </li>
+            ))}
+          </ul>
+          <p className="text-[12px] text-muted-foreground leading-relaxed">
+            {translate("loyalty.groupsHint")}
+          </p>
+        </section>
+      )}
+
       <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
         {tiers.map((tier) => (
           <li

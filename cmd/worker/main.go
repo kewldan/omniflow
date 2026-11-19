@@ -266,6 +266,14 @@ func periodicTasks(
 			return ctx.Err()
 		}},
 	}
+	if operations != nil {
+		// Automatic loyalty placement by spend, and the bulk recalculation an
+		// operator or a newly published programme asks for.
+		tasks = append(tasks, jobs.Task{
+			Name: "loyalty_evaluation", Interval: loyaltyInterval, Timeout: 10 * time.Minute,
+			Run: func(ctx context.Context) error { return operations.LoyaltySweep(ctx, time.Now().UTC()) },
+		})
+	}
 	if deliveryRegistry != nil {
 		// `goods_deliveries` is the source of truth about what is owed, not the
 		// job queue: the pass only translates "this row is due" into "run the
@@ -310,6 +318,8 @@ func periodicTasks(
 const (
 	campaignInterval = time.Minute
 	bulkInterval     = 15 * time.Second
+	// loyaltyInterval is how soon a payment can move a customer to a new tier.
+	loyaltyInterval = 5 * time.Minute
 )
 
 // pass adapts a pass that logs its own failures to the task signature, so a

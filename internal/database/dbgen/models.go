@@ -1249,17 +1249,29 @@ type LedgerTransaction struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type LoyaltyMembership struct {
+	UserID     pgtype.UUID        `json:"user_id"`
+	TierCode   string             `json:"tier_code"`
+	Source     string             `json:"source"`
+	AssignedBy pgtype.UUID        `json:"assigned_by"`
+	Note       string             `json:"note"`
+	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
 type LoyaltyProgram struct {
-	ID          pgtype.UUID        `json:"id"`
-	Version     int32              `json:"version"`
-	Enabled     bool               `json:"enabled"`
-	Metric      string             `json:"metric"`
-	Currency    string             `json:"currency"`
-	WindowDays  int32              `json:"window_days"`
-	GraceDays   int32              `json:"grace_days"`
-	PublishedAt pgtype.Timestamptz `json:"published_at"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	CreatedBy   pgtype.UUID        `json:"created_by"`
+	ID                       pgtype.UUID        `json:"id"`
+	Version                  int32              `json:"version"`
+	Enabled                  bool               `json:"enabled"`
+	Metric                   string             `json:"metric"`
+	Currency                 string             `json:"currency"`
+	WindowDays               int32              `json:"window_days"`
+	GraceDays                int32              `json:"grace_days"`
+	PublishedAt              pgtype.Timestamptz `json:"published_at"`
+	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+	CreatedBy                pgtype.UUID        `json:"created_by"`
+	RecalculationRequestedAt pgtype.Timestamptz `json:"recalculation_requested_at"`
+	RecalculatedAt           pgtype.Timestamptz `json:"recalculated_at"`
 }
 
 type LoyaltyStanding struct {
@@ -1284,14 +1296,23 @@ type LoyaltyStandingHistory struct {
 }
 
 type LoyaltyTier struct {
-	ID          pgtype.UUID `json:"id"`
-	ProgramID   pgtype.UUID `json:"program_id"`
-	Code        string      `json:"code"`
-	NameEn      string      `json:"name_en"`
-	NameRu      string      `json:"name_ru"`
-	Threshold   int64       `json:"threshold"`
-	DiscountBps int32       `json:"discount_bps"`
-	SortOrder   int32       `json:"sort_order"`
+	ID                 pgtype.UUID   `json:"id"`
+	ProgramID          pgtype.UUID   `json:"program_id"`
+	Code               string        `json:"code"`
+	NameEn             string        `json:"name_en"`
+	NameRu             string        `json:"name_ru"`
+	Threshold          int64         `json:"threshold"`
+	DiscountBps        int32         `json:"discount_bps"`
+	SortOrder          int32         `json:"sort_order"`
+	TrafficDiscountBps int32         `json:"traffic_discount_bps"`
+	DeviceDiscountBps  int32         `json:"device_discount_bps"`
+	SquadDiscountBps   int32         `json:"squad_discount_bps"`
+	PeriodDiscounts    []byte        `json:"period_discounts"`
+	Priority           int32         `json:"priority"`
+	ManualOnly         bool          `json:"manual_only"`
+	AllowedPlanIds     []pgtype.UUID `json:"allowed_plan_ids"`
+	AllowedSquadIds    []pgtype.UUID `json:"allowed_squad_ids"`
+	AllowedProviders   []string      `json:"allowed_providers"`
 }
 
 type MaintenanceEvent struct {

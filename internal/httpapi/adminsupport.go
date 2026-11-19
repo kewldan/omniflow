@@ -413,7 +413,38 @@ func (handlers *AdminHandlers) mountLoyalty(secure chi.Router) {
 	secure.With(handlers.requirePermission(rbac.PermissionMarketingWrite)).Group(func(write chi.Router) {
 		write.Post("/loyalty/programs", handlers.publishLoyaltyProgram)
 		write.Post("/customers/{customerID}/loyalty/evaluate", handlers.evaluateLoyalty)
+		write.Post("/customers/{customerID}/loyalty/groups", handlers.assignLoyaltyGroup)
+		write.Delete("/customers/{customerID}/loyalty/groups/{tierCode}", handlers.removeLoyaltyGroup)
+		write.Post("/loyalty/recalculate", handlers.recalculateLoyalty)
 	})
+}
+
+// assignLoyaltyGroup grants a customer a group by code, beside the tier their
+// metric earns.
+func (handlers *AdminHandlers) assignLoyaltyGroup(writer http.ResponseWriter, request *http.Request) {
+	var body struct {
+		TierCode  string     `json:"tierCode"`
+		Note      string     `json:"note"`
+		ExpiresAt *time.Time `json:"expiresAt"`
+	}
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	membership, err := handlers.operations.AssignLoyaltyGroup(request.Context(),
+		chi.URLParam(request, "customerID"), body.TierCode, body.Note, body.ExpiresAt, actorFrom(request))
+	handlers.respond(writer, request, membership, err)
+}
+
+func (handlers *AdminHandlers) removeLoyaltyGroup(writer http.ResponseWriter, request *http.Request) {
+	err := handlers.operations.RemoveLoyaltyGroup(request.Context(),
+		chi.URLParam(request, "customerID"), chi.URLParam(request, "tierCode"), actorFrom(request))
+	handlers.respond(writer, request, map[string]any{"removed": err == nil}, err)
+}
+
+// recalculateLoyalty asks the worker to re-evaluate every customer.
+func (handlers *AdminHandlers) recalculateLoyalty(writer http.ResponseWriter, request *http.Request) {
+	err := handlers.operations.RequestLoyaltyRecalculation(request.Context(), actorFrom(request))
+	handlers.respond(writer, request, map[string]any{"requested": err == nil}, err)
 }
 
 func (handlers *AdminHandlers) referralReviews(writer http.ResponseWriter, request *http.Request) {
@@ -481,8 +512,12 @@ func (handlers *AdminHandlers) customerLoyalty(writer http.ResponseWriter, reque
 	standing, history, err := handlers.operations.CustomerLoyalty(
 		request.Context(), chi.URLParam(request, "customerID"), 50,
 	)
+	var groups []panelpg.LoyaltyMembership
+	if err == nil {
+		groups, err = handlers.operations.CustomerLoyaltyMemberships(request.Context(), chi.URLParam(request, "customerID"))
+	}
 	handlers.respond(writer, request, map[string]any{
-		"standing": standing, "history": history,
+		"standing": standing, "history": history, "groups": groups,
 	}, err)
 }
 

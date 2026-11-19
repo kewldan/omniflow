@@ -73,6 +73,7 @@ func (service *Service) forCustomer(ctx context.Context, customerID string, choi
 		choices[index].CanSaveMethod = service.payments.RecurringAllowed(ctx, choices[index].Provider)
 	}
 	return choices, nil
+	return LoyaltyChoices(ctx, service.orders, customerID, choices)
 }
 
 // HasTelegramIdentity reports whether the customer holds an active Telegram

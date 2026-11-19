@@ -386,6 +386,7 @@ func (app *App) buyAddon(ctx context.Context, session commerceContext, addonVers
 		return orderStatusView(session.Locale, summary, nil)
 	}
 	return orderPaymentMethodView(session.Locale, summary, app.saveableChoices(ctx, app.orderPaymentChoices(summary)))
+	return orderPaymentMethodView(session.Locale, summary, app.orderPaymentChoices(ctx, session.Customer.ID, summary))
 }
 
 // addonSelectionError renders the refusals an add-on purchase can meet. It

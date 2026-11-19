@@ -8,8 +8,9 @@ pays a customer wallet credit for bringing somebody who then buys. A **loyalty
 tier** places a customer on a ladder derived from what they have already spent,
 ordered, or how long they have been around. One moves money, the other does not.
 
-Both are configured under `/admin/marketing`, though only the referral programme
-has a form there; loyalty definitions are published through `/v1/panel`.
+Both are configured under `/admin/marketing`: the referral programme in its own
+card, loyalty in **Loyalty and promo groups**. A customer's tier and granted
+groups are on their card, under **Referrals**.
 
 ## Configuring the referral programme
 
@@ -228,7 +229,9 @@ out of it because somebody changed the numbers. A standing stores the metric the
 decision was made on and the version in force, so "why am I silver?" has an answer
 that does not depend on what the thresholds say today.
 
-Publishing is API-only:
+Publish from **Loyalty and promo groups** on `/admin/marketing` (**Publish a new
+version** opens the editor, pre-filled with the version in force), or through the
+API:
 
 ```json
 POST /v1/panel/loyalty/programs
@@ -303,14 +306,23 @@ Evaluation is idempotent: `loyalty_standing_history` is appended only when the
 standing actually changed, so an operator pressing the button twice produces one
 entry rather than two. History entries are written with the reason `evaluation`.
 
-<Warning>
-  **Nothing evaluates automatically.** There is no sweep, no scheduled job, and no
-  hook on order settlement. The only caller is
-  `POST /v1/panel/customers/{customerID}/loyalty/evaluate` (`marketing.write`),
-  one customer at a time, and it has no panel screen. A customer is placed on the
-  ladder only when somebody calls that route for them, and their standing is a
-  snapshot of the moment it was called.
-</Warning>
+### Automatic placement and bulk recalculation
+
+The worker's `loyalty_evaluation` pass runs every five minutes, as Bedolaga's
+automatic promo-group assignment by spend does. It evaluates every customer who
+had a payment settle since their last evaluation and every customer whose grace
+period ran out, so a purchase moves a customer to the tier it earns within
+minutes. It runs only where `APP_DATA_ENCRYPTION_KEY` is set, like the other
+passes that use the operations service.
+
+Publishing a programme with `enable: true`, or pressing **Recalculate everyone**
+(`POST /v1/panel/loyalty/recalculate`, `marketing.write`), asks the next pass to
+evaluate **every** active customer once; `loyalty_programs.recalculated_at`
+records when it finished. Because evaluation writes history only on a change, a
+recalculation that moves nobody writes nothing.
+
+`POST /v1/panel/customers/{customerID}/loyalty/evaluate` still re-evaluates one
+customer at once, from **Re-evaluate the earned tier** on their card.
 
 ### The tier's discount is part of the price
 
@@ -356,6 +368,43 @@ separately, so a customer whose total dropped can see why rather than guess.
 Nothing in that projection carries the invited customer's identifier. An inviter
 is entitled to know that an invite paid out, not to a list of who their friends
 are.
+
+## Promo groups
+
+A tier is also a Bedolaga promo group. Beside `discountBps`, each tier in the
+publish request may carry:
+
+| Field | Meaning |
+| --- | --- |
+| `periodDiscounts` | Plan discount by billing period, overriding `discountBps` for it: `{"year": 2000, "quarter": 1000}`. Periods are `day`, `week`, `month`, `quarter`, `half_year`, `year`, `custom`, `none` |
+| `trafficDiscountBps`, `deviceDiscountBps`, `squadDiscountBps` | Discount on add-ons of that kind — bought with a plan or mid-period |
+| `priority` | When a customer holds several, the highest priority prices their orders; between equal priorities the larger plan discount wins |
+| `manualOnly` | The metric never reaches it; it is held only when an operator or a promo code grants it. Its threshold is ignored and need not be unique |
+| `allowedPlanIds` | Members see and may buy only these plans; any other is refused as unavailable |
+| `allowedSquadIds` | Members may choose only these squads where a plan lets them choose |
+| `allowedProviders` | Members are offered and may pay only through these payment methods (`yookassa`, `telegram_stars`, …); the payment service refuses the rest with `provider_restricted` |
+
+Empty lists restrict nothing. Validation checks the ladder — the lowest
+non-manual tier starts at zero, higher ones are worth no less — and every
+discount stays between 0 and 10000 basis points.
+
+### Granting a group by hand
+
+On a customer's card, under **Referrals → Loyalty**, an operator with
+`marketing.write` grants a group of the programme in force, with a note and an
+optional end, and removes it again:
+
+| Route | Body |
+| --- | --- |
+| `POST /v1/panel/customers/{customerID}/loyalty/groups` | `{"tierCode": "vip", "note": "partner", "expiresAt": "2027-01-01T00:00:00Z"}` |
+| `DELETE /v1/panel/customers/{customerID}/loyalty/groups/{tierCode}` | — |
+
+A grant is stored by tier code in `loyalty_memberships`, so it survives the next
+programme version as long as that code exists. Granting writes a history entry
+with the reason `operator_override`, which tells the customer and the operators;
+removal is audited as `panel.loyalty_group.removed`. A customer may hold the
+earned tier and any number of groups; `GET /v1/panel/customers/{customerID}/loyalty`
+returns them as `groups`, and the customer sees theirs on `/account/referrals`.
 
 ## What customers and operators are told
 

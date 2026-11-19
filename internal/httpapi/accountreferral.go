@@ -157,6 +157,17 @@ func (handlers *AccountHandlers) loyalty(writer http.ResponseWriter, request *ht
 		"tiers":     loyaltyTierPayloads(standing.Tiers),
 		"evaluated": standing.Evaluated,
 	}
+	groups := make([]map[string]any, 0, len(standing.Groups))
+	for _, group := range standing.Groups {
+		entry := map[string]any{
+			"code": group.Code, "nameEn": group.NameEN, "nameRu": group.NameRU, "discountBps": group.DiscountBPS,
+		}
+		if group.ExpiresAt != nil {
+			entry["expiresAt"] = group.ExpiresAt.Format(time.RFC3339)
+		}
+		groups = append(groups, entry)
+	}
+	payload["groups"] = groups
 	if standing.Evaluated {
 		payload["tier"] = loyaltyTierPayload(standing.Tier)
 		payload["metric"] = standing.Metric

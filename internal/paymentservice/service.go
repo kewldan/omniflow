@@ -162,6 +162,13 @@ func (service *Service) CreateIntent(ctx context.Context, input CreateIntentInpu
 	if order.State != "pending" || order.ExternalMinor <= 0 {
 		return dbgen.PaymentIntent{}, errors.New("order does not require an external payment")
 	}
+	// A loyalty group may keep its members to some payment methods; the
+	// surfaces hide the others, and this is what makes that binding.
+	if allowed, allowErr := service.commerce.ProviderAllowed(ctx, uuidString(order.UserID), provider.Name()); allowErr != nil {
+		return dbgen.PaymentIntent{}, allowErr
+	} else if !allowed {
+		return dbgen.PaymentIntent{}, commercepg.ErrProviderRestricted
+	}
 	// The provider is chosen here, after the order was opened with the default
 	// window. A manual transfer is confirmed by a person in days, so the order
 	// is given the window that provider warrants; the extension only ever

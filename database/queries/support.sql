@@ -576,10 +576,15 @@ RETURNING *;
 
 -- name: CreateLoyaltyTier :one
 INSERT INTO loyalty_tiers (
-  program_id, code, name_en, name_ru, threshold, discount_bps, sort_order
+  program_id, code, name_en, name_ru, threshold, discount_bps, sort_order,
+  traffic_discount_bps, device_discount_bps, squad_discount_bps, period_discounts,
+  priority, manual_only, allowed_plan_ids, allowed_squad_ids, allowed_providers
 ) VALUES (
   sqlc.arg(program_id), sqlc.arg(code), sqlc.arg(name_en), sqlc.arg(name_ru),
-  sqlc.arg(threshold), sqlc.arg(discount_bps), sqlc.arg(sort_order)
+  sqlc.arg(threshold), sqlc.arg(discount_bps), sqlc.arg(sort_order),
+  sqlc.arg(traffic_discount_bps), sqlc.arg(device_discount_bps), sqlc.arg(squad_discount_bps),
+  sqlc.arg(period_discounts), sqlc.arg(priority), sqlc.arg(manual_only),
+  sqlc.arg(allowed_plan_ids)::uuid[], sqlc.arg(allowed_squad_ids)::uuid[], sqlc.arg(allowed_providers)::text[]
 )
 RETURNING *;
 
@@ -664,4 +669,67 @@ WHERE t.code IN (
   SELECT st.code FROM loyalty_standings s
   JOIN loyalty_tiers st ON st.id = s.tier_id
   WHERE s.user_id = sqlc.arg(user_id)
+) OR t.code IN (
+  SELECT m.tier_code FROM loyalty_memberships m
+  WHERE m.user_id = sqlc.arg(user_id) AND (m.expires_at IS NULL OR m.expires_at > now())
 );
+
+-- name: UpsertLoyaltyMembership :one
+INSERT INTO loyalty_memberships (user_id, tier_code, source, assigned_by, note, expires_at)
+VALUES (sqlc.arg(user_id), sqlc.arg(tier_code), sqlc.arg(source), sqlc.narg(assigned_by),
+        sqlc.arg(note), sqlc.narg(expires_at))
+ON CONFLICT (user_id, tier_code) DO UPDATE SET
+  source = EXCLUDED.source, assigned_by = EXCLUDED.assigned_by, note = EXCLUDED.note,
+  expires_at = CASE
+    WHEN loyalty_memberships.expires_at IS NULL OR EXCLUDED.expires_at IS NULL THEN NULL
+    ELSE GREATEST(loyalty_memberships.expires_at, EXCLUDED.expires_at) END
+RETURNING *;
+
+-- name: DeleteLoyaltyMembership :execrows
+DELETE FROM loyalty_memberships WHERE user_id = sqlc.arg(user_id) AND tier_code = sqlc.arg(tier_code);
+
+-- name: ListLoyaltyMemberships :many
+SELECT * FROM loyalty_memberships WHERE user_id = sqlc.arg(user_id) ORDER BY created_at;
+
+-- name: GetEnabledLoyaltyTierByCode :one
+SELECT t.* FROM loyalty_tiers t
+JOIN loyalty_programs p ON p.id = t.program_id AND p.enabled
+WHERE t.code = sqlc.arg(code);
+
+-- name: ListLoyaltyEvaluationCandidates :many
+-- Customers whose standing may have moved: a payment settled since they were
+-- last evaluated, a grace period that has run out, or — during a bulk
+-- recalculation — everybody. Keyset-paged on the customer identifier.
+SELECT u.id FROM users u
+LEFT JOIN loyalty_standings s ON s.user_id = u.id
+WHERE u.status = 'active'
+  AND u.id > sqlc.arg(after)::uuid
+  AND (
+    sqlc.arg(everybody)::boolean
+    OR (s.grace_until IS NOT NULL AND s.grace_until <= now())
+    OR EXISTS (
+      SELECT 1 FROM orders o
+      WHERE o.user_id = u.id AND o.paid_at IS NOT NULL
+        AND o.paid_at > COALESCE(s.evaluated_at, '-infinity'::timestamptz)
+    )
+  )
+ORDER BY u.id
+LIMIT sqlc.arg(page_size);
+
+-- name: RequestLoyaltyRecalculation :one
+UPDATE loyalty_programs SET recalculation_requested_at = now()
+WHERE enabled
+RETURNING *;
+
+-- name: MarkLoyaltyRecalculated :exec
+UPDATE loyalty_programs SET recalculated_at = sqlc.arg(finished_at)
+WHERE id = sqlc.arg(program_id);
+
+-- name: ListActiveLoyaltyGroups :many
+-- The groups granted to a customer that the programme in force still has.
+SELECT t.code, t.name_en, t.name_ru, t.discount_bps, m.expires_at
+FROM loyalty_memberships m
+JOIN loyalty_tiers t ON t.code = m.tier_code
+JOIN loyalty_programs p ON p.id = t.program_id AND p.enabled
+WHERE m.user_id = sqlc.arg(user_id) AND (m.expires_at IS NULL OR m.expires_at > now())
+ORDER BY t.priority DESC, t.code;
