@@ -2743,21 +2743,162 @@ func (e PanelPlanSummaryKind) Valid() bool {
 	}
 }
 
+// Defines values for PanelPlanVersionInputBillingPeriod.
+const (
+	PanelPlanVersionInputBillingPeriodCustom   PanelPlanVersionInputBillingPeriod = "custom"
+	PanelPlanVersionInputBillingPeriodDay      PanelPlanVersionInputBillingPeriod = "day"
+	PanelPlanVersionInputBillingPeriodHalfYear PanelPlanVersionInputBillingPeriod = "half_year"
+	PanelPlanVersionInputBillingPeriodMonth    PanelPlanVersionInputBillingPeriod = "month"
+	PanelPlanVersionInputBillingPeriodNone     PanelPlanVersionInputBillingPeriod = "none"
+	PanelPlanVersionInputBillingPeriodQuarter  PanelPlanVersionInputBillingPeriod = "quarter"
+	PanelPlanVersionInputBillingPeriodWeek     PanelPlanVersionInputBillingPeriod = "week"
+	PanelPlanVersionInputBillingPeriodYear     PanelPlanVersionInputBillingPeriod = "year"
+)
+
+// Valid indicates whether the value is a known member of the PanelPlanVersionInputBillingPeriod enum.
+func (e PanelPlanVersionInputBillingPeriod) Valid() bool {
+	switch e {
+	case PanelPlanVersionInputBillingPeriodCustom:
+		return true
+	case PanelPlanVersionInputBillingPeriodDay:
+		return true
+	case PanelPlanVersionInputBillingPeriodHalfYear:
+		return true
+	case PanelPlanVersionInputBillingPeriodMonth:
+		return true
+	case PanelPlanVersionInputBillingPeriodNone:
+		return true
+	case PanelPlanVersionInputBillingPeriodQuarter:
+		return true
+	case PanelPlanVersionInputBillingPeriodWeek:
+		return true
+	case PanelPlanVersionInputBillingPeriodYear:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelPlanVersionInputCancellationPolicy.
+const (
+	PanelPlanVersionInputCancellationPolicyAtExpiry  PanelPlanVersionInputCancellationPolicy = "at_expiry"
+	PanelPlanVersionInputCancellationPolicyForbid    PanelPlanVersionInputCancellationPolicy = "forbid"
+	PanelPlanVersionInputCancellationPolicyImmediate PanelPlanVersionInputCancellationPolicy = "immediate"
+)
+
+// Valid indicates whether the value is a known member of the PanelPlanVersionInputCancellationPolicy enum.
+func (e PanelPlanVersionInputCancellationPolicy) Valid() bool {
+	switch e {
+	case PanelPlanVersionInputCancellationPolicyAtExpiry:
+		return true
+	case PanelPlanVersionInputCancellationPolicyForbid:
+		return true
+	case PanelPlanVersionInputCancellationPolicyImmediate:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelPlanVersionInputDowngradePolicy.
+const (
+	PanelPlanVersionInputDowngradePolicyAtExpiry  PanelPlanVersionInputDowngradePolicy = "at_expiry"
+	PanelPlanVersionInputDowngradePolicyForbid    PanelPlanVersionInputDowngradePolicy = "forbid"
+	PanelPlanVersionInputDowngradePolicyImmediate PanelPlanVersionInputDowngradePolicy = "immediate"
+)
+
+// Valid indicates whether the value is a known member of the PanelPlanVersionInputDowngradePolicy enum.
+func (e PanelPlanVersionInputDowngradePolicy) Valid() bool {
+	switch e {
+	case PanelPlanVersionInputDowngradePolicyAtExpiry:
+		return true
+	case PanelPlanVersionInputDowngradePolicyForbid:
+		return true
+	case PanelPlanVersionInputDowngradePolicyImmediate:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelPlanVersionInputSquadSelection.
+const (
+	PanelPlanVersionInputSquadSelectionAutomatic PanelPlanVersionInputSquadSelection = "automatic"
+	PanelPlanVersionInputSquadSelectionOptional  PanelPlanVersionInputSquadSelection = "optional"
+	PanelPlanVersionInputSquadSelectionRequired  PanelPlanVersionInputSquadSelection = "required"
+)
+
+// Valid indicates whether the value is a known member of the PanelPlanVersionInputSquadSelection enum.
+func (e PanelPlanVersionInputSquadSelection) Valid() bool {
+	switch e {
+	case PanelPlanVersionInputSquadSelectionAutomatic:
+		return true
+	case PanelPlanVersionInputSquadSelectionOptional:
+		return true
+	case PanelPlanVersionInputSquadSelectionRequired:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelPlanVersionInputTrialEligibility.
+const (
+	PanelPlanVersionInputTrialEligibilityAny           PanelPlanVersionInputTrialEligibility = "any"
+	PanelPlanVersionInputTrialEligibilityNeverTrialled PanelPlanVersionInputTrialEligibility = "never_trialled"
+	PanelPlanVersionInputTrialEligibilityNewCustomer   PanelPlanVersionInputTrialEligibility = "new_customer"
+)
+
+// Valid indicates whether the value is a known member of the PanelPlanVersionInputTrialEligibility enum.
+func (e PanelPlanVersionInputTrialEligibility) Valid() bool {
+	switch e {
+	case PanelPlanVersionInputTrialEligibilityAny:
+		return true
+	case PanelPlanVersionInputTrialEligibilityNeverTrialled:
+		return true
+	case PanelPlanVersionInputTrialEligibilityNewCustomer:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelPlanVersionInputUpgradePolicy.
+const (
+	PanelPlanVersionInputUpgradePolicyExtend  PanelPlanVersionInputUpgradePolicy = "extend"
+	PanelPlanVersionInputUpgradePolicyForbid  PanelPlanVersionInputUpgradePolicy = "forbid"
+	PanelPlanVersionInputUpgradePolicyReplace PanelPlanVersionInputUpgradePolicy = "replace"
+)
+
+// Valid indicates whether the value is a known member of the PanelPlanVersionInputUpgradePolicy enum.
+func (e PanelPlanVersionInputUpgradePolicy) Valid() bool {
+	switch e {
+	case PanelPlanVersionInputUpgradePolicyExtend:
+		return true
+	case PanelPlanVersionInputUpgradePolicyForbid:
+		return true
+	case PanelPlanVersionInputUpgradePolicyReplace:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PanelPlanVersionSummarySquadSelection.
 const (
-	Automatic PanelPlanVersionSummarySquadSelection = "automatic"
-	Optional  PanelPlanVersionSummarySquadSelection = "optional"
-	Required  PanelPlanVersionSummarySquadSelection = "required"
+	PanelPlanVersionSummarySquadSelectionAutomatic PanelPlanVersionSummarySquadSelection = "automatic"
+	PanelPlanVersionSummarySquadSelectionOptional  PanelPlanVersionSummarySquadSelection = "optional"
+	PanelPlanVersionSummarySquadSelectionRequired  PanelPlanVersionSummarySquadSelection = "required"
 )
 
 // Valid indicates whether the value is a known member of the PanelPlanVersionSummarySquadSelection enum.
 func (e PanelPlanVersionSummarySquadSelection) Valid() bool {
 	switch e {
-	case Automatic:
+	case PanelPlanVersionSummarySquadSelectionAutomatic:
 		return true
-	case Optional:
+	case PanelPlanVersionSummarySquadSelectionOptional:
 		return true
-	case Required:
+	case PanelPlanVersionSummarySquadSelectionRequired:
 		return true
 	default:
 		return false
@@ -2947,6 +3088,24 @@ const (
 func (e PanelSearchResultsHints) Valid() bool {
 	switch e {
 	case TelegramHandleNotStored:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelSquadListingDetail.
+const (
+	PanelSquadListingDetailRemnawaveNotConfigured PanelSquadListingDetail = "remnawave_not_configured"
+	PanelSquadListingDetailSquadsUnavailable      PanelSquadListingDetail = "squads_unavailable"
+)
+
+// Valid indicates whether the value is a known member of the PanelSquadListingDetail enum.
+func (e PanelSquadListingDetail) Valid() bool {
+	switch e {
+	case PanelSquadListingDetailRemnawaveNotConfigured:
+		return true
+	case PanelSquadListingDetailSquadsUnavailable:
 		return true
 	default:
 		return false
@@ -3144,19 +3303,19 @@ func (e PanelTonRateSource) Valid() bool {
 
 // Defines values for PanelTrafficReportNodesDetail.
 const (
-	NodesUnavailable       PanelTrafficReportNodesDetail = "nodes_unavailable"
-	NodesUnsupported       PanelTrafficReportNodesDetail = "nodes_unsupported"
-	RemnawaveNotConfigured PanelTrafficReportNodesDetail = "remnawave_not_configured"
+	PanelTrafficReportNodesDetailNodesUnavailable       PanelTrafficReportNodesDetail = "nodes_unavailable"
+	PanelTrafficReportNodesDetailNodesUnsupported       PanelTrafficReportNodesDetail = "nodes_unsupported"
+	PanelTrafficReportNodesDetailRemnawaveNotConfigured PanelTrafficReportNodesDetail = "remnawave_not_configured"
 )
 
 // Valid indicates whether the value is a known member of the PanelTrafficReportNodesDetail enum.
 func (e PanelTrafficReportNodesDetail) Valid() bool {
 	switch e {
-	case NodesUnavailable:
+	case PanelTrafficReportNodesDetailNodesUnavailable:
 		return true
-	case NodesUnsupported:
+	case PanelTrafficReportNodesDetailNodesUnsupported:
 		return true
-	case RemnawaveNotConfigured:
+	case PanelTrafficReportNodesDetailRemnawaveNotConfigured:
 		return true
 	default:
 		return false
@@ -3369,19 +3528,19 @@ func (e PlanVersionInputDowngradePolicy) Valid() bool {
 
 // Defines values for PlanVersionInputTrialEligibility.
 const (
-	Any           PlanVersionInputTrialEligibility = "any"
-	NeverTrialled PlanVersionInputTrialEligibility = "never_trialled"
-	NewCustomer   PlanVersionInputTrialEligibility = "new_customer"
+	PlanVersionInputTrialEligibilityAny           PlanVersionInputTrialEligibility = "any"
+	PlanVersionInputTrialEligibilityNeverTrialled PlanVersionInputTrialEligibility = "never_trialled"
+	PlanVersionInputTrialEligibilityNewCustomer   PlanVersionInputTrialEligibility = "new_customer"
 )
 
 // Valid indicates whether the value is a known member of the PlanVersionInputTrialEligibility enum.
 func (e PlanVersionInputTrialEligibility) Valid() bool {
 	switch e {
-	case Any:
+	case PlanVersionInputTrialEligibilityAny:
 		return true
-	case NeverTrialled:
+	case PlanVersionInputTrialEligibilityNeverTrialled:
 		return true
-	case NewCustomer:
+	case PlanVersionInputTrialEligibilityNewCustomer:
 		return true
 	default:
 		return false
@@ -7684,6 +7843,13 @@ type PanelOfferPage struct {
 	NextCursor *string       `json:"nextCursor,omitempty"`
 }
 
+// PanelOfferedSquad defines model for PanelOfferedSquad.
+type PanelOfferedSquad struct {
+	LabelEn string             `json:"labelEn"`
+	LabelRu string             `json:"labelRu"`
+	SquadId openapi_types.UUID `json:"squadId"`
+}
+
 // PanelOrderDetail defines model for PanelOrderDetail.
 type PanelOrderDetail struct {
 	Intents *[]PanelPaymentIntent `json:"intents"`
@@ -7841,8 +8007,57 @@ type PanelPlanSummary struct {
 // PanelPlanSummaryKind defines model for PanelPlanSummary.Kind.
 type PanelPlanSummaryKind string
 
+// PanelPlanVersionInput defines model for PanelPlanVersionInput.
+type PanelPlanVersionInput struct {
+	// AddonIds The add-ons sold with the version; the set is replaced.
+	AddonIds           *[]openapi_types.UUID                   `json:"addonIds,omitempty"`
+	BillingPeriod      PanelPlanVersionInputBillingPeriod      `json:"billingPeriod"`
+	CancellationPolicy PanelPlanVersionInputCancellationPolicy `json:"cancellationPolicy"`
+
+	// DeviceLimit Null is unlimited.
+	DeviceLimit         *int                                 `json:"deviceLimit,omitempty"`
+	DowngradePolicy     PanelPlanVersionInputDowngradePolicy `json:"downgradePolicy"`
+	DurationSeconds     int64                                `json:"durationSeconds"`
+	GracePeriodSeconds  *int64                               `json:"gracePeriodSeconds,omitempty"`
+	MaxSelectableSquads *int                                 `json:"maxSelectableSquads,omitempty"`
+	MinSelectableSquads *int                                 `json:"minSelectableSquads,omitempty"`
+
+	// OfferedSquads The squads a customer may choose; empty for automatic selection.
+	OfferedSquads    *[]PanelOfferedSquad `json:"offeredSquads,omitempty"`
+	Prices           map[string]int64     `json:"prices"`
+	RecurringCapable *bool                `json:"recurringCapable,omitempty"`
+
+	// SquadIds Squads every subscription on the version is given.
+	SquadIds       *[]openapi_types.UUID               `json:"squadIds,omitempty"`
+	SquadSelection PanelPlanVersionInputSquadSelection `json:"squadSelection"`
+
+	// TrafficAllowanceBytes Null is unlimited.
+	TrafficAllowanceBytes *int64                                `json:"trafficAllowanceBytes,omitempty"`
+	TrialEligibility      PanelPlanVersionInputTrialEligibility `json:"trialEligibility"`
+	UpgradePolicy         PanelPlanVersionInputUpgradePolicy    `json:"upgradePolicy"`
+}
+
+// PanelPlanVersionInputBillingPeriod defines model for PanelPlanVersionInput.BillingPeriod.
+type PanelPlanVersionInputBillingPeriod string
+
+// PanelPlanVersionInputCancellationPolicy defines model for PanelPlanVersionInput.CancellationPolicy.
+type PanelPlanVersionInputCancellationPolicy string
+
+// PanelPlanVersionInputDowngradePolicy defines model for PanelPlanVersionInput.DowngradePolicy.
+type PanelPlanVersionInputDowngradePolicy string
+
+// PanelPlanVersionInputSquadSelection defines model for PanelPlanVersionInput.SquadSelection.
+type PanelPlanVersionInputSquadSelection string
+
+// PanelPlanVersionInputTrialEligibility defines model for PanelPlanVersionInput.TrialEligibility.
+type PanelPlanVersionInputTrialEligibility string
+
+// PanelPlanVersionInputUpgradePolicy defines model for PanelPlanVersionInput.UpgradePolicy.
+type PanelPlanVersionInputUpgradePolicy string
+
 // PanelPlanVersionSummary defines model for PanelPlanVersionSummary.
 type PanelPlanVersionSummary struct {
+	AddonIds              *[]openapi_types.UUID                 `json:"addonIds,omitempty"`
 	BillingPeriod         string                                `json:"billingPeriod"`
 	CancellationPolicy    string                                `json:"cancellationPolicy"`
 	CreatedAt             time.Time                             `json:"createdAt"`
@@ -7853,6 +8068,7 @@ type PanelPlanVersionSummary struct {
 	Id                    openapi_types.UUID                    `json:"id"`
 	MaxSelectableSquads   *int                                  `json:"maxSelectableSquads,omitempty"`
 	MinSelectableSquads   *int                                  `json:"minSelectableSquads,omitempty"`
+	OfferedSquads         *[]PanelOfferedSquad                  `json:"offeredSquads,omitempty"`
 	Prices                map[string]int64                      `json:"prices"`
 	RecurringCapable      *bool                                 `json:"recurringCapable,omitempty"`
 	RetiredAt             *time.Time                            `json:"retiredAt,omitempty"`
@@ -8056,6 +8272,13 @@ type PanelRefundRecord struct {
 	RefundId    *string `json:"refundId,omitempty"`
 }
 
+// PanelRemnawaveSquad defines model for PanelRemnawaveSquad.
+type PanelRemnawaveSquad struct {
+	Members int                `json:"members"`
+	Name    string             `json:"name"`
+	Uuid    openapi_types.UUID `json:"uuid"`
+}
+
 // PanelRevenueLine Three separate figures. Wallet credit was already counted as revenue when the balance was funded, so adding it to provider money counts it twice.
 type PanelRevenueLine struct {
 	Currency      string `json:"currency"`
@@ -8172,6 +8395,17 @@ type PanelSession struct {
 	RemainingRecoveryCodes *int               `json:"remainingRecoveryCodes,omitempty"`
 	SessionId              openapi_types.UUID `json:"sessionId"`
 }
+
+// PanelSquadListing defines model for PanelSquadListing.
+type PanelSquadListing struct {
+	Detail   *PanelSquadListingDetail `json:"detail,omitempty"`
+	External []PanelRemnawaveSquad    `json:"external"`
+	Internal []PanelRemnawaveSquad    `json:"internal"`
+	Reported bool                     `json:"reported"`
+}
+
+// PanelSquadListingDetail defines model for PanelSquadListing.Detail.
+type PanelSquadListingDetail string
 
 // PanelStarsStats defines model for PanelStarsStats.
 type PanelStarsStats struct {
@@ -9986,6 +10220,12 @@ type SavePanelPlanLocalizationParams struct {
 // SavePanelPlanLocalizationParamsLocale defines parameters for SavePanelPlanLocalization.
 type SavePanelPlanLocalizationParamsLocale string
 
+// CreatePanelPlanVersionParams defines parameters for CreatePanelPlanVersion.
+type CreatePanelPlanVersionParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // SetPanelPromoCodeActiveJSONBody defines parameters for SetPanelPromoCodeActive.
 type SetPanelPromoCodeActiveJSONBody struct {
 	Active bool `json:"active"`
@@ -11140,6 +11380,9 @@ type ArchivePanelPlanJSONRequestBody ArchivePanelPlanJSONBody
 // SavePanelPlanLocalizationJSONRequestBody defines body for SavePanelPlanLocalization for application/json ContentType.
 type SavePanelPlanLocalizationJSONRequestBody = PanelLocalization
 
+// CreatePanelPlanVersionJSONRequestBody defines body for CreatePanelPlanVersion for application/json ContentType.
+type CreatePanelPlanVersionJSONRequestBody = PanelPlanVersionInput
+
 // SetPanelPromoCodeActiveJSONRequestBody defines body for SetPanelPromoCodeActive for application/json ContentType.
 type SetPanelPromoCodeActiveJSONRequestBody SetPanelPromoCodeActiveJSONBody
 
@@ -11961,6 +12204,9 @@ type ServerInterface interface {
 	// (PUT /v1/panel/catalog/plans/{planID}/localizations/{locale})
 	SavePanelPlanLocalization(w http.ResponseWriter, r *http.Request, planID PlanID, locale SavePanelPlanLocalizationParamsLocale, params SavePanelPlanLocalizationParams)
 
+	// (POST /v1/panel/catalog/plans/{planID}/versions)
+	CreatePanelPlanVersion(w http.ResponseWriter, r *http.Request, planID PlanID, params CreatePanelPlanVersionParams)
+
 	// (POST /v1/panel/catalog/promo-codes/{promoCodeID}/status)
 	SetPanelPromoCodeActive(w http.ResponseWriter, r *http.Request, promoCodeID openapi_types.UUID, params SetPanelPromoCodeActiveParams)
 
@@ -12191,6 +12437,9 @@ type ServerInterface interface {
 
 	// (GET /v1/panel/rbac/catalog)
 	GetPanelRbacCatalog(w http.ResponseWriter, r *http.Request)
+
+	// (GET /v1/panel/remnawave/squads)
+	ListPanelRemnawaveSquads(w http.ResponseWriter, r *http.Request)
 
 	// (GET /v1/panel/reports/channels)
 	GetPanelChannelReport(w http.ResponseWriter, r *http.Request, params GetPanelChannelReportParams)
@@ -13276,6 +13525,11 @@ func (_ Unimplemented) SavePanelPlanLocalization(w http.ResponseWriter, r *http.
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (POST /v1/panel/catalog/plans/{planID}/versions)
+func (_ Unimplemented) CreatePanelPlanVersion(w http.ResponseWriter, r *http.Request, planID PlanID, params CreatePanelPlanVersionParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (POST /v1/panel/catalog/promo-codes/{promoCodeID}/status)
 func (_ Unimplemented) SetPanelPromoCodeActive(w http.ResponseWriter, r *http.Request, promoCodeID openapi_types.UUID, params SetPanelPromoCodeActiveParams) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -13658,6 +13912,11 @@ func (_ Unimplemented) ListPanelIncidents(w http.ResponseWriter, r *http.Request
 
 // (GET /v1/panel/rbac/catalog)
 func (_ Unimplemented) GetPanelRbacCatalog(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/remnawave/squads)
+func (_ Unimplemented) ListPanelRemnawaveSquads(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -20739,6 +20998,60 @@ func (siw *ServerInterfaceWrapper) SavePanelPlanLocalization(w http.ResponseWrit
 	handler.ServeHTTP(w, r)
 }
 
+// CreatePanelPlanVersion operation middleware
+func (siw *ServerInterfaceWrapper) CreatePanelPlanVersion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "planID" -------------
+	var planID PlanID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "planID", chi.URLParam(r, "planID"), &planID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "planID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreatePanelPlanVersionParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePanelPlanVersion(w, r, planID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // SetPanelPromoCodeActive operation middleware
 func (siw *ServerInterfaceWrapper) SetPanelPromoCodeActive(w http.ResponseWriter, r *http.Request) {
 
@@ -24552,6 +24865,20 @@ func (siw *ServerInterfaceWrapper) GetPanelRbacCatalog(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// ListPanelRemnawaveSquads operation middleware
+func (siw *ServerInterfaceWrapper) ListPanelRemnawaveSquads(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPanelRemnawaveSquads(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetPanelChannelReport operation middleware
 func (siw *ServerInterfaceWrapper) GetPanelChannelReport(w http.ResponseWriter, r *http.Request) {
 
@@ -28331,6 +28658,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/v1/panel/catalog/plans/{planID}/localizations/{locale}", wrapper.SavePanelPlanLocalization)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/catalog/plans/{planID}/versions", wrapper.CreatePanelPlanVersion)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/remnawave/squads", wrapper.ListPanelRemnawaveSquads)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/panel/catalog/plan-versions/{planVersionID}/retire", wrapper.RetirePanelPlanVersion)
@@ -36401,6 +36734,60 @@ func (response SavePanelPlanLocalization422ApplicationProblemPlusJSONResponse) V
 	return err
 }
 
+type CreatePanelPlanVersionRequestObject struct {
+	PlanID PlanID `json:"planID"`
+	Params CreatePanelPlanVersionParams
+	Body   *CreatePanelPlanVersionJSONRequestBody
+}
+
+type CreatePanelPlanVersionResponseObject interface {
+	VisitCreatePanelPlanVersionResponse(w http.ResponseWriter) error
+}
+
+type CreatePanelPlanVersion200JSONResponse PanelPlanVersionSummary
+
+func (response CreatePanelPlanVersion200JSONResponse) VisitCreatePanelPlanVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePanelPlanVersion403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreatePanelPlanVersion403ApplicationProblemPlusJSONResponse) VisitCreatePanelPlanVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePanelPlanVersion422ApplicationProblemPlusJSONResponse Problem
+
+func (response CreatePanelPlanVersion422ApplicationProblemPlusJSONResponse) VisitCreatePanelPlanVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type SetPanelPromoCodeActiveRequestObject struct {
 	PromoCodeID openapi_types.UUID `json:"promoCodeID"`
 	Params      SetPanelPromoCodeActiveParams
@@ -40094,6 +40481,43 @@ func (response GetPanelRbacCatalog200JSONResponse) VisitGetPanelRbacCatalogRespo
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelRemnawaveSquadsRequestObject struct {
+}
+
+type ListPanelRemnawaveSquadsResponseObject interface {
+	VisitListPanelRemnawaveSquadsResponse(w http.ResponseWriter) error
+}
+
+type ListPanelRemnawaveSquads200JSONResponse PanelSquadListing
+
+func (response ListPanelRemnawaveSquads200JSONResponse) VisitListPanelRemnawaveSquadsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelRemnawaveSquads403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListPanelRemnawaveSquads403ApplicationProblemPlusJSONResponse) VisitListPanelRemnawaveSquadsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -44234,6 +44658,9 @@ type StrictServerInterface interface {
 	// (PUT /v1/panel/catalog/plans/{planID}/localizations/{locale})
 	SavePanelPlanLocalization(ctx context.Context, request SavePanelPlanLocalizationRequestObject) (SavePanelPlanLocalizationResponseObject, error)
 
+	// (POST /v1/panel/catalog/plans/{planID}/versions)
+	CreatePanelPlanVersion(ctx context.Context, request CreatePanelPlanVersionRequestObject) (CreatePanelPlanVersionResponseObject, error)
+
 	// (POST /v1/panel/catalog/promo-codes/{promoCodeID}/status)
 	SetPanelPromoCodeActive(ctx context.Context, request SetPanelPromoCodeActiveRequestObject) (SetPanelPromoCodeActiveResponseObject, error)
 
@@ -44464,6 +44891,9 @@ type StrictServerInterface interface {
 
 	// (GET /v1/panel/rbac/catalog)
 	GetPanelRbacCatalog(ctx context.Context, request GetPanelRbacCatalogRequestObject) (GetPanelRbacCatalogResponseObject, error)
+
+	// (GET /v1/panel/remnawave/squads)
+	ListPanelRemnawaveSquads(ctx context.Context, request ListPanelRemnawaveSquadsRequestObject) (ListPanelRemnawaveSquadsResponseObject, error)
 
 	// (GET /v1/panel/reports/channels)
 	GetPanelChannelReport(ctx context.Context, request GetPanelChannelReportRequestObject) (GetPanelChannelReportResponseObject, error)
@@ -49600,6 +50030,40 @@ func (sh *strictHandler) SavePanelPlanLocalization(w http.ResponseWriter, r *htt
 	}
 }
 
+// CreatePanelPlanVersion operation middleware
+func (sh *strictHandler) CreatePanelPlanVersion(w http.ResponseWriter, r *http.Request, planID PlanID, params CreatePanelPlanVersionParams) {
+	var request CreatePanelPlanVersionRequestObject
+
+	request.PlanID = planID
+	request.Params = params
+
+	var body CreatePanelPlanVersionJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreatePanelPlanVersion(ctx, request.(CreatePanelPlanVersionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreatePanelPlanVersion")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreatePanelPlanVersionResponseObject); ok {
+		if err := validResponse.VisitCreatePanelPlanVersionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // SetPanelPromoCodeActive operation middleware
 func (sh *strictHandler) SetPanelPromoCodeActive(w http.ResponseWriter, r *http.Request, promoCodeID openapi_types.UUID, params SetPanelPromoCodeActiveParams) {
 	var request SetPanelPromoCodeActiveRequestObject
@@ -51789,6 +52253,30 @@ func (sh *strictHandler) GetPanelRbacCatalog(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetPanelRbacCatalogResponseObject); ok {
 		if err := validResponse.VisitGetPanelRbacCatalogResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPanelRemnawaveSquads operation middleware
+func (sh *strictHandler) ListPanelRemnawaveSquads(w http.ResponseWriter, r *http.Request) {
+	var request ListPanelRemnawaveSquadsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPanelRemnawaveSquads(ctx, request.(ListPanelRemnawaveSquadsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPanelRemnawaveSquads")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPanelRemnawaveSquadsResponseObject); ok {
+		if err := validResponse.VisitListPanelRemnawaveSquadsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

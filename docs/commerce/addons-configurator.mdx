@@ -52,20 +52,7 @@ The database backs the bounds up: `min_selectable_squads` at least 0, `max_selec
 
 `GET /v1/account/plans/{planVersionID}` returns the whole picture as `squads` with `selection`, `minimum`, `maximum`, `configurable`, and the offered list. The confirmed set is stored on the order in `selected_squad_ids`; if it is empty, settlement falls back to the plan version's own set.
 
-<Warning>
-  A choosable squad set cannot currently be authored from `/admin`. The plan
-  version editor validates `squadSelection` against `automatic`,
-  `customer_choice`, and `fixed`, while the `plan_versions` CHECK constraint
-  allows `automatic`, `optional`, and `required` — the only three values the
-  domain implements. Publishing anything but `automatic` from the panel fails at
-  the database with HTTP 500 `operation_failed`, and `optional` or `required`
-  sent to the panel is refused with 422 before it gets that far.
-
-  Until the two lists agree, publish such a version by calling
-  `POST /v1/panel/catalog/plans/{planID}/versions` directly with the database's
-  values. [Catalog and promotions](/commerce/catalog-promotions) has the full
-  version editor reference.
-</Warning>
+A choosable squad set is authored in the plan version editor at `/admin/catalog`: set **Squad selection** to `optional` or `required`, add a row per squad under **Squads the customer chooses from**, and give each a Russian and an English label. The squads are picked by name from the live Remnawave list. [Catalog and promotions](/commerce/catalog-promotions) has the full version editor reference and what publishing refuses.
 
 ## Add-ons
 
@@ -126,12 +113,11 @@ What the save refuses, all with 422:
 Retiring a version is `POST /v1/panel/catalog/addon-versions/{addonVersionID}/retire` (`catalog.write`, audit `panel.addon_version.retired`). Retiring one that is already retired matches no row and answers 404. There is no retire control in the panel either.
 
 <Note>
-  The add-on offer set on a plan version is populated only by the `addonIds`
-  array on `POST /v1/panel/catalog/plans/{planID}/versions`, and publishing
-  **replaces** that set rather than merging it. The panel's version editor does
-  not send the field, so every plan version published from `/admin/catalog`
-  offers no add-ons at all. Populating it means calling the versions endpoint
-  directly.
+  The add-on offer set on a plan version is written from the `addonIds` array
+  on `POST /v1/panel/catalog/plans/{planID}/versions`, and publishing
+  **replaces** that set rather than merging it. The version editor at
+  `/admin/catalog` lists the add-ons as checkboxes and starts from the previous
+  version's set, so a new price keeps the add-ons the plan already offered.
 </Note>
 
 The offer check matches by add-on rather than by add-on version, so any live version of an offered add-on qualifies once the add-on is listed.
@@ -234,7 +220,7 @@ If the target subscription has no live entitlement by the time an add-on settles
 | `PATCH /v1/account/checkout` | Customer session | Submit a squad selection |
 | `POST /v1/account/checkout/addons/{addonVersionID}` | Customer session | Toggle one add-on on the open checkout |
 
-The add-on save and retire routes and the plan versions route are implemented but missing from `api/openapi.yaml`, so they are absent from the generated client and the published API reference. [Integrating with the API](/integrations/api) explains how to call them anyway.
+The add-on save and retire routes are implemented but missing from `api/openapi.yaml`, so they are absent from the generated client and the published API reference. [Integrating with the API](/integrations/api) explains how to call them anyway.
 
 ## Related pages
 

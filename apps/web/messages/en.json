@@ -1572,7 +1572,9 @@
           "month": "Monthly",
           "quarter": "Quarterly",
           "year": "Yearly",
-          "custom": "Custom"
+          "custom": "Custom",
+          "none": "No period",
+          "half_year": "Half-yearly"
         },
         "duration": "Duration (days)",
         "durationHint": "How long one period lasts.",
@@ -1582,13 +1584,13 @@
         "trafficHint": "Leave empty for unlimited. Zero is not the same thing.",
         "devices": "Device limit",
         "devicesHint": "Leave empty for unlimited.",
-        "squads": "Squad IDs",
-        "squadsHint": "Comma-separated Remnawave squad identifiers.",
+        "squads": "Squads",
+        "squadsHint": "Every subscription on this version gets these Remnawave squads.",
         "squadSelection": "Squad selection",
         "squadSelectionValue": {
           "automatic": "Assigned automatically",
-          "customer_choice": "Customer chooses",
-          "fixed": "Fixed set"
+          "optional": "Customer may add squads",
+          "required": "Customer must choose squads"
         },
         "minSquads": "Minimum chosen",
         "maxSquads": "Maximum chosen",
@@ -1608,13 +1610,14 @@
         "cancellationPolicy": "Cancellation",
         "cancellationPolicyValue": {
           "immediate": "Immediately",
-          "at_expiry": "At the end of the period"
+          "at_expiry": "At the end of the period",
+          "forbid": "Not allowed"
         },
         "trialEligibility": "Trial eligibility",
         "trialEligibilityValue": {
           "new_customer": "New customers only",
-          "never": "No trial",
-          "any_customer": "Any customer"
+          "never_trialled": "Anyone who never had a trial",
+          "any": "Any customer"
         },
         "recurringCapable": "Can be charged automatically",
         "prices": "Prices",
@@ -1622,7 +1625,15 @@
         "reason": "Reason",
         "reasonHint": "Why this version is being published.",
         "immutability": "Existing orders keep the version they were bought at. Publishing does not change any price a customer has already paid.",
-        "publish": "Publish version"
+        "publish": "Publish version",
+        "offeredSquads": "Squads the customer chooses from",
+        "offeredSquadsHint": "Each one is a checkbox at checkout, with the label shown in that language.",
+        "offeredSquad": "Squad",
+        "labelRu": "Label (RU)",
+        "labelEn": "Label (EN)",
+        "removeSquad": "Remove",
+        "addSquad": "Add a squad",
+        "addons": "Add-ons sold with this version"
       },
       "addons": {
         "create": "New add-on",
@@ -1670,6 +1681,15 @@
           "immutability": "Both languages are required. Saving publishes a new version; orders already placed keep the version they were bought at.",
           "submit": "Save add-on"
         }
+      },
+      "squadPicker": {
+        "none": "No squads",
+        "choose": "Choose a squad",
+        "search": "Search by name or paste an ID",
+        "empty": "No squad matches.",
+        "typed": "Use this ID",
+        "members": "{count, plural, one {# user} other {# users}}",
+        "unavailable": "The Remnawave panel did not answer; paste a squad ID instead."
       }
     },
     "codes": {

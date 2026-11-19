@@ -78,6 +78,10 @@ func TestSupportedRoutesAreCalledExactly(t *testing.T) {
 			func(client *Client) error { return client.DeleteAllDevices(context.Background(), 7) }},
 		{"list nodes", http.MethodGet, "/api/nodes", "", `{"response":[]}`,
 			func(client *Client) error { _, err := client.Nodes(context.Background()); return err }},
+		{"list internal squads", http.MethodGet, "/api/internal-squads", "", `{"response":{"total":0,"internalSquads":[]}}`,
+			func(client *Client) error { _, err := client.InternalSquads(context.Background()); return err }},
+		{"list external squads", http.MethodGet, "/api/external-squads", "", `{"response":{"total":0,"externalSquads":[]}}`,
+			func(client *Client) error { _, err := client.ExternalSquads(context.Background()); return err }},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -395,5 +399,23 @@ func TestTheNodeListingDegradesRatherThanFailing(t *testing.T) {
 	}
 	if nodes[0].TrafficLimitBytes != 0 || nodes[0].UsersOnline != nil {
 		t.Fatalf("an absent field became something other than a zero: %+v", nodes[0])
+	}
+}
+
+// A squad's member count sits under `info` in the 3.4 contract. The plan
+// editor shows it beside the name, so a squad nobody is in is visible as such.
+func TestSquadListsDecodeTheNameAndMemberCount(t *testing.T) {
+	t.Parallel()
+	client := contractClient(t, func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write([]byte(`{"response":{"total":1,"internalSquads":[{"uuid":"9d2c5c34-0f5e-4c43-9d5c-5d8c1c4f3a10","name":"Germany","viewPosition":1,"info":{"membersCount":12,"inboundsCount":2},"inbounds":[]}]}}`))
+	})
+	squads, err := client.InternalSquads(context.Background())
+	if err != nil {
+		t.Fatalf("list squads: %v", err)
+	}
+	if len(squads) != 1 || squads[0].Name != "Germany" || squads[0].Members != 12 ||
+		squads[0].UUID != "9d2c5c34-0f5e-4c43-9d5c-5d8c1c4f3a10" {
+		t.Fatalf("squads = %+v", squads)
 	}
 }

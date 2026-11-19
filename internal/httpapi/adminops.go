@@ -1255,6 +1255,9 @@ func (handlers *AdminHandlers) createPlanVersion(writer http.ResponseWriter, req
 		RecurringCapable      bool             `json:"recurringCapable"`
 		Prices                map[string]int64 `json:"prices"`
 		AddonIDs              []string         `json:"addonIds"`
+		// Options carries every field added after the first editor, decoded
+		// straight into the service input.
+		panelpg.PlanVersionOptions
 	}
 	if !decodeJSON(writer, request, &body) {
 		return
@@ -1272,6 +1275,7 @@ func (handlers *AdminHandlers) createPlanVersion(writer http.ResponseWriter, req
 			GracePeriodSeconds: body.GracePeriodSeconds,
 			TrialEligibility:   body.TrialEligibility, RecurringCapable: body.RecurringCapable,
 			Prices: body.Prices, AddonIDs: body.AddonIDs,
+			PlanVersionOptions: body.PlanVersionOptions,
 		}, actorFrom(request),
 	)
 	handlers.respond(writer, request, version, err)

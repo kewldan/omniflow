@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
+import { Checkbox } from "@omniflow/ui/checkbox";
 import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
@@ -10,7 +11,14 @@ import { Skeleton } from "@omniflow/ui/skeleton";
 import { Switch } from "@omniflow/ui/switch";
 import { useTranslations } from "next-intl";
 import { useId } from "react";
-import { type Control, Controller, FormProvider, useForm, useWatch } from "react-hook-form";
+import {
+  type Control,
+  Controller,
+  FormProvider,
+  useFieldArray,
+  useForm,
+  useWatch,
+} from "react-hook-form";
 import useSWR from "swr";
 import * as z from "zod/mini";
 
@@ -27,15 +35,30 @@ import {
   wholeNumber,
 } from "@/lib/form-schema";
 import { minorToInput } from "@/lib/money";
-import type { PlanVersion } from "@/lib/operations";
+import type { Listing, PlanVersion } from "@/lib/operations";
 import { useOperatorAction } from "@/lib/operations";
 
-const BILLING_PERIODS = ["day", "week", "month", "quarter", "year", "custom"] as const;
-const SQUAD_SELECTIONS = ["automatic", "customer_choice", "fixed"] as const;
+import { SquadPicker, squadName, useSquads } from "./squad-picker";
+
+// Each list is exactly what the `plan_versions` CHECK constraints accept and
+// internal/commerce implements. The squad selection once offered
+// `customer_choice` and `fixed`, which nothing implemented and the database
+// refused, so a choosable squad set could not be published at all.
+const BILLING_PERIODS = [
+  "none",
+  "day",
+  "week",
+  "month",
+  "quarter",
+  "half_year",
+  "year",
+  "custom",
+] as const;
+const SQUAD_SELECTIONS = ["automatic", "optional", "required"] as const;
 const UPGRADE_POLICIES = ["forbid", "replace", "extend"] as const;
 const DOWNGRADE_POLICIES = ["forbid", "immediate", "at_expiry"] as const;
-const CANCELLATION_POLICIES = ["immediate", "at_expiry"] as const;
-const TRIAL_ELIGIBILITY = ["new_customer", "never", "any_customer"] as const;
+const CANCELLATION_POLICIES = ["forbid", "immediate", "at_expiry"] as const;
+const TRIAL_ELIGIBILITY = ["new_customer", "never_trialled", "any"] as const;
 
 const GIBIBYTE = 1_073_741_824;
 
@@ -53,8 +76,18 @@ const schema = z.object({
   prices: priceList(),
   reason: requiredText(),
   recurringCapable: z.boolean(),
-  squadIds: z.string(),
+  squadIds: z.array(z.string()),
   squadSelection: z.string(),
+  // The squads a customer may choose, each with what the customer reads in
+  // either language. Labels are required because a blank one is an empty
+  // checkbox on the customer's screen.
+  offeredSquads: z.array(
+    z.object({ labelEn: requiredText(80), labelRu: requiredText(80), squadId: z.string() }),
+  ),
+  // The add-ons sold with this version. Publishing replaces the set, so the
+  // editor always sends it; leaving it out used to publish a version that
+  // offered nothing.
+  addonIds: z.array(z.string()),
   trafficGb: decimalNumber({ min: 0, optional: true }),
   trialEligibility: z.string(),
   upgradePolicy: z.string(),
@@ -112,6 +145,7 @@ export function PlanVersionEditor({
 
 function defaults(current?: PlanVersion): Values {
   return {
+    addonIds: current?.addonIds ?? [],
     billingPeriod: current?.billingPeriod ?? "month",
     cancellationPolicy: current?.cancellationPolicy ?? "at_expiry",
     deviceLimit: current?.deviceLimit ? String(current.deviceLimit) : "",
@@ -120,6 +154,7 @@ function defaults(current?: PlanVersion): Values {
     graceDays: String(Math.round((current?.gracePeriodSeconds ?? 0) / 86_400)),
     maxSquads: current?.maxSelectableSquads ? String(current.maxSelectableSquads) : "",
     minSquads: String(current?.minSelectableSquads ?? 0),
+    offeredSquads: current?.offeredSquads ?? [],
     // Shown in major units, as a customer reads them; stored as minor units.
     prices: Object.entries(current?.prices ?? {}).map(([currency, amount]) => ({
       amount: minorToInput(amount, currency),
@@ -127,12 +162,20 @@ function defaults(current?: PlanVersion): Values {
     })),
     reason: "",
     recurringCapable: current?.recurringCapable ?? false,
-    squadIds: (current?.squadIds ?? []).join(", "),
-    squadSelection: current?.squadSelection ?? "automatic",
+    squadIds: current?.squadIds ?? [],
+    // A version stored with a value from the old editor starts from the
+    // nearest one that exists rather than from a value that cannot publish.
+    squadSelection: (SQUAD_SELECTIONS as readonly string[]).includes(current?.squadSelection ?? "")
+      ? (current?.squadSelection ?? "automatic")
+      : "automatic",
     trafficGb: current?.trafficAllowanceBytes
       ? String(current.trafficAllowanceBytes / GIBIBYTE)
       : "",
-    trialEligibility: current?.trialEligibility ?? "new_customer",
+    trialEligibility: (TRIAL_ELIGIBILITY as readonly string[]).includes(
+      current?.trialEligibility ?? "",
+    )
+      ? (current?.trialEligibility ?? "new_customer")
+      : "new_customer",
     upgradePolicy: current?.upgradePolicy ?? "extend",
   };
 }
@@ -151,25 +194,38 @@ function VersionForm({
   const recurringId = useId();
 
   const form = useForm<Values>({ defaultValues: defaults(current), resolver: zodResolver(schema) });
-  const { control, formState, handleSubmit, register, resetField } = form;
+  const { control, formState, handleSubmit, register, resetField, setValue } = form;
   const squadSelection = useWatch({ control, name: "squadSelection" });
+  const offered = useFieldArray({ control, name: "offeredSquads" });
+  const { data: squadListing } = useSquads();
   const { run, pending, error } = useOperatorAction();
   const errors = formState.errors;
 
   async function publish(values: Values) {
+    const choosing = values.squadSelection !== "automatic";
     const ok = await run(`/v1/panel/catalog/plans/${planId}/versions`, {
       body: {
+        addonIds: values.addonIds,
         billingPeriod: values.billingPeriod,
         cancellationPolicy: values.cancellationPolicy,
         deviceLimit: readWholeNumber(values.deviceLimit),
         downgradePolicy: values.downgradePolicy,
         durationSeconds: Number(values.durationDays) * 86_400,
         gracePeriodSeconds: (readWholeNumber(values.graceDays) ?? 0) * 86_400,
-        maxSelectableSquads: readWholeNumber(values.maxSquads),
-        minSelectableSquads: readWholeNumber(values.minSquads) ?? 0,
+        maxSelectableSquads: choosing ? readWholeNumber(values.maxSquads) : null,
+        minSelectableSquads: choosing ? (readWholeNumber(values.minSquads) ?? 0) : 0,
+        offeredSquads: choosing
+          ? values.offeredSquads
+              .filter((squad) => squad.squadId)
+              .map((squad) => ({
+                labelEn: squad.labelEn.trim(),
+                labelRu: squad.labelRu.trim(),
+                squadId: squad.squadId,
+              }))
+          : [],
         prices: readPriceList(values.prices),
         recurringCapable: values.recurringCapable,
-        squadIds: splitList(values.squadIds),
+        squadIds: values.squadIds,
         squadSelection: values.squadSelection,
         trafficAllowanceBytes: (() => {
           const gigabytes = readDecimal(values.trafficGb);
@@ -239,7 +295,20 @@ function VersionForm({
 
             <div className="grid gap-3 sm:grid-cols-2">
               <FormField hint={translate("squadsHint")} label={translate("squads")}>
-                {(props) => <Input {...props} {...register("squadIds")} />}
+                {(props) => (
+                  <Controller
+                    control={control}
+                    name="squadIds"
+                    render={({ field }) => (
+                      <SquadPicker
+                        control={props}
+                        multiple
+                        onChange={field.onChange}
+                        value={field.value}
+                      />
+                    )}
+                  />
+                )}
               </FormField>
               <Choice
                 control={control}
@@ -248,7 +317,7 @@ function VersionForm({
                 options={SQUAD_SELECTIONS}
                 prefix="squadSelection"
               />
-              {squadSelection === "customer_choice" && (
+              {squadSelection !== "automatic" && (
                 <>
                   <FormField error={errors.minSquads?.message} label={translate("minSquads")}>
                     {(props) => <Input {...props} inputMode="numeric" {...register("minSquads")} />}
@@ -263,6 +332,79 @@ function VersionForm({
                 </>
               )}
             </div>
+
+            {squadSelection !== "automatic" && (
+              <fieldset className="flex flex-col gap-3 rounded-lg border border-border p-3">
+                <legend className="px-1 font-medium text-sm">{translate("offeredSquads")}</legend>
+                <p className="text-muted-foreground text-xs">{translate("offeredSquadsHint")}</p>
+                {offered.fields.map((row, index) => (
+                  <div className="grid gap-2 sm:grid-cols-[2fr_1fr_1fr_auto]" key={row.id}>
+                    <FormField label={translate("offeredSquad")}>
+                      {(props) => (
+                        <Controller
+                          control={control}
+                          name={`offeredSquads.${index}.squadId`}
+                          render={({ field }) => (
+                            <SquadPicker
+                              control={props}
+                              multiple={false}
+                              onChange={(next) => {
+                                const picked = next[0] ?? "";
+                                field.onChange(picked);
+                                // A label starts as the panel's own name; the
+                                // operator rewrites it for customers.
+                                const name = squadName(squadListing, picked);
+                                if (name) {
+                                  setValue(`offeredSquads.${index}.labelEn`, name);
+                                  setValue(`offeredSquads.${index}.labelRu`, name);
+                                }
+                              }}
+                              value={field.value ? [field.value] : []}
+                            />
+                          )}
+                        />
+                      )}
+                    </FormField>
+                    <FormField
+                      error={errors.offeredSquads?.[index]?.labelRu?.message}
+                      label={translate("labelRu")}
+                    >
+                      {(props) => (
+                        <Input {...props} {...register(`offeredSquads.${index}.labelRu`)} />
+                      )}
+                    </FormField>
+                    <FormField
+                      error={errors.offeredSquads?.[index]?.labelEn?.message}
+                      label={translate("labelEn")}
+                    >
+                      {(props) => (
+                        <Input {...props} {...register(`offeredSquads.${index}.labelEn`)} />
+                      )}
+                    </FormField>
+                    <Button
+                      className="self-end"
+                      onClick={() => offered.remove(index)}
+                      size="sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      {translate("removeSquad")}
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  className="self-start"
+                  onClick={() => offered.append({ labelEn: "", labelRu: "", squadId: "" })}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  {translate("addSquad")}
+                </Button>
+              </fieldset>
+            )}
+
+            <AddonOffer control={control} />
 
             <div className="grid gap-3 sm:grid-cols-3">
               <Choice
@@ -387,9 +529,64 @@ function Choice({
   );
 }
 
-function splitList(input: string): string[] {
-  return input
-    .split(",")
-    .map((value) => value.trim())
-    .filter((value) => value.length > 0);
+type AddonSummary = { id: string; code: string; kind: string; archivedAt?: string };
+
+/**
+ * The add-ons sold with this version, as a list of checkboxes.
+ *
+ * Publishing replaces the offer set rather than merging it, so the editor
+ * carries the previous version's set forward and lets the operator change it.
+ */
+function AddonOffer({ control }: { control: Control<Values> }) {
+  const translate = useTranslations("admin.catalog.version");
+  const { data } = useSWR<Listing<AddonSummary>, ApiError>("/v1/panel/catalog/addons", fetcher);
+  const addons = (data?.items ?? []).filter((addon) => !addon.archivedAt);
+  if (addons.length === 0) {
+    return null;
+  }
+  return (
+    <Controller
+      control={control}
+      name="addonIds"
+      render={({ field }) => (
+        <fieldset className="flex flex-col gap-2">
+          <legend className="font-medium text-sm">{translate("addons")}</legend>
+          <div className="flex flex-wrap gap-4">
+            {addons.map((addon) => (
+              <AddonCheckbox
+                checked={field.value.includes(addon.id)}
+                key={addon.id}
+                label={`${addon.code} (${addon.kind})`}
+                onChange={(checked) =>
+                  field.onChange(
+                    checked
+                      ? [...field.value, addon.id]
+                      : field.value.filter((id) => id !== addon.id),
+                  )
+                }
+              />
+            ))}
+          </div>
+        </fieldset>
+      )}
+    />
+  );
+}
+
+function AddonCheckbox({
+  checked,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+}) {
+  const id = useId();
+  return (
+    <div className="flex items-center gap-2">
+      <Checkbox checked={checked} id={id} onCheckedChange={(state) => onChange(state === true)} />
+      <Label htmlFor={id}>{label}</Label>
+    </div>
+  );
 }

@@ -36,20 +36,46 @@ type PlanVersionInput struct {
 	Prices map[string]int64
 	// AddonIDs are the add-ons offered alongside this version.
 	AddonIDs []string
+	PlanVersionOptions
 }
 
+// PlanVersionOptions are the version fields that arrived after the first
+// editor. They carry their wire names, so the panel route decodes them
+// straight into the input and a new option is one field here rather than one
+// in three places.
+type PlanVersionOptions struct {
+	// OfferedSquads are the squads a customer may choose when SquadSelection is
+	// `optional` or `required`. SquadIDs stay the squads every subscription on
+	// the version is given whatever the customer picks.
+	OfferedSquads []OfferedSquad `json:"offeredSquads"`
+}
+
+// OfferedSquad is one squad a customer may choose, with the label each
+// language shows for it.
+type OfferedSquad struct {
+	SquadID string `json:"squadId"`
+	LabelRU string `json:"labelRu"`
+	LabelEN string `json:"labelEn"`
+}
+
+// The accepted values are exactly the ones the `plan_versions` CHECK
+// constraints allow and internal/commerce implements. The editor once sent
+// `customer_choice` and `fixed` for the squad selection, which nothing
+// implements and the database refused, so a choosable squad set could not be
+// published from the panel at all.
 var (
 	validBillingPeriods = map[string]bool{
-		"day": true, "week": true, "month": true, "quarter": true, "year": true, "custom": true,
+		"none": true, "day": true, "week": true, "month": true, "quarter": true,
+		"half_year": true, "year": true, "custom": true,
 	}
 	validSquadSelection = map[string]bool{
-		"automatic": true, "customer_choice": true, "fixed": true,
+		"automatic": true, "optional": true, "required": true,
 	}
 	validUpgradePolicy      = map[string]bool{"forbid": true, "replace": true, "extend": true}
 	validDowngradePolicy    = map[string]bool{"forbid": true, "immediate": true, "at_expiry": true}
-	validCancellationPolicy = map[string]bool{"immediate": true, "at_expiry": true}
+	validCancellationPolicy = map[string]bool{"forbid": true, "immediate": true, "at_expiry": true}
 	validTrialEligibility   = map[string]bool{
-		"new_customer": true, "never": true, "any_customer": true,
+		"new_customer": true, "never_trialled": true, "any": true,
 	}
 	validProration = map[string]bool{
 		"full_price": true, "remaining_period": true, "daily_rate": true,
@@ -129,7 +155,22 @@ func (service *Service) CreatePlanVersion(
 				return txErr
 			}
 		}
+		for position, squad := range input.OfferedSquads {
+			parsed, parseErr := parseUUID(strings.TrimSpace(squad.SquadID))
+			if parseErr != nil {
+				return ErrValidaton
+			}
+			if txErr = queries.InsertPlanVersionSquad(ctx, dbgen.InsertPlanVersionSquadParams{
+				PlanVersionID: row.ID, SquadID: parsed,
+				LabelRu: strings.TrimSpace(squad.LabelRU), LabelEn: strings.TrimSpace(squad.LabelEN),
+				SortOrder: int32(position),
+			}); txErr != nil {
+				return txErr
+			}
+		}
 		created = planVersionFromRow(row, input.Prices)
+		created.OfferedSquads = input.OfferedSquads
+		created.AddonIDs = input.AddonIDs
 		return appendAudit(ctx, queries, actor.audit(
 			"panel.plan_version.created", "configuration", "plan", planID,
 			map[string]any{
@@ -169,15 +210,48 @@ func validatePlanVersion(input PlanVersionInput) error {
 			return ErrValidaton
 		}
 	}
-	// Customer choice needs something to choose from, and a maximum below the
-	// minimum describes a selection that can never be satisfied.
-	if input.SquadSelection == "customer_choice" {
-		if len(input.SquadIDs) == 0 || input.MinSelectableSquads < 1 {
+	return validateSquadChoice(input)
+}
+
+// validateSquadChoice refuses an offered squad set the checkout could never
+// satisfy. A choice needs something to choose from; a required choice needs a
+// minimum of at least one; a maximum below the minimum, or above what is
+// offered, describes a selection that can never be made. An automatic version
+// offers nothing, because the checkout refuses any selection against it.
+func validateSquadChoice(input PlanVersionInput) error {
+	if input.MinSelectableSquads < 0 || input.MaxSelectableSquads != nil && *input.MaxSelectableSquads < 1 {
+		return ErrValidaton
+	}
+	if input.SquadSelection == "automatic" {
+		if len(input.OfferedSquads) > 0 {
 			return ErrValidaton
 		}
-		if input.MaxSelectableSquads != nil && *input.MaxSelectableSquads < input.MinSelectableSquads {
+		return nil
+	}
+	offered := len(input.OfferedSquads)
+	if offered == 0 {
+		return ErrValidaton
+	}
+	if input.SquadSelection == "required" && input.MinSelectableSquads < 1 {
+		return ErrValidaton
+	}
+	if int(input.MinSelectableSquads) > offered {
+		return ErrValidaton
+	}
+	if input.MaxSelectableSquads != nil && *input.MaxSelectableSquads < input.MinSelectableSquads {
+		return ErrValidaton
+	}
+	seen := make(map[string]bool, offered)
+	for _, squad := range input.OfferedSquads {
+		id := strings.ToLower(strings.TrimSpace(squad.SquadID))
+		labelRU, labelEN := strings.TrimSpace(squad.LabelRU), strings.TrimSpace(squad.LabelEN)
+		// Each label is shown verbatim in its language; a blank one is an empty
+		// checkbox on the customer's screen, and the column caps both at 80.
+		if id == "" || seen[id] || labelRU == "" || labelEN == "" ||
+			len([]rune(labelRU)) > 80 || len([]rune(labelEN)) > 80 {
 			return ErrValidaton
 		}
+		seen[id] = true
 	}
 	return nil
 }

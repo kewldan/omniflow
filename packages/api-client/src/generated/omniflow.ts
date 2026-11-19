@@ -1567,6 +1567,20 @@ export const PanelPlanVersionSummarySquadSelection = {
 
 export type PanelPlanVersionSummaryPrices = { [key: string]: number };
 
+export interface PanelOfferedSquad {
+  squadId: string;
+  /**
+   * @minLength 1
+   * @maxLength 80
+   */
+  labelRu: string;
+  /**
+   * @minLength 1
+   * @maxLength 80
+   */
+  labelEn: string;
+}
+
 export interface PanelPlanVersionSummary {
   id: string;
   version: number;
@@ -1588,6 +1602,132 @@ export interface PanelPlanVersionSummary {
   prices: PanelPlanVersionSummaryPrices;
   createdAt: string;
   retiredAt?: string;
+  /** @nullable */
+  offeredSquads?: PanelOfferedSquad[] | null;
+  /** @nullable */
+  addonIds?: string[] | null;
+}
+
+export type PanelPlanVersionInputBillingPeriod =
+  (typeof PanelPlanVersionInputBillingPeriod)[keyof typeof PanelPlanVersionInputBillingPeriod];
+
+export const PanelPlanVersionInputBillingPeriod = {
+  none: "none",
+  day: "day",
+  week: "week",
+  month: "month",
+  quarter: "quarter",
+  half_year: "half_year",
+  year: "year",
+  custom: "custom",
+} as const;
+
+export type PanelPlanVersionInputSquadSelection =
+  (typeof PanelPlanVersionInputSquadSelection)[keyof typeof PanelPlanVersionInputSquadSelection];
+
+export const PanelPlanVersionInputSquadSelection = {
+  automatic: "automatic",
+  optional: "optional",
+  required: "required",
+} as const;
+
+export type PanelPlanVersionInputUpgradePolicy =
+  (typeof PanelPlanVersionInputUpgradePolicy)[keyof typeof PanelPlanVersionInputUpgradePolicy];
+
+export const PanelPlanVersionInputUpgradePolicy = {
+  forbid: "forbid",
+  replace: "replace",
+  extend: "extend",
+} as const;
+
+export type PanelPlanVersionInputDowngradePolicy =
+  (typeof PanelPlanVersionInputDowngradePolicy)[keyof typeof PanelPlanVersionInputDowngradePolicy];
+
+export const PanelPlanVersionInputDowngradePolicy = {
+  forbid: "forbid",
+  immediate: "immediate",
+  at_expiry: "at_expiry",
+} as const;
+
+export type PanelPlanVersionInputCancellationPolicy =
+  (typeof PanelPlanVersionInputCancellationPolicy)[keyof typeof PanelPlanVersionInputCancellationPolicy];
+
+export const PanelPlanVersionInputCancellationPolicy = {
+  forbid: "forbid",
+  immediate: "immediate",
+  at_expiry: "at_expiry",
+} as const;
+
+export type PanelPlanVersionInputTrialEligibility =
+  (typeof PanelPlanVersionInputTrialEligibility)[keyof typeof PanelPlanVersionInputTrialEligibility];
+
+export const PanelPlanVersionInputTrialEligibility = {
+  new_customer: "new_customer",
+  never_trialled: "never_trialled",
+  any: "any",
+} as const;
+
+export type PanelPlanVersionInputPrices = { [key: string]: number };
+
+export interface PanelPlanVersionInput {
+  billingPeriod: PanelPlanVersionInputBillingPeriod;
+  /** @minimum 1 */
+  durationSeconds: number;
+  /**
+   * Null is unlimited.
+   * @minimum 1
+   * @nullable
+   */
+  trafficAllowanceBytes?: number | null;
+  /**
+   * Null is unlimited.
+   * @minimum 1
+   * @nullable
+   */
+  deviceLimit?: number | null;
+  /** Squads every subscription on the version is given. */
+  squadIds?: string[];
+  squadSelection: PanelPlanVersionInputSquadSelection;
+  /** @minimum 0 */
+  minSelectableSquads?: number;
+  /**
+   * @minimum 1
+   * @nullable
+   */
+  maxSelectableSquads?: number | null;
+  /** The squads a customer may choose; empty for automatic selection. */
+  offeredSquads?: PanelOfferedSquad[];
+  upgradePolicy: PanelPlanVersionInputUpgradePolicy;
+  downgradePolicy: PanelPlanVersionInputDowngradePolicy;
+  cancellationPolicy: PanelPlanVersionInputCancellationPolicy;
+  /** @minimum 0 */
+  gracePeriodSeconds?: number;
+  trialEligibility: PanelPlanVersionInputTrialEligibility;
+  recurringCapable?: boolean;
+  prices: PanelPlanVersionInputPrices;
+  /** The add-ons sold with the version; the set is replaced. */
+  addonIds?: string[];
+}
+
+export type PanelSquadListingDetail =
+  (typeof PanelSquadListingDetail)[keyof typeof PanelSquadListingDetail];
+
+export const PanelSquadListingDetail = {
+  remnawave_not_configured: "remnawave_not_configured",
+  squads_unavailable: "squads_unavailable",
+} as const;
+
+export interface PanelRemnawaveSquad {
+  uuid: string;
+  name: string;
+  members: number;
+}
+
+export interface PanelSquadListing {
+  reported: boolean;
+  detail?: PanelSquadListingDetail;
+  internal: PanelRemnawaveSquad[];
+  external: PanelRemnawaveSquad[];
 }
 
 export type PanelPlanDetailLocalizations = { [key: string]: PanelLocalization };
@@ -14985,6 +15125,168 @@ export const useSavePanelPlanLocalization = <TError = Promise<ProblemResponse>>(
   const swrFn = getSavePanelPlanLocalizationMutationFetcher(planID, locale, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type createPanelPlanVersionResponse200 = {
+  data: PanelPlanVersionSummary;
+  status: 200;
+};
+
+export type createPanelPlanVersionResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type createPanelPlanVersionResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type createPanelPlanVersionResponseSuccess = createPanelPlanVersionResponse200 & {
+  headers: Headers;
+};
+export type createPanelPlanVersionResponseError = (
+  | createPanelPlanVersionResponse403
+  | createPanelPlanVersionResponse422
+) & {
+  headers: Headers;
+};
+
+export type createPanelPlanVersionResponse =
+  | createPanelPlanVersionResponseSuccess
+  | createPanelPlanVersionResponseError;
+
+export const getCreatePanelPlanVersionUrl = (planID: string) => {
+  return `/v1/panel/catalog/plans/${planID}/versions`;
+};
+
+/**
+ * Requires catalog.write and an X-Operator-Reason header. Publishes the next immutable version of a plan. The add-on offer set and the squads a customer may choose are replaced, never merged, so the request carries the whole of both.
+ */
+export const createPanelPlanVersion = async (
+  planID: string,
+  panelPlanVersionInput: PanelPlanVersionInput,
+  options?: RequestInit,
+): Promise<createPanelPlanVersionResponse> => {
+  const res = await fetch(getCreatePanelPlanVersionUrl(planID), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(panelPlanVersionInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: createPanelPlanVersionResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as createPanelPlanVersionResponse;
+};
+
+export const getCreatePanelPlanVersionMutationFetcher = (planID: string, options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PanelPlanVersionInput }) => {
+    return createPanelPlanVersion(planID, arg, options);
+  };
+};
+export const getCreatePanelPlanVersionMutationKey = (planID: string) =>
+  [`/v1/panel/catalog/plans/${planID}/versions`] as const;
+
+export type CreatePanelPlanVersionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPanelPlanVersion>>
+>;
+
+export const useCreatePanelPlanVersion = <TError = Promise<ProblemResponse>>(
+  planID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof createPanelPlanVersion>>,
+      TError,
+      Key,
+      PanelPlanVersionInput,
+      Awaited<ReturnType<typeof createPanelPlanVersion>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getCreatePanelPlanVersionMutationKey(planID);
+  const swrFn = getCreatePanelPlanVersionMutationFetcher(planID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelRemnawaveSquadsResponse200 = {
+  data: PanelSquadListing;
+  status: 200;
+};
+
+export type listPanelRemnawaveSquadsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelRemnawaveSquadsResponseSuccess = listPanelRemnawaveSquadsResponse200 & {
+  headers: Headers;
+};
+export type listPanelRemnawaveSquadsResponseError = listPanelRemnawaveSquadsResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelRemnawaveSquadsResponse =
+  | listPanelRemnawaveSquadsResponseSuccess
+  | listPanelRemnawaveSquadsResponseError;
+
+export const getListPanelRemnawaveSquadsUrl = () => {
+  return `/v1/panel/remnawave/squads`;
+};
+
+/**
+ * Requires catalog.read. The Remnawave panel's internal and external squads, read live for the plan editor's pickers and never stored. `reported` is false, with a `detail`, when the panel could not be read.
+ */
+export const listPanelRemnawaveSquads = async (
+  options?: RequestInit,
+): Promise<listPanelRemnawaveSquadsResponse> => {
+  const res = await fetch(getListPanelRemnawaveSquadsUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelRemnawaveSquadsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelRemnawaveSquadsResponse;
+};
+
+export const getListPanelRemnawaveSquadsKey = () => [`/v1/panel/remnawave/squads`] as const;
+
+export type ListPanelRemnawaveSquadsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelRemnawaveSquads>>
+>;
+
+export const useListPanelRemnawaveSquads = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelRemnawaveSquads>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelRemnawaveSquadsKey() : null));
+  const swrFn = () => listPanelRemnawaveSquads(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,

@@ -393,6 +393,65 @@ func (client *Client) Nodes(ctx context.Context) ([]Node, error) {
 	return envelope.Response, nil
 }
 
+// Squad is one Remnawave squad as the plan editor lists it: an internal squad
+// (which inbounds a user reaches) or an external one (how the subscription
+// page and the client configuration are shaped). Members is the panel's own
+// count, read for display and never stored.
+type Squad struct {
+	UUID    string `json:"uuid"`
+	Name    string `json:"name"`
+	Members int    `json:"members"`
+}
+
+// squadWire is one squad as the 3.4 contract encodes it.
+type squadWire struct {
+	UUID string `json:"uuid"`
+	Name string `json:"name"`
+	Info struct {
+		MembersCount int `json:"membersCount"`
+	} `json:"info"`
+}
+
+func squadsFromWire(wire []squadWire) []Squad {
+	squads := make([]Squad, 0, len(wire))
+	for _, squad := range wire {
+		squads = append(squads, Squad{UUID: squad.UUID, Name: squad.Name, Members: squad.Info.MembersCount})
+	}
+	return squads
+}
+
+// InternalSquads lists the panel's internal squads.
+//
+// Remnawave owns squads; Omniflow reads the list so an operator picks a squad
+// by name instead of pasting an identifier, and so a purchase can refuse a
+// squad the panel no longer has before any money moves. Nothing is created,
+// renamed, or deleted here.
+func (client *Client) InternalSquads(ctx context.Context) ([]Squad, error) {
+	var envelope struct {
+		Response struct {
+			InternalSquads []squadWire `json:"internalSquads"`
+		} `json:"response"`
+	}
+	if err := client.get(ctx, "/api/internal-squads", &envelope); err != nil {
+		return nil, err
+	}
+	return squadsFromWire(envelope.Response.InternalSquads), nil
+}
+
+// ExternalSquads lists the panel's external squads, read for the same reason
+// as InternalSquads.
+func (client *Client) ExternalSquads(ctx context.Context) ([]Squad, error) {
+	var envelope struct {
+		Response struct {
+			ExternalSquads []squadWire `json:"externalSquads"`
+		} `json:"response"`
+	}
+	if err := client.get(ctx, "/api/external-squads", &envelope); err != nil {
+		return nil, err
+	}
+	return squadsFromWire(envelope.Response.ExternalSquads), nil
+}
+
 // Ping reports whether the panel answers an authenticated request. It reads one
 // user rather than an unauthenticated page, so an expired token is detected as
 // unavailability instead of being mistaken for a healthy panel.

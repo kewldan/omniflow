@@ -81,19 +81,21 @@ The guarantee is doubled at the order. An order line stores `plan_version_id` **
 
 | Field | Wire name | Notes |
 | --- | --- | --- |
-| Billing period | `billingPeriod` | `day`, `week`, `month`, `quarter`, `year`, `custom` |
+| Billing period | `billingPeriod` | `none`, `day`, `week`, `month`, `quarter`, `half_year`, `year`, `custom` |
 | Duration (days) | `durationSeconds` | days × 86 400; must be greater than zero |
 | Grace period (days) | `gracePeriodSeconds` | days × 86 400; zero disables grace entirely |
 | Traffic (GB) | `trafficAllowanceBytes` | GB × 1 073 741 824; **empty means unlimited** |
 | Device limit | `deviceLimit` | empty means unlimited |
-| Squad IDs | `squadIds` | comma-separated Remnawave squad UUIDs, always assigned |
-| Squad selection | `squadSelection` | see [Squad sets](#squad-sets-on-a-version) |
+| Squads | `squadIds` | picked by name from the live Remnawave list, always assigned |
+| Squad selection | `squadSelection` | `automatic`, `optional`, `required`; see [Squad sets](#squad-sets-on-a-version) |
 | Minimum / Maximum chosen | `minSelectableSquads`, `maxSelectableSquads` | shown only for a choosable selection |
+| Squads the customer chooses from | `offeredSquads` | one row per squad with a Russian and an English label; shown only for a choosable selection |
 | Upgrade | `upgradePolicy` | `forbid`, `replace`, `extend` |
 | Downgrade | `downgradePolicy` | `forbid`, `immediate`, `at_expiry` |
-| Cancellation | `cancellationPolicy` | `immediate`, `at_expiry` |
-| Trial eligibility | `trialEligibility` | see [Trials](#trials-and-trial-abuse-controls) |
+| Cancellation | `cancellationPolicy` | `forbid`, `immediate`, `at_expiry` |
+| Trial eligibility | `trialEligibility` | `new_customer`, `never_trialled`, `any`; see [Trials](#trials-and-trial-abuse-controls) |
 | Can be charged automatically | `recurringCapable` | stored and displayed, never read as a gate |
+| Add-ons sold with this version | `addonIds` | checkboxes over the add-on catalogue, carried over from the previous version |
 | Prices | `prices` | free text such as `RUB=49900, USD=599` |
 
 Nulls and zeroes mean different things here, and the code says so twice: an absent traffic allowance or device limit is *unlimited*, while a zero would mean a plan that permits nothing. A panel that had to guess which a zero meant would eventually advertise the wrong one, so a zero is refused instead.
@@ -107,30 +109,20 @@ The grace period exists so that expiry copy is not guesswork: it keeps access al
 - A present `trafficAllowanceBytes` or `deviceLimit` must be greater than zero.
 - Version numbers are allocated under a transaction-scoped advisory lock on the plan, so two operators pressing **Publish version** at the same moment cannot both mint version 4. The database also holds `UNIQUE (plan_id, version)`.
 
-### Two editor fields the database rejects
+- A squad selection, trial rule, billing period, or cancellation policy outside the values in the table above. The panel accepts exactly what the `plan_versions` CHECK constraints accept and the domain implements; an earlier editor sent `customer_choice` and `fixed`, which nothing implemented, so a choosable squad set could not be published at all.
+- A choosable selection (`optional` or `required`) with no offered squads, a `required` one with a minimum below 1, a minimum above the number offered, a maximum below the minimum, the same squad offered twice, or a label blank or longer than 80 characters in either language. An `automatic` version that names offered squads is refused too, because the checkout refuses any selection against it.
 
-The panel validates `squadSelection` against `automatic`, `customer_choice`, `fixed` and `trialEligibility` against `new_customer`, `never`, `any_customer`, and the web editor offers exactly those values. The `plan_versions` CHECK constraints allow `automatic`, `optional`, `required` and `new_customer`, `never_trialled`, `any`.
+### Picking squads
 
-<Warning>
-  Publishing a version with anything other than **Squad selection = automatic**
-  and **Trial eligibility = new customer** fails at the database and surfaces as
-  HTTP 500 `operation_failed`. The values the domain actually implements —
-  `optional`, `required`, `never_trialled`, `any` — are refused by the panel
-  validator with 422 before they reach it.
+The squad fields are searchable pickers over the Remnawave panel's own squads, read live from `GET /v1/panel/remnawave/squads` (`catalog.read`) with each squad's member count beside its name. Nothing is stored: Remnawave owns squads, and Omniflow only reads the list so an operator picks a squad by name instead of pasting an identifier. When the panel does not answer, the picker says so and still accepts a squad UUID typed into its search.
 
-  Until the two lists agree, a version that offers a squad choice or a non-default
-  trial rule has to be published through
-  `POST /v1/panel/catalog/plans/{planID}/versions` directly with the database's
-  values.
-</Warning>
-
-The database also allows `none` and `half_year` billing periods and a `forbid` cancellation policy; the panel validator does not, so those three are unreachable from `/admin`.
+Picking an offered squad pre-fills both labels with the panel's name for it; the labels are what the customer reads at checkout and in the bot, so they are usually rewritten.
 
 ### Add-ons offered by a version
 
-`plan_version_addons` decides which add-ons a plan version offers, and it is populated only by the `addonIds` array on `POST /v1/panel/catalog/plans/{planID}/versions`. Publishing **replaces** the set rather than merging it, so it is exactly what the operator chose rather than the union of every edit.
+`plan_version_addons` decides which add-ons a plan version offers, and it is written from the `addonIds` array on `POST /v1/panel/catalog/plans/{planID}/versions`. Publishing **replaces** the set rather than merging it, so it is exactly what the operator chose rather than the union of every edit.
 
-The panel's version editor does not send `addonIds`. Because publishing clears the set first, every plan version published through `/admin/catalog` offers no add-ons. Populating the offer set means calling the endpoint directly. [Add-ons and the subscription configurator](/commerce/addons-configurator) covers what the join protects against.
+The version editor lists every add-on that is not archived as a checkbox and starts from the previous version's set, so publishing a new price keeps the add-ons the plan already offered. [Add-ons and the subscription configurator](/commerce/addons-configurator) covers what the join protects against.
 
 ## Prices
 
@@ -249,7 +241,7 @@ A version carries two collections: `plan_versions.remnawave_squad_ids`, always a
 
 The resolved set is deduplicated and sorted, so two customers who pick the same squads in a different order produce byte-identical entitlement state. Without that, drift reconciliation would report a mismatch that is not real. Selection is validated server-side against the plan, because the identifiers arrive in customer-controlled callback data and request bodies.
 
-The customer-facing half of this — the checkout fieldset, the bot configurator, and what each refusal looks like — is on [Add-ons and the subscription configurator](/commerce/addons-configurator). Note the panel caveat above: a choosable selection cannot currently be authored from `/admin`.
+The customer-facing half of this — the checkout fieldset, the bot configurator, and what each refusal looks like — is on [Add-ons and the subscription configurator](/commerce/addons-configurator).
 
 ## Promotions
 
@@ -516,12 +508,10 @@ The offer shows the promotion's first active promo code by creation order. A pro
 | Archive or restore a plan | `POST /v1/panel/catalog/plans/{planID}/archive` |
 | Retire a plan version | `POST /v1/panel/catalog/plan-versions/{planVersionID}/retire` |
 | Change a plan's concurrency cap | `PATCH /v1/panel/catalog/plans/{planID}` |
-| Offer add-ons on a plan version | `addonIds` on `POST /v1/panel/catalog/plans/{planID}/versions` |
-| Author a squad choice or a non-default trial rule | The same versions endpoint, with the database's enum values |
 | Scope a promotion to goods | Direct SQL |
 | Inspect or change a promotion's plan scope | Direct SQL |
 
-Three of these panel routes — the versions endpoint, the add-on save, and the add-on version retire — are implemented but absent from `api/openapi.yaml`, so they do not appear in the generated client or the published API reference. See [Integrating with the API](/integrations/api) for how to authenticate against them.
+Two of these panel routes — the add-on save and the add-on version retire — are implemented but absent from `api/openapi.yaml`, so they do not appear in the generated client or the published API reference. See [Integrating with the API](/integrations/api) for how to authenticate against them.
 
 The panel forms all require a reason and send it as `X-Operator-Reason`, but no catalog or offer service actually checks for one. A direct API call publishes a plan version, saves an add-on, edits a promotion, or creates an offer with a null reason on the audit event.
 

@@ -2769,6 +2769,10 @@ export const getPanelPlanResponseLocalizationsNameMax = 120;
 
 export const getPanelPlanResponseLocalizationsDescriptionMax = 2000;
 
+export const getPanelPlanResponseVersionsItemOfferedSquadsItemLabelRuMax = 80;
+
+export const getPanelPlanResponseVersionsItemOfferedSquadsItemLabelEnMax = 80;
+
 export const GetPanelPlanResponse = zod.object({
   plan: zod.object({
     id: zod.uuid(),
@@ -2811,6 +2815,22 @@ export const GetPanelPlanResponse = zod.object({
         prices: zod.record(zod.string(), zod.int()),
         createdAt: zod.iso.datetime({ offset: true }),
         retiredAt: zod.iso.datetime({ offset: true }).optional(),
+        offeredSquads: zod
+          .array(
+            zod.object({
+              squadId: zod.uuid(),
+              labelRu: zod
+                .string()
+                .min(1)
+                .max(getPanelPlanResponseVersionsItemOfferedSquadsItemLabelRuMax),
+              labelEn: zod
+                .string()
+                .min(1)
+                .max(getPanelPlanResponseVersionsItemOfferedSquadsItemLabelEnMax),
+            }),
+          )
+          .nullish(),
+        addonIds: zod.array(zod.uuid()).nullish(),
       }),
     )
     .nullable(),
@@ -2884,6 +2904,131 @@ export const SavePanelPlanLocalizationBody = zod.object({
 });
 
 export const SavePanelPlanLocalizationResponse = zod.void();
+
+/**
+ * Requires catalog.write and an X-Operator-Reason header. Publishes the next immutable version of a plan. The add-on offer set and the squads a customer may choose are replaced, never merged, so the request carries the whole of both.
+ */
+export const CreatePanelPlanVersionParams = zod.object({
+  planID: zod.uuid(),
+});
+
+export const CreatePanelPlanVersionHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const createPanelPlanVersionBodyMinSelectableSquadsMin = 0;
+
+export const createPanelPlanVersionBodyOfferedSquadsItemLabelRuMax = 80;
+
+export const createPanelPlanVersionBodyOfferedSquadsItemLabelEnMax = 80;
+
+export const createPanelPlanVersionBodyGracePeriodSecondsMin = 0;
+
+export const createPanelPlanVersionBodyPricesMinOne = 0;
+
+export const CreatePanelPlanVersionBody = zod.object({
+  billingPeriod: zod.enum([
+    "none",
+    "day",
+    "week",
+    "month",
+    "quarter",
+    "half_year",
+    "year",
+    "custom",
+  ]),
+  durationSeconds: zod.int().min(1),
+  trafficAllowanceBytes: zod.int().min(1).nullish().describe("Null is unlimited."),
+  deviceLimit: zod.int().min(1).nullish().describe("Null is unlimited."),
+  squadIds: zod
+    .array(zod.uuid())
+    .optional()
+    .describe("Squads every subscription on the version is given."),
+  squadSelection: zod.enum(["automatic", "optional", "required"]),
+  minSelectableSquads: zod.int().min(createPanelPlanVersionBodyMinSelectableSquadsMin).optional(),
+  maxSelectableSquads: zod.int().min(1).nullish(),
+  offeredSquads: zod
+    .array(
+      zod.object({
+        squadId: zod.uuid(),
+        labelRu: zod.string().min(1).max(createPanelPlanVersionBodyOfferedSquadsItemLabelRuMax),
+        labelEn: zod.string().min(1).max(createPanelPlanVersionBodyOfferedSquadsItemLabelEnMax),
+      }),
+    )
+    .optional()
+    .describe("The squads a customer may choose; empty for automatic selection."),
+  upgradePolicy: zod.enum(["forbid", "replace", "extend"]),
+  downgradePolicy: zod.enum(["forbid", "immediate", "at_expiry"]),
+  cancellationPolicy: zod.enum(["forbid", "immediate", "at_expiry"]),
+  gracePeriodSeconds: zod.int().min(createPanelPlanVersionBodyGracePeriodSecondsMin).optional(),
+  trialEligibility: zod.enum(["new_customer", "never_trialled", "any"]),
+  recurringCapable: zod.boolean().optional(),
+  prices: zod.record(zod.string(), zod.int().min(createPanelPlanVersionBodyPricesMinOne)),
+  addonIds: zod
+    .array(zod.uuid())
+    .optional()
+    .describe("The add-ons sold with the version; the set is replaced."),
+});
+
+export const createPanelPlanVersionResponseOfferedSquadsItemLabelRuMax = 80;
+
+export const createPanelPlanVersionResponseOfferedSquadsItemLabelEnMax = 80;
+
+export const CreatePanelPlanVersionResponse = zod.object({
+  id: zod.uuid(),
+  version: zod.int(),
+  billingPeriod: zod.string(),
+  durationSeconds: zod.int(),
+  trafficAllowanceBytes: zod.int().optional(),
+  deviceLimit: zod.int().optional(),
+  squadIds: zod.array(zod.uuid()).nullish(),
+  squadSelection: zod.enum(["automatic", "optional", "required"]),
+  minSelectableSquads: zod.int().optional(),
+  maxSelectableSquads: zod.int().optional(),
+  upgradePolicy: zod.string(),
+  downgradePolicy: zod.string(),
+  cancellationPolicy: zod.string(),
+  gracePeriodSeconds: zod.int().optional(),
+  trialEligibility: zod.string().optional(),
+  recurringCapable: zod.boolean().optional(),
+  prices: zod.record(zod.string(), zod.int()),
+  createdAt: zod.iso.datetime({ offset: true }),
+  retiredAt: zod.iso.datetime({ offset: true }).optional(),
+  offeredSquads: zod
+    .array(
+      zod.object({
+        squadId: zod.uuid(),
+        labelRu: zod.string().min(1).max(createPanelPlanVersionResponseOfferedSquadsItemLabelRuMax),
+        labelEn: zod.string().min(1).max(createPanelPlanVersionResponseOfferedSquadsItemLabelEnMax),
+      }),
+    )
+    .nullish(),
+  addonIds: zod.array(zod.uuid()).nullish(),
+});
+
+/**
+ * Requires catalog.read. The Remnawave panel's internal and external squads, read live for the plan editor's pickers and never stored. `reported` is false, with a `detail`, when the panel could not be read.
+ */
+export const ListPanelRemnawaveSquadsResponse = zod.object({
+  reported: zod.boolean(),
+  detail: zod.enum(["remnawave_not_configured", "squads_unavailable"]).optional(),
+  internal: zod.array(
+    zod.object({
+      uuid: zod.uuid(),
+      name: zod.string(),
+      members: zod.int(),
+    }),
+  ),
+  external: zod.array(
+    zod.object({
+      uuid: zod.uuid(),
+      name: zod.string(),
+      members: zod.int(),
+    }),
+  ),
+});
 
 /**
  * Requires catalog.write. Retiring is forward-looking: every order that bought the version keeps its price.

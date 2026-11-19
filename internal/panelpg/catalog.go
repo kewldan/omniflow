@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 )
 
@@ -74,6 +75,11 @@ type PlanVersion struct {
 	Prices              map[string]int64 `json:"prices"`
 	CreatedAt           time.Time        `json:"createdAt"`
 	RetiredAt           *time.Time       `json:"retiredAt,omitempty"`
+	// OfferedSquads and AddonIDs are what the version offers beside its own
+	// squads, read back so the editor starts the next version from them
+	// instead of silently publishing one that offers nothing.
+	OfferedSquads []OfferedSquad `json:"offeredSquads"`
+	AddonIDs      []string       `json:"addonIds"`
 }
 
 // PlanDetail is one plan with its versions and localisations.
@@ -116,6 +122,7 @@ func (service *Service) PlanDetail(ctx context.Context, planID string) (PlanDeta
 			Code:                     plan.Code,
 			Kind:                     plan.Kind,
 			Visible:                  plan.Visible,
+			Highlighted:              plan.Highlighted,
 			SortOrder:                plan.SortOrder,
 			MaxConcurrentPerCustomer: int4Pointer(plan.MaxConcurrentPerCustomer),
 			CreatedAt:                timeValue(plan.CreatedAt),
@@ -158,9 +165,32 @@ func (service *Service) PlanDetail(ctx context.Context, planID string) (PlanDeta
 		for _, price := range prices {
 			converted.Prices[price.Currency] = price.AmountMinor
 		}
+		if converted.OfferedSquads, converted.AddonIDs, err = versionOffers(ctx, queries, version.ID); err != nil {
+			return PlanDetail{}, err
+		}
 		detail.Versions = append(detail.Versions, converted)
 	}
 	return detail, nil
+}
+
+// versionOffers reads what one plan version offers beside its own squads: the
+// squads a customer may choose and the add-ons sold with it.
+func versionOffers(ctx context.Context, queries *dbgen.Queries, versionID pgtype.UUID) ([]OfferedSquad, []string, error) {
+	squads, err := queries.ListPlanVersionSquads(ctx, versionID)
+	if err != nil {
+		return nil, nil, err
+	}
+	offered := make([]OfferedSquad, 0, len(squads))
+	for _, squad := range squads {
+		offered = append(offered, OfferedSquad{
+			SquadID: uuidString(squad.SquadID), LabelRU: squad.LabelRu, LabelEN: squad.LabelEn,
+		})
+	}
+	addons, err := queries.ListPlanVersionAddonIDs(ctx, versionID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return offered, uuidStrings(addons), nil
 }
 
 // PlanPresentation is everything about a plan the panel edits directly.

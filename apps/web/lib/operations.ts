@@ -232,6 +232,10 @@ export type PlanVersion = {
   prices: Record<string, number>;
   createdAt: string;
   retiredAt?: string;
+  /** The squads a customer may choose, with the label each language shows. */
+  offeredSquads?: { squadId: string; labelRu: string; labelEn: string }[];
+  /** The add-ons sold with this version; publishing replaces the set. */
+  addonIds?: string[];
 };
 
 export type PersonalOffer = {

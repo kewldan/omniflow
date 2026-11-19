@@ -829,6 +829,11 @@ type Querier interface {
 	InsertOrderLine(ctx context.Context, arg InsertOrderLineParams) (OrderLine, error)
 	InsertOutboxEvent(ctx context.Context, arg InsertOutboxEventParams) (OutboxEvent, error)
 	InsertPaymentEvent(ctx context.Context, arg InsertPaymentEventParams) (PaymentEvent, error)
+	// Plan authoring and the subscription options built on it: the squads a
+	// customer may choose, and what a plan version offers beside its price.
+	// One squad a customer may choose on a plan version. The version is immutable
+	// once published, so the offered set is written with it and never edited.
+	InsertPlanVersionSquad(ctx context.Context, arg InsertPlanVersionSquadParams) error
 	InsertPromoRedemption(ctx context.Context, arg InsertPromoRedemptionParams) (PromoRedemption, error)
 	InsertWebhookEvent(ctx context.Context, arg InsertWebhookEventParams) (ProviderWebhookEvent, error)
 	InvalidateAdminPasswordResets(ctx context.Context, adminUserID pgtype.UUID) (int64, error)
@@ -1195,6 +1200,7 @@ type Querier interface {
 	ListPlanAddons(ctx context.Context, arg ListPlanAddonsParams) ([]ListPlanAddonsRow, error)
 	ListPlanLocalizations(ctx context.Context, planID pgtype.UUID) ([]PlanLocalization, error)
 	ListPlanPrices(ctx context.Context, planVersionID pgtype.UUID) ([]PlanPrice, error)
+	ListPlanVersionAddonIDs(ctx context.Context, planVersionID pgtype.UUID) ([]pgtype.UUID, error)
 	ListPlanVersionSquads(ctx context.Context, planVersionID pgtype.UUID) ([]PlanVersionSquad, error)
 	ListPlanVersions(ctx context.Context, planID pgtype.UUID) ([]PlanVersion, error)
 	ListPlanVersionsForImport(ctx context.Context) ([]ListPlanVersionsForImportRow, error)

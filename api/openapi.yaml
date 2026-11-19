@@ -1196,6 +1196,32 @@ paths:
         "204": {description: Saved}
         "403": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/catalog/plans/{planID}/versions:
+    post:
+      operationId: createPanelPlanVersion
+      tags: [panel]
+      description: >-
+        Requires catalog.write and an X-Operator-Reason header. Publishes the
+        next immutable version of a plan. The add-on offer set and the squads
+        a customer may choose are replaced, never merged, so the request
+        carries the whole of both.
+      parameters: [{$ref: "#/components/parameters/PlanID"}, {$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelPlanVersionInput"}}}}
+      responses:
+        "200": {description: Published version, content: {application/json: {schema: {$ref: "#/components/schemas/PanelPlanVersionSummary"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/remnawave/squads:
+    get:
+      operationId: listPanelRemnawaveSquads
+      tags: [panel]
+      description: >-
+        Requires catalog.read. The Remnawave panel's internal and external
+        squads, read live for the plan editor's pickers and never stored.
+        `reported` is false, with a `detail`, when the panel could not be read.
+      responses:
+        "200": {description: Squads, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSquadListing"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
   /v1/panel/catalog/plan-versions/{planVersionID}/retire:
     post:
       operationId: retirePanelPlanVersion
@@ -5710,6 +5736,51 @@ components:
         prices: {type: object, additionalProperties: {type: integer, format: int64}}
         createdAt: {type: string, format: date-time}
         retiredAt: {type: string, format: date-time}
+        offeredSquads: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelOfferedSquad"}}
+        addonIds: {type: array, nullable: true, items: {type: string, format: uuid}}
+    PanelOfferedSquad:
+      type: object
+      required: [squadId, labelRu, labelEn]
+      properties:
+        squadId: {type: string, format: uuid}
+        labelRu: {type: string, minLength: 1, maxLength: 80}
+        labelEn: {type: string, minLength: 1, maxLength: 80}
+    PanelPlanVersionInput:
+      type: object
+      required: [billingPeriod, durationSeconds, squadSelection, upgradePolicy, downgradePolicy, cancellationPolicy, trialEligibility, prices]
+      properties:
+        billingPeriod: {type: string, enum: [none, day, week, month, quarter, half_year, year, custom]}
+        durationSeconds: {type: integer, format: int64, minimum: 1}
+        trafficAllowanceBytes: {type: integer, format: int64, minimum: 1, nullable: true, description: Null is unlimited.}
+        deviceLimit: {type: integer, minimum: 1, nullable: true, description: Null is unlimited.}
+        squadIds: {type: array, items: {type: string, format: uuid}, description: Squads every subscription on the version is given.}
+        squadSelection: {type: string, enum: [automatic, optional, required]}
+        minSelectableSquads: {type: integer, minimum: 0}
+        maxSelectableSquads: {type: integer, minimum: 1, nullable: true}
+        offeredSquads: {type: array, items: {$ref: "#/components/schemas/PanelOfferedSquad"}, description: The squads a customer may choose; empty for automatic selection.}
+        upgradePolicy: {type: string, enum: [forbid, replace, extend]}
+        downgradePolicy: {type: string, enum: [forbid, immediate, at_expiry]}
+        cancellationPolicy: {type: string, enum: [forbid, immediate, at_expiry]}
+        gracePeriodSeconds: {type: integer, format: int64, minimum: 0}
+        trialEligibility: {type: string, enum: [new_customer, never_trialled, any]}
+        recurringCapable: {type: boolean}
+        prices: {type: object, minProperties: 1, additionalProperties: {type: integer, format: int64, minimum: 0}}
+        addonIds: {type: array, items: {type: string, format: uuid}, description: The add-ons sold with the version; the set is replaced.}
+    PanelSquadListing:
+      type: object
+      required: [reported, internal, external]
+      properties:
+        reported: {type: boolean}
+        detail: {type: string, enum: [remnawave_not_configured, squads_unavailable]}
+        internal: {type: array, items: {$ref: "#/components/schemas/PanelRemnawaveSquad"}}
+        external: {type: array, items: {$ref: "#/components/schemas/PanelRemnawaveSquad"}}
+    PanelRemnawaveSquad:
+      type: object
+      required: [uuid, name, members]
+      properties:
+        uuid: {type: string, format: uuid}
+        name: {type: string}
+        members: {type: integer}
     PanelPlanDetail:
       type: object
       required: [plan, localizations, versions]
