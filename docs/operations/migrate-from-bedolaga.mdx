@@ -27,8 +27,9 @@ cutover.
 <Steps>
   <Step title="Prepare Omniflow">
     Deploy Omniflow with its migrations applied, create a plan version for every Bedolaga tariff you
-    still sell, and configure the payment providers you use. Do not start Omniflow's bot or worker
-    against the production panel yet.
+    still sell, and configure the payment providers you use — `00-convert-env.sh` carries their
+    credentials over from Bedolaga's `.env`. Do not start Omniflow's bot or worker against the
+    production panel yet.
   </Step>
   <Step title="Rehearse on a copy">
     `01-snapshot-bedolaga.sh`, `02-restore-staging.sh`, then `03-plan.sh`, `04-apply.sh`, and
@@ -196,7 +197,16 @@ apart, so until you choose, every blocked user is the conflict `blocked_policy_m
 ## Environment variables, Bedolaga → Omniflow
 
 Omniflow's processes read their own `APP_*` variables; see [Configuration](/getting-started/configuration).
-The usual Bedolaga settings land here:
+`deploy/migration/00-convert-env.sh` does the conversion below for you: it reads Bedolaga's `.env`,
+writes the core settings and the variables of every payment provider whose `<PROVIDER>_ENABLED` is
+`true` into a new file with mode `600`, prints only variable names, and refuses to overwrite a file.
+A disabled provider's credentials are left behind on purpose.
+
+```bash
+sh deploy/migration/00-convert-env.sh /root/remnawave-bedolaga-telegram-bot/.env /root/omniflow-converted.env
+```
+
+Review the result and merge it into Omniflow's `.env`. The usual Bedolaga settings land here:
 
 | Bedolaga | Omniflow | Note |
 | --- | --- | --- |
@@ -214,7 +224,7 @@ The usual Bedolaga settings land here:
 | `CRYPTOBOT_API_TOKEN` | `APP_CRYPTOBOT_TOKEN` | |
 | `CRYPTOBOT_TESTNET` | `APP_CRYPTOBOT_TESTNET` | Defaults to `true` in Omniflow — set `false` for real payments |
 | `TELEGRAM_STARS_ENABLED`, `TELEGRAM_STARS_RATE_RUB` | — | Stars work through the bot token; a plan is payable in Stars when its version has an `XTR` price. See [Payments](/integrations/payments) |
-| `HELEKET_*`, `MULENPAY_*`, `PAL24_*`, `PLATEGA_*`, `WATA_*`, `FREEKASSA_*`, `CLOUDPAYMENTS_*`, `LAVA_*`, `CASHERA_*`, `TRIBUTE_*`, … | `APP_<SLUG>_<FIELD>` | Each further provider is an adapter registered in `payments.Builders` that reads its own variables under its slug, e.g. `APP_HELEKET_…`. The exact field names are defined by that adapter; this release registers none beyond YooKassa, CryptoBot, Stars, and manual |
+| `HELEKET_*`, `PLATEGA_*`, `FREEKASSA_*`, `CLOUDPAYMENTS_*`, `LAVA_*`, … (25 providers) | `APP_<NAME>` | The same name with an `APP_` prefix: 140 of the 156 provider variables match Bedolaga's exactly. The rest (payment-method selectors, Overpay's client certificate, FreeKassa's server IP) are listed in [More payment providers](/integrations/payment-providers) |
 | `POSTGRES_*`, `DATABASE_URL` | `APP_BEDOLAGA_DATABASE_URL` | For the importer only. Omniflow keeps its own database in `APP_DATABASE_URL` |
 | `REDIS_URL` | `APP_VALKEY_URL` | Omniflow's own Valkey; nothing in Bedolaga's Redis carries over |
 | `CABINET_URL` | `APP_PUBLIC_URL` | The customer panel is Omniflow's web app |

@@ -27,8 +27,9 @@ description: Перенос клиентов, балансов, подписок
 <Steps>
   <Step title="Подготовьте Omniflow">
     Разверните Omniflow с применёнными миграциями, создайте версию плана для каждого тарифа Bedolaga,
-    который ещё продаётся, и настройте используемых платёжных провайдеров. Бота и воркер Omniflow
-    против боевой панели пока не запускайте.
+    который ещё продаётся, и настройте используемых платёжных провайдеров — `00-convert-env.sh`
+    перенесёт их ключи из `.env` Bedolaga. Бота и воркер Omniflow против боевой панели пока не
+    запускайте.
   </Step>
   <Step title="Отрепетируйте на копии">
     `01-snapshot-bedolaga.sh`, `02-restore-staging.sh`, затем `03-plan.sh`, `04-apply.sh` и
@@ -198,7 +199,16 @@ plans:
 ## Переменные окружения: Bedolaga → Omniflow
 
 Процессы Omniflow читают свои переменные `APP_*`; см. [Конфигурация](/ru/getting-started/configuration).
-Привычные настройки Bedolaga попадают сюда:
+`deploy/migration/00-convert-env.sh` делает преобразование ниже за вас: читает `.env` Bedolaga,
+записывает основные настройки и переменные каждого платёжного провайдера, у которого
+`<PROVIDER>_ENABLED` равно `true`, в новый файл с правами `600`, печатает только имена переменных и
+отказывается перезаписывать существующий файл. Ключи выключенных провайдеров намеренно не переносятся.
+
+```bash
+sh deploy/migration/00-convert-env.sh /root/remnawave-bedolaga-telegram-bot/.env /root/omniflow-converted.env
+```
+
+Проверьте результат и перенесите его в `.env` Omniflow. Привычные настройки Bedolaga попадают сюда:
 
 | Bedolaga | Omniflow | Примечание |
 | --- | --- | --- |
@@ -216,7 +226,7 @@ plans:
 | `CRYPTOBOT_API_TOKEN` | `APP_CRYPTOBOT_TOKEN` | |
 | `CRYPTOBOT_TESTNET` | `APP_CRYPTOBOT_TESTNET` | В Omniflow по умолчанию `true` — для настоящих платежей задайте `false` |
 | `TELEGRAM_STARS_ENABLED`, `TELEGRAM_STARS_RATE_RUB` | — | Звёзды работают через токен бота; план можно оплатить звёздами, если у его версии есть цена в `XTR`. См. [Платежи](/ru/integrations/payments) |
-| `HELEKET_*`, `MULENPAY_*`, `PAL24_*`, `PLATEGA_*`, `WATA_*`, `FREEKASSA_*`, `CLOUDPAYMENTS_*`, `LAVA_*`, `CASHERA_*`, `TRIBUTE_*`, … | `APP_<SLUG>_<FIELD>` | Каждый следующий провайдер — адаптер, зарегистрированный в `payments.Builders`, который читает свои переменные под своим слагом, например `APP_HELEKET_…`. Точные имена полей задаёт сам адаптер; в этой версии, кроме ЮKassa, CryptoBot, звёзд и ручной оплаты, не зарегистрировано ни одного |
+| `HELEKET_*`, `PLATEGA_*`, `FREEKASSA_*`, `CLOUDPAYMENTS_*`, `LAVA_*`, … (25 провайдеров) | `APP_<ИМЯ>` | То же имя с префиксом `APP_`: 140 из 156 переменных провайдеров совпадают с Bedolaga дословно. Остальные (выбор способа оплаты, клиентский сертификат Overpay, IP сервера FreeKassa) перечислены в разделе [Другие платёжные провайдеры](/ru/integrations/payment-providers) |
 | `POSTGRES_*`, `DATABASE_URL` | `APP_BEDOLAGA_DATABASE_URL` | Только для импортёра. Своя база Omniflow — в `APP_DATABASE_URL` |
 | `REDIS_URL` | `APP_VALKEY_URL` | Собственный Valkey Omniflow; из Redis Bedolaga ничего не переносится |
 | `CABINET_URL` | `APP_PUBLIC_URL` | Клиентская панель — веб-приложение Omniflow |
