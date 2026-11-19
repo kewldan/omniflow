@@ -1,0 +1,64 @@
+## Platega
+
+Platega (`app.platega.io`) is a payment gateway for SBP, card and crypto payments. Omniflow creates a
+one-off Platega transaction with the payment method you configure and sends the customer to
+Platega's payment page.
+
+**Currencies:** the single currency in `APP_PLATEGA_CURRENCY`, `RUB` by default.
+
+### Configuration
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_PLATEGA_MERCHANT_ID` | Yes | — | Merchant ID, sent as `X-MerchantId`. |
+| `APP_PLATEGA_SECRET` | Yes | — | API secret, sent as `X-Secret` and expected on every callback. Keep it secret. |
+| `APP_PLATEGA_PAYMENT_METHOD` | No | `2` | Platega method code: `2` SBP (QR), `11` cards (RUB), `12` international cards, `13` crypto. The method must be enabled for your merchant. `6` (subscriptions) is refused. |
+| `APP_PLATEGA_CURRENCY` | No | `RUB` | Currency of every payment. |
+| `APP_PLATEGA_API_VERSION` | No | `v1` | `v1` creates through `/transaction/process`, `v2` through `/v2/transaction/process`. Use `v2` if Platega answers `No available card cascades` on v1. |
+| `APP_PLATEGA_BASE_URL` | No | `https://app.platega.io` | API base URL. A trailing `/v1` or `/v2` selects that version. |
+| `APP_PLATEGA_RETURN_URL` | No | — | Return page when the checkout supplies none. |
+| `APP_PLATEGA_FAILED_URL` | No | the return page | Page Platega sends the customer to after a failed payment. |
+
+Setting only one of the two credentials is a startup error; setting neither leaves Platega disabled.
+
+Platega requires `metadata.user_email`, which must identify the buyer rather than the order. Omniflow
+sends the customer's e-mail, or `<telegram id>@telegram.org` for a customer known by Telegram ID. A
+payment request that carries neither is refused before Platega is called.
+
+<Warning>
+  The checkout does not yet pass the customer's e-mail or Telegram ID to payment adapters, so until
+  it does every Platega payment is refused with this error.
+</Warning>
+
+### Webhook
+
+Enter this address as the callback URL in the Platega cabinet:
+
+```text
+https://<APP_PUBLIC_URL>/v1/payments/webhooks/platega
+```
+
+A callback is accepted only when its `X-MerchantId` and `X-Secret` headers equal your credentials.
+The cabinet's verification request, with an empty body and no headers, is answered `200` and changes
+nothing. `CONFIRMED` settles the order; `PENDING`, `INPROGRESS`, `FAILED`, `CANCELED`, `EXPIRED` and
+any other status change nothing.
+
+### Capabilities
+
+| Capability | Supported |
+| --- | --- |
+| Webhooks | Yes, authenticated by headers |
+| Status polling | Yes, `GET /transaction/{id}` |
+| Read-only connection probe | No |
+| Refunds | No |
+| Recurring charges | No. Platega's SBP subscriptions are not used |
+| Cancelling an open transaction | No |
+
+### Testing
+
+1. Set the variables above and restart the API. A startup error names a missing or malformed
+   variable.
+2. When the Platega cabinet checks the callback URL, its empty request appears in `/admin` → System →
+   Webhooks and is answered `200`.
+3. Buy the cheapest plan version yourself with Platega and watch `/admin/finance/{orderId}` for the
+   payment timeline. If the callback does not arrive, reconciliation reads the transaction status.

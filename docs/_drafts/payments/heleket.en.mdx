@@ -1,0 +1,60 @@
+## Heleket
+
+Heleket is a crypto payment gateway. Omniflow opens a Heleket invoice priced in the order's fiat
+currency; the customer pays it in a cryptocurrency on Heleket's page, and Heleket reports the result
+to Omniflow's webhook.
+
+**Currencies:** orders in `RUB` or `USD`. The coin the customer pays in is set by
+`APP_HELEKET_DEFAULT_CURRENCY`.
+
+### Configuration
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_HELEKET_MERCHANT_ID` | Yes | — | Merchant UUID from the Heleket cabinet, sent in the `merchant` header. |
+| `APP_HELEKET_API_KEY` | Yes | — | Payment API key. It signs every request and verifies every webhook. Keep it secret. |
+| `APP_HELEKET_BASE_URL` | No | `https://api.heleket.com/v1` | API base URL. |
+| `APP_HELEKET_DEFAULT_CURRENCY` | No | `USDT` | Coin the invoice is converted to (`to_currency`). |
+| `APP_HELEKET_DEFAULT_NETWORK` | No | — | Blockchain network for that coin (`network`), for example `tron`. Unset lets the customer choose. |
+| `APP_HELEKET_INVOICE_LIFETIME` | No | `3600` | Invoice lifetime in seconds, kept between 300 and 43200. |
+| `APP_HELEKET_MARKUP_PERCENT` | No | `0` | Markup charged to the customer, in percent. Rounded to a whole number and sent as a negative `discount_percent`. |
+
+`APP_PUBLIC_URL` is also required: every invoice carries the webhook URL as `url_callback`, so
+Omniflow refuses to start the adapter without it. Setting only one of the two credentials is a
+startup error; setting neither leaves Heleket disabled.
+
+### Webhook
+
+Each invoice already carries the callback address, so nothing has to be entered in the cabinet. It
+is:
+
+```text
+https://<APP_PUBLIC_URL>/v1/payments/webhooks/heleket
+```
+
+A notification is accepted only when its `sign` field matches `md5(base64(body) + API key)`,
+computed over the body without `sign`. A notification with a missing or wrong signature, or with a
+changed amount, is rejected. Only the statuses `paid` and `paid_over` settle an order; every other
+status is recorded and changes nothing.
+
+### Capabilities
+
+| Capability | Supported |
+| --- | --- |
+| Webhooks | Yes, signed |
+| Status polling | Yes, through `payment/info` |
+| Read-only connection probe | Yes, `payment/list` |
+| Refunds | No |
+| Recurring charges | No |
+| Cancelling an open invoice | No |
+
+### Testing
+
+1. Set the variables above and `APP_PUBLIC_URL`, and restart the API. A startup error names a
+   missing or half-set variable.
+2. Optionally call `POST /v1/panel/settings/providers/heleket/test`. It runs the read-only probe; see
+   [Verifying a provider is really working](/integrations/payments#verifying-a-provider-is-really-working)
+   for where its result currently appears.
+3. Buy the cheapest plan version yourself with Heleket. Watch `/admin` → System → Webhooks for the
+   notification and `/admin/finance/{orderId}` for the payment timeline. If the webhook does not
+   arrive, reconciliation reads the invoice status from `payment/info`.

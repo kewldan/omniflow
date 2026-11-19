@@ -1,0 +1,59 @@
+## PayPalych (Pal24)
+
+PayPalych (`pal24.pro`) is a Russian payment gateway. Omniflow issues a PayPalych bill for SBP or
+card payment and sends the customer to the bill's payment page.
+
+**Currencies:** `RUB` only.
+
+### Configuration
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_PAL24_API_TOKEN` | Yes | — | API token, sent as `Authorization: Bearer`. Keep it secret. |
+| `APP_PAL24_SHOP_ID` | Yes | — | Shop ID from the PayPalych cabinet. |
+| `APP_PAL24_SIGNATURE_TOKEN` | No | `APP_PAL24_API_TOKEN` | Token that signs postbacks. Set it when the shop's signature token differs from the API token. Keep it secret. |
+| `APP_PAL24_PAYMENT_METHOD` | No | `sbp` | `sbp` or `card`, sent as `payment_method` `SBP` or `BANK_CARD`. |
+| `APP_PAL24_BASE_URL` | No | `https://pal24.pro/api/v1/` | API base URL. |
+| `APP_PAL24_REQUEST_TIMEOUT` | No | `30` | Request timeout in seconds. |
+
+Setting only one of the API token and the shop ID is a startup error; setting none of the three
+tokens leaves PayPalych disabled. Any other payment method value is a startup error.
+
+### Webhook
+
+Enter this address as the shop's Result URL (postback) in the PayPalych cabinet:
+
+```text
+https://<APP_PUBLIC_URL>/v1/payments/webhooks/pal24
+```
+
+A postback, form-encoded or JSON, is accepted only when `SignatureValue` equals
+`upper(md5(OutSum:InvId:token))`. A changed amount or a wrong signature is rejected. `SUCCESS`,
+`OVERPAID` and `PAID` settle the order; every other status changes nothing.
+
+<Warning>
+  PayPalych's signature covers only `OutSum` and `InvId`, not `Status`. Keep the signature token
+  secret and the webhook on HTTPS.
+</Warning>
+
+### Capabilities
+
+| Capability | Supported |
+| --- | --- |
+| Webhooks | Yes, signed |
+| Status polling | Yes, `bill/status` |
+| Read-only connection probe | Yes, `merchant/balance` |
+| Cancelling an open bill | Yes, `bill/toggle_activity` deactivates the bill |
+| Refunds | No |
+| Recurring charges | No |
+
+### Testing
+
+1. Set the variables above and restart the API. A startup error names a missing or malformed
+   variable.
+2. Optionally call `POST /v1/panel/settings/providers/pal24/test`. It runs the read-only probe; see
+   [Verifying a provider is really working](/integrations/payments#verifying-a-provider-is-really-working)
+   for where its result currently appears.
+3. Buy the cheapest plan version yourself with PayPalych. Watch `/admin` → System → Webhooks for the
+   postback and `/admin/finance/{orderId}` for the payment timeline. If the postback does not
+   arrive, reconciliation reads the bill status from `bill/status`.
