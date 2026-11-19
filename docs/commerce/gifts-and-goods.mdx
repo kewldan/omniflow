@@ -434,6 +434,16 @@ A customer has one open cart. Saving a shop item therefore replaces a saved plan
 rather than sitting beside it: keeping both would mean the auto-purchase sweep
 charging for something the customer believed they had replaced.
 
+## Gifts on the web
+
+`/account/gifts` buys a subscription gift the way the bot does: the customer picks a plan and an
+optional note, the wallet pays what it can, and anything left is paid on the order page through any
+configured provider. The code appears once on that screen (`POST /v1/account/gifts` with an
+`Idempotency-Key`; a retry returns the same gift without the code). The page lists gifts sent, by the
+last four characters of the code, and gifts received. A recipient redeems a code on the wallet page,
+in the same **Promo or gift code** field that takes access codes and reward promo codes
+(`POST /v1/account/codes/redeem`).
+
 ## Buying in the bot
 
 ### Gifts

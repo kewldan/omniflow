@@ -3600,6 +3600,42 @@ paths:
       responses:
         "200": {description: Wallet, content: {application/json: {schema: {$ref: "#/components/schemas/AccountWallet"}}}}
         "400": {$ref: "#/components/responses/Problem"}
+  /v1/account/gifts:
+    get:
+      operationId: accountListGifts
+      tags: [account]
+      description: Gifts the customer bought (with the last four characters of each code) and gifts they claimed.
+      responses:
+        "200":
+          description: Gifts
+          content: {application/json: {schema: {type: object, required: [sent, received], properties: {sent: {type: array, items: {$ref: "#/components/schemas/AccountGift"}}, received: {type: array, items: {$ref: "#/components/schemas/AccountGift"}}}}}}
+    post:
+      operationId: accountBuyGift
+      tags: [account]
+      description: >-
+        Opens a subscription gift order, as the bot's gift flow does. The wallet
+        pays what it can; anything left is paid through
+        POST /v1/account/orders/{orderID}/payment. The claim code is returned in
+        this response only, because only its hash is stored. Requires an
+        Idempotency-Key header.
+      parameters:
+        - {in: header, name: Idempotency-Key, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [planVersionId]
+              properties:
+                planVersionId: {type: string, format: uuid}
+                currency: {type: string}
+                message: {type: string, maxLength: 500}
+      responses:
+        "201": {description: Gift opened, content: {application/json: {schema: {$ref: "#/components/schemas/AccountGift"}}}}
+        "400": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/account/codes/redeem:
     post:
       operationId: accountRedeemCode
@@ -6990,6 +7026,23 @@ components:
     # -------------------------------------------------------------------------
     # Customer web panel (v0.9)
     # -------------------------------------------------------------------------
+    AccountGift:
+      type: object
+      required: [id, orderId, codeHint, kind, status, currency, externalMinor, expiresAt, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        orderId: {type: string, format: uuid}
+        code: {type: string, description: "Only on the response that created the gift."}
+        codeHint: {type: string}
+        kind: {type: string}
+        status: {type: string}
+        currency: {type: string}
+        creditMinor: {type: integer, format: int64}
+        orderState: {type: string}
+        externalMinor: {type: integer, format: int64, description: "What is still owed through a provider when the gift was opened."}
+        expiresAt: {type: string, format: date-time}
+        claimedAt: {type: string, format: date-time}
+        createdAt: {type: string, format: date-time}
     AccountSignInMethods:
       type: object
       required: [telegram, magicLink, email, oidc]

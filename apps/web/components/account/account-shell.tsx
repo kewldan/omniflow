@@ -59,6 +59,7 @@ const SECONDARY: { href: string; key: string }[] = [
   { href: "/account/orders", key: "orders" },
   { href: "/account/devices", key: "devices" },
   { href: "/account/referrals", key: "referrals" },
+  { href: "/account/gifts", key: "gifts" },
   { href: "/account/news", key: "news" },
   { href: "/account/security", key: "security" },
 ];
@@ -77,6 +78,7 @@ const UNTITLED_SECTIONS: Record<string, string> = {
   "/account/privacy": "account.hub.privacy",
   "/account/profile": "nav.profile",
   "/account/referrals": "nav.referrals",
+  "/account/gifts": "nav.gifts",
   "/account/security": "nav.security",
   "/account/wallet": "nav.wallet",
 };

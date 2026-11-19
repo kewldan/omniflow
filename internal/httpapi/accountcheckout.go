@@ -51,6 +51,8 @@ func (handlers *AccountHandlers) mountCheckout(router chi.Router) {
 	router.Get("/wallet", handlers.readWallet)
 	router.Post("/wallet/top-up", handlers.startTopUp)
 	router.Post("/codes/redeem", handlers.redeemCode)
+	router.Get("/gifts", handlers.listGifts)
+	router.Post("/gifts", handlers.buyGift)
 }
 
 // recordAttribution attaches an advertising origin to one of the customer's own
@@ -1034,4 +1036,52 @@ func (handlers *AccountHandlers) redeemCode(writer http.ResponseWriter, request 
 		payload["creditMinor"], payload["currency"] = redeemed.CreditMinor, redeemed.Currency
 	}
 	writeJSON(writer, http.StatusOK, payload)
+}
+
+// listGifts returns the gifts the customer sent and the ones they claimed.
+func (handlers *AccountHandlers) listGifts(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := CustomerFrom(request.Context())
+	sent, err := handlers.checkout.GiftsSent(request.Context(), principal.Customer.ID)
+	if err != nil {
+		handlers.writeCheckoutError(writer, request, err)
+		return
+	}
+	received, err := handlers.checkout.GiftsReceived(request.Context(), principal.Customer.ID)
+	if err != nil {
+		handlers.writeCheckoutError(writer, request, err)
+		return
+	}
+	writeJSON(writer, http.StatusOK, map[string]any{"sent": sent, "received": received})
+}
+
+// buyGift opens a subscription gift order. The claim code is in this response
+// and nowhere else; what is still owed is paid through the order's payment
+// route like any other order.
+func (handlers *AccountHandlers) buyGift(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := CustomerFrom(request.Context())
+	key := strings.TrimSpace(request.Header.Get("Idempotency-Key"))
+	if !validIdempotencyKey(key) {
+		writeProblem(writer, request, http.StatusBadRequest, "idempotency_key_required", "A gift requires an Idempotency-Key header")
+		return
+	}
+	var body struct {
+		PlanVersionID string `json:"planVersionId"`
+		Currency      string `json:"currency"`
+		Message       string `json:"message"`
+	}
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	gift, err := handlers.checkout.BuyGift(request.Context(), principal.Customer.ID, key, accountcheckout.GiftInput{
+		PlanVersionID: body.PlanVersionID, Currency: body.Currency, Message: strings.TrimSpace(body.Message),
+	})
+	if errors.Is(err, accountcheckout.ErrGiftInvalid) {
+		writeProblem(writer, request, http.StatusUnprocessableEntity, "gift_invalid", "Choose a plan, and keep the message under 500 characters")
+		return
+	}
+	if err != nil {
+		handlers.writeCheckoutError(writer, request, err)
+		return
+	}
+	writeJSON(writer, http.StatusCreated, gift)
 }

@@ -4972,6 +4972,27 @@ type AccountExport struct {
 // AccountExportVersion defines model for AccountExport.Version.
 type AccountExportVersion string
 
+// AccountGift defines model for AccountGift.
+type AccountGift struct {
+	ClaimedAt *time.Time `json:"claimedAt,omitempty"`
+
+	// Code Only on the response that created the gift.
+	Code        *string   `json:"code,omitempty"`
+	CodeHint    string    `json:"codeHint"`
+	CreatedAt   time.Time `json:"createdAt"`
+	CreditMinor *int64    `json:"creditMinor,omitempty"`
+	Currency    string    `json:"currency"`
+	ExpiresAt   time.Time `json:"expiresAt"`
+
+	// ExternalMinor What is still owed through a provider when the gift was opened.
+	ExternalMinor int64              `json:"externalMinor"`
+	Id            openapi_types.UUID `json:"id"`
+	Kind          string             `json:"kind"`
+	OrderId       openapi_types.UUID `json:"orderId"`
+	OrderState    *string            `json:"orderState,omitempty"`
+	Status        string             `json:"status"`
+}
+
 // AccountLinkedMethodList defines model for AccountLinkedMethodList.
 type AccountLinkedMethodList struct {
 	Items []struct {
@@ -9192,6 +9213,18 @@ type RemoveAccountContactParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// AccountBuyGiftJSONBody defines parameters for AccountBuyGift.
+type AccountBuyGiftJSONBody struct {
+	Currency      *string            `json:"currency,omitempty"`
+	Message       *string            `json:"message,omitempty"`
+	PlanVersionId openapi_types.UUID `json:"planVersionId"`
+}
+
+// AccountBuyGiftParams defines parameters for AccountBuyGift.
+type AccountBuyGiftParams struct {
+	IdempotencyKey string `json:"Idempotency-Key"`
+}
+
 // UpdateAccountProfileParams defines parameters for UpdateAccountProfile.
 type UpdateAccountProfileParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
@@ -10942,6 +10975,9 @@ type AccountRedeemCodeJSONRequestBody AccountRedeemCodeJSONBody
 // AddAccountContactJSONRequestBody defines body for AddAccountContact for application/json ContentType.
 type AddAccountContactJSONRequestBody AddAccountContactJSONBody
 
+// AccountBuyGiftJSONRequestBody defines body for AccountBuyGift for application/json ContentType.
+type AccountBuyGiftJSONRequestBody AccountBuyGiftJSONBody
+
 // UpdateAccountProfileJSONRequestBody defines body for UpdateAccountProfile for application/json ContentType.
 type UpdateAccountProfileJSONRequestBody = AccountProfileInput
 
@@ -11480,6 +11516,12 @@ type ServerInterface interface {
 
 	// (DELETE /v1/account/contacts/{contactID})
 	RemoveAccountContact(w http.ResponseWriter, r *http.Request, contactID openapi_types.UUID, params RemoveAccountContactParams)
+
+	// (GET /v1/account/gifts)
+	AccountListGifts(w http.ResponseWriter, r *http.Request)
+
+	// (POST /v1/account/gifts)
+	AccountBuyGift(w http.ResponseWriter, r *http.Request, params AccountBuyGiftParams)
 
 	// (GET /v1/account/loyalty)
 	GetAccountLoyalty(w http.ResponseWriter, r *http.Request)
@@ -12495,6 +12537,16 @@ func (_ Unimplemented) AddAccountContact(w http.ResponseWriter, r *http.Request,
 
 // (DELETE /v1/account/contacts/{contactID})
 func (_ Unimplemented) RemoveAccountContact(w http.ResponseWriter, r *http.Request, contactID openapi_types.UUID, params RemoveAccountContactParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/gifts)
+func (_ Unimplemented) AccountListGifts(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/gifts)
+func (_ Unimplemented) AccountBuyGift(w http.ResponseWriter, r *http.Request, params AccountBuyGiftParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -14834,6 +14886,65 @@ func (siw *ServerInterfaceWrapper) RemoveAccountContact(w http.ResponseWriter, r
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RemoveAccountContact(w, r, contactID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AccountListGifts operation middleware
+func (siw *ServerInterfaceWrapper) AccountListGifts(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AccountListGifts(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AccountBuyGift operation middleware
+func (siw *ServerInterfaceWrapper) AccountBuyGift(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AccountBuyGiftParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AccountBuyGift(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -28678,6 +28789,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/v1/account/wallet", wrapper.GetAccountWallet)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/gifts", wrapper.AccountListGifts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/gifts", wrapper.AccountBuyGift)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/account/codes/redeem", wrapper.AccountRedeemCode)
 	})
 	r.Group(func(r chi.Router) {
@@ -30025,6 +30142,97 @@ func (response RemoveAccountContact404ApplicationProblemPlusJSONResponse) VisitR
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountListGiftsRequestObject struct {
+}
+
+type AccountListGiftsResponseObject interface {
+	VisitAccountListGiftsResponse(w http.ResponseWriter) error
+}
+
+type AccountListGifts200JSONResponse struct {
+	Received []AccountGift `json:"received"`
+	Sent     []AccountGift `json:"sent"`
+}
+
+func (response AccountListGifts200JSONResponse) VisitAccountListGiftsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountBuyGiftRequestObject struct {
+	Params AccountBuyGiftParams
+	Body   *AccountBuyGiftJSONRequestBody
+}
+
+type AccountBuyGiftResponseObject interface {
+	VisitAccountBuyGiftResponse(w http.ResponseWriter) error
+}
+
+type AccountBuyGift201JSONResponse AccountGift
+
+func (response AccountBuyGift201JSONResponse) VisitAccountBuyGiftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountBuyGift400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response AccountBuyGift400ApplicationProblemPlusJSONResponse) VisitAccountBuyGiftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountBuyGift403ApplicationProblemPlusJSONResponse Problem
+
+func (response AccountBuyGift403ApplicationProblemPlusJSONResponse) VisitAccountBuyGiftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountBuyGift422ApplicationProblemPlusJSONResponse Problem
+
+func (response AccountBuyGift422ApplicationProblemPlusJSONResponse) VisitAccountBuyGiftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -43582,6 +43790,12 @@ type StrictServerInterface interface {
 	// (DELETE /v1/account/contacts/{contactID})
 	RemoveAccountContact(ctx context.Context, request RemoveAccountContactRequestObject) (RemoveAccountContactResponseObject, error)
 
+	// (GET /v1/account/gifts)
+	AccountListGifts(ctx context.Context, request AccountListGiftsRequestObject) (AccountListGiftsResponseObject, error)
+
+	// (POST /v1/account/gifts)
+	AccountBuyGift(ctx context.Context, request AccountBuyGiftRequestObject) (AccountBuyGiftResponseObject, error)
+
 	// (GET /v1/account/loyalty)
 	GetAccountLoyalty(ctx context.Context, request GetAccountLoyaltyRequestObject) (GetAccountLoyaltyResponseObject, error)
 
@@ -45225,6 +45439,63 @@ func (sh *strictHandler) RemoveAccountContact(w http.ResponseWriter, r *http.Req
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(RemoveAccountContactResponseObject); ok {
 		if err := validResponse.VisitRemoveAccountContactResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AccountListGifts operation middleware
+func (sh *strictHandler) AccountListGifts(w http.ResponseWriter, r *http.Request) {
+	var request AccountListGiftsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AccountListGifts(ctx, request.(AccountListGiftsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AccountListGifts")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AccountListGiftsResponseObject); ok {
+		if err := validResponse.VisitAccountListGiftsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AccountBuyGift operation middleware
+func (sh *strictHandler) AccountBuyGift(w http.ResponseWriter, r *http.Request, params AccountBuyGiftParams) {
+	var request AccountBuyGiftRequestObject
+
+	request.Params = params
+
+	var body AccountBuyGiftJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AccountBuyGift(ctx, request.(AccountBuyGiftRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AccountBuyGift")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AccountBuyGiftResponseObject); ok {
+		if err := validResponse.VisitAccountBuyGiftResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

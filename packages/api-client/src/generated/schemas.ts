@@ -9396,6 +9396,83 @@ export const GetAccountWalletResponse = zod.object({
 });
 
 /**
+ * Gifts the customer bought (with the last four characters of each code) and gifts they claimed.
+ */
+export const AccountListGiftsResponse = zod.object({
+  sent: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      orderId: zod.uuid(),
+      code: zod.string().optional().describe("Only on the response that created the gift."),
+      codeHint: zod.string(),
+      kind: zod.string(),
+      status: zod.string(),
+      currency: zod.string(),
+      creditMinor: zod.int().optional(),
+      orderState: zod.string().optional(),
+      externalMinor: zod
+        .int()
+        .describe("What is still owed through a provider when the gift was opened."),
+      expiresAt: zod.iso.datetime({ offset: true }),
+      claimedAt: zod.iso.datetime({ offset: true }).optional(),
+      createdAt: zod.iso.datetime({ offset: true }),
+    }),
+  ),
+  received: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      orderId: zod.uuid(),
+      code: zod.string().optional().describe("Only on the response that created the gift."),
+      codeHint: zod.string(),
+      kind: zod.string(),
+      status: zod.string(),
+      currency: zod.string(),
+      creditMinor: zod.int().optional(),
+      orderState: zod.string().optional(),
+      externalMinor: zod
+        .int()
+        .describe("What is still owed through a provider when the gift was opened."),
+      expiresAt: zod.iso.datetime({ offset: true }),
+      claimedAt: zod.iso.datetime({ offset: true }).optional(),
+      createdAt: zod.iso.datetime({ offset: true }),
+    }),
+  ),
+});
+
+/**
+ * Opens a subscription gift order, as the bot's gift flow does. The wallet pays what it can; anything left is paid through POST /v1/account/orders/{orderID}/payment. The claim code is returned in this response only, because only its hash is stored. Requires an Idempotency-Key header.
+ */
+export const AccountBuyGiftHeader = zod.object({
+  "Idempotency-Key": zod.string(),
+});
+
+export const accountBuyGiftBodyMessageMax = 500;
+
+export const AccountBuyGiftBody = zod.object({
+  planVersionId: zod.uuid(),
+  currency: zod.string().optional(),
+  message: zod.string().max(accountBuyGiftBodyMessageMax).optional(),
+});
+
+export const AccountBuyGiftResponse = zod.object({
+  id: zod.uuid(),
+  orderId: zod.uuid(),
+  code: zod.string().optional().describe("Only on the response that created the gift."),
+  codeHint: zod.string(),
+  kind: zod.string(),
+  status: zod.string(),
+  currency: zod.string(),
+  creditMinor: zod.int().optional(),
+  orderState: zod.string().optional(),
+  externalMinor: zod
+    .int()
+    .describe("What is still owed through a provider when the gift was opened."),
+  expiresAt: zod.iso.datetime({ offset: true }),
+  claimedAt: zod.iso.datetime({ offset: true }).optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
  * Applies a code outside checkout: a gift code, a wholesale access code, or a promo code that rewards on its own (days added to the subscription, a trial, or wallet credit). A discount promo code is refused here; it is applied on the checkout screen. Every refusal is the same 422 code_refused. Throttled to ten attempts an hour per customer.
  */
 export const accountRedeemCodeBodyCodeMax = 64;

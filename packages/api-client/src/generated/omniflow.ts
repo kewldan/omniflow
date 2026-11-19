@@ -3555,6 +3555,24 @@ export interface PanelBulkDetail {
   items: PanelBulkItem[] | null;
 }
 
+export interface AccountGift {
+  id: string;
+  orderId: string;
+  /** Only on the response that created the gift. */
+  code?: string;
+  codeHint: string;
+  kind: string;
+  status: string;
+  currency: string;
+  creditMinor?: number;
+  orderState?: string;
+  /** What is still owed through a provider when the gift was opened. */
+  externalMinor: number;
+  expiresAt: string;
+  claimedAt?: string;
+  createdAt: string;
+}
+
 export type AccountSignInMethodsOidcItem = {
   slug: string;
   displayName: string;
@@ -6316,6 +6334,18 @@ export type GetAccountWalletParams = {
    * @maximum 100
    */
   limit?: number;
+};
+
+export type AccountListGifts200 = {
+  sent: AccountGift[];
+  received: AccountGift[];
+};
+
+export type AccountBuyGiftBody = {
+  planVersionId: string;
+  currency?: string;
+  /** @maxLength 500 */
+  message?: string;
 };
 
 export type AccountRedeemCodeBody = {
@@ -28368,6 +28398,152 @@ export const useGetAccountWallet = <TError = Promise<ProblemResponse>>(
   const swrFn = () => getAccountWallet(params, fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type accountListGiftsResponse200 = {
+  data: AccountListGifts200;
+  status: 200;
+};
+
+export type accountListGiftsResponseSuccess = accountListGiftsResponse200 & {
+  headers: Headers;
+};
+
+export type accountListGiftsResponse = accountListGiftsResponseSuccess;
+
+export const getAccountListGiftsUrl = () => {
+  return `/v1/account/gifts`;
+};
+
+/**
+ * Gifts the customer bought (with the last four characters of each code) and gifts they claimed.
+ */
+export const accountListGifts = async (
+  options?: RequestInit,
+): Promise<accountListGiftsResponse> => {
+  const res = await fetch(getAccountListGiftsUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: accountListGiftsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as accountListGiftsResponse;
+};
+
+export const getAccountListGiftsKey = () => [`/v1/account/gifts`] as const;
+
+export type AccountListGiftsQueryResult = NonNullable<Awaited<ReturnType<typeof accountListGifts>>>;
+
+export const useAccountListGifts = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof accountListGifts>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getAccountListGiftsKey() : null));
+  const swrFn = () => accountListGifts(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type accountBuyGiftResponse201 = {
+  data: AccountGift;
+  status: 201;
+};
+
+export type accountBuyGiftResponse400 = {
+  data: ProblemResponse;
+  status: 400;
+};
+
+export type accountBuyGiftResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type accountBuyGiftResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type accountBuyGiftResponseSuccess = accountBuyGiftResponse201 & {
+  headers: Headers;
+};
+export type accountBuyGiftResponseError = (
+  | accountBuyGiftResponse400
+  | accountBuyGiftResponse403
+  | accountBuyGiftResponse422
+) & {
+  headers: Headers;
+};
+
+export type accountBuyGiftResponse = accountBuyGiftResponseSuccess | accountBuyGiftResponseError;
+
+export const getAccountBuyGiftUrl = () => {
+  return `/v1/account/gifts`;
+};
+
+/**
+ * Opens a subscription gift order, as the bot's gift flow does. The wallet pays what it can; anything left is paid through POST /v1/account/orders/{orderID}/payment. The claim code is returned in this response only, because only its hash is stored. Requires an Idempotency-Key header.
+ */
+export const accountBuyGift = async (
+  accountBuyGiftBody: AccountBuyGiftBody,
+  options?: RequestInit,
+): Promise<accountBuyGiftResponse> => {
+  const res = await fetch(getAccountBuyGiftUrl(), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(accountBuyGiftBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: accountBuyGiftResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as accountBuyGiftResponse;
+};
+
+export const getAccountBuyGiftMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: AccountBuyGiftBody }) => {
+    return accountBuyGift(arg, options);
+  };
+};
+export const getAccountBuyGiftMutationKey = () => [`/v1/account/gifts`] as const;
+
+export type AccountBuyGiftMutationResult = NonNullable<Awaited<ReturnType<typeof accountBuyGift>>>;
+
+export const useAccountBuyGift = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof accountBuyGift>>,
+    TError,
+    Key,
+    AccountBuyGiftBody,
+    Awaited<ReturnType<typeof accountBuyGift>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getAccountBuyGiftMutationKey();
+  const swrFn = getAccountBuyGiftMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,

@@ -2910,7 +2910,8 @@
       "security": "Security",
       "accountId": "Account id",
       "signOut": "Sign out",
-      "signOutFailed": "Could not sign out. Try again."
+      "signOutFailed": "Could not sign out. Try again.",
+      "gifts": "Gifts"
     },
     "actions": {
       "cancel": "Cancel",
@@ -4297,6 +4298,34 @@
         "upgrade": "Upgrade",
         "downgrade": "Downgrade",
         "unknown": "Plan change"
+      }
+    },
+    "gifts": {
+      "buyTitle": "Gift a subscription",
+      "buyDescription": "Pay for somebody else's subscription and pass them the code. The code is shown once — keep it.",
+      "plan": "Plan",
+      "choosePlan": "Choose a plan",
+      "message": "Note (optional)",
+      "buy": "Buy as a gift",
+      "buying": "Buying…",
+      "failed": "The gift could not be bought. Check your balance and try again.",
+      "codeTitle": "Gift code",
+      "codeHint": "The recipient enters it in the bot (🔑 Redeem a code) or on the wallet page. It is not shown anywhere else.",
+      "pay": "Pay {amount}",
+      "paidFromWallet": "Paid from your balance — the code works now.",
+      "another": "Gift another",
+      "sent": "Gifts you sent",
+      "received": "Gifts you received",
+      "emptySent": "You have not sent a gift yet.",
+      "error": "Gifts could not be loaded",
+      "redeemHint": "Got a gift? Enter the code on the <link>wallet page</link>.",
+      "status": {
+        "pending": "Awaiting payment",
+        "deliverable": "Ready to redeem",
+        "claimed": "Redeemed",
+        "expired": "Expired",
+        "revoked": "Revoked",
+        "refunded": "Refunded"
       }
     }
   },
