@@ -207,7 +207,7 @@ func TestAntilopayClassifiesRefusals(t *testing.T) {
 }
 
 func TestAntilopayPollUsesTheOrderIDAndOriginalAmount(t *testing.T) {
-	for status, expected := range map[string]string{"SUCCESS": "succeeded", "PENDING": "pending", "FAIL": "failed", "CANCEL": "cancelled", "EXPIRED": "expired", "CHARGEBACK": "failed"} {
+	for status, expected := range map[string]string{"SUCCESS": "succeeded", "PENDING": "pending", "FAIL": "failed", "CANCEL": "cancelled", "EXPIRED": "expired", "CHARGEBACK": "chargeback"} {
 		var seen map[string]any
 		reply := `{"code":0,"order_id":"order-1","payment_id":"masked-payment","status":"` + status + `","amount":97.01,"original_amount":100.01,"currency":"RUB"}`
 		provider := antilopayTestProvider(t, antilopayTestServer(t, 200, reply, &seen))

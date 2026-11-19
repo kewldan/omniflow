@@ -252,6 +252,14 @@ WHERE order_id = sqlc.arg(order_id)
   AND status NOT IN ('succeeded', 'failed', 'cancelled', 'expired', 'refunded')
 ORDER BY created_at DESC;
 
+-- name: FailPaymentMethodsFromIntent :exec
+-- A chargeback on the payment a method was bound from retires that method:
+-- the payer's bank disputed it, and charging it again without them would be
+-- charging a card its owner has contested.
+UPDATE payment_methods
+SET status = 'failed', is_default = false, updated_at = now()
+WHERE source_payment_intent_id = sqlc.arg(payment_intent_id) AND status = 'active';
+
 -- name: TouchPaymentMethodUsed :exec
 UPDATE payment_methods SET last_used_at = now(), updated_at = now() WHERE id = $1;
 

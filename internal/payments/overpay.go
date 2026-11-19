@@ -272,10 +272,12 @@ func normalizeOverpayStatus(status string) string {
 		return "succeeded"
 	case "authorized", "prepared", "prepared_for_holder_metadata_collecting", "processing", "credited":
 		return "processing"
-	case "declined", "rejected", "error", "chargeback", "representment":
+	case "declined", "rejected", "error", "representment":
 		return "failed"
+	case "chargeback":
+		return StatusChargeback
 	case "reversed", "refunded":
-		return "cancelled"
+		return StatusRefunded
 	default:
 		return "pending"
 	}

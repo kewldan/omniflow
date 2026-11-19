@@ -153,7 +153,7 @@ func TestCisPayPollMapsStatuses(t *testing.T) {
 		"pending":  {`{"id":"invoice-1","status":"PENDING","amount":10000}`, "pending"},
 		"failed":   {`{"id":"invoice-1","status":"FAILED","amount":10000}`, "failed"},
 		"expired":  {`{"id":"invoice-1","status":"EXPIRED","amount":10000}`, "expired"},
-		"refunded": {`{"id":"invoice-1","status":"REFUNDED","amount":10000}`, "cancelled"},
+		"refunded": {`{"id":"invoice-1","status":"REFUNDED","amount":10000}`, "refunded"},
 		"sandbox":  {`{"id":"invoice-1","status":"PAID","amount":10000,"is_sandbox":true}`, "failed"},
 		"blocked":  {`{"id":"invoice-1","status":"PAID","amount":10000,"block_reason":"risk"}`, "failed"},
 	}

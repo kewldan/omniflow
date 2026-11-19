@@ -648,6 +648,41 @@ Customers see refunds read-only: `GET /v1/account/orders/{orderID}` includes up 
 against the order's intents. Cancelling is the only order mutation a customer has, and it is refused
 past `pending` with `409 order_not_cancellable`.
 
+### Refunds and chargebacks the provider reports
+
+Money can also go back without anybody in the panel asking: an operator refunds
+from the provider's own dashboard, the payer's bank refunds, or a payment is
+disputed and charged back. Adapters that are told about it report the payment
+as `refunded` or `chargeback` instead of a plain failure, and the payment
+service then records it exactly as an operator refund would be recorded — a
+`refunds` row (reason `provider_refund` or `provider_chargeback`, already
+`succeeded`), the ledger reversal, and the same take-back of what the payment
+bought, in one commit.
+
+Only the part not already recorded is applied. The provider's report names the
+total returned so far (or, with no amount, the whole payment); Omniflow
+subtracts every refund it already holds for the intent — including a refund an
+operator started here and the provider is now confirming — and records the
+difference. A replayed notification, a second report of the same total, and a
+later poll all converge on one reversal. A payment that never settled locally
+has nothing to take back and is left unsettled.
+
+A chargeback also retires any card that was saved from that payment, so
+auto-renew cannot charge a card its owner has disputed, and raises an incident
+for an operator.
+
+| Adapter | What is reported |
+| --- | --- |
+| YooKassa | `refund.succeeded` notifications are routed to their payment; the poll reads `refunded_amount`, so partial dashboard refunds are applied too |
+| Cashera | `refunded`, `chargeback` |
+| Antilopay | `CHARGEBACK` |
+| Overpay | `refunded`, `reversed`, `chargeback` |
+| Heleket | `refund_paid` |
+| RollyPay | `chargeback` |
+| CisPay, ParityPay, TabPay | `REFUNDED` |
+| EtoPlatezhi | `refunded`, `reversed` (a partial refund names no amount and is ignored) |
+| HOT Pay | `refunded` (`partially_refunded` names no amount and is ignored) |
+
 ## Reconciliation and stuck payments
 
 A webhook can be lost, delayed, or blocked by a firewall, so Omniflow also asks providers what

@@ -56,6 +56,9 @@ type Intent struct {
 	// for recurring charges. Only an authenticated read (a poll or a
 	// synchronous create) may carry it.
 	BoundMethod *BoundMethod
+	// RefundedMinor is the cumulative amount the provider reports returned
+	// on a settled payment, from an authenticated read.
+	RefundedMinor int64
 }
 
 type RefundRequest struct {
@@ -83,6 +86,10 @@ type WebhookEvent struct {
 	// payer instead of the order (Tribute donations). The payment service then
 	// matches the payer's open intent for exactly this amount.
 	PayerTelegramID string
+	// RefundedMinor is the cumulative amount the provider reports returned
+	// on this payment, when it says. Zero with a reversal status means the
+	// whole payment went back.
+	RefundedMinor int64
 }
 
 type Provider interface {

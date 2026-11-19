@@ -563,6 +563,10 @@ type Querier interface {
 	FailBackup(ctx context.Context, arg FailBackupParams) (Backup, error)
 	FailGoodsDelivery(ctx context.Context, arg FailGoodsDeliveryParams) (GoodsDelivery, error)
 	FailOperatorTopic(ctx context.Context, arg FailOperatorTopicParams) (OperatorTopic, error)
+	// A chargeback on the payment a method was bound from retires that method:
+	// the payer's bank disputed it, and charging it again without them would be
+	// charging a card its owner has contested.
+	FailPaymentMethodsFromIntent(ctx context.Context, paymentIntentID pgtype.UUID) error
 	FinishBedolagaImportRun(ctx context.Context, arg FinishBedolagaImportRunParams) (BedolagaImportRun, error)
 	GetAIFeature(ctx context.Context, feature string) (AiFeature, error)
 	GetAIProviderCredentials(ctx context.Context, slug string) (GetAIProviderCredentialsRow, error)

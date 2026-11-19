@@ -141,7 +141,7 @@ func TestHeleketPollMapsStatuses(t *testing.T) {
 	cases := map[string]string{
 		"paid": "succeeded", "paid_over": "succeeded", "cancel": "cancelled", "fail": "failed",
 		"system_fail": "failed", "check": "pending", "wrong_amount": "pending", "process": "processing",
-		"refund_paid": "cancelled", "something_new": "pending",
+		"refund_paid": "refunded", "something_new": "pending",
 	}
 	for remote, want := range cases {
 		server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {

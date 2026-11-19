@@ -151,7 +151,7 @@ func TestOverpayPollMapsStatusesAndConfirmsTheAmount(t *testing.T) {
 		{`{"orders":[{"id":"ord-77","status":"authorized","amount":"500.00","currency":"RUB"}]}`, "processing", 50000},
 		{`{"orders":[{"id":"ord-77","status":"new"}]}`, "pending", 0},
 		{`{"orders":[{"id":"ord-77","status":"declined"}]}`, "failed", 0},
-		{`{"orders":[{"id":"ord-77","status":"refunded"}]}`, "cancelled", 0},
+		{`{"orders":[{"id":"ord-77","status":"refunded"}]}`, "refunded", 0},
 		{`{"orders":[{"id":"ord-77","status":"something-new"}]}`, "pending", 0},
 	} {
 		provider := overpayAt(t, func(writer http.ResponseWriter, request *http.Request) {

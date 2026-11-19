@@ -128,7 +128,7 @@ func TestCasheraCreateRequestShape(t *testing.T) {
 
 func TestCasheraPollMapsStatuses(t *testing.T) {
 	t.Parallel()
-	cases := map[string]string{"pending": "pending", "paid": "succeeded", "failed": "failed", "expired": "expired", "refunded": "failed", "chargeback": "failed", "brand_new": "pending"}
+	cases := map[string]string{"pending": "pending", "paid": "succeeded", "failed": "failed", "expired": "expired", "refunded": "refunded", "chargeback": "chargeback", "brand_new": "pending"}
 	for remote, want := range cases {
 		server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 			if request.Method != http.MethodGet || request.URL.Path != "/integration/transactions/"+casheraTestUUID {

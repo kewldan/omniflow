@@ -301,8 +301,8 @@ func (provider *CisPay) intent(payment cispayPayment) (Intent, error) {
 
 // cispayStatus normalises a CisPay status. A sandbox payment or one carrying a
 // block reason never moved real money, so it is reported failed rather than
-// succeeded. REFUNDED is reported cancelled: the money went back, and an
-// operator reconciles any credit already granted.
+// succeeded. REFUNDED is a reversal: the payment service takes back what a
+// settled payment bought.
 func cispayStatus(payment cispayPayment) (string, error) {
 	switch payment.Status {
 	case "PENDING":
@@ -317,7 +317,7 @@ func cispayStatus(payment cispayPayment) (string, error) {
 	case "EXPIRED":
 		return "expired", nil
 	case "REFUNDED":
-		return "cancelled", nil
+		return StatusRefunded, nil
 	default:
 		return "", fmt.Errorf("%w: unknown CisPay status", ErrProviderResponse)
 	}

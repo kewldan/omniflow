@@ -304,9 +304,10 @@ func heleketStatus(payment heleketPayment) string {
 	case "fail", "system_fail":
 		return "failed"
 	case "refund_paid":
-		// Final and never credited by the reference integration. Omniflow has
-		// no reversal status for an intent, and this one must not settle.
-		return "cancelled"
+		// The provider returned the payment. For a settled intent the
+		// payment service reverses what it bought; an unsettled one stays
+		// unsettled.
+		return StatusRefunded
 	case "process", "confirm_check":
 		return "processing"
 	default:

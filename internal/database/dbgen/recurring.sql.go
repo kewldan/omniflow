@@ -138,6 +138,20 @@ func (q *Queries) DeferDunningAttempt(ctx context.Context, arg DeferDunningAttem
 	return i, err
 }
 
+const failPaymentMethodsFromIntent = `-- name: FailPaymentMethodsFromIntent :exec
+UPDATE payment_methods
+SET status = 'failed', is_default = false, updated_at = now()
+WHERE source_payment_intent_id = $1 AND status = 'active'
+`
+
+// A chargeback on the payment a method was bound from retires that method:
+// the payer's bank disputed it, and charging it again without them would be
+// charging a card its owner has contested.
+func (q *Queries) FailPaymentMethodsFromIntent(ctx context.Context, paymentIntentID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, failPaymentMethodsFromIntent, paymentIntentID)
+	return err
+}
+
 const getAutoRenewSettings = `-- name: GetAutoRenewSettings :one
 
 SELECT user_id, enabled, plan_version_id, provider, currency, cancelled_at, updated_at, subscription_id, payment_method_id, funding, lead_time_seconds, consent_at, state, last_attempt_at, last_failure_code FROM auto_renew_settings

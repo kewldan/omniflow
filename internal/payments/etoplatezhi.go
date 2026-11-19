@@ -321,15 +321,18 @@ func etoplatezhiAmount(sum map[string]any) (commerce.Money, error) {
 }
 
 // etoplatezhiStatus normalises EtoPlatezhi's payment statuses. The awaiting
-// states and unknown values are pending; refunds and reversals are reported
-// cancelled and never settle anything.
+// states and unknown values are pending; a full refund or reversal is a
+// reversal of a settled payment, a partial one names no amount and is ignored.
 func etoplatezhiStatus(status string) string {
 	switch status {
 	case "success":
 		return "succeeded"
 	case "decline", "error":
 		return "failed"
-	case "cancelled", "refunded", "partially refunded", "reversed":
+	case "refunded", "reversed":
+		return StatusRefunded
+	case "cancelled", "partially refunded":
+		// A partial refund names no amount Omniflow could reverse.
 		return "cancelled"
 	default:
 		return "pending"

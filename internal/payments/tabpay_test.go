@@ -161,7 +161,7 @@ func TestTabPayPollMapsStatuses(t *testing.T) {
 		`{"id":"pay_1","status":"PENDING","amountKopecks":10000}`:                  "processing",
 		`{"id":"pay_1","status":"FAILED","amountKopecks":10000}`:                   "failed",
 		`{"id":"pay_1","status":"EXPIRED","amountKopecks":10000}`:                  "expired",
-		`{"id":"pay_1","status":"REFUNDED","amountKopecks":10000}`:                 "cancelled",
+		`{"id":"pay_1","status":"REFUNDED","amountKopecks":10000}`:                 "refunded",
 		`{"id":"pay_1","status":"CANCELED","amountKopecks":10000}`:                 "cancelled",
 	}
 	for reply, expected := range cases {

@@ -279,10 +279,12 @@ func casheraStatus(status string) string {
 		return "failed"
 	case "expired":
 		return "expired"
-	case "refunded", "chargeback":
-		// Reversals of a payment. Omniflow has no reversal status for an
-		// intent; neither may ever settle one.
-		return "failed"
+	case "refunded":
+		// Reversals of a settled payment: the payment service records the
+		// refund and takes back what the payment bought.
+		return StatusRefunded
+	case "chargeback":
+		return StatusChargeback
 	default:
 		// pending and anything unrecognised.
 		return "pending"

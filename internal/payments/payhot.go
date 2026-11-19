@@ -655,7 +655,9 @@ func normalizePayHotStatus(status string) string {
 		return "processing"
 	case "failed":
 		return "failed"
-	case "cancelled", "refunded", "partially_refunded":
+	case "refunded":
+		return StatusRefunded
+	case "cancelled", "partially_refunded":
 		return "cancelled"
 	default:
 		return "pending"

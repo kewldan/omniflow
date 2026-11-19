@@ -286,7 +286,9 @@ func tabpayStatus(status string, test bool) string {
 		return "failed"
 	case "EXPIRED":
 		return "expired"
-	case "REFUNDED", "CANCELED":
+	case "REFUNDED":
+		return StatusRefunded
+	case "CANCELED":
 		return "cancelled"
 	default:
 		return "pending"

@@ -126,7 +126,7 @@ func TestEtoPlatezhiWebhookStatuses(t *testing.T) {
 	provider := etoplatezhiTestProvider(t)
 	for status, expected := range map[string]string{
 		"success": "succeeded", "decline": "failed", "error": "failed", "awaiting 3ds result": "pending",
-		"processing": "pending", "refunded": "cancelled", "reversed": "cancelled", "brand new": "pending",
+		"processing": "pending", "refunded": "refunded", "reversed": "refunded", "brand new": "pending",
 	} {
 		payload := map[string]any{
 			"project_id": json.Number("123"),

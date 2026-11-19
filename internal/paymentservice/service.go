@@ -174,7 +174,7 @@ func (service *Service) CreateIntent(ctx context.Context, input CreateIntentInpu
 			return dbgen.PaymentIntent{}, recoverErr
 		}
 		if found {
-			return queries.UpdatePaymentIntentStatus(ctx, dbgen.UpdatePaymentIntentStatusParams{PaymentIntentID: intent.ID, Status: recovered.Status, ProviderReference: optionalText(recovered.ProviderReference), CheckoutUrl: optionalText(recovered.CheckoutURL)})
+			return queries.UpdatePaymentIntentStatus(ctx, dbgen.UpdatePaymentIntentStatusParams{PaymentIntentID: intent.ID, Status: payments.IntentStatus(recovered.Status), ProviderReference: optionalText(recovered.ProviderReference), CheckoutUrl: optionalText(recovered.CheckoutURL)})
 		}
 	}
 	input.SaveMethod = intent.SaveMethodConsentAt.Valid
@@ -183,7 +183,7 @@ func (service *Service) CreateIntent(ctx context.Context, input CreateIntentInpu
 		return dbgen.PaymentIntent{}, err
 	}
 	if created.Status != "succeeded" {
-		return queries.UpdatePaymentIntentStatus(ctx, dbgen.UpdatePaymentIntentStatusParams{PaymentIntentID: intent.ID, Status: created.Status, ProviderReference: optionalText(created.ProviderReference), CheckoutUrl: optionalText(created.CheckoutURL)})
+		return queries.UpdatePaymentIntentStatus(ctx, dbgen.UpdatePaymentIntentStatusParams{PaymentIntentID: intent.ID, Status: payments.IntentStatus(created.Status), ProviderReference: optionalText(created.ProviderReference), CheckoutUrl: optionalText(created.CheckoutURL)})
 	}
 	// The provider settled synchronously — a saved-method charge with capture
 	// does. The money has moved, so it goes through the same classification
@@ -393,7 +393,7 @@ func (service *Service) Reconcile(ctx context.Context, paymentIntentID string) (
 		}
 		service.bindMethod(ctx, queries, intent, remote)
 	}
-	return queries.UpdatePaymentIntentStatus(ctx, dbgen.UpdatePaymentIntentStatusParams{PaymentIntentID: intent.ID, Status: remote.Status, ProviderReference: optionalText(remote.ProviderReference), CheckoutUrl: optionalText(remote.CheckoutURL)})
+	return queries.UpdatePaymentIntentStatus(ctx, dbgen.UpdatePaymentIntentStatusParams{PaymentIntentID: intent.ID, Status: payments.IntentStatus(remote.Status), ProviderReference: optionalText(remote.ProviderReference), CheckoutUrl: optionalText(remote.CheckoutURL)})
 }
 
 // ErrWebhookRejected marks a notification that will never be applied however
@@ -448,7 +448,11 @@ func (service *Service) HandleWebhook(ctx context.Context, providerName string, 
 			return "", pollErr
 		}
 		event.Status, event.Amount = trusted.Status, trusted.Amount
+		event.RefundedMinor = trusted.RefundedMinor
 		bound = trusted.BoundMethod
+	}
+	if payments.IsReversal(event.Status) {
+		return service.handleReversal(ctx, queries, providerName, stored.ID, event)
 	}
 	if event.Status != "succeeded" {
 		_, err = queries.CompleteWebhookEvent(ctx, dbgen.CompleteWebhookEventParams{WebhookEventID: stored.ID, Status: "ignored"})
@@ -479,6 +483,36 @@ func (service *Service) HandleWebhook(ctx context.Context, providerName string, 
 	}
 	if bound != nil {
 		service.bindMethod(ctx, queries, intent, payments.Intent{Status: event.Status, BoundMethod: bound})
+	}
+	if event.RefundedMinor > 0 {
+		// A settled payment the provider has since partly refunded: the
+		// authenticated read names the refunded total.
+		if _, reverseErr := service.applyReversal(ctx, intent, payments.StatusRefunded, event.RefundedMinor, event.ID); reverseErr != nil {
+			return classification, reverseErr
+		}
+	}
+	return classification, completeErr
+}
+
+// handleReversal applies a refund or chargeback the provider reported for a
+// payment this installation opened.
+func (service *Service) handleReversal(
+	ctx context.Context, queries *dbgen.Queries, providerName string, storedID pgtype.UUID, event payments.WebhookEvent,
+) (string, error) {
+	intent, err := service.webhookIntent(ctx, queries, providerName, event)
+	if err != nil {
+		_, _ = queries.CompleteWebhookEvent(ctx, dbgen.CompleteWebhookEventParams{WebhookEventID: storedID, Status: "failed", ErrorCode: optionalText("payment_not_found")})
+		return "", rejectNotFound(err)
+	}
+	classification, err := service.applyReversal(ctx, intent, event.Status, event.RefundedMinor, event.ID)
+	service.observeWebhook(providerName, event.Status)
+	status, code := "processed", pgtype.Text{}
+	if err != nil {
+		status, code = "failed", optionalText("reversal_failed")
+	}
+	_, completeErr := queries.CompleteWebhookEvent(ctx, dbgen.CompleteWebhookEventParams{WebhookEventID: storedID, Status: status, ErrorCode: code})
+	if err != nil {
+		return "", err
 	}
 	return classification, completeErr
 }

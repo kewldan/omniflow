@@ -250,7 +250,7 @@ func rollypayStatus(eventType, status string) string {
 	case "canceled":
 		return "cancelled"
 	case "chargeback":
-		return "failed"
+		return StatusChargeback
 	default:
 		return "pending"
 	}

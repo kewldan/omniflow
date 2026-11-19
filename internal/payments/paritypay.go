@@ -297,7 +297,7 @@ func normalizeParityPayStatus(status string) string {
 	case "ERROR":
 		return "failed"
 	case "REFUNDED":
-		return "cancelled"
+		return StatusRefunded
 	default:
 		return "pending"
 	}

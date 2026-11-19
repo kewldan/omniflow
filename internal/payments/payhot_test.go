@@ -192,7 +192,7 @@ func TestPayHotPollMapsStatuses(t *testing.T) {
 	for raw, want := range map[string]string{
 		"requires_payment_method": "pending", "requires_action": "requires_action", "processing": "processing",
 		"authorized": "processing", "partially_captured": "processing", "succeeded": "succeeded", "failed": "failed",
-		"cancelled": "cancelled", "refunded": "cancelled", "manual_reconciliation": "processing",
+		"cancelled": "cancelled", "refunded": "refunded", "manual_reconciliation": "processing",
 	} {
 		provider := payhotAt(t, func(writer http.ResponseWriter, request *http.Request) {
 			if request.Method != http.MethodGet || request.URL.Path != "/payments/"+payhotTestPayment {

@@ -421,8 +421,11 @@ func antilopayStatus(status string) (string, error) {
 		return "pending", nil
 	case "SUCCESS":
 		return "succeeded", nil
-	case "FAIL", "CHARGEBACK":
+	case "FAIL":
 		return "failed", nil
+	case "CHARGEBACK":
+		// A disputed payment the bank pulled back after it settled.
+		return StatusChargeback, nil
 	case "CANCEL":
 		return "cancelled", nil
 	case "EXPIRED":

@@ -171,7 +171,7 @@ func TestParityPayCreateReusesAnInvoiceAfterADuplicateOrderID(t *testing.T) {
 }
 
 func TestParityPayPollMapsStatuses(t *testing.T) {
-	for raw, want := range map[string]string{"NEW": "pending", "PAID": "succeeded", "EXPIRED": "expired", "ERROR": "failed", "REFUNDED": "cancelled", "HOLD": "pending"} {
+	for raw, want := range map[string]string{"NEW": "pending", "PAID": "succeeded", "EXPIRED": "expired", "ERROR": "failed", "REFUNDED": "refunded", "HOLD": "pending"} {
 		provider := parityPayAt(t, func(writer http.ResponseWriter, request *http.Request) {
 			if request.Method != http.MethodGet || request.URL.Query().Get("id") != "inv-1" {
 				t.Errorf("unexpected poll %s %s", request.Method, request.URL)

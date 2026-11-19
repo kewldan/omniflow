@@ -112,7 +112,7 @@ func TestRollyPayCreateAndPoll(t *testing.T) {
 		intent.ExpiresAt == nil || intent.ExpiresAt.Format("15:04") != "12:30" {
 		t.Fatalf("unexpected intent %#v", intent)
 	}
-	for status, normalized := range map[string]string{"created": "pending", "processing": "processing", "paid": "succeeded", "expired": "expired", "canceled": "cancelled", "chargeback": "failed", "weird": "pending"} {
+	for status, normalized := range map[string]string{"created": "pending", "processing": "processing", "paid": "succeeded", "expired": "expired", "canceled": "cancelled", "chargeback": "chargeback", "weird": "pending"} {
 		pollStatus = status
 		polled, err := provider.Poll(t.Context(), "pay_8f2c")
 		if err != nil || polled.Status != normalized || polled.Amount.Amount != 149900 {

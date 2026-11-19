@@ -59,6 +59,12 @@ type yooPayment struct {
 		URL string `json:"confirmation_url"`
 	} `json:"confirmation"`
 	PaymentMethod *yooPaymentMethod `json:"payment_method"`
+	// RefundedAmount is what has been returned on this payment so far,
+	// including refunds made from the YooKassa dashboard.
+	RefundedAmount *yooMoney `json:"refunded_amount"`
+	// PaymentID is set on a refund object: the payment it returned money
+	// from. A refund notification is routed to that payment.
+	PaymentID string `json:"payment_id"`
 }
 
 // yooPaymentMethod is the instrument a payment used. `saved` is true only when
@@ -181,7 +187,13 @@ func (provider *YooKassa) VerifyWebhook(_ http.Header, body []byte) (WebhookEven
 		return WebhookEvent{}, err
 	}
 	digest := sha256.Sum256(body)
-	return WebhookEvent{ID: notification.Event + ":" + notification.Object.ID + ":" + hex.EncodeToString(digest[:8]), Type: notification.Event, ProviderReference: notification.Object.ID, Status: normalizeYooStatus(notification.Object.Status), Amount: commerce.Money{Amount: amount, Currency: notification.Object.Amount.Currency}, OccurredAt: provider.clock().UTC()}, nil
+	reference := notification.Object.ID
+	if strings.HasPrefix(notification.Event, "refund.") && notification.Object.PaymentID != "" {
+		// A refund made from the YooKassa dashboard: route it to the
+		// payment. The poll that follows reads the payment's refunded total.
+		reference = notification.Object.PaymentID
+	}
+	return WebhookEvent{ID: notification.Event + ":" + notification.Object.ID + ":" + hex.EncodeToString(digest[:8]), Type: notification.Event, ProviderReference: reference, Status: normalizeYooStatus(notification.Object.Status), Amount: commerce.Money{Amount: amount, Currency: notification.Object.Amount.Currency}, OccurredAt: provider.clock().UTC()}, nil
 }
 
 func (provider *YooKassa) do(ctx context.Context, method, path, idempotencyKey string, body, target any) error {
@@ -205,6 +217,14 @@ func (provider *YooKassa) intent(payment yooPayment) (Intent, error) {
 	intent := Intent{ProviderReference: payment.ID, Status: normalizeYooStatus(payment.Status), CheckoutURL: payment.Confirmation.URL, Amount: commerce.Money{Amount: amount, Currency: payment.Amount.Currency}}
 	if method := payment.PaymentMethod; method != nil && method.Saved && method.ID != "" && intent.Status == "succeeded" {
 		intent.BoundMethod = &BoundMethod{Token: method.ID, Label: method.label()}
+	}
+	if refunded := payment.RefundedAmount; refunded != nil && intent.Status == "succeeded" && refunded.Currency == payment.Amount.Currency {
+		if minor, refundErr := parseMinor(refunded.Value, exponent); refundErr == nil && minor > 0 {
+			intent.RefundedMinor = minor
+			if minor >= amount {
+				intent.Status = StatusRefunded
+			}
+		}
 	}
 	return intent, nil
 }
