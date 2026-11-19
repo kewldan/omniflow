@@ -225,6 +225,7 @@ Review the result and merge it into Omniflow's `.env`. The usual Bedolaga settin
 | `CRYPTOBOT_TESTNET` | `APP_CRYPTOBOT_TESTNET` | Defaults to `true` in Omniflow — set `false` for real payments |
 | `TELEGRAM_STARS_ENABLED`, `TELEGRAM_STARS_RATE_RUB` | — | Stars work through the bot token; a plan is payable in Stars when its version has an `XTR` price. See [Payments](/integrations/payments) |
 | `HELEKET_*`, `PLATEGA_*`, `FREEKASSA_*`, `CLOUDPAYMENTS_*`, `LAVA_*`, … (25 providers) | `APP_<NAME>` | The same name with an `APP_` prefix: 140 of the 156 provider variables match Bedolaga's exactly. The rest (payment-method selectors, Overpay's client certificate, FreeKassa's server IP) are listed in [More payment providers](/integrations/payment-providers) |
+| `FRAGMENT_*`, `STARS_SHOP_*` (Omniflow fork) | `APP_FRAGMENT_*`, `APP_GOODS_VPN_OFFER_ENABLED` | Carried by `00-convert-env.sh` when `STARS_SHOP_ENABLED=true`. The price per Star, limits, and presets are set in `/admin/shop` → Stars. See [Gifts and digital goods](/commerce/gifts-and-goods) |
 | `POSTGRES_*`, `DATABASE_URL` | `APP_BEDOLAGA_DATABASE_URL` | For the importer only. Omniflow keeps its own database in `APP_DATABASE_URL` |
 | `REDIS_URL` | `APP_VALKEY_URL` | Omniflow's own Valkey; nothing in Bedolaga's Redis carries over |
 | `CABINET_URL` | `APP_PUBLIC_URL` | The customer panel is Omniflow's web app |

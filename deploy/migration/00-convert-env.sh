@@ -10,6 +10,9 @@
 #     its <PROVIDER>_* keys that Omniflow also reads becomes APP_<PROVIDER>_*.
 #     A disabled provider's credentials are deliberately left behind.
 #
+#   - the Telegram Stars shop (Fragment cookies, TON wallet, TON API) when
+#     STARS_SHOP_ENABLED is true.
+#
 # It never prints a value: the summary lists variable names only, and the output
 # file is created with mode 600. It refuses to overwrite an existing file.
 # Review the result, then merge it into Omniflow's .env by hand.
@@ -55,6 +58,19 @@ awk -v known="$known" -v out="$target_env" '
     core["WEBHOOK_SECRET_TOKEN"] = "APP_TELEGRAM_WEBHOOK_SECRET"
     core["CABINET_URL"] = "APP_PUBLIC_URL"
     core["SUPPORT_USERNAME"] = "APP_SUPPORT_URL"
+    # Telegram Stars shop of the Omniflow fork: carried only when STARS_SHOP_ENABLED=true.
+    stars["FRAGMENT_COOKIES"] = "APP_FRAGMENT_COOKIES"
+    stars["FRAGMENT_WALLET_MNEMONIC"] = "APP_FRAGMENT_WALLET_MNEMONIC"
+    stars["FRAGMENT_WALLET_VERSION"] = "APP_FRAGMENT_WALLET_VERSION"
+    stars["FRAGMENT_TON_API_KEY"] = "APP_FRAGMENT_TON_API_KEY"
+    stars["FRAGMENT_TON_API_PROVIDER"] = "APP_FRAGMENT_TON_API_PROVIDER"
+    stars["FRAGMENT_TON_API_RPS"] = "APP_FRAGMENT_TON_API_RPS"
+    stars["FRAGMENT_PROXY"] = "APP_FRAGMENT_PROXY_URL"
+    stars["STARS_SHOP_SHOW_SENDER"] = "APP_FRAGMENT_SHOW_SENDER"
+    stars["STARS_SHOP_DRY_RUN"] = "APP_FRAGMENT_DRY_RUN"
+    stars["STARS_SHOP_TON_RATE_KOPEKS"] = "APP_FRAGMENT_TON_RATE_MINOR"
+    stars["STARS_SHOP_WALLET_LOW_STARS"] = "APP_FRAGMENT_WALLET_LOW_STARS"
+    stars["STARS_SHOP_VPN_OFFER_ENABLED"] = "APP_GOODS_VPN_OFFER_ENABLED"
     n = split("HELEKET MULENPAY PAL24 PLATEGA CASHERA TRIBUTE FREEKASSA KASSA_AI RIOPAY SEVERPAY ROLLYPAY AURAPAY WATA CLOUDPAYMENTS LAVA OVERPAY PARITYPAY PAYHOT CISPAY ANTILOPAY ANORE DONUT ETOPLATEZHI JUPITER TABPAY", providers, " ")
   }
   /^[ \t]*#/ || !/=/ { next }
@@ -70,7 +86,9 @@ awk -v known="$known" -v out="$target_env" '
   END {
     for (i = 1; i <= count; i++) {
       key = order[i]; value = env[key]; target = ""
-      if (key in core) {
+      if ((key in stars) && tolower(env["STARS_SHOP_ENABLED"]) == "true") {
+        target = stars[key]
+      } else if (key in core) {
         target = core[key]
         if (key == "SUPPORT_USERNAME" && value !~ /^https?:\/\//) { sub(/^@/, "", value); value = "https://t.me/" value }
       } else {
@@ -82,6 +100,9 @@ awk -v known="$known" -v out="$target_env" '
         }
       }
       if (target == "" || (target in written)) continue
+      # Single-quote anything a shell or Compose would split or expand
+      # (mnemonics, cookie strings); both read single quotes literally.
+      if (value ~ /[ \t;#$"`\\]/ && value !~ /\x27/) value = "\x27" value "\x27"
       printf "%s=%s\n", target, value >> out
       written[target] = 1
       print "  " key " -> " target
@@ -92,6 +113,10 @@ awk -v known="$known" -v out="$target_env" '
     }
     print ""
     print carried + 0 " variables written. Enabled payment providers carried:" (enabled == "" ? " none" : enabled)
+    if (tolower(env["STARS_SHOP_ENABLED"]) == "true") {
+      print "Stars shop carried. Set the price per Star, limits and presets in /admin/shop -> Stars:"
+      print "  STARS_SHOP_PRICE_PER_STAR_KOPEKS, _MIN_QUANTITY, _MAX_QUANTITY and _PRESETS are panel settings in Omniflow."
+    }
   }
 ' "$source_env"
 

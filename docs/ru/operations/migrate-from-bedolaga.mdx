@@ -227,6 +227,7 @@ sh deploy/migration/00-convert-env.sh /root/remnawave-bedolaga-telegram-bot/.env
 | `CRYPTOBOT_TESTNET` | `APP_CRYPTOBOT_TESTNET` | В Omniflow по умолчанию `true` — для настоящих платежей задайте `false` |
 | `TELEGRAM_STARS_ENABLED`, `TELEGRAM_STARS_RATE_RUB` | — | Звёзды работают через токен бота; план можно оплатить звёздами, если у его версии есть цена в `XTR`. См. [Платежи](/ru/integrations/payments) |
 | `HELEKET_*`, `PLATEGA_*`, `FREEKASSA_*`, `CLOUDPAYMENTS_*`, `LAVA_*`, … (25 провайдеров) | `APP_<ИМЯ>` | То же имя с префиксом `APP_`: 140 из 156 переменных провайдеров совпадают с Bedolaga дословно. Остальные (выбор способа оплаты, клиентский сертификат Overpay, IP сервера FreeKassa) перечислены в разделе [Другие платёжные провайдеры](/ru/integrations/payment-providers) |
+| `FRAGMENT_*`, `STARS_SHOP_*` (форк Omniflow) | `APP_FRAGMENT_*`, `APP_GOODS_VPN_OFFER_ENABLED` | Переносит `00-convert-env.sh`, если `STARS_SHOP_ENABLED=true`. Цена за звезду, лимиты и пресеты задаются в `/admin/shop` → Звёзды. См. [Подарки и цифровые товары](/ru/commerce/gifts-and-goods) |
 | `POSTGRES_*`, `DATABASE_URL` | `APP_BEDOLAGA_DATABASE_URL` | Только для импортёра. Своя база Omniflow — в `APP_DATABASE_URL` |
 | `REDIS_URL` | `APP_VALKEY_URL` | Собственный Valkey Omniflow; из Redis Bedolaga ничего не переносится |
 | `CABINET_URL` | `APP_PUBLIC_URL` | Клиентская панель — веб-приложение Omniflow |
