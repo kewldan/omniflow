@@ -133,6 +133,11 @@ func (panel *memoryRemnawave) ResetUserTraffic(context.Context, int64) error {
 	return nil
 }
 
+func (panel *memoryRemnawave) DeleteAllDevices(context.Context, int64) error {
+	panel.record("DeleteAllDevices")
+	return nil
+}
+
 // userCount reports how many Remnawave users exist.
 func (panel *memoryRemnawave) userCount() int {
 	panel.mu.Lock()

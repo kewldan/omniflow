@@ -3145,6 +3145,27 @@ func (e PanelSubscriptionStatus) Valid() bool {
 	}
 }
 
+// Defines values for PanelSubscriptionPolicyTrialRemainder.
+const (
+	Carry  PanelSubscriptionPolicyTrialRemainder = "carry"
+	Policy PanelSubscriptionPolicyTrialRemainder = "policy"
+	Reset  PanelSubscriptionPolicyTrialRemainder = "reset"
+)
+
+// Valid indicates whether the value is a known member of the PanelSubscriptionPolicyTrialRemainder enum.
+func (e PanelSubscriptionPolicyTrialRemainder) Valid() bool {
+	switch e {
+	case Carry:
+		return true
+	case Policy:
+		return true
+	case Reset:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PanelSupportAttachmentKind.
 const (
 	PanelSupportAttachmentKindDocument PanelSupportAttachmentKind = "document"
@@ -8523,6 +8544,31 @@ type PanelSubscriptionOperationAccepted struct {
 	Status      string             `json:"status"`
 }
 
+// PanelSubscriptionPolicy defines model for PanelSubscriptionPolicy.
+type PanelSubscriptionPolicy struct {
+	// DowngradesEnabled Off refuses every downgrade whatever a version allows.
+	DowngradesEnabled bool `json:"downgradesEnabled"`
+
+	// ResetDevicesOnRenewal An extension or renewal removes every registered device.
+	ResetDevicesOnRenewal bool `json:"resetDevicesOnRenewal"`
+
+	// ResetTrafficOnPlanChange An upgrade restarts the traffic counter.
+	ResetTrafficOnPlanChange bool `json:"resetTrafficOnPlanChange"`
+
+	// ResetTrafficOnRenewal An extension or renewal restarts the traffic counter.
+	ResetTrafficOnRenewal bool `json:"resetTrafficOnRenewal"`
+
+	// TrialRemainder What a trial's or free plan's remaining time does on a move to a paid plan.
+	TrialRemainder PanelSubscriptionPolicyTrialRemainder `json:"trialRemainder"`
+	UpdatedAt      *time.Time                            `json:"updatedAt,omitempty"`
+
+	// UpgradesEnabled Off refuses every upgrade whatever a version allows.
+	UpgradesEnabled bool `json:"upgradesEnabled"`
+}
+
+// PanelSubscriptionPolicyTrialRemainder What a trial's or free plan's remaining time does on a move to a paid plan.
+type PanelSubscriptionPolicyTrialRemainder string
+
 // PanelSubscriptionSettings defines model for PanelSubscriptionSettings.
 type PanelSubscriptionSettings struct {
 	MaxPerCustomer int  `json:"maxPerCustomer"`
@@ -10952,6 +10998,12 @@ type ConfigurePanelRecurringParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// SavePanelSubscriptionPolicyParams defines parameters for SavePanelSubscriptionPolicy.
+type SavePanelSubscriptionPolicyParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // SavePanelThemeJSONBody defines parameters for SavePanelTheme.
 type SavePanelThemeJSONBody struct {
 	// Theme An operator's overrides. Every field is optional, and an omitted one keeps the design's own value. A palette maps a themable token name to a hex colour and accepts nothing else, because these values are rendered into a style element.
@@ -11493,6 +11545,9 @@ type SavePanelProviderSettingsJSONRequestBody = PanelProviderSettingsInput
 
 // ConfigurePanelRecurringJSONRequestBody defines body for ConfigurePanelRecurring for application/json ContentType.
 type ConfigurePanelRecurringJSONRequestBody = PanelRecurringTest
+
+// SavePanelSubscriptionPolicyJSONRequestBody defines body for SavePanelSubscriptionPolicy for application/json ContentType.
+type SavePanelSubscriptionPolicyJSONRequestBody = PanelSubscriptionPolicy
 
 // SavePanelThemeJSONRequestBody defines body for SavePanelTheme for application/json ContentType.
 type SavePanelThemeJSONRequestBody SavePanelThemeJSONBody
@@ -12551,6 +12606,12 @@ type ServerInterface interface {
 
 	// (POST /v1/panel/settings/providers/{provider}/recurring)
 	ConfigurePanelRecurring(w http.ResponseWriter, r *http.Request, provider string, params ConfigurePanelRecurringParams)
+
+	// (GET /v1/panel/settings/subscription-policy)
+	GetPanelSubscriptionPolicy(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /v1/panel/settings/subscription-policy)
+	SavePanelSubscriptionPolicy(w http.ResponseWriter, r *http.Request, params SavePanelSubscriptionPolicyParams)
 
 	// (GET /v1/panel/settings/theme)
 	GetPanelTheme(w http.ResponseWriter, r *http.Request)
@@ -14102,6 +14163,16 @@ func (_ Unimplemented) SavePanelProviderSettings(w http.ResponseWriter, r *http.
 
 // (POST /v1/panel/settings/providers/{provider}/recurring)
 func (_ Unimplemented) ConfigurePanelRecurring(w http.ResponseWriter, r *http.Request, provider string, params ConfigurePanelRecurringParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/settings/subscription-policy)
+func (_ Unimplemented) GetPanelSubscriptionPolicy(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /v1/panel/settings/subscription-policy)
+func (_ Unimplemented) SavePanelSubscriptionPolicy(w http.ResponseWriter, r *http.Request, params SavePanelSubscriptionPolicyParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -26562,6 +26633,65 @@ func (siw *ServerInterfaceWrapper) ConfigurePanelRecurring(w http.ResponseWriter
 	handler.ServeHTTP(w, r)
 }
 
+// GetPanelSubscriptionPolicy operation middleware
+func (siw *ServerInterfaceWrapper) GetPanelSubscriptionPolicy(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPanelSubscriptionPolicy(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SavePanelSubscriptionPolicy operation middleware
+func (siw *ServerInterfaceWrapper) SavePanelSubscriptionPolicy(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SavePanelSubscriptionPolicyParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SavePanelSubscriptionPolicy(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetPanelTheme operation middleware
 func (siw *ServerInterfaceWrapper) GetPanelTheme(w http.ResponseWriter, r *http.Request) {
 
@@ -28748,6 +28878,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/v1/panel/settings/commerce/subscriptions", wrapper.SavePanelSubscriptionSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/settings/subscription-policy", wrapper.GetPanelSubscriptionPolicy)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/panel/settings/subscription-policy", wrapper.SavePanelSubscriptionPolicy)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/content/pages", wrapper.ListPanelInfoPages)
@@ -42301,6 +42437,96 @@ func (response ConfigurePanelRecurring422ApplicationProblemPlusJSONResponse) Vis
 	return err
 }
 
+type GetPanelSubscriptionPolicyRequestObject struct {
+}
+
+type GetPanelSubscriptionPolicyResponseObject interface {
+	VisitGetPanelSubscriptionPolicyResponse(w http.ResponseWriter) error
+}
+
+type GetPanelSubscriptionPolicy200JSONResponse PanelSubscriptionPolicy
+
+func (response GetPanelSubscriptionPolicy200JSONResponse) VisitGetPanelSubscriptionPolicyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelSubscriptionPolicy403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetPanelSubscriptionPolicy403ApplicationProblemPlusJSONResponse) VisitGetPanelSubscriptionPolicyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelSubscriptionPolicyRequestObject struct {
+	Params SavePanelSubscriptionPolicyParams
+	Body   *SavePanelSubscriptionPolicyJSONRequestBody
+}
+
+type SavePanelSubscriptionPolicyResponseObject interface {
+	VisitSavePanelSubscriptionPolicyResponse(w http.ResponseWriter) error
+}
+
+type SavePanelSubscriptionPolicy200JSONResponse PanelSubscriptionPolicy
+
+func (response SavePanelSubscriptionPolicy200JSONResponse) VisitSavePanelSubscriptionPolicyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelSubscriptionPolicy403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SavePanelSubscriptionPolicy403ApplicationProblemPlusJSONResponse) VisitSavePanelSubscriptionPolicyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelSubscriptionPolicy422ApplicationProblemPlusJSONResponse Problem
+
+func (response SavePanelSubscriptionPolicy422ApplicationProblemPlusJSONResponse) VisitSavePanelSubscriptionPolicyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetPanelThemeRequestObject struct {
 }
 
@@ -45005,6 +45231,12 @@ type StrictServerInterface interface {
 
 	// (POST /v1/panel/settings/providers/{provider}/recurring)
 	ConfigurePanelRecurring(ctx context.Context, request ConfigurePanelRecurringRequestObject) (ConfigurePanelRecurringResponseObject, error)
+
+	// (GET /v1/panel/settings/subscription-policy)
+	GetPanelSubscriptionPolicy(ctx context.Context, request GetPanelSubscriptionPolicyRequestObject) (GetPanelSubscriptionPolicyResponseObject, error)
+
+	// (PUT /v1/panel/settings/subscription-policy)
+	SavePanelSubscriptionPolicy(ctx context.Context, request SavePanelSubscriptionPolicyRequestObject) (SavePanelSubscriptionPolicyResponseObject, error)
 
 	// (GET /v1/panel/settings/theme)
 	GetPanelTheme(ctx context.Context, request GetPanelThemeRequestObject) (GetPanelThemeResponseObject, error)
@@ -53325,6 +53557,63 @@ func (sh *strictHandler) ConfigurePanelRecurring(w http.ResponseWriter, r *http.
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ConfigurePanelRecurringResponseObject); ok {
 		if err := validResponse.VisitConfigurePanelRecurringResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPanelSubscriptionPolicy operation middleware
+func (sh *strictHandler) GetPanelSubscriptionPolicy(w http.ResponseWriter, r *http.Request) {
+	var request GetPanelSubscriptionPolicyRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPanelSubscriptionPolicy(ctx, request.(GetPanelSubscriptionPolicyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPanelSubscriptionPolicy")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPanelSubscriptionPolicyResponseObject); ok {
+		if err := validResponse.VisitGetPanelSubscriptionPolicyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SavePanelSubscriptionPolicy operation middleware
+func (sh *strictHandler) SavePanelSubscriptionPolicy(w http.ResponseWriter, r *http.Request, params SavePanelSubscriptionPolicyParams) {
+	var request SavePanelSubscriptionPolicyRequestObject
+
+	request.Params = params
+
+	var body SavePanelSubscriptionPolicyJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SavePanelSubscriptionPolicy(ctx, request.(SavePanelSubscriptionPolicyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SavePanelSubscriptionPolicy")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SavePanelSubscriptionPolicyResponseObject); ok {
+		if err := validResponse.VisitSavePanelSubscriptionPolicyResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

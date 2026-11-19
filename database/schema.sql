@@ -3468,6 +3468,32 @@ CREATE TABLE public.river_queue (
 
 
 --
+-- Name: subscription_policy; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.subscription_policy (
+    singleton boolean DEFAULT true NOT NULL,
+    upgrades_enabled boolean DEFAULT true NOT NULL,
+    downgrades_enabled boolean DEFAULT true NOT NULL,
+    reset_traffic_on_renewal boolean DEFAULT true NOT NULL,
+    reset_traffic_on_plan_change boolean DEFAULT true NOT NULL,
+    reset_devices_on_renewal boolean DEFAULT false NOT NULL,
+    trial_remainder text DEFAULT 'policy'::text NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by uuid,
+    CONSTRAINT subscription_policy_singleton CHECK (singleton),
+    CONSTRAINT subscription_policy_trial_remainder_known CHECK ((trial_remainder = ANY (ARRAY['policy'::text, 'carry'::text, 'reset'::text])))
+);
+
+
+--
+-- Name: TABLE subscription_policy; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.subscription_policy IS 'Installation-wide switches for plan changes and what a paid period resets. One row, edited from the panel.';
+
+
+--
 -- Name: subscriptions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -5511,6 +5537,14 @@ ALTER TABLE ONLY public.river_notification
 
 ALTER TABLE ONLY public.river_queue
     ADD CONSTRAINT river_queue_pkey PRIMARY KEY (name);
+
+
+--
+-- Name: subscription_policy subscription_policy_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.subscription_policy
+    ADD CONSTRAINT subscription_policy_pkey PRIMARY KEY (singleton);
 
 
 --
@@ -8371,6 +8405,14 @@ ALTER TABLE ONLY public.remnawave_users
 
 ALTER TABLE ONLY public.required_channels
     ADD CONSTRAINT required_channels_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.admin_users(id);
+
+
+--
+-- Name: subscription_policy subscription_policy_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.subscription_policy
+    ADD CONSTRAINT subscription_policy_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.admin_users(id) ON DELETE SET NULL;
 
 
 --

@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/omniflow/omniflow/internal/panelpg"
 	"github.com/omniflow/omniflow/internal/rbac"
 	"github.com/omniflow/omniflow/internal/remnawave"
 )
@@ -21,6 +22,24 @@ func (handlers *AdminHandlers) mountPlanOptions(secure chi.Router) {
 	}
 	secure.With(handlers.requirePermission(rbac.PermissionCatalogRead)).
 		Get("/remnawave/squads", handlers.remnawaveSquads)
+	secure.With(handlers.requirePermission(rbac.PermissionSettingsRead)).
+		Get("/settings/subscription-policy", handlers.subscriptionPolicy)
+	secure.With(handlers.requirePermission(rbac.PermissionSettingsWrite)).
+		Put("/settings/subscription-policy", handlers.saveSubscriptionPolicy)
+}
+
+func (handlers *AdminHandlers) subscriptionPolicy(writer http.ResponseWriter, request *http.Request) {
+	policy, err := handlers.operations.SubscriptionPolicy(request.Context())
+	handlers.respond(writer, request, policy, err)
+}
+
+func (handlers *AdminHandlers) saveSubscriptionPolicy(writer http.ResponseWriter, request *http.Request) {
+	var body panelpg.SubscriptionPolicy
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	policy, err := handlers.operations.SaveSubscriptionPolicy(request.Context(), body, actorFrom(request))
+	handlers.respond(writer, request, policy, err)
 }
 
 // squadListing is the panel's squads as the plan editor renders them.

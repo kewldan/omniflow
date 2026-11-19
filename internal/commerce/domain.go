@@ -112,18 +112,10 @@ func ScheduleEntitlement(now time.Time, duration time.Duration, operation, upgra
 	}
 }
 
-// ResetsTraffic reports whether settling the operation starts the customer's
-// traffic period afresh in Remnawave. An extension, a renewal, and an upgrade
-// buy a new period, so the counter restarts and a LIMITED user comes back as
-// ACTIVE. A purchase provisions a new user with nothing to reset, and a
-// downgrade keeps whatever the policy says about the current period.
+// ResetsTraffic is ChangePolicy.ResetsTraffic under the default policy: an
+// extension, a renewal, and an upgrade restart the counter.
 func ResetsTraffic(operation string) bool {
-	switch operation {
-	case "extension", "renewal", "upgrade":
-		return true
-	default:
-		return false
-	}
+	return DefaultChangePolicy().ResetsTraffic(operation)
 }
 
 func (version PlanVersion) Price(currency string) (Money, error) {

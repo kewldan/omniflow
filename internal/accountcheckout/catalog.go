@@ -137,8 +137,18 @@ type SubscriptionTarget struct {
 
 const planColumns = `p.id::text, p.code, p.kind, p.sort_order, l.name, l.description,
 	v.id::text, v.billing_period, v.duration_seconds, v.traffic_allowance_bytes, v.device_limit,
-	v.upgrade_policy, v.downgrade_policy, v.grace_period_seconds, v.trial_eligibility,
+	` + EffectivePolicyColumns + `, v.grace_period_seconds, v.trial_eligibility,
 	v.recurring_capable, v.squad_selection, pr.currency, pr.amount_minor, p.highlighted`
+
+// EffectivePolicyColumns are a plan version's upgrade and downgrade policies
+// under the installation's switches: a kind of change turned off for the
+// whole catalogue reads as `forbid`. commerce.ChangePolicy.Constrain is the
+// same rule, applied when an order is priced; the bot reads its catalogue
+// through this too, so all three agree. It expects the version as `v`.
+const EffectivePolicyColumns = `CASE WHEN COALESCE((SELECT sp.upgrades_enabled FROM subscription_policy sp WHERE sp.singleton), true)
+		THEN v.upgrade_policy ELSE 'forbid' END,
+	CASE WHEN COALESCE((SELECT sp.downgrades_enabled FROM subscription_policy sp WHERE sp.singleton), true)
+		THEN v.downgrade_policy ELSE 'forbid' END`
 
 // planRecord is the catalogue row before customer-specific policy is applied.
 type planRecord struct {

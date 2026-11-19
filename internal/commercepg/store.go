@@ -342,6 +342,14 @@ func (store *Store) quoteWith(ctx context.Context, queries *dbgen.Queries, userI
 	if err != nil {
 		return OrderQuote{}, err
 	}
+	// The installation's switches sit above the version's own policies: an
+	// upgrade or downgrade turned off everywhere reads as forbidden here, so
+	// the rule below and assertOperationFits refuse it like any other.
+	changePolicy, err := store.changePolicy(ctx, queries)
+	if err != nil {
+		return OrderQuote{}, err
+	}
+	plan.UpgradePolicy, plan.DowngradePolicy = changePolicy.Constrain(plan.UpgradePolicy, plan.DowngradePolicy)
 	if !commerce.AllowedOperation(input.Operation, plan.UpgradePolicy, plan.DowngradePolicy) {
 		return OrderQuote{}, ErrOperationForbidden
 	}
@@ -919,11 +927,19 @@ func (store *Store) settlePaidOrder(ctx context.Context, tx pgx.Tx, queries *dbg
 		return err
 	}
 	startsAt := store.clock().UTC()
+	changePolicy, err := store.changePolicy(ctx, queries)
+	if err != nil {
+		return err
+	}
+	upgradePolicy, err := store.upgradePolicyFor(ctx, queries, order, spec.UpgradePolicy, changePolicy)
+	if err != nil {
+		return err
+	}
 	currentEndsAt, err := store.orderChangeBase(ctx, tx, queries, order, spec.DowngradePolicy, startsAt, idempotencyKey)
 	if err != nil {
 		return err
 	}
-	schedule, err := commerce.ScheduleEntitlement(startsAt, time.Duration(spec.DurationSeconds)*time.Second, order.Operation, spec.UpgradePolicy, spec.DowngradePolicy, currentEndsAt)
+	schedule, err := commerce.ScheduleEntitlement(startsAt, time.Duration(spec.DurationSeconds)*time.Second, order.Operation, upgradePolicy, spec.DowngradePolicy, currentEndsAt)
 	if err != nil {
 		return err
 	}
@@ -943,7 +959,7 @@ func (store *Store) settlePaidOrder(ctx context.Context, tx pgx.Tx, queries *dbg
 	if entitlement, err = store.applyAddonLines(ctx, queries, order, entitlement); err != nil {
 		return err
 	}
-	desired, _ := json.Marshal(map[string]any{"effectiveAt": schedule.EffectiveAt, "endsAt": schedule.EndsAt, "trafficAllowanceBytes": nullableInt8(entitlement.TrafficAllowanceBytes), "deviceLimit": nullableInt4(entitlement.DeviceLimit), "squadIds": databaseutil.UUIDStrings(entitlement.RemnawaveSquadIds), "resetTraffic": commerce.ResetsTraffic(order.Operation)})
+	desired, _ := json.Marshal(map[string]any{"effectiveAt": schedule.EffectiveAt, "endsAt": schedule.EndsAt, "trafficAllowanceBytes": nullableInt8(entitlement.TrafficAllowanceBytes), "deviceLimit": nullableInt4(entitlement.DeviceLimit), "squadIds": databaseutil.UUIDStrings(entitlement.RemnawaveSquadIds), "resetTraffic": changePolicy.ResetsTraffic(order.Operation), "resetDevices": changePolicy.ResetsDevices(order.Operation)})
 	operation, err := queries.CreateFulfillmentOperation(ctx, dbgen.CreateFulfillmentOperationParams{EntitlementID: entitlement.ID, Operation: "create", IdempotencyKey: "order:" + uuidString(order.ID) + ":fulfill", CorrelationID: idempotencyKey, DesiredState: desired})
 	if err != nil {
 		return err

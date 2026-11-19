@@ -1576,6 +1576,27 @@ paths:
         "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelCommerceSettings"}}}}
         "403": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/subscription-policy:
+    get:
+      operationId: getPanelSubscriptionPolicy
+      tags: [panel]
+      description: >-
+        Requires settings.read. The installation-wide rules above each plan
+        version's own policies: whether upgrades and downgrades are allowed at
+        all, and what a paid period resets.
+      responses:
+        "200": {description: Policy, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSubscriptionPolicy"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+    put:
+      operationId: savePanelSubscriptionPolicy
+      tags: [panel]
+      description: Requires settings.write. Orders priced or settled after the save follow it.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSubscriptionPolicy"}}}}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSubscriptionPolicy"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/panel/content/pages:
     get:
       operationId: listPanelInfoPages
@@ -6020,6 +6041,17 @@ components:
       properties:
         multiEnabled: {type: boolean}
         maxPerCustomer: {type: integer, minimum: 1}
+    PanelSubscriptionPolicy:
+      type: object
+      required: [upgradesEnabled, downgradesEnabled, resetTrafficOnRenewal, resetTrafficOnPlanChange, resetDevicesOnRenewal, trialRemainder]
+      properties:
+        upgradesEnabled: {type: boolean, description: Off refuses every upgrade whatever a version allows.}
+        downgradesEnabled: {type: boolean, description: Off refuses every downgrade whatever a version allows.}
+        resetTrafficOnRenewal: {type: boolean, description: An extension or renewal restarts the traffic counter.}
+        resetTrafficOnPlanChange: {type: boolean, description: An upgrade restarts the traffic counter.}
+        resetDevicesOnRenewal: {type: boolean, description: An extension or renewal removes every registered device.}
+        trialRemainder: {type: string, enum: [policy, carry, reset], description: What a trial's or free plan's remaining time does on a move to a paid plan.}
+        updatedAt: {type: string, format: date-time, readOnly: true}
     ThemeDocument:
       type: object
       description: >-

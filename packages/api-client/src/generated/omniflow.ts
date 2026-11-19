@@ -11,6 +11,26 @@ import useSwr from "swr";
 import type { SWRMutationConfiguration } from "swr/mutation";
 import useSWRMutation from "swr/mutation";
 
+// https://stackoverflow.com/questions/49579094/typescript-conditional-types-filter-out-readonly-properties-pick-only-requir/49579497#49579497
+type IfEquals<X, Y, A = X, B = never> =
+  (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2 ? A : B;
+
+type WritableKeys<T> = {
+  [P in keyof T]-?: IfEquals<{ [Q in P]: T[P] }, { -readonly [Q in P]: T[P] }, P>;
+}[keyof T];
+
+type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void
+  ? I
+  : never;
+type DistributeReadOnlyOverUnions<T> = T extends any ? NonReadonly<T> : never;
+
+type Writable<T> = Pick<T, WritableKeys<T>>;
+type NonReadonly<T> = [T] extends [UnionToIntersection<T>]
+  ? {
+      [P in keyof Writable<T>]: T[P] extends object ? NonReadonly<NonNullable<T[P]>> : T[P];
+    }
+  : DistributeReadOnlyOverUnions<T>;
+
 export interface Health {
   status: string;
   version: string;
@@ -2039,6 +2059,34 @@ export interface PanelSubscriptionSettings {
   multiEnabled: boolean;
   /** @minimum 1 */
   maxPerCustomer: number;
+}
+
+/**
+ * What a trial's or free plan's remaining time does on a move to a paid plan.
+ */
+export type PanelSubscriptionPolicyTrialRemainder =
+  (typeof PanelSubscriptionPolicyTrialRemainder)[keyof typeof PanelSubscriptionPolicyTrialRemainder];
+
+export const PanelSubscriptionPolicyTrialRemainder = {
+  policy: "policy",
+  carry: "carry",
+  reset: "reset",
+} as const;
+
+export interface PanelSubscriptionPolicy {
+  /** Off refuses every upgrade whatever a version allows. */
+  upgradesEnabled: boolean;
+  /** Off refuses every downgrade whatever a version allows. */
+  downgradesEnabled: boolean;
+  /** An extension or renewal restarts the traffic counter. */
+  resetTrafficOnRenewal: boolean;
+  /** An upgrade restarts the traffic counter. */
+  resetTrafficOnPlanChange: boolean;
+  /** An extension or renewal removes every registered device. */
+  resetDevicesOnRenewal: boolean;
+  /** What a trial's or free plan's remaining time does on a move to a paid plan. */
+  trialRemainder: PanelSubscriptionPolicyTrialRemainder;
+  readonly updatedAt?: string;
 }
 
 export type ThemeDocumentLight = { [key: string]: string };
@@ -17681,6 +17729,165 @@ export const useSavePanelSubscriptionSettings = <TError = Promise<ProblemRespons
 
   const swrKey = swrOptions?.swrKey ?? getSavePanelSubscriptionSettingsMutationKey();
   const swrFn = getSavePanelSubscriptionSettingsMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelSubscriptionPolicyResponse200 = {
+  data: PanelSubscriptionPolicy;
+  status: 200;
+};
+
+export type getPanelSubscriptionPolicyResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelSubscriptionPolicyResponseSuccess = getPanelSubscriptionPolicyResponse200 & {
+  headers: Headers;
+};
+export type getPanelSubscriptionPolicyResponseError = getPanelSubscriptionPolicyResponse403 & {
+  headers: Headers;
+};
+
+export type getPanelSubscriptionPolicyResponse =
+  | getPanelSubscriptionPolicyResponseSuccess
+  | getPanelSubscriptionPolicyResponseError;
+
+export const getGetPanelSubscriptionPolicyUrl = () => {
+  return `/v1/panel/settings/subscription-policy`;
+};
+
+/**
+ * Requires settings.read. The installation-wide rules above each plan version's own policies: whether upgrades and downgrades are allowed at all, and what a paid period resets.
+ */
+export const getPanelSubscriptionPolicy = async (
+  options?: RequestInit,
+): Promise<getPanelSubscriptionPolicyResponse> => {
+  const res = await fetch(getGetPanelSubscriptionPolicyUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelSubscriptionPolicyResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelSubscriptionPolicyResponse;
+};
+
+export const getGetPanelSubscriptionPolicyKey = () =>
+  [`/v1/panel/settings/subscription-policy`] as const;
+
+export type GetPanelSubscriptionPolicyQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelSubscriptionPolicy>>
+>;
+
+export const useGetPanelSubscriptionPolicy = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelSubscriptionPolicy>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelSubscriptionPolicyKey() : null));
+  const swrFn = () => getPanelSubscriptionPolicy(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelSubscriptionPolicyResponse200 = {
+  data: PanelSubscriptionPolicy;
+  status: 200;
+};
+
+export type savePanelSubscriptionPolicyResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelSubscriptionPolicyResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelSubscriptionPolicyResponseSuccess = savePanelSubscriptionPolicyResponse200 & {
+  headers: Headers;
+};
+export type savePanelSubscriptionPolicyResponseError = (
+  | savePanelSubscriptionPolicyResponse403
+  | savePanelSubscriptionPolicyResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelSubscriptionPolicyResponse =
+  | savePanelSubscriptionPolicyResponseSuccess
+  | savePanelSubscriptionPolicyResponseError;
+
+export const getSavePanelSubscriptionPolicyUrl = () => {
+  return `/v1/panel/settings/subscription-policy`;
+};
+
+/**
+ * Requires settings.write. Orders priced or settled after the save follow it.
+ */
+export const savePanelSubscriptionPolicy = async (
+  panelSubscriptionPolicy: NonReadonly<PanelSubscriptionPolicy>,
+  options?: RequestInit,
+): Promise<savePanelSubscriptionPolicyResponse> => {
+  const res = await fetch(getSavePanelSubscriptionPolicyUrl(), {
+    ...options,
+    method: "PUT",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(panelSubscriptionPolicy),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelSubscriptionPolicyResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as savePanelSubscriptionPolicyResponse;
+};
+
+export const getSavePanelSubscriptionPolicyMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: NonReadonly<PanelSubscriptionPolicy> }) => {
+    return savePanelSubscriptionPolicy(arg, options);
+  };
+};
+export const getSavePanelSubscriptionPolicyMutationKey = () =>
+  [`/v1/panel/settings/subscription-policy`] as const;
+
+export type SavePanelSubscriptionPolicyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelSubscriptionPolicy>>
+>;
+
+export const useSavePanelSubscriptionPolicy = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof savePanelSubscriptionPolicy>>,
+    TError,
+    Key,
+    NonReadonly<PanelSubscriptionPolicy>,
+    Awaited<ReturnType<typeof savePanelSubscriptionPolicy>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelSubscriptionPolicyMutationKey();
+  const swrFn = getSavePanelSubscriptionPolicyMutationFetcher(fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

@@ -11,6 +11,47 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getHeldPlanKind = `-- name: GetHeldPlanKind :one
+SELECT p.kind
+FROM entitlements e
+JOIN plan_versions v ON v.id = e.plan_version_id
+JOIN plans p ON p.id = v.plan_id
+WHERE e.subscription_id = $1 AND e.status <> 'superseded'
+ORDER BY (e.starts_at <= now()) DESC, e.ends_at DESC
+LIMIT 1
+`
+
+// The kind of plan behind a subscription's current entitlement, for the rule
+// about what a trial's remaining time does on a move to a paid plan.
+func (q *Queries) GetHeldPlanKind(ctx context.Context, subscriptionID pgtype.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, getHeldPlanKind, subscriptionID)
+	var kind string
+	err := row.Scan(&kind)
+	return kind, err
+}
+
+const getSubscriptionPolicy = `-- name: GetSubscriptionPolicy :one
+SELECT singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by FROM subscription_policy WHERE singleton
+`
+
+// The migration seeds the row, so it is always there.
+func (q *Queries) GetSubscriptionPolicy(ctx context.Context) (SubscriptionPolicy, error) {
+	row := q.db.QueryRow(ctx, getSubscriptionPolicy)
+	var i SubscriptionPolicy
+	err := row.Scan(
+		&i.Singleton,
+		&i.UpgradesEnabled,
+		&i.DowngradesEnabled,
+		&i.ResetTrafficOnRenewal,
+		&i.ResetTrafficOnPlanChange,
+		&i.ResetDevicesOnRenewal,
+		&i.TrialRemainder,
+		&i.UpdatedAt,
+		&i.UpdatedBy,
+	)
+	return i, err
+}
+
 const insertPlanVersionSquad = `-- name: InsertPlanVersionSquad :exec
 
 INSERT INTO plan_version_squads (plan_version_id, squad_id, label_ru, label_en, sort_order)
@@ -62,4 +103,53 @@ func (q *Queries) ListPlanVersionAddonIDs(ctx context.Context, planVersionID pgt
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateSubscriptionPolicy = `-- name: UpdateSubscriptionPolicy :one
+UPDATE subscription_policy
+SET upgrades_enabled = $1,
+    downgrades_enabled = $2,
+    reset_traffic_on_renewal = $3,
+    reset_traffic_on_plan_change = $4,
+    reset_devices_on_renewal = $5,
+    trial_remainder = $6,
+    updated_at = now(),
+    updated_by = $7
+WHERE singleton
+RETURNING singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by
+`
+
+type UpdateSubscriptionPolicyParams struct {
+	UpgradesEnabled          bool        `json:"upgrades_enabled"`
+	DowngradesEnabled        bool        `json:"downgrades_enabled"`
+	ResetTrafficOnRenewal    bool        `json:"reset_traffic_on_renewal"`
+	ResetTrafficOnPlanChange bool        `json:"reset_traffic_on_plan_change"`
+	ResetDevicesOnRenewal    bool        `json:"reset_devices_on_renewal"`
+	TrialRemainder           string      `json:"trial_remainder"`
+	UpdatedBy                pgtype.UUID `json:"updated_by"`
+}
+
+func (q *Queries) UpdateSubscriptionPolicy(ctx context.Context, arg UpdateSubscriptionPolicyParams) (SubscriptionPolicy, error) {
+	row := q.db.QueryRow(ctx, updateSubscriptionPolicy,
+		arg.UpgradesEnabled,
+		arg.DowngradesEnabled,
+		arg.ResetTrafficOnRenewal,
+		arg.ResetTrafficOnPlanChange,
+		arg.ResetDevicesOnRenewal,
+		arg.TrialRemainder,
+		arg.UpdatedBy,
+	)
+	var i SubscriptionPolicy
+	err := row.Scan(
+		&i.Singleton,
+		&i.UpgradesEnabled,
+		&i.DowngradesEnabled,
+		&i.ResetTrafficOnRenewal,
+		&i.ResetTrafficOnPlanChange,
+		&i.ResetDevicesOnRenewal,
+		&i.TrialRemainder,
+		&i.UpdatedAt,
+		&i.UpdatedBy,
+	)
+	return i, err
 }

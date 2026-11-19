@@ -672,6 +672,9 @@ type Querier interface {
 	GetGoodsProduct(ctx context.Context, id pgtype.UUID) (GoodsProduct, error)
 	GetGoodsProductByCode(ctx context.Context, code string) (GoodsProduct, error)
 	GetGoodsProvider(ctx context.Context, slug string) (GoodsProvider, error)
+	// The kind of plan behind a subscription's current entitlement, for the rule
+	// about what a trial's remaining time does on a move to a paid plan.
+	GetHeldPlanKind(ctx context.Context, subscriptionID pgtype.UUID) (string, error)
 	// The (provider, subject) row whatever its status, with the account behind it.
 	// The unique constraint guarantees at most one.
 	GetIdentityBySubjectAnyStatus(ctx context.Context, arg GetIdentityBySubjectAnyStatusParams) (GetIdentityBySubjectAnyStatusRow, error)
@@ -751,6 +754,8 @@ type Querier interface {
 	// domain. A plan with no price in the currency compares as zero, exactly as
 	// the catalogue's held plans do.
 	GetSubscriptionHeldPlan(ctx context.Context, arg GetSubscriptionHeldPlanParams) (GetSubscriptionHeldPlanRow, error)
+	// The migration seeds the row, so it is always there.
+	GetSubscriptionPolicy(ctx context.Context) (SubscriptionPolicy, error)
 	GetSupportQueue(ctx context.Context, id pgtype.UUID) (SupportQueue, error)
 	GetSupportTagByCode(ctx context.Context, code string) (SupportTag, error)
 	GetSupportTicket(ctx context.Context, id pgtype.UUID) (GetSupportTicketRow, error)
@@ -2057,6 +2062,7 @@ type Querier interface {
 	UpdatePaymentIntentStatus(ctx context.Context, arg UpdatePaymentIntentStatusParams) (PaymentIntent, error)
 	UpdatePlanOrdering(ctx context.Context, arg UpdatePlanOrderingParams) (Plan, error)
 	UpdatePromotion(ctx context.Context, arg UpdatePromotionParams) (Promotion, error)
+	UpdateSubscriptionPolicy(ctx context.Context, arg UpdateSubscriptionPolicyParams) (SubscriptionPolicy, error)
 	UpdateSubscriptionSettings(ctx context.Context, arg UpdateSubscriptionSettingsParams) (CommerceSetting, error)
 	UpdateTopUpSettings(ctx context.Context, arg UpdateTopUpSettingsParams) (CommerceSetting, error)
 	UpsertAIProvider(ctx context.Context, arg UpsertAIProviderParams) (UpsertAIProviderRow, error)

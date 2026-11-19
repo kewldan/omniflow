@@ -24,6 +24,7 @@ import { useSession } from "@/lib/session";
 import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
 
 import { ProviderEditor } from "./provider-editor";
+import { SubscriptionPolicyCard } from "./subscription-policy";
 
 /**
  * Wallet top-up, subscription concurrency, and payment-provider status.
@@ -55,6 +56,7 @@ export function CommerceSettingsForm() {
             onSaved={() => mutate()}
             settings={data}
           />
+          <SubscriptionPolicyCard editable={can("settings.write")} />
         </>
       )}
       <ProviderCard />

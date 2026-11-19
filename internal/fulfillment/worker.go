@@ -67,6 +67,10 @@ type desiredState struct {
 	// LIMITED user who renews must come back as ACTIVE rather than stay
 	// LIMITED on last period's usage.
 	ResetTraffic bool `json:"resetTraffic,omitempty"`
+	// ResetDevices asks for every registered device to be removed once the
+	// new state is applied. Settlement sets it for an extension and a renewal
+	// when the installation resets devices on renewal.
+	ResetDevices bool `json:"resetDevices,omitempty"`
 	// remoteExpireAt is EndsAt plus the grace period, resolved by the worker
 	// per operation rather than stored, so every creator agrees on it.
 	remoteExpireAt time.Time
@@ -294,6 +298,13 @@ func (worker *Worker) finishPaidChange(ctx context.Context, remote remnawave.Use
 			return remnawave.User{}, err
 		}
 		refresh = true
+	}
+	// Removing every device is idempotent, so a retried run that already did
+	// it once does nothing the second time.
+	if desired.ResetDevices {
+		if err := worker.provisioner.DeleteAllDevices(ctx, remote.ID); err != nil {
+			return remnawave.User{}, err
+		}
 	}
 	if shouldEnable(remote.Status, entitlement.Status) {
 		if err := worker.provisioner.EnableUser(ctx, remote.ID); err != nil {

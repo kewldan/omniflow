@@ -37,6 +37,9 @@ type Provisioner interface {
 	EnableUser(context.Context, int64) error
 	DisableUser(context.Context, int64) error
 	ResetUserTraffic(context.Context, int64) error
+	// DeleteAllDevices removes every HWID device a user has registered, which
+	// a renewal does when the installation resets devices on renewal.
+	DeleteAllDevices(context.Context, int64) error
 }
 
 type Importer interface {

@@ -174,7 +174,7 @@ func (store *Store) redeemAccessCode(ctx context.Context, normalized string, use
 		"trafficAllowanceBytes": nullableInt8(entitlement.TrafficAllowanceBytes),
 		"deviceLimit":           nullableInt4(entitlement.DeviceLimit),
 		"squadIds":              databaseutil.UUIDStrings(entitlement.RemnawaveSquadIds),
-		"resetTraffic":          commerce.ResetsTraffic(operation),
+		"resetTraffic":          store.resetsTraffic(ctx, queries, operation),
 	})
 	operationRow, err := queries.CreateFulfillmentOperation(ctx, dbgen.CreateFulfillmentOperationParams{
 		EntitlementID: entitlement.ID, Operation: "create",

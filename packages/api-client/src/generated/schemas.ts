@@ -3878,6 +3878,71 @@ export const SavePanelSubscriptionSettingsResponse = zod.object({
 });
 
 /**
+ * Requires settings.read. The installation-wide rules above each plan version's own policies: whether upgrades and downgrades are allowed at all, and what a paid period resets.
+ */
+export const GetPanelSubscriptionPolicyResponse = zod.object({
+  upgradesEnabled: zod.boolean().describe("Off refuses every upgrade whatever a version allows."),
+  downgradesEnabled: zod
+    .boolean()
+    .describe("Off refuses every downgrade whatever a version allows."),
+  resetTrafficOnRenewal: zod
+    .boolean()
+    .describe("An extension or renewal restarts the traffic counter."),
+  resetTrafficOnPlanChange: zod.boolean().describe("An upgrade restarts the traffic counter."),
+  resetDevicesOnRenewal: zod
+    .boolean()
+    .describe("An extension or renewal removes every registered device."),
+  trialRemainder: zod
+    .enum(["policy", "carry", "reset"])
+    .describe("What a trial's or free plan's remaining time does on a move to a paid plan."),
+  updatedAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+/**
+ * Requires settings.write. Orders priced or settled after the save follow it.
+ */
+export const SavePanelSubscriptionPolicyHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const SavePanelSubscriptionPolicyBody = zod.object({
+  upgradesEnabled: zod.boolean().describe("Off refuses every upgrade whatever a version allows."),
+  downgradesEnabled: zod
+    .boolean()
+    .describe("Off refuses every downgrade whatever a version allows."),
+  resetTrafficOnRenewal: zod
+    .boolean()
+    .describe("An extension or renewal restarts the traffic counter."),
+  resetTrafficOnPlanChange: zod.boolean().describe("An upgrade restarts the traffic counter."),
+  resetDevicesOnRenewal: zod
+    .boolean()
+    .describe("An extension or renewal removes every registered device."),
+  trialRemainder: zod
+    .enum(["policy", "carry", "reset"])
+    .describe("What a trial's or free plan's remaining time does on a move to a paid plan."),
+});
+
+export const SavePanelSubscriptionPolicyResponse = zod.object({
+  upgradesEnabled: zod.boolean().describe("Off refuses every upgrade whatever a version allows."),
+  downgradesEnabled: zod
+    .boolean()
+    .describe("Off refuses every downgrade whatever a version allows."),
+  resetTrafficOnRenewal: zod
+    .boolean()
+    .describe("An extension or renewal restarts the traffic counter."),
+  resetTrafficOnPlanChange: zod.boolean().describe("An upgrade restarts the traffic counter."),
+  resetDevicesOnRenewal: zod
+    .boolean()
+    .describe("An extension or renewal removes every registered device."),
+  trialRemainder: zod
+    .enum(["policy", "carry", "reset"])
+    .describe("What a trial's or free plan's remaining time does on a move to a paid plan."),
+  updatedAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+/**
  * Requires marketing.read. Every page, drafts included.
  */
 export const ListPanelInfoPagesResponse = zod.object({

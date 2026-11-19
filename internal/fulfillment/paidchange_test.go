@@ -53,6 +53,11 @@ func (fake *fakeProvisioner) ResetUserTraffic(context.Context, int64) error {
 	return nil
 }
 
+func (fake *fakeProvisioner) DeleteAllDevices(context.Context, int64) error {
+	fake.calls = append(fake.calls, "devices")
+	return nil
+}
+
 func equalCalls(got, want []string) bool {
 	if len(got) != len(want) {
 		return false
@@ -98,6 +103,20 @@ func TestAPaidChangeResetsTrafficAndReEnablesTheUser(t *testing.T) {
 				t.Fatalf("remote status = %q, want %q", remote.Status, testCase.wantStatus)
 			}
 		})
+	}
+}
+
+// A renewal settled while the installation resets devices on renewal removes
+// every registered device after the update, and nothing else changes.
+func TestARenewalCanRemoveEveryDevice(t *testing.T) {
+	fake := &fakeProvisioner{status: "ACTIVE"}
+	worker := NewWorker(nil, fake)
+	if _, err := worker.finishPaidChange(context.Background(), remnawave.User{ID: 7, Status: "ACTIVE"},
+		dbgen.Entitlement{Status: "pending"}, desiredState{ResetTraffic: true, ResetDevices: true}); err != nil {
+		t.Fatalf("finish: %v", err)
+	}
+	if !equalCalls(fake.calls, []string{"reset", "devices", "read"}) {
+		t.Fatalf("calls = %v", fake.calls)
 	}
 }
 

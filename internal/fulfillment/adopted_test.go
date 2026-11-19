@@ -74,3 +74,5 @@ func TestAdoptedRemoteUserIsPatchedUnderItsOwnName(t *testing.T) {
 		t.Fatalf("with no stored name the deterministic one is used: %+v", native.updates)
 	}
 }
+
+func (provisioner *recordingProvisioner) DeleteAllDevices(context.Context, int64) error { return nil }

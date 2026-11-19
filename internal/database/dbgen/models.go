@@ -1917,6 +1917,19 @@ type Subscription struct {
 	ClosedAt          pgtype.Timestamptz `json:"closed_at"`
 }
 
+// Installation-wide switches for plan changes and what a paid period resets. One row, edited from the panel.
+type SubscriptionPolicy struct {
+	Singleton                bool               `json:"singleton"`
+	UpgradesEnabled          bool               `json:"upgrades_enabled"`
+	DowngradesEnabled        bool               `json:"downgrades_enabled"`
+	ResetTrafficOnRenewal    bool               `json:"reset_traffic_on_renewal"`
+	ResetTrafficOnPlanChange bool               `json:"reset_traffic_on_plan_change"`
+	ResetDevicesOnRenewal    bool               `json:"reset_devices_on_renewal"`
+	TrialRemainder           string             `json:"trial_remainder"`
+	UpdatedAt                pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy                pgtype.UUID        `json:"updated_by"`
+}
+
 type SupportAttachment struct {
 	ID             pgtype.UUID        `json:"id"`
 	MessageID      int64              `json:"message_id"`

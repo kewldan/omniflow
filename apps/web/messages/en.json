@@ -2040,6 +2040,27 @@
         "recurringEnable": "Passed — enable charging",
         "recurringPassOnly": "Passed — record only",
         "recurringFail": "Failed"
+      },
+      "subscriptionPolicy": {
+        "title": "Plan changes and resets",
+        "description": "Installation-wide rules above each plan version's own policies. Orders read them when they are priced and when they settle.",
+        "upgradesEnabled": "Allow upgrades",
+        "upgradesEnabledHint": "Off hides and refuses every upgrade, whatever a plan version allows.",
+        "downgradesEnabled": "Allow downgrades",
+        "downgradesEnabledHint": "Off hides and refuses every downgrade, whatever a plan version allows.",
+        "resetTrafficOnRenewal": "Reset traffic on renewal",
+        "resetTrafficOnRenewalHint": "An extension or an automatic renewal starts the traffic counter from zero.",
+        "resetTrafficOnPlanChange": "Reset traffic on upgrade",
+        "resetTrafficOnPlanChangeHint": "Moving to a dearer plan starts the traffic counter from zero.",
+        "resetDevicesOnRenewal": "Remove devices on renewal",
+        "resetDevicesOnRenewalHint": "An extension or an automatic renewal removes every registered device; the customer reconnects them.",
+        "trialRemainder": "Time left on a trial when moving to a paid plan",
+        "trialRemainderHint": "Applies to a move off a trial or a free plan.",
+        "trialRemainderValue": {
+          "policy": "Follow the paid plan's upgrade policy",
+          "carry": "Add the paid period after the trial's end",
+          "reset": "Start the paid period now and drop the rest"
+        }
       }
     },
     "nav": {

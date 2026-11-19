@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/omniflow/omniflow/internal/accountcheckout"
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 )
@@ -40,7 +41,7 @@ type Plan struct {
 
 const planColumns = `p.id::text, p.code, p.kind, p.sort_order, l.name, l.description,
 	v.id::text, v.billing_period, v.duration_seconds, v.traffic_allowance_bytes, v.device_limit,
-	v.upgrade_policy, v.downgrade_policy, v.cancellation_policy, v.grace_period_seconds,
+	` + accountcheckout.EffectivePolicyColumns + `, v.cancellation_policy, v.grace_period_seconds,
 	v.trial_eligibility, v.recurring_capable, pr.currency, pr.amount_minor, p.highlighted`
 
 // Plans lists every visible plan that has a price in the requested currency.

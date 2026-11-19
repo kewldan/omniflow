@@ -170,6 +170,21 @@ A forbidden operation is unreachable rather than merely unoffered. The lifecycle
 
 A `renewal` is the renewal worker's own operation, opened from the customer's standing consent for the subscription it names, and is not reclassified. A duration of zero or less is refused outright.
 
+### Installation-wide switches
+
+`/admin/settings/commerce` → **Plan changes and resets** holds the rules that sit above every plan version's own policies. They live in the one-row `subscription_policy` table, are read with `GET /v1/panel/settings/subscription-policy` (`settings.read`) and saved with `PUT` on the same route (`settings.write`, audit `panel.settings.subscription_policy.updated`), and an order reads them when it is priced and again when it settles.
+
+| Switch | Default | Effect |
+| --- | --- | --- |
+| Allow upgrades | on | Off makes every version's upgrade policy read as `forbid`: the catalogue stops offering upgrades on both surfaces and order creation refuses one with `operation_forbidden` |
+| Allow downgrades | on | The same for downgrades |
+| Reset traffic on renewal | on | An extension or a renewal resets the Remnawave traffic counter once the new period is provisioned |
+| Reset traffic on upgrade | on | An upgrade does the same |
+| Remove devices on renewal | off | An extension or a renewal removes every HWID device the subscription registered, through the same fulfillment operation |
+| Time left on a trial | follow the policy | On a move off a `trial` or `free` plan: follow the paid version's upgrade policy, carry the remaining time over (scheduled as `extend`), or start the paid period now (scheduled as `replace`) |
+
+The defaults are what Omniflow did before the switches existed, so an installation that never opens the card behaves as it always has. A gift or an access code that extends a subscription follows the traffic reset switch as well.
+
 ### What a customer is offered
 
 `GET /v1/account/plans` returns an `operations` array per plan, computed on the server. A customer with no subscriptions is offered `purchase`. A customer with one is offered `purchase` when the concurrency ceiling still allows it, plus `extension`, plus `upgrade` and `downgrade` wherever the policy is not `forbid`. The panel renders buttons; it does not decide policy — a panel that decided for itself which buttons to render would be a second implementation of the rules, and the two would eventually disagree in the customer's favour or against it, both of which are bugs. The array is `commerce.OfferedOperations`, the same rule order creation enforces, so everything offered is accepted.
