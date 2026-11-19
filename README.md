@@ -8,9 +8,9 @@ Build Telegram-first self-service, subscriptions, billing, support, marketing, a
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-0ea5e9.svg)](./LICENSE)
 [![Go 1.27](https://img.shields.io/badge/Go-1.27-00ADD8?logo=go&logoColor=white)](./go.mod)
-[![Next.js 16.3](https://img.shields.io/badge/Next.js-16.3-000000?logo=next.js&logoColor=white)](./apps/web/package.json)
+[![Next.js 16.4](https://img.shields.io/badge/Next.js-16.4-000000?logo=next.js&logoColor=white)](./apps/web/package.json)
 [![TypeScript 7](https://img.shields.io/badge/TypeScript-7-3178C6?logo=typescript&logoColor=white)](./package.json)
-[![Bun](https://img.shields.io/badge/Bun-1.3-fbf0df?logo=bun&logoColor=black)](./package.json)
+[![Bun](https://img.shields.io/badge/Bun-1.4-fbf0df?logo=bun&logoColor=black)](./package.json)
 [![Remnawave](https://img.shields.io/badge/Remnawave-3.4.11-8b5cf6)](https://docs.rw/api/)
 
 [Quick start](#-quick-start) · [Roadmap](./ROADMAP.md) · [Documentation](./docs/index.mdx) · [Architecture](./docs/architecture/overview.mdx) · [Contributing](./CONTRIBUTING.md)
@@ -94,7 +94,7 @@ Omniflow never connects to Remnawave storage and never manages Xray processes di
 | Backend | Go 1.27, Chi, pgx, sqlc, River, OpenAPI, OpenTelemetry |
 | Data | PostgreSQL 18, Atlas migrations, Valkey 9 |
 | Telegram | `go-telegram/bot`, localized inline keyboards, long polling |
-| Web | Next.js 16.3, React 19, TypeScript 7, SWR, Zustand |
+| Web | Next.js 16.4, React 19, TypeScript 7, SWR, Zustand |
 | UI and forms | Tailwind CSS v4, shadcn/ui, React Day Picker, Recharts, React Hook Form, Zod |
 | API generation | `oapi-codegen`, Orval Fetch/SWR clients and Zod schemas |
 | Tooling | Bun workspaces, Biome, Mintlify, Docker Compose |

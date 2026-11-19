@@ -7189,7 +7189,7 @@ export const ListAccountSignInMethodsResponse = zod.object({
  * Verifies a Telegram Login Widget payload. The hash is checked against the bot token and the auth_date must be recent, so a captured payload cannot be replayed indefinitely. The body is the object the widget hands to its `data-onauth` callback, posted as is: `id` and `auth_date` are JSON numbers, the other fields strings. Like every session-opening POST under /v1/account/auth, it requires Content-Type application/json and refuses a request a browser marks as cross-site (403 cross_origin_request), so a third-party page cannot sign a visitor into another account.
  */
 export const AccountSignInWithTelegramBody = zod
-  .object({
+  .looseObject({
     id: zod.int().describe("The Telegram user ID."),
     auth_date: zod.int().describe("Unix seconds at which Telegram signed the payload."),
     hash: zod
@@ -10599,7 +10599,7 @@ export const AttachToAccountSupportTicketHeader = zod.object({
 });
 
 export const AttachToAccountSupportTicketBody = zod.object({
-  file: zod.instanceof(File),
+  file: zod.instanceof(Blob),
   message: zod.string().optional(),
 });
 

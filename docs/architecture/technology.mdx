@@ -15,7 +15,7 @@ are load-bearing and which are merely current.
 | Backend | Go 1.27, chi v5, pgx v5, sqlc, River v0.47 |
 | Data | PostgreSQL 18, Atlas, Valkey 9 |
 | Contract | OpenAPI 3.0.3, oapi-codegen, Orval |
-| Frontend | One Next.js 16.3 app, React 19, TypeScript 7, SWR, Zustand, Tailwind v4, shadcn/ui |
+| Frontend | One Next.js 16.4 app, React 19, TypeScript 7, SWR, Zustand, Tailwind v4, shadcn/ui |
 | Forms and validation | React Hook Form, Zod |
 | Localisation | next-intl, Russian and English |
 | Tooling | Bun workspaces, Biome, Playwright, Testcontainers |
@@ -139,7 +139,7 @@ response against the schema at build or run time, so a schema change needs a tes
 
 ## The web application
 
-One Next.js 16.3 application (`apps/web`) carries both surfaces: `/account` for customers and `/admin` for
+One Next.js 16.4 application (`apps/web`) carries both surfaces: `/account` for customers and `/admin` for
 operators. One app rather than two means one component system, one localisation catalogue, and one build
 to keep green — and the route split is organisational only, since authorization is enforced by the Go API
 on every request.
@@ -148,12 +148,12 @@ on every request.
 | --- | --- | --- |
 | Server state | SWR 2.5 | Revalidation and cache keying against a REST API, without a client-side store pretending to be a database |
 | Complex local state | Zustand 5 | Reserved for state that genuinely spans components; ordinary screens use React state |
-| Forms | React Hook Form 7.85 | Uncontrolled inputs, so a long operator form does not re-render on every keystroke |
-| Validation | Zod 4.4 | Applied at trust boundaries, and generated from the same OpenAPI file as the types |
+| Forms | React Hook Form 7.92 | Uncontrolled inputs, so a long operator form does not re-render on every keystroke |
+| Validation | Zod 4.6 | Applied at trust boundaries, and generated from the same OpenAPI file as the types |
 | Styling | Tailwind v4 with shadcn/ui in `packages/ui` | Both panels use the same primitives, so an operator screen and a customer screen cannot drift apart visually |
-| Localisation | next-intl 4.13 | All user-facing copy lives in Russian and English message catalogues; no string is inlined in a component |
+| Localisation | next-intl 4.15 | All user-facing copy lives in Russian and English message catalogues; no string is inlined in a component |
 
-The production image builds with Bun 1.3.14 and serves Next.js standalone output from `node:26.7-alpine`
+The production image builds with Bun 1.4.5 and serves Next.js standalone output from `node:26.7-alpine`
 on port 3000.
 
 ## Tooling

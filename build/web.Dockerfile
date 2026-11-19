@@ -1,4 +1,4 @@
-FROM oven/bun:1.3.14-alpine AS dependencies
+FROM oven/bun:1.4.5-alpine AS dependencies
 WORKDIR /src
 COPY package.json bun.lock bunfig.toml ./
 COPY apps/web/package.json apps/web/package.json

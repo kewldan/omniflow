@@ -2,7 +2,7 @@
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { ComponentProps } from "react";
-import { DayPicker } from "react-day-picker";
+import { type ChevronProps, DayPicker } from "react-day-picker";
 
 import { buttonVariants } from "./button";
 import { cn } from "./lib/utils";
@@ -64,16 +64,21 @@ export function Calendar({
         weekdays: "flex",
         ...classNames,
       }}
-      components={{
-        Chevron: ({ orientation, ...chevron }) =>
-          orientation === "left" ? (
-            <ChevronLeft className="size-4" {...chevron} />
-          ) : (
-            <ChevronRight className="size-4" {...chevron} />
-          ),
-      }}
+      components={{ Chevron: CalendarChevron }}
       showOutsideDays={showOutsideDays}
       {...props}
     />
+  );
+}
+
+/**
+ * The navigation chevron. It lives at module level so React sees one stable
+ * component type across renders instead of remounting it on every one.
+ */
+function CalendarChevron({ orientation, ...chevron }: ChevronProps) {
+  return orientation === "left" ? (
+    <ChevronLeft className="size-4" {...chevron} />
+  ) : (
+    <ChevronRight className="size-4" {...chevron} />
   );
 }

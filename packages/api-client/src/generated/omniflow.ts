@@ -5304,9 +5304,7 @@ export const ListPlansLocale = {
 } as const;
 
 export type ListPublishedPagesParams = {
-  /**
-   * Falls back to Accept-Language, then to English.
-   */
+  /** Falls back to Accept-Language, then to English. */
   locale?: ListPublishedPagesLocale;
 };
 
@@ -5331,9 +5329,7 @@ export const GetPublishedPageLocale = {
 } as const;
 
 export type GetBrandingAssetParams = {
-  /**
-   * The image checksum, as published by /v1/branding.
-   */
+  /** The image checksum, as published by /v1/branding. */
   v?: string;
 };
 
@@ -5426,18 +5422,14 @@ export type FinishPanelPasskeyLoginBody = { [key: string]: unknown };
 export type BeginPanelPasskeyRegistration200 = { [key: string]: unknown };
 
 export type FinishPanelPasskeyRegistrationParams = {
-  /**
-   * @maxLength 60
-   */
+  /** @maxLength 60 */
   label?: string;
 };
 
 export type FinishPanelPasskeyRegistrationBody = { [key: string]: unknown };
 
 export type ListPanelAdminsParams = {
-  /**
-   * Opaque keyset cursor from the previous page.
-   */
+  /** Opaque keyset cursor from the previous page. */
   cursor?: CursorParameter;
   /**
    * @minimum 1
@@ -5457,9 +5449,7 @@ export const ListPanelAdminsStatus = {
 } as const;
 
 export type SearchPanelAuditParams = {
-  /**
-   * Opaque keyset cursor from the previous page.
-   */
+  /** Opaque keyset cursor from the previous page. */
   cursor?: CursorParameter;
   /**
    * @minimum 1
@@ -5498,9 +5488,7 @@ export type ListPanelIncidentsParams = {
 };
 
 export type SearchPanelCustomersParams = {
-  /**
-   * Opaque keyset cursor from the previous page.
-   */
+  /** Opaque keyset cursor from the previous page. */
   cursor?: CursorParameter;
   /**
    * @minimum 1
@@ -5602,9 +5590,7 @@ export type SetPanelPromoCodeActiveBody = {
 };
 
 export type SearchPanelOffersParams = {
-  /**
-   * Opaque keyset cursor from the previous page.
-   */
+  /** Opaque keyset cursor from the previous page. */
   cursor?: CursorParameter;
   /**
    * @minimum 1
@@ -5627,9 +5613,7 @@ export const SearchPanelOffersStatus = {
 } as const;
 
 export type SearchPanelOrdersParams = {
-  /**
-   * Opaque keyset cursor from the previous page.
-   */
+  /** Opaque keyset cursor from the previous page. */
   cursor?: CursorParameter;
   /**
    * @minimum 1
@@ -5657,9 +5641,7 @@ export type ListPanelStuckPaymentsParams = {
 };
 
 export type ListPanelFailedChargesParams = {
-  /**
-   * Opaque keyset cursor from the previous page.
-   */
+  /** Opaque keyset cursor from the previous page. */
   cursor?: CursorParameter;
   /**
    * @minimum 1
@@ -5675,9 +5657,7 @@ export type ExportPanelFinanceParams = {
 };
 
 export type SearchPanelFulfillmentParams = {
-  /**
-   * Opaque keyset cursor from the previous page.
-   */
+  /** Opaque keyset cursor from the previous page. */
   cursor?: CursorParameter;
   /**
    * @minimum 1
@@ -5690,9 +5670,7 @@ export type SearchPanelFulfillmentParams = {
 };
 
 export type SearchPanelWebhooksParams = {
-  /**
-   * Opaque keyset cursor from the previous page.
-   */
+  /** Opaque keyset cursor from the previous page. */
   cursor?: CursorParameter;
   /**
    * @minimum 1
@@ -5745,9 +5723,7 @@ export type RevokePanelCodeBatch200 = {
 };
 
 export type PreviewPanelCustomerMergeParams = {
-  /**
-   * The account that survives.
-   */
+  /** The account that survives. */
   into: string;
 };
 
@@ -5756,14 +5732,10 @@ export type MergePanelCustomerBody = {
 };
 
 export type ListPanelCustomerNotificationsParams = {
-  /**
-   * Narrow to one kind.
-   */
+  /** Narrow to one kind. */
   kind?: string;
   status?: ListPanelCustomerNotificationsStatus;
-  /**
-   * @minimum 0
-   */
+  /** @minimum 0 */
   offset?: number;
   /**
    * @minimum 1
@@ -5905,55 +5877,33 @@ export type GetPanelConversions200One = {
 };
 
 export type GetPanelSalesReportParams = {
-  /**
-   * Start of the period, inclusive. Defaults to thirty days before `until`.
-   */
+  /** Start of the period, inclusive. Defaults to thirty days before `until`. */
   since?: ReportSinceParameter;
-  /**
-   * End of the period, exclusive. Defaults to now.
-   */
+  /** End of the period, exclusive. Defaults to now. */
   until?: ReportUntilParameter;
-  /**
-   * The zone the day boundaries are computed in. "Sales on the third" means the operator's third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day.
-   */
+  /** The zone the day boundaries are computed in. "Sales on the third" means the operator's third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day. */
   timezone?: ReportTimezoneParameter;
-  /**
-   * ISO currency to restrict the report to. Omit for every currency.
-   */
+  /** ISO currency to restrict the report to. Omit for every currency. */
   currency?: ReportCurrencyParameter;
 };
 
 export type ExportPanelSalesReportParams = {
-  /**
-   * Start of the period, inclusive. Defaults to thirty days before `until`.
-   */
+  /** Start of the period, inclusive. Defaults to thirty days before `until`. */
   since?: ReportSinceParameter;
-  /**
-   * End of the period, exclusive. Defaults to now.
-   */
+  /** End of the period, exclusive. Defaults to now. */
   until?: ReportUntilParameter;
-  /**
-   * The zone the day boundaries are computed in. "Sales on the third" means the operator's third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day.
-   */
+  /** The zone the day boundaries are computed in. "Sales on the third" means the operator's third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day. */
   timezone?: ReportTimezoneParameter;
-  /**
-   * ISO currency to restrict the report to. Omit for every currency.
-   */
+  /** ISO currency to restrict the report to. Omit for every currency. */
   currency?: ReportCurrencyParameter;
 };
 
 export type GetPanelPaymentHealthParams = {
-  /**
-   * Start of the period, inclusive. Defaults to thirty days before `until`.
-   */
+  /** Start of the period, inclusive. Defaults to thirty days before `until`. */
   since?: ReportSinceParameter;
-  /**
-   * End of the period, exclusive. Defaults to now.
-   */
+  /** End of the period, exclusive. Defaults to now. */
   until?: ReportUntilParameter;
-  /**
-   * The zone the day boundaries are computed in. "Sales on the third" means the operator's third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day.
-   */
+  /** The zone the day boundaries are computed in. "Sales on the third" means the operator's third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day. */
   timezone?: ReportTimezoneParameter;
 };
 
@@ -5976,9 +5926,7 @@ export type DeletePanelConnectClient200 = {
 };
 
 export type SearchPanelBlocklistMatchesParams = {
-  /**
-   * Opaque keyset cursor from the previous page.
-   */
+  /** Opaque keyset cursor from the previous page. */
   cursor?: CursorParameter;
   /**
    * @minimum 1
@@ -6012,9 +5960,7 @@ export type DecidePanelBlocklistMatchBody = {
 };
 
 export type SearchPanelAnomaliesParams = {
-  /**
-   * Opaque keyset cursor from the previous page.
-   */
+  /** Opaque keyset cursor from the previous page. */
   cursor?: CursorParameter;
   /**
    * @minimum 1
@@ -6056,9 +6002,7 @@ export type ReviewPanelAnomalyBody = {
 };
 
 export type SearchPanelGiftsParams = {
-  /**
-   * Opaque keyset cursor from the previous page.
-   */
+  /** Opaque keyset cursor from the previous page. */
   cursor?: CursorParameter;
   /**
    * @minimum 1
@@ -6083,9 +6027,7 @@ export type ListPanelGoodsProductsParams = {
 };
 
 export type SearchPanelGoodsOrdersParams = {
-  /**
-   * Opaque keyset cursor from the previous page.
-   */
+  /** Opaque keyset cursor from the previous page. */
   cursor?: CursorParameter;
   /**
    * @minimum 1
@@ -6160,9 +6102,7 @@ export type AccountCheckMagicLinkParams = {
 };
 
 export type StartAccountOidcParams = {
-  /**
-   * Same-site path to return to.
-   */
+  /** Same-site path to return to. */
   next?: string;
 };
 
@@ -6218,9 +6158,7 @@ export type RenameAccountSubscriptionBody = {
 };
 
 export type GetAccountConnectionParams = {
-  /**
-   * A platform key from the catalogue. An unknown one falls back to the first documented platform rather than erroring, so a stale bookmark still works.
-   */
+  /** A platform key from the catalogue. An unknown one falls back to the first documented platform rather than erroring, so a stale bookmark still works. */
   platform?: string;
 };
 
@@ -6313,9 +6251,7 @@ export type ApplyAccountPromoCodeBody = {
 };
 
 export type ListAccountOrdersParams = {
-  /**
-   * Opaque keyset cursor from the previous page.
-   */
+  /** Opaque keyset cursor from the previous page. */
   cursor?: CursorParameter;
   cursorId?: string;
   /**
@@ -6352,9 +6288,7 @@ export type StartAccountOrderPaymentBody = {
 
 export type GetAccountWalletParams = {
   currency?: string;
-  /**
-   * Opaque keyset cursor from the previous page.
-   */
+  /** Opaque keyset cursor from the previous page. */
   cursor?: CursorParameter;
   cursorId?: string;
   /**
@@ -6372,9 +6306,7 @@ export type StartAccountTopUpBody = {
 };
 
 export type GetAccountReferralsParams = {
-  /**
-   * Opaque keyset cursor from the previous page.
-   */
+  /** Opaque keyset cursor from the previous page. */
   cursor?: CursorParameter;
   /**
    * @minimum 1
@@ -6509,9 +6441,7 @@ export type SaveAccountShopCart200 = {
 };
 
 export type ListAccountShopOrdersParams = {
-  /**
-   * Opaque keyset cursor from the previous page.
-   */
+  /** Opaque keyset cursor from the previous page. */
   cursor?: CursorParameter;
   cursorId?: string;
   /**
@@ -6543,9 +6473,7 @@ export const GetAccountShopOrderLocale = {
 } as const;
 
 export type ListAccountSupportTicketsParams = {
-  /**
-   * Opaque keyset cursor from the previous page.
-   */
+  /** Opaque keyset cursor from the previous page. */
   cursor?: CursorParameter;
   /**
    * @minimum 1
@@ -6567,15 +6495,13 @@ export type ReplyToAccountSupportTicketBody = {
 };
 
 export type AttachToAccountSupportTicketBody = {
-  file: Blob;
+  file: Blob | File;
   message?: string;
 };
 
 export type ListAccountNewsParams = {
   locale?: ListAccountNewsLocale;
-  /**
-   * Opaque keyset cursor from the previous page.
-   */
+  /** Opaque keyset cursor from the previous page. */
   cursor?: CursorParameter;
   /**
    * @minimum 1
@@ -6616,9 +6542,7 @@ export type ListPanelSupportTicketsParams = {
   unassigned?: boolean;
   customerId?: string;
   tag?: string;
-  /**
-   * Opaque keyset cursor from the previous page.
-   */
+  /** Opaque keyset cursor from the previous page. */
   cursor?: CursorParameter;
   /**
    * @minimum 1
@@ -6725,6 +6649,35 @@ export type GetPanelSupportReportParams = {
    * @maximum 90
    */
   windowDays?: number;
+};
+
+const getHeaders = (
+  ...sources: (RequestInit["headers"] | Record<string, string | undefined>)[]
+) => {
+  const seen = new Set<string>();
+  const layers: [string, string | readonly string[]][][] = [];
+  for (const source of sources.reverse()) {
+    if (!source) continue;
+    const entries =
+      source instanceof Headers
+        ? source.entries()
+        : Symbol.iterator in source
+          ? Array.from(
+              source as Iterable<Iterable<string>>,
+              (entry) => Array.from(entry) as [string, string],
+            )
+          : Object.entries<string | readonly string[] | undefined>(source);
+    const layer: [string, string | readonly string[]][] = [];
+    for (const [name, value] of entries) {
+      if (value !== undefined && !seen.has(name.toLowerCase())) layer.push([name, value]);
+    }
+    for (const [name] of layer) seen.add(name.toLowerCase());
+    layers.push(layer);
+  }
+  return Object.fromEntries(layers.reverse().flat()) as Extract<
+    RequestInit["headers"],
+    Record<string, unknown>
+  >;
 };
 
 export type getHealthResponse200 = {
@@ -7461,7 +7414,7 @@ export const createPlan = async (
   const res = await fetch(getCreatePlanUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(planBody),
   });
 
@@ -7536,7 +7489,7 @@ export const createPlanVersion = async (
   const res = await fetch(getCreatePlanVersionUrl(planID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(planVersionBody),
   });
 
@@ -7614,7 +7567,7 @@ export const createPromotion = async (
   const res = await fetch(getCreatePromotionUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(promotionInput),
   });
 
@@ -7689,7 +7642,7 @@ export const updateCustomer = async (
   const res = await fetch(getUpdateCustomerUrl(customerID), {
     ...options,
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(customerPreferences),
   });
 
@@ -7768,7 +7721,7 @@ export const linkCustomerIdentity = async (
   const res = await fetch(getLinkCustomerIdentityUrl(customerID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(identityInput),
   });
 
@@ -7936,7 +7889,7 @@ export const createContactChannel = async (
   const res = await fetch(getCreateContactChannelUrl(customerID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(contactInput),
   });
 
@@ -8020,7 +7973,7 @@ export const recordCustomerConsent = async (
   const res = await fetch(getRecordCustomerConsentUrl(customerID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(consentInput),
   });
 
@@ -8104,7 +8057,7 @@ export const applyCustomerLifecycle = async (
   const res = await fetch(getApplyCustomerLifecycleUrl(customerID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(lifecycleInput),
   });
 
@@ -8480,7 +8433,7 @@ export const createOrder = async (
   const res = await fetch(getCreateOrderUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(orderInput),
   });
 
@@ -8619,7 +8572,7 @@ export const cancelOrder = async (
   const res = await fetch(getCancelOrderUrl(orderID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(cancelOrderBody),
   });
 
@@ -8698,7 +8651,7 @@ export const createPaymentIntent = async (
   const res = await fetch(getCreatePaymentIntentUrl(orderID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(paymentInput),
   });
 
@@ -8787,7 +8740,7 @@ export const receivePaymentWebhook = async (
   const res = await fetch(getReceivePaymentWebhookUrl(provider), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(receivePaymentWebhookBody),
   });
 
@@ -8947,7 +8900,7 @@ export const createRefund = async (
   const res = await fetch(getCreateRefundUrl(paymentID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(refundInput),
   });
 
@@ -9026,7 +8979,7 @@ export const decideManualPayment = async (
   const res = await fetch(getDecideManualPaymentUrl(paymentID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(manualDecision),
   });
 
@@ -9107,7 +9060,7 @@ export const adjustCustomerWallet = async (
   const res = await fetch(getAdjustCustomerWalletUrl(customerID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(walletAdjustment),
   });
 
@@ -9275,7 +9228,7 @@ export const enqueueFulfillmentOperation = async (
   const res = await fetch(getEnqueueFulfillmentOperationUrl(entitlementID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(fulfillmentOperationInput),
   });
 
@@ -9890,7 +9843,7 @@ export const setMaintenance = async (
   const res = await fetch(getSetMaintenanceUrl(), {
     ...options,
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(maintenanceInput),
   });
 
@@ -10034,7 +9987,7 @@ export const completePanelBootstrap = async (
   const res = await fetch(getCompletePanelBootstrapUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(bootstrapInput),
   });
 
@@ -10116,7 +10069,7 @@ export const panelLogin = async (
   const res = await fetch(getPanelLoginUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(loginInput),
   });
 
@@ -10201,7 +10154,7 @@ export const panelVerifyChallenge = async (
   const res = await fetch(getPanelVerifyChallengeUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(challengeInput),
   });
 
@@ -10270,7 +10223,7 @@ export const panelRequestPasswordReset = async (
   const res = await fetch(getPanelRequestPasswordResetUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(passwordResetRequestInput),
   });
 
@@ -10355,7 +10308,7 @@ export const panelCompletePasswordReset = async (
   const res = await fetch(getPanelCompletePasswordResetUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(passwordResetCompleteInput),
   });
 
@@ -10616,7 +10569,7 @@ export const updatePanelProfile = async (
   const res = await fetch(getUpdatePanelProfileUrl(), {
     ...options,
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(profileInput),
   });
 
@@ -10703,7 +10656,7 @@ export const changePanelPassword = async (
   const res = await fetch(getChangePanelPasswordUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(passwordChangeInput),
   });
 
@@ -10982,7 +10935,7 @@ export const disablePanelTotp = async (
   const res = await fetch(getDisablePanelTotpUrl(), {
     ...options,
     method: "DELETE",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(passwordConfirmInput),
   });
 
@@ -11069,7 +11022,7 @@ export const confirmPanelTotpEnrolment = async (
   const res = await fetch(getConfirmPanelTotpEnrolmentUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(challengeInput),
   });
 
@@ -11376,7 +11329,7 @@ export const finishPanelPasskeyLogin = async (
   const res = await fetch(getFinishPanelPasskeyLoginUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(finishPanelPasskeyLoginBody),
   });
 
@@ -11628,7 +11581,7 @@ export const finishPanelPasskeyRegistration = async (
   const res = await fetch(getFinishPanelPasskeyRegistrationUrl(params), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(finishPanelPasskeyRegistrationBody),
   });
 
@@ -11717,7 +11670,7 @@ export const renamePanelPasskey = async (
   const res = await fetch(getRenamePanelPasskeyUrl(passkeyID), {
     ...options,
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(passkeyLabelInput),
   });
 
@@ -11977,7 +11930,7 @@ export const createPanelAdmin = async (
   const res = await fetch(getCreatePanelAdminUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(adminAccountInput),
   });
 
@@ -12137,7 +12090,7 @@ export const setPanelAdminRoles = async (
   const res = await fetch(getSetPanelAdminRolesUrl(adminID), {
     ...options,
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(rolesInput),
   });
 
@@ -12304,7 +12257,7 @@ export const createPanelAdminInvitation = async (
   const res = await fetch(getCreatePanelAdminInvitationUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(adminInvitationInput),
   });
 
@@ -12476,7 +12429,7 @@ export const previewPanelInvitation = async (
   const res = await fetch(getPreviewPanelInvitationUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(adminInvitationTokenInput),
   });
 
@@ -12576,7 +12529,7 @@ export const acceptPanelInvitation = async (
   const res = await fetch(getAcceptPanelInvitationUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(adminInvitationAcceptInput),
   });
 
@@ -12656,7 +12609,7 @@ export const setPanelAdminStatus = async (
   const res = await fetch(getSetPanelAdminStatusUrl(adminID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(adminStatusInput),
   });
 
@@ -14226,7 +14179,7 @@ export const setPanelCustomerStatus = async (
   const res = await fetch(getSetPanelCustomerStatusUrl(customerID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(setPanelCustomerStatusBody),
   });
 
@@ -14322,7 +14275,7 @@ export const renamePanelSubscription = async (
   const res = await fetch(getRenamePanelSubscriptionUrl(customerID, subscriptionID), {
     ...options,
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(renamePanelSubscriptionBody),
   });
 
@@ -14734,7 +14687,7 @@ export const updatePanelPlanPresentation = async (
   const res = await fetch(getUpdatePanelPlanPresentationUrl(planID), {
     ...options,
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(panelPlanPresentation),
   });
 
@@ -14821,7 +14774,7 @@ export const archivePanelPlan = async (
   const res = await fetch(getArchivePanelPlanUrl(planID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(archivePanelPlanBody),
   });
 
@@ -14914,7 +14867,7 @@ export const savePanelPlanLocalization = async (
   const res = await fetch(getSavePanelPlanLocalizationUrl(planID, locale), {
     ...options,
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(panelLocalization),
   });
 
@@ -15328,7 +15281,7 @@ export const updatePanelPromotion = async (
   const res = await fetch(getUpdatePanelPromotionUrl(promotionID), {
     ...options,
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(panelPromotionUpdate),
   });
 
@@ -15491,7 +15444,7 @@ export const setPanelPromoCodeActive = async (
   const res = await fetch(getSetPanelPromoCodeActiveUrl(promoCodeID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(setPanelPromoCodeActiveBody),
   });
 
@@ -15677,7 +15630,7 @@ export const createPanelOffer = async (
   const res = await fetch(getCreatePanelOfferUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(panelOfferInput),
   });
 
@@ -16023,7 +15976,7 @@ export const recordPanelRefund = async (
   const res = await fetch(getRecordPanelRefundUrl(orderID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(panelRefundRecord),
   });
 
@@ -16107,7 +16060,7 @@ export const reconcilePanelPayment = async (
   const res = await fetch(getReconcilePanelPaymentUrl(paymentIntentID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(reconcilePanelPaymentBody),
   });
 
@@ -17225,7 +17178,7 @@ export const savePanelTopUpSettings = async (
   const res = await fetch(getSavePanelTopUpSettingsUrl(), {
     ...options,
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(panelTopUpSettings),
   });
 
@@ -17314,7 +17267,7 @@ export const savePanelSubscriptionSettings = async (
   const res = await fetch(getSavePanelSubscriptionSettingsUrl(), {
     ...options,
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(panelSubscriptionSettings),
   });
 
@@ -17475,7 +17428,7 @@ export const savePanelInfoPage = async (
   const res = await fetch(getSavePanelInfoPageUrl(), {
     ...options,
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(panelInfoPage),
   });
 
@@ -17732,7 +17685,7 @@ export const setPanelInfoPagePublication = async (
   const res = await fetch(getSetPanelInfoPagePublicationUrl(slug), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(setPanelInfoPagePublicationBody),
   });
 
@@ -18129,7 +18082,7 @@ export const createPanelCodeBatch = async (
   const res = await fetch(getCreatePanelCodeBatchUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(panelCodeBatch),
   });
 
@@ -18299,7 +18252,7 @@ export const revokePanelCodeBatch = async (
   const res = await fetch(getRevokePanelCodeBatchUrl(batchID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(revokePanelCodeBatchBody),
   });
 
@@ -18504,7 +18457,7 @@ export const mergePanelCustomer = async (
   const res = await fetch(getMergePanelCustomerUrl(customerID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(mergePanelCustomerBody),
   });
 
@@ -18967,7 +18920,7 @@ export const savePanelNotice = async (
   const res = await fetch(getSavePanelNoticeUrl(code), {
     ...options,
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(savePanelNoticeBody),
   });
 
@@ -19168,7 +19121,7 @@ export const previewPanelNotice = async (
   const res = await fetch(getPreviewPanelNoticeUrl(code), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(previewPanelNoticeBody),
   });
 
@@ -19262,7 +19215,7 @@ export const sendPanelNoticeTest = async (
   const res = await fetch(getSendPanelNoticeTestUrl(code), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(sendPanelNoticeTestBody),
   });
 
@@ -19520,7 +19473,7 @@ export const savePanelAnalytics = async (
   const res = await fetch(getSavePanelAnalyticsUrl(), {
     ...options,
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(savePanelAnalyticsBody),
   });
 
@@ -20303,7 +20256,7 @@ export const savePanelTheme = async (
   const res = await fetch(getSavePanelThemeUrl(), {
     ...options,
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(savePanelThemeBody),
   });
 
@@ -20464,7 +20417,7 @@ export const savePanelBrandingAsset = async (
   const res = await fetch(getSavePanelBrandingAssetUrl(kind), {
     ...options,
     method: "PUT",
-    headers: { "Content-Type": "image/*", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "image/*" }, options?.headers),
     body: savePanelBrandingAssetBody,
   });
 
@@ -20722,7 +20675,7 @@ export const savePanelConnectPlatform = async (
   const res = await fetch(getSavePanelConnectPlatformUrl(), {
     ...options,
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(panelConnectPlatform),
   });
 
@@ -20908,7 +20861,7 @@ export const savePanelConnectClient = async (
   const res = await fetch(getSavePanelConnectClientUrl(), {
     ...options,
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(panelConnectClient),
   });
 
@@ -21151,7 +21104,7 @@ export const savePanelProviderSettings = async (
   const res = await fetch(getSavePanelProviderSettingsUrl(provider), {
     ...options,
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(panelProviderSettingsInput),
   });
 
@@ -21246,7 +21199,7 @@ export const configurePanelRecurring = async (
   const res = await fetch(getConfigurePanelRecurringUrl(provider), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(panelRecurringTest),
   });
 
@@ -21409,7 +21362,7 @@ export const savePanelAIProvider = async (
   const res = await fetch(getSavePanelAIProviderUrl(), {
     ...options,
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(panelAIProviderInput),
   });
 
@@ -21602,7 +21555,7 @@ export const testPanelAIProvider = async (
   const res = await fetch(getTestPanelAIProviderUrl(slug), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(panelAIProviderTestInput),
   });
 
@@ -21763,7 +21716,7 @@ export const savePanelBlocklistSource = async (
   const res = await fetch(getSavePanelBlocklistSourceUrl(), {
     ...options,
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(panelBlocklistSourceInput),
   });
 
@@ -22028,7 +21981,7 @@ export const decidePanelBlocklistMatch = async (
   const res = await fetch(getDecidePanelBlocklistMatchUrl(matchID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(decidePanelBlocklistMatchBody),
   });
 
@@ -22284,7 +22237,7 @@ export const savePanelAnomalyRule = async (
   const res = await fetch(getSavePanelAnomalyRuleUrl(metric), {
     ...options,
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(panelAnomalyRuleInput),
   });
 
@@ -22466,7 +22419,7 @@ export const reviewPanelAnomaly = async (
   const res = await fetch(getReviewPanelAnomalyUrl(signalID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(reviewPanelAnomalyBody),
   });
 
@@ -22889,7 +22842,7 @@ export const savePanelGoodsProvider = async (
   const res = await fetch(getSavePanelGoodsProviderUrl(slug), {
     ...options,
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(panelGoodsProviderInput),
   });
 
@@ -23073,7 +23026,7 @@ export const createPanelGoodsProduct = async (
   const res = await fetch(getCreatePanelGoodsProductUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(panelGoodsProductInput),
   });
 
@@ -23161,7 +23114,7 @@ export const updatePanelGoodsProduct = async (
   const res = await fetch(getUpdatePanelGoodsProductUrl(productID), {
     ...options,
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(panelGoodsProductUpdate),
   });
 
@@ -23257,7 +23210,7 @@ export const savePanelGoodsLocalization = async (
   const res = await fetch(getSavePanelGoodsLocalizationUrl(productID, locale), {
     ...options,
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(panelLocalization),
   });
 
@@ -23354,7 +23307,7 @@ export const savePanelGoodsPricing = async (
   const res = await fetch(getSavePanelGoodsPricingUrl(productID), {
     ...options,
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(panelGoodsPricing),
   });
 
@@ -24150,7 +24103,7 @@ export const completePanelGoodsDelivery = async (
   const res = await fetch(getCompletePanelGoodsDeliveryUrl(orderID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(completePanelGoodsDeliveryBody),
   });
 
@@ -24251,7 +24204,7 @@ export const resolvePanelGoodsDelivery = async (
   const res = await fetch(getResolvePanelGoodsDeliveryUrl(orderID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(resolvePanelGoodsDeliveryBody),
   });
 
@@ -24522,7 +24475,7 @@ export const previewPanelBulkOperation = async (
   const res = await fetch(getPreviewPanelBulkOperationUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(panelBulkInput),
   });
 
@@ -24967,7 +24920,7 @@ export const accountSignInWithTelegram = async (
   const res = await fetch(getAccountSignInWithTelegramUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(telegramLoginWidgetPayload),
   });
 
@@ -25066,7 +25019,7 @@ export const accountSignInWithMiniApp = async (
   const res = await fetch(getAccountSignInWithMiniAppUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(accountSignInWithMiniAppBody),
   });
 
@@ -25242,7 +25195,7 @@ export const accountCompleteMagicLink = async (
   const res = await fetch(getAccountCompleteMagicLinkUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(magicLinkRedeemInput),
   });
 
@@ -25549,7 +25502,7 @@ export const updateAccountProfile = async (
   const res = await fetch(getUpdateAccountProfileUrl(), {
     ...options,
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(accountProfileInput),
   });
 
@@ -25677,7 +25630,7 @@ export const accountLogoutAll = async (
   const res = await fetch(getAccountLogoutAllUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(accountLogoutAllBody),
   });
 
@@ -26373,7 +26326,7 @@ export const renameAccountSubscription = async (
   const res = await fetch(getRenameAccountSubscriptionUrl(subscriptionID), {
     ...options,
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(renameAccountSubscriptionBody),
   });
 
@@ -26592,7 +26545,7 @@ export const rotateAccountSubscriptionLink = async (
   const res = await fetch(getRotateAccountSubscriptionLinkUrl(subscriptionID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(rotateAccountSubscriptionLinkBody),
   });
 
@@ -27226,7 +27179,7 @@ export const openAccountCheckout = async (
   const res = await fetch(getOpenAccountCheckoutUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(openAccountCheckoutBody),
   });
 
@@ -27313,7 +27266,7 @@ export const updateAccountCheckout = async (
   const res = await fetch(getUpdateAccountCheckoutUrl(), {
     ...options,
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(updateAccountCheckoutBody),
   });
 
@@ -27455,7 +27408,7 @@ export const applyAccountPromoCode = async (
   const res = await fetch(getApplyAccountPromoCodeUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(applyAccountPromoCodeBody),
   });
 
@@ -27969,7 +27922,7 @@ export const startAccountOrderPayment = async (
   const res = await fetch(getStartAccountOrderPaymentUrl(orderID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(startAccountOrderPaymentBody),
   });
 
@@ -28306,7 +28259,7 @@ export const startAccountTopUp = async (
   const res = await fetch(getStartAccountTopUpUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(startAccountTopUpBody),
   });
 
@@ -28462,7 +28415,7 @@ export const attributeAccountReferral = async (
   const res = await fetch(getAttributeAccountReferralUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(attributeAccountReferralBody),
   });
 
@@ -28687,7 +28640,7 @@ export const addAccountContact = async (
   const res = await fetch(getAddAccountContactUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(addAccountContactBody),
   });
 
@@ -28994,7 +28947,7 @@ export const requestAccountDeletion = async (
   const res = await fetch(getRequestAccountDeletionUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(requestAccountDeletionBody),
   });
 
@@ -29353,7 +29306,7 @@ export const reviewAccountShopRecipient = async (
   const res = await fetch(getReviewAccountShopRecipientUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(reviewAccountShopRecipientBody),
   });
 
@@ -29459,7 +29412,7 @@ export const purchaseAccountShopProduct = async (
   const res = await fetch(getPurchaseAccountShopProductUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(purchaseAccountShopProductBody),
   });
 
@@ -29559,7 +29512,7 @@ export const saveAccountShopCart = async (
   const res = await fetch(getSaveAccountShopCartUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(saveAccountShopCartBody),
   });
 
@@ -30077,7 +30030,7 @@ export const createAccountSupportTicket = async (
   const res = await fetch(getCreateAccountSupportTicketUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(createAccountSupportTicketBody),
   });
 
@@ -30253,7 +30206,7 @@ export const replyToAccountSupportTicket = async (
   const res = await fetch(getReplyToAccountSupportTicketUrl(ticketID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(replyToAccountSupportTicketBody),
   });
 
@@ -31006,7 +30959,7 @@ export const recordAccountOrderAttribution = async (
   const res = await fetch(getRecordAccountOrderAttributionUrl(orderID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(accountAttributionInput),
   });
 
@@ -31244,7 +31197,7 @@ export const updateAccountPreferences = async (
   const res = await fetch(getUpdateAccountPreferencesUrl(), {
     ...options,
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(accountPreferencesUpdate),
   });
 
@@ -31467,7 +31420,7 @@ export const savePanelSupportQueue = async (
   const res = await fetch(getSavePanelSupportQueueUrl(), {
     ...options,
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(panelSupportQueueInput),
   });
 
@@ -31833,7 +31786,7 @@ export const assignPanelSupportTicket = async (
   const res = await fetch(getAssignPanelSupportTicketUrl(ticketID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(assignPanelSupportTicketBody),
   });
 
@@ -31928,7 +31881,7 @@ export const movePanelSupportTicket = async (
   const res = await fetch(getMovePanelSupportTicketUrl(ticketID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(movePanelSupportTicketBody),
   });
 
@@ -32030,7 +31983,7 @@ export const setPanelSupportTicketPriority = async (
   const res = await fetch(getSetPanelSupportTicketPriorityUrl(ticketID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(setPanelSupportTicketPriorityBody),
   });
 
@@ -32135,7 +32088,7 @@ export const setPanelSupportTicketStatus = async (
   const res = await fetch(getSetPanelSupportTicketStatusUrl(ticketID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(setPanelSupportTicketStatusBody),
   });
 
@@ -32242,7 +32195,7 @@ export const mergePanelSupportTicket = async (
   const res = await fetch(getMergePanelSupportTicketUrl(ticketID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(mergePanelSupportTicketBody),
   });
 
@@ -32349,7 +32302,7 @@ export const replyToPanelSupportTicket = async (
   const res = await fetch(getReplyToPanelSupportTicketUrl(ticketID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(replyToPanelSupportTicketBody),
   });
 
@@ -32450,7 +32403,7 @@ export const addPanelSupportNote = async (
   const res = await fetch(getAddPanelSupportNoteUrl(ticketID), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(addPanelSupportNoteBody),
   });
 
@@ -32892,7 +32845,7 @@ export const savePanelSupportTag = async (
   const res = await fetch(getSavePanelSupportTagUrl(), {
     ...options,
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(savePanelSupportTagBody),
   });
 
@@ -33049,7 +33002,7 @@ export const savePanelCannedResponse = async (
   const res = await fetch(getSavePanelCannedResponseUrl(), {
     ...options,
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(panelCannedResponseInput),
   });
 
@@ -33393,7 +33346,7 @@ export const savePanelCustomerOidcProvider = async (
   const res = await fetch(getSavePanelCustomerOidcProviderUrl(), {
     ...options,
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(customerOidcProviderInput),
   });
 
@@ -33643,7 +33596,7 @@ export const collectTelemetryEvent = async (
   const res = await fetch(getCollectTelemetryEventUrl(), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
     body: JSON.stringify(telemetryEvent),
   });
 
