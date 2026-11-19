@@ -73,6 +73,17 @@ type AccessCode struct {
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 }
 
+type AdCampaign struct {
+	ID         pgtype.UUID        `json:"id"`
+	Code       string             `json:"code"`
+	Name       string             `json:"name"`
+	BonusKind  string             `json:"bonus_kind"`
+	BonusValue int64              `json:"bonus_value"`
+	Currency   string             `json:"currency"`
+	Active     bool               `json:"active"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
 type Addon struct {
 	ID         pgtype.UUID        `json:"id"`
 	Code       string             `json:"code"`
@@ -809,6 +820,13 @@ type ContactChannel struct {
 	MarketingEnabled     bool               `json:"marketing_enabled"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	RevokedAt            pgtype.Timestamptz `json:"revoked_at"`
+}
+
+type CustomerCampaignAttribution struct {
+	UserID         pgtype.UUID        `json:"user_id"`
+	CampaignID     pgtype.UUID        `json:"campaign_id"`
+	AttributedAt   pgtype.Timestamptz `json:"attributed_at"`
+	BonusGrantedAt pgtype.Timestamptz `json:"bonus_granted_at"`
 }
 
 type CustomerDirectMessage struct {

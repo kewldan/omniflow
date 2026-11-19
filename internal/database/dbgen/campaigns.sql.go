@@ -804,6 +804,47 @@ func (q *Queries) ResolveCampaignRecipient(ctx context.Context, arg ResolveCampa
 	return err
 }
 
+const saveAdCampaign = `-- name: SaveAdCampaign :one
+INSERT INTO ad_campaigns (code, name, bonus_kind, bonus_value, currency, active)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (code) DO UPDATE SET
+  name = EXCLUDED.name, bonus_kind = EXCLUDED.bonus_kind, bonus_value = EXCLUDED.bonus_value,
+  currency = EXCLUDED.currency, active = EXCLUDED.active
+RETURNING id, code, name, bonus_kind, bonus_value, currency, active, created_at
+`
+
+type SaveAdCampaignParams struct {
+	Code       string `json:"code"`
+	Name       string `json:"name"`
+	BonusKind  string `json:"bonus_kind"`
+	BonusValue int64  `json:"bonus_value"`
+	Currency   string `json:"currency"`
+	Active     bool   `json:"active"`
+}
+
+func (q *Queries) SaveAdCampaign(ctx context.Context, arg SaveAdCampaignParams) (AdCampaign, error) {
+	row := q.db.QueryRow(ctx, saveAdCampaign,
+		arg.Code,
+		arg.Name,
+		arg.BonusKind,
+		arg.BonusValue,
+		arg.Currency,
+		arg.Active,
+	)
+	var i AdCampaign
+	err := row.Scan(
+		&i.ID,
+		&i.Code,
+		&i.Name,
+		&i.BonusKind,
+		&i.BonusValue,
+		&i.Currency,
+		&i.Active,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const saveReferralProgram = `-- name: SaveReferralProgram :one
 INSERT INTO referral_programs (
   singleton, enabled, currency, inviter_reward_minor, invitee_reward_minor,

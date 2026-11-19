@@ -2513,6 +2513,38 @@
         "inviterDays": "Days for the inviter",
         "inviteeDays": "Days for the friend",
         "daysHint": "Days, when set, are added to the subscription instead of crediting the wallet."
+      },
+      "adCampaigns": {
+        "title": "Advertising campaigns (/start)",
+        "description": "A link t.me/your_bot?start=c_code credits the campaign with every new customer it brings, and can grant a sign-up bonus. Below is what those customers did next.",
+        "empty": "No campaigns yet.",
+        "columns": {
+          "campaign": "Campaign",
+          "link": "Parameter",
+          "registrations": "Sign-ups",
+          "trials": "Trials",
+          "paying": "Paying",
+          "revenue": "Revenue"
+        },
+        "bonus": {
+          "none": "No bonus",
+          "wallet": "{amount} bonus to the wallet",
+          "days": "{days} days of VPN"
+        },
+        "code": "Code",
+        "name": "Name",
+        "bonusLabel": "Bonus",
+        "bonusValue": "Amount (major units or days)",
+        "bonusKinds": {
+          "none": "No bonus",
+          "wallet": "Wallet credit",
+          "days": "VPN days"
+        },
+        "create": "Create",
+        "pause": "Pause",
+        "resume": "Resume",
+        "active": "Active",
+        "paused": "Paused"
       }
     },
     "installationSettings": {

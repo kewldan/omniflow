@@ -28,6 +28,7 @@ func (handlers *AdminHandlers) mountMarketing(secure chi.Router) {
 		read.Get("/marketing/campaigns/{campaignID}/tests", handlers.campaignTests)
 		read.Get("/marketing/suppressions", handlers.suppressions)
 		read.Get("/marketing/referrals", handlers.referralProgram)
+		read.Get("/marketing/ad-campaigns", handlers.adCampaigns)
 	})
 
 	secure.With(handlers.requirePermission(rbac.PermissionMarketingWrite)).Group(func(write chi.Router) {
@@ -41,6 +42,7 @@ func (handlers *AdminHandlers) mountMarketing(secure chi.Router) {
 		write.Post("/marketing/campaigns/{campaignID}/test", handlers.sendCampaignTest)
 		write.Put("/marketing/suppressions", handlers.suppress)
 		write.Delete("/marketing/suppressions/{customerID}", handlers.unsuppress)
+		write.Put("/marketing/ad-campaigns", handlers.saveAdCampaign)
 	})
 
 	secure.With(handlers.requirePermission(rbac.PermissionSettingsWrite)).Group(func(write chi.Router) {
@@ -188,4 +190,18 @@ func (handlers *AdminHandlers) saveReferralProgram(
 	program, err := handlers.operations.SaveReferralProgram(
 		request.Context(), body, actorFrom(request))
 	handlers.respond(writer, request, program, err)
+}
+
+func (handlers *AdminHandlers) adCampaigns(writer http.ResponseWriter, request *http.Request) {
+	items, err := handlers.operations.AdCampaigns(request.Context())
+	handlers.respond(writer, request, map[string]any{"items": items}, err)
+}
+
+func (handlers *AdminHandlers) saveAdCampaign(writer http.ResponseWriter, request *http.Request) {
+	var body panelpg.AdCampaign
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	campaign, err := handlers.operations.SaveAdCampaign(request.Context(), body, actorFrom(request))
+	handlers.respond(writer, request, campaign, err)
 }

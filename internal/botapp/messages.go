@@ -120,6 +120,8 @@ var catalog = map[string]phrase{
 	"policy.atExpiry":  {ru: "по окончании текущего периода", en: "at the end of the current period"},
 
 	// Payment method selection.
+	"campaign.bonusWallet": {ru: "🎁 Бонус за регистрацию: на баланс зачислено <b>%s</b>.", en: "🎁 Sign-up bonus: <b>%s</b> added to your balance."},
+	"campaign.bonusDays":   {ru: "🎁 Бонус за регистрацию: <b>%d дн.</b> VPN уже ваши — подключение в разделе «Подписка».", en: "🎁 Sign-up bonus: <b>%d days</b> of VPN are yours — connect from your subscription."},
 	"winback.body": {ru: "🔥 <b>Скидка %d%% на продление</b>\n\nВозвращайтесь — скидка действует %d ч и применится сама при оплате.\nКод на всякий случай: <code>%s</code>",
 		en: "🔥 <b>%d%% off your renewal</b>\n\nCome back — the discount lasts %d h and applies by itself at checkout.\nYour code, just in case: <code>%s</code>"},
 	"winback.renew": {ru: "Продлить со скидкой %d%%", en: "Renew with %d%% off"},

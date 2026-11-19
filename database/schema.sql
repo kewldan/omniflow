@@ -201,6 +201,27 @@ COMMENT ON COLUMN public.access_codes.code_hash IS 'SHA-256 of the code. The pla
 
 
 --
+-- Name: ad_campaigns; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ad_campaigns (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    code text NOT NULL,
+    name text NOT NULL,
+    bonus_kind text DEFAULT 'none'::text NOT NULL,
+    bonus_value bigint DEFAULT 0 NOT NULL,
+    currency text DEFAULT 'RUB'::text NOT NULL,
+    active boolean DEFAULT true NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT ad_campaigns_bonus_known CHECK ((bonus_kind = ANY (ARRAY['none'::text, 'wallet'::text, 'days'::text]))),
+    CONSTRAINT ad_campaigns_bonus_value CHECK ((((bonus_kind = 'none'::text) AND (bonus_value = 0)) OR ((bonus_kind = 'wallet'::text) AND (bonus_value > 0)) OR ((bonus_kind = 'days'::text) AND ((bonus_value >= 1) AND (bonus_value <= 365))))),
+    CONSTRAINT ad_campaigns_code_shape CHECK ((code ~ '^[a-z0-9_]{2,40}$'::text)),
+    CONSTRAINT ad_campaigns_currency_shape CHECK ((currency ~ '^[A-Z]{3}$'::text)),
+    CONSTRAINT ad_campaigns_name_length CHECK (((char_length(name) >= 1) AND (char_length(name) <= 120)))
+);
+
+
+--
 -- Name: addon_localizations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1499,6 +1520,18 @@ CREATE TABLE public.contact_channels (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     revoked_at timestamp with time zone,
     CONSTRAINT contact_channels_kind_check CHECK ((kind = ANY (ARRAY['email'::text, 'phone'::text, 'telegram'::text])))
+);
+
+
+--
+-- Name: customer_campaign_attributions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.customer_campaign_attributions (
+    user_id uuid NOT NULL,
+    campaign_id uuid NOT NULL,
+    attributed_at timestamp with time zone DEFAULT now() NOT NULL,
+    bonus_granted_at timestamp with time zone
 );
 
 
@@ -3796,6 +3829,22 @@ ALTER TABLE ONLY public.access_codes
 
 
 --
+-- Name: ad_campaigns ad_campaigns_code_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ad_campaigns
+    ADD CONSTRAINT ad_campaigns_code_key UNIQUE (code);
+
+
+--
+-- Name: ad_campaigns ad_campaigns_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ad_campaigns
+    ADD CONSTRAINT ad_campaigns_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: addon_localizations addon_localizations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4433,6 +4482,14 @@ ALTER TABLE ONLY public.contact_channels
 
 ALTER TABLE ONLY public.contact_channels
     ADD CONSTRAINT contact_channels_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: customer_campaign_attributions customer_campaign_attributions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_campaign_attributions
+    ADD CONSTRAINT customer_campaign_attributions_pkey PRIMARY KEY (user_id);
 
 
 --
@@ -5954,6 +6011,13 @@ CREATE INDEX contact_channels_user_idx ON public.contact_channels USING btree (u
 
 
 --
+-- Name: customer_campaign_attributions_campaign; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX customer_campaign_attributions_campaign ON public.customer_campaign_attributions USING btree (campaign_id);
+
+
+--
 -- Name: customer_direct_messages_pending; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7350,6 +7414,22 @@ ALTER TABLE ONLY public.consent_records
 
 ALTER TABLE ONLY public.contact_channels
     ADD CONSTRAINT contact_channels_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: customer_campaign_attributions customer_campaign_attributions_campaign_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_campaign_attributions
+    ADD CONSTRAINT customer_campaign_attributions_campaign_id_fkey FOREIGN KEY (campaign_id) REFERENCES public.ad_campaigns(id);
+
+
+--
+-- Name: customer_campaign_attributions customer_campaign_attributions_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_campaign_attributions
+    ADD CONSTRAINT customer_campaign_attributions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

@@ -9,6 +9,7 @@ import (
 	"html"
 	"log/slog"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -16,6 +17,7 @@ import (
 	telegram "github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 	"github.com/omniflow/omniflow/internal/commerce"
+	"github.com/omniflow/omniflow/internal/commercepg"
 	databaseutil "github.com/omniflow/omniflow/internal/database"
 	"github.com/omniflow/omniflow/internal/platform"
 	"github.com/omniflow/omniflow/internal/remnawave"
@@ -252,6 +254,10 @@ func (app *App) HandleStart(ctx context.Context, client *telegram.Bot, update *m
 	switch payload.Kind {
 	case startPayloadReferral:
 		app.attributeReferral(ctx, message.From.ID, message.From.LanguageCode, payload.Value)
+	case startPayloadCampaign:
+		if app.commerceEnabled() {
+			app.attributeCampaign(ctx, client, message.Chat.ID, message.From.ID, message.From.LanguageCode, locale, payload.Value)
+		}
 	case startPayloadLogin:
 		// The web sign-in page sends a customer here with `?start=login`. It has
 		// to behave exactly like /login, or the button on the website is a dead
@@ -281,6 +287,9 @@ const (
 	startPayloadReferral = "ref"
 	startPayloadLogin    = "login"
 	startPayloadPay      = "pay"
+	// startPayloadCampaign is an advertising campaign: `c_<code>`, or the
+	// bare code the way Bedolaga links are written.
+	startPayloadCampaign = "campaign"
 )
 
 // parseStartPayload reads the deep-link argument of a /start command.
@@ -307,6 +316,12 @@ func parseStartPayload(messageText string) startPayload {
 		if parsed, err := databaseutil.ParseUUIDs([]string{strings.TrimPrefix(argument, "pay_")}); err == nil {
 			return startPayload{Kind: startPayloadPay, Value: databaseutil.UUIDStrings(parsed)[0]}
 		}
+	case strings.HasPrefix(argument, "c_"):
+		if code := strings.ToLower(strings.TrimPrefix(argument, "c_")); campaignArgument.MatchString(code) {
+			return startPayload{Kind: startPayloadCampaign, Value: code}
+		}
+	case campaignArgument.MatchString(strings.ToLower(argument)):
+		return startPayload{Kind: startPayloadCampaign, Value: strings.ToLower(argument)}
 	}
 	return startPayload{}
 }
@@ -1276,4 +1291,31 @@ func editParams(chatID int64, messageID int, view View) *telegram.EditMessageTex
 		params.ReplyMarkup = view.Keyboard
 	}
 	return params
+}
+
+// campaignArgument is what a /start campaign code may look like.
+var campaignArgument = regexp.MustCompile(`^[a-z0-9_]{2,40}$`)
+
+// attributeCampaign credits an advertising campaign with a new customer and
+// tells them about a sign-up bonus, when the campaign grants one. An unknown
+// code, or a customer the campaign did not bring, changes nothing.
+func (app *App) attributeCampaign(
+	ctx context.Context, client *telegram.Bot, chatID, telegramID int64, telegramLocale string, locale Locale, code string,
+) {
+	session, err := app.commerceContext(ctx, telegramID, telegramLocale)
+	if err != nil {
+		app.logger.Warn("customer resolution failed during campaign attribution", "error", err)
+		return
+	}
+	result, err := app.commerce.orders.AttributeCampaign(ctx, session.Customer.ID, code)
+	if err != nil && !errors.Is(err, commercepg.ErrCampaignUnknown) {
+		app.logger.Warn("campaign attribution failed", "error", err)
+		return
+	}
+	switch result.BonusKind {
+	case "wallet":
+		_, _ = client.SendMessage(ctx, sendParams(chatID, View{Text: text(locale, "campaign.bonusWallet", formatMoney(result.BonusValue, result.Currency))}))
+	case "days":
+		_, _ = client.SendMessage(ctx, sendParams(chatID, View{Text: text(locale, "campaign.bonusDays", result.BonusValue)}))
+	}
 }

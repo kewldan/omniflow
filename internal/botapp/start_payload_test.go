@@ -18,12 +18,17 @@ func TestParseStartPayloadRecognisesEveryDeepLink(t *testing.T) {
 		{"referral", "/start ref_ABCDEFGHIJ", startPayload{Kind: startPayloadReferral, Value: "ABCDEFGHIJ"}},
 		{"empty referral", "/start ref_", startPayload{}},
 		{"login", "/start login", startPayload{Kind: startPayloadLogin}},
-		{"login is exact", "/start login_now", startPayload{}},
+		// Anything else shaped like a campaign code is a campaign candidate;
+		// a code no active campaign holds is then ignored by the store.
+		{"login is exact", "/start login_now", startPayload{Kind: startPayloadCampaign, Value: "login_now"}},
 		{"pay", "/start pay_0c3b1a8e-9d4f-4b2a-8c1e-5f6a7b8c9d0e", startPayload{Kind: startPayloadPay, Value: "0c3b1a8e-9d4f-4b2a-8c1e-5f6a7b8c9d0e"}},
 		{"pay normalises case", "/start pay_0C3B1A8E-9D4F-4B2A-8C1E-5F6A7B8C9D0E", startPayload{Kind: startPayloadPay, Value: "0c3b1a8e-9d4f-4b2a-8c1e-5f6a7b8c9d0e"}},
 		{"pay needs a uuid", "/start pay_not-an-order", startPayload{}},
 		{"pay needs a value", "/start pay_", startPayload{}},
-		{"unknown payload", "/start campaign42", startPayload{}},
+		{"bare campaign code", "/start stars_elite", startPayload{Kind: startPayloadCampaign, Value: "stars_elite"}},
+		{"prefixed campaign code", "/start c_Stars_Elite", startPayload{Kind: startPayloadCampaign, Value: "stars_elite"}},
+		{"not a campaign code", "/start c_!!", startPayload{}},
+		{"unknown shape", "/start some-thing.else", startPayload{}},
 		{"two arguments", "/start ref_A ref_B", startPayload{}},
 		{"surrounding whitespace", "  /start   login  ", startPayload{Kind: startPayloadLogin}},
 	}

@@ -1794,6 +1794,7 @@ type Querier interface {
 	// reason plan versions exist: a price change last week must not re-price a sale
 	// from last month.
 	SalesByPlan(ctx context.Context, arg SalesByPlanParams) ([]SalesByPlanRow, error)
+	SaveAdCampaign(ctx context.Context, arg SaveAdCampaignParams) (AdCampaign, error)
 	// Upsert, because an operator editing wording twice is editing the same thing.
 	SaveNoticeOverride(ctx context.Context, arg SaveNoticeOverrideParams) (NoticeOverride, error)
 	// Re-presenting the same provider token is not a new method: the provider still

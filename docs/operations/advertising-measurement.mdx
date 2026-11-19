@@ -134,6 +134,24 @@ dropped. A platform that optimised bidding on a sale that was later returned is
 being taught the wrong thing, and you can only correct for that if the export
 says it happened.
 
+## Telegram /start campaigns
+
+A campaign that runs inside Telegram — a post in a channel, a broadcast from another bot — has no web
+visit to carry a UTM tag. For those, **Marketing → Advertising campaigns (/start)** creates a code and
+a link `t.me/<bot>?start=c_<code>`; the bare code (`?start=<code>`) works too, the way Bedolaga links
+are written.
+
+- The first `/start` with the code credits the campaign with the customer, once, and only if the
+  account was created within the last hour and has no paid order: a campaign gets the sign-ups it
+  produced, not existing customers it happened to reach.
+- An optional sign-up bonus is granted with the attribution: wallet credit, or days of VPN on the
+  live trial plan. The bot tells the customer.
+- The table counts, per campaign, sign-ups, those who took a trial, those with a settled
+  subscription order, and their revenue net of refunds in the campaign currency.
+
+Pausing a campaign stops new attributions and bonuses; its history stays. Saving requires
+`marketing.write`, reading `marketing.read`. Nothing is sent to any advertising network.
+
 ## What is deliberately absent
 
 - **No server-side conversion API calls.** Nothing here reaches an advertising

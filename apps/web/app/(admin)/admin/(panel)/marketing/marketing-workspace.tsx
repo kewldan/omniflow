@@ -21,6 +21,7 @@ import { type ApiError, fetcher } from "@/lib/api";
 import { localized } from "@/lib/localized";
 import { formatMoney, type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
+import { AdCampaignsCard } from "./ad-campaigns";
 
 import type {
   AudienceSegment,
@@ -47,6 +48,7 @@ export function MarketingWorkspace() {
     <div className="flex flex-col gap-5">
       <PageHeader description={translate("description")} title={translate("title")} />
       <CampaignCard editable={can("marketing.write")} />
+      <AdCampaignsCard editable={can("marketing.write")} />
       <SegmentCard />
       <SuppressionCard editable={can("marketing.write")} />
       <ReferralCard editable={can("settings.write")} />
