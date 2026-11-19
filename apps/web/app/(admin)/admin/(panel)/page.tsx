@@ -248,14 +248,16 @@ function Incidents() {
               className="flex flex-wrap items-baseline justify-between gap-3 text-sm"
               key={incident.id}
             >
-              <span className="flex items-center gap-2">
+              {/* Wraps as a line of words rather than three squeezed columns,
+                  which on a phone stacked the reason one word per line. */}
+              <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                 <Badge variant={incident.action === "activated" ? "warning" : "success"}>
                   {translate(`incidentAction.${incident.action}`)}
                 </Badge>
                 <span className="text-muted-foreground">
                   {translate(`incidentSource.${incident.source}`)}
                 </span>
-                {incident.reason && <span>{incident.reason}</span>}
+                {incident.reason && <span className="break-words">{incident.reason}</span>}
               </span>
               <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
                 <Timestamp value={incident.occurredAt} />
