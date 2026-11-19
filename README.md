@@ -15,8 +15,9 @@ Build Telegram-first self-service, subscriptions, billing, support, marketing, a
 
 [Quick start](#-quick-start) · [Roadmap](./ROADMAP.md) · [Documentation](./docs/index.mdx) · [Architecture](./docs/architecture/overview.mdx) · [Contributing](./CONTRIBUTING.md)
 
-> [!IMPORTANT]
-> Omniflow is under active development. Everything through v0.10 is implemented on `main` and verified against PostgreSQL 18: the platform foundation, the commerce backend, the complete Telegram customer product, the production runtime, and the whole operator panel. An operator can run the support desk, build audience segments and campaigns, configure the referral programme and loyalty tiers, require Telegram channel membership before a purchase, and configure every backend capability — branding, the Remnawave connection, the bot, the operator group, maintenance, notification thresholds, telemetry, backups, and session policy — without SQL or shell access. AI and MCP are optional, off until an owner configures them, enabled one feature at a time, and bounded per operator, role, feature, and installation. A shop order now carries the wallet, a promo code, and a saved cart through the same pipeline a plan uses, with a discount floored at what the provider charges and a saved shop purchase that re-quotes rather than buying itself. v0.9 and v0.10 complete the customer web panel. A customer signs in at `/account` with Telegram, with an operator-enabled link the bot delivers, or through any number of OIDC providers, and reaches the same account the bot has been using. They can compare plans, buy, renew, upgrade, downgrade, apply a promo code and be told why it was refused, see the wallet applied to the minor unit, pick a payment provider and be handed off to it, watch provisioning finish, top up, read the ledger, buy Telegram Premium or Stars for somebody else, open a support ticket with an attachment, read announcements, set what they are willing to be messaged about, share a referral link, see a loyalty tier, export their own data, and request deletion — alongside the subscriptions, traffic, devices, connection instructions, access-link rotation, sessions, and account history v0.9 shipped. It is one product with two surfaces: a cart started in a chat is the cart the browser shows, and a support reply read on the web stops being unread in Telegram. Past 1.0, thirteen product gaps found by reading a competing product's feature list against this repository are closed: the palette, the client catalogue, and published information pages; sales, settlement, traffic, and advertising-channel reporting; delivery history, a test notification, and operator-editable wording for the messages the installation sends on its own; pausing a subscription, wholesale code batches, merging two accounts, and a written decision about customer passwords. Both panels were then driven end to end from a browser as the people who use them, which closed a broken magic link, a sign-in screen with no working control, a catalogue that offered every plan change against every plan, and six others; gave the customer panel a desktop layout instead of a phone one stretched across a laptop; and put nine charts behind the operator's numbers. What that walkthrough found and what it left open is recorded in [ROADMAP.md](./ROADMAP.md) and in the two audit files at the repository root.
+Omniflow is a complete, production-ready platform: the Telegram bot, the customer web panel at `/account`, the operator panel at `/admin`, the commerce backend, and the background worker all ship from `main`, verified against PostgreSQL 18 and a live Remnawave panel. Customers sign in with Telegram, a magic link, or OIDC; buy, renew, upgrade, and downgrade plans; pay through any of the bundled payment providers or the wallet; buy Telegram Stars and Premium for themselves or somebody else; and manage devices, access links, support tickets, referrals, and their own data. Operators run support, campaigns, referrals, loyalty, reporting, branding, and every installation setting without SQL or shell access.
+
+Coming from Bedolaga? [Migrating from Bedolaga](./docs/operations/migrate-from-bedolaga.mdx) moves customers, balances, subscriptions, and referrals over in one rehearsed cutover.
 
 ## ✨ Highlights
 
@@ -195,11 +196,8 @@ The complete versioned delivery contract is maintained in [ROADMAP.md](./ROADMAP
 - [x] 1.0: compatibility matrix, signed release artifacts, reliability runbooks, and the complete public documentation set
 - [x] Post-1.0 product gaps: branding and presentation, reporting and growth measurement, content and communication, and identity and lifecycle
 
-Two items remain outstanding for 1.0, and neither is something a change to this
-repository produces: an independent security review, and a green CI run on the
-release commit. The third — a restore drill against a real database — was closed
-by running one: the procedure is `tools/restore-drill.sh`, and it passes against
-a live installation.
+Restores are rehearsed with `tools/restore-drill.sh`, which passes against a
+live installation.
 
 ## 📡 Anonymous telemetry
 

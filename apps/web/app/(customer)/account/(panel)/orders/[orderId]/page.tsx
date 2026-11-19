@@ -35,10 +35,8 @@ import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 import { useMoney } from "@/lib/format";
 import { useSubmission } from "@/lib/idempotency";
+import { providerKey } from "@/lib/payment-providers";
 import { useBoundedPolling, useRevalidateCommerce } from "@/lib/polling";
-
-/** The payment methods this build has copy for; anything else keeps its code. */
-const PROVIDERS = ["telegram_stars", "cryptobot", "yookassa", "manual"];
 
 /** Phases that are still moving, and so are worth re-reading on a timer. */
 const LIVE_PHASES = ["pending", "awaiting_action", "succeeded", "provisioning"];
@@ -374,11 +372,7 @@ function OrderMethodPicker({
           />
           <span className="min-w-0 flex-1">
             <span className="block font-medium text-[13.5px]">
-              {translate(
-                `checkout.provider.names.${
-                  PROVIDERS.includes(choice.provider) ? choice.provider : "unknown"
-                }`,
-              )}
+              {translate(`checkout.provider.names.${providerKey(choice.provider)}`)}
             </span>
           </span>
           {choice.amountMinor !== undefined && (

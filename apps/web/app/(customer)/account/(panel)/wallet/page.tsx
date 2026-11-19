@@ -28,6 +28,7 @@ import { issue, moneyIssue } from "@/lib/form-schema";
 import { useMoney } from "@/lib/format";
 import { useSubmission } from "@/lib/idempotency";
 import { minorToInput, parseMajorToMinor } from "@/lib/money";
+import { providerKey } from "@/lib/payment-providers";
 import { useRevalidateCommerce } from "@/lib/polling";
 
 /** The ledger movements this build has copy for, from `ledger_transactions.type`. */
@@ -40,9 +41,6 @@ const ENTRY_TYPES = [
   "correction",
   "expiration",
 ];
-
-/** The payment methods this build has copy for. */
-const PROVIDERS = ["telegram_stars", "cryptobot", "yookassa", "manual"];
 
 /**
  * The wallet: what is held, what is spoken for, and how to add more.
@@ -430,11 +428,7 @@ function TopUpForm({
                     {...register("provider")}
                   />
                   <span className="font-medium text-[13.5px]">
-                    {translate(
-                      `checkout.provider.names.${
-                        PROVIDERS.includes(choice.provider) ? choice.provider : "unknown"
-                      }`,
-                    )}
+                    {translate(`checkout.provider.names.${providerKey(choice.provider)}`)}
                   </span>
                 </label>
               ))}
