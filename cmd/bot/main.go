@@ -85,6 +85,10 @@ func main() {
 	configureCommands(ctx, logger, client)
 
 	sender := botapp.NewSender(client, identities, logger)
+	if _, err := botapp.NotificationSettingsFromEnv(os.Getenv); err != nil {
+		logger.Error("notification settings are invalid", "error", err)
+		os.Exit(1)
+	}
 	settings := commerceSettings(cfg)
 	commerceService, fulfillmentService, err := buildCommerce(logger, cfg, pool, identities, metrics)
 	if err != nil {
@@ -270,6 +274,11 @@ func commerceSettings(cfg config.BotConfig) botapp.CommerceSettings {
 		MultiSubscription:      cfg.Subscriptions.MultiEnabled,
 		GoodsVPNOffer:          cfg.Fragment.VPNOffer,
 		Winback:                botapp.WinbackWavesFromEnv(),
+		// Validated at startup; an invalid value never reaches here.
+		Notifications: func() botapp.NotificationSettings {
+			settings, _ := botapp.NotificationSettingsFromEnv(os.Getenv)
+			return settings
+		}(),
 	}
 }
 

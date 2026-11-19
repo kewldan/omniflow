@@ -327,7 +327,7 @@ func (notifier *Notifier) deliverSubscriptionAlerts(ctx context.Context, candida
 		entitlement.SubscriptionLabel = subscription.Label
 	}
 	now := notifier.clock().UTC()
-	if offset, due := commerce.RenewalReminderDue(now, entitlement.EndsAt); due && plan.RenewalFromEntitlement {
+	if offset, due := renewalReminderDue(now, entitlement.EndsAt, notifier.settings.Notifications); due && plan.RenewalFromEntitlement {
 		dedupe := fmt.Sprintf("%s:%d", entitlement.ID, offset)
 		notifier.deliver(ctx, candidate, subscription.ID, "renewal", dedupe, renewalReminderView(notifier.notices, locale, entitlement, offset))
 	}
@@ -388,7 +388,7 @@ func (notifier *Notifier) maybeSendExpiry(ctx context.Context, candidate notific
 	if days < 0 {
 		days = 0
 	}
-	if days != 7 && days != 3 && days != 1 && days != 0 {
+	if !notifier.settings.Notifications.expiryDue(days) {
 		return
 	}
 	dedupe := fmt.Sprintf("%s:%d", user.ExpireAt.UTC().Format(time.DateOnly), days)
@@ -400,12 +400,7 @@ func (notifier *Notifier) maybeSendTraffic(ctx context.Context, candidate notifi
 		return
 	}
 	percent := int64(math.Floor(float64(user.Traffic.UsedBytes) / float64(user.TrafficLimitBytes) * 100))
-	threshold := int64(0)
-	if percent >= 100 {
-		threshold = 100
-	} else if percent >= 80 {
-		threshold = 80
-	}
+	threshold := notifier.settings.Notifications.trafficThreshold(percent)
 	if threshold == 0 {
 		return
 	}
@@ -788,6 +783,11 @@ func (notifier *Notifier) deliverNews(ctx context.Context) int {
 // durable: sent, deferred to the end of quiet hours, suppressed with a reason,
 // or failed with a classified error code.
 func (notifier *Notifier) deliver(ctx context.Context, candidate notificationCandidate, subscriptionID, kind, dedupe string, view View) {
+	// A kind the operator switched off is not claimed at all, so switching it
+	// back on later sends what is still due rather than finding it spent.
+	if !notifier.settings.Notifications.enabled(kind) {
+		return
+	}
 	claimed, err := notifier.store.claimNotification(ctx, candidate.UserID, subscriptionID, kind, dedupe)
 	if err != nil {
 		notifier.logger.Error("notification claim failed", "kind", kind, "error", err)

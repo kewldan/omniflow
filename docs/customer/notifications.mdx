@@ -63,8 +63,8 @@ message that arrives at eight the next morning.
 
 | Message | Kind | When |
 | --- | --- | --- |
-| Expiry reminder | `expiry` | 7, 3, 1, and 0 days before the subscription ends — only for a subscription with no entitlement behind it (imported before commerce) |
-| Traffic warning | `traffic` | at 80% and at 100% of the traffic allowance |
+| Expiry reminder | `expiry` | 7, 3, 1, and 0 days (`APP_NOTIFY_EXPIRY_DAYS`) before the subscription ends — only for a subscription with no entitlement behind it (imported before commerce) |
+| Traffic warning | `traffic` | at 80% and at 100% of the traffic allowance (`APP_NOTIFY_TRAFFIC_PERCENTS`) |
 | Renewal reminder | `renewal` | 7, 3, 1, and 0 whole days before the entitlement ends — for every subscription Omniflow sold |
 | Grace notice | `grace` | while the subscription is past its end date but inside its grace period |
 | Recovery offer | `recovery` | while the expired subscription is still inside the recovery window |
@@ -125,6 +125,21 @@ hours govern it.
 | `APP_WINBACK_WAVE2_AFTER_DAYS` / `APP_WINBACK_WAVE2_PERCENT` | `2` / `10` | Day and discount of wave 2; percent `0` disables it |
 | `APP_WINBACK_WAVE3_AFTER_DAYS` / `APP_WINBACK_WAVE3_PERCENT` | `5` / `20` | Day and discount of wave 3 |
 | `APP_WINBACK_VALID_HOURS` | `24` | How long each wave's discount lasts |
+
+### Thresholds and switches
+
+The days and percentages in the table above are defaults the operator can change, and any lifecycle
+kind can be switched off for the whole installation. A customer's own switches still apply on top of
+these: a kind left on here reaches only customers who have not turned it off.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `APP_NOTIFY_EXPIRY_DAYS` | `7,3,1,0` | Days before the end on which the `expiry` and `renewal` reminders go out (0–60) |
+| `APP_NOTIFY_TRAFFIC_PERCENTS` | `80,100` | Shares of the traffic allowance that send a `traffic` warning (1–100); each is sent once per period |
+| `APP_NOTIFY_DISABLED` | none | Comma-separated kinds this installation never sends: `expiry`, `traffic`, `renewal`, `grace`, `recovery`, `fulfillment`, `trial`, `connection`, `device`, `access` |
+
+A switched-off kind is not recorded as sent, so switching it back on sends what is still due. Payment,
+support, and operator messages cannot be switched off. An invalid value stops the bot at startup.
 
 ## Setting preferences
 

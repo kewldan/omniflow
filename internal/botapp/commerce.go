@@ -41,6 +41,9 @@ type CommerceSettings struct {
 	// Winback is the schedule of automatic discount waves after a
 	// subscription lapses (APP_WINBACK_*). Empty turns them off.
 	Winback []WinbackWave
+	// Notifications are the operator's thresholds and switches for the
+	// lifecycle notices (APP_NOTIFY_*). The zero value sends the defaults.
+	Notifications NotificationSettings
 }
 
 // Commerce ties the bot to the commerce backend.
