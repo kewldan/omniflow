@@ -101,7 +101,10 @@ func main() {
 			logger.Error("initialize digital goods", "error", err)
 			os.Exit(1)
 		}
-		river.AddWorker(workers, goodsdelivery.NewWorker(pool, deliveryRegistry, logger))
+		deliveryRegistry.WithFragmentDirect(
+			goodsdelivery.DirectOptionsFrom(cfg.Fragment, cfg.DefaultCurrency, logger))
+		river.AddWorker(workers, goodsdelivery.NewWorker(pool, deliveryRegistry, logger).WithOptions(
+			goodsdelivery.Options{Rates: deliveryRegistry.Rates(), LowWalletStars: cfg.Fragment.WalletLowStars}))
 	} else {
 		logger.Info("digital goods delivery disabled", "reason", "APP_DATA_ENCRYPTION_KEY is not set")
 	}

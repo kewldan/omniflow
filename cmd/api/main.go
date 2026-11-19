@@ -359,6 +359,7 @@ func buildCustomerPanel(
 	if err != nil {
 		return nil, nil, err
 	}
+	goodsRegistry.WithFragmentDirect(goodsdelivery.DirectOptionsFrom(cfg.Fragment, cfg.DefaultCurrency, logger))
 	shop, err := accountshop.New(pool, commerceStore, paymentService, goodsRegistry, accountshop.Options{
 		Logger:   logger,
 		Settings: accountshop.Settings{Currency: cfg.DefaultCurrency, PublicURL: cfg.PublicURL},

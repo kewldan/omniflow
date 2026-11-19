@@ -311,6 +311,7 @@ func buildCommerce(
 		if registryErr != nil {
 			return nil, nil, registryErr
 		}
+		registry.WithFragmentDirect(goodsdelivery.DirectOptionsFrom(cfg.Fragment, cfg.DefaultCurrency, logger))
 		commerceService.EnableShop(registry)
 	} else {
 		logger.Info("digital goods shop disabled", "reason", "APP_DATA_ENCRYPTION_KEY is not set")

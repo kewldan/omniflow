@@ -262,7 +262,7 @@ type CartPurchase struct {
 // order. The cart is marked purchased in the same step, which closes the window
 // where a second attempt could observe it as still open.
 func (store *Store) TryPurchaseCart(ctx context.Context, customerID string) (CartPurchase, error) {
-	return store.purchaseCart(ctx, customerID, commerce.EvaluateAutoPurchase)
+	return store.purchaseCart(ctx, customerID, commerce.EvaluateAutoPurchase, true)
 }
 
 // PurchaseCartNow is the customer's own "Buy now". It shares the sweep's
@@ -271,13 +271,18 @@ func (store *Store) TryPurchaseCart(ctx context.Context, customerID string) (Car
 // whether the cart may be bought while the customer is away. A customer who is
 // tapping the button is not away.
 func (store *Store) PurchaseCartNow(ctx context.Context, customerID string) (CartPurchase, error) {
-	return store.purchaseCart(ctx, customerID, commerce.EvaluateCartPurchase)
+	return store.purchaseCart(ctx, customerID, commerce.EvaluateCartPurchase, false)
 }
 
-func (store *Store) purchaseCart(ctx context.Context, customerID string, evaluate func(commerce.AutoPurchaseRequest) (string, error)) (CartPurchase, error) {
+func (store *Store) purchaseCart(ctx context.Context, customerID string, evaluate func(commerce.AutoPurchaseRequest) (string, error), unattended bool) (CartPurchase, error) {
 	cart, found, err := store.OpenCart(ctx, customerID)
 	if err != nil || !found {
 		return CartPurchase{Reason: commerce.CartAutoPurchaseOff}, err
+	}
+	if cart.Kind == "goods" {
+		// A saved shop purchase has no plan to re-quote; it is priced from
+		// the product's own operator price.
+		return store.purchaseGoodsCart(ctx, customerID, cart.Cart, unattended)
 	}
 	quote, err := store.QuoteCart(ctx, cart)
 	if errors.Is(err, ErrPlanUnavailable) || errors.Is(err, ErrAddonUnavailable) {

@@ -22,6 +22,8 @@ type PurchaseRequest struct {
 	CustomerID string
 	ProductID  string
 	Quantity   int
+	// Stars is the amount chosen for a custom-amount Stars product.
+	Stars int
 	// Recipient must be the normalised handle the review step returned. Raw
 	// input is refused rather than normalised again, so a client that skipped
 	// the review is told to review instead of delivering unconfirmed.
@@ -79,7 +81,11 @@ func (service *Service) Purchase(ctx context.Context, request PurchaseRequest) (
 	// The live quote is taken first and is the only number that can be charged.
 	// What the customer submitted is an assertion about what they were shown,
 	// and it is checked against this rather than believed.
-	fresh, err := service.quote(ctx, product, quantity)
+	quantity, stars, err := lineStars(product, quantity, request.Stars)
+	if err != nil {
+		return Order{}, err
+	}
+	fresh, err := service.quote(ctx, product, quantity, stars)
 	if err != nil {
 		return Order{}, err
 	}
@@ -99,14 +105,20 @@ func (service *Service) Purchase(ctx context.Context, request PurchaseRequest) (
 		Currency: fresh.Currency, QuoteExpiresAt: fresh.ExpiresAt,
 		SkipWallet: !request.UseWallet, PromoCode: strings.TrimSpace(request.PromoCode),
 		// A fixed price is one the operator chose, so it carries no provider
-		// cost floor for a discount to breach.
-		OperatorPriced: product.fixedMinor != nil,
+		// cost floor for a discount to breach — and the order transaction
+		// re-checks it under its own lock.
+		OperatorPriced: product.OperatorPriced(),
+		StarQuantity:   stars,
+		Source:         "web",
 		// The header key is namespaced rather than used bare, so a customer
 		// reusing a key they minted for another surface cannot collide with a
 		// key this one derived.
 		IdempotencyKey: "goods:web:" + strings.TrimSpace(request.IdempotencyKey),
 	})
 	switch {
+	case errors.Is(err, commercepg.ErrPriceChanged):
+		// The operator changed the price between the screen and the order.
+		return Order{}, ErrPriceChanged
 	case errors.Is(err, commercepg.ErrQuoteExpired):
 		// The store re-checks the expiry inside its own transaction. Reaching
 		// here means the window closed between the check above and the write,

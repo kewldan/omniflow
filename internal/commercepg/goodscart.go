@@ -17,18 +17,20 @@ import (
 //
 // A goods cart is the same object as a plan cart — one open cart per customer,
 // the same expiry sweep, the same rejection vocabulary — with one difference
-// that shapes everything: a shop price is a provider quote that expires, and a
-// plan price is not.
+// that shapes everything: most shop prices are provider quotes that expire, and
+// a plan price is not.
 //
-// That is why a goods cart never auto-purchases. The plan cart charges
-// unattended when a wallet top-up covers it, which is safe because the price it
-// re-quotes against is the operator's own and changes rarely. Doing the same for
-// goods would charge a number the customer last saw days ago, against a rate
-// that moves. So a goods cart is saved, and the customer comes back and confirms
-// at whatever the price is then.
+// So a goods cart buys itself only when its price is the operator's own: a
+// fixed amount or a fixed price per Star. That number does not move with a
+// provider rate, so charging it after a top-up charges what the customer was
+// shown — the same reasoning that makes a saved plan safe to charge unattended.
+// A quote-priced product is saved for the customer to confirm, because charging
+// a quote unattended would charge a number last seen days ago against a rate
+// that has moved.
 //
-// What is shared is the property that matters: the price is re-quoted before any
-// charge, and a rise is refused rather than applied.
+// What is shared is the property that matters: the price is re-checked before
+// any charge — for an automatic purchase, under the order transaction's own
+// lock — and a rise is refused rather than applied.
 
 // GoodsCartInput is one shop purchase saved for later.
 type GoodsCartInput struct {
@@ -42,6 +44,12 @@ type GoodsCartInput struct {
 	SavedPriceMinor int64
 	Currency        string
 	TTL             time.Duration
+	// StarQuantity is the Stars a custom-amount product delivers.
+	StarQuantity int
+	// AutoPurchase buys the cart when a wallet credit covers it. The caller
+	// sets it only for an operator-priced product; the sweep re-checks that
+	// before charging regardless.
+	AutoPurchase bool
 }
 
 // GoodsCart is a saved shop purchase.
@@ -93,7 +101,8 @@ func (store *Store) SaveGoodsCart(ctx context.Context, input GoodsCartInput) (Go
 
 	cart, err := queries.UpsertGoodsCart(ctx, dbgen.UpsertGoodsCartParams{
 		UserID: userID, Currency: input.Currency, IdempotencyKey: key,
-		ExpiresAt: pgtype.Timestamptz{Time: store.clock().Add(ttl), Valid: true},
+		ExpiresAt:    pgtype.Timestamptz{Time: store.clock().Add(ttl), Valid: true},
+		AutoPurchase: input.AutoPurchase,
 	})
 	if err != nil {
 		return GoodsCart{}, err
@@ -102,6 +111,7 @@ func (store *Store) SaveGoodsCart(ctx context.Context, input GoodsCartInput) (Go
 		CartID: cart.ID, ProductID: productID, Quantity: int32(input.Quantity),
 		RecipientUsername: recipient, RecipientIsSelf: input.IsSelf,
 		SavedPriceMinor: input.SavedPriceMinor, Currency: input.Currency,
+		StarQuantity: optionalInt4(input.StarQuantity),
 	}); err != nil {
 		return GoodsCart{}, err
 	}
@@ -283,4 +293,126 @@ func (store *Store) PreviewGoodsDiscount(
 
 	discount, _, err := store.goodsDiscount(ctx, dbgen.New(tx), userID, productID, input)
 	return discount, err
+}
+
+// purchaseGoodsCart charges a saved shop purchase from the wallet.
+//
+// It runs only for an operator-priced product, and only when the wallet alone
+// covers it: the order is created with RequireWalletCover, so an unattended
+// purchase never opens a payment nobody is there to complete. The price is
+// re-checked twice — here against the price the customer saved, and again
+// inside the order transaction against the pricing row — and a rise is refused
+// at either point. A refused cart stops buying itself, so a price that later
+// drops back cannot charge the customer behind their back either; the customer
+// is told, and confirms the new price themselves.
+//
+// The order uses the cart's own idempotency key, so a duplicated top-up, a
+// sweep racing the settlement hook, or a replayed webhook all reach one order.
+func (store *Store) purchaseGoodsCart(
+	ctx context.Context, customerID string, cart dbgen.Cart, unattended bool,
+) (CartPurchase, error) {
+	queries := dbgen.New(store.pool)
+	line, err := queries.GetCartGoods(ctx, cart.ID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return CartPurchase{Reason: commerce.CartPlanUnavailable}, nil
+	}
+	if err != nil {
+		return CartPurchase{}, err
+	}
+	if unattended && !cart.AutoPurchase {
+		return CartPurchase{Reason: commerce.CartAutoPurchaseOff}, nil
+	}
+	product, err := queries.GetGoodsProduct(ctx, line.ProductID)
+	if err != nil {
+		return CartPurchase{}, err
+	}
+	pricing, err := queries.GetGoodsPricing(ctx, line.ProductID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return store.failGoodsCart(ctx, cart, commerce.CartPlanUnavailable, false)
+	}
+	if err != nil {
+		return CartPurchase{}, err
+	}
+	stars := 0
+	if line.StarQuantity.Valid {
+		stars = int(line.StarQuantity.Int32)
+	} else if product.StarQuantity.Valid {
+		stars = int(product.StarQuantity.Int32) * int(line.Quantity)
+	}
+	price, operatorPriced := goods.PricingRule{
+		FixedAmountMinor: int8Pointer(pricing.FixedAmountMinor),
+		UnitPriceMinor:   int8Pointer(pricing.UnitPriceMinor),
+	}.OperatorTotal(stars, int(line.Quantity))
+	if !operatorPriced {
+		// The operator switched the product to a provider quote since the
+		// cart was saved. A quote is never charged unattended.
+		return store.failGoodsCart(ctx, cart, commerce.CartAutoPurchaseOff, true)
+	}
+	maintenance, err := store.Maintenance(ctx)
+	if err != nil {
+		return CartPurchase{}, err
+	}
+	decision := EvaluateGoodsCart(GoodsCart{Cart: cart, Line: line}, price, store.clock(),
+		maintenance.Blocks(commerce.ActionPurchase))
+	if pricing.Currency != line.Currency {
+		decision.Reason = commerce.CartPriceChanged
+	}
+	if !decision.Ready() {
+		return store.failGoodsCart(ctx, cart, decision.Reason, decision.Reason == commerce.CartPriceChanged)
+	}
+
+	input := GoodsOrderInput{
+		CustomerID: customerID, ProductID: uuidString(line.ProductID), Quantity: int(line.Quantity),
+		Recipient: line.RecipientUsername, RecipientIsSelf: line.RecipientIsSelf,
+		PriceMinor: price, CostKnown: false, Currency: line.Currency,
+		QuoteExpiresAt: store.clock().Add(time.Hour), IdempotencyKey: cart.IdempotencyKey,
+		PromoCode: cart.PromoCode.String, OperatorPriced: true, StarQuantity: stars,
+		Source: "auto_cart", RequireWalletCover: true,
+	}
+	order, err := store.CreateGoodsOrder(ctx, input)
+	if promoRejectionReason(err) != "" || errors.Is(err, ErrPromoBelowCost) {
+		// A code that stopped applying does not cancel the purchase the
+		// customer topped up for; it is bought at the undiscounted price.
+		input.PromoCode = ""
+		order, err = store.CreateGoodsOrder(ctx, input)
+	}
+	switch {
+	case errors.Is(err, ErrWalletShort):
+		return CartPurchase{Reason: commerce.CartInsufficientBalance}, nil
+	case errors.Is(err, ErrPriceChanged):
+		return store.failGoodsCart(ctx, cart, commerce.CartPriceChanged, true)
+	case errors.Is(err, ErrMaintenance):
+		return CartPurchase{Reason: commerce.CartMaintenance}, nil
+	case err != nil:
+		return CartPurchase{}, err
+	}
+	if _, err = dbgen.New(store.pool).MarkCartPurchased(ctx, dbgen.MarkCartPurchasedParams{
+		CartID: cart.ID, OrderID: order.ID,
+	}); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return CartPurchase{}, err
+	}
+	return CartPurchase{Purchased: true, Reason: "purchased", OrderID: uuidString(order.ID)}, nil
+}
+
+// failGoodsCart records why a saved shop purchase could not be bought. A
+// refusal the customer has to look at — a price rise, a product that is no
+// longer operator-priced — also stops the cart buying itself, so it can never
+// charge later at a price they were not shown.
+func (store *Store) failGoodsCart(
+	ctx context.Context, cart dbgen.Cart, reason string, stopAutoPurchase bool,
+) (CartPurchase, error) {
+	queries := dbgen.New(store.pool)
+	if _, err := queries.RecordCartFailure(ctx, dbgen.RecordCartFailureParams{
+		CartID: cart.ID, LastFailure: optionalText(reason),
+	}); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return CartPurchase{}, err
+	}
+	if stopAutoPurchase && cart.AutoPurchase {
+		if _, err := queries.SetCartAutoPurchase(ctx, dbgen.SetCartAutoPurchaseParams{
+			UserID: cart.UserID, AutoPurchase: false,
+		}); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return CartPurchase{}, err
+		}
+	}
+	return CartPurchase{Reason: reason}, nil
 }

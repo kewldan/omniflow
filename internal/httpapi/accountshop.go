@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -29,6 +30,8 @@ func (handlers *AccountHandlers) mountShop(router chi.Router) {
 	router.Get("/shop/products/{productID}", handlers.shopProductDetail)
 	router.Post("/shop/recipient", handlers.shopReviewRecipient)
 	router.Post("/shop/purchase", handlers.shopPurchase)
+	router.Post("/shop/cart", handlers.shopSaveForTopUp)
+	router.Post("/shop/cart/purchase", handlers.shopBuySaved)
 	router.Get("/shop/orders", handlers.shopOrders)
 	router.Get("/shop/orders/{orderID}", handlers.shopOrder)
 }
@@ -58,9 +61,10 @@ func (handlers *AccountHandlers) shopProductDetail(writer http.ResponseWriter, r
 	if !ok {
 		return
 	}
+	stars, _ := strconv.Atoi(trimmedQuery(request, "stars"))
 	detail, err := handlers.shop.Detail(
 		request.Context(), principal.Customer.ID, chi.URLParam(request, "productID"),
-		shopLocale(request, principal.Customer.Locale), quantity, trimmedQuery(request, "promoCode"),
+		shopLocale(request, principal.Customer.Locale), quantity, stars, trimmedQuery(request, "promoCode"),
 	)
 	if handlers.writeShopError(writer, request, err) {
 		return
@@ -68,6 +72,9 @@ func (handlers *AccountHandlers) shopProductDetail(writer http.ResponseWriter, r
 
 	payload := shopProductPayload(detail.Product)
 	payload["quantity"] = detail.Quantity
+	if detail.Stars > 0 {
+		payload["stars"] = detail.Stars
+	}
 	// The quote and its expiry are one object, so a client cannot read the
 	// price without also being handed the moment it stops applying.
 	payload["quote"] = map[string]any{
@@ -113,6 +120,7 @@ func (handlers *AccountHandlers) shopPurchase(writer http.ResponseWriter, reques
 	var body struct {
 		ProductID string `json:"productId"`
 		Quantity  int    `json:"quantity"`
+		Stars     int    `json:"stars"`
 		Recipient string `json:"recipient"`
 		ForSelf   bool   `json:"forSelf"`
 		// The quote the panel displayed, echoed back so the server can refuse to
@@ -154,11 +162,69 @@ func (handlers *AccountHandlers) shopPurchase(writer http.ResponseWriter, reques
 
 	order, err := handlers.shop.Purchase(request.Context(), accountshop.PurchaseRequest{
 		CustomerID: principal.Customer.ID, ProductID: body.ProductID, Quantity: body.Quantity,
-		Recipient: body.Recipient, ForSelf: body.ForSelf,
+		Stars: body.Stars, Recipient: body.Recipient, ForSelf: body.ForSelf,
 		ShownPriceMinor: body.Quote.PriceMinor, ShownCurrency: body.Quote.Currency,
 		QuoteExpiresAt: expiresAt, PromoCode: body.PromoCode, UseWallet: body.UseWallet,
 		IdempotencyKey: key, Locale: shopLocale(request, principal.Customer.Locale),
 	})
+	if handlers.writeShopError(writer, request, err) {
+		return
+	}
+	writeJSON(writer, http.StatusCreated, shopOrderPayload(order))
+}
+
+// shopSaveForTopUp keeps a purchase the wallet cannot cover yet and says how
+// much is missing. Once a top-up of that amount settles, the purchase is made
+// automatically at the price saved — refused, with the customer told, if the
+// operator raised it in between.
+func (handlers *AccountHandlers) shopSaveForTopUp(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := CustomerFrom(request.Context())
+	var body struct {
+		ProductID string `json:"productId"`
+		Quantity  int    `json:"quantity"`
+		Stars     int    `json:"stars"`
+		Recipient string `json:"recipient"`
+		ForSelf   bool   `json:"forSelf"`
+		Quote     struct {
+			PriceMinor int64  `json:"priceMinor"`
+			Currency   string `json:"currency"`
+		} `json:"quote"`
+		PromoCode string `json:"promoCode"`
+	}
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	plan, err := handlers.shop.SaveForTopUp(request.Context(), accountshop.SaveRequest{
+		CustomerID: principal.Customer.ID, ProductID: body.ProductID, Quantity: body.Quantity,
+		Stars: body.Stars, Recipient: body.Recipient, ForSelf: body.ForSelf,
+		ShownPriceMinor: body.Quote.PriceMinor, ShownCurrency: body.Quote.Currency,
+		PromoCode: body.PromoCode, Locale: shopLocale(request, principal.Customer.Locale),
+	})
+	if handlers.writeShopError(writer, request, err) {
+		return
+	}
+	writeJSON(writer, http.StatusOK, map[string]any{
+		"priceMinor": plan.PriceMinor, "availableMinor": plan.AvailableMinor,
+		"shortfallMinor": plan.ShortfallMinor, "currency": plan.Currency, "stars": plan.Stars,
+		"autoPurchase": true,
+	})
+}
+
+// shopBuySaved buys the saved purchase from the wallet now, for a customer
+// whose balance already covers it.
+func (handlers *AccountHandlers) shopBuySaved(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := CustomerFrom(request.Context())
+	orderID, reason, err := handlers.shop.BuySavedNow(request.Context(), principal.Customer.ID)
+	if handlers.writeShopError(writer, request, err) {
+		return
+	}
+	if orderID == "" {
+		writeProblem(writer, request, http.StatusConflict, "cart_"+strings.TrimPrefix(reason, "cart_"),
+			"The saved purchase cannot be bought right now")
+		return
+	}
+	order, err := handlers.shop.Order(request.Context(), principal.Customer.ID, orderID,
+		shopLocale(request, principal.Customer.Locale))
 	if handlers.writeShopError(writer, request, err) {
 		return
 	}
@@ -231,7 +297,22 @@ func shopProductPayload(product accountshop.Product) map[string]any {
 		payload["durationMonths"] = product.DurationMonths
 	case "telegram_stars":
 		payload["starQuantity"] = product.StarQuantity
+		if product.Stars.Custom() {
+			presets := product.Stars.Presets
+			if presets == nil {
+				presets = []int{}
+			}
+			payload["customAmount"] = map[string]any{
+				"min": product.Stars.Min, "max": product.Stars.Max, "presets": presets,
+			}
+		}
+		if product.UnitPriceMinor != nil {
+			payload["unitPriceMinor"] = *product.UnitPriceMinor
+		}
 	}
+	// operatorPriced tells the panel whether "top up and buy automatically"
+	// is on offer: only a price the operator set is charged unattended.
+	payload["operatorPriced"] = product.OperatorPriced()
 	return payload
 }
 
@@ -348,6 +429,16 @@ func (handlers *AccountHandlers) writeShopError(
 		writeProblem(
 			writer, request, http.StatusUnprocessableEntity,
 			"recipient_invalid", "That is not a usable Telegram username",
+		)
+	case errors.Is(err, accountshop.ErrStarAmount):
+		writeProblem(
+			writer, request, http.StatusUnprocessableEntity,
+			"stars_out_of_range", "That amount of Stars cannot be bought here",
+		)
+	case errors.Is(err, accountshop.ErrNotOperatorPriced):
+		writeProblem(
+			writer, request, http.StatusConflict,
+			"not_auto_purchasable", "This product cannot be bought automatically after a top-up",
 		)
 	case errors.Is(err, accountshop.ErrRecipientNotReviewed):
 		writeProblem(

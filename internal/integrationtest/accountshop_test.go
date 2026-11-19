@@ -156,7 +156,7 @@ func buy(
 	customerID, productID, recipient, key string, useWallet bool,
 ) accountshop.Order {
 	t.Helper()
-	detail, err := shop.Detail(ctx, customerID, productID, "en", 1, "")
+	detail, err := shop.Detail(ctx, customerID, productID, "en", 1, 0, "")
 	if err != nil {
 		t.Fatalf("quote product: %v", err)
 	}
@@ -241,7 +241,7 @@ func TestAnExpiredQuoteCannotBeCharged(t *testing.T) {
 	customerID := harness.customer(ctx, t)
 	productID := harness.quotedProduct(ctx, t)
 
-	detail, err := shop.Detail(ctx, customerID, productID, "en", 1, "")
+	detail, err := shop.Detail(ctx, customerID, productID, "en", 1, 0, "")
 	if err != nil {
 		t.Fatalf("quote product: %v", err)
 	}

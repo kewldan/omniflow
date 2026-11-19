@@ -5,8 +5,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 	"github.com/omniflow/omniflow/internal/goods"
+	"github.com/omniflow/omniflow/internal/goods/fragmentdirect"
 )
 
 // GoodsProvider is one digital-goods provider as the panel shows it.
@@ -60,6 +62,12 @@ func (service *Service) SaveGoodsProvider(
 	ctx context.Context, input GoodsProviderInput, actor Actor,
 ) (GoodsProvider, error) {
 	if input.SpendWindowSeconds <= 0 || input.SpendLimitMinor < 0 {
+		return GoodsProvider{}, ErrValidaton
+	}
+	if input.Slug == fragmentdirect.Slug && input.Credentials != nil {
+		// The direct provider's secrets are environment-only. Accepting one
+		// here would store a wallet mnemonic in the database, which is the
+		// thing that design exists to avoid.
 		return GoodsProvider{}, ErrValidaton
 	}
 
@@ -166,16 +174,22 @@ func goodsProviderFrom(row dbgen.GoodsProvider) GoodsProvider {
 
 // GoodsProduct is one sellable digital good.
 type GoodsProduct struct {
-	ID             string     `json:"id"`
-	Code           string     `json:"code"`
-	ProviderSlug   string     `json:"providerSlug"`
-	Kind           string     `json:"kind"`
-	DurationMonths *int32     `json:"durationMonths,omitempty"`
-	StarQuantity   *int32     `json:"starQuantity,omitempty"`
-	Visible        bool       `json:"visible"`
-	SortOrder      int32      `json:"sortOrder"`
-	CreatedAt      time.Time  `json:"createdAt"`
-	ArchivedAt     *time.Time `json:"archivedAt,omitempty"`
+	ID             string `json:"id"`
+	Code           string `json:"code"`
+	ProviderSlug   string `json:"providerSlug"`
+	Kind           string `json:"kind"`
+	DurationMonths *int32 `json:"durationMonths,omitempty"`
+	StarQuantity   *int32 `json:"starQuantity,omitempty"`
+	// MinStarQuantity and MaxStarQuantity bound a custom-amount Stars
+	// product, whose customer picks how many Stars to buy; StarPresets are the
+	// amounts offered as one-tap buttons.
+	MinStarQuantity *int32     `json:"minStarQuantity,omitempty"`
+	MaxStarQuantity *int32     `json:"maxStarQuantity,omitempty"`
+	StarPresets     []int32    `json:"starPresets"`
+	Visible         bool       `json:"visible"`
+	SortOrder       int32      `json:"sortOrder"`
+	CreatedAt       time.Time  `json:"createdAt"`
+	ArchivedAt      *time.Time `json:"archivedAt,omitempty"`
 
 	Localizations map[string]Localization `json:"localizations,omitempty"`
 	Pricing       *GoodsPricing           `json:"pricing,omitempty"`
@@ -183,12 +197,16 @@ type GoodsProduct struct {
 
 // GoodsPricing is the rule that turns a provider cost into a customer price.
 type GoodsPricing struct {
-	Currency         string    `json:"currency"`
-	MarkupBPS        int32     `json:"markupBps"`
-	Rounding         string    `json:"rounding"`
-	FixedAmountMinor *int64    `json:"fixedAmountMinor,omitempty"`
-	QuoteTTLSeconds  int32     `json:"quoteTtlSeconds"`
-	UpdatedAt        time.Time `json:"updatedAt"`
+	Currency         string `json:"currency"`
+	MarkupBPS        int32  `json:"markupBps"`
+	Rounding         string `json:"rounding"`
+	FixedAmountMinor *int64 `json:"fixedAmountMinor,omitempty"`
+	// UnitPriceMinor is a fixed price per Star. Like FixedAmountMinor it
+	// opts out of the provider's cost, and it is what lets a saved purchase
+	// buy itself after a top-up.
+	UnitPriceMinor  *int64    `json:"unitPriceMinor,omitempty"`
+	QuoteTTLSeconds int32     `json:"quoteTtlSeconds"`
+	UpdatedAt       time.Time `json:"updatedAt"`
 }
 
 // ListGoodsProducts reads the shop catalogue as an operator sees it.
@@ -224,6 +242,7 @@ func (service *Service) ListGoodsProducts(
 				MarkupBPS:        pricing.MarkupBps,
 				Rounding:         pricing.Rounding,
 				FixedAmountMinor: int8Pointer(pricing.FixedAmountMinor),
+				UnitPriceMinor:   int8Pointer(pricing.UnitPriceMinor),
 				QuoteTTLSeconds:  pricing.QuoteTtlSeconds,
 				UpdatedAt:        timeValue(pricing.UpdatedAt),
 			}
@@ -246,8 +265,12 @@ type GoodsProductInput struct {
 	Kind           string
 	DurationMonths *int32
 	StarQuantity   *int32
-	Visible        bool
-	SortOrder      int32
+	// A custom-amount Stars product sets these instead of StarQuantity.
+	MinStarQuantity *int32
+	MaxStarQuantity *int32
+	StarPresets     []int32
+	Visible         bool
+	SortOrder       int32
 }
 
 // CreateGoodsProduct adds a product to the shop catalogue.
@@ -260,23 +283,34 @@ func (service *Service) CreateGoodsProduct(
 			return GoodsProduct{}, ErrValidaton
 		}
 	case goods.KindTelegramStars:
-		if input.StarQuantity == nil || input.DurationMonths != nil {
+		if input.DurationMonths != nil || !validStarShape(input) {
 			return GoodsProduct{}, ErrValidaton
 		}
 	default:
 		return GoodsProduct{}, ErrValidaton
 	}
+	if input.Kind != goods.KindTelegramStars &&
+		(input.MinStarQuantity != nil || input.MaxStarQuantity != nil || len(input.StarPresets) > 0) {
+		return GoodsProduct{}, ErrValidaton
+	}
+	presets := input.StarPresets
+	if presets == nil {
+		presets = []int32{}
+	}
 
 	var created GoodsProduct
 	err := service.inTx(ctx, func(queries *dbgen.Queries) error {
 		row, txErr := queries.CreateGoodsProduct(ctx, dbgen.CreateGoodsProductParams{
-			Code:           input.Code,
-			ProviderSlug:   input.ProviderSlug,
-			Kind:           input.Kind,
-			DurationMonths: optionalInt2(input.DurationMonths),
-			StarQuantity:   optionalInt4(input.StarQuantity),
-			Visible:        input.Visible,
-			SortOrder:      input.SortOrder,
+			Code:            input.Code,
+			ProviderSlug:    input.ProviderSlug,
+			Kind:            input.Kind,
+			DurationMonths:  optionalInt2(input.DurationMonths),
+			StarQuantity:    optionalInt4(input.StarQuantity),
+			Visible:         input.Visible,
+			SortOrder:       input.SortOrder,
+			MinStarQuantity: optionalInt4(input.MinStarQuantity),
+			MaxStarQuantity: optionalInt4(input.MaxStarQuantity),
+			StarPresets:     presets,
 		})
 		if txErr != nil {
 			return conflicted(txErr)
@@ -358,9 +392,26 @@ func (service *Service) SaveGoodsPricing(
 	default:
 		return ErrValidaton
 	}
+	if pricing.FixedAmountMinor != nil && pricing.UnitPriceMinor != nil {
+		// One operator price at most; the table refuses both as well.
+		return ErrValidaton
+	}
+	if pricing.UnitPriceMinor != nil && *pricing.UnitPriceMinor <= 0 {
+		return ErrValidaton
+	}
 	id, err := parseUUID(productID)
 	if err != nil {
 		return err
+	}
+	if pricing.UnitPriceMinor != nil {
+		// A price per Star means nothing on a product that is not Stars.
+		product, productErr := service.queries().GetGoodsProduct(ctx, id)
+		if productErr != nil {
+			return notFound(productErr)
+		}
+		if product.Kind != goods.KindTelegramStars {
+			return ErrValidaton
+		}
 	}
 
 	return service.inTx(ctx, func(queries *dbgen.Queries) error {
@@ -370,6 +421,7 @@ func (service *Service) SaveGoodsPricing(
 			MarkupBps:        pricing.MarkupBPS,
 			Rounding:         pricing.Rounding,
 			FixedAmountMinor: optionalInt8(pricing.FixedAmountMinor),
+			UnitPriceMinor:   optionalInt8(pricing.UnitPriceMinor),
 			QuoteTtlSeconds:  pricing.QuoteTTLSeconds,
 			UpdatedBy:        optionalUUID(actor.AdminID),
 		}); txErr != nil {
@@ -380,6 +432,7 @@ func (service *Service) SaveGoodsPricing(
 			map[string]any{
 				"currency": pricing.Currency, "markupBps": pricing.MarkupBPS,
 				"rounding": pricing.Rounding, "fixed": pricing.FixedAmountMinor != nil,
+				"unitPriceMinor": pricing.UnitPriceMinor,
 			},
 		))
 	})
@@ -387,15 +440,21 @@ func (service *Service) SaveGoodsPricing(
 
 func goodsProductFrom(row dbgen.GoodsProduct) GoodsProduct {
 	product := GoodsProduct{
-		ID:           uuidString(row.ID),
-		Code:         row.Code,
-		ProviderSlug: row.ProviderSlug,
-		Kind:         row.Kind,
-		StarQuantity: int4Pointer(row.StarQuantity),
-		Visible:      row.Visible,
-		SortOrder:    row.SortOrder,
-		CreatedAt:    timeValue(row.CreatedAt),
-		ArchivedAt:   timePointer(row.ArchivedAt),
+		ID:              uuidString(row.ID),
+		Code:            row.Code,
+		ProviderSlug:    row.ProviderSlug,
+		Kind:            row.Kind,
+		StarQuantity:    int4Pointer(row.StarQuantity),
+		MinStarQuantity: int4Pointer(row.MinStarQuantity),
+		MaxStarQuantity: int4Pointer(row.MaxStarQuantity),
+		StarPresets:     row.StarPresets,
+		Visible:         row.Visible,
+		SortOrder:       row.SortOrder,
+		CreatedAt:       timeValue(row.CreatedAt),
+		ArchivedAt:      timePointer(row.ArchivedAt),
+	}
+	if product.StarPresets == nil {
+		product.StarPresets = []int32{}
 	}
 	if row.DurationMonths.Valid {
 		months := int32(row.DurationMonths.Int16)
@@ -430,7 +489,10 @@ type GoodsOrder struct {
 	// what was stored rather than recomputed from the markup, which may have
 	// changed since — and it subtracts the discount, because the provider still
 	// charged its cost whatever the customer paid.
-	MarginMinor      int64      `json:"marginMinor"`
+	//
+	// It is absent when the cost is unknown: a provider that publishes none,
+	// or a TON payment with no rate fixed at delivery.
+	MarginMinor      *int64     `json:"marginMinor,omitempty"`
 	Currency         string     `json:"currency"`
 	Status           string     `json:"status"`
 	DeliveryStatus   string     `json:"deliveryStatus,omitempty"`
@@ -440,14 +502,38 @@ type GoodsOrder struct {
 	Refunded         bool       `json:"refunded"`
 	DeliveredAt      *time.Time `json:"deliveredAt,omitempty"`
 	CreatedAt        time.Time  `json:"createdAt"`
+
+	ProductKind  string `json:"productKind"`
+	ProductCode  string `json:"productCode"`
+	StarQuantity *int32 `json:"starQuantity,omitempty"`
+	Source       string `json:"source"`
+	// PaidMinor is what the customer paid: the quoted price less the discount.
+	PaidMinor int64  `json:"paidMinor"`
+	Provider  string `json:"provider,omitempty"`
+	// The settlement, for a provider Omniflow pays itself. None of it is a
+	// secret: the wallet is the operator's, and the transaction is public.
+	ProviderRequestID string     `json:"providerRequestId,omitempty"`
+	BroadcastingAt    *time.Time `json:"broadcastingAt,omitempty"`
+	TxHash            string     `json:"txHash,omitempty"`
+	CostNano          *int64     `json:"costNano,omitempty"`
+	SettledCostMinor  *int64     `json:"settledCostMinor,omitempty"`
+	RateMinor         *int64     `json:"rateMinor,omitempty"`
+	RateSource        string     `json:"rateSource,omitempty"`
+	ProviderConfirmed *bool      `json:"providerConfirmed,omitempty"`
+	DryRun            bool       `json:"dryRun"`
 }
 
 // GoodsOrderFilter is what the shop order list accepts.
 type GoodsOrderFilter struct {
 	Status     string
 	CustomerID string
-	Cursor     string
-	PageSize   int32
+	// Kind narrows to one product kind, such as telegram_stars.
+	Kind string
+	// Search matches a recipient handle, an order identifier, or a customer
+	// identifier.
+	Search   string
+	Cursor   string
+	PageSize int32
 }
 
 // GoodsOrderPage is one page of shop orders.
@@ -468,6 +554,8 @@ func (service *Service) SearchGoodsOrders(
 		CursorID:        cursor.uuid(),
 		Status:          optionalText(filter.Status),
 		UserID:          optionalUUID(filter.CustomerID),
+		Kind:            optionalText(filter.Kind),
+		Search:          optionalText(strings.TrimSpace(filter.Search)),
 		PageSize:        size + 1,
 	})
 	if err != nil {
@@ -483,27 +571,51 @@ func (service *Service) SearchGoodsOrders(
 			)
 			break
 		}
+		paid := row.GoodsOrder.QuotedPriceMinor - row.GoodsOrder.DiscountMinor
+		var margin *int64
+		switch {
+		case row.SettledCostMinor.Valid:
+			value := paid - row.SettledCostMinor.Int64
+			margin = &value
+		case row.GoodsOrder.CostKnown:
+			value := paid - row.GoodsOrder.QuotedCostMinor
+			margin = &value
+		}
 		page.Items = append(page.Items, GoodsOrder{
-			OrderID:          uuidString(row.GoodsOrder.OrderID),
-			CustomerID:       uuidString(row.GoodsOrder.UserID),
-			ProductID:        uuidString(row.GoodsOrder.ProductID),
-			Quantity:         row.GoodsOrder.Quantity,
-			Recipient:        row.GoodsOrder.RecipientUsername,
-			RecipientIsSelf:  row.GoodsOrder.RecipientIsSelf,
-			QuotedCostMinor:  row.GoodsOrder.QuotedCostMinor,
-			QuotedPriceMinor: row.GoodsOrder.QuotedPriceMinor,
-			DiscountMinor:    row.GoodsOrder.DiscountMinor,
-			MarginMinor: row.GoodsOrder.QuotedPriceMinor -
-				row.GoodsOrder.DiscountMinor - row.GoodsOrder.QuotedCostMinor,
-			Currency:         row.GoodsOrder.Currency,
-			Status:           row.GoodsOrder.Status,
-			DeliveryStatus:   textValue(row.DeliveryStatus),
-			DeliveryAttempts: int4Pointer(row.DeliveryAttempts),
-			FailureClass:     textValue(row.DeliveryFailureClass),
-			ErrorCode:        textValue(row.DeliveryErrorCode),
-			Refunded:         row.RefundLedgerTransactionID.Valid,
-			DeliveredAt:      timePointer(row.DeliveredAt),
-			CreatedAt:        timeValue(row.GoodsOrder.CreatedAt),
+			OrderID:           uuidString(row.GoodsOrder.OrderID),
+			CustomerID:        uuidString(row.GoodsOrder.UserID),
+			ProductID:         uuidString(row.GoodsOrder.ProductID),
+			Quantity:          row.GoodsOrder.Quantity,
+			Recipient:         row.GoodsOrder.RecipientUsername,
+			RecipientIsSelf:   row.GoodsOrder.RecipientIsSelf,
+			QuotedCostMinor:   row.GoodsOrder.QuotedCostMinor,
+			QuotedPriceMinor:  row.GoodsOrder.QuotedPriceMinor,
+			DiscountMinor:     row.GoodsOrder.DiscountMinor,
+			MarginMinor:       margin,
+			ProductKind:       row.ProductKind,
+			ProductCode:       row.ProductCode,
+			StarQuantity:      int4Pointer(row.GoodsOrder.StarQuantity),
+			Source:            row.GoodsOrder.Source,
+			PaidMinor:         paid,
+			Provider:          textValue(row.DeliveryProvider),
+			ProviderRequestID: textValue(row.ProviderRequestID),
+			BroadcastingAt:    timePointer(row.BroadcastingAt),
+			TxHash:            textValue(row.SettlementTxHash),
+			CostNano:          int8Pointer(row.SettlementCostNano),
+			SettledCostMinor:  int8Pointer(row.SettledCostMinor),
+			RateMinor:         int8Pointer(row.SettledRateMinor),
+			RateSource:        textValue(row.SettledRateSource),
+			ProviderConfirmed: boolPointer(row.ProviderConfirmed),
+			DryRun:            row.DryRun.Valid && row.DryRun.Bool,
+			Currency:          row.GoodsOrder.Currency,
+			Status:            row.GoodsOrder.Status,
+			DeliveryStatus:    textValue(row.DeliveryStatus),
+			DeliveryAttempts:  int4Pointer(row.DeliveryAttempts),
+			FailureClass:      textValue(row.DeliveryFailureClass),
+			ErrorCode:         textValue(row.DeliveryErrorCode),
+			Refunded:          row.RefundLedgerTransactionID.Valid,
+			DeliveredAt:       timePointer(row.DeliveredAt),
+			CreatedAt:         timeValue(row.GoodsOrder.CreatedAt),
 		})
 	}
 	return page, nil
@@ -606,25 +718,26 @@ func (service *Service) ResolveGoodsDelivery(
 		return err
 	}
 
-	status, orderStatus := "failed", "failed"
-	if delivered {
-		status, orderStatus = "delivered", "delivered"
+	if !delivered {
+		// "Not delivered" is a refund. It used to only mark the delivery
+		// failed, which left the customer without the goods and without the
+		// money; it now credits the wallet in the same transaction.
+		return service.RefundGoodsOrder(ctx, orderID, actor)
 	}
-
 	return service.inTx(ctx, func(queries *dbgen.Queries) error {
 		if _, txErr := queries.ResolveGoodsDeliveryReview(ctx, dbgen.ResolveGoodsDeliveryReviewParams{
-			OrderID: id, Status: status,
+			OrderID: id, Status: "delivered",
 		}); txErr != nil {
 			return rejected(txErr)
 		}
 		if _, txErr := queries.SetGoodsOrderStatus(ctx, dbgen.SetGoodsOrderStatusParams{
-			OrderID: id, Status: orderStatus,
+			OrderID: id, Status: "delivered",
 		}); txErr != nil {
 			return txErr
 		}
 		return appendAudit(ctx, queries, actor.audit(
 			"panel.goods.review_resolved", "financial", "order", orderID,
-			map[string]any{"delivered": delivered},
+			map[string]any{"delivered": true},
 		))
 	})
 }
@@ -641,21 +754,37 @@ func (service *Service) CancelGoodsDelivery(
 	if strings.TrimSpace(actor.Reason) == "" {
 		return ErrValidaton
 	}
-	id, err := parseUUID(orderID)
-	if err != nil {
-		return err
+	// Cancelling a delivery that has not completed is refunding it: the same
+	// guarded transition, the same wallet credit.
+	return service.RefundGoodsOrder(ctx, orderID, actor)
+}
+
+// validStarShape accepts a Stars product that is either a fixed pack or a
+// custom amount within Fragment's own bounds, never both.
+func validStarShape(input GoodsProductInput) bool {
+	if input.StarQuantity != nil {
+		return *input.StarQuantity > 0 && input.MinStarQuantity == nil &&
+			input.MaxStarQuantity == nil && len(input.StarPresets) == 0
 	}
-	return service.inTx(ctx, func(queries *dbgen.Queries) error {
-		if _, txErr := queries.CancelGoodsDelivery(ctx, id); txErr != nil {
-			return rejected(txErr)
+	if input.MinStarQuantity == nil || input.MaxStarQuantity == nil {
+		return false
+	}
+	low, high := *input.MinStarQuantity, *input.MaxStarQuantity
+	if low < goods.FragmentMinStars || high < low || high > goods.FragmentMaxStars || len(input.StarPresets) > 12 {
+		return false
+	}
+	for _, preset := range input.StarPresets {
+		if preset < low || preset > high {
+			return false
 		}
-		if _, txErr := queries.SetGoodsOrderStatus(ctx, dbgen.SetGoodsOrderStatusParams{
-			OrderID: id, Status: "failed",
-		}); txErr != nil {
-			return txErr
-		}
-		return appendAudit(ctx, queries, actor.audit(
-			"panel.goods.delivery_cancelled", "financial", "order", orderID, nil,
-		))
-	})
+	}
+	return true
+}
+
+func boolPointer(value pgtype.Bool) *bool {
+	if !value.Valid {
+		return nil
+	}
+	result := value.Bool
+	return &result
 }

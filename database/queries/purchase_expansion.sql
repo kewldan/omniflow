@@ -553,15 +553,17 @@ FROM outbox_events WHERE published_at IS NULL;
 -- intentions. Silently keeping both would mean an auto-purchase charging for
 -- something the customer thought they had replaced.
 --
--- auto_purchase is false and stays false. A goods price is a provider quote
--- that expires; charging one unattended means charging a number the customer
--- last saw days ago.
+-- auto_purchase is true only for a product the operator priced themselves (a
+-- fixed amount or a fixed price per Star): that number does not move with a
+-- provider rate, so charging it after a top-up charges what the customer saw.
+-- A quote-priced product passes false and is confirmed by the customer, because
+-- charging a quote unattended means charging a number last seen days ago.
 INSERT INTO carts (
   user_id, plan_version_id, operation, currency, auto_purchase,
   idempotency_key, expires_at, kind
 )
 VALUES (
-  sqlc.arg(user_id), NULL, 'purchase', sqlc.arg(currency), false,
+  sqlc.arg(user_id), NULL, 'purchase', sqlc.arg(currency), sqlc.arg(auto_purchase),
   sqlc.arg(idempotency_key), sqlc.arg(expires_at), 'goods'
 )
 ON CONFLICT (user_id) WHERE status = 'open'
@@ -572,7 +574,7 @@ DO UPDATE SET kind = 'goods',
               currency = EXCLUDED.currency,
               promo_code = NULL,
               selected_squad_ids = '{}',
-              auto_purchase = false,
+              auto_purchase = EXCLUDED.auto_purchase,
               expires_at = EXCLUDED.expires_at,
               idempotency_key = EXCLUDED.idempotency_key,
               last_failure = NULL,
@@ -588,16 +590,17 @@ WITH cleared AS (
 )
 INSERT INTO cart_goods (
   cart_id, product_id, quantity, recipient_username, recipient_is_self,
-  saved_price_minor, currency
+  saved_price_minor, currency, star_quantity
 )
 VALUES (
   sqlc.arg(cart_id), sqlc.arg(product_id), sqlc.arg(quantity),
   sqlc.arg(recipient_username), sqlc.arg(recipient_is_self),
-  sqlc.arg(saved_price_minor), sqlc.arg(currency)
+  sqlc.arg(saved_price_minor), sqlc.arg(currency), sqlc.narg(star_quantity)
 )
 ON CONFLICT (cart_id) DO UPDATE SET
   product_id = EXCLUDED.product_id,
   quantity = EXCLUDED.quantity,
+  star_quantity = EXCLUDED.star_quantity,
   recipient_username = EXCLUDED.recipient_username,
   recipient_is_self = EXCLUDED.recipient_is_self,
   saved_price_minor = EXCLUDED.saved_price_minor,

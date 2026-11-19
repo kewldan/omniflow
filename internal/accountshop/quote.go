@@ -47,7 +47,9 @@ type Detail struct {
 	Product  Product
 	Quote    Quote
 	Quantity int
-	Promo    PromoState
+	// Stars is how many Stars this quote delivers in total.
+	Stars int
+	Promo PromoState
 }
 
 // maxQuantity bounds one purchase.
@@ -65,8 +67,11 @@ const maxQuantity = 10
 // the screen is the number that will be charged, and its expiry travels with it
 // so the panel can re-quote before the window closes instead of discovering at
 // the till that the price moved.
+//
+// `stars` is the amount a customer chose for a custom-amount product and is
+// ignored for a pack; zero picks the first preset, or the minimum.
 func (service *Service) Detail(
-	ctx context.Context, customerID, productID, locale string, quantity int, promoCode string,
+	ctx context.Context, customerID, productID, locale string, quantity, stars int, promoCode string,
 ) (Detail, error) {
 	quantity = normalizeQuantity(quantity)
 	if quantity == 0 {
@@ -76,14 +81,40 @@ func (service *Service) Detail(
 	if err != nil {
 		return Detail{}, err
 	}
-	quote, err := service.quote(ctx, product, quantity)
+	quantity, total, err := lineStars(product, quantity, stars)
+	if err != nil {
+		return Detail{}, err
+	}
+	quote, err := service.quote(ctx, product, quantity, total)
 	if err != nil {
 		return Detail{}, err
 	}
 	return Detail{
-		Product: product, Quote: quote, Quantity: quantity,
+		Product: product, Quote: quote, Quantity: quantity, Stars: total,
 		Promo: service.previewPromo(ctx, customerID, product, quote, promoCode),
 	}, nil
+}
+
+// lineStars resolves the units and the total Stars one purchase delivers. A
+// custom amount is always one unit of the chosen amount; a pack multiplies.
+func lineStars(product Product, quantity, requested int) (int, int, error) {
+	if product.Kind != goods.KindTelegramStars {
+		return quantity, 0, nil
+	}
+	if !product.Stars.Custom() {
+		return quantity, product.Stars.Pack * quantity, nil
+	}
+	if requested == 0 {
+		requested = product.Stars.Min
+		if len(product.Stars.Presets) > 0 {
+			requested = product.Stars.Presets[0]
+		}
+	}
+	stars, err := product.Stars.Resolve(requested)
+	if err != nil {
+		return 0, 0, ErrStarAmount
+	}
+	return 1, stars, nil
 }
 
 // quote prices one purchase.
@@ -98,22 +129,23 @@ func (service *Service) Detail(
 // exponent all come from internal/goods, so the web shop charges what the bot
 // charges because both ask the same function rather than because two
 // implementations happen to agree.
-func (service *Service) quote(ctx context.Context, product Product, quantity int) (Quote, error) {
+func (service *Service) quote(ctx context.Context, product Product, quantity, stars int) (Quote, error) {
 	expiry := service.now().Add(product.quoteTTL)
-	if product.fixedMinor != nil {
-		return Quote{
-			PriceMinor: *product.fixedMinor * int64(quantity),
-			Currency:   product.Currency, ExpiresAt: expiry,
-		}, nil
+	if price, ok := product.pricingRule().OperatorTotal(stars, quantity); ok {
+		return Quote{PriceMinor: price, Currency: product.Currency, ExpiresAt: expiry}, nil
 	}
 
 	provider, err := service.provider(ctx, product.ProviderSlug)
 	if err != nil {
 		return Quote{}, err
 	}
+	perUnit := product.StarQuantity
+	if product.Stars.Custom() {
+		perUnit = stars
+	}
 	quoted, err := provider.Quote(ctx, goods.Request{
 		Kind: product.Kind, DurationMonths: product.DurationMonths,
-		StarQuantity: product.StarQuantity, Quantity: quantity,
+		StarQuantity: perUnit, Quantity: quantity,
 		Currency: product.Currency,
 	})
 	switch {
@@ -160,7 +192,7 @@ func (service *Service) previewPromo(
 		CustomerID: customerID, ProductID: product.ID,
 		PriceMinor: quote.PriceMinor, CostMinor: quote.costMinor,
 		CostKnown: quote.costKnown, Currency: quote.Currency,
-		PromoCode: code, OperatorPriced: product.fixedMinor != nil,
+		PromoCode: code, OperatorPriced: product.OperatorPriced(),
 	})
 	if err != nil {
 		return PromoState{Code: code, Rejection: promoRejection(err)}

@@ -16,6 +16,10 @@ type Querier interface {
 	// Token, request, latency, error, and estimated-cost reporting, grouped by the
 	// dimensions an owner reads. No prompt content appears because none is stored.
 	AIUsageReport(ctx context.Context, arg AIUsageReportParams) ([]AIUsageReportRow, error)
+	// An operator's refund of a delivery that will not happen: a parked one, or
+	// one still waiting whose payment has not started. A delivery whose payment
+	// marker is set and that has not been parked is mid-payment, and is refused.
+	AbandonGoodsDelivery(ctx context.Context, arg AbandonGoodsDeliveryParams) (GoodsDelivery, error)
 	// The survivor takes on what the absorbed ticket was carrying: its unread
 	// counts on both sides, its latest activity, and — when the absorbed ticket was
 	// still waiting on an operator and the survivor was not — the open state, so a
@@ -172,6 +176,9 @@ type Querier interface {
 	CompleteGoodsDelivery(ctx context.Context, arg CompleteGoodsDeliveryParams) (GoodsDelivery, error)
 	CompleteNoticeTestSend(ctx context.Context, arg CompleteNoticeTestSendParams) error
 	CompleteOperatorNotification(ctx context.Context, arg CompleteOperatorNotificationParams) (OperatorNotification, error)
+	// An operator confirmed the goods arrived. The transaction hash they found is
+	// kept when given; otherwise whatever the adapter recorded stays.
+	CompleteReviewedGoodsDelivery(ctx context.Context, arg CompleteReviewedGoodsDeliveryParams) (GoodsDelivery, error)
 	CompleteWebhookEvent(ctx context.Context, arg CompleteWebhookEventParams) (ProviderWebhookEvent, error)
 	ConfigureAIFeature(ctx context.Context, arg ConfigureAIFeatureParams) (AiFeature, error)
 	ConfirmAdminTOTP(ctx context.Context, adminUserID pgtype.UUID) (AdminUser, error)
@@ -744,6 +751,12 @@ type Querier interface {
 	// zero.
 	GetWalletBalances(ctx context.Context, arg GetWalletBalancesParams) ([]GetWalletBalancesRow, error)
 	GetWebhookEventForReplay(ctx context.Context, id pgtype.UUID) (ProviderWebhookEvent, error)
+	// Stars sales since a moment, from what each order recorded. Cost comes from
+	// the settlement fixed at delivery, or from the provider quote stored on the
+	// order when the provider settled on its own side. A delivered order with
+	// neither is counted, so the margin can be reported as unknown rather than
+	// inflated.
+	GoodsSalesStats(ctx context.Context, arg GoodsSalesStatsParams) (GoodsSalesStatsRow, error)
 	// ---------------------------------------------------------------------------
 	// Role grants
 	// ---------------------------------------------------------------------------
@@ -1335,6 +1348,12 @@ type Querier interface {
 	// the update to 'pending' means a replayed settlement changes nothing.
 	MarkGiftDeliverable(ctx context.Context, giftID pgtype.UUID) (Gift, error)
 	MarkGiftRefunded(ctx context.Context, giftID pgtype.UUID) (Gift, error)
+	// The double-spend guard. Committed on its own, immediately before an adapter
+	// that pays the provider itself sends money. It only matches the attempt the
+	// caller claimed and a delivery not already marked, so an operator who
+	// refunded the delivery a moment earlier makes this match nothing — and the
+	// adapter, told the marker did not commit, sends nothing.
+	MarkGoodsDeliveryBroadcasting(ctx context.Context, arg MarkGoodsDeliveryBroadcastingParams) (GoodsDelivery, error)
 	// Moves a paid order to fulfilled, and nothing else.
 	//
 	// The state guard is the point. Provisioning is asynchronous, and a refund
@@ -1570,6 +1589,10 @@ type Querier interface {
 	RecordGiftClaimAttempt(ctx context.Context, giftID pgtype.UUID) (Gift, error)
 	RecordGoodsDeliveryRefund(ctx context.Context, arg RecordGoodsDeliveryRefundParams) (GoodsDelivery, error)
 	RecordGoodsProviderHealth(ctx context.Context, arg RecordGoodsProviderHealthParams) (GoodsProvider, error)
+	// What a paid delivery actually cost, fixed at delivery time. The rate and
+	// the converted cost are stored rather than recomputed, so a margin report
+	// does not move with the TON price afterwards.
+	RecordGoodsSettlement(ctx context.Context, arg RecordGoodsSettlementParams) (GoodsDelivery, error)
 	RecordLoyaltyChange(ctx context.Context, arg RecordLoyaltyChangeParams) (LoyaltyStandingHistory, error)
 	RecordMCPDiscovery(ctx context.Context, arg RecordMCPDiscoveryParams) error
 	RecordMCPEvent(ctx context.Context, arg RecordMCPEventParams) error
@@ -1628,6 +1651,11 @@ type Querier interface {
 	// It cannot skip the idempotency key, so the retried attempt is the same
 	// operation the worker already knows how to make exactly once.
 	RequeueFulfillmentOperation(ctx context.Context, operationID pgtype.UUID) (FulfillmentOperation, error)
+	// An operator's "retry" on a parked delivery. They have checked the wallet
+	// and confirmed the payment did not leave, so the delivery starts over with a
+	// clean attempt count and no marker. Only a parked delivery qualifies: one
+	// that failed has already been refunded.
+	RequeueGoodsDelivery(ctx context.Context, orderID pgtype.UUID) (GoodsDelivery, error)
 	// A recovery code is also a proven second factor.
 	ResetAdminTOTPFailures(ctx context.Context, adminUserID pgtype.UUID) error
 	ResolveCampaignRecipient(ctx context.Context, arg ResolveCampaignRecipientParams) error
@@ -2051,9 +2079,11 @@ type Querier interface {
 	// intentions. Silently keeping both would mean an auto-purchase charging for
 	// something the customer thought they had replaced.
 	//
-	// auto_purchase is false and stays false. A goods price is a provider quote
-	// that expires; charging one unattended means charging a number the customer
-	// last saw days ago.
+	// auto_purchase is true only for a product the operator priced themselves (a
+	// fixed amount or a fixed price per Star): that number does not move with a
+	// provider rate, so charging it after a top-up charges what the customer saw.
+	// A quote-priced product passes false and is confirmed by the customer, because
+	// charging a quote unattended means charging a number last seen days ago.
 	UpsertGoodsCart(ctx context.Context, arg UpsertGoodsCartParams) (Cart, error)
 	UpsertGoodsPricing(ctx context.Context, arg UpsertGoodsPricingParams) (GoodsPricing, error)
 	UpsertGoodsProductLocalization(ctx context.Context, arg UpsertGoodsProductLocalizationParams) (GoodsProductLocalization, error)

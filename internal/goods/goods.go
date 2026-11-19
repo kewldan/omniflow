@@ -135,15 +135,18 @@ func (rule PricingRule) OperatorPriced() bool {
 	return rule.FixedAmountMinor != nil || rule.UnitPriceMinor != nil
 }
 
-// OperatorPrice is the operator's price for one line delivering `stars` Stars
-// (ignored for a fixed amount). The second result is false when the rule
-// derives its price from the provider instead.
-func (rule PricingRule) OperatorPrice(stars int) (int64, bool) {
+// OperatorTotal is the operator's price for an order of `quantity` units that
+// delivers `stars` Stars in total: the per-Star price times the Stars, or the
+// fixed amount times the units. The second result is false when the rule
+// derives its price from the provider instead. Every surface — the bot, the
+// web shop, the saved-cart sweep, and the order transaction that re-checks it
+// under lock — asks this one function, so they cannot disagree.
+func (rule PricingRule) OperatorTotal(stars, quantity int) (int64, bool) {
 	switch {
 	case rule.UnitPriceMinor != nil:
 		return max(*rule.UnitPriceMinor, 0) * int64(max(stars, 0)), true
 	case rule.FixedAmountMinor != nil:
-		return max(*rule.FixedAmountMinor, 0), true
+		return max(*rule.FixedAmountMinor, 0) * int64(max(quantity, 1)), true
 	default:
 		return 0, false
 	}

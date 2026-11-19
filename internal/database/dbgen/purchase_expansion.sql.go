@@ -990,7 +990,7 @@ func (q *Queries) GetBackup(ctx context.Context, id pgtype.UUID) (Backup, error)
 }
 
 const getCartGoods = `-- name: GetCartGoods :one
-SELECT g.cart_id, g.product_id, g.quantity, g.recipient_username, g.recipient_is_self, g.saved_price_minor, g.currency, g.created_at, p.code AS product_code, p.kind AS product_kind, p.visible, p.archived_at
+SELECT g.cart_id, g.product_id, g.quantity, g.recipient_username, g.recipient_is_self, g.saved_price_minor, g.currency, g.created_at, g.star_quantity, p.code AS product_code, p.kind AS product_kind, p.visible, p.archived_at
 FROM cart_goods g
 JOIN goods_products p ON p.id = g.product_id
 WHERE g.cart_id = $1
@@ -1005,6 +1005,7 @@ type GetCartGoodsRow struct {
 	SavedPriceMinor   int64              `json:"saved_price_minor"`
 	Currency          string             `json:"currency"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	StarQuantity      pgtype.Int4        `json:"star_quantity"`
 	ProductCode       string             `json:"product_code"`
 	ProductKind       string             `json:"product_kind"`
 	Visible           bool               `json:"visible"`
@@ -1023,6 +1024,7 @@ func (q *Queries) GetCartGoods(ctx context.Context, cartID pgtype.UUID) (GetCart
 		&i.SavedPriceMinor,
 		&i.Currency,
 		&i.CreatedAt,
+		&i.StarQuantity,
 		&i.ProductCode,
 		&i.ProductKind,
 		&i.Visible,
@@ -2234,16 +2236,17 @@ WITH cleared AS (
 )
 INSERT INTO cart_goods (
   cart_id, product_id, quantity, recipient_username, recipient_is_self,
-  saved_price_minor, currency
+  saved_price_minor, currency, star_quantity
 )
 VALUES (
   $1, $2, $3,
   $4, $5,
-  $6, $7
+  $6, $7, $8
 )
 ON CONFLICT (cart_id) DO UPDATE SET
   product_id = EXCLUDED.product_id,
   quantity = EXCLUDED.quantity,
+  star_quantity = EXCLUDED.star_quantity,
   recipient_username = EXCLUDED.recipient_username,
   recipient_is_self = EXCLUDED.recipient_is_self,
   saved_price_minor = EXCLUDED.saved_price_minor,
@@ -2258,6 +2261,7 @@ type SetCartGoodsParams struct {
 	RecipientIsSelf   bool        `json:"recipient_is_self"`
 	SavedPriceMinor   int64       `json:"saved_price_minor"`
 	Currency          string      `json:"currency"`
+	StarQuantity      pgtype.Int4 `json:"star_quantity"`
 }
 
 // The single goods line. A plan cart's add-ons are cleared alongside, because
@@ -2271,6 +2275,7 @@ func (q *Queries) SetCartGoods(ctx context.Context, arg SetCartGoodsParams) erro
 		arg.RecipientIsSelf,
 		arg.SavedPriceMinor,
 		arg.Currency,
+		arg.StarQuantity,
 	)
 	return err
 }
@@ -2480,8 +2485,8 @@ INSERT INTO carts (
   idempotency_key, expires_at, kind
 )
 VALUES (
-  $1, NULL, 'purchase', $2, false,
-  $3, $4, 'goods'
+  $1, NULL, 'purchase', $2, $3,
+  $4, $5, 'goods'
 )
 ON CONFLICT (user_id) WHERE status = 'open'
 DO UPDATE SET kind = 'goods',
@@ -2491,7 +2496,7 @@ DO UPDATE SET kind = 'goods',
               currency = EXCLUDED.currency,
               promo_code = NULL,
               selected_squad_ids = '{}',
-              auto_purchase = false,
+              auto_purchase = EXCLUDED.auto_purchase,
               expires_at = EXCLUDED.expires_at,
               idempotency_key = EXCLUDED.idempotency_key,
               last_failure = NULL,
@@ -2503,6 +2508,7 @@ RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, pr
 type UpsertGoodsCartParams struct {
 	UserID         pgtype.UUID        `json:"user_id"`
 	Currency       string             `json:"currency"`
+	AutoPurchase   bool               `json:"auto_purchase"`
 	IdempotencyKey string             `json:"idempotency_key"`
 	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
 }
@@ -2514,13 +2520,16 @@ type UpsertGoodsCartParams struct {
 // intentions. Silently keeping both would mean an auto-purchase charging for
 // something the customer thought they had replaced.
 //
-// auto_purchase is false and stays false. A goods price is a provider quote
-// that expires; charging one unattended means charging a number the customer
-// last saw days ago.
+// auto_purchase is true only for a product the operator priced themselves (a
+// fixed amount or a fixed price per Star): that number does not move with a
+// provider rate, so charging it after a top-up charges what the customer saw.
+// A quote-priced product passes false and is confirmed by the customer, because
+// charging a quote unattended means charging a number last seen days ago.
 func (q *Queries) UpsertGoodsCart(ctx context.Context, arg UpsertGoodsCartParams) (Cart, error) {
 	row := q.db.QueryRow(ctx, upsertGoodsCart,
 		arg.UserID,
 		arg.Currency,
+		arg.AutoPurchase,
 		arg.IdempotencyKey,
 		arg.ExpiresAt,
 	)

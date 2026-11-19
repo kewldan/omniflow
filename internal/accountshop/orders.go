@@ -161,7 +161,8 @@ const (
 // the number worth showing is the one the customer's balance received.
 const orderQuery = `
 	SELECT g.order_id::text, COALESCE(l.name, p.code), p.kind,
-	       COALESCE(p.duration_months, 0), COALESCE(p.star_quantity, 0),
+	       COALESCE(p.duration_months, 0),
+	       COALESCE(g.star_quantity, p.star_quantity * g.quantity, 0),
 	       g.quantity, g.recipient_username, g.recipient_is_self,
 	       g.quoted_price_minor, g.discount_minor, g.currency, g.status,
 	       g.created_at, g.updated_at,

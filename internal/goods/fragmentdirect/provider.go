@@ -221,6 +221,15 @@ func (provider *Provider) Balance(ctx context.Context) (int64, string, error) {
 	return info.BalanceNano, "TON", nil
 }
 
+// WalletAddress is the paying wallet's address, derived from the key without
+// any network request. It is empty when no wallet is configured.
+func (provider *Provider) WalletAddress() string {
+	if provider.wallet == nil {
+		return ""
+	}
+	return provider.wallet.Address()
+}
+
 // Wallet reads the paying wallet's address and balance.
 func (provider *Provider) Wallet(ctx context.Context) (goods.WalletInfo, error) {
 	if provider.wallet == nil {

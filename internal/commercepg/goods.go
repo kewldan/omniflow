@@ -44,8 +44,32 @@ type GoodsOrderInput struct {
 	// rather than derived from a provider quote. That number is theirs to
 	// discount to zero, exactly like a plan price; a derived one is floored at
 	// what the provider charges.
+	//
+	// It also makes the order transaction re-read the product's pricing under
+	// its own lock and refuse with ErrPriceChanged when PriceMinor is no longer
+	// the operator's price — the guarantee an unattended purchase after a
+	// top-up depends on.
 	OperatorPriced bool
+	// StarQuantity is how many Stars the order delivers in total, for a Stars
+	// product. It is recorded on the order so delivery never re-derives it
+	// from a product an operator may since have changed.
+	StarQuantity int
+	// Source is where the purchase was made: bot, web, or auto_cart.
+	Source string
+	// RequireWalletCover refuses, with ErrWalletShort, an order the wallet
+	// cannot pay in full. An unattended purchase uses it: it may spend a
+	// balance the customer topped up for it, never open a payment they are not
+	// there to complete.
+	RequireWalletCover bool
 }
+
+// ErrPriceChanged reports an operator-priced order whose price moved between
+// the screen and the order transaction.
+var ErrPriceChanged = errors.New("price_changed")
+
+// ErrWalletShort reports an order that had to be paid from the wallet alone
+// and could not be.
+var ErrWalletShort = errors.New("wallet_insufficient")
 
 // ErrQuoteExpired is returned when a customer confirms a price that is no
 // longer honourable. It is a normal outcome with its own message, not a fault:
@@ -101,6 +125,23 @@ func (store *Store) CreateGoodsOrder(
 	if err = store.assertOperational(ctx, queries); err != nil {
 		return dbgen.Order{}, err
 	}
+	if input.OperatorPriced {
+		// Re-read under this transaction's serializable snapshot, so an
+		// operator raising the price at the same moment either lands before —
+		// and this refuses — or after, and this order keeps the price it was
+		// shown. Charging a number nobody agreed to is the failure prevented.
+		pricing, pricingErr := queries.GetGoodsPricing(ctx, productID)
+		if pricingErr != nil {
+			return dbgen.Order{}, pricingErr
+		}
+		current, ok := goods.PricingRule{
+			FixedAmountMinor: int8Pointer(pricing.FixedAmountMinor),
+			UnitPriceMinor:   int8Pointer(pricing.UnitPriceMinor),
+		}.OperatorTotal(input.StarQuantity, input.Quantity)
+		if !ok || current != input.PriceMinor || pricing.Currency != input.Currency {
+			return dbgen.Order{}, ErrPriceChanged
+		}
+	}
 
 	// A promotion is resolved and locked before the wallet is applied, because
 	// the wallet covers what is left after the discount rather than the other
@@ -124,6 +165,9 @@ func (store *Store) CreateGoodsOrder(
 		}
 	}
 	externalMinor := payable - walletMinor
+	if input.RequireWalletCover && externalMinor > 0 {
+		return dbgen.Order{}, ErrWalletShort
+	}
 	state := string(commerce.OrderPending)
 	if externalMinor == 0 {
 		state = string(commerce.OrderPaid)
@@ -155,6 +199,8 @@ func (store *Store) CreateGoodsOrder(
 		Currency:          input.Currency,
 		QuoteExpiresAt:    pgtype.Timestamptz{Time: expiresAt, Valid: true},
 		CostKnown:         input.CostKnown,
+		StarQuantity:      optionalInt4(input.StarQuantity),
+		Source:            orderSource(input.Source),
 	}); err != nil {
 		return dbgen.Order{}, err
 	}
@@ -332,4 +378,29 @@ func (store *Store) goodsDiscount(
 		return 0, nil, ErrPromoIneligible
 	}
 	return discount.Amount, &locked, nil
+}
+
+// orderSource keeps the column to the values its constraint admits.
+func orderSource(source string) string {
+	switch source {
+	case "bot", "web", "auto_cart":
+		return source
+	default:
+		return "unknown"
+	}
+}
+
+func optionalInt4(value int) pgtype.Int4 {
+	if value <= 0 {
+		return pgtype.Int4{}
+	}
+	return pgtype.Int4{Int32: int32(value), Valid: true}
+}
+
+func int8Pointer(value pgtype.Int8) *int64 {
+	if !value.Valid {
+		return nil
+	}
+	result := value.Int64
+	return &result
 }

@@ -6,12 +6,17 @@ import (
 	"crypto/cipher"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"log/slog"
 	"strings"
+	"sync"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 	"github.com/omniflow/omniflow/internal/goods"
+	"github.com/omniflow/omniflow/internal/goods/fragmentdirect"
+	"github.com/omniflow/omniflow/internal/tonrate"
 )
 
 // Errors a resolver returns for a provider that cannot be used right now. They
@@ -53,6 +58,71 @@ type Registry struct {
 	pool     *pgxpool.Pool
 	secrets  cipher.AEAD
 	currency string
+
+	direct     *DirectOptions
+	directOnce sync.Once
+	directErr  error
+	directImpl *fragmentdirect.Provider
+}
+
+// DirectOptions configures the fragment_direct adapter from the environment.
+type DirectOptions struct {
+	Config fragmentdirect.Config
+	Rates  *tonrate.Service
+	Logger *slog.Logger
+}
+
+// WithFragmentDirect enables the direct Fragment adapter. Its secrets are read
+// from the environment by the caller; the registry holds them only in memory.
+func (registry *Registry) WithFragmentDirect(options DirectOptions) *Registry {
+	registry.direct = &options
+	return registry
+}
+
+// FragmentDirect builds the direct adapter once and reuses it.
+//
+// It is built once rather than per call, unlike the gateway, because its
+// configuration cannot change without a restart — it lives in the environment
+// — and deriving the wallet from the mnemonic is deliberately slow key
+// stretching. It is returned whether or not an operator has enabled the
+// provider, so the panel can show its wallet while it is still switched off.
+func (registry *Registry) FragmentDirect() (*fragmentdirect.Provider, error) {
+	if registry == nil || registry.direct == nil {
+		return nil, ErrProviderUnconfigured
+	}
+	registry.directOnce.Do(func() {
+		registry.directImpl, registry.directErr = fragmentdirect.New(
+			registry.direct.Config, registry.direct.Rates, registry.direct.Logger)
+	})
+	if registry.directErr != nil {
+		return nil, fmt.Errorf("%w: %w", ErrProviderUnconfigured, registry.directErr)
+	}
+	return registry.directImpl, nil
+}
+
+// DirectStatus is what the panel can say about the direct adapter without
+// revealing any of its secrets.
+type DirectStatus struct {
+	Available  bool
+	Configured bool
+	DryRun     bool
+	Problem    string
+}
+
+// FragmentDirectStatus reports whether the direct adapter is usable.
+func (registry *Registry) FragmentDirectStatus() DirectStatus {
+	if registry == nil || registry.direct == nil {
+		return DirectStatus{}
+	}
+	status := DirectStatus{
+		Available: true, Configured: registry.direct.Config.Configured(), DryRun: registry.direct.Config.DryRun,
+	}
+	if _, err := registry.FragmentDirect(); err != nil {
+		// The error names which setting is wrong, never its value.
+		status.Problem = registry.directErr.Error()
+		status.Configured = false
+	}
+	return status
 }
 
 // NewRegistry builds the resolver.
@@ -92,6 +162,14 @@ func (registry *Registry) Provider(ctx context.Context, slug string) (goods.Prov
 	}
 	if !row.Enabled {
 		return nil, ErrProviderDisabled
+	}
+	if slug == fragmentdirect.Slug {
+		// Its secrets come from the environment, never from this row.
+		direct, directErr := registry.FragmentDirect()
+		if directErr != nil {
+			return nil, directErr
+		}
+		return direct, nil
 	}
 	if len(row.CredentialsCiphertext) == 0 {
 		return nil, ErrProviderUnconfigured

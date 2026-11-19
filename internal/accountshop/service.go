@@ -65,6 +65,12 @@ var (
 	// goods, so a handle is confirmed in its normalised form before it is used,
 	// never on the strength of a single submission.
 	ErrRecipientNotReviewed = errors.New("the recipient has not been reviewed")
+	// ErrStarAmount reports a Stars amount outside the product's bounds.
+	ErrStarAmount = errors.New("the Stars amount is outside the allowed range")
+	// ErrNotOperatorPriced reports a request to buy automatically after a
+	// top-up for a product whose price is a provider quote. Such a price is
+	// confirmed by the customer, never charged unattended.
+	ErrNotOperatorPriced = errors.New("this product cannot be bought automatically")
 )
 
 // Settings are the installation-wide values the shop needs.

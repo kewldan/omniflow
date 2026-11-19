@@ -1226,10 +1226,12 @@ CREATE TABLE public.cart_goods (
     saved_price_minor bigint NOT NULL,
     currency text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
+    star_quantity integer,
     CONSTRAINT cart_goods_currency_check CHECK ((currency ~ '^[A-Z]{3}$'::text)),
     CONSTRAINT cart_goods_quantity_check CHECK ((quantity > 0)),
     CONSTRAINT cart_goods_recipient_username_check CHECK ((recipient_username ~ '^[A-Za-z0-9_]{5,32}$'::text)),
-    CONSTRAINT cart_goods_saved_price_minor_check CHECK ((saved_price_minor >= 0))
+    CONSTRAINT cart_goods_saved_price_minor_check CHECK ((saved_price_minor >= 0)),
+    CONSTRAINT cart_goods_star_quantity_positive CHECK (((star_quantity IS NULL) OR (star_quantity > 0)))
 );
 
 
@@ -1842,9 +1844,24 @@ CREATE TABLE public.goods_deliveries (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     delivered_at timestamp with time zone,
+    broadcasting_at timestamp with time zone,
+    provider_request_id text,
+    settlement_asset text,
+    settlement_cost_nano bigint,
+    settlement_tx_hash text,
+    provider_confirmed boolean,
+    dry_run boolean DEFAULT false NOT NULL,
+    settled_cost_minor bigint,
+    settled_rate_minor bigint,
+    settled_rate_source text,
     CONSTRAINT goods_deliveries_attempt_count_check CHECK ((attempt_count >= 0)),
     CONSTRAINT goods_deliveries_delivery_complete CHECK (((status = 'delivered'::text) = (delivered_at IS NOT NULL))),
     CONSTRAINT goods_deliveries_failure_class_known CHECK (((failure_class IS NULL) OR (failure_class = ANY (ARRAY['retryable'::text, 'permanent'::text, 'recipient_invalid'::text, 'provider_balance'::text, 'provider_unavailable'::text, 'ambiguous'::text])))),
+    CONSTRAINT goods_deliveries_settled_cost_nonnegative CHECK (((settled_cost_minor IS NULL) OR (settled_cost_minor >= 0))),
+    CONSTRAINT goods_deliveries_settled_rate_positive CHECK (((settled_rate_minor IS NULL) OR (settled_rate_minor > 0))),
+    CONSTRAINT goods_deliveries_settled_rate_source_known CHECK (((settled_rate_source IS NULL) OR (settled_rate_source = ANY (ARRAY['manual'::text, 'tonapi'::text, 'coingecko'::text])))),
+    CONSTRAINT goods_deliveries_settlement_asset_format CHECK (((settlement_asset IS NULL) OR (settlement_asset ~ '^[A-Z]{2,10}$'::text))),
+    CONSTRAINT goods_deliveries_settlement_cost_nonnegative CHECK (((settlement_cost_nano IS NULL) OR (settlement_cost_nano >= 0))),
     CONSTRAINT goods_deliveries_status_known CHECK ((status = ANY (ARRAY['pending'::text, 'submitted'::text, 'delivered'::text, 'failed'::text, 'cancelled'::text, 'needs_review'::text])))
 );
 
@@ -1888,6 +1905,8 @@ CREATE TABLE public.goods_orders (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     cost_known boolean DEFAULT true NOT NULL,
     discount_minor bigint DEFAULT 0 NOT NULL,
+    star_quantity integer,
+    source text DEFAULT 'unknown'::text NOT NULL,
     CONSTRAINT goods_orders_currency_check CHECK ((currency ~ '^[A-Z]{3}$'::text)),
     CONSTRAINT goods_orders_discount_minor_check CHECK ((discount_minor >= 0)),
     CONSTRAINT goods_orders_discount_respects_cost CHECK (((NOT cost_known) OR ((quoted_price_minor - discount_minor) >= quoted_cost_minor))),
@@ -1895,6 +1914,8 @@ CREATE TABLE public.goods_orders (
     CONSTRAINT goods_orders_quoted_cost_minor_check CHECK ((quoted_cost_minor >= 0)),
     CONSTRAINT goods_orders_quoted_price_minor_check CHECK ((quoted_price_minor >= 0)),
     CONSTRAINT goods_orders_recipient_username_check CHECK ((recipient_username ~ '^[A-Za-z0-9_]{5,32}$'::text)),
+    CONSTRAINT goods_orders_source_known CHECK ((source = ANY (ARRAY['bot'::text, 'web'::text, 'auto_cart'::text, 'unknown'::text]))),
+    CONSTRAINT goods_orders_star_quantity_positive CHECK (((star_quantity IS NULL) OR (star_quantity > 0))),
     CONSTRAINT goods_orders_status_known CHECK ((status = ANY (ARRAY['quoted'::text, 'paid'::text, 'delivering'::text, 'delivered'::text, 'failed'::text, 'refunded'::text, 'needs_review'::text])))
 );
 
@@ -1919,11 +1940,14 @@ CREATE TABLE public.goods_pricing (
     quote_ttl_seconds integer DEFAULT 300 NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_by uuid,
+    unit_price_minor bigint,
     CONSTRAINT goods_pricing_currency_check CHECK ((currency ~ '^[A-Z]{3}$'::text)),
     CONSTRAINT goods_pricing_fixed_amount_minor_check CHECK (((fixed_amount_minor IS NULL) OR (fixed_amount_minor > 0))),
     CONSTRAINT goods_pricing_markup_bps_check CHECK (((markup_bps >= 0) AND (markup_bps <= 100000))),
     CONSTRAINT goods_pricing_quote_ttl_seconds_check CHECK (((quote_ttl_seconds >= 30) AND (quote_ttl_seconds <= 3600))),
-    CONSTRAINT goods_pricing_rounding_check CHECK ((rounding = ANY (ARRAY['none'::text, 'up_minor'::text, 'up_unit'::text, 'up_ten_units'::text, 'up_hundred_units'::text])))
+    CONSTRAINT goods_pricing_rounding_check CHECK ((rounding = ANY (ARRAY['none'::text, 'up_minor'::text, 'up_unit'::text, 'up_ten_units'::text, 'up_hundred_units'::text]))),
+    CONSTRAINT goods_pricing_single_operator_price CHECK (((fixed_amount_minor IS NULL) OR (unit_price_minor IS NULL))),
+    CONSTRAINT goods_pricing_unit_price_positive CHECK (((unit_price_minor IS NULL) OR (unit_price_minor > 0)))
 );
 
 
@@ -1957,12 +1981,17 @@ CREATE TABLE public.goods_products (
     sort_order integer DEFAULT 0 NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     archived_at timestamp with time zone,
+    min_star_quantity integer,
+    max_star_quantity integer,
+    star_presets integer[] DEFAULT '{}'::integer[] NOT NULL,
     CONSTRAINT goods_products_code_check CHECK ((code ~ '^[a-z][a-z0-9_-]{1,63}$'::text)),
+    CONSTRAINT goods_products_custom_amount_range CHECK ((((min_star_quantity IS NULL) = (max_star_quantity IS NULL)) AND ((min_star_quantity IS NULL) OR ((star_quantity IS NULL) AND (min_star_quantity > 0) AND (max_star_quantity >= min_star_quantity))))),
     CONSTRAINT goods_products_duration_months_check CHECK (((duration_months IS NULL) OR (duration_months = ANY (ARRAY[3, 6, 12])))),
     CONSTRAINT goods_products_kind_check CHECK ((kind = ANY (ARRAY['telegram_premium'::text, 'telegram_stars'::text]))),
     CONSTRAINT goods_products_premium_shape CHECK (((kind = 'telegram_premium'::text) = (duration_months IS NOT NULL))),
+    CONSTRAINT goods_products_star_presets_bounded CHECK ((cardinality(star_presets) <= 12)),
     CONSTRAINT goods_products_star_quantity_check CHECK (((star_quantity IS NULL) OR (star_quantity > 0))),
-    CONSTRAINT goods_products_stars_shape CHECK (((kind = 'telegram_stars'::text) = (star_quantity IS NOT NULL)))
+    CONSTRAINT goods_products_stars_amount_shape CHECK (((kind = 'telegram_stars'::text) = ((star_quantity IS NOT NULL) OR (min_star_quantity IS NOT NULL))))
 );
 
 
@@ -5994,6 +6023,13 @@ CREATE INDEX goods_deliveries_review_idx ON public.goods_deliveries USING btree 
 --
 
 CREATE INDEX goods_orders_customer_idx ON public.goods_orders USING btree (user_id, created_at DESC);
+
+
+--
+-- Name: goods_orders_recipient_search_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX goods_orders_recipient_search_idx ON public.goods_orders USING btree (lower(recipient_username));
 
 
 --

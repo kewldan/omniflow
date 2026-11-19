@@ -7,7 +7,10 @@
 // order is submitted to the provider at most once.
 package goodsdelivery
 
-import "github.com/riverqueue/river"
+import (
+	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/rivertype"
+)
 
 // JobArgs names the order to deliver.
 //
@@ -32,10 +35,23 @@ func (JobArgs) Kind() string { return "goods_delivery" }
 // the delivery row governs how many times the provider itself is asked. The
 // worker refuses to submit once that ceiling is reached, so the larger River
 // budget cannot turn into extra purchases.
+//
+// Uniqueness covers every state in which a job for the order is still alive —
+// waiting, scheduled, running, or retrying — and deliberately not a completed
+// one. A completed job is how a retryable failure ends: the delivery row keeps
+// the backoff, and the scheduler enqueues the next attempt when it is due. With
+// River's default states, that completed job would have blocked the next
+// attempt until it was pruned a day later. A second job can never run beside a
+// live one, which is what keeps one order to one payment in flight.
 func InsertOpts() *river.InsertOpts {
 	return &river.InsertOpts{
 		Queue:       "critical",
 		MaxAttempts: 12,
-		UniqueOpts:  river.UniqueOpts{ByArgs: true},
+		UniqueOpts:  river.UniqueOpts{ByArgs: true, ByState: liveStates},
 	}
+}
+
+var liveStates = []rivertype.JobState{
+	rivertype.JobStateAvailable, rivertype.JobStatePending, rivertype.JobStateRetryable,
+	rivertype.JobStateRunning, rivertype.JobStateScheduled,
 }

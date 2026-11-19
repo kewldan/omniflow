@@ -39,12 +39,23 @@ type Product struct {
 	// hidden, so a customer who bookmarked it learns why it will not sell.
 	Available    bool
 	ProviderSlug string
+	// Stars describes the amount: a fixed pack, or a custom amount with its
+	// bounds and preset buttons.
+	Stars goods.StarAmount
+	// UnitPriceMinor is the price of one Star when the operator fixed it.
+	// It is published, because it is the operator's own number and what a
+	// customer choosing an amount needs to see.
+	UnitPriceMinor *int64
 
 	quoteTTL   time.Duration
 	markupBPS  int
 	rounding   string
 	fixedMinor *int64
 }
+
+// OperatorPriced reports a product whose price the operator set rather than
+// one derived from a provider quote.
+func (product Product) OperatorPriced() bool { return product.pricingRule().OperatorPriced() }
 
 // pricingRule converts a catalogue entry into the domain pricing rule. Markup,
 // rounding, and the fixed-price opt-out are decided in internal/goods; this only
@@ -53,7 +64,7 @@ func (product Product) pricingRule() goods.PricingRule {
 	return goods.PricingRule{
 		Currency: product.Currency, MarkupBPS: product.markupBPS,
 		Rounding: product.rounding, FixedAmountMinor: product.fixedMinor,
-		QuoteTTL: product.quoteTTL,
+		UnitPriceMinor: product.UnitPriceMinor, QuoteTTL: product.quoteTTL,
 	}
 }
 
@@ -66,7 +77,9 @@ const catalogQuery = `
 	SELECT p.id::text, p.code, p.provider_slug, p.kind,
 	       COALESCE(p.duration_months, 0), COALESCE(p.star_quantity, 0),
 	       COALESCE(l.name, p.code), COALESCE(l.description, ''),
-	       r.currency, r.markup_bps, r.rounding, r.fixed_amount_minor, r.quote_ttl_seconds
+	       r.currency, r.markup_bps, r.rounding, r.fixed_amount_minor, r.quote_ttl_seconds,
+	       r.unit_price_minor, COALESCE(p.min_star_quantity, 0), COALESCE(p.max_star_quantity, 0),
+	       p.star_presets
 	FROM goods_products p
 	JOIN goods_pricing r ON r.product_id = p.id
 	JOIN goods_providers g ON g.slug = p.provider_slug AND g.enabled
@@ -162,18 +175,31 @@ func scanProduct(rows pgx.Rows) (Product, error) {
 		quantity    int32
 		fixedMinor  *int64
 		quoteTTLSec int32
+		unitMinor   *int64
+		minStars    int32
+		maxStars    int32
+		presets     []int32
 	)
 	if err := rows.Scan(&product.ID, &product.Code, &product.ProviderSlug, &product.Kind,
 		&duration, &quantity, &product.Name, &product.Description,
 		&product.Currency, &product.markupBPS, &product.rounding,
-		&fixedMinor, &quoteTTLSec); err != nil {
+		&fixedMinor, &quoteTTLSec, &unitMinor, &minStars, &maxStars, &presets); err != nil {
 		return Product{}, err
 	}
 	product.DurationMonths, product.StarQuantity = int(duration), int(quantity)
 	product.fixedMinor = fixedMinor
+	product.UnitPriceMinor = unitMinor
 	product.quoteTTL = time.Duration(quoteTTLSec) * time.Second
+	product.Stars = goods.StarAmount{Pack: int(quantity), Min: int(minStars), Max: int(maxStars)}
+	for _, preset := range presets {
+		product.Stars.Presets = append(product.Stars.Presets, int(preset))
+	}
 	if fixedMinor != nil {
 		product.PriceMinor, product.PriceKnown = *fixedMinor, true
+	}
+	if unitMinor != nil && !product.Stars.Custom() {
+		// A pack at a per-Star price has a price before anybody chooses.
+		product.PriceMinor, product.PriceKnown = *unitMinor*int64(product.StarQuantity), true
 	}
 	return product, nil
 }

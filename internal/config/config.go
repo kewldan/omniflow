@@ -203,6 +203,9 @@ type Config struct {
 	// under /var/lib/omniflow, following the same convention as the backup
 	// directory: a fixed path a deployment mounts a volume at.
 	SupportAttachmentDir string
+	// Fragment configures the direct Fragment goods provider. The api reads
+	// it to show the wallet and the provider's state in the panel.
+	Fragment FragmentConfig
 }
 
 // CustomerPanelConfig configures the customer web panel API introduced in v0.9.
@@ -284,6 +287,9 @@ type BotConfig struct {
 	// CustomerPanel tells the bot whether to offer the web sign-in link. The bot
 	// is the delivery channel for it, so it needs the same switch the API reads.
 	CustomerPanel CustomerPanelConfig
+	// Fragment configures the direct Fragment goods provider, which the bot
+	// needs to check a recipient and to know whether to offer VPN afterwards.
+	Fragment FragmentConfig
 }
 
 type WorkerConfig struct {
@@ -316,6 +322,9 @@ type WorkerConfig struct {
 	// once its row passes retention, and a worker pointed at a different
 	// directory would delete rows while leaving every byte on disk.
 	SupportAttachmentDir string
+	// Fragment configures the direct Fragment goods provider. The worker is
+	// the process that buys and pays, so it is the one that needs the secrets.
+	Fragment FragmentConfig
 	// Payment credentials. The worker holds them because it is the process that
 	// charges automatic renewals: a renewal is a charge against a provider, and
 	// a worker without the adapter could only ever record that it failed.
@@ -350,6 +359,7 @@ func Load() (Config, error) {
 		Maintenance:               loadMaintenance(),
 		AdminPanel:                loadAdminPanel(),
 		CustomerPanel:             loadCustomerPanel(),
+		Fragment:                  LoadFragment(),
 		PublicURL:                 os.Getenv("APP_PUBLIC_URL"),
 		TermsURL:                  os.Getenv("APP_TERMS_URL"),
 		RecoveryWindow:            hourEnvOr("APP_RECOVERY_WINDOW_HOURS", 14*24*time.Hour),
@@ -412,6 +422,7 @@ func LoadBot() (BotConfig, error) {
 		MinimumTrialAccountAge: hourEnvOr("APP_TRIAL_MINIMUM_ACCOUNT_AGE_HOURS", 0),
 		CartTTL:                hourEnvOr("APP_CART_TTL_HOURS", 30*24*time.Hour),
 		Subscriptions:          loadSubscriptions(),
+		Fragment:               LoadFragment(),
 	}
 	if encodedKey := os.Getenv("APP_DATA_ENCRYPTION_KEY"); encodedKey != "" {
 		key, err := decodeKey(encodedKey)
@@ -492,6 +503,7 @@ func LoadWorker() (WorkerConfig, error) {
 		YooKassaSecret:   os.Getenv("APP_YOOKASSA_SECRET"),
 
 		SupportAttachmentDir: os.Getenv("APP_SUPPORT_ATTACHMENT_DIR"),
+		Fragment:             LoadFragment(),
 		Retention: RetentionConfig{
 			Outbox:    dayEnvOr("APP_RETENTION_OUTBOX_DAYS", 7*24*time.Hour),
 			Telemetry: dayEnvOr("APP_RETENTION_TELEMETRY_DAYS", 30*24*time.Hour),

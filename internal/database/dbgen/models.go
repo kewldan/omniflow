@@ -642,6 +642,7 @@ type CartGood struct {
 	SavedPriceMinor   int64              `json:"saved_price_minor"`
 	Currency          string             `json:"currency"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	StarQuantity      pgtype.Int4        `json:"star_quantity"`
 }
 
 type ChannelEnforcement struct {
@@ -987,6 +988,16 @@ type GoodsDelivery struct {
 	CreatedAt                 pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt                 pgtype.Timestamptz `json:"updated_at"`
 	DeliveredAt               pgtype.Timestamptz `json:"delivered_at"`
+	BroadcastingAt            pgtype.Timestamptz `json:"broadcasting_at"`
+	ProviderRequestID         pgtype.Text        `json:"provider_request_id"`
+	SettlementAsset           pgtype.Text        `json:"settlement_asset"`
+	SettlementCostNano        pgtype.Int8        `json:"settlement_cost_nano"`
+	SettlementTxHash          pgtype.Text        `json:"settlement_tx_hash"`
+	ProviderConfirmed         pgtype.Bool        `json:"provider_confirmed"`
+	DryRun                    bool               `json:"dry_run"`
+	SettledCostMinor          pgtype.Int8        `json:"settled_cost_minor"`
+	SettledRateMinor          pgtype.Int8        `json:"settled_rate_minor"`
+	SettledRateSource         pgtype.Text        `json:"settled_rate_source"`
 }
 
 type GoodsDeliveryAttempt struct {
@@ -1016,8 +1027,10 @@ type GoodsOrder struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	// False when the provider publishes no cost for this product and the operator set the price directly. Margin is unknown, not zero.
-	CostKnown     bool  `json:"cost_known"`
-	DiscountMinor int64 `json:"discount_minor"`
+	CostKnown     bool        `json:"cost_known"`
+	DiscountMinor int64       `json:"discount_minor"`
+	StarQuantity  pgtype.Int4 `json:"star_quantity"`
+	Source        string      `json:"source"`
 }
 
 type GoodsPricing struct {
@@ -1029,19 +1042,23 @@ type GoodsPricing struct {
 	QuoteTtlSeconds  int32              `json:"quote_ttl_seconds"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 	UpdatedBy        pgtype.UUID        `json:"updated_by"`
+	UnitPriceMinor   pgtype.Int8        `json:"unit_price_minor"`
 }
 
 type GoodsProduct struct {
-	ID             pgtype.UUID        `json:"id"`
-	Code           string             `json:"code"`
-	ProviderSlug   string             `json:"provider_slug"`
-	Kind           string             `json:"kind"`
-	DurationMonths pgtype.Int2        `json:"duration_months"`
-	StarQuantity   pgtype.Int4        `json:"star_quantity"`
-	Visible        bool               `json:"visible"`
-	SortOrder      int32              `json:"sort_order"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	ArchivedAt     pgtype.Timestamptz `json:"archived_at"`
+	ID              pgtype.UUID        `json:"id"`
+	Code            string             `json:"code"`
+	ProviderSlug    string             `json:"provider_slug"`
+	Kind            string             `json:"kind"`
+	DurationMonths  pgtype.Int2        `json:"duration_months"`
+	StarQuantity    pgtype.Int4        `json:"star_quantity"`
+	Visible         bool               `json:"visible"`
+	SortOrder       int32              `json:"sort_order"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	ArchivedAt      pgtype.Timestamptz `json:"archived_at"`
+	MinStarQuantity pgtype.Int4        `json:"min_star_quantity"`
+	MaxStarQuantity pgtype.Int4        `json:"max_star_quantity"`
+	StarPresets     []int32            `json:"star_presets"`
 }
 
 type GoodsProductLocalization struct {
