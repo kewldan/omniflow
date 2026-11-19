@@ -62,6 +62,15 @@ func NewWorker(pool *pgxpool.Pool, providers Providers, logger *slog.Logger) *Wo
 	return &Worker{pool: pool, providers: providers, logger: logger, clock: time.Now}
 }
 
+// Timeout bounds one delivery attempt.
+//
+// It is far above River's one-minute default on purpose. A direct Fragment
+// purchase waits up to two minutes for the wallet to be seen spending, and the
+// gateway may take ninety seconds to answer. A job cancelled while it waits
+// does not undo the payment — it only turns a delivery that is about to
+// confirm into one parked for review.
+func (worker *Worker) Timeout(*river.Job[JobArgs]) time.Duration { return 6 * time.Minute }
+
 // WithOptions attaches the optional collaborators.
 func (worker *Worker) WithOptions(options Options) *Worker {
 	worker.options = options
