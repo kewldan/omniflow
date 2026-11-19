@@ -221,6 +221,7 @@ Review the result and merge it into Omniflow's `.env`. The usual Bedolaga settin
 | `REMNAWAVE_API_KEY` | `APP_REMNAWAVE_TOKEN` | Sent as a bearer token |
 | `REMNAWAVE_AUTH_TYPE`, `REMNAWAVE_USERNAME`, `REMNAWAVE_PASSWORD`, `REMNAWAVE_CADDY_TOKEN`, `REMNAWAVE_SECRET_KEY` | `APP_REMNAWAVE_AUTH_TYPE`, `APP_REMNAWAVE_USERNAME`, `APP_REMNAWAVE_PASSWORD`, `APP_REMNAWAVE_CADDY_TOKEN`, `APP_REMNAWAVE_SECRET_KEY` | The same modes and headers; see [Remnawave](/integrations/remnawave#credentials-and-connection) |
 | `REMNAWAVE_API_TOTAL_TIMEOUT`, `REMNAWAVE_API_REQUESTS_PER_MINUTE` | `APP_REMNAWAVE_TIMEOUT_SECONDS`, `APP_REMNAWAVE_REQUESTS_PER_MINUTE` | |
+| `REMNAWAVE_USER_USERNAME_TEMPLATE`, `REMNAWAVE_USER_DESCRIPTION_TEMPLATE` | `APP_REMNAWAVE_USERNAME_TEMPLATE`, `APP_REMNAWAVE_DESCRIPTION_TEMPLATE` | Not converted: set them by hand, because the placeholders differ. Omniflow has `{telegram_id}`, `{short_id}`, `{slot}`, `{customer_id}`, `{label}`; it keeps no customer names |
 | `YOOKASSA_SHOP_ID` | `APP_YOOKASSA_SHOP_ID` | |
 | `YOOKASSA_SECRET_KEY` | `APP_YOOKASSA_SECRET` | Return links are built from `APP_PUBLIC_URL`; `YOOKASSA_RETURN_URL` has no equivalent |
 | `CRYPTOBOT_API_TOKEN` | `APP_CRYPTOBOT_TOKEN` | |

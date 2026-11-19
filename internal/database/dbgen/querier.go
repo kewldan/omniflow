@@ -651,6 +651,9 @@ type Querier interface {
 	// because this runs on every authenticated request.
 	GetCustomerSessionByToken(ctx context.Context, tokenHash []byte) (GetCustomerSessionByTokenRow, error)
 	GetCustomerSubscription(ctx context.Context, arg GetCustomerSubscriptionParams) (Subscription, error)
+	// Queries behind the Remnawave synchronisation surfaces: naming new panel
+	// users, webhook intake, device aliases, and the lifecycle passes.
+	GetCustomerTelegramID(ctx context.Context, userID pgtype.UUID) (int64, error)
 	// The order a renewal cycle is settling, if one was already opened.
 	//
 	// All attempts on a cycle share one order — the idempotency key is derived from

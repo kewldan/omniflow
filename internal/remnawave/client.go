@@ -79,6 +79,11 @@ type ProvisionUser struct {
 	// out and a tag an operator set by hand is untouched.
 	Tag        string
 	TagManaged bool
+	// TelegramID and Description are sent when the user is created and never
+	// on an update: they describe who the user is for, and an operator who
+	// edited either in the panel has said something Omniflow must not undo.
+	TelegramID  *int64
+	Description string
 }
 
 // createWire is the POST /api/users body.
@@ -91,6 +96,8 @@ type createWire struct {
 	TrafficLimitStrategy string    `json:"trafficLimitStrategy,omitempty"`
 	ExternalSquadID      string    `json:"externalSquadUuid,omitempty"`
 	Tag                  string    `json:"tag,omitempty"`
+	TelegramID           *int64    `json:"telegramId,omitempty"`
+	Description          string    `json:"description,omitempty"`
 }
 
 // updateWire is the PATCH /api/users body. The contract addresses the user by
@@ -145,6 +152,7 @@ func (desired ProvisionUser) createWire() createWire {
 		Username: desired.Username, ExpireAt: desired.ExpireAt, TrafficLimitBytes: traffic,
 		HWIDDeviceLimit: devices, InternalSquadIDs: desired.InternalSquadIDs,
 		TrafficLimitStrategy: desired.TrafficLimitStrategy, ExternalSquadID: desired.ExternalSquadID,
+		TelegramID: desired.TelegramID, Description: desired.Description,
 	}
 	if desired.TagManaged {
 		wire.Tag = desired.Tag

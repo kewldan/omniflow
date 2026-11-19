@@ -89,7 +89,14 @@ func main() {
 	}
 
 	workers := river.NewWorkers()
-	river.AddWorker(workers, fulfillment.NewWorker(pool, remnawaveClient, metrics))
+	naming, err := fulfillment.NamingFromEnv(os.Getenv)
+	if err != nil {
+		logger.Error("Remnawave naming templates are invalid", "error", err)
+		os.Exit(1)
+	}
+	fulfillmentWorker := fulfillment.NewWorker(pool, remnawaveClient, metrics)
+	fulfillmentWorker.SetNaming(naming)
+	river.AddWorker(workers, fulfillmentWorker)
 	// The digital-goods shop is optional. Without an encryption key there is no
 	// way to unseal a provider credential, so the worker starts without it
 	// rather than refusing to start at all — an installation that sells no

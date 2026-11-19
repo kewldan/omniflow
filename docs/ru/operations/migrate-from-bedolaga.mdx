@@ -223,6 +223,7 @@ sh deploy/migration/00-convert-env.sh /root/remnawave-bedolaga-telegram-bot/.env
 | `REMNAWAVE_API_KEY` | `APP_REMNAWAVE_TOKEN` | Отправляется как bearer-токен |
 | `REMNAWAVE_AUTH_TYPE`, `REMNAWAVE_USERNAME`, `REMNAWAVE_PASSWORD`, `REMNAWAVE_CADDY_TOKEN`, `REMNAWAVE_SECRET_KEY` | `APP_REMNAWAVE_AUTH_TYPE`, `APP_REMNAWAVE_USERNAME`, `APP_REMNAWAVE_PASSWORD`, `APP_REMNAWAVE_CADDY_TOKEN`, `APP_REMNAWAVE_SECRET_KEY` | Те же режимы и заголовки; см. [Remnawave](/ru/integrations/remnawave) |
 | `REMNAWAVE_API_TOTAL_TIMEOUT`, `REMNAWAVE_API_REQUESTS_PER_MINUTE` | `APP_REMNAWAVE_TIMEOUT_SECONDS`, `APP_REMNAWAVE_REQUESTS_PER_MINUTE` | |
+| `REMNAWAVE_USER_USERNAME_TEMPLATE`, `REMNAWAVE_USER_DESCRIPTION_TEMPLATE` | `APP_REMNAWAVE_USERNAME_TEMPLATE`, `APP_REMNAWAVE_DESCRIPTION_TEMPLATE` | Не переносятся: задайте вручную, подстановки другие. В Omniflow есть `{telegram_id}`, `{short_id}`, `{slot}`, `{customer_id}`, `{label}`; имён клиентов Omniflow не хранит |
 | `YOOKASSA_SHOP_ID` | `APP_YOOKASSA_SHOP_ID` | |
 | `YOOKASSA_SECRET_KEY` | `APP_YOOKASSA_SECRET` | Ссылки возврата строятся из `APP_PUBLIC_URL`; у `YOOKASSA_RETURN_URL` соответствия нет |
 | `CRYPTOBOT_API_TOKEN` | `APP_CRYPTOBOT_TOKEN` | |

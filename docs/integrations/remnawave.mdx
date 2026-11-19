@@ -116,7 +116,7 @@ Omniflow, because nothing else is implemented.
 | `GET /api/users/{id}` | Customer overview, drift detection, read-back after a write |
 | `GET /api/users/stream?size=2&telegramId=…` | First-run Telegram account lookup |
 | `GET /api/users/by-username/{username}` | Adopting an existing user before creating a new one |
-| `POST /api/users/` | Provisioning a subscription for the first time |
+| `POST /api/users/` | Provisioning a subscription for the first time, with the optional name, description, and `telegramId` from the naming templates |
 | `PATCH /api/users/` (the body carries `id` and no `username`: the contract addresses the user by exactly one of them) | `create`, `reconcile`, `extend`, `set_limits`, `set_squads` |
 | `POST /api/users/{id}/actions/enable` | The `enable` operation |
 | `POST /api/users/{id}/actions/disable` | The `disable` operation |
@@ -245,6 +245,21 @@ Remnawave or carried over from Bedolaga — keeps its own name and its access li
 A `PATCH` that returns `404` — the panel user was deleted out from under Omniflow — falls back to
 the create-or-recover path and recreates it. A non-`create` operation with no known remote ID fails
 with `remote_user_not_found` and retries: you cannot `enable` something that was never provisioned.
+
+### Naming templates and the Telegram ID
+
+The worker can name, describe, and tag a user it creates for the first time. The values are sent on
+`POST /api/users/` only; an existing user keeps its name and description, because the panel cannot
+rename a user and an operator's edit in the panel must not be undone.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `APP_REMNAWAVE_USERNAME_TEMPLATE` | none (`omniflow_<16 hex>`) | Placeholders `{telegram_id}`, `{short_id}` (the subscription's 16 hex), `{slot}`, `{customer_id}` (8 hex). It must contain `{short_id}` or `{telegram_id}`, or the worker refuses to start. Characters outside `A–Z a–z 0–9 _ -` become `_`. A second subscription of a template without `{short_id}` or `{slot}` gets `_<slot>` appended. When the result is not 3–36 characters, or the customer has no Telegram sign-in for `{telegram_id}`, the default name is used |
+| `APP_REMNAWAVE_DESCRIPTION_TEMPLATE` | none | The panel user's description, with the same placeholders plus `{label}` (the customer's name for the subscription) |
+| `APP_REMNAWAVE_SEND_TELEGRAM_ID` | `true` | Sends the customer's Telegram ID as `telegramId`, so the panel's own Telegram search finds the user |
+
+The default name stays a recovery candidate: a user created under it before a template was set is
+adopted rather than duplicated.
 
 ## Drift
 

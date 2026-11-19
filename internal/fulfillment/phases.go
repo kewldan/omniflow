@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -53,6 +54,8 @@ type claim struct {
 	// remoteID is the Remnawave user the operation addresses, or zero when the
 	// subscription has never been provisioned.
 	remoteID int64
+	// facts feed the operator's naming templates when a user is created.
+	facts namingFacts
 }
 
 // drift is one divergence a reconcile observed, recorded with the result.
@@ -195,6 +198,21 @@ func (worker *Worker) claim(ctx context.Context, operationID pgtype.UUID) (claim
 	if err != nil {
 		return claim{}, false, err
 	}
+	facts := namingFacts{
+		ShortID:    strings.ReplaceAll(uuidString(subscription.ID), "-", "")[:16],
+		Slot:       subscription.Slot,
+		CustomerID: uuidString(entitlement.UserID),
+		Label:      subscription.Label,
+	}
+	if remoteID == 0 {
+		// Only a create reads it; a customer with no Telegram sign-in simply
+		// has none.
+		if telegramID, lookupErr := queries.GetCustomerTelegramID(ctx, entitlement.UserID); lookupErr == nil {
+			facts.TelegramID = telegramID
+		} else if !errors.Is(lookupErr, pgx.ErrNoRows) {
+			return claim{}, false, lookupErr
+		}
+	}
 	// The lease is recorded in next_attempt_at: for a running operation it is
 	// the instant after which the run is presumed dead. The revival scan reads
 	// the same column, so a claim abandoned by a crash is picked up exactly as
@@ -208,7 +226,7 @@ func (worker *Worker) claim(ctx context.Context, operationID pgtype.UUID) (claim
 	}
 	return claim{
 		operation: operation, entitlement: entitlement, subscription: subscription,
-		desired: desired, remoteID: remoteID,
+		desired: desired, remoteID: remoteID, facts: facts,
 	}, true, nil
 }
 

@@ -25,7 +25,12 @@ type Worker struct {
 	provisioner remnawave.Provisioner
 	metrics     *platform.Metrics
 	clock       func() time.Time
+	naming      Naming
 }
+
+// SetNaming applies the operator's username and description templates to the
+// users this worker creates from now on.
+func (worker *Worker) SetNaming(naming Naming) { worker.naming = naming }
 
 func NewWorker(pool *pgxpool.Pool, provisioner remnawave.Provisioner, metrics ...*platform.Metrics) *Worker {
 	worker := &Worker{pool: pool, provisioner: provisioner, clock: time.Now}
@@ -224,6 +229,13 @@ func (worker *Worker) apply(ctx context.Context, claimed claim) (remnawave.User,
 	var err error
 	username := remnawaveUsername(subscription.ID)
 	candidates := []string{username}
+	// A template names only a user that does not exist yet. The default name
+	// stays a recovery candidate, so a user created under it before the
+	// template was set is still found instead of duplicated.
+	if named := worker.naming.username(claimed.facts, username); named != username {
+		username = named
+		candidates = []string{named, remnawaveUsername(subscription.ID)}
+	}
 	// A known remote user is addressed under the name it already has. An
 	// adopted user — imported from Remnawave or carried over from Bedolaga —
 	// was never named omniflow_…. Remnawave's update request identifies the
@@ -242,6 +254,11 @@ func (worker *Worker) apply(ctx context.Context, claimed claim) (remnawave.User,
 		ExternalSquadID:      desired.profile.externalSquadID,
 		Tag:                  desired.profile.tag, TagManaged: desired.profile.tagManaged,
 	}
+	if worker.naming.SendTelegramID && claimed.facts.TelegramID != 0 {
+		telegramID := claimed.facts.TelegramID
+		provision.TelegramID = &telegramID
+	}
+	provision.Description = worker.naming.description(claimed.facts)
 	// createOrRecover reports whether the user was created fresh: a brand-new
 	// user has no traffic to reset and nothing to re-enable.
 	createOrRecover := func() (remnawave.User, bool, error) {
