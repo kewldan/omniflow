@@ -186,7 +186,8 @@ The durable job tables (`river_job`, `river_leader`, `river_queue`, `river_notif
 `river_migration`) are created by the baseline. They are the schema River v0.43.0's own `main`
 migration line builds at versions 1 through 7, and the baseline records those seven versions in
 `river_migration` exactly as `rivermigrate` itself would, so a later River upgrade applies from that
-point. See [Jobs and queues](/operations/jobs-and-queues#the-queue-schema-ships-with-the-migrations).
+point. `20261120010000_river_schema_v8.sql` records version 8, which River v0.48 added as a no-op on
+PostgreSQL; the linked River is v0.51.2. See [Jobs and queues](/operations/jobs-and-queues#the-queue-schema-ships-with-the-migrations).
 
 To upgrade River:
 
